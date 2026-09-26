@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.forgeline.hilt)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.aboutlibraries)
+    alias(libs.plugins.roborazzi)
 }
 
 android {
@@ -48,5 +49,7 @@ dependencies {
     testImplementation(projects.core.testing)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.compose.ui.test.junit4)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
