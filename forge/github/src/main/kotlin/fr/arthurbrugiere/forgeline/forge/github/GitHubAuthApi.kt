@@ -14,16 +14,11 @@ import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
 import io.ktor.client.request.header
-import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import io.ktor.http.parameters
-import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import java.io.IOException
 
 class GitHubAuthApi(
     private val httpClient: HttpClient,
@@ -39,7 +34,7 @@ class GitHubAuthApi(
 
     override val supportsDeviceFlow: Boolean = clientId.isNotBlank()
 
-    override suspend fun requestDeviceCode(): ForgeResult<DeviceCode> = call {
+    override suspend fun requestDeviceCode(): ForgeResult<DeviceCode> = gitHubCall {
         val response = httpClient.submitForm(
             url = "$webBaseUrl/login/device/code",
             formParameters = parameters {
@@ -50,7 +45,7 @@ class GitHubAuthApi(
         response.toResult { body<DeviceCodeResponse>().toModel() }
     }
 
-    override suspend fun pollDeviceToken(deviceCode: String): ForgeResult<DeviceTokenPoll> = call {
+    override suspend fun pollDeviceToken(deviceCode: String): ForgeResult<DeviceTokenPoll> = gitHubCall {
         val response = httpClient.submitForm(
             url = "$webBaseUrl/login/oauth/access_token",
             formParameters = parameters {
@@ -59,7 +54,7 @@ class GitHubAuthApi(
                 append("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
             },
         ) { accept(ContentType.Application.Json) }
-        if (!response.status.isSuccess()) return@call response.failure()
+        if (!response.status.isSuccess()) return@gitHubCall response.failure()
         // GitHub reports pending/denied states as 200 responses with an `error` field.
         val token = response.body<AccessTokenResponse>()
         when {
@@ -72,7 +67,7 @@ class GitHubAuthApi(
         }
     }
 
-    override suspend fun fetchAuthenticatedUser(token: String): ForgeResult<ForgeUser> = call {
+    override suspend fun fetchAuthenticatedUser(token: String): ForgeResult<ForgeUser> = gitHubCall {
         val response = httpClient.get("$apiBaseUrl/user") {
             bearerAuth(token)
             accept(ContentType.parse("application/vnd.github+json"))
@@ -80,31 +75,6 @@ class GitHubAuthApi(
         }
         response.toResult { body<UserResponse>().toModel() }
     }
-
-    private suspend inline fun <T> call(block: () -> ForgeResult<T>): ForgeResult<T> = try {
-        block()
-    } catch (e: CancellationException) {
-        throw e
-    } catch (e: IOException) {
-        ForgeResult.Failure(ForgeError.Network)
-    }
-
-    private suspend inline fun <T> HttpResponse.toResult(parse: HttpResponse.() -> T): ForgeResult<T> =
-        if (status.isSuccess()) ForgeResult.Success(parse()) else failure()
-
-    private suspend fun HttpResponse.failure(): ForgeResult.Failure {
-        val error = when {
-            status == HttpStatusCode.Unauthorized -> ForgeError.Unauthorized
-            (status == HttpStatusCode.Forbidden || status == HttpStatusCode.TooManyRequests) &&
-                headers["x-ratelimit-remaining"] == "0" ->
-                ForgeError.RateLimited(headers["x-ratelimit-reset"]?.toLongOrNull())
-            else -> ForgeError.Http(status.value, errorMessage())
-        }
-        return ForgeResult.Failure(error)
-    }
-
-    private suspend fun HttpResponse.errorMessage(): String? =
-        runCatching { GitHubJson.decodeFromString<ErrorResponse>(bodyAsText()).message }.getOrNull()
 
     companion object {
         const val API_VERSION = "2022-11-28"
@@ -139,6 +109,3 @@ private data class UserResponse(
 ) {
     fun toModel() = ForgeUser(login = login, name = name, avatarUrl = avatarUrl)
 }
-
-@Serializable
-private data class ErrorResponse(val message: String? = null)
