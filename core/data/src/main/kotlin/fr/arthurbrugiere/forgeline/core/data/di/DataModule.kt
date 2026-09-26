@@ -17,6 +17,9 @@ import fr.arthurbrugiere.forgeline.core.data.account.DataStoreAccountRepository
 import fr.arthurbrugiere.forgeline.core.data.account.KeystoreTokenCipher
 import fr.arthurbrugiere.forgeline.core.data.account.TokenCipher
 import fr.arthurbrugiere.forgeline.core.data.database.ForgelineDatabase
+import fr.arthurbrugiere.forgeline.core.data.repo.DefaultRepoRepository
+import fr.arthurbrugiere.forgeline.core.data.repo.RepoDao
+import fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 import fr.arthurbrugiere.forgeline.core.data.settings.DataStoreUserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.data.star.DefaultStarRepository
 import fr.arthurbrugiere.forgeline.core.data.star.StarRepository
@@ -45,6 +48,9 @@ abstract class DataModule {
     @Binds
     abstract fun bindStarRepository(impl: DefaultStarRepository): StarRepository
 
+    @Binds
+    abstract fun bindRepoRepository(impl: DefaultRepoRepository): RepoRepository
+
     companion object {
         @Provides
         @Singleton
@@ -56,6 +62,9 @@ abstract class DataModule {
 
         @Provides
         fun provideTrendingDao(database: ForgelineDatabase): TrendingDao = database.trendingDao()
+
+        @Provides
+        fun provideRepoDao(database: ForgelineDatabase): RepoDao = database.repoDao()
 
         @Provides
         fun provideClock(): Clock = Clock.systemUTC()
