@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Adjust
 import androidx.compose.material.icons.outlined.Balance
 import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Link
@@ -71,6 +72,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -298,7 +301,13 @@ private fun RepoTabs(selected: RepoTab, onSelect: (RepoTab) -> Unit) {
         edgePadding = 8.dp,
     ) {
         RepoTab.entries.forEach { tab ->
-            Tab(selected = tab == selected, onClick = { onSelect(tab) }, text = { Text(stringResource(tab.label)) })
+            Tab(
+                selected = tab == selected,
+                onClick = { onSelect(tab) },
+                text = { Text(stringResource(tab.label)) },
+                selectedContentColor = MaterialTheme.colorScheme.primary,
+                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -405,7 +414,19 @@ private fun IssueRow(issue: IssueSummary, nowMillis: Long) {
                 }
             }
         },
-        trailingContent = issue.comments?.takeIf { it > 0 }?.let { { Text("$it", style = MaterialTheme.typography.labelMedium) } },
+        trailingContent = issue.comments?.takeIf { it > 0 }?.let { count ->
+            {
+                val description = stringResource(R.string.repo_comments, count)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = description },
+                ) {
+                    Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Text("$count", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        },
     )
     HorizontalDivider()
 }
