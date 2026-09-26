@@ -1,0 +1,33 @@
+name: Live API contract
+
+# Checks the real GitHub still behaves as the fixtures say (the trending page has no API
+# and can change any day). A failure here means: update the client and refresh fixtures.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Run live contract tests
+        env:
+          LIVE_TEST_PAT: ${{ secrets.LIVE_TEST_PAT }}
+        run: ./gradlew :forge:github:liveTest
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: live-test-report
+          path: forge/github/build/reports/tests/liveTest/
