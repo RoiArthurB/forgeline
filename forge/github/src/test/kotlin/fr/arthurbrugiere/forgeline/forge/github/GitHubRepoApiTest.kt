@@ -50,6 +50,19 @@ class GitHubRepoApiTest {
     }
 
     @Test
+    fun a_renamed_repo_reports_its_canonical_name() = runTest {
+        // GitHub redirects old names to the moved repo; its body carries the new owner/name,
+        // which callers must use afterwards (search rejects old names with 422).
+        val moved = fixture("repo.json")
+            .replace("\"full_name\":\"paperclipai/paperclip\"", "\"full_name\":\"newowner/paperclip\"")
+            .replaceFirst("\"login\":\"paperclipai\"", "\"login\":\"newowner\"")
+
+        val repo = api { json(moved) }.repo(null, paperclip).value()
+
+        assertThat(repo.id).isEqualTo(RepoId("newowner", "paperclip"))
+    }
+
+    @Test
     fun anonymous_calls_send_no_credentials_and_signed_in_calls_do() = runTest {
         val api = api { json(fixture("repo.json")) }
 
