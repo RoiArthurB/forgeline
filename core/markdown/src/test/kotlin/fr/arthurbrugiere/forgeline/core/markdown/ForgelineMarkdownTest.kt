@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
 import org.junit.Rule
@@ -29,5 +30,22 @@ class ForgelineMarkdownTest {
         composeRule.onNodeWithText("guide", substring = true).performClick()
 
         assertThat(clicked).containsExactly("https://example.com/guide")
+    }
+
+    @Test
+    fun headings_use_material_headline_sizes_not_display_sizes() {
+        // Regression: the renderer's default H1 used the display scale, dwarfing the whole screen.
+        var headlineMedium = 0f
+        composeRule.setContent {
+            ForgelineTheme(dynamicColor = false) {
+                headlineMedium = androidx.compose.material3.MaterialTheme.typography.headlineMedium.fontSize.value
+                ForgelineMarkdown(parseForgeMarkdown("# Big title"), onLinkClick = {})
+            }
+        }
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        composeRule.onNodeWithText("Big title")
+            .performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+
+        assertThat(layouts.single().layoutInput.style.fontSize.value).isAtMost(headlineMedium)
     }
 }

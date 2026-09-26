@@ -12,7 +12,9 @@ import com.mikepenz.markdown.coil3.Coil3ImageTransformerImpl
 import com.mikepenz.markdown.compose.components.markdownComponents
 import com.mikepenz.markdown.compose.elements.highlightedCodeBlock
 import com.mikepenz.markdown.compose.elements.highlightedCodeFence
+import androidx.compose.material3.MaterialTheme
 import com.mikepenz.markdown.m3.Markdown
+import com.mikepenz.markdown.m3.markdownTypography
 import com.mikepenz.markdown.model.State
 import com.mikepenz.markdown.model.parseMarkdown
 import kotlinx.coroutines.Dispatchers
@@ -37,9 +39,19 @@ fun ForgelineMarkdown(
         }
     }
     CompositionLocalProvider(LocalUriHandler provides uriHandler) {
+        val type = MaterialTheme.typography
         Markdown(
             state = state,
             modifier = modifier,
+            // Material headline/title scale: the default H1 uses display sizes, too big on a phone.
+            typography = markdownTypography(
+                h1 = type.headlineMedium,
+                h2 = type.headlineSmall,
+                h3 = type.titleLarge,
+                h4 = type.titleMedium,
+                h5 = type.titleSmall,
+                h6 = type.labelLarge,
+            ),
             imageTransformer = Coil3ImageTransformerImpl,
             components = markdownComponents(
                 codeBlock = highlightedCodeBlock,
