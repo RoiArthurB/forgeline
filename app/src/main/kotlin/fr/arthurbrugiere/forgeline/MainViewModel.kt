@@ -23,5 +23,5 @@ class MainViewModel @Inject constructor(
 ) : ViewModel() {
     val uiState: StateFlow<MainUiState> = settingsRepository.settings
         .map<UserSettings, MainUiState> { MainUiState.Ready(it) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState.Loading)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, MainUiState.Loading)
 }

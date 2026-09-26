@@ -24,4 +24,12 @@ class MainViewModelTest {
             assertThat(state).isEqualTo(MainUiState.Ready(stored))
         }
     }
+
+    @Test
+    fun loads_settings_without_any_subscriber() = runTest {
+        // The splash screen polls uiState.value before the UI subscribes; it must not wait for one.
+        val viewModel = MainViewModel(FakeUserSettingsRepository())
+
+        assertThat(viewModel.uiState.value).isEqualTo(MainUiState.Ready(UserSettings()))
+    }
 }
