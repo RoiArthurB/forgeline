@@ -1,0 +1,182 @@
+package fr.arthurbrugiere.forgeline.settings
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import fr.arthurbrugiere.forgeline.BuildConfig
+import fr.arthurbrugiere.forgeline.R
+import fr.arthurbrugiere.forgeline.core.model.ThemeMode
+import fr.arthurbrugiere.forgeline.core.model.UserSettings
+
+const val SOURCE_CODE_URL = "https://github.com/RoiArthurB/forgeline"
+
+@Composable
+fun SettingsRoute(
+    onBack: () -> Unit,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val uriHandler = LocalUriHandler.current
+    SettingsScreen(
+        settings = settings,
+        versionName = BuildConfig.VERSION_NAME,
+        onThemeModeChange = viewModel::setThemeMode,
+        onDynamicColorChange = viewModel::setDynamicColor,
+        onAmoledBlackChange = viewModel::setAmoledBlack,
+        onOpenSourceCode = { uriHandler.openUri(SOURCE_CODE_URL) },
+        onBack = onBack,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    settings: UserSettings,
+    versionName: String,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    onDynamicColorChange: (Boolean) -> Unit,
+    onAmoledBlackChange: (Boolean) -> Unit,
+    onOpenSourceCode: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.settings_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up))
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { padding ->
+        LazyColumn(contentPadding = padding) {
+            item { SectionHeader(stringResource(R.string.settings_section_appearance)) }
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_theme)) },
+                    supportingContent = {
+                        ThemeModeSelector(
+                            selected = settings.themeMode,
+                            onSelect = onThemeModeChange,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    },
+                )
+            }
+            item {
+                SwitchItem(
+                    title = stringResource(R.string.settings_dynamic_color),
+                    summary = stringResource(R.string.settings_dynamic_color_summary),
+                    checked = settings.dynamicColor,
+                    onCheckedChange = onDynamicColorChange,
+                )
+            }
+            item {
+                SwitchItem(
+                    title = stringResource(R.string.settings_amoled),
+                    summary = stringResource(R.string.settings_amoled_summary),
+                    checked = settings.amoledBlack,
+                    onCheckedChange = onAmoledBlackChange,
+                )
+            }
+            item { SectionHeader(stringResource(R.string.settings_section_about)) }
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_source_code)) },
+                    supportingContent = { Text(SOURCE_CODE_URL.removePrefix("https://")) },
+                    modifier = Modifier.clickable(onClick = onOpenSourceCode),
+                )
+            }
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_version)) },
+                    supportingContent = { Text(versionName) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp),
+    )
+}
+
+@Composable
+private fun SwitchItem(
+    title: String,
+    summary: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(summary) },
+        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
+        modifier = Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
+    )
+}
+
+@Composable
+private fun ThemeModeSelector(
+    selected: ThemeMode,
+    onSelect: (ThemeMode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val options = ThemeMode.entries
+    SingleChoiceSegmentedButtonRow(modifier = modifier.fillMaxWidth()) {
+        options.forEachIndexed { index, mode ->
+            SegmentedButton(
+                selected = mode == selected,
+                onClick = { onSelect(mode) },
+                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                label = { Text(stringResource(mode.label)) },
+            )
+        }
+    }
+}
+
+private val ThemeMode.label: Int
+    get() = when (this) {
+        ThemeMode.SYSTEM -> R.string.theme_system
+        ThemeMode.LIGHT -> R.string.theme_light
+        ThemeMode.DARK -> R.string.theme_dark
+    }

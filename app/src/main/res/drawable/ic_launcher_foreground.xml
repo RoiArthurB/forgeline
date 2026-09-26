@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- A commit line with a branch: the "line" in Forgeline. -->
+    <path
+        android:pathData="M44,34 L44,74 M44,64 C44,52 66,56 66,44"
+        android:strokeWidth="5"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M37,34 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 M37,74 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0 M59,40 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+</vector>

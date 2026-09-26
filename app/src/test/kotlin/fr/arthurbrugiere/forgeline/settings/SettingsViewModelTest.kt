@@ -1,0 +1,39 @@
+package fr.arthurbrugiere.forgeline.settings
+
+import app.cash.turbine.test
+import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.model.ThemeMode
+import fr.arthurbrugiere.forgeline.core.model.UserSettings
+import fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository
+import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import org.junit.Rule
+import org.junit.Test
+
+class SettingsViewModelTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    private val repository = FakeUserSettingsRepository()
+    private val viewModel = SettingsViewModel(repository)
+
+    @Test
+    fun reflects_repository_settings() = runTest {
+        viewModel.settings.test {
+            assertThat(awaitItem()).isEqualTo(UserSettings())
+            repository.setThemeMode(ThemeMode.LIGHT)
+            assertThat(awaitItem().themeMode).isEqualTo(ThemeMode.LIGHT)
+        }
+    }
+
+    @Test
+    fun forwards_every_change_to_the_repository() = runTest {
+        viewModel.setThemeMode(ThemeMode.DARK)
+        viewModel.setDynamicColor(false)
+        viewModel.setAmoledBlack(true)
+
+        assertThat(repository.settings.first())
+            .isEqualTo(UserSettings(themeMode = ThemeMode.DARK, dynamicColor = false, amoledBlack = true))
+    }
+}

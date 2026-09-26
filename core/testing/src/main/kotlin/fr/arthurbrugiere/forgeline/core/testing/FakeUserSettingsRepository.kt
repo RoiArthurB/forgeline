@@ -1,0 +1,20 @@
+package fr.arthurbrugiere.forgeline.core.testing
+
+import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
+import fr.arthurbrugiere.forgeline.core.model.ThemeMode
+import fr.arthurbrugiere.forgeline.core.model.UserSettings
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
+
+class FakeUserSettingsRepository(initial: UserSettings = UserSettings()) : UserSettingsRepository {
+    private val state = MutableStateFlow(initial)
+
+    override val settings: StateFlow<UserSettings> = state
+
+    override suspend fun setThemeMode(mode: ThemeMode) = state.update { it.copy(themeMode = mode) }
+
+    override suspend fun setDynamicColor(enabled: Boolean) = state.update { it.copy(dynamicColor = enabled) }
+
+    override suspend fun setAmoledBlack(enabled: Boolean) = state.update { it.copy(amoledBlack = enabled) }
+}

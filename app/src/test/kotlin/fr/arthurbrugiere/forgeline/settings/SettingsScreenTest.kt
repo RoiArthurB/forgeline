@@ -1,0 +1,100 @@
+package fr.arthurbrugiere.forgeline.settings
+
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
+import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.model.ThemeMode
+import fr.arthurbrugiere.forgeline.core.model.UserSettings
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import fr.arthurbrugiere.forgeline.PHONE
+
+@RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = PHONE)
+class SettingsScreenTest {
+    @get:Rule
+    val composeRule = createComposeRule()
+
+    private var themeMode: ThemeMode? = null
+    private var dynamicColor: Boolean? = null
+    private var amoledBlack: Boolean? = null
+    private var sourceCodeOpened = false
+    private var backPressed = false
+
+    private fun setContent(settings: UserSettings = UserSettings()) {
+        composeRule.setContent {
+            SettingsScreen(
+                settings = settings,
+                versionName = "1.2.3",
+                onThemeModeChange = { themeMode = it },
+                onDynamicColorChange = { dynamicColor = it },
+                onAmoledBlackChange = { amoledBlack = it },
+                onOpenSourceCode = { sourceCodeOpened = true },
+                onBack = { backPressed = true },
+            )
+        }
+    }
+
+    @Test
+    fun shows_current_settings() {
+        setContent(UserSettings(themeMode = ThemeMode.DARK, dynamicColor = false, amoledBlack = true))
+
+        composeRule.onNodeWithText("Dark").assertIsSelected()
+        composeRule.onNodeWithText("Material You").assertIsOff()
+        composeRule.onNodeWithText("Pure black").assertIsOn()
+    }
+
+    @Test
+    fun selecting_a_theme_reports_it() {
+        setContent()
+
+        composeRule.onNodeWithText("Light").performClick()
+
+        assertThat(themeMode).isEqualTo(ThemeMode.LIGHT)
+    }
+
+    @Test
+    fun tapping_a_switch_row_toggles_it() {
+        setContent()
+
+        composeRule.onNodeWithText("Material You").performClick()
+        composeRule.onNodeWithText("Pure black").performClick()
+
+        assertThat(dynamicColor).isFalse()
+        assertThat(amoledBlack).isTrue()
+    }
+
+    @Test
+    fun about_section_shows_version_and_opens_source_code() {
+        setContent()
+
+        val list = composeRule.onNode(hasScrollAction())
+        list.performScrollToNode(hasText("1.2.3"))
+        composeRule.onNodeWithText("1.2.3").assertIsDisplayed()
+        list.performScrollToNode(hasText("Source code"))
+        composeRule.onNodeWithText("Source code").performClick()
+
+        assertThat(sourceCodeOpened).isTrue()
+    }
+
+    @Test
+    fun navigate_up_goes_back() {
+        setContent()
+
+        composeRule.onNode(hasContentDescription("Navigate up")).performClick()
+
+        assertThat(backPressed).isTrue()
+    }
+}
