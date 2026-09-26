@@ -33,6 +33,31 @@ class GitHubLiveContractTest {
     }
 
     @Test
+    fun the_repository_endpoints_still_match() = runBlocking {
+        val api = GitHubRepoApi(client)
+        val okhttp = RepoId("square", "okhttp")
+        val token = pat.ifBlank { null }
+
+        val repo = api.repo(token, okhttp)
+        assertWithMessage("repo: $repo").that(repo).isInstanceOf(ForgeResult.Success::class.java)
+        val branch = (repo as ForgeResult.Success).value.defaultBranch
+        assertThat(branch).isNotEmpty()
+
+        val readme = api.readme(token, okhttp)
+        assertWithMessage("readme: $readme").that((readme as ForgeResult.Success).value?.markdown).isNotEmpty()
+
+        val root = api.contents(token, okhttp, "", branch)
+        assertWithMessage("contents: $root").that((root as ForgeResult.Success).value.map { it.name }).contains("README.md")
+
+        val file = api.fileText(token, okhttp, "README.md", branch)
+        assertWithMessage("file: $file").that((file as ForgeResult.Success).value).isNotEmpty()
+
+        for (list in listOf(api.openIssues(token, okhttp), api.openPullRequests(token, okhttp), api.releases(token, okhttp), api.workflowRuns(token, okhttp))) {
+            assertWithMessage("list: $list").that(list).isInstanceOf(ForgeResult.Success::class.java)
+        }
+    }
+
+    @Test
     fun the_authenticated_user_endpoint_still_matches() = runBlocking {
         assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
 

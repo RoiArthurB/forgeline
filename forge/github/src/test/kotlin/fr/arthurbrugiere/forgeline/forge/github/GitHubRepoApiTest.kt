@@ -1,0 +1,178 @@
+package fr.arthurbrugiere.forgeline.forge.github
+
+import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.RepoFileType
+import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RunConclusion
+import fr.arthurbrugiere.forgeline.core.model.RunStatus
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.MockRequestHandleScope
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.request.HttpRequestData
+import io.ktor.client.request.HttpResponseData
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import kotlinx.coroutines.test.runTest
+import org.junit.Test
+import java.time.Instant
+
+/** Fixtures are real api.github.com responses for paperclipai/paperclip captured on 2026-09-26. */
+class GitHubRepoApiTest {
+    private val requests = mutableListOf<HttpRequestData>()
+    private val paperclip = RepoId("paperclipai", "paperclip")
+
+    private fun fixture(name: String) = requireNotNull(javaClass.getResource("/github/repo/$name")) { name }.readText()
+
+    private fun MockRequestHandleScope.json(body: String, status: HttpStatusCode = HttpStatusCode.OK) =
+        respond(body, status, headersOf(HttpHeaders.ContentType, "application/json"))
+
+    private fun api(handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData) =
+        GitHubRepoApi(gitHubHttpClient(MockEngine { requests += it; handler(it) }))
+
+    private fun <T> ForgeResult<T>.value(): T = (this as ForgeResult.Success).value
+
+    @Test
+    fun parses_repository_details() = runTest {
+        val repo = api { json(fixture("repo.json")) }.repo(null, paperclip).value()
+
+        assertThat(repo.id).isEqualTo(paperclip)
+        assertThat(repo.defaultBranch).isEqualTo("master")
+        assertThat(repo.license).isEqualTo("MIT")
+        assertThat(repo.language).isEqualTo("TypeScript")
+        assertThat(repo.stars).isGreaterThan(80_000)
+        assertThat(repo.ownerAvatarUrl).startsWith("https://avatars.githubusercontent.com/")
+        assertThat(repo.isArchived).isFalse()
+        assertThat(requests.single().url.toString()).isEqualTo("https://api.github.com/repos/paperclipai/paperclip")
+    }
+
+    @Test
+    fun anonymous_calls_send_no_credentials_and_signed_in_calls_do() = runTest {
+        val api = api { json(fixture("repo.json")) }
+
+        api.repo(null, paperclip)
+        api.repo("ghp_token", paperclip)
+
+        assertThat(requests[0].headers[HttpHeaders.Authorization]).isNull()
+        assertThat(requests[1].headers[HttpHeaders.Authorization]).isEqualTo("Bearer ghp_token")
+        assertThat(requests.all { it.headers["X-GitHub-Api-Version"] == "2022-11-28" }).isTrue()
+    }
+
+    @Test
+    fun a_missing_repository_is_an_http_404() = runTest {
+        val result = api { json("""{"message":"Not Found"}""", HttpStatusCode.NotFound) }.repo(null, paperclip)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "Not Found")))
+    }
+
+    @Test
+    fun decodes_the_readme_and_keeps_its_path() = runTest {
+        val readme = api { json(fixture("readme.json")) }.readme(null, paperclip).value()!!
+
+        assertThat(readme.path).isEqualTo("README.md")
+        assertThat(readme.markdown).startsWith("<p align=\"center\">")
+        assertThat(readme.markdown).contains("# Paperclip is the app people use to manage AI agents for work.")
+    }
+
+    @Test
+    fun a_repo_without_readme_has_none() = runTest {
+        val result = api { json("""{"message":"Not Found"}""", HttpStatusCode.NotFound) }.readme(null, paperclip)
+
+        assertThat(result).isEqualTo(ForgeResult.Success(null))
+    }
+
+    @Test
+    fun lists_a_directory_with_folders_first() = runTest {
+        val entries = api { json(fixture("contents_root.json")) }.contents(null, paperclip, "", "master").value()
+
+        assertThat(entries).hasSize(47)
+        val firstFile = entries.indexOfFirst { it.type == RepoFileType.FILE }
+        assertThat(entries.take(firstFile).all { it.type == RepoFileType.DIR }).isTrue()
+        assertThat(entries.drop(firstFile).none { it.type == RepoFileType.DIR }).isTrue()
+        assertThat(entries.first().name).isEqualTo(".agents")
+        assertThat(requests.single().url.toString()).isEqualTo("https://api.github.com/repos/paperclipai/paperclip/contents?ref=master")
+    }
+
+    @Test
+    fun paths_are_encoded_segment_by_segment() = runTest {
+        api { json("[]") }.contents(null, paperclip, "docs/my guide", "feature/x")
+
+        assertThat(requests.single().url.toString())
+            .isEqualTo("https://api.github.com/repos/paperclipai/paperclip/contents/docs/my%20guide?ref=feature%2Fx")
+    }
+
+    @Test
+    fun reads_a_text_file() = runTest {
+        val text = api { json(fixture("file_package_json.json")) }.fileText(null, paperclip, "package.json", "master").value()
+
+        assertThat(text).startsWith("{")
+        assertThat(text).contains("\"name\"")
+    }
+
+    @Test
+    fun files_too_large_for_the_contents_api_are_reported() = runTest {
+        val tooLarge = """{"type":"file","encoding":"none","content":"","size":5000000,"path":"big.bin","name":"big.bin"}"""
+
+        val result = api { json(tooLarge) }.fileText(null, paperclip, "big.bin", "master")
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(413, "File too large to preview")))
+    }
+
+    @Test
+    fun open_issues_come_from_search_so_pull_requests_never_crowd_them_out() = runTest {
+        val issues = api { json(fixture("search_issues.json")) }.openIssues(null, paperclip).value()
+
+        assertThat(issues).hasSize(5)
+        assertThat(issues.first().number).isEqualTo(14127)
+        assertThat(issues.all { !it.isPullRequest && it.state == IssueState.OPEN }).isTrue()
+        assertThat(issues.first().comments).isNotNull()
+        val url = requests.single().url
+        assertThat(url.encodedPath).isEqualTo("/search/issues")
+        assertThat(url.parameters["q"]).isEqualTo("repo:paperclipai/paperclip is:issue is:open")
+        assertThat(url.parameters["sort"]).isEqualTo("created")
+    }
+
+    @Test
+    fun lists_open_pull_requests() = runTest {
+        val pulls = api { json(fixture("pulls.json")) }.openPullRequests(null, paperclip).value()
+
+        assertThat(pulls.map { it.number }).containsExactly(14129, 14128, 14126, 14125).inOrder()
+        assertThat(pulls.all { it.isPullRequest }).isTrue()
+        assertThat(pulls.first().author?.login).isEqualTo("basil-k-aji-dev")
+        assertThat(pulls.first().comments).isNull()
+    }
+
+    @Test
+    fun lists_releases_newest_first() = runTest {
+        val releases = api { json(fixture("releases.json")) }.releases(null, paperclip).value()
+
+        assertThat(releases.map { it.tag }).containsExactly("v2026.916.1", "v2026.916.0", "v2026.831.1").inOrder()
+        assertThat(releases.first().publishedAt).isEqualTo(Instant.parse("2026-09-21T21:22:44Z"))
+        assertThat(releases.first().body).isNotEmpty()
+    }
+
+    @Test
+    fun lists_workflow_runs_with_status_and_conclusion() = runTest {
+        val runs = api { json(fixture("runs.json")) }.workflowRuns(null, paperclip).value()
+
+        assertThat(runs.map { it.status to it.conclusion }).containsExactly(
+            RunStatus.QUEUED to null,
+            RunStatus.COMPLETED to RunConclusion.SKIPPED,
+            RunStatus.COMPLETED to RunConclusion.FAILURE,
+            RunStatus.COMPLETED to RunConclusion.SKIPPED,
+        ).inOrder()
+        assertThat(runs.first().event).isEqualTo("pull_request")
+        assertThat(runs.first().runNumber).isEqualTo(39953)
+    }
+
+    @Test
+    fun readme_urls_point_at_raw_files_and_blob_pages() {
+        val api = api { error("no request") }
+
+        assertThat(api.rawBaseUrl(paperclip, "master")).isEqualTo("https://raw.githubusercontent.com/paperclipai/paperclip/master/")
+        assertThat(api.blobBaseUrl(paperclip, "master")).isEqualTo("https://github.com/paperclipai/paperclip/blob/master/")
+    }
+}
