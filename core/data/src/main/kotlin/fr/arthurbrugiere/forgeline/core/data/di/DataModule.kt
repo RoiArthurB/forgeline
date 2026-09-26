@@ -2,9 +2,8 @@ package fr.arthurbrugiere.forgeline.core.data.di
 
 import android.content.Context
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.preferencesDataStoreFile
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
 import dagger.Binds
 import dagger.Module
@@ -73,13 +72,18 @@ abstract class DataModule {
         @Singleton
         @SettingsDataStore
         fun provideSettingsDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
-            PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("user_settings") }
+            context.settingsDataStore
 
         /** Never backed up (see the app's data_extraction_rules): tokens are bound to this device's Keystore. */
         @Provides
         @Singleton
         @AccountsDataStore
         fun provideAccountsDataStore(@ApplicationContext context: Context): DataStore<Preferences> =
-            PreferenceDataStoreFactory.create { context.preferencesDataStoreFile("accounts") }
+            context.accountsDataStore
     }
 }
+
+// One instance per file per process, as DataStore requires: the delegates are process-wide,
+// unlike @Singleton, which is per Hilt component (tests create one per test).
+private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore("user_settings")
+private val Context.accountsDataStore: DataStore<Preferences> by preferencesDataStore("accounts")
