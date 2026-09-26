@@ -23,6 +23,7 @@ rootProject.name = "forgeline"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 include(":app")
+include(":baselineprofile")
 include(":core:model")
 include(":core:data")
 include(":core:ui")

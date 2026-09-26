@@ -99,3 +99,4 @@ forgeline-android-library = { id = "forgeline.android.library" }
 forgeline-android-compose = { id = "forgeline.android.compose" }
 forgeline-hilt = { id = "forgeline.hilt" }
 forgeline-jvm-library = { id = "forgeline.jvm.library" }
+forgeline-android-test = { id = "forgeline.android.test" }

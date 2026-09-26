@@ -1,0 +1,70 @@
+name: Performance
+
+# Generates the baseline profile and measures cold start on a Gradle managed emulator.
+# Emulator timings are only indicative; the real budget is checked on a physical device.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 4 * * 1"
+
+permissions:
+  contents: read
+
+env:
+  GMD_FLAGS: >-
+    -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
+    -Pandroid.experimental.testOptions.managedDevices.emulator.showKernelLogging=true
+
+jobs:
+  baseline-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Generate baseline profile
+        run: ./gradlew :app:generateBaselineProfile $GMD_FLAGS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: baseline-profile
+          path: app/src/release/generated/baselineProfiles/
+
+  startup-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Measure cold start
+        run: >-
+          ./gradlew :baselineprofile:pixel6Api34BenchmarkReleaseAndroidTest $GMD_FLAGS
+          -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.suppressErrors=EMULATOR
+      - name: Summarize
+        if: always()
+        run: |
+          find baselineprofile/build -name '*benchmarkData.json' -print0 | xargs -0 -r cat | \
+            jq -r '.benchmarks[] | "| \(.name) | \(.metrics.timeToInitialDisplayMs.median) ms |"' \
+            | { echo "| Startup | TTID median |"; echo "|---|---|"; cat; } >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: startup-benchmark
+          path: baselineprofile/build/outputs/

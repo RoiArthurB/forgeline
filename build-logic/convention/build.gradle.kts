@@ -40,6 +40,10 @@ gradlePlugin {
             id = libs.plugins.forgeline.hilt.get().pluginId
             implementationClass = "HiltConventionPlugin"
         }
+        register("androidTest") {
+            id = libs.plugins.forgeline.android.test.get().pluginId
+            implementationClass = "AndroidTestConventionPlugin"
+        }
         register("jvmLibrary") {
             id = libs.plugins.forgeline.jvm.library.get().pluginId
             implementationClass = "JvmLibraryConventionPlugin"

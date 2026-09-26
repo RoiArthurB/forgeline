@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.aboutlibraries)
     alias(libs.plugins.roborazzi)
+    alias(libs.plugins.baselineprofile)
 }
 
 android {
@@ -34,7 +35,8 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.findByName("release")
+            // Debug-signed when no release key is configured, so local and benchmark builds install.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -58,6 +60,8 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.kotlinx.serialization.core)
     implementation(libs.aboutlibraries.compose.m3)
+    implementation(libs.androidx.profileinstaller)
+    baselineProfile(projects.baselineprofile)
 
     testImplementation(projects.core.testing)
     testImplementation(libs.robolectric)

@@ -49,4 +49,4 @@ FORGELINE_KEYSTORE_PASSWORD=... FORGELINE_KEY_ALIAS=forgeline FORGELINE_KEY_PASS
 ./gradlew :app:assembleRelease
 ```
 
-Without them, `assembleRelease` produces an unsigned APK.
+Without them, `assembleRelease` produces a debug-signed APK, fine for testing on your own device but not for distribution.
