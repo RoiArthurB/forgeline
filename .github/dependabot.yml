@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      androidx:
+        patterns: ["androidx.*"]
+      kotlin:
+        patterns: ["org.jetbrains.kotlin*", "com.google.devtools.ksp*"]
+      testing:
+        patterns: ["org.robolectric*", "io.github.takahirom.roborazzi*", "junit*", "app.cash.turbine*", "com.google.truth*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
