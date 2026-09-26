@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        api-level: [35]
+        api-level: [36]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-java@v6
@@ -63,15 +63,17 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api-level }}
-          target: google_apis
+          # Automated Test Device image: headless-optimized, no launcher to ANR and steal focus.
+          target: aosp_atd
           arch: x86_64
           profile: pixel_6
           disable-animations: true
           # A stuck test fails after 2 minutes instead of eating the whole job.
           script: |
+            adb shell am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS
             adb logcat -c
             adb logcat -v time > logcat.txt 2>&1 &
-            ./gradlew :app:connectedDebugAndroidTest :core:data:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.timeout_msec=120000
+            ./gradlew --continue :app:connectedDebugAndroidTest :core:data:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.timeout_msec=120000
       - name: Upload reports
         if: failure() || cancelled()
         uses: actions/upload-artifact@v7
