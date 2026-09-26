@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,6 +24,30 @@ class AppSmokeTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     private fun tab(label: String) = composeRule.onNode(hasText(label) and isSelectable())
+
+    /**
+     * Regression guard: a system dialog (a launcher ANR on the google_apis image) once stole window
+     * focus and Espresso failed with a cryptic RootViewWithoutFocusException. Fail clearly instead.
+     */
+    @Before
+    fun appWindowHasFocus() {
+        val deadline = System.currentTimeMillis() + 10_000
+        var focused = false
+        while (!focused && System.currentTimeMillis() < deadline) {
+            composeRule.runOnUiThread { focused = composeRule.activity.hasWindowFocus() }
+            if (!focused) Thread.sleep(100)
+        }
+        check(focused) { "Forgeline never got window focus: another window (system dialog, ANR) is in front." }
+    }
+
+    @Test
+    fun gets_past_the_splash_screen() {
+        // Regression: the splash screen once waited forever for settings that only loaded once
+        // the UI subscribed. Robolectric couldn't reproduce it; only a real system shows it.
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasText("Inbox") and isSelectable()).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
 
     @Test
     fun browse_every_tab_then_back_to_the_inbox() {
