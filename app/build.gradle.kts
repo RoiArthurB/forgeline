@@ -20,8 +20,21 @@ android {
         buildConfig = true
     }
 
+    val keystorePath = providers.environmentVariable("FORGELINE_KEYSTORE_PATH")
+    if (keystorePath.isPresent) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystorePath.get())
+                storePassword = providers.environmentVariable("FORGELINE_KEYSTORE_PASSWORD").get()
+                keyAlias = providers.environmentVariable("FORGELINE_KEY_ALIAS").get()
+                keyPassword = providers.environmentVariable("FORGELINE_KEY_PASSWORD").get()
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
