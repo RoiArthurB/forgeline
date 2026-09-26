@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.forgeline.android.compose)
     alias(libs.plugins.forgeline.hilt)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.aboutlibraries)
 }
 
 android {
@@ -42,6 +43,7 @@ dependencies {
     implementation(libs.androidx.compose.material3.navigation.suite)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.kotlinx.serialization.core)
+    implementation(libs.aboutlibraries.compose.m3)
 
     testImplementation(projects.core.testing)
     testImplementation(libs.robolectric)

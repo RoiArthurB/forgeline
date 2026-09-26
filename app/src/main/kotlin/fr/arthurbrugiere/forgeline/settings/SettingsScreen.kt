@@ -40,6 +40,7 @@ const val SOURCE_CODE_URL = "https://github.com/RoiArthurB/forgeline"
 @Composable
 fun SettingsRoute(
     onBack: () -> Unit,
+    onOpenCredits: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
@@ -50,6 +51,7 @@ fun SettingsRoute(
         onThemeModeChange = viewModel::setThemeMode,
         onDynamicColorChange = viewModel::setDynamicColor,
         onAmoledBlackChange = viewModel::setAmoledBlack,
+        onOpenCredits = onOpenCredits,
         onOpenSourceCode = { uriHandler.openUri(SOURCE_CODE_URL) },
         onBack = onBack,
     )
@@ -63,6 +65,7 @@ fun SettingsScreen(
     onThemeModeChange: (ThemeMode) -> Unit,
     onDynamicColorChange: (Boolean) -> Unit,
     onAmoledBlackChange: (Boolean) -> Unit,
+    onOpenCredits: () -> Unit,
     onOpenSourceCode: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -113,6 +116,13 @@ fun SettingsScreen(
                 )
             }
             item { SectionHeader(stringResource(R.string.settings_section_about)) }
+            item {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_credits)) },
+                    supportingContent = { Text(stringResource(R.string.settings_credits_summary)) },
+                    modifier = Modifier.clickable(onClick = onOpenCredits),
+                )
+            }
             item {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.settings_source_code)) },

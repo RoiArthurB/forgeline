@@ -31,6 +31,7 @@ class SettingsScreenTest {
     private var dynamicColor: Boolean? = null
     private var amoledBlack: Boolean? = null
     private var sourceCodeOpened = false
+    private var creditsOpened = false
     private var backPressed = false
 
     private fun setContent(settings: UserSettings = UserSettings()) {
@@ -41,6 +42,7 @@ class SettingsScreenTest {
                 onThemeModeChange = { themeMode = it },
                 onDynamicColorChange = { dynamicColor = it },
                 onAmoledBlackChange = { amoledBlack = it },
+                onOpenCredits = { creditsOpened = true },
                 onOpenSourceCode = { sourceCodeOpened = true },
                 onBack = { backPressed = true },
             )
@@ -87,6 +89,16 @@ class SettingsScreenTest {
         composeRule.onNodeWithText("Source code").performClick()
 
         assertThat(sourceCodeOpened).isTrue()
+    }
+
+    @Test
+    fun credits_row_opens_credits() {
+        setContent()
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Credits and licenses"))
+        composeRule.onNodeWithText("Credits and licenses").performClick()
+
+        assertThat(creditsOpened).isTrue()
     }
 
     @Test

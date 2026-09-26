@@ -25,6 +25,13 @@
     <string name="settings_amoled">Pure black</string>
     <string name="settings_amoled_summary">Use a pure black background in dark theme</string>
     <string name="settings_section_about">About</string>
+    <string name="settings_credits">Credits and licenses</string>
+    <string name="settings_credits_summary">The open source libraries Forgeline is built on</string>
     <string name="settings_source_code">Source code</string>
     <string name="settings_version">Version</string>
+
+    <string name="credits_title">Credits</string>
+    <string name="credits_app_license">Forgeline is free software, licensed under the GNU General Public License v3.0.</string>
+    <string name="credits_read_license">Read the license</string>
+    <string name="credits_libraries_intro">Built with these open source libraries</string>
 </resources>

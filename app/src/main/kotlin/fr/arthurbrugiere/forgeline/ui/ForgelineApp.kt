@@ -12,9 +12,11 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import fr.arthurbrugiere.forgeline.credits.CreditsRoute
 import fr.arthurbrugiere.forgeline.feed.FeedScreen
 import fr.arthurbrugiere.forgeline.inbox.InboxScreen
 import fr.arthurbrugiere.forgeline.navigation.AppNavigator
+import fr.arthurbrugiere.forgeline.navigation.CreditsRoute as CreditsKey
 import fr.arthurbrugiere.forgeline.navigation.FeedRoute
 import fr.arthurbrugiere.forgeline.navigation.InboxRoute
 import fr.arthurbrugiere.forgeline.navigation.SettingsRoute
@@ -55,7 +57,10 @@ private fun ForgelineNavDisplay(navigator: AppNavigator) {
         entry<TrendingRoute> { TrendingScreen() }
         entry<YouRoute> { YouScreen(onOpenSettings = { navigator.navigate(SettingsRoute) }) }
         entry<SettingsRoute> {
-            SettingsDestination(onBack = navigator::goBack)
+            SettingsDestination(onBack = navigator::goBack, onOpenCredits = { navigator.navigate(CreditsKey) })
+        }
+        entry<CreditsKey> {
+            CreditsRoute(onBack = navigator::goBack)
         }
     }
     val entriesByTab = TopLevelDestination.entries.associateWith { tab ->

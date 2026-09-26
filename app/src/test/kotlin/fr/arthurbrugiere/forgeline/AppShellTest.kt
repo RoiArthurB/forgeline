@@ -3,6 +3,8 @@ package fr.arthurbrugiere.forgeline
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -50,6 +52,16 @@ class AppShellTest {
 
         composeRule.onNodeWithText("Appearance").assertDoesNotExist()
         tab("You").assertIsSelected()
+    }
+
+    @Test
+    fun credits_open_from_settings() {
+        tab("You").performClick()
+        composeRule.onNodeWithText("Settings").performClick()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Credits and licenses"))
+        composeRule.onNodeWithText("Credits and licenses").performClick()
+
+        composeRule.onNodeWithText("Read the license").assertIsDisplayed()
     }
 
     @Test
