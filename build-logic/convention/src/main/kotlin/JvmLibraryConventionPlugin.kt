@@ -13,6 +13,8 @@ class JvmLibraryConventionPlugin : Plugin<Project> {
         }
         configureKotlinCompile()
         configureUnitTests()
+        // Android modules expose testDebugUnitTest; alias it so one task runs every module's tests.
+        tasks.register("testDebugUnitTest") { dependsOn("test") }
         dependencies {
             add("testImplementation", libs.lib("junit"))
             add("testImplementation", libs.lib("truth"))

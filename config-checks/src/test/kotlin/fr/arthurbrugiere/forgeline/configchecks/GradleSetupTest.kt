@@ -16,4 +16,13 @@ class GradleSetupTest {
         val conventions = Repo.text("build-logic/convention/src/main/kotlin/ProjectExtensions.kt")
         assertThat(conventions).contains("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
     }
+
+    @Test
+    fun pure_kotlin_modules_run_their_tests_under_the_ci_unit_test_task() {
+        // CI runs `testDebugUnitTest`, which only Android modules had: the pure Kotlin modules'
+        // tests (including the GitHub API ones) silently never ran in CI.
+        assertThat(Repo.text(".github/workflows/ci.yml")).contains("./gradlew testDebugUnitTest")
+        val jvmConvention = Repo.text("build-logic/convention/src/main/kotlin/JvmLibraryConventionPlugin.kt")
+        assertThat(jvmConvention).contains("""tasks.register("testDebugUnitTest")""")
+    }
 }
