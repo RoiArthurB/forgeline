@@ -16,7 +16,8 @@ class SettingsViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val repository = FakeUserSettingsRepository()
-    private val viewModel = SettingsViewModel(repository)
+    // Lazy: must be created after MainDispatcherRule has installed the test Main dispatcher.
+    private val viewModel by lazy { SettingsViewModel(repository) }
 
     @Test
     fun reflects_repository_settings() = runTest {
