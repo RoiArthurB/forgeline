@@ -23,6 +23,8 @@ echo "sdk.dir=$HOME/Android/Sdk" > local.properties
 ./gradlew testDebugUnitTest    # JVM tests (unit, Robolectric, screenshots)
 ```
 
+Sign in works out of the box with a personal access token. To enable the one-tap "Sign in with GitHub" device flow, see [docs/GITHUB_OAUTH_APP.md](docs/GITHUB_OAUTH_APP.md). Releases are covered in [docs/RELEASING.md](docs/RELEASING.md).
+
 ## License
 
 Forgeline is free software, licensed under the [GNU General Public License v3.0](LICENSE).
