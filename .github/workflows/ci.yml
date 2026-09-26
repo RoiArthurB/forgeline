@@ -58,7 +58,7 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Build test APKs
-        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest
+        run: ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest :core:data:assembleDebugAndroidTest
       - name: Run tests on emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -71,14 +71,15 @@ jobs:
           script: |
             adb logcat -c
             adb logcat -v time > logcat.txt 2>&1 &
-            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.timeout_msec=120000
+            ./gradlew :app:connectedDebugAndroidTest :core:data:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.timeout_msec=120000
       - name: Upload reports
         if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: emulator-reports-${{ matrix.api-level }}
           path: |
-            app/build/reports/androidTests/
+            */build/reports/androidTests/
+            core/*/build/reports/androidTests/
             app/build/outputs/androidTest-results/
             logcat.txt
           retention-days: 7
