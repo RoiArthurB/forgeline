@@ -85,6 +85,19 @@ class AppShellTest {
     }
 
     @Test
+    fun a_trending_repo_opens_with_its_readme() {
+        tab("Trending").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclipai / paperclip")).fetchSemanticsNodes().isNotEmpty() }
+
+        composeRule.onNodeWithText("paperclipai / paperclip").performClick()
+
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasText("Open-source orchestration for teams of AI agents.")).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("README").assertIsDisplayed()
+    }
+
+    @Test
     fun system_back_from_a_tab_returns_to_the_inbox() {
         tab("Trending").performClick()
         composeRule.waitForIdle()

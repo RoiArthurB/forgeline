@@ -2,6 +2,8 @@ package fr.arthurbrugiere.forgeline.core.markdown
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
@@ -13,6 +15,8 @@ import com.mikepenz.markdown.compose.elements.highlightedCodeFence
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.model.State
 import com.mikepenz.markdown.model.parseMarkdown
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /** Parses Markdown into a renderable state. Call off the main thread for large documents. */
 fun parseForgeMarkdown(markdown: String): State = parseMarkdown(markdown)
@@ -43,4 +47,18 @@ fun ForgelineMarkdown(
             ),
         )
     }
+}
+
+/**
+ * Preprocesses and parses a README off the main thread; null until ready. [darkTheme] picks
+ * `<picture>` variants, so it should follow the app theme rather than the system one.
+ */
+@Composable
+fun rememberReadmeState(markdown: String, context: ReadmeContext, darkTheme: Boolean): State? {
+    val state by produceState<State?>(initialValue = null, markdown, context, darkTheme) {
+        value = withContext(Dispatchers.Default) {
+            parseForgeMarkdown(ReadmePreprocessor.prepare(markdown, context, darkTheme))
+        }
+    }
+    return state
 }

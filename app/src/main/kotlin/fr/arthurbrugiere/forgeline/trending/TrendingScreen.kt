@@ -68,6 +68,7 @@ import java.text.NumberFormat
 fun TrendingRoute(
     session: SessionState,
     onSignIn: () -> Unit,
+    onOpenRepo: (RepoId) -> Unit,
     viewModel: TrendingViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -77,6 +78,7 @@ fun TrendingRoute(
         onPeriodChange = viewModel::selectPeriod,
         onRefresh = viewModel::refresh,
         onToggleStar = { repo -> if (signedIn) viewModel.toggleStar(repo) else onSignIn() },
+        onOpenRepo = onOpenRepo,
         onErrorShown = viewModel::errorShown,
         onStarFailureShown = viewModel::starFailureShown,
     )
@@ -89,6 +91,7 @@ fun TrendingScreen(
     onPeriodChange: (TrendingPeriod) -> Unit,
     onRefresh: () -> Unit,
     onToggleStar: (RepoId) -> Unit,
+    onOpenRepo: (RepoId) -> Unit,
     onErrorShown: () -> Unit,
     onStarFailureShown: () -> Unit,
     modifier: Modifier = Modifier,
@@ -140,7 +143,12 @@ fun TrendingScreen(
                             item(key = "updated") { UpdatedAt(updatedAt, nowMillis) }
                         }
                         items(state.items, key = { it.repo.id.fullName }) { item ->
-                            TrendingCard(item, state.period, onToggleStar = { onToggleStar(item.repo.id) })
+                            TrendingCard(
+                                item,
+                                state.period,
+                                onToggleStar = { onToggleStar(item.repo.id) },
+                                onOpen = { onOpenRepo(item.repo.id) },
+                            )
                         }
                     }
                 }
@@ -175,10 +183,10 @@ private fun UpdatedAt(updatedAtMillis: Long, nowMillis: Long) {
 }
 
 @Composable
-private fun TrendingCard(item: TrendingItem, period: TrendingPeriod, onToggleStar: () -> Unit) {
+private fun TrendingCard(item: TrendingItem, period: TrendingPeriod, onToggleStar: () -> Unit, onOpen: () -> Unit) {
     val repo = item.repo
     val starred = item.starred == true
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
+    Card(onClick = onOpen, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
         Column(Modifier.padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(

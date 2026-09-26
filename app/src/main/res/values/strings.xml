@@ -62,6 +62,34 @@
     <string name="trending_star_failed">Couldn\'t update the star. Try again.</string>
     <string name="retry">Retry</string>
 
+    <string name="repo_tab_readme">README</string>
+    <string name="repo_tab_code">Code</string>
+    <string name="repo_tab_issues">Issues</string>
+    <string name="repo_tab_pulls">Pull requests</string>
+    <string name="repo_tab_releases">Releases</string>
+    <string name="repo_tab_actions">Actions</string>
+    <string name="repo_open_on_forge">Open on GitHub</string>
+    <string name="repo_star">Star</string>
+    <string name="repo_starred">Starred</string>
+    <string name="repo_watchers">%1$s watching</string>
+    <string name="repo_archived">Archived</string>
+    <string name="repo_fork">Fork</string>
+    <string name="repo_no_readme">This repository has no README.</string>
+    <string name="repo_no_issues">No open issues.</string>
+    <string name="repo_no_pulls">No open pull requests.</string>
+    <string name="repo_no_releases">No releases yet.</string>
+    <string name="repo_no_runs">No workflow runs.</string>
+    <string name="repo_empty_folder">This folder is empty.</string>
+    <string name="repo_parent_folder">Parent folder</string>
+    <string name="repo_tab_failed">Couldn\'t load this tab.</string>
+    <string name="repo_error_title">Couldn\'t open this repository</string>
+    <string name="repo_error_not_found">It doesn\'t exist, or it\'s private.</string>
+    <string name="repo_issue_meta">#%1$d opened %2$s by %3$s</string>
+    <string name="repo_draft">Draft</string>
+    <string name="repo_prerelease">Pre-release</string>
+    <string name="repo_run_meta">%1$s · %2$s · #%3$d</string>
+    <string name="repo_comments">%1$d comments</string>
+
     <string name="settings_title">Settings</string>
     <string name="settings_section_account">Account</string>
     <string name="settings_signed_out_summary">Connect your GitHub account</string>

@@ -33,6 +33,7 @@ class TrendingScreenTest {
                 onPeriodChange = { events += "period:$it" },
                 onRefresh = { events += "refresh" },
                 onToggleStar = { events += "star:${it.fullName}" },
+                onOpenRepo = { events += "open:${it.fullName}" },
                 onErrorShown = { events += "errorShown" },
                 onStarFailureShown = { events += "starFailureShown" },
                 nowMillis = 10 * 60_000L,
@@ -74,6 +75,15 @@ class TrendingScreenTest {
         composeRule.onNode(hasContentDescription("Unstar paperclipai/paperclip")).performClick()
 
         assertThat(events).containsExactly("star:paperclipai/paperclip")
+    }
+
+    @Test
+    fun tapping_a_card_opens_the_repo() {
+        setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null))))
+
+        composeRule.onNodeWithText("paperclipai / paperclip").performClick()
+
+        assertThat(events).containsExactly("open:paperclipai/paperclip")
     }
 
     @Test

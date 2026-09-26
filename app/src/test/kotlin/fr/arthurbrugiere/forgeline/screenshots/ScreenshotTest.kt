@@ -14,6 +14,15 @@ import fr.arthurbrugiere.forgeline.signin.SignInScreen
 import fr.arthurbrugiere.forgeline.signin.SignInStep
 import fr.arthurbrugiere.forgeline.signin.SignInUiState
 import fr.arthurbrugiere.forgeline.you.YouScreen
+import fr.arthurbrugiere.forgeline.repo.Loadable
+import fr.arthurbrugiere.forgeline.repo.RepoScreen
+import fr.arthurbrugiere.forgeline.repo.RepoTab
+import fr.arthurbrugiere.forgeline.repo.RepoUiState
+import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
+import fr.arthurbrugiere.forgeline.core.model.Readme
+import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.testing.issueSummary
+import fr.arthurbrugiere.forgeline.core.testing.repoDetails
 import fr.arthurbrugiere.forgeline.core.testing.trendingRepo
 import fr.arthurbrugiere.forgeline.trending.TrendingItem
 import fr.arthurbrugiere.forgeline.trending.TrendingScreen
@@ -112,8 +121,42 @@ class ScreenshotTest {
     @Composable
     private fun TrendingPreview() {
         TrendingScreen(
-            state = trendingState, onPeriodChange = {}, onRefresh = {}, onToggleStar = {},
+            state = trendingState, onPeriodChange = {}, onRefresh = {}, onToggleStar = {}, onOpenRepo = {},
             onErrorShown = {}, onStarFailureShown = {}, nowMillis = 12 * 60_000L,
+        )
+    }
+
+    private val repoState = RepoUiState(
+        requested = RepoId("paperclipai", "paperclip"),
+        details = repoDetails("paperclipai/paperclip", defaultBranch = "master", stars = 85_955)
+            .copy(description = "The open-source app everyone uses to manage agents at work", topics = listOf("agents", "orchestration", "typescript")),
+        readme = Readme("README.md", "# Paperclip\n\nOpen-source orchestration for **teams of AI agents**.\n\n```bash\nnpx paperclip init\n```"),
+        readmeContext = ReadmeContext("https://raw.example/", "https://blob.example/"),
+        starred = true,
+    )
+
+    @Test
+    fun repo_readme_light() = snapshot("repo_readme_light", darkTheme = false) {
+        RepoPreview(repoState)
+        composeRule.waitForIdle()
+    }
+
+    @Test
+    fun repo_issues_dark() = snapshot("repo_issues_dark", darkTheme = true) {
+        RepoPreview(
+            repoState.copy(
+                tab = RepoTab.ISSUES,
+                issues = Loadable.Loaded(listOf(issueSummary(14127, "Heartbeat recovery escalates too early"), issueSummary(14121, "Wake-queue reopen activity record names"))),
+            ),
+        )
+    }
+
+    @Composable
+    private fun RepoPreview(state: RepoUiState) {
+        RepoScreen(
+            state = state, signedIn = true, onBack = {}, onRefresh = {}, onSelectTab = {}, onRetryTab = {}, onToggleStar = {},
+            onOpenDirectory = {}, onOpenParentDirectory = {}, onOpenFile = {}, onLinkClick = {}, onOpenInBrowser = {},
+            onErrorShown = {}, onStarFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
         )
     }
 

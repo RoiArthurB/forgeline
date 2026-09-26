@@ -1,0 +1,157 @@
+package fr.arthurbrugiere.forgeline.repo
+
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.PHONE
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
+import fr.arthurbrugiere.forgeline.core.model.Readme
+import fr.arthurbrugiere.forgeline.core.model.RepoFile
+import fr.arthurbrugiere.forgeline.core.model.RepoFileType
+import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.testing.issueSummary
+import fr.arthurbrugiere.forgeline.core.testing.repoDetails
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+@RunWith(RobolectricTestRunner::class)
+@Config(qualifiers = PHONE)
+class RepoScreenTest {
+    @get:Rule
+    val composeRule = createComposeRule()
+
+    private val events = mutableListOf<String>()
+    private val id = RepoId("octo", "repo")
+    private val context = ReadmeContext("https://raw.example/octo/repo/main/", "https://blob.example/octo/repo/main/")
+    private val loaded = RepoUiState(
+        requested = id,
+        details = repoDetails("octo/repo", stars = 85_955),
+        readme = Readme("README.md", "# Octo Repo\n\nRead the [guide](docs/GUIDE.md)."),
+        readmeContext = context,
+    )
+
+    private fun setContent(state: RepoUiState, signedIn: Boolean = true) {
+        composeRule.setContent {
+            RepoScreen(
+                state = state,
+                signedIn = signedIn,
+                onBack = { events += "back" },
+                onRefresh = { events += "refresh" },
+                onSelectTab = { events += "tab:$it" },
+                onRetryTab = { events += "retry" },
+                onToggleStar = { events += "star" },
+                onOpenDirectory = { events += "dir:$it" },
+                onOpenParentDirectory = { events += "up" },
+                onOpenFile = { events += "file:${it.path}" },
+                onLinkClick = { events += "link:$it" },
+                onOpenInBrowser = { events += "browser:$it" },
+                onErrorShown = {},
+                onStarFailureShown = {},
+                nowMillis = 0,
+            )
+        }
+    }
+
+    @Test
+    fun shows_the_repo_header() {
+        setContent(loaded)
+
+        composeRule.onNodeWithText("About octo/repo").assertIsDisplayed()
+        composeRule.onNodeWithText("85.9k").assertIsDisplayed()
+        composeRule.onNodeWithText("MIT").assertIsDisplayed()
+        composeRule.onNodeWithText("kotlin").assertIsDisplayed()
+    }
+
+    @Test
+    fun renders_the_readme_and_resolves_its_relative_links() {
+        setContent(loaded)
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Octo Repo")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("guide", substring = true).performClick()
+
+        assertThat(events).contains("link:https://blob.example/octo/repo/main/docs/GUIDE.md")
+    }
+
+    @Test
+    fun a_repo_without_readme_says_so() {
+        setContent(loaded.copy(readme = null))
+
+        composeRule.onNodeWithText("This repository has no README.").assertIsDisplayed()
+    }
+
+    @Test
+    fun tabs_report_their_selection() {
+        setContent(loaded)
+
+        composeRule.onNodeWithText("Issues").performClick()
+
+        assertThat(events).containsExactly("tab:ISSUES")
+    }
+
+    @Test
+    fun lists_issues_with_their_labels() {
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = Loadable.Loaded(listOf(issueSummary(14127, "Heartbeat recovery escalates")))))
+
+        composeRule.onNodeWithText("Heartbeat recovery escalates").assertIsDisplayed()
+        composeRule.onNodeWithText("bug").assertIsDisplayed()
+        composeRule.onNodeWithText("#14127 opened", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun a_failed_tab_can_be_retried() {
+        setContent(loaded.copy(tab = RepoTab.RELEASES, releases = Loadable.Failed(ForgeError.Network)))
+
+        composeRule.onNodeWithText("Couldn't load this tab.").assertIsDisplayed()
+        composeRule.onNodeWithText("Retry").performClick()
+
+        assertThat(events).containsExactly("retry")
+    }
+
+    @Test
+    fun empty_lists_say_so() {
+        setContent(loaded.copy(tab = RepoTab.PULLS, pulls = Loadable.Loaded(emptyList())))
+
+        composeRule.onNodeWithText("No open pull requests.").assertIsDisplayed()
+    }
+
+    @Test
+    fun the_code_tab_opens_folders_and_files() {
+        val entries = listOf(
+            RepoFile("src/app", "app", RepoFileType.DIR, 0),
+            RepoFile("src/Main.kt", "Main.kt", RepoFileType.FILE, 10),
+        )
+        setContent(loaded.copy(tab = RepoTab.CODE, code = CodeState("src", Loadable.Loaded(entries))))
+
+        composeRule.onNodeWithText("app").performClick()
+        composeRule.onNodeWithText("Main.kt").performClick()
+        composeRule.onNodeWithText("Parent folder").performClick()
+
+        assertThat(events).containsExactly("dir:src/app", "file:src/Main.kt", "up").inOrder()
+    }
+
+    @Test
+    fun star_and_open_on_github() {
+        setContent(loaded.copy(starred = true))
+
+        composeRule.onNodeWithText("Starred").performClick()
+        composeRule.onNode(hasContentDescription("Open on GitHub")).performClick()
+
+        assertThat(events).containsExactly("star", "browser:https://github.com/octo/repo").inOrder()
+    }
+
+    @Test
+    fun a_missing_repo_explains_itself() {
+        setContent(RepoUiState(requested = id, error = ForgeError.Http(404, "Not Found")))
+
+        composeRule.onNodeWithText("Couldn't open this repository").assertIsDisplayed()
+        composeRule.onNodeWithText("It doesn't exist, or it's private.").assertIsDisplayed()
+    }
+}

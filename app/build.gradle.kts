@@ -52,6 +52,7 @@ android {
 dependencies {
     implementation(projects.core.data)
     implementation(projects.core.ui)
+    implementation(projects.core.markdown)
     implementation(projects.forge.github)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.coil.compose)

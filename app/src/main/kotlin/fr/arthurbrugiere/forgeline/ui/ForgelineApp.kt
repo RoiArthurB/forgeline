@@ -20,6 +20,9 @@ import fr.arthurbrugiere.forgeline.navigation.CreditsRoute as CreditsKey
 import fr.arthurbrugiere.forgeline.navigation.FeedRoute
 import fr.arthurbrugiere.forgeline.navigation.InboxRoute
 import fr.arthurbrugiere.forgeline.navigation.SettingsRoute
+import fr.arthurbrugiere.forgeline.navigation.RepoRoute as RepoKey
+import fr.arthurbrugiere.forgeline.repo.RepoRoute as RepoDestination
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.navigation.SignInRoute as SignInKey
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.signin.SignInRoute
@@ -59,10 +62,21 @@ fun ForgelineApp(
 @Composable
 private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, onSignOut: () -> Unit) {
     val signIn = { navigator.navigate(SignInKey) }
+    val openRepo = { id: RepoId -> navigator.navigate(RepoKey(id.owner, id.name)) }
     val provider = entryProvider<NavKey> {
         entry<InboxRoute> { InboxScreen(session, onSignIn = signIn) }
         entry<FeedRoute> { FeedScreen(session, onSignIn = signIn) }
-        entry<TrendingRoute> { TrendingDestination(session, onSignIn = signIn) }
+        entry<TrendingRoute> { TrendingDestination(session, onSignIn = signIn, onOpenRepo = openRepo) }
+        entry<RepoKey> { key ->
+            RepoDestination(
+                route = key,
+                session = session,
+                onBack = navigator::goBack,
+                onOpenRepo = openRepo,
+                onOpenFile = { _, _, _ -> },
+                onSignIn = signIn,
+            )
+        }
         entry<YouRoute> {
             YouScreen(session, onSignIn = signIn, onOpenSettings = { navigator.navigate(SettingsRoute) })
         }
