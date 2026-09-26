@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
+import androidx.room.Room
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -15,8 +16,15 @@ import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.data.account.DataStoreAccountRepository
 import fr.arthurbrugiere.forgeline.core.data.account.KeystoreTokenCipher
 import fr.arthurbrugiere.forgeline.core.data.account.TokenCipher
+import fr.arthurbrugiere.forgeline.core.data.database.ForgelineDatabase
 import fr.arthurbrugiere.forgeline.core.data.settings.DataStoreUserSettingsRepository
+import fr.arthurbrugiere.forgeline.core.data.star.DefaultStarRepository
+import fr.arthurbrugiere.forgeline.core.data.star.StarRepository
+import fr.arthurbrugiere.forgeline.core.data.trending.DefaultTrendingRepository
+import fr.arthurbrugiere.forgeline.core.data.trending.TrendingDao
+import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepository
 import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
+import java.time.Clock
 import javax.inject.Singleton
 
 @Module
@@ -31,7 +39,27 @@ abstract class DataModule {
     @Binds
     abstract fun bindTokenCipher(impl: KeystoreTokenCipher): TokenCipher
 
+    @Binds
+    abstract fun bindTrendingRepository(impl: DefaultTrendingRepository): TrendingRepository
+
+    @Binds
+    abstract fun bindStarRepository(impl: DefaultStarRepository): StarRepository
+
     companion object {
+        @Provides
+        @Singleton
+        fun provideDatabase(@ApplicationContext context: Context): ForgelineDatabase =
+            Room.databaseBuilder(context, ForgelineDatabase::class.java, "forgeline.db")
+                // Everything in it is a cache of forge data: safe to rebuild.
+                .fallbackToDestructiveMigration(dropAllTables = true)
+                .build()
+
+        @Provides
+        fun provideTrendingDao(database: ForgelineDatabase): TrendingDao = database.trendingDao()
+
+        @Provides
+        fun provideClock(): Clock = Clock.systemUTC()
+
         @Provides
         @Singleton
         @SettingsDataStore

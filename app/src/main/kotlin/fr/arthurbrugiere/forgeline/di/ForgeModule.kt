@@ -6,7 +6,11 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import fr.arthurbrugiere.forgeline.BuildConfig
 import fr.arthurbrugiere.forgeline.core.forge.ForgeAuthApi
+import fr.arthurbrugiere.forgeline.core.forge.StarApi
+import fr.arthurbrugiere.forgeline.core.forge.TrendingApi
 import fr.arthurbrugiere.forgeline.forge.github.GitHubAuthApi
+import fr.arthurbrugiere.forgeline.forge.github.GitHubStarApi
+import fr.arthurbrugiere.forgeline.forge.github.GitHubTrendingApi
 import fr.arthurbrugiere.forgeline.forge.github.gitHubHttpClient
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -23,4 +27,12 @@ object ForgeModule {
     @Singleton
     fun provideForgeAuthApi(httpClient: HttpClient): ForgeAuthApi =
         GitHubAuthApi(httpClient, clientId = BuildConfig.GITHUB_CLIENT_ID)
+
+    @Provides
+    @Singleton
+    fun provideTrendingApi(httpClient: HttpClient): TrendingApi = GitHubTrendingApi(httpClient)
+
+    @Provides
+    @Singleton
+    fun provideStarApi(httpClient: HttpClient): StarApi = GitHubStarApi(httpClient)
 }
