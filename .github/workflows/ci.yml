@@ -40,7 +40,7 @@ jobs:
   emulator:
     name: Emulator tests (API ${{ matrix.api-level }})
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -67,11 +67,18 @@ jobs:
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          script: ./gradlew :app:connectedDebugAndroidTest
+          # A stuck test fails after 2 minutes instead of eating the whole job.
+          script: |
+            adb logcat -c
+            adb logcat -v time > logcat.txt 2>&1 &
+            ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.timeout_msec=120000
       - name: Upload reports
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: emulator-reports-${{ matrix.api-level }}
-          path: app/build/reports/androidTests/
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            logcat.txt
           retention-days: 7
