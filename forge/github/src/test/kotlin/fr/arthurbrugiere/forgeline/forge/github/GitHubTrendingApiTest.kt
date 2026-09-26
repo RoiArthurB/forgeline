@@ -42,6 +42,17 @@ class GitHubTrendingApiTest {
     }
 
     @Test
+    fun identifies_as_a_browser_compatible_agent() = runTest {
+        // Regression: with a non-browser User-Agent GitHub serves the page without its repo
+        // list, so the app parsed zero repos (caught by the live contract test).
+        api { respond(page) }.trending(TrendingPeriod.DAILY)
+
+        val userAgent = requests.single().headers[HttpHeaders.UserAgent]!!
+        assertThat(userAgent).startsWith("Mozilla/5.0 (compatible; Forgeline")
+        assertThat(userAgent).contains("+https://github.com/RoiArthurB/forgeline")
+    }
+
+    @Test
     fun http_errors_and_throttling_are_reported() = runTest {
         assertThat(api { respond("", HttpStatusCode.ServiceUnavailable) }.trending(TrendingPeriod.DAILY))
             .isEqualTo(ForgeResult.Failure(ForgeError.Http(503, null)))

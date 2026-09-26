@@ -8,9 +8,11 @@ import fr.arthurbrugiere.forgeline.core.model.TrendingRepo
 import io.ktor.client.HttpClient
 import io.ktor.client.request.accept
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -27,6 +29,8 @@ class GitHubTrendingApi(
         val response = httpClient.get("$webBaseUrl/trending") {
             parameter("since", period.query)
             accept(ContentType.Text.Html)
+            // GitHub omits the repo list for non-browser agents; identify as a compatible bot.
+            header(HttpHeaders.UserAgent, TRENDING_USER_AGENT)
         }
         response.toResult {
             val html = bodyAsText()
@@ -40,4 +44,8 @@ class GitHubTrendingApi(
             TrendingPeriod.WEEKLY -> "weekly"
             TrendingPeriod.MONTHLY -> "monthly"
         }
+
+    private companion object {
+        const val TRENDING_USER_AGENT = "Mozilla/5.0 (compatible; Forgeline; +https://github.com/RoiArthurB/forgeline)"
+    }
 }
