@@ -27,13 +27,13 @@ class AppShellTest {
     @Test
     fun opens_on_the_inbox() {
         tab("Inbox").assertIsSelected()
-        composeRule.onNodeWithText("Nothing here yet").assertIsDisplayed()
+        composeRule.onNodeWithText("Your inbox lives on GitHub").assertIsDisplayed()
     }
 
     @Test
     fun each_tab_shows_its_screen() {
         tab("Feed").performClick()
-        composeRule.onNodeWithText("Your feed is on its way").assertIsDisplayed()
+        composeRule.onNodeWithText("Follow the people you follow").assertIsDisplayed()
 
         tab("Trending").performClick()
         composeRule.onNodeWithText("Trending is coming soon").assertIsDisplayed()
@@ -52,6 +52,18 @@ class AppShellTest {
 
         composeRule.onNodeWithText("Appearance").assertDoesNotExist()
         tab("You").assertIsSelected()
+    }
+
+    @Test
+    fun signing_in_from_the_inbox_opens_the_sign_in_screen() {
+        composeRule.onNodeWithText("Sign in").performClick()
+
+        composeRule.onNodeWithText("Connect to GitHub").assertIsDisplayed()
+        // No OAuth client ID in test builds: only the token path is offered.
+        composeRule.onNodeWithText("Sign in with GitHub").assertDoesNotExist()
+
+        composeRule.onNode(hasContentDescription("Navigate up")).performClick()
+        composeRule.onNodeWithText("Your inbox lives on GitHub").assertIsDisplayed()
     }
 
     @Test

@@ -20,3 +20,6 @@ data object SettingsRoute : NavKey
 
 @Serializable
 data object CreditsRoute : NavKey
+
+@Serializable
+data object SignInRoute : NavKey

@@ -7,14 +7,49 @@
     <string name="tab_you">You</string>
     <string name="navigate_up">Navigate up</string>
 
+    <string name="sign_in">Sign in</string>
+    <string name="sign_out">Sign out</string>
+    <string name="cancel">Cancel</string>
+
+    <string name="inbox_signed_out_title">Your inbox lives on GitHub</string>
+    <string name="inbox_signed_out_body">Sign in to triage your notifications here.</string>
     <string name="inbox_empty_title">Nothing here yet</string>
-    <string name="inbox_empty_body">Your notifications will show up here once you sign in.</string>
+    <string name="inbox_empty_body">Your notifications arrive in an upcoming update.</string>
+    <string name="feed_signed_out_title">Follow the people you follow</string>
+    <string name="feed_signed_out_body">Sign in to see what they star, fork and release.</string>
     <string name="feed_empty_title">Your feed is on its way</string>
     <string name="feed_empty_body">See what the people you follow star, fork and release.</string>
+    <string name="you_signed_out_title">Connect your GitHub account</string>
+    <string name="you_signed_out_body">Your inbox and feed need an account. Trending and browsing work without one.</string>
+
+    <string name="sign_in_title">Sign in</string>
+    <string name="sign_in_headline">Connect to GitHub</string>
+    <string name="sign_in_privacy">Forgeline talks to GitHub directly from your phone. Your token is encrypted on this device and only ever sent to GitHub.</string>
+    <string name="sign_in_with_github">Sign in with GitHub</string>
+    <string name="sign_in_or">or</string>
+    <string name="sign_in_token_title">Use a personal access token</string>
+    <string name="sign_in_token_body">Create a classic token with the notifications, read:user, user:follow and public_repo scopes, then paste it here.</string>
+    <string name="sign_in_create_token">Create a token on GitHub</string>
+    <string name="sign_in_token_label">Personal access token</string>
+    <string name="sign_in_with_token">Sign in with token</string>
+    <string name="sign_in_enter_code">Enter this code on GitHub</string>
+    <string name="sign_in_copy_and_open">Copy code and open GitHub</string>
+    <string name="sign_in_waiting">Waiting for you to authorize Forgeline on GitHub…</string>
+    <string name="sign_in_verifying">Checking with GitHub…</string>
+    <string name="sign_in_error_network">Can\'t reach GitHub. Check your connection and try again.</string>
+    <string name="sign_in_error_invalid_token">GitHub didn\'t accept this token. Check that it was copied entirely and hasn\'t expired.</string>
+    <string name="sign_in_error_rate_limited">GitHub is limiting requests right now. Try again in a few minutes.</string>
+    <string name="sign_in_error_denied">Authorization was declined on GitHub.</string>
+    <string name="sign_in_error_expired">The code expired before it was used. Start again to get a new one.</string>
+    <string name="sign_in_error_unknown">Something went wrong. Try again.</string>
     <string name="trending_empty_title">Trending is coming soon</string>
     <string name="trending_empty_body">Discover what is hot across your forges, every day.</string>
 
     <string name="settings_title">Settings</string>
+    <string name="settings_section_account">Account</string>
+    <string name="settings_signed_out_summary">Connect your GitHub account</string>
+    <string name="sign_out_confirm_title">Sign out of @%1$s?</string>
+    <string name="sign_out_confirm_body">Your token will be deleted from this device.</string>
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_theme">Theme</string>
     <string name="theme_system">System</string>

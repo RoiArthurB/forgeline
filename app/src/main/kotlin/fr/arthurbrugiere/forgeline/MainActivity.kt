@@ -16,11 +16,13 @@ import dagger.hilt.android.AndroidEntryPoint
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
 import fr.arthurbrugiere.forgeline.core.ui.theme.isDark
+import fr.arthurbrugiere.forgeline.session.SessionViewModel
 import fr.arthurbrugiere.forgeline.ui.ForgelineApp
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
+    private val sessionViewModel: SessionViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
@@ -43,7 +45,8 @@ class MainActivity : ComponentActivity() {
                 dynamicColor = settings.dynamicColor,
                 amoledBlack = settings.amoledBlack,
             ) {
-                ForgelineApp()
+                val session by sessionViewModel.session.collectAsStateWithLifecycle()
+                ForgelineApp(session = session, onSignOut = sessionViewModel::signOut)
             }
         }
     }

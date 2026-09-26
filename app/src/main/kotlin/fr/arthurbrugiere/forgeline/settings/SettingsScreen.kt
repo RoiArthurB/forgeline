@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -18,10 +19,14 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalUriHandler
@@ -34,11 +39,16 @@ import fr.arthurbrugiere.forgeline.BuildConfig
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
+import fr.arthurbrugiere.forgeline.session.SessionState
+import fr.arthurbrugiere.forgeline.ui.Avatar
 
 const val SOURCE_CODE_URL = "https://github.com/RoiArthurB/forgeline"
 
 @Composable
 fun SettingsRoute(
+    session: SessionState,
+    onSignIn: () -> Unit,
+    onSignOut: () -> Unit,
     onBack: () -> Unit,
     onOpenCredits: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
@@ -46,6 +56,9 @@ fun SettingsRoute(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     SettingsScreen(
+        session = session,
+        onSignIn = onSignIn,
+        onSignOut = onSignOut,
         settings = settings,
         versionName = BuildConfig.VERSION_NAME,
         onThemeModeChange = viewModel::setThemeMode,
@@ -60,6 +73,9 @@ fun SettingsRoute(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    session: SessionState,
+    onSignIn: () -> Unit,
+    onSignOut: () -> Unit,
     settings: UserSettings,
     versionName: String,
     onThemeModeChange: (ThemeMode) -> Unit,
@@ -86,6 +102,10 @@ fun SettingsScreen(
         },
     ) { padding ->
         LazyColumn(contentPadding = padding) {
+            if (session != SessionState.Loading) {
+                item { SectionHeader(stringResource(R.string.settings_section_account)) }
+                item { AccountItem(session, onSignIn, onSignOut) }
+            }
             item { SectionHeader(stringResource(R.string.settings_section_appearance)) }
             item {
                 ListItem(
@@ -134,6 +154,46 @@ fun SettingsScreen(
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.settings_version)) },
                     supportingContent = { Text(versionName) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountItem(session: SessionState, onSignIn: () -> Unit, onSignOut: () -> Unit) {
+    when (session) {
+        SessionState.Loading -> Unit
+        SessionState.SignedOut -> ListItem(
+            headlineContent = { Text(stringResource(R.string.sign_in)) },
+            supportingContent = { Text(stringResource(R.string.settings_signed_out_summary)) },
+            modifier = Modifier.clickable(onClick = onSignIn),
+        )
+        is SessionState.SignedIn -> {
+            var confirming by rememberSaveable { mutableStateOf(false) }
+            val login = session.account.user.login
+            ListItem(
+                leadingContent = { Avatar(session.account.user.avatarUrl, login, size = 40.dp) },
+                headlineContent = { Text("@$login") },
+                supportingContent = { Text(session.account.forge.host) },
+                trailingContent = {
+                    TextButton(onClick = { confirming = true }) { Text(stringResource(R.string.sign_out)) }
+                },
+            )
+            if (confirming) {
+                AlertDialog(
+                    onDismissRequest = { confirming = false },
+                    title = { Text(stringResource(R.string.sign_out_confirm_title, login)) },
+                    text = { Text(stringResource(R.string.sign_out_confirm_body)) },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            confirming = false
+                            onSignOut()
+                        }) { Text(stringResource(R.string.sign_out)) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { confirming = false }) { Text(stringResource(R.string.cancel)) }
+                    },
                 )
             }
         }

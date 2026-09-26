@@ -15,6 +15,10 @@ android {
         applicationId = "fr.arthurbrugiere.forgeline"
         versionCode = providers.gradleProperty("forgeline.versionCode").get().toInt()
         versionName = providers.gradleProperty("forgeline.versionName").get()
+
+        // Public by design: the device flow needs no client secret. Empty disables the device flow.
+        val githubClientId = providers.gradleProperty("forgeline.githubClientId").getOrElse("")
+        buildConfigField("String", "GITHUB_CLIENT_ID", "\"$githubClientId\"")
     }
 
     buildFeatures {
@@ -47,6 +51,11 @@ android {
 dependencies {
     implementation(projects.core.data)
     implementation(projects.core.ui)
+    implementation(projects.forge.github)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.ktor3)
+    implementation(libs.androidx.browser)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)

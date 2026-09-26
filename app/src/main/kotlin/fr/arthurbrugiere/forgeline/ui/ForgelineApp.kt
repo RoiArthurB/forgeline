@@ -20,6 +20,9 @@ import fr.arthurbrugiere.forgeline.navigation.CreditsRoute as CreditsKey
 import fr.arthurbrugiere.forgeline.navigation.FeedRoute
 import fr.arthurbrugiere.forgeline.navigation.InboxRoute
 import fr.arthurbrugiere.forgeline.navigation.SettingsRoute
+import fr.arthurbrugiere.forgeline.navigation.SignInRoute as SignInKey
+import fr.arthurbrugiere.forgeline.session.SessionState
+import fr.arthurbrugiere.forgeline.signin.SignInRoute
 import fr.arthurbrugiere.forgeline.navigation.TopLevelDestination
 import fr.arthurbrugiere.forgeline.navigation.TrendingRoute
 import fr.arthurbrugiere.forgeline.navigation.YouRoute
@@ -29,7 +32,11 @@ import fr.arthurbrugiere.forgeline.trending.TrendingScreen
 import fr.arthurbrugiere.forgeline.you.YouScreen
 
 @Composable
-fun ForgelineApp(navigator: AppNavigator = rememberAppNavigator()) {
+fun ForgelineApp(
+    session: SessionState,
+    onSignOut: () -> Unit,
+    navigator: AppNavigator = rememberAppNavigator(),
+) {
     NavigationSuiteScaffold(
         navigationSuiteItems = {
             TopLevelDestination.entries.forEach { destination ->
@@ -45,19 +52,31 @@ fun ForgelineApp(navigator: AppNavigator = rememberAppNavigator()) {
             }
         },
     ) {
-        ForgelineNavDisplay(navigator)
+        ForgelineNavDisplay(navigator, session, onSignOut)
     }
 }
 
 @Composable
-private fun ForgelineNavDisplay(navigator: AppNavigator) {
+private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, onSignOut: () -> Unit) {
+    val signIn = { navigator.navigate(SignInKey) }
     val provider = entryProvider<NavKey> {
-        entry<InboxRoute> { InboxScreen() }
-        entry<FeedRoute> { FeedScreen() }
+        entry<InboxRoute> { InboxScreen(session, onSignIn = signIn) }
+        entry<FeedRoute> { FeedScreen(session, onSignIn = signIn) }
         entry<TrendingRoute> { TrendingScreen() }
-        entry<YouRoute> { YouScreen(onOpenSettings = { navigator.navigate(SettingsRoute) }) }
+        entry<YouRoute> {
+            YouScreen(session, onSignIn = signIn, onOpenSettings = { navigator.navigate(SettingsRoute) })
+        }
         entry<SettingsRoute> {
-            SettingsDestination(onBack = navigator::goBack, onOpenCredits = { navigator.navigate(CreditsKey) })
+            SettingsDestination(
+                session = session,
+                onSignIn = signIn,
+                onSignOut = onSignOut,
+                onBack = navigator::goBack,
+                onOpenCredits = { navigator.navigate(CreditsKey) },
+            )
+        }
+        entry<SignInKey> {
+            SignInRoute(onBack = navigator::goBack, onSignedIn = navigator::goBack)
         }
         entry<CreditsKey> {
             CreditsRoute(onBack = navigator::goBack)

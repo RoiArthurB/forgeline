@@ -17,6 +17,7 @@ coil = "3.6.3"
 aboutLibraries = "15.2.0"
 profileinstaller = "1.4.1"
 splashscreen = "1.2.0"
+browser = "1.10.0"
 benchmark = "1.5.0"
 baselineprofile = "1.5.0"
 uiautomator = "2.4.0"
@@ -40,6 +41,7 @@ androidx-navigation3-ui = { module = "androidx.navigation3:navigation3-ui", vers
 androidx-datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastore" }
 androidx-datastore-preferences-core = { module = "androidx.datastore:datastore-preferences-core", version.ref = "datastore" }
 androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "splashscreen" }
+androidx-browser = { module = "androidx.browser:browser", version.ref = "browser" }
 androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
 
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }

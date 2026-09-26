@@ -28,14 +28,14 @@ class AppSmokeTest {
     fun browse_every_tab_then_back_to_the_inbox() {
         tab("Inbox").assertIsSelected()
         tab("Feed").performClick()
-        composeRule.onNodeWithText("Your feed is on its way").assertIsDisplayed()
+        composeRule.onNodeWithText("Follow the people you follow").assertIsDisplayed()
         tab("Trending").performClick()
         composeRule.onNodeWithText("Trending is coming soon").assertIsDisplayed()
 
         pressBack()
 
         composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(hasText("Nothing here yet")).fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(hasText("Your inbox lives on GitHub")).fetchSemanticsNodes().isNotEmpty()
         }
         tab("Inbox").assertIsSelected()
     }

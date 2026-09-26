@@ -14,6 +14,11 @@ import androidx.compose.ui.test.performScrollToNode
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
+import fr.arthurbrugiere.forgeline.core.model.Account
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.session.SessionState
+import androidx.compose.ui.test.onAllNodesWithText
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,9 +39,14 @@ class SettingsScreenTest {
     private var creditsOpened = false
     private var backPressed = false
 
-    private fun setContent(settings: UserSettings = UserSettings()) {
+    private var signedOut = false
+
+    private fun setContent(settings: UserSettings = UserSettings(), session: SessionState = SessionState.SignedOut) {
         composeRule.setContent {
             SettingsScreen(
+                session = session,
+                onSignIn = {},
+                onSignOut = { signedOut = true },
                 settings = settings,
                 versionName = "1.2.3",
                 onThemeModeChange = { themeMode = it },
@@ -99,6 +109,21 @@ class SettingsScreenTest {
         composeRule.onNodeWithText("Credits and licenses").performClick()
 
         assertThat(creditsOpened).isTrue()
+    }
+
+    @Test
+    fun signing_out_asks_for_confirmation() {
+        val account = Account("id", ForgeInstance.GitHub, ForgeUser("octocat", null, null))
+        setContent(session = SessionState.SignedIn(account))
+
+        composeRule.onNodeWithText("@octocat").assertIsDisplayed()
+        composeRule.onNodeWithText("Sign out").performClick()
+        composeRule.onNodeWithText("Sign out of @octocat?").assertIsDisplayed()
+        assertThat(signedOut).isFalse()
+
+        composeRule.onAllNodesWithText("Sign out")[1].performClick()
+
+        assertThat(signedOut).isTrue()
     }
 
     @Test
