@@ -42,8 +42,25 @@
     <string name="sign_in_error_denied">Authorization was declined on GitHub.</string>
     <string name="sign_in_error_expired">The code expired before it was used. Start again to get a new one.</string>
     <string name="sign_in_error_unknown">Something went wrong. Try again.</string>
-    <string name="trending_empty_title">Trending is coming soon</string>
-    <string name="trending_empty_body">Discover what is hot across your forges, every day.</string>
+    <string name="trending_period_daily">Today</string>
+    <string name="trending_period_weekly">This week</string>
+    <string name="trending_period_monthly">This month</string>
+    <string name="trending_gained_daily">+%1$s today</string>
+    <string name="trending_gained_weekly">+%1$s this week</string>
+    <string name="trending_gained_monthly">+%1$s this month</string>
+    <string name="trending_updated">Updated %1$s</string>
+    <string name="trending_built_by">Built by</string>
+    <string name="trending_star">Star %1$s</string>
+    <string name="trending_unstar">Unstar %1$s</string>
+    <string name="trending_stars">%1$s stars</string>
+    <string name="trending_forks">%1$s forks</string>
+    <string name="trending_error_title">Couldn\'t load Trending</string>
+    <string name="trending_error_offline">Check your connection and try again.</string>
+    <string name="trending_error_rate_limited">GitHub is limiting requests right now. Try again in a few minutes.</string>
+    <string name="trending_error_unknown">GitHub didn\'t return the trending list. Try again later.</string>
+    <string name="trending_refresh_failed">Couldn\'t refresh. Showing the last saved list.</string>
+    <string name="trending_star_failed">Couldn\'t update the star. Try again.</string>
+    <string name="retry">Retry</string>
 
     <string name="settings_title">Settings</string>
     <string name="settings_section_account">Account</string>

@@ -14,6 +14,10 @@ import fr.arthurbrugiere.forgeline.signin.SignInScreen
 import fr.arthurbrugiere.forgeline.signin.SignInStep
 import fr.arthurbrugiere.forgeline.signin.SignInUiState
 import fr.arthurbrugiere.forgeline.you.YouScreen
+import fr.arthurbrugiere.forgeline.core.testing.trendingRepo
+import fr.arthurbrugiere.forgeline.trending.TrendingItem
+import fr.arthurbrugiere.forgeline.trending.TrendingScreen
+import fr.arthurbrugiere.forgeline.trending.TrendingUiState
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
 import fr.arthurbrugiere.forgeline.settings.SettingsScreen
@@ -84,6 +88,33 @@ class ScreenshotTest {
     @Test
     fun you_signed_in_light() = snapshot("you_signed_in_light", darkTheme = false) {
         YouScreen(SessionState.SignedIn(octocat), onSignIn = {}, onOpenSettings = {})
+    }
+
+    private val trendingState = TrendingUiState(
+        items = listOf(
+            TrendingItem(
+                trendingRepo("paperclipai/paperclip", stars = 85_955, periodStars = 2_109)
+                    .copy(builtBy = listOf("cryppadotta", "devinfoley", "nickyleach").map { ForgeUser(it, null, null) }),
+                starred = true,
+            ),
+            TrendingItem(trendingRepo("vectorize-io/hindsight", stars = 30_641, periodStars = 1_653), starred = false),
+            TrendingItem(trendingRepo("anthropics/claude-code-action", stars = 8_970, periodStars = 15, description = null), starred = false),
+        ),
+        updatedAtMillis = 0L,
+    )
+
+    @Test
+    fun trending_light() = snapshot("trending_light", darkTheme = false) { TrendingPreview() }
+
+    @Test
+    fun trending_dark() = snapshot("trending_dark", darkTheme = true) { TrendingPreview() }
+
+    @Composable
+    private fun TrendingPreview() {
+        TrendingScreen(
+            state = trendingState, onPeriodChange = {}, onRefresh = {}, onToggleStar = {},
+            onErrorShown = {}, onStarFailureShown = {}, nowMillis = 12 * 60_000L,
+        )
     }
 
     private val octocat = Account("id", ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null))

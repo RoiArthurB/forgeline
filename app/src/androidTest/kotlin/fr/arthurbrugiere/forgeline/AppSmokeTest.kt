@@ -12,15 +12,21 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /** End-to-end journeys on a real Android system image; the JVM suite covers the details. */
+@HiltAndroidTest
 @RunWith(AndroidJUnit4::class)
 class AppSmokeTest {
-    @get:Rule
+    @get:Rule(order = 0)
+    val hiltRule = HiltAndroidRule(this)
+
+    @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     private fun tab(label: String) = composeRule.onNode(hasText(label) and isSelectable())
@@ -55,7 +61,9 @@ class AppSmokeTest {
         tab("Feed").performClick()
         composeRule.onNodeWithText("Follow the people you follow").assertIsDisplayed()
         tab("Trending").performClick()
-        composeRule.onNodeWithText("Trending is coming soon").assertIsDisplayed()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasText("paperclip", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
 
         pressBack()
 

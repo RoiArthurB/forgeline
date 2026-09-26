@@ -10,16 +10,23 @@ import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import dagger.hilt.android.testing.HiltAndroidRule
+import dagger.hilt.android.testing.HiltAndroidTest
+import dagger.hilt.android.testing.HiltTestApplication
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+@HiltAndroidTest
 @RunWith(RobolectricTestRunner::class)
-@Config(qualifiers = PHONE)
+@Config(qualifiers = PHONE, application = HiltTestApplication::class)
 class AppShellTest {
-    @get:Rule
+    @get:Rule(order = 0)
+    val hiltRule = HiltAndroidRule(this)
+
+    @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     private fun tab(label: String) = composeRule.onNode(hasText(label) and isSelectable())
@@ -36,7 +43,8 @@ class AppShellTest {
         composeRule.onNodeWithText("Follow the people you follow").assertIsDisplayed()
 
         tab("Trending").performClick()
-        composeRule.onNodeWithText("Trending is coming soon").assertIsDisplayed()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclip", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("+2,109 today").assertIsDisplayed()
 
         tab("You").performClick()
         composeRule.onNodeWithText("Settings").assertIsDisplayed()

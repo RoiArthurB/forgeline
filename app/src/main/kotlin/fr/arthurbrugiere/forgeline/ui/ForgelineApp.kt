@@ -28,7 +28,7 @@ import fr.arthurbrugiere.forgeline.navigation.TrendingRoute
 import fr.arthurbrugiere.forgeline.navigation.YouRoute
 import fr.arthurbrugiere.forgeline.navigation.rememberAppNavigator
 import fr.arthurbrugiere.forgeline.settings.SettingsRoute as SettingsDestination
-import fr.arthurbrugiere.forgeline.trending.TrendingScreen
+import fr.arthurbrugiere.forgeline.trending.TrendingRoute as TrendingDestination
 import fr.arthurbrugiere.forgeline.you.YouScreen
 
 @Composable
@@ -62,7 +62,7 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
     val provider = entryProvider<NavKey> {
         entry<InboxRoute> { InboxScreen(session, onSignIn = signIn) }
         entry<FeedRoute> { FeedScreen(session, onSignIn = signIn) }
-        entry<TrendingRoute> { TrendingScreen() }
+        entry<TrendingRoute> { TrendingDestination(session, onSignIn = signIn) }
         entry<YouRoute> {
             YouScreen(session, onSignIn = signIn, onOpenSettings = { navigator.navigate(SettingsRoute) })
         }

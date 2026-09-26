@@ -15,12 +15,14 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 fun TopLevelScreen(
     title: String,
     modifier: Modifier = Modifier,
+    snackbarHost: @Composable () -> Unit = {},
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = { TopAppBar(title = { Text(title) }, scrollBehavior = scrollBehavior) },
+        snackbarHost = snackbarHost,
         content = content,
     )
 }

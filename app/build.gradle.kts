@@ -15,6 +15,7 @@ android {
         applicationId = "fr.arthurbrugiere.forgeline"
         versionCode = providers.gradleProperty("forgeline.versionCode").get().toInt()
         versionName = providers.gradleProperty("forgeline.versionName").get()
+        testInstrumentationRunner = "fr.arthurbrugiere.forgeline.HiltTestRunner"
 
         // Public by design: the device flow needs no client secret. Empty disables the device flow.
         val githubClientId = providers.gradleProperty("forgeline.githubClientId").getOrElse("")
@@ -73,6 +74,8 @@ dependencies {
     baselineProfile(projects.baselineprofile)
 
     testImplementation(projects.core.testing)
+    testImplementation(libs.hilt.android.testing)
+    kspTest(libs.hilt.compiler)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.compose.ui.test.junit4)
     testImplementation(libs.roborazzi)
@@ -83,4 +86,7 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(projects.core.testing)
+    androidTestImplementation(libs.hilt.android.testing)
+    kspAndroidTest(libs.hilt.compiler)
 }
