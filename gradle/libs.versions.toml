@@ -17,6 +17,7 @@ ktor = "3.6.0"
 coil = "3.6.3"
 jsoup = "1.23.2"
 markdownRenderer = "0.45.0"
+highlights = "1.1.0"
 aboutLibraries = "15.2.0"
 profileinstaller = "1.4.1"
 splashscreen = "1.2.0"
@@ -81,6 +82,7 @@ kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 markdown-renderer-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-m3", version.ref = "markdownRenderer" }
 markdown-renderer-coil3 = { module = "com.mikepenz:multiplatform-markdown-renderer-coil3", version.ref = "markdownRenderer" }
 markdown-renderer-code = { module = "com.mikepenz:multiplatform-markdown-renderer-code", version.ref = "markdownRenderer" }
+highlights = { module = "dev.snipme:highlights", version.ref = "highlights" }
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutLibraries" }
 
 junit = { module = "junit:junit", version.ref = "junit" }

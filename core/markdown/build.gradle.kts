@@ -13,6 +13,7 @@ dependencies {
     implementation(libs.markdown.renderer.coil3)
     implementation(libs.markdown.renderer.code)
     implementation(libs.coil.compose)
+    implementation(libs.highlights)
 
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.compose.ui.test.junit4)
