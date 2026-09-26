@@ -23,3 +23,9 @@ data object CreditsRoute : NavKey
 
 @Serializable
 data object SignInRoute : NavKey
+
+@Serializable
+data class RepoRoute(val owner: String, val name: String) : NavKey
+
+@Serializable
+data class FileRoute(val owner: String, val name: String, val path: String, val ref: String) : NavKey
