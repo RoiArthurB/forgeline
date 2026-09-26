@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.screenshots
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onRoot
 import com.github.takahirom.roborazzi.captureRoboImage
 import fr.arthurbrugiere.forgeline.PHONE
@@ -49,11 +50,16 @@ class ScreenshotTest {
         name: String,
         darkTheme: Boolean,
         amoledBlack: Boolean = false,
+        awaitText: String? = null,
         content: @Composable () -> Unit,
     ) {
         composeRule.setContent {
             // Ember palette keeps screenshots independent of the emulated wallpaper.
             ForgelineTheme(darkTheme = darkTheme, dynamicColor = false, amoledBlack = amoledBlack, content = content)
+        }
+        // Content parsed off the main thread (READMEs) must be on screen before capturing.
+        awaitText?.let { text ->
+            composeRule.waitUntil(10_000) { composeRule.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
         }
         composeRule.onRoot().captureRoboImage("src/test/screenshots/$name.png")
     }
@@ -136,9 +142,8 @@ class ScreenshotTest {
     )
 
     @Test
-    fun repo_readme_light() = snapshot("repo_readme_light", darkTheme = false) {
+    fun repo_readme_light() = snapshot("repo_readme_light", darkTheme = false, awaitText = "teams of AI agents") {
         RepoPreview(repoState)
-        composeRule.waitForIdle()
     }
 
     @Test
