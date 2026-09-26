@@ -16,6 +16,7 @@ serialization = "1.11.0"
 ktor = "3.6.0"
 coil = "3.6.3"
 jsoup = "1.23.2"
+markdownRenderer = "0.45.0"
 aboutLibraries = "15.2.0"
 profileinstaller = "1.4.1"
 splashscreen = "1.2.0"
@@ -77,6 +78,9 @@ coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" 
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "serialization" }
 
+markdown-renderer-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-m3", version.ref = "markdownRenderer" }
+markdown-renderer-coil3 = { module = "com.mikepenz:multiplatform-markdown-renderer-coil3", version.ref = "markdownRenderer" }
+markdown-renderer-code = { module = "com.mikepenz:multiplatform-markdown-renderer-code", version.ref = "markdownRenderer" }
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutLibraries" }
 
 junit = { module = "junit:junit", version.ref = "junit" }
