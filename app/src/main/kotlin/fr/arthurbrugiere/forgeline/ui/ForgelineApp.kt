@@ -25,6 +25,11 @@ import fr.arthurbrugiere.forgeline.navigation.FileRoute as FileKey
 import fr.arthurbrugiere.forgeline.file.FileRoute as FileDestination
 import fr.arthurbrugiere.forgeline.repo.RepoRoute as RepoDestination
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.navigation.IssueRoute as IssueKey
+import fr.arthurbrugiere.forgeline.navigation.UserRoute as UserKey
+import fr.arthurbrugiere.forgeline.issue.IssueRoute as IssueDestination
+import fr.arthurbrugiere.forgeline.user.UserRoute as UserDestination
 import fr.arthurbrugiere.forgeline.navigation.SignInRoute as SignInKey
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.signin.SignInRoute
@@ -65,11 +70,21 @@ fun ForgelineApp(
 private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, onSignOut: () -> Unit) {
     val signIn = { navigator.navigate(SignInKey) }
     val openRepo = { id: RepoId -> navigator.navigate(RepoKey(id.owner, id.name)) }
+    val openIssue = { ref: IssueRef -> navigator.navigate(IssueKey(ref.repo.owner, ref.repo.name, ref.number)) }
+    val openUser = { login: String -> navigator.navigate(UserKey(login)) }
     val provider = entryProvider<NavKey> {
         entry<InboxRoute> { InboxScreen(session, onSignIn = signIn) }
         entry<FeedRoute> { FeedScreen(session, onSignIn = signIn) }
         entry<TrendingRoute> { TrendingDestination(session, onSignIn = signIn, onOpenRepo = openRepo) }
-        entry<FileKey> { key -> FileDestination(key, onBack = navigator::goBack, onOpenRepo = openRepo) }
+        entry<FileKey> { key ->
+            FileDestination(key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser)
+        }
+        entry<IssueKey> { key ->
+            IssueDestination(key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser)
+        }
+        entry<UserKey> { key ->
+            UserDestination(key, session = session, onBack = navigator::goBack, onOpenRepo = openRepo, onSignIn = signIn)
+        }
         entry<RepoKey> { key ->
             RepoDestination(
                 route = key,
@@ -77,11 +92,13 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 onBack = navigator::goBack,
                 onOpenRepo = openRepo,
                 onOpenFile = { id, path, ref -> navigator.navigate(FileKey(id.owner, id.name, path, ref)) },
+                onOpenIssue = openIssue,
+                onOpenUser = openUser,
                 onSignIn = signIn,
             )
         }
         entry<YouRoute> {
-            YouScreen(session, onSignIn = signIn, onOpenSettings = { navigator.navigate(SettingsRoute) })
+            YouScreen(session, onSignIn = signIn, onOpenSettings = { navigator.navigate(SettingsRoute) }, onOpenProfile = openUser)
         }
         entry<SettingsRoute> {
             SettingsDestination(

@@ -71,6 +71,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -97,8 +98,17 @@ import fr.arthurbrugiere.forgeline.core.ui.format.compactCount
 import fr.arthurbrugiere.forgeline.core.ui.format.parseHexColor
 import fr.arthurbrugiere.forgeline.navigation.ForgeLinks
 import fr.arthurbrugiere.forgeline.navigation.RepoRoute
+import fr.arthurbrugiere.forgeline.navigation.IssueRoute
+import fr.arthurbrugiere.forgeline.navigation.UserRoute
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.ui.Avatar
+import fr.arthurbrugiere.forgeline.ui.Badge
+import fr.arthurbrugiere.forgeline.ui.LabelChip
+import fr.arthurbrugiere.forgeline.ui.Message
+import fr.arthurbrugiere.forgeline.ui.loadable
+import fr.arthurbrugiere.forgeline.ui.message
+import fr.arthurbrugiere.forgeline.ui.relative
 import fr.arthurbrugiere.forgeline.ui.EmptyState
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import java.time.Instant
@@ -110,6 +120,8 @@ fun RepoRoute(
     onBack: () -> Unit,
     onOpenRepo: (RepoId) -> Unit,
     onOpenFile: (RepoId, path: String, ref: String) -> Unit,
+    onOpenIssue: (IssueRef) -> Unit,
+    onOpenUser: (String) -> Unit,
     onSignIn: () -> Unit,
 ) {
     val id = RepoId(route.owner, route.name)
@@ -128,9 +140,13 @@ fun RepoRoute(
         onOpenDirectory = viewModel::openDirectory,
         onOpenParentDirectory = viewModel::openParentDirectory,
         onOpenFile = { file -> state.details?.let { onOpenFile(it.id, file.path, it.defaultBranch) } },
+        onOpenIssue = { number -> state.details?.let { onOpenIssue(IssueRef(it.id, number)) } },
+        onOpenUser = onOpenUser,
         onLinkClick = { url ->
             when (val target = ForgeLinks.routeFor(url)) {
                 is RepoRoute -> onOpenRepo(RepoId(target.owner, target.name))
+                is IssueRoute -> onOpenIssue(IssueRef(RepoId(target.owner, target.name), target.number))
+                is UserRoute -> onOpenUser(target.login)
                 else -> if (!url.startsWith("#")) openUrl(url)
             }
         },
@@ -153,6 +169,8 @@ fun RepoScreen(
     onOpenDirectory: (String) -> Unit,
     onOpenParentDirectory: () -> Unit,
     onOpenFile: (RepoFile) -> Unit,
+    onOpenIssue: (Int) -> Unit,
+    onOpenUser: (String) -> Unit,
     onLinkClick: (String) -> Unit,
     onOpenInBrowser: (String) -> Unit,
     onErrorShown: () -> Unit,
@@ -210,7 +228,7 @@ fun RepoScreen(
                 details == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
                 else -> PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = onRefresh) {
                     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-                        item(key = "header") { RepoHeader(details, state.starred, signedIn, onToggleStar, onLinkClick) }
+                        item(key = "header") { RepoHeader(details, state.starred, signedIn, onToggleStar, onLinkClick, onOpenUser) }
                         stickyHeader(key = "tabs") { RepoTabs(state.tab, onSelectTab) }
                         when (state.tab) {
                             RepoTab.README -> item(key = "readme") {
@@ -223,10 +241,10 @@ fun RepoScreen(
                             }
                             RepoTab.CODE -> code(state.code, onRetryTab, onOpenDirectory, onOpenParentDirectory, onOpenFile)
                             RepoTab.ISSUES -> loadable(state.issues, R.string.repo_no_issues, onRetryTab) { issues ->
-                                items(issues, key = { "issue-${it.number}" }) { IssueRow(it, nowMillis) }
+                                items(issues, key = { "issue-${it.number}" }) { IssueRow(it, nowMillis, onOpenIssue) }
                             }
                             RepoTab.PULLS -> loadable(state.pulls, R.string.repo_no_pulls, onRetryTab) { pulls ->
-                                items(pulls, key = { "pull-${it.number}" }) { IssueRow(it, nowMillis) }
+                                items(pulls, key = { "pull-${it.number}" }) { IssueRow(it, nowMillis, onOpenIssue) }
                             }
                             RepoTab.RELEASES -> loadable(state.releases, R.string.repo_no_releases, onRetryTab) { releases ->
                                 items(releases, key = { "release-${it.tag}" }) { ReleaseRow(it, state.readmeContext, nowMillis, onLinkClick) }
@@ -249,9 +267,14 @@ private fun RepoHeader(
     signedIn: Boolean,
     onToggleStar: () -> Unit,
     onLinkClick: (String) -> Unit,
+    onOpenUser: (String) -> Unit,
 ) {
     Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.clickable { onOpenUser(details.id.owner) },
+        ) {
             Avatar(details.ownerAvatarUrl, details.id.owner, size = 24.dp)
             Text(details.id.owner, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -367,34 +390,10 @@ private fun LazyListScope.code(
     }
 }
 
-private fun <T> LazyListScope.loadable(
-    loadable: Loadable<List<T>>,
-    emptyMessage: Int,
-    onRetry: () -> Unit,
-    content: LazyListScope.(List<T>) -> Unit,
-) {
-    when (loadable) {
-        Loadable.Idle, Loadable.Loading -> item(key = "loading") {
-            Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        }
-        is Loadable.Failed -> item(key = "failed") {
-            Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(stringResource(R.string.repo_tab_failed), style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    stringResource(loadable.error.message),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                TextButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
-            }
-        }
-        is Loadable.Loaded -> if (loadable.value.isEmpty()) item(key = "empty") { Message(stringResource(emptyMessage)) } else content(loadable.value)
-    }
-}
-
 @Composable
-private fun IssueRow(issue: IssueSummary, nowMillis: Long) {
+private fun IssueRow(issue: IssueSummary, nowMillis: Long, onOpen: (Int) -> Unit) {
     ListItem(
+        modifier = Modifier.clickable { onOpen(issue.number) },
         leadingContent = {
             Icon(
                 if (issue.isPullRequest) Icons.AutoMirrored.Outlined.CallMerge else Icons.Outlined.Adjust,
@@ -416,7 +415,7 @@ private fun IssueRow(issue: IssueSummary, nowMillis: Long) {
         },
         trailingContent = issue.comments?.takeIf { it > 0 }?.let { count ->
             {
-                val description = stringResource(R.string.repo_comments, count)
+                val description = pluralStringResource(R.plurals.repo_comments, count, count)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -492,46 +491,6 @@ private fun Stat(icon: ImageVector?, text: String) {
     }
 }
 
-@Composable
-private fun Badge(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSecondaryContainer,
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.secondaryContainer)
-            .padding(horizontal = 8.dp, vertical = 2.dp),
-    )
-}
-
-@Composable
-private fun LabelChip(label: Label) {
-    val color = parseHexColor(label.color?.let { "#$it" }) ?: MaterialTheme.colorScheme.secondaryContainer
-    Text(
-        label.name,
-        style = MaterialTheme.typography.labelSmall,
-        color = if (color.luminance() > 0.5f) Color.Black else Color.White,
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(color)
-            .padding(horizontal = 8.dp, vertical = 2.dp),
-    )
-}
-
-@Composable
-private fun Message(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.fillMaxWidth().padding(24.dp),
-    )
-}
-
-private fun relative(instant: Instant, nowMillis: Long): String =
-    DateUtils.getRelativeTimeSpanString(instant.toEpochMilli(), nowMillis, DateUtils.MINUTE_IN_MILLIS).toString()
-
 private val RepoTab.label: Int
     get() = when (this) {
         RepoTab.README -> R.string.repo_tab_readme
@@ -540,11 +499,4 @@ private val RepoTab.label: Int
         RepoTab.PULLS -> R.string.repo_tab_pulls
         RepoTab.RELEASES -> R.string.repo_tab_releases
         RepoTab.ACTIONS -> R.string.repo_tab_actions
-    }
-
-private val ForgeError.message: Int
-    get() = when (this) {
-        ForgeError.Network -> R.string.trending_error_offline
-        is ForgeError.RateLimited -> R.string.trending_error_rate_limited
-        else -> R.string.sign_in_error_unknown
     }

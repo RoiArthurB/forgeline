@@ -28,13 +28,14 @@ fun YouScreen(
     onSignIn: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenProfile: (String) -> Unit = {},
 ) {
     TopLevelScreen(title = stringResource(R.string.tab_you), modifier = modifier) { padding ->
         Column(Modifier.padding(padding)) {
             when (session) {
                 SessionState.Loading -> Unit
                 SessionState.SignedOut -> SignInCard(onSignIn)
-                is SessionState.SignedIn -> AccountHeader(session.account)
+                is SessionState.SignedIn -> AccountHeader(session.account) { onOpenProfile(session.account.user.login) }
             }
             ListItem(
                 headlineContent = { Text(stringResource(R.string.settings_title)) },
@@ -46,14 +47,14 @@ fun YouScreen(
 }
 
 @Composable
-private fun AccountHeader(account: Account) {
+private fun AccountHeader(account: Account, onClick: () -> Unit) {
     ListItem(
         leadingContent = { Avatar(account.user.avatarUrl, account.user.login, size = 56.dp) },
         headlineContent = {
             Text(account.user.name ?: account.user.login, style = MaterialTheme.typography.titleLarge)
         },
         supportingContent = { Text("@${account.user.login} · ${account.forge.host}") },
-        modifier = Modifier.padding(vertical = 8.dp),
+        modifier = Modifier.clickable(onClick = onClick).padding(vertical = 8.dp),
     )
 }
 

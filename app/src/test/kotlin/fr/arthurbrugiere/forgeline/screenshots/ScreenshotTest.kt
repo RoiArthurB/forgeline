@@ -17,6 +17,19 @@ import fr.arthurbrugiere.forgeline.signin.SignInStep
 import fr.arthurbrugiere.forgeline.signin.SignInUiState
 import fr.arthurbrugiere.forgeline.you.YouScreen
 import fr.arthurbrugiere.forgeline.repo.Loadable
+import fr.arthurbrugiere.forgeline.issue.IssueScreen
+import fr.arthurbrugiere.forgeline.issue.IssueUiState
+import fr.arthurbrugiere.forgeline.user.UserScreen
+import fr.arthurbrugiere.forgeline.user.UserUiState
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.Reaction
+import fr.arthurbrugiere.forgeline.core.model.RepoSummary
+import fr.arthurbrugiere.forgeline.core.model.StateChange
+import fr.arthurbrugiere.forgeline.core.model.TimelineItem
+import fr.arthurbrugiere.forgeline.core.testing.comment
+import fr.arthurbrugiere.forgeline.core.testing.issueDetails
+import fr.arthurbrugiere.forgeline.core.testing.userProfile
 import fr.arthurbrugiere.forgeline.file.CODE_HIGHLIGHTED_TAG
 import fr.arthurbrugiere.forgeline.file.FileContent
 import fr.arthurbrugiere.forgeline.file.FileScreen
@@ -181,11 +194,44 @@ class ScreenshotTest {
         )
     }
 
+    @Test
+    fun issue_light() = snapshot("issue_light", darkTheme = false, awaitText = "Same here on 2026.9") {
+        val ref = IssueRef(RepoId("paperclipai", "paperclip"), 14127)
+        val at = java.time.Instant.parse("2026-09-26T08:00:00Z")
+        IssueScreen(
+            state = IssueUiState(
+                ref = ref,
+                issue = issueDetails(ref, "Heartbeat recovery escalates too early")
+                    .copy(labels = listOf(Label("bug", "d73a4a")), reactions = mapOf(Reaction.THUMBS_UP to 4)),
+                items = listOf(
+                    comment(1, "Same here on 2026.9, it happens after every restart.", login = "hubot"),
+                    TimelineItem.StateChanged(StateChange.CLOSED, ForgeUser("maintainer", null, null), "completed", at),
+                ),
+            ),
+            onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenUser = {}, onOpenInBrowser = {},
+            onLinkClick = {}, onErrorShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
+    fun user_dark() = snapshot("user_dark", darkTheme = true) {
+        UserScreen(
+            state = UserUiState(
+                login = "octocat",
+                profile = userProfile("octocat", name = "The Octocat").copy(location = "San Francisco", website = "https://github.blog"),
+                repos = Loadable.Loaded(listOf(RepoSummary(RepoId("octocat", "Hello-World"), "My first repository on GitHub!", "Kotlin", 2_500, 10, false, null))),
+                following = false,
+            ),
+            signedIn = true, onBack = {}, onSelectTab = {}, onRetry = {}, onToggleFollow = {}, onSignIn = {}, onOpenRepo = {},
+            onOpenUrl = {}, onFollowFailureShown = {},
+        )
+    }
+
     @Composable
     private fun RepoPreview(state: RepoUiState) {
         RepoScreen(
             state = state, signedIn = true, onBack = {}, onRefresh = {}, onSelectTab = {}, onRetryTab = {}, onToggleStar = {},
-            onOpenDirectory = {}, onOpenParentDirectory = {}, onOpenFile = {}, onLinkClick = {}, onOpenInBrowser = {},
+            onOpenDirectory = {}, onOpenParentDirectory = {}, onOpenFile = {}, onOpenIssue = {}, onOpenUser = {}, onLinkClick = {}, onOpenInBrowser = {},
             onErrorShown = {}, onStarFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
         )
     }

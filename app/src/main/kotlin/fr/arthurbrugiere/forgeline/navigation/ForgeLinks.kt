@@ -18,7 +18,12 @@ object ForgeLinks {
         val uri = runCatching { URI(url) }.getOrNull() ?: return null
         if (uri.scheme !in setOf("http", "https") || uri.host?.lowercase() !in gitHubHosts) return null
         val segments = uri.path.orEmpty().split('/').filter { it.isNotEmpty() }
-        if (segments.size < 2 || segments[0].lowercase() in reserved) return null
-        return RepoRoute(segments[0], segments[1].removeSuffix(".git"))
+        if (segments.isEmpty() || segments[0].lowercase() in reserved) return null
+        if (segments.size == 1) return UserRoute(segments[0])
+        val owner = segments[0]
+        val name = segments[1].removeSuffix(".git")
+        val number = segments.getOrNull(3)?.toIntOrNull()
+        if (number != null && segments[2] in setOf("issues", "pull", "pulls")) return IssueRoute(owner, name, number)
+        return RepoRoute(owner, name)
     }
 }

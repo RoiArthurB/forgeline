@@ -55,6 +55,9 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.navigation.FileRoute
 import fr.arthurbrugiere.forgeline.navigation.ForgeLinks
 import fr.arthurbrugiere.forgeline.navigation.RepoRoute
+import fr.arthurbrugiere.forgeline.navigation.IssueRoute
+import fr.arthurbrugiere.forgeline.navigation.UserRoute
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import fr.arthurbrugiere.forgeline.ui.EmptyState
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
@@ -67,7 +70,13 @@ const val CODE_HIGHLIGHTED_TAG = "code-highlighted"
 const val CODE_PLAIN_TAG = "code-plain"
 
 @Composable
-fun FileRoute(route: FileRoute, onBack: () -> Unit, onOpenRepo: (RepoId) -> Unit) {
+fun FileRoute(
+    route: FileRoute,
+    onBack: () -> Unit,
+    onOpenRepo: (RepoId) -> Unit,
+    onOpenIssue: (IssueRef) -> Unit,
+    onOpenUser: (String) -> Unit,
+) {
     val target = FileTarget(RepoId(route.owner, route.name), route.path, route.ref)
     val viewModel = hiltViewModel<FileViewModel, FileViewModel.Factory>(
         key = "${target.id.fullName}@${target.ref}:${target.path}",
@@ -84,6 +93,8 @@ fun FileRoute(route: FileRoute, onBack: () -> Unit, onOpenRepo: (RepoId) -> Unit
         onLinkClick = { url ->
             when (val destination = ForgeLinks.routeFor(url)) {
                 is RepoRoute -> onOpenRepo(RepoId(destination.owner, destination.name))
+                is IssueRoute -> onOpenIssue(IssueRef(RepoId(destination.owner, destination.name), destination.number))
+                is UserRoute -> onOpenUser(destination.login)
                 else -> if (!url.startsWith("#")) openUrl(url)
             }
         },

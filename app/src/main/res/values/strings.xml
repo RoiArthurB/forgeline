@@ -88,7 +88,6 @@
     <string name="repo_draft">Draft</string>
     <string name="repo_prerelease">Pre-release</string>
     <string name="repo_run_meta">%1$s · %2$s · #%3$d</string>
-    <string name="repo_comments">%1$d comments</string>
 
     <string name="file_too_large_title">Too large to preview</string>
     <string name="file_too_large_body">Open it on GitHub to see it.</string>
@@ -96,6 +95,42 @@
     <string name="file_binary_body">This file can\'t be shown as text.</string>
     <string name="file_error_title">Couldn\'t open this file</string>
     <string name="file_copy">Copy file</string>
+
+    <string name="issue_state_open">Open</string>
+    <string name="issue_state_closed">Closed</string>
+    <string name="issue_state_merged">Merged</string>
+    <string name="issue_state_draft">Draft</string>
+    <string name="issue_opened_by">%1$s opened this %2$s</string>
+    <string name="issue_pr_branches">%1$s ← %2$s</string>
+    <string name="issue_pr_stats">+%1$d −%2$d · %3$s · %4$s</string>
+    <string name="issue_no_description">No description provided.</string>
+    <string name="issue_closed_event">%1$s closed this %2$s</string>
+    <string name="issue_closed_completed_event">%1$s closed this as completed %2$s</string>
+    <string name="issue_closed_not_planned_event">%1$s closed this as not planned %2$s</string>
+    <string name="issue_reopened_event">%1$s reopened this %2$s</string>
+    <string name="issue_merged_event">%1$s merged this %2$s</string>
+    <string name="issue_labeled_event">%1$s added</string>
+    <string name="issue_unlabeled_event">%1$s removed</string>
+    <string name="issue_renamed_event">%1$s changed the title from “%2$s” to “%3$s”</string>
+    <string name="issue_referenced_event">%1$s mentioned this in #%2$d %3$s</string>
+    <string name="issue_review_approved">%1$s approved these changes</string>
+    <string name="issue_review_changes">%1$s requested changes</string>
+    <string name="issue_review_commented">%1$s reviewed</string>
+    <string name="issue_review_dismissed">%1$s\'s review was dismissed</string>
+    <string name="issue_load_more">Load more</string>
+    <string name="issue_error_title">Couldn\'t open this conversation</string>
+    <string name="issue_open_on_forge">Open on GitHub</string>
+
+    <string name="user_follow">Follow</string>
+    <string name="user_following">Following</string>
+    <string name="user_followers">%1$s followers · %2$s following</string>
+    <string name="user_tab_repos">Repositories</string>
+    <string name="user_tab_starred">Starred</string>
+    <string name="user_no_repos">No public repositories.</string>
+    <string name="user_no_starred">No starred repositories.</string>
+    <string name="user_error_title">Couldn\'t open this profile</string>
+    <string name="user_follow_failed">Couldn\'t update following. Try again.</string>
+    <string name="user_organization">Organization</string>
 
     <string name="settings_title">Settings</string>
     <string name="settings_section_account">Account</string>
@@ -121,4 +156,17 @@
     <string name="credits_app_license">Forgeline is free software, licensed under the GNU General Public License v3.0.</string>
     <string name="credits_read_license">Read the license</string>
     <string name="credits_libraries_intro">Built with these open source libraries</string>
+
+    <plurals name="issue_pr_files">
+        <item quantity="one">%d file</item>
+        <item quantity="other">%d files</item>
+    </plurals>
+    <plurals name="issue_pr_commits">
+        <item quantity="one">%d commit</item>
+        <item quantity="other">%d commits</item>
+    </plurals>
+    <plurals name="repo_comments">
+        <item quantity="one">%d comment</item>
+        <item quantity="other">%d comments</item>
+    </plurals>
 </resources>

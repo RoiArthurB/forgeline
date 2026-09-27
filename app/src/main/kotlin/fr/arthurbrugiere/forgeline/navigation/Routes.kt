@@ -29,3 +29,9 @@ data class RepoRoute(val owner: String, val name: String) : NavKey
 
 @Serializable
 data class FileRoute(val owner: String, val name: String, val path: String, val ref: String) : NavKey
+
+@Serializable
+data class IssueRoute(val owner: String, val name: String, val number: Int) : NavKey
+
+@Serializable
+data class UserRoute(val login: String) : NavKey

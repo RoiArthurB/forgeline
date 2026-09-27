@@ -51,6 +51,8 @@ class RepoScreenTest {
                 onOpenDirectory = { events += "dir:$it" },
                 onOpenParentDirectory = { events += "up" },
                 onOpenFile = { events += "file:${it.path}" },
+                onOpenIssue = { events += "issue:$it" },
+                onOpenUser = { events += "user:$it" },
                 onLinkClick = { events += "link:$it" },
                 onOpenInBrowser = { events += "browser:$it" },
                 onErrorShown = {},
@@ -103,6 +105,16 @@ class RepoScreenTest {
         composeRule.onNodeWithText("Heartbeat recovery escalates").assertIsDisplayed()
         composeRule.onNodeWithText("bug").assertIsDisplayed()
         composeRule.onNodeWithText("#14127 opened", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun issues_and_the_owner_open_their_screens() {
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = Loadable.Loaded(listOf(issueSummary(14127, "Heartbeat recovery escalates")))))
+
+        composeRule.onNodeWithText("Heartbeat recovery escalates").performClick()
+        composeRule.onNodeWithText("octo").performClick()
+
+        assertThat(events).containsExactly("issue:14127", "user:octo").inOrder()
     }
 
     @Test

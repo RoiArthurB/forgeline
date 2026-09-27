@@ -18,8 +18,22 @@ class ForgeLinksTest {
     fun deeper_repository_pages_open_the_repo_for_now() {
         assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/blob/master/README.md"))
             .isEqualTo(RepoRoute("square", "okhttp"))
-        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/issues/42?x=1"))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/issues"))
             .isEqualTo(RepoRoute("square", "okhttp"))
+    }
+
+    @Test
+    fun issue_and_pull_request_urls_open_the_conversation() {
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/issues/42?x=1")).isEqualTo(IssueRoute("square", "okhttp", 42))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/pull/7")).isEqualTo(IssueRoute("square", "okhttp", 7))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/pull/7/files")).isEqualTo(IssueRoute("square", "okhttp", 7))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/issues/42#issuecomment-1")).isEqualTo(IssueRoute("square", "okhttp", 42))
+    }
+
+    @Test
+    fun profile_urls_open_the_user() {
+        assertThat(ForgeLinks.routeFor("https://github.com/octocat")).isEqualTo(UserRoute("octocat"))
+        assertThat(ForgeLinks.routeFor("https://github.com/octocat/")).isEqualTo(UserRoute("octocat"))
     }
 
     @Test
@@ -35,7 +49,6 @@ class ForgeLinksTest {
             "https://github.com/marketplace/actions/checkout",
             "https://github.com/topics/android",
             "https://github.com/user-attachments/assets/abc",
-            "https://github.com/octocat",
             "https://github.com",
         )) {
             assertThat(ForgeLinks.routeFor(url)).isNull()

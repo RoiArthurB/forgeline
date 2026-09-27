@@ -112,6 +112,23 @@ class AppShellTest {
     }
 
     @Test
+    fun an_issue_opens_from_the_repo_with_its_conversation() {
+        tab("Trending").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclipai / paperclip")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("paperclipai / paperclip").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Issues")).fetchSemanticsNodes().isNotEmpty() }
+
+        composeRule.onNodeWithText("Issues").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Heartbeat recovery escalates too early")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("Heartbeat recovery escalates too early").performClick()
+
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasText("I can reproduce this on every restart.", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("#14127").assertIsDisplayed()
+    }
+
+    @Test
     fun system_back_from_a_tab_returns_to_the_inbox() {
         tab("Trending").performClick()
         composeRule.waitForIdle()
