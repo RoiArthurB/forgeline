@@ -27,6 +27,11 @@
     <string name="inbox_mark_done">Done</string>
     <string name="inbox_unsubscribe">Unsubscribe</string>
     <string name="inbox_more">More actions</string>
+    <string name="channel_direct">Mentions, reviews and assignments</string>
+    <string name="channel_participating">Conversations you take part in</string>
+    <string name="channel_watching">Watched repositories</string>
+    <string name="channel_ci">CI activity</string>
+    <string name="channel_security">Security alerts</string>
     <string name="reason_mention">Mentioned</string>
     <string name="reason_team_mention">Team mentioned</string>
     <string name="reason_review_requested">Review requested</string>

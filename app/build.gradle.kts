@@ -58,6 +58,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.ktor3)
     implementation(libs.androidx.browser)
+    implementation(libs.androidx.work.runtime)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
@@ -76,6 +77,7 @@ dependencies {
 
     testImplementation(projects.core.testing)
     testImplementation(libs.hilt.android.testing)
+    testImplementation(libs.androidx.work.testing)
     kspTest(libs.hilt.compiler)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.compose.ui.test.junit4)
