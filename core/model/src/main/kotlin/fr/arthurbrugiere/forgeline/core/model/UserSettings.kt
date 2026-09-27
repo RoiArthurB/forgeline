@@ -10,4 +10,5 @@ data class UserSettings(
     val dynamicColor: Boolean = true,
     val amoledBlack: Boolean = false,
     val inboxCheckInterval: InboxCheckInterval = InboxCheckInterval.HOUR_1,
+    val feedKinds: Set<FeedKind> = FeedKind.defaults,
 )

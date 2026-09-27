@@ -5,8 +5,10 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
@@ -66,5 +68,28 @@ class DataStoreUserSettingsRepositoryTest {
             repository.setAmoledBlack(true)
             assertThat(awaitItem().amoledBlack).isTrue()
         }
+    }
+
+    @Test
+    fun feed_kinds_start_from_the_curated_defaults() = runTest {
+        val repository = DataStoreUserSettingsRepository(dataStore())
+
+        repository.setFeedKindShown(FeedKind.STARS, false)
+        repository.setFeedKindShown(FeedKind.PUSHES, true)
+
+        assertThat(repository.settings.first().feedKinds).isEqualTo(FeedKind.defaults - FeedKind.STARS + FeedKind.PUSHES)
+    }
+
+    @Test
+    fun feed_choices_are_stored_as_differences_so_new_kinds_get_their_default() = runTest {
+        val store = dataStore()
+        store.edit {
+            it[stringSetPreferencesKey("feed_kinds_hidden")] = setOf("STARS", "SOME_FUTURE_KIND")
+            it[stringSetPreferencesKey("feed_kinds_shown")] = setOf("COMMENTS")
+        }
+
+        val kinds = DataStoreUserSettingsRepository(store).settings.first().feedKinds
+
+        assertThat(kinds).isEqualTo(FeedKind.defaults - FeedKind.STARS + FeedKind.COMMENTS)
     }
 }

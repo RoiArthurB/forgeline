@@ -15,6 +15,7 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
+import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
@@ -42,6 +43,7 @@ class SettingsScreenTest {
 
     private var signedOut = false
     private var interval: InboxCheckInterval? = null
+    private val feedChanges = mutableListOf<Pair<FeedKind, Boolean>>()
 
     private fun setContent(settings: UserSettings = UserSettings(), session: SessionState = SessionState.SignedOut) {
         composeRule.setContent {
@@ -56,6 +58,7 @@ class SettingsScreenTest {
                 onAmoledBlackChange = { amoledBlack = it },
                 onOpenCredits = { creditsOpened = true },
                 onInboxCheckIntervalChange = { interval = it },
+                onFeedKindChange = { kind, shown -> feedChanges += kind to shown },
                 onOpenSourceCode = { sourceCodeOpened = true },
                 onBack = { backPressed = true },
             )
@@ -138,6 +141,20 @@ class SettingsScreenTest {
         composeRule.onNodeWithText("Every 15 minutes").performClick()
 
         assertThat(interval).isEqualTo(InboxCheckInterval.MIN_15)
+    }
+
+    @Test
+    fun feed_activity_kinds_are_toggled_from_a_checklist() {
+        setContent()
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Feed activity"))
+        composeRule.onNodeWithText("8 of 13 kinds of activity shown").performClick()
+        composeRule.onNodeWithText("Stars").assertIsOn()
+        composeRule.onNodeWithText("Pushes").assertIsOff()
+        composeRule.onNodeWithText("Stars").performClick()
+        composeRule.onNodeWithText("Pushes").performClick()
+
+        assertThat(feedChanges).containsExactly(FeedKind.STARS to false, FeedKind.PUSHES to true).inOrder()
     }
 
     @Test

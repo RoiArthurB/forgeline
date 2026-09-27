@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.settings
 
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
@@ -35,8 +36,13 @@ class SettingsViewModelTest {
         viewModel.setDynamicColor(false)
         viewModel.setAmoledBlack(true)
         viewModel.setInboxCheckInterval(InboxCheckInterval.OFF)
+        viewModel.setFeedKindShown(FeedKind.STARS, false)
 
-        assertThat(repository.settings.first())
-            .isEqualTo(UserSettings(themeMode = ThemeMode.DARK, dynamicColor = false, amoledBlack = true, inboxCheckInterval = InboxCheckInterval.OFF))
+        assertThat(repository.settings.first()).isEqualTo(
+            UserSettings(
+                themeMode = ThemeMode.DARK, dynamicColor = false, amoledBlack = true, inboxCheckInterval = InboxCheckInterval.OFF,
+                feedKinds = FeedKind.defaults - FeedKind.STARS,
+            ),
+        )
     }
 }

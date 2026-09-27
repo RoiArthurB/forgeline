@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
+import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
@@ -34,5 +35,9 @@ class SettingsViewModel @Inject constructor(
 
     fun setInboxCheckInterval(interval: InboxCheckInterval) {
         viewModelScope.launch { repository.setInboxCheckInterval(interval) }
+    }
+
+    fun setFeedKindShown(kind: FeedKind, shown: Boolean) {
+        viewModelScope.launch { repository.setFeedKindShown(kind, shown) }
     }
 }

@@ -5,7 +5,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import fr.arthurbrugiere.forgeline.core.data.di.SettingsDataStore
+import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
@@ -30,6 +32,13 @@ class DataStoreUserSettingsRepository @Inject constructor(
                 inboxCheckInterval = prefs[INBOX_CHECK]
                     ?.let { stored -> InboxCheckInterval.entries.firstOrNull { it.name == stored } }
                     ?: defaults.inboxCheckInterval,
+                feedKinds = FeedKind.entries.filterTo(mutableSetOf()) { kind ->
+                    when (kind.name) {
+                        in prefs[FEED_SHOWN].orEmpty() -> true
+                        in prefs[FEED_HIDDEN].orEmpty() -> false
+                        else -> kind.shownByDefault
+                    }
+                },
             )
         }
         .distinctUntilChanged()
@@ -50,10 +59,20 @@ class DataStoreUserSettingsRepository @Inject constructor(
         dataStore.edit { it[INBOX_CHECK] = interval.name }
     }
 
+    // Stored as differences from the defaults, so kinds added later still get their own default.
+    override suspend fun setFeedKindShown(kind: FeedKind, shown: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[FEED_SHOWN] = prefs[FEED_SHOWN].orEmpty() - kind.name + listOfNotNull(kind.name.takeIf { shown && !kind.shownByDefault })
+            prefs[FEED_HIDDEN] = prefs[FEED_HIDDEN].orEmpty() - kind.name + listOfNotNull(kind.name.takeIf { !shown && kind.shownByDefault })
+        }
+    }
+
     private companion object {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val AMOLED_BLACK = booleanPreferencesKey("amoled_black")
         val INBOX_CHECK = stringPreferencesKey("inbox_check_interval")
+        val FEED_SHOWN = stringSetPreferencesKey("feed_kinds_shown")
+        val FEED_HIDDEN = stringSetPreferencesKey("feed_kinds_hidden")
     }
 }

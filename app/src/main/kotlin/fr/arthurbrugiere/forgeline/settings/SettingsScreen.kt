@@ -44,6 +44,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.BuildConfig
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
+import fr.arthurbrugiere.forgeline.core.model.FeedKind
+import androidx.compose.material3.Checkbox
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import fr.arthurbrugiere.forgeline.session.SessionState
@@ -72,6 +76,7 @@ fun SettingsRoute(
         onDynamicColorChange = viewModel::setDynamicColor,
         onAmoledBlackChange = viewModel::setAmoledBlack,
         onInboxCheckIntervalChange = viewModel::setInboxCheckInterval,
+        onFeedKindChange = viewModel::setFeedKindShown,
         onOpenCredits = onOpenCredits,
         onOpenSourceCode = { uriHandler.openUri(SOURCE_CODE_URL) },
         onBack = onBack,
@@ -94,6 +99,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     onInboxCheckIntervalChange: (InboxCheckInterval) -> Unit = {},
+    onFeedKindChange: (FeedKind, Boolean) -> Unit = { _, _ -> },
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -146,6 +152,8 @@ fun SettingsScreen(
             }
             item { SectionHeader(stringResource(R.string.settings_section_notifications)) }
             item { InboxCheckItem(settings.inboxCheckInterval, onInboxCheckIntervalChange) }
+            item { SectionHeader(stringResource(R.string.settings_section_feed)) }
+            item { FeedKindsItem(settings.feedKinds, onFeedKindChange) }
             item { SectionHeader(stringResource(R.string.settings_section_about)) }
             item {
                 ListItem(
@@ -248,6 +256,59 @@ private fun InboxCheckItem(current: InboxCheckInterval, onChange: (InboxCheckInt
         )
     }
 }
+
+@Composable
+private fun FeedKindsItem(shown: Set<FeedKind>, onChange: (FeedKind, Boolean) -> Unit) {
+    var choosing by rememberSaveable { mutableStateOf(false) }
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.settings_feed_kinds)) },
+        supportingContent = { Text(stringResource(R.string.settings_feed_kinds_summary, shown.size, FeedKind.entries.size)) },
+        modifier = Modifier.clickable { choosing = true },
+    )
+    if (choosing) {
+        AlertDialog(
+            onDismissRequest = { choosing = false },
+            title = { Text(stringResource(R.string.settings_feed_kinds)) },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    FeedKind.entries.forEach { kind ->
+                        val checked = kind in shown
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .toggleable(value = checked, role = Role.Checkbox) { onChange(kind, it) }
+                                .padding(vertical = 8.dp),
+                        ) {
+                            Checkbox(checked = checked, onCheckedChange = null)
+                            Text(stringResource(kind.label), modifier = Modifier.padding(start = 16.dp))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { choosing = false }) { Text(stringResource(R.string.done)) }
+            },
+        )
+    }
+}
+
+private val FeedKind.label: Int
+    get() = when (this) {
+        FeedKind.STARS -> R.string.feed_kind_stars
+        FeedKind.FORKS -> R.string.feed_kind_forks
+        FeedKind.NEW_REPOS -> R.string.feed_kind_new_repos
+        FeedKind.RELEASES -> R.string.feed_kind_releases
+        FeedKind.ISSUES_OPENED -> R.string.feed_kind_issues_opened
+        FeedKind.ISSUES_CLOSED -> R.string.feed_kind_issues_closed
+        FeedKind.PRS_OPENED -> R.string.feed_kind_prs_opened
+        FeedKind.PRS_CLOSED -> R.string.feed_kind_prs_closed
+        FeedKind.COMMENTS -> R.string.feed_kind_comments
+        FeedKind.REVIEWS -> R.string.feed_kind_reviews
+        FeedKind.PUSHES -> R.string.feed_kind_pushes
+        FeedKind.BRANCHES -> R.string.feed_kind_branches
+        FeedKind.MEMBERS -> R.string.feed_kind_members
+    }
 
 private val InboxCheckInterval.label: Int
     get() = when (this) {

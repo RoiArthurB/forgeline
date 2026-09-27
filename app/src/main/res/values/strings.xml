@@ -10,6 +10,7 @@
     <string name="sign_in">Sign in</string>
     <string name="sign_out">Sign out</string>
     <string name="cancel">Cancel</string>
+    <string name="done">Done</string>
 
     <string name="inbox_signed_out_title">Your inbox lives on GitHub</string>
     <string name="inbox_signed_out_body">Sign in to triage your notifications here.</string>
@@ -188,6 +189,22 @@
     <string name="interval_1h">Every hour</string>
     <string name="interval_3h">Every 3 hours</string>
     <string name="interval_6h">Every 6 hours</string>
+    <string name="settings_section_feed">Feed</string>
+    <string name="settings_feed_kinds">Feed activity</string>
+    <string name="settings_feed_kinds_summary">%1$d of %2$d kinds of activity shown</string>
+    <string name="feed_kind_stars">Stars</string>
+    <string name="feed_kind_forks">Forks</string>
+    <string name="feed_kind_new_repos">New repositories</string>
+    <string name="feed_kind_releases">Releases</string>
+    <string name="feed_kind_issues_opened">Issues opened</string>
+    <string name="feed_kind_issues_closed">Issues closed</string>
+    <string name="feed_kind_prs_opened">Pull requests opened</string>
+    <string name="feed_kind_prs_closed">Pull requests merged or closed</string>
+    <string name="feed_kind_comments">Comments</string>
+    <string name="feed_kind_reviews">Reviews</string>
+    <string name="feed_kind_pushes">Pushes</string>
+    <string name="feed_kind_branches">Branches and tags</string>
+    <string name="feed_kind_members">New collaborators</string>
     <string name="settings_section_about">About</string>
     <string name="settings_credits">Credits and licenses</string>
     <string name="settings_credits_summary">The open source libraries Forgeline is built on</string>
