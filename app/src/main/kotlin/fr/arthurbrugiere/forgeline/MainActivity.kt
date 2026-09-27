@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.navigation3.runtime.NavKey
 import fr.arthurbrugiere.forgeline.navigation.ForgeLinks
+import fr.arthurbrugiere.forgeline.ui.openInCustomTab
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
@@ -70,6 +71,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openLink(intent: Intent) {
-        link = intent.dataString?.let(ForgeLinks::routeFor) ?: return
+        val url = intent.dataString ?: return
+        val route = ForgeLinks.routeFor(url)
+        // A github.com page Forgeline can't show (settings, orgs...): hand it to the browser.
+        if (route == null) openInCustomTab(this, url) else link = route
     }
 }

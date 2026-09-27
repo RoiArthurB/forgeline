@@ -193,6 +193,7 @@
     <string name="user_follow_failed">Couldn\'t update following. Try again.</string>
     <string name="user_organization">Organization</string>
 
+    <string name="no_browser">No browser available to open this page</string>
     <string name="search">Search</string>
     <string name="search_hint">Search GitHub</string>
     <string name="search_clear">Clear</string>
