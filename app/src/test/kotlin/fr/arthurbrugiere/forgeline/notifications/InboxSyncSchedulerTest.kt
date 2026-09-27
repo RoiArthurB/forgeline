@@ -44,7 +44,7 @@ class InboxSyncSchedulerTest {
 
     // runCurrent, not advanceUntilIdle: the latter skips work that only backgroundScope has left.
     private fun test(block: suspend TestScope.() -> Unit) = runTest(StandardTestDispatcher()) {
-        InboxSyncScheduler(workManager, settings, accounts).start(backgroundScope)
+        InboxSyncScheduler({ workManager }, settings, accounts).start(backgroundScope)
         block()
     }
 
@@ -87,5 +87,17 @@ class InboxSyncSchedulerTest {
         accounts.signOut("github:github.com:me")
         runCurrent()
         assertThat(work()).isEmpty()
+    }
+
+    @Test
+    fun starting_leaves_work_manager_alone_until_the_background_collector_runs() = runTest(StandardTestDispatcher()) {
+        // The app starts the scheduler from Application.onCreate: WorkManager (and its database)
+        // must initialize on the background dispatcher, never on the main thread during launch.
+        var resolved = false
+        InboxSyncScheduler({ resolved = true; workManager }, settings, accounts).start(backgroundScope)
+        assertThat(resolved).isFalse()
+
+        runCurrent()
+        assertThat(resolved).isTrue()
     }
 }
