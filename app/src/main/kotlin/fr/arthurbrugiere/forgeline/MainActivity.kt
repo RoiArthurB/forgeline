@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -10,6 +11,10 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.navigation3.runtime.NavKey
+import fr.arthurbrugiere.forgeline.navigation.ForgeLinks
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
@@ -23,11 +28,14 @@ import fr.arthurbrugiere.forgeline.ui.ForgelineApp
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
     private val sessionViewModel: SessionViewModel by viewModels()
+    private var link by mutableStateOf<NavKey?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
         splashScreen.setKeepOnScreenCondition { viewModel.uiState.value is MainUiState.Loading }
+        // A restored activity already shows the link it was opened with.
+        if (savedInstanceState == null) openLink(intent)
 
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -46,8 +54,22 @@ class MainActivity : ComponentActivity() {
                 amoledBlack = settings.amoledBlack,
             ) {
                 val session by sessionViewModel.session.collectAsStateWithLifecycle()
-                ForgelineApp(session = session, onSignOut = sessionViewModel::signOut)
+                ForgelineApp(
+                    session = session,
+                    onSignOut = sessionViewModel::signOut,
+                    link = link,
+                    onLinkOpened = { link = null },
+                )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        openLink(intent)
+    }
+
+    private fun openLink(intent: Intent) {
+        link = intent.dataString?.let(ForgeLinks::routeFor) ?: return
     }
 }

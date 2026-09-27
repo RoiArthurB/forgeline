@@ -4,6 +4,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
@@ -46,8 +47,16 @@ import fr.arthurbrugiere.forgeline.you.YouScreen
 fun ForgelineApp(
     session: SessionState,
     onSignOut: () -> Unit,
+    link: NavKey? = null,
+    onLinkOpened: () -> Unit = {},
     navigator: AppNavigator = rememberAppNavigator(),
 ) {
+    LaunchedEffect(link) {
+        if (link != null) {
+            navigator.openLink(link)
+            onLinkOpened()
+        }
+    }
     NavigationSuiteScaffold(
         navigationSuiteItems = {
             TopLevelDestination.entries.forEach { destination ->

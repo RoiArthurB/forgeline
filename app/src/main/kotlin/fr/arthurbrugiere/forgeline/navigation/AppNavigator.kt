@@ -38,6 +38,12 @@ class AppNavigator(
         stacks.getValue(currentTab).add(key)
     }
 
+    /** Opens an external link (a tapped notification) on top of the start tab. */
+    fun openLink(key: NavKey) {
+        currentTabState.value = START_TAB
+        navigate(key)
+    }
+
     fun goBack() {
         val stack = stacks.getValue(currentTab)
         when {

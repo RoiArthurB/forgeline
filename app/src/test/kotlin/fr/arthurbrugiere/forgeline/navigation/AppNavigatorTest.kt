@@ -87,4 +87,18 @@ class AppNavigatorTest {
 
         assertThat(navigator.backStackOf(TopLevelDestination.YOU)).containsExactly(YouRoute)
     }
+
+    @Test
+    fun an_opened_link_lands_on_the_inbox_so_back_returns_to_it() {
+        val navigator = navigator()
+        navigator.selectTab(TopLevelDestination.TRENDING)
+        val issue = IssueRoute("acme", "rocket", 42)
+
+        navigator.openLink(issue)
+
+        assertThat(navigator.currentTab).isEqualTo(TopLevelDestination.INBOX)
+        assertThat(navigator.backStackOf(TopLevelDestination.INBOX)).containsExactly(InboxRoute, issue).inOrder()
+        navigator.goBack()
+        assertThat(navigator.backStackOf(TopLevelDestination.INBOX)).containsExactly(InboxRoute)
+    }
 }
