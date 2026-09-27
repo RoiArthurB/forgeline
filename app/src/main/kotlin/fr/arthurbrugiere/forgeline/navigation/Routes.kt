@@ -35,3 +35,6 @@ data class IssueRoute(val owner: String, val name: String, val number: Int) : Na
 
 @Serializable
 data class UserRoute(val login: String) : NavKey
+
+@Serializable
+data object SearchRoute : NavKey

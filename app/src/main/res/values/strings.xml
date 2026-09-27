@@ -193,6 +193,18 @@
     <string name="user_follow_failed">Couldn\'t update following. Try again.</string>
     <string name="user_organization">Organization</string>
 
+    <string name="search">Search</string>
+    <string name="search_hint">Search GitHub</string>
+    <string name="search_clear">Clear</string>
+    <string name="search_scope_repositories">Repositories</string>
+    <string name="search_scope_issues">Issues &amp; PRs</string>
+    <string name="search_scope_users">People</string>
+    <string name="search_intro_title">Find anything on GitHub</string>
+    <string name="search_intro_body">Find repositories, issues, pull requests and people. GitHub\'s search syntax works too, like language:kotlin or is:open.</string>
+    <string name="search_empty_title">No results</string>
+    <string name="search_empty_body">Nothing matches \u201c%1$s\u201d here. Try another tab or fewer words.</string>
+    <string name="search_error_title">Search failed</string>
+    <string name="search_organization">Organization</string>
     <string name="settings_title">Settings</string>
     <string name="settings_section_account">Account</string>
     <string name="settings_signed_out_summary">Connect your GitHub account</string>
@@ -253,6 +265,10 @@
     <plurals name="issue_pr_commits">
         <item quantity="one">%d commit</item>
         <item quantity="other">%d commits</item>
+    </plurals>
+    <plurals name="search_results">
+        <item quantity="one">%1$s result</item>
+        <item quantity="other">%1$s results</item>
     </plurals>
     <plurals name="repo_comments">
         <item quantity="one">%d comment</item>

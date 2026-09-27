@@ -1,6 +1,8 @@
 package fr.arthurbrugiere.forgeline.screenshots
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -25,6 +27,12 @@ import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.IssueAction
 import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
 import fr.arthurbrugiere.forgeline.core.testing.feedEvent
+import fr.arthurbrugiere.forgeline.search.SearchScreen
+import fr.arthurbrugiere.forgeline.search.SearchUiState
+import fr.arthurbrugiere.forgeline.search.ScopeResults
+import fr.arthurbrugiere.forgeline.search.SearchResult
+import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
+import fr.arthurbrugiere.forgeline.core.model.SearchScope
 import fr.arthurbrugiere.forgeline.inbox.InboxScreen
 import fr.arthurbrugiere.forgeline.inbox.InboxUiState
 import fr.arthurbrugiere.forgeline.inbox.NotificationPrompt
@@ -89,8 +97,11 @@ class ScreenshotTest {
         content: @Composable () -> Unit,
     ) {
         composeRule.setContent {
-            // Ember palette keeps screenshots independent of the emulated wallpaper.
-            ForgelineTheme(darkTheme = darkTheme, dynamicColor = false, amoledBlack = amoledBlack, content = content)
+            // Ember palette keeps screenshots independent of the emulated wallpaper. Top-level screens
+            // get their search action as they do inside the app shell.
+            CompositionLocalProvider(LocalOpenSearch provides {}) {
+                ForgelineTheme(darkTheme = darkTheme, dynamicColor = false, amoledBlack = amoledBlack, content = content)
+            }
         }
         // Content parsed off the main thread (READMEs) must be on screen before capturing.
         awaitText?.let { text ->
@@ -311,6 +322,28 @@ class ScreenshotTest {
         FeedScreen(
             state = FeedUiState(items = feedItems(events, FeedKind.defaults), syncedAtMillis = 1),
             onRefresh = {}, onLoadMore = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = {}, onErrorShown = {},
+            nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
+    fun search_issues_dark() = snapshot("search_issues_dark", darkTheme = true) {
+        SearchScreen(
+            state = SearchUiState(
+                query = "heartbeat",
+                scope = SearchScope.ISSUES,
+                results = ScopeResults(
+                    query = "heartbeat",
+                    items = listOf(
+                        SearchResult.Issue(IssueSearchResult(RepoId("paperclipai", "paperclip"), issueSummary(12299, "Cancellation can overwrite a concurrently finalized heartbeat run"))),
+                        SearchResult.Issue(IssueSearchResult(RepoId("paperclipai", "paperclip"), issueSummary(13973, "fix(heartbeat): claim task ownership with queued runs", isPullRequest = true))),
+                        SearchResult.Issue(IssueSearchResult(RepoId("acme", "rocket"), issueSummary(42, "Heartbeat timer drifts after sleep"))),
+                    ),
+                    totalCount = 5_322,
+                ),
+            ),
+            onQueryChange = {}, onSubmit = {}, onSelectScope = {}, onLoadMore = {}, onRetry = {},
+            onOpenRepo = {}, onOpenIssue = {}, onOpenUser = {}, onBack = {},
             nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
         )
     }

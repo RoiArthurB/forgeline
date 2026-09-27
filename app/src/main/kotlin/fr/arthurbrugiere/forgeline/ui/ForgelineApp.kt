@@ -4,6 +4,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
@@ -22,6 +23,8 @@ import fr.arthurbrugiere.forgeline.navigation.CreditsRoute as CreditsKey
 import fr.arthurbrugiere.forgeline.navigation.FeedRoute
 import fr.arthurbrugiere.forgeline.navigation.InboxRoute
 import fr.arthurbrugiere.forgeline.navigation.SettingsRoute
+import fr.arthurbrugiere.forgeline.navigation.SearchRoute as SearchKey
+import fr.arthurbrugiere.forgeline.search.SearchRoute as SearchDestination
 import fr.arthurbrugiere.forgeline.navigation.RepoRoute as RepoKey
 import fr.arthurbrugiere.forgeline.navigation.FileRoute as FileKey
 import fr.arthurbrugiere.forgeline.file.FileRoute as FileDestination
@@ -72,7 +75,9 @@ fun ForgelineApp(
             }
         },
     ) {
-        ForgelineNavDisplay(navigator, session, onSignOut)
+        CompositionLocalProvider(LocalOpenSearch provides { navigator.navigate(SearchKey) }) {
+            ForgelineNavDisplay(navigator, session, onSignOut)
+        }
     }
 }
 
@@ -136,6 +141,9 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
         }
         entry<SignInKey> {
             SignInRoute(onBack = navigator::goBack, onSignedIn = navigator::goBack)
+        }
+        entry<SearchKey> {
+            SearchDestination(onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser, onBack = navigator::goBack)
         }
         entry<CreditsKey> {
             CreditsRoute(onBack = navigator::goBack)

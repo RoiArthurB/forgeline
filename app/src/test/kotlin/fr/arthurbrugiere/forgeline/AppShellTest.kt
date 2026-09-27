@@ -5,7 +5,10 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performImeAction
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -139,5 +142,25 @@ class AppShellTest {
         composeRule.waitForIdle()
         composeRule.mainClock.advanceTimeBy(1_000)
         tab("Inbox").assertIsSelected()
+    }
+
+    @Test
+    fun search_opens_from_every_tab_and_leads_to_results() {
+        for (label in listOf("Inbox", "Feed", "Trending", "You")) {
+            tab(label).performClick()
+            composeRule.onNode(hasContentDescription("Search")).assertIsDisplayed()
+        }
+
+        composeRule.onNode(hasContentDescription("Search")).performClick()
+        composeRule.onNode(hasSetTextAction()).performTextInput("paperclip")
+        composeRule.onNode(hasSetTextAction()).performImeAction()
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasText("paperclipai/paperclip")).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("paperclipai/paperclip").performClick()
+
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodes(hasText("Open-source orchestration for teams of AI agents.", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 }
