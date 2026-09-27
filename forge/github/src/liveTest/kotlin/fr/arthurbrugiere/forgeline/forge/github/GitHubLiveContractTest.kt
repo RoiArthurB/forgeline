@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.forge.github
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import io.ktor.client.engine.okhttp.OkHttp
@@ -121,5 +122,24 @@ class GitHubLiveContractTest {
         val page = (result as ForgeResult.Success).value
         assertThat(page.events).isNotEmpty()
         assertThat(page.nextPage).isEqualTo(2)
+    }
+
+    @Test
+    fun search_still_matches() = runBlocking {
+        val api = GitHubSearchApi(client)
+        val token = pat.ifBlank { null }
+
+        val repos = api.repositories(token, "repo:torvalds/linux")
+        assertWithMessage("repositories: $repos").that(repos).isInstanceOf(ForgeResult.Success::class.java)
+        assertThat((repos as ForgeResult.Success).value.items.map { it.id }).contains(RepoId("torvalds", "linux"))
+
+        // Not square/okhttp: it was renamed, and search rejects old names.
+        val issues = api.issues(token, "repo:JetBrains/kotlin is:pr is:merged")
+        assertWithMessage("issues: $issues").that(issues).isInstanceOf(ForgeResult.Success::class.java)
+        assertThat((issues as ForgeResult.Success).value.items.first().issue.state).isEqualTo(IssueState.MERGED)
+
+        val users = api.users(token, "user:github")
+        assertWithMessage("users: $users").that(users).isInstanceOf(ForgeResult.Success::class.java)
+        assertThat((users as ForgeResult.Success).value.items.single().isOrganization).isTrue()
     }
 }
