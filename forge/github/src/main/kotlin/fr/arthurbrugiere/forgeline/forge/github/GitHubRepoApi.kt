@@ -18,14 +18,8 @@ import fr.arthurbrugiere.forgeline.core.model.RunStatus
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.request.HttpRequestBuilder
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.get
-import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.appendPathSegments
-import io.ktor.http.takeFrom
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.time.Instant
@@ -94,20 +88,7 @@ class GitHubRepoApi(
     override fun blobBaseUrl(id: RepoId, ref: String): String = "https://github.com/${id.fullName}/blob/$ref/"
 
     private suspend fun get(token: String?, vararg segments: String, query: Map<String, String> = emptyMap()): HttpResponse =
-        httpClient.get {
-            url {
-                takeFrom(apiBaseUrl)
-                appendPathSegments(*segments)
-                query.forEach { (key, value) -> parameters.append(key, value) }
-            }
-            authenticate(token)
-        }
-
-    private fun HttpRequestBuilder.authenticate(token: String?) {
-        if (token != null) bearerAuth(token)
-        header("Accept", "application/vnd.github+json")
-        header("X-GitHub-Api-Version", GitHubAuthApi.API_VERSION)
-    }
+        httpClient.gitHubApi(apiBaseUrl, token, *segments, query = query)
 
     private fun String.segments(): Array<String> = split('/').filter { it.isNotEmpty() }.toTypedArray()
 }

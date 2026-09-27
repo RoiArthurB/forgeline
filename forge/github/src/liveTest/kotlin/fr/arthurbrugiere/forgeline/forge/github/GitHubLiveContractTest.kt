@@ -63,6 +63,25 @@ class GitHubLiveContractTest {
     }
 
     @Test
+    fun the_issue_timeline_and_user_endpoints_still_match() = runBlocking {
+        val token = pat.ifBlank { null }
+        // cli/cli issue #1: old, closed and stable.
+        val ref = fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("cli", "cli"), 1)
+        val issues = GitHubIssueApi(client)
+
+        val issue = issues.issue(token, ref)
+        assertWithMessage("issue: $issue").that(issue).isInstanceOf(ForgeResult.Success::class.java)
+        val timeline = issues.timeline(token, ref, page = 1)
+        assertWithMessage("timeline: $timeline").that(timeline).isInstanceOf(ForgeResult.Success::class.java)
+
+        val users = GitHubUserApi(client)
+        val octocat = users.user(token, "octocat")
+        assertWithMessage("user: $octocat").that((octocat as ForgeResult.Success).value.login).isEqualTo("octocat")
+        assertWithMessage("repos").that((users.repos(token, "octocat") as ForgeResult.Success).value).isNotEmpty()
+        assertWithMessage("starred").that(users.starred(token, "octocat")).isInstanceOf(ForgeResult.Success::class.java)
+    }
+
+    @Test
     fun the_authenticated_user_endpoint_still_matches() = runBlocking {
         assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
 

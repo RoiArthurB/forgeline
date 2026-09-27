@@ -1,0 +1,108 @@
+package fr.arthurbrugiere.forgeline.core.model
+
+import java.time.Instant
+
+enum class Reaction { THUMBS_UP, THUMBS_DOWN, LAUGH, HOORAY, CONFUSED, HEART, ROCKET, EYES }
+
+data class IssueRef(val repo: RepoId, val number: Int)
+
+data class PullRequestInfo(
+    val isDraft: Boolean,
+    val isMerged: Boolean,
+    val baseRef: String,
+    val headRef: String,
+    val additions: Int,
+    val deletions: Int,
+    val changedFiles: Int,
+    val commits: Int,
+)
+
+data class IssueDetails(
+    val ref: IssueRef,
+    val title: String,
+    val body: String?,
+    val state: IssueState,
+    /** e.g. `completed`, `not_planned`, `duplicate`, `reopened`, as the forge reports it. */
+    val stateReason: String?,
+    val author: ForgeUser?,
+    val labels: List<Label>,
+    val createdAt: Instant,
+    val closedAt: Instant?,
+    val comments: Int,
+    val reactions: Map<Reaction, Int>,
+    /** Present for pull requests. */
+    val pullRequest: PullRequestInfo?,
+)
+
+enum class ReviewState { APPROVED, CHANGES_REQUESTED, COMMENTED, DISMISSED }
+
+enum class StateChange { CLOSED, REOPENED, MERGED }
+
+/** One entry of an issue or PR conversation; noise (subscriptions, mentions...) is left out. */
+sealed interface TimelineItem {
+    val createdAt: Instant?
+
+    data class Comment(
+        val id: Long,
+        val author: ForgeUser?,
+        val body: String,
+        override val createdAt: Instant,
+        val reactions: Map<Reaction, Int>,
+    ) : TimelineItem
+
+    data class Review(
+        val id: Long,
+        val author: ForgeUser?,
+        val state: ReviewState,
+        val body: String?,
+        override val createdAt: Instant?,
+    ) : TimelineItem
+
+    data class StateChanged(
+        val change: StateChange,
+        val actor: ForgeUser?,
+        val stateReason: String?,
+        override val createdAt: Instant,
+    ) : TimelineItem
+
+    data class Labeled(val added: Boolean, val label: Label, val actor: ForgeUser?, override val createdAt: Instant) : TimelineItem
+
+    data class Renamed(val from: String, val to: String, val actor: ForgeUser?, override val createdAt: Instant) : TimelineItem
+
+    data class CrossReferenced(
+        val source: IssueRef,
+        val sourceTitle: String,
+        val sourceIsPullRequest: Boolean,
+        val actor: ForgeUser?,
+        override val createdAt: Instant,
+    ) : TimelineItem
+
+    data class Committed(val sha: String, val message: String, val authorName: String?, override val createdAt: Instant?) : TimelineItem
+}
+
+data class TimelinePage(val items: List<TimelineItem>, val nextPage: Int?)
+
+data class UserProfile(
+    val login: String,
+    val name: String?,
+    val avatarUrl: String?,
+    val bio: String?,
+    val company: String?,
+    val location: String?,
+    val website: String?,
+    val followers: Int,
+    val following: Int,
+    val publicRepos: Int,
+    val isOrganization: Boolean,
+    val createdAt: Instant?,
+)
+
+data class RepoSummary(
+    val id: RepoId,
+    val description: String?,
+    val language: String?,
+    val stars: Int,
+    val forks: Int,
+    val isFork: Boolean,
+    val updatedAt: Instant?,
+)
