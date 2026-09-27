@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
+import fr.arthurbrugiere.forgeline.core.forge.SearchApi
 import fr.arthurbrugiere.forgeline.core.forge.StarApi
 import fr.arthurbrugiere.forgeline.core.forge.TrendingApi
 import fr.arthurbrugiere.forgeline.forge.github.GitHubAuthApi
@@ -19,6 +20,7 @@ import fr.arthurbrugiere.forgeline.forge.github.GitHubIssueApi
 import fr.arthurbrugiere.forgeline.forge.github.GitHubNotificationsApi
 import fr.arthurbrugiere.forgeline.forge.github.GitHubUserApi
 import fr.arthurbrugiere.forgeline.forge.github.GitHubRepoApi
+import fr.arthurbrugiere.forgeline.forge.github.GitHubSearchApi
 import fr.arthurbrugiere.forgeline.forge.github.GitHubStarApi
 import fr.arthurbrugiere.forgeline.forge.github.GitHubTrendingApi
 import fr.arthurbrugiere.forgeline.forge.github.gitHubHttpClient
@@ -32,6 +34,10 @@ object ForgeModule {
     @Provides
     @Singleton
     fun provideGitHubHttpClient(): HttpClient = gitHubHttpClient(OkHttp.create())
+
+    @Provides
+    @Singleton
+    fun provideSearchApi(httpClient: HttpClient): SearchApi = GitHubSearchApi(httpClient)
 
     @Provides
     @Singleton

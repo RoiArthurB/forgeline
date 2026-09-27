@@ -24,6 +24,10 @@ import fr.arthurbrugiere.forgeline.core.testing.comment
 import fr.arthurbrugiere.forgeline.core.testing.issueDetails
 import fr.arthurbrugiere.forgeline.core.testing.userProfile
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
+import fr.arthurbrugiere.forgeline.core.forge.SearchApi
+import fr.arthurbrugiere.forgeline.core.model.UserSummary
+import fr.arthurbrugiere.forgeline.core.testing.FakeSearchApi
+import fr.arthurbrugiere.forgeline.core.testing.repoSummary
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
@@ -91,6 +95,13 @@ object FakeForgeModule {
             notificationThread("14127", repo = "paperclipai/paperclip", title = "Heartbeat recovery escalates too early"),
             notificationThread("14129", repo = "paperclipai/paperclip", title = "Keep install flags on retry", type = SubjectType.PULL_REQUEST),
         )
+    }
+
+    @Provides
+    @Singleton
+    fun provideSearchApi(): SearchApi = FakeSearchApi().apply {
+        repositories = listOf(repoSummary("paperclipai/paperclip", stars = 85_955, description = "Open-source orchestration for teams of AI agents"))
+        users = listOf(UserSummary("octocat", null, isOrganization = false))
     }
 
     @Provides
