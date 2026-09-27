@@ -6,6 +6,10 @@ import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
 import fr.arthurbrugiere.forgeline.core.forge.ForgeAuthApi
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
+import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
+import fr.arthurbrugiere.forgeline.core.model.SubjectType
+import fr.arthurbrugiere.forgeline.core.testing.FakeNotificationsApi
+import fr.arthurbrugiere.forgeline.core.testing.notificationThread
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
@@ -73,6 +77,15 @@ object FakeForgeModule {
     @Singleton
     fun provideUserApi(): UserApi = FakeUserApi().apply {
         users["octocat"] = userProfile("octocat", name = "The Octocat")
+    }
+
+    @Provides
+    @Singleton
+    fun provideNotificationsApi(): NotificationsApi = FakeNotificationsApi().apply {
+        threads = listOf(
+            notificationThread("14127", repo = "paperclipai/paperclip", title = "Heartbeat recovery escalates too early"),
+            notificationThread("14129", repo = "paperclipai/paperclip", title = "Keep install flags on retry", type = SubjectType.PULL_REQUEST),
+        )
     }
 
     @Provides
