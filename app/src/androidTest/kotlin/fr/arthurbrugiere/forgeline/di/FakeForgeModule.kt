@@ -4,7 +4,12 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
+import fr.arthurbrugiere.forgeline.core.forge.FeedApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeAuthApi
+import fr.arthurbrugiere.forgeline.core.model.FeedAction
+import fr.arthurbrugiere.forgeline.core.model.IssueAction
+import fr.arthurbrugiere.forgeline.core.testing.FakeFeedApi
+import fr.arthurbrugiere.forgeline.core.testing.feedEvent
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
@@ -85,6 +90,18 @@ object FakeForgeModule {
         threads = listOf(
             notificationThread("14127", repo = "paperclipai/paperclip", title = "Heartbeat recovery escalates too early"),
             notificationThread("14129", repo = "paperclipai/paperclip", title = "Keep install flags on retry", type = SubjectType.PULL_REQUEST),
+        )
+    }
+
+    @Provides
+    @Singleton
+    fun provideFeedApi(): FeedApi = FakeFeedApi().apply {
+        pages[1] = listOf(
+            feedEvent("2", actor = "hubot", repo = "paperclipai/paperclip", createdAt = "2026-09-27T09:00:00Z"),
+            feedEvent(
+                "1", actor = "octocat", repo = "paperclipai/paperclip", createdAt = "2026-09-27T08:00:00Z",
+                action = FeedAction.Issue(IssueAction.OPENED, 14127, "Heartbeat recovery escalates too early"),
+            ),
         )
     }
 

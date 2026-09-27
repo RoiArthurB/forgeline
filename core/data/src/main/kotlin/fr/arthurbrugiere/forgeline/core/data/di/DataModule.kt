@@ -16,6 +16,9 @@ import fr.arthurbrugiere.forgeline.core.data.account.DataStoreAccountRepository
 import fr.arthurbrugiere.forgeline.core.data.account.KeystoreTokenCipher
 import fr.arthurbrugiere.forgeline.core.data.account.TokenCipher
 import fr.arthurbrugiere.forgeline.core.data.database.ForgelineDatabase
+import fr.arthurbrugiere.forgeline.core.data.feed.DefaultFeedRepository
+import fr.arthurbrugiere.forgeline.core.data.feed.FeedDao
+import fr.arthurbrugiere.forgeline.core.data.feed.FeedRepository
 import fr.arthurbrugiere.forgeline.core.data.inbox.DefaultInboxRepository
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxRepository
@@ -61,6 +64,9 @@ abstract class DataModule {
     abstract fun bindInboxRepository(impl: DefaultInboxRepository): InboxRepository
 
     @Binds
+    abstract fun bindFeedRepository(impl: DefaultFeedRepository): FeedRepository
+
+    @Binds
     abstract fun bindIssueRepository(impl: DefaultIssueRepository): IssueRepository
 
     @Binds
@@ -80,6 +86,9 @@ abstract class DataModule {
 
         @Provides
         fun provideInboxDao(database: ForgelineDatabase): InboxDao = database.inboxDao()
+
+        @Provides
+        fun provideFeedDao(database: ForgelineDatabase): FeedDao = database.feedDao()
 
         @Provides
         fun provideRepoDao(database: ForgelineDatabase): RepoDao = database.repoDao()
