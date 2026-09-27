@@ -92,6 +92,16 @@ class GitHubLiveContractTest {
     }
 
     @Test
+    fun the_notifications_endpoint_still_matches() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+
+        val result = GitHubNotificationsApi(client).threads(pat, ifModifiedSince = null, maxPages = 1)
+
+        assertWithMessage("notifications: $result").that(result).isInstanceOf(ForgeResult.Success::class.java)
+        assertThat((result as ForgeResult.Success).value.lastModified).isNotNull()
+    }
+
+    @Test
     fun the_starred_status_query_still_works() = runBlocking {
         assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
         val linux = RepoId("torvalds", "linux")

@@ -1,0 +1,162 @@
+[
+ {
+  "id": "1001",
+  "unread": true,
+  "reason": "mention",
+  "updated_at": "2026-09-27T09:30:00Z",
+  "last_read_at": null,
+  "subject": {
+   "title": "Launch fails on cold start",
+   "url": "https://api.github.com/repos/acme/rocket/issues/42",
+   "latest_comment_url": "https://api.github.com/repos/acme/rocket/issues/comments/9",
+   "type": "Issue"
+  },
+  "repository": {
+   "id": 1,
+   "node_id": "R_x",
+   "name": "rocket",
+   "full_name": "acme/rocket",
+   "private": false,
+   "owner": {
+    "login": "acme",
+    "id": 1,
+    "avatar_url": "https://avatars.githubusercontent.com/u/1?v=4",
+    "type": "Organization"
+   },
+   "html_url": "https://github.com/acme/rocket",
+   "description": "A repository",
+   "fork": false,
+   "url": "https://api.github.com/repos/acme/rocket"
+  },
+  "url": "https://api.github.com/notifications/threads/1001",
+  "subscription_url": "https://api.github.com/notifications/threads/1001/subscription"
+ },
+ {
+  "id": "1002",
+  "unread": true,
+  "reason": "review_requested",
+  "updated_at": "2026-09-27T09:00:00Z",
+  "last_read_at": null,
+  "subject": {
+   "title": "Add retry to the fuel pump",
+   "url": "https://api.github.com/repos/acme/rocket/pulls/43",
+   "latest_comment_url": null,
+   "type": "PullRequest"
+  },
+  "repository": {
+   "id": 1,
+   "node_id": "R_x",
+   "name": "rocket",
+   "full_name": "acme/rocket",
+   "private": false,
+   "owner": {
+    "login": "acme",
+    "id": 1,
+    "avatar_url": "https://avatars.githubusercontent.com/u/1?v=4",
+    "type": "Organization"
+   },
+   "html_url": "https://github.com/acme/rocket",
+   "description": "A repository",
+   "fork": false,
+   "url": "https://api.github.com/repos/acme/rocket"
+  },
+  "url": "https://api.github.com/notifications/threads/1002",
+  "subscription_url": "https://api.github.com/notifications/threads/1002/subscription"
+ },
+ {
+  "id": "1003",
+  "unread": true,
+  "reason": "ci_activity",
+  "updated_at": "2026-09-27T08:00:00Z",
+  "last_read_at": null,
+  "subject": {
+   "title": "CI run on main",
+   "url": null,
+   "latest_comment_url": null,
+   "type": "CheckSuite"
+  },
+  "repository": {
+   "id": 1,
+   "node_id": "R_x",
+   "name": "fuel",
+   "full_name": "acme/fuel",
+   "private": false,
+   "owner": {
+    "login": "acme",
+    "id": 1,
+    "avatar_url": "https://avatars.githubusercontent.com/u/1?v=4",
+    "type": "Organization"
+   },
+   "html_url": "https://github.com/acme/fuel",
+   "description": "A repository",
+   "fork": false,
+   "url": "https://api.github.com/repos/acme/fuel"
+  },
+  "url": "https://api.github.com/notifications/threads/1003",
+  "subscription_url": "https://api.github.com/notifications/threads/1003/subscription"
+ },
+ {
+  "id": "1004",
+  "unread": false,
+  "reason": "subscribed",
+  "updated_at": "2026-09-26T18:00:00Z",
+  "last_read_at": "2026-09-26T18:00:00Z",
+  "subject": {
+   "title": "v2.0.0",
+   "url": "https://api.github.com/repos/octo/tools/releases/123",
+   "latest_comment_url": null,
+   "type": "Release"
+  },
+  "repository": {
+   "id": 1,
+   "node_id": "R_x",
+   "name": "tools",
+   "full_name": "octo/tools",
+   "private": false,
+   "owner": {
+    "login": "octo",
+    "id": 1,
+    "avatar_url": "https://avatars.githubusercontent.com/u/1?v=4",
+    "type": "Organization"
+   },
+   "html_url": "https://github.com/octo/tools",
+   "description": "A repository",
+   "fork": false,
+   "url": "https://api.github.com/repos/octo/tools"
+  },
+  "url": "https://api.github.com/notifications/threads/1004",
+  "subscription_url": "https://api.github.com/notifications/threads/1004/subscription"
+ },
+ {
+  "id": "1005",
+  "unread": false,
+  "reason": "manual",
+  "updated_at": "2026-09-26T12:00:00Z",
+  "last_read_at": "2026-09-26T12:00:00Z",
+  "subject": {
+   "title": "Docs: typo in README",
+   "url": "https://api.github.com/repos/octo/tools/pulls/7",
+   "latest_comment_url": null,
+   "type": "PullRequest"
+  },
+  "repository": {
+   "id": 1,
+   "node_id": "R_x",
+   "name": "tools",
+   "full_name": "octo/tools",
+   "private": false,
+   "owner": {
+    "login": "octo",
+    "id": 1,
+    "avatar_url": "https://avatars.githubusercontent.com/u/1?v=4",
+    "type": "Organization"
+   },
+   "html_url": "https://github.com/octo/tools",
+   "description": "A repository",
+   "fork": false,
+   "url": "https://api.github.com/repos/octo/tools"
+  },
+  "url": "https://api.github.com/notifications/threads/1005",
+  "subscription_url": "https://api.github.com/notifications/threads/1005/subscription"
+ }
+]
