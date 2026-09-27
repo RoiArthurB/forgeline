@@ -19,15 +19,12 @@ import androidx.compose.material.icons.outlined.Business
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
@@ -44,17 +41,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.model.RepoId
-import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
 import fr.arthurbrugiere.forgeline.core.ui.format.compactCount
 import fr.arthurbrugiere.forgeline.navigation.UserRoute
 import fr.arthurbrugiere.forgeline.session.SessionState
+import fr.arthurbrugiere.forgeline.ui.RepoSummaryRow
 import fr.arthurbrugiere.forgeline.ui.Avatar
 import fr.arthurbrugiere.forgeline.ui.Badge
 import fr.arthurbrugiere.forgeline.ui.EmptyState
@@ -160,7 +156,7 @@ fun UserScreen(
                         UserTab.STARRED -> state.starred to R.string.user_no_starred
                     }
                     loadable(list, empty, onRetry) { repos ->
-                        items(repos, key = { "repo-${it.id.fullName}" }) { RepoRow(it, onOpenRepo) }
+                        items(repos, key = { "repo-${it.id.fullName}" }) { RepoSummaryRow(it, onOpenRepo) }
                     }
                 }
             }
@@ -218,23 +214,3 @@ private fun Detail(icon: ImageVector, text: String, modifier: Modifier = Modifie
     }
 }
 
-@Composable
-private fun RepoRow(repo: RepoSummary, onOpenRepo: (RepoId) -> Unit) {
-    ListItem(
-        headlineContent = { Text(repo.id.fullName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        supportingContent = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                repo.description?.let { Text(it, maxLines = 2, overflow = TextOverflow.Ellipsis) }
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    repo.language?.let { Text(it, style = MaterialTheme.typography.labelMedium) }
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Icon(Icons.Outlined.StarBorder, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Text(compactCount(repo.stars), style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-            }
-        },
-        modifier = Modifier.clickable { onOpenRepo(repo.id) },
-    )
-    HorizontalDivider()
-}
