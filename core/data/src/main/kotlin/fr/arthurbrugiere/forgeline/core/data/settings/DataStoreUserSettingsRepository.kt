@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import fr.arthurbrugiere.forgeline.core.data.di.SettingsDataStore
+import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +27,9 @@ class DataStoreUserSettingsRepository @Inject constructor(
                     ?: defaults.themeMode,
                 dynamicColor = prefs[DYNAMIC_COLOR] ?: defaults.dynamicColor,
                 amoledBlack = prefs[AMOLED_BLACK] ?: defaults.amoledBlack,
+                inboxCheckInterval = prefs[INBOX_CHECK]
+                    ?.let { stored -> InboxCheckInterval.entries.firstOrNull { it.name == stored } }
+                    ?: defaults.inboxCheckInterval,
             )
         }
         .distinctUntilChanged()
@@ -42,9 +46,14 @@ class DataStoreUserSettingsRepository @Inject constructor(
         dataStore.edit { it[AMOLED_BLACK] = enabled }
     }
 
+    override suspend fun setInboxCheckInterval(interval: InboxCheckInterval) {
+        dataStore.edit { it[INBOX_CHECK] = interval.name }
+    }
+
     private companion object {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val AMOLED_BLACK = booleanPreferencesKey("amoled_black")
+        val INBOX_CHECK = stringPreferencesKey("inbox_check_interval")
     }
 }

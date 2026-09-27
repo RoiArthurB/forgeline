@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.settings
 
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository
@@ -33,8 +34,9 @@ class SettingsViewModelTest {
         viewModel.setThemeMode(ThemeMode.DARK)
         viewModel.setDynamicColor(false)
         viewModel.setAmoledBlack(true)
+        viewModel.setInboxCheckInterval(InboxCheckInterval.OFF)
 
         assertThat(repository.settings.first())
-            .isEqualTo(UserSettings(themeMode = ThemeMode.DARK, dynamicColor = false, amoledBlack = true))
+            .isEqualTo(UserSettings(themeMode = ThemeMode.DARK, dynamicColor = false, amoledBlack = true, inboxCheckInterval = InboxCheckInterval.OFF))
     }
 }

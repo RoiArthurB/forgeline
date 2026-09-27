@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
 import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
+import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,4 +18,6 @@ class FakeUserSettingsRepository(initial: UserSettings = UserSettings()) : UserS
     override suspend fun setDynamicColor(enabled: Boolean) = state.update { it.copy(dynamicColor = enabled) }
 
     override suspend fun setAmoledBlack(enabled: Boolean) = state.update { it.copy(amoledBlack = enabled) }
+
+    override suspend fun setInboxCheckInterval(interval: InboxCheckInterval) = state.update { it.copy(inboxCheckInterval = interval) }
 }

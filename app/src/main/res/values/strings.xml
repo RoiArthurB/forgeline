@@ -171,6 +171,14 @@
     <string name="settings_dynamic_color_summary">Use colors from your wallpaper</string>
     <string name="settings_amoled">Pure black</string>
     <string name="settings_amoled_summary">Use a pure black background in dark theme</string>
+    <string name="settings_section_notifications">Notifications</string>
+    <string name="settings_inbox_check">Check for new notifications</string>
+    <string name="interval_off">Never</string>
+    <string name="interval_15m">Every 15 minutes</string>
+    <string name="interval_30m">Every 30 minutes</string>
+    <string name="interval_1h">Every hour</string>
+    <string name="interval_3h">Every 3 hours</string>
+    <string name="interval_6h">Every 6 hours</string>
     <string name="settings_section_about">About</string>
     <string name="settings_credits">Credits and licenses</string>
     <string name="settings_credits_summary">The open source libraries Forgeline is built on</string>

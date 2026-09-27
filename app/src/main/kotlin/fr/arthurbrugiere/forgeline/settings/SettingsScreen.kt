@@ -1,7 +1,13 @@
 package fr.arthurbrugiere.forgeline.settings
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material3.RadioButton
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.toggleable
@@ -37,6 +43,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.BuildConfig
 import fr.arthurbrugiere.forgeline.R
+import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import fr.arthurbrugiere.forgeline.session.SessionState
@@ -64,6 +71,7 @@ fun SettingsRoute(
         onThemeModeChange = viewModel::setThemeMode,
         onDynamicColorChange = viewModel::setDynamicColor,
         onAmoledBlackChange = viewModel::setAmoledBlack,
+        onInboxCheckIntervalChange = viewModel::setInboxCheckInterval,
         onOpenCredits = onOpenCredits,
         onOpenSourceCode = { uriHandler.openUri(SOURCE_CODE_URL) },
         onBack = onBack,
@@ -85,6 +93,7 @@ fun SettingsScreen(
     onOpenSourceCode: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onInboxCheckIntervalChange: (InboxCheckInterval) -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
@@ -135,6 +144,8 @@ fun SettingsScreen(
                     onCheckedChange = onAmoledBlackChange,
                 )
             }
+            item { SectionHeader(stringResource(R.string.settings_section_notifications)) }
+            item { InboxCheckItem(settings.inboxCheckInterval, onInboxCheckIntervalChange) }
             item { SectionHeader(stringResource(R.string.settings_section_about)) }
             item {
                 ListItem(
@@ -199,6 +210,54 @@ private fun AccountItem(session: SessionState, onSignIn: () -> Unit, onSignOut: 
         }
     }
 }
+
+@Composable
+private fun InboxCheckItem(current: InboxCheckInterval, onChange: (InboxCheckInterval) -> Unit) {
+    var choosing by rememberSaveable { mutableStateOf(false) }
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.settings_inbox_check)) },
+        supportingContent = { Text(stringResource(current.label)) },
+        modifier = Modifier.clickable { choosing = true },
+    )
+    if (choosing) {
+        AlertDialog(
+            onDismissRequest = { choosing = false },
+            title = { Text(stringResource(R.string.settings_inbox_check)) },
+            text = {
+                Column(Modifier.selectableGroup()) {
+                    InboxCheckInterval.entries.forEach { interval ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(selected = interval == current, role = Role.RadioButton) {
+                                    choosing = false
+                                    onChange(interval)
+                                }
+                                .padding(vertical = 8.dp),
+                        ) {
+                            RadioButton(selected = interval == current, onClick = null)
+                            Text(stringResource(interval.label), modifier = Modifier.padding(start = 16.dp))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { choosing = false }) { Text(stringResource(R.string.cancel)) }
+            },
+        )
+    }
+}
+
+private val InboxCheckInterval.label: Int
+    get() = when (this) {
+        InboxCheckInterval.OFF -> R.string.interval_off
+        InboxCheckInterval.MIN_15 -> R.string.interval_15m
+        InboxCheckInterval.MIN_30 -> R.string.interval_30m
+        InboxCheckInterval.HOUR_1 -> R.string.interval_1h
+        InboxCheckInterval.HOUR_3 -> R.string.interval_3h
+        InboxCheckInterval.HOUR_6 -> R.string.interval_6h
+    }
 
 @Composable
 private fun SectionHeader(text: String) {

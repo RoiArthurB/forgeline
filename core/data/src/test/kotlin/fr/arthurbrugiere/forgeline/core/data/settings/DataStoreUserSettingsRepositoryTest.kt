@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import kotlinx.coroutines.flow.first
@@ -39,9 +40,10 @@ class DataStoreUserSettingsRepositoryTest {
         repository.setThemeMode(ThemeMode.DARK)
         repository.setDynamicColor(false)
         repository.setAmoledBlack(true)
+        repository.setInboxCheckInterval(InboxCheckInterval.MIN_15)
 
         assertThat(repository.settings.first()).isEqualTo(
-            UserSettings(themeMode = ThemeMode.DARK, dynamicColor = false, amoledBlack = true),
+            UserSettings(themeMode = ThemeMode.DARK, dynamicColor = false, amoledBlack = true, inboxCheckInterval = InboxCheckInterval.MIN_15),
         )
     }
 

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
+import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import kotlinx.coroutines.flow.SharingStarted
@@ -29,5 +30,9 @@ class SettingsViewModel @Inject constructor(
 
     fun setAmoledBlack(enabled: Boolean) {
         viewModelScope.launch { repository.setAmoledBlack(enabled) }
+    }
+
+    fun setInboxCheckInterval(interval: InboxCheckInterval) {
+        viewModelScope.launch { repository.setInboxCheckInterval(interval) }
     }
 }

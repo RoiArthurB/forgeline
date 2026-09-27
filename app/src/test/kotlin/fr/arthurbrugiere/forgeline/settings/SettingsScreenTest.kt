@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performScrollToNode
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
+import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
@@ -40,6 +41,7 @@ class SettingsScreenTest {
     private var backPressed = false
 
     private var signedOut = false
+    private var interval: InboxCheckInterval? = null
 
     private fun setContent(settings: UserSettings = UserSettings(), session: SessionState = SessionState.SignedOut) {
         composeRule.setContent {
@@ -53,6 +55,7 @@ class SettingsScreenTest {
                 onDynamicColorChange = { dynamicColor = it },
                 onAmoledBlackChange = { amoledBlack = it },
                 onOpenCredits = { creditsOpened = true },
+                onInboxCheckIntervalChange = { interval = it },
                 onOpenSourceCode = { sourceCodeOpened = true },
                 onBack = { backPressed = true },
             )
@@ -124,6 +127,17 @@ class SettingsScreenTest {
         composeRule.onAllNodesWithText("Sign out")[1].performClick()
 
         assertThat(signedOut).isTrue()
+    }
+
+    @Test
+    fun the_inbox_check_interval_is_chosen_from_a_dialog() {
+        setContent()
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Check for new notifications"))
+        composeRule.onNodeWithText("Every hour").performClick()
+        composeRule.onNodeWithText("Every 15 minutes").performClick()
+
+        assertThat(interval).isEqualTo(InboxCheckInterval.MIN_15)
     }
 
     @Test

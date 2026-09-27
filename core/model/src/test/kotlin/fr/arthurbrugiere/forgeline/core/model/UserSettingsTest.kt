@@ -12,4 +12,11 @@ class UserSettingsTest {
         assertThat(settings.dynamicColor).isTrue()
         assertThat(settings.amoledBlack).isFalse()
     }
+
+    @Test
+    fun the_inbox_is_checked_hourly_by_default_and_15_minutes_is_the_minimum() {
+        assertThat(UserSettings().inboxCheckInterval).isEqualTo(InboxCheckInterval.HOUR_1)
+        // WorkManager can't run periodic work more often than every 15 minutes.
+        assertThat(InboxCheckInterval.entries.mapNotNull { it.minutes }.min()).isEqualTo(15)
+    }
 }
