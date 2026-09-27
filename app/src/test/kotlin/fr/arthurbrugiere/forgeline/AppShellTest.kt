@@ -98,6 +98,20 @@ class AppShellTest {
     }
 
     @Test
+    fun a_file_opens_from_the_code_tab() {
+        tab("Trending").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclipai / paperclip")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("paperclipai / paperclip").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Code")).fetchSemanticsNodes().isNotEmpty() }
+
+        composeRule.onNodeWithText("Code").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("package.json")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("package.json").performClick()
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("\"name\": \"paperclip\"", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test
     fun system_back_from_a_tab_returns_to_the_inbox() {
         tab("Trending").performClick()
         composeRule.waitForIdle()

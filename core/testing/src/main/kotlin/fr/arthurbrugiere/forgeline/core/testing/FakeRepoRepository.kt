@@ -18,6 +18,7 @@ class FakeRepoRepository : RepoRepository {
     val refreshes = mutableListOf<Boolean>()
     val calls = mutableListOf<String>()
     var directories = mapOf<String, ForgeResult<List<RepoFile>>>()
+    val files = mutableMapOf<String, ForgeResult<String>>()
     var issues: ForgeResult<List<IssueSummary>> = ForgeResult.Success(emptyList())
     var pulls: ForgeResult<List<IssueSummary>> = ForgeResult.Success(emptyList())
     var releases: ForgeResult<List<Release>> = ForgeResult.Success(emptyList())
@@ -37,7 +38,7 @@ class FakeRepoRepository : RepoRepository {
 
     override suspend fun fileText(id: RepoId, path: String, ref: String): ForgeResult<String> {
         calls += "file:${id.fullName}:$path@$ref"
-        return ForgeResult.Success("")
+        return files[path] ?: ForgeResult.Success("")
     }
 
     override suspend fun openIssues(id: RepoId) = issues.also { calls += "issues:${id.fullName}" }

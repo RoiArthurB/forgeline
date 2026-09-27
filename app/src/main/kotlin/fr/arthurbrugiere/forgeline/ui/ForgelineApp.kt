@@ -21,6 +21,8 @@ import fr.arthurbrugiere.forgeline.navigation.FeedRoute
 import fr.arthurbrugiere.forgeline.navigation.InboxRoute
 import fr.arthurbrugiere.forgeline.navigation.SettingsRoute
 import fr.arthurbrugiere.forgeline.navigation.RepoRoute as RepoKey
+import fr.arthurbrugiere.forgeline.navigation.FileRoute as FileKey
+import fr.arthurbrugiere.forgeline.file.FileRoute as FileDestination
 import fr.arthurbrugiere.forgeline.repo.RepoRoute as RepoDestination
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.navigation.SignInRoute as SignInKey
@@ -67,13 +69,14 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
         entry<InboxRoute> { InboxScreen(session, onSignIn = signIn) }
         entry<FeedRoute> { FeedScreen(session, onSignIn = signIn) }
         entry<TrendingRoute> { TrendingDestination(session, onSignIn = signIn, onOpenRepo = openRepo) }
+        entry<FileKey> { key -> FileDestination(key, onBack = navigator::goBack, onOpenRepo = openRepo) }
         entry<RepoKey> { key ->
             RepoDestination(
                 route = key,
                 session = session,
                 onBack = navigator::goBack,
                 onOpenRepo = openRepo,
-                onOpenFile = { _, _, _ -> },
+                onOpenFile = { id, path, ref -> navigator.navigate(FileKey(id.owner, id.name, path, ref)) },
                 onSignIn = signIn,
             )
         }

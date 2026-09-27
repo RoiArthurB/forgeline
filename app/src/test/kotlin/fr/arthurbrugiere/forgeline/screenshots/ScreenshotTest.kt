@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.screenshots
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onRoot
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -16,6 +17,11 @@ import fr.arthurbrugiere.forgeline.signin.SignInStep
 import fr.arthurbrugiere.forgeline.signin.SignInUiState
 import fr.arthurbrugiere.forgeline.you.YouScreen
 import fr.arthurbrugiere.forgeline.repo.Loadable
+import fr.arthurbrugiere.forgeline.file.CODE_HIGHLIGHTED_TAG
+import fr.arthurbrugiere.forgeline.file.FileContent
+import fr.arthurbrugiere.forgeline.file.FileScreen
+import fr.arthurbrugiere.forgeline.file.FileTarget
+import fr.arthurbrugiere.forgeline.file.FileUiState
 import fr.arthurbrugiere.forgeline.repo.RepoScreen
 import fr.arthurbrugiere.forgeline.repo.RepoTab
 import fr.arthurbrugiere.forgeline.repo.RepoUiState
@@ -51,6 +57,7 @@ class ScreenshotTest {
         darkTheme: Boolean,
         amoledBlack: Boolean = false,
         awaitText: String? = null,
+        awaitTag: String? = null,
         content: @Composable () -> Unit,
     ) {
         composeRule.setContent {
@@ -60,6 +67,9 @@ class ScreenshotTest {
         // Content parsed off the main thread (READMEs) must be on screen before capturing.
         awaitText?.let { text ->
             composeRule.waitUntil(10_000) { composeRule.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        }
+        awaitTag?.let { tag ->
+            composeRule.waitUntil(10_000) { composeRule.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty() }
         }
         composeRule.onRoot().captureRoboImage("src/test/screenshots/$name.png")
     }
@@ -153,6 +163,21 @@ class ScreenshotTest {
                 tab = RepoTab.ISSUES,
                 issues = Loadable.Loaded(listOf(issueSummary(14127, "Heartbeat recovery escalates too early"), issueSummary(14121, "Wake-queue reopen activity record names"))),
             ),
+        )
+    }
+
+    @Test
+    fun file_code_dark() = snapshot("file_code_dark", darkTheme = true, awaitTag = CODE_HIGHLIGHTED_TAG) {
+        FileScreen(
+            state = FileUiState(
+                target = FileTarget(RepoId("octo", "repo"), "src/Main.kt", "main"),
+                content = Loadable.Loaded(
+                    FileContent.Text("package demo\n\n// Entry point\nfun main() {\n    val answer = 42\n    println(\"Answer: \$answer\")\n}\n"),
+                ),
+                webUrl = "https://github.com/octo/repo/blob/main/src/Main.kt",
+                readmeContext = ReadmeContext("https://raw.example/", "https://blob.example/"),
+            ),
+            onBack = {}, onRetry = {}, onOpenInBrowser = {}, onLinkClick = {}, onCopy = {},
         )
     }
 

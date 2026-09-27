@@ -90,6 +90,13 @@
     <string name="repo_run_meta">%1$s · %2$s · #%3$d</string>
     <string name="repo_comments">%1$d comments</string>
 
+    <string name="file_too_large_title">Too large to preview</string>
+    <string name="file_too_large_body">Open it on GitHub to see it.</string>
+    <string name="file_binary_title">Binary file</string>
+    <string name="file_binary_body">This file can\'t be shown as text.</string>
+    <string name="file_error_title">Couldn\'t open this file</string>
+    <string name="file_copy">Copy file</string>
+
     <string name="settings_title">Settings</string>
     <string name="settings_section_account">Account</string>
     <string name="settings_signed_out_summary">Connect your GitHub account</string>

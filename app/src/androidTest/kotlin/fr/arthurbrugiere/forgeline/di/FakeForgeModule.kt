@@ -7,6 +7,8 @@ import dagger.hilt.testing.TestInstallIn
 import fr.arthurbrugiere.forgeline.core.forge.ForgeAuthApi
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
 import fr.arthurbrugiere.forgeline.core.model.Readme
+import fr.arthurbrugiere.forgeline.core.model.RepoFile
+import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.FakeRepoApi
 import fr.arthurbrugiere.forgeline.core.testing.issueSummary
@@ -46,6 +48,8 @@ object FakeForgeModule {
         readmes[paperclip] = Readme("README.md", "# Paperclip\n\nOpen-source orchestration for teams of AI agents.")
         issues = listOf(issueSummary(14127, "Heartbeat recovery escalates too early"))
         pulls = listOf(issueSummary(14129, "Keep install flags on retry", isPullRequest = true))
+        directories[paperclip to ""] = listOf(RepoFile("package.json", "package.json", RepoFileType.FILE, 30))
+        files[paperclip to "package.json"] = "{\n  \"name\": \"paperclip\"\n}\n"
     }
 
     @Provides
