@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Forgeline</string>
 
     <string name="tab_inbox">Inbox</string>
@@ -27,7 +27,6 @@
     <string name="inbox_mark_done">Done</string>
     <string name="inbox_unsubscribe">Unsubscribe</string>
     <string name="inbox_more">More actions</string>
-    <string name="inbox_unread">Unread</string>
     <string name="reason_mention">Mentioned</string>
     <string name="reason_team_mention">Team mentioned</string>
     <string name="reason_review_requested">Review requested</string>
@@ -109,7 +108,8 @@
     <string name="repo_tab_failed">Couldn\'t load this tab.</string>
     <string name="repo_error_title">Couldn\'t open this repository</string>
     <string name="repo_error_not_found">It doesn\'t exist, or it\'s private.</string>
-    <string name="repo_issue_meta">#%1$d opened %2$s by %3$s</string>
+    <!-- %1$d is an issue number, not a count. -->
+    <string name="repo_issue_meta" tools:ignore="PluralsCandidate">#%1$d opened %2$s by %3$s</string>
     <string name="repo_draft">Draft</string>
     <string name="repo_prerelease">Pre-release</string>
     <string name="repo_run_meta">%1$s · %2$s · #%3$d</string>
