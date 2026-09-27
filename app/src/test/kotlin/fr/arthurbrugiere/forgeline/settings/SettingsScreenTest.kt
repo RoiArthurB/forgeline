@@ -148,7 +148,7 @@ class SettingsScreenTest {
         setContent()
 
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Feed activity"))
-        composeRule.onNodeWithText("8 of 13 kinds of activity shown").performClick()
+        composeRule.onNodeWithText("Showing 8 of 13").performClick()
         composeRule.onNodeWithText("Stars").assertIsOn()
         composeRule.onNodeWithText("Pushes").assertIsOff()
         composeRule.onNodeWithText("Stars").performClick()

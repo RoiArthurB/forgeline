@@ -191,7 +191,7 @@
     <string name="interval_6h">Every 6 hours</string>
     <string name="settings_section_feed">Feed</string>
     <string name="settings_feed_kinds">Feed activity</string>
-    <string name="settings_feed_kinds_summary">%1$d of %2$d kinds of activity shown</string>
+    <string name="settings_feed_kinds_summary">Showing %1$d of %2$d</string>
     <string name="feed_kind_stars">Stars</string>
     <string name="feed_kind_forks">Forks</string>
     <string name="feed_kind_new_repos">New repositories</string>
