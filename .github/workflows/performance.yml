@@ -1,6 +1,7 @@
 name: Performance
 
-# Generates the baseline profile and measures cold start on a Gradle managed emulator.
+# Generates the baseline profile, measures cold start and frame timing on a Gradle managed emulator.
+# The benchmarks run the minified release build through real screens, so they also catch R8 issues.
 # Emulator timings are only indicative; the real budget is checked on a physical device.
 on:
   workflow_dispatch:
@@ -53,7 +54,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Measure cold start
+      - name: Measure cold start and frame timing
         run: >-
           ./gradlew :baselineprofile:pixel6Api34BenchmarkReleaseAndroidTest $GMD_FLAGS
           -Pandroid.testInstrumentationRunnerArguments.androidx.benchmark.suppressErrors=EMULATOR
@@ -61,8 +62,10 @@ jobs:
         if: always()
         run: |
           find baselineprofile/build -name '*benchmarkData.json' -print0 | xargs -0 -r cat | \
-            jq -r '.benchmarks[] | "| \(.name) | \(.metrics.timeToInitialDisplayMs.median) ms |"' \
-            | { echo "| Startup | TTID median |"; echo "|---|---|"; cat; } >> "$GITHUB_STEP_SUMMARY" || true
+            jq -r '.benchmarks[] | .name as $n
+              | ((.metrics // {}) | to_entries[] | "| \($n) | \(.key) | median \(.value.median) |"),
+                ((.sampledMetrics // {}) | to_entries[] | "| \($n) | \(.key) | P50 \(.value.P50) · P90 \(.value.P90) · P99 \(.value.P99) |")' \
+            | { echo "| Benchmark | Metric | Value (ms) |"; echo "|---|---|---|"; cat; } >> "$GITHUB_STEP_SUMMARY" || true
       - uses: actions/upload-artifact@v7
         if: always()
         with:
