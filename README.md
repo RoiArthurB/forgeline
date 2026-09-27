@@ -6,6 +6,18 @@ Forgeline brings your forges to your phone as a timeline: an **Inbox** for what 
 
 > **Status:** early development (v0.1 PoC). GitHub first; GitLab and Gitea/Forgejo (including self-hosted instances) are planned.
 
+## What's in v0.1
+
+- **Inbox:** your GitHub notifications grouped by repository, with Unread, Participating and All filters. Swipe right to mark a thread read, left to mark it done. Background checks (every hour by default, or off) post phone notifications on separate channels, so you can mute CI without missing mentions.
+- **Feed:** what the people you follow and the repositories you watch are doing, in strict chronological order. Identical events on the same repository merge ("alice and 2 others starred…"). You choose which kinds of activity show up in Settings.
+- **Trending:** GitHub's trending repositories for today, this week or this month, exactly as GitHub ranks them. It works without signing in.
+- **Repositories:** the README rendered natively, a code browser with syntax highlighting, and issues, pull requests, releases and Actions runs.
+- **Conversations and profiles:** issue and pull request timelines with reviews, merges and reactions, and user and organization profiles. You can star and follow from the app.
+- **Search:** repositories, issues and pull requests, and people, with GitHub's search syntax (`language:kotlin`, `is:open`, …). There is no code search, by design.
+- **github.com links open in the app.** Android doesn't send them to Forgeline automatically, because the app can't verify a domain it doesn't own. To turn it on, go to *Settings → Apps → Forgeline → Open by default → Add links* and select `github.com`.
+
+Sign in with the one-tap device flow, or with a classic personal access token that has the `notifications`, `read:user`, `user:follow` and `public_repo` scopes.
+
 ## Principles
 
 - **Fast.** Cache-first: every screen renders from the local database instantly, then refreshes.
