@@ -17,6 +17,12 @@ import fr.arthurbrugiere.forgeline.signin.SignInStep
 import fr.arthurbrugiere.forgeline.signin.SignInUiState
 import fr.arthurbrugiere.forgeline.you.YouScreen
 import fr.arthurbrugiere.forgeline.repo.Loadable
+import fr.arthurbrugiere.forgeline.inbox.InboxScreen
+import fr.arthurbrugiere.forgeline.inbox.InboxUiState
+import fr.arthurbrugiere.forgeline.inbox.RepoGroup
+import fr.arthurbrugiere.forgeline.core.model.NotificationReason
+import fr.arthurbrugiere.forgeline.core.model.SubjectType
+import fr.arthurbrugiere.forgeline.core.testing.notificationThread
 import fr.arthurbrugiere.forgeline.issue.IssueScreen
 import fr.arthurbrugiere.forgeline.issue.IssueUiState
 import fr.arthurbrugiere.forgeline.user.UserScreen
@@ -224,6 +230,38 @@ class ScreenshotTest {
             ),
             signedIn = true, onBack = {}, onSelectTab = {}, onRetry = {}, onToggleFollow = {}, onSignIn = {}, onOpenRepo = {},
             onOpenUrl = {}, onFollowFailureShown = {},
+        )
+    }
+
+    @Test
+    fun inbox_light() = snapshot("inbox_light", darkTheme = false) {
+        InboxScreen(
+            state = InboxUiState(
+                groups = listOf(
+                    RepoGroup(
+                        RepoId("acme", "rocket"),
+                        listOf(
+                            notificationThread("42", repo = "acme/rocket", title = "Launch fails on cold start", updatedAt = "2026-09-27T09:30:00Z"),
+                            notificationThread(
+                                "43", repo = "acme/rocket", title = "Add retry to the fuel pump", type = SubjectType.PULL_REQUEST,
+                                reason = NotificationReason.REVIEW_REQUESTED, updatedAt = "2026-09-27T09:00:00Z",
+                            ),
+                        ),
+                    ),
+                    RepoGroup(
+                        RepoId("octo", "tools"),
+                        listOf(
+                            notificationThread(
+                                "9", repo = "octo/tools", title = "v2.0.0", type = SubjectType.RELEASE, number = null,
+                                reason = NotificationReason.SUBSCRIBED, unread = false, updatedAt = "2026-09-26T18:00:00Z",
+                            ),
+                        ),
+                    ),
+                ),
+                syncedAtMillis = 1,
+            ),
+            onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
+            onErrorShown = {}, onActionFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
         )
     }
 

@@ -14,7 +14,8 @@ import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import fr.arthurbrugiere.forgeline.credits.CreditsRoute
 import fr.arthurbrugiere.forgeline.feed.FeedScreen
-import fr.arthurbrugiere.forgeline.inbox.InboxScreen
+import fr.arthurbrugiere.forgeline.inbox.InboxRoute as InboxDestination
+import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import fr.arthurbrugiere.forgeline.navigation.AppNavigator
 import fr.arthurbrugiere.forgeline.navigation.CreditsRoute as CreditsKey
 import fr.arthurbrugiere.forgeline.navigation.FeedRoute
@@ -73,7 +74,20 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
     val openIssue = { ref: IssueRef -> navigator.navigate(IssueKey(ref.repo.owner, ref.repo.name, ref.number)) }
     val openUser = { login: String -> navigator.navigate(UserKey(login)) }
     val provider = entryProvider<NavKey> {
-        entry<InboxRoute> { InboxScreen(session, onSignIn = signIn) }
+        entry<InboxRoute> {
+            InboxDestination(
+                session = session,
+                onSignIn = signIn,
+                onOpenThread = { thread ->
+                    val number = thread.number
+                    if (number != null && (thread.type == SubjectType.ISSUE || thread.type == SubjectType.PULL_REQUEST)) {
+                        openIssue(IssueRef(thread.repo, number))
+                    } else {
+                        openRepo(thread.repo)
+                    }
+                },
+            )
+        }
         entry<FeedRoute> { FeedScreen(session, onSignIn = signIn) }
         entry<TrendingRoute> { TrendingDestination(session, onSignIn = signIn, onOpenRepo = openRepo) }
         entry<FileKey> { key ->

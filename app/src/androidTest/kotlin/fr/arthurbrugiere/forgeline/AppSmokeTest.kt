@@ -10,6 +10,8 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import dagger.hilt.android.testing.HiltAndroidRule
@@ -83,6 +85,29 @@ class AppSmokeTest {
 
         composeRule.onNode(hasContentDescription("Navigate up")).performClick()
         composeRule.onNodeWithText("Appearance").assertIsDisplayed()
+    }
+
+    @Test
+    fun sign_in_then_triage_the_inbox() {
+        // Runs on a real system image: token encryption needs the Android Keystore.
+        composeRule.onNodeWithText("Sign in").performClick()
+        composeRule.onNodeWithText("Personal access token").performTextInput("ghp_emulator")
+        composeRule.onNodeWithText("Sign in with token").performClick()
+
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodes(hasText("Heartbeat recovery escalates too early")).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Heartbeat recovery escalates too early").performClick()
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodes(hasText("I can reproduce this on every restart.", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // Leave the app signed out for the other tests.
+        pressBack()
+        tab("You").performClick()
+        composeRule.onNodeWithText("Settings").performClick()
+        composeRule.onNodeWithText("Sign out").performClick()
+        composeRule.onAllNodesWithText("Sign out")[1].performClick()
     }
 
     @Test

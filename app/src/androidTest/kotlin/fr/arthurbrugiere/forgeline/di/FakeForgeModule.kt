@@ -90,5 +90,7 @@ object FakeForgeModule {
 
     @Provides
     @Singleton
-    fun provideForgeAuthApi(): ForgeAuthApi = FakeForgeAuthApi(supportsDeviceFlow = false)
+    fun provideForgeAuthApi(): ForgeAuthApi = FakeForgeAuthApi(supportsDeviceFlow = false).apply {
+        users["ghp_emulator"] = fr.arthurbrugiere.forgeline.core.model.ForgeUser("octocat", "The Octocat", null)
+    }
 }
