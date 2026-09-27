@@ -1,0 +1,93 @@
+package fr.arthurbrugiere.forgeline.core.model
+
+import java.time.Instant
+
+/** Kinds of Feed activity people can switch on or off; the defaults keep the Feed social, not noisy. */
+enum class FeedKind(val shownByDefault: Boolean) {
+    STARS(true),
+    FORKS(true),
+    NEW_REPOS(true),
+    RELEASES(true),
+    ISSUES_OPENED(true),
+    ISSUES_CLOSED(true),
+    PRS_OPENED(true),
+    PRS_CLOSED(true),
+    COMMENTS(false),
+    REVIEWS(false),
+    PUSHES(false),
+    BRANCHES(false),
+    MEMBERS(false),
+    ;
+
+    companion object {
+        val defaults: Set<FeedKind> = entries.filter { it.shownByDefault }.toSet()
+    }
+}
+
+enum class IssueAction { OPENED, CLOSED, REOPENED }
+
+enum class PullRequestAction { OPENED, CLOSED, MERGED, REOPENED }
+
+sealed interface FeedAction {
+    val kind: FeedKind
+
+    data object Starred : FeedAction {
+        override val kind = FeedKind.STARS
+    }
+
+    data class Forked(val fork: RepoId) : FeedAction {
+        override val kind = FeedKind.FORKS
+    }
+
+    data class CreatedRepo(val description: String?) : FeedAction {
+        override val kind = FeedKind.NEW_REPOS
+    }
+
+    data object MadePublic : FeedAction {
+        override val kind = FeedKind.NEW_REPOS
+    }
+
+    data class Released(val tag: String, val name: String?, val prerelease: Boolean) : FeedAction {
+        override val kind = FeedKind.RELEASES
+    }
+
+    data class Issue(val action: IssueAction, val number: Int, val title: String) : FeedAction {
+        override val kind = if (action == IssueAction.CLOSED) FeedKind.ISSUES_CLOSED else FeedKind.ISSUES_OPENED
+    }
+
+    /** GitHub's events carry no pull request title, only its number. */
+    data class PullRequest(val action: PullRequestAction, val number: Int) : FeedAction {
+        override val kind = when (action) {
+            PullRequestAction.CLOSED, PullRequestAction.MERGED -> FeedKind.PRS_CLOSED
+            else -> FeedKind.PRS_OPENED
+        }
+    }
+
+    data class Commented(val number: Int, val title: String?, val isPullRequest: Boolean) : FeedAction {
+        override val kind = FeedKind.COMMENTS
+    }
+
+    data class Reviewed(val number: Int, val state: ReviewState) : FeedAction {
+        override val kind = FeedKind.REVIEWS
+    }
+
+    data class Pushed(val branch: String) : FeedAction {
+        override val kind = FeedKind.PUSHES
+    }
+
+    data class Branch(val name: String, val isTag: Boolean, val deleted: Boolean) : FeedAction {
+        override val kind = FeedKind.BRANCHES
+    }
+
+    data class AddedMember(val login: String) : FeedAction {
+        override val kind = FeedKind.MEMBERS
+    }
+}
+
+data class FeedEvent(
+    val id: String,
+    val actor: ForgeUser,
+    val repo: RepoId,
+    val action: FeedAction,
+    val createdAt: Instant,
+)

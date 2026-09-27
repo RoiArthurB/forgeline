@@ -111,4 +111,15 @@ class GitHubLiveContractTest {
         assertThat(result).isInstanceOf(ForgeResult.Success::class.java)
         assertThat((result as ForgeResult.Success).value).containsKey(linux)
     }
+
+    @Test
+    fun the_received_events_feed_still_parses() = runBlocking {
+        // Anonymous: someone else's public feed, the same shape as the signed-in one.
+        val result = GitHubFeedApi(client).receivedEvents(pat.ifBlank { null }, "torvalds")
+
+        assertWithMessage("received events: $result").that(result).isInstanceOf(ForgeResult.Success::class.java)
+        val page = (result as ForgeResult.Success).value
+        assertThat(page.events).isNotEmpty()
+        assertThat(page.nextPage).isEqualTo(2)
+    }
 }
