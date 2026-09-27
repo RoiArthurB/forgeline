@@ -51,8 +51,34 @@
     <string name="reason_other">Update</string>
     <string name="feed_signed_out_title">Follow the people you follow</string>
     <string name="feed_signed_out_body">Sign in to see what they star, fork and release.</string>
-    <string name="feed_empty_title">Your feed is on its way</string>
-    <string name="feed_empty_body">See what the people you follow star, fork and release.</string>
+    <string name="feed_empty_title">Quiet for now</string>
+    <string name="feed_empty_body">Activity from the people you follow and the repositories you watch shows up here.</string>
+    <string name="feed_error_title">Couldn\'t load your Feed</string>
+    <string name="feed_actors_two">%1$s and %2$s</string>
+    <string name="feed_starred">%1$s starred %2$s</string>
+    <string name="feed_forked">%1$s forked %2$s to %3$s</string>
+    <string name="feed_created_repo">%1$s created %2$s</string>
+    <string name="feed_made_public">%1$s made %2$s public</string>
+    <string name="feed_released">%1$s released %3$s of %2$s</string>
+    <string name="feed_prereleased">%1$s pre-released %3$s of %2$s</string>
+    <string name="feed_issue_opened">%1$s opened an issue in %2$s</string>
+    <string name="feed_issue_closed">%1$s closed an issue in %2$s</string>
+    <string name="feed_issue_reopened">%1$s reopened an issue in %2$s</string>
+    <string name="feed_pr_opened">%1$s opened pull request #%3$d in %2$s</string>
+    <string name="feed_pr_merged">%1$s merged pull request #%3$d in %2$s</string>
+    <string name="feed_pr_closed">%1$s closed pull request #%3$d in %2$s</string>
+    <string name="feed_pr_reopened">%1$s reopened pull request #%3$d in %2$s</string>
+    <string name="feed_commented_issue">%1$s commented on an issue in %2$s</string>
+    <string name="feed_commented_pr">%1$s commented on pull request #%3$d in %2$s</string>
+    <string name="feed_approved">%1$s approved pull request #%3$d in %2$s</string>
+    <string name="feed_changes_requested">%1$s requested changes on pull request #%3$d in %2$s</string>
+    <string name="feed_reviewed">%1$s reviewed pull request #%3$d in %2$s</string>
+    <string name="feed_pushed">%1$s pushed to %3$s in %2$s</string>
+    <string name="feed_branch_created">%1$s created branch %3$s in %2$s</string>
+    <string name="feed_branch_deleted">%1$s deleted branch %3$s in %2$s</string>
+    <string name="feed_tag_created">%1$s created tag %3$s in %2$s</string>
+    <string name="feed_tag_deleted">%1$s deleted tag %3$s in %2$s</string>
+    <string name="feed_member_added">%1$s added %3$s to %2$s</string>
     <string name="you_signed_out_title">Connect your GitHub account</string>
     <string name="you_signed_out_body">Your inbox and feed need an account. Trending and browsing work without one.</string>
 
@@ -216,6 +242,10 @@
     <string name="credits_read_license">Read the license</string>
     <string name="credits_libraries_intro">Built with these open source libraries</string>
 
+    <plurals name="feed_actors_many">
+        <item quantity="one">%1$s and %2$d other</item>
+        <item quantity="other">%1$s and %2$d others</item>
+    </plurals>
     <plurals name="issue_pr_files">
         <item quantity="one">%d file</item>
         <item quantity="other">%d files</item>

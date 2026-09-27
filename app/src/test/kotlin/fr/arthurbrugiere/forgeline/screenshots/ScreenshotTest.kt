@@ -17,6 +17,14 @@ import fr.arthurbrugiere.forgeline.signin.SignInStep
 import fr.arthurbrugiere.forgeline.signin.SignInUiState
 import fr.arthurbrugiere.forgeline.you.YouScreen
 import fr.arthurbrugiere.forgeline.repo.Loadable
+import fr.arthurbrugiere.forgeline.feed.FeedScreen
+import fr.arthurbrugiere.forgeline.feed.FeedUiState
+import fr.arthurbrugiere.forgeline.feed.feedItems
+import fr.arthurbrugiere.forgeline.core.model.FeedAction
+import fr.arthurbrugiere.forgeline.core.model.FeedKind
+import fr.arthurbrugiere.forgeline.core.model.IssueAction
+import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
+import fr.arthurbrugiere.forgeline.core.testing.feedEvent
 import fr.arthurbrugiere.forgeline.inbox.InboxScreen
 import fr.arthurbrugiere.forgeline.inbox.InboxUiState
 import fr.arthurbrugiere.forgeline.inbox.NotificationPrompt
@@ -276,6 +284,34 @@ class ScreenshotTest {
             notificationPrompt = NotificationPrompt.ASK,
             onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
             onErrorShown = {}, onActionFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
+    fun feed_light() = snapshot("feed_light", darkTheme = false) { FeedPreview() }
+
+    @Test
+    fun feed_dark() = snapshot("feed_dark", darkTheme = true) { FeedPreview() }
+
+    @Composable
+    private fun FeedPreview() {
+        val events = listOf(
+            feedEvent("9", actor = "alice", createdAt = "2026-09-27T09:50:00Z"),
+            feedEvent("8", actor = "bob", repo = "acme/rocket", createdAt = "2026-09-27T09:45:00Z", action = FeedAction.PullRequest(PullRequestAction.MERGED, 43)),
+            feedEvent("7", actor = "carol", createdAt = "2026-09-27T09:40:00Z", action = FeedAction.Issue(IssueAction.CLOSED, 42, "Launch fails on cold start")),
+            feedEvent("6", actor = "bob", createdAt = "2026-09-27T09:30:00Z"),
+            feedEvent("5", actor = "dave", createdAt = "2026-09-27T09:20:00Z"),
+            feedEvent(
+                "4", actor = "alice", repo = "octo/tools", createdAt = "2026-09-27T09:10:00Z",
+                action = FeedAction.Released("v2.0.0", "Tools 2.0: faster everything", prerelease = false),
+            ),
+            feedEvent("3", actor = "carol", repo = "octo/tools", createdAt = "2026-09-27T08:20:00Z", action = FeedAction.Forked(RepoId("carol", "tools"))),
+            feedEvent("2", actor = "alice", repo = "alice/new-idea", createdAt = "2026-09-26T18:00:00Z", action = FeedAction.CreatedRepo("A fresh idea for faster builds")),
+        )
+        FeedScreen(
+            state = FeedUiState(items = feedItems(events, FeedKind.defaults), syncedAtMillis = 1),
+            onRefresh = {}, onLoadMore = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = {}, onErrorShown = {},
+            nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
         )
     }
 

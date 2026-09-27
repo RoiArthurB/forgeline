@@ -14,7 +14,7 @@ import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import fr.arthurbrugiere.forgeline.credits.CreditsRoute
-import fr.arthurbrugiere.forgeline.feed.FeedScreen
+import fr.arthurbrugiere.forgeline.feed.FeedRoute as FeedDestination
 import fr.arthurbrugiere.forgeline.inbox.InboxRoute as InboxDestination
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import fr.arthurbrugiere.forgeline.navigation.AppNavigator
@@ -97,7 +97,9 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 },
             )
         }
-        entry<FeedRoute> { FeedScreen(session, onSignIn = signIn) }
+        entry<FeedRoute> {
+            FeedDestination(session, onSignIn = signIn, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser)
+        }
         entry<TrendingRoute> { TrendingDestination(session, onSignIn = signIn, onOpenRepo = openRepo) }
         entry<FileKey> { key ->
             FileDestination(key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser)

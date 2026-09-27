@@ -88,7 +88,7 @@ class AppSmokeTest {
     }
 
     @Test
-    fun sign_in_then_triage_the_inbox() {
+    fun sign_in_then_triage_the_inbox_and_read_the_feed() {
         // Runs on a real system image: token encryption needs the Android Keystore.
         composeRule.onNodeWithText("Sign in").performClick()
         composeRule.onNodeWithText("Personal access token").performTextInput("ghp_emulator")
@@ -102,8 +102,13 @@ class AppSmokeTest {
             composeRule.onAllNodes(hasText("I can reproduce this on every restart.", substring = true)).fetchSemanticsNodes().isNotEmpty()
         }
 
-        // Leave the app signed out for the other tests.
         pressBack()
+        tab("Feed").performClick()
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodes(hasText("octocat opened an issue in paperclipai/paperclip")).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // Leave the app signed out for the other tests.
         tab("You").performClick()
         composeRule.onNodeWithText("Settings").performClick()
         composeRule.onNodeWithText("Sign out").performClick()
