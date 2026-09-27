@@ -27,6 +27,10 @@
     <string name="inbox_mark_done">Done</string>
     <string name="inbox_unsubscribe">Unsubscribe</string>
     <string name="inbox_more">More actions</string>
+    <string name="inbox_permission_title">Get notified about new activity</string>
+    <string name="inbox_permission_body">Forgeline checks your Inbox in the background. Allow notifications to hear about mentions and reviews.</string>
+    <string name="inbox_permission_allow">Allow</string>
+    <string name="inbox_permission_settings">Open settings</string>
     <string name="channel_direct">Mentions, reviews and assignments</string>
     <string name="channel_participating">Conversations you take part in</string>
     <string name="channel_watching">Watched repositories</string>

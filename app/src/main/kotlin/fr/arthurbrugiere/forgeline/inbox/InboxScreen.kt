@@ -90,8 +90,11 @@ fun InboxRoute(
     // Keyed by account so switching accounts never shows the previous inbox's state.
     val viewModel = hiltViewModel<InboxViewModel>(key = session.account.id)
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val notifications = rememberNotificationPrompt()
     InboxScreen(
         state = state,
+        notificationPrompt = notifications.prompt.takeIf { state.backgroundChecks },
+        onAllowNotifications = notifications.onAllow,
         onSelectFilter = viewModel::selectFilter,
         onRefresh = viewModel::refresh,
         onOpen = { thread ->
@@ -135,6 +138,8 @@ fun InboxScreen(
     onErrorShown: () -> Unit,
     onActionFailureShown: () -> Unit,
     modifier: Modifier = Modifier,
+    notificationPrompt: NotificationPrompt? = null,
+    onAllowNotifications: () -> Unit = {},
     nowMillis: Long = System.currentTimeMillis(),
 ) {
     val snackbar = remember { SnackbarHostState() }
@@ -164,6 +169,13 @@ fun InboxScreen(
                         label = { Text(stringResource(filter.label)) },
                     )
                 }
+            }
+            if (notificationPrompt != null) {
+                NotificationPromptCard(
+                    notificationPrompt,
+                    onAllowNotifications,
+                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
             }
             PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = onRefresh, modifier = Modifier.fillMaxSize()) {
                 when {

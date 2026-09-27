@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -33,7 +34,7 @@ class InboxScreenTest {
     private val review = notificationThread("43", repo = "acme/rocket", title = "Add retry", reason = NotificationReason.REVIEW_REQUESTED)
     private val release = notificationThread("9", repo = "octo/tools", title = "v2.0.0", reason = NotificationReason.SUBSCRIBED, number = null)
 
-    private fun setContent(state: InboxUiState) {
+    private fun setContent(state: InboxUiState, prompt: NotificationPrompt? = null) {
         composeRule.setContent {
             InboxScreen(
                 state = state,
@@ -45,6 +46,8 @@ class InboxScreenTest {
                 onUnsubscribe = { events += "unsubscribe:${it.id}" },
                 onErrorShown = {},
                 onActionFailureShown = {},
+                notificationPrompt = prompt,
+                onAllowNotifications = { events += "allow" },
                 nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
             )
         }
@@ -127,5 +130,29 @@ class InboxScreenTest {
         composeRule.onNodeWithText("Retry").performClick()
 
         assertThat(events).containsExactly("refresh")
+    }
+
+    @Test
+    fun asks_for_the_notification_permission_when_needed() {
+        setContent(grouped, NotificationPrompt.ASK)
+
+        composeRule.onNodeWithText("Get notified about new activity").assertIsDisplayed()
+        composeRule.onNodeWithText("Allow").performClick()
+        assertThat(events).containsExactly("allow")
+    }
+
+    @Test
+    fun once_denied_the_prompt_points_to_settings() {
+        setContent(grouped, NotificationPrompt.OPEN_SETTINGS)
+
+        composeRule.onNodeWithText("Open settings").performClick()
+        assertThat(events).containsExactly("allow")
+    }
+
+    @Test
+    fun no_prompt_when_notifications_are_allowed() {
+        setContent(grouped)
+
+        composeRule.onAllNodes(hasText("Get notified about new activity")).assertCountEquals(0)
     }
 }

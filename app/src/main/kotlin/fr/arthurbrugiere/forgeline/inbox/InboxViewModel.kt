@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxRepository
+import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
+import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.data.inbox.SyncResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -14,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -29,12 +32,15 @@ data class InboxUiState(
     val isRefreshing: Boolean = false,
     val error: ForgeError? = null,
     val actionFailed: Boolean = false,
+    /** Whether the Inbox is checked in the background, which is when notifications matter. */
+    val backgroundChecks: Boolean = false,
 )
 
 @HiltViewModel
 class InboxViewModel @Inject constructor(
     private val savedState: SavedStateHandle,
     private val inbox: InboxRepository,
+    settings: UserSettingsRepository,
 ) : ViewModel() {
 
     private val filter = savedState.getStateFlow(FILTER_KEY, InboxFilter.UNREAD)
@@ -42,7 +48,12 @@ class InboxViewModel @Inject constructor(
 
     private data class Status(val isRefreshing: Boolean = false, val error: ForgeError? = null, val actionFailed: Boolean = false)
 
-    val state: StateFlow<InboxUiState> = combine(inbox.observe(), filter, status) { snapshot, filter, status ->
+    val state: StateFlow<InboxUiState> = combine(
+        inbox.observe(),
+        filter,
+        status,
+        settings.settings.map { it.inboxCheckInterval != InboxCheckInterval.OFF },
+    ) { snapshot, filter, status, backgroundChecks ->
         InboxUiState(
             filter = filter,
             groups = snapshot.threads.filter { filter.matches(it) }.groupByRepo(),
@@ -50,6 +61,7 @@ class InboxViewModel @Inject constructor(
             isRefreshing = status.isRefreshing,
             error = status.error,
             actionFailed = status.actionFailed,
+            backgroundChecks = backgroundChecks,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), InboxUiState(filter = filter.value))
 

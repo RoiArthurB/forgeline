@@ -6,7 +6,9 @@ import fr.arthurbrugiere.forgeline.core.data.inbox.SyncResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.testing.FakeInboxRepository
+import fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
 import fr.arthurbrugiere.forgeline.core.testing.notificationThread
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,11 +26,12 @@ class InboxViewModelTest {
     val mainDispatcherRule = MainDispatcherRule(StandardTestDispatcher())
 
     private val inbox = FakeInboxRepository()
+    private val settings = FakeUserSettingsRepository()
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
     private fun TestScope.viewModel(savedState: SavedStateHandle = SavedStateHandle()) =
-        InboxViewModel(savedState, inbox).also { it.state.launchIn(backgroundScope) }
+        InboxViewModel(savedState, inbox, settings).also { it.state.launchIn(backgroundScope) }
 
     private val mention = notificationThread("1", repo = "acme/rocket", reason = NotificationReason.MENTION, updatedAt = "2026-09-27T09:00:00Z")
     private val watching = notificationThread("2", repo = "octo/tools", reason = NotificationReason.SUBSCRIBED, updatedAt = "2026-09-27T09:30:00Z")
@@ -119,5 +122,16 @@ class InboxViewModelTest {
         viewModel.markRead(mention)
         advanceUntilIdle()
         assertThat(viewModel.state.value.actionFailed).isTrue()
+    }
+
+    @Test
+    fun knows_whether_background_checks_are_on() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.backgroundChecks).isTrue()
+
+        settings.setInboxCheckInterval(InboxCheckInterval.OFF)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.backgroundChecks).isFalse()
     }
 }

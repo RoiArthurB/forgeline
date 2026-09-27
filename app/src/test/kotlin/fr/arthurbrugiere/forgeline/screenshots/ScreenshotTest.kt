@@ -19,6 +19,7 @@ import fr.arthurbrugiere.forgeline.you.YouScreen
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import fr.arthurbrugiere.forgeline.inbox.InboxScreen
 import fr.arthurbrugiere.forgeline.inbox.InboxUiState
+import fr.arthurbrugiere.forgeline.inbox.NotificationPrompt
 import fr.arthurbrugiere.forgeline.inbox.RepoGroup
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
@@ -260,6 +261,19 @@ class ScreenshotTest {
                 ),
                 syncedAtMillis = 1,
             ),
+            onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
+            onErrorShown = {}, onActionFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
+    fun inbox_notification_prompt_dark() = snapshot("inbox_notification_prompt_dark", darkTheme = true) {
+        InboxScreen(
+            state = InboxUiState(
+                groups = listOf(RepoGroup(RepoId("acme", "rocket"), listOf(notificationThread("42", title = "Launch fails on cold start")))),
+                syncedAtMillis = 1,
+            ),
+            notificationPrompt = NotificationPrompt.ASK,
             onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
             onErrorShown = {}, onActionFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
         )
