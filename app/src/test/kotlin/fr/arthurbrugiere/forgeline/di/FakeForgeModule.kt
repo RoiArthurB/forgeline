@@ -5,6 +5,15 @@ import dagger.Provides
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
 import fr.arthurbrugiere.forgeline.core.forge.ForgeAuthApi
+import fr.arthurbrugiere.forgeline.core.forge.IssueApi
+import fr.arthurbrugiere.forgeline.core.forge.UserApi
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.TimelinePage
+import fr.arthurbrugiere.forgeline.core.testing.FakeIssueApi
+import fr.arthurbrugiere.forgeline.core.testing.FakeUserApi
+import fr.arthurbrugiere.forgeline.core.testing.comment
+import fr.arthurbrugiere.forgeline.core.testing.issueDetails
+import fr.arthurbrugiere.forgeline.core.testing.userProfile
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
@@ -50,6 +59,20 @@ object FakeForgeModule {
         pulls = listOf(issueSummary(14129, "Keep install flags on retry", isPullRequest = true))
         directories[paperclip to ""] = listOf(RepoFile("package.json", "package.json", RepoFileType.FILE, 30))
         files[paperclip to "package.json"] = "{\n  \"name\": \"paperclip\"\n}\n"
+    }
+
+    @Provides
+    @Singleton
+    fun provideIssueApi(): IssueApi = FakeIssueApi().apply {
+        val ref = IssueRef(RepoId("paperclipai", "paperclip"), 14127)
+        issues[ref] = issueDetails(ref, "Heartbeat recovery escalates too early")
+        pages[ref to 1] = TimelinePage(listOf(comment(1, "I can reproduce this on every restart.", login = "hubot")), null)
+    }
+
+    @Provides
+    @Singleton
+    fun provideUserApi(): UserApi = FakeUserApi().apply {
+        users["octocat"] = userProfile("octocat", name = "The Octocat")
     }
 
     @Provides

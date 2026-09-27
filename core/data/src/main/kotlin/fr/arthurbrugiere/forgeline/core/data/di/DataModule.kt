@@ -16,7 +16,11 @@ import fr.arthurbrugiere.forgeline.core.data.account.DataStoreAccountRepository
 import fr.arthurbrugiere.forgeline.core.data.account.KeystoreTokenCipher
 import fr.arthurbrugiere.forgeline.core.data.account.TokenCipher
 import fr.arthurbrugiere.forgeline.core.data.database.ForgelineDatabase
+import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
+import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.DefaultRepoRepository
+import fr.arthurbrugiere.forgeline.core.data.user.DefaultUserRepository
+import fr.arthurbrugiere.forgeline.core.data.user.UserRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoDao
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 import fr.arthurbrugiere.forgeline.core.data.settings.DataStoreUserSettingsRepository
@@ -49,6 +53,12 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindRepoRepository(impl: DefaultRepoRepository): RepoRepository
+
+    @Binds
+    abstract fun bindIssueRepository(impl: DefaultIssueRepository): IssueRepository
+
+    @Binds
+    abstract fun bindUserRepository(impl: DefaultUserRepository): UserRepository
 
     companion object {
         @Provides
