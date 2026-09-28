@@ -14,41 +14,30 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.CallMerge
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.Adjust
 import androidx.compose.material.icons.outlined.CheckCircleOutline
-import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Commit
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.RateReview
 import androidx.compose.material.icons.outlined.Replay
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -75,13 +64,44 @@ import fr.arthurbrugiere.forgeline.navigation.IssueRoute
 import fr.arthurbrugiere.forgeline.navigation.RepoRoute
 import fr.arthurbrugiere.forgeline.navigation.UserRoute
 import fr.arthurbrugiere.forgeline.ui.Avatar
-import fr.arthurbrugiere.forgeline.ui.Badge
-import fr.arthurbrugiere.forgeline.ui.EmptyState
 import fr.arthurbrugiere.forgeline.ui.LabelChip
 import fr.arthurbrugiere.forgeline.ui.message
 import fr.arthurbrugiere.forgeline.ui.relative
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import java.time.Instant
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.sp
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
+import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
+import fr.arthurbrugiere.forgeline.ui.listBottomPadding
+import androidx.compose.runtime.getValue
 
 @Composable
 fun IssueRoute(
@@ -147,57 +167,58 @@ fun IssueScreen(
         }
     }
 
-    Scaffold(
-        modifier = modifier,
-        snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        // Two texts so a long title ellipsizes without hiding the number.
-                        Row {
-                            issue?.title?.let { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)) }
-                            Text(if (issue != null) " - #${state.ref.number}" else "#${state.ref.number}", maxLines = 1)
-                        }
-                        Text(
-                            state.ref.repo.fullName,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+    val colors = Soft.colors
+    val listState = rememberLazyListState()
+    Box(modifier.fillMaxSize().background(colors.ground)) {
+        val pullState = rememberPullToRefreshState()
+        PullToRefreshBox(
+            isRefreshing = state.isRefreshing && issue != null,
+            onRefresh = onRefresh,
+            state = pullState,
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullState,
+                    isRefreshing = state.isRefreshing && issue != null,
+                    modifier = Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.statusBars),
+                    containerColor = colors.raised,
+                    color = colors.accent,
+                )
+            },
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            LazyColumn(
+                state = listState,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                contentPadding = PaddingValues(bottom = listBottomPadding()),
+                modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+            ) {
+                item(key = "header") {
+                    SoftHeader(
+                        tint = colors.fields[issue?.tintIndex ?: 2],
+                        onBack = onBack,
+                        backDescription = stringResource(R.string.navigate_up),
+                        actions = {
+                            IconButton(onClick = { onOpenInBrowser(webUrl) }) {
+                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.issue_open_on_forge), tint = colors.ink)
+                            }
+                        },
+                    ) {
+                        Header(state.ref, issue, nowMillis, onOpenUser)
+                    }
+                }
+                when {
+                    issue == null && state.error != null -> item(key = "error") {
+                        SoftNotice(
+                            stringResource(R.string.issue_error_title),
+                            stringResource(state.error.message),
+                            action = stringResource(R.string.retry),
+                            onAction = onRefresh,
                         )
                     }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up))
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { onOpenInBrowser(webUrl) }) {
-                        Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.issue_open_on_forge))
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Box(Modifier.padding(padding).fillMaxSize()) {
-            when {
-                issue == null && state.error != null -> EmptyState(
-                    icon = Icons.Outlined.CloudOff,
-                    title = stringResource(R.string.issue_error_title),
-                    body = stringResource(state.error.message),
-                    actionLabel = stringResource(R.string.retry),
-                    onAction = onRefresh,
-                )
-                issue == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                else -> PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = onRefresh) {
-                    LazyColumn(
-                        Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        item(key = "header") { Header(issue, nowMillis, onOpenUser) }
+                    issue == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.issue_loading), rows = 3) }
+                    else -> {
                         item(key = "body") {
-                            CommentCard(
+                            Comment(
                                 author = issue.author,
                                 body = issue.body ?: stringResource(R.string.issue_no_description),
                                 createdAt = issue.createdAt,
@@ -206,6 +227,7 @@ fun IssueScreen(
                                 nowMillis = nowMillis,
                                 onOpenUser = onOpenUser,
                                 onLinkClick = onLinkClick,
+                                modifier = Modifier.padding(top = 12.dp),
                             )
                         }
                         itemsIndexed(state.items, key = { index, item -> item.key(index) }) { _, item ->
@@ -213,11 +235,11 @@ fun IssueScreen(
                         }
                         if (state.nextPage != null) {
                             item(key = "more") {
-                                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                                     if (state.isLoadingMore) {
-                                        CircularProgressIndicator()
+                                        CircularProgressIndicator(color = colors.accent, trackColor = colors.surface)
                                     } else {
-                                        OutlinedButton(onClick = onLoadMore) { Text(stringResource(R.string.issue_load_more)) }
+                                        SoftTonalButton(stringResource(R.string.issue_load_more), onLoadMore)
                                     }
                                 }
                             }
@@ -226,44 +248,74 @@ fun IssueScreen(
                 }
             }
         }
+        val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+        SoftStatusBarScrim(scrolled)
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current)) { data ->
+            Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground)
+        }
     }
 }
 
+/** Fresh while open, cool once merged, warm once closed: the header field says where the conversation stands. */
+private val IssueDetails.tintIndex: Int
+    get() = when (state) {
+        IssueState.OPEN -> 2
+        IssueState.MERGED -> 1
+        else -> 0
+    }
+
 @Composable
-private fun Header(issue: IssueDetails, nowMillis: Long, onOpenUser: (String) -> Unit) {
+private fun Header(ref: IssueRef, issue: IssueDetails?, nowMillis: Long, onOpenUser: (String) -> Unit) {
+    val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(issue.title, style = MaterialTheme.typography.headlineSmall)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StateChip(issue)
+        Text(ref.repo.fullName, style = Soft.type.secondary, color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (issue == null) {
+            Text("#${ref.number}", style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp), color = colors.ink)
+            return@Column
+        }
+        // The title, then its number (the owner's requested "Title - #123").
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                buildAnnotatedString {
+                    append(issue.title)
+                    withStyle(SpanStyle(color = colors.inkMuted)) { append(" - #${ref.number}") }
+                },
+                style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp),
+                color = colors.ink,
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StateTag(issue)
             Text(
                 stringResource(R.string.issue_opened_by, issue.author?.login ?: "ghost", relative(issue.createdAt, nowMillis)),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.clickable(enabled = issue.author != null) { issue.author?.let { onOpenUser(it.login) } },
+                style = Soft.type.secondary,
+                color = colors.inkMuted,
+                modifier = Modifier.clip(SoftTokens.Pill).clickable(enabled = issue.author != null) { issue.author?.let { onOpenUser(it.login) } },
             )
         }
         issue.pullRequest?.let { pr ->
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        stringResource(R.string.issue_pr_branches, pr.baseRef, pr.headRef),
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontFamily = FontFamily.Monospace,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        stringResource(
-                            R.string.issue_pr_stats,
-                            pr.additions,
-                            pr.deletions,
-                            pluralStringResource(R.plurals.issue_pr_files, pr.changedFiles, pr.changedFiles),
-                            pluralStringResource(R.plurals.issue_pr_commits, pr.commits, pr.commits),
-                        ),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+            Column(
+                Modifier.clip(RoundedCornerShape(16.dp)).background(colors.ground).padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    stringResource(R.string.issue_pr_branches, pr.baseRef, pr.headRef),
+                    style = Soft.type.meta.copy(fontFamily = FontFamily.Monospace),
+                    color = colors.ink,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    stringResource(
+                        R.string.issue_pr_stats,
+                        pr.additions,
+                        pr.deletions,
+                        pluralStringResource(R.plurals.issue_pr_files, pr.changedFiles, pr.changedFiles),
+                        pluralStringResource(R.plurals.issue_pr_commits, pr.commits, pr.commits),
+                    ),
+                    style = Soft.type.meta,
+                    color = colors.inkMuted,
+                )
             }
         }
         if (issue.labels.isNotEmpty()) {
@@ -275,21 +327,29 @@ private fun Header(issue: IssueDetails, nowMillis: Long, onOpenUser: (String) ->
 }
 
 @Composable
-private fun StateChip(issue: IssueDetails) {
+private fun StateTag(issue: IssueDetails) {
+    val colors = Soft.colors
     val (label, icon) = when {
         issue.pullRequest?.isDraft == true && issue.state == IssueState.OPEN -> R.string.issue_state_draft to Icons.AutoMirrored.Outlined.CallMerge
         issue.state == IssueState.OPEN -> R.string.issue_state_open to if (issue.pullRequest != null) Icons.AutoMirrored.Outlined.CallMerge else Icons.Outlined.Adjust
         issue.state == IssueState.MERGED -> R.string.issue_state_merged to Icons.AutoMirrored.Outlined.CallMerge
         else -> R.string.issue_state_closed to Icons.Outlined.CheckCircleOutline
     }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-        Badge(stringResource(label))
+    Row(
+        Modifier.clip(SoftTokens.Pill).background(colors.ground).padding(start = 8.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = colors.ink)
+        Text(stringResource(label), style = Soft.type.label, color = colors.ink)
     }
 }
 
+private val TimelineGutter = 40.dp
+
+/** One comment as a conversation turn: the author and when, then their words; unboxed, the reading is the point. */
 @Composable
-private fun CommentCard(
+private fun Comment(
     author: ForgeUser?,
     body: String,
     createdAt: Instant?,
@@ -298,41 +358,43 @@ private fun CommentCard(
     nowMillis: Long,
     onOpenUser: (String) -> Unit,
     onLinkClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.clickable(enabled = author != null) { author?.let { onOpenUser(it.login) } },
-            ) {
-                Avatar(author?.avatarUrl, author?.login ?: "?", size = 28.dp)
-                Text(author?.login ?: "ghost", style = MaterialTheme.typography.titleSmall)
-                createdAt?.let {
-                    Text(relative(it, nowMillis), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
+    val colors = Soft.colors
+    Column(modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.clip(SoftTokens.Pill).clickable(enabled = author != null) { author?.let { onOpenUser(it.login) } }.padding(end = 8.dp),
+        ) {
+            Avatar(author?.avatarUrl, author?.login ?: "?", size = 28.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
+            Text(author?.login ?: "ghost", style = Soft.type.control, color = colors.ink)
+            createdAt?.let { Text(relative(it, nowMillis), style = Soft.type.meta, color = colors.inkMuted) }
+        }
+        Column(Modifier.padding(start = TimelineGutter, top = 6.dp).widthIn(max = SoftTokens.MaxMeasure)) {
             Markdown(body, context, onLinkClick)
-            if (reactions.isNotEmpty()) Reactions(reactions)
+            if (reactions.isNotEmpty()) {
+                Reactions(reactions, Modifier.padding(top = 8.dp))
+            }
         }
     }
 }
 
 @Composable
 private fun Markdown(body: String, context: ReadmeContext, onLinkClick: (String) -> Unit) {
-    val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val parsed = rememberReadmeState(body, context, darkTheme)
+    val colors = Soft.colors
+    val parsed = rememberReadmeState(body, context, colors.isDark)
     if (parsed == null) {
-        Text(body, style = MaterialTheme.typography.bodyMedium, maxLines = 6, overflow = TextOverflow.Ellipsis)
+        Text(body, style = Soft.type.body, color = colors.ink, maxLines = 6, overflow = TextOverflow.Ellipsis)
     } else {
         ForgelineMarkdown(parsed, onLinkClick)
     }
 }
 
 @Composable
-private fun Reactions(reactions: Map<Reaction, Int>) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        reactions.forEach { (reaction, count) -> Badge("${reaction.emoji} $count") }
+private fun Reactions(reactions: Map<Reaction, Int>, modifier: Modifier = Modifier) {
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        reactions.forEach { (reaction, count) -> SoftTag("${reaction.emoji} $count") }
     }
 }
 
@@ -345,19 +407,20 @@ private fun TimelineEntry(
     onOpenIssue: (IssueRef) -> Unit,
     onLinkClick: (String) -> Unit,
 ) {
+    val colors = Soft.colors
     val time = item.createdAt?.let { relative(it, nowMillis) }.orEmpty()
     when (item) {
-        is TimelineItem.Comment -> CommentCard(item.author, item.body, item.createdAt, item.reactions, context, nowMillis, onOpenUser, onLinkClick)
-        is TimelineItem.Review -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        is TimelineItem.Comment -> Comment(item.author, item.body, item.createdAt, item.reactions, context, nowMillis, onOpenUser, onLinkClick)
+        is TimelineItem.Review -> Column {
             val who = item.author?.login ?: "ghost"
             val (text, icon) = when (item.state) {
-                ReviewState.APPROVED -> stringResource(R.string.issue_review_approved, who) to Icons.Filled.CheckCircle
+                ReviewState.APPROVED -> stringResource(R.string.issue_review_approved, who) to Icons.Outlined.Check
                 ReviewState.CHANGES_REQUESTED -> stringResource(R.string.issue_review_changes, who) to Icons.Outlined.RateReview
                 ReviewState.DISMISSED -> stringResource(R.string.issue_review_dismissed, who) to Icons.Outlined.RateReview
                 ReviewState.COMMENTED -> stringResource(R.string.issue_review_commented, who) to Icons.Outlined.RateReview
             }
-            EventLine(icon, "$text $time", tint = if (item.state == ReviewState.APPROVED) successColor() else null)
-            item.body?.let { CommentCard(item.author, it, null, emptyMap(), context, nowMillis, onOpenUser, onLinkClick) }
+            EventLine(icon, "$text $time", badge = if (item.state == ReviewState.APPROVED) colors.fields[2] else colors.surface)
+            item.body?.let { Comment(item.author, it, null, emptyMap(), context, nowMillis, onOpenUser, onLinkClick) }
         }
         is TimelineItem.StateChanged -> {
             val who = item.actor?.login ?: "ghost"
@@ -370,12 +433,12 @@ private fun TimelineEntry(
                     else -> stringResource(R.string.issue_closed_event, who, time)
                 }
             }
-            val icon = when (item.change) {
-                StateChange.MERGED -> Icons.AutoMirrored.Outlined.CallMerge
-                StateChange.REOPENED -> Icons.Outlined.Replay
-                StateChange.CLOSED -> Icons.Outlined.CheckCircleOutline
+            val (icon, badge) = when (item.change) {
+                StateChange.MERGED -> Icons.AutoMirrored.Outlined.CallMerge to colors.fields[1]
+                StateChange.REOPENED -> Icons.Outlined.Replay to colors.fields[2]
+                StateChange.CLOSED -> Icons.Outlined.CheckCircleOutline to colors.fields[0]
             }
-            EventLine(icon, text, tint = MaterialTheme.colorScheme.primary)
+            EventLine(icon, text, badge = badge)
         }
         is TimelineItem.Labeled -> {
             val who = item.actor?.login ?: "ghost"
@@ -388,7 +451,7 @@ private fun TimelineEntry(
         is TimelineItem.CrossReferenced -> EventLine(
             Icons.Outlined.Link,
             stringResource(R.string.issue_referenced_event, item.actor?.login ?: "ghost", item.source.number, item.sourceTitle),
-            modifier = Modifier.clickable { onOpenIssue(item.source) },
+            onClick = { onOpenIssue(item.source) },
         )
         is TimelineItem.Committed -> EventLine(
             Icons.Outlined.Commit,
@@ -398,26 +461,34 @@ private fun TimelineEntry(
     }
 }
 
+/** A small event on the conversation's timeline: a soft round badge in the avatar column, then one muted line. */
 @Composable
 private fun EventLine(
     icon: ImageVector,
     text: String,
-    modifier: Modifier = Modifier,
-    tint: Color? = null,
+    badge: Color = Soft.colors.surface,
     monospace: Boolean = false,
+    onClick: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
+    val colors = Soft.colors
     Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp),
+        Modifier
+            .widthIn(max = SoftTokens.MaxReadingWidth)
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .then(if (onClick != null) Modifier.softPressable(onClick = onClick) else Modifier)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = tint ?: MaterialTheme.colorScheme.onSurfaceVariant)
+        Box(Modifier.size(28.dp).background(badge, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(15.dp), tint = colors.ink)
+        }
         Text(
             text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontFamily = if (monospace) FontFamily.Monospace else null,
+            style = if (monospace) Soft.type.meta.copy(fontFamily = FontFamily.Monospace) else Soft.type.secondary,
+            color = colors.inkMuted,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f, fill = false),
@@ -425,10 +496,6 @@ private fun EventLine(
         trailing?.invoke()
     }
 }
-
-@Composable
-private fun successColor(): Color =
-    if (MaterialTheme.colorScheme.background.luminance() < 0.5f) Color(0xFF3FB950) else Color(0xFF1A7F37)
 
 private fun TimelineItem.key(index: Int): String = when (this) {
     is TimelineItem.Comment -> "comment-$id"

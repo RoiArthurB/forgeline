@@ -33,7 +33,7 @@ class NotificationDeepLinkTest {
 
         ActivityScenario.launch<MainActivity>(intent).use {
             composeRule.waitUntil(5_000) {
-                composeRule.onAllNodes(hasText("Heartbeat recovery escalates too early")).fetchSemanticsNodes().isNotEmpty()
+                composeRule.onAllNodes(hasText("Heartbeat recovery escalates too early", substring = true)).fetchSemanticsNodes().isNotEmpty()
             }
         }
     }

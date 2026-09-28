@@ -1,10 +1,8 @@
 package fr.arthurbrugiere.forgeline.issue
 
-import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.google.common.truth.Truth.assertThat
@@ -61,8 +59,8 @@ class IssueScreenTest {
     fun shows_the_issue_and_its_comments() {
         setContent(IssueUiState(ref, issueDetails(ref, "Crash on start"), listOf(comment(1, "Same here", login = "hubot"))))
 
-        // Once in the top bar, once in the header.
-        composeRule.onAllNodesWithText("Crash on start").assertCountEquals(2)
+        // The header field names the conversation, its number after the title.
+        composeRule.onNodeWithText("Crash on start - #7").assertIsDisplayed()
         composeRule.onNodeWithText("Open").assertIsDisplayed()
         waitFor("Same here")
         composeRule.onNodeWithText("hubot").assertIsDisplayed()
@@ -97,8 +95,7 @@ class IssueScreenTest {
     fun the_top_bar_names_the_conversation_before_its_number() {
         setContent(IssueUiState(ref, issueDetails(ref, "Crash on start")))
 
-        composeRule.onNodeWithText(" - #7").assertIsDisplayed()
-        composeRule.onAllNodesWithText("Crash on start")[0].assertIsDisplayed()
+        composeRule.onNodeWithText("Crash on start - #7").assertIsDisplayed()
     }
 
     @Test

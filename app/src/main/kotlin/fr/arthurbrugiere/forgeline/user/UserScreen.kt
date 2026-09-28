@@ -13,29 +13,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Business
-import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,11 +42,36 @@ import fr.arthurbrugiere.forgeline.navigation.UserRoute
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.ui.RepoSummaryRow
 import fr.arthurbrugiere.forgeline.ui.Avatar
-import fr.arthurbrugiere.forgeline.ui.Badge
-import fr.arthurbrugiere.forgeline.ui.EmptyState
 import fr.arthurbrugiere.forgeline.ui.loadable
 import fr.arthurbrugiere.forgeline.ui.message
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Snackbar
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.sp
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
+import fr.arthurbrugiere.forgeline.ui.listBottomPadding
+import androidx.compose.runtime.getValue
 
 @Composable
 fun UserRoute(
@@ -107,49 +122,50 @@ fun UserScreen(
             onFollowFailureShown()
         }
     }
-    Scaffold(
-        modifier = modifier,
-        snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            TopAppBar(
-                title = { Text(state.login) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up))
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { onOpenUrl("https://github.com/${state.login}") }) {
-                        Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge))
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Box(Modifier.padding(padding).fillMaxSize()) {
-            when {
-                profile == null && state.error != null -> EmptyState(
-                    icon = Icons.Outlined.CloudOff,
-                    title = stringResource(R.string.user_error_title),
-                    body = stringResource(state.error.message),
-                    actionLabel = stringResource(R.string.retry),
-                    onAction = onRetry,
-                )
-                profile == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-                    item(key = "header") { Header(profile, state.following, signedIn, onToggleFollow, onSignIn, onOpenUrl) }
-                    stickyHeader(key = "tabs") {
-                        PrimaryTabRow(selectedTabIndex = state.tab.ordinal, containerColor = MaterialTheme.colorScheme.surface) {
-                            UserTab.entries.forEach { tab ->
-                                Tab(
-                                    selected = tab == state.tab,
-                                    onClick = { onSelectTab(tab) },
-                                    text = { Text(stringResource(if (tab == UserTab.REPOS) R.string.user_tab_repos else R.string.user_tab_starred)) },
-                                    selectedContentColor = MaterialTheme.colorScheme.primary,
-                                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
+    val colors = Soft.colors
+    val listState = rememberLazyListState()
+    Box(modifier.fillMaxSize().background(colors.ground)) {
+        LazyColumn(
+            state = listState,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(bottom = listBottomPadding()),
+            modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+        ) {
+            item(key = "header") {
+                SoftHeader(
+                    tint = colors.fields[1],
+                    onBack = onBack,
+                    backDescription = stringResource(R.string.navigate_up),
+                    actions = {
+                        IconButton(onClick = { onOpenUrl("https://github.com/${state.login}") }) {
+                            Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge), tint = colors.ink)
                         }
+                    },
+                ) {
+                    if (profile != null) {
+                        Header(profile, state.following, signedIn, onToggleFollow, onSignIn, onOpenUrl)
+                    } else {
+                        Text("@${state.login}", style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp), color = colors.ink)
+                    }
+                }
+            }
+            when {
+                profile == null && state.error != null -> item(key = "error") {
+                    SoftNotice(
+                        stringResource(R.string.user_error_title),
+                        stringResource(state.error.message),
+                        action = stringResource(R.string.retry),
+                        onAction = onRetry,
+                    )
+                }
+                profile == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.user_loading), rows = 3, leadingDot = false) }
+                else -> {
+                    stickyHeader(key = "tabs") {
+                        SoftChipTabs(
+                            options = UserTab.entries.map { stringResource(if (it == UserTab.REPOS) R.string.user_tab_repos else R.string.user_tab_starred) },
+                            selected = state.tab.ordinal,
+                            onSelect = { onSelectTab(UserTab.entries[it]) },
+                        )
                     }
                     val (list, empty) = when (state.tab) {
                         UserTab.REPOS -> state.repos to R.string.user_no_repos
@@ -160,6 +176,11 @@ fun UserScreen(
                     }
                 }
             }
+        }
+        val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+        SoftStatusBarScrim(scrolled)
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current)) { data ->
+            Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground)
         }
     }
 }
@@ -173,33 +194,38 @@ private fun Header(
     onSignIn: () -> Unit,
     onOpenUrl: (String) -> Unit,
 ) {
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val colors = Soft.colors
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Avatar(profile.avatarUrl, profile.login, size = 72.dp)
+            Avatar(profile.avatarUrl, profile.login, size = 72.dp, placeholderColor = colors.ground, placeholderContentColor = colors.inkMuted)
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                profile.name?.let { Text(it, style = MaterialTheme.typography.headlineSmall) }
-                Text("@${profile.login}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (profile.isOrganization) Badge(stringResource(R.string.user_organization))
+                profile.name?.let { Text(it, style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp), color = colors.ink) }
+                Text("@${profile.login}", style = Soft.type.secondary, color = colors.inkMuted)
+                if (profile.isOrganization) SoftTag(stringResource(R.string.user_organization), background = colors.ground)
             }
         }
-        profile.bio?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
+        profile.bio?.let { Text(it, style = Soft.type.body.copy(fontSize = 16.sp), color = colors.ink, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure)) }
         profile.company?.let { Detail(Icons.Outlined.Business, it) }
         profile.location?.let { Detail(Icons.Outlined.LocationOn, it) }
         profile.website?.let { site ->
             val url = if (site.startsWith("http")) site else "https://$site"
-            Detail(Icons.Outlined.Link, site.removePrefix("https://").removePrefix("http://"), Modifier.clickable { onOpenUrl(url) })
+            Detail(Icons.Outlined.Link, site.removePrefix("https://").removePrefix("http://"), Modifier.clip(SoftTokens.Pill).clickable { onOpenUrl(url) }, link = true)
         }
         if (!profile.isOrganization) {
             Text(
                 stringResource(R.string.user_followers, compactCount(profile.followers), compactCount(profile.following)),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = Soft.type.meta,
+                color = colors.inkMuted,
             )
         }
+        val action = Modifier.padding(top = 4.dp)
         when {
-            !signedIn -> Button(onClick = onSignIn) { Text(stringResource(R.string.user_follow)) }
-            following == true -> FilledTonalButton(onClick = onToggleFollow) { Text(stringResource(R.string.user_following)) }
-            following == false -> Button(onClick = onToggleFollow) { Text(stringResource(R.string.user_follow)) }
+            !signedIn -> SoftButton(stringResource(R.string.user_follow), onSignIn, action)
+            following == true -> Box(
+                action.clip(SoftTokens.Pill).background(colors.ground).clickable(role = Role.Button, onClick = onToggleFollow).heightIn(min = 48.dp).padding(horizontal = 20.dp),
+                contentAlignment = Alignment.Center,
+            ) { Text(stringResource(R.string.user_following), style = Soft.type.control, color = colors.ink) }
+            following == false -> SoftButton(stringResource(R.string.user_follow), onToggleFollow, action)
             // Unknown or own profile: no follow action.
             else -> Unit
         }
@@ -207,10 +233,11 @@ private fun Header(
 }
 
 @Composable
-private fun Detail(icon: ImageVector, text: String, modifier: Modifier = Modifier) {
+private fun Detail(icon: ImageVector, text: String, modifier: Modifier = Modifier, link: Boolean = false) {
+    val colors = Soft.colors
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(text, style = MaterialTheme.typography.bodyMedium)
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = if (link) colors.accent else colors.inkMuted)
+        Text(text, style = Soft.type.secondary, color = if (link) colors.accent else colors.ink)
     }
 }
 

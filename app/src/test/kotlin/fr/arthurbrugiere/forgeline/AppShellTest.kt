@@ -129,7 +129,7 @@ class AppShellTest {
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodes(hasText("I can reproduce this on every restart.", substring = true)).fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText(" - #14127").assertIsDisplayed()
+        composeRule.onNodeWithText(" - #14127", substring = true).assertIsDisplayed()
     }
 
     @Test
