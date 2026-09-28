@@ -21,7 +21,7 @@ class SoftTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private val palettes = mapOf("light" to SoftLight, "dark" to SoftDark, "amoled" to SoftDark.copy(ground = Color.Black))
+    private val palettes = mapOf("light" to SoftLight, "dark" to SoftDark, "amoled" to SoftDark.amoled())
 
     private fun contrast(foreground: Color, background: Color): Float {
         val a = foreground.compositeOver(background).luminance() + 0.05f
@@ -64,6 +64,9 @@ class SoftTest {
             // A focused row keeps this surface on screen, so its ember rank and figures must stay readable on it.
             assertReadable("$theme accent on a pressed surface", c.accent, c.surface)
             assertReadable("$theme muted ink on a pressed surface", c.inkMuted, c.surface)
+            assertReadable("$theme ink on a floating surface", c.ink, c.raised)
+            assertReadable("$theme muted ink on a floating surface", c.inkMuted, c.raised)
+            assertReadable("$theme accent on a floating surface", c.accent, c.raised)
         }
     }
 

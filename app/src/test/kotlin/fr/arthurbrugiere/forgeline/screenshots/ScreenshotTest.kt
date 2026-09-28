@@ -104,10 +104,9 @@ class ScreenshotTest {
         content: @Composable () -> Unit,
     ) {
         composeRule.setContent {
-            // Ember palette keeps screenshots independent of the emulated wallpaper. Top-level screens
-            // get their search action as they do inside the app shell.
+            // Top-level screens get their search action as they do inside the app shell.
             CompositionLocalProvider(LocalOpenSearch provides {}) {
-                ForgelineTheme(darkTheme = darkTheme, dynamicColor = false, amoledBlack = amoledBlack, content = content)
+                ForgelineTheme(darkTheme = darkTheme, amoledBlack = amoledBlack, content = content)
             }
         }
         // Content parsed off the main thread (READMEs) must be on screen before capturing.
@@ -463,7 +462,6 @@ class ScreenshotTest {
             settings = settings,
             versionName = "0.1.0",
             onThemeModeChange = {},
-            onDynamicColorChange = {},
             onAmoledBlackChange = {},
             onOpenCredits = {},
             onOpenSourceCode = {},

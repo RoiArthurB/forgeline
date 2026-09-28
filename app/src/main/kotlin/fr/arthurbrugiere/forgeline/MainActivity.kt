@@ -51,7 +51,6 @@ class MainActivity : ComponentActivity() {
 
             ForgelineTheme(
                 darkTheme = darkTheme,
-                dynamicColor = settings.dynamicColor,
                 amoledBlack = settings.amoledBlack,
             ) {
                 val session by sessionViewModel.session.collectAsStateWithLifecycle()

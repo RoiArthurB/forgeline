@@ -11,8 +11,6 @@ interface UserSettingsRepository {
 
     suspend fun setThemeMode(mode: ThemeMode)
 
-    suspend fun setDynamicColor(enabled: Boolean)
-
     suspend fun setAmoledBlack(enabled: Boolean)
 
     suspend fun setInboxCheckInterval(interval: InboxCheckInterval)

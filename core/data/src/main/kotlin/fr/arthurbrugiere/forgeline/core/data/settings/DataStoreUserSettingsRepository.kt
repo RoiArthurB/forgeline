@@ -27,7 +27,6 @@ class DataStoreUserSettingsRepository @Inject constructor(
                 themeMode = prefs[THEME_MODE]
                     ?.let { stored -> ThemeMode.entries.firstOrNull { it.name == stored } }
                     ?: defaults.themeMode,
-                dynamicColor = prefs[DYNAMIC_COLOR] ?: defaults.dynamicColor,
                 amoledBlack = prefs[AMOLED_BLACK] ?: defaults.amoledBlack,
                 inboxCheckInterval = prefs[INBOX_CHECK]
                     ?.let { stored -> InboxCheckInterval.entries.firstOrNull { it.name == stored } }
@@ -45,10 +44,6 @@ class DataStoreUserSettingsRepository @Inject constructor(
 
     override suspend fun setThemeMode(mode: ThemeMode) {
         dataStore.edit { it[THEME_MODE] = mode.name }
-    }
-
-    override suspend fun setDynamicColor(enabled: Boolean) {
-        dataStore.edit { it[DYNAMIC_COLOR] = enabled }
     }
 
     override suspend fun setAmoledBlack(enabled: Boolean) {
@@ -69,7 +64,6 @@ class DataStoreUserSettingsRepository @Inject constructor(
 
     private companion object {
         val THEME_MODE = stringPreferencesKey("theme_mode")
-        val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val AMOLED_BLACK = booleanPreferencesKey("amoled_black")
         val INBOX_CHECK = stringPreferencesKey("inbox_check_interval")
         val FEED_SHOWN = stringSetPreferencesKey("feed_kinds_shown")

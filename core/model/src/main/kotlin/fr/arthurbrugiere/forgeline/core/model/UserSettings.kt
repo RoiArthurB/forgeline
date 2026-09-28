@@ -7,7 +7,6 @@ enum class InboxCheckInterval(val minutes: Long?) { OFF(null), MIN_15(15), MIN_3
 
 data class UserSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
-    val dynamicColor: Boolean = true,
     val amoledBlack: Boolean = false,
     val inboxCheckInterval: InboxCheckInterval = InboxCheckInterval.HOUR_1,
     val feedKinds: Set<FeedKind> = FeedKind.defaults,

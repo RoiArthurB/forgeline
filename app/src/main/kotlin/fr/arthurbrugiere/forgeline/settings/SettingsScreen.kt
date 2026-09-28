@@ -73,7 +73,6 @@ fun SettingsRoute(
         settings = settings,
         versionName = BuildConfig.VERSION_NAME,
         onThemeModeChange = viewModel::setThemeMode,
-        onDynamicColorChange = viewModel::setDynamicColor,
         onAmoledBlackChange = viewModel::setAmoledBlack,
         onInboxCheckIntervalChange = viewModel::setInboxCheckInterval,
         onFeedKindChange = viewModel::setFeedKindShown,
@@ -92,7 +91,6 @@ fun SettingsScreen(
     settings: UserSettings,
     versionName: String,
     onThemeModeChange: (ThemeMode) -> Unit,
-    onDynamicColorChange: (Boolean) -> Unit,
     onAmoledBlackChange: (Boolean) -> Unit,
     onOpenCredits: () -> Unit,
     onOpenSourceCode: () -> Unit,
@@ -132,14 +130,6 @@ fun SettingsScreen(
                             modifier = Modifier.padding(top = 8.dp),
                         )
                     },
-                )
-            }
-            item {
-                SwitchItem(
-                    title = stringResource(R.string.settings_dynamic_color),
-                    summary = stringResource(R.string.settings_dynamic_color_summary),
-                    checked = settings.dynamicColor,
-                    onCheckedChange = onDynamicColorChange,
                 )
             }
             item {

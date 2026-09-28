@@ -35,7 +35,6 @@ class SettingsScreenTest {
     val composeRule = createComposeRule()
 
     private var themeMode: ThemeMode? = null
-    private var dynamicColor: Boolean? = null
     private var amoledBlack: Boolean? = null
     private var sourceCodeOpened = false
     private var creditsOpened = false
@@ -54,7 +53,6 @@ class SettingsScreenTest {
                 settings = settings,
                 versionName = "1.2.3",
                 onThemeModeChange = { themeMode = it },
-                onDynamicColorChange = { dynamicColor = it },
                 onAmoledBlackChange = { amoledBlack = it },
                 onOpenCredits = { creditsOpened = true },
                 onInboxCheckIntervalChange = { interval = it },
@@ -67,10 +65,9 @@ class SettingsScreenTest {
 
     @Test
     fun shows_current_settings() {
-        setContent(UserSettings(themeMode = ThemeMode.DARK, dynamicColor = false, amoledBlack = true))
+        setContent(UserSettings(themeMode = ThemeMode.DARK, amoledBlack = true))
 
         composeRule.onNodeWithText("Dark").assertIsSelected()
-        composeRule.onNodeWithText("Material You").assertIsOff()
         composeRule.onNodeWithText("Pure black").assertIsOn()
     }
 
@@ -87,10 +84,8 @@ class SettingsScreenTest {
     fun tapping_a_switch_row_toggles_it() {
         setContent()
 
-        composeRule.onNodeWithText("Material You").performClick()
         composeRule.onNodeWithText("Pure black").performClick()
 
-        assertThat(dynamicColor).isFalse()
         assertThat(amoledBlack).isTrue()
     }
 

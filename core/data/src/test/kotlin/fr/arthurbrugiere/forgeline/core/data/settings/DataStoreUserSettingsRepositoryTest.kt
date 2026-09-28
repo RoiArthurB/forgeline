@@ -40,12 +40,11 @@ class DataStoreUserSettingsRepositoryTest {
         val repository = DataStoreUserSettingsRepository(dataStore())
 
         repository.setThemeMode(ThemeMode.DARK)
-        repository.setDynamicColor(false)
         repository.setAmoledBlack(true)
         repository.setInboxCheckInterval(InboxCheckInterval.MIN_15)
 
         assertThat(repository.settings.first()).isEqualTo(
-            UserSettings(themeMode = ThemeMode.DARK, dynamicColor = false, amoledBlack = true, inboxCheckInterval = InboxCheckInterval.MIN_15),
+            UserSettings(themeMode = ThemeMode.DARK, amoledBlack = true, inboxCheckInterval = InboxCheckInterval.MIN_15),
         )
     }
 

@@ -34,6 +34,8 @@ data class SoftColors(
     val track: Color,
     /** Soft surface behind a pressed row, loading shapes and snackbars. */
     val surface: Color,
+    /** Floating things: the navigation bar, menus and sheets, lifted off the ground by a soft shadow. */
+    val raised: Color,
     /** Header field tints: warm, cool and fresh, one per section of a surface (Trending's periods). */
     val fields: List<Color>,
     val isDark: Boolean,
@@ -50,6 +52,7 @@ val SoftLight = SoftColors(
     onThumb = Color(0xFF1E1B2E),
     track = Color(0x0F1E1B2E),
     surface = Color(0xFFF0EFF3),
+    raised = Color(0xFFFFFFFF),
     fields = listOf(Color(0xFFFFE6DC), Color(0xFFECE6FF), Color(0xFFDDF3EA)),
     isDark = false,
 )
@@ -63,9 +66,13 @@ val SoftDark = SoftColors(
     onThumb = Color(0xFF1A1216),
     track = Color(0x12FFFFFF),
     surface = Color(0xFF221F2C),
+    raised = Color(0xFF282533),
     fields = listOf(Color(0xFF2B1E1F), Color(0xFF221F33), Color(0xFF1A2724)),
     isDark = true,
 )
+
+/** The dark palette on a true-black ground, for OLED screens (the AMOLED black setting). */
+fun SoftColors.amoled(): SoftColors = copy(ground = Color.Black, surface = Color(0xFF16141D), raised = Color(0xFF1C1925))
 
 /** Gabarito: display, names and figures (two weights only). Lexend: every line of reading text. */
 val Gabarito = FontFamily(

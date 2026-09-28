@@ -25,10 +25,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { repository.setThemeMode(mode) }
     }
 
-    fun setDynamicColor(enabled: Boolean) {
-        viewModelScope.launch { repository.setDynamicColor(enabled) }
-    }
-
     fun setAmoledBlack(enabled: Boolean) {
         viewModelScope.launch { repository.setAmoledBlack(enabled) }
     }

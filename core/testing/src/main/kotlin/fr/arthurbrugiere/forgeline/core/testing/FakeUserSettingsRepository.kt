@@ -16,7 +16,6 @@ class FakeUserSettingsRepository(initial: UserSettings = UserSettings()) : UserS
 
     override suspend fun setThemeMode(mode: ThemeMode) = state.update { it.copy(themeMode = mode) }
 
-    override suspend fun setDynamicColor(enabled: Boolean) = state.update { it.copy(dynamicColor = enabled) }
 
     override suspend fun setAmoledBlack(enabled: Boolean) = state.update { it.copy(amoledBlack = enabled) }
 

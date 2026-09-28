@@ -2,9 +2,17 @@ package fr.arthurbrugiere.forgeline.core.ui.theme
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Typography
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.model.ThemeMode
+import fr.arthurbrugiere.forgeline.core.ui.soft.Gabarito
+import fr.arthurbrugiere.forgeline.core.ui.soft.Lexend
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDark
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLight
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,43 +27,62 @@ class ForgelineThemeTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private fun provided(darkTheme: Boolean, dynamicColor: Boolean, amoledBlack: Boolean): ColorScheme {
-        lateinit var scheme: ColorScheme
+    private class Provided(val scheme: ColorScheme, val typography: Typography, val soft: SoftColors)
+
+    private fun provided(darkTheme: Boolean, amoledBlack: Boolean): Provided {
+        lateinit var provided: Provided
         composeRule.setContent {
-            ForgelineTheme(darkTheme = darkTheme, dynamicColor = dynamicColor, amoledBlack = amoledBlack) {
-                scheme = MaterialTheme.colorScheme
+            ForgelineTheme(darkTheme = darkTheme, amoledBlack = amoledBlack) {
+                provided = Provided(MaterialTheme.colorScheme, MaterialTheme.typography, Soft.colors)
             }
         }
         composeRule.waitForIdle()
-        return scheme
+        return provided
     }
 
     @Test
-    fun pure_black_reaches_the_provided_scheme_in_dark_theme() {
-        val scheme = provided(darkTheme = true, dynamicColor = false, amoledBlack = true)
-
-        assertThat(scheme.background).isEqualTo(Color.Black)
-        assertThat(scheme.surface).isEqualTo(Color.Black)
+    fun theme_mode_resolves_against_the_system_setting() {
+        assertThat(ThemeMode.SYSTEM.isDark(systemInDarkTheme = true)).isTrue()
+        assertThat(ThemeMode.SYSTEM.isDark(systemInDarkTheme = false)).isFalse()
+        assertThat(ThemeMode.DARK.isDark(systemInDarkTheme = false)).isTrue()
+        assertThat(ThemeMode.LIGHT.isDark(systemInDarkTheme = true)).isFalse()
     }
 
     @Test
-    fun pure_black_also_applies_on_top_of_material_you() {
-        val scheme = provided(darkTheme = true, dynamicColor = true, amoledBlack = true)
+    fun material_pieces_and_soft_screens_share_one_palette() {
+        val light = provided(darkTheme = false, amoledBlack = false)
 
-        assertThat(scheme.background).isEqualTo(Color.Black)
+        assertThat(light.soft).isEqualTo(SoftLight)
+        assertThat(light.scheme.background).isEqualTo(SoftLight.ground)
+        assertThat(light.scheme.onSurface).isEqualTo(SoftLight.ink)
+        assertThat(light.scheme.primary).isEqualTo(SoftLight.accent)
     }
 
     @Test
-    fun without_pure_black_dark_theme_keeps_its_tinted_background() {
-        val scheme = provided(darkTheme = true, dynamicColor = false, amoledBlack = false)
+    fun material_text_uses_the_soft_fonts() {
+        val typography = provided(darkTheme = false, amoledBlack = false).typography
 
-        assertThat(scheme.background).isEqualTo(EmberDarkColors.background)
+        assertThat(typography.titleLarge.fontFamily).isEqualTo(Gabarito)
+        assertThat(typography.bodyLarge.fontFamily).isEqualTo(Lexend)
+        assertThat(typography.labelLarge.fontFamily).isEqualTo(Lexend)
     }
 
     @Test
-    fun light_theme_provides_the_light_palette() {
-        val scheme = provided(darkTheme = false, dynamicColor = false, amoledBlack = true)
+    fun pure_black_reaches_both_palettes_in_dark_theme() {
+        val dark = provided(darkTheme = true, amoledBlack = true)
 
-        assertThat(scheme).isEqualTo(EmberLightColors)
+        assertThat(dark.soft.ground).isEqualTo(Color.Black)
+        assertThat(dark.scheme.background).isEqualTo(Color.Black)
+        assertThat(dark.scheme.surface).isEqualTo(Color.Black)
+    }
+
+    @Test
+    fun without_pure_black_dark_theme_keeps_its_violet_ground() {
+        assertThat(provided(darkTheme = true, amoledBlack = false).soft).isEqualTo(SoftDark)
+    }
+
+    @Test
+    fun pure_black_is_ignored_in_light_theme() {
+        assertThat(provided(darkTheme = false, amoledBlack = true).soft).isEqualTo(SoftLight)
     }
 }

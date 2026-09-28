@@ -33,14 +33,13 @@ class SettingsViewModelTest {
     @Test
     fun forwards_every_change_to_the_repository() = runTest {
         viewModel.setThemeMode(ThemeMode.DARK)
-        viewModel.setDynamicColor(false)
         viewModel.setAmoledBlack(true)
         viewModel.setInboxCheckInterval(InboxCheckInterval.OFF)
         viewModel.setFeedKindShown(FeedKind.STARS, false)
 
         assertThat(repository.settings.first()).isEqualTo(
             UserSettings(
-                themeMode = ThemeMode.DARK, dynamicColor = false, amoledBlack = true, inboxCheckInterval = InboxCheckInterval.OFF,
+                themeMode = ThemeMode.DARK, amoledBlack = true, inboxCheckInterval = InboxCheckInterval.OFF,
                 feedKinds = FeedKind.defaults - FeedKind.STARS,
             ),
         )
