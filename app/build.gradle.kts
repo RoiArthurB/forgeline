@@ -18,7 +18,7 @@ android {
         testInstrumentationRunner = "fr.arthurbrugiere.forgeline.HiltTestRunner"
 
         // Public by design: the device flow needs no client secret. Empty disables the device flow.
-        val githubClientId = providers.gradleProperty("forgeline.githubClientId").getOrElse("")
+        val githubClientId = providers.gradleProperty("forgeline.githubClientId").getOrElse("").trim()
         buildConfigField("String", "GITHUB_CLIENT_ID", "\"$githubClientId\"")
     }
 

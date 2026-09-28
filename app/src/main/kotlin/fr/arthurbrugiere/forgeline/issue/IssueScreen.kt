@@ -154,7 +154,11 @@ fun IssueScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("#${state.ref.number}")
+                        // Two texts so a long title ellipsizes without hiding the number.
+                        Row {
+                            issue?.title?.let { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false)) }
+                            Text(if (issue != null) " - #${state.ref.number}" else "#${state.ref.number}", maxLines = 1)
+                        }
                         Text(
                             state.ref.repo.fullName,
                             style = MaterialTheme.typography.labelMedium,
@@ -373,10 +377,12 @@ private fun TimelineEntry(
             }
             EventLine(icon, text, tint = MaterialTheme.colorScheme.primary)
         }
-        is TimelineItem.Labeled -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        is TimelineItem.Labeled -> {
             val who = item.actor?.login ?: "ghost"
-            EventLine(Icons.Outlined.Label, stringResource(if (item.added) R.string.issue_labeled_event else R.string.issue_unlabeled_event, who))
-            LabelChip(item.label)
+            // The chip goes inside the line: next to a full-width EventLine it was squeezed to nothing.
+            EventLine(Icons.Outlined.Label, stringResource(if (item.added) R.string.issue_labeled_event else R.string.issue_unlabeled_event, who)) {
+                LabelChip(item.label)
+            }
         }
         is TimelineItem.Renamed -> EventLine(Icons.Outlined.Edit, stringResource(R.string.issue_renamed_event, item.actor?.login ?: "ghost", item.from, item.to))
         is TimelineItem.CrossReferenced -> EventLine(
@@ -399,6 +405,7 @@ private fun EventLine(
     modifier: Modifier = Modifier,
     tint: Color? = null,
     monospace: Boolean = false,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier.fillMaxWidth().padding(horizontal = 4.dp),
@@ -413,7 +420,9 @@ private fun EventLine(
             fontFamily = if (monospace) FontFamily.Monospace else null,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
+        trailing?.invoke()
     }
 }
 
