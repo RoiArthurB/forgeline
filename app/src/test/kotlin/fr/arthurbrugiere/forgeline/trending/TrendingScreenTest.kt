@@ -1,6 +1,11 @@
 package fr.arthurbrugiere.forgeline.trending
 
 import androidx.compose.ui.test.assertIsDisplayed
+import com.google.common.truth.Truth.assertWithMessage
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -45,10 +50,12 @@ class TrendingScreenTest {
     fun shows_each_repo_with_its_stats() {
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, starred = null)), updatedAtMillis = 5 * 60_000L))
 
-        composeRule.onNodeWithText("paperclipai / paperclip").assertIsDisplayed()
-        composeRule.onNodeWithText("Description of paperclipai/paperclip").assertIsDisplayed()
-        composeRule.onNodeWithText("85.9k").assertIsDisplayed()
-        composeRule.onNodeWithText("+2,109 today").assertIsDisplayed()
+        composeRule.onNode(hasContentDescription("Rank 1"), useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("paperclipai", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("paperclip", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Description of paperclipai/paperclip", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("85.9k stars", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNode(hasContentDescription("+2,109 today"), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Updated 5 minutes ago").assertIsDisplayed()
     }
 
@@ -56,7 +63,7 @@ class TrendingScreenTest {
     fun the_gain_label_follows_the_period() {
         setContent(TrendingUiState(period = TrendingPeriod.WEEKLY, items = listOf(TrendingItem(paperclip, null))))
 
-        composeRule.onNodeWithText("+2,109 this week").assertIsDisplayed()
+        composeRule.onNode(hasContentDescription("+2,109 this week"), useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
@@ -78,10 +85,10 @@ class TrendingScreenTest {
     }
 
     @Test
-    fun tapping_a_card_opens_the_repo() {
+    fun tapping_a_row_opens_the_repo() {
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null))))
 
-        composeRule.onNodeWithText("paperclipai / paperclip").performClick()
+        composeRule.onNodeWithText("paperclip", useUnmergedTree = true).performClick()
 
         assertThat(events).containsExactly("open:paperclipai/paperclip")
     }
@@ -102,6 +109,7 @@ class TrendingScreenTest {
         setContent(TrendingUiState())
 
         composeRule.onNodeWithText("Retry").assertDoesNotExist()
+        composeRule.onNode(hasContentDescription("Loading trending repositories")).assertIsDisplayed()
     }
 
     @Test
@@ -109,7 +117,26 @@ class TrendingScreenTest {
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null)), error = ForgeError.Network))
 
         composeRule.onNodeWithText("Couldn't refresh. Showing the last saved list.").assertIsDisplayed()
-        composeRule.onNodeWithText("paperclipai / paperclip").assertIsDisplayed()
+        composeRule.onNodeWithText("paperclip", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun the_last_browse_is_flagged_and_can_be_resumed() {
+        val repos = (1..5).map { TrendingItem(trendingRepo("owner/repo$it"), null) }
+        setContent(TrendingUiState(items = repos, resumeAt = 2))
+
+        composeRule.onNodeWithText("You stopped here").assertExists()
+        composeRule.onNodeWithText("Resume at #4").assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("You stopped here").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_fully_read_list_has_no_flag() {
+        val repos = (1..3).map { TrendingItem(trendingRepo("owner/repo$it"), null) }
+        setContent(TrendingUiState(items = repos, resumeAt = 2))
+
+        composeRule.onNodeWithText("You stopped here").assertDoesNotExist()
+        composeRule.onNodeWithText("Resume at #4").assertDoesNotExist()
     }
 
     @Test
@@ -117,5 +144,57 @@ class TrendingScreenTest {
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, false)), starFailed = true))
 
         composeRule.onNodeWithText("Couldn't update the star. Try again.").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_fetched_but_empty_list_says_so_and_offers_a_refresh() {
+        setContent(TrendingUiState(updatedAtMillis = 5 * 60_000L))
+
+        composeRule.onNode(hasContentDescription("Loading trending repositories")).assertDoesNotExist()
+        composeRule.onNodeWithText("Nothing trending here yet").assertIsDisplayed()
+        composeRule.onNodeWithText("Refresh").performClick()
+
+        assertThat(events).containsExactly("refresh")
+    }
+
+    // Robolectric measures text far narrower than a device, so this can't prove a fit. It checks the period labels
+    // aren't clipped and every stat is on screen; crowding itself (the language once vanished and the stats ran
+    // together at 2x) is only visible with real text metrics, so the trending_font_* screenshot goldens guard it.
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun labels_and_stats_stay_whole_at_large_font_scales_on_a_small_phone() {
+        val repo = paperclip.copy(language = "TypeScript", forks = 4_210)
+        setContent(TrendingUiState(items = listOf(TrendingItem(repo, starred = true))))
+
+        for (stat in listOf("TypeScript", "85.9k stars", "4.2k forks")) {
+            composeRule.onNodeWithText(stat, useUnmergedTree = true).assertIsDisplayed()
+        }
+        // The switch grows to its tallest label and keeps all three centred on one line.
+        val centres = listOf("Today", "This week", "This month").map { label ->
+            composeRule.onNodeWithText(label, useUnmergedTree = true).getBoundsInRoot().let { (it.top + it.bottom) / 2 }
+        }
+        centres.forEach { assertThat(it.value).isWithin(1f).of(centres.first().value) }
+        for (label in listOf("Today", "This week", "This month")) {
+            val node = composeRule.onNodeWithText(label, useUnmergedTree = true).assertIsDisplayed().fetchSemanticsNode()
+            val layouts = mutableListOf<TextLayoutResult>()
+            node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(layouts)
+            assertWithMessage("$label is cut off").that(layouts.single().hasVisualOverflow).isFalse()
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-land-xhdpi")
+    fun descriptions_keep_a_comfortable_line_length_on_wide_screens() {
+        setContent(TrendingUiState(items = listOf(TrendingItem(paperclip.copy(description = "word ".repeat(80)), null))))
+
+        val bounds = composeRule.onNodeWithTag(DESCRIPTION_TAG, useUnmergedTree = true).getBoundsInRoot()
+        assertThat((bounds.right - bounds.left).value).isAtMost(MaxMeasure.value)
+    }
+
+    @Test
+    fun descriptions_keep_three_lines_normally_and_all_of_their_text_when_fonts_are_enlarged() {
+        assertThat(descriptionMaxLines(1f)).isEqualTo(3)
+        assertThat(descriptionMaxLines(1.3f)).isEqualTo(Int.MAX_VALUE)
+        assertThat(descriptionMaxLines(2f)).isEqualTo(Int.MAX_VALUE)
     }
 }

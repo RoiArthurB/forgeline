@@ -7,6 +7,12 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.runtime.snapshots.Snapshot
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
+import androidx.compose.runtime.mutableStateOf
 import com.github.takahirom.roborazzi.captureRoboImage
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.model.Account
@@ -94,6 +100,7 @@ class ScreenshotTest {
         amoledBlack: Boolean = false,
         awaitText: String? = null,
         awaitTag: String? = null,
+        beforeCapture: () -> Unit = {},
         content: @Composable () -> Unit,
     ) {
         composeRule.setContent {
@@ -110,6 +117,7 @@ class ScreenshotTest {
         awaitTag?.let { tag ->
             composeRule.waitUntil(10_000) { composeRule.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty() }
         }
+        beforeCapture()
         composeRule.onRoot().captureRoboImage("src/test/screenshots/$name.png")
     }
 
@@ -154,15 +162,34 @@ class ScreenshotTest {
         YouScreen(SessionState.SignedIn(octocat), onSignIn = {}, onOpenSettings = {})
     }
 
+    // Synthetic list: plausible names, languages and counts, not real GitHub data.
     private val trendingState = TrendingUiState(
         items = listOf(
             TrendingItem(
                 trendingRepo("paperclipai/paperclip", stars = 85_955, periodStars = 2_109)
-                    .copy(builtBy = listOf("cryppadotta", "devinfoley", "nickyleach").map { ForgeUser(it, null, null) }),
+                    .copy(
+                        description = "Open-source orchestration for teams of AI agents: plans, budgets and a shared memory.",
+                        language = "TypeScript", languageColor = "#3178c6", forks = 4_210,
+                        builtBy = listOf("cryppadotta", "devinfoley", "nickyleach").map { ForgeUser(it, null, null) },
+                    ),
                 starred = true,
             ),
-            TrendingItem(trendingRepo("vectorize-io/hindsight", stars = 30_641, periodStars = 1_653), starred = false),
-            TrendingItem(trendingRepo("anthropics/claude-code-action", stars = 8_970, periodStars = 15, description = null), starred = false),
+            TrendingItem(
+                trendingRepo("vectorize-io/hindsight", stars = 30_641, periodStars = 1_653)
+                    .copy(description = "Agent memory that learns from every run and forgets what stopped mattering.", language = "Python", languageColor = "#3572A5", forks = 1_122),
+                starred = false,
+            ),
+            TrendingItem(trendingRepo("anthropics/claude-code-action", stars = 8_970, periodStars = 415, description = null).copy(language = "TypeScript", languageColor = "#3178c6", forks = 612), starred = false),
+            TrendingItem(
+                trendingRepo("tokio-rs/tokio-console", stars = 3_812, periodStars = 208)
+                    .copy(description = "A debugger for async Rust programs.", language = "Rust", languageColor = "#dea584", forks = 164),
+                starred = false,
+            ),
+            TrendingItem(
+                trendingRepo("mitchellh/ghostty-themes", stars = 1_204, periodStars = 97)
+                    .copy(description = "Color themes for Ghostty, generated from their iTerm2 originals.", language = "Zig", languageColor = "#ec915c", forks = 58),
+                starred = false,
+            ),
         ),
         updatedAtMillis = 0L,
     )
@@ -173,10 +200,78 @@ class ScreenshotTest {
     @Test
     fun trending_dark() = snapshot("trending_dark", darkTheme = true) { TrendingPreview() }
 
+    @Test
+    fun trending_resume_dark_amoled() = snapshot("trending_resume_dark_amoled", darkTheme = true, amoledBlack = true) {
+        TrendingPreview(trendingState.copy(resumeAt = 1))
+    }
+
+    private fun pressHindsight() {
+        composeRule.mainClock.autoAdvance = false
+        composeRule.onNodeWithText("hindsight").performTouchInput { down(center) }
+        composeRule.mainClock.advanceTimeBy(300)
+    }
+
+    @Test
+    fun trending_row_pressed_light() = snapshot("trending_row_pressed_light", darkTheme = false, beforeCapture = ::pressHindsight) { TrendingPreview() }
+
+    @Test
+    fun trending_row_pressed_dark() = snapshot("trending_row_pressed_dark", darkTheme = true, beforeCapture = ::pressHindsight) { TrendingPreview() }
+
+    @Test
+    fun trending_resume_light() = snapshot("trending_resume_light", darkTheme = false) { TrendingPreview(trendingState.copy(resumeAt = 1)) }
+
+    @Test
+    fun trending_empty_light() = snapshot("trending_empty_light", darkTheme = false) { TrendingPreview(TrendingUiState(updatedAtMillis = 0L)) }
+
+    // Large font scales on a small phone: labels grow or shrink to fit, nothing is cut off.
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 1.3f)
+    fun trending_font_1_3_light() = snapshot("trending_font_1_3_light", darkTheme = false) { TrendingPreview() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 1.3f)
+    fun trending_font_1_3_dark() = snapshot("trending_font_1_3_dark", darkTheme = true) { TrendingPreview() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun trending_font_2_0_light() = snapshot("trending_font_2_0_light", darkTheme = false) { TrendingPreview() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun trending_font_2_0_dark() = snapshot("trending_font_2_0_dark", darkTheme = true) { TrendingPreview() }
+
+    @Test
+    fun trending_loading_light() = snapshot("trending_loading_light", darkTheme = false) { TrendingPreview(TrendingUiState()) }
+
+    @Test
+    fun trending_error_dark() = snapshot("trending_error_dark", darkTheme = true) {
+        TrendingPreview(TrendingUiState(error = ForgeError.Network))
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-land-xhdpi")
+    fun trending_tablet_light() = snapshot("trending_tablet_light", darkTheme = false) { TrendingPreview() }
+
+    @Test
+    fun trending_period_change_mid_light() {
+        val period = mutableStateOf(TrendingPeriod.DAILY)
+        snapshot(
+            "trending_period_change_mid_light",
+            darkTheme = false,
+            beforeCapture = {
+                composeRule.mainClock.autoAdvance = false
+                period.value = TrendingPeriod.WEEKLY
+                Snapshot.sendApplyNotifications()
+                composeRule.mainClock.advanceTimeByFrame()
+                composeRule.mainClock.advanceTimeBy(120)
+            },
+        ) { TrendingPreview(trendingState.copy(period = period.value)) }
+    }
+
     @Composable
-    private fun TrendingPreview() {
+    private fun TrendingPreview(state: TrendingUiState = trendingState) {
         TrendingScreen(
-            state = trendingState, onPeriodChange = {}, onRefresh = {}, onToggleStar = {}, onOpenRepo = {},
+            state = state, onPeriodChange = {}, onRefresh = {}, onToggleStar = {}, onOpenRepo = {},
             onErrorShown = {}, onStarFailureShown = {}, nowMillis = 12 * 60_000L,
         )
     }

@@ -47,7 +47,7 @@ class AppShellTest {
 
         tab("Trending").performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclip", substring = true)).fetchSemanticsNodes().isNotEmpty() }
-        composeRule.onNodeWithText("+2,109 today").assertIsDisplayed()
+        composeRule.onNode(hasContentDescription("+2,109 today"), useUnmergedTree = true).assertIsDisplayed()
 
         tab("You").performClick()
         composeRule.onNodeWithText("Settings").assertIsDisplayed()
@@ -90,9 +90,9 @@ class AppShellTest {
     @Test
     fun a_trending_repo_opens_with_its_readme() {
         tab("Trending").performClick()
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclipai / paperclip")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclip")).fetchSemanticsNodes().isNotEmpty() }
 
-        composeRule.onNodeWithText("paperclipai / paperclip").performClick()
+        composeRule.onNodeWithText("paperclip").performClick()
 
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodes(hasText("Open-source orchestration for teams of AI agents.")).fetchSemanticsNodes().isNotEmpty()
@@ -103,8 +103,8 @@ class AppShellTest {
     @Test
     fun a_file_opens_from_the_code_tab() {
         tab("Trending").performClick()
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclipai / paperclip")).fetchSemanticsNodes().isNotEmpty() }
-        composeRule.onNodeWithText("paperclipai / paperclip").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclip")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("paperclip").performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Code")).fetchSemanticsNodes().isNotEmpty() }
 
         composeRule.onNodeWithText("Code").performClick()
@@ -117,8 +117,8 @@ class AppShellTest {
     @Test
     fun an_issue_opens_from_the_repo_with_its_conversation() {
         tab("Trending").performClick()
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclipai / paperclip")).fetchSemanticsNodes().isNotEmpty() }
-        composeRule.onNodeWithText("paperclipai / paperclip").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclip")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("paperclip").performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Issues")).fetchSemanticsNodes().isNotEmpty() }
 
         composeRule.onNodeWithText("Issues").performClick()

@@ -109,7 +109,14 @@
     <string name="trending_gained_weekly">+%1$s this week</string>
     <string name="trending_gained_monthly">+%1$s this month</string>
     <string name="trending_updated">Updated %1$s</string>
-    <string name="trending_built_by">Built by</string>
+    <string name="trending_built_by_names">Built by %1$s</string>
+    <string name="trending_rank">Rank %1$d</string>
+    <string name="trending_stopped_here">You stopped here</string>
+    <string name="trending_resume">Resume at #%1$d</string>
+    <string name="trending_loading">Loading trending repositories</string>
+    <string name="trending_empty_title">Nothing trending here yet</string>
+    <string name="trending_empty_body">GitHub returned an empty list. Refresh to check again.</string>
+    <string name="trending_refresh">Refresh</string>
     <string name="trending_star">Star %1$s</string>
     <string name="trending_unstar">Unstar %1$s</string>
     <string name="trending_stars">%1$s stars</string>

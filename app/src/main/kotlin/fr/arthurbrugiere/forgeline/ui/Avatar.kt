@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import coil3.compose.AsyncImage
@@ -23,17 +24,24 @@ import coil3.compose.AsyncImage
  * has, so it can't show through transparent pictures.
  */
 @Composable
-fun Avatar(url: String?, login: String, size: Dp, modifier: Modifier = Modifier) {
+fun Avatar(
+    url: String?,
+    login: String,
+    size: Dp,
+    modifier: Modifier = Modifier,
+    placeholderColor: Color = MaterialTheme.colorScheme.primaryContainer,
+    placeholderContentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
+) {
     var loaded by remember(url) { mutableStateOf(false) }
     Box(modifier = modifier.size(size).clip(CircleShape), contentAlignment = Alignment.Center) {
         if (!loaded) {
-            Box(Modifier.matchParentSize().background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+            Box(Modifier.matchParentSize().background(placeholderColor), contentAlignment = Alignment.Center) {
                 // Sized from the avatar (dp-based, so font scaling can't make it overflow the circle).
                 val fontSize = with(LocalDensity.current) { (size * 0.45f).toSp() }
                 Text(
                     login.take(1).uppercase(),
                     style = MaterialTheme.typography.titleMedium.copy(fontSize = fontSize, lineHeight = fontSize),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    color = placeholderContentColor,
                 )
             }
         }
