@@ -47,11 +47,55 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.ui.Avatar
-import fr.arthurbrugiere.forgeline.ui.EmptyState
-import fr.arthurbrugiere.forgeline.ui.TopLevelScreen
 import fr.arthurbrugiere.forgeline.ui.message
 import fr.arthurbrugiere.forgeline.ui.relative
 import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.outlined.CallMerge
+import androidx.compose.material.icons.automirrored.outlined.CallSplit
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Adjust
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.Commit
+import androidx.compose.material.icons.outlined.NewReleases
+import androidx.compose.material.icons.outlined.PersonAdd
+import androidx.compose.material.icons.outlined.RateReview
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
+import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
+import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
+import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 
 @Composable
 fun FeedRoute(
@@ -62,15 +106,14 @@ fun FeedRoute(
     onOpenUser: (String) -> Unit,
 ) {
     if (session !is SessionState.SignedIn) {
-        TopLevelScreen(title = stringResource(R.string.tab_feed)) { padding ->
+        Column(Modifier.fillMaxSize().background(Soft.colors.ground), horizontalAlignment = Alignment.CenterHorizontally) {
+            FeedHeader()
             if (session == SessionState.SignedOut) {
-                EmptyState(
-                    icon = Icons.Outlined.DynamicFeed,
-                    title = stringResource(R.string.feed_signed_out_title),
-                    body = stringResource(R.string.feed_signed_out_body),
-                    actionLabel = stringResource(R.string.sign_in),
+                SoftNotice(
+                    stringResource(R.string.feed_signed_out_title),
+                    stringResource(R.string.feed_signed_out_body),
+                    action = stringResource(R.string.sign_in),
                     onAction = onSignIn,
-                    modifier = Modifier.padding(padding),
                 )
             }
         }
@@ -90,6 +133,24 @@ fun FeedRoute(
     )
 }
 
+/** The Feed's lilac field: the title and search. */
+@Composable
+private fun FeedHeader() {
+    val colors = Soft.colors
+    val openSearch = LocalOpenSearch.current
+    SoftHeader(
+        tint = colors.fields[1],
+        title = stringResource(R.string.tab_feed),
+        actions = {
+            if (openSearch != null) {
+                IconButton(onClick = openSearch) {
+                    Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = colors.ink)
+                }
+            }
+        },
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(
@@ -103,6 +164,7 @@ fun FeedScreen(
     modifier: Modifier = Modifier,
     nowMillis: Long = System.currentTimeMillis(),
 ) {
+    val colors = Soft.colors
     val snackbar = remember { SnackbarHostState() }
     val refreshFailed = stringResource(R.string.trending_refresh_failed)
     val hasItems = state.items.isNotEmpty()
@@ -113,42 +175,6 @@ fun FeedScreen(
         }
     }
 
-    TopLevelScreen(title = stringResource(R.string.tab_feed), modifier = modifier, snackbarHost = { SnackbarHost(snackbar) }) { padding ->
-        PullToRefreshBox(
-            isRefreshing = state.isRefreshing,
-            onRefresh = onRefresh,
-            modifier = Modifier.padding(padding).fillMaxSize(),
-        ) {
-            when {
-                !hasItems && state.error != null -> EmptyState(
-                    icon = Icons.Outlined.CloudOff,
-                    title = stringResource(R.string.feed_error_title),
-                    body = stringResource(state.error.message),
-                    actionLabel = stringResource(R.string.retry),
-                    onAction = onRefresh,
-                )
-                // Nothing loaded yet: the pull-to-refresh indicator shows progress.
-                !hasItems && state.syncedAtMillis == null -> Box(Modifier.fillMaxSize())
-                !hasItems -> EmptyState(
-                    icon = Icons.Outlined.DynamicFeed,
-                    title = stringResource(R.string.feed_empty_title),
-                    body = stringResource(R.string.feed_empty_body),
-                )
-                else -> FeedList(state, onLoadMore, onOpenRepo, onOpenIssue, onOpenUser, nowMillis)
-            }
-        }
-    }
-}
-
-@Composable
-private fun FeedList(
-    state: FeedUiState,
-    onLoadMore: () -> Unit,
-    onOpenRepo: (RepoId) -> Unit,
-    onOpenIssue: (IssueRef) -> Unit,
-    onOpenUser: (String) -> Unit,
-    nowMillis: Long,
-) {
     val listState = rememberLazyListState()
     // Older activity loads as the end comes into view.
     LaunchedEffect(listState, state.hasMore) {
@@ -157,16 +183,68 @@ private fun FeedList(
             .distinctUntilChanged()
             .collect { last -> if (last != null && last >= listState.layoutInfo.totalItemsCount - 5) onLoadMore() }
     }
-    LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-        items(state.items, key = { it.key }) { item ->
-            FeedRow(item, nowMillis, onOpenRepo, onOpenIssue, onOpenUser, Modifier.animateItem())
-        }
-        if (state.hasMore) {
-            item(key = "more") {
-                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+    Box(modifier.fillMaxSize().background(colors.ground)) {
+        val pullState = rememberPullToRefreshState()
+        PullToRefreshBox(
+            isRefreshing = state.isRefreshing,
+            onRefresh = onRefresh,
+            state = pullState,
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullState,
+                    isRefreshing = state.isRefreshing,
+                    modifier = Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.statusBars),
+                    containerColor = colors.raised,
+                    color = colors.accent,
+                )
+            },
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            LazyColumn(
+                state = listState,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                contentPadding = PaddingValues(bottom = listBottomPadding()),
+                modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+            ) {
+                item(key = "header", contentType = "header") { FeedHeader() }
+                when {
+                    !hasItems && state.error != null -> item(key = "error") {
+                        SoftNotice(
+                            stringResource(R.string.feed_error_title),
+                            stringResource(state.error.message),
+                            action = stringResource(R.string.retry),
+                            onAction = onRefresh,
+                        )
+                    }
+                    !hasItems && state.syncedAtMillis == null -> item(key = "loading") {
+                        SoftLoadingRows(stringResource(R.string.feed_loading))
+                    }
+                    !hasItems -> item(key = "empty") {
+                        SoftNotice(stringResource(R.string.feed_empty_title), stringResource(R.string.feed_empty_body))
+                    }
+                    else -> {
+                        item(key = "top-gap") { Spacer(Modifier.height(8.dp)) }
+                        items(state.items, key = { it.key }, contentType = { "event" }) { item ->
+                            FeedRow(
+                                item, nowMillis, onOpenRepo, onOpenIssue, onOpenUser,
+                                Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem(),
+                            )
+                        }
+                        if (state.hasMore) {
+                            item(key = "more") {
+                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                    CircularProgressIndicator(color = colors.accent, trackColor = colors.surface)
+                                }
+                            }
+                        }
+                    }
                 }
             }
+        }
+        val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+        SoftStatusBarScrim(scrolled)
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current)) { data ->
+            Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground)
         }
     }
 }
@@ -180,31 +258,84 @@ private fun FeedRow(
     onOpenUser: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = Soft.colors
     val actor = item.actors.first()
-    ListItem(
-        modifier = modifier.clickable { item.open(onOpenRepo, onOpenIssue, onOpenUser) },
-        leadingContent = {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .softPressable { item.open(onOpenRepo, onOpenIssue, onOpenUser) }
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        // The actor, with a small badge saying what kind of activity this is.
+        Box(Modifier.size(44.dp)) {
             Avatar(
                 actor.avatarUrl,
                 actor.login,
                 size = 40.dp,
+                placeholderColor = colors.surface,
+                placeholderContentColor = colors.inkMuted,
                 modifier = Modifier
+                    .clip(CircleShape)
                     .clickable { onOpenUser(actor.login) }
                     .semantics { contentDescription = actor.login },
             )
-        },
-        headlineContent = {
-            Text(item.headline().emphasizing(item.names()), maxLines = 3, overflow = TextOverflow.Ellipsis)
-        },
-        supportingContent = {
+            Box(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(20.dp)
+                    .background(colors.ground, CircleShape)
+                    .padding(2.dp)
+                    .background(colors.fields[item.action.tintIndex], CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(item.action.icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(11.dp))
+            }
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
             Text(
-                listOfNotNull(item.action.detail(), relative(item.createdAt, nowMillis)).joinToString(" · "),
-                maxLines = 2,
+                item.headline().emphasizing(item.names(), colors.ink),
+                style = Soft.type.body,
+                color = colors.inkMuted,
+                maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
-        },
-    )
+            Text(
+                listOfNotNull(item.action.detail(), relative(item.createdAt, nowMillis)).joinToString(" · "),
+                style = Soft.type.meta,
+                color = colors.inkMuted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+    }
 }
+
+/** A glyph for the badge on the actor's avatar. */
+private val FeedAction.icon: ImageVector
+    get() = when (this) {
+        FeedAction.Starred -> Icons.Filled.Star
+        is FeedAction.Forked -> Icons.AutoMirrored.Outlined.CallSplit
+        is FeedAction.CreatedRepo, FeedAction.MadePublic -> Icons.Outlined.AutoAwesome
+        is FeedAction.Released -> Icons.Outlined.NewReleases
+        is FeedAction.Issue -> Icons.Outlined.Adjust
+        is FeedAction.PullRequest -> Icons.AutoMirrored.Outlined.CallMerge
+        is FeedAction.Commented -> Icons.Outlined.ChatBubbleOutline
+        is FeedAction.Reviewed -> Icons.Outlined.RateReview
+        is FeedAction.Pushed, is FeedAction.Branch -> Icons.Outlined.Commit
+        is FeedAction.AddedMember -> Icons.Outlined.PersonAdd
+    }
+
+/** Warm for appreciation (stars, releases), cool for conversation, fresh for code. */
+private val FeedAction.tintIndex: Int
+    get() = when (this) {
+        FeedAction.Starred, is FeedAction.Released, is FeedAction.CreatedRepo, FeedAction.MadePublic -> 0
+        is FeedAction.Issue, is FeedAction.Commented, is FeedAction.Reviewed, is FeedAction.AddedMember -> 1
+        is FeedAction.Forked, is FeedAction.PullRequest, is FeedAction.Pushed, is FeedAction.Branch -> 2
+    }
 
 private fun FeedItem.open(onOpenRepo: (RepoId) -> Unit, onOpenIssue: (IssueRef) -> Unit, onOpenUser: (String) -> Unit) {
     when (val action = action) {
@@ -291,11 +422,11 @@ private fun FeedItem.names(): List<String> = buildList {
     }
 }
 
-private fun String.emphasizing(names: List<String>): AnnotatedString = buildAnnotatedString {
+private fun String.emphasizing(names: List<String>, ink: Color): AnnotatedString = buildAnnotatedString {
     append(this@emphasizing)
     names.forEach { name ->
         val start = this@emphasizing.indexOf(name)
-        if (start >= 0) addStyle(SpanStyle(fontWeight = FontWeight.SemiBold), start, start + name.length)
+        if (start >= 0) addStyle(SpanStyle(fontWeight = FontWeight.Medium, color = ink), start, start + name.length)
     }
 }
 

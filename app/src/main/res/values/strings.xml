@@ -113,6 +113,8 @@
     <string name="trending_rank">Rank %1$d</string>
     <string name="trending_stopped_here">You stopped here</string>
     <string name="trending_resume">Resume at #%1$d</string>
+    <string name="inbox_loading">Loading your notifications</string>
+    <string name="feed_loading">Loading your feed</string>
     <string name="trending_loading">Loading trending repositories</string>
     <string name="trending_empty_title">Nothing trending here yet</string>
     <string name="trending_empty_body">GitHub returned an empty list. Refresh to check again.</string>
@@ -223,8 +225,6 @@
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
-    <string name="settings_dynamic_color">Material You</string>
-    <string name="settings_dynamic_color_summary">Use colors from your wallpaper</string>
     <string name="settings_amoled">Pure black</string>
     <string name="settings_amoled_summary">Use a pure black background in dark theme</string>
     <string name="settings_section_notifications">Notifications</string>

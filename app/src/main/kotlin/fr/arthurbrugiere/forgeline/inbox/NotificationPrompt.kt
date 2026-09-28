@@ -20,6 +20,15 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -77,24 +86,27 @@ private fun openNotificationSettings(context: Context) {
 
 @Composable
 fun NotificationPromptCard(prompt: NotificationPrompt, onAllow: () -> Unit, modifier: Modifier = Modifier) {
-    OutlinedCard(modifier.fillMaxWidth()) {
-        Row(Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Icon(Icons.Outlined.NotificationsActive, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stringResource(R.string.inbox_permission_title), style = MaterialTheme.typography.titleSmall)
-                Text(
-                    stringResource(R.string.inbox_permission_body),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+    val colors = Soft.colors
+    Column(
+        modifier
+            .fillMaxWidth()
+            .clip(SoftTokens.RowCorner)
+            .background(colors.surface)
+            .padding(16.dp),
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Box(Modifier.size(40.dp).background(colors.fields[0], CircleShape), contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.NotificationsActive, contentDescription = null, tint = colors.ink, modifier = Modifier.size(20.dp))
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(stringResource(R.string.inbox_permission_title), style = Soft.type.control.copy(fontSize = 17.sp, lineHeight = 22.sp), color = colors.ink)
+                Text(stringResource(R.string.inbox_permission_body), style = Soft.type.secondary, color = colors.inkMuted)
             }
         }
-        TextButton(onClick = onAllow, modifier = Modifier.align(Alignment.End).padding(end = 8.dp, bottom = 4.dp)) {
-            Text(
-                stringResource(
-                    if (prompt == NotificationPrompt.ASK) R.string.inbox_permission_allow else R.string.inbox_permission_settings,
-                ),
-            )
-        }
+        SoftButton(
+            stringResource(if (prompt == NotificationPrompt.ASK) R.string.inbox_permission_allow else R.string.inbox_permission_settings),
+            onClick = onAllow,
+            modifier = Modifier.align(Alignment.End).padding(top = 12.dp),
+        )
     }
 }
