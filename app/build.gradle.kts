@@ -68,7 +68,6 @@ dependencies {
     implementation(libs.androidx.navigation3.runtime)
     implementation(libs.androidx.navigation3.ui)
     implementation(libs.androidx.hilt.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.compose.material3.navigation.suite)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.kotlinx.serialization.core)
     implementation(libs.aboutlibraries.compose.m3)

@@ -1,12 +1,8 @@
 package fr.arthurbrugiere.forgeline.ui
 
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
@@ -60,21 +56,7 @@ fun ForgelineApp(
             onLinkOpened()
         }
     }
-    NavigationSuiteScaffold(
-        navigationSuiteItems = {
-            TopLevelDestination.entries.forEach { destination ->
-                val selected = destination == navigator.currentTab
-                item(
-                    selected = selected,
-                    onClick = { navigator.selectTab(destination) },
-                    icon = {
-                        Icon(if (selected) destination.selectedIcon else destination.icon, contentDescription = null)
-                    },
-                    label = { Text(stringResource(destination.label)) },
-                )
-            }
-        },
-    ) {
+    SoftNavigation(selected = navigator.currentTab, onSelect = navigator::selectTab) {
         CompositionLocalProvider(LocalOpenSearch provides { navigator.navigate(SearchKey) }) {
             ForgelineNavDisplay(navigator, session, onSignOut)
         }

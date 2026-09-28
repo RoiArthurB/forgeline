@@ -32,7 +32,8 @@ class AppShellTest {
     @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
-    private fun tab(label: String) = composeRule.onNode(hasText(label) and isSelectable())
+    // Unselected tabs show only their icon; every tab is named for screen readers.
+    private fun tab(label: String) = composeRule.onNode(hasContentDescription(label) and isSelectable())
 
     @Test
     fun opens_on_the_inbox() {

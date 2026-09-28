@@ -55,7 +55,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -80,7 +79,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.platform.testTag
@@ -106,9 +104,16 @@ import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import fr.arthurbrugiere.forgeline.core.ui.format.compactCount
 import fr.arthurbrugiere.forgeline.core.ui.format.parseHexColor
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDark
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLight
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTheme
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSwitch
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.animationsEnabled
+import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
+import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
+import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.ui.Avatar
 import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
@@ -140,14 +145,9 @@ fun TrendingRoute(
 
 // Lazy list layout: the header field, the status line, then the rows.
 private const val FIRST_ROW = 2
-private val MaxReadingWidth = 720.dp
-internal val MaxMeasure = 580.dp
+internal val MaxMeasure = SoftTokens.MaxMeasure
 internal const val DESCRIPTION_TAG = "trending_description"
-private val Pill = RoundedCornerShape(percent = 50)
-private val SoftCorner = RoundedCornerShape(20.dp)
 
-// The one motion language: a soft spring, a little lively, never bouncy.
-private val SoftSpring = spring<Float>(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -181,15 +181,9 @@ fun TrendingScreen(
         }
     }
 
-    // Follows the app's theme choice (system, light or dark), and goes true black with the AMOLED setting.
-    val background = MaterialTheme.colorScheme.background
-    val colors = when {
-        background.luminance() >= 0.5f -> SoftLight
-        background == Color.Black -> SoftDark.copy(ground = Color.Black, surface = Color(0xFF16141D))
-        else -> SoftDark
-    }
+    val colors = Soft.colors
 
-    SoftTheme(colors) {
+    run {
         val listState = rememberLazyListState()
         val scope = rememberCoroutineScope()
         val density = LocalDensity.current
@@ -231,12 +225,31 @@ fun TrendingScreen(
                 LazyColumn(
                     state = listState,
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    contentPadding = PaddingValues(bottom = 24.dp),
+                    contentPadding = PaddingValues(bottom = listBottomPadding()),
                     modifier = Modifier
                         .fillMaxSize()
-                        .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)),
+                        .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
                 ) {
-                    item(key = "header", contentType = "header") { HeaderField(state.period, onPeriodChange, animations) }
+                    item(key = "header", contentType = "header") {
+                        val openSearch = LocalOpenSearch.current
+                        SoftHeader(
+                            tint = colors.fields[state.period.ordinal],
+                            title = stringResource(R.string.tab_trending),
+                            actions = {
+                                if (openSearch != null) {
+                                    IconButton(onClick = openSearch) {
+                                        Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = colors.ink)
+                                    }
+                                }
+                            },
+                        ) {
+                            SoftSwitch(
+                                options = TrendingPeriod.entries.map { stringResource(it.label) },
+                                selected = state.period.ordinal,
+                                onSelect = { onPeriodChange(TrendingPeriod.entries[it]) },
+                            )
+                        }
+                    }
                     if (hasItems) {
                         item(key = "status", contentType = "status") {
                             StatusLine(
@@ -251,10 +264,24 @@ fun TrendingScreen(
                         }
                     }
                     when {
-                        !hasItems && state.error != null -> item(key = "error") { ErrorMessage(state.error.message, onRetry = onRefresh) }
+                        !hasItems && state.error != null -> item(key = "error") {
+                            SoftNotice(
+                                stringResource(R.string.trending_error_title),
+                                stringResource(state.error.message),
+                                action = stringResource(R.string.retry),
+                                onAction = onRefresh,
+                            )
+                        }
                         // Fetched, and genuinely nothing: say so instead of loading forever.
-                        !hasItems && state.updatedAtMillis != null && !state.isRefreshing -> item(key = "empty") { EmptyMessage(onRefresh) }
-                        !hasItems -> item(key = "loading") { LoadingRows() }
+                        !hasItems && state.updatedAtMillis != null && !state.isRefreshing -> item(key = "empty") {
+                            SoftNotice(
+                                stringResource(R.string.trending_empty_title),
+                                stringResource(R.string.trending_empty_body),
+                                action = stringResource(R.string.trending_refresh),
+                                onAction = onRefresh,
+                            )
+                        }
+                        !hasItems -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.trending_loading)) }
                         else -> itemsIndexed(
                             state.items,
                             key = { _, item -> item.repo.id.fullName },
@@ -262,7 +289,7 @@ fun TrendingScreen(
                         ) { index, item ->
                             val rise = animations && index < 8 &&
                                 (periodJustChanged || SystemClock.uptimeMillis() - changedAt < 600)
-                            Column(Modifier.widthIn(max = MaxReadingWidth).fillMaxWidth().then(riseIn(item.repo.id, state.period, index, rise))) {
+                            Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().then(riseIn(item.repo.id, state.period, index, rise))) {
                                 RepoRow(
                                     rank = index + 1,
                                     item = item,
@@ -278,13 +305,8 @@ fun TrendingScreen(
             }
             // Once the tinted field has scrolled away, the status bar gets the ground behind it.
             val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
-            Spacer(
-                Modifier
-                    .fillMaxWidth()
-                    .windowInsetsTopHeight(WindowInsets.statusBars)
-                    .background(if (scrolled) colors.ground.copy(alpha = 0.94f) else Color.Transparent),
-            )
-            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).windowInsetsPadding(WindowInsets.navigationBars)) { data ->
+            SoftStatusBarScrim(scrolled)
+            SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current)) { data ->
                 Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground, actionColor = colors.thumb)
             }
         }
@@ -321,7 +343,7 @@ private fun riseIn(id: RepoId, period: TrendingPeriod, index: Int, enabled: Bool
     LaunchedEffect(progress) {
         if (progress.value < 1f) {
             delay(index * 35L)
-            progress.animateTo(1f, SoftSpring)
+            progress.animateTo(1f, SoftTokens.spring())
         }
     }
     if (progress.value >= 1f && !progress.isRunning) return Modifier
@@ -333,116 +355,10 @@ private fun riseIn(id: RepoId, period: TrendingPeriod, index: Int, enabled: Bool
 }
 
 @Composable
-private fun animationsEnabled(): Boolean {
-    val context = LocalContext.current
-    return remember(context) {
-        Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
-    }
-}
-
-@Composable
-private fun HeaderField(period: TrendingPeriod, onSelect: (TrendingPeriod) -> Unit, animations: Boolean) {
-    val colors = Soft.colors
-    val openSearch = LocalOpenSearch.current
-    val field by animateColorAsState(colors.fields[period.ordinal], tween(if (animations) 400 else 0), label = "field")
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
-            .background(field),
-        contentAlignment = Alignment.TopCenter,
-    ) {
-        Column(
-            Modifier
-                .widthIn(max = MaxReadingWidth)
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 20.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(R.string.tab_trending),
-                    style = Soft.type.title,
-                    color = colors.ink,
-                    modifier = Modifier.weight(1f).semantics { heading() },
-                )
-                if (openSearch != null) {
-                    IconButton(onClick = openSearch) {
-                        Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = colors.ink)
-                    }
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-            PeriodSwitch(period, onSelect, animations, Modifier.padding(end = 12.dp))
-        }
-    }
-}
-
-/**
- * A pill track with an ember thumb that springs to the chosen period. The pill is as tall as its tallest label
- * (48dp minimum), so large font scales grow it instead of cutting words off, and every label stays centred.
- */
-@Composable
-private fun PeriodSwitch(selected: TrendingPeriod, onSelect: (TrendingPeriod) -> Unit, animations: Boolean, modifier: Modifier = Modifier) {
-    val colors = Soft.colors
-    val periods = TrendingPeriod.entries
-    val thumbIndex by animateFloatAsState(
-        selected.ordinal.toFloat(),
-        if (animations) spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow) else tween(0),
-        label = "thumb",
-    )
-    val minHeight = with(LocalDensity.current) { 48.dp.roundToPx() }
-    Layout(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(28.dp))
-            .background(colors.track)
-            .padding(4.dp)
-            .selectableGroup(),
-        content = {
-            Box(
-                Modifier
-                    .shadow(6.dp, RoundedCornerShape(24.dp), ambientColor = colors.thumb, spotColor = colors.thumb)
-                    .background(colors.thumb, RoundedCornerShape(24.dp)),
-            )
-            periods.forEach { period ->
-                val isSelected = period == selected
-                Box(
-                    Modifier
-                        .clip(RoundedCornerShape(24.dp))
-                        .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(period) })
-                        .padding(horizontal = 6.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    // Shrinks a word that can't wrap (at very large font scales) instead of cutting it off.
-                    Text(
-                        stringResource(period.label),
-                        style = Soft.type.control,
-                        color = if (isSelected) colors.onThumb else colors.inkMuted,
-                        textAlign = TextAlign.Center,
-                        autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = Soft.type.control.fontSize),
-                    )
-                }
-            }
-        },
-    ) { measurables, constraints ->
-        val segment = constraints.maxWidth / periods.size
-        // Measure each label at its real width first; the tallest one sets the height for all.
-        val labels = measurables.drop(1).map { it.measure(Constraints(minWidth = segment, maxWidth = segment, minHeight = minHeight)) }
-        val height = labels.maxOf { it.height }
-        val thumb = measurables.first().measure(Constraints.fixed(segment, height))
-        layout(constraints.maxWidth, height) {
-            thumb.placeRelative((thumbIndex * segment).toInt(), 0)
-            labels.forEachIndexed { index, label -> label.placeRelative(index * segment, (height - label.height) / 2) }
-        }
-    }
-}
-
-@Composable
 private fun StatusLine(updatedAtMillis: Long?, nowMillis: Long, resumeAt: Int?, onResume: () -> Unit) {
     val colors = Soft.colors
     Row(
-        Modifier.widthIn(max = MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 8.dp).heightIn(min = 48.dp),
+        Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 8.dp).heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -456,7 +372,7 @@ private fun StatusLine(updatedAtMillis: Long?, nowMillis: Long, resumeAt: Int?, 
         if (resumeAt != null) {
             Row(
                 Modifier
-                    .clip(Pill)
+                    .clip(SoftTokens.Pill)
                     .clickable(role = Role.Button, onClick = onResume)
                     .heightIn(min = 48.dp)
                     .padding(horizontal = 12.dp),
@@ -478,17 +394,11 @@ private fun RepoRow(rank: Int, item: TrendingItem, period: TrendingPeriod, onTog
     val gained = NumberFormat.getIntegerInstance().format(repo.periodStars)
     val rankDescription = stringResource(R.string.trending_rank, rank)
     val gainedDescription = stringResource(period.gainedLabel, gained)
-    // The soft pressed surface: a palette tint behind the row while it's pressed or focused, not a ripple.
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val focused by interaction.collectIsFocusedAsState()
     Column(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp)
-            .clip(SoftCorner)
-            .background(if (pressed || focused) colors.surface else Color.Transparent)
-            .clickable(interactionSource = interaction, indication = null, onClick = onOpen)
+            .softPressable(onClick = onOpen)
             .padding(start = 12.dp, end = 4.dp, top = 14.dp, bottom = 4.dp),
     ) {
         Row(verticalAlignment = Alignment.Top) {
@@ -631,66 +541,12 @@ private fun StoppedHere() {
     val colors = Soft.colors
     Box(Modifier.fillMaxWidth().padding(start = 50.dp, top = 6.dp, bottom = 10.dp)) {
         Row(
-            Modifier.clip(Pill).background(colors.fields[0]).padding(horizontal = 12.dp, vertical = 6.dp),
+            Modifier.clip(SoftTokens.Pill).background(colors.fields[0]).padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.size(8.dp).background(colors.thumb, CircleShape))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.trending_stopped_here), style = Soft.type.label, color = colors.ink)
-        }
-    }
-}
-
-@Composable
-private fun LoadingRows() {
-    val colors = Soft.colors
-    val description = stringResource(R.string.trending_loading)
-    Column(
-        Modifier.widthIn(max = MaxReadingWidth).fillMaxWidth().padding(top = 16.dp).clearAndSetSemantics { contentDescription = description },
-    ) {
-        repeat(5) { index ->
-            Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp)) {
-                Box(Modifier.size(14.dp).background(colors.surface, CircleShape))
-                Spacer(Modifier.width(16.dp))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(Modifier.fillMaxWidth(0.25f).height(12.dp).background(colors.surface, Pill))
-                    Box(Modifier.fillMaxWidth(if (index % 2 == 0) 0.6f else 0.45f).height(20.dp).background(colors.surface, Pill))
-                    Box(Modifier.fillMaxWidth(0.95f).height(12.dp).background(colors.surface, Pill))
-                    Box(Modifier.fillMaxWidth(0.7f).height(12.dp).background(colors.surface, Pill))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ErrorMessage(message: Int, onRetry: () -> Unit) {
-    Notice(stringResource(R.string.trending_error_title), stringResource(message), stringResource(R.string.retry), onRetry)
-}
-
-@Composable
-private fun EmptyMessage(onRefresh: () -> Unit) {
-    Notice(stringResource(R.string.trending_empty_title), stringResource(R.string.trending_empty_body), stringResource(R.string.trending_refresh), onRefresh)
-}
-
-@Composable
-private fun Notice(title: String, body: String, action: String, onAction: () -> Unit) {
-    val colors = Soft.colors
-    Column(Modifier.widthIn(max = MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 32.dp)) {
-        Text(title, style = Soft.type.name, color = colors.ink)
-        Spacer(Modifier.height(6.dp))
-        Text(body, style = Soft.type.body, color = colors.inkMuted)
-        Spacer(Modifier.height(20.dp))
-        Box(
-            Modifier
-                .clip(Pill)
-                .background(colors.thumb)
-                .clickable(role = Role.Button, onClick = onAction)
-                .heightIn(min = 48.dp)
-                .padding(horizontal = 24.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(action, style = Soft.type.control, color = colors.onThumb)
         }
     }
 }
