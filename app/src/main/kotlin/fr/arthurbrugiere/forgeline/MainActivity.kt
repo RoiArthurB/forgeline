@@ -10,9 +10,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.navigation3.runtime.NavKey
 import fr.arthurbrugiere.forgeline.navigation.ForgeLinks
 import fr.arthurbrugiere.forgeline.ui.openInCustomTab
@@ -24,6 +22,8 @@ import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
 import fr.arthurbrugiere.forgeline.core.ui.theme.isDark
 import fr.arthurbrugiere.forgeline.session.SessionViewModel
 import fr.arthurbrugiere.forgeline.ui.ForgelineApp
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
