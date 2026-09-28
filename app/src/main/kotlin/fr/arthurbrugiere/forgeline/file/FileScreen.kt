@@ -14,27 +14,20 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.testTag
@@ -59,11 +52,19 @@ import fr.arthurbrugiere.forgeline.navigation.IssueRoute
 import fr.arthurbrugiere.forgeline.navigation.UserRoute
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.repo.Loadable
-import fr.arthurbrugiere.forgeline.ui.EmptyState
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.unit.sp
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.ui.listBottomPadding
+import androidx.compose.runtime.getValue
 
 /** Lets tests wait until off-main-thread highlighting has landed. */
 const val CODE_HIGHLIGHTED_TAG = "code-highlighted"
@@ -113,67 +114,60 @@ fun FileScreen(
     onCopy: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = Soft.colors
     val content = state.content
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(state.target.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(
-                            "${state.target.id.fullName} · ${state.target.path}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+    Column(modifier.fillMaxSize().background(colors.ground), horizontalAlignment = Alignment.CenterHorizontally) {
+        SoftHeader(
+            tint = colors.fields[1],
+            onBack = onBack,
+            backDescription = stringResource(R.string.navigate_up),
+            actions = {
+                if (content is Loadable.Loaded && content.value is FileContent.Text) {
+                    IconButton(onClick = { onCopy((content.value as FileContent.Text).text) }) {
+                        Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.file_copy), tint = colors.ink)
                     }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up))
-                    }
-                },
-                actions = {
-                    if (content is Loadable.Loaded && content.value is FileContent.Text) {
-                        IconButton(onClick = { onCopy((content.value as FileContent.Text).text) }) {
-                            Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.file_copy))
-                        }
-                    }
-                    IconButton(onClick = { onOpenInBrowser(state.webUrl) }) {
-                        Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge))
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Box(Modifier.padding(padding).fillMaxSize()) {
+                }
+                IconButton(onClick = { onOpenInBrowser(state.webUrl) }) {
+                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge), tint = colors.ink)
+                }
+            },
+        ) {
+            Column {
+                Text(state.target.name, style = Soft.type.name, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    "${state.target.id.fullName} · ${state.target.path}",
+                    style = Soft.type.meta,
+                    color = colors.inkMuted,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Box(Modifier.weight(1f).fillMaxWidth()) {
             when (content) {
-                Loadable.Idle, Loadable.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                Loadable.Idle, Loadable.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = colors.accent, trackColor = colors.surface)
+                }
                 is Loadable.Failed -> if (content.error is ForgeError.Http && content.error.status == 413) {
-                    EmptyState(
-                        icon = Icons.Outlined.Description,
-                        title = stringResource(R.string.file_too_large_title),
-                        body = stringResource(R.string.file_too_large_body),
-                        actionLabel = stringResource(R.string.repo_open_on_forge),
+                    SoftNotice(
+                        stringResource(R.string.file_too_large_title),
+                        stringResource(R.string.file_too_large_body),
+                        action = stringResource(R.string.repo_open_on_forge),
                         onAction = { onOpenInBrowser(state.webUrl) },
                     )
                 } else {
-                    EmptyState(
-                        icon = Icons.Outlined.CloudOff,
-                        title = stringResource(R.string.file_error_title),
-                        body = stringResource(if (content.error == ForgeError.Network) R.string.trending_error_offline else R.string.sign_in_error_unknown),
-                        actionLabel = stringResource(R.string.retry),
+                    SoftNotice(
+                        stringResource(R.string.file_error_title),
+                        stringResource(if (content.error == ForgeError.Network) R.string.trending_error_offline else R.string.sign_in_error_unknown),
+                        action = stringResource(R.string.retry),
                         onAction = onRetry,
                     )
                 }
                 is Loadable.Loaded -> when (val file = content.value) {
-                    FileContent.Binary -> EmptyState(
-                        icon = Icons.Outlined.Description,
-                        title = stringResource(R.string.file_binary_title),
-                        body = stringResource(R.string.file_binary_body),
-                        actionLabel = stringResource(R.string.repo_open_on_forge),
+                    FileContent.Binary -> SoftNotice(
+                        stringResource(R.string.file_binary_title),
+                        stringResource(R.string.file_binary_body),
+                        action = stringResource(R.string.repo_open_on_forge),
                         onAction = { onOpenInBrowser(state.webUrl) },
                     )
                     is FileContent.Text -> if (CodeHighlighter.isMarkdown(state.target.name)) {
@@ -189,41 +183,45 @@ fun FileScreen(
 
 @Composable
 private fun MarkdownFile(text: String, state: FileUiState, onLinkClick: (String) -> Unit) {
-    val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
-    val parsed = rememberReadmeState(text, state.readmeContext, darkTheme)
+    val colors = Soft.colors
+    val parsed = rememberReadmeState(text, state.readmeContext, colors.isDark)
     if (parsed == null) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = colors.accent, trackColor = colors.surface) }
     } else {
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            ForgelineMarkdown(parsed, onLinkClick, Modifier.padding(16.dp))
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = listBottomPadding()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            ForgelineMarkdown(parsed, onLinkClick, Modifier.widthIn(max = SoftTokens.MaxReadingWidth).padding(horizontal = 20.dp, vertical = 16.dp))
         }
     }
 }
 
 @Composable
 private fun CodeFile(text: String, fileName: String) {
-    val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val colors = Soft.colors
+    val darkTheme = colors.isDark
     // Highlighting runs off the main thread; plain text shows meanwhile, so nothing waits on it.
     val highlighted by produceState<List<AnnotatedString>?>(initialValue = null, text, fileName, darkTheme) {
         value = withContext(Dispatchers.Default) { CodeHighlighter.lines(CodeHighlighter.highlight(text, fileName, darkTheme)) }
     }
     val lines = highlighted ?: remember(text) { CodeHighlighter.lines(AnnotatedString(text)) }
-    val gutter = (lines.size.toString().length * 9 + 12).dp
+    val gutter = (lines.size.toString().length * 9 + 20).dp
+    val code = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 20.sp)
     LazyColumn(
         Modifier.fillMaxSize().testTag(if (highlighted != null) CODE_HIGHLIGHTED_TAG else CODE_PLAIN_TAG),
-        contentPadding = PaddingValues(vertical = 8.dp),
+        contentPadding = PaddingValues(top = 12.dp, bottom = listBottomPadding()),
     ) {
         itemsIndexed(lines) { index, line ->
-            Row(Modifier.fillMaxWidth().padding(end = 12.dp)) {
+            Row(Modifier.fillMaxWidth().padding(end = 16.dp)) {
                 Text(
                     "${index + 1}",
-                    modifier = Modifier.width(gutter).padding(end = 8.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.width(gutter).padding(end = 12.dp),
+                    style = code,
+                    color = colors.inkMuted,
                     textAlign = TextAlign.End,
                 )
-                Text(line, style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace)
+                Text(line, style = code, color = colors.ink)
             }
         }
     }

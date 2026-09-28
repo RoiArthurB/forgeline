@@ -67,7 +67,7 @@ class RepoScreenTest {
         setContent(loaded)
 
         composeRule.onNodeWithText("About octo/repo").assertIsDisplayed()
-        composeRule.onNodeWithText("85.9k").assertIsDisplayed()
+        composeRule.onNodeWithText("85.9k stars").assertIsDisplayed()
         composeRule.onNodeWithText("MIT").assertIsDisplayed()
         composeRule.onNodeWithText("kotlin").assertIsDisplayed()
     }

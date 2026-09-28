@@ -17,51 +17,32 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.CallSplit
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.filled.Cancel
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Balance
 import androidx.compose.material.icons.outlined.Block
-import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.SubdirectoryArrowLeft
-import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryScrollableTabRow
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -96,8 +77,42 @@ import fr.arthurbrugiere.forgeline.ui.Message
 import fr.arthurbrugiere.forgeline.ui.loadable
 import fr.arthurbrugiere.forgeline.ui.message
 import fr.arthurbrugiere.forgeline.ui.relative
-import fr.arthurbrugiere.forgeline.ui.EmptyState
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.sp
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
+import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
+import fr.arthurbrugiere.forgeline.ui.listBottomPadding
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 @Composable
 fun RepoRoute(
@@ -164,6 +179,7 @@ fun RepoScreen(
     modifier: Modifier = Modifier,
     nowMillis: Long = System.currentTimeMillis(),
 ) {
+    val colors = Soft.colors
     val snackbar = remember { SnackbarHostState() }
     val refreshFailed = stringResource(R.string.trending_refresh_failed)
     val starFailed = stringResource(R.string.trending_star_failed)
@@ -181,41 +197,69 @@ fun RepoScreen(
         }
     }
 
-    Scaffold(
-        modifier = modifier,
-        snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            TopAppBar(
-                title = { Text((details?.id ?: state.requested).name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up))
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { onOpenInBrowser("https://github.com/${(details?.id ?: state.requested).fullName}") }) {
-                        Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge))
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Box(Modifier.padding(padding).fillMaxSize()) {
-            when {
-                details == null && state.error != null -> EmptyState(
-                    icon = Icons.Outlined.CloudOff,
-                    title = stringResource(R.string.repo_error_title),
-                    body = stringResource(
-                        if (state.error is ForgeError.Http && state.error.status == 404) R.string.repo_error_not_found else state.error.message,
-                    ),
-                    actionLabel = stringResource(R.string.retry),
-                    onAction = onRefresh,
+    val id = details?.id ?: state.requested
+    val listState = rememberLazyListState()
+    Box(modifier.fillMaxSize().background(colors.ground)) {
+        val pullState = rememberPullToRefreshState()
+        PullToRefreshBox(
+            isRefreshing = state.isRefreshing && details != null,
+            onRefresh = onRefresh,
+            state = pullState,
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullState,
+                    isRefreshing = state.isRefreshing && details != null,
+                    modifier = Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.statusBars),
+                    containerColor = colors.raised,
+                    color = colors.accent,
                 )
-                details == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                else -> PullToRefreshBox(isRefreshing = state.isRefreshing, onRefresh = onRefresh) {
-                    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
-                        item(key = "header") { RepoHeader(details, state.starred, signedIn, onToggleStar, onLinkClick, onOpenUser) }
-                        stickyHeader(key = "tabs") { RepoTabs(state.tab, onSelectTab) }
+            },
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            LazyColumn(
+                state = listState,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                contentPadding = PaddingValues(bottom = listBottomPadding()),
+                modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+            ) {
+                item(key = "header") {
+                    SoftHeader(
+                        tint = colors.fields[0],
+                        onBack = onBack,
+                        backDescription = stringResource(R.string.navigate_up),
+                        actions = {
+                            IconButton(onClick = { onOpenInBrowser("https://github.com/${id.fullName}") }) {
+                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge), tint = colors.ink)
+                            }
+                        },
+                    ) {
+                        if (details != null) {
+                            RepoHeader(details, state.starred, signedIn, onToggleStar, onLinkClick, onOpenUser)
+                        } else {
+                            Text(id.name, style = Soft.type.title, color = colors.ink)
+                        }
+                    }
+                }
+                when {
+                    details == null && state.error != null -> item(key = "error") {
+                        SoftNotice(
+                            stringResource(R.string.repo_error_title),
+                            stringResource(
+                                if (state.error is ForgeError.Http && state.error.status == 404) R.string.repo_error_not_found else state.error.message,
+                            ),
+                            action = stringResource(R.string.retry),
+                            onAction = onRefresh,
+                        )
+                    }
+                    details == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.repo_loading), rows = 3, leadingDot = false) }
+                    else -> {
+                        stickyHeader(key = "tabs") {
+                            SoftChipTabs(
+                                options = RepoTab.entries.map { stringResource(it.label) },
+                                selected = state.tab.ordinal,
+                                onSelect = { onSelectTab(RepoTab.entries[it]) },
+                            )
+                        }
                         when (state.tab) {
                             RepoTab.README -> item(key = "readme") {
                                 val readme = state.readme
@@ -243,6 +287,11 @@ fun RepoScreen(
                 }
             }
         }
+        val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+        SoftStatusBarScrim(scrolled)
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current)) { data ->
+            Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground)
+        }
     }
 }
 
@@ -255,82 +304,98 @@ private fun RepoHeader(
     onLinkClick: (String) -> Unit,
     onOpenUser: (String) -> Unit,
 ) {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val colors = Soft.colors
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.clickable { onOpenUser(details.id.owner) },
+            modifier = Modifier.clip(SoftTokens.Pill).clickable { onOpenUser(details.id.owner) }.padding(end = 8.dp),
         ) {
-            Avatar(details.ownerAvatarUrl, details.id.owner, size = 24.dp)
-            Text(details.id.owner, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Avatar(details.ownerAvatarUrl, details.id.owner, size = 28.dp, placeholderColor = colors.ground, placeholderContentColor = colors.inkMuted)
+            Text(details.id.owner, style = Soft.type.secondary, color = colors.inkMuted)
         }
-        Text(details.id.name, style = MaterialTheme.typography.headlineSmall)
-        details.description?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
+        Text(details.id.name, style = Soft.type.title.copy(fontSize = 30.sp, lineHeight = 34.sp), color = colors.ink)
+        details.description?.let {
+            Text(it, style = Soft.type.body.copy(fontSize = 16.sp), color = colors.ink, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure))
+        }
         details.homepage?.let { url ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
-                Text(
-                    url.removePrefix("https://").removePrefix("http://").trimEnd('/'),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable { onLinkClick(url) },
-                )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.clip(SoftTokens.Pill).clickable { onLinkClick(url) },
+            ) {
+                Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(18.dp), tint = colors.accent)
+                Text(url.removePrefix("https://").removePrefix("http://").trimEnd('/'), style = Soft.type.secondary, color = colors.accent)
             }
         }
         if (details.topics.isNotEmpty()) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                details.topics.forEach { SuggestionChip(onClick = {}, label = { Text(it) }) }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                details.topics.forEach { SoftTag(it, background = colors.ground) }
             }
         }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Stat(Icons.Outlined.StarBorder, compactCount(details.stars))
-            Stat(Icons.AutoMirrored.Outlined.CallSplit, compactCount(details.forks))
-            Stat(Icons.Outlined.Visibility, stringResource(R.string.repo_watchers, compactCount(details.watchers)))
-            details.language?.let { Stat(null, it) }
-            details.license?.let { Stat(Icons.Outlined.Balance, it) }
-            if (details.isArchived) Badge(stringResource(R.string.repo_archived))
-            if (details.isFork) Badge(stringResource(R.string.repo_fork))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Stat(stringResource(R.string.trending_stars, compactCount(details.stars)))
+            Stat(stringResource(R.string.trending_forks, compactCount(details.forks)))
+            Stat(stringResource(R.string.repo_watchers, compactCount(details.watchers)))
+            details.language?.let { Stat(it) }
+            details.license?.let { Stat(it) }
+        }
+        if (details.isArchived || details.isFork) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (details.isArchived) SoftTag(stringResource(R.string.repo_archived), background = colors.ground)
+                if (details.isFork) SoftTag(stringResource(R.string.repo_fork), background = colors.ground)
+            }
         }
         val isStarred = starred == true && signedIn
-        FilledTonalButton(onClick = onToggleStar) {
-            Icon(if (isStarred) Icons.Filled.Star else Icons.Outlined.StarBorder, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text(
-                stringResource(if (isStarred) R.string.repo_starred else R.string.repo_star),
-                modifier = Modifier.padding(start = 8.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun RepoTabs(selected: RepoTab, onSelect: (RepoTab) -> Unit) {
-    PrimaryScrollableTabRow(
-        selectedTabIndex = selected.ordinal,
-        containerColor = MaterialTheme.colorScheme.surface,
-        edgePadding = 8.dp,
-    ) {
-        RepoTab.entries.forEach { tab ->
-            Tab(
-                selected = tab == selected,
-                onClick = { onSelect(tab) },
-                text = { Text(stringResource(tab.label)) },
-                selectedContentColor = MaterialTheme.colorScheme.primary,
-                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Box(
+            Modifier
+                .padding(top = 4.dp)
+                .clip(SoftTokens.Pill)
+                .background(if (isStarred) colors.ground else colors.thumb)
+                .clickable(role = Role.Button, onClick = onToggleStar)
+                .heightIn(min = 48.dp)
+                .padding(horizontal = 20.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(
+                    if (isStarred) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                    contentDescription = null,
+                    tint = if (isStarred) colors.accent else colors.onThumb,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text(
+                    stringResource(if (isStarred) R.string.repo_starred else R.string.repo_star),
+                    style = Soft.type.control,
+                    color = if (isStarred) colors.ink else colors.onThumb,
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun Readme(markdown: String, context: ReadmeContext, onLinkClick: (String) -> Unit) {
-    val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val darkTheme = Soft.colors.isDark
     val parsed = rememberReadmeState(markdown, context, darkTheme)
     if (parsed == null) {
-        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = Soft.colors.accent, trackColor = Soft.colors.surface)
+        }
     } else {
-        ForgelineMarkdown(parsed, onLinkClick, Modifier.padding(16.dp))
+        ForgelineMarkdown(parsed, onLinkClick, Modifier.widthIn(max = SoftTokens.MaxReadingWidth).padding(horizontal = 20.dp, vertical = 12.dp))
     }
 }
+
+/** A soft round icon for a row: the file kind, a release, a run's state. */
+@Composable
+private fun RowIcon(icon: ImageVector, background: Color, tint: Color = Soft.colors.ink) {
+    Box(Modifier.size(36.dp).background(background, CircleShape), contentAlignment = Alignment.Center) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+    }
+}
+
+private val RowModifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
 
 private fun LazyListScope.code(
     code: CodeState,
@@ -341,100 +406,113 @@ private fun LazyListScope.code(
 ) {
     if (code.path.isNotEmpty()) {
         item(key = "code-path") {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.repo_parent_folder)) },
-                supportingContent = { Text(code.path) },
-                leadingContent = { Icon(Icons.Outlined.SubdirectoryArrowLeft, contentDescription = null) },
-                modifier = Modifier.clickable(onClick = onOpenParentDirectory),
-            )
+            val colors = Soft.colors
+            Row(
+                RowModifier.softPressable(onClick = onOpenParentDirectory).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RowIcon(Icons.Outlined.SubdirectoryArrowLeft, colors.surface)
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text(stringResource(R.string.repo_parent_folder), style = Soft.type.body, color = colors.ink)
+                    Text(code.path, style = Soft.type.meta, color = colors.inkMuted)
+                }
+            }
         }
     }
     loadable(code.entries, R.string.repo_empty_folder, onRetry) { entries ->
         items(entries, key = { "file-${it.path}" }) { file ->
-            ListItem(
-                headlineContent = { Text(file.name) },
-                leadingContent = {
-                    Icon(
-                        when (file.type) {
-                            RepoFileType.DIR -> Icons.Outlined.Folder
-                            RepoFileType.SUBMODULE, RepoFileType.SYMLINK -> Icons.Outlined.Link
-                            RepoFileType.FILE -> Icons.AutoMirrored.Outlined.InsertDriveFile
-                        },
-                        contentDescription = null,
-                        tint = if (file.type == RepoFileType.DIR) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-                modifier = Modifier.clickable {
+            val colors = Soft.colors
+            Row(
+                RowModifier.softPressable {
                     when (file.type) {
                         RepoFileType.DIR -> onOpenDirectory(file.path)
                         RepoFileType.FILE -> onOpenFile(file)
                         RepoFileType.SYMLINK, RepoFileType.SUBMODULE -> Unit
                     }
-                },
-            )
+                }.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RowIcon(
+                    when (file.type) {
+                        RepoFileType.DIR -> Icons.Outlined.Folder
+                        RepoFileType.SUBMODULE, RepoFileType.SYMLINK -> Icons.Outlined.Link
+                        RepoFileType.FILE -> Icons.AutoMirrored.Outlined.InsertDriveFile
+                    },
+                    if (file.type == RepoFileType.DIR) colors.fields[1] else colors.surface,
+                )
+                Spacer(Modifier.width(14.dp))
+                Text(file.name, style = Soft.type.body, color = colors.ink)
+            }
         }
     }
 }
 
 @Composable
 private fun ReleaseRow(release: Release, context: ReadmeContext?, nowMillis: Long, onLinkClick: (String) -> Unit) {
+    val colors = Soft.colors
     var expanded by rememberSaveable(release.tag) { mutableStateOf(false) }
-    Column(Modifier.clickable { expanded = !expanded }) {
-        ListItem(
-            leadingContent = { Icon(Icons.Outlined.NewReleases, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-            headlineContent = { Text(release.name ?: release.tag) },
-            supportingContent = {
+    Column(RowModifier.softPressable { expanded = !expanded }.padding(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RowIcon(Icons.Outlined.NewReleases, colors.fields[0])
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(release.name ?: release.tag, style = Soft.type.body, color = colors.ink)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(listOfNotNull(release.tag.takeIf { release.name != null }, release.publishedAt?.let { relative(it, nowMillis) }).joinToString(" · "))
+                    Text(
+                        listOfNotNull(release.tag.takeIf { release.name != null }, release.publishedAt?.let { relative(it, nowMillis) }).joinToString(" · "),
+                        style = Soft.type.meta,
+                        color = colors.inkMuted,
+                    )
                     if (release.isPrerelease) Badge(stringResource(R.string.repo_prerelease))
                 }
-            },
-        )
+            }
+        }
         val body = release.body
         if (expanded && body != null && context != null) {
-            val darkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
-            rememberReadmeState(body, context, darkTheme)?.let { ForgelineMarkdown(it, onLinkClick, Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
+            rememberReadmeState(body, context, colors.isDark)?.let { ForgelineMarkdown(it, onLinkClick, Modifier.padding(start = 50.dp, top = 8.dp)) }
         }
-        HorizontalDivider()
     }
 }
 
 @Composable
 private fun RunRow(run: WorkflowRun, nowMillis: Long) {
-    ListItem(
-        leadingContent = { RunStatusIcon(run) },
-        headlineContent = { Text(run.title, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-        supportingContent = {
+    val colors = Soft.colors
+    Row(RowModifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        RunStatusIcon(run)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(run.title, style = Soft.type.body, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
                 listOfNotNull(
                     stringResource(R.string.repo_run_meta, run.workflowName, run.branch ?: run.event, run.runNumber),
                     relative(run.createdAt, nowMillis),
                 ).joinToString(" · "),
+                style = Soft.type.meta,
+                color = colors.inkMuted,
             )
-        },
-    )
-    HorizontalDivider()
+        }
+    }
 }
 
+/** A run's state as a soft round badge: mint for success, ember for failure, quiet for the rest. */
 @Composable
 private fun RunStatusIcon(run: WorkflowRun) {
-    val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val colors = Soft.colors
     when {
-        run.status == RunStatus.IN_PROGRESS -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-        run.status == RunStatus.QUEUED -> Icon(Icons.Outlined.Schedule, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        run.conclusion == RunConclusion.SUCCESS -> Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = if (dark) Color(0xFF3FB950) else Color(0xFF1A7F37))
-        run.conclusion == RunConclusion.FAILURE || run.conclusion == RunConclusion.TIMED_OUT ->
-            Icon(Icons.Filled.Cancel, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-        else -> Icon(Icons.Outlined.Block, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        run.status == RunStatus.IN_PROGRESS -> Box(Modifier.size(36.dp).background(colors.fields[1], CircleShape), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = colors.ink, trackColor = colors.fields[1])
+        }
+        run.status == RunStatus.QUEUED -> RowIcon(Icons.Outlined.Schedule, colors.surface, colors.inkMuted)
+        run.conclusion == RunConclusion.SUCCESS -> RowIcon(Icons.Outlined.Check, colors.fields[2])
+        run.conclusion == RunConclusion.FAILURE || run.conclusion == RunConclusion.TIMED_OUT -> RowIcon(Icons.Outlined.Close, colors.fields[0], colors.accent)
+        else -> RowIcon(Icons.Outlined.Block, colors.surface, colors.inkMuted)
     }
 }
 
 @Composable
-private fun Stat(icon: ImageVector?, text: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-        Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
+private fun Stat(text: String) {
+    Text(text, style = Soft.type.meta, color = Soft.colors.inkMuted)
 }
 
 private val RepoTab.label: Int
