@@ -170,4 +170,18 @@ class TrendingViewModelTest {
         runCurrent()
         assertThat(viewModel.state.value.starFailed).isFalse()
     }
+
+    @Test
+    fun the_resume_mark_is_fixed_for_the_visit_while_reading_moves_the_stored_one() = test {
+        trending.snapshots.getValue(TrendingPeriod.DAILY).value = TrendingSnapshot(listOf(paperclip, hindsight), 1_000)
+        trending.marks[TrendingPeriod.DAILY] = 0
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.readThrough(1)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.resumeAt).isEqualTo(0)
+        assertThat(trending.marks[TrendingPeriod.DAILY]).isEqualTo(1)
+    }
 }

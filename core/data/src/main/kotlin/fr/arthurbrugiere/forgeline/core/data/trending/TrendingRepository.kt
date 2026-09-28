@@ -28,6 +28,12 @@ interface TrendingRepository {
     fun observe(period: TrendingPeriod): Flow<TrendingSnapshot>
 
     suspend fun refresh(period: TrendingPeriod, force: Boolean = false): RefreshResult
+
+    /** The furthest rank (0-based) read in [period] during the current browse, or null once it has gone stale. */
+    suspend fun readThrough(period: TrendingPeriod): Int?
+
+    /** Records that [rank] was read; only ever moves the mark further down. */
+    suspend fun markReadThrough(period: TrendingPeriod, rank: Int)
 }
 
 class DefaultTrendingRepository @Inject constructor(
@@ -63,7 +69,18 @@ class DefaultTrendingRepository @Inject constructor(
         }
     }
 
+    override suspend fun readThrough(period: TrendingPeriod): Int? =
+        dao.mark(period.name)?.takeIf { clock.millis() - it.markedAtMillis < MARK_MAX_AGE.inWholeMilliseconds }?.rank
+
+    override suspend fun markReadThrough(period: TrendingPeriod, rank: Int) {
+        val current = readThrough(period)
+        if (current == null || rank > current) dao.upsertMark(TrendingMarkEntity(period.name, rank, clock.millis()))
+    }
+
     private companion object {
         val MAX_AGE = 1.hours
+
+        /** A daily browse: yesterday evening's place still counts this morning, last week's doesn't. */
+        val MARK_MAX_AGE = 20.hours
     }
 }

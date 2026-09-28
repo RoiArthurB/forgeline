@@ -37,6 +37,14 @@ data class TrendingFetchEntity(
     val fetchedAtMillis: Long,
 )
 
+/** How far down a period's list the user read; kept apart from the fetches so a refresh doesn't clear it. */
+@Entity(tableName = "trending_marks")
+data class TrendingMarkEntity(
+    @PrimaryKey val period: String,
+    val rank: Int,
+    val markedAtMillis: Long,
+)
+
 @Dao
 interface TrendingDao {
     @Query("SELECT * FROM trending_repos WHERE period = :period ORDER BY rank")
@@ -56,6 +64,12 @@ interface TrendingDao {
 
     @Upsert
     suspend fun upsertFetch(fetch: TrendingFetchEntity)
+
+    @Query("SELECT * FROM trending_marks WHERE period = :period")
+    suspend fun mark(period: String): TrendingMarkEntity?
+
+    @Upsert
+    suspend fun upsertMark(mark: TrendingMarkEntity)
 
     @Transaction
     suspend fun replace(period: String, repos: List<TrendingRepoEntity>, fetchedAtMillis: Long) {

@@ -128,4 +128,21 @@ class DefaultTrendingRepositoryTest {
         assertThat(result).isInstanceOf(RefreshResult.Failed::class.java)
         assertThat(repository.observe(TrendingPeriod.DAILY).first().repos).containsExactly(paperclip)
     }
+
+    @Test
+    fun the_read_mark_only_moves_down_survives_a_refresh_and_expires_after_a_day() = runTest {
+        assertThat(repository.readThrough(TrendingPeriod.DAILY)).isNull()
+
+        repository.markReadThrough(TrendingPeriod.DAILY, 6)
+        repository.markReadThrough(TrendingPeriod.DAILY, 3)
+        api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
+        repository.refresh(TrendingPeriod.DAILY, force = true)
+        assertThat(repository.readThrough(TrendingPeriod.DAILY)).isEqualTo(6)
+        assertThat(repository.readThrough(TrendingPeriod.WEEKLY)).isNull()
+
+        now = now.plusSeconds(21 * 3600)
+        assertThat(repository.readThrough(TrendingPeriod.DAILY)).isNull()
+        repository.markReadThrough(TrendingPeriod.DAILY, 1)
+        assertThat(repository.readThrough(TrendingPeriod.DAILY)).isEqualTo(1)
+    }
 }

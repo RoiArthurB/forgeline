@@ -12,15 +12,16 @@ import fr.arthurbrugiere.forgeline.core.data.repo.RepoCacheEntity
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoDao
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingDao
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingFetchEntity
+import fr.arthurbrugiere.forgeline.core.data.trending.TrendingMarkEntity
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepoEntity
 
 /** Local cache: the UI renders from here first, the network only refreshes it. */
 @Database(
     entities = [
         TrendingRepoEntity::class, TrendingFetchEntity::class, RepoCacheEntity::class, NotificationEntity::class, InboxSyncEntity::class,
-        FeedEventEntity::class, FeedSyncEntity::class,
+        FeedEventEntity::class, FeedSyncEntity::class, TrendingMarkEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class ForgelineDatabase : RoomDatabase() {

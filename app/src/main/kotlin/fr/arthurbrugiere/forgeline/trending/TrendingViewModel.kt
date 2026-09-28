@@ -36,6 +36,8 @@ data class TrendingUiState(
     val isRefreshing: Boolean = false,
     val error: ForgeError? = null,
     val starFailed: Boolean = false,
+    /** Where the last browse of this period stopped (0-based rank), fixed for this visit so the flag doesn't chase the reader. */
+    val resumeAt: Int? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -53,25 +55,32 @@ class TrendingViewModel @Inject constructor(
     private val refreshing = MutableStateFlow(false)
     private val error = MutableStateFlow<ForgeError?>(null)
     private val starFailed = MutableStateFlow(false)
+    private val resumeAt = MutableStateFlow<Map<TrendingPeriod, Int?>>(emptyMap())
 
     val state: StateFlow<TrendingUiState> = combine(
         period,
         snapshot,
         starred,
-        combine(refreshing, error, starFailed) { r, e, f -> Triple(r, e, f) },
-    ) { period, snapshot, starred, (refreshing, error, starFailed) ->
+        combine(refreshing, error, starFailed, resumeAt) { r, e, f, m -> Flags(r, e, f, m) },
+    ) { period, snapshot, starred, flags ->
         TrendingUiState(
             period = period,
             items = snapshot.repos.map { TrendingItem(it, starred[it.id]) },
             updatedAtMillis = snapshot.fetchedAtMillis,
-            isRefreshing = refreshing,
-            error = error,
-            starFailed = starFailed,
+            isRefreshing = flags.refreshing,
+            error = flags.error,
+            starFailed = flags.starFailed,
+            resumeAt = flags.resumeAt[period],
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrendingUiState(period = period.value))
 
     init {
-        viewModelScope.launch { period.collect { refresh(it, force = false) } }
+        viewModelScope.launch {
+            period.collect { period ->
+                if (period !in resumeAt.value) resumeAt.update { it + (period to trending.readThrough(period)) }
+                refresh(period, force = false)
+            }
+        }
         viewModelScope.launch {
             combine(
                 snapshot.map { snapshot -> snapshot.repos.map { it.id } }.distinctUntilChanged(),
@@ -103,6 +112,12 @@ class TrendingViewModel @Inject constructor(
         }
     }
 
+    /** The list has been read down to [rank] (0-based). */
+    fun readThrough(rank: Int) {
+        val period = period.value
+        viewModelScope.launch { trending.markReadThrough(period, rank) }
+    }
+
     fun errorShown() {
         error.value = null
     }
@@ -118,6 +133,13 @@ class TrendingViewModel @Inject constructor(
         error.value = (result as? RefreshResult.Failed)?.error
         refreshing.value = false
     }
+
+    private data class Flags(
+        val refreshing: Boolean,
+        val error: ForgeError?,
+        val starFailed: Boolean,
+        val resumeAt: Map<TrendingPeriod, Int?>,
+    )
 
     private companion object {
         const val PERIOD_KEY = "period"

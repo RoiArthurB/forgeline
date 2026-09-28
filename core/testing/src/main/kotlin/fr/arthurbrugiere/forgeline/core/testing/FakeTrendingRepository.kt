@@ -18,4 +18,12 @@ class FakeTrendingRepository : TrendingRepository {
         refreshes += period to force
         return nextResult
     }
+
+    val marks = mutableMapOf<TrendingPeriod, Int>()
+
+    override suspend fun readThrough(period: TrendingPeriod): Int? = marks[period]
+
+    override suspend fun markReadThrough(period: TrendingPeriod, rank: Int) {
+        if (rank > (marks[period] ?: -1)) marks[period] = rank
+    }
 }
