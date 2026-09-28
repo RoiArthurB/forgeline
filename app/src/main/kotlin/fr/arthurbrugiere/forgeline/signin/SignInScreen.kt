@@ -11,30 +11,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
@@ -52,6 +39,27 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
+import fr.arthurbrugiere.forgeline.ui.listBottomPadding
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 @Composable
 fun SignInRoute(
@@ -96,33 +104,30 @@ fun SignInScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.sign_in_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up))
-                    }
-                },
-            )
-        },
-    ) { padding ->
+    val colors = Soft.colors
+    Column(
+        modifier
+            .fillMaxSize()
+            .background(colors.ground)
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = listBottomPadding()),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        SoftHeader(
+            tint = colors.fields[0],
+            title = stringResource(R.string.sign_in_title),
+            onBack = onBack,
+            backDescription = stringResource(R.string.navigate_up),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.sign_in_headline), style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp), color = colors.ink)
+                Text(stringResource(R.string.sign_in_privacy), style = Soft.type.body, color = colors.inkMuted, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure))
+            }
+        }
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 16.dp),
+            Modifier.widthIn(max = SoftTokens.MaxMeasure).fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(stringResource(R.string.sign_in_headline), style = MaterialTheme.typography.headlineSmall)
-            Text(
-                stringResource(R.string.sign_in_privacy),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             when (val step = state.step) {
                 SignInStep.Verifying, SignInStep.SignedIn -> Verifying()
                 is SignInStep.AwaitingAuthorization -> AwaitingAuthorization(
@@ -152,34 +157,34 @@ private fun ChooseMethod(
     onOpenUrl: (String) -> Unit,
     onDismissError: () -> Unit,
 ) {
+    val colors = Soft.colors
     var token by rememberSaveable { mutableStateOf("") }
 
     if (error != null) {
-        Text(
-            stringResource(error.message),
-            color = MaterialTheme.colorScheme.error,
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Text(stringResource(error.message), color = colors.accent, style = Soft.type.body)
     }
     if (state.deviceFlowAvailable) {
-        Button(onClick = onStartDeviceFlow, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.sign_in_with_github))
-        }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            HorizontalDivider(Modifier.weight(1f))
-            Text(stringResource(R.string.sign_in_or), style = MaterialTheme.typography.labelLarge)
-            HorizontalDivider(Modifier.weight(1f))
-        }
+        SoftButton(stringResource(R.string.sign_in_with_github), onStartDeviceFlow, Modifier.fillMaxWidth())
+        Text(
+            stringResource(R.string.sign_in_or),
+            style = Soft.type.label,
+            color = colors.inkMuted,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
-    Text(stringResource(R.string.sign_in_token_title), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(R.string.sign_in_token_title), style = Soft.type.control.copy(fontSize = 17.sp, lineHeight = 22.sp), color = colors.ink)
+    Text(stringResource(R.string.sign_in_token_body), style = Soft.type.body, color = colors.inkMuted)
     Text(
-        stringResource(R.string.sign_in_token_body),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        stringResource(R.string.sign_in_create_token),
+        style = Soft.type.label,
+        color = colors.accent,
+        modifier = Modifier
+            .clip(SoftTokens.Pill)
+            .clickable(role = Role.Button) { onOpenUrl(state.personalAccessTokenUrl) }
+            .heightIn(min = 48.dp)
+            .wrapContentHeight(Alignment.CenterVertically),
     )
-    TextButton(onClick = { onOpenUrl(state.personalAccessTokenUrl) }) {
-        Text(stringResource(R.string.sign_in_create_token))
-    }
     OutlinedTextField(
         value = token,
         onValueChange = {
@@ -192,13 +197,20 @@ private fun ChooseMethod(
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onSubmitToken(token) }),
         isError = error == SignInError.INVALID_TOKEN,
+        shape = RoundedCornerShape(20.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = colors.accent,
+            unfocusedBorderColor = colors.inkMuted,
+            focusedLabelColor = colors.accent,
+            cursorColor = colors.accent,
+        ),
         modifier = Modifier.fillMaxWidth(),
     )
-    val submit: @Composable () -> Unit = { Text(stringResource(R.string.sign_in_with_token)) }
+    val submit = stringResource(R.string.sign_in_with_token)
     if (state.deviceFlowAvailable) {
-        FilledTonalButton(onClick = { onSubmitToken(token) }, modifier = Modifier.fillMaxWidth(), content = { submit() })
+        SoftTonalButton(submit, { onSubmitToken(token) }, Modifier.fillMaxWidth())
     } else {
-        Button(onClick = { onSubmitToken(token) }, modifier = Modifier.fillMaxWidth(), content = { submit() })
+        SoftButton(submit, { onSubmitToken(token) }, Modifier.fillMaxWidth())
     }
 }
 
@@ -208,38 +220,32 @@ private fun AwaitingAuthorization(
     onContinueOnGitHub: () -> Unit,
     onCancel: () -> Unit,
 ) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(
-            Modifier.fillMaxWidth().padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(stringResource(R.string.sign_in_enter_code), style = MaterialTheme.typography.bodyLarge)
-            Text(
-                step.userCode,
-                style = MaterialTheme.typography.displaySmall,
-                fontFamily = FontFamily.Monospace,
-                modifier = Modifier.semantics { contentDescription = step.userCode.toList().joinToString(" ") },
-            )
-            Button(onClick = onContinueOnGitHub, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.sign_in_copy_and_open))
-            }
-        }
+    val colors = Soft.colors
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(colors.fields[1]).padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(stringResource(R.string.sign_in_enter_code), style = Soft.type.body, color = colors.ink)
+        Text(
+            step.userCode,
+            style = Soft.type.title.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium, letterSpacing = 0.08.em),
+            color = colors.ink,
+            modifier = Modifier.semantics { contentDescription = step.userCode.toList().joinToString(" ") },
+        )
+        SoftButton(stringResource(R.string.sign_in_copy_and_open), onContinueOnGitHub, Modifier.fillMaxWidth())
     }
-    LinearProgressIndicator(Modifier.fillMaxWidth())
-    Text(
-        stringResource(R.string.sign_in_waiting),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
+    LinearProgressIndicator(Modifier.fillMaxWidth().clip(SoftTokens.Pill), color = colors.accent, trackColor = colors.surface)
+    Text(stringResource(R.string.sign_in_waiting), style = Soft.type.body, color = colors.inkMuted)
+    SoftTonalButton(stringResource(R.string.cancel), onCancel)
 }
 
 @Composable
 private fun Verifying() {
+    val colors = Soft.colors
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        CircularProgressIndicator()
-        Text(stringResource(R.string.sign_in_verifying))
+        CircularProgressIndicator(color = colors.accent, trackColor = colors.surface)
+        Text(stringResource(R.string.sign_in_verifying), style = Soft.type.body, color = colors.ink)
     }
 }
 

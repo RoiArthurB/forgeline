@@ -3,22 +3,11 @@ package fr.arthurbrugiere.forgeline.credits
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -30,6 +19,16 @@ import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.settings.SOURCE_CODE_URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.unit.sp
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
+import fr.arthurbrugiere.forgeline.ui.listBottomPadding
+import androidx.compose.runtime.getValue
 
 @Composable
 fun CreditsRoute(onBack: () -> Unit) {
@@ -53,26 +52,21 @@ fun CreditsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
-    Scaffold(
-        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.credits_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up))
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { padding ->
+    val colors = Soft.colors
+    Box(modifier.fillMaxSize().background(colors.ground)) {
         LibrariesContainer(
             libraries = libraries,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = padding,
+            contentPadding = PaddingValues(bottom = listBottomPadding()),
             header = {
+                item(key = "header") {
+                    SoftHeader(
+                        tint = colors.fields[2],
+                        title = stringResource(R.string.credits_title),
+                        onBack = onBack,
+                        backDescription = stringResource(R.string.navigate_up),
+                    )
+                }
                 item(key = "app-license") { AppLicenseHeader(onOpenLicense) }
             },
         )
@@ -81,22 +75,19 @@ fun CreditsScreen(
 
 @Composable
 private fun AppLicenseHeader(onOpenLicense: () -> Unit) {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall)
-        Text(
-            stringResource(R.string.credits_app_license),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp),
-        )
-        TextButton(onClick = onOpenLicense, modifier = Modifier.padding(top = 4.dp)) {
-            Text(stringResource(R.string.credits_read_license))
-        }
+    val colors = Soft.colors
+    Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(stringResource(R.string.app_name), style = Soft.type.name, color = colors.ink)
+        Text(stringResource(R.string.credits_app_license), style = Soft.type.body, color = colors.inkMuted)
+        SoftTonalButton(stringResource(R.string.credits_read_license), onOpenLicense, Modifier.padding(top = 4.dp))
+        // The fonts ship in the app under the SIL Open Font License; the library list only covers Gradle dependencies.
+        Text(stringResource(R.string.credits_fonts), style = Soft.type.secondary, color = colors.inkMuted, modifier = Modifier.padding(top = 8.dp))
         Text(
             stringResource(R.string.credits_libraries_intro),
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(top = 16.dp),
+            style = Soft.type.control.copy(fontSize = 17.sp, lineHeight = 22.sp),
+            color = colors.ink,
+            modifier = Modifier.padding(top = 12.dp),
         )
     }
 }
+

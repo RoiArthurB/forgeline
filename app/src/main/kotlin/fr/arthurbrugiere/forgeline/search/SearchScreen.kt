@@ -1,6 +1,5 @@
 package fr.arthurbrugiere.forgeline.search
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -13,36 +12,21 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.SearchOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -57,11 +41,39 @@ import fr.arthurbrugiere.forgeline.core.model.SearchScope
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.ui.format.compactCount
 import fr.arthurbrugiere.forgeline.ui.Avatar
-import fr.arthurbrugiere.forgeline.ui.EmptyState
 import fr.arthurbrugiere.forgeline.ui.IssueSummaryRow
 import fr.arthurbrugiere.forgeline.ui.RepoSummaryRow
 import fr.arthurbrugiere.forgeline.ui.message
 import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.unit.sp
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSwitch
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
+import fr.arthurbrugiere.forgeline.ui.listBottomPadding
+import androidx.compose.runtime.getValue
 
 @Composable
 fun SearchRoute(
@@ -107,97 +119,8 @@ fun SearchScreen(
     // A fresh search starts with the keyboard up; coming back to results doesn't.
     LaunchedEffect(Unit) { if (!state.results.submitted && state.query.isEmpty()) focus.requestFocus() }
 
-    Scaffold(
-        modifier = modifier,
-        topBar = {
-            TopAppBar(
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.navigate_up))
-                    }
-                },
-                title = {
-                    TextField(
-                        value = state.query,
-                        onValueChange = onQueryChange,
-                        placeholder = { Text(stringResource(R.string.search_hint)) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = {
-                            keyboard?.hide()
-                            onSubmit()
-                        }),
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent,
-                        ),
-                        modifier = Modifier.fillMaxWidth().focusRequester(focus),
-                    )
-                },
-                actions = {
-                    if (state.query.isNotEmpty()) {
-                        IconButton(onClick = {
-                            onQueryChange("")
-                            focus.requestFocus()
-                        }) {
-                            Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.search_clear))
-                        }
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Column(Modifier.padding(padding).fillMaxSize()) {
-            PrimaryTabRow(selectedTabIndex = state.scope.ordinal) {
-                SearchScope.entries.forEach { scope ->
-                    Tab(
-                        selected = scope == state.scope,
-                        onClick = { onSelectScope(scope) },
-                        text = { Text(stringResource(scope.label)) },
-                        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            val results = state.results
-            when {
-                !results.submitted -> EmptyState(
-                    icon = Icons.Outlined.Search,
-                    title = stringResource(R.string.search_intro_title),
-                    body = stringResource(R.string.search_intro_body),
-                )
-                results.items.isEmpty() && results.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-                results.items.isEmpty() && results.error != null -> EmptyState(
-                    icon = Icons.Outlined.CloudOff,
-                    title = stringResource(R.string.search_error_title),
-                    body = stringResource(results.error.message),
-                    actionLabel = stringResource(R.string.retry),
-                    onAction = onRetry,
-                )
-                results.items.isEmpty() -> EmptyState(
-                    icon = Icons.Outlined.SearchOff,
-                    title = stringResource(R.string.search_empty_title),
-                    body = stringResource(R.string.search_empty_body, results.query.orEmpty()),
-                )
-                else -> ResultList(results, onLoadMore, onRetry, onOpenRepo, onOpenIssue, onOpenUser, nowMillis)
-            }
-        }
-    }
-}
-
-@Composable
-private fun ResultList(
-    results: ScopeResults,
-    onLoadMore: () -> Unit,
-    onRetry: () -> Unit,
-    onOpenRepo: (RepoId) -> Unit,
-    onOpenIssue: (IssueRef) -> Unit,
-    onOpenUser: (String) -> Unit,
-    nowMillis: Long,
-) {
+    val colors = Soft.colors
+    val results = state.results
     val listState = rememberLazyListState()
     LaunchedEffect(listState, results.hasMore) {
         if (!results.hasMore) return@LaunchedEffect
@@ -205,56 +128,161 @@ private fun ResultList(
             .distinctUntilChanged()
             .collect { last -> if (last != null && last >= listState.layoutInfo.totalItemsCount - 5) onLoadMore() }
     }
-    LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-        results.totalCount?.let { total ->
-            item(key = "count") {
-                Text(
-                    pluralStringResource(R.plurals.search_results, total, compactCount(total)),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                )
-            }
-        }
-        // Keyed by position: GitHub search pages can repeat an item across pages.
-        itemsIndexed(results.items, key = { index, _ -> index }, contentType = { _, item -> item::class }) { _, item ->
-            when (item) {
-                is SearchResult.Repository -> RepoSummaryRow(item.repo, onOpenRepo)
-                is SearchResult.Issue -> IssueSummaryRow(
-                    item.result.issue,
-                    nowMillis,
-                    onOpen = { number -> onOpenIssue(IssueRef(item.result.repo, number)) },
-                    repo = item.result.repo,
-                )
-                is SearchResult.User -> UserRow(item.user, onOpenUser)
-            }
-        }
-        when {
-            results.error != null -> item(key = "retry") {
-                Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
-                    TextButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
+    Box(modifier.fillMaxSize().background(colors.ground)) {
+        LazyColumn(
+            state = listState,
+            horizontalAlignment = Alignment.CenterHorizontally,
+            contentPadding = PaddingValues(bottom = listBottomPadding()),
+            modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+        ) {
+            item(key = "header") {
+                SoftHeader(tint = colors.fields[1], onBack = onBack, backDescription = stringResource(R.string.navigate_up)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SearchField(
+                            query = state.query,
+                            onQueryChange = onQueryChange,
+                            onSubmit = {
+                                keyboard?.hide()
+                                onSubmit()
+                            },
+                            onClear = {
+                                onQueryChange("")
+                                focus.requestFocus()
+                            },
+                            focus = focus,
+                        )
+                        SoftSwitch(
+                            options = SearchScope.entries.map { stringResource(it.label) },
+                            selected = state.scope.ordinal,
+                            onSelect = { onSelectScope(SearchScope.entries[it]) },
+                        )
+                    }
                 }
             }
-            results.hasMore -> item(key = "more") {
-                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            when {
+                !results.submitted -> item(key = "intro") {
+                    SoftNotice(stringResource(R.string.search_intro_title), stringResource(R.string.search_intro_body))
+                }
+                results.items.isEmpty() && results.isLoading -> item(key = "loading") {
+                    SoftLoadingRows(stringResource(R.string.search_loading), rows = 4)
+                }
+                results.items.isEmpty() && results.error != null -> item(key = "error") {
+                    SoftNotice(
+                        stringResource(R.string.search_error_title),
+                        stringResource(results.error.message),
+                        action = stringResource(R.string.retry),
+                        onAction = onRetry,
+                    )
+                }
+                results.items.isEmpty() -> item(key = "empty") {
+                    SoftNotice(stringResource(R.string.search_empty_title), stringResource(R.string.search_empty_body, results.query.orEmpty()))
+                }
+                else -> {
+                    results.totalCount?.let { total ->
+                        item(key = "count") {
+                            Text(
+                                pluralStringResource(R.plurals.search_results, total, compactCount(total)),
+                                style = Soft.type.secondary,
+                                color = colors.inkMuted,
+                                modifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
+                            )
+                        }
+                    }
+                    // Keyed by position: GitHub search pages can repeat an item across pages.
+                    itemsIndexed(results.items, key = { index, _ -> index }, contentType = { _, item -> item::class }) { _, item ->
+                        when (item) {
+                            is SearchResult.Repository -> RepoSummaryRow(item.repo, onOpenRepo)
+                            is SearchResult.Issue -> IssueSummaryRow(
+                                item.result.issue,
+                                nowMillis,
+                                onOpen = { number -> onOpenIssue(IssueRef(item.result.repo, number)) },
+                                repo = item.result.repo,
+                            )
+                            is SearchResult.User -> UserRow(item.user, onOpenUser)
+                        }
+                    }
+                    when {
+                        results.error != null -> item(key = "retry") {
+                            Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) {
+                                SoftTonalButton(stringResource(R.string.retry), onRetry)
+                            }
+                        }
+                        results.hasMore -> item(key = "more") {
+                            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = colors.accent, trackColor = colors.surface)
+                            }
+                        }
+                    }
+                }
             }
         }
+        val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+        SoftStatusBarScrim(scrolled)
     }
+}
+
+/** The query in a soft pill on the field: a search glyph, the text, and a clear button once there is some. */
+@Composable
+private fun SearchField(query: String, onQueryChange: (String) -> Unit, onSubmit: () -> Unit, onClear: () -> Unit, focus: FocusRequester) {
+    val colors = Soft.colors
+    BasicTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        singleLine = true,
+        textStyle = Soft.type.body.copy(fontSize = 16.sp, color = colors.ink),
+        cursorBrush = SolidColor(colors.accent),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
+        modifier = Modifier.fillMaxWidth().focusRequester(focus),
+        decorationBox = { field ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(SoftTokens.Pill)
+                    .background(colors.ground)
+                    .heightIn(min = 52.dp)
+                    .padding(start = 16.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.Search, contentDescription = null, tint = colors.inkMuted)
+                Spacer(Modifier.width(10.dp))
+                Box(Modifier.weight(1f)) {
+                    if (query.isEmpty()) {
+                        Text(stringResource(R.string.search_hint), style = Soft.type.body.copy(fontSize = 16.sp), color = colors.inkMuted, maxLines = 1)
+                    }
+                    field()
+                }
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = onClear) {
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.search_clear), tint = colors.inkMuted)
+                    }
+                } else {
+                    Spacer(Modifier.height(48.dp))
+                }
+            }
+        },
+    )
 }
 
 @Composable
 private fun UserRow(user: UserSummary, onOpenUser: (String) -> Unit) {
-    ListItem(
-        modifier = Modifier.clickable { onOpenUser(user.login) },
-        leadingContent = { Avatar(user.avatarUrl, user.login, size = 40.dp) },
-        headlineContent = { Text(user.login) },
-        supportingContent = if (user.isOrganization) {
-            { Text(stringResource(R.string.search_organization)) }
-        } else {
-            null
-        },
-    )
-    HorizontalDivider()
+    val colors = Soft.colors
+    Row(
+        Modifier
+            .widthIn(max = SoftTokens.MaxReadingWidth)
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .softPressable { onOpenUser(user.login) }
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Avatar(user.avatarUrl, user.login, size = 40.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
+        Spacer(Modifier.width(14.dp))
+        Column {
+            Text(user.login, style = Soft.type.body, color = colors.ink)
+            if (user.isOrganization) Text(stringResource(R.string.search_organization), style = Soft.type.meta, color = colors.inkMuted)
+        }
+    }
 }
 
 private val SearchScope.label: Int
