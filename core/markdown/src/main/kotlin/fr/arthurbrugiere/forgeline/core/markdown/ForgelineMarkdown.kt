@@ -2,7 +2,6 @@ package fr.arthurbrugiere.forgeline.core.markdown
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -19,6 +18,14 @@ import com.mikepenz.markdown.model.State
 import com.mikepenz.markdown.model.parseMarkdown
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import com.mikepenz.markdown.m3.markdownColor
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import androidx.compose.runtime.getValue
 
 /** Parses Markdown into a renderable state. Call off the main thread for large documents. */
 fun parseForgeMarkdown(markdown: String): State = parseMarkdown(markdown)
@@ -40,9 +47,18 @@ fun ForgelineMarkdown(
     }
     CompositionLocalProvider(LocalUriHandler provides uriHandler) {
         val type = MaterialTheme.typography
+        val soft = Soft.colors
         Markdown(
             state = state,
             modifier = modifier,
+            // Code sits on the soft surface; links are ember, in the text face's medium weight (it has no bold).
+            colors = markdownColor(
+                text = soft.ink,
+                codeBackground = soft.surface,
+                inlineCodeBackground = soft.surface,
+                dividerColor = soft.track.copy(alpha = soft.track.alpha * 2),
+                tableBackground = soft.surface.copy(alpha = 0.5f),
+            ),
             // Material headline/title scale: the default H1 uses display sizes, too big on a phone.
             typography = markdownTypography(
                 h1 = type.headlineMedium,
@@ -51,6 +67,10 @@ fun ForgelineMarkdown(
                 h4 = type.titleMedium,
                 h5 = type.titleSmall,
                 h6 = type.labelLarge,
+                code = type.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                textLink = TextLinkStyles(
+                    style = SpanStyle(color = soft.accent, fontWeight = FontWeight.Medium, textDecoration = TextDecoration.Underline),
+                ),
             ),
             imageTransformer = Coil3ImageTransformerImpl,
             components = markdownComponents(

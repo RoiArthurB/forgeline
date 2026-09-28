@@ -8,6 +8,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -39,7 +41,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +61,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.getValue
 
 /** Shapes, widths and motion shared by every Soft screen. */
 object SoftTokens {
@@ -216,6 +218,39 @@ fun SoftSwitch(options: List<String>, selected: Int, onSelect: (Int) -> Unit, mo
         layout(constraints.maxWidth, height) {
             thumb.placeRelative((thumbIndex * segment).toInt(), 0)
             labels.forEachIndexed { index, label -> label.placeRelative(index * segment, (height - label.height) / 2) }
+        }
+    }
+}
+
+/**
+ * Pill tabs that scroll sideways when there are too many for the width: the selected one is the ember thumb.
+ * Sits on the ground, under a header field; used for a page's sections (a repository's README, Code, Issues...).
+ */
+@Composable
+fun SoftChipTabs(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+    val colors = Soft.colors
+    Row(
+        modifier
+            .fillMaxWidth()
+            .background(colors.ground)
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        options.forEachIndexed { index, option ->
+            val isSelected = index == selected
+            Box(
+                Modifier
+                    .clip(SoftTokens.Pill)
+                    .background(if (isSelected) colors.thumb else colors.surface)
+                    .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(index) })
+                    .heightIn(min = 44.dp)
+                    .padding(horizontal = 18.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(option, style = Soft.type.control, color = if (isSelected) colors.onThumb else colors.ink, maxLines = 1)
+            }
         }
     }
 }

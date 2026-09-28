@@ -115,6 +115,10 @@
     <string name="trending_resume">Resume at #%1$d</string>
     <string name="inbox_loading">Loading your notifications</string>
     <string name="feed_loading">Loading your feed</string>
+    <string name="repo_loading">Loading this repository</string>
+    <string name="issue_loading">Loading this conversation</string>
+    <string name="user_loading">Loading this profile</string>
+    <string name="search_loading">Searching</string>
     <string name="trending_loading">Loading trending repositories</string>
     <string name="trending_empty_title">Nothing trending here yet</string>
     <string name="trending_empty_body">GitHub returned an empty list. Refresh to check again.</string>
@@ -260,6 +264,7 @@
     <string name="credits_title">Credits</string>
     <string name="credits_app_license">Forgeline is free software, licensed under the GNU General Public License v3.0.</string>
     <string name="credits_read_license">Read the license</string>
+    <string name="credits_fonts">Typefaces: Gabarito (© The Gabarito Project Authors) and Lexend (© The Lexend Project Authors), both under the SIL Open Font License 1.1.</string>
     <string name="credits_libraries_intro">Built with these open source libraries</string>
 
     <plurals name="feed_actors_many">

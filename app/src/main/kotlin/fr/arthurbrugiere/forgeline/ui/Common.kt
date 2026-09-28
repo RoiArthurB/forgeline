@@ -3,15 +3,11 @@ package fr.arthurbrugiere.forgeline.ui
 import android.text.format.DateUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,6 +22,12 @@ import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.ui.format.parseHexColor
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import java.time.Instant
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.unit.sp
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 
 fun <T> LazyListScope.loadable(
     loadable: Loadable<List<T>>,
@@ -35,57 +37,52 @@ fun <T> LazyListScope.loadable(
 ) {
     when (loadable) {
         Loadable.Idle, Loadable.Loading -> item(key = "loading") {
-            Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = Soft.colors.accent, trackColor = Soft.colors.surface)
+            }
         }
         is Loadable.Failed -> item(key = "failed") {
-            Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(stringResource(R.string.repo_tab_failed), style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    stringResource(loadable.error.message),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                TextButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
-            }
+            SoftNotice(
+                stringResource(R.string.repo_tab_failed),
+                stringResource(loadable.error.message),
+                action = stringResource(R.string.retry),
+                onAction = onRetry,
+            )
         }
         is Loadable.Loaded -> if (loadable.value.isEmpty()) item(key = "empty") { Message(stringResource(emptyMessage)) } else content(loadable.value)
     }
 }
 
+/** A small state tag (Draft, Open, Archived…) on a soft pill. */
 @Composable
 fun Badge(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onSecondaryContainer,
-        modifier = Modifier
-            .clip(RoundedCornerShape(50))
-            .background(MaterialTheme.colorScheme.secondaryContainer)
-            .padding(horizontal = 8.dp, vertical = 2.dp),
-    )
+    SoftTag(text)
 }
 
+/** A forge label in its own color, as the forge shows it, on a pill; text contrast follows the color. */
 @Composable
 fun LabelChip(label: Label) {
-    val color = parseHexColor(label.color?.let { "#$it" }) ?: MaterialTheme.colorScheme.secondaryContainer
+    val color = parseHexColor(label.color?.let { "#$it" }) ?: Soft.colors.surface
     Text(
         label.name,
-        style = MaterialTheme.typography.labelSmall,
+        style = Soft.type.label.copy(fontSize = 12.sp, lineHeight = 16.sp),
         color = if (color.luminance() > 0.5f) Color.Black else Color.White,
+        maxLines = 1,
         modifier = Modifier
-            .clip(RoundedCornerShape(50))
+            .clip(SoftTokens.Pill)
             .background(color)
-            .padding(horizontal = 8.dp, vertical = 2.dp),
+            .padding(horizontal = 10.dp, vertical = 4.dp),
     )
 }
 
+/** A quiet line of text standing in for an empty list. */
 @Composable
 fun Message(text: String) {
     Text(
         text,
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.fillMaxWidth().padding(24.dp),
+        style = Soft.type.body,
+        color = Soft.colors.inkMuted,
+        modifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp),
     )
 }
 
