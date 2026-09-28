@@ -1,0 +1,570 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-28T13:59:13+00:00",
+  "title": "Design System: Forgeline",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Soft White",
+        "canonical": "#FAFAFB",
+        "tonalRamp": [
+          "#0B0B0C",
+          "#242425",
+          "#404040",
+          "#5D5D5E",
+          "#7D7D7E",
+          "#9E9E9F",
+          "#C7C7C8",
+          "#EEEEEF"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Plum-Navy Ink",
+        "canonical": "#1E1B2E",
+        "tonalRamp": [
+          "#0B0819",
+          "#242134",
+          "#3F3D52",
+          "#5D5A71",
+          "#7D7A92",
+          "#9E9BB4",
+          "#C7C4DE",
+          "#EEEBFF"
+        ]
+      },
+      "ink-muted": {
+        "role": "neutral",
+        "displayName": "Muted Ink",
+        "canonical": "#5A566B",
+        "tonalRamp": [
+          "#0C0818",
+          "#252133",
+          "#403C50",
+          "#5E5A6F",
+          "#7E7A90",
+          "#9F9BB2",
+          "#C8C4DC",
+          "#EFEBFF"
+        ]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Readable Ember",
+        "canonical": "#B83A17",
+        "tonalRamp": [
+          "#280000",
+          "#4F0000",
+          "#791100",
+          "#A62B04",
+          "#CD4E2D",
+          "#F47150",
+          "#FFA486",
+          "#FFD2B8"
+        ]
+      },
+      "thumb": {
+        "role": "primary",
+        "displayName": "Ember Thumb",
+        "canonical": "#FF6B3D",
+        "tonalRamp": [
+          "#2A0000",
+          "#530000",
+          "#7E0000",
+          "#AC1F00",
+          "#D6440B",
+          "#FC6B3D",
+          "#FFA07A",
+          "#FFCFAF"
+        ]
+      },
+      "on-thumb": {
+        "role": "neutral",
+        "displayName": "Ink on Ember",
+        "canonical": "#1E1B2E",
+        "tonalRamp": [
+          "#0B0819",
+          "#242134",
+          "#3F3D52",
+          "#5D5A71",
+          "#7D7A92",
+          "#9E9BB4",
+          "#C7C4DE",
+          "#EEEBFF"
+        ]
+      },
+      "track": {
+        "role": "neutral",
+        "displayName": "Track Veil",
+        "canonical": "#1E1B2E0F",
+        "tonalRamp": [
+          "#0B0819",
+          "#242134",
+          "#3F3D52",
+          "#5D5A71",
+          "#7D7A92",
+          "#9E9BB4",
+          "#C7C4DE",
+          "#EEEBFF"
+        ],
+        "note": "Translucent veil (RRGGBBAA) laid over the header field; ramp shows the opaque base hue."
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Soft Surface",
+        "canonical": "#F0EFF3",
+        "tonalRamp": [
+          "#0B0B0D",
+          "#242326",
+          "#403F42",
+          "#5E5D60",
+          "#7D7D80",
+          "#9F9EA1",
+          "#C7C6CA",
+          "#EFEEF2"
+        ]
+      },
+      "field-today": {
+        "role": "secondary",
+        "displayName": "Peach Field (Today)",
+        "canonical": "#FFE6DC",
+        "tonalRamp": [
+          "#160703",
+          "#311F18",
+          "#4E3B33",
+          "#6D5850",
+          "#8E786F",
+          "#B0998F",
+          "#DAC1B8",
+          "#FFE8DE"
+        ]
+      },
+      "field-week": {
+        "role": "secondary",
+        "displayName": "Lilac Field (This week)",
+        "canonical": "#ECE6FF",
+        "tonalRamp": [
+          "#0D0818",
+          "#262133",
+          "#413C50",
+          "#5F5A6F",
+          "#7F7990",
+          "#A09AB2",
+          "#C9C3DB",
+          "#F0EAFF"
+        ]
+      },
+      "field-month": {
+        "role": "secondary",
+        "displayName": "Mint Field (This month)",
+        "canonical": "#DDF3EA",
+        "tonalRamp": [
+          "#010F09",
+          "#172822",
+          "#32443D",
+          "#50635B",
+          "#6F837B",
+          "#8FA49C",
+          "#B8CDC4",
+          "#DEF5EB"
+        ]
+      },
+      "ground-dark": {
+        "role": "neutral",
+        "displayName": "Violet Black",
+        "canonical": "#15131C",
+        "tonalRamp": [
+          "#0C0A12",
+          "#24222C",
+          "#403E49",
+          "#5E5C67",
+          "#7E7B87",
+          "#9F9CA9",
+          "#C8C5D2",
+          "#EFECFA"
+        ]
+      },
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Lavender White",
+        "canonical": "#F1EEF6",
+        "tonalRamp": [
+          "#0C0A0F",
+          "#252329",
+          "#413E45",
+          "#5F5C63",
+          "#7E7C83",
+          "#A09DA4",
+          "#C9C6CD",
+          "#F0EDF5"
+        ]
+      },
+      "ink-muted-dark": {
+        "role": "neutral",
+        "displayName": "Muted Lavender",
+        "canonical": "#A7A2B8",
+        "tonalRamp": [
+          "#0C0817",
+          "#252132",
+          "#413C4F",
+          "#5F5A6E",
+          "#7F7A8F",
+          "#A09BB1",
+          "#C9C4DA",
+          "#F0EBFF"
+        ]
+      },
+      "accent-dark": {
+        "role": "primary",
+        "displayName": "Bright Ember",
+        "canonical": "#FF8A5C",
+        "tonalRamp": [
+          "#260000",
+          "#4C0100",
+          "#751B00",
+          "#A03500",
+          "#C65727",
+          "#EC794B",
+          "#FFA982",
+          "#FFD6B5"
+        ]
+      },
+      "on-thumb-dark": {
+        "role": "neutral",
+        "displayName": "Near-Black on Ember",
+        "canonical": "#1A1216",
+        "tonalRamp": [
+          "#10090C",
+          "#2A2125",
+          "#463D41",
+          "#645A5F",
+          "#857A7F",
+          "#A69BA0",
+          "#CFC3C9",
+          "#F7EBF0"
+        ]
+      },
+      "track-dark": {
+        "role": "neutral",
+        "displayName": "Track Veil (dark)",
+        "canonical": "#FFFFFF12",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#7D7D7D",
+          "#9E9E9E",
+          "#C7C7C7",
+          "#EEEEEE"
+        ],
+        "note": "Translucent veil (RRGGBBAA) laid over the header field; ramp shows the opaque base hue."
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Soft Surface (dark)",
+        "canonical": "#221F2C",
+        "tonalRamp": [
+          "#0C0914",
+          "#25222F",
+          "#403D4C",
+          "#5E5B6A",
+          "#7E7B8B",
+          "#9F9CAD",
+          "#C8C4D6",
+          "#EFECFE"
+        ]
+      },
+      "field-today-dark": {
+        "role": "secondary",
+        "displayName": "Ember Dusk Field",
+        "canonical": "#2B1E1F",
+        "tonalRamp": [
+          "#130809",
+          "#2D2021",
+          "#4A3B3C",
+          "#69595A",
+          "#89797A",
+          "#AB9A9B",
+          "#D4C2C3",
+          "#FCE9EA"
+        ]
+      },
+      "field-week-dark": {
+        "role": "secondary",
+        "displayName": "Violet Dusk Field",
+        "canonical": "#221F33",
+        "tonalRamp": [
+          "#0B081A",
+          "#242135",
+          "#3F3C52",
+          "#5D5A72",
+          "#7D7A93",
+          "#9E9BB5",
+          "#C6C4DF",
+          "#EEEBFF"
+        ]
+      },
+      "field-month-dark": {
+        "role": "secondary",
+        "displayName": "Green Dusk Field",
+        "canonical": "#1A2724",
+        "tonalRamp": [
+          "#030E0B",
+          "#1A2724",
+          "#354340",
+          "#53615E",
+          "#72817D",
+          "#93A29E",
+          "#BBCCC7",
+          "#E2F3EF"
+        ]
+      },
+      "ground-amoled": {
+        "role": "neutral",
+        "displayName": "AMOLED Black",
+        "canonical": "#000000",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#242424",
+          "#404040",
+          "#5D5D5D",
+          "#7D7D7D",
+          "#9E9E9E",
+          "#C7C7C7",
+          "#EEEEEE"
+        ]
+      },
+      "surface-amoled": {
+        "role": "neutral",
+        "displayName": "Soft Surface (AMOLED)",
+        "canonical": "#16141D",
+        "tonalRamp": [
+          "#0C0A12",
+          "#24222C",
+          "#403E49",
+          "#5E5C67",
+          "#7E7B87",
+          "#9F9CA9",
+          "#C8C5D2",
+          "#EFECFA"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "Surface title in the header field."
+      },
+      "name": {
+        "displayName": "Name",
+        "purpose": "Repository names and Notice titles."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "Ranks and +gained counts, tabular, in ember."
+      },
+      "control": {
+        "displayName": "Control",
+        "purpose": "Period switch labels and filled button text."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Descriptions and Notice bodies; measure capped at 580dp."
+      },
+      "secondary": {
+        "displayName": "Secondary",
+        "purpose": "Owner above the name, the Updated status line."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Language, stars and forks; tabular."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Resume link and Stopped-here marker."
+      }
+    },
+    "shadows": [
+      {
+        "name": "ember-glow",
+        "value": "0 3px 10px rgba(255,107,61,0.45)",
+        "purpose": "Browser approximation of the Compose shadow(6.dp) with ambient and spot colour set to the thumb ember; the only shadow in the world, lifting the period-switch thumb."
+      }
+    ],
+    "motion": [
+      {
+        "name": "soft-spring",
+        "value": "spring(dampingRatio = 0.85, stiffness = StiffnessMediumLow)",
+        "purpose": "Rows rising in after a section change (16dp rise, alpha 0.35 to 1, 35ms stagger over the first eight rows)."
+      },
+      {
+        "name": "thumb-spring",
+        "value": "spring(dampingRatio = 0.8, stiffness = StiffnessMediumLow)",
+        "purpose": "The period-switch thumb springing to the chosen segment."
+      },
+      {
+        "name": "field-crossfade",
+        "value": "tween(400ms)",
+        "purpose": "Header field tint crossfading between section tints."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "ANIMATOR_DURATION_SCALE == 0",
+        "purpose": "All of the above are skipped (tween(0) or no animation) when Remove animations is on."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "reading-column",
+        "value": "720dp"
+      },
+      {
+        "name": "reading-measure",
+        "value": "580dp"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Header Field",
+      "kind": "custom",
+      "refersTo": "header-field",
+      "description": "The tinted field at the top of a surface: title, search, and the period switch; tint keyed to the section. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "html": "<div class=\"ds-field\"><div class=\"ds-field-row\"><h1 class=\"ds-field-title\">Trending</h1><button class=\"ds-icon-btn\" aria-label=\"Search\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14\"/></svg></button></div></div>",
+      "css": ".ds-field { background: #FFE6DC; border-radius: 0 0 28px 28px; padding: 16px 8px 20px 20px; transition: background 400ms ease; } .ds-field-row { display: flex; align-items: center; } .ds-field-title { flex: 1; margin: 0; font-family: Gabarito, 'Nunito', system-ui, sans-serif; font-weight: 700; font-size: 34px; line-height: 38px; letter-spacing: -0.01em; color: #1E1B2E; } .ds-icon-btn { width: 48px; height: 48px; border: none; border-radius: 50%; background: transparent; color: #1E1B2E; display: grid; place-items: center; cursor: pointer; } .ds-icon-btn:hover { background: rgba(30,27,46,0.06); } .ds-icon-btn:focus-visible { outline: 2px solid #1E1B2E; outline-offset: 2px; }"
+    },
+    {
+      "name": "Period Switch",
+      "kind": "nav",
+      "refersTo": "switch-track",
+      "description": "Pill track with an ember thumb that springs to the chosen period; selection is the thumb. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "html": "<div class=\"ds-switch\" role=\"tablist\"><span class=\"ds-switch-thumb\"></span><button class=\"ds-switch-seg\" role=\"tab\" aria-selected=\"true\">Today</button><button class=\"ds-switch-seg\" role=\"tab\" aria-selected=\"false\">This week</button><button class=\"ds-switch-seg\" role=\"tab\" aria-selected=\"false\">This month</button></div>",
+      "css": ".ds-switch { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px; min-height: 48px; border-radius: 28px; background: rgba(30,27,46,0.06); } .ds-switch-thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3); border-radius: 24px; background: #FF6B3D; box-shadow: 0 3px 10px rgba(255,107,61,0.45); transition: transform 420ms cubic-bezier(0.34, 1.2, 0.64, 1); } .ds-switch:has(.ds-switch-seg:nth-of-type(2):focus) .ds-switch-thumb, .ds-switch:has(.ds-switch-seg:nth-of-type(2):hover) .ds-switch-thumb { transform: translateX(100%); } .ds-switch:has(.ds-switch-seg:nth-of-type(3):focus) .ds-switch-thumb, .ds-switch:has(.ds-switch-seg:nth-of-type(3):hover) .ds-switch-thumb { transform: translateX(200%); } .ds-switch-seg { position: relative; z-index: 1; border: none; background: transparent; border-radius: 24px; padding: 8px 6px; min-height: 48px; font-family: Gabarito, 'Nunito', system-ui, sans-serif; font-weight: 500; font-size: 15px; line-height: 20px; color: #5A566B; cursor: pointer; } .ds-switch-seg[aria-selected=\"true\"] { color: #1E1B2E; } .ds-switch-seg:focus-visible { outline: 2px solid #1E1B2E; outline-offset: -2px; } @media (prefers-reduced-motion: reduce) { .ds-switch-thumb { transition: none; } }"
+    },
+    {
+      "name": "Repository Row",
+      "kind": "card",
+      "refersTo": "row",
+      "description": "Unboxed list row: ember rank, muted owner over the name, ember gain, description, meta line. Pressed or focused rows get a 20dp soft surface, no ripple. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "html": "<a class=\"ds-row\" href=\"#\"><div class=\"ds-row-top\"><span class=\"ds-fig\">1</span><div class=\"ds-row-names\"><div class=\"ds-owner\">paperclipai</div><div class=\"ds-name\">paperclip</div></div><span class=\"ds-fig ds-gain\">+2,109</span></div><p class=\"ds-desc\">Open-source orchestration for teams of AI agents: plans, budgets and a shared memory.</p><div class=\"ds-meta\"><span class=\"ds-dot\"></span>TypeScript<span>85.9k stars</span><span>4.2k forks</span></div></a>",
+      "css": ".ds-row { display: block; margin: 2px 8px; padding: 14px 16px 12px 12px; border-radius: 20px; text-decoration: none; color: #1E1B2E; background: transparent; -webkit-tap-highlight-color: transparent; } .ds-row:hover, .ds-row:active, .ds-row:focus-visible { background: #F0EFF3; outline: none; } .ds-row-top { display: flex; align-items: flex-start; } .ds-fig { font-family: Gabarito, 'Nunito', system-ui, sans-serif; font-weight: 700; font-size: 16px; line-height: 20px; font-variant-numeric: tabular-nums; color: #B83A17; padding-top: 3px; width: 30px; flex: none; } .ds-gain { width: auto; margin-left: 12px; } .ds-row-names { flex: 1; } .ds-owner { font-family: Lexend, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: #5A566B; } .ds-name { font-family: Gabarito, 'Nunito', system-ui, sans-serif; font-weight: 700; font-size: 21px; line-height: 25px; } .ds-desc { margin: 6px 0 0 30px; max-width: 580px; font-family: Lexend, system-ui, sans-serif; font-size: 15px; line-height: 24px; } .ds-meta { display: flex; gap: 14px; align-items: center; margin: 8px 0 0 30px; min-height: 48px; font-family: Lexend, system-ui, sans-serif; font-size: 13px; line-height: 18px; font-variant-numeric: tabular-nums; color: #5A566B; } .ds-dot { width: 9px; height: 9px; border-radius: 50%; background: #3178C6; margin-right: -8px; }"
+    },
+    {
+      "name": "Filled Button",
+      "kind": "button",
+      "refersTo": "button-filled",
+      "description": "The one action in a Notice (Retry, Refresh): ember pill, 48dp tall. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "html": "<button class=\"ds-btn-filled\">Retry</button>",
+      "css": ".ds-btn-filled { min-height: 48px; padding: 0 24px; border: none; border-radius: 999px; background: #FF6B3D; color: #1E1B2E; font-family: Gabarito, 'Nunito', system-ui, sans-serif; font-weight: 500; font-size: 15px; line-height: 20px; cursor: pointer; transition: transform 250ms cubic-bezier(0.34, 1.2, 0.64, 1), filter 200ms; } .ds-btn-filled:hover { filter: brightness(1.05); } .ds-btn-filled:active { transform: scale(0.97); } .ds-btn-filled:focus-visible { outline: 2px solid #1E1B2E; outline-offset: 2px; }"
+    },
+    {
+      "name": "Resume Link",
+      "kind": "button",
+      "refersTo": "link-resume",
+      "description": "Ember text link with a down arrow on the status line, jumping to where the last browse stopped. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "html": "<button class=\"ds-link\">Resume at #9<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z\"/></svg></button>",
+      "css": ".ds-link { display: inline-flex; align-items: center; gap: 4px; min-height: 48px; padding: 0 12px; border: none; border-radius: 999px; background: transparent; color: #B83A17; font-family: Lexend, system-ui, sans-serif; font-weight: 500; font-size: 13px; line-height: 18px; cursor: pointer; } .ds-link:hover, .ds-link:focus-visible { background: #F0EFF3; outline: none; }"
+    },
+    {
+      "name": "Stopped-here Marker",
+      "kind": "chip",
+      "refersTo": "marker-stopped-here",
+      "description": "Peach pill with an ember dot, left under the row where the last browse stopped. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "html": "<span class=\"ds-marker\"><span class=\"ds-marker-dot\"></span>You stopped here</span>",
+      "css": ".ds-marker { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: #FFE6DC; color: #1E1B2E; font-family: Lexend, system-ui, sans-serif; font-weight: 500; font-size: 13px; line-height: 18px; } .ds-marker-dot { width: 8px; height: 8px; border-radius: 50%; background: #FF6B3D; }"
+    },
+    {
+      "name": "Star Toggle",
+      "kind": "button",
+      "refersTo": "row",
+      "description": "48dp icon toggle on the meta line: outlined star in muted ink, filled star in ember when starred. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "html": "<button class=\"ds-star\" aria-pressed=\"false\" aria-label=\"Star\"><svg class=\"ds-star-off\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"m22 9.24-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28z\"/></svg></button>",
+      "css": ".ds-star { width: 48px; height: 48px; border: none; border-radius: 50%; background: transparent; color: #5A566B; display: grid; place-items: center; cursor: pointer; } .ds-star[aria-pressed=\"true\"] { color: #B83A17; } .ds-star:hover, .ds-star:focus-visible { background: #F0EFF3; outline: none; }"
+    },
+    {
+      "name": "Snackbar",
+      "kind": "custom",
+      "refersTo": "snackbar",
+      "description": "Inverted message bar: ink background, ground text, 16dp corners. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "html": "<div class=\"ds-snackbar\" role=\"status\">Couldn’t refresh. Showing saved results.</div>",
+      "css": ".ds-snackbar { display: inline-block; padding: 14px 16px; border-radius: 16px; background: #1E1B2E; color: #FAFAFB; font-family: Lexend, system-ui, sans-serif; font-size: 14px; line-height: 20px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Friendly Type",
+    "overview": "Forgeline is mostly text, so the world is built to be pleasant to read. A warm, rounded display face (Gabarito) carries names, titles and figures, a very legible text face (Lexend) carries every line of reading, and both sit on soft surfaces with one vivid ember accent. The owner's word for the result is comfy: soft, friendly, modern, and vivid enough to feel alive, never heavy or corporate.\n\nHierarchy comes from type, space and tone, never from lines or boxes. Colour arrives at scale once per surface, as a soft tint that owns the header field and changes with the section (ember today, lilac this week, mint this month); ember then marks only momentum and selection. Density is comfortable: one reading column, generous row rhythm, descriptions held to a readable measure. Motion is soft and springy, a little lively and never bouncy, and it disappears entirely under the system Remove animations setting.\n\nNative Android behaviour stays native: system Back, edge-to-edge insets, 48dp touch targets, and sp type that follows the font scale (rows grow and wrap at 1.3x and 2.0x; nothing is cut). Confirmed rejections: brutalist or boxy layouts, split-flap or departure-board and other literal metaphors borrowed from other domains, harsh aggressive contrast, condensed signage display faces, and a corporate feel.\n\nScope today: the world lives in `core/ui/.../soft/Soft.kt` (`SoftColors`, `SoftType`, `SoftTheme`) and is expressed first by Trending. Other screens and the navigation bar still wear the old Material look until they are migrated, and the dynamic colour setting does not affect screens in this world; only the light, dark and AMOLED choice carries over.",
+    "keyCharacteristics": [
+      "Gabarito 500/700 for display, names and figures; Lexend 400/500 for all reading text.",
+      "One soft tinted header field per surface, 28dp rounded bottom corners, tint keyed to the section.",
+      "One ember accent for momentum (ranks, gains, starred, resume) and one ember thumb for selection.",
+      "Nothing boxed: no dividers, no card outlines, no stacked cards.",
+      "Pill controls and a 20dp soft surface for pressed or focused rows.",
+      "Tabular figures wherever numbers line up.",
+      "Every text/background pair at least 4.5:1, enforced by `SoftTest`."
+    ],
+    "rules": [
+      {
+        "name": "The Field Tint Rule",
+        "body": "Colour at scale lives in the header field tint, one tint per surface, keyed to the section. Ember elsewhere is a mark (rank, gain, starred, resume, thumb), never a background wash, border or scattered decoration.",
+        "section": "colors"
+      },
+      {
+        "name": "The Readable Everywhere Rule",
+        "body": "Every text/background pair the world draws holds at least 4.5:1 in light, dark and AMOLED, on the ground, on every field tint, on the track over each tint, and on the pressed surface. `SoftTest` enforces it; a new pair gets a new assertion.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Weights Rule",
+        "body": "Gabarito ships in exactly two weights, Medium 500 for controls and Bold 700 for everything else it sets; Lexend in Regular 400 and Medium 500. No other weights, no other families, no condensed faces.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Every number meant to be compared down a list (ranks, gains, stats) is set with `tnum`, so columns line up without a grid.",
+        "section": "typography"
+      },
+      {
+        "name": "The Nothing Boxed Rule",
+        "body": "No divider lines, no card outlines, no stacked cards. Rows are separated by space and type; a surface appears only as feedback (press, focus) or as a loading shape. The 2dp ground-coloured ring around overlapping avatars is a cut-out that separates faces, not a border, and is the only stroke in the world.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Ember Thumb Rule",
+        "body": "Selection is the springing ember thumb. Don't show selection with underlines, outlines, checkmarks or tinted text alone.",
+        "section": "components"
+      },
+      {
+        "name": "The Soft Press Rule",
+        "body": "Pressed or focused rows get a 20dp soft surface in `surface`, never a ripple. Every text colour on it is tested to 4.5:1.",
+        "section": "components"
+      },
+      {
+        "name": "The One Spring Rule",
+        "body": "Things that move use one soft spring, lively but never bouncy (damping 0.8-0.85, medium-low stiffness); colour changes crossfade over 400ms. All of it is skipped when the system animator scale is 0 (Remove animations).",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "**Do** take every colour and type style from `Soft.colors` and `Soft.type` inside `SoftTheme`; never hard-code a hex in a screen.",
+      "**Do** give each surface one header field tint with 28dp bottom corners, and keep ember for momentum marks and the selection thumb.",
+      "**Do** set names, titles and figures in Gabarito (500/700 only) and all reading text in Lexend (400/500).",
+      "**Do** use `tnum` figures for ranks, counts and stats.",
+      "**Do** separate list items with space and type alone, and show press or focus with the 20dp `surface` fill.",
+      "**Do** use the soft spring for movement and drop all motion when Remove animations is on.",
+      "**Do** keep 48dp touch targets, sp type that grows with the font scale, system Back and edge-to-edge insets.",
+      "**Do** add a `SoftTest` assertion for every new text/background pair (4.5:1 minimum)."
+    ],
+    "donts": [
+      "**Don't** draw divider lines, card outlines, stacked cards or square tiles; nothing is boxed.",
+      "**Don't** build brutalist or boxy layouts, or borrow literal metaphors from other domains (split-flap, departure boards).",
+      "**Don't** use harsh, aggressive contrast or condensed signage display faces.",
+      "**Don't** let it feel corporate.",
+      "**Don't** scatter ember as backgrounds, borders or decoration.",
+      "**Don't** add a third weight of Gabarito or Lexend, or another family.",
+      "**Don't** give rows a ripple.",
+      "**Don't** mark selection with anything other than the ember thumb."
+    ]
+  }
+}
