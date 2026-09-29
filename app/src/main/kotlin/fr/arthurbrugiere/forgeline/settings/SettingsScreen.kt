@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.settings
 
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,6 +36,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
+import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.ui.Avatar
 import androidx.compose.foundation.background
@@ -73,7 +75,7 @@ const val SOURCE_CODE_URL = "https://github.com/RoiArthurB/forgeline"
 fun SettingsRoute(
     session: SessionState,
     onSignIn: () -> Unit,
-    onSignOut: () -> Unit,
+    onSignOut: (Account) -> Unit,
     onBack: () -> Unit,
     onOpenCredits: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
@@ -101,7 +103,7 @@ fun SettingsRoute(
 fun SettingsScreen(
     session: SessionState,
     onSignIn: () -> Unit,
-    onSignOut: () -> Unit,
+    onSignOut: (Account) -> Unit,
     settings: UserSettings,
     versionName: String,
     onThemeModeChange: (ThemeMode) -> Unit,
@@ -132,7 +134,16 @@ fun SettingsScreen(
             }
             if (session != SessionState.Loading) {
                 item { SoftSectionTitle(stringResource(R.string.settings_section_account)) }
-                item { AccountItem(session, onSignIn, onSignOut) }
+                when (session) {
+                    is SessionState.SignedIn -> {
+                        // Every signed-in account, one per forge or more, each signed out on its own.
+                        items(session.accounts, key = { "account-${it.id}" }) { AccountItem(it, onSignOut) }
+                        item(key = "add-account") {
+                            SettingRow(stringResource(R.string.settings_add_account), stringResource(R.string.settings_add_account_summary), onClick = onSignIn)
+                        }
+                    }
+                    else -> item { SettingRow(stringResource(R.string.sign_in), stringResource(R.string.settings_signed_out_summary), onClick = onSignIn) }
+                }
             }
             item { SoftSectionTitle(stringResource(R.string.settings_section_appearance)) }
             item {
@@ -204,39 +215,33 @@ private fun SettingRow(
 }
 
 @Composable
-private fun AccountItem(session: SessionState, onSignIn: () -> Unit, onSignOut: () -> Unit) {
+private fun AccountItem(account: Account, onSignOut: (Account) -> Unit) {
     val colors = Soft.colors
-    when (session) {
-        SessionState.Loading -> Unit
-        SessionState.SignedOut -> SettingRow(stringResource(R.string.sign_in), stringResource(R.string.settings_signed_out_summary), onClick = onSignIn)
-        is SessionState.SignedIn -> {
-            var confirming by rememberSaveable { mutableStateOf(false) }
-            val login = session.account.user.login
-            SettingRow(
-                title = "@$login",
-                summary = session.account.forge.host,
-                leading = { Avatar(session.account.user.avatarUrl, login, size = 40.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted) },
-                trailing = { SoftTonalButton(stringResource(R.string.sign_out), onClick = { confirming = true }) },
-            )
-            if (confirming) {
-                AlertDialog(
-                    onDismissRequest = { confirming = false },
-                    title = { Text(stringResource(R.string.sign_out_confirm_title, login)) },
-                    text = { Text(stringResource(R.string.sign_out_confirm_body)) },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            confirming = false
-                            onSignOut()
-                        }) { Text(stringResource(R.string.sign_out)) }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { confirming = false }) { Text(stringResource(R.string.cancel)) }
-                    },
-                    shape = RoundedCornerShape(28.dp),
-                    containerColor = colors.raised,
-                )
-            }
-        }
+    var confirming by rememberSaveable(account.id) { mutableStateOf(false) }
+    val login = account.user.login
+    SettingRow(
+        title = "@$login",
+        summary = account.forge.displayName,
+        leading = { Avatar(account.user.avatarUrl, login, size = 40.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted) },
+        trailing = { SoftTonalButton(stringResource(R.string.sign_out), onClick = { confirming = true }) },
+    )
+    if (confirming) {
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text(stringResource(R.string.sign_out_confirm_title, login)) },
+            text = { Text(stringResource(R.string.sign_out_confirm_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirming = false
+                    onSignOut(account)
+                }) { Text(stringResource(R.string.sign_out)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirming = false }) { Text(stringResource(R.string.cancel)) }
+            },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = colors.raised,
+        )
     }
 }
 

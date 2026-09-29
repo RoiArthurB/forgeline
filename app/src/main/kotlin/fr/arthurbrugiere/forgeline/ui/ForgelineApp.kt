@@ -25,6 +25,7 @@ import fr.arthurbrugiere.forgeline.navigation.RepoRoute as RepoKey
 import fr.arthurbrugiere.forgeline.navigation.FileRoute as FileKey
 import fr.arthurbrugiere.forgeline.file.FileRoute as FileDestination
 import fr.arthurbrugiere.forgeline.repo.RepoRoute as RepoDestination
+import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.navigation.route
@@ -52,7 +53,7 @@ import fr.arthurbrugiere.forgeline.you.YouScreen
 @Composable
 fun ForgelineApp(
     session: SessionState,
-    onSignOut: () -> Unit,
+    onSignOut: (Account) -> Unit,
     link: NavKey? = null,
     onLinkOpened: () -> Unit = {},
     navigator: AppNavigator = rememberAppNavigator(),
@@ -71,7 +72,7 @@ fun ForgelineApp(
 }
 
 @Composable
-private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, onSignOut: () -> Unit) {
+private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, onSignOut: (Account) -> Unit) {
     val signIn = { navigator.navigate(SignInKey) }
     val openRepo = { id: RepoId -> navigator.navigate(id.route()) }
     val openIssue = { ref: IssueRef -> navigator.navigate(ref.route()) }

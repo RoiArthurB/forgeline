@@ -12,6 +12,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.account.ForgeTokenRefresher
+import fr.arthurbrugiere.forgeline.core.data.account.TokenRefresher
 import fr.arthurbrugiere.forgeline.core.data.account.DataStoreAccountRepository
 import fr.arthurbrugiere.forgeline.core.data.account.KeystoreTokenCipher
 import fr.arthurbrugiere.forgeline.core.data.account.TokenCipher
@@ -57,6 +59,9 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindTokenCipher(impl: KeystoreTokenCipher): TokenCipher
+
+    @Binds
+    abstract fun bindTokenRefresher(impl: ForgeTokenRefresher): TokenRefresher
 
     @Binds
     abstract fun bindTrendingRepository(impl: DefaultTrendingRepository): TrendingRepository

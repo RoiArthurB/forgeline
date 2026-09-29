@@ -160,7 +160,7 @@ The same merge works for any number of forges, so a self-hosted Forgejo instance
 
 Like GitHub, Codeberg offers both, and both are shown when the OAuth client ID is set:
 
-- **"Sign in with Codeberg":** OAuth2 authorization code with PKCE, through a public OAuth application registered on Codeberg, redirecting to `forgeline://oauth/codeberg` in a Custom Tab. See [CODEBERG_OAUTH_APP.md](CODEBERG_OAUTH_APP.md) for creating it. Access tokens expire after an hour, so the account stores the refresh token (encrypted with the same Keystore cipher) and refreshes on a 401 or when expired.
+- **"Sign in with Codeberg":** OAuth2 authorization code with PKCE, through a public OAuth application registered on Codeberg, redirecting to a loopback address on the phone (`http://127.0.0.1:<port>/oauth/codeberg`; Codeberg rejects custom schemes, checked 2026-09-29). See [CODEBERG_OAUTH_APP.md](CODEBERG_OAUTH_APP.md) for creating it. Access tokens expire after an hour, so the account stores the refresh token (encrypted with the same Keystore cipher) and refreshes on a 401 or when expired.
 - **Access token:** a Forgejo access token created by the user, which is also the only option for self-hosted Forgejo instances (after entering the host), since an OAuth app can't be registered on every instance in advance. Scopes: `read:notification`, `write:notification`, `read:user`, `write:user` (follow, star), `read:repository`, `read:issue` and `read:organization`; add `write:issue` once writing issues and reacting land.
 
 An account is identified by `forge:host:login`, as `Account.idFor` already does, so a GitHub and a Codeberg account with the same login are different accounts.

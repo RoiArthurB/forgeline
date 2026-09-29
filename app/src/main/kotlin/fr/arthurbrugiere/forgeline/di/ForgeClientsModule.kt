@@ -18,6 +18,10 @@ import fr.arthurbrugiere.forgeline.core.forge.UserApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import dagger.Provides
+import fr.arthurbrugiere.forgeline.BuildConfig
+import fr.arthurbrugiere.forgeline.signin.BrowserRedirects
+import fr.arthurbrugiere.forgeline.signin.LoopbackRedirects
+import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoAuthApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoIssueApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoRepoApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoSearchApi
@@ -35,6 +39,7 @@ import javax.inject.Singleton
 @Singleton
 class DefaultForgeClients @Inject constructor(
     @Forgejo private val forgejoHttp: HttpClient,
+    @CodebergClientId private val codebergClientId: String,
     private val repos: RepoApi,
     private val issues: IssueApi,
     private val users: UserApi,
@@ -48,12 +53,15 @@ class DefaultForgeClients @Inject constructor(
 ) : ForgeClients {
 
     /** One Forgejo instance's clients. */
-    private class ForgejoClients(http: HttpClient, forge: ForgeInstance) {
+    private inner class ForgejoClients(http: HttpClient, forge: ForgeInstance) {
         val repos = ForgejoRepoApi(http, forge)
         val issues = ForgejoIssueApi(http, forge)
         val users = ForgejoUserApi(http, forge)
         val stars = ForgejoStarApi(http, forge)
         val search = ForgejoSearchApi(http, forge)
+
+        // Only Codeberg has a registered OAuth application: self-hosted instances sign in with a token.
+        val auth = ForgejoAuthApi(http, forge, clientId = if (forge == ForgeInstance.Codeberg) codebergClientId else "")
     }
 
     private val forgejo = ConcurrentHashMap<ForgeInstance, ForgejoClients>()
@@ -80,12 +88,17 @@ class DefaultForgeClients @Inject constructor(
 
     override fun notifications(forge: ForgeInstance) = gitHub(forge, notifications)
 
-    override fun auth(forge: ForgeInstance) = gitHub(forge, auth)
+    override fun auth(forge: ForgeInstance) = pick(forge, auth) { auth }
 
     override fun actions(forge: ForgeInstance): ActionsApi? = actions.takeIf { forge.type == ForgeType.GITHUB }
 
     override fun trending(forge: ForgeInstance): TrendingApi? = trending.takeIf { forge.type == ForgeType.GITHUB }
 }
+
+/** Codeberg's OAuth client ID, from `forgeline.codebergClientId`; blank without one. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class CodebergClientId
 
 /** Forgejo's HTTP client: its own JSON settings and user agent, shared by every instance. */
 @Qualifier
@@ -98,10 +111,17 @@ abstract class ForgeClientsModule {
     @Binds
     abstract fun bindForgeClients(impl: DefaultForgeClients): ForgeClients
 
+    @Binds
+    abstract fun bindBrowserRedirects(impl: LoopbackRedirects): BrowserRedirects
+
     companion object {
         @Provides
         @Singleton
         @Forgejo
         fun provideForgejoHttpClient(): HttpClient = forgejoHttpClient(OkHttp.create())
+
+        @Provides
+        @CodebergClientId
+        fun provideCodebergClientId(): String = BuildConfig.CODEBERG_CLIENT_ID
     }
 }

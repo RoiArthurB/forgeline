@@ -1,5 +1,13 @@
 package fr.arthurbrugiere.forgeline.signin
 
+import kotlinx.coroutines.test.runCurrent
+import java.time.ZoneOffset
+import java.time.ZoneId
+import java.time.Instant
+import java.time.Clock
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.DeviceTokenPoll
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -26,7 +34,30 @@ class SignInViewModelTest {
     private val auth = FakeForgeAuthApi().apply { users["ghp_valid"] = octocat }
     private val accounts = FakeAccountRepository()
 
-    private fun viewModel() = SignInViewModel(auth, accounts)
+    private val clients = FakeForgeClients(auth = auth)
+    private val redirect = FakeRedirect()
+    private var now = 1_000L
+    private val clock = object : Clock() {
+        override fun instant(): Instant = Instant.ofEpochMilli(now)
+        override fun getZone(): ZoneId = ZoneOffset.UTC
+        override fun withZone(zone: ZoneId?) = this
+    }
+
+    private fun viewModel() = SignInViewModel(clients, accounts, { redirect }, clock)
+
+    /** The browser's return, scripted: [params] answer the wait unless null, which never returns. */
+    private class FakeRedirect : BrowserRedirect {
+        override val redirectUri = "http://127.0.0.1:43123/oauth/codeberg"
+        var params: ((String) -> Map<String, String>)? = null
+        var closed = false
+
+        override suspend fun await(page: String): Map<String, String> =
+            params?.invoke(page) ?: kotlinx.coroutines.awaitCancellation()
+
+        override fun close() {
+            closed = true
+        }
+    }
 
     private fun test(block: suspend kotlinx.coroutines.test.TestScope.() -> Unit) =
         runTest(mainDispatcherRule.testDispatcher) { block() }
@@ -34,8 +65,8 @@ class SignInViewModelTest {
     @Test
     fun offers_the_device_flow_only_when_the_forge_supports_it() {
         assertThat(viewModel().state.value.deviceFlowAvailable).isTrue()
-        assertThat(SignInViewModel(FakeForgeAuthApi(supportsDeviceFlow = false), accounts).state.value.deviceFlowAvailable)
-            .isFalse()
+        val noDeviceFlow = SignInViewModel(FakeForgeClients(auth = FakeForgeAuthApi(supportsDeviceFlow = false)), accounts, { redirect }, clock)
+        assertThat(noDeviceFlow.state.value.deviceFlowAvailable).isFalse()
     }
 
     @Test
@@ -190,4 +221,124 @@ class SignInViewModelTest {
 
         assertThat(viewModel.state.value.step).isEqualTo(SignInStep.ChooseMethod)
     }
+
+    private val codebergAuth = FakeForgeAuthApi(supportsDeviceFlow = false, forge = ForgeInstance.Codeberg, supportsBrowserSignIn = true)
+        .apply { users["access"] = ForgeUser("alice", null, null) }
+
+    private fun codebergViewModel(): SignInViewModel {
+        clients.put(ForgeInstance.Codeberg, FakeForgeClients(auth = codebergAuth))
+        return viewModel().also { it.selectForge(SignInForge.CODEBERG) }
+    }
+
+    @Test
+    fun codeberg_offers_the_browser_instead_of_a_device_code() {
+        val state = codebergViewModel().state.value
+
+        assertThat(state.forgeName).isEqualTo("Codeberg")
+        assertThat(state.browserSignInAvailable).isTrue()
+        assertThat(state.deviceFlowAvailable).isFalse()
+    }
+
+    @Test
+    fun the_browser_sign_in_exchanges_the_code_with_its_verifier_and_keeps_the_refresh_token() = test {
+        val viewModel = codebergViewModel()
+        var page = ""
+        var authorizationUrl = ""
+        // The forge sends the browser back with the sign-in's own state.
+        redirect.params = { html ->
+            page = html
+            authorizationUrl = (viewModel.state.value.step as SignInStep.AwaitingBrowser).authorizationUrl
+            mapOf("code" to "code-1", "state" to stateOf(viewModel))
+        }
+
+        viewModel.startBrowserSignIn()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.SignedIn)
+        val account = accounts.activeAccount.first()!!
+        assertThat(account.forge).isEqualTo(ForgeInstance.Codeberg)
+        assertThat(accounts.token(account.id)).isEqualTo("access")
+        assertThat(accounts.refreshTokens[account.id]).isEqualTo("refresh" to now + 3_600_000)
+        val (code, verifier, redirectUri) = codebergAuth.exchanges.single().split(' ')
+        assertThat(code).isEqualTo("code-1")
+        assertThat(redirectUri).isEqualTo(redirect.redirectUri)
+        // The verifier kept on the phone is the one whose challenge went to the forge.
+        assertThat(fr.arthurbrugiere.forgeline.core.forge.Pkce.of(verifier).challenge)
+            .isEqualTo(io.ktor.http.Url(authorizationUrl).parameters["code_challenge"])
+        assertThat(page).contains("Back to Forgeline")
+        assertThat(redirect.closed).isTrue()
+    }
+
+    @Test
+    fun a_redirect_from_another_sign_in_is_refused() = test {
+        val viewModel = codebergViewModel()
+        redirect.params = { mapOf("code" to "code-1", "state" to "someone-else") }
+
+        viewModel.startBrowserSignIn()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.Failed(SignInError.UNKNOWN))
+        assertThat(codebergAuth.exchanges).isEmpty()
+        assertThat(accounts.activeAccount.first()).isNull()
+    }
+
+    @Test
+    fun declining_on_the_forge_says_so() = test {
+        val viewModel = codebergViewModel()
+        redirect.params = { mapOf("error" to "access_denied", "state" to stateOf(viewModel)) }
+
+        viewModel.startBrowserSignIn()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.Failed(SignInError.DENIED))
+    }
+
+    @Test
+    fun cancelling_the_browser_sign_in_stops_listening() = test {
+        val viewModel = codebergViewModel()
+
+        viewModel.startBrowserSignIn()
+        runCurrent()
+        viewModel.cancel()
+        runCurrent()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.ChooseMethod)
+        assertThat(redirect.closed).isTrue()
+    }
+
+    @Test
+    fun another_forgejo_server_signs_in_with_a_token_at_its_address() = test {
+        val selfHosted = ForgeInstance(ForgeType.FORGEJO, "git.example.org")
+        clients.put(selfHosted, FakeForgeClients(auth = FakeForgeAuthApi(supportsDeviceFlow = false, forge = selfHosted).apply { users["tok"] = octocat }))
+        val viewModel = viewModel()
+
+        viewModel.selectForge(SignInForge.OTHER)
+        viewModel.setHost(" https://Git.Example.org/ ")
+        viewModel.signInWithToken("tok")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.SignedIn)
+        assertThat(accounts.activeAccount.first()?.forge).isEqualTo(selfHosted)
+    }
+
+    @Test
+    fun without_an_address_there_is_nothing_to_sign_in_to() = test {
+        val viewModel = viewModel()
+
+        viewModel.selectForge(SignInForge.OTHER)
+        viewModel.signInWithToken("tok")
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.Failed(SignInError.NOT_A_FORGE))
+    }
+
+    @Test
+    fun server_addresses_are_read_forgivingly() {
+        assertThat(SignInViewModel.normalizedHost("https://Git.Example.org/explore")).isEqualTo("git.example.org")
+        assertThat(SignInViewModel.normalizedHost("codeberg.org")).isEqualTo("codeberg.org")
+        assertThat(SignInViewModel.normalizedHost("  ")).isNull()
+        assertThat(SignInViewModel.normalizedHost("localhost")).isNull()
+    }
+
+    private fun stateOf(viewModel: SignInViewModel): String =
+        io.ktor.http.Url((viewModel.state.value.step as SignInStep.AwaitingBrowser).authorizationUrl).parameters["state"]!!
 }

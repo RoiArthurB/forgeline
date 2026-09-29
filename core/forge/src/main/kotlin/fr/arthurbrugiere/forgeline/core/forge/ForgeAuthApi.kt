@@ -37,4 +37,24 @@ interface ForgeAuthApi {
     suspend fun pollDeviceToken(deviceCode: String): ForgeResult<DeviceTokenPoll>
 
     suspend fun fetchAuthenticatedUser(token: String): ForgeResult<ForgeUser>
+
+    /**
+     * Whether "Sign in with <forge>" goes through the browser: OAuth 2.0 authorization code with PKCE (RFC 7636), for
+     * forges without a device flow. The code comes back to a loopback redirect (RFC 8252), since forges like Forgejo
+     * only accept http(s) redirect URIs.
+     */
+    val supportsBrowserSignIn: Boolean get() = false
+
+    /** The page where the person approves Forgeline; it redirects to [redirectUri] with a code and [state]. */
+    fun authorizationUrl(redirectUri: String, state: String, codeChallenge: String): String =
+        throw UnsupportedOperationException("${forge.host} has no browser sign-in")
+
+    suspend fun exchangeCode(code: String, redirectUri: String, codeVerifier: String): ForgeResult<OAuthTokens> =
+        ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** A new access token for an expired one. */
+    suspend fun refresh(refreshToken: String): ForgeResult<OAuthTokens> = ForgeResult.Failure(ForgeError.Unsupported)
 }
+
+/** What a browser sign-in yields; [expiresInSeconds] null when the token doesn't expire. */
+data class OAuthTokens(val accessToken: String, val refreshToken: String?, val expiresInSeconds: Long?)

@@ -20,6 +20,9 @@ android {
         // Public by design: the device flow needs no client secret. Empty disables the device flow.
         val githubClientId = providers.gradleProperty("forgeline.githubClientId").getOrElse("").trim()
         buildConfigField("String", "GITHUB_CLIENT_ID", "\"$githubClientId\"")
+        // Codeberg's OAuth application (public, like GitHub's): see docs/CODEBERG_OAUTH_APP.md.
+        val codebergClientId = providers.gradleProperty("forgeline.codebergClientId").getOrElse("").trim()
+        buildConfigField("String", "CODEBERG_CLIENT_ID", "\"$codebergClientId\"")
     }
 
     buildFeatures {

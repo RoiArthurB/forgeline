@@ -22,6 +22,7 @@ class DefaultForgeClientsTest {
     private val gitHubRepos = FakeRepoApi()
     private val clients = DefaultForgeClients(
         forgejoHttp = forgejoHttpClient(OkHttp.create()),
+        codebergClientId = "codeberg-client",
         repos = gitHubRepos, issues = FakeIssueApi(), users = FakeUserApi(), stars = FakeStarApi(), search = FakeSearchApi(),
         feed = FakeFeedApi(), notifications = FakeNotificationsApi(), auth = FakeForgeAuthApi(), actions = FakeActionsApi(),
         trending = FakeTrendingApi(),
@@ -40,6 +41,13 @@ class DefaultForgeClientsTest {
         assertThat(codeberg).isInstanceOf(ForgejoRepoApi::class.java)
         assertThat(clients.repos(ForgeInstance.Codeberg)).isSameInstanceAs(codeberg)
         assertThat(selfHosted).isNotSameInstanceAs(codeberg)
+    }
+
+    @Test
+    fun only_codeberg_signs_in_through_the_browser() {
+        assertThat(clients.auth(ForgeInstance.Codeberg).supportsBrowserSignIn).isTrue()
+        assertThat(clients.auth(ForgeInstance(ForgeType.FORGEJO, "git.example.org")).supportsBrowserSignIn).isFalse()
+        assertThat(clients.auth(ForgeInstance.Codeberg).forge).isEqualTo(ForgeInstance.Codeberg)
     }
 
     @Test
