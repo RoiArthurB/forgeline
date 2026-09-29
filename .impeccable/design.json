@@ -155,7 +155,7 @@
           "#DAC1B8",
           "#FFE8DE"
         ],
-        "note": "Warm: Inbox (Unread), Trending today, repository, closed issues, sign-in; warm badges (issues, releases, failures); closed and changes-requested Feed pills."
+        "note": "Warm: Inbox (Unread), Trending today, repository, closed issues, sign-in; warm badges (issues, releases, failures); closed and changes-requested Feed pills; the Inbox's Needs you pills and count."
       },
       "field-week": {
         "role": "secondary",

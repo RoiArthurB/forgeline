@@ -268,7 +268,7 @@ A cool, near-white (or violet-black) ground with plum-navy ink, lifted by soft p
 - **Field Tints** (`field-today` warm, `field-week` cool, `field-month` fresh, with `-dark` variants): peach, lilac and mint in light; ember-, violet- and green-tinged near-blacks in dark. The token names come from Trending's periods; across the app they are used by meaning:
   - **Tabs:** Inbox warm, and its filter switch retints it (Unread warm, Participating cool, All fresh); Feed cool; Trending by period (today warm, week cool, month fresh); You fresh.
   - **Detail screens:** repository warm; file cool; issue or pull request by state (fresh open, cool merged, warm closed); profile cool; search cool; settings, credits fresh; sign-in warm.
-  - **Small marks:** the same three tints back round badges by kind (below), the Stopped-here marker and the Inbox unread count (warm), and the swipe backgrounds under an Inbox row (fresh to mark read, warm for done).
+  - **Small marks:** the same three tints back round badges by kind (below), the Stopped-here marker, the Inbox's "Needs you" pills and count (warm: for you), and the swipe backgrounds under an Inbox row (fresh to mark read, warm for done).
 
 ### Neutral
 - **Soft White / Violet Black** (`ground` / `ground-dark`, `ground-amoled`): the page. AMOLED swaps the ground to true black, the surface to `surface-amoled` and the raised colour to `raised-amoled`. Ground also fills pills that sit on a field: the search field, an issue's state tag, the Following button, profile avatar placeholders.
@@ -297,7 +297,7 @@ A cool, near-white (or violet-black) ground with plum-navy ink, lifted by soft p
 - **Title** (Gabarito 700, 34sp/38sp, -0.01em): the title of a top-level screen in its header field ("Trending", "Inbox"). Marked as a heading.
 - **Hero** (Gabarito 700, 26sp/31sp): the subject of a detail screen inside its header field: an issue title, a profile's name.
 - **Name** (Gabarito 700, 21sp/25sp): repository names in Trending rows, a detail header's small title (file name), a signed-in account's name, Notice titles.
-- **Section** (Gabarito 500, 17sp/22sp): section titles inside a list (Settings groups), Inbox repository group headers, the notification prompt title.
+- **Section** (Gabarito 500, 17sp/22sp): section titles inside a list (Settings groups, Feed days), the Inbox's "Needs you" and "Everything else", the notification prompt title.
 - **Figure** (Gabarito 700, 16sp/20sp, tabular): ranks and "+gained" counts, in ember.
 - **Control** (Gabarito 500, 15sp/20sp): switch and tab labels, button text, the selected navigation label, comment author names; at body size (15sp/24sp) for `owner/name` in shared repository rows. Switch labels auto-shrink (down to 9sp) only when a single word cannot fit at very large font scales.
 - **Body** (Lexend 400, 15sp/24sp): descriptions, issue titles in rows, comment and Notice bodies, setting titles. Measure capped at 580dp (about 65-75 characters).
@@ -370,11 +370,17 @@ Material 3 composables (Icon, IconButton, Snackbar, PullToRefresh, AlertDialog, 
 - **Anatomy (shared rows):** optional 36dp round badge, 14dp gap, then the text column. A repository row is `owner/` (muted) + name in Control at body size, a two-line Body description, and a meta line; an issue row is an optional repo line (search results), a two-line Body title, a Meta line (number, time, author), then draft tag and labels, with a comment count on the right.
 - **Trending anatomy:** ember rank (figure) in a 30dp column; owner (secondary, muted) above name (name, ink); ember "+gained" figure on the right; description (body) below; meta line last.
 - **Rest:** transparent on the ground; no divider, no card.
-- **Pressed / Focused:** `surface` fills the row, clipped to 20dp (`softPressable`). No ripple.
-- **Swipe (Inbox):** the row slides off a 20dp tint with an ink icon: fresh to mark read, warm for done.
+- **Pressed / Focused:** `surface` fills the row, clipped to 20dp, and the row squishes to 98% on the soft spring, springing back on release (`softPressable`). No ripple.
+- **Swipe (Inbox):** the row slides off a 20dp tint with an ink icon: fresh to mark read, warm for done. Every swipe or menu action shows at once but waits 5 seconds before reaching the forge, with Undo on the snackbar; leaving the Inbox sends what is waiting.
 - **Entry (Trending):** after a section change, the first eight rows rise 16dp and fade in from 35% opacity, staggered 35ms, on the soft spring.
 
 **The Soft Press Rule.** Pressed or focused rows get a 20dp soft surface in `surface`, never a ripple. Every text colour on it is tested to 4.5:1.
+
+### Inbox (needs you first)
+The Inbox is triage: what's waiting on you first, then the rest, each newest first, the repository on every row rather than as a group.
+- **Sections:** "Needs you" (review requested, mentioned, team mentioned, assigned, security alert) then "Everything else", as pinned Section titles with the unread count as a tag (warm for Needs you, `surface` otherwise) that ticks up or down as it changes.
+- **Row:** a 20dp gutter holding the 8dp ember unread dot (it pops in and shrinks away), then a line with a pill and `owner/name #N` in Meta muted, the title in Lexend 16/22 (500 ink unread, 400 muted read, easing between them over 300ms), and a Meta line: the reason (Everything else only) and the abbreviated time. The overflow menu stays on the right.
+- **The pill says why, or what:** in Needs you it names the reason on warm ("Review requested", "Mentioned"); in Everything else it names the kind on `surface` ("Issue", "Release", "Checks"). Both lead with the kind's glyph.
 
 ### Round Badges
 A circle with an 18dp ink icon (36dp on rows, 28dp with 15dp icons on the timeline, 40dp with 20dp icons for Inbox threads and You entries), tinted by kind with the field tints:
@@ -390,7 +396,7 @@ The Feed tells what happened by leading every event with its object, so an open 
   - Starred, forked, made public, created: a **repository preview**, a 20dp-corner `surface` panel (held to 580dp) with `owner/` muted and the name in Gabarito 18/22 Bold, the description in Secondary ink (3 lines), then a linguist-colored 9dp dot, the language and "12.4k stars" in Meta muted.
   - Issues, pull requests, reviews and comments: a **state pill** (15dp ink glyph + Label on a field tint: Open/Reopened fresh, Merged cool, Closed warm, Approved fresh, Changes requested warm, Comment cool, Reviewed `surface`) with "#N" muted beside it, then the title in Lexend 16/22 Medium ink (3 lines).
   - Releases: the tag as a warm pill (plus a Pre-release tag), then the release name as the title. Pushes, branches and tags: the ref as a `surface` pill in the code face. Members added: the line alone.
-- **Filled progressively:** events don't carry repository details or pull request titles, so rows on screen ask for them; they are fetched once, cached a day (kept a week), and fill in as they arrive. Until a title arrives, a 14dp `surface` pill bar holds its place so the row keeps its shape; a repository preview shows its name alone.
+- **Filled progressively:** events don't carry repository details or pull request titles, so rows on screen ask for them; they are fetched once, cached a day (kept a week), and fill in as they arrive: the panel grows and the new text fades in over 220ms. Cached details scrolling into view show at once. Until a title arrives, a 14dp `surface` pill bar holds its place so the row keeps its shape; a repository preview shows its name alone.
 - The whole row is one `softPressable` target opening what it's about; the avatar opens the actor.
 
 ### Conversation (issue and pull request)
@@ -410,6 +416,7 @@ The Feed tells what happened by leading every event with its object, so an open 
 - **Icon:** Material icon buttons with 48dp targets; icons in `ink` in headers, `accent` / `ink-muted` for the star toggle.
 
 ### Tags and Labels
+- **Pill (`SoftPill`):** a 15dp ink glyph and Label type on a tint, 8dp/12dp horizontal padding: the Feed's state pills and the Inbox's reason and kind pills.
 - **Tag (`SoftTag`):** Tag type on a pill, 10dp/4dp padding, `surface` by default: Draft, Pre-release, reactions, the Inbox unread count (on warm).
 - **State tag:** an issue's state on a `ground` pill inside the field, with a 16dp ink icon and Label text.
 - **Forge labels:** pills in the forge's own colour, as the forge shows it, in Label type, with whichever of black or white text contrasts more (`readableOn`); `SoftTest` holds GitHub's default label colours to 4.5:1.
@@ -435,9 +442,9 @@ No illustration and no box: a Name-style title, 6dp, a Body line in muted ink, 2
 Skeleton rows (`SoftLoadingRows`, five by default) of pill bars and an optional circle in `surface`, shaped like real rows. No shimmer. Lists loading more show an ember spinner on a `surface` track.
 
 ### Snackbar
-Inverted: `ink` background, `ground` text, 16dp corners, action colour `thumb`; it sits above the navigation bar space.
+Inverted: `ink` background, `ground` text, 16dp corners; it sits above the navigation bar space. Its action (Undo) is `thumb` on the dark bar of the light theme and the light theme's deep ember on the pale bar of the dark themes, tested to 4.5:1.
 
-**The One Spring Rule.** Things that move use one soft spring, lively but never bouncy (damping 0.8-0.85, medium-low stiffness); colour changes crossfade over 400ms. All of it is skipped when the system animator scale is 0 (Remove animations).
+**The One Spring Rule.** Things that move use one soft spring, lively but never bouncy (damping 0.8-0.85, medium-low stiffness; medium for the press squish); colour changes crossfade over 400ms (300ms for a title going read), content arriving late fades in over 220ms, and list rows enter, leave and reorder with Compose's item animations. All of it is skipped when the system animator scale is 0 (Remove animations).
 
 ## Do's and Don'ts
 
