@@ -19,6 +19,8 @@ data class NotificationThread(
     val reason: NotificationReason,
     val unread: Boolean,
     val updatedAt: Instant,
+    /** The repository owner's (user or organisation) avatar, when the forge sends it. */
+    val ownerAvatarUrl: String? = null,
 ) {
     /** GitHub's "participating": you're directly involved, not just watching. */
     val isParticipating: Boolean

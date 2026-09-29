@@ -27,6 +27,7 @@ data class NotificationEntity(
     val reason: String,
     val unread: Boolean,
     val updatedAtMillis: Long,
+    val ownerAvatarUrl: String?,
 )
 
 @Entity(tableName = "inbox_sync")
@@ -80,6 +81,7 @@ interface InboxDao {
 
 internal fun NotificationThread.toEntity(accountId: String) = NotificationEntity(
     accountId, id, repo.owner, repo.name, title, type.name, number, reason.name, unread, updatedAt.toEpochMilli(),
+    ownerAvatarUrl,
 )
 
 internal fun NotificationEntity.toModel() = NotificationThread(
@@ -91,4 +93,5 @@ internal fun NotificationEntity.toModel() = NotificationThread(
     reason = NotificationReason.entries.firstOrNull { it.name == reason } ?: NotificationReason.OTHER,
     unread = unread,
     updatedAt = Instant.ofEpochMilli(updatedAtMillis),
+    ownerAvatarUrl = ownerAvatarUrl,
 )

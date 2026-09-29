@@ -48,7 +48,8 @@ fun notificationThread(
     updatedAt: String = "2026-09-27T09:00:00Z",
     type: SubjectType = SubjectType.ISSUE,
     number: Int? = id.toIntOrNull(),
+    ownerAvatarUrl: String? = null,
 ): NotificationThread {
     val (owner, name) = repo.split('/')
-    return NotificationThread(id, RepoId(owner, name), title, type, number, reason, unread, Instant.parse(updatedAt))
+    return NotificationThread(id, RepoId(owner, name), title, type, number, reason, unread, Instant.parse(updatedAt), ownerAvatarUrl)
 }

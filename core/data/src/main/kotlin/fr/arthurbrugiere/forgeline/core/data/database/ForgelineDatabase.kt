@@ -23,7 +23,7 @@ import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepoEntity
         TrendingRepoEntity::class, TrendingFetchEntity::class, RepoCacheEntity::class, NotificationEntity::class, InboxSyncEntity::class,
         FeedEventEntity::class, FeedSyncEntity::class, TrendingMarkEntity::class, FeedPreviewEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
 )
 abstract class ForgelineDatabase : RoomDatabase() {

@@ -56,6 +56,7 @@ class GitHubNotificationsApiTest {
                 reason = NotificationReason.MENTION,
                 unread = true,
                 updatedAt = Instant.parse("2026-09-27T09:30:00Z"),
+                ownerAvatarUrl = "https://avatars.githubusercontent.com/u/1?v=4",
             ),
         )
         assertThat(threads.map { it.type }).containsExactly(

@@ -75,7 +75,10 @@ class GitHubNotificationsApi(
 private data class SubjectJson(val title: String, val url: String? = null, val type: String)
 
 @Serializable
-private data class ThreadRepoJson(@SerialName("full_name") val fullName: String)
+private data class ThreadRepoJson(@SerialName("full_name") val fullName: String, val owner: ThreadOwnerJson? = null)
+
+@Serializable
+private data class ThreadOwnerJson(@SerialName("avatar_url") val avatarUrl: String? = null)
 
 @Serializable
 private data class ThreadJson(
@@ -121,6 +124,7 @@ private data class ThreadJson(
             },
             unread = unread,
             updatedAt = Instant.parse(updatedAt),
+            ownerAvatarUrl = repository.owner?.avatarUrl,
         )
     }
 }
