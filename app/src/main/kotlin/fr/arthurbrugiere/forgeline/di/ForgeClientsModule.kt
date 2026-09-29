@@ -17,12 +17,24 @@ import fr.arthurbrugiere.forgeline.core.forge.TrendingApi
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import dagger.Provides
+import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoIssueApi
+import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoRepoApi
+import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoSearchApi
+import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoStarApi
+import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoUserApi
+import fr.arthurbrugiere.forgeline.forge.forgejo.forgejoHttpClient
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.okhttp.OkHttp
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
+import javax.inject.Qualifier
 import javax.inject.Singleton
 
-/** GitHub's clients come from [ForgeModule]; Forgejo instances get theirs from `forge:forgejo`. */
+/** GitHub's clients come from [ForgeModule]; each Forgejo instance gets its own from `forge:forgejo`, built on first use. */
 @Singleton
 class DefaultForgeClients @Inject constructor(
+    @Forgejo private val forgejoHttp: HttpClient,
     private val repos: RepoApi,
     private val issues: IssueApi,
     private val users: UserApi,
@@ -35,20 +47,34 @@ class DefaultForgeClients @Inject constructor(
     private val trending: TrendingApi,
 ) : ForgeClients {
 
+    /** One Forgejo instance's clients. */
+    private class ForgejoClients(http: HttpClient, forge: ForgeInstance) {
+        val repos = ForgejoRepoApi(http, forge)
+        val issues = ForgejoIssueApi(http, forge)
+        val users = ForgejoUserApi(http, forge)
+        val stars = ForgejoStarApi(http, forge)
+        val search = ForgejoSearchApi(http, forge)
+    }
+
+    private val forgejo = ConcurrentHashMap<ForgeInstance, ForgejoClients>()
+
+    private fun <T> pick(forge: ForgeInstance, gitHub: T, forgejo: ForgejoClients.() -> T): T =
+        if (forge.type == ForgeType.GITHUB) gitHub else this.forgejo.getOrPut(forge) { ForgejoClients(forgejoHttp, forge) }.forgejo()
+
     private fun <T> gitHub(forge: ForgeInstance, client: T): T {
         check(forge.type == ForgeType.GITHUB) { "No client for ${forge.host} yet" }
         return client
     }
 
-    override fun repos(forge: ForgeInstance) = gitHub(forge, repos)
+    override fun repos(forge: ForgeInstance) = pick(forge, repos) { repos }
 
-    override fun issues(forge: ForgeInstance) = gitHub(forge, issues)
+    override fun issues(forge: ForgeInstance) = pick(forge, issues) { issues }
 
-    override fun users(forge: ForgeInstance) = gitHub(forge, users)
+    override fun users(forge: ForgeInstance) = pick(forge, users) { users }
 
-    override fun stars(forge: ForgeInstance) = gitHub(forge, stars)
+    override fun stars(forge: ForgeInstance) = pick(forge, stars) { stars }
 
-    override fun search(forge: ForgeInstance) = gitHub(forge, search)
+    override fun search(forge: ForgeInstance) = pick(forge, search) { search }
 
     override fun feed(forge: ForgeInstance) = gitHub(forge, feed)
 
@@ -61,9 +87,21 @@ class DefaultForgeClients @Inject constructor(
     override fun trending(forge: ForgeInstance): TrendingApi? = trending.takeIf { forge.type == ForgeType.GITHUB }
 }
 
+/** Forgejo's HTTP client: its own JSON settings and user agent, shared by every instance. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class Forgejo
+
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class ForgeClientsModule {
     @Binds
     abstract fun bindForgeClients(impl: DefaultForgeClients): ForgeClients
+
+    companion object {
+        @Provides
+        @Singleton
+        @Forgejo
+        fun provideForgejoHttpClient(): HttpClient = forgejoHttpClient(OkHttp.create())
+    }
 }

@@ -54,6 +54,7 @@ dependencies {
     implementation(projects.core.ui)
     implementation(projects.core.markdown)
     implementation(projects.forge.github)
+    implementation(projects.forge.forgejo)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.ktor3)

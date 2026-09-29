@@ -291,9 +291,9 @@ fun RepoScreen(
                     else -> {
                         stickyHeader(key = "tabs") {
                             SoftChipTabs(
-                                options = RepoTab.entries.map { stringResource(it.label) },
-                                selected = state.tab.ordinal,
-                                onSelect = { onSelectTab(RepoTab.entries[it]) },
+                                options = state.tabs.map { stringResource(it.label) },
+                                selected = state.tabs.indexOf(state.tab).coerceAtLeast(0),
+                                onSelect = { onSelectTab(state.tabs[it]) },
                             )
                         }
                         val browsedRef = state.browsedRef
