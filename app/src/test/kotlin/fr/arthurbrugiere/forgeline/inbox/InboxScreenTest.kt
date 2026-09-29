@@ -95,6 +95,38 @@ class InboxScreenTest {
     }
 
     @Test
+    fun a_swiped_away_thread_comes_back_in_place_on_undo() {
+        var state by mutableStateOf(grouped)
+        composeRule.setContent {
+            InboxScreen(
+                state = state, onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {},
+                onMarkDone = { done ->
+                    state = state.copy(
+                        groups = state.groups.map { g -> g.copy(threads = g.threads - done) },
+                        undo = PendingUndo(done.id, InboxAction.DONE, serial = 1),
+                    )
+                },
+                onUnsubscribe = {}, onErrorShown = {}, onActionFailureShown = {},
+                onUndo = { events += "undo"; state = grouped },
+            )
+        }
+
+        composeRule.onNodeWithText("Add retry").performTouchInput { swipeLeft() }
+        composeRule.waitForIdle()
+        composeRule.onAllNodes(hasText("Add retry")).assertCountEquals(0)
+        composeRule.onNodeWithText("Undo").performClick()
+        composeRule.waitForIdle()
+
+        // Back, in place, and not marked done a second time.
+        assertThat(events).containsExactly("undo")
+        composeRule.onAllNodes(hasText("Marked as done")).assertCountEquals(0)
+        val row = composeRule.onNodeWithText("Add retry").fetchSemanticsNode().boundsInRoot
+        val heading = composeRule.onNodeWithText("Needs you").fetchSemanticsNode().boundsInRoot
+        assertThat(row.left).isLessThan(heading.right)
+        composeRule.onNodeWithText("Add retry").assertIsDisplayed()
+    }
+
+    @Test
     fun undo_goes_away_once_the_action_is_sent() {
         var state by mutableStateOf(grouped.copy(undo = PendingUndo("42", InboxAction.READ, serial = 1)))
         composeRule.setContent {

@@ -37,6 +37,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.saveable.LocalSaveableStateRegistry
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -451,7 +454,10 @@ private fun ThreadRow(
     modifier: Modifier = Modifier,
 ) {
     val colors = Soft.colors
-    val swipe = rememberSwipeToDismissBoxState()
+    // Not saved: a thread brought back by Undo keeps its list key, so a saved swipe state would come back dismissed
+    // and mark it done again at once. A returning row always starts settled.
+    lateinit var swipe: SwipeToDismissBoxState
+    CompositionLocalProvider(LocalSaveableStateRegistry provides null) { swipe = rememberSwipeToDismissBoxState() }
     val scope = rememberCoroutineScope()
     val markReadLabel = stringResource(R.string.inbox_mark_read)
     val doneLabel = stringResource(R.string.inbox_mark_done)
