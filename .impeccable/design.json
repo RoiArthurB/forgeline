@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-28T13:59:13+00:00",
+  "generatedAt": "2026-09-28T14:56:54+00:00",
   "title": "Design System: Forgeline",
   "extensions": {
     "colorMeta": {
@@ -125,9 +125,25 @@
           "#EFEEF2"
         ]
       },
+      "raised": {
+        "role": "neutral",
+        "displayName": "Raised White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": [
+          "#0D0D0D",
+          "#242424",
+          "#404040",
+          "#5C5C5C",
+          "#7D7D7D",
+          "#9E9E9E",
+          "#C7C7C7",
+          "#EDEDED"
+        ],
+        "note": "Floating things: the navigation bar and rail, menus and dialogs."
+      },
       "field-today": {
         "role": "secondary",
-        "displayName": "Peach Field (Today)",
+        "displayName": "Peach Field (warm)",
         "canonical": "#FFE6DC",
         "tonalRamp": [
           "#160703",
@@ -138,11 +154,12 @@
           "#B0998F",
           "#DAC1B8",
           "#FFE8DE"
-        ]
+        ],
+        "note": "Warm: Inbox (Unread), Trending today, repository, closed issues, sign-in; warm badges (issues, stars, releases, failures)."
       },
       "field-week": {
         "role": "secondary",
-        "displayName": "Lilac Field (This week)",
+        "displayName": "Lilac Field (cool)",
         "canonical": "#ECE6FF",
         "tonalRamp": [
           "#0D0818",
@@ -153,11 +170,12 @@
           "#A09AB2",
           "#C9C3DB",
           "#F0EAFF"
-        ]
+        ],
+        "note": "Cool: Feed, Inbox (Participating), Trending this week, file, merged, profile, search; cool badges (conversation, folders, running)."
       },
       "field-month": {
         "role": "secondary",
-        "displayName": "Mint Field (This month)",
+        "displayName": "Mint Field (fresh)",
         "canonical": "#DDF3EA",
         "tonalRamp": [
           "#010F09",
@@ -168,7 +186,8 @@
           "#8FA49C",
           "#B8CDC4",
           "#DEF5EB"
-        ]
+        ],
+        "note": "Fresh: Inbox (All), Trending this month, You, open issues, settings, credits; fresh badges (pull requests, code, success)."
       },
       "ground-dark": {
         "role": "neutral",
@@ -276,9 +295,24 @@
           "#EFECFE"
         ]
       },
+      "raised-dark": {
+        "role": "neutral",
+        "displayName": "Raised Violet",
+        "canonical": "#282533",
+        "tonalRamp": [
+          "#0C0B0F",
+          "#201E29",
+          "#3A364A",
+          "#534D6A",
+          "#726991",
+          "#958FAE",
+          "#C2BED0",
+          "#ECEAF0"
+        ]
+      },
       "field-today-dark": {
         "role": "secondary",
-        "displayName": "Ember Dusk Field",
+        "displayName": "Ember Dusk Field (warm)",
         "canonical": "#2B1E1F",
         "tonalRamp": [
           "#130809",
@@ -293,7 +327,7 @@
       },
       "field-week-dark": {
         "role": "secondary",
-        "displayName": "Violet Dusk Field",
+        "displayName": "Violet Dusk Field (cool)",
         "canonical": "#221F33",
         "tonalRamp": [
           "#0B081A",
@@ -308,7 +342,7 @@
       },
       "field-month-dark": {
         "role": "secondary",
-        "displayName": "Green Dusk Field",
+        "displayName": "Green Dusk Field (fresh)",
         "canonical": "#1A2724",
         "tonalRamp": [
           "#030E0B",
@@ -350,16 +384,39 @@
           "#C8C5D2",
           "#EFECFA"
         ]
+      },
+      "raised-amoled": {
+        "role": "neutral",
+        "displayName": "Raised (AMOLED)",
+        "canonical": "#1C1925",
+        "tonalRamp": [
+          "#0C0A0F",
+          "#201D2B",
+          "#3A334C",
+          "#534A6E",
+          "#716595",
+          "#958BB1",
+          "#C1BCD2",
+          "#EBEAF1"
+        ]
       }
     },
     "typographyMeta": {
       "title": {
         "displayName": "Title",
-        "purpose": "Surface title in the header field."
+        "purpose": "Title of a top-level screen in its header field."
+      },
+      "hero": {
+        "displayName": "Hero",
+        "purpose": "Subject of a detail screen in its header field: issue title, profile name."
       },
       "name": {
         "displayName": "Name",
-        "purpose": "Repository names and Notice titles."
+        "purpose": "Trending repository names, detail header small titles, account name, Notice titles."
+      },
+      "section": {
+        "displayName": "Section",
+        "purpose": "Section titles in lists, Inbox repository groups, prompt titles."
       },
       "figure": {
         "displayName": "Figure",
@@ -367,15 +424,15 @@
       },
       "control": {
         "displayName": "Control",
-        "purpose": "Period switch labels and filled button text."
+        "purpose": "Switch, tab, button and selected-nav labels; comment authors; owner/name in shared rows at body size."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "Descriptions and Notice bodies; measure capped at 580dp."
+        "purpose": "Descriptions, issue titles, comment and Notice bodies; measure capped at 580dp."
       },
       "secondary": {
         "displayName": "Secondary",
-        "purpose": "Owner above the name, the Updated status line."
+        "purpose": "Owner above a name, @login, repository line in a detail header, timeline events."
       },
       "meta": {
         "displayName": "Meta",
@@ -383,14 +440,32 @@
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Resume link and Stopped-here marker."
+        "purpose": "Resume link, Stopped-here marker, issue state tag."
+      },
+      "tag": {
+        "displayName": "Tag",
+        "purpose": "Tags, forge labels, reactions, unread counts."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "System monospace for code, SHAs, branch names and the device code only."
       }
     },
     "shadows": [
       {
         "name": "ember-glow",
         "value": "0 3px 10px rgba(255,107,61,0.45)",
-        "purpose": "Browser approximation of the Compose shadow(6.dp) with ambient and spot colour set to the thumb ember; the only shadow in the world, lifting the period-switch thumb."
+        "purpose": "Browser approximation of the Compose shadow(6.dp) with ambient and spot colour set to the thumb ember; lifts the switch thumb."
+      },
+      {
+        "name": "floating-lift",
+        "value": "0 4px 14px rgba(30,27,46,0.18)",
+        "purpose": "Browser approximation of Compose shadow(8.dp) with ink at 18% ambient and spot colour; lifts the phone navigation bar."
+      },
+      {
+        "name": "rail-lift",
+        "value": "0 6px 20px rgba(30,27,46,0.25)",
+        "purpose": "Browser approximation of Compose shadow(12.dp) with ink at 25%; lifts the rail on wide windows."
       }
     ],
     "motion": [
@@ -407,7 +482,12 @@
       {
         "name": "field-crossfade",
         "value": "tween(400ms)",
-        "purpose": "Header field tint crossfading between section tints."
+        "purpose": "Header field tint crossfading between tints (period, Inbox filter, issue state)."
+      },
+      {
+        "name": "nav-label",
+        "value": "fadeIn + expandHorizontally / fadeOut + shrinkHorizontally (Compose defaults)",
+        "purpose": "The selected navigation pill's label appearing; snaps (tween(0)) when animations are off."
       },
       {
         "name": "reduced-motion",
@@ -416,6 +496,14 @@
       }
     ],
     "breakpoints": [
+      {
+        "name": "nav-rail",
+        "value": "600dp"
+      },
+      {
+        "name": "nav-bar-max",
+        "value": "480dp"
+      },
       {
         "name": "reading-column",
         "value": "720dp"
@@ -439,7 +527,7 @@
       "name": "Period Switch",
       "kind": "nav",
       "refersTo": "switch-track",
-      "description": "Pill track with an ember thumb that springs to the chosen period; selection is the thumb. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "description": "Pill track with an ember thumb that springs to the chosen option (period, Inbox filter, search scope, theme); selection is the thumb. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
       "html": "<div class=\"ds-switch\" role=\"tablist\"><span class=\"ds-switch-thumb\"></span><button class=\"ds-switch-seg\" role=\"tab\" aria-selected=\"true\">Today</button><button class=\"ds-switch-seg\" role=\"tab\" aria-selected=\"false\">This week</button><button class=\"ds-switch-seg\" role=\"tab\" aria-selected=\"false\">This month</button></div>",
       "css": ".ds-switch { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); padding: 4px; min-height: 48px; border-radius: 28px; background: rgba(30,27,46,0.06); } .ds-switch-thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3); border-radius: 24px; background: #FF6B3D; box-shadow: 0 3px 10px rgba(255,107,61,0.45); transition: transform 420ms cubic-bezier(0.34, 1.2, 0.64, 1); } .ds-switch:has(.ds-switch-seg:nth-of-type(2):focus) .ds-switch-thumb, .ds-switch:has(.ds-switch-seg:nth-of-type(2):hover) .ds-switch-thumb { transform: translateX(100%); } .ds-switch:has(.ds-switch-seg:nth-of-type(3):focus) .ds-switch-thumb, .ds-switch:has(.ds-switch-seg:nth-of-type(3):hover) .ds-switch-thumb { transform: translateX(200%); } .ds-switch-seg { position: relative; z-index: 1; border: none; background: transparent; border-radius: 24px; padding: 8px 6px; min-height: 48px; font-family: Gabarito, 'Nunito', system-ui, sans-serif; font-weight: 500; font-size: 15px; line-height: 20px; color: #5A566B; cursor: pointer; } .ds-switch-seg[aria-selected=\"true\"] { color: #1E1B2E; } .ds-switch-seg:focus-visible { outline: 2px solid #1E1B2E; outline-offset: -2px; } @media (prefers-reduced-motion: reduce) { .ds-switch-thumb { transition: none; } }"
     },
@@ -455,9 +543,33 @@
       "name": "Filled Button",
       "kind": "button",
       "refersTo": "button-filled",
-      "description": "The one action in a Notice (Retry, Refresh): ember pill, 48dp tall. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "description": "The one primary action (Retry, Sign in, Follow): ember pill, 48dp tall. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
       "html": "<button class=\"ds-btn-filled\">Retry</button>",
       "css": ".ds-btn-filled { min-height: 48px; padding: 0 24px; border: none; border-radius: 999px; background: #FF6B3D; color: #1E1B2E; font-family: Gabarito, 'Nunito', system-ui, sans-serif; font-weight: 500; font-size: 15px; line-height: 20px; cursor: pointer; transition: transform 250ms cubic-bezier(0.34, 1.2, 0.64, 1), filter 200ms; } .ds-btn-filled:hover { filter: brightness(1.05); } .ds-btn-filled:active { transform: scale(0.97); } .ds-btn-filled:focus-visible { outline: 2px solid #1E1B2E; outline-offset: 2px; }"
+    },
+    {
+      "name": "Detail Header",
+      "kind": "custom",
+      "refersTo": "header-field-detail",
+      "description": "Header field of a detail screen: back and actions, then the hero (here an open issue, so fresh). Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "html": "<div class=\"ds-dh\"><div class=\"ds-dh-row\"><button class=\"ds-dh-icon\" aria-label=\"Back\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z\"/></svg></button></div><div class=\"ds-dh-hero\"><div class=\"ds-dh-repo\">paperclipai/paperclip</div><h1 class=\"ds-dh-title\">Heartbeat recovery escalates too early</h1><span class=\"ds-dh-state\">Open</span></div></div>",
+      "css": ".ds-dh { background: #DDF3EA; border-radius: 0 0 28px 28px; padding: 4px 8px 20px 4px; } .ds-dh-row { display: flex; min-height: 48px; } .ds-dh-icon { width: 48px; height: 48px; border: none; border-radius: 50%; background: transparent; color: #1E1B2E; display: grid; place-items: center; cursor: pointer; } .ds-dh-icon:hover { background: rgba(30,27,46,0.06); } .ds-dh-icon:focus-visible { outline: 2px solid #1E1B2E; outline-offset: 2px; } .ds-dh-hero { padding: 12px 12px 0 16px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; } .ds-dh-repo { font-family: Lexend, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: #5A566B; } .ds-dh-title { margin: 0; font-family: Gabarito, 'Nunito', system-ui, sans-serif; font-weight: 700; font-size: 26px; line-height: 31px; letter-spacing: -0.01em; color: #1E1B2E; } .ds-dh-state { padding: 4px 12px; border-radius: 999px; background: #FAFAFB; color: #1E1B2E; font-family: Lexend, system-ui, sans-serif; font-weight: 500; font-size: 13px; line-height: 18px; }"
+    },
+    {
+      "name": "Chip Tabs",
+      "kind": "nav",
+      "refersTo": "chip-tab",
+      "description": "The period switch's scrolling form: the same track pill, options at natural width, one springing ember thumb that takes the chosen option's width. Browser approximation of the Compose SoftChipTabs.",
+      "html": "<div class=\"ds-chips\"><button class=\"ds-chip is-selected\">README</button><button class=\"ds-chip\">Code</button><button class=\"ds-chip\">Issues</button><button class=\"ds-chip\">Pull requests</button></div>",
+      "css": ".ds-chips { display: inline-flex; padding: 4px; border-radius: 28px; background: rgba(30,27,46,.06); overflow-x: auto; max-width: 100%; } .ds-chip { height: 48px; padding: 0 18px; border: none; border-radius: 24px; background: transparent; color: #5A566B; font: 500 15px/20px Gabarito, sans-serif; white-space: nowrap; cursor: pointer; transition: background .3s cubic-bezier(.2,.9,.3,1); } .ds-chip.is-selected { background: #FF6B3D; color: #1E1B2E; box-shadow: 0 2px 8px rgba(255,107,61,.35); } .ds-chip:focus-visible { outline: 3px solid #B83A17; outline-offset: 2px; }"
+    },
+    {
+      "name": "Tonal Button",
+      "kind": "button",
+      "refersTo": "button-tonal",
+      "description": "A quiet secondary pill on the soft surface (Cancel, Sign out). Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "html": "<button class=\"ds-btn-tonal\">Sign out</button>",
+      "css": ".ds-btn-tonal { min-height: 48px; padding: 0 20px; border: none; border-radius: 999px; background: #F0EFF3; color: #1E1B2E; font-family: Gabarito, 'Nunito', system-ui, sans-serif; font-weight: 500; font-size: 15px; line-height: 20px; cursor: pointer; } .ds-btn-tonal:hover { filter: brightness(0.97); } .ds-btn-tonal:focus-visible { outline: 2px solid #1E1B2E; outline-offset: 2px; }"
     },
     {
       "name": "Resume Link",
@@ -476,6 +588,30 @@
       "css": ".ds-marker { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: #FFE6DC; color: #1E1B2E; font-family: Lexend, system-ui, sans-serif; font-weight: 500; font-size: 13px; line-height: 18px; } .ds-marker-dot { width: 8px; height: 8px; border-radius: 50%; background: #FF6B3D; }"
     },
     {
+      "name": "Issue Row",
+      "kind": "card",
+      "refersTo": "row-badge",
+      "description": "Shared unboxed row led by a round soft badge tinted by kind (warm issue, fresh pull request), with forge labels as pills in their own colour. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "html": "<a class=\"ds-irow\" href=\"#\"><span class=\"ds-badge\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16m0-11a3 3 0 1 0 0 6 3 3 0 0 0 0-6\"/></svg></span><span class=\"ds-irow-text\"><span class=\"ds-irow-title\">Heartbeat recovery escalates too early</span><span class=\"ds-irow-meta\">#14127 · 2 hours ago · octocat</span><span class=\"ds-label\" style=\"background:#D73A4A;color:#FFFFFF\">bug</span></span></a>",
+      "css": ".ds-irow { display: flex; gap: 14px; align-items: flex-start; margin: 2px 8px; padding: 12px; border-radius: 20px; text-decoration: none; color: #1E1B2E; } .ds-irow:hover, .ds-irow:focus-visible { background: #F0EFF3; outline: none; } .ds-badge { flex: none; width: 36px; height: 36px; border-radius: 50%; background: #FFE6DC; color: #1E1B2E; display: grid; place-items: center; } .ds-irow-text { display: flex; flex-direction: column; align-items: flex-start; } .ds-irow-title { font-family: Lexend, system-ui, sans-serif; font-size: 15px; line-height: 24px; } .ds-irow-meta { margin-top: 2px; font-family: Lexend, system-ui, sans-serif; font-size: 13px; line-height: 18px; color: #5A566B; font-variant-numeric: tabular-nums; } .ds-label { margin-top: 8px; padding: 4px 10px; border-radius: 999px; font-family: Lexend, system-ui, sans-serif; font-weight: 500; font-size: 12px; line-height: 16px; }"
+    },
+    {
+      "name": "Conversation Turn",
+      "kind": "custom",
+      "refersTo": "event-badge",
+      "description": "An unboxed comment turn, then a timeline event as a small badge in the avatar column (warm: closed). Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "html": "<div class=\"ds-turn\"><div class=\"ds-turn-head\"><span class=\"ds-av\">H</span><span class=\"ds-turn-author\">hubot</span><span class=\"ds-turn-time\">1 hour ago</span></div><p class=\"ds-turn-body\">Same here on 2026.9, it happens after every restart. See <code class=\"ds-code\">recover()</code>.</p></div><div class=\"ds-event\"><span class=\"ds-ev-badge\"><svg width=\"15\" height=\"15\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M16.59 7.58 10 14.17l-3.59-3.58L5 12l5 5 8-8zM12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16\"/></svg></span>maintainer closed this as completed 2 hours ago</div>",
+      "css": ".ds-turn { padding: 10px 20px; } .ds-turn-head { display: flex; align-items: center; gap: 12px; } .ds-av { width: 28px; height: 28px; border-radius: 50%; background: #F0EFF3; color: #5A566B; display: grid; place-items: center; font-family: Lexend, system-ui, sans-serif; font-size: 12px; } .ds-turn-author { font-family: Gabarito, 'Nunito', system-ui, sans-serif; font-weight: 500; font-size: 15px; line-height: 20px; color: #1E1B2E; } .ds-turn-time { font-family: Lexend, system-ui, sans-serif; font-size: 13px; line-height: 18px; color: #5A566B; } .ds-turn-body { margin: 6px 0 0 40px; max-width: 580px; font-family: Lexend, system-ui, sans-serif; font-size: 15px; line-height: 24px; color: #1E1B2E; } .ds-code { font-family: ui-monospace, monospace; font-size: 13px; background: #F0EFF3; border-radius: 6px; padding: 1px 5px; } .ds-event { display: flex; align-items: center; gap: 12px; margin: 2px 8px; padding: 6px 12px; font-family: Lexend, system-ui, sans-serif; font-size: 14px; line-height: 20px; color: #5A566B; } .ds-ev-badge { flex: none; width: 28px; height: 28px; border-radius: 50%; background: #FFE6DC; color: #1E1B2E; display: grid; place-items: center; }"
+    },
+    {
+      "name": "Floating Navigation Bar",
+      "kind": "nav",
+      "refersTo": "nav-bar",
+      "description": "Phone navigation: a raised pill bar; the selected tab is an ember pill with its label, the others icons named for screen readers. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "html": "<nav class=\"ds-nav\" role=\"tablist\"><button class=\"ds-nav-item\" role=\"tab\" aria-selected=\"true\" aria-label=\"Inbox\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2m0 12h-4a3 3 0 0 1-6 0H5V5h14z\"/></svg><span class=\"ds-nav-label\">Inbox</span></button><button class=\"ds-nav-item\" role=\"tab\" aria-selected=\"false\" aria-label=\"Feed\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M4 6H2v14a2 2 0 0 0 2 2h14v-2H4zm16-4H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2m0 14H8V4h12z\"/></svg></button><button class=\"ds-nav-item\" role=\"tab\" aria-selected=\"false\" aria-label=\"Trending\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"m16 6 2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z\"/></svg></button><button class=\"ds-nav-item\" role=\"tab\" aria-selected=\"false\" aria-label=\"You\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20M12 6a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7m0 14a8 8 0 0 1-6.16-2.9C7.4 15.9 9.6 15 12 15s4.6.9 6.16 2.1A8 8 0 0 1 12 20\"/></svg></button></nav>",
+      "css": ".ds-nav { display: flex; justify-content: space-between; align-items: center; max-width: 480px; min-height: 64px; padding: 6px; border-radius: 999px; background: #FFFFFF; box-shadow: 0 4px 14px rgba(30,27,46,0.18); } .ds-nav-item { display: inline-flex; align-items: center; gap: 8px; min-height: 52px; padding: 0 16px; border: none; border-radius: 999px; background: transparent; color: #5A566B; cursor: pointer; } .ds-nav-item[aria-selected=\"true\"] { background: #FF6B3D; color: #1E1B2E; } .ds-nav-label { font-family: Gabarito, 'Nunito', system-ui, sans-serif; font-weight: 500; font-size: 15px; line-height: 20px; } .ds-nav-item:focus-visible { outline: 2px solid #1E1B2E; outline-offset: 2px; }"
+    },
+    {
       "name": "Star Toggle",
       "kind": "button",
       "refersTo": "row",
@@ -490,17 +626,26 @@
       "description": "Inverted message bar: ink background, ground text, 16dp corners. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
       "html": "<div class=\"ds-snackbar\" role=\"status\">Couldn’t refresh. Showing saved results.</div>",
       "css": ".ds-snackbar { display: inline-block; padding: 14px 16px; border-radius: 16px; background: #1E1B2E; color: #FAFAFB; font-family: Lexend, system-ui, sans-serif; font-size: 14px; line-height: 20px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "text-field",
+      "description": "The one text field: a filled pill, no outline, label as placeholder, ember cursor and error line. Browser approximation of the Compose SoftTextField.",
+      "html": "<label class=\"ds-field\"><input placeholder=\"Personal access token\" type=\"password\"></label>",
+      "css": ".ds-field { display: flex; align-items: center; height: 52px; padding: 0 20px; border-radius: 999px; background: #F0EFF3; max-width: 420px; } .ds-field input { flex: 1; border: none; background: transparent; font: 400 16px/24px Lexend, sans-serif; color: #1E1B2E; caret-color: #B83A17; outline: none; } .ds-field input::placeholder { color: #5A566B; } .ds-field:focus-within { box-shadow: 0 0 0 3px rgba(184,58,23,.35); }"
     }
   ],
   "narrative": {
     "northStar": "Friendly Type",
-    "overview": "Forgeline is mostly text, so the world is built to be pleasant to read. A warm, rounded display face (Gabarito) carries names, titles and figures, a very legible text face (Lexend) carries every line of reading, and both sit on soft surfaces with one vivid ember accent. The owner's word for the result is comfy: soft, friendly, modern, and vivid enough to feel alive, never heavy or corporate.\n\nHierarchy comes from type, space and tone, never from lines or boxes. Colour arrives at scale once per surface, as a soft tint that owns the header field and changes with the section (ember today, lilac this week, mint this month); ember then marks only momentum and selection. Density is comfortable: one reading column, generous row rhythm, descriptions held to a readable measure. Motion is soft and springy, a little lively and never bouncy, and it disappears entirely under the system Remove animations setting.\n\nNative Android behaviour stays native: system Back, edge-to-edge insets, 48dp touch targets, and sp type that follows the font scale (rows grow and wrap at 1.3x and 2.0x; nothing is cut). Confirmed rejections: brutalist or boxy layouts, split-flap or departure-board and other literal metaphors borrowed from other domains, harsh aggressive contrast, condensed signage display faces, and a corporate feel.\n\nScope today: the world lives in `core/ui/.../soft/Soft.kt` (`SoftColors`, `SoftType`, `SoftTheme`) and is expressed first by Trending. Other screens and the navigation bar still wear the old Material look until they are migrated, and the dynamic colour setting does not affect screens in this world; only the light, dark and AMOLED choice carries over.",
+    "overview": "Forgeline is mostly text, so the world is built to be pleasant to read. A warm, rounded display face (Gabarito) carries names, titles and figures, a very legible text face (Lexend) carries every line of reading, and both sit on soft surfaces with one vivid ember accent. The owner's word for the result is comfy: soft, friendly, modern, and vivid enough to feel alive, never heavy or corporate.\n\nHierarchy comes from type, space and tone, never from lines or boxes. Colour arrives at scale once per surface, as a soft tint that owns the header field and says something about the screen: warm, cool or fresh, keyed to the section (Trending's period, the Inbox filter) or to the thing being read (an issue's state). Ember then marks only momentum and selection. Density is comfortable: one reading column, generous row rhythm, descriptions held to a readable measure. Motion is soft and springy, a little lively and never bouncy, and it disappears entirely under the system Remove animations setting.\n\nNative Android behaviour stays native: system Back, edge-to-edge insets, 48dp touch targets, and sp type that follows the font scale (rows grow and wrap at 1.3x and 2.0x; nothing is cut). Confirmed rejections: brutalist or boxy layouts, split-flap or departure-board and other literal metaphors borrowed from other domains, harsh aggressive contrast, condensed signage display faces, and a corporate feel.\n\nScope: the world covers the whole app. It lives in `core/ui/.../soft/Soft.kt` (`SoftColors`, `SoftType`, `SoftTheme`, `amoled()`) and `SoftComponents.kt` (`SoftTokens` and the shared pieces), and every screen, the floating navigation bar and the rail are built from it. `ForgelineTheme` fills Material's colour roles, type scale and shapes from Soft, so the Material pieces still in use (dialogs, switches, text fields, menus, snackbars, pull-to-refresh, progress indicators) take the palette. The Material You (dynamic colour) setting is gone; the only appearance choices are System, Light or Dark, plus AMOLED black.",
     "keyCharacteristics": [
       "Gabarito 500/700 for display, names and figures; Lexend 400/500 for all reading text.",
-      "One soft tinted header field per surface, 28dp rounded bottom corners, tint keyed to the section.",
-      "One ember accent for momentum (ranks, gains, starred, resume) and one ember thumb for selection.",
-      "Nothing boxed: no dividers, no card outlines, no stacked cards.",
-      "Pill controls and a 20dp soft surface for pressed or focused rows.",
+      "One soft tinted header field per screen, 28dp rounded bottom corners, tint warm, cool or fresh by meaning.",
+      "One ember accent for momentum (ranks, gains, starred, resume, links) and one ember fill for selection (the switch thumb, the selected tab, the selected nav item).",
+      "Nothing boxed: no dividers, no card outlines, no stacked cards; comments are unboxed turns.",
+      "Pill controls, round soft badges, and a 20dp soft surface for pressed or focused rows.",
+      "A floating pill navigation bar on phones and a soft rail on wide windows, both on `raised`.",
       "Tabular figures wherever numbers line up.",
       "Every text/background pair at least 4.5:1, enforced by `SoftTest`."
     ],
@@ -513,6 +658,11 @@
       {
         "name": "The Readable Everywhere Rule",
         "body": "Every text/background pair the world draws holds at least 4.5:1 in light, dark and AMOLED, on the ground, on every field tint, on the track over each tint, and on the pressed surface. `SoftTest` enforces it; a new pair gets a new assertion.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tint Means Something Rule",
+        "body": "Warm, cool and fresh are chosen by meaning, never for variety. On marks the code states it outright: in the Feed warm is appreciation, cool is conversation, fresh is code; on issues and pull requests fresh is open, cool merged, warm closed. Headers follow the table above; a new screen takes the tint of its nearest kin in it.",
         "section": "colors"
       },
       {
@@ -549,22 +699,28 @@
     "dos": [
       "**Do** take every colour and type style from `Soft.colors` and `Soft.type` inside `SoftTheme`; never hard-code a hex in a screen.",
       "**Do** give each surface one header field tint with 28dp bottom corners, and keep ember for momentum marks and the selection thumb.",
+      "**Do** head every screen with `SoftHeader`, and pick its tint (warm, cool, fresh) by what the screen is about, following the table under Colors.",
       "**Do** set names, titles and figures in Gabarito (500/700 only) and all reading text in Lexend (400/500).",
       "**Do** use `tnum` figures for ranks, counts and stats.",
       "**Do** separate list items with space and type alone, and show press or focus with the 20dp `surface` fill.",
+      "**Do** lead a row with a round soft badge tinted by kind when the kind matters, and render timeline events as badges in the avatar column.",
+      "**Do** put code on the soft surface in the code face, and forge labels on pills in the forge's own colour.",
+      "**Do** pad every list's bottom with `listBottomPadding()` so the floating bar never covers the last row.",
       "**Do** use the soft spring for movement and drop all motion when Remove animations is on.",
       "**Do** keep 48dp touch targets, sp type that grows with the font scale, system Back and edge-to-edge insets.",
       "**Do** add a `SoftTest` assertion for every new text/background pair (4.5:1 minimum)."
     ],
     "donts": [
       "**Don't** draw divider lines, card outlines, stacked cards or square tiles; nothing is boxed.",
+      "**Don't** put comments in bubbles or cards; a comment is an unboxed turn.",
       "**Don't** build brutalist or boxy layouts, or borrow literal metaphors from other domains (split-flap, departure boards).",
       "**Don't** use harsh, aggressive contrast or condensed signage display faces.",
       "**Don't** let it feel corporate.",
       "**Don't** scatter ember as backgrounds, borders or decoration.",
       "**Don't** add a third weight of Gabarito or Lexend, or another family.",
       "**Don't** give rows a ripple.",
-      "**Don't** mark selection with anything other than the ember thumb."
+      "**Don't** mark selection with anything other than the ember thumb.",
+      "**Don't** bring back dynamic colour (Material You); the palette is Soft's alone."
     ]
   }
 }
