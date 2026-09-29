@@ -155,7 +155,7 @@
           "#DAC1B8",
           "#FFE8DE"
         ],
-        "note": "Warm: Inbox (Unread), Trending today, repository, closed issues, sign-in; warm badges (issues, stars, releases, failures)."
+        "note": "Warm: Inbox (Unread), Trending today, repository, closed issues, sign-in; warm badges (issues, releases, failures); closed and changes-requested Feed pills."
       },
       "field-week": {
         "role": "secondary",
@@ -171,7 +171,7 @@
           "#C9C3DB",
           "#F0EAFF"
         ],
-        "note": "Cool: Feed, Inbox (Participating), Trending this week, file, merged, profile, search; cool badges (conversation, folders, running)."
+        "note": "Cool: Feed, Inbox (Participating), Trending this week, file, merged, profile, search; cool badges (folders, running); merged and comment Feed pills."
       },
       "field-month": {
         "role": "secondary",
@@ -187,7 +187,7 @@
           "#B8CDC4",
           "#DEF5EB"
         ],
-        "note": "Fresh: Inbox (All), Trending this month, You, open issues, settings, credits; fresh badges (pull requests, code, success)."
+        "note": "Fresh: Inbox (All), Trending this month, You, open issues, settings, credits; fresh badges (pull requests, success); open and approved Feed pills."
       },
       "ground-dark": {
         "role": "neutral",

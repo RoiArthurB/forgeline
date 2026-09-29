@@ -283,7 +283,7 @@ A cool, near-white (or violet-black) ground with plum-navy ink, lifted by soft p
 
 **The Readable Everywhere Rule.** Every text/background pair the world draws holds at least 4.5:1 in light, dark and AMOLED, on the ground, on every field tint, on the track over each tint, and on the pressed surface. `SoftTest` enforces it; a new pair gets a new assertion.
 
-**The Tint Means Something Rule.** Warm, cool and fresh are chosen by meaning, never for variety. On marks the code states it outright: in the Feed warm is appreciation, cool is conversation, fresh is code; on issues and pull requests fresh is open, cool merged, warm closed. Headers follow the table above; a new screen takes the tint of its nearest kin in it.
+**The Tint Means Something Rule.** Warm, cool and fresh are chosen by meaning, never for variety. On marks the code states it outright: on issues and pull requests, in their headers, rows and Feed state pills alike, fresh is open, cool merged, warm closed; in the Feed warm also marks releases, fresh an approving review, warm a review asking for changes. Headers follow the table above; a new screen takes the tint of its nearest kin in it.
 
 ## Typography
 
@@ -336,7 +336,7 @@ Mostly flat and tonal. Depth on the page comes from the field tint against the g
 ### Named Rules
 **The Nothing Boxed Rule.** No divider lines, no card outlines, no stacked cards. Rows are separated by space and type; a surface appears only as feedback (press, focus) or as a loading shape. The 2dp ground-coloured ring around overlapping avatars is a cut-out that separates faces, not a border, and is the only stroke in the world.
 
-As built app-wide, the soft surface also fills small, self-contained shapes that carry meaning: pill tags and reactions, tonal buttons, text fields, round badges, and code blocks. None of them contains other content, so the page stays unboxed. Prompts (the notification ask) and the sign-in device code sit on the ground like notices, never in a card. Feed badges sit on the avatar with the same 2dp ground cut-out ring as overlapping avatars. Horizontal rules and table fills inside rendered Markdown are the author's content, drawn at a doubled track veil.
+As built app-wide, the soft surface also fills small, self-contained shapes that carry meaning: pill tags and reactions, tonal buttons, text fields, round badges, and code blocks. None of them contains other content, so the page stays unboxed. Prompts (the notification ask) and the sign-in device code sit on the ground like notices, never in a card. The Feed's repository previews are the one larger soft panel: they hold only the repository's own name, description and stats, never other rows. Horizontal rules and table fills inside rendered Markdown are the author's content, drawn at a doubled track veil.
 
 ## Shapes
 
@@ -381,7 +381,17 @@ A circle with an 18dp ink icon (36dp on rows, 28dp with 15dp icons on the timeli
 - **Issues and pull requests:** warm issue, fresh pull request, `surface` with a muted icon for drafts.
 - **Code tab:** cool folder, `surface` file; **Releases:** warm.
 - **Actions runs:** cool with a small ink spinner while running, fresh check on success, warm with an ember cross on failure.
-- **Feed:** a 20dp badge on the actor's 40dp avatar, cut out by a 2dp ground ring: warm for appreciation (star, release, new repo), cool for conversation (issue, comment, review, member), fresh for code (fork, pull request, push, branch).
+
+### Feed timeline (kind first)
+The Feed tells what happened by leading every event with its object, so an open pull request and a closed issue differ at a glance, the way they do on the forge's own web feed, but unboxed.
+- **Day chapters:** events stay one chronological timeline under Section titles: Today, Yesterday, This week, Earlier (the device's local date).
+- **The line:** a 40dp avatar, then one Secondary line: the actor (or "alice and 2 others") and named repositories in ink 500, the verb muted, then " · 15 min. ago" (abbreviated, never split by a wrap).
+- **The object, below the line, drawn for its kind:**
+  - Starred, forked, made public, created: a **repository preview**, a 20dp-corner `surface` panel (held to 580dp) with `owner/` muted and the name in Gabarito 18/22 Bold, the description in Secondary ink (3 lines), then a linguist-colored 9dp dot, the language and "12.4k stars" in Meta muted.
+  - Issues, pull requests, reviews and comments: a **state pill** (15dp ink glyph + Label on a field tint: Open/Reopened fresh, Merged cool, Closed warm, Approved fresh, Changes requested warm, Comment cool, Reviewed `surface`) with "#N" muted beside it, then the title in Lexend 16/22 Medium ink (3 lines).
+  - Releases: the tag as a warm pill (plus a Pre-release tag), then the release name as the title. Pushes, branches and tags: the ref as a `surface` pill in the code face. Members added: the line alone.
+- **Filled progressively:** events don't carry repository details or pull request titles, so rows on screen ask for them; they are fetched once, cached a day (kept a week), and fill in as they arrive. Until a title arrives, a 14dp `surface` pill bar holds its place so the row keeps its shape; a repository preview shows its name alone.
+- The whole row is one `softPressable` target opening what it's about; the avatar opens the actor.
 
 ### Conversation (issue and pull request)
 - **Comments are unboxed turns:** a 28dp avatar, author in Control and the relative time in Meta on one pill-clipped line (tapping opens the profile), then the Markdown body in a 40dp gutter, held to 580dp, with reactions as tags below. No bubble, no card, no divider between turns.
