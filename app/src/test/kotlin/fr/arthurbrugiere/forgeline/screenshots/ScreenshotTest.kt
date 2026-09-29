@@ -391,6 +391,10 @@ class ScreenshotTest {
                     updatedAt = "2026-09-27T08:00:00Z",
                 ),
                 notificationThread(
+                    "41", repo = "acme/rocket", title = "Nightly build", type = SubjectType.CHECK_SUITE, number = null,
+                    reason = NotificationReason.CI_ACTIVITY, unread = false, updatedAt = "2026-09-26T20:00:00Z",
+                ),
+                notificationThread(
                     "9", repo = "octo/tools", title = "v2.0.0", type = SubjectType.RELEASE, number = null,
                     reason = NotificationReason.SUBSCRIBED, unread = false, updatedAt = "2026-09-26T18:00:00Z",
                 ),

@@ -377,9 +377,10 @@ Material 3 composables (Icon, IconButton, Snackbar, PullToRefresh, AlertDialog, 
 **The Soft Press Rule.** Pressed or focused rows get a 20dp soft surface in `surface`, never a ripple. Every text colour on it is tested to 4.5:1.
 
 ### Inbox (needs you first)
-The Inbox is triage: what's waiting on you first, then the rest, each newest first, the repository on every row rather than as a group.
+The Inbox is triage: what's waiting on you first, newest first, then the rest by repository.
 - **Sections:** "Needs you" (review requested, mentioned, team mentioned, assigned, security alert) then "Everything else", as pinned Section titles with the unread count as a tag (warm for Needs you, `surface` otherwise) that ticks up or down as it changes.
-- **Row:** a 20dp gutter holding the 8dp ember unread dot (it pops in and shrinks away), then a line with a pill and `owner/name #N` in Meta muted, the title in Lexend 16/22 (500 ink unread, 400 muted read, easing between them over 300ms), and a Meta line: the reason (Everything else only) and the abbreviated time. The overflow menu stays on the right.
+- **Repositories (Everything else):** a heading per repository, the one with the newest activity first: the owner's 24dp avatar (user or organisation; its initial on `surface` until it loads), then `owner/` muted and the name in Control ink. Its threads follow newest first and name only their number. In Needs you, each row names its repository instead, after an 18dp owner avatar.
+- **Row:** a 20dp gutter holding the 8dp ember unread dot (it pops in and shrinks away), then a line with a pill and `owner/name #N` (or `#N` under a repository heading) in Meta muted, the title in Lexend 16/22 (500 ink unread, 400 muted read, easing between them over 300ms), and a Meta line: the reason (Everything else only) and the abbreviated time. The overflow menu stays on the right.
 - **The pill says why, or what:** in Needs you it names the reason on warm ("Review requested", "Mentioned"); in Everything else it names the kind on `surface` ("Issue", "Release", "Checks"). Both lead with the kind's glyph.
 
 ### Round Badges

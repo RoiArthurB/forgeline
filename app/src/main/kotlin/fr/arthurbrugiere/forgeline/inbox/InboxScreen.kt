@@ -120,6 +120,13 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLight
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftPill
 import fr.arthurbrugiere.forgeline.core.ui.soft.animationsEnabled
 import fr.arthurbrugiere.forgeline.feed.unbreakable
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
+import fr.arthurbrugiere.forgeline.ui.Avatar
 
 @Composable
 fun InboxRoute(
@@ -304,11 +311,16 @@ fun InboxScreen(
                         stickyHeader(key = "section-${group.section}", contentType = "section") {
                             SectionHeading(group.section, group.threads.count { it.unread }, Modifier.animateItem())
                         }
-                        items(group.threads, key = { "thread-${it.id}" }, contentType = { "thread" }) { thread ->
-                            ThreadRow(
-                                thread, group.section, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe,
-                                Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem(),
-                            )
+                        if (group.section == InboxSection.NEEDS_YOU) {
+                            threadItems(group.threads, group.section, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe)
+                        } else {
+                            // Everything else reads repository by repository, each under its owner's avatar.
+                            group.threads.groupBy { it.repo }.forEach { (repo, threads) ->
+                                item(key = "repo-${repo.fullName}", contentType = "repo") {
+                                    RepoHeading(threads.first(), Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem())
+                                }
+                                threadItems(threads, group.section, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe)
+                            }
                         }
                     }
                 }
@@ -326,6 +338,63 @@ fun InboxScreen(
             )
         }
     }
+}
+
+private fun LazyListScope.threadItems(
+    threads: List<NotificationThread>,
+    section: InboxSection,
+    nowMillis: Long,
+    onOpen: (NotificationThread) -> Unit,
+    onMarkRead: (NotificationThread) -> Unit,
+    onMarkDone: (NotificationThread) -> Unit,
+    onUnsubscribe: (NotificationThread) -> Unit,
+) {
+    items(threads, key = { "thread-${it.id}" }, contentType = { "thread" }) { thread ->
+        ThreadRow(
+            thread, section, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe,
+            Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem(),
+        )
+    }
+}
+
+/** A repository under Everything else: its owner's avatar, then `owner/` muted and the name. */
+@Composable
+private fun RepoHeading(thread: NotificationThread, modifier: Modifier = Modifier) {
+    val colors = Soft.colors
+    Row(
+        modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 2.dp)
+            .semantics(mergeDescendants = true) { heading() },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        OwnerAvatar(thread, 24.dp)
+        Spacer(Modifier.width(10.dp))
+        Text(
+            buildAnnotatedString {
+                withStyle(SpanStyle(color = colors.inkMuted)) { append("${thread.repo.owner}/\u2060") }
+                append(thread.repo.name)
+            },
+            style = Soft.type.control,
+            color = colors.ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** The repository owner's avatar (a user or an organisation), its initial on the soft surface until it loads. */
+@Composable
+private fun OwnerAvatar(thread: NotificationThread, size: Dp) {
+    val colors = Soft.colors
+    Avatar(
+        thread.ownerAvatarUrl,
+        thread.repo.owner,
+        size = size,
+        placeholderColor = colors.surface,
+        placeholderContentColor = colors.inkMuted,
+        modifier = Modifier.clearAndSetSemantics {},
+    )
 }
 
 /** A section's title over its threads, pinned while they scroll; the unread count ticks as it changes. */
@@ -448,14 +517,20 @@ private fun ThreadRow(
                     } else {
                         SoftPill(stringResource(thread.type.label), thread.type.icon, colors.surface)
                     }
-                    Text(
-                        (thread.repo.fullName + (thread.number?.let { " #$it" } ?: "")).unbreakable(),
-                        style = Soft.type.meta,
-                        color = colors.inkMuted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
+                    val where = if (section == InboxSection.NEEDS_YOU) {
+                        (thread.repo.fullName + (thread.number?.let { " #$it" } ?: "")).unbreakable()
+                    } else {
+                        thread.number?.let { "#$it" }
+                    }
+                    if (where != null) {
+                        Row(Modifier.weight(1f, fill = false), verticalAlignment = Alignment.CenterVertically) {
+                            if (section == InboxSection.NEEDS_YOU) {
+                                OwnerAvatar(thread, 18.dp)
+                                Spacer(Modifier.width(6.dp))
+                            }
+                            Text(where, style = Soft.type.meta, color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
                 }
                 Text(
                     thread.title,
