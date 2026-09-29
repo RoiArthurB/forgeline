@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import fr.arthurbrugiere.forgeline.core.model.jobUrl
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -79,8 +80,8 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun JobLogRoute(route: JobLogRoute, onBack: () -> Unit, onSignIn: () -> Unit) {
-    val repo = RepoId(route.owner, route.name)
-    val viewModel = hiltViewModel<JobLogViewModel, JobLogViewModel.Factory>(key = "${repo.fullName}/jobs/${route.jobId}") {
+    val repo = route.repo
+    val viewModel = hiltViewModel<JobLogViewModel, JobLogViewModel.Factory>(key = "${repo.key}/jobs/${route.jobId}") {
         it.create(repo, route.jobId, route.jobName)
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -110,7 +111,7 @@ fun JobLogRoute(route: JobLogRoute, onBack: () -> Unit, onSignIn: () -> Unit) {
         onRetry = viewModel::load,
         onToggleGroup = viewModel::toggleGroup,
         onSignIn = onSignIn,
-        onOpenInBrowser = { openUrl("https://github.com/${repo.fullName}/actions/runs/${route.runId}/job/${route.jobId}") },
+        onOpenInBrowser = { openUrl(repo.jobUrl(route.runId, route.jobId)) },
         nowMillis = nowMillis,
     )
 }
@@ -152,7 +153,7 @@ fun JobLogScreen(
                     backDescription = stringResource(R.string.navigate_up),
                     actions = {
                         IconButton(onClick = onOpenInBrowser) {
-                            Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge), tint = colors.ink)
+                            Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.repo.forge.displayName), tint = colors.ink)
                         }
                     },
                 ) {

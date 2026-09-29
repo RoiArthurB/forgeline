@@ -10,6 +10,7 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.FeedEvent
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueAction
 import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
@@ -25,6 +26,7 @@ data class FeedEventEntity(
     val id: String,
     val actorLogin: String,
     val actorAvatarUrl: String?,
+    val host: String,
     val owner: String,
     val name: String,
     val createdAtMillis: Long,
@@ -46,8 +48,12 @@ data class FeedSyncEntity(
 
 @Dao
 interface FeedDao {
-    @Query("SELECT * FROM feed_events WHERE accountId = :accountId ORDER BY createdAtMillis DESC, id DESC")
-    fun observe(accountId: String): Flow<List<FeedEventEntity>>
+    @Query("SELECT * FROM feed_events ORDER BY createdAtMillis DESC, accountId, id DESC")
+    fun observeAll(): Flow<List<FeedEventEntity>>
+
+    /** When the account's oldest loaded event happened. */
+    @Query("SELECT MIN(createdAtMillis) FROM feed_events WHERE accountId = :accountId")
+    suspend fun oldest(accountId: String): Long?
 
     @Query("DELETE FROM feed_events WHERE accountId = :accountId")
     suspend fun clear(accountId: String)
@@ -61,8 +67,8 @@ interface FeedDao {
         insert(entities)
     }
 
-    @Query("SELECT * FROM feed_sync WHERE accountId = :accountId")
-    fun observeSync(accountId: String): Flow<FeedSyncEntity?>
+    @Query("SELECT * FROM feed_sync")
+    fun observeSyncs(): Flow<List<FeedSyncEntity>>
 
     @Query("SELECT * FROM feed_sync WHERE accountId = :accountId")
     suspend fun sync(accountId: String): FeedSyncEntity?
@@ -73,11 +79,11 @@ interface FeedDao {
 
 internal fun FeedEvent.toEntity(accountId: String): FeedEventEntity {
     fun entity(action: String, number: Int? = null, text: String? = null, detail: String? = null, flag: Boolean = false) = FeedEventEntity(
-        accountId, id, actor.login, actor.avatarUrl, repo.owner, repo.name, createdAt.toEpochMilli(), action, number, text, detail, flag,
+        accountId, id, actor.login, actor.avatarUrl, repo.forge.host, repo.owner, repo.name, createdAt.toEpochMilli(), action, number, text, detail, flag,
     )
     return when (val a = action) {
         FeedAction.Starred -> entity("starred")
-        is FeedAction.Forked -> entity("forked", text = a.fork.fullName)
+        is FeedAction.Forked -> entity("forked", text = a.fork.key)
         is FeedAction.CreatedRepo -> entity("created_repo", text = a.description)
         FeedAction.MadePublic -> entity("made_public")
         is FeedAction.Released -> entity("released", text = a.tag, detail = a.name, flag = a.prerelease)
@@ -95,7 +101,7 @@ internal fun FeedEvent.toEntity(accountId: String): FeedEventEntity {
 internal fun FeedEventEntity.toModel(): FeedEvent? {
     val action: FeedAction = when (action) {
         "starred" -> FeedAction.Starred
-        "forked" -> text?.split('/')?.takeIf { it.size == 2 }?.let { FeedAction.Forked(RepoId(it[0], it[1])) }
+        "forked" -> text?.let(RepoId::fromKey)?.let { FeedAction.Forked(it) }
         "created_repo" -> FeedAction.CreatedRepo(text)
         "made_public" -> FeedAction.MadePublic
         "released" -> text?.let { FeedAction.Released(it, detail, flag) }
@@ -110,5 +116,5 @@ internal fun FeedEventEntity.toModel(): FeedEvent? {
         "member" -> text?.let { FeedAction.AddedMember(it) }
         else -> null
     } ?: return null
-    return FeedEvent(id, ForgeUser(actorLogin, null, actorAvatarUrl), RepoId(owner, name), action, Instant.ofEpochMilli(createdAtMillis))
+    return FeedEvent(id, ForgeUser(actorLogin, null, actorAvatarUrl), RepoId(owner, name, ForgeInstance.of(host)), action, Instant.ofEpochMilli(createdAtMillis))
 }

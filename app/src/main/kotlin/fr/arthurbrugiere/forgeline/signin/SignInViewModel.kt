@@ -123,7 +123,7 @@ class SignInViewModel @Inject constructor(
                 ForgeError.Network -> SignInError.NETWORK
                 ForgeError.Unauthorized -> SignInError.INVALID_TOKEN
                 is ForgeError.RateLimited -> SignInError.RATE_LIMITED
-                is ForgeError.Http -> SignInError.UNKNOWN
+                is ForgeError.Http, ForgeError.Unsupported -> SignInError.UNKNOWN
             },
         ),
     )

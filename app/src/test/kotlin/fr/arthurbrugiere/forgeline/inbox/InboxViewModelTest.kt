@@ -131,13 +131,29 @@ class InboxViewModelTest {
         viewModel.unsubscribe(watching)
         runCurrent()
         assertThat(viewModel.state.value.groups).isEmpty()
-        assertThat(viewModel.state.value.undo).isEqualTo(PendingUndo("2", InboxAction.UNSUBSCRIBE, serial = 2))
+        assertThat(viewModel.state.value.undo).isEqualTo(PendingUndo(notificationThread("2").key, InboxAction.UNSUBSCRIBE, serial = 2))
         assertThat(inbox.actions).isEmpty()
 
         advanceTimeBy(InboxViewModel.UNDO_MILLIS + 1)
         runCurrent()
         assertThat(inbox.actions).containsExactly("done:1", "unsubscribe:2").inOrder()
         assertThat(viewModel.state.value.undo).isNull()
+    }
+
+    @Test
+    fun the_same_thread_id_on_two_accounts_is_two_threads() = test {
+        // Regression guard: pending actions were keyed by thread id alone, which two forges can share.
+        val onGitHub = notificationThread("1", reason = NotificationReason.SUBSCRIBED).copy(accountId = "github:github.com:me")
+        val onCodeberg = notificationThread("1", repo = "forgejo/forgejo", reason = NotificationReason.SUBSCRIBED)
+            .copy(accountId = "forgejo:codeberg.org:me")
+        inbox.set(onGitHub, onCodeberg)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.markDone(onCodeberg)
+        runCurrent()
+
+        assertThat(viewModel.state.value.groups.flatMap { it.threads }).containsExactly(onGitHub)
     }
 
     @Test

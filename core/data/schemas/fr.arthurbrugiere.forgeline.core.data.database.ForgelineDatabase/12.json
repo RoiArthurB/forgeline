@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 11,
-    "identityHash": "263e806f62e283b7e7ba7c454e0302fd",
+    "version": 12,
+    "identityHash": "749fa09f79c95214c8c16b17330de3f0",
     "entities": [
       {
         "tableName": "trending_repos",
@@ -273,7 +273,7 @@
       },
       {
         "tableName": "feed_events",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` TEXT NOT NULL, `id` TEXT NOT NULL, `actorLogin` TEXT NOT NULL, `actorAvatarUrl` TEXT, `owner` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAtMillis` INTEGER NOT NULL, `action` TEXT NOT NULL, `number` INTEGER, `text` TEXT, `detail` TEXT, `flag` INTEGER NOT NULL, PRIMARY KEY(`accountId`, `id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` TEXT NOT NULL, `id` TEXT NOT NULL, `actorLogin` TEXT NOT NULL, `actorAvatarUrl` TEXT, `host` TEXT NOT NULL, `owner` TEXT NOT NULL, `name` TEXT NOT NULL, `createdAtMillis` INTEGER NOT NULL, `action` TEXT NOT NULL, `number` INTEGER, `text` TEXT, `detail` TEXT, `flag` INTEGER NOT NULL, PRIMARY KEY(`accountId`, `id`))",
         "fields": [
           {
             "fieldPath": "accountId",
@@ -297,6 +297,12 @@
             "fieldPath": "actorAvatarUrl",
             "columnName": "actorAvatarUrl",
             "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "host",
+            "columnName": "host",
+            "affinity": "TEXT",
+            "notNull": true
           },
           {
             "fieldPath": "owner",
@@ -530,8 +536,14 @@
       },
       {
         "tableName": "conversations",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`owner` TEXT NOT NULL, `name` TEXT NOT NULL, `number` INTEGER NOT NULL, `issue` TEXT, `firstPage` TEXT, `viewedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`owner`, `name`, `number`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`host` TEXT NOT NULL, `owner` TEXT NOT NULL, `name` TEXT NOT NULL, `number` INTEGER NOT NULL, `issue` TEXT, `firstPage` TEXT, `viewedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`host`, `owner`, `name`, `number`))",
         "fields": [
+          {
+            "fieldPath": "host",
+            "columnName": "host",
+            "affinity": "TEXT",
+            "notNull": true
+          },
           {
             "fieldPath": "owner",
             "columnName": "owner",
@@ -570,6 +582,7 @@
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
+            "host",
             "owner",
             "name",
             "number"
@@ -579,7 +592,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '263e806f62e283b7e7ba7c454e0302fd')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '749fa09f79c95214c8c16b17330de3f0')"
     ]
   }
 }

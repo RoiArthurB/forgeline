@@ -9,6 +9,18 @@ data class RepoId(val owner: String, val name: String, val forge: ForgeInstance 
 
     /** The repository's page on its forge. */
     val webUrl: String get() = "${forge.webUrl}/$fullName"
+
+    /** A stable text key for caches and routes, forge included: `github.com/owner/name`. */
+    val key: String get() = "${forge.host}/$fullName"
+
+    companion object {
+        /** Reads a [key]; null when it isn't one. */
+        fun fromKey(key: String): RepoId? {
+            val parts = key.split('/')
+            if (parts.size != 3 || parts.any { it.isEmpty() }) return null
+            return RepoId(parts[1], parts[2], ForgeInstance.of(parts[0]))
+        }
+    }
 }
 
 enum class TrendingPeriod { DAILY, WEEKLY, MONTHLY }

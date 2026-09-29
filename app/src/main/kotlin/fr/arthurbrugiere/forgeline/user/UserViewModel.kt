@@ -9,6 +9,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.user.UserRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
 import fr.arthurbrugiere.forgeline.repo.Loadable
@@ -22,6 +23,8 @@ enum class UserTab { REPOS, STARRED }
 
 data class UserUiState(
     val login: String,
+    /** The forge the profile lives on; GitHub unless the route says otherwise. */
+    val forge: ForgeInstance = ForgeInstance.GitHub,
     val profile: UserProfile? = null,
     val error: ForgeError? = null,
     val tab: UserTab = UserTab.REPOS,
@@ -34,27 +37,28 @@ data class UserUiState(
 
 @HiltViewModel(assistedFactory = UserViewModel.Factory::class)
 class UserViewModel @AssistedInject constructor(
+    @Assisted private val forge: ForgeInstance,
     @Assisted private val login: String,
     private val repository: UserRepository,
 ) : ViewModel() {
 
     @AssistedFactory
     interface Factory {
-        fun create(login: String): UserViewModel
+        fun create(forge: ForgeInstance, login: String): UserViewModel
     }
 
-    private val _state = MutableStateFlow(UserUiState(login, profile = repository.cachedUser(login)))
+    private val _state = MutableStateFlow(UserUiState(login, forge, profile = repository.cachedUser(forge, login)))
     val state: StateFlow<UserUiState> = _state.asStateFlow()
 
     init {
         viewModelScope.launch {
-            when (val result = repository.user(login)) {
+            when (val result = repository.user(forge, login)) {
                 is ForgeResult.Success -> _state.update { it.copy(profile = result.value, error = null) }
                 is ForgeResult.Failure -> _state.update { it.copy(error = result.error) }
             }
         }
         viewModelScope.launch {
-            val following = repository.isFollowing(login)
+            val following = repository.isFollowing(forge, login)
             _state.update { it.copy(following = following) }
         }
         loadTab(UserTab.REPOS)
@@ -69,7 +73,7 @@ class UserViewModel @AssistedInject constructor(
         loadTab(_state.value.tab)
         if (_state.value.profile == null) {
             viewModelScope.launch {
-                (repository.user(login) as? ForgeResult.Success)?.let { result -> _state.update { it.copy(profile = result.value, error = null) } }
+                (repository.user(forge, login) as? ForgeResult.Success)?.let { result -> _state.update { it.copy(profile = result.value, error = null) } }
             }
         }
     }
@@ -79,7 +83,7 @@ class UserViewModel @AssistedInject constructor(
         val target = !current
         _state.update { it.copy(following = target, profile = it.profile?.adjustFollowers(if (target) 1 else -1)) }
         viewModelScope.launch {
-            if (repository.setFollowing(login, target) is ForgeResult.Failure) {
+            if (repository.setFollowing(forge, login, target) is ForgeResult.Failure) {
                 _state.update {
                     it.copy(following = current, profile = it.profile?.adjustFollowers(if (target) -1 else 1), followFailed = true)
                 }
@@ -93,8 +97,8 @@ class UserViewModel @AssistedInject constructor(
         setTab(tab, Loadable.Loading)
         viewModelScope.launch {
             val result = when (tab) {
-                UserTab.REPOS -> repository.repos(login)
-                UserTab.STARRED -> repository.starred(login)
+                UserTab.REPOS -> repository.repos(forge, login)
+                UserTab.STARRED -> repository.starred(forge, login)
             }
             setTab(tab, if (result is ForgeResult.Success) Loadable.Loaded(result.value) else Loadable.Failed((result as ForgeResult.Failure).error))
         }

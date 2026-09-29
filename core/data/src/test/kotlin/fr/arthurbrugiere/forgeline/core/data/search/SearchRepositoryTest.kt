@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.search
 
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
@@ -11,7 +12,7 @@ import org.junit.Test
 class SearchRepositoryTest {
     private val api = FakeSearchApi()
     private val accounts = FakeAccountRepository()
-    private val repository = SearchRepository(api, accounts)
+    private val repository = SearchRepository(FakeForgeClients(search = api), accounts)
 
     @Test
     fun signed_out_searches_anonymously() = runTest {

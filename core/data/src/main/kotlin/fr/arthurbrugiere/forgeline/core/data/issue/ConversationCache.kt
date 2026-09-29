@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Query
 import androidx.room.Upsert
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -22,8 +23,9 @@ import kotlinx.serialization.json.Json
 import java.time.Instant
 
 /** The last loaded state of a conversation: the issue or pull request and its first timeline page, as JSON. */
-@Entity(tableName = "conversations", primaryKeys = ["owner", "name", "number"])
+@Entity(tableName = "conversations", primaryKeys = ["host", "owner", "name", "number"])
 data class ConversationEntity(
+    val host: String,
     val owner: String,
     val name: String,
     val number: Int,
@@ -35,8 +37,8 @@ data class ConversationEntity(
 
 @Dao
 interface ConversationDao {
-    @Query("SELECT * FROM conversations WHERE owner = :owner AND name = :name AND number = :number")
-    suspend fun get(owner: String, name: String, number: Int): ConversationEntity?
+    @Query("SELECT * FROM conversations WHERE host = :host AND owner = :owner AND name = :name AND number = :number")
+    suspend fun get(host: String, owner: String, name: String, number: Int): ConversationEntity?
 
     @Upsert
     suspend fun upsert(entity: ConversationEntity)
@@ -88,6 +90,7 @@ private data class StoredPull(
 
 @Serializable
 private data class StoredIssue(
+    val host: String = ForgeInstance.GitHub.host,
     val owner: String,
     val name: String,
     val number: Int,
@@ -104,7 +107,7 @@ private data class StoredIssue(
     val pull: StoredPull?,
 ) {
     fun toModel() = IssueDetails(
-        ref = IssueRef(RepoId(owner, name), number),
+        ref = IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number),
         title = title,
         body = body,
         state = state,
@@ -121,7 +124,7 @@ private data class StoredIssue(
     companion object {
         fun of(issue: IssueDetails) = with(issue) {
             StoredIssue(
-                ref.repo.owner, ref.repo.name, ref.number, title, body, state, stateReason, StoredUser.of(author),
+                ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, title, body, state, stateReason, StoredUser.of(author),
                 labels.map { StoredLabel(it.name, it.color) }, createdAt.toEpochMilli(), closedAt?.toEpochMilli(), comments, reactions,
                 pullRequest?.run { StoredPull(isDraft, isMerged, baseRef, headRef, additions, deletions, changedFiles, commits) },
             )
@@ -169,6 +172,7 @@ private sealed interface StoredItem {
     @Serializable
     @SerialName("reference")
     data class CrossReferenced(
+        val host: String = ForgeInstance.GitHub.host,
         val owner: String,
         val name: String,
         val number: Int,
@@ -178,7 +182,7 @@ private sealed interface StoredItem {
         val at: Long,
     ) : StoredItem {
         override fun toModel() =
-            TimelineItem.CrossReferenced(IssueRef(RepoId(owner, name), number), title, isPullRequest, actor?.toModel(), Instant.ofEpochMilli(at))
+            TimelineItem.CrossReferenced(IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number), title, isPullRequest, actor?.toModel(), Instant.ofEpochMilli(at))
     }
 
     @Serializable
@@ -195,7 +199,7 @@ private sealed interface StoredItem {
             is TimelineItem.Labeled -> Labeled(item.added, StoredLabel(item.label.name, item.label.color), StoredUser.of(item.actor), item.createdAt.toEpochMilli())
             is TimelineItem.Renamed -> Renamed(item.from, item.to, StoredUser.of(item.actor), item.createdAt.toEpochMilli())
             is TimelineItem.CrossReferenced -> CrossReferenced(
-                item.source.repo.owner, item.source.repo.name, item.source.number, item.sourceTitle, item.sourceIsPullRequest,
+                item.source.repo.forge.host, item.source.repo.owner, item.source.repo.name, item.source.number, item.sourceTitle, item.sourceIsPullRequest,
                 StoredUser.of(item.actor), item.createdAt.toEpochMilli(),
             )
             is TimelineItem.Committed -> Committed(item.sha, item.message, item.authorName, item.createdAt?.toEpochMilli())

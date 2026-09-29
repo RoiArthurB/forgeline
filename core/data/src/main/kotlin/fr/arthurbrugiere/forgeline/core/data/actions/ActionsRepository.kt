@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.data.actions
 
+import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
+import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -35,31 +37,35 @@ interface ActionsRepository {
 }
 
 class DefaultActionsRepository @Inject constructor(
-    private val api: ActionsApi,
+    private val clients: ForgeClients,
     private val accounts: AccountRepository,
 ) : ActionsRepository {
 
-    override suspend fun run(id: RepoId, runId: Long) = api.run(token(), id, runId)
+    override suspend fun run(id: RepoId, runId: Long) = on(id) { api, token -> api.run(token, id, runId) }
 
-    override suspend fun jobs(id: RepoId, runId: Long) = api.jobs(token(), id, runId)
+    override suspend fun jobs(id: RepoId, runId: Long) = on(id) { api, token -> api.jobs(token, id, runId) }
 
-    override suspend fun job(id: RepoId, jobId: Long) = api.job(token(), id, jobId)
+    override suspend fun job(id: RepoId, jobId: Long) = on(id) { api, token -> api.job(token, id, jobId) }
 
-    override suspend fun jobLog(id: RepoId, jobId: Long) = signedIn { api.jobLog(it, id, jobId) }
+    override suspend fun jobLog(id: RepoId, jobId: Long) = signedIn(id) { api, token -> api.jobLog(token, id, jobId) }
 
-    override suspend fun workflows(id: RepoId) = api.workflows(token(), id)
+    override suspend fun workflows(id: RepoId) = on(id) { api, token -> api.workflows(token, id) }
 
-    override suspend fun dispatchInputs(id: RepoId, workflow: Workflow, ref: String) = api.dispatchInputs(token(), id, workflow, ref)
+    override suspend fun dispatchInputs(id: RepoId, workflow: Workflow, ref: String) = on(id) { api, token -> api.dispatchInputs(token, id, workflow, ref) }
 
     override suspend fun dispatch(id: RepoId, workflow: Workflow, ref: String, inputs: Map<String, String>) =
-        signedIn { api.dispatch(it, id, workflow, ref, inputs) }
+        signedIn(id) { api, token -> api.dispatch(token, id, workflow, ref, inputs) }
 
-    override suspend fun rerun(id: RepoId, runId: Long, failedJobsOnly: Boolean) = signedIn { api.rerun(it, id, runId, failedJobsOnly) }
+    override suspend fun rerun(id: RepoId, runId: Long, failedJobsOnly: Boolean) = signedIn(id) { api, token -> api.rerun(token, id, runId, failedJobsOnly) }
 
-    override suspend fun cancel(id: RepoId, runId: Long) = signedIn { api.cancel(it, id, runId) }
+    override suspend fun cancel(id: RepoId, runId: Long) = signedIn(id) { api, token -> api.cancel(token, id, runId) }
 
-    private suspend fun <T> signedIn(call: suspend (String) -> ForgeResult<T>): ForgeResult<T> =
-        token()?.let { call(it) } ?: ForgeResult.Failure(ForgeError.Unauthorized)
+    /** [call] with the repository forge's client and token (null signed out); Unsupported when it has no CI API. */
+    private suspend fun <T> on(id: RepoId, call: suspend (ActionsApi, String?) -> ForgeResult<T>): ForgeResult<T> {
+        val api = clients.actions(id.forge) ?: return ForgeResult.Failure(ForgeError.Unsupported)
+        return call(api, accounts.tokenOn(id.forge))
+    }
 
-    private suspend fun token(): String? = accounts.activeAccount.first()?.let { accounts.token(it.id) }
+    private suspend fun <T> signedIn(id: RepoId, call: suspend (ActionsApi, String) -> ForgeResult<T>): ForgeResult<T> =
+        on(id) { api, token -> token?.let { call(api, it) } ?: ForgeResult.Failure(ForgeError.Unauthorized) }
 }

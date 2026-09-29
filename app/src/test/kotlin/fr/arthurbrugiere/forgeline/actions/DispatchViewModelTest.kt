@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.actions.DefaultActionsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -42,7 +43,7 @@ class DispatchViewModelTest {
         block()
     }
 
-    private fun TestScope.opened(): DispatchViewModel = DispatchViewModel(repo, "main", DefaultActionsRepository(api, accounts)).also {
+    private fun TestScope.opened(): DispatchViewModel = DispatchViewModel(repo, "main", DefaultActionsRepository(FakeForgeClients(actions = api), accounts)).also {
         it.open()
         advanceUntilIdle()
     }

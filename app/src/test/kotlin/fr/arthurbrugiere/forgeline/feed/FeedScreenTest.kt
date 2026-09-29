@@ -41,7 +41,7 @@ class FeedScreenTest {
                 onLoadMore = { events += "more" },
                 onOpenRepo = { events += "repo:${it.fullName}" },
                 onOpenIssue = { events += "issue:${it.repo.fullName}#${it.number}" },
-                onOpenUser = { events += "user:$it" },
+                onOpenUser = { _, login -> events += "user:$login" },
                 onErrorShown = {},
                 nowMillis = Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
                 zone = java.time.ZoneOffset.UTC,
@@ -151,7 +151,7 @@ class FeedScreenTest {
         composeRule.setContent {
             FeedScreen(
                 state = state(feedEvent("2", action = FeedAction.PullRequest(PullRequestAction.OPENED, 7)), feedEvent("1", repo = "octo/tools")),
-                onRefresh = {}, onLoadMore = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = {}, onErrorShown = {},
+                onRefresh = {}, onLoadMore = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = { _, _ -> }, onErrorShown = {},
                 onVisible = { items -> visible += items.map { it.key } },
                 nowMillis = Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
                 zone = java.time.ZoneOffset.UTC,

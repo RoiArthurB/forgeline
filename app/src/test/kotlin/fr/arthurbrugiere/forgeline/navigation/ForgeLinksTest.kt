@@ -1,53 +1,54 @@
 package fr.arthurbrugiere.forgeline.navigation
 
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import org.junit.Test
 
 class ForgeLinksTest {
     @Test
     fun repository_urls_open_the_repo_in_app() {
         assertThat(ForgeLinks.routeFor("https://github.com/paperclipai/paperclip"))
-            .isEqualTo(RepoRoute("paperclipai", "paperclip"))
+            .isEqualTo(RepoRoute("github.com", "paperclipai", "paperclip"))
         assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/"))
-            .isEqualTo(RepoRoute("square", "okhttp"))
+            .isEqualTo(RepoRoute("github.com", "square", "okhttp"))
         assertThat(ForgeLinks.routeFor("http://www.github.com/square/okhttp#readme"))
-            .isEqualTo(RepoRoute("square", "okhttp"))
+            .isEqualTo(RepoRoute("github.com", "square", "okhttp"))
     }
 
     @Test
     fun deeper_repository_pages_open_the_repo_for_now() {
         assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/blob/master/README.md"))
-            .isEqualTo(RepoRoute("square", "okhttp"))
+            .isEqualTo(RepoRoute("github.com", "square", "okhttp"))
         assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/issues"))
-            .isEqualTo(RepoRoute("square", "okhttp"))
+            .isEqualTo(RepoRoute("github.com", "square", "okhttp"))
     }
 
     @Test
     fun issue_and_pull_request_urls_open_the_conversation() {
-        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/issues/42?x=1")).isEqualTo(IssueRoute("square", "okhttp", 42))
-        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/pull/7")).isEqualTo(IssueRoute("square", "okhttp", 7))
-        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/pull/7/files")).isEqualTo(IssueRoute("square", "okhttp", 7))
-        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/issues/42#issuecomment-1")).isEqualTo(IssueRoute("square", "okhttp", 42))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/issues/42?x=1")).isEqualTo(IssueRoute("github.com", "square", "okhttp", 42))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/pull/7")).isEqualTo(IssueRoute("github.com", "square", "okhttp", 7))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/pull/7/files")).isEqualTo(IssueRoute("github.com", "square", "okhttp", 7))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/issues/42#issuecomment-1")).isEqualTo(IssueRoute("github.com", "square", "okhttp", 42))
     }
 
     @Test
     fun actions_run_and_job_urls_open_the_run() {
         assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/actions/runs/36539745670"))
-            .isEqualTo(RunRoute("square", "okhttp", 36539745670))
+            .isEqualTo(RunRoute("github.com", "square", "okhttp", 36539745670))
         assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/actions/runs/36539745670/job/109312096849#step:10:1"))
-            .isEqualTo(RunRoute("square", "okhttp", 36539745670))
-        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/actions")).isEqualTo(RepoRoute("square", "okhttp"))
+            .isEqualTo(RunRoute("github.com", "square", "okhttp", 36539745670))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/actions")).isEqualTo(RepoRoute("github.com", "square", "okhttp"))
     }
 
     @Test
     fun profile_urls_open_the_user() {
-        assertThat(ForgeLinks.routeFor("https://github.com/octocat")).isEqualTo(UserRoute("octocat"))
-        assertThat(ForgeLinks.routeFor("https://github.com/octocat/")).isEqualTo(UserRoute("octocat"))
+        assertThat(ForgeLinks.routeFor("https://github.com/octocat")).isEqualTo(UserRoute("github.com", "octocat"))
+        assertThat(ForgeLinks.routeFor("https://github.com/octocat/")).isEqualTo(UserRoute("github.com", "octocat"))
     }
 
     @Test
     fun a_trailing_git_suffix_is_ignored() {
-        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp.git")).isEqualTo(RepoRoute("square", "okhttp"))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp.git")).isEqualTo(RepoRoute("github.com", "square", "okhttp"))
     }
 
     @Test
@@ -71,5 +72,25 @@ class ForgeLinksTest {
         assertThat(ForgeLinks.routeFor("mailto:me@example.com")).isNull()
         assertThat(ForgeLinks.routeFor("#usage")).isNull()
         assertThat(ForgeLinks.routeFor("not a url")).isNull()
+    }
+
+    @Test
+    fun codeberg_links_open_in_app_on_codeberg() {
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/forgejo")).isEqualTo(RepoRoute("codeberg.org", "forgejo", "forgejo"))
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/forgejo/issues/42")).isEqualTo(IssueRoute("codeberg.org", "forgejo", "forgejo", 42))
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/forgejo/pulls/7")).isEqualTo(IssueRoute("codeberg.org", "forgejo", "forgejo", 7))
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/alice")).isEqualTo(UserRoute("codeberg.org", "alice"))
+    }
+
+    @Test
+    fun codeberg_pages_that_are_not_people_stay_on_the_web() {
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/explore/repos")).isNull()
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/user/login")).isNull()
+    }
+
+    @Test
+    fun a_route_knows_its_forge() {
+        assertThat(RepoRoute("codeberg.org", "forgejo", "forgejo").repo.forge).isEqualTo(ForgeInstance.Codeberg)
+        assertThat(IssueRoute("github.com", "octo", "repo", 7).issue.repo.forge).isEqualTo(ForgeInstance.GitHub)
     }
 }

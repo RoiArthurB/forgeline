@@ -52,7 +52,7 @@ class InboxScreenTest {
                 onActionFailureShown = {},
                 notificationPrompt = prompt,
                 onAllowNotifications = { events += "allow" },
-                onUndo = { events += "undo:${it.threadId}:${it.action}" },
+                onUndo = { events += "undo:${it.key.substringAfter('|')}:${it.action}" },
                 nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
             )
         }
@@ -104,7 +104,7 @@ class InboxScreenTest {
 
     @Test
     fun a_held_action_offers_undo() {
-        setContent(grouped.copy(undo = PendingUndo("42", InboxAction.DONE, serial = 1)))
+        setContent(grouped.copy(undo = PendingUndo(notificationThread("42").key, InboxAction.DONE, serial = 1)))
 
         composeRule.onNodeWithText("Marked as done").assertIsDisplayed()
         composeRule.onNodeWithText("Undo").performClick()
@@ -147,7 +147,7 @@ class InboxScreenTest {
 
     @Test
     fun undo_goes_away_once_the_action_is_sent() {
-        var state by mutableStateOf(grouped.copy(undo = PendingUndo("42", InboxAction.READ, serial = 1)))
+        var state by mutableStateOf(grouped.copy(undo = PendingUndo(notificationThread("42").key, InboxAction.READ, serial = 1)))
         composeRule.setContent {
             InboxScreen(
                 state = state, onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {},

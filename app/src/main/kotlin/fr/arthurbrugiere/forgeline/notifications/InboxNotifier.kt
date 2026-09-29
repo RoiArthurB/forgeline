@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.notifications
 
+import fr.arthurbrugiere.forgeline.core.model.webUrl
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -44,12 +46,11 @@ enum class InboxChannel(val id: String, @param:StringRes val label: Int, val imp
 
 /** The web page of a thread; the app routes it back in-app when the notification is tapped. */
 fun inboxLink(thread: NotificationThread): String {
-    val base = "https://github.com/${thread.repo.fullName}"
-    val number = thread.number ?: return base
+    val number = thread.number ?: return thread.repo.webUrl
     return when (thread.type) {
-        SubjectType.ISSUE -> "$base/issues/$number"
-        SubjectType.PULL_REQUEST -> "$base/pull/$number"
-        else -> base
+        SubjectType.ISSUE -> IssueRef(thread.repo, number).webUrl(isPullRequest = false)
+        SubjectType.PULL_REQUEST -> IssueRef(thread.repo, number).webUrl(isPullRequest = true)
+        else -> thread.repo.webUrl
     }
 }
 

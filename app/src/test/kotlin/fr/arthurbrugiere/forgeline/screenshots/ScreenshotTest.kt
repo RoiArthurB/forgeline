@@ -580,7 +580,7 @@ class ScreenshotTest {
                 filter = InboxFilter.ALL,
                 groups = inboxSections,
                 syncedAtMillis = 1,
-                undo = PendingUndo("45", InboxAction.DONE, serial = 1),
+                undo = PendingUndo(notificationThread("45").key, InboxAction.DONE, serial = 1),
             ),
             onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
             onErrorShown = {}, onActionFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
@@ -636,7 +636,7 @@ class ScreenshotTest {
                     ),
                 ),
             ),
-            onRefresh = {}, onLoadMore = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = {}, onErrorShown = {},
+            onRefresh = {}, onLoadMore = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = { _, _ -> }, onErrorShown = {},
             nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
             zone = java.time.ZoneOffset.UTC,
         )

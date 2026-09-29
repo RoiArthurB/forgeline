@@ -5,6 +5,8 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Upsert
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.RepoDetails
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -13,7 +15,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.time.Instant
 
-/** Keyed by the name the repo was opened with, which may be an old name of a moved repo. */
+/** Keyed by the forge and the name the repo was opened with, which may be an old name of a moved repo. */
 @Entity(tableName = "repo_cache")
 data class RepoCacheEntity(
     @PrimaryKey val requestedName: String,
@@ -37,6 +39,8 @@ interface RepoDao {
 
 @Serializable
 private data class StoredDetails(
+    val forgeType: ForgeType = ForgeType.GITHUB,
+    val host: String = ForgeInstance.GitHub.host,
     val owner: String,
     val name: String,
     val description: String?,
@@ -56,18 +60,18 @@ private data class StoredDetails(
 
 private val json = Json { ignoreUnknownKeys = true }
 
-internal fun RepoId.cacheKey(): String = fullName.lowercase()
+internal fun RepoId.cacheKey(): String = "${forge.host}/$fullName".lowercase()
 
 internal fun RepoDetails.encode(): String = json.encodeToString(
     StoredDetails(
-        id.owner, id.name, description, homepage, topics, stars, forks, watchers, language, license,
+        id.forge.type, id.forge.host, id.owner, id.name, description, homepage, topics, stars, forks, watchers, language, license,
         defaultBranch, ownerAvatarUrl, isFork, isArchived, pushedAt?.epochSecond,
     ),
 )
 
 internal fun RepoCacheEntity.decodeDetails(): RepoDetails = json.decodeFromString<StoredDetails>(details).run {
     RepoDetails(
-        RepoId(owner, name), description, homepage, topics, stars, forks, watchers, language, license,
+        RepoId(owner, name, ForgeInstance(forgeType, host)), description, homepage, topics, stars, forks, watchers, language, license,
         defaultBranch, ownerAvatarUrl, isFork, isArchived, pushedAtEpochSeconds?.let(Instant::ofEpochSecond),
     )
 }

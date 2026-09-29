@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.actions
 
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -17,7 +18,7 @@ import org.junit.Test
 class DefaultActionsRepositoryTest {
     private val api = FakeActionsApi()
     private val accounts = FakeAccountRepository()
-    private val repository = DefaultActionsRepository(api, accounts)
+    private val repository = DefaultActionsRepository(FakeForgeClients(actions = api), accounts)
     private val repo = RepoId("octo", "repo")
 
     @Test
@@ -48,5 +49,12 @@ class DefaultActionsRepositoryTest {
         repository.rerun(repo, 7, failedJobsOnly = true)
 
         assertThat(api.calls).containsExactly("log:octo/repo:1", "rerun:octo/repo:7:failed").inOrder()
+    }
+
+    @Test
+    fun a_forge_without_actions_says_so() = runTest {
+        val repository = DefaultActionsRepository(FakeForgeClients().apply { put(ForgeInstance.Codeberg, FakeForgeClients(actions = null)) }, accounts)
+
+        assertThat(repository.run(RepoId("forgejo", "forgejo", ForgeInstance.Codeberg), 7)).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
     }
 }

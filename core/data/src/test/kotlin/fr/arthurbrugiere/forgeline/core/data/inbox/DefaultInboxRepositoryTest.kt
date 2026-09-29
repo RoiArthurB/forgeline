@@ -1,11 +1,13 @@
 package fr.arthurbrugiere.forgeline.core.data.inbox
 
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.database.ForgelineDatabase
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
@@ -44,8 +46,11 @@ class DefaultInboxRepositoryTest {
         override fun withZone(zone: ZoneId?) = this
     }
     private val issueApi = FakeIssueApi()
-    private val conversations = DefaultIssueRepository(issueApi, accounts, database.conversationDao(), clock)
-    private val repository = DefaultInboxRepository(database.inboxDao(), api, accounts, conversations, clock)
+    private val clients = FakeForgeClients(notifications = api)
+    private val conversations = DefaultIssueRepository(FakeForgeClients(issues = issueApi), accounts, database.conversationDao(), clock)
+    private val repository = DefaultInboxRepository(database.inboxDao(), clients, accounts, conversations, clock)
+
+    private val me = Account.idFor(ForgeInstance.GitHub, "me")
 
     private suspend fun signIn(login: String = "me") = accounts.signIn(ForgeInstance.GitHub, ForgeUser(login, null, null), "t-$login")
 
@@ -161,13 +166,13 @@ class DefaultInboxRepositoryTest {
         api.threads = listOf(notificationThread("1", unread = true))
         repository.sync(force = true)
 
-        assertThat(repository.markRead("1")).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(repository.markRead(me, "1")).isEqualTo(ForgeResult.Success(Unit))
         assertThat(repository.observe().first().threads.single().unread).isFalse()
 
         api.threads = listOf(notificationThread("1", unread = true))
         repository.sync(force = true)
         api.failure = ForgeError.Network
-        assertThat(repository.markRead("1")).isEqualTo(ForgeResult.Failure(ForgeError.Network))
+        assertThat(repository.markRead(me, "1")).isEqualTo(ForgeResult.Failure(ForgeError.Network))
         assertThat(repository.observe().first().threads.single().unread).isTrue()
     }
 
@@ -177,11 +182,11 @@ class DefaultInboxRepositoryTest {
         api.threads = listOf(notificationThread("1"), notificationThread("2"))
         repository.sync(force = true)
 
-        repository.markDone("1")
+        repository.markDone(me, "1")
         assertThat(repository.observe().first().threads.map { it.id }).containsExactly("2")
 
         api.failure = ForgeError.Network
-        repository.markDone("2")
+        repository.markDone(me, "2")
         assertThat(repository.observe().first().threads.map { it.id }).containsExactly("2")
     }
 
@@ -191,7 +196,7 @@ class DefaultInboxRepositoryTest {
         api.threads = listOf(notificationThread("1"))
         repository.sync(force = true)
 
-        repository.unsubscribe("1")
+        repository.unsubscribe(me, "1")
 
         assertThat(api.calls).containsAtLeast("unsubscribe:1", "done:1").inOrder()
         assertThat(repository.observe().first().threads).isEmpty()
@@ -225,12 +230,47 @@ class DefaultInboxRepositoryTest {
     }
 
     @Test
-    fun each_account_has_its_own_inbox() = runTest {
+    fun every_signed_in_account_shows_in_one_inbox() = runTest {
+        // Each forge numbers its own threads: the same id on two forges is two threads.
+        val codeberg = FakeNotificationsApi().apply { threads = listOf(notificationThread("1", repo = "forgejo/forgejo", updatedAt = "2026-09-27T09:30:00Z")) }
+        clients.put(ForgeInstance.Codeberg, FakeForgeClients(notifications = codeberg))
+        signIn()
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "cb_token")
+        api.threads = listOf(notificationThread("1"))
+
+        repository.sync(force = true)
+
+        val threads = repository.observe().first().threads
+        assertThat(threads.map { it.repo.fullName }).containsExactly("forgejo/forgejo", "acme/rocket").inOrder()
+        assertThat(threads.first().repo.forge).isEqualTo(ForgeInstance.Codeberg)
+        assertThat(codeberg.calls).contains("threads")
+
+        repository.markDone(Account.idFor(ForgeInstance.Codeberg, "me"), "1")
+
+        assertThat(codeberg.calls).contains("done:1")
+        assertThat(api.calls).doesNotContain("done:1")
+        assertThat(repository.observe().first().threads.map { it.repo.fullName }).containsExactly("acme/rocket")
+    }
+
+    @Test
+    fun one_forge_failing_leaves_the_others_updated() = runTest {
+        val codeberg = FakeNotificationsApi().apply { failure = ForgeError.Network }
+        clients.put(ForgeInstance.Codeberg, FakeForgeClients(notifications = codeberg))
+        signIn()
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "cb_token")
+        api.threads = listOf(notificationThread("1"))
+
+        assertThat(repository.sync(force = true)).isInstanceOf(SyncResult.Updated::class.java)
+        assertThat(repository.observe().first().threads).hasSize(1)
+    }
+
+    @Test
+    fun a_signed_out_account_leaves_the_inbox() = runTest {
         signIn("alice")
         api.threads = listOf(notificationThread("1"))
         repository.sync(force = true)
 
-        signIn("bob")
+        accounts.signOut(Account.idFor(ForgeInstance.GitHub, "alice"))
 
         assertThat(repository.observe().first().threads).isEmpty()
     }

@@ -14,4 +14,22 @@ class RepoIdTest {
         assertThat(RepoId("alice", "tool", ForgeInstance.GitHub).webUrl).isEqualTo("https://github.com/alice/tool")
         assertThat(RepoId("alice", "tool", ForgeInstance.Codeberg).webUrl).isEqualTo("https://codeberg.org/alice/tool")
     }
+
+    @Test
+    fun a_key_names_the_forge_and_reads_back() {
+        val codeberg = RepoId("alice", "tool", ForgeInstance.Codeberg)
+
+        assertThat(codeberg.key).isEqualTo("codeberg.org/alice/tool")
+        assertThat(RepoId.fromKey(codeberg.key)).isEqualTo(codeberg)
+        assertThat(RepoId.fromKey("github.com/alice/tool")).isEqualTo(RepoId("alice", "tool", ForgeInstance.GitHub))
+        assertThat(RepoId.fromKey("alice/tool")).isNull()
+    }
+
+    @Test
+    fun a_host_is_github_or_a_forgejo_instance() {
+        assertThat(ForgeInstance.of("github.com")).isEqualTo(ForgeInstance.GitHub)
+        assertThat(ForgeInstance.of("www.GitHub.com")).isEqualTo(ForgeInstance.GitHub)
+        assertThat(ForgeInstance.of("codeberg.org")).isEqualTo(ForgeInstance.Codeberg)
+        assertThat(ForgeInstance.of("git.example.org")).isEqualTo(ForgeInstance(ForgeType.FORGEJO, "git.example.org"))
+    }
 }

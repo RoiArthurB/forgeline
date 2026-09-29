@@ -99,5 +99,6 @@ val ForgeError.message: Int
     get() = when (this) {
         ForgeError.Network -> R.string.trending_error_offline
         is ForgeError.RateLimited -> R.string.trending_error_rate_limited
+        ForgeError.Unsupported -> R.string.error_unsupported
         else -> R.string.sign_in_error_unknown
     }

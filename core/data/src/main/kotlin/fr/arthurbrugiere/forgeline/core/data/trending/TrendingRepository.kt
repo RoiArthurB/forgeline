@@ -78,10 +78,10 @@ class DefaultTrendingRepository @Inject constructor(
 
     override suspend fun readThrough(period: TrendingPeriod): RepoId? =
         marks.get(period.markList())?.takeIf { clock.millis() - it.markedAtMillis < MARK_MAX_AGE.inWholeMilliseconds }?.itemKey
-            ?.split('/', limit = 2)?.takeIf { it.size == 2 }?.let { (owner, name) -> RepoId(owner, name) }
+            ?.let(RepoId::fromKey)
 
     override suspend fun markReadThrough(period: TrendingPeriod, repo: RepoId, rank: Int) =
-        marks.advance(period.markList(), repo.fullName, rank.toLong(), clock.millis(), MARK_MAX_AGE.inWholeMilliseconds)
+        marks.advance(period.markList(), repo.key, rank.toLong(), clock.millis(), MARK_MAX_AGE.inWholeMilliseconds)
 
     private fun TrendingPeriod.markList() = "trending:$name"
 

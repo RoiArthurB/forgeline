@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.star
 
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -14,7 +15,7 @@ import org.junit.Test
 class DefaultStarRepositoryTest {
     private val accounts = FakeAccountRepository()
     private val api = FakeStarApi()
-    private val repository = DefaultStarRepository(accounts, api)
+    private val repository = DefaultStarRepository(accounts, FakeForgeClients(stars = api))
     private val repo = RepoId("paperclipai", "paperclip")
 
     private suspend fun signIn() = accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "ghp_token")
@@ -43,5 +44,19 @@ class DefaultStarRepositoryTest {
         api.failure = ForgeError.Network
 
         assertThat(repository.starredStatus(listOf(repo))).isEmpty()
+    }
+
+    @Test
+    fun each_forge_answers_for_its_own_repositories() = runTest {
+        signIn()
+        val cb = RepoId("forgejo", "forgejo", ForgeInstance.Codeberg)
+        val codeberg = FakeStarApi()
+        val repository = DefaultStarRepository(accounts, FakeForgeClients(stars = api).apply { put(ForgeInstance.Codeberg, FakeForgeClients(stars = codeberg)) })
+
+        // Signed in on GitHub only: Codeberg's star state stays unknown, and Codeberg isn't asked.
+        val status = repository.starredStatus(listOf(repo, cb))
+
+        assertThat(status.keys).doesNotContain(cb)
+        assertThat(codeberg.tokensSeen).isEmpty()
     }
 }

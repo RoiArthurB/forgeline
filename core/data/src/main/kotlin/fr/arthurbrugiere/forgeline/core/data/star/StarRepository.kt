@@ -1,9 +1,11 @@
 package fr.arthurbrugiere.forgeline.core.data.star
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
+import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
-import fr.arthurbrugiere.forgeline.core.forge.StarApi
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -17,21 +19,25 @@ interface StarRepository {
 
 class DefaultStarRepository @Inject constructor(
     private val accounts: AccountRepository,
-    private val api: StarApi,
+    private val clients: ForgeClients,
 ) : StarRepository {
 
     override suspend fun starredStatus(repos: List<RepoId>): Map<RepoId, Boolean> {
-        val token = activeToken() ?: return emptyMap()
-        return when (val result = api.starredStatus(token, repos)) {
+        // Each forge answers for its own repositories, with the account signed in there.
+        return repos.groupBy { it.forge }.flatMap { (forge, ids) -> starredOn(forge, ids).entries }.associate { it.key to it.value }
+    }
+
+    private suspend fun starredOn(forge: ForgeInstance, repos: List<RepoId>): Map<RepoId, Boolean> {
+        val token = accounts.tokenOn(forge) ?: return emptyMap()
+        return when (val result = clients.stars(forge).starredStatus(token, repos)) {
             is ForgeResult.Success -> result.value
             is ForgeResult.Failure -> emptyMap()
         }
     }
 
     override suspend fun setStarred(repo: RepoId, starred: Boolean): ForgeResult<Unit> {
-        val token = activeToken() ?: return ForgeResult.Failure(ForgeError.Unauthorized)
-        return api.setStarred(token, repo, starred)
+        val token = accounts.tokenOn(repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return clients.stars(repo.forge).setStarred(token, repo, starred)
     }
 
-    private suspend fun activeToken(): String? = accounts.activeAccount.first()?.let { accounts.token(it.id) }
 }

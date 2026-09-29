@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -131,8 +132,8 @@ fun RepoRoute(
     onOpenUser: (String) -> Unit,
     onSignIn: () -> Unit,
 ) {
-    val id = RepoId(route.owner, route.name)
-    val viewModel = hiltViewModel<RepoViewModel, RepoViewModel.Factory>(key = id.fullName) { it.create(id) }
+    val id = route.repo
+    val viewModel = hiltViewModel<RepoViewModel, RepoViewModel.Factory>(key = id.key) { it.create(id) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
     val signedIn = session is SessionState.SignedIn
@@ -163,15 +164,7 @@ fun RepoRoute(
         onOpenIssue = { number -> state.details?.let { onOpenIssue(IssueRef(it.id, number)) } },
         onOpenRun = { runId -> state.details?.let { onOpenRun(it.id, runId) } },
         onOpenUser = onOpenUser,
-        onLinkClick = { url ->
-            when (val target = ForgeLinks.routeFor(url)) {
-                is RepoRoute -> onOpenRepo(RepoId(target.owner, target.name))
-                is IssueRoute -> onOpenIssue(IssueRef(RepoId(target.owner, target.name), target.number))
-                is RunRoute -> onOpenRun(RepoId(target.owner, target.name), target.runId)
-                is UserRoute -> onOpenUser(target.login)
-                else -> if (!url.startsWith("#")) openUrl(url)
-            }
-        },
+        onLinkClick = { url -> openForgeLink(url, id.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRun) },
         onOpenInBrowser = openUrl,
         onLoadRefs = viewModel::loadRefs,
         onRunWorkflow = if (signedIn) ({ dispatching = true }) else null,
@@ -267,8 +260,12 @@ fun RepoScreen(
                         onBack = onBack,
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
-                            IconButton(onClick = { onOpenInBrowser("https://github.com/${id.fullName}") }) {
-                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge), tint = colors.ink)
+                            IconButton(onClick = { onOpenInBrowser(id.webUrl) }) {
+                                Icon(
+                                    Icons.AutoMirrored.Outlined.OpenInNew,
+                                    contentDescription = stringResource(R.string.repo_open_on_forge, id.forge.displayName),
+                                    tint = colors.ink,
+                                )
                             }
                         },
                     ) {

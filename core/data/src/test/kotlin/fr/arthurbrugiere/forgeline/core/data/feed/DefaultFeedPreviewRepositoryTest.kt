@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.feed
 
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
@@ -40,7 +41,7 @@ class DefaultFeedPreviewRepositoryTest {
         override fun withZone(zone: ZoneId?) = this
     }
 
-    private fun repository() = DefaultFeedPreviewRepository(database.feedPreviewDao(), repoApi, issueApi, accounts, clock)
+    private fun repository() = DefaultFeedPreviewRepository(database.feedPreviewDao(), FakeForgeClients(repos = repoApi, issues = issueApi), accounts, clock)
 
     private val rocket = RepoId("acme", "rocket")
     private val pull = IssueRef(rocket, 43)

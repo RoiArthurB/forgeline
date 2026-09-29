@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.data.feed
 
+import fr.arthurbrugiere.forgeline.core.model.Account
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
@@ -40,7 +42,8 @@ class DefaultFeedRepositoryTest {
         override fun getZone(): ZoneId = ZoneOffset.UTC
         override fun withZone(zone: ZoneId?) = this
     }
-    private val repository = DefaultFeedRepository(database.feedDao(), api, accounts, database.readingMarkDao(), clock)
+    private val clients = FakeForgeClients(feed = api)
+    private val repository = DefaultFeedRepository(database.feedDao(), clients, accounts, database.readingMarkDao(), clock)
 
     private suspend fun signIn(login: String = "me") = accounts.signIn(ForgeInstance.GitHub, ForgeUser(login, null, null), "t-$login")
 
@@ -135,26 +138,61 @@ class DefaultFeedRepositoryTest {
     }
 
     @Test
-    fun each_account_has_its_own_feed() = runTest {
+    fun a_signed_out_account_leaves_the_feed() = runTest {
         signIn("me")
         api.pages[1] = listOf(feedEvent("1"))
         repository.refresh(force = true)
 
-        signIn("other")
+        accounts.signOut(Account.idFor(ForgeInstance.GitHub, "me"))
+
         assertThat(repository.observe().first().events).isEmpty()
         assertThat(repository.observe().first().syncedAtMillis).isNull()
     }
 
     @Test
-    fun the_read_mark_only_moves_to_newer_activity_per_account() = runTest {
+    fun every_account_feeds_one_timeline_in_order() = runTest {
+        val codeberg = FakeFeedApi().apply { pages[1] = listOf(feedEvent("c1", repo = "forgejo/forgejo", createdAt = "2026-09-27T09:30:00Z")) }
+        clients.put(ForgeInstance.Codeberg, FakeForgeClients(feed = codeberg))
+        signIn("me")
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "cb_token")
+        api.pages[1] = listOf(feedEvent("g2", createdAt = "2026-09-27T10:00:00Z"), feedEvent("g1", createdAt = "2026-09-27T09:00:00Z"))
+
+        repository.refresh(force = true)
+
+        val events = repository.observe().first().events
+        assertThat(events.map { it.id }).containsExactly("g2", "c1", "g1").inOrder()
+        assertThat(events[1].repo.forge).isEqualTo(ForgeInstance.Codeberg)
+    }
+
+    @Test
+    fun rows_never_move_when_an_older_page_arrives() = runTest {
+        // GitHub has loaded back to 09:00 with more pages left; Codeberg's page reaches back to 07:00. Codeberg's
+        // 08:00 event must wait below the horizon: showing it now would put it above GitHub rows still to come.
+        val codeberg = FakeFeedApi().apply {
+            pages[1] = listOf(feedEvent("c2", repo = "forgejo/forgejo", createdAt = "2026-09-27T09:30:00Z"), feedEvent("c1", repo = "forgejo/forgejo", createdAt = "2026-09-27T08:00:00Z"))
+        }
+        clients.put(ForgeInstance.Codeberg, FakeForgeClients(feed = codeberg))
+        signIn("me")
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "cb_token")
+        api.pages[1] = listOf(feedEvent("g2", createdAt = "2026-09-27T10:00:00Z"), feedEvent("g1", createdAt = "2026-09-27T09:00:00Z"))
+        api.pages[2] = listOf(feedEvent("g0", createdAt = "2026-09-27T08:30:00Z"))
+        repository.refresh(force = true)
+
+        assertThat(repository.observe().first().events.map { it.id }).containsExactly("g2", "c2", "g1").inOrder()
+
+        repository.loadMore()
+
+        assertThat(repository.observe().first().events.map { it.id }).containsExactly("g2", "c2", "g1", "g0", "c1").inOrder()
+    }
+
+    @Test
+    fun the_read_mark_only_moves_to_newer_activity() = runTest {
         accounts.signIn(ForgeInstance.GitHub, ForgeUser("alice", null, null), "t-alice")
         assertThat(repository.readUpTo()).isNull()
 
         repository.markRead("e2", Instant.parse("2026-09-27T09:00:00Z"))
         repository.markRead("e1", Instant.parse("2026-09-27T08:00:00Z"))
-        assertThat(repository.readUpTo()).isEqualTo(Instant.parse("2026-09-27T09:00:00Z"))
 
-        accounts.signIn(ForgeInstance.GitHub, ForgeUser("bob", null, null), "t-bob")
-        assertThat(repository.readUpTo()).isNull()
+        assertThat(repository.readUpTo()).isEqualTo(Instant.parse("2026-09-27T09:00:00Z"))
     }
 }

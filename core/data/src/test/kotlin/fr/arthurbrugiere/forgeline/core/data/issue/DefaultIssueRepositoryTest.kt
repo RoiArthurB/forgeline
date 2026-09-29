@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.issue
 
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -41,7 +42,7 @@ class DefaultIssueRepositoryTest {
         override fun getZone(): ZoneId = ZoneOffset.UTC
         override fun withZone(zone: ZoneId?) = this
     }
-    private val repository = DefaultIssueRepository(api, accounts, database.conversationDao(), clock)
+    private val repository = DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock)
 
     @After
     fun closeDatabase() = database.close()
@@ -55,7 +56,7 @@ class DefaultIssueRepositoryTest {
         repository.issue(ref)
         repository.timeline(ref, 1)
 
-        val relaunched = DefaultIssueRepository(api, accounts, database.conversationDao(), clock)
+        val relaunched = DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock)
 
         assertThat(relaunched.cached(ref)).isNull()
         val stored = relaunched.stored(ref)!!
@@ -73,7 +74,7 @@ class DefaultIssueRepositoryTest {
             repository.issue(other)
         }
 
-        val relaunched = DefaultIssueRepository(api, accounts, database.conversationDao(), clock)
+        val relaunched = DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock)
 
         assertThat(relaunched.stored(IssueRef(RepoId("octo", "repo"), 100))).isNull()
         assertThat(relaunched.stored(IssueRef(RepoId("octo", "repo"), 101))).isNotNull()
@@ -132,7 +133,7 @@ class DefaultIssueRepositoryTest {
         now = Instant.parse("2026-09-29T10:00:00Z").toEpochMilli()
 
         assertThat(repository.prefetch(ref, Instant.parse("2026-09-29T09:00:00Z"))).isTrue()
-        assertThat(DefaultIssueRepository(api, accounts, database.conversationDao(), clock).stored(ref)?.issue).isEqualTo(issueDetails(ref))
+        assertThat(DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock).stored(ref)?.issue).isEqualTo(issueDetails(ref))
 
         // Nothing happened since it was kept: no request.
         assertThat(repository.prefetch(ref, Instant.parse("2026-09-29T09:30:00Z"))).isFalse()

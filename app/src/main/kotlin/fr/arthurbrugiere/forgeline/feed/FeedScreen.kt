@@ -45,6 +45,7 @@ import fr.arthurbrugiere.forgeline.ui.ReportReading
 import fr.arthurbrugiere.forgeline.ui.LeftOffMark
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.IssueAction
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -121,7 +122,7 @@ fun FeedRoute(
     onSignIn: () -> Unit,
     onOpenRepo: (RepoId) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
-    onOpenUser: (String) -> Unit,
+    onOpenUser: (ForgeInstance, String) -> Unit,
 ) {
     if (session !is SessionState.SignedIn) {
         Column(Modifier.fillMaxSize().background(Soft.colors.ground), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -179,7 +180,7 @@ fun FeedScreen(
     onLoadMore: () -> Unit,
     onOpenRepo: (RepoId) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
-    onOpenUser: (String) -> Unit,
+    onOpenUser: (ForgeInstance, String) -> Unit,
     onErrorShown: () -> Unit,
     modifier: Modifier = Modifier,
     onVisible: (List<FeedItem>) -> Unit = {},
@@ -300,7 +301,7 @@ private fun FeedRow(
     nowMillis: Long,
     onOpenRepo: (RepoId) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
-    onOpenUser: (String) -> Unit,
+    onOpenUser: (ForgeInstance, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = Soft.colors
@@ -321,7 +322,7 @@ private fun FeedRow(
             placeholderContentColor = colors.inkMuted,
             modifier = Modifier
                 .clip(CircleShape)
-                .clickable { onOpenUser(actor.login) }
+                .clickable { onOpenUser(item.repo.forge, actor.login) }
                 .semantics { contentDescription = actor.login },
         )
         Spacer(Modifier.width(12.dp))
@@ -534,14 +535,14 @@ private fun Instant.day(nowMillis: Long, zone: ZoneId): Day {
     }
 }
 
-private fun FeedItem.open(onOpenRepo: (RepoId) -> Unit, onOpenIssue: (IssueRef) -> Unit, onOpenUser: (String) -> Unit) {
+private fun FeedItem.open(onOpenRepo: (RepoId) -> Unit, onOpenIssue: (IssueRef) -> Unit, onOpenUser: (ForgeInstance, String) -> Unit) {
     when (val action = action) {
         is FeedAction.Issue -> onOpenIssue(IssueRef(repo, action.number))
         is FeedAction.PullRequest -> onOpenIssue(IssueRef(repo, action.number))
         is FeedAction.Commented -> onOpenIssue(IssueRef(repo, action.number))
         is FeedAction.Reviewed -> onOpenIssue(IssueRef(repo, action.number))
         is FeedAction.Forked -> onOpenRepo(action.fork)
-        is FeedAction.AddedMember -> onOpenUser(action.login)
+        is FeedAction.AddedMember -> onOpenUser(repo.forge, action.login)
         else -> onOpenRepo(repo)
     }
 }

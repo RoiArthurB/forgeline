@@ -156,6 +156,7 @@
     <string name="trending_refresh_failed">Couldn\'t refresh. Showing the last saved list.</string>
     <string name="trending_star_failed">Couldn\'t update the star. Try again.</string>
     <string name="retry">Retry</string>
+    <string name="error_unsupported">This forge doesn\'t offer this.</string>
 
     <string name="repo_tab_readme">README</string>
     <string name="repo_tab_code">Code</string>
@@ -163,7 +164,7 @@
     <string name="repo_tab_pulls">Pull requests</string>
     <string name="repo_tab_releases">Releases</string>
     <string name="repo_tab_actions">Actions</string>
-    <string name="repo_open_on_forge">Open on GitHub</string>
+    <string name="repo_open_on_forge">Open on %1$s</string>
     <string name="repo_star">Star</string>
     <string name="repo_starred">Starred</string>
     <string name="repo_watchers">%1$s watching</string>

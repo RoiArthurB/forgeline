@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.search
 
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import androidx.lifecycle.SavedStateHandle
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.search.SearchRepository
@@ -32,7 +33,7 @@ class SearchViewModelTest {
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
     private fun TestScope.viewModel(saved: SavedStateHandle = SavedStateHandle()) =
-        SearchViewModel(saved, SearchRepository(api, FakeAccountRepository())).also { it.state.launchIn(backgroundScope) }
+        SearchViewModel(saved, SearchRepository(FakeForgeClients(search = api), FakeAccountRepository())).also { it.state.launchIn(backgroundScope) }
 
     @Test
     fun nothing_is_searched_until_submitted() = test {
