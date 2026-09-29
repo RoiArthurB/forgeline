@@ -102,6 +102,8 @@ data class RunStep(
     val name: String,
     val status: RunStatus,
     val conclusion: RunConclusion?,
+    val startedAt: java.time.Instant? = null,
+    val completedAt: java.time.Instant? = null,
 )
 
 data class RunJob(

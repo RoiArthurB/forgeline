@@ -33,6 +33,9 @@ class FakeActionsApi : ActionsApi {
 
     override suspend fun jobs(token: String?, id: RepoId, runId: Long) = found(jobs[runId]).also { calls += "jobs:${id.fullName}:$runId" }
 
+    override suspend fun job(token: String?, id: RepoId, jobId: Long) =
+        found(jobs.values.flatten().lastOrNull { it.id == jobId }).also { calls += "job:${id.fullName}:$jobId" }
+
     override suspend fun jobLog(token: String, id: RepoId, jobId: Long) = found(logs[jobId]).also { calls += "log:${id.fullName}:$jobId" }
 
     override suspend fun workflows(token: String?, id: RepoId) = ForgeResult.Success(workflows).also { calls += "workflows:${id.fullName}" }

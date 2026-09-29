@@ -206,6 +206,8 @@
     <string name="run_cancel_requested">Cancel requested</string>
     <string name="run_action_no_access">GitHub refused: you need write access to this repository.</string>
     <string name="log_loading">Loading the log</string>
+    <string name="log_live">Running now. GitHub publishes the log when the job finishes; until then its steps update here.</string>
+    <string name="log_publishing">GitHub is publishing the log</string>
     <string name="dispatch_title">Run a workflow</string>
     <string name="dispatch_loading">Loading workflows</string>
     <string name="dispatch_failed">Couldn\'t load the workflows</string>

@@ -9,6 +9,10 @@ import fr.arthurbrugiere.forgeline.core.model.JobLog
 import fr.arthurbrugiere.forgeline.core.model.LogEntry
 import fr.arthurbrugiere.forgeline.core.model.LogLineKind
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RunConclusion
+import fr.arthurbrugiere.forgeline.core.model.RunJob
+import fr.arthurbrugiere.forgeline.core.model.RunStatus
+import fr.arthurbrugiere.forgeline.core.model.RunStep
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeActionsApi
 import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
@@ -68,6 +72,59 @@ class JobLogViewModelTest {
         viewModel.toggleGroup(0)
 
         assertThat(viewModel.state.value.rows[1]).isEqualTo(LogRow.Line(LogEntry.Line("Runner version 2.337"), 0, 0))
+    }
+
+    private fun job(status: RunStatus, conclusion: RunConclusion? = null) = RunJob(
+        3, "test", status, conclusion, null, null,
+        listOf(RunStep(1, "Set up job", RunStatus.COMPLETED, RunConclusion.SUCCESS), RunStep(2, "Run tests", status, conclusion)),
+    )
+
+    @Test
+    fun a_running_job_shows_its_steps_without_asking_for_a_log() = test {
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "ghp_token")
+        api.jobs[1] = listOf(job(RunStatus.IN_PROGRESS))
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.isRunning).isTrue()
+        assertThat(viewModel.state.value.isLive).isTrue()
+        assertThat(viewModel.state.value.job?.steps?.last()?.name).isEqualTo("Run tests")
+        assertThat(api.calls.none { it.startsWith("log:") }).isTrue()
+    }
+
+    @Test
+    fun once_the_job_finishes_its_log_loads() = test {
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "ghp_token")
+        api.jobs[1] = listOf(job(RunStatus.IN_PROGRESS))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        api.jobs[1] = listOf(job(RunStatus.COMPLETED, RunConclusion.FAILURE))
+        api.logs[3] = log
+        viewModel.poll()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.isRunning).isFalse()
+        assertThat(viewModel.state.value.log).isEqualTo(Loadable.Loaded(log))
+        assertThat(viewModel.state.value.isLive).isFalse()
+    }
+
+    @Test
+    fun a_log_not_published_yet_is_asked_for_again_a_few_times() = test {
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "ghp_token")
+        api.jobs[1] = listOf(job(RunStatus.COMPLETED, RunConclusion.SUCCESS))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.isLive).isTrue()
+
+        repeat(MAX_LOG_ATTEMPTS) {
+            viewModel.poll()
+            advanceUntilIdle()
+        }
+
+        assertThat(viewModel.state.value.isLive).isFalse()
+        assertThat(viewModel.state.value.log).isEqualTo(Loadable.Failed(ForgeError.Http(404, "Not Found")))
     }
 
     @Test

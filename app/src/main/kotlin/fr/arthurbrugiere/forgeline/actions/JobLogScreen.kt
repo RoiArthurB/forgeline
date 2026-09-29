@@ -51,6 +51,15 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
+import fr.arthurbrugiere.forgeline.core.model.RunStep
+import fr.arthurbrugiere.forgeline.core.model.RunStatus
+import fr.arthurbrugiere.forgeline.core.model.RunConclusion
+import kotlinx.coroutines.delay
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.LaunchedEffect
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.LogLineKind
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -76,6 +85,25 @@ fun JobLogRoute(route: JobLogRoute, onBack: () -> Unit, onSignIn: () -> Unit) {
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
+    // GitHub has no live log: while the job runs its steps are checked again, then the log is fetched once published.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(state.isLive) {
+        if (!state.isLive) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                delay(JobLogViewModel.POLL_MILLIS)
+                viewModel.poll()
+            }
+        }
+    }
+    // The running step's timer ticks every second.
+    var nowMillis by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(state.isRunning) {
+        while (state.isRunning) {
+            nowMillis = System.currentTimeMillis()
+            delay(1_000)
+        }
+    }
     JobLogScreen(
         state = state,
         onBack = onBack,
@@ -83,6 +111,7 @@ fun JobLogRoute(route: JobLogRoute, onBack: () -> Unit, onSignIn: () -> Unit) {
         onToggleGroup = viewModel::toggleGroup,
         onSignIn = onSignIn,
         onOpenInBrowser = { openUrl("https://github.com/${repo.fullName}/actions/runs/${route.runId}/job/${route.jobId}") },
+        nowMillis = nowMillis,
     )
 }
 
@@ -95,6 +124,7 @@ fun JobLogScreen(
     onSignIn: () -> Unit,
     onOpenInBrowser: () -> Unit,
     modifier: Modifier = Modifier,
+    nowMillis: Long = System.currentTimeMillis(),
 ) {
     val colors = Soft.colors
     val palette = if (colors.isDark) AnsiDark else AnsiLight
@@ -113,7 +143,11 @@ fun JobLogScreen(
         ) {
             item(key = "header") {
                 SoftHeader(
-                    tint = if (errors.isNotEmpty()) colors.fields[0] else colors.fields[1],
+                    tint = when {
+                        errors.isNotEmpty() || state.job?.conclusion.failed -> colors.fields[0]
+                        state.job?.conclusion == RunConclusion.SUCCESS -> colors.fields[2]
+                        else -> colors.fields[1]
+                    },
                     onBack = onBack,
                     backDescription = stringResource(R.string.navigate_up),
                     actions = {
@@ -124,6 +158,13 @@ fun JobLogScreen(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(state.jobName, style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 30.sp), color = colors.ink)
+                        state.job?.let { job ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                RunStatusIcon(job.status, job.conclusion, size = 28.dp)
+                                Spacer(Modifier.width(10.dp))
+                                Text(statusLine(job.status, job.conclusion, job.startedAt, job.completedAt, nowMillis), style = Soft.type.body, color = colors.ink)
+                            }
+                        }
                         if (errors.isNotEmpty()) {
                             Row(
                                 Modifier
@@ -147,16 +188,32 @@ fun JobLogScreen(
                     }
                 }
             }
-            when (val log = state.log) {
-                Loadable.Idle, Loadable.Loading -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.log_loading), rows = 6, leadingDot = false) }
-                is Loadable.Failed -> item(key = "failed") {
+            val job = state.job
+            val log = state.log
+            when {
+                state.isRunning && job != null -> {
+                    item(key = "live") {
+                        Text(
+                            stringResource(R.string.log_live),
+                            style = Soft.type.secondary,
+                            color = colors.inkMuted,
+                            modifier = LineModifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                        )
+                    }
+                    items(job.steps, key = { "step-${it.number}" }) { StepRow(it, nowMillis) }
+                }
+                log is Loadable.Failed && state.isLive -> item(key = "publishing") {
+                    SoftLoadingRows(stringResource(R.string.log_publishing), rows = 6, leadingDot = false)
+                }
+                log == Loadable.Idle || log == Loadable.Loading -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.log_loading), rows = 6, leadingDot = false) }
+                log is Loadable.Failed -> item(key = "failed") {
                     if (log.error == ForgeError.Unauthorized) {
                         SoftNotice(stringResource(R.string.log_sign_in_title), stringResource(R.string.log_sign_in_body), action = stringResource(R.string.sign_in), onAction = onSignIn)
                     } else {
                         SoftNotice(stringResource(R.string.log_failed), stringResource(log.error.message), action = stringResource(R.string.retry), onAction = onRetry)
                     }
                 }
-                is Loadable.Loaded -> {
+                log is Loadable.Loaded -> {
                     if (rows.isEmpty()) {
                         item(key = "empty") { SoftNotice(stringResource(R.string.log_empty_title), stringResource(R.string.log_empty_body)) }
                     }
@@ -171,6 +228,34 @@ fun JobLogScreen(
         }
         val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
         SoftStatusBarScrim(scrolled)
+    }
+}
+
+/** A step of a running job: its state, and how long it took or has been going. */
+@Composable
+private fun StepRow(step: RunStep, nowMillis: Long) {
+    val colors = Soft.colors
+    val current = step.status == RunStatus.IN_PROGRESS
+    Row(
+        LineModifier
+            .padding(horizontal = 8.dp)
+            .then(if (current) Modifier.background(colors.surface, SoftTokens.RowCorner) else Modifier)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RunStatusIcon(step.status, step.conclusion, size = 28.dp)
+        Spacer(Modifier.width(12.dp))
+        Text(
+            step.name,
+            style = Soft.type.body,
+            color = if (step.status == RunStatus.QUEUED) colors.inkMuted else colors.ink,
+            modifier = Modifier.weight(1f),
+        )
+        val took = step.startedAt?.let { start ->
+            val end = step.completedAt ?: if (current) java.time.Instant.ofEpochMilli(nowMillis) else null
+            end?.let { formatDuration(java.time.Duration.between(start, it)) }
+        }
+        if (took != null) Text(took, style = Soft.type.meta, color = colors.inkMuted)
     }
 }
 

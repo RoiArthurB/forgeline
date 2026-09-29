@@ -74,6 +74,21 @@ class GitHubActionsApiTest {
     }
 
     @Test
+    fun a_running_job_reports_its_steps_as_they_go() = runTest {
+        // Captured while the job ran: its log doesn't exist yet (the logs endpoint answers 404), its steps do.
+        val job = api { json(fixture("job_running.json")) }.job(null, paperclip, 109371394234).value()
+
+        assertThat(job.status).isEqualTo(RunStatus.IN_PROGRESS)
+        val current = job.steps.single { it.status == RunStatus.IN_PROGRESS }
+        assertThat(current.name).isEqualTo("Verify Paperclip Runner")
+        assertThat(current.startedAt).isEqualTo(Instant.parse("2026-09-29T10:50:01Z"))
+        assertThat(current.completedAt).isNull()
+        assertThat(job.steps.first().completedAt).isEqualTo(Instant.parse("2026-09-29T10:49:07Z"))
+        assertThat(job.steps.last().status).isEqualTo(RunStatus.QUEUED)
+        assertThat(requests.single().url.encodedPath).isEqualTo("/repos/paperclipai/paperclip/actions/jobs/109371394234")
+    }
+
+    @Test
     fun a_job_log_folds_groups_and_marks_errors() = runTest {
         val log = api { respond(fixture("job_log.txt"), HttpStatusCode.OK) }.jobLog("token", paperclip, 109312096849).value()
 

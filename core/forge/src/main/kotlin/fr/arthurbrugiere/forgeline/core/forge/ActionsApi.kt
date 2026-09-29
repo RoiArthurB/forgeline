@@ -14,7 +14,10 @@ interface ActionsApi {
     /** The latest attempt's jobs, in the order the forge lists them. */
     suspend fun jobs(token: String?, id: RepoId, runId: Long): ForgeResult<List<RunJob>>
 
-    /** GitHub serves logs to signed-in users only, even on public repositories. */
+    /** One job, with its steps: while it runs, the only live view GitHub offers. */
+    suspend fun job(token: String?, id: RepoId, jobId: Long): ForgeResult<RunJob>
+
+    /** GitHub serves logs to signed-in users only, even on public repositories, and only once the job has finished. */
     suspend fun jobLog(token: String, id: RepoId, jobId: Long): ForgeResult<JobLog>
 
     /** Active workflows defined in the repository. */

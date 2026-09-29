@@ -11,6 +11,10 @@ import fr.arthurbrugiere.forgeline.core.model.JobLog
 import fr.arthurbrugiere.forgeline.core.model.LogEntry
 import fr.arthurbrugiere.forgeline.core.model.LogLineKind
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RunConclusion
+import fr.arthurbrugiere.forgeline.core.model.RunJob
+import fr.arthurbrugiere.forgeline.core.model.RunStatus
+import fr.arthurbrugiere.forgeline.core.model.RunStep
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import org.junit.Rule
 import org.junit.Test
@@ -58,6 +62,32 @@ class JobLogScreenTest {
         composeRule.onNodeWithText("Set up job").performClick()
 
         assertThat(events).containsExactly("toggle:0")
+    }
+
+    @Test
+    fun a_running_job_shows_its_steps_live() {
+        val start = java.time.Instant.parse("2026-09-29T10:49:05Z")
+        val job = RunJob(
+            3, "test", RunStatus.IN_PROGRESS, null, start, null,
+            listOf(
+                RunStep(1, "Set up job", RunStatus.COMPLETED, RunConclusion.SUCCESS, start, start.plusSeconds(2)),
+                RunStep(2, "Run tests", RunStatus.IN_PROGRESS, null, start.plusSeconds(2), null),
+                RunStep(3, "Post checkout", RunStatus.QUEUED, null, null, null),
+            ),
+        )
+        composeRule.setContent {
+            JobLogScreen(
+                state = JobLogUiState(repo, 3, "test", Loadable.Idle, job = job),
+                onBack = {}, onRetry = {}, onToggleGroup = {}, onSignIn = {}, onOpenInBrowser = {},
+                nowMillis = start.plusSeconds(92).toEpochMilli(),
+            )
+        }
+
+        composeRule.onNodeWithText("Running for 1m 32s").assertIsDisplayed()
+        composeRule.onNodeWithText("Run tests").assertIsDisplayed()
+        composeRule.onNodeWithText("1m 30s").assertIsDisplayed()
+        composeRule.onNodeWithText("2s").assertIsDisplayed()
+        composeRule.onNodeWithText("Running now", substring = true).assertIsDisplayed()
     }
 
     @Test

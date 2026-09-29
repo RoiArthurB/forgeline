@@ -39,6 +39,10 @@ class GitHubActionsApi(
             .toResult { body<JobsResponse>().jobs.map { it.toModel() } }
     }
 
+    override suspend fun job(token: String?, id: RepoId, jobId: Long): ForgeResult<RunJob> = gitHubCall {
+        call(token, id, "actions", "jobs", jobId.toString()).toResult { body<JobResponse>().toModel() }
+    }
+
     override suspend fun jobLog(token: String, id: RepoId, jobId: Long): ForgeResult<JobLog> = gitHubCall {
         // Answers a redirect to short-lived blob storage, which the client follows.
         val response = call(token, id, "actions", "jobs", jobId.toString(), "logs")
@@ -114,12 +118,24 @@ private data class JobResponse(
         conclusion = runConclusion(conclusion),
         startedAt = startedAt?.let(Instant::parse),
         completedAt = completedAt?.let(Instant::parse),
-        steps = steps.map { RunStep(it.number, it.name, runStatus(it.status), runConclusion(it.conclusion)) },
+        steps = steps.map {
+            RunStep(
+                it.number, it.name, runStatus(it.status), runConclusion(it.conclusion),
+                it.startedAt?.let(Instant::parse), it.completedAt?.let(Instant::parse),
+            )
+        },
     )
 }
 
 @Serializable
-private data class StepResponse(val number: Int, val name: String, val status: String? = null, val conclusion: String? = null)
+private data class StepResponse(
+    val number: Int,
+    val name: String,
+    val status: String? = null,
+    val conclusion: String? = null,
+    @SerialName("started_at") val startedAt: String? = null,
+    @SerialName("completed_at") val completedAt: String? = null,
+)
 
 @Serializable
 private data class WorkflowsResponse(val workflows: List<WorkflowResponse>)

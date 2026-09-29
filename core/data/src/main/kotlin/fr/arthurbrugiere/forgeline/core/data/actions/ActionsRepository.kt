@@ -19,6 +19,8 @@ interface ActionsRepository {
 
     suspend fun jobs(id: RepoId, runId: Long): ForgeResult<List<RunJob>>
 
+    suspend fun job(id: RepoId, jobId: Long): ForgeResult<RunJob>
+
     suspend fun jobLog(id: RepoId, jobId: Long): ForgeResult<JobLog>
 
     suspend fun workflows(id: RepoId): ForgeResult<List<Workflow>>
@@ -40,6 +42,8 @@ class DefaultActionsRepository @Inject constructor(
     override suspend fun run(id: RepoId, runId: Long) = api.run(token(), id, runId)
 
     override suspend fun jobs(id: RepoId, runId: Long) = api.jobs(token(), id, runId)
+
+    override suspend fun job(id: RepoId, jobId: Long) = api.job(token(), id, jobId)
 
     override suspend fun jobLog(id: RepoId, jobId: Long) = signedIn { api.jobLog(it, id, jobId) }
 
