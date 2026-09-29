@@ -37,6 +37,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
@@ -347,6 +349,9 @@ private fun StateTag(issue: IssueDetails) {
 
 private val TimelineGutter = 40.dp
 
+/** On a comment body still being parsed; lets tests wait until every body is rendered. */
+const val MARKDOWN_PENDING_TAG = "markdown-pending"
+
 /** One comment as a conversation turn: the author and when, then their words; unboxed, the reading is the point. */
 @Composable
 private fun Comment(
@@ -385,7 +390,15 @@ private fun Markdown(body: String, context: ReadmeContext, onLinkClick: (String)
     val colors = Soft.colors
     val parsed = rememberReadmeState(body, context, colors.isDark)
     if (parsed == null) {
-        Text(body, style = Soft.type.body, color = colors.ink, maxLines = 6, overflow = TextOverflow.Ellipsis)
+        // Styled like the rendered paragraph, so nothing jumps when parsing lands.
+        Text(
+            body,
+            style = MaterialTheme.typography.bodyLarge,
+            color = colors.ink,
+            maxLines = 6,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.testTag(MARKDOWN_PENDING_TAG),
+        )
     } else {
         ForgelineMarkdown(parsed, onLinkClick)
     }

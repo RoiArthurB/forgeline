@@ -346,8 +346,14 @@ private fun FeedItem.open(onOpenRepo: (RepoId) -> Unit, onOpenIssue: (IssueRef) 
     }
 }
 
+/** A word joiner after each slash, so "owner/name" never breaks across lines. */
+internal fun String.unbreakable(): String = replace("/", "/\u2060")
+
 @Composable
-private fun FeedItem.headline(): String {
+private fun FeedItem.headline(): String = rawHeadline().unbreakable()
+
+@Composable
+private fun FeedItem.rawHeadline(): String {
     val who = when (actors.size) {
         1 -> actors[0].login
         2 -> stringResource(R.string.feed_actors_two, actors[0].login, actors[1].login)
@@ -409,7 +415,9 @@ private fun FeedItem.headline(): String {
 }
 
 /** The people and repos a headline names, emphasized so the timeline can be skimmed. */
-private fun FeedItem.names(): List<String> = buildList {
+private fun FeedItem.names(): List<String> = rawNames().map { it.unbreakable() }
+
+private fun FeedItem.rawNames(): List<String> = buildList {
     addAll(actors.take(2).map { it.login })
     add(repo.fullName)
     when (val a = action) {

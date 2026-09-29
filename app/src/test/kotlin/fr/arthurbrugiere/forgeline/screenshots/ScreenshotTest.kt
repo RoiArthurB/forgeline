@@ -47,6 +47,7 @@ import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import fr.arthurbrugiere.forgeline.core.testing.notificationThread
 import fr.arthurbrugiere.forgeline.issue.IssueScreen
+import fr.arthurbrugiere.forgeline.issue.MARKDOWN_PENDING_TAG
 import fr.arthurbrugiere.forgeline.issue.IssueUiState
 import fr.arthurbrugiere.forgeline.user.UserScreen
 import fr.arthurbrugiere.forgeline.user.UserUiState
@@ -100,6 +101,7 @@ class ScreenshotTest {
         amoledBlack: Boolean = false,
         awaitText: String? = null,
         awaitTag: String? = null,
+        awaitGoneTag: String? = null,
         beforeCapture: () -> Unit = {},
         content: @Composable () -> Unit,
     ) {
@@ -115,6 +117,9 @@ class ScreenshotTest {
         }
         awaitTag?.let { tag ->
             composeRule.waitUntil(10_000) { composeRule.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty() }
+        }
+        awaitGoneTag?.let { tag ->
+            composeRule.waitUntil(10_000) { composeRule.onAllNodes(hasTestTag(tag), useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
         }
         beforeCapture()
         composeRule.onRoot().captureRoboImage("src/test/screenshots/$name.png")
@@ -315,7 +320,7 @@ class ScreenshotTest {
     }
 
     @Test
-    fun issue_light() = snapshot("issue_light", darkTheme = false, awaitText = "Same here on 2026.9") {
+    fun issue_light() = snapshot("issue_light", darkTheme = false, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG) {
         val ref = IssueRef(RepoId("paperclipai", "paperclip"), 14127)
         val at = java.time.Instant.parse("2026-09-26T08:00:00Z")
         IssueScreen(

@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -365,7 +366,7 @@ private fun SwitchItem(
                     checkedBorderColor = colors.thumb,
                     uncheckedTrackColor = colors.surface,
                     uncheckedThumbColor = colors.inkMuted,
-                    uncheckedBorderColor = colors.inkMuted,
+                    uncheckedBorderColor = Color.Transparent,
                 ),
             )
         },

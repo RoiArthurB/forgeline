@@ -56,6 +56,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import androidx.compose.runtime.getValue
@@ -115,14 +116,11 @@ fun SignInScreen(
     ) {
         SoftHeader(
             tint = colors.fields[0],
-            title = stringResource(R.string.sign_in_title),
+            title = stringResource(R.string.sign_in_headline),
             onBack = onBack,
             backDescription = stringResource(R.string.navigate_up),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.sign_in_headline), style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp), color = colors.ink)
-                Text(stringResource(R.string.sign_in_privacy), style = Soft.type.body, color = colors.inkMuted, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure))
-            }
+            Text(stringResource(R.string.sign_in_privacy), style = Soft.type.body, color = colors.inkMuted, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure))
         }
         Column(
             Modifier.widthIn(max = SoftTokens.MaxMeasure).fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp),
@@ -185,25 +183,16 @@ private fun ChooseMethod(
             .heightIn(min = 48.dp)
             .wrapContentHeight(Alignment.CenterVertically),
     )
-    OutlinedTextField(
+    SoftTextField(
         value = token,
         onValueChange = {
             token = it
             if (error != null) onDismissError()
         },
-        label = { Text(stringResource(R.string.sign_in_token_label)) },
-        singleLine = true,
+        placeholder = stringResource(R.string.sign_in_token_label),
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onSubmitToken(token) }),
-        isError = error == SignInError.INVALID_TOKEN,
-        shape = RoundedCornerShape(20.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = colors.accent,
-            unfocusedBorderColor = colors.inkMuted,
-            focusedLabelColor = colors.accent,
-            cursorColor = colors.accent,
-        ),
         modifier = Modifier.fillMaxWidth(),
     )
     val submit = stringResource(R.string.sign_in_with_token)
@@ -222,7 +211,7 @@ private fun AwaitingAuthorization(
 ) {
     val colors = Soft.colors
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(colors.fields[1]).padding(20.dp),
+        Modifier.fillMaxWidth().padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {

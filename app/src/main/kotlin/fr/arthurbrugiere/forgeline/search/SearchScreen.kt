@@ -69,6 +69,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSwitch
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
@@ -221,46 +222,28 @@ fun SearchScreen(
     }
 }
 
-/** The query in a soft pill on the field: a search glyph, the text, and a clear button once there is some. */
+/** The query in the one text field, on the ground over the lilac field: a search glyph and a clear button. */
 @Composable
 private fun SearchField(query: String, onQueryChange: (String) -> Unit, onSubmit: () -> Unit, onClear: () -> Unit, focus: FocusRequester) {
     val colors = Soft.colors
-    BasicTextField(
+    SoftTextField(
         value = query,
         onValueChange = onQueryChange,
-        singleLine = true,
-        textStyle = Soft.type.body.copy(fontSize = 16.sp, color = colors.ink),
-        cursorBrush = SolidColor(colors.accent),
+        placeholder = stringResource(R.string.search_hint),
+        background = colors.ground,
+        leading = { Icon(Icons.Outlined.Search, contentDescription = null, tint = colors.inkMuted) },
+        trailing = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = onClear) {
+                    Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.search_clear), tint = colors.inkMuted)
+                }
+            } else {
+                Spacer(Modifier.height(48.dp))
+            }
+        },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onSubmit() }),
         modifier = Modifier.fillMaxWidth().focusRequester(focus),
-        decorationBox = { field ->
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(SoftTokens.Pill)
-                    .background(colors.ground)
-                    .heightIn(min = 52.dp)
-                    .padding(start = 16.dp, end = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Outlined.Search, contentDescription = null, tint = colors.inkMuted)
-                Spacer(Modifier.width(10.dp))
-                Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) {
-                        Text(stringResource(R.string.search_hint), style = Soft.type.body.copy(fontSize = 16.sp), color = colors.inkMuted, maxLines = 1)
-                    }
-                    field()
-                }
-                if (query.isNotEmpty()) {
-                    IconButton(onClick = onClear) {
-                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.search_clear), tint = colors.inkMuted)
-                    }
-                } else {
-                    Spacer(Modifier.height(48.dp))
-                }
-            }
-        },
     )
 }
 

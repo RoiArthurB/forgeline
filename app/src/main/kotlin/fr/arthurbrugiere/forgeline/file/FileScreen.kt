@@ -213,7 +213,7 @@ private fun CodeFile(text: String, fileName: String) {
         contentPadding = PaddingValues(top = 12.dp, bottom = listBottomPadding()),
     ) {
         itemsIndexed(lines) { index, line ->
-            Row(Modifier.fillMaxWidth().padding(end = 16.dp)) {
+            Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp)) {
                 Text(
                     "${index + 1}",
                     modifier = Modifier.width(gutter).padding(end = 12.dp),

@@ -59,15 +59,15 @@ class FeedScreenTest {
             ),
         )
 
-        composeRule.onNodeWithText("alice and bob starred acme/rocket").assertIsDisplayed()
-        composeRule.onNodeWithText("carol and dave starred octo/tools").assertIsDisplayed()
+        composeRule.onNodeWithText("alice and bob starred acme/\u2060rocket").assertIsDisplayed()
+        composeRule.onNodeWithText("carol and dave starred octo/\u2060tools").assertIsDisplayed()
     }
 
     @Test
     fun three_or_more_people_are_summed_up() {
         setContent(state(feedEvent("3", actor = "alice"), feedEvent("2", actor = "bob"), feedEvent("1", actor = "carol")))
 
-        composeRule.onNodeWithText("alice and 2 others starred acme/rocket").assertIsDisplayed()
+        composeRule.onNodeWithText("alice and 2 others starred acme/\u2060rocket").assertIsDisplayed()
     }
 
     @Test
@@ -84,14 +84,14 @@ class FeedScreenTest {
             ),
         )
 
-        composeRule.onNodeWithText("carol closed an issue in acme/rocket").assertIsDisplayed()
+        composeRule.onNodeWithText("carol closed an issue in acme/\u2060rocket").assertIsDisplayed()
         composeRule.onNodeWithText("#42 Launch fails", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("bob merged pull request #43 in acme/rocket").assertIsDisplayed()
-        composeRule.onNodeWithText("bob approved pull request #44 in acme/rocket").assertIsDisplayed()
-        composeRule.onNodeWithText("alice released v2.0.0 of octo/tools").assertIsDisplayed()
-        composeRule.onNodeWithText("carol forked octo/tools to carol/tools").assertIsDisplayed()
-        composeRule.onNodeWithText("alice created alice/idea").assertIsDisplayed()
-        composeRule.onNodeWithText("alice pushed to main in alice/dotfiles").assertIsDisplayed()
+        composeRule.onNodeWithText("bob merged pull request #43 in acme/\u2060rocket").assertIsDisplayed()
+        composeRule.onNodeWithText("bob approved pull request #44 in acme/\u2060rocket").assertIsDisplayed()
+        composeRule.onNodeWithText("alice released v2.0.0 of octo/\u2060tools").assertIsDisplayed()
+        composeRule.onNodeWithText("carol forked octo/\u2060tools to carol/\u2060tools").assertIsDisplayed()
+        composeRule.onNodeWithText("alice created alice/\u2060idea").assertIsDisplayed()
+        composeRule.onNodeWithText("alice pushed to main in alice/\u2060dotfiles").assertIsDisplayed()
     }
 
     @Test
@@ -104,9 +104,9 @@ class FeedScreenTest {
             ),
         )
 
-        composeRule.onNodeWithText("carol closed an issue in acme/rocket").performClick()
-        composeRule.onNodeWithText("carol forked octo/tools to carol/tools").performClick()
-        composeRule.onNodeWithText("alice starred octo/tools").performClick()
+        composeRule.onNodeWithText("carol closed an issue in acme/\u2060rocket").performClick()
+        composeRule.onNodeWithText("carol forked octo/\u2060tools to carol/\u2060tools").performClick()
+        composeRule.onNodeWithText("alice starred octo/\u2060tools").performClick()
         composeRule.onNode(hasContentDescription("alice")).performClick()
 
         assertThat(events).containsExactly("issue:acme/rocket#42", "repo:carol/tools", "repo:octo/tools", "user:alice").inOrder()

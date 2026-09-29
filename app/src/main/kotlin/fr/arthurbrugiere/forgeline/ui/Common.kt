@@ -28,6 +28,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.readableOn
 
 fun <T> LazyListScope.loadable(
     loadable: Loadable<List<T>>,
@@ -65,8 +66,8 @@ fun LabelChip(label: Label) {
     val color = parseHexColor(label.color?.let { "#$it" }) ?: Soft.colors.surface
     Text(
         label.name,
-        style = Soft.type.label.copy(fontSize = 12.sp, lineHeight = 16.sp),
-        color = if (color.luminance() > 0.5f) Color.Black else Color.White,
+        style = Soft.type.label,
+        color = readableOn(color),
         maxLines = 1,
         modifier = Modifier
             .clip(SoftTokens.Pill)
