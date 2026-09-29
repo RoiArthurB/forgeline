@@ -1,7 +1,8 @@
 name: Live API contract
 
 # Checks the real GitHub still behaves as the fixtures say (the trending page has no API
-# and can change any day). A failure here means: update the client and refresh fixtures.
+# and can change any day), and that Codeberg still behaves as docs/CODEBERG.md assumes.
+# A failure here means: update the client (or the design) and refresh fixtures.
 on:
   workflow_dispatch:
   schedule:
@@ -24,10 +25,12 @@ jobs:
       - name: Run live contract tests
         env:
           LIVE_TEST_PAT: ${{ secrets.LIVE_TEST_PAT }}
-        run: ./gradlew :forge:github:liveTest
+        run: ./gradlew :forge:github:liveTest :forge:forgejo:liveTest --continue
       - name: Upload report
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: live-test-report
-          path: forge/github/build/reports/tests/liveTest/
+          path: |
+            forge/github/build/reports/tests/liveTest/
+            forge/forgejo/build/reports/tests/liveTest/

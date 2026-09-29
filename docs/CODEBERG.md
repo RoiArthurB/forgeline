@@ -4,7 +4,7 @@ A design note for adding Codeberg, and any Forgejo instance, next to GitHub.
 
 **The rule: Forgeline is one app, not one app per forge.** The Feed, Trending, search and everything else are a single page each, mixing every forge. Only the Inbox may be split per forge, and only if the user asks for it in Settings.
 
-Everything about Forgejo below was checked against its source (Forgejo v1.21 and Gitea `main`), and then against codeberg.org itself on 2026-09-29 (Forgejo `16.0.0-dev`): the public endpoints by calling them, the signed-in ones (notifications) against Codeberg's published OpenAPI description. Items marked **verify** still need a Codeberg account or OAuth application to check.
+Everything about Forgejo below was checked against its source (Forgejo v1.21 and Gitea `main`), and then against codeberg.org itself on 2026-09-29 (Forgejo `16.0.0-dev`): the public endpoints by calling them, the signed-in ones (notifications) against Codeberg's published OpenAPI description. Items marked **verify** still need a Codeberg account or OAuth application to check. `forge/forgejo`'s live contract test (`CodebergLiveContractTest`, run nightly with GitHub's) re-checks the rest every night, so a change on Codeberg's side shows up before the app depends on it.
 
 ## What Forgejo gives us, and what it doesn't
 
@@ -18,7 +18,7 @@ Everything about Forgejo below was checked against its source (Forgejo v1.21 and
 | Feed of people you follow | `GET /users/{me}/received_events` | **none**: `GET /users/{me}/activities/feeds` only holds your own actions, repos you watch and your orgs (`NotifyWatchers` never fans out to followers) | Fan out to each followed user's feed (see [Feed](#feed)). |
 | Star events | `WatchEvent` | **never emitted** (`ActionStarRepo` exists but nothing creates it) | No stars in a Codeberg Feed. |
 | Trending | scraped from `github.com/trending` | **none** ([Codeberg/Community#213](https://codeberg.org/Codeberg/Community/issues/213)) | Measured once a day for everyone (see [Trending](#trending)). |
-| Star history | `starred_at` via a media type | stars have `created_unix` in the database, but `/stargazers` returns users only, in user id order, not star order | Star history can't be rebuilt from the API. |
+| Star history | `starred_at` via a media type | stars have `created_unix` in the database, but `/stargazers` returns users only, in no particular order | Star history can't be rebuilt from the API. |
 | Sign-in | device flow, or classic PAT | **no device flow** (Codeberg's OpenID configuration lists only `authorization_code` and `refresh_token`); OAuth2 authorization code with **PKCE** (`S256`, required for public clients), or a PAT | New sign-in path (see [Sign-in](#sign-in)). |
 | Token lifetime | OAuth tokens don't expire | OAuth access tokens expire after **1 hour**, refresh tokens after **730 hours** (Forgejo defaults, **verify** on Codeberg) | Accounts store a refresh token. |
 | Rate limits | 5000/h, documented | **2000 requests per 10 minutes**, announced in `RateLimit-Policy: "baseline";q=2000;w=600` and `RateLimit` headers | Generous, but keep requests per refresh small and bounded; read `RateLimit` rather than guessing. |
