@@ -41,6 +41,9 @@ data class RepoDetails(
 
 data class Readme(val path: String, val markdown: String)
 
+/** Where a repository can be browsed: branches by name, tags newest version first. */
+data class GitRefs(val branches: List<String>, val tags: List<String>)
+
 enum class RepoFileType { FILE, DIR, SYMLINK, SUBMODULE }
 
 data class RepoFile(val path: String, val name: String, val type: RepoFileType, val size: Long)

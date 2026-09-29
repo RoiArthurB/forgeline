@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.core.testing
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
+import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.Release
@@ -21,6 +22,7 @@ class FakeRepoApi : RepoApi {
     var pulls: List<IssueSummary> = emptyList()
     var releases: List<Release> = emptyList()
     var runs: List<WorkflowRun> = emptyList()
+    var refs = GitRefs(listOf("main"), emptyList())
     var failure: ForgeError? = null
     val calls = mutableListOf<String>()
     val tokens = mutableListOf<String?>()
@@ -40,7 +42,10 @@ class FakeRepoApi : RepoApi {
         return details[id]?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Http(404, "Not Found"))
     }
 
-    override suspend fun readme(token: String?, id: RepoId) = answer<Readme?>("readme:${id.fullName}", token) { readmes[id] }
+    override suspend fun readme(token: String?, id: RepoId, ref: String?) =
+        answer<Readme?>("readme:${id.fullName}" + (ref?.let { "@$it" } ?: ""), token) { readmes[id] }
+
+    override suspend fun refs(token: String?, id: RepoId) = answer("refs:${id.fullName}", token) { refs }
 
     override suspend fun contents(token: String?, id: RepoId, path: String, ref: String): ForgeResult<List<RepoFile>> =
         answer("contents:${id.fullName}:$path@$ref", token) { directories[id to path] ?: emptyList() }

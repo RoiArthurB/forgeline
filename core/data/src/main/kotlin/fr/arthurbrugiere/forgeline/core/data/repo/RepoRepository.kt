@@ -4,6 +4,7 @@ import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
+import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.Release
@@ -31,6 +32,12 @@ interface RepoRepository {
     suspend fun refresh(id: RepoId, force: Boolean = false): RefreshResult
 
     // The calls below expect the canonical id, i.e. RepoDetails.id, never an old name.
+
+    /** The README at another [ref] than the default branch, uncached. */
+    suspend fun readme(id: RepoId, ref: String): ForgeResult<Readme?>
+
+    suspend fun refs(id: RepoId): ForgeResult<GitRefs>
+
     suspend fun contents(id: RepoId, path: String, ref: String): ForgeResult<List<RepoFile>>
 
     suspend fun fileText(id: RepoId, path: String, ref: String): ForgeResult<String>
@@ -75,6 +82,10 @@ class DefaultRepoRepository @Inject constructor(
         dao.upsert(RepoCacheEntity(id.cacheKey(), details.encode(), readme?.path, readme?.markdown, clock.millis()))
         return RefreshResult.Refreshed
     }
+
+    override suspend fun readme(id: RepoId, ref: String) = api.readme(token(), id, ref)
+
+    override suspend fun refs(id: RepoId) = api.refs(token(), id)
 
     override suspend fun contents(id: RepoId, path: String, ref: String) = api.contents(token(), id, path, ref)
 
