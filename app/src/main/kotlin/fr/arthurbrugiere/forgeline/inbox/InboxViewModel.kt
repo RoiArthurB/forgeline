@@ -27,8 +27,8 @@ import javax.inject.Inject
 enum class InboxFilter { UNREAD, PARTICIPATING, ALL }
 
 /**
- * The Inbox's two sections: what's waiting on you first, newest first; then everything else, by repository (the
- * repository with the newest activity first, each one's threads newest first).
+ * The Inbox's two sections: what's waiting on you first, newest first; then everything else by owner (user or
+ * organisation), then repository, each ordered by its newest activity, threads newest first.
  */
 enum class InboxSection { NEEDS_YOU, OTHERS }
 
@@ -186,12 +186,20 @@ class InboxViewModel @Inject constructor(
         InboxFilter.ALL -> true
     }
 
-    // Threads arrive newest first, so grouping keeps that order, and the first thread of each repo orders the repos.
+    // Threads arrive newest first, so grouping keeps that order: an owner's (or repo's) first thread is its newest,
+    // and it places the whole group. Owners are compared case-insensitively, as the forge does.
     private fun List<NotificationThread>.bySection(): List<SectionGroup> =
         groupBy { if (it.needsYou) InboxSection.NEEDS_YOU else InboxSection.OTHERS }
             .toSortedMap()
             .map { (section, threads) ->
-                SectionGroup(section, if (section == InboxSection.OTHERS) threads.groupBy { it.repo }.values.flatten() else threads)
+                SectionGroup(
+                    section,
+                    if (section == InboxSection.OTHERS) {
+                        threads.groupBy { it.repo.owner.lowercase() }.values.flatMap { owned -> owned.groupBy { it.repo }.values.flatten() }
+                    } else {
+                        threads
+                    },
+                )
             }
 
     companion object {

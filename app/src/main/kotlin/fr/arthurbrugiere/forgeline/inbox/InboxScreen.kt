@@ -317,12 +317,21 @@ fun InboxScreen(
                         if (group.section == InboxSection.NEEDS_YOU) {
                             threadItems(group.threads, group.section, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe)
                         } else {
-                            // Everything else reads repository by repository, each under its owner's avatar.
-                            group.threads.groupBy { it.repo }.forEach { (repo, threads) ->
-                                item(key = "repo-${repo.fullName}", contentType = "repo") {
-                                    RepoHeading(threads.first(), Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem())
+                            // Everything else reads owner by owner, then repository by repository. An owner with a
+                            // single repository gets one combined heading; one with several heads them all.
+                            group.threads.groupBy { it.repo.owner.lowercase() }.forEach { (owner, owned) ->
+                                val repos = owned.groupBy { it.repo }
+                                if (repos.size > 1) {
+                                    item(key = "owner-$owner", contentType = "owner") {
+                                        OwnerHeading(owned.first(), Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem())
+                                    }
                                 }
-                                threadItems(threads, group.section, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe)
+                                repos.forEach { (repo, threads) ->
+                                    item(key = "repo-${repo.fullName}", contentType = "repo") {
+                                        RepoHeading(threads.first(), showOwner = repos.size == 1, Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem())
+                                    }
+                                    threadItems(threads, group.section, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe)
+                                }
                             }
                         }
                     }
@@ -360,10 +369,9 @@ private fun LazyListScope.threadItems(
     }
 }
 
-/** A repository under Everything else: its owner's avatar, then `owner/` muted and the name. */
+/** An owner (user or organisation) with several repositories under Everything else: its avatar and login. */
 @Composable
-private fun RepoHeading(thread: NotificationThread, modifier: Modifier = Modifier) {
-    val colors = Soft.colors
+private fun OwnerHeading(thread: NotificationThread, modifier: Modifier = Modifier) {
     Row(
         modifier
             .fillMaxWidth()
@@ -373,9 +381,32 @@ private fun RepoHeading(thread: NotificationThread, modifier: Modifier = Modifie
     ) {
         OwnerAvatar(thread, 24.dp)
         Spacer(Modifier.width(10.dp))
+        Text(thread.repo.owner, style = Soft.type.control, color = Soft.colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/**
+ * A repository under Everything else. Alone under its owner: the owner's avatar, `owner/` muted and the name. Under an
+ * owner heading: just the name, lined up with the threads below it.
+ */
+@Composable
+private fun RepoHeading(thread: NotificationThread, showOwner: Boolean, modifier: Modifier = Modifier) {
+    val colors = Soft.colors
+    Row(
+        modifier
+            .fillMaxWidth()
+            // Under an owner heading, the name lines up with its threads' pills and titles.
+            .padding(start = if (showOwner) 20.dp else 36.dp, end = 20.dp, top = if (showOwner) 14.dp else 10.dp, bottom = 2.dp)
+            .semantics(mergeDescendants = true) { heading() },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (showOwner) {
+            OwnerAvatar(thread, 24.dp)
+            Spacer(Modifier.width(10.dp))
+        }
         Text(
             buildAnnotatedString {
-                withStyle(SpanStyle(color = colors.inkMuted)) { append("${thread.repo.owner}/\u2060") }
+                if (showOwner) withStyle(SpanStyle(color = colors.inkMuted)) { append("${thread.repo.owner}/\u2060") }
                 append(thread.repo.name)
             },
             style = Soft.type.control,

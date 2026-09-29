@@ -53,17 +53,18 @@ class InboxViewModelTest {
     }
 
     @Test
-    fun everything_else_is_ordered_by_repository() = test {
+    fun everything_else_is_ordered_by_owner_then_repository() = test {
         val rocketNew = notificationThread("4", repo = "acme/rocket", reason = NotificationReason.SUBSCRIBED, updatedAt = "2026-09-27T09:50:00Z")
         val tools = notificationThread("5", repo = "octo/tools", reason = NotificationReason.SUBSCRIBED, updatedAt = "2026-09-27T09:40:00Z")
-        val rocketOld = notificationThread("6", repo = "acme/rocket", reason = NotificationReason.COMMENT, updatedAt = "2026-09-27T09:30:00Z")
-        inbox.set(rocketNew, tools, rocketOld)
+        val sat = notificationThread("6", repo = "Acme/satellite", reason = NotificationReason.SUBSCRIBED, updatedAt = "2026-09-27T09:35:00Z")
+        val rocketOld = notificationThread("7", repo = "acme/rocket", reason = NotificationReason.COMMENT, updatedAt = "2026-09-27T09:30:00Z")
+        inbox.set(rocketNew, tools, sat, rocketOld)
 
         val viewModel = viewModel()
         advanceUntilIdle()
 
         val others = viewModel.state.value.groups.single { it.section == InboxSection.OTHERS }
-        assertThat(others.threads.map { it.id }).containsExactly("4", "6", "5").inOrder()
+        assertThat(others.threads.map { it.id }).containsExactly("4", "7", "6", "5").inOrder()
     }
 
     @Test
