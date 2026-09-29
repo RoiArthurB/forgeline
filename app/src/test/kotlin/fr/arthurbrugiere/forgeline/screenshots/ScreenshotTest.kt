@@ -419,9 +419,23 @@ class ScreenshotTest {
             feedEvent("2", actor = "alice", repo = "alice/new-idea", createdAt = "2026-09-26T18:00:00Z", action = FeedAction.CreatedRepo("A fresh idea for faster builds")),
         )
         FeedScreen(
-            state = FeedUiState(items = feedItems(events, FeedKind.defaults), syncedAtMillis = 1),
+            state = FeedUiState(
+                items = feedItems(events, FeedKind.defaults),
+                syncedAtMillis = 1,
+                previews = fr.arthurbrugiere.forgeline.core.model.FeedPreviews(
+                    repos = mapOf(
+                        RepoId("acme", "rocket") to fr.arthurbrugiere.forgeline.core.model.RepoPreview(
+                            "Launch orchestration for tiny satellites, in pure Rust.", "Rust", 12_400,
+                        ),
+                    ),
+                    pullTitles = mapOf(
+                        fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("acme", "rocket"), 43) to "Retry the fuel pump handshake on cold start",
+                    ),
+                ),
+            ),
             onRefresh = {}, onLoadMore = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = {}, onErrorShown = {},
             nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+            zone = java.time.ZoneOffset.UTC,
         )
     }
 

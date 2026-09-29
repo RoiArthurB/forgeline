@@ -3,7 +3,9 @@ package fr.arthurbrugiere.forgeline.feed
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewRepository
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedRepository
+import fr.arthurbrugiere.forgeline.core.model.FeedPreviews
 import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -22,11 +24,14 @@ data class FeedUiState(
     val isRefreshing: Boolean = false,
     val isLoadingMore: Boolean = false,
     val error: ForgeError? = null,
+    /** Repo previews and pull request titles fetched so far; rows fill in as these arrive. */
+    val previews: FeedPreviews = FeedPreviews(),
 )
 
 @HiltViewModel
 class FeedViewModel @Inject constructor(
     private val feed: FeedRepository,
+    private val previews: FeedPreviewRepository,
     settings: UserSettingsRepository,
 ) : ViewModel() {
 
@@ -34,7 +39,7 @@ class FeedViewModel @Inject constructor(
 
     private val status = MutableStateFlow(Status())
 
-    val state: StateFlow<FeedUiState> = combine(feed.observe(), settings.settings, status) { snapshot, settings, status ->
+    val state: StateFlow<FeedUiState> = combine(feed.observe(), settings.settings, status, previews.observe()) { snapshot, settings, status, previews ->
         FeedUiState(
             items = feedItems(snapshot.events, settings.feedKinds),
             syncedAtMillis = snapshot.syncedAtMillis,
@@ -42,6 +47,7 @@ class FeedViewModel @Inject constructor(
             isRefreshing = status.isRefreshing,
             isLoadingMore = status.isLoadingMore,
             error = status.error,
+            previews = previews,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FeedUiState())
 
@@ -58,6 +64,14 @@ class FeedViewModel @Inject constructor(
             val result = feed.loadMore()
             status.value = status.value.copy(isLoadingMore = false, error = (result as? ForgeResult.Failure)?.error)
         }
+    }
+
+    /** Rows on screen: fetch the previews they need (repositories they name, pull request titles). */
+    fun onVisible(items: List<FeedItem>) {
+        val repos = items.mapNotNull { it.previewRepo }.toSet()
+        val pulls = items.mapNotNull { it.previewPull }.toSet()
+        if (repos.isEmpty() && pulls.isEmpty()) return
+        viewModelScope.launch { previews.ensure(repos, pulls) }
     }
 
     fun errorShown() {

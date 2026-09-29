@@ -4,6 +4,7 @@ import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.FeedEvent
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import java.time.Instant
 
@@ -29,3 +30,19 @@ fun feedItems(events: List<FeedEvent>, shown: Set<FeedKind>): List<FeedItem> {
     }
     return items.values.toList()
 }
+
+/** The repository whose preview (description, language, stars) this row shows, when the event doesn't carry it. */
+val FeedItem.previewRepo: RepoId?
+    get() = when (action) {
+        FeedAction.Starred, FeedAction.MadePublic, is FeedAction.Forked -> repo
+        else -> null
+    }
+
+/** The pull request whose title this row shows: pull request events carry only the number. */
+val FeedItem.previewPull: IssueRef?
+    get() = when (val a = action) {
+        is FeedAction.PullRequest -> IssueRef(repo, a.number)
+        is FeedAction.Reviewed -> IssueRef(repo, a.number)
+        is FeedAction.Commented -> if (a.isPullRequest && a.title == null) IssueRef(repo, a.number) else null
+        else -> null
+    }

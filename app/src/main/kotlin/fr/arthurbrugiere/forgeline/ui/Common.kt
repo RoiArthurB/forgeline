@@ -87,8 +87,13 @@ fun Message(text: String) {
     )
 }
 
-fun relative(instant: Instant, nowMillis: Long): String =
-    DateUtils.getRelativeTimeSpanString(instant.toEpochMilli(), nowMillis, DateUtils.MINUTE_IN_MILLIS).toString()
+fun relative(instant: Instant, nowMillis: Long, abbreviated: Boolean = false): String =
+    DateUtils.getRelativeTimeSpanString(
+        instant.toEpochMilli(),
+        nowMillis,
+        DateUtils.MINUTE_IN_MILLIS,
+        if (abbreviated) DateUtils.FORMAT_ABBREV_RELATIVE else 0,
+    ).toString()
 
 val ForgeError.message: Int
     get() = when (this) {

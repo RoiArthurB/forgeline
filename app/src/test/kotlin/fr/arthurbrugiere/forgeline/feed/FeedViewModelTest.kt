@@ -4,6 +4,12 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
+import fr.arthurbrugiere.forgeline.core.model.FeedPreviews
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
+import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RepoPreview
+import fr.arthurbrugiere.forgeline.core.testing.FakeFeedPreviewRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeFeedRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
@@ -23,11 +29,12 @@ class FeedViewModelTest {
     val mainDispatcherRule = MainDispatcherRule(StandardTestDispatcher())
 
     private val feed = FakeFeedRepository()
+    private val previews = FakeFeedPreviewRepository()
     private val settings = FakeUserSettingsRepository()
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
-    private fun TestScope.viewModel() = FeedViewModel(feed, settings).also { it.state.launchIn(backgroundScope) }
+    private fun TestScope.viewModel() = FeedViewModel(feed, previews, settings).also { it.state.launchIn(backgroundScope) }
 
     @Test
     fun shows_the_cached_feed_and_refreshes_it() = test {
@@ -92,5 +99,34 @@ class FeedViewModelTest {
         assertThat(feed.loadMoreCalls).isEqualTo(1)
         assertThat(viewModel.state.value.items.map { it.key }).containsExactly("2", "1").inOrder()
         assertThat(viewModel.state.value.hasMore).isFalse()
+    }
+
+    @Test
+    fun visible_rows_ask_only_for_the_previews_they_show() = test {
+        feed.set(
+            feedEvent("3", action = FeedAction.PullRequest(PullRequestAction.OPENED, 7)),
+            feedEvent("2", repo = "octo/tools"),
+            feedEvent("1", action = FeedAction.Issue(fr.arthurbrugiere.forgeline.core.model.IssueAction.OPENED, 8, "Has a title")),
+        )
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.onVisible(viewModel.state.value.items)
+        advanceUntilIdle()
+
+        assertThat(previews.requestedRepos).containsExactly(RepoId("octo", "tools"))
+        assertThat(previews.requestedPulls).containsExactly(IssueRef(RepoId("acme", "rocket"), 7))
+    }
+
+    @Test
+    fun previews_reach_the_state_as_they_arrive() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        val arrived = FeedPreviews(repos = mapOf(RepoId("acme", "rocket") to RepoPreview("Rockets", "Rust", 3)))
+        previews.previews.value = arrived
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.previews).isEqualTo(arrived)
     }
 }
