@@ -90,4 +90,51 @@ data class WorkflowRun(
     val runNumber: Int,
     val createdAt: java.time.Instant,
     val actor: ForgeUser?,
+    val workflowId: Long? = null,
+    /** 1 for the first run, then 2, 3... after each re-run. */
+    val attempt: Int = 1,
+    val startedAt: java.time.Instant? = null,
+    val updatedAt: java.time.Instant? = null,
 )
+
+data class RunStep(
+    val number: Int,
+    val name: String,
+    val status: RunStatus,
+    val conclusion: RunConclusion?,
+)
+
+data class RunJob(
+    val id: Long,
+    val name: String,
+    val status: RunStatus,
+    val conclusion: RunConclusion?,
+    val startedAt: java.time.Instant?,
+    val completedAt: java.time.Instant?,
+    val steps: List<RunStep>,
+)
+
+data class Workflow(val id: Long, val name: String, val path: String)
+
+enum class DispatchInputType { STRING, CHOICE, BOOLEAN, NUMBER, ENVIRONMENT }
+
+/** An input a workflow asks for when started by hand. */
+data class DispatchInput(
+    val name: String,
+    val description: String?,
+    val type: DispatchInputType,
+    val required: Boolean,
+    val default: String?,
+    val options: List<String>,
+)
+
+enum class LogLineKind { PLAIN, COMMAND, ERROR, WARNING, NOTICE, DEBUG }
+
+/** A job's log: lines, some folded into named groups. Text may carry ANSI color codes. */
+data class JobLog(val entries: List<LogEntry>)
+
+sealed interface LogEntry {
+    data class Line(val text: String, val kind: LogLineKind = LogLineKind.PLAIN) : LogEntry
+
+    data class Group(val title: String, val lines: List<Line>) : LogEntry
+}

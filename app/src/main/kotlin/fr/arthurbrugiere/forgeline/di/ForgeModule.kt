@@ -5,6 +5,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import fr.arthurbrugiere.forgeline.BuildConfig
+import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.forge.FeedApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeAuthApi
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
@@ -14,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.forge.RepoApi
 import fr.arthurbrugiere.forgeline.core.forge.SearchApi
 import fr.arthurbrugiere.forgeline.core.forge.StarApi
 import fr.arthurbrugiere.forgeline.core.forge.TrendingApi
+import fr.arthurbrugiere.forgeline.forge.github.GitHubActionsApi
 import fr.arthurbrugiere.forgeline.forge.github.GitHubAuthApi
 import fr.arthurbrugiere.forgeline.forge.github.GitHubFeedApi
 import fr.arthurbrugiere.forgeline.forge.github.GitHubIssueApi
@@ -59,6 +61,10 @@ object ForgeModule {
     @Provides
     @Singleton
     fun provideRepoApi(httpClient: HttpClient): RepoApi = GitHubRepoApi(httpClient)
+
+    @Provides
+    @Singleton
+    fun provideActionsApi(httpClient: HttpClient): ActionsApi = GitHubActionsApi(httpClient)
 
     @Provides
     @Singleton

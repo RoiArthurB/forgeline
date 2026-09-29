@@ -25,6 +25,8 @@ import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewRepository
 import fr.arthurbrugiere.forgeline.core.data.inbox.DefaultInboxRepository
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxRepository
+import fr.arthurbrugiere.forgeline.core.data.actions.ActionsRepository
+import fr.arthurbrugiere.forgeline.core.data.actions.DefaultActionsRepository
 import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
 import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.DefaultRepoRepository
@@ -71,6 +73,9 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindFeedPreviewRepository(impl: DefaultFeedPreviewRepository): FeedPreviewRepository
+
+    @Binds
+    abstract fun bindActionsRepository(impl: DefaultActionsRepository): ActionsRepository
 
     @Binds
     abstract fun bindIssueRepository(impl: DefaultIssueRepository): IssueRepository

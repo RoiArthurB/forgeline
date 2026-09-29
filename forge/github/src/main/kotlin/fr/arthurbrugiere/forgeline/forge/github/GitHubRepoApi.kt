@@ -138,7 +138,7 @@ private object VersionOrder : Comparator<String> {
 private data class GitRefResponse(val ref: String)
 
 @Serializable
-private data class Owner(val login: String, @SerialName("avatar_url") val avatarUrl: String? = null) {
+internal data class Owner(val login: String, @SerialName("avatar_url") val avatarUrl: String? = null) {
     fun toModel() = ForgeUser(login = login, name = null, avatarUrl = avatarUrl)
 }
 
@@ -182,7 +182,7 @@ private data class RepoResponse(
 }
 
 @Serializable
-private data class ContentResponse(
+internal data class ContentResponse(
     val name: String,
     val path: String,
     val type: String,
@@ -265,7 +265,7 @@ private data class ReleaseResponse(
 private data class RunsResponse(@SerialName("workflow_runs") val workflowRuns: List<RunResponse>)
 
 @Serializable
-private data class RunResponse(
+internal data class RunResponse(
     val id: Long,
     val name: String? = null,
     @SerialName("display_title") val displayTitle: String? = null,
@@ -276,32 +276,44 @@ private data class RunResponse(
     @SerialName("run_number") val runNumber: Int,
     @SerialName("created_at") val createdAt: String,
     val actor: Owner? = null,
+    @SerialName("workflow_id") val workflowId: Long? = null,
+    @SerialName("run_attempt") val runAttempt: Int = 1,
+    @SerialName("run_started_at") val runStartedAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 ) {
     fun toModel() = WorkflowRun(
         id = id,
         workflowName = name.orEmpty(),
         title = displayTitle ?: name.orEmpty(),
-        status = when (status) {
-            "queued", "waiting", "requested", "pending" -> RunStatus.QUEUED
-            "in_progress" -> RunStatus.IN_PROGRESS
-            "completed" -> RunStatus.COMPLETED
-            else -> RunStatus.OTHER
-        },
-        conclusion = when (conclusion) {
-            null -> null
-            "success" -> RunConclusion.SUCCESS
-            "failure" -> RunConclusion.FAILURE
-            "cancelled" -> RunConclusion.CANCELLED
-            "skipped" -> RunConclusion.SKIPPED
-            "neutral" -> RunConclusion.NEUTRAL
-            "timed_out" -> RunConclusion.TIMED_OUT
-            "action_required" -> RunConclusion.ACTION_REQUIRED
-            else -> RunConclusion.OTHER
-        },
+        status = runStatus(status),
+        conclusion = runConclusion(conclusion),
         branch = headBranch,
         event = event,
         runNumber = runNumber,
         createdAt = Instant.parse(createdAt),
         actor = actor?.toModel(),
+        workflowId = workflowId,
+        attempt = runAttempt,
+        startedAt = runStartedAt?.let(Instant::parse),
+        updatedAt = updatedAt?.let(Instant::parse),
     )
+}
+
+internal fun runStatus(status: String?) = when (status) {
+    "queued", "waiting", "requested", "pending" -> RunStatus.QUEUED
+    "in_progress" -> RunStatus.IN_PROGRESS
+    "completed" -> RunStatus.COMPLETED
+    else -> RunStatus.OTHER
+}
+
+internal fun runConclusion(conclusion: String?) = when (conclusion) {
+    null -> null
+    "success" -> RunConclusion.SUCCESS
+    "failure" -> RunConclusion.FAILURE
+    "cancelled" -> RunConclusion.CANCELLED
+    "skipped" -> RunConclusion.SKIPPED
+    "neutral" -> RunConclusion.NEUTRAL
+    "timed_out" -> RunConclusion.TIMED_OUT
+    "action_required" -> RunConclusion.ACTION_REQUIRED
+    else -> RunConclusion.OTHER
 }
