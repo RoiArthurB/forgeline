@@ -30,6 +30,21 @@ data class NotificationEntity(
     val ownerAvatarUrl: String?,
 )
 
+/**
+ * Where an issue or pull request stood when last asked. Kept apart from notifications, which each sync replaces,
+ * and asked again once its thread moves on or [checkedAtMillis] gets old.
+ */
+@Entity(tableName = "subject_states", primaryKeys = ["owner", "name", "number"])
+data class SubjectStateEntity(
+    val owner: String,
+    val name: String,
+    val number: Int,
+    val state: String,
+    /** The thread's activity time when this was asked, so newer activity asks again. */
+    val threadUpdatedAtMillis: Long,
+    val checkedAtMillis: Long,
+)
+
 @Entity(tableName = "inbox_sync")
 data class InboxSyncEntity(
     @PrimaryKey val accountId: String,
@@ -68,6 +83,15 @@ interface InboxDao {
         clear(accountId)
         insert(entities)
     }
+
+    @Query("SELECT * FROM subject_states")
+    fun observeStates(): Flow<List<SubjectStateEntity>>
+
+    @Query("SELECT * FROM subject_states")
+    suspend fun states(): List<SubjectStateEntity>
+
+    @Upsert
+    suspend fun upsertStates(entities: List<SubjectStateEntity>)
 
     @Query("SELECT * FROM inbox_sync WHERE accountId = :accountId")
     fun observeSync(accountId: String): Flow<InboxSyncEntity?>

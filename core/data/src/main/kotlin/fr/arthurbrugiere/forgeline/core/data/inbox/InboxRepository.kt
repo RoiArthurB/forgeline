@@ -5,7 +5,10 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
 import fr.arthurbrugiere.forgeline.core.model.Account
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
+import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -65,13 +68,43 @@ class DefaultInboxRepository @Inject constructor(
         if (account == null) {
             flowOf(InboxSnapshot(emptyList(), null))
         } else {
-            combine(dao.observe(account.id), dao.observeSync(account.id)) { threads, sync ->
-                InboxSnapshot(threads.map { it.toModel() }, sync?.syncedAtMillis)
+            combine(dao.observe(account.id), dao.observeSync(account.id), dao.observeStates()) { threads, sync, states ->
+                val byRef = states.associateBy { IssueRef(RepoId(it.owner, it.name), it.number) }
+                InboxSnapshot(
+                    threads.map { entity ->
+                        val thread = entity.toModel()
+                        val state = thread.subject?.let { byRef[it] }?.state?.let { name -> SubjectState.entries.firstOrNull { it.name == name } }
+                        thread.copy(state = state)
+                    },
+                    sync?.syncedAtMillis,
+                )
             }
         }
     }
 
-    override suspend fun sync(force: Boolean): SyncResult = syncLock.withLock {
+    override suspend fun sync(force: Boolean): SyncResult = syncThreads(force).also { result ->
+        // Threads first, on screen at once; where their issues and pull requests stand follows.
+        if (result is SyncResult.Updated || result is SyncResult.NotModified) refreshStates()
+    }
+
+    /** Asks where the inbox's issues and pull requests stand, for those never asked, moved on since, or asked long ago. */
+    private suspend fun refreshStates() {
+        val (account, token) = session() ?: return
+        val known = dao.states().associateBy { IssueRef(RepoId(it.owner, it.name), it.number) }
+        val now = clock.millis()
+        val stale = dao.all(account.id).map { it.toModel() }.mapNotNull { thread ->
+            val ref = thread.subject ?: return@mapNotNull null
+            val state = known[ref]
+            val fresh = state != null && state.threadUpdatedAtMillis >= thread.updatedAt.toEpochMilli() &&
+                now - state.checkedAtMillis < STATE_MAX_AGE_MILLIS
+            if (fresh) null else ref to thread.updatedAt.toEpochMilli()
+        }.toMap()
+        if (stale.isEmpty()) return
+        val states = (api.subjectStates(token, stale.keys.toList()) as? ForgeResult.Success)?.value ?: return
+        dao.upsertStates(states.map { (ref, state) -> SubjectStateEntity(ref.repo.owner, ref.repo.name, ref.number, state.name, stale.getValue(ref), now) })
+    }
+
+    private suspend fun syncThreads(force: Boolean): SyncResult = syncLock.withLock {
         val (account, token) = session() ?: return SyncResult.SignedOut
         val state = dao.sync(account.id)
         val interval = (state?.pollIntervalSeconds ?: DEFAULT_POLL_SECONDS) * 1_000L
@@ -137,5 +170,8 @@ class DefaultInboxRepository @Inject constructor(
 
     private companion object {
         const val DEFAULT_POLL_SECONDS = 60
+
+        /** A merge or close can happen without new activity on your thread: ask again after an hour anyway. */
+        const val STATE_MAX_AGE_MILLIS = 60 * 60 * 1_000L
     }
 }

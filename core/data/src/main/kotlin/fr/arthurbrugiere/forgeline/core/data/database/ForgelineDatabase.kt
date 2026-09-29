@@ -9,6 +9,7 @@ import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewEntity
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedSyncEntity
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxSyncEntity
+import fr.arthurbrugiere.forgeline.core.data.inbox.SubjectStateEntity
 import fr.arthurbrugiere.forgeline.core.data.inbox.NotificationEntity
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoCacheEntity
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoDao
@@ -21,9 +22,9 @@ import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepoEntity
 @Database(
     entities = [
         TrendingRepoEntity::class, TrendingFetchEntity::class, RepoCacheEntity::class, NotificationEntity::class, InboxSyncEntity::class,
-        FeedEventEntity::class, FeedSyncEntity::class, TrendingMarkEntity::class, FeedPreviewEntity::class,
+        FeedEventEntity::class, FeedSyncEntity::class, TrendingMarkEntity::class, FeedPreviewEntity::class, SubjectStateEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
 )
 abstract class ForgelineDatabase : RoomDatabase() {

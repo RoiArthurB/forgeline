@@ -4,7 +4,9 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsSync
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
+import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
@@ -37,6 +39,14 @@ class FakeNotificationsApi : NotificationsApi {
     override suspend fun markDone(token: String, threadId: String) = action("done:$threadId")
 
     override suspend fun unsubscribe(token: String, threadId: String) = action("unsubscribe:$threadId")
+
+    val states = mutableMapOf<IssueRef, SubjectState>()
+
+    override suspend fun subjectStates(token: String, subjects: List<IssueRef>): ForgeResult<Map<IssueRef, SubjectState>> {
+        calls += "states:" + subjects.joinToString(",") { "${it.repo.fullName}#${it.number}" }
+        failure?.let { return ForgeResult.Failure(it) }
+        return ForgeResult.Success(states.filterKeys { it in subjects })
+    }
 }
 
 fun notificationThread(

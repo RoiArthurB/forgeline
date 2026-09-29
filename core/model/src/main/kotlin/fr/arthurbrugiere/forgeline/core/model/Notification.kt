@@ -9,6 +9,9 @@ enum class NotificationReason {
 
 enum class SubjectType { ISSUE, PULL_REQUEST, RELEASE, DISCUSSION, CHECK_SUITE, COMMIT, OTHER }
 
+/** Where an issue or pull request stands now; notifications don't say, so it's asked for separately. */
+enum class SubjectState { OPEN, DRAFT, MERGED, CLOSED, NOT_PLANNED }
+
 data class NotificationThread(
     val id: String,
     val repo: RepoId,
@@ -21,7 +24,13 @@ data class NotificationThread(
     val updatedAt: Instant,
     /** The repository owner's (user or organisation) avatar, when the forge sends it. */
     val ownerAvatarUrl: String? = null,
+    /** Null until known, and for subjects that have no state (releases, commits...). */
+    val state: SubjectState? = null,
 ) {
+    /** The issue or pull request this thread is about, when it is about one. */
+    val subject: IssueRef?
+        get() = number?.takeIf { type == SubjectType.ISSUE || type == SubjectType.PULL_REQUEST }?.let { IssueRef(repo, it) }
+
     /** GitHub's "participating": you're directly involved, not just watching. */
     val isParticipating: Boolean
         get() = reason in setOf(

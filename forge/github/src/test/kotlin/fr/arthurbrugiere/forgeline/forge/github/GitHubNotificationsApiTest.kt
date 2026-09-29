@@ -18,6 +18,9 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.SubjectState
+import io.ktor.http.content.TextContent
 import org.junit.Test
 import java.time.Instant
 
@@ -127,5 +130,49 @@ class GitHubNotificationsApiTest {
             .threads("tok", ifModifiedSince = null)
 
         assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "Missing the 'notifications' scope.")))
+    }
+
+    @Test
+    fun subject_states_come_from_one_graphql_request() = runTest {
+        // A real answer captured on 2026-09-29, with a number that doesn't exist (answered as an error).
+        val paperclip = RepoId("paperclipai", "paperclip")
+        val refs = listOf(14127, 14129, 1, 14502, 99999999).map { IssueRef(paperclip, it) }
+        val answer = requireNotNull(javaClass.getResource("/github/notifications/subject_states.json")).readText()
+
+        val states = api { json(answer) }.subjectStates("tok", refs).value()
+
+        assertThat(states).containsExactly(
+            IssueRef(paperclip, 14127), SubjectState.OPEN,
+            IssueRef(paperclip, 14129), SubjectState.OPEN,
+            IssueRef(paperclip, 1), SubjectState.CLOSED,
+            IssueRef(paperclip, 14502), SubjectState.MERGED,
+        )
+        val request = requests.single()
+        assertThat(request.url.encodedPath).isEqualTo("/graphql")
+        val body = (request.body as TextContent).text
+        // Owners and names travel as variables, never pasted into the query.
+        assertThat(body).contains("\"o0\":\"paperclipai\"")
+        assertThat(body).contains("i14502: issueOrPullRequest(number: 14502)")
+    }
+
+    @Test
+    fun drafts_and_issues_closed_as_not_planned_are_told_apart() = runTest {
+        val repo = RepoId("o", "r")
+        val answer = """{"data":{"r0":{"i1":{"__typename":"PullRequest","state":"OPEN","isDraft":true},""" +
+            """"i2":{"__typename":"Issue","state":"CLOSED","stateReason":"NOT_PLANNED"},""" +
+            """"i3":{"__typename":"PullRequest","state":"CLOSED","isDraft":false}}}}"""
+
+        val states = api { json(answer) }.subjectStates("tok", listOf(1, 2, 3).map { IssueRef(repo, it) }).value()
+
+        assertThat(states.values).containsExactly(SubjectState.DRAFT, SubjectState.NOT_PLANNED, SubjectState.CLOSED).inOrder()
+    }
+
+    @Test
+    fun many_subjects_are_asked_for_in_chunks() = runTest {
+        val refs = (1..150).map { IssueRef(RepoId("o", "r"), it) }
+
+        api { json("""{"data":{}}""") }.subjectStates("tok", refs)
+
+        assertThat(requests).hasSize(2)
     }
 }

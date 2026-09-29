@@ -61,6 +61,10 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
+import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material.icons.outlined.Close
+import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.ui.message
 import fr.arthurbrugiere.forgeline.ui.relative
@@ -550,7 +554,7 @@ private fun ThreadRow(
                     if (section == InboxSection.NEEDS_YOU) {
                         SoftPill(stringResource(thread.reason.label), thread.type.icon, colors.fields[0])
                     } else {
-                        SoftPill(stringResource(thread.type.label), thread.type.icon, colors.surface)
+                        KindPill(thread)
                     }
                     val where = if (section == InboxSection.NEEDS_YOU) {
                         (thread.repo.fullName + (thread.number?.let { " #$it" } ?: "")).unbreakable()
@@ -636,6 +640,30 @@ private val InboxFilter.label: Int
         InboxFilter.PARTICIPATING -> R.string.inbox_filter_participating
         InboxFilter.ALL -> R.string.inbox_filter_all
     }
+
+/**
+ * What a thread is about, and where it stands once known: "Merged pull request", "Closed issue". Tinted like the
+ * Feed's states: mint while open, lilac once merged, ember once closed.
+ */
+@Composable
+private fun KindPill(thread: NotificationThread) {
+    val colors = Soft.colors
+    val isPull = thread.type == SubjectType.PULL_REQUEST
+    when (thread.state) {
+        null -> SoftPill(stringResource(thread.type.label), thread.type.icon, colors.surface)
+        SubjectState.OPEN -> SoftPill(
+            stringResource(if (isPull) R.string.inbox_state_open_pull else R.string.inbox_state_open_issue), thread.type.icon, colors.fields[2],
+        )
+        SubjectState.DRAFT -> SoftPill(stringResource(R.string.inbox_state_draft_pull), thread.type.icon, colors.surface)
+        SubjectState.MERGED -> SoftPill(stringResource(R.string.inbox_state_merged_pull), Icons.AutoMirrored.Outlined.CallMerge, colors.fields[1])
+        SubjectState.CLOSED -> SoftPill(
+            stringResource(if (isPull) R.string.inbox_state_closed_pull else R.string.inbox_state_closed_issue),
+            if (isPull) Icons.Outlined.Close else Icons.Outlined.CheckCircleOutline,
+            colors.fields[0],
+        )
+        SubjectState.NOT_PLANNED -> SoftPill(stringResource(R.string.inbox_state_not_planned), Icons.Outlined.Block, colors.surface)
+    }
+}
 
 private val SubjectType.icon: ImageVector
     get() = when (this) {

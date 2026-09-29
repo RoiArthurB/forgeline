@@ -16,6 +16,8 @@ import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.testing.notificationThread
+import fr.arthurbrugiere.forgeline.core.model.SubjectState
+import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import org.junit.Rule
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -81,6 +83,23 @@ class InboxScreenTest {
         composeRule.onNodeWithText("Issue").assertIsDisplayed()
         composeRule.onNodeWithText("octo/\u2060tools").assertIsDisplayed()
         composeRule.onNodeWithText("Watching · 1 hr. ago").assertIsDisplayed()
+    }
+
+    @Test
+    fun everything_else_says_where_a_pull_request_or_issue_stands() {
+        // Regression: every pull request read "Pull request", merged or not.
+        val merged = notificationThread("7", repo = "octo/tools", type = SubjectType.PULL_REQUEST, reason = NotificationReason.SUBSCRIBED)
+            .copy(state = SubjectState.MERGED)
+        val open = notificationThread("8", repo = "octo/tools", type = SubjectType.PULL_REQUEST, reason = NotificationReason.SUBSCRIBED)
+            .copy(state = SubjectState.OPEN)
+        val closed = notificationThread("9", repo = "octo/tools", type = SubjectType.ISSUE, reason = NotificationReason.SUBSCRIBED)
+            .copy(state = SubjectState.CLOSED)
+        setContent(grouped.copy(groups = listOf(SectionGroup(InboxSection.OTHERS, listOf(merged, open, closed)))))
+
+        composeRule.onNodeWithText("Merged pull request").assertIsDisplayed()
+        composeRule.onNodeWithText("Open pull request").assertIsDisplayed()
+        composeRule.onNodeWithText("Closed issue").assertIsDisplayed()
+        composeRule.onNodeWithText("Pull request").assertDoesNotExist()
     }
 
     @Test

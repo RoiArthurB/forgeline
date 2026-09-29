@@ -17,6 +17,10 @@ import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SubjectState
+import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
@@ -72,13 +76,54 @@ class DefaultInboxRepositoryTest {
 
         now = now.plusSeconds(30)
         assertThat(repository.sync()).isEqualTo(SyncResult.NotModified)
-        assertThat(api.calls).containsExactly("threads")
+        assertThat(api.calls.filter { it == "threads" }).containsExactly("threads")
 
         now = now.plusSeconds(60)
         api.notModified = true
         assertThat(repository.sync()).isEqualTo(SyncResult.NotModified)
         assertThat(api.ifModifiedSince.last()).isEqualTo("modified-1")
         assertThat(repository.observe().first().threads).hasSize(1)
+    }
+
+    @Test
+    fun threads_show_where_their_issue_or_pull_request_stands() = runTest {
+        signIn()
+        api.threads = listOf(
+            notificationThread("1", type = SubjectType.PULL_REQUEST),
+            notificationThread("2", type = SubjectType.ISSUE),
+            notificationThread("r", type = SubjectType.RELEASE, number = null),
+        )
+        api.states[IssueRef(RepoId("acme", "rocket"), 1)] = SubjectState.MERGED
+        api.states[IssueRef(RepoId("acme", "rocket"), 2)] = SubjectState.OPEN
+
+        repository.sync(force = true)
+
+        val states = repository.observe().first().threads.associate { it.id to it.state }
+        assertThat(states).containsExactly("1", SubjectState.MERGED, "2", SubjectState.OPEN, "r", null)
+        // Releases have no state to ask for.
+        assertThat(api.calls.last()).isEqualTo("states:acme/rocket#1,acme/rocket#2")
+    }
+
+    @Test
+    fun states_are_asked_again_only_when_a_thread_moves_on_or_they_get_old() = runTest {
+        signIn()
+        api.threads = listOf(notificationThread("1", type = SubjectType.PULL_REQUEST), notificationThread("2", type = SubjectType.PULL_REQUEST))
+        api.states[IssueRef(RepoId("acme", "rocket"), 1)] = SubjectState.OPEN
+        repository.sync(force = true)
+
+        repository.sync(force = true)
+        assertThat(api.calls.count { it.startsWith("states:") }).isEqualTo(2)
+        // #2 got no answer (gone), so it's asked again; #1 is known and nothing moved.
+        assertThat(api.calls.last()).isEqualTo("states:acme/rocket#2")
+
+        api.threads = listOf(notificationThread("1", type = SubjectType.PULL_REQUEST, updatedAt = "2026-09-27T09:30:00Z"))
+        api.states[IssueRef(RepoId("acme", "rocket"), 1)] = SubjectState.MERGED
+        repository.sync(force = true)
+        assertThat(repository.observe().first().threads.single().state).isEqualTo(SubjectState.MERGED)
+
+        now = now.plusSeconds(3_601)
+        repository.sync(force = true)
+        assertThat(api.calls.last()).isEqualTo("states:acme/rocket#1")
     }
 
     @Test
