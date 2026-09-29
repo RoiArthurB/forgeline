@@ -9,7 +9,7 @@ import dev.snipme.highlights.Highlights
 import dev.snipme.highlights.model.BoldHighlight
 import dev.snipme.highlights.model.ColorHighlight
 import dev.snipme.highlights.model.SyntaxLanguage
-import dev.snipme.highlights.model.SyntaxThemes
+import dev.snipme.highlights.model.SyntaxTheme
 
 /** Syntax highlighting for the file viewer. Pure and thread-safe: run it off the main thread. */
 object CodeHighlighter {
@@ -36,6 +36,32 @@ object CodeHighlighter {
         "pl" to SyntaxLanguage.PERL, "pm" to SyntaxLanguage.PERL,
     )
 
+    // Token colors from the Soft palette, each readable at 4.5:1 on its ground (CodeContrastTest holds them to it).
+    private val SoftLightSyntax = SyntaxTheme(
+        key = "soft-light",
+        code = 0x1E1B2E,
+        keyword = 0xB83A17,
+        string = 0x2E7550,
+        literal = 0x1F5FB8,
+        comment = 0x5A566B,
+        metadata = 0x7A45B0,
+        multilineComment = 0x5A566B,
+        punctuation = 0x3D3A4F,
+        mark = 0x1E1B2E,
+    )
+    private val SoftDarkSyntax = SyntaxTheme(
+        key = "soft-dark",
+        code = 0xF1EEF6,
+        keyword = 0xFF8A5C,
+        string = 0x8FD6A8,
+        literal = 0x8CB8FF,
+        comment = 0xA7A2B8,
+        metadata = 0xC9A7F5,
+        multilineComment = 0xA7A2B8,
+        punctuation = 0xC9C4D6,
+        mark = 0xF1EEF6,
+    )
+
     private fun language(fileName: String): SyntaxLanguage? = languages[fileName.substringAfterLast('.', "").lowercase()]
 
     fun languageName(fileName: String): String? = language(fileName)?.name
@@ -51,7 +77,7 @@ object CodeHighlighter {
         val highlights = Highlights.Builder()
             .code(code)
             .language(language)
-            .theme(SyntaxThemes.default(darkTheme))
+            .theme(if (darkTheme) SoftDarkSyntax else SoftLightSyntax)
             .build()
             .getHighlights()
         return buildAnnotatedString {
