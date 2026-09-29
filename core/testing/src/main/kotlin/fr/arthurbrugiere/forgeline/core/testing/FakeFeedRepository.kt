@@ -7,6 +7,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.FeedEvent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import java.time.Instant
 
 class FakeFeedRepository : FeedRepository {
     val snapshot = MutableStateFlow(FeedSnapshot(emptyList(), null, hasMore = false))
@@ -26,6 +27,14 @@ class FakeFeedRepository : FeedRepository {
     override suspend fun refresh(force: Boolean): ForgeResult<Unit> {
         refreshes += force
         return failure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(Unit)
+    }
+
+    var readUpTo: Instant? = null
+
+    override suspend fun readUpTo(): Instant? = readUpTo
+
+    override suspend fun markRead(itemKey: String, at: Instant) {
+        if (readUpTo == null || at > readUpTo) readUpTo = at
     }
 
     override suspend fun loadMore(): ForgeResult<Unit> {

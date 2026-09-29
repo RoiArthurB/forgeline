@@ -122,12 +122,23 @@ class TrendingScreenTest {
 
     @Test
     fun the_last_browse_is_flagged_and_can_be_resumed() {
-        val repos = (1..5).map { TrendingItem(trendingRepo("owner/repo$it"), null) }
-        setContent(TrendingUiState(items = repos, resumeAt = 2))
+        val repos = (1..30).map { TrendingItem(trendingRepo("owner/repo$it"), null) }
+        setContent(TrendingUiState(items = repos, resumeAt = 20))
 
-        composeRule.onNodeWithText("You stopped here").assertExists()
-        composeRule.onNodeWithText("Resume at #4").assertIsDisplayed().performClick()
-        composeRule.onNodeWithText("You stopped here").assertIsDisplayed()
+        composeRule.onNodeWithText("Where you left off").assertDoesNotExist()
+        composeRule.onNodeWithText("Continue where you left off").assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("Where you left off").assertIsDisplayed()
+        // There: the way back has done its job.
+        composeRule.onNodeWithText("Continue where you left off").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_mark_already_on_screen_needs_no_way_back() {
+        val repos = (1..5).map { TrendingItem(trendingRepo("owner/repo$it"), null) }
+        setContent(TrendingUiState(items = repos, resumeAt = 1))
+
+        composeRule.onNodeWithText("Where you left off").assertIsDisplayed()
+        composeRule.onNodeWithText("Continue where you left off").assertDoesNotExist()
     }
 
     @Test
@@ -135,8 +146,8 @@ class TrendingScreenTest {
         val repos = (1..3).map { TrendingItem(trendingRepo("owner/repo$it"), null) }
         setContent(TrendingUiState(items = repos, resumeAt = 2))
 
-        composeRule.onNodeWithText("You stopped here").assertDoesNotExist()
-        composeRule.onNodeWithText("Resume at #4").assertDoesNotExist()
+        composeRule.onNodeWithText("Where you left off").assertDoesNotExist()
+        composeRule.onNodeWithText("Continue where you left off").assertDoesNotExist()
     }
 
     @Test

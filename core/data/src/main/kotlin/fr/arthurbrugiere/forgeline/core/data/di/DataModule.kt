@@ -25,6 +25,10 @@ import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewRepository
 import fr.arthurbrugiere.forgeline.core.data.inbox.DefaultInboxRepository
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxRepository
+import fr.arthurbrugiere.forgeline.core.data.actions.ActionsRepository
+import fr.arthurbrugiere.forgeline.core.data.actions.DefaultActionsRepository
+import fr.arthurbrugiere.forgeline.core.data.issue.ConversationDao
+import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkDao
 import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
 import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.DefaultRepoRepository
@@ -73,6 +77,9 @@ abstract class DataModule {
     abstract fun bindFeedPreviewRepository(impl: DefaultFeedPreviewRepository): FeedPreviewRepository
 
     @Binds
+    abstract fun bindActionsRepository(impl: DefaultActionsRepository): ActionsRepository
+
+    @Binds
     abstract fun bindIssueRepository(impl: DefaultIssueRepository): IssueRepository
 
     @Binds
@@ -101,6 +108,12 @@ abstract class DataModule {
 
         @Provides
         fun provideRepoDao(database: ForgelineDatabase): RepoDao = database.repoDao()
+
+        @Provides
+        fun provideConversationDao(database: ForgelineDatabase): ConversationDao = database.conversationDao()
+
+        @Provides
+        fun provideReadingMarkDao(database: ForgelineDatabase): ReadingMarkDao = database.readingMarkDao()
 
         @Provides
         fun provideClock(): Clock = Clock.systemUTC()

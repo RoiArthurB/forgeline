@@ -1,0 +1,140 @@
+{
+  "id": 109371394234,
+  "run_id": 36557892755,
+  "workflow_name": "PR",
+  "head_branch": "fix/opt-in-plugin-dev-watch",
+  "run_url": "https://api.github.com/repos/paperclipai/paperclip/actions/runs/36557892755",
+  "run_attempt": 1,
+  "node_id": "CR_kwDORclPyM8AAAAZdwsIug",
+  "head_sha": "86c401203153e5a78637c46bdab3bb3b4f948169",
+  "url": "https://api.github.com/repos/paperclipai/paperclip/actions/jobs/109371394234",
+  "html_url": "https://github.com/paperclipai/paperclip/actions/runs/36557892755/job/109371394234",
+  "status": "in_progress",
+  "conclusion": null,
+  "created_at": "2026-09-29T10:49:03Z",
+  "started_at": "2026-09-29T10:49:05Z",
+  "completed_at": null,
+  "name": "ci / Verify Paperclip Runner (static checks)",
+  "steps": [
+    {
+      "name": "Set up job",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 1,
+      "started_at": "2026-09-29T10:49:05Z",
+      "completed_at": "2026-09-29T10:49:07Z"
+    },
+    {
+      "name": "Checkout repository",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 2,
+      "started_at": "2026-09-29T10:49:07Z",
+      "completed_at": "2026-09-29T10:49:11Z"
+    },
+    {
+      "name": "Setup Node.js for pnpm bootstrap",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 3,
+      "started_at": "2026-09-29T10:49:11Z",
+      "completed_at": "2026-09-29T10:49:15Z"
+    },
+    {
+      "name": "Setup pnpm",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 4,
+      "started_at": "2026-09-29T10:49:15Z",
+      "completed_at": "2026-09-29T10:49:20Z"
+    },
+    {
+      "name": "Locate pnpm store",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 5,
+      "started_at": "2026-09-29T10:49:20Z",
+      "completed_at": "2026-09-29T10:49:21Z"
+    },
+    {
+      "name": "Restore pnpm store (read only)",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 6,
+      "started_at": "2026-09-29T10:49:21Z",
+      "completed_at": "2026-09-29T10:49:31Z"
+    },
+    {
+      "name": "Install dependencies",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 7,
+      "started_at": "2026-09-29T10:49:31Z",
+      "completed_at": "2026-09-29T10:49:51Z"
+    },
+    {
+      "name": "Select the pinned Runner Rust toolchain",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 8,
+      "started_at": "2026-09-29T10:49:51Z",
+      "completed_at": "2026-09-29T10:50:01Z"
+    },
+    {
+      "name": "Restore Runner Rust dependencies (read only)",
+      "status": "completed",
+      "conclusion": "success",
+      "number": 9,
+      "started_at": "2026-09-29T10:50:01Z",
+      "completed_at": "2026-09-29T10:50:01Z"
+    },
+    {
+      "name": "Verify Paperclip Runner",
+      "status": "in_progress",
+      "conclusion": null,
+      "number": 10,
+      "started_at": "2026-09-29T10:50:01Z",
+      "completed_at": null
+    },
+    {
+      "name": "Post Restore Runner Rust dependencies (read only)",
+      "status": "pending",
+      "conclusion": null,
+      "number": 17,
+      "started_at": null,
+      "completed_at": null
+    },
+    {
+      "name": "Post Setup pnpm",
+      "status": "pending",
+      "conclusion": null,
+      "number": 18,
+      "started_at": null,
+      "completed_at": null
+    },
+    {
+      "name": "Post Setup Node.js for pnpm bootstrap",
+      "status": "pending",
+      "conclusion": null,
+      "number": 19,
+      "started_at": null,
+      "completed_at": null
+    },
+    {
+      "name": "Post Checkout repository",
+      "status": "pending",
+      "conclusion": null,
+      "number": 20,
+      "started_at": null,
+      "completed_at": null
+    }
+  ],
+  "check_run_url": "https://api.github.com/repos/paperclipai/paperclip/check-runs/109371394234",
+  "labels": [
+    "ubuntu-latest"
+  ],
+  "runner_id": 1000519209,
+  "runner_name": "GitHub Actions 1000519209",
+  "runner_group_id": 0,
+  "runner_group_name": "GitHub Actions"
+}

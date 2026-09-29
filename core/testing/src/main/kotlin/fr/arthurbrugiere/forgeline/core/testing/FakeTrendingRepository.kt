@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.core.testing
 import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepository
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingSnapshot
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,11 +20,11 @@ class FakeTrendingRepository : TrendingRepository {
         return nextResult
     }
 
-    val marks = mutableMapOf<TrendingPeriod, Int>()
+    val marks = mutableMapOf<TrendingPeriod, Pair<RepoId, Int>>()
 
-    override suspend fun readThrough(period: TrendingPeriod): Int? = marks[period]
+    override suspend fun readThrough(period: TrendingPeriod): RepoId? = marks[period]?.first
 
-    override suspend fun markReadThrough(period: TrendingPeriod, rank: Int) {
-        if (rank > (marks[period] ?: -1)) marks[period] = rank
+    override suspend fun markReadThrough(period: TrendingPeriod, repo: RepoId, rank: Int) {
+        if (rank > (marks[period]?.second ?: -1)) marks[period] = repo to rank
     }
 }

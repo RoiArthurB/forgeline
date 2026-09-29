@@ -13,6 +13,7 @@ import fr.arthurbrugiere.forgeline.core.testing.trendingRepo
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -33,7 +34,7 @@ class DefaultTrendingRepositoryTest {
         override fun getZone() = ZoneOffset.UTC
         override fun withZone(zone: java.time.ZoneId?) = this
     }
-    private val repository = DefaultTrendingRepository(database.trendingDao(), api, clock)
+    private val repository = DefaultTrendingRepository(database.trendingDao(), api, database.readingMarkDao(), clock)
 
     private val paperclip = trendingRepo("paperclipai/paperclip").copy(
         builtBy = listOf(ForgeUser("cryppadotta", null, "https://avatars.example/1")),
@@ -130,19 +131,22 @@ class DefaultTrendingRepositoryTest {
     }
 
     @Test
-    fun the_read_mark_only_moves_down_survives_a_refresh_and_expires_after_a_day() = runTest {
+    fun the_read_mark_names_a_repo_only_moves_down_survives_a_refresh_and_expires_after_a_day() = runTest {
+        val seventh = RepoId("acme", "seventh")
+        val fourth = RepoId("acme", "fourth")
         assertThat(repository.readThrough(TrendingPeriod.DAILY)).isNull()
 
-        repository.markReadThrough(TrendingPeriod.DAILY, 6)
-        repository.markReadThrough(TrendingPeriod.DAILY, 3)
+        repository.markReadThrough(TrendingPeriod.DAILY, seventh, 6)
+        repository.markReadThrough(TrendingPeriod.DAILY, fourth, 3)
         api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
         repository.refresh(TrendingPeriod.DAILY, force = true)
-        assertThat(repository.readThrough(TrendingPeriod.DAILY)).isEqualTo(6)
+        // A repo, not a rank: the refreshed list may have moved it anywhere.
+        assertThat(repository.readThrough(TrendingPeriod.DAILY)).isEqualTo(seventh)
         assertThat(repository.readThrough(TrendingPeriod.WEEKLY)).isNull()
 
         now = now.plusSeconds(21 * 3600)
         assertThat(repository.readThrough(TrendingPeriod.DAILY)).isNull()
-        repository.markReadThrough(TrendingPeriod.DAILY, 1)
-        assertThat(repository.readThrough(TrendingPeriod.DAILY)).isEqualTo(1)
+        repository.markReadThrough(TrendingPeriod.DAILY, fourth, 1)
+        assertThat(repository.readThrough(TrendingPeriod.DAILY)).isEqualTo(fourth)
     }
 }

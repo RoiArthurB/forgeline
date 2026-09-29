@@ -78,6 +78,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
+import fr.arthurbrugiere.forgeline.ui.ReportReading
+import fr.arthurbrugiere.forgeline.ui.LeftOffMark
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
@@ -185,7 +187,12 @@ fun TrendingScreen(
         }
 
         val resumeAt = state.resumeAt?.takeIf { it in 0 until state.items.lastIndex }
-        ReportReading(listState, state, onReadThrough)
+        val rankByKey = remember(state.items) { state.items.withIndex().associate { (index, item) -> item.repo.id.fullName to index.toLong() } }
+        ReportReading(listState, resetKey = state.period, positionOf = { rankByKey[it] }, onRead = { key -> rankByKey[key]?.let { onReadThrough(it.toInt()) } })
+        // Once the mark is on screen or above it, the way back to it has done its job.
+        val markReached by remember(resumeAt) {
+            derivedStateOf { resumeAt != null && listState.firstVisibleItemIndex + listState.layoutInfo.visibleItemsInfo.size > FIRST_ROW + resumeAt + 1 }
+        }
 
         Box(modifier.fillMaxSize().background(colors.ground)) {
             val pullState = rememberPullToRefreshState()
@@ -237,7 +244,7 @@ fun TrendingScreen(
                             StatusLine(
                                 updatedAtMillis = state.updatedAtMillis,
                                 nowMillis = nowMillis,
-                                resumeAt = resumeAt,
+                                resumeAt = resumeAt?.takeUnless { markReached },
                                 onResume = {
                                     val above = with(density) { 88.dp.roundToPx() }
                                     scope.launch { listState.animateScrollToItem(FIRST_ROW + resumeAt!! + 1, -above) }
@@ -279,7 +286,7 @@ fun TrendingScreen(
                                     onToggleStar = { onToggleStar(item.repo.id) },
                                     onOpen = { onOpenRepo(item.repo.id) },
                                 )
-                                if (index == resumeAt) StoppedHere()
+                                if (index == resumeAt) LeftOffMark()
                             }
                         }
                     }
@@ -292,29 +299,6 @@ fun TrendingScreen(
                 Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground, actionColor = colors.thumb)
             }
         }
-    }
-}
-
-/** Reports the furthest row read (fully on screen) whenever the reader gets further down. */
-@Composable
-private fun ReportReading(listState: LazyListState, state: TrendingUiState, onReadThrough: (Int) -> Unit) {
-    val indexByKey = remember(state.items) { state.items.withIndex().associate { (index, item) -> item.repo.id.fullName to index } }
-    LaunchedEffect(listState, indexByKey, state.period) {
-        var furthest = -1
-        snapshotFlow {
-            val layout = listState.layoutInfo
-            layout.visibleItemsInfo
-                .filter { it.offset + it.size <= layout.viewportEndOffset }
-                .mapNotNull { indexByKey[it.key] }
-                .maxOrNull()
-        }
-            .distinctUntilChanged()
-            .collect { index ->
-                if (index != null && index > furthest) {
-                    furthest = index
-                    onReadThrough(index)
-                }
-            }
     }
 }
 
@@ -361,8 +345,8 @@ private fun StatusLine(updatedAtMillis: Long?, nowMillis: Long, resumeAt: Int?, 
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Text(stringResource(R.string.trending_resume, resumeAt + 2), style = Soft.type.label, color = colors.accent)
-                Icon(Icons.Outlined.ArrowDownward, contentDescription = null, tint = colors.accent, modifier = Modifier.size(16.dp))
+                Text(stringResource(R.string.trending_resume), style = Soft.type.label, color = colors.inkMuted)
+                Icon(Icons.Outlined.ArrowDownward, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -525,22 +509,6 @@ private fun StarToggle(starred: Boolean, fullName: String, onToggle: () -> Unit)
             contentDescription = null,
             tint = if (starred) colors.accent else colors.inkMuted,
         )
-    }
-}
-
-/** The soft marker left where the last browse stopped. */
-@Composable
-private fun StoppedHere() {
-    val colors = Soft.colors
-    Box(Modifier.fillMaxWidth().padding(start = 50.dp, top = 6.dp, bottom = 10.dp)) {
-        Row(
-            Modifier.clip(SoftTokens.Pill).background(colors.fields[0]).padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.size(8.dp).background(colors.thumb, CircleShape))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.trending_stopped_here), style = Soft.type.label, color = colors.ink)
-        }
     }
 }
 

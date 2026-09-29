@@ -67,9 +67,14 @@ import fr.arthurbrugiere.forgeline.core.ui.format.compactCount
 import fr.arthurbrugiere.forgeline.navigation.ForgeLinks
 import fr.arthurbrugiere.forgeline.navigation.RepoRoute
 import fr.arthurbrugiere.forgeline.navigation.IssueRoute
+import fr.arthurbrugiere.forgeline.navigation.RunRoute
 import fr.arthurbrugiere.forgeline.navigation.UserRoute
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.session.SessionState
+import fr.arthurbrugiere.forgeline.actions.RowIcon
+import fr.arthurbrugiere.forgeline.actions.WorkflowDispatchSheet
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
+import fr.arthurbrugiere.forgeline.actions.RunStatusIcon
 import fr.arthurbrugiere.forgeline.ui.IssueSummaryRow
 import fr.arthurbrugiere.forgeline.ui.Avatar
 import fr.arthurbrugiere.forgeline.ui.Badge
@@ -122,6 +127,7 @@ fun RepoRoute(
     onOpenRepo: (RepoId) -> Unit,
     onOpenFile: (RepoId, path: String, ref: String) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
+    onOpenRun: (RepoId, Long) -> Unit,
     onOpenUser: (String) -> Unit,
     onSignIn: () -> Unit,
 ) {
@@ -130,6 +136,19 @@ fun RepoRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
     val signedIn = session is SessionState.SignedIn
+    var dispatching by rememberSaveable { mutableStateOf(false) }
+    val details = state.details
+    if (dispatching && details != null) {
+        WorkflowDispatchSheet(
+            repo = details.id,
+            defaultBranch = details.defaultBranch,
+            onDismiss = { dispatching = false },
+            onStarted = {
+                dispatching = false
+                viewModel.workflowStarted()
+            },
+        )
+    }
     RepoScreen(
         state = state,
         signedIn = signedIn,
@@ -140,18 +159,24 @@ fun RepoRoute(
         onToggleStar = { if (signedIn) viewModel.toggleStar() else onSignIn() },
         onOpenDirectory = viewModel::openDirectory,
         onOpenParentDirectory = viewModel::openParentDirectory,
-        onOpenFile = { file -> state.details?.let { onOpenFile(it.id, file.path, it.defaultBranch) } },
+        onOpenFile = { file -> state.details?.let { onOpenFile(it.id, file.path, state.browsedRef ?: it.defaultBranch) } },
         onOpenIssue = { number -> state.details?.let { onOpenIssue(IssueRef(it.id, number)) } },
+        onOpenRun = { runId -> state.details?.let { onOpenRun(it.id, runId) } },
         onOpenUser = onOpenUser,
         onLinkClick = { url ->
             when (val target = ForgeLinks.routeFor(url)) {
                 is RepoRoute -> onOpenRepo(RepoId(target.owner, target.name))
                 is IssueRoute -> onOpenIssue(IssueRef(RepoId(target.owner, target.name), target.number))
+                is RunRoute -> onOpenRun(RepoId(target.owner, target.name), target.runId)
                 is UserRoute -> onOpenUser(target.login)
                 else -> if (!url.startsWith("#")) openUrl(url)
             }
         },
         onOpenInBrowser = openUrl,
+        onLoadRefs = viewModel::loadRefs,
+        onRunWorkflow = if (signedIn) ({ dispatching = true }) else null,
+        onWorkflowStartShown = viewModel::workflowStartShown,
+        onSelectRef = viewModel::selectRef,
         onErrorShown = viewModel::errorShown,
         onStarFailureShown = viewModel::starFailureShown,
     )
@@ -173,7 +198,13 @@ fun RepoScreen(
     onOpenIssue: (Int) -> Unit,
     onOpenUser: (String) -> Unit,
     onLinkClick: (String) -> Unit,
+    onOpenRun: (Long) -> Unit,
     onOpenInBrowser: (String) -> Unit,
+    onLoadRefs: () -> Unit,
+    onSelectRef: (String) -> Unit,
+    /** Null when signed out: starting a workflow needs an account. */
+    onRunWorkflow: (() -> Unit)?,
+    onWorkflowStartShown: () -> Unit,
     onErrorShown: () -> Unit,
     onStarFailureShown: () -> Unit,
     modifier: Modifier = Modifier,
@@ -190,6 +221,13 @@ fun RepoScreen(
             onErrorShown()
         }
     }
+    val workflowStarted = stringResource(R.string.dispatch_started)
+    LaunchedEffect(state.workflowStarted) {
+        if (state.workflowStarted) {
+            snackbar.showSnackbar(workflowStarted)
+            onWorkflowStartShown()
+        }
+    }
     LaunchedEffect(state.starFailed) {
         if (state.starFailed) {
             snackbar.showSnackbar(starFailed)
@@ -199,6 +237,7 @@ fun RepoScreen(
 
     val id = details?.id ?: state.requested
     val listState = rememberLazyListState()
+    var pickingRef by rememberSaveable { mutableStateOf(false) }
     Box(modifier.fillMaxSize().background(colors.ground)) {
         val pullState = rememberPullToRefreshState()
         PullToRefreshBox(
@@ -260,13 +299,34 @@ fun RepoScreen(
                                 onSelect = { onSelectTab(RepoTab.entries[it]) },
                             )
                         }
+                        val browsedRef = state.browsedRef
+                        if (browsedRef != null && (state.tab == RepoTab.README || state.tab == RepoTab.CODE)) {
+                            item(key = "ref") {
+                                RefPill(browsedRef, state.refs, onClick = {
+                                    onLoadRefs()
+                                    pickingRef = true
+                                })
+                            }
+                        }
                         when (state.tab) {
-                            RepoTab.README -> item(key = "readme") {
-                                val readme = state.readme
-                                if (readme == null || state.readmeContext == null) {
-                                    Message(stringResource(R.string.repo_no_readme))
-                                } else {
-                                    Readme(readme.markdown, state.readmeContext, onLinkClick)
+                            RepoTab.README -> when (val refReadme = state.refReadme) {
+                                // Another ref's README loads on demand; the default branch's comes from the cache.
+                                Loadable.Loading -> item(key = "readme-loading") { SoftLoadingRows(stringResource(R.string.repo_loading), rows = 3, leadingDot = false) }
+                                is Loadable.Failed -> item(key = "readme-failed") {
+                                    SoftNotice(
+                                        stringResource(R.string.repo_tab_failed),
+                                        stringResource(refReadme.error.message),
+                                        action = stringResource(R.string.retry),
+                                        onAction = onRetryTab,
+                                    )
+                                }
+                                else -> item(key = "readme") {
+                                    val readme = state.readme
+                                    if (readme == null || state.readmeContext == null) {
+                                        Message(stringResource(R.string.repo_no_readme))
+                                    } else {
+                                        Readme(readme.markdown, state.readmeContext, onLinkClick)
+                                    }
                                 }
                             }
                             RepoTab.CODE -> code(state.code, onRetryTab, onOpenDirectory, onOpenParentDirectory, onOpenFile)
@@ -279,13 +339,35 @@ fun RepoScreen(
                             RepoTab.RELEASES -> loadable(state.releases, R.string.repo_no_releases, onRetryTab) { releases ->
                                 items(releases, key = { "release-${it.tag}" }) { ReleaseRow(it, state.readmeContext, nowMillis, onLinkClick) }
                             }
-                            RepoTab.ACTIONS -> loadable(state.runs, R.string.repo_no_runs, onRetryTab) { runs ->
-                                items(runs, key = { "run-${it.id}" }) { RunRow(it, nowMillis) }
+                            RepoTab.ACTIONS -> {
+                                if (onRunWorkflow != null) {
+                                    item(key = "run-workflow") {
+                                        Box(RowModifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                                            SoftTonalButton(stringResource(R.string.dispatch_title), onClick = onRunWorkflow)
+                                        }
+                                    }
+                                }
+                                loadable(state.runs, R.string.repo_no_runs, onRetryTab) { runs ->
+                                    items(runs, key = { "run-${it.id}" }) { RunRow(it, nowMillis, onClick = { onOpenRun(it.id) }) }
+                                }
                             }
                         }
                     }
                 }
             }
+        }
+        if (pickingRef && details != null) {
+            RefSheet(
+                current = state.browsedRef ?: details.defaultBranch,
+                defaultBranch = details.defaultBranch,
+                refs = state.refs,
+                onSelect = {
+                    pickingRef = false
+                    onSelectRef(it)
+                },
+                onRetry = onLoadRefs,
+                onDismiss = { pickingRef = false },
+            )
         }
         val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
         SoftStatusBarScrim(scrolled)
@@ -387,14 +469,6 @@ private fun Readme(markdown: String, context: ReadmeContext, onLinkClick: (Strin
     }
 }
 
-/** A soft round icon for a row: the file kind, a release, a run's state. */
-@Composable
-private fun RowIcon(icon: ImageVector, background: Color, tint: Color = Soft.colors.ink) {
-    Box(Modifier.size(36.dp).background(background, CircleShape), contentAlignment = Alignment.Center) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
-    }
-}
-
 private val RowModifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
 
 private fun LazyListScope.code(
@@ -476,9 +550,9 @@ private fun ReleaseRow(release: Release, context: ReadmeContext?, nowMillis: Lon
 }
 
 @Composable
-private fun RunRow(run: WorkflowRun, nowMillis: Long) {
+private fun RunRow(run: WorkflowRun, nowMillis: Long, onClick: () -> Unit) {
     val colors = Soft.colors
-    Row(RowModifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(RowModifier.softPressable(onClick = onClick).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
         RunStatusIcon(run)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
@@ -492,21 +566,6 @@ private fun RunRow(run: WorkflowRun, nowMillis: Long) {
                 color = colors.inkMuted,
             )
         }
-    }
-}
-
-/** A run's state as a soft round badge: mint for success, ember for failure, quiet for the rest. */
-@Composable
-private fun RunStatusIcon(run: WorkflowRun) {
-    val colors = Soft.colors
-    when {
-        run.status == RunStatus.IN_PROGRESS -> Box(Modifier.size(36.dp).background(colors.fields[1], CircleShape), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = colors.ink, trackColor = colors.fields[1])
-        }
-        run.status == RunStatus.QUEUED -> RowIcon(Icons.Outlined.Schedule, colors.surface, colors.inkMuted)
-        run.conclusion == RunConclusion.SUCCESS -> RowIcon(Icons.Outlined.Check, colors.fields[2])
-        run.conclusion == RunConclusion.FAILURE || run.conclusion == RunConclusion.TIMED_OUT -> RowIcon(Icons.Outlined.Close, colors.fields[0], colors.accent)
-        else -> RowIcon(Icons.Outlined.Block, colors.surface, colors.inkMuted)
     }
 }
 

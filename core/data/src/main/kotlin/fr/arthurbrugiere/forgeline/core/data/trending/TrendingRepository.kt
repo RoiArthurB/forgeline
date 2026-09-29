@@ -5,6 +5,9 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.TrendingApi
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import fr.arthurbrugiere.forgeline.core.model.TrendingRepo
+import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkDao
+import fr.arthurbrugiere.forgeline.core.data.reading.advance
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.sync.Mutex
@@ -29,16 +32,20 @@ interface TrendingRepository {
 
     suspend fun refresh(period: TrendingPeriod, force: Boolean = false): RefreshResult
 
-    /** The furthest rank (0-based) read in [period] during the current browse, or null once it has gone stale. */
-    suspend fun readThrough(period: TrendingPeriod): Int?
+    /**
+     * The repository read furthest down [period] during the current browse, or null once it has gone stale. A repo,
+     * not a rank: the list reorders as it refreshes, and the reader stopped at a repo, not at a number.
+     */
+    suspend fun readThrough(period: TrendingPeriod): RepoId?
 
-    /** Records that [rank] was read; only ever moves the mark further down. */
-    suspend fun markReadThrough(period: TrendingPeriod, rank: Int)
+    /** Records that [repo], at [rank] (0-based) in the list as shown, was read; only ever moves the mark further down. */
+    suspend fun markReadThrough(period: TrendingPeriod, repo: RepoId, rank: Int)
 }
 
 class DefaultTrendingRepository @Inject constructor(
     private val dao: TrendingDao,
     private val api: TrendingApi,
+    private val marks: ReadingMarkDao,
     private val clock: Clock,
 ) : TrendingRepository {
 
@@ -69,13 +76,14 @@ class DefaultTrendingRepository @Inject constructor(
         }
     }
 
-    override suspend fun readThrough(period: TrendingPeriod): Int? =
-        dao.mark(period.name)?.takeIf { clock.millis() - it.markedAtMillis < MARK_MAX_AGE.inWholeMilliseconds }?.rank
+    override suspend fun readThrough(period: TrendingPeriod): RepoId? =
+        marks.get(period.markList())?.takeIf { clock.millis() - it.markedAtMillis < MARK_MAX_AGE.inWholeMilliseconds }?.itemKey
+            ?.split('/', limit = 2)?.takeIf { it.size == 2 }?.let { (owner, name) -> RepoId(owner, name) }
 
-    override suspend fun markReadThrough(period: TrendingPeriod, rank: Int) {
-        val current = readThrough(period)
-        if (current == null || rank > current) dao.upsertMark(TrendingMarkEntity(period.name, rank, clock.millis()))
-    }
+    override suspend fun markReadThrough(period: TrendingPeriod, repo: RepoId, rank: Int) =
+        marks.advance(period.markList(), repo.fullName, rank.toLong(), clock.millis(), MARK_MAX_AGE.inWholeMilliseconds)
+
+    private fun TrendingPeriod.markList() = "trending:$name"
 
     private companion object {
         val MAX_AGE = 1.hours

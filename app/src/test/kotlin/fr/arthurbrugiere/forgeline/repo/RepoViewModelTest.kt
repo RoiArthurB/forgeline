@@ -8,6 +8,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
@@ -163,6 +164,96 @@ class RepoViewModelTest {
         advanceUntilIdle()
         assertThat(viewModel.state.value.code.path).isEmpty()
         assertThat(repos.calls).containsExactly("contents:octo/repo:@master", "contents:octo/repo:src@master", "contents:octo/repo:@master")
+    }
+
+    @Test
+    fun branches_and_tags_load_once_when_asked_for() = test {
+        cache()
+        repos.refs = ForgeResult.Success(GitRefs(listOf("dev", "master"), listOf("v1.0")))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.refs).isEqualTo(Loadable.Idle)
+
+        viewModel.loadRefs()
+        advanceUntilIdle()
+        viewModel.loadRefs()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.refs).isEqualTo(Loadable.Loaded(GitRefs(listOf("dev", "master"), listOf("v1.0"))))
+        assertThat(repos.calls.filter { it.startsWith("refs:") }).containsExactly("refs:octo/repo")
+    }
+
+    @Test
+    fun failed_refs_load_again_next_time() = test {
+        cache()
+        repos.refs = ForgeResult.Failure(ForgeError.Network)
+        val viewModel = viewModel()
+        viewModel.loadRefs()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.refs).isEqualTo(Loadable.Failed(ForgeError.Network))
+
+        repos.refs = ForgeResult.Success(GitRefs(listOf("master"), emptyList()))
+        viewModel.loadRefs()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.refs).isEqualTo(Loadable.Loaded(GitRefs(listOf("master"), emptyList())))
+    }
+
+    @Test
+    fun another_branch_shows_its_readme_and_code() = test {
+        cache()
+        repos.readmes["v1.0"] = ForgeResult.Success(Readme("README.md", "# Old"))
+        repos.directories = mapOf("" to ForgeResult.Success(listOf(RepoFile("src", "src", RepoFileType.DIR, 0))))
+        val viewModel = viewModel()
+        viewModel.selectTab(RepoTab.CODE)
+        advanceUntilIdle()
+        viewModel.openDirectory("src")
+        advanceUntilIdle()
+
+        viewModel.selectRef("v1.0")
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertThat(state.browsedRef).isEqualTo("v1.0")
+        assertThat(state.readme?.markdown).isEqualTo("# Old")
+        assertThat(state.readmeContext?.rawBaseUrl).isEqualTo("https://raw.example/octo/repo/v1.0/")
+        // A folder may not exist on the other ref: browsing starts again at the root.
+        assertThat(state.code.path).isEmpty()
+        assertThat(repos.calls.last()).isEqualTo("contents:octo/repo:@v1.0")
+        assertThat(repos.calls).contains("readme:octo/repo@v1.0")
+    }
+
+    @Test
+    fun back_on_the_default_branch_the_cached_readme_returns() = test {
+        cache()
+        repos.readmes["dev"] = ForgeResult.Success(Readme("README.md", "# Dev"))
+        val viewModel = viewModel()
+        viewModel.selectRef("dev")
+        advanceUntilIdle()
+
+        viewModel.selectRef("master")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.ref).isNull()
+        assertThat(viewModel.state.value.browsedRef).isEqualTo("master")
+        assertThat(viewModel.state.value.readme?.markdown).isEqualTo("# Hi")
+        assertThat(repos.calls.filter { it.startsWith("readme:") }).containsExactly("readme:octo/repo@dev")
+    }
+
+    @Test
+    fun a_readme_that_failed_on_another_branch_can_be_retried() = test {
+        cache()
+        repos.readmes["dev"] = ForgeResult.Failure(ForgeError.Network)
+        val viewModel = viewModel()
+        viewModel.selectRef("dev")
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.refReadme).isEqualTo(Loadable.Failed(ForgeError.Network))
+
+        repos.readmes["dev"] = ForgeResult.Success(Readme("README.md", "# Dev"))
+        viewModel.retryTab()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.readme?.markdown).isEqualTo("# Dev")
     }
 
     @Test

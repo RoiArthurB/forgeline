@@ -4,7 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
@@ -14,6 +16,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import androidx.compose.runtime.mutableStateOf
 import com.github.takahirom.roborazzi.captureRoboImage
+import com.github.takahirom.roborazzi.captureScreenRoboImage
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -24,7 +27,27 @@ import fr.arthurbrugiere.forgeline.signin.SignInScreen
 import fr.arthurbrugiere.forgeline.signin.SignInStep
 import fr.arthurbrugiere.forgeline.signin.SignInUiState
 import fr.arthurbrugiere.forgeline.you.YouScreen
+import androidx.compose.foundation.background
+import fr.arthurbrugiere.forgeline.actions.DispatchContent
+import fr.arthurbrugiere.forgeline.actions.DispatchUiState
+import fr.arthurbrugiere.forgeline.actions.JobLogScreen
+import fr.arthurbrugiere.forgeline.core.model.DispatchInput
+import fr.arthurbrugiere.forgeline.core.model.DispatchInputType
+import fr.arthurbrugiere.forgeline.core.model.Workflow
+import fr.arthurbrugiere.forgeline.actions.JobLogUiState
+import fr.arthurbrugiere.forgeline.actions.RunScreen
+import fr.arthurbrugiere.forgeline.actions.RunUiState
+import fr.arthurbrugiere.forgeline.core.model.JobLog
+import fr.arthurbrugiere.forgeline.core.model.LogEntry
+import fr.arthurbrugiere.forgeline.core.model.LogLineKind
+import fr.arthurbrugiere.forgeline.core.model.RunConclusion
+import fr.arthurbrugiere.forgeline.core.model.RunJob
+import fr.arthurbrugiere.forgeline.core.model.RunStatus
+import fr.arthurbrugiere.forgeline.core.model.RunStep
+import fr.arthurbrugiere.forgeline.core.testing.workflowRun
+import fr.arthurbrugiere.forgeline.repo.CodeState
 import fr.arthurbrugiere.forgeline.repo.Loadable
+import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.feed.FeedScreen
 import fr.arthurbrugiere.forgeline.feed.FeedUiState
 import fr.arthurbrugiere.forgeline.feed.feedItems
@@ -118,6 +141,8 @@ class ScreenshotTest {
         awaitTag: String? = null,
         awaitGoneTag: String? = null,
         beforeCapture: () -> Unit = {},
+        // Sheets and dialogs live in their own window, which only a whole-screen capture includes.
+        wholeScreen: Boolean = false,
         content: @Composable () -> Unit,
     ) {
         composeRule.setContent {
@@ -137,7 +162,12 @@ class ScreenshotTest {
             composeRule.waitUntil(10_000) { composeRule.onAllNodes(hasTestTag(tag), useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
         }
         beforeCapture()
-        composeRule.onRoot().captureRoboImage("src/test/screenshots/$name.png")
+        if (wholeScreen) {
+            composeRule.waitForIdle()
+            captureScreenRoboImage("src/test/screenshots/$name.png")
+        } else {
+            composeRule.onRoot().captureRoboImage("src/test/screenshots/$name.png")
+        }
     }
 
     @Test
@@ -316,6 +346,112 @@ class ScreenshotTest {
     }
 
     @Test
+    fun repo_ref_sheet_dark() = snapshot(
+        "repo_ref_sheet_dark",
+        darkTheme = true,
+        wholeScreen = true,
+        beforeCapture = {
+            composeRule.onNode(hasContentDescription("Browsing master. Switch branch or tag")).performClick()
+            composeRule.mainClock.advanceTimeBy(1_000)
+        },
+    ) {
+        RepoPreview(
+            repoState.copy(
+                tab = RepoTab.CODE,
+                code = CodeState("", Loadable.Loaded(emptyList())),
+                refs = Loadable.Loaded(
+                    GitRefs(
+                        branches = listOf("LOOA-700-recovery-tightloop", "master", "PAP-10015-per-use-join-leave-projects-and-agents", "release/2026.9"),
+                        tags = listOf("v2026.916.1", "v2026.916.0"),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    private val runStart = java.time.Instant.parse("2026-09-29T07:57:44Z")
+
+    @Test
+    fun run_failed_light() = snapshot("run_failed_light", darkTheme = false) {
+        RunScreen(
+            state = RunUiState(
+                repo = RepoId("paperclipai", "paperclip"),
+                runId = 36539745670,
+                run = workflowRun(36539745670, title = "fix: keep the blocked inbox reason and action", conclusion = RunConclusion.FAILURE)
+                    .copy(workflowName = "PR", branch = "fix/blocked-inbox-reason-and-action", event = "pull_request", runNumber = 39953, attempt = 2),
+                jobs = listOf(
+                    RunJob(1, "ci / Select trusted runner", RunStatus.COMPLETED, RunConclusion.SUCCESS, runStart, runStart.plusSeconds(4), emptyList()),
+                    RunJob(
+                        2, "ci / Verify Paperclip Runner (vitest 1/2)", RunStatus.COMPLETED, RunConclusion.FAILURE, runStart, runStart.plusSeconds(361),
+                        listOf(RunStep(10, "Verify Paperclip Runner", RunStatus.COMPLETED, RunConclusion.FAILURE)),
+                    ),
+                    RunJob(3, "ci / e2e shard (5/8)", RunStatus.IN_PROGRESS, null, runStart, null, emptyList()),
+                    RunJob(4, "ci / verify", RunStatus.QUEUED, null, null, null, emptyList()),
+                ),
+            ),
+            signedIn = true, onBack = {}, onRefresh = {}, onPerform = {}, onOpenJob = {}, onOpenUser = {}, onOpenInBrowser = {},
+            onResultShown = {}, onErrorShown = {}, nowMillis = runStart.plusSeconds(400).toEpochMilli(),
+        )
+    }
+
+    @Test
+    fun dispatch_form_light() = snapshot("dispatch_form_light", darkTheme = false) {
+        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.background(fr.arthurbrugiere.forgeline.core.ui.soft.Soft.colors.ground)) {
+            DispatchContent(
+                state = DispatchUiState(
+                    selected = Workflow(1, "Release", ".github/workflows/release.yml"),
+                    ref = "master",
+                    inputs = Loadable.Loaded(
+                        listOf(
+                            DispatchInput("channel", "Release channel to publish", DispatchInputType.CHOICE, true, "stable", listOf("stable", "beta", "nightly", "preview")),
+                            DispatchInput("source_ref", "Stable source ref, or full immutable SHA for a preview build", DispatchInputType.STRING, true, "master", emptyList()),
+                            DispatchInput("dry_run", "Build everything but publish nothing", DispatchInputType.BOOLEAN, false, "false", emptyList()),
+                        ),
+                    ),
+                    values = mapOf("channel" to "beta", "source_ref" to "master", "dry_run" to "true"),
+                ),
+                onSelect = {}, onRefChange = {}, onRefDone = {}, onValueChange = { _, _ -> }, onStart = {}, onRetry = {},
+            )
+        }
+    }
+
+    @Test
+    fun job_log_dark() = snapshot("job_log_dark", darkTheme = true) {
+        JobLogScreen(
+            state = JobLogUiState(
+                repo = RepoId("paperclipai", "paperclip"),
+                jobId = 2,
+                jobName = "ci / Verify Paperclip Runner (vitest 1/2)",
+                log = Loadable.Loaded(
+                    JobLog(
+                        listOf(
+                            LogEntry.Line("Current runner version: '2.337.0'"),
+                            LogEntry.Group("Runner Image Provisioner", listOf(LogEntry.Line("Hosted Compute Agent"))),
+                            LogEntry.Group("Operating System", listOf(LogEntry.Line("Ubuntu 24.04"))),
+                            LogEntry.Group(
+                                "Run pnpm --filter @paperclipai/paperclip-runner test:typescript:vitest --shard=1/2",
+                                listOf(
+                                    LogEntry.Line("pnpm --filter @paperclipai/paperclip-runner test:typescript:vitest --shard=1/2", LogLineKind.COMMAND),
+                                    LogEntry.Line("\u001B[2m Test Files \u001B[22m \u001B[1m\u001B[31m1 failed\u001B[39m\u001B[22m\u001B[2m | \u001B[22m\u001B[1m\u001B[32m76 passed\u001B[39m\u001B[22m\u001B[2m | \u001B[22m\u001B[33m1 skipped\u001B[39m"),
+                                    LogEntry.Line("\u001B[2m   Duration \u001B[22m 191.00s"),
+                                    LogEntry.Line("NativeSessionCloseUnrecoverableError: provider_transport_failed: runner did not durably suspend before checkpoint", LogLineKind.ERROR),
+                                    LogEntry.Line(" ❯ DurablePrpCodexTransport.#closeOnce src/live/runnerd-codex-transport.ts:4314:13", LogLineKind.ERROR),
+                                    LogEntry.Line("Process completed with exit code 1.", LogLineKind.ERROR),
+                                ),
+                            ),
+                            LogEntry.Line("Post job cleanup."),
+                            LogEntry.Line("/usr/bin/git version", LogLineKind.COMMAND),
+                            LogEntry.Line("git version 2.55.0"),
+                        ),
+                    ),
+                ),
+                openGroups = setOf(3),
+            ),
+            onBack = {}, onRetry = {}, onToggleGroup = {}, onSignIn = {}, onOpenInBrowser = {},
+        )
+    }
+
+    @Test
     fun repo_issues_dark() = snapshot("repo_issues_dark", darkTheme = true) {
         RepoPreview(
             repoState.copy(
@@ -354,7 +490,7 @@ class ScreenshotTest {
                     TimelineItem.StateChanged(StateChange.CLOSED, ForgeUser("maintainer", null, null), "completed", at),
                 ),
             ),
-            onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenUser = {}, onOpenInBrowser = {},
+            onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {},
             onLinkClick = {}, onErrorShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
         )
     }
@@ -532,7 +668,8 @@ class ScreenshotTest {
     private fun RepoPreview(state: RepoUiState) {
         RepoScreen(
             state = state, signedIn = true, onBack = {}, onRefresh = {}, onSelectTab = {}, onRetryTab = {}, onToggleStar = {},
-            onOpenDirectory = {}, onOpenParentDirectory = {}, onOpenFile = {}, onOpenIssue = {}, onOpenUser = {}, onLinkClick = {}, onOpenInBrowser = {},
+            onOpenDirectory = {}, onOpenParentDirectory = {}, onOpenFile = {}, onOpenIssue = {}, onOpenUser = {}, onLinkClick = {}, onOpenRun = {}, onOpenInBrowser = {}, onLoadRefs = {}, onSelectRef = {},
+            onRunWorkflow = {}, onWorkflowStartShown = {},
             onErrorShown = {}, onStarFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
         )
     }

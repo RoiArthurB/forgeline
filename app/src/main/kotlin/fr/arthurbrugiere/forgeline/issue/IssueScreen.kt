@@ -49,6 +49,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.Role
+import androidx.compose.material.icons.outlined.ChevronRight
 import fr.arthurbrugiere.forgeline.core.markdown.ForgelineMarkdown
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.markdown.rememberReadmeState
@@ -123,6 +126,7 @@ fun IssueRoute(
         onRefresh = viewModel::refresh,
         onLoadMore = viewModel::loadMore,
         onOpenIssue = onOpenIssue,
+        onOpenRepo = onOpenRepo,
         onOpenUser = onOpenUser,
         onOpenInBrowser = openUrl,
         onLinkClick = { url ->
@@ -145,6 +149,7 @@ fun IssueScreen(
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
+    onOpenRepo: (RepoId) -> Unit,
     onOpenUser: (String) -> Unit,
     onOpenInBrowser: (String) -> Unit,
     onLinkClick: (String) -> Unit,
@@ -205,7 +210,7 @@ fun IssueScreen(
                             }
                         },
                     ) {
-                        Header(state.ref, issue, nowMillis, onOpenUser)
+                        Header(state.ref, issue, nowMillis, onOpenRepo, onOpenUser)
                     }
                 }
                 when {
@@ -267,10 +272,28 @@ private val IssueDetails.tintIndex: Int
     }
 
 @Composable
-private fun Header(ref: IssueRef, issue: IssueDetails?, nowMillis: Long, onOpenUser: (String) -> Unit) {
+private fun Header(ref: IssueRef, issue: IssueDetails?, nowMillis: Long, onOpenRepo: (RepoId) -> Unit, onOpenUser: (String) -> Unit) {
     val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(ref.repo.fullName, style = Soft.type.secondary, color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // The repository it belongs to, one tap away.
+        Row(
+            Modifier
+                .clip(SoftTokens.Pill)
+                .clickable(role = Role.Button, onClickLabel = stringResource(R.string.issue_open_repo)) { onOpenRepo(ref.repo) }
+                .heightIn(min = 48.dp)
+                .padding(end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                ref.repo.fullName,
+                style = Soft.type.secondary,
+                color = colors.inkMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp))
+        }
         if (issue == null) {
             Text("#${ref.number}", style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp), color = colors.ink)
             return@Column

@@ -36,7 +36,10 @@ data class TrendingUiState(
     val isRefreshing: Boolean = false,
     val error: ForgeError? = null,
     val starFailed: Boolean = false,
-    /** Where the last browse of this period stopped (0-based rank), fixed for this visit so the flag doesn't chase the reader. */
+    /**
+     * Where the last browse of this period stopped: the row (0-based) of the repo read furthest, wherever the list has
+     * moved it since. Fixed for this visit so the mark doesn't chase the reader.
+     */
     val resumeAt: Int? = null,
 )
 
@@ -55,7 +58,7 @@ class TrendingViewModel @Inject constructor(
     private val refreshing = MutableStateFlow(false)
     private val error = MutableStateFlow<ForgeError?>(null)
     private val starFailed = MutableStateFlow(false)
-    private val resumeAt = MutableStateFlow<Map<TrendingPeriod, Int?>>(emptyMap())
+    private val resumeAt = MutableStateFlow<Map<TrendingPeriod, RepoId?>>(emptyMap())
 
     val state: StateFlow<TrendingUiState> = combine(
         period,
@@ -70,7 +73,7 @@ class TrendingViewModel @Inject constructor(
             isRefreshing = flags.refreshing,
             error = flags.error,
             starFailed = flags.starFailed,
-            resumeAt = flags.resumeAt[period],
+            resumeAt = flags.resumeAt[period]?.let { mark -> snapshot.repos.indexOfFirst { it.id == mark }.takeIf { it >= 0 } },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrendingUiState(period = period.value))
 
@@ -112,10 +115,11 @@ class TrendingViewModel @Inject constructor(
         }
     }
 
-    /** The list has been read down to [rank] (0-based). */
+    /** The list has been read down to [rank] (0-based), as shown now. */
     fun readThrough(rank: Int) {
         val period = period.value
-        viewModelScope.launch { trending.markReadThrough(period, rank) }
+        val repo = state.value.items.getOrNull(rank)?.repo?.id ?: return
+        viewModelScope.launch { trending.markReadThrough(period, repo, rank) }
     }
 
     fun errorShown() {
@@ -138,7 +142,7 @@ class TrendingViewModel @Inject constructor(
         val refreshing: Boolean,
         val error: ForgeError?,
         val starFailed: Boolean,
-        val resumeAt: Map<TrendingPeriod, Int?>,
+        val resumeAt: Map<TrendingPeriod, RepoId?>,
     )
 
     private companion object {

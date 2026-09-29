@@ -4,7 +4,9 @@ import fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoSnapshot
 import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
+import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.Release
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -23,6 +25,8 @@ class FakeRepoRepository : RepoRepository {
     var pulls: ForgeResult<List<IssueSummary>> = ForgeResult.Success(emptyList())
     var releases: ForgeResult<List<Release>> = ForgeResult.Success(emptyList())
     var runs: ForgeResult<List<WorkflowRun>> = ForgeResult.Success(emptyList())
+    var refs: ForgeResult<GitRefs> = ForgeResult.Success(GitRefs(listOf("main"), emptyList()))
+    val readmes = mutableMapOf<String, ForgeResult<Readme?>>()
 
     override fun observe(id: RepoId): Flow<RepoSnapshot> = snapshot
 
@@ -30,6 +34,13 @@ class FakeRepoRepository : RepoRepository {
         refreshes += force
         return nextRefresh
     }
+
+    override suspend fun readme(id: RepoId, ref: String): ForgeResult<Readme?> {
+        calls += "readme:${id.fullName}@$ref"
+        return readmes[ref] ?: ForgeResult.Success(null)
+    }
+
+    override suspend fun refs(id: RepoId) = refs.also { calls += "refs:${id.fullName}" }
 
     override suspend fun contents(id: RepoId, path: String, ref: String): ForgeResult<List<RepoFile>> {
         calls += "contents:${id.fullName}:$path@$ref"

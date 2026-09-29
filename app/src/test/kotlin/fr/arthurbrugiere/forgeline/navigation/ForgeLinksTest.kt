@@ -31,6 +31,15 @@ class ForgeLinksTest {
     }
 
     @Test
+    fun actions_run_and_job_urls_open_the_run() {
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/actions/runs/36539745670"))
+            .isEqualTo(RunRoute("square", "okhttp", 36539745670))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/actions/runs/36539745670/job/109312096849#step:10:1"))
+            .isEqualTo(RunRoute("square", "okhttp", 36539745670))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/actions")).isEqualTo(RepoRoute("square", "okhttp"))
+    }
+
+    @Test
     fun profile_urls_open_the_user() {
         assertThat(ForgeLinks.routeFor("https://github.com/octocat")).isEqualTo(UserRoute("octocat"))
         assertThat(ForgeLinks.routeFor("https://github.com/octocat/")).isEqualTo(UserRoute("octocat"))

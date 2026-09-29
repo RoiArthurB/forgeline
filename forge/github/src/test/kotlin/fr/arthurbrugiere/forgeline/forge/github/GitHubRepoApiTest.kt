@@ -91,6 +91,56 @@ class GitHubRepoApiTest {
     }
 
     @Test
+    fun a_readme_can_be_read_at_another_ref() = runTest {
+        api { json(fixture("readme.json")) }.readme(null, paperclip, ref = "v2026.916.1")
+
+        assertThat(requests.single().url.toString()).isEqualTo("https://api.github.com/repos/paperclipai/paperclip/readme?ref=v2026.916.1")
+    }
+
+    @Test
+    fun lists_every_branch_and_tag_in_one_request_each() = runTest {
+        // Fixtures are trimmed from real matching-refs answers (977 branches, 1664 tags on 2026-09-29).
+        val refs = api {
+            json(fixture(if (it.url.encodedPath.endsWith("/heads")) "matching_refs_heads.json" else "matching_refs_tags.json"))
+        }.refs(null, paperclip).value()
+
+        assertThat(refs.branches).containsExactly(
+            "LOOA-700-recovery-tightloop",
+            "LOOA-956-paperclip-feature-skill-usage-analytics-in-the-skill-browser-and-studio",
+            "master",
+            "PAP-10015-per-use-join-leave-projects-and-agents",
+            "PAP-10026-team-s-based-paperclip-not-always-a-fixed-ceo",
+        ).inOrder()
+        // Newest versions first, comparing numbers as numbers.
+        assertThat(refs.tags).containsExactly(
+            "v2026.916.1", "v2026.916.0", "v2026.831.1",
+            "@paperclipai/adapter-claude-local@0.2.4", "@paperclipai/adapter-claude-local@0.2.3", "@paperclipai/adapter-claude-local@0.2.2",
+        ).inOrder()
+        assertThat(requests.map { it.url.encodedPath }).containsExactly(
+            "/repos/paperclipai/paperclip/git/matching-refs/heads",
+            "/repos/paperclipai/paperclip/git/matching-refs/tags",
+        )
+    }
+
+    @Test
+    fun tags_compare_their_numbers_as_numbers() = runTest {
+        val tags = """[{"ref":"refs/tags/v1.9.0"},{"ref":"refs/tags/v1.10.0"},{"ref":"refs/tags/v1.2.0"}]"""
+
+        val refs = api { json(if (it.url.encodedPath.endsWith("/heads")) "[]" else tags) }.refs(null, paperclip).value()
+
+        assertThat(refs.tags).containsExactly("v1.10.0", "v1.9.0", "v1.2.0").inOrder()
+    }
+
+    @Test
+    fun an_empty_repository_has_no_refs() = runTest {
+        // GitHub answers 409 "Git Repository is empty" for the git database endpoints.
+        val result = api { json("""{"message":"Git Repository is empty."}""", HttpStatusCode.Conflict) }.refs(null, paperclip)
+
+        assertThat(result.value().branches).isEmpty()
+        assertThat(result.value().tags).isEmpty()
+    }
+
+    @Test
     fun a_repo_without_readme_has_none() = runTest {
         val result = api { json("""{"message":"Not Found"}""", HttpStatusCode.NotFound) }.readme(null, paperclip)
 

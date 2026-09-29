@@ -6,7 +6,11 @@ import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.header
 import io.ktor.client.request.request
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
+import io.ktor.http.contentType
+import kotlinx.serialization.json.JsonObject
 import io.ktor.http.appendPathSegments
 import io.ktor.http.takeFrom
 
@@ -17,6 +21,7 @@ internal suspend fun HttpClient.gitHubApi(
     vararg segments: String,
     method: HttpMethod = HttpMethod.Get,
     query: Map<String, String> = emptyMap(),
+    body: JsonObject? = null,
 ): HttpResponse = request {
     this.method = method
     url {
@@ -25,6 +30,10 @@ internal suspend fun HttpClient.gitHubApi(
         query.forEach { (key, value) -> parameters.append(key, value) }
     }
     gitHubHeaders(token)
+    if (body != null) {
+        contentType(ContentType.Application.Json)
+        setBody(body)
+    }
 }
 
 internal fun HttpRequestBuilder.gitHubHeaders(token: String?) {

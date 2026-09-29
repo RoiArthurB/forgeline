@@ -5,6 +5,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.Label
@@ -35,13 +36,32 @@ class GitHubRepoApi(
         get(token, "repos", id.owner, id.name).toResult { body<RepoResponse>().toModel() }
     }
 
-    override suspend fun readme(token: String?, id: RepoId): ForgeResult<Readme?> = gitHubCall {
-        val response = get(token, "repos", id.owner, id.name, "readme")
+    override suspend fun readme(token: String?, id: RepoId, ref: String?): ForgeResult<Readme?> = gitHubCall {
+        val response = get(token, "repos", id.owner, id.name, "readme", query = ref?.let { mapOf("ref" to it) } ?: emptyMap())
         if (response.status == HttpStatusCode.NotFound) return@gitHubCall ForgeResult.Success(null)
         response.toResult {
             val file = body<ContentResponse>()
             Readme(path = file.path, markdown = file.decodedText() ?: "")
         }
+    }
+
+    override suspend fun refs(token: String?, id: RepoId): ForgeResult<GitRefs> = gitHubCall {
+        // matching-refs answers every ref at once, where /branches and /tags stop at 100 a page.
+        val names = listOf("heads", "tags").map { kind ->
+            val response = get(token, "repos", id.owner, id.name, "git", "matching-refs", kind)
+            when (response.status) {
+                HttpStatusCode.OK -> response.body<List<GitRefResponse>>().map { it.ref.removePrefix("refs/$kind/") }
+                // An empty repository has no git database yet.
+                HttpStatusCode.Conflict -> emptyList()
+                else -> return@gitHubCall response.failure()
+            }
+        }
+        ForgeResult.Success(
+            GitRefs(
+                branches = names[0].sortedWith(String.CASE_INSENSITIVE_ORDER),
+                tags = names[1].sortedWith(VersionOrder.reversed()),
+            ),
+        )
     }
 
     override suspend fun contents(token: String?, id: RepoId, path: String, ref: String): ForgeResult<List<RepoFile>> =
@@ -94,8 +114,32 @@ class GitHubRepoApi(
     private fun String.segments(): Array<String> = split('/').filter { it.isNotEmpty() }.toTypedArray()
 }
 
+/** Compares runs of digits as numbers, so v1.10 comes after v1.9. */
+private object VersionOrder : Comparator<String> {
+    private val chunks = Regex("""\d+|\D+""")
+
+    override fun compare(a: String, b: String): Int {
+        val left = chunks.findAll(a).map { it.value }.toList()
+        val right = chunks.findAll(b).map { it.value }.toList()
+        for (i in 0 until minOf(left.size, right.size)) {
+            val x = left[i]
+            val y = right[i]
+            val order = if (x[0].isDigit() && y[0].isDigit()) {
+                x.trimStart('0').length.compareTo(y.trimStart('0').length).takeIf { it != 0 } ?: x.trimStart('0').compareTo(y.trimStart('0'))
+            } else {
+                x.compareTo(y, ignoreCase = true)
+            }
+            if (order != 0) return order
+        }
+        return left.size.compareTo(right.size)
+    }
+}
+
 @Serializable
-private data class Owner(val login: String, @SerialName("avatar_url") val avatarUrl: String? = null) {
+private data class GitRefResponse(val ref: String)
+
+@Serializable
+internal data class Owner(val login: String, @SerialName("avatar_url") val avatarUrl: String? = null) {
     fun toModel() = ForgeUser(login = login, name = null, avatarUrl = avatarUrl)
 }
 
@@ -139,7 +183,7 @@ private data class RepoResponse(
 }
 
 @Serializable
-private data class ContentResponse(
+internal data class ContentResponse(
     val name: String,
     val path: String,
     val type: String,
@@ -222,7 +266,7 @@ private data class ReleaseResponse(
 private data class RunsResponse(@SerialName("workflow_runs") val workflowRuns: List<RunResponse>)
 
 @Serializable
-private data class RunResponse(
+internal data class RunResponse(
     val id: Long,
     val name: String? = null,
     @SerialName("display_title") val displayTitle: String? = null,
@@ -233,32 +277,44 @@ private data class RunResponse(
     @SerialName("run_number") val runNumber: Int,
     @SerialName("created_at") val createdAt: String,
     val actor: Owner? = null,
+    @SerialName("workflow_id") val workflowId: Long? = null,
+    @SerialName("run_attempt") val runAttempt: Int = 1,
+    @SerialName("run_started_at") val runStartedAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null,
 ) {
     fun toModel() = WorkflowRun(
         id = id,
         workflowName = name.orEmpty(),
         title = displayTitle ?: name.orEmpty(),
-        status = when (status) {
-            "queued", "waiting", "requested", "pending" -> RunStatus.QUEUED
-            "in_progress" -> RunStatus.IN_PROGRESS
-            "completed" -> RunStatus.COMPLETED
-            else -> RunStatus.OTHER
-        },
-        conclusion = when (conclusion) {
-            null -> null
-            "success" -> RunConclusion.SUCCESS
-            "failure" -> RunConclusion.FAILURE
-            "cancelled" -> RunConclusion.CANCELLED
-            "skipped" -> RunConclusion.SKIPPED
-            "neutral" -> RunConclusion.NEUTRAL
-            "timed_out" -> RunConclusion.TIMED_OUT
-            "action_required" -> RunConclusion.ACTION_REQUIRED
-            else -> RunConclusion.OTHER
-        },
+        status = runStatus(status),
+        conclusion = runConclusion(conclusion),
         branch = headBranch,
         event = event,
         runNumber = runNumber,
         createdAt = Instant.parse(createdAt),
         actor = actor?.toModel(),
+        workflowId = workflowId,
+        attempt = runAttempt,
+        startedAt = runStartedAt?.let(Instant::parse),
+        updatedAt = updatedAt?.let(Instant::parse),
     )
+}
+
+internal fun runStatus(status: String?) = when (status) {
+    "queued", "waiting", "requested", "pending" -> RunStatus.QUEUED
+    "in_progress" -> RunStatus.IN_PROGRESS
+    "completed" -> RunStatus.COMPLETED
+    else -> RunStatus.OTHER
+}
+
+internal fun runConclusion(conclusion: String?) = when (conclusion) {
+    null -> null
+    "success" -> RunConclusion.SUCCESS
+    "failure" -> RunConclusion.FAILURE
+    "cancelled" -> RunConclusion.CANCELLED
+    "skipped" -> RunConclusion.SKIPPED
+    "neutral" -> RunConclusion.NEUTRAL
+    "timed_out" -> RunConclusion.TIMED_OUT
+    "action_required" -> RunConclusion.ACTION_REQUIRED
+    else -> RunConclusion.OTHER
 }

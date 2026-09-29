@@ -5,7 +5,15 @@ import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsSync
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
+import fr.arthurbrugiere.forgeline.core.model.SubjectState
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import io.ktor.client.HttpClient
@@ -20,6 +28,9 @@ import io.ktor.http.takeFrom
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.time.Instant
+
+@Serializable
+private data class StatesResponse(val data: JsonObject? = null)
 
 class GitHubNotificationsApi(
     private val httpClient: HttpClient,
@@ -58,6 +69,61 @@ class GitHubNotificationsApi(
         ForgeResult.Success(NotificationsSync(threads, lastModified, pollInterval))
     }
 
+    override suspend fun subjectStates(token: String, subjects: List<IssueRef>): ForgeResult<Map<IssueRef, SubjectState>> {
+        if (subjects.isEmpty()) return ForgeResult.Success(emptyMap())
+        val states = mutableMapOf<IssueRef, SubjectState>()
+        // One GraphQL request per 100 subjects, where REST would need one per subject.
+        for (chunk in subjects.distinct().chunked(STATES_PER_REQUEST)) {
+            val repos = chunk.groupBy { it.repo }.entries.toList()
+            val params = repos.indices.joinToString(", ") { "\$o$it: String!, \$n$it: String!" }
+            val fields = repos.withIndex().joinToString(" ") { (i, entry) ->
+                val items = entry.value.joinToString(" ") { "i${it.number}: issueOrPullRequest(number: ${it.number}) { ...state }" }
+                "r$i: repository(owner: \$o$i, name: \$n$i) { $items }"
+            }
+            val query = "query SubjectStates($params) { $fields } fragment state on IssueOrPullRequest { " +
+                "__typename ... on Issue { state stateReason } ... on PullRequest { state isDraft } }"
+            val variables = repos.withIndex().flatMap { (i, entry) -> listOf("o$i" to entry.key.owner, "n$i" to entry.key.name) }.toMap()
+            val result = gitHubCall {
+                httpClient.gitHubApi(
+                    apiBaseUrl, token, "graphql", method = HttpMethod.Post,
+                    body = buildJsonObject {
+                        put("query", query)
+                        put("variables", buildJsonObject { variables.forEach { (key, value) -> put(key, value) } })
+                    },
+                ).toResult { body<StatesResponse>() }
+            }
+            val data = when (result) {
+                is ForgeResult.Failure -> return result
+                is ForgeResult.Success -> result.value.data ?: continue
+            }
+            repos.forEachIndexed { i, (_, refs) ->
+                val repo = data["r$i"] as? JsonObject ?: return@forEachIndexed
+                refs.forEach { ref -> (repo["i${ref.number}"] as? JsonObject)?.let(::subjectState)?.let { states[ref] = it } }
+            }
+        }
+        return ForgeResult.Success(states)
+    }
+
+    private fun subjectState(node: JsonObject): SubjectState? {
+        val state = node["state"]?.jsonPrimitive?.contentOrNull
+        return when (node["__typename"]?.jsonPrimitive?.contentOrNull) {
+            "PullRequest" -> when {
+                state == "MERGED" -> SubjectState.MERGED
+                state == "CLOSED" -> SubjectState.CLOSED
+                node["isDraft"]?.jsonPrimitive?.booleanOrNull == true -> SubjectState.DRAFT
+                state == "OPEN" -> SubjectState.OPEN
+                else -> null
+            }
+            "Issue" -> when {
+                state == "OPEN" -> SubjectState.OPEN
+                node["stateReason"]?.jsonPrimitive?.contentOrNull == "NOT_PLANNED" -> SubjectState.NOT_PLANNED
+                state == "CLOSED" -> SubjectState.CLOSED
+                else -> null
+            }
+            else -> null
+        }
+    }
+
     override suspend fun markRead(token: String, threadId: String): ForgeResult<Unit> = gitHubCall {
         httpClient.gitHubApi(apiBaseUrl, token, "notifications", "threads", threadId, method = HttpMethod.Patch).toResult { }
     }
@@ -69,6 +135,10 @@ class GitHubNotificationsApi(
     override suspend fun unsubscribe(token: String, threadId: String): ForgeResult<Unit> = gitHubCall {
         httpClient.gitHubApi(apiBaseUrl, token, "notifications", "threads", threadId, "subscription", method = HttpMethod.Delete)
             .toResult { }
+    }
+
+    private companion object {
+        const val STATES_PER_REQUEST = 100
     }
 }
 

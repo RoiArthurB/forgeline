@@ -18,6 +18,13 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v6
+      - name: Check the release notes
+        run: |
+          NOTES="docs/release-notes/${GITHUB_REF_NAME}.md"
+          if [ ! -s "$NOTES" ]; then
+            echo "::error::$NOTES is missing: write the release notes before tagging, see docs/RELEASING.md"
+            exit 1
+          fi
       - name: Decode signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -42,5 +49,6 @@ jobs:
       - uses: softprops/action-gh-release@v3
         with:
           files: forgeline-*.apk
-          generate_release_notes: true
+          # Hand-written: GitHub's generated notes list pull requests, and Forgeline commits straight to main.
+          body_path: docs/release-notes/${{ github.ref_name }}.md
           prerelease: ${{ contains(github.ref_name, '-') }}

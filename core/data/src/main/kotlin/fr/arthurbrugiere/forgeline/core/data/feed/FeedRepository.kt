@@ -14,7 +14,10 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkDao
+import fr.arthurbrugiere.forgeline.core.data.reading.advance
 import java.time.Clock
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -29,6 +32,12 @@ interface FeedRepository {
 
     /** Appends the next older page. */
     suspend fun loadMore(): ForgeResult<Unit>
+
+    /** The newest activity read in the Feed so far (its time), null before any; per account. */
+    suspend fun readUpTo(): Instant?
+
+    /** Records that activity from [at] was read; only ever moves the mark to newer activity. */
+    suspend fun markRead(itemKey: String, at: Instant)
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -37,8 +46,19 @@ class DefaultFeedRepository @Inject constructor(
     private val dao: FeedDao,
     private val api: FeedApi,
     private val accounts: AccountRepository,
+    private val marks: ReadingMarkDao,
     private val clock: Clock,
 ) : FeedRepository {
+
+    override suspend fun readUpTo(): Instant? {
+        val account = accounts.activeAccount.first() ?: return null
+        return marks.get("feed:${account.id}")?.position?.let(Instant::ofEpochMilli)
+    }
+
+    override suspend fun markRead(itemKey: String, at: Instant) {
+        val account = accounts.activeAccount.first() ?: return
+        marks.advance("feed:${account.id}", itemKey, at.toEpochMilli(), clock.millis())
+    }
 
     private val lock = Mutex()
 

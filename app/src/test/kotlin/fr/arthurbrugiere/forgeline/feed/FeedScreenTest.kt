@@ -53,6 +53,20 @@ class FeedScreenTest {
         FeedUiState(items = feedItems(events.toList(), FeedKind.entries.toSet()), syncedAtMillis = 1, hasMore = hasMore)
 
     @Test
+    fun where_you_left_off_sits_above_the_last_read_activity() {
+        setContent(
+            state(feedEvent("2", repo = "octo/new", createdAt = "2026-09-27T09:30:00Z"), feedEvent("1", repo = "octo/read"))
+                .copy(leftOffBefore = "1"),
+        )
+
+        val mark = composeRule.onNodeWithText("Where you left off").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val newer = composeRule.onNodeWithText("octo/\u2060new").fetchSemanticsNode().boundsInRoot
+        val read = composeRule.onNodeWithText("octo/\u2060read").fetchSemanticsNode().boundsInRoot
+        assertThat(mark.top).isAtLeast(newer.bottom)
+        assertThat(read.top).isAtLeast(mark.bottom)
+    }
+
+    @Test
     fun merged_stars_name_everyone() {
         setContent(
             state(

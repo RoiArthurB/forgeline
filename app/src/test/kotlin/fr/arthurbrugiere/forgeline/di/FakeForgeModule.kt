@@ -4,10 +4,12 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.components.SingletonComponent
 import dagger.hilt.testing.TestInstallIn
+import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.forge.FeedApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeAuthApi
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.IssueAction
+import fr.arthurbrugiere.forgeline.core.testing.FakeActionsApi
 import fr.arthurbrugiere.forgeline.core.testing.FakeFeedApi
 import fr.arthurbrugiere.forgeline.core.testing.feedEvent
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
@@ -73,6 +75,10 @@ object FakeForgeModule {
         directories[paperclip to ""] = listOf(RepoFile("package.json", "package.json", RepoFileType.FILE, 30))
         files[paperclip to "package.json"] = "{\n  \"name\": \"paperclip\"\n}\n"
     }
+
+    @Provides
+    @Singleton
+    fun provideActionsApi(): ActionsApi = FakeActionsApi()
 
     @Provides
     @Singleton
