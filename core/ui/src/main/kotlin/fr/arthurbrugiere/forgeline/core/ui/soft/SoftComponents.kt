@@ -73,6 +73,9 @@ import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
 
 /** Shapes, widths and motion shared by every Soft screen. */
 object SoftTokens {
@@ -101,12 +104,21 @@ fun animationsEnabled(): Boolean {
     }
 }
 
-/** A clickable row with the soft pressed surface: a palette tint behind it while pressed or focused, not a ripple. */
+/**
+ * A clickable row with the soft pressed surface: a palette tint behind it while pressed or focused, not a ripple,
+ * and a slight squish (2%) that springs back on release.
+ */
 fun Modifier.softPressable(role: Role? = null, onClick: () -> Unit): Modifier = composed {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val focused by interaction.collectIsFocusedAsState()
-    clip(SoftTokens.RowCorner)
+    val squish by animateFloatAsState(
+        if (pressed && animationsEnabled()) PressedScale else 1f,
+        spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMedium),
+        label = "squish",
+    )
+    graphicsLayer { scaleX = squish; scaleY = squish }
+        .clip(SoftTokens.RowCorner)
         .background(if (pressed || focused) Soft.colors.surface else Color.Transparent)
         .clickable(interactionSource = interaction, indication = null, role = role, onClick = onClick)
 }
@@ -452,6 +464,29 @@ fun SoftSectionTitle(text: String, modifier: Modifier = Modifier) {
         color = Soft.colors.ink,
         modifier = modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 6.dp).semantics { heading() },
     )
+}
+
+/** How far a pressed row shrinks. */
+const val PressedScale = 0.98f
+
+/** A state or kind as a tinted pill led by its glyph: Open, Merged, a release tag, a branch. */
+@Composable
+fun SoftPill(label: String, icon: ImageVector, tint: Color, modifier: Modifier = Modifier, monospace: Boolean = false) {
+    val colors = Soft.colors
+    Row(
+        modifier.clip(SoftTokens.Pill).background(tint).padding(start = 8.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(15.dp))
+        Text(
+            label,
+            style = if (monospace) Soft.type.label.copy(fontFamily = FontFamily.Monospace) else Soft.type.label,
+            color = colors.ink,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 /** A soft rounded tag: a count, a state or a label, on a tinted pill. */

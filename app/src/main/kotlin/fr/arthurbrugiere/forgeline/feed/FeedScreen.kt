@@ -1,6 +1,11 @@
 package fr.arthurbrugiere.forgeline.feed
 
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import fr.arthurbrugiere.forgeline.core.ui.soft.animationsEnabled
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -102,6 +107,7 @@ import fr.arthurbrugiere.forgeline.core.model.FeedPreviews
 import fr.arthurbrugiere.forgeline.core.model.RepoPreview
 import fr.arthurbrugiere.forgeline.core.ui.format.compactCount
 import fr.arthurbrugiere.forgeline.core.ui.format.languageColor
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftPill
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSectionTitle
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import java.time.Instant
@@ -369,7 +375,7 @@ private fun FeedObject(item: FeedItem, previews: FeedPreviews, modifier: Modifie
         is FeedAction.Commented -> Column(modifier) {
             StatePill(stringResource(R.string.feed_state_comment), Icons.Outlined.ChatBubbleOutline, colors.fields[1], number = a.number)
             val title = a.title ?: previews.pullTitles[IssueRef(item.repo, a.number)]
-            if (title != null) ObjectTitle(title) else if (a.isPullRequest) PendingTitle()
+            if (title != null || a.isPullRequest) LateTitle(title)
         }
         is FeedAction.Pushed -> StatePill(a.branch, Icons.Outlined.Commit, colors.surface, monospace = true, modifier = modifier)
         is FeedAction.Branch -> StatePill(a.name, if (a.isTag) Icons.Outlined.Sell else Icons.Outlined.AccountTree, colors.surface, monospace = true, modifier = modifier)
@@ -382,12 +388,16 @@ private fun FeedObject(item: FeedItem, previews: FeedPreviews, modifier: Modifie
 @Composable
 private fun RepoObject(repo: RepoId, preview: RepoPreview?, description: String?, modifier: Modifier = Modifier) {
     val colors = Soft.colors
+    // Details arriving later grow the panel and fade in, rather than popping the rows below down.
+    val animations = animationsEnabled()
+    val startedEmpty = remember(repo) { preview == null }
     Column(
         modifier
             .widthIn(max = SoftTokens.MaxMeasure)
             .fillMaxWidth()
             .clip(SoftTokens.RowCorner)
             .background(colors.surface)
+            .then(if (animations) Modifier.animateContentSize(tween(PREVIEW_MILLIS)) else Modifier)
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Text(
@@ -400,27 +410,56 @@ private fun RepoObject(repo: RepoId, preview: RepoPreview?, description: String?
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
-        (description ?: preview?.description)?.let {
-            Text(it, style = Soft.type.secondary, color = colors.ink, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
-        }
+        description?.let { RepoDescription(it) }
         if (preview != null) {
-            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                preview.language?.let { language ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        languageColor(language)?.let { dot ->
-                            Box(Modifier.size(9.dp).background(dot, CircleShape))
-                            Spacer(Modifier.width(6.dp))
-                        }
-                        Text(language, style = Soft.type.meta, color = colors.inkMuted)
-                    }
+            FadeInIfLate(late = startedEmpty) {
+                Column {
+                    if (description == null) preview.description?.let { RepoDescription(it) }
+                    RepoMeta(preview)
                 }
-                Text(stringResource(R.string.trending_stars, compactCount(preview.stars)), style = Soft.type.meta, color = colors.inkMuted)
             }
         }
     }
 }
 
-/** A state (Open, Merged, a tag, a branch...) as a tinted pill with its glyph, then an optional #number. */
+@Composable
+private fun RepoDescription(text: String) {
+    Text(text, style = Soft.type.secondary, color = Soft.colors.ink, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+}
+
+/** A repository's language (with its linguist color) and stars. */
+@Composable
+private fun RepoMeta(preview: RepoPreview) {
+    val colors = Soft.colors
+    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        preview.language?.let { language ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                languageColor(language)?.let { dot ->
+                    Box(Modifier.size(9.dp).background(dot, CircleShape))
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(language, style = Soft.type.meta, color = colors.inkMuted)
+            }
+        }
+        Text(stringResource(R.string.trending_stars, compactCount(preview.stars)), style = Soft.type.meta, color = colors.inkMuted)
+    }
+}
+
+/**
+ * Fades [content] in when it arrived after its row was already on screen ([late]); content that was there from the
+ * start (cached previews scrolling in) shows at once.
+ */
+@Composable
+private fun FadeInIfLate(late: Boolean, content: @Composable () -> Unit) {
+    val animate = late && animationsEnabled()
+    val alpha = remember { Animatable(if (animate) 0f else 1f) }
+    LaunchedEffect(Unit) { if (animate) alpha.animateTo(1f, tween(PREVIEW_MILLIS)) }
+    Box(Modifier.graphicsLayer { this.alpha = alpha.value }) { content() }
+}
+
+private const val PREVIEW_MILLIS = 220
+
+/** A state (Open, Merged, a tag, a branch...) as a soft pill, then an optional #number. */
 @Composable
 private fun StatePill(
     label: String,
@@ -430,17 +469,9 @@ private fun StatePill(
     number: Int? = null,
     monospace: Boolean = false,
 ) {
-    val colors = Soft.colors
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            Modifier.clip(SoftTokens.Pill).background(tint).padding(start = 8.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-        ) {
-            Icon(icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(15.dp))
-            Text(label, style = if (monospace) Soft.type.label.copy(fontFamily = FontFamily.Monospace) else Soft.type.label, color = colors.ink, maxLines = 1)
-        }
-        number?.let { Text("#$it", style = Soft.type.meta, color = colors.inkMuted) }
+        SoftPill(label, icon, tint, monospace = monospace)
+        number?.let { Text("#$it", style = Soft.type.meta, color = Soft.colors.inkMuted) }
     }
 }
 
@@ -459,9 +490,13 @@ private fun ObjectTitle(title: String) {
 
 /** A pull request's title, which arrives after the Feed shows (events carry only the number). */
 @Composable
-private fun PullTitle(item: FeedItem, number: Int, previews: FeedPreviews) {
-    val title = previews.pullTitles[IssueRef(item.repo, number)]
-    if (title != null) ObjectTitle(title) else PendingTitle()
+private fun PullTitle(item: FeedItem, number: Int, previews: FeedPreviews) = LateTitle(previews.pullTitles[IssueRef(item.repo, number)])
+
+/** A title that may still be on its way: its placeholder bar until then, and a fade when it lands. */
+@Composable
+private fun LateTitle(title: String?) {
+    val startedEmpty = remember { title == null }
+    if (title == null) PendingTitle() else FadeInIfLate(late = startedEmpty) { ObjectTitle(title) }
 }
 
 /** Where a title will land: a soft bar, so the row keeps its shape. */
