@@ -23,6 +23,7 @@ import fr.arthurbrugiere.forgeline.signin.BrowserRedirects
 import fr.arthurbrugiere.forgeline.signin.LoopbackRedirects
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoAuthApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoIssueApi
+import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoNotificationsApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoRepoApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoSearchApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoStarApi
@@ -59,6 +60,7 @@ class DefaultForgeClients @Inject constructor(
         val users = ForgejoUserApi(http, forge)
         val stars = ForgejoStarApi(http, forge)
         val search = ForgejoSearchApi(http, forge)
+        val notifications = ForgejoNotificationsApi(http, forge)
 
         // Only Codeberg has a registered OAuth application: self-hosted instances sign in with a token.
         val auth = ForgejoAuthApi(http, forge, clientId = if (forge == ForgeInstance.Codeberg) codebergClientId else "")
@@ -86,7 +88,7 @@ class DefaultForgeClients @Inject constructor(
 
     override fun feed(forge: ForgeInstance) = gitHub(forge, feed)
 
-    override fun notifications(forge: ForgeInstance) = gitHub(forge, notifications)
+    override fun notifications(forge: ForgeInstance) = pick(forge, notifications) { notifications }
 
     override fun auth(forge: ForgeInstance) = pick(forge, auth) { auth }
 

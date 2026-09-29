@@ -10,6 +10,8 @@ import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.data.inbox.SyncResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -51,6 +53,12 @@ data class InboxUiState(
     /** Whether the Inbox is checked in the background, which is when notifications matter. */
     val backgroundChecks: Boolean = false,
     val undo: PendingUndo? = null,
+    /** One tab per account when the Inbox is split per forge (a setting, with several accounts); empty otherwise. */
+    val accountTabs: List<Account> = emptyList(),
+    /** The account whose tab is shown, when there are tabs. */
+    val selectedAccountId: String? = null,
+    /** Rows say which forge they're from only when more than one forge is signed in. */
+    val showForge: Boolean = false,
 )
 
 @HiltViewModel
@@ -58,10 +66,19 @@ class InboxViewModel @Inject constructor(
     private val savedState: SavedStateHandle,
     private val inbox: InboxRepository,
     settings: UserSettingsRepository,
+    accounts: AccountRepository,
     @param:ApplicationScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     private val filter = savedState.getStateFlow(FILTER_KEY, InboxFilter.UNREAD)
+    private val selectedAccount = savedState.getStateFlow<String?>(ACCOUNT_KEY, null)
+
+    private data class Split(val tabs: List<Account>, val selected: String?, val showForge: Boolean)
+
+    private val split = combine(accounts.accounts, settings.settings, selectedAccount) { signedIn, settings, selected ->
+        val tabs = if (settings.separateInboxPerForge && signedIn.size > 1) signedIn else emptyList()
+        Split(tabs, selected?.takeIf { id -> tabs.any { it.id == id } } ?: tabs.firstOrNull()?.id, signedIn.map { it.forge }.distinct().size > 1)
+    }
     private val status = MutableStateFlow(Status())
 
     private data class Status(val isRefreshing: Boolean = false, val error: ForgeError? = null, val actionFailed: Boolean = false)
@@ -76,12 +93,17 @@ class InboxViewModel @Inject constructor(
         combine(inbox.observe(), pending) { snapshot, pending -> snapshot to pending },
         filter,
         status,
-        settings.settings.map { it.inboxCheckInterval != InboxCheckInterval.OFF },
+        combine(settings.settings.map { it.inboxCheckInterval != InboxCheckInterval.OFF }, split) { checks, split -> checks to split },
         undo,
-    ) { (snapshot, pending), filter, status, backgroundChecks, undo ->
+    ) { (snapshot, pending), filter, status, (backgroundChecks, split), undo ->
         InboxUiState(
             filter = filter,
-            groups = snapshot.threads.applying(pending).filter { filter.matches(it) }.bySection(),
+            groups = snapshot.threads.applying(pending)
+                .filter { filter.matches(it) && (split.selected == null || it.accountId == split.selected) }
+                .bySection(),
+            accountTabs = split.tabs,
+            selectedAccountId = split.selected,
+            showForge = split.showForge,
             syncedAtMillis = snapshot.syncedAtMillis,
             isRefreshing = status.isRefreshing,
             error = status.error,
@@ -97,6 +119,10 @@ class InboxViewModel @Inject constructor(
 
     fun selectFilter(filter: InboxFilter) {
         savedState[FILTER_KEY] = filter
+    }
+
+    fun selectAccount(accountId: String) {
+        savedState[ACCOUNT_KEY] = accountId
     }
 
     fun refresh() = sync(force = true)
@@ -209,5 +235,6 @@ class InboxViewModel @Inject constructor(
     companion object {
         const val UNDO_MILLIS = 5_000L
         private const val FILTER_KEY = "filter"
+        private const val ACCOUNT_KEY = "account"
     }
 }

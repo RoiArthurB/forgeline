@@ -48,6 +48,13 @@ data class SubjectStateEntity(
     val checkedAtMillis: Long,
 )
 
+/**
+ * A thread marked done on a forge that can't mark it done (Forgejo): hidden while it has no activity newer than
+ * [updatedAtMillis], which is how GitHub's done behaves.
+ */
+@Entity(tableName = "inbox_done", primaryKeys = ["accountId", "threadId"])
+data class DoneEntity(val accountId: String, val threadId: String, val updatedAtMillis: Long)
+
 @Entity(tableName = "inbox_sync")
 data class InboxSyncEntity(
     @PrimaryKey val accountId: String,
@@ -89,6 +96,16 @@ interface InboxDao {
 
     @Query("SELECT * FROM subject_states")
     fun observeStates(): Flow<List<SubjectStateEntity>>
+
+    @Query("SELECT * FROM inbox_done")
+    fun observeDone(): Flow<List<DoneEntity>>
+
+    @Upsert
+    suspend fun upsertDone(entity: DoneEntity)
+
+    /** Forgets what was done on threads the forge no longer lists. */
+    @Query("DELETE FROM inbox_done WHERE accountId = :accountId AND threadId NOT IN (:threadIds)")
+    suspend fun pruneDone(accountId: String, threadIds: List<String>)
 
     @Query("SELECT * FROM subject_states")
     suspend fun states(): List<SubjectStateEntity>

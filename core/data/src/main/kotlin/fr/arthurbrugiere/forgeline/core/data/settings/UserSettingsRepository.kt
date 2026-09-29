@@ -16,4 +16,6 @@ interface UserSettingsRepository {
     suspend fun setInboxCheckInterval(interval: InboxCheckInterval)
 
     suspend fun setFeedKindShown(kind: FeedKind, shown: Boolean)
+
+    suspend fun setSeparateInboxPerForge(enabled: Boolean)
 }

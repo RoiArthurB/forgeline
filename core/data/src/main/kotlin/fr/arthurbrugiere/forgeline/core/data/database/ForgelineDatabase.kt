@@ -8,6 +8,7 @@ import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewDao
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewEntity
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedSyncEntity
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxDao
+import fr.arthurbrugiere.forgeline.core.data.inbox.DoneEntity
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxSyncEntity
 import fr.arthurbrugiere.forgeline.core.data.issue.ConversationDao
 import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkDao
@@ -27,8 +28,9 @@ import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepoEntity
         TrendingRepoEntity::class, TrendingFetchEntity::class, RepoCacheEntity::class, NotificationEntity::class, InboxSyncEntity::class,
         FeedEventEntity::class, FeedSyncEntity::class, ReadingMarkEntity::class, FeedPreviewEntity::class, SubjectStateEntity::class,
         ConversationEntity::class,
+        DoneEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = true,
 )
 abstract class ForgelineDatabase : RoomDatabase() {

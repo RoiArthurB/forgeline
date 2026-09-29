@@ -12,7 +12,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import java.time.Instant
 
-class FakeNotificationsApi : NotificationsApi {
+class FakeNotificationsApi(override val supportsDone: Boolean = true) : NotificationsApi {
     var threads: List<NotificationThread> = emptyList()
     /** When set, the next sync answers "not modified". */
     var notModified = false

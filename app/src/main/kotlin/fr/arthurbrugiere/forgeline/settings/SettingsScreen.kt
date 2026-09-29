@@ -92,6 +92,7 @@ fun SettingsRoute(
         onAmoledBlackChange = viewModel::setAmoledBlack,
         onInboxCheckIntervalChange = viewModel::setInboxCheckInterval,
         onFeedKindChange = viewModel::setFeedKindShown,
+        onSeparateInboxChange = viewModel::setSeparateInboxPerForge,
         onOpenCredits = onOpenCredits,
         onOpenSourceCode = { uriHandler.openUri(SOURCE_CODE_URL) },
         onBack = onBack,
@@ -114,6 +115,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     onInboxCheckIntervalChange: (InboxCheckInterval) -> Unit = {},
     onFeedKindChange: (FeedKind, Boolean) -> Unit = { _, _ -> },
+    onSeparateInboxChange: (Boolean) -> Unit = {},
 ) {
     val colors = Soft.colors
     val listState = rememberLazyListState()
@@ -167,6 +169,17 @@ fun SettingsScreen(
             }
             item { SoftSectionTitle(stringResource(R.string.settings_section_notifications)) }
             item { InboxCheckItem(settings.inboxCheckInterval, onInboxCheckIntervalChange) }
+            // Only meaningful with several accounts: one list, or one tab per account.
+            if ((session as? SessionState.SignedIn)?.accounts.orEmpty().size > 1) {
+                item {
+                    SwitchItem(
+                        title = stringResource(R.string.settings_separate_inbox),
+                        summary = stringResource(R.string.settings_separate_inbox_summary),
+                        checked = settings.separateInboxPerForge,
+                        onCheckedChange = onSeparateInboxChange,
+                    )
+                }
+            }
             item { SoftSectionTitle(stringResource(R.string.settings_section_feed)) }
             item { FeedKindsItem(settings.feedKinds, onFeedKindChange) }
             item { SoftSectionTitle(stringResource(R.string.settings_section_about)) }

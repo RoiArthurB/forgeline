@@ -167,6 +167,8 @@
     <string name="trending_star_failed">Couldn\'t update the star. Try again.</string>
     <string name="retry">Retry</string>
     <string name="settings_add_account">Add an account</string>
+    <string name="settings_separate_inbox">Separate Inbox per forge</string>
+    <string name="settings_separate_inbox_summary">One tab per account instead of one list</string>
     <string name="settings_add_account_summary">GitHub, Codeberg or another Forgejo server</string>
     <string name="error_unsupported">This forge doesn\'t offer this.</string>
 

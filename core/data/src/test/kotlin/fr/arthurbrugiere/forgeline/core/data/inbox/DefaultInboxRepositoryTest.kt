@@ -307,4 +307,42 @@ class DefaultInboxRepositoryTest {
 
         assertThat(issueApi.calls.count { it.startsWith("issue:") }).isEqualTo(DefaultInboxRepository.PREFETCHED_CONVERSATIONS)
     }
+
+    private suspend fun codebergAccount(api: FakeNotificationsApi): String {
+        clients.put(ForgeInstance.Codeberg, FakeForgeClients(notifications = api))
+        return accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "cb_token").id
+    }
+
+    @Test
+    fun done_on_a_forge_without_done_hides_the_thread_until_it_has_news() = runTest {
+        val codeberg = FakeNotificationsApi(supportsDone = false).apply { threads = listOf(notificationThread("7", repo = "forgejo/forgejo")) }
+        val me = codebergAccount(codeberg)
+        repository.sync(force = true)
+
+        repository.markDone(me, "7")
+
+        assertThat(codeberg.calls).contains("done:7")
+        assertThat(repository.observe().first().threads).isEmpty()
+        // Still listed by the forge, as read: still hidden.
+        repository.sync(force = true)
+        assertThat(repository.observe().first().threads).isEmpty()
+
+        // New activity brings it back, like GitHub's done.
+        codeberg.threads = listOf(notificationThread("7", repo = "forgejo/forgejo", updatedAt = "2026-09-27T11:00:00Z"))
+        repository.sync(force = true)
+        assertThat(repository.observe().first().threads.map { it.id }).containsExactly("7")
+    }
+
+    @Test
+    fun states_that_come_with_threads_are_kept_without_asking() = runTest {
+        val codeberg = FakeNotificationsApi(supportsDone = false).apply {
+            threads = listOf(notificationThread("7", repo = "forgejo/forgejo", type = SubjectType.PULL_REQUEST).copy(state = SubjectState.MERGED))
+        }
+        codebergAccount(codeberg)
+
+        repository.sync(force = true)
+
+        assertThat(repository.observe().first().threads.single().state).isEqualTo(SubjectState.MERGED)
+        assertThat(codeberg.calls.none { it.startsWith("states:") }).isTrue()
+    }
 }

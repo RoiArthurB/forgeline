@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
@@ -247,5 +248,17 @@ class InboxScreenTest {
         setContent(grouped)
 
         composeRule.onAllNodes(hasText("Get notified about new activity")).assertCountEquals(0)
+    }
+
+    @Test
+    fun the_same_thread_id_on_two_forges_shows_twice() {
+        // Regression guard: rows were keyed by thread id alone, and duplicate keys crash the list.
+        val github = notificationThread("1", repo = "octo/tools", reason = NotificationReason.SUBSCRIBED).copy(accountId = "github:github.com:me")
+        val codeberg = notificationThread("1", repo = "forgejo/forgejo", reason = NotificationReason.SUBSCRIBED)
+            .let { it.copy(repo = it.repo.copy(forge = ForgeInstance.Codeberg), accountId = "forgejo:codeberg.org:me") }
+        setContent(grouped.copy(groups = listOf(SectionGroup(InboxSection.OTHERS, listOf(github, codeberg))), showForge = true))
+
+        composeRule.onNodeWithText("Codeberg · Watching", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("GitHub · Watching", substring = true).assertIsDisplayed()
     }
 }

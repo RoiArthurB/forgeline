@@ -79,10 +79,14 @@ class DefaultInboxRepository @Inject constructor(
             flowOf(InboxSnapshot(emptyList(), null))
         } else {
             val ids = signedIn.map { it.id }.toSet()
-            combine(dao.observeAll(), dao.observeSyncs(), dao.observeStates()) { threads, syncs, states ->
+            combine(dao.observeAll(), dao.observeSyncs(), dao.observeStates(), dao.observeDone()) { threads, syncs, states, done ->
                 val byRef = states.associateBy { it.ref() }
+                val doneAt = done.associate { (it.accountId to it.threadId) to it.updatedAtMillis }
                 InboxSnapshot(
-                    threads.filter { it.accountId in ids }.map { entity ->
+                    threads.filter { it.accountId in ids }
+                        // Done where the forge couldn't: gone until something new happens on it.
+                        .filterNot { entity -> doneAt[entity.accountId to entity.id]?.let { entity.updatedAtMillis <= it } == true }
+                        .map { entity ->
                         val thread = entity.toModel()
                         val state = thread.subject?.let { byRef[it] }?.state?.let { name -> SubjectState.entries.firstOrNull { it.name == name } }
                         thread.copy(state = state)
@@ -156,7 +160,18 @@ class DefaultInboxRepository @Inject constructor(
                 val sync = result.value
                 // An account's threads are on its forge, whatever the client filled in.
                 val threads = sync.threads?.map { it.copy(accountId = account.id, repo = it.repo.copy(forge = account.forge)) }
-                if (threads != null) dao.replace(account.id, threads.map { it.toEntity(account.id) })
+                if (threads != null) {
+                    dao.replace(account.id, threads.map { it.toEntity(account.id) })
+                    dao.pruneDone(account.id, threads.map { it.id })
+                    // Forges that say where a thread's subject stands (Forgejo) save asking for it.
+                    val now = clock.millis()
+                    val known = threads.mapNotNull { thread ->
+                        val ref = thread.subject ?: return@mapNotNull null
+                        val state = thread.state ?: return@mapNotNull null
+                        SubjectStateEntity(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, state.name, thread.updatedAt.toEpochMilli(), now)
+                    }
+                    if (known.isNotEmpty()) dao.upsertStates(known)
+                }
                 dao.upsertSync(
                     InboxSyncEntity(
                         accountId = account.id,
@@ -181,10 +196,19 @@ class DefaultInboxRepository @Inject constructor(
 
     override suspend fun markDone(accountId: String, threadId: String): ForgeResult<Unit> {
         val (account, token) = session(accountId) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        val api = clients.notifications(account.forge)
         val removed = dao.get(account.id, threadId)
+        if (!api.supportsDone) {
+            // The forge only marks it read: the Inbox remembers it was done, at its current activity.
+            val result = api.markDone(token, threadId)
+            if (result is ForgeResult.Success && removed != null) {
+                dao.setUnread(account.id, threadId, false)
+                dao.upsertDone(DoneEntity(account.id, threadId, removed.updatedAtMillis))
+            }
+            return result
+        }
         dao.delete(account.id, threadId)
-        return clients.notifications(account.forge).markDone(token, threadId)
-            .also { if (it is ForgeResult.Failure && removed != null) dao.insert(listOf(removed)) }
+        return api.markDone(token, threadId).also { if (it is ForgeResult.Failure && removed != null) dao.insert(listOf(removed)) }
     }
 
     override suspend fun unsubscribe(accountId: String, threadId: String): ForgeResult<Unit> {

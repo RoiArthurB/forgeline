@@ -33,6 +33,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { repository.setInboxCheckInterval(interval) }
     }
 
+    fun setSeparateInboxPerForge(enabled: Boolean) {
+        viewModelScope.launch { repository.setSeparateInboxPerForge(enabled) }
+    }
+
     fun setFeedKindShown(kind: FeedKind, shown: Boolean) {
         viewModelScope.launch { repository.setFeedKindShown(kind, shown) }
     }
