@@ -29,6 +29,7 @@ data class ConversationEntity(
     val number: Int,
     val issue: String?,
     val firstPage: String?,
+    /** When it was last loaded, by opening it or ahead of time. */
     val viewedAtMillis: Long,
 )
 

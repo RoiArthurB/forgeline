@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.data.issue
 
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
@@ -8,6 +9,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
 import kotlinx.coroutines.flow.first
 import java.time.Clock
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,6 +23,12 @@ interface IssueRepository {
     suspend fun stored(ref: IssueRef): CachedConversation?
 
     suspend fun issue(ref: IssueRef): ForgeResult<IssueDetails>
+
+    /**
+     * Loads and keeps [ref] ahead of opening it, unless the copy kept is at least as recent as [activityAt].
+     * True when it was fetched.
+     */
+    suspend fun prefetch(ref: IssueRef, activityAt: Instant): Boolean
 
     suspend fun timeline(ref: IssueRef, page: Int): ForgeResult<TimelinePage>
 }
@@ -46,6 +54,24 @@ class DefaultIssueRepository @Inject constructor(
         if (stored.issue == null && stored.firstPage == null) return null
         // Something loaded meanwhile is newer than the disk.
         return synchronized(cache) { cache[ref] ?: stored.also { cache[ref] = it } }
+    }
+
+    override suspend fun prefetch(ref: IssueRef, activityAt: Instant): Boolean {
+        val saved = dao.get(ref.repo.owner, ref.repo.name, ref.number)
+        val complete = saved?.issue != null && saved.firstPage != null
+        // Nothing kept at all is a conversation the forge couldn't serve: not asked again until it moves.
+        val gone = saved != null && saved.issue == null && saved.firstPage == null
+        if (saved != null && (complete || gone) && saved.viewedAtMillis >= activityAt.toEpochMilli()) return false
+        val result = issue(ref)
+        if (result is ForgeResult.Failure) {
+            val error = result.error
+            if (error is ForgeError.Http && error.status in setOf(403, 404, 410)) {
+                dao.upsert(ConversationEntity(ref.repo.owner, ref.repo.name, ref.number, null, null, clock.millis()))
+            }
+            return true
+        }
+        timeline(ref, page = 1)
+        return true
     }
 
     override suspend fun issue(ref: IssueRef): ForgeResult<IssueDetails> = api.issue(token(), ref).also { result ->

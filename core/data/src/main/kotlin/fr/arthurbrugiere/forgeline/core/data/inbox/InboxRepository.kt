@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.data.inbox
 
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
@@ -59,6 +60,7 @@ class DefaultInboxRepository @Inject constructor(
     private val dao: InboxDao,
     private val api: NotificationsApi,
     private val accounts: AccountRepository,
+    private val conversations: IssueRepository,
     private val clock: Clock,
 ) : InboxRepository {
 
@@ -84,7 +86,24 @@ class DefaultInboxRepository @Inject constructor(
 
     override suspend fun sync(force: Boolean): SyncResult = syncThreads(force).also { result ->
         // Threads first, on screen at once; where their issues and pull requests stand follows.
-        if (result is SyncResult.Updated || result is SyncResult.NotModified) refreshStates()
+        if (result is SyncResult.Updated || result is SyncResult.NotModified) {
+            refreshStates()
+            prefetchConversations()
+        }
+    }
+
+    /**
+     * Loads the conversations waiting on you ahead of time (unread, newest first, a few per sync), so opening one,
+     * or tapping its phone notification, shows it at once. Ones kept since their latest activity are skipped.
+     */
+    private suspend fun prefetchConversations() {
+        val account = accounts.activeAccount.first() ?: return
+        dao.all(account.id).asSequence()
+            .map { it.toModel() }
+            .filter { it.unread && it.needsYou }
+            .mapNotNull { thread -> thread.subject?.let { it to thread.updatedAt } }
+            .take(PREFETCHED_CONVERSATIONS)
+            .forEach { (ref, activityAt) -> conversations.prefetch(ref, activityAt) }
     }
 
     /** Asks where the inbox's issues and pull requests stand, for those never asked, moved on since, or asked long ago. */
@@ -168,10 +187,13 @@ class DefaultInboxRepository @Inject constructor(
 
     private fun List<NotificationThread>?.newestMillis(): Long = this?.maxOfOrNull { it.updatedAt.toEpochMilli() } ?: 0L
 
-    private companion object {
+    companion object {
         const val DEFAULT_POLL_SECONDS = 60
 
         /** A merge or close can happen without new activity on your thread: ask again after an hour anyway. */
         const val STATE_MAX_AGE_MILLIS = 60 * 60 * 1_000L
+
+        /** Conversations loaded ahead per sync: two requests each, so a busy inbox doesn't eat the rate limit. */
+        const val PREFETCHED_CONVERSATIONS = 10
     }
 }

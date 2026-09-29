@@ -14,6 +14,10 @@ import fr.arthurbrugiere.forgeline.core.testing.notificationThread
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
+import fr.arthurbrugiere.forgeline.core.model.NotificationReason
+import fr.arthurbrugiere.forgeline.core.testing.FakeIssueApi
+import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
+import fr.arthurbrugiere.forgeline.core.testing.issueDetails
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -39,7 +43,9 @@ class DefaultInboxRepositoryTest {
         override fun getZone(): ZoneId = ZoneOffset.UTC
         override fun withZone(zone: ZoneId?) = this
     }
-    private val repository = DefaultInboxRepository(database.inboxDao(), api, accounts, clock)
+    private val issueApi = FakeIssueApi()
+    private val conversations = DefaultIssueRepository(issueApi, accounts, database.conversationDao(), clock)
+    private val repository = DefaultInboxRepository(database.inboxDao(), api, accounts, conversations, clock)
 
     private suspend fun signIn(login: String = "me") = accounts.signIn(ForgeInstance.GitHub, ForgeUser(login, null, null), "t-$login")
 
@@ -227,5 +233,38 @@ class DefaultInboxRepositoryTest {
         signIn("bob")
 
         assertThat(repository.observe().first().threads).isEmpty()
+    }
+
+    @Test
+    fun conversations_waiting_on_you_are_loaded_ahead_after_a_sync() = runTest {
+        signIn()
+        api.threads = listOf(
+            notificationThread("1", reason = NotificationReason.REVIEW_REQUESTED, type = SubjectType.PULL_REQUEST),
+            notificationThread("2", reason = NotificationReason.MENTION, unread = false),
+            notificationThread("3", reason = NotificationReason.SUBSCRIBED),
+            notificationThread("r", reason = NotificationReason.MENTION, type = SubjectType.RELEASE, number = null),
+        )
+        val pull = IssueRef(RepoId("acme", "rocket"), 1)
+        issueApi.issues[pull] = issueDetails(pull)
+
+        repository.sync(force = true)
+
+        // Unread and waiting on you, with a conversation to load: only #1.
+        assertThat(issueApi.calls).containsExactly("issue:acme/rocket#1", "timeline:acme/rocket#1@1").inOrder()
+        // Kept, and nothing new since: the next sync doesn't ask again.
+        repository.sync(force = true)
+        assertThat(issueApi.calls).hasSize(2)
+    }
+
+    @Test
+    fun only_a_few_conversations_are_loaded_ahead_per_sync() = runTest {
+        signIn()
+        api.threads = (1..DefaultInboxRepository.PREFETCHED_CONVERSATIONS + 5).map {
+            notificationThread("$it", reason = NotificationReason.MENTION, updatedAt = "2026-09-27T0${it % 10}:00:00Z")
+        }
+
+        repository.sync(force = true)
+
+        assertThat(issueApi.calls.count { it.startsWith("issue:") }).isEqualTo(DefaultInboxRepository.PREFETCHED_CONVERSATIONS)
     }
 }
