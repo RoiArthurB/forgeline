@@ -4,7 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
@@ -14,6 +16,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import androidx.compose.runtime.mutableStateOf
 import com.github.takahirom.roborazzi.captureRoboImage
+import com.github.takahirom.roborazzi.captureScreenRoboImage
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -24,7 +27,9 @@ import fr.arthurbrugiere.forgeline.signin.SignInScreen
 import fr.arthurbrugiere.forgeline.signin.SignInStep
 import fr.arthurbrugiere.forgeline.signin.SignInUiState
 import fr.arthurbrugiere.forgeline.you.YouScreen
+import fr.arthurbrugiere.forgeline.repo.CodeState
 import fr.arthurbrugiere.forgeline.repo.Loadable
+import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.feed.FeedScreen
 import fr.arthurbrugiere.forgeline.feed.FeedUiState
 import fr.arthurbrugiere.forgeline.feed.feedItems
@@ -118,6 +123,8 @@ class ScreenshotTest {
         awaitTag: String? = null,
         awaitGoneTag: String? = null,
         beforeCapture: () -> Unit = {},
+        // Sheets and dialogs live in their own window, which only a whole-screen capture includes.
+        wholeScreen: Boolean = false,
         content: @Composable () -> Unit,
     ) {
         composeRule.setContent {
@@ -137,7 +144,12 @@ class ScreenshotTest {
             composeRule.waitUntil(10_000) { composeRule.onAllNodes(hasTestTag(tag), useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
         }
         beforeCapture()
-        composeRule.onRoot().captureRoboImage("src/test/screenshots/$name.png")
+        if (wholeScreen) {
+            composeRule.waitForIdle()
+            captureScreenRoboImage("src/test/screenshots/$name.png")
+        } else {
+            composeRule.onRoot().captureRoboImage("src/test/screenshots/$name.png")
+        }
     }
 
     @Test
@@ -313,6 +325,30 @@ class ScreenshotTest {
         beforeCapture = { awaitHighlighted("npx paperclip init") },
     ) {
         RepoPreview(repoState)
+    }
+
+    @Test
+    fun repo_ref_sheet_dark() = snapshot(
+        "repo_ref_sheet_dark",
+        darkTheme = true,
+        wholeScreen = true,
+        beforeCapture = {
+            composeRule.onNode(hasContentDescription("Browsing master. Switch branch or tag")).performClick()
+            composeRule.mainClock.advanceTimeBy(1_000)
+        },
+    ) {
+        RepoPreview(
+            repoState.copy(
+                tab = RepoTab.CODE,
+                code = CodeState("", Loadable.Loaded(emptyList())),
+                refs = Loadable.Loaded(
+                    GitRefs(
+                        branches = listOf("LOOA-700-recovery-tightloop", "master", "PAP-10015-per-use-join-leave-projects-and-agents", "release/2026.9"),
+                        tags = listOf("v2026.916.1", "v2026.916.0"),
+                    ),
+                ),
+            ),
+        )
     }
 
     @Test
@@ -532,7 +568,7 @@ class ScreenshotTest {
     private fun RepoPreview(state: RepoUiState) {
         RepoScreen(
             state = state, signedIn = true, onBack = {}, onRefresh = {}, onSelectTab = {}, onRetryTab = {}, onToggleStar = {},
-            onOpenDirectory = {}, onOpenParentDirectory = {}, onOpenFile = {}, onOpenIssue = {}, onOpenUser = {}, onLinkClick = {}, onOpenInBrowser = {},
+            onOpenDirectory = {}, onOpenParentDirectory = {}, onOpenFile = {}, onOpenIssue = {}, onOpenUser = {}, onLinkClick = {}, onOpenInBrowser = {}, onLoadRefs = {}, onSelectRef = {},
             onErrorShown = {}, onStarFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
         )
     }

@@ -176,6 +176,15 @@
     <string name="repo_no_runs">No workflow runs.</string>
     <string name="repo_empty_folder">This folder is empty.</string>
     <string name="repo_parent_folder">Parent folder</string>
+    <string name="repo_ref_switch">Browsing %1$s. Switch branch or tag</string>
+    <string name="repo_ref_branches">Branches</string>
+    <string name="repo_ref_tags">Tags</string>
+    <string name="repo_ref_filter">Find a branch or tag</string>
+    <string name="repo_ref_default">Default</string>
+    <string name="repo_ref_loading">Loading branches and tags</string>
+    <string name="repo_ref_failed">Couldn\'t load branches and tags</string>
+    <string name="repo_ref_no_branches">No branch matches.</string>
+    <string name="repo_ref_no_tags">No tag matches.</string>
     <string name="repo_tab_failed">Couldn\'t load this tab.</string>
     <string name="repo_error_title">Couldn\'t open this repository</string>
     <string name="repo_error_not_found">It doesn\'t exist, or it\'s private.</string>

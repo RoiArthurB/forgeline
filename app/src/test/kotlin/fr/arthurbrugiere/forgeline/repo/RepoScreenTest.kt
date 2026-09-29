@@ -2,7 +2,9 @@ package fr.arthurbrugiere.forgeline.repo
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -10,6 +12,7 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
+import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
@@ -55,6 +58,8 @@ class RepoScreenTest {
                 onOpenUser = { events += "user:$it" },
                 onLinkClick = { events += "link:$it" },
                 onOpenInBrowser = { events += "browser:$it" },
+                onLoadRefs = { events += "refs" },
+                onSelectRef = { events += "ref:$it" },
                 onErrorShown = {},
                 onStarFailureShown = {},
                 nowMillis = 0,
@@ -147,6 +152,49 @@ class RepoScreenTest {
         composeRule.onNodeWithText("Parent folder").performClick()
 
         assertThat(events).containsExactly("dir:src/app", "file:src/Main.kt", "up").inOrder()
+    }
+
+    @Test
+    fun the_readme_and_code_name_the_branch_they_show() {
+        setContent(loaded)
+        composeRule.onNode(hasContentDescription("Browsing main. Switch branch or tag")).assertIsDisplayed()
+    }
+
+    @Test
+    fun another_branch_or_tag_is_picked_from_a_sheet() {
+        val refs = GitRefs(branches = listOf("dev", "main"), tags = listOf("v2.0", "v1.0"))
+        setContent(loaded.copy(refs = Loadable.Loaded(refs)))
+
+        composeRule.onNode(hasContentDescription("Browsing main. Switch branch or tag")).performClick()
+        composeRule.onNodeWithText("dev").assertIsDisplayed()
+        composeRule.onNodeWithText("Default").assertIsDisplayed()
+        composeRule.onNodeWithText("Tags").performClick()
+        composeRule.onNodeWithText("v1.0").performClick()
+
+        assertThat(events).containsExactly("refs", "ref:v1.0").inOrder()
+    }
+
+    @Test
+    fun the_ref_sheet_filters_by_name() {
+        val refs = GitRefs(branches = listOf("dev", "feature/login", "main"), tags = emptyList())
+        setContent(loaded.copy(refs = Loadable.Loaded(refs)))
+        composeRule.onNode(hasContentDescription("Browsing main. Switch branch or tag")).performClick()
+
+        composeRule.onNode(hasSetTextAction()).performTextInput("LOG")
+
+        composeRule.onNodeWithText("feature/login").assertIsDisplayed()
+        composeRule.onNodeWithText("dev").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_readme_on_another_branch_shows_while_it_loads_and_can_be_retried() {
+        setContent(loaded.copy(ref = "dev", readme = null, refReadme = Loadable.Failed(ForgeError.Network)))
+
+        composeRule.onNode(hasContentDescription("Browsing dev. Switch branch or tag")).assertIsDisplayed()
+        composeRule.onNodeWithText("Couldn't load this tab.").assertIsDisplayed()
+        composeRule.onNodeWithText("Retry").performClick()
+
+        assertThat(events).containsExactly("retry")
     }
 
     @Test

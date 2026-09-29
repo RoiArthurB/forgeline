@@ -140,7 +140,7 @@ fun RepoRoute(
         onToggleStar = { if (signedIn) viewModel.toggleStar() else onSignIn() },
         onOpenDirectory = viewModel::openDirectory,
         onOpenParentDirectory = viewModel::openParentDirectory,
-        onOpenFile = { file -> state.details?.let { onOpenFile(it.id, file.path, it.defaultBranch) } },
+        onOpenFile = { file -> state.details?.let { onOpenFile(it.id, file.path, state.browsedRef ?: it.defaultBranch) } },
         onOpenIssue = { number -> state.details?.let { onOpenIssue(IssueRef(it.id, number)) } },
         onOpenUser = onOpenUser,
         onLinkClick = { url ->
@@ -152,6 +152,8 @@ fun RepoRoute(
             }
         },
         onOpenInBrowser = openUrl,
+        onLoadRefs = viewModel::loadRefs,
+        onSelectRef = viewModel::selectRef,
         onErrorShown = viewModel::errorShown,
         onStarFailureShown = viewModel::starFailureShown,
     )
@@ -174,6 +176,8 @@ fun RepoScreen(
     onOpenUser: (String) -> Unit,
     onLinkClick: (String) -> Unit,
     onOpenInBrowser: (String) -> Unit,
+    onLoadRefs: () -> Unit,
+    onSelectRef: (String) -> Unit,
     onErrorShown: () -> Unit,
     onStarFailureShown: () -> Unit,
     modifier: Modifier = Modifier,
@@ -199,6 +203,7 @@ fun RepoScreen(
 
     val id = details?.id ?: state.requested
     val listState = rememberLazyListState()
+    var pickingRef by rememberSaveable { mutableStateOf(false) }
     Box(modifier.fillMaxSize().background(colors.ground)) {
         val pullState = rememberPullToRefreshState()
         PullToRefreshBox(
@@ -260,13 +265,34 @@ fun RepoScreen(
                                 onSelect = { onSelectTab(RepoTab.entries[it]) },
                             )
                         }
+                        val browsedRef = state.browsedRef
+                        if (browsedRef != null && (state.tab == RepoTab.README || state.tab == RepoTab.CODE)) {
+                            item(key = "ref") {
+                                RefPill(browsedRef, state.refs, onClick = {
+                                    onLoadRefs()
+                                    pickingRef = true
+                                })
+                            }
+                        }
                         when (state.tab) {
-                            RepoTab.README -> item(key = "readme") {
-                                val readme = state.readme
-                                if (readme == null || state.readmeContext == null) {
-                                    Message(stringResource(R.string.repo_no_readme))
-                                } else {
-                                    Readme(readme.markdown, state.readmeContext, onLinkClick)
+                            RepoTab.README -> when (val refReadme = state.refReadme) {
+                                // Another ref's README loads on demand; the default branch's comes from the cache.
+                                Loadable.Loading -> item(key = "readme-loading") { SoftLoadingRows(stringResource(R.string.repo_loading), rows = 3, leadingDot = false) }
+                                is Loadable.Failed -> item(key = "readme-failed") {
+                                    SoftNotice(
+                                        stringResource(R.string.repo_tab_failed),
+                                        stringResource(refReadme.error.message),
+                                        action = stringResource(R.string.retry),
+                                        onAction = onRetryTab,
+                                    )
+                                }
+                                else -> item(key = "readme") {
+                                    val readme = state.readme
+                                    if (readme == null || state.readmeContext == null) {
+                                        Message(stringResource(R.string.repo_no_readme))
+                                    } else {
+                                        Readme(readme.markdown, state.readmeContext, onLinkClick)
+                                    }
                                 }
                             }
                             RepoTab.CODE -> code(state.code, onRetryTab, onOpenDirectory, onOpenParentDirectory, onOpenFile)
@@ -286,6 +312,19 @@ fun RepoScreen(
                     }
                 }
             }
+        }
+        if (pickingRef && details != null) {
+            RefSheet(
+                current = state.browsedRef ?: details.defaultBranch,
+                defaultBranch = details.defaultBranch,
+                refs = state.refs,
+                onSelect = {
+                    pickingRef = false
+                    onSelectRef(it)
+                },
+                onRetry = onLoadRefs,
+                onDismiss = { pickingRef = false },
+            )
         }
         val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
         SoftStatusBarScrim(scrolled)
