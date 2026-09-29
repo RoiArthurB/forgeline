@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.forge.github
 
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -198,7 +199,7 @@ private data class EventJson(
                 val issue = source?.issue ?: return null
                 val repo = issue.repository?.fullName?.split('/')?.takeIf { it.size == 2 } ?: return null
                 TimelineItem.CrossReferenced(
-                    IssueRef(RepoId(repo[0], repo[1]), issue.number), issue.title, issue.pullRequest != null, actor?.toModel(), at ?: return null,
+                    IssueRef(RepoId(repo[0], repo[1], ForgeInstance.GitHub), issue.number), issue.title, issue.pullRequest != null, actor?.toModel(), at ?: return null,
                 )
             }
             "committed" -> TimelineItem.Committed(sha ?: return null, message.orEmpty(), author?.name, author?.date?.let(Instant::parse))

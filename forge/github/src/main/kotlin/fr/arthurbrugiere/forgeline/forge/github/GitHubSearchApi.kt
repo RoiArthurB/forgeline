@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.forge.github
 
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.SearchApi
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
 import fr.arthurbrugiere.forgeline.core.model.IssueState
@@ -66,7 +67,7 @@ private data class SearchRepoJson(
 ) {
     fun toModel(): RepoSummary? {
         val (owner, name) = fullName.split('/').takeIf { it.size == 2 } ?: return null
-        return RepoSummary(RepoId(owner, name), description, language, stars, forks, fork, updatedAt?.let(Instant::parse), this.owner?.avatarUrl)
+        return RepoSummary(RepoId(owner, name, ForgeInstance.GitHub), description, language, stars, forks, fork, updatedAt?.let(Instant::parse), this.owner?.avatarUrl)
     }
 }
 
@@ -96,7 +97,7 @@ private data class SearchIssueJson(
         // https://api.github.com/repos/{owner}/{name}
         val (owner, name) = repositoryUrl.split('/').takeLast(2).takeIf { it.size == 2 } ?: return null
         return IssueSearchResult(
-            RepoId(owner, name),
+            RepoId(owner, name, ForgeInstance.GitHub),
             IssueSummary(
                 number = number,
                 title = title,

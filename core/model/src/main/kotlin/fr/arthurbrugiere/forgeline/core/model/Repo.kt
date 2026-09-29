@@ -1,7 +1,14 @@
 package fr.arthurbrugiere.forgeline.core.model
 
-data class RepoId(val owner: String, val name: String) {
+/**
+ * A repository on a forge. Two forges can each have an `alice/tool`, so the forge is part of its identity.
+ * [forge] defaults to GitHub only until the app's caches and routes carry it; forge implementations always pass it.
+ */
+data class RepoId(val owner: String, val name: String, val forge: ForgeInstance = ForgeInstance.GitHub) {
     val fullName: String get() = "$owner/$name"
+
+    /** The repository's page on its forge. */
+    val webUrl: String get() = "${forge.webUrl}/$fullName"
 }
 
 enum class TrendingPeriod { DAILY, WEEKLY, MONTHLY }

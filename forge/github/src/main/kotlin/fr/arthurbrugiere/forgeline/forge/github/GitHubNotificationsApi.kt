@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.forge.github
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsSync
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -104,7 +105,7 @@ private data class ThreadJson(
         val number = if (type == SubjectType.ISSUE || type == SubjectType.PULL_REQUEST) subject.url?.substringAfterLast('/')?.toIntOrNull() else null
         return NotificationThread(
             id = id,
-            repo = RepoId(owner, name),
+            repo = RepoId(owner, name, ForgeInstance.GitHub),
             title = subject.title,
             type = type,
             number = number,

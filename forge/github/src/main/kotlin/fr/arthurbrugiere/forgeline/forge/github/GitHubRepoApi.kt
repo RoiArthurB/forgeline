@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.forge.github
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
@@ -119,7 +120,7 @@ private data class RepoResponse(
     @SerialName("pushed_at") val pushedAt: String? = null,
 ) {
     fun toModel() = RepoDetails(
-        id = RepoId(owner.login, name),
+        id = RepoId(owner.login, name, ForgeInstance.GitHub),
         description = description,
         homepage = homepage?.ifBlank { null },
         topics = topics,

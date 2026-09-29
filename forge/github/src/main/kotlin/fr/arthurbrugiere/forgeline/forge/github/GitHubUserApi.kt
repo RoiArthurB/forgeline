@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.forge.github
 
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
@@ -95,6 +96,6 @@ private data class RepoJson(
 ) {
     fun toModel(): RepoSummary {
         val (owner, name) = fullName.split('/', limit = 2)
-        return RepoSummary(RepoId(owner, name), description, language, stars, forks, fork, updatedAt?.let(Instant::parse), this.owner?.avatarUrl)
+        return RepoSummary(RepoId(owner, name, ForgeInstance.GitHub), description, language, stars, forks, fork, updatedAt?.let(Instant::parse), this.owner?.avatarUrl)
     }
 }
