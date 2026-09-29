@@ -85,4 +85,14 @@ class SoftTest {
         assertThat(content).isEqualTo(SoftDark.ink)
         assertThat(soft).isEqualTo(SoftDark)
     }
+
+    @Test
+    fun forge_label_text_stays_readable_on_githubs_default_label_colors() {
+        // Regression: text was picked by luminance > 0.5, which put white on mid-tone labels (question, #e99695).
+        val defaults = listOf("d73a4a", "0075ca", "cfd3d7", "a2eeef", "7057ff", "008672", "e4e669", "d876e3", "ffffff", "e99695", "fbca04", "0e8a16", "5319e7", "1d76db", "b60205")
+        defaults.forEach { hex ->
+            val label = Color(0xFF000000 or hex.toLong(16))
+            assertReadable("label #$hex", readableOn(label), label)
+        }
+    }
 }

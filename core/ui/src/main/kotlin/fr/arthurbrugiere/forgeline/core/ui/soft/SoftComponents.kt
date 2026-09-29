@@ -62,6 +62,17 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.getValue
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.unit.Dp
 
 /** Shapes, widths and motion shared by every Soft screen. */
 object SoftTokens {
@@ -131,30 +142,38 @@ fun SoftHeader(
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .padding(start = if (onBack != null) 4.dp else 20.dp, end = 8.dp, top = if (onBack != null) 4.dp else 16.dp, bottom = 20.dp),
         ) {
-            if (title != null || onBack != null) {
-                Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (onBack != null) {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = backDescription, tint = colors.ink)
-                        }
+            // A top-level screen: its title and actions on one row. A detail screen: back and actions on a row, then
+            // its title (if any) set large in the field like every other hero.
+            Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (onBack != null) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = backDescription, tint = colors.ink)
                     }
-                    if (title != null) {
-                        Text(
-                            title,
-                            style = if (onBack == null) Soft.type.title else Soft.type.name,
-                            color = colors.ink,
-                            maxLines = if (onBack == null) 2 else 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f).padding(start = if (onBack != null) 4.dp else 0.dp).semantics { heading() },
-                        )
-                    } else {
-                        Spacer(Modifier.weight(1f))
-                    }
-                    actions()
+                    Spacer(Modifier.weight(1f))
+                } else if (title != null) {
+                    Text(
+                        title,
+                        style = Soft.type.title,
+                        color = colors.ink,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f).semantics { heading() },
+                    )
+                } else {
+                    Spacer(Modifier.weight(1f))
                 }
+                actions()
+            }
+            if (onBack != null && title != null) {
+                Text(
+                    title,
+                    style = Soft.type.title.copy(fontSize = 30.sp, lineHeight = 34.sp),
+                    color = colors.ink,
+                    modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp).semantics { heading() },
+                )
             }
             if (content != null) {
-                Box(Modifier.padding(start = if (onBack != null) 16.dp else 0.dp, end = 12.dp, top = if (title != null || onBack != null) 12.dp else 0.dp)) {
+                Box(Modifier.padding(start = if (onBack != null) 16.dp else 0.dp, end = 12.dp, top = 12.dp)) {
                     content()
                 }
             }
@@ -223,34 +242,120 @@ fun SoftSwitch(options: List<String>, selected: Int, onSelect: (Int) -> Unit, mo
 }
 
 /**
- * Pill tabs that scroll sideways when there are too many for the width: the selected one is the ember thumb.
- * Sits on the ground, under a header field; used for a page's sections (a repository's README, Code, Issues...).
+ * The pill switch for more options than fit the width: it scrolls sideways, on the same track, and the ember thumb
+ * springs to the chosen option like SoftSwitch's. Used for a page's sections (a repository's README, Code, Issues...).
  */
 @Composable
 fun SoftChipTabs(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
     val colors = Soft.colors
-    Row(
+    val animations = animationsEnabled()
+    val density = LocalDensity.current
+    // Where each option sits, so the thumb can travel between options of different widths.
+    val bounds = remember(options) { mutableStateListOf<Pair<Dp, Dp>>().apply { repeat(options.size) { add(0.dp to 0.dp) } } }
+    val target = bounds.getOrNull(selected) ?: (0.dp to 0.dp)
+    val motion: androidx.compose.animation.core.AnimationSpec<Dp> =
+        if (animations) spring(dampingRatio = 0.8f, stiffness = SoftTokens.SpringStiffness) else tween(0)
+    val thumbX by animateDpAsState(target.first, motion, label = "thumbX")
+    val thumbWidth by animateDpAsState(target.second, motion, label = "thumbWidth")
+    Box(
         modifier
             .fillMaxWidth()
             .background(colors.ground)
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 10.dp)
-            .selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 20.dp, vertical = 10.dp),
     ) {
-        options.forEachIndexed { index, option ->
-            val isSelected = index == selected
-            Box(
-                Modifier
-                    .clip(SoftTokens.Pill)
-                    .background(if (isSelected) colors.thumb else colors.surface)
-                    .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(index) })
-                    .heightIn(min = 44.dp)
-                    .padding(horizontal = 18.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(option, style = Soft.type.control, color = if (isSelected) colors.onThumb else colors.ink, maxLines = 1)
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(SoftTokens.FieldCorner))
+                .background(colors.track)
+                .padding(4.dp),
+        ) {
+            if (thumbWidth > 0.dp) {
+                Box(
+                    Modifier
+                        .offset(x = thumbX)
+                        .width(thumbWidth)
+                        .height(48.dp)
+                        .shadow(6.dp, SoftTokens.ThumbCorner, ambientColor = colors.thumb, spotColor = colors.thumb)
+                        .background(colors.thumb, SoftTokens.ThumbCorner),
+                )
             }
+            Row(Modifier.selectableGroup()) {
+                options.forEachIndexed { index, option ->
+                    val isSelected = index == selected
+                    Box(
+                        Modifier
+                            .onPlaced { with(density) { bounds[index] = it.positionInParent().x.toDp() to it.size.width.toDp() } }
+                            .clip(SoftTokens.ThumbCorner)
+                            .selectable(selected = isSelected, role = Role.Tab, onClick = { onSelect(index) })
+                            .heightIn(min = 48.dp)
+                            .padding(horizontal = 18.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(option, style = Soft.type.control, color = if (isSelected) colors.onThumb else colors.inkMuted, maxLines = 1)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The one text field: a soft filled pill with its label as the placeholder, an optional leading glyph and trailing
+ * action, and an error line under it. No outline, like the rest of the world.
+ */
+@Composable
+fun SoftTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    background: Color = Soft.colors.surface,
+    error: String? = null,
+    leading: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+) {
+    val colors = Soft.colors
+    Column(modifier) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = Soft.type.body.copy(fontSize = 16.sp, color = colors.ink),
+            cursorBrush = SolidColor(colors.accent),
+            visualTransformation = visualTransformation,
+            keyboardOptions = keyboardOptions,
+            keyboardActions = keyboardActions,
+            modifier = Modifier.fillMaxWidth(),
+            decorationBox = { field ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(SoftTokens.Pill)
+                        .background(background)
+                        .heightIn(min = 52.dp)
+                        .padding(start = if (leading != null) 16.dp else 20.dp, end = if (trailing != null) 4.dp else 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (leading != null) {
+                        leading()
+                        Spacer(Modifier.width(10.dp))
+                    }
+                    Box(Modifier.weight(1f)) {
+                        if (value.isEmpty()) {
+                            Text(placeholder, style = Soft.type.body.copy(fontSize = 16.sp), color = colors.inkMuted, maxLines = 1)
+                        }
+                        field()
+                    }
+                    trailing?.invoke()
+                }
+            },
+        )
+        if (error != null) {
+            Text(error, style = Soft.type.secondary, color = colors.accent, modifier = Modifier.padding(start = 20.dp, top = 6.dp))
         }
     }
 }

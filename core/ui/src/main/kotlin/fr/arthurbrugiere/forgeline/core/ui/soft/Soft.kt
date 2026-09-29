@@ -7,6 +7,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -70,6 +71,17 @@ val SoftDark = SoftColors(
     fields = listOf(Color(0xFF2B1E1F), Color(0xFF221F33), Color(0xFF1A2724)),
     isDark = true,
 )
+
+/** WCAG contrast ratio between two opaque colors. */
+fun contrastRatio(a: Color, b: Color): Float {
+    val la = a.luminance() + 0.05f
+    val lb = b.luminance() + 0.05f
+    return maxOf(la, lb) / minOf(la, lb)
+}
+
+/** Black or white, whichever reads better on [background]; for colors the forge picks (labels). */
+fun readableOn(background: Color): Color =
+    if (contrastRatio(Color.Black, background) >= contrastRatio(Color.White, background)) Color.Black else Color.White
 
 /** The dark palette on a true-black ground, for OLED screens (the AMOLED black setting). */
 fun SoftColors.amoled(): SoftColors = copy(ground = Color.Black, surface = Color(0xFF16141D), raised = Color(0xFF1C1925))
