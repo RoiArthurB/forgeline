@@ -48,6 +48,19 @@ class IssueViewModel @AssistedInject constructor(
     val state: StateFlow<IssueUiState> = _state.asStateFlow()
 
     init {
+        // Not seen this session: the copy kept on disk shows while the forge answers, unless the answer comes first.
+        if (_state.value.issue == null) {
+            viewModelScope.launch {
+                val stored = repository.stored(ref) ?: return@launch
+                _state.update { state ->
+                    if (state.issue != null || state.items.isNotEmpty()) {
+                        state
+                    } else {
+                        state.copy(issue = stored.issue, items = stored.firstPage?.items.orEmpty(), nextPage = stored.firstPage?.nextPage)
+                    }
+                }
+            }
+        }
         refresh()
     }
 

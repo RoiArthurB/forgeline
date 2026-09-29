@@ -8,6 +8,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeIssueApi
+import fr.arthurbrugiere.forgeline.core.testing.InMemoryConversationDao
 import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
 import fr.arthurbrugiere.forgeline.core.testing.comment
 import fr.arthurbrugiere.forgeline.core.testing.issueDetails
@@ -18,6 +19,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
+import java.time.Clock
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class IssueViewModelTest {
@@ -25,7 +27,8 @@ class IssueViewModelTest {
     val mainDispatcherRule = MainDispatcherRule(StandardTestDispatcher())
 
     private val api = FakeIssueApi()
-    private val repository = DefaultIssueRepository(api, FakeAccountRepository())
+    private val dao = InMemoryConversationDao()
+    private val repository = DefaultIssueRepository(api, FakeAccountRepository(), dao, Clock.systemUTC())
     private val ref = IssueRef(RepoId("octo", "repo"), 7)
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
@@ -43,6 +46,26 @@ class IssueViewModelTest {
         assertThat(state.items).containsExactly(comment(1, "First"))
         assertThat(state.nextPage).isEqualTo(2)
         assertThat(state.error).isNull()
+    }
+
+    @Test
+    fun a_conversation_viewed_in_an_earlier_launch_shows_at_once_while_it_refreshes() = test {
+        api.issues[ref] = issueDetails(ref, "Crash on start")
+        api.pages[ref to 1] = TimelinePage(listOf(comment(1, "First")), nextPage = null)
+        DefaultIssueRepository(api, FakeAccountRepository(), dao, Clock.systemUTC()).run {
+            issue(ref)
+            timeline(ref, 1)
+        }
+        // A new launch: nothing in memory, the forge is unreachable.
+        api.failure = ForgeError.Network
+        val relaunched = DefaultIssueRepository(api, FakeAccountRepository(), dao, Clock.systemUTC())
+
+        val viewModel = IssueViewModel(ref, relaunched)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.issue?.title).isEqualTo("Crash on start")
+        assertThat(viewModel.state.value.items).containsExactly(comment(1, "First"))
+        assertThat(viewModel.state.value.error).isEqualTo(ForgeError.Network)
     }
 
     @Test

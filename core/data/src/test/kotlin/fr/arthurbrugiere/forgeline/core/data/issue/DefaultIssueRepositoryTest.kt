@@ -14,11 +14,70 @@ import fr.arthurbrugiere.forgeline.core.testing.comment
 import fr.arthurbrugiere.forgeline.core.testing.issueDetails
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import fr.arthurbrugiere.forgeline.core.data.database.ForgelineDatabase
+import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.ReviewState
+import fr.arthurbrugiere.forgeline.core.model.TimelineItem
+import org.junit.After
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
 
+@RunWith(RobolectricTestRunner::class)
 class DefaultIssueRepositoryTest {
+    private val database = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), ForgelineDatabase::class.java)
+        .allowMainThreadQueries()
+        .build()
     private val api = FakeIssueApi()
     private val accounts = FakeAccountRepository()
-    private val repository = DefaultIssueRepository(api, accounts)
+    private var now = 1_000L
+    private val clock = object : Clock() {
+        override fun instant(): Instant = Instant.ofEpochMilli(now)
+        override fun getZone(): ZoneId = ZoneOffset.UTC
+        override fun withZone(zone: ZoneId?) = this
+    }
+    private val repository = DefaultIssueRepository(api, accounts, database.conversationDao(), clock)
+
+    @After
+    fun closeDatabase() = database.close()
+
+    @Test
+    fun a_conversation_is_kept_on_disk_for_the_next_launch() = runTest {
+        val review = TimelineItem.Review(2, ForgeUser("rev", null, null), ReviewState.APPROVED, null, Instant.parse("2026-09-26T09:00:00Z"))
+        val labeled = TimelineItem.Labeled(true, Label("bug", "d73a4a"), ForgeUser("maint", null, null), Instant.parse("2026-09-26T09:30:00Z"))
+        api.issues[ref] = issueDetails(ref)
+        api.pages[ref to 1] = TimelinePage(listOf(comment(1, "Hi"), review, labeled), nextPage = 2)
+        repository.issue(ref)
+        repository.timeline(ref, 1)
+
+        val relaunched = DefaultIssueRepository(api, accounts, database.conversationDao(), clock)
+
+        assertThat(relaunched.cached(ref)).isNull()
+        val stored = relaunched.stored(ref)!!
+        assertThat(stored.issue).isEqualTo(issueDetails(ref))
+        assertThat(stored.firstPage).isEqualTo(TimelinePage(listOf(comment(1, "Hi"), review, labeled), nextPage = 2))
+        assertThat(relaunched.cached(ref)).isEqualTo(stored)
+    }
+
+    @Test
+    fun only_the_most_recently_viewed_conversations_stay_on_disk() = runTest {
+        repeat(DefaultIssueRepository.STORED_CONVERSATIONS + 1) { number ->
+            val other = IssueRef(RepoId("octo", "repo"), number + 100)
+            api.issues[other] = issueDetails(other)
+            now += 1
+            repository.issue(other)
+        }
+
+        val relaunched = DefaultIssueRepository(api, accounts, database.conversationDao(), clock)
+
+        assertThat(relaunched.stored(IssueRef(RepoId("octo", "repo"), 100))).isNull()
+        assertThat(relaunched.stored(IssueRef(RepoId("octo", "repo"), 101))).isNotNull()
+    }
     private val ref = IssueRef(RepoId("octo", "repo"), 7)
 
     @Test
