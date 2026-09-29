@@ -30,14 +30,17 @@ Android only lets an update install over an existing app if **both are signed wi
 
 ## Cutting a release
 
-```sh
-git tag v0.1.0
-git push origin v0.1.0
-```
+1. Write the release notes in `docs/release-notes/<tag>.md` (e.g. `docs/release-notes/v0.2.0.md`) and commit them. They become the GitHub Release's text; the workflow refuses a tag without them.
+2. Tag and push:
+
+   ```sh
+   git tag -a v0.2.0 -m "Forgeline 0.2.0"
+   git push origin v0.2.0
+   ```
 
 - The tag (without the `v`) becomes `versionName`; the workflow run number becomes `versionCode`, so it always increases.
 - Tags containing a `-` (e.g. `v0.2.0-beta1`) are published as pre-releases.
-- Release notes are generated from the commits since the previous tag.
+- GitHub's generated release notes aren't used: they list pull requests, and Forgeline commits straight to `main`.
 
 ## Signing a build locally
 
