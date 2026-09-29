@@ -81,9 +81,6 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
@@ -99,6 +96,30 @@ import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.ui.graphics.Color
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLight
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftPill
+import fr.arthurbrugiere.forgeline.core.ui.soft.animationsEnabled
+import fr.arthurbrugiere.forgeline.feed.unbreakable
 
 @Composable
 fun InboxRoute(
@@ -127,6 +148,7 @@ fun InboxRoute(
         onMarkRead = viewModel::markRead,
         onMarkDone = viewModel::markDone,
         onUnsubscribe = viewModel::unsubscribe,
+        onUndo = viewModel::undo,
         onErrorShown = viewModel::errorShown,
         onActionFailureShown = viewModel::actionFailureShown,
     )
@@ -190,6 +212,7 @@ fun InboxScreen(
     modifier: Modifier = Modifier,
     notificationPrompt: NotificationPrompt? = null,
     onAllowNotifications: () -> Unit = {},
+    onUndo: (PendingUndo) -> Unit = {},
     nowMillis: Long = System.currentTimeMillis(),
 ) {
     val colors = Soft.colors
@@ -202,6 +225,19 @@ fun InboxScreen(
             snackbar.showSnackbar(refreshFailed)
             onErrorShown()
         }
+    }
+    // Every swipe or menu action waits a moment before reaching the forge; this is the way back. The view model
+    // clears [undo] when time is up, which ends this effect and takes the snackbar away with it.
+    val undoMessages = mapOf(
+        InboxAction.READ to stringResource(R.string.inbox_undo_read),
+        InboxAction.DONE to stringResource(R.string.inbox_undo_done),
+        InboxAction.UNSUBSCRIBE to stringResource(R.string.inbox_undo_unsubscribed),
+    )
+    val undoLabel = stringResource(R.string.inbox_undo)
+    LaunchedEffect(state.undo) {
+        val undo = state.undo ?: return@LaunchedEffect
+        val result = snackbar.showSnackbar(undoMessages.getValue(undo.action), actionLabel = undoLabel, duration = SnackbarDuration.Indefinite)
+        if (result == SnackbarResult.ActionPerformed) onUndo(undo)
     }
     LaunchedEffect(state.actionFailed) {
         if (state.actionFailed) {
@@ -265,12 +301,12 @@ fun InboxScreen(
                         )
                     }
                     else -> state.groups.forEach { group ->
-                        stickyHeader(key = "repo-${group.repo.fullName}", contentType = "repo") {
-                            RepoHeading(group.repo.owner, group.repo.name, group.threads.count { it.unread })
+                        stickyHeader(key = "section-${group.section}", contentType = "section") {
+                            SectionHeading(group.section, group.threads.count { it.unread }, Modifier.animateItem())
                         }
                         items(group.threads, key = { "thread-${it.id}" }, contentType = { "thread" }) { thread ->
                             ThreadRow(
-                                thread, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe,
+                                thread, group.section, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe,
                                 Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem(),
                             )
                         }
@@ -281,38 +317,55 @@ fun InboxScreen(
         val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
         SoftStatusBarScrim(scrolled)
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current)) { data ->
-            Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground)
+            Snackbar(
+                data,
+                shape = RoundedCornerShape(16.dp),
+                containerColor = colors.ink,
+                contentColor = colors.ground,
+                actionColor = snackbarAction(colors),
+            )
         }
     }
 }
 
-/** A repository's name over its threads, pinned while they scroll; the unread count as a soft tag. */
+/** A section's title over its threads, pinned while they scroll; the unread count ticks as it changes. */
 @Composable
-private fun RepoHeading(owner: String, name: String, unread: Int) {
+private fun SectionHeading(section: InboxSection, unread: Int, modifier: Modifier = Modifier) {
     val colors = Soft.colors
+    val animations = animationsEnabled()
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .background(colors.ground)
             .widthIn(max = SoftTokens.MaxReadingWidth)
-            .padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 6.dp)
+            .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 6.dp)
             .semantics(mergeDescendants = true) { heading() },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            buildAnnotatedString {
-                withStyle(SpanStyle(color = colors.inkMuted)) { append("$owner/") }
-                append(name)
-            },
+            stringResource(if (section == InboxSection.NEEDS_YOU) R.string.inbox_section_needs_you else R.string.inbox_section_others),
             style = Soft.type.control.copy(fontSize = 17.sp, lineHeight = 22.sp),
             color = colors.ink,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false),
         )
-        if (unread > 0) {
-            Spacer(Modifier.width(8.dp))
-            SoftTag("$unread", background = colors.fields[0])
+        AnimatedVisibility(unread > 0, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
+            Row {
+                Spacer(Modifier.width(8.dp))
+                AnimatedContent(
+                    targetState = unread,
+                    transitionSpec = {
+                        if (!animations) {
+                            EnterTransition.None togetherWith ExitTransition.None
+                        } else {
+                            val down = targetState < initialState
+                            (slideInVertically { if (down) -it else it } + fadeIn()) togetherWith
+                                (slideOutVertically { if (down) it else -it } + fadeOut())
+                        }
+                    },
+                    label = "unread",
+                ) { count ->
+                    SoftTag("$count", background = if (section == InboxSection.NEEDS_YOU) colors.fields[0] else colors.surface)
+                }
+            }
         }
     }
 }
@@ -320,6 +373,7 @@ private fun RepoHeading(owner: String, name: String, unread: Int) {
 @Composable
 private fun ThreadRow(
     thread: NotificationThread,
+    section: InboxSection,
     nowMillis: Long,
     onOpen: (NotificationThread) -> Unit,
     onMarkRead: (NotificationThread) -> Unit,
@@ -333,6 +387,7 @@ private fun ThreadRow(
     val markReadLabel = stringResource(R.string.inbox_mark_read)
     val doneLabel = stringResource(R.string.inbox_mark_done)
     val unsubscribeLabel = stringResource(R.string.inbox_unsubscribe)
+    val animations = animationsEnabled()
     SwipeToDismissBox(
         state = swipe,
         modifier = modifier.padding(horizontal = 8.dp, vertical = 2.dp),
@@ -351,6 +406,12 @@ private fun ThreadRow(
         },
     ) {
         var menuOpen by rememberSaveable(thread.id) { mutableStateOf(false) }
+        // Reading a thread eases its title from ink to muted rather than snapping.
+        val titleColor by animateColorAsState(
+            if (thread.unread) colors.ink else colors.inkMuted,
+            tween(if (animations) 300 else 0),
+            label = "title",
+        )
         Row(
             Modifier
                 .fillMaxWidth()
@@ -365,38 +426,53 @@ private fun ThreadRow(
                         add(CustomAccessibilityAction(unsubscribeLabel) { onUnsubscribe(thread); true })
                     }
                 }
-                .padding(start = 12.dp, top = 12.dp, bottom = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(start = 4.dp, top = 12.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.Top,
         ) {
-            Box {
-                Box(Modifier.size(40.dp).background(colors.surface, CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(thread.type.icon, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(20.dp))
-                }
-                if (thread.unread) {
-                    Box(
-                        Modifier
-                            .align(Alignment.TopEnd)
-                            .size(12.dp)
-                            .background(colors.ground, CircleShape)
-                            .padding(2.dp)
-                            .background(colors.thumb, CircleShape),
-                    )
+            // The unread dot, in its own gutter so read and unread titles stay aligned; it pops away when read.
+            Box(Modifier.width(20.dp).padding(top = 9.dp), contentAlignment = Alignment.TopCenter) {
+                androidx.compose.animation.AnimatedVisibility(
+                    thread.unread,
+                    enter = if (animations) scaleIn(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)) + fadeIn() else EnterTransition.None,
+                    exit = if (animations) scaleOut(tween(180)) + fadeOut(tween(180)) else ExitTransition.None,
+                ) {
+                    Box(Modifier.size(8.dp).background(colors.thumb, CircleShape))
                 }
             }
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(4.dp))
             Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Waiting on you: why, on the warm "for you" tint. Everything else: what it is, on a quiet surface.
+                    if (section == InboxSection.NEEDS_YOU) {
+                        SoftPill(stringResource(thread.reason.label), thread.type.icon, colors.fields[0])
+                    } else {
+                        SoftPill(stringResource(thread.type.label), thread.type.icon, colors.surface)
+                    }
+                    Text(
+                        (thread.repo.fullName + (thread.number?.let { " #$it" } ?: "")).unbreakable(),
+                        style = Soft.type.meta,
+                        color = colors.inkMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                }
                 Text(
                     thread.title,
-                    style = Soft.type.body.copy(fontWeight = if (thread.unread) FontWeight.Medium else FontWeight.Normal),
-                    color = if (thread.unread) colors.ink else colors.inkMuted,
+                    style = Soft.type.body.copy(
+                        fontSize = 16.sp,
+                        lineHeight = 22.sp,
+                        fontWeight = if (thread.unread) FontWeight.Medium else FontWeight.Normal,
+                    ),
+                    color = titleColor,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 6.dp),
                 )
                 Text(
                     listOfNotNull(
-                        thread.number?.let { "#$it" },
-                        stringResource(thread.reason.label),
-                        relative(thread.updatedAt, nowMillis),
+                        stringResource(thread.reason.label).takeIf { section == InboxSection.OTHERS },
+                        relative(thread.updatedAt, nowMillis, abbreviated = true),
                     ).joinToString(" · "),
                     style = Soft.type.meta,
                     color = colors.inkMuted,
@@ -423,6 +499,9 @@ private fun ThreadRow(
         }
     }
 }
+
+/** Undo on the ink snackbar: ember where it reads (light), the light theme's deeper ember on the pale dark-theme bar. */
+internal fun snackbarAction(colors: SoftColors): Color = if (colors.isDark) SoftLight.accent else colors.thumb
 
 /** What a swipe does, shown on a soft tint under the row: mint to mark read, ember for done. */
 @Composable
@@ -456,6 +535,17 @@ private val SubjectType.icon: ImageVector
         SubjectType.DISCUSSION -> Icons.Outlined.Forum
         SubjectType.CHECK_SUITE -> Icons.Outlined.PlayCircleOutline
         SubjectType.COMMIT, SubjectType.OTHER -> Icons.Outlined.Notifications
+    }
+
+private val SubjectType.label: Int
+    get() = when (this) {
+        SubjectType.ISSUE -> R.string.inbox_kind_issue
+        SubjectType.PULL_REQUEST -> R.string.inbox_kind_pull_request
+        SubjectType.RELEASE -> R.string.inbox_kind_release
+        SubjectType.DISCUSSION -> R.string.inbox_kind_discussion
+        SubjectType.CHECK_SUITE -> R.string.inbox_kind_checks
+        SubjectType.COMMIT -> R.string.inbox_kind_commit
+        SubjectType.OTHER -> R.string.inbox_kind_other
     }
 
 private val NotificationReason.label: Int

@@ -15,9 +15,11 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
-import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.notificationThread
 import org.junit.Rule
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -48,25 +50,65 @@ class InboxScreenTest {
                 onActionFailureShown = {},
                 notificationPrompt = prompt,
                 onAllowNotifications = { events += "allow" },
+                onUndo = { events += "undo:${it.threadId}:${it.action}" },
                 nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
             )
         }
     }
 
     private val grouped = InboxUiState(
-        groups = listOf(RepoGroup(RepoId("acme", "rocket"), listOf(mention, review)), RepoGroup(RepoId("octo", "tools"), listOf(release))),
+        groups = listOf(SectionGroup(InboxSection.NEEDS_YOU, listOf(mention, review)), SectionGroup(InboxSection.OTHERS, listOf(release))),
         syncedAtMillis = 1,
     )
 
     @Test
-    fun shows_threads_grouped_under_their_repo() {
+    fun what_needs_you_comes_first_led_by_why() {
         setContent(grouped)
 
-        composeRule.onNodeWithText("acme/rocket").assertIsDisplayed()
-        composeRule.onNodeWithText("octo/tools").assertIsDisplayed()
+        composeRule.onNodeWithText("Needs you").assertIsDisplayed()
+        composeRule.onNodeWithText("Mentioned").assertIsDisplayed()
+        composeRule.onNodeWithText("Review requested").assertIsDisplayed()
+        composeRule.onNodeWithText("acme/\u2060rocket #42").assertIsDisplayed()
         composeRule.onNodeWithText("Launch fails on cold start").assertIsDisplayed()
-        composeRule.onNodeWithText("#42 · Mentioned · 1 hour ago").assertIsDisplayed()
-        composeRule.onNodeWithText("Watching", substring = true).assertIsDisplayed()
+        composeRule.onAllNodes(hasText("1 hr. ago")).assertCountEquals(2)
+    }
+
+    @Test
+    fun everything_else_is_led_by_what_it_is() {
+        setContent(grouped)
+
+        composeRule.onNodeWithText("Everything else").assertIsDisplayed()
+        composeRule.onNodeWithText("Issue").assertIsDisplayed()
+        composeRule.onNodeWithText("octo/\u2060tools").assertIsDisplayed()
+        composeRule.onNodeWithText("Watching · 1 hr. ago").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_held_action_offers_undo() {
+        setContent(grouped.copy(undo = PendingUndo("42", InboxAction.DONE, serial = 1)))
+
+        composeRule.onNodeWithText("Marked as done").assertIsDisplayed()
+        composeRule.onNodeWithText("Undo").performClick()
+        composeRule.waitForIdle()
+
+        assertThat(events).containsExactly("undo:42:DONE")
+    }
+
+    @Test
+    fun undo_goes_away_once_the_action_is_sent() {
+        var state by mutableStateOf(grouped.copy(undo = PendingUndo("42", InboxAction.READ, serial = 1)))
+        composeRule.setContent {
+            InboxScreen(
+                state = state, onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {},
+                onUnsubscribe = {}, onErrorShown = {}, onActionFailureShown = {},
+            )
+        }
+        composeRule.onNodeWithText("Marked as read").assertIsDisplayed()
+
+        state = state.copy(undo = null)
+        composeRule.waitForIdle()
+
+        composeRule.onAllNodes(hasText("Undo")).assertCountEquals(0)
     }
 
     @Test

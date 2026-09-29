@@ -26,4 +26,11 @@ data class NotificationThread(
             NotificationReason.MENTION, NotificationReason.TEAM_MENTION, NotificationReason.REVIEW_REQUESTED,
             NotificationReason.ASSIGN, NotificationReason.AUTHOR, NotificationReason.COMMENT, NotificationReason.STATE_CHANGE,
         )
+
+    /** Waiting on you: asked for your review, named you, assigned you, or flagged a security issue. */
+    val needsYou: Boolean
+        get() = reason in setOf(
+            NotificationReason.REVIEW_REQUESTED, NotificationReason.MENTION, NotificationReason.TEAM_MENTION,
+            NotificationReason.ASSIGN, NotificationReason.SECURITY_ALERT,
+        )
 }

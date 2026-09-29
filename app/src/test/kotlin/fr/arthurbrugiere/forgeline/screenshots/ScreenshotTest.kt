@@ -42,7 +42,11 @@ import fr.arthurbrugiere.forgeline.core.model.SearchScope
 import fr.arthurbrugiere.forgeline.inbox.InboxScreen
 import fr.arthurbrugiere.forgeline.inbox.InboxUiState
 import fr.arthurbrugiere.forgeline.inbox.NotificationPrompt
-import fr.arthurbrugiere.forgeline.inbox.RepoGroup
+import fr.arthurbrugiere.forgeline.inbox.InboxAction
+import fr.arthurbrugiere.forgeline.inbox.InboxFilter
+import fr.arthurbrugiere.forgeline.inbox.InboxSection
+import fr.arthurbrugiere.forgeline.inbox.PendingUndo
+import fr.arthurbrugiere.forgeline.inbox.SectionGroup
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import fr.arthurbrugiere.forgeline.core.testing.notificationThread
@@ -352,32 +356,49 @@ class ScreenshotTest {
         )
     }
 
+    private val inboxSections = listOf(
+        SectionGroup(
+            InboxSection.NEEDS_YOU,
+            listOf(
+                notificationThread("42", repo = "acme/rocket", title = "Launch fails on cold start", updatedAt = "2026-09-27T09:30:00Z"),
+                notificationThread(
+                    "43", repo = "acme/rocket", title = "Add retry to the fuel pump", type = SubjectType.PULL_REQUEST,
+                    reason = NotificationReason.REVIEW_REQUESTED, updatedAt = "2026-09-27T09:00:00Z",
+                ),
+            ),
+        ),
+        SectionGroup(
+            InboxSection.OTHERS,
+            listOf(
+                notificationThread(
+                    "44", repo = "acme/rocket", title = "Cold start docs are out of date", reason = NotificationReason.COMMENT,
+                    updatedAt = "2026-09-27T08:00:00Z",
+                ),
+                notificationThread(
+                    "9", repo = "octo/tools", title = "v2.0.0", type = SubjectType.RELEASE, number = null,
+                    reason = NotificationReason.SUBSCRIBED, unread = false, updatedAt = "2026-09-26T18:00:00Z",
+                ),
+            ),
+        ),
+    )
+
     @Test
     fun inbox_light() = snapshot("inbox_light", darkTheme = false) {
         InboxScreen(
+            state = InboxUiState(filter = InboxFilter.ALL, groups = inboxSections, syncedAtMillis = 1),
+            onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
+            onErrorShown = {}, onActionFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
+    fun inbox_undo_dark() = snapshot("inbox_undo_dark", darkTheme = true, awaitText = "Undo") {
+        InboxScreen(
             state = InboxUiState(
-                groups = listOf(
-                    RepoGroup(
-                        RepoId("acme", "rocket"),
-                        listOf(
-                            notificationThread("42", repo = "acme/rocket", title = "Launch fails on cold start", updatedAt = "2026-09-27T09:30:00Z"),
-                            notificationThread(
-                                "43", repo = "acme/rocket", title = "Add retry to the fuel pump", type = SubjectType.PULL_REQUEST,
-                                reason = NotificationReason.REVIEW_REQUESTED, updatedAt = "2026-09-27T09:00:00Z",
-                            ),
-                        ),
-                    ),
-                    RepoGroup(
-                        RepoId("octo", "tools"),
-                        listOf(
-                            notificationThread(
-                                "9", repo = "octo/tools", title = "v2.0.0", type = SubjectType.RELEASE, number = null,
-                                reason = NotificationReason.SUBSCRIBED, unread = false, updatedAt = "2026-09-26T18:00:00Z",
-                            ),
-                        ),
-                    ),
-                ),
+                filter = InboxFilter.ALL,
+                groups = inboxSections,
                 syncedAtMillis = 1,
+                undo = PendingUndo("45", InboxAction.DONE, serial = 1),
             ),
             onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
             onErrorShown = {}, onActionFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
@@ -388,7 +409,7 @@ class ScreenshotTest {
     fun inbox_notification_prompt_dark() = snapshot("inbox_notification_prompt_dark", darkTheme = true) {
         InboxScreen(
             state = InboxUiState(
-                groups = listOf(RepoGroup(RepoId("acme", "rocket"), listOf(notificationThread("42", title = "Launch fails on cold start")))),
+                groups = listOf(SectionGroup(InboxSection.NEEDS_YOU, listOf(notificationThread("42", title = "Launch fails on cold start")))),
                 syncedAtMillis = 1,
             ),
             notificationPrompt = NotificationPrompt.ASK,

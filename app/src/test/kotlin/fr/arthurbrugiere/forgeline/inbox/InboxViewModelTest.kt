@@ -5,7 +5,6 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.inbox.SyncResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
-import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.testing.FakeInboxRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository
@@ -15,7 +14,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
@@ -31,14 +32,14 @@ class InboxViewModelTest {
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
     private fun TestScope.viewModel(savedState: SavedStateHandle = SavedStateHandle()) =
-        InboxViewModel(savedState, inbox, settings).also { it.state.launchIn(backgroundScope) }
+        InboxViewModel(savedState, inbox, settings, backgroundScope).also { it.state.launchIn(backgroundScope) }
 
     private val mention = notificationThread("1", repo = "acme/rocket", reason = NotificationReason.MENTION, updatedAt = "2026-09-27T09:00:00Z")
     private val watching = notificationThread("2", repo = "octo/tools", reason = NotificationReason.SUBSCRIBED, updatedAt = "2026-09-27T09:30:00Z")
     private val read = notificationThread("3", repo = "acme/rocket", reason = NotificationReason.COMMENT, unread = false, updatedAt = "2026-09-27T08:00:00Z")
 
     @Test
-    fun opens_on_unread_threads_grouped_by_repo_newest_first_and_syncs() = test {
+    fun opens_on_unread_threads_needing_you_first_and_syncs() = test {
         inbox.set(watching, mention, read)
 
         val viewModel = viewModel()
@@ -46,8 +47,8 @@ class InboxViewModelTest {
 
         val state = viewModel.state.value
         assertThat(state.filter).isEqualTo(InboxFilter.UNREAD)
-        assertThat(state.groups.map { it.repo }).containsExactly(RepoId("octo", "tools"), RepoId("acme", "rocket")).inOrder()
-        assertThat(state.groups.flatMap { g -> g.threads.map { it.id } }).containsExactly("2", "1").inOrder()
+        assertThat(state.groups.map { it.section }).containsExactly(InboxSection.NEEDS_YOU, InboxSection.OTHERS).inOrder()
+        assertThat(state.groups.flatMap { g -> g.threads.map { it.id } }).containsExactly("1", "2").inOrder()
         assertThat(inbox.syncs).containsExactly(false)
     }
 
@@ -64,7 +65,7 @@ class InboxViewModelTest {
 
         viewModel.selectFilter(InboxFilter.ALL)
         advanceUntilIdle()
-        assertThat(viewModel.state.value.groups.flatMap { g -> g.threads.map { it.id } }).containsExactly("2", "1", "3").inOrder()
+        assertThat(viewModel.state.value.groups.flatMap { g -> g.threads.map { it.id } }).containsExactly("1", "2", "3").inOrder()
         assertThat(viewModel(saved).state.value.filter).isEqualTo(InboxFilter.ALL)
     }
 
@@ -106,21 +107,64 @@ class InboxViewModelTest {
     }
 
     @Test
-    fun swipe_actions_reach_the_inbox_and_failures_are_reported() = test {
+    fun actions_show_at_once_but_reach_the_forge_after_the_undo_window() = test {
         inbox.set(mention, watching)
         val viewModel = viewModel()
         advanceUntilIdle()
 
         viewModel.markDone(mention)
         viewModel.unsubscribe(watching)
-        advanceUntilIdle()
-        assertThat(inbox.actions).containsExactly("done:1", "unsubscribe:2").inOrder()
+        runCurrent()
         assertThat(viewModel.state.value.groups).isEmpty()
+        assertThat(viewModel.state.value.undo).isEqualTo(PendingUndo("2", InboxAction.UNSUBSCRIBE, serial = 2))
+        assertThat(inbox.actions).isEmpty()
 
+        advanceTimeBy(InboxViewModel.UNDO_MILLIS + 1)
+        runCurrent()
+        assertThat(inbox.actions).containsExactly("done:1", "unsubscribe:2").inOrder()
+        assertThat(viewModel.state.value.undo).isNull()
+    }
+
+    @Test
+    fun undo_brings_the_thread_back_and_never_reaches_the_forge() = test {
+        inbox.set(mention)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.markDone(mention)
+        runCurrent()
+        viewModel.undo(viewModel.state.value.undo!!)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.groups.flatMap { g -> g.threads.map { it.id } }).containsExactly("1")
+        assertThat(viewModel.state.value.undo).isNull()
+        assertThat(inbox.actions).isEmpty()
+    }
+
+    @Test
+    fun a_read_thread_shows_as_read_while_undo_is_offered() = test {
+        inbox.set(mention)
+        val viewModel = viewModel()
+        viewModel.selectFilter(InboxFilter.ALL)
+        advanceUntilIdle()
+
+        viewModel.markRead(mention)
+        runCurrent()
+
+        assertThat(viewModel.state.value.groups.single().threads.single().unread).isFalse()
+        assertThat(inbox.actions).isEmpty()
+    }
+
+    @Test
+    fun failures_are_reported_once_sent() = test {
         inbox.set(mention)
         inbox.actionFailure = ForgeError.Network
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
         viewModel.markRead(mention)
         advanceUntilIdle()
+
         assertThat(viewModel.state.value.actionFailed).isTrue()
     }
 
