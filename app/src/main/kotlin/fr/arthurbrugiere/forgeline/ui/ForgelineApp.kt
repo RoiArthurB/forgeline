@@ -150,7 +150,7 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
             SignInRoute(onBack = navigator::goBack, onSignedIn = navigator::goBack)
         }
         entry<SearchKey> {
-            SearchDestination(onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(ForgeInstance.GitHub, it) }, onBack = navigator::goBack)
+            SearchDestination(onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser, onBack = navigator::goBack)
         }
         entry<CreditsKey> {
             CreditsRoute(onBack = navigator::goBack)

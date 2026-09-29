@@ -659,7 +659,7 @@ class ScreenshotTest {
                 ),
             ),
             onQueryChange = {}, onSubmit = {}, onSelectScope = {}, onLoadMore = {}, onRetry = {},
-            onOpenRepo = {}, onOpenIssue = {}, onOpenUser = {}, onBack = {},
+            onOpenRepo = {}, onOpenIssue = {}, onOpenUser = { _, _ -> }, onBack = {},
             nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
         )
     }

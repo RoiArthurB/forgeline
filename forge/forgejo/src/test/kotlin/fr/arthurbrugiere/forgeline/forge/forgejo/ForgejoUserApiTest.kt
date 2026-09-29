@@ -97,6 +97,8 @@ class ForgejoUserApiTest {
         assertThat(repos.items.first().id).isEqualTo(RepoId("rindeal", "__openpgp-proof-forgejo", ForgeInstance.Codeberg))
         assertThat(repos.totalCount).isEqualTo(240)
         assertThat(users.items.map { it.login }).contains("0xllx0-forgejo")
+        // People found on Codeberg open on Codeberg.
+        assertThat(users.items.map { it.forge }.toSet()).containsExactly(ForgeInstance.Codeberg)
     }
 
     @Test

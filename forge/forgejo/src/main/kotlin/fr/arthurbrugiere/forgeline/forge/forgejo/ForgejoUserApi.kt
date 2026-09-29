@@ -134,7 +134,7 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
     override suspend fun users(token: String?, query: String, page: Int): ForgeResult<SearchPage<UserSummary>> = forgejoCall {
         val response = httpClient.forgejoApi(forge, token, "users", "search", query = params(query, page))
         response.toResult {
-            val items = body<SearchJson<UserJson>>().data.map { it.toSummary() }
+            val items = body<SearchJson<UserJson>>().data.map { it.toSummary(forge) }
             SearchPage(items, totalCount() ?: items.size, nextPage())
         }
     }

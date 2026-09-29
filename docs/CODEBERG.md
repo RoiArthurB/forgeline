@@ -160,6 +160,10 @@ The same merge works for any number of forges, so a self-hosted Forgejo instance
 
 **Which forges are on the page.** GitHub's Trending always, since it needs no account, plus Codeberg's once a Codeberg account is signed in: a GitHub-only user's page doesn't change. Each forge's ranking is cached and refreshed separately. A forge that can't be read keeps its cached rows, and the refresh only reports an error when no forge could be read. Rows name their forge only when the page mixes several.
 
+## Search
+
+One search across forges: GitHub's, always, and that of each forge an account is signed in to (Codeberg answers anonymous issue searches with a 500, so signed-out Codeberg search wouldn't work anyway). Every forge is searched at once, with its own token. Forges rank by relevance in their own ways, so scores can't be compared: results are interleaved by rank instead, every forge's best match, then every forge's second, GitHub first. Each forge pages on its own: the next page only asks the forges that have more. A forge that fails is left out and the others still answer; the search fails only when every forge did. Results name their forge once more than one is searched, and a person found on Codeberg opens on Codeberg.
+
 ## Sign-in
 
 Like GitHub, Codeberg offers both, and both are shown when the OAuth client ID is set:

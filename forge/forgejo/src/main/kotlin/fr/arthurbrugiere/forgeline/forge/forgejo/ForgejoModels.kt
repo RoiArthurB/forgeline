@@ -23,7 +23,7 @@ internal data class UserJson(
 ) {
     fun toModel() = ForgeUser(login, fullName?.ifBlank { null }, avatarUrl)
 
-    fun toSummary() = UserSummary(login, avatarUrl, isOrganization = false)
+    fun toSummary(forge: ForgeInstance) = UserSummary(login, avatarUrl, isOrganization = false, forge = forge)
 }
 
 @Serializable

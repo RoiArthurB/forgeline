@@ -4,12 +4,14 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import fr.arthurbrugiere.forgeline.core.data.search.MergedSearchPage
+import fr.arthurbrugiere.forgeline.core.data.search.SearchCursor
 import fr.arthurbrugiere.forgeline.core.data.search.SearchRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
-import fr.arthurbrugiere.forgeline.core.model.SearchPage
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.SearchScope
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,12 +36,16 @@ data class ScopeResults(
     val query: String? = null,
     val items: List<SearchResult> = emptyList(),
     val totalCount: Int? = null,
-    val nextPage: Int? = null,
+    /** Where the next page continues on each forge; null once every forge is through. */
+    val next: SearchCursor? = null,
     val isLoading: Boolean = false,
     val error: ForgeError? = null,
+    /** The forges searched: each result names its own when there are several. */
+    val forges: List<ForgeInstance> = emptyList(),
 ) {
     val submitted: Boolean get() = query != null
-    val hasMore: Boolean get() = nextPage != null
+    val hasMore: Boolean get() = next != null
+    val showForge: Boolean get() = forges.size > 1
 }
 
 data class SearchUiState(
@@ -66,7 +72,7 @@ class SearchViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchUiState(query.value, scope.value))
 
     init {
-        if (submitted != null) load(scope.value, page = 1)
+        if (submitted != null) load(scope.value, cursor = null)
     }
 
     fun onQueryChange(text: String) {
@@ -77,37 +83,38 @@ class SearchViewModel @Inject constructor(
         val text = query.value.trim().takeIf { it.isNotEmpty() } ?: return
         savedState[SUBMITTED_KEY] = text
         results.value = emptyMap()
-        load(scope.value, page = 1)
+        load(scope.value, cursor = null)
     }
 
     fun selectScope(selected: SearchScope) {
         savedState[SCOPE_KEY] = selected
         val text = submitted ?: return
-        if (results.value[selected]?.query != text) load(selected, page = 1)
+        if (results.value[selected]?.query != text) load(selected, cursor = null)
     }
 
     fun loadMore() {
         val current = results.value[scope.value] ?: return
-        val next = current.nextPage ?: return
+        val next = current.next ?: return
         if (!current.isLoading && current.error == null) load(scope.value, next)
     }
 
     fun retry() {
         val current = results.value[scope.value]
-        load(scope.value, page = if (current == null || current.items.isEmpty()) 1 else current.nextPage ?: return)
+        load(scope.value, cursor = if (current == null || current.items.isEmpty()) null else current.next ?: return)
     }
 
-    private fun load(target: SearchScope, page: Int) {
+    /** Loads the first page when [cursor] is null, else where [cursor] continues. */
+    private fun load(target: SearchScope, cursor: SearchCursor?) {
         val text = submitted ?: return
         results.update { all ->
-            val previous = all[target]?.takeIf { page > 1 } ?: ScopeResults(query = text)
+            val previous = all[target]?.takeIf { cursor != null } ?: ScopeResults(query = text)
             all + (target to previous.copy(isLoading = true, error = null))
         }
         viewModelScope.launch {
-            val result: ForgeResult<SearchPage<SearchResult>> = when (target) {
-                SearchScope.REPOSITORIES -> search.repositories(text, page).map { SearchResult.Repository(it) }
-                SearchScope.ISSUES -> search.issues(text, page).map { SearchResult.Issue(it) }
-                SearchScope.USERS -> search.users(text, page).map { SearchResult.User(it) }
+            val result: ForgeResult<MergedSearchPage<SearchResult>> = when (target) {
+                SearchScope.REPOSITORIES -> search.repositories(text, cursor).map { SearchResult.Repository(it) }
+                SearchScope.ISSUES -> search.issues(text, cursor).map { SearchResult.Issue(it) }
+                SearchScope.USERS -> search.users(text, cursor).map { SearchResult.User(it) }
             }
             // A newer search replaced this one while it was in flight.
             if (submitted != text) return@launch
@@ -117,9 +124,11 @@ class SearchViewModel @Inject constructor(
                     is ForgeResult.Failure -> current.copy(isLoading = false, error = result.error)
                     is ForgeResult.Success -> current.copy(
                         items = current.items + result.value.items,
-                        totalCount = result.value.totalCount,
-                        nextPage = result.value.nextPage,
+                        // The first page counts every forge; later ones only those with more.
+                        totalCount = if (cursor == null) result.value.totalCount else current.totalCount,
+                        next = result.value.next,
                         isLoading = false,
+                        forges = result.value.forges,
                     )
                 }
                 all + (target to updated)
@@ -127,10 +136,11 @@ class SearchViewModel @Inject constructor(
         }
     }
 
-    private fun <T> ForgeResult<SearchPage<T>>.map(transform: (T) -> SearchResult): ForgeResult<SearchPage<SearchResult>> = when (this) {
-        is ForgeResult.Failure -> this
-        is ForgeResult.Success -> ForgeResult.Success(SearchPage(value.items.map(transform), value.totalCount, value.nextPage))
-    }
+    private fun <T> ForgeResult<MergedSearchPage<T>>.map(transform: (T) -> SearchResult): ForgeResult<MergedSearchPage<SearchResult>> =
+        when (this) {
+            is ForgeResult.Failure -> this
+            is ForgeResult.Success -> ForgeResult.Success(MergedSearchPage(value.items.map(transform), value.totalCount, value.next, value.forges))
+        }
 
     private companion object {
         const val QUERY_KEY = "query"
