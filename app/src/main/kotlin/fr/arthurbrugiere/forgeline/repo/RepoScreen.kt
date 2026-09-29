@@ -72,6 +72,8 @@ import fr.arthurbrugiere.forgeline.navigation.UserRoute
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.actions.RowIcon
+import fr.arthurbrugiere.forgeline.actions.WorkflowDispatchSheet
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.actions.RunStatusIcon
 import fr.arthurbrugiere.forgeline.ui.IssueSummaryRow
 import fr.arthurbrugiere.forgeline.ui.Avatar
@@ -134,6 +136,19 @@ fun RepoRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
     val signedIn = session is SessionState.SignedIn
+    var dispatching by rememberSaveable { mutableStateOf(false) }
+    val details = state.details
+    if (dispatching && details != null) {
+        WorkflowDispatchSheet(
+            repo = details.id,
+            defaultBranch = details.defaultBranch,
+            onDismiss = { dispatching = false },
+            onStarted = {
+                dispatching = false
+                viewModel.workflowStarted()
+            },
+        )
+    }
     RepoScreen(
         state = state,
         signedIn = signedIn,
@@ -159,6 +174,8 @@ fun RepoRoute(
         },
         onOpenInBrowser = openUrl,
         onLoadRefs = viewModel::loadRefs,
+        onRunWorkflow = if (signedIn) ({ dispatching = true }) else null,
+        onWorkflowStartShown = viewModel::workflowStartShown,
         onSelectRef = viewModel::selectRef,
         onErrorShown = viewModel::errorShown,
         onStarFailureShown = viewModel::starFailureShown,
@@ -185,6 +202,9 @@ fun RepoScreen(
     onOpenInBrowser: (String) -> Unit,
     onLoadRefs: () -> Unit,
     onSelectRef: (String) -> Unit,
+    /** Null when signed out: starting a workflow needs an account. */
+    onRunWorkflow: (() -> Unit)?,
+    onWorkflowStartShown: () -> Unit,
     onErrorShown: () -> Unit,
     onStarFailureShown: () -> Unit,
     modifier: Modifier = Modifier,
@@ -199,6 +219,13 @@ fun RepoScreen(
         if (state.error != null && details != null) {
             snackbar.showSnackbar(refreshFailed)
             onErrorShown()
+        }
+    }
+    val workflowStarted = stringResource(R.string.dispatch_started)
+    LaunchedEffect(state.workflowStarted) {
+        if (state.workflowStarted) {
+            snackbar.showSnackbar(workflowStarted)
+            onWorkflowStartShown()
         }
     }
     LaunchedEffect(state.starFailed) {
@@ -312,8 +339,17 @@ fun RepoScreen(
                             RepoTab.RELEASES -> loadable(state.releases, R.string.repo_no_releases, onRetryTab) { releases ->
                                 items(releases, key = { "release-${it.tag}" }) { ReleaseRow(it, state.readmeContext, nowMillis, onLinkClick) }
                             }
-                            RepoTab.ACTIONS -> loadable(state.runs, R.string.repo_no_runs, onRetryTab) { runs ->
-                                items(runs, key = { "run-${it.id}" }) { RunRow(it, nowMillis, onClick = { onOpenRun(it.id) }) }
+                            RepoTab.ACTIONS -> {
+                                if (onRunWorkflow != null) {
+                                    item(key = "run-workflow") {
+                                        Box(RowModifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                                            SoftTonalButton(stringResource(R.string.dispatch_title), onClick = onRunWorkflow)
+                                        }
+                                    }
+                                }
+                                loadable(state.runs, R.string.repo_no_runs, onRetryTab) { runs ->
+                                    items(runs, key = { "run-${it.id}" }) { RunRow(it, nowMillis, onClick = { onOpenRun(it.id) }) }
+                                }
                             }
                         }
                     }

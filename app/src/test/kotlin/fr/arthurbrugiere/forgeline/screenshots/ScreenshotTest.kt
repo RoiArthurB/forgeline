@@ -27,7 +27,13 @@ import fr.arthurbrugiere.forgeline.signin.SignInScreen
 import fr.arthurbrugiere.forgeline.signin.SignInStep
 import fr.arthurbrugiere.forgeline.signin.SignInUiState
 import fr.arthurbrugiere.forgeline.you.YouScreen
+import androidx.compose.foundation.background
+import fr.arthurbrugiere.forgeline.actions.DispatchContent
+import fr.arthurbrugiere.forgeline.actions.DispatchUiState
 import fr.arthurbrugiere.forgeline.actions.JobLogScreen
+import fr.arthurbrugiere.forgeline.core.model.DispatchInput
+import fr.arthurbrugiere.forgeline.core.model.DispatchInputType
+import fr.arthurbrugiere.forgeline.core.model.Workflow
 import fr.arthurbrugiere.forgeline.actions.JobLogUiState
 import fr.arthurbrugiere.forgeline.actions.RunScreen
 import fr.arthurbrugiere.forgeline.actions.RunUiState
@@ -389,6 +395,27 @@ class ScreenshotTest {
     }
 
     @Test
+    fun dispatch_form_light() = snapshot("dispatch_form_light", darkTheme = false) {
+        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.background(fr.arthurbrugiere.forgeline.core.ui.soft.Soft.colors.ground)) {
+            DispatchContent(
+                state = DispatchUiState(
+                    selected = Workflow(1, "Release", ".github/workflows/release.yml"),
+                    ref = "master",
+                    inputs = Loadable.Loaded(
+                        listOf(
+                            DispatchInput("channel", "Release channel to publish", DispatchInputType.CHOICE, true, "stable", listOf("stable", "beta", "nightly", "preview")),
+                            DispatchInput("source_ref", "Stable source ref, or full immutable SHA for a preview build", DispatchInputType.STRING, true, "master", emptyList()),
+                            DispatchInput("dry_run", "Build everything but publish nothing", DispatchInputType.BOOLEAN, false, "false", emptyList()),
+                        ),
+                    ),
+                    values = mapOf("channel" to "beta", "source_ref" to "master", "dry_run" to "true"),
+                ),
+                onSelect = {}, onRefChange = {}, onRefDone = {}, onValueChange = { _, _ -> }, onStart = {}, onRetry = {},
+            )
+        }
+    }
+
+    @Test
     fun job_log_dark() = snapshot("job_log_dark", darkTheme = true) {
         JobLogScreen(
             state = JobLogUiState(
@@ -642,6 +669,7 @@ class ScreenshotTest {
         RepoScreen(
             state = state, signedIn = true, onBack = {}, onRefresh = {}, onSelectTab = {}, onRetryTab = {}, onToggleStar = {},
             onOpenDirectory = {}, onOpenParentDirectory = {}, onOpenFile = {}, onOpenIssue = {}, onOpenUser = {}, onLinkClick = {}, onOpenRun = {}, onOpenInBrowser = {}, onLoadRefs = {}, onSelectRef = {},
+            onRunWorkflow = {}, onWorkflowStartShown = {},
             onErrorShown = {}, onStarFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
         )
     }

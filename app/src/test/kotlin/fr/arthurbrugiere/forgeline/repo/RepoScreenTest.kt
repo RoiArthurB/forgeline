@@ -62,6 +62,8 @@ class RepoScreenTest {
                 onOpenInBrowser = { events += "browser:$it" },
                 onLoadRefs = { events += "refs" },
                 onSelectRef = { events += "ref:$it" },
+                onRunWorkflow = if (signedIn) ({ events += "run-workflow" }) else null,
+                onWorkflowStartShown = { events += "started-shown" },
                 onErrorShown = {},
                 onStarFailureShown = {},
                 nowMillis = 0,
@@ -206,6 +208,22 @@ class RepoScreenTest {
         composeRule.onNodeWithText("Fix the build").performClick()
 
         assertThat(events).containsExactly("run:7")
+    }
+
+    @Test
+    fun signed_in_the_actions_tab_offers_to_run_a_workflow() {
+        setContent(loaded.copy(tab = RepoTab.ACTIONS, runs = Loadable.Loaded(emptyList())))
+
+        composeRule.onNodeWithText("Run a workflow").performClick()
+
+        assertThat(events).containsExactly("run-workflow")
+    }
+
+    @Test
+    fun signed_out_the_actions_tab_only_lists_runs() {
+        setContent(loaded.copy(tab = RepoTab.ACTIONS, runs = Loadable.Loaded(emptyList())), signedIn = false)
+
+        composeRule.onNodeWithText("Run a workflow").assertDoesNotExist()
     }
 
     @Test

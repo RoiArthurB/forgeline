@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 enum class RepoTab { README, CODE, ISSUES, PULLS, RELEASES, ACTIONS }
@@ -67,6 +68,8 @@ data class RepoUiState(
     val refs: Loadable<GitRefs> = Loadable.Idle,
     /** The README at [ref]; only the default branch's README is cached. */
     val refReadme: Loadable<Readme?> = Loadable.Idle,
+    /** A workflow was just started by hand, to say so once. */
+    val workflowStarted: Boolean = false,
 ) {
     /** What the README and Code tabs show: [ref], else the default branch once known. */
     val browsedRef: String? get() = ref ?: details?.defaultBranch
@@ -163,6 +166,17 @@ class RepoViewModel @AssistedInject constructor(
         }
     }
 
+    /** Says so, then lists the runs again once the forge has queued the new one. */
+    fun workflowStarted() {
+        local.update { it.copy(workflowStarted = true) }
+        viewModelScope.launch {
+            delay(WORKFLOW_QUEUE_MILLIS)
+            loadTab(RepoTab.ACTIONS)
+        }
+    }
+
+    fun workflowStartShown() = local.update { it.copy(workflowStarted = false) }
+
     fun errorShown() = local.update { it.copy(error = null) }
 
     fun starFailureShown() = local.update { it.copy(starFailed = false) }
@@ -235,6 +249,11 @@ class RepoViewModel @AssistedInject constructor(
     private fun canonicalIds() = snapshot.map { it.details?.id }.filterNotNull().distinctUntilChanged()
 
     private suspend fun canonicalId(): RepoId = canonicalIds().first()
+
+    companion object {
+        /** GitHub lists a run started by hand a few seconds after accepting it. */
+        const val WORKFLOW_QUEUE_MILLIS = 3_000L
+    }
 
     private fun readmeContext(details: RepoDetails, ref: String, readme: Readme?): ReadmeContext {
         val directory = readme?.path?.substringBeforeLast('/', missingDelimiterValue = "")?.let { if (it.isEmpty()) "" else "$it/" }.orEmpty()
