@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
+import java.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class FeedViewModelTest {
@@ -35,6 +36,37 @@ class FeedViewModelTest {
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
     private fun TestScope.viewModel() = FeedViewModel(feed, previews, settings).also { it.state.launchIn(backgroundScope) }
+
+    @Test
+    fun the_left_off_mark_sits_above_what_the_last_visit_read() = test {
+        feed.set(
+            feedEvent("3", repo = "octo/new", createdAt = "2026-09-27T09:30:00Z"),
+            feedEvent("2", repo = "octo/read", createdAt = "2026-09-27T09:00:00Z"),
+            feedEvent("1", repo = "octo/older", createdAt = "2026-09-27T08:00:00Z"),
+        )
+        feed.readUpTo = Instant.parse("2026-09-27T09:00:00Z")
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.leftOffBefore).isEqualTo("2")
+        viewModel.readThrough(viewModel.state.value.items.first())
+        advanceUntilIdle()
+        assertThat(feed.readUpTo).isEqualTo(Instant.parse("2026-09-27T09:30:00Z"))
+        // Fixed for the visit: reading doesn't move the mark shown.
+        assertThat(viewModel.state.value.leftOffBefore).isEqualTo("2")
+    }
+
+    @Test
+    fun with_nothing_new_there_is_no_mark() = test {
+        feed.set(feedEvent("2", createdAt = "2026-09-27T09:00:00Z"), feedEvent("1", repo = "octo/tools", createdAt = "2026-09-27T08:00:00Z"))
+        feed.readUpTo = Instant.parse("2026-09-27T09:00:00Z")
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.leftOffBefore).isNull()
+    }
 
     @Test
     fun shows_the_cached_feed_and_refreshes_it() = test {

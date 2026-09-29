@@ -40,7 +40,7 @@ class DefaultFeedRepositoryTest {
         override fun getZone(): ZoneId = ZoneOffset.UTC
         override fun withZone(zone: ZoneId?) = this
     }
-    private val repository = DefaultFeedRepository(database.feedDao(), api, accounts, clock)
+    private val repository = DefaultFeedRepository(database.feedDao(), api, accounts, database.readingMarkDao(), clock)
 
     private suspend fun signIn(login: String = "me") = accounts.signIn(ForgeInstance.GitHub, ForgeUser(login, null, null), "t-$login")
 
@@ -143,5 +143,18 @@ class DefaultFeedRepositoryTest {
         signIn("other")
         assertThat(repository.observe().first().events).isEmpty()
         assertThat(repository.observe().first().syncedAtMillis).isNull()
+    }
+
+    @Test
+    fun the_read_mark_only_moves_to_newer_activity_per_account() = runTest {
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("alice", null, null), "t-alice")
+        assertThat(repository.readUpTo()).isNull()
+
+        repository.markRead("e2", Instant.parse("2026-09-27T09:00:00Z"))
+        repository.markRead("e1", Instant.parse("2026-09-27T08:00:00Z"))
+        assertThat(repository.readUpTo()).isEqualTo(Instant.parse("2026-09-27T09:00:00Z"))
+
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("bob", null, null), "t-bob")
+        assertThat(repository.readUpTo()).isNull()
     }
 }

@@ -41,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
+import fr.arthurbrugiere.forgeline.ui.ReportReading
+import fr.arthurbrugiere.forgeline.ui.LeftOffMark
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.IssueAction
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -147,6 +149,7 @@ fun FeedRoute(
         onOpenUser = onOpenUser,
         onErrorShown = viewModel::errorShown,
         onVisible = viewModel::onVisible,
+        onReadThrough = viewModel::readThrough,
     )
 }
 
@@ -180,6 +183,7 @@ fun FeedScreen(
     onErrorShown: () -> Unit,
     modifier: Modifier = Modifier,
     onVisible: (List<FeedItem>) -> Unit = {},
+    onReadThrough: (FeedItem) -> Unit = {},
     nowMillis: Long = System.currentTimeMillis(),
     zone: ZoneId = ZoneId.systemDefault(),
 ) {
@@ -209,6 +213,13 @@ fun FeedScreen(
             .distinctUntilChanged()
             .collect { visible -> if (visible.isNotEmpty()) onVisible(visible) }
     }
+    // The newest activity read (a while on screen) is where the next visit's "Where you left off" goes.
+    ReportReading(
+        listState,
+        resetKey = null,
+        positionOf = { key -> itemsByKey[key]?.createdAt?.toEpochMilli() },
+        onRead = { key -> itemsByKey[key]?.let(onReadThrough) },
+    )
     Box(modifier.fillMaxSize().background(colors.ground)) {
         val pullState = rememberPullToRefreshState()
         PullToRefreshBox(
@@ -253,10 +264,10 @@ fun FeedScreen(
                         state.items.groupBy { it.createdAt.day(nowMillis, zone) }.forEach { (day, items) ->
                             item(key = "day-$day", contentType = "day") { SoftSectionTitle(stringResource(day.label)) }
                             items(items, key = { it.key }, contentType = { it.action.kind }) { item ->
-                                FeedRow(
-                                    item, state.previews, nowMillis, onOpenRepo, onOpenIssue, onOpenUser,
-                                    Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem(),
-                                )
+                                Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem()) {
+                                    if (item.key == state.leftOffBefore) LeftOffMark()
+                                    FeedRow(item, state.previews, nowMillis, onOpenRepo, onOpenIssue, onOpenUser)
+                                }
                             }
                         }
                         if (state.hasMore) {

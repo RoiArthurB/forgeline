@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Instant
 import javax.inject.Inject
 
 data class FeedUiState(
@@ -26,6 +27,11 @@ data class FeedUiState(
     val error: ForgeError? = null,
     /** Repo previews and pull request titles fetched so far; rows fill in as these arrive. */
     val previews: FeedPreviews = FeedPreviews(),
+    /**
+     * The row the last visit's reading reached, which "Where you left off" sits above: everything above it is newer.
+     * Null when nothing is new, or before any reading. Fixed for the visit so the mark doesn't chase the reader.
+     */
+    val leftOffBefore: String? = null,
 )
 
 @HiltViewModel
@@ -39,9 +45,19 @@ class FeedViewModel @Inject constructor(
 
     private val status = MutableStateFlow(Status())
 
-    val state: StateFlow<FeedUiState> = combine(feed.observe(), settings.settings, status, previews.observe()) { snapshot, settings, status, previews ->
+    /** How far the last visit read, read once when the Feed opens. */
+    private val readUpTo = MutableStateFlow<Instant?>(null)
+
+    val state: StateFlow<FeedUiState> = combine(
+        combine(feed.observe(), readUpTo) { snapshot, readUpTo -> snapshot to readUpTo },
+        settings.settings,
+        status,
+        previews.observe(),
+    ) { (snapshot, readUpTo), settings, status, previews ->
+        val items = feedItems(snapshot.events, settings.feedKinds)
         FeedUiState(
-            items = feedItems(snapshot.events, settings.feedKinds),
+            items = items,
+            leftOffBefore = readUpTo?.let { mark -> items.indexOfFirst { it.createdAt <= mark } }?.takeIf { it > 0 }?.let { items[it].key },
             syncedAtMillis = snapshot.syncedAtMillis,
             hasMore = snapshot.hasMore,
             isRefreshing = status.isRefreshing,
@@ -52,7 +68,13 @@ class FeedViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), FeedUiState())
 
     init {
+        viewModelScope.launch { readUpTo.value = feed.readUpTo() }
         load(force = false)
+    }
+
+    /** [item] was read: the next visit marks where reading stopped. */
+    fun readThrough(item: FeedItem) {
+        viewModelScope.launch { feed.markRead(item.key, item.createdAt) }
     }
 
     fun refresh() = load(force = true)
