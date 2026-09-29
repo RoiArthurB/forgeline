@@ -4,7 +4,7 @@ A design note for adding Codeberg, and any Forgejo instance, next to GitHub.
 
 **The rule: Forgeline is one app, not one app per forge.** The Feed, Trending, search and everything else are a single page each, mixing every forge. Only the Inbox may be split per forge, and only if the user asks for it in Settings.
 
-Everything about Forgejo below was checked against its source (Forgejo v1.21 and Gitea `main`) and the Forgejo Go SDK v3 (March 2026), not against the live Codeberg API. Items marked **verify** still need a check against codeberg.org itself.
+Everything about Forgejo below was checked against its source (Forgejo v1.21 and Gitea `main`), and then against codeberg.org itself on 2026-09-29 (Forgejo `16.0.0-dev`): the public endpoints by calling them, the signed-in ones (notifications) against Codeberg's published OpenAPI description. Items marked **verify** still need a Codeberg account or OAuth application to check.
 
 ## What Forgejo gives us, and what it doesn't
 
@@ -18,11 +18,11 @@ Everything about Forgejo below was checked against its source (Forgejo v1.21 and
 | Feed of people you follow | `GET /users/{me}/received_events` | **none**: `GET /users/{me}/activities/feeds` only holds your own actions, repos you watch and your orgs (`NotifyWatchers` never fans out to followers) | Fan out to each followed user's feed (see [Feed](#feed)). |
 | Star events | `WatchEvent` | **never emitted** (`ActionStarRepo` exists but nothing creates it) | No stars in a Codeberg Feed. |
 | Trending | scraped from `github.com/trending` | **none** ([Codeberg/Community#213](https://codeberg.org/Codeberg/Community/issues/213)) | Measured once a day for everyone (see [Trending](#trending)). |
-| Star history | `starred_at` via a media type | stars have `created_unix` in the database, but `/stargazers` returns users only, **unordered** | Star history can't be rebuilt from the API. |
-| Sign-in | device flow, or classic PAT | **no device flow**; OAuth2 authorization code with **PKCE** (required for public clients), or a PAT | New sign-in path (see [Sign-in](#sign-in)). |
+| Star history | `starred_at` via a media type | stars have `created_unix` in the database, but `/stargazers` returns users only, in user id order, not star order | Star history can't be rebuilt from the API. |
+| Sign-in | device flow, or classic PAT | **no device flow** (Codeberg's OpenID configuration lists only `authorization_code` and `refresh_token`); OAuth2 authorization code with **PKCE** (`S256`, required for public clients), or a PAT | New sign-in path (see [Sign-in](#sign-in)). |
 | Token lifetime | OAuth tokens don't expire | OAuth access tokens expire after **1 hour**, refresh tokens after **730 hours** (Forgejo defaults, **verify** on Codeberg) | Accounts store a refresh token. |
-| Rate limits | 5000/h, documented | fair use, no published numbers | Keep requests per refresh small and bounded. |
-| Page size | up to 100 | 50 (`MAX_RESPONSE_ITEMS` default), `Link` + `X-Total-Count` headers | |
+| Rate limits | 5000/h, documented | **2000 requests per 10 minutes**, announced in `RateLimit-Policy: "baseline";q=2000;w=600` and `RateLimit` headers | Generous, but keep requests per refresh small and bounded; read `RateLimit` rather than guessing. |
+| Page size | up to 100 | 50 (a larger `limit` is cut to 50), `Link` + `X-Total-Count` headers; activity feeds only send `X-Total-Count` | |
 
 ## Groundwork: nothing is tied to one forge
 
@@ -88,7 +88,7 @@ The same action shows up in both sources under different ids, since Forgejo stor
 | `publish_release` | `Released` |
 | `mirror_sync_*`, `rename_repo`, `transfer_repo`, `star_repo`, `watch_repo` | not shown |
 
-Issue and PR events carry `"<number>|…"` in `content`, not the title. Titles come through `FeedPreviewRepository`, which already does this for GitHub PR titles and gains issue titles.
+Issue and PR events carry a JSON array in `content`: `["2471","shm: clang 23 complains…"]`, the number then the title (or, for comments and reviews, the comment's text; `close_issue` sends an empty title). So unlike GitHub's pull request events, Codeberg's need no title lookup. `commit_repo` carries a JSON object with the pushed commits.
 
 **One Feed, strictly in order.** Each forge pages back in time at its own pace: one GitHub page might reach back three days, one Codeberg page one day. Showing everything loaded would put Codeberg's day-two events in *above* GitHub's older events later, when the next Codeberg page arrives, and move rows under the reader. So the unified Feed shows events only down to a **horizon**: the newest of the sources' oldest loaded event. Older events wait in the cache until every source has loaded that far, and "load more" pages the source that is furthest behind. The Feed stays strictly chronological, and loaded rows never move. Merging identical events ("alice and 2 others starred…") keys by `RepoId`, which now includes the forge, so it never merges across forges.
 
@@ -102,27 +102,27 @@ Codeberg has no trending page, no star timestamps and no star events, so "stars 
 
 **Where it runs.** A GitHub Actions workflow in this repository (`.github/workflows/codeberg-trending.yml`), daily at a fixed minute. It writes two files to an orphan `codeberg-trending` branch, which is re-created as a single commit on every run so the repository doesn't grow:
 
-- `state.json`: for each tracked repository (keyed by Codeberg's numeric id, so renames don't break history), its star count on each of the last 31 days. About 1000 repositories × 31 numbers, a few hundred kilobytes.
+- `state.json`: for each tracked repository (keyed by Codeberg's numeric id, so renames don't break history), its star count on each of the last 31 days, plus new forks per parent per day. About 1,400 repositories × 31 numbers, a few hundred kilobytes.
 - `trending.json`: the daily, weekly and monthly lists, in the shape of `TrendingRepo`, a few tens of kilobytes.
 
 The app fetches `trending.json` with one request, cached for an hour like GitHub's trending. No Codeberg request comes from the phone for Trending. The download comes from GitHub, which the app already talks to; nothing identifying is sent.
 
-**The 30 requests** (50 repositories per page, `mode=source` excludes forks and mirrors):
+**The 30 requests.** Measured on Codeberg: about 407,000 source repositories, about 1,150 new ones a day (almost none of them starred) and about 68 new forks a day. Walking the newest repositories would take 23 pages for a single day, so the budget goes where stars are:
 
 | Pages | Query | Why |
 |---|---|---|
-| 12 | `GET /repos/search?mode=source&sort=stars&order=desc` | The top 600 by stars: the stable set whose counts are compared day to day. |
-| 6 | `GET /repos/search?mode=source&sort=updated&order=desc` | Active repositories outside the top 600. |
-| 6 | `GET /repos/search?mode=source&sort=newest&order=desc` | New repositories: every star they have was gained after `created_at`. |
-| 6 | `GET /repos/search?mode=fork&sort=newest&order=desc` | New forks per `parent`: the tie-breaker. |
+| 28 | `GET /repos/search?mode=source&sort=stars&order=desc&limit=50` | The top 1,400 by stars, which on 2026-09-29 was every source repository with 13 stars or more. |
+| 2 | `GET /repos/search?mode=fork&sort=created&order=desc&limit=50` | The day's new forks, counted per `parent`: the tie-breaker. |
 
-**Stars gained in a period** (1, 7 or 30 days) are only ever exact:
+(The API's sort key is `created`; "newest" is the web UI's name for it and the API rejects it.) A run takes about three minutes at roughly six seconds a page.
 
-- a repository created within the period gained all its stars within it: `stars_count`;
-- a repository with a snapshot from the start of the period: today's count minus that snapshot, clamped at zero;
-- otherwise it isn't listed for that period. It never shows a guess.
+Anything gaining stars quickly climbs into the top 1,400, so tracking that ranking finds it. **Stars gained in a period** (1, 7 or 30 days) are only ever exact:
 
-A repository only gets a fresh count on days it shows up in one of the pages above, so an old repository outside the top 600 that isn't pushed to can be missed. On launch, weekly and monthly only contain new repositories until 7 and 30 days of history exist; after that the history is always there, for everyone. **verify**: how many source repositories Codeberg gets per day, to check that 6 pages of newest cover a whole day.
+- a repository that was in the tracked set at the start of the period: today's count minus that day's, clamped at zero;
+- a repository that wasn't, but was created within the period: all its stars were gained within it, so `stars_count`;
+- otherwise (an older repository that just crossed 13 stars) it isn't listed for that period until it has a starting point. It never shows a guess.
+
+New forks are summed from the stored daily counts, so weekly and monthly forks don't need more pages. On launch, the lists fill in over the first 1, 7 and 30 days; after that the history is always there, for everyone.
 
 Each list is ordered by stars gained in the period, then new forks in the period, and holds at most 25 repositories with at least 2 stars gained, so a lone star doesn't make a repository "trending". `language` comes from the forge; `languageColor` comes from the app's own table; `builtBy` is left empty, since Forgejo has nothing like it.
 
