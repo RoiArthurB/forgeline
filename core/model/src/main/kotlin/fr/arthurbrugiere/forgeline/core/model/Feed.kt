@@ -91,3 +91,12 @@ data class FeedEvent(
     val action: FeedAction,
     val createdAt: Instant,
 )
+
+/** What a Feed row shows about a repository its event names; events don't carry it, so it's fetched and cached. */
+data class RepoPreview(val description: String?, val language: String?, val stars: Int)
+
+/** Previews known so far for the Feed: repositories, and pull request titles (pull request events carry only the number). */
+data class FeedPreviews(
+    val repos: Map<RepoId, RepoPreview> = emptyMap(),
+    val pullTitles: Map<IssueRef, String> = emptyMap(),
+)

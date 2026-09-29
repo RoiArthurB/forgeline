@@ -4,6 +4,8 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedDao
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedEventEntity
+import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewDao
+import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewEntity
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedSyncEntity
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxSyncEntity
@@ -19,9 +21,9 @@ import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepoEntity
 @Database(
     entities = [
         TrendingRepoEntity::class, TrendingFetchEntity::class, RepoCacheEntity::class, NotificationEntity::class, InboxSyncEntity::class,
-        FeedEventEntity::class, FeedSyncEntity::class, TrendingMarkEntity::class,
+        FeedEventEntity::class, FeedSyncEntity::class, TrendingMarkEntity::class, FeedPreviewEntity::class,
     ],
-    version = 5,
+    version = 6,
     exportSchema = true,
 )
 abstract class ForgelineDatabase : RoomDatabase() {
@@ -32,4 +34,6 @@ abstract class ForgelineDatabase : RoomDatabase() {
     abstract fun inboxDao(): InboxDao
 
     abstract fun feedDao(): FeedDao
+
+    abstract fun feedPreviewDao(): FeedPreviewDao
 }

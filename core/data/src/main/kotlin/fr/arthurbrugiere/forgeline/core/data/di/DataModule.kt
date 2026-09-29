@@ -19,6 +19,9 @@ import fr.arthurbrugiere.forgeline.core.data.database.ForgelineDatabase
 import fr.arthurbrugiere.forgeline.core.data.feed.DefaultFeedRepository
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedDao
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedRepository
+import fr.arthurbrugiere.forgeline.core.data.feed.DefaultFeedPreviewRepository
+import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewDao
+import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewRepository
 import fr.arthurbrugiere.forgeline.core.data.inbox.DefaultInboxRepository
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxRepository
@@ -67,6 +70,9 @@ abstract class DataModule {
     abstract fun bindFeedRepository(impl: DefaultFeedRepository): FeedRepository
 
     @Binds
+    abstract fun bindFeedPreviewRepository(impl: DefaultFeedPreviewRepository): FeedPreviewRepository
+
+    @Binds
     abstract fun bindIssueRepository(impl: DefaultIssueRepository): IssueRepository
 
     @Binds
@@ -89,6 +95,9 @@ abstract class DataModule {
 
         @Provides
         fun provideFeedDao(database: ForgelineDatabase): FeedDao = database.feedDao()
+
+        @Provides
+        fun provideFeedPreviewDao(database: ForgelineDatabase): FeedPreviewDao = database.feedPreviewDao()
 
         @Provides
         fun provideRepoDao(database: ForgelineDatabase): RepoDao = database.repoDao()
