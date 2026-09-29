@@ -55,6 +55,7 @@ class GitHubUserApiTest {
 
         assertThat(repos.first().id.fullName).isEqualTo("octocat/Hello-World")
         assertThat(starred.map { it.id.fullName }).containsExactly("violet-org/boysenberry-repo", "octocat/Spoon-Knife", "octocat/Hello-World").inOrder()
+        assertThat(starred.first().ownerAvatarUrl).isEqualTo("https://avatars.githubusercontent.com/u/20708333?v=4")
         assertThat(requests[0].url.parameters["sort"]).isEqualTo("updated")
     }
 

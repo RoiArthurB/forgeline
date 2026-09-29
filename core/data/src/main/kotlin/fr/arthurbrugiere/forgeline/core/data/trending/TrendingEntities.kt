@@ -27,6 +27,7 @@ data class TrendingRepoEntity(
     val stars: Int,
     val forks: Int,
     val periodStars: Int,
+    val ownerAvatarUrl: String?,
     /** JSON list of contributors; only read back whole, never queried. */
     val builtBy: String,
 )
@@ -96,6 +97,7 @@ internal fun TrendingRepo.toEntity(period: TrendingPeriod, rank: Int) = Trending
     forks = forks,
     periodStars = periodStars,
     builtBy = json.encodeToString(builtBy.map { StoredUser(it.login, it.avatarUrl) }),
+    ownerAvatarUrl = ownerAvatarUrl,
 )
 
 internal fun TrendingRepoEntity.toModel() = TrendingRepo(
@@ -107,4 +109,5 @@ internal fun TrendingRepoEntity.toModel() = TrendingRepo(
     forks = forks,
     periodStars = periodStars,
     builtBy = json.decodeFromString<List<StoredUser>>(builtBy).map { ForgeUser(it.login, null, it.avatarUrl) },
+    ownerAvatarUrl = ownerAvatarUrl,
 )

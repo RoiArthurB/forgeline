@@ -51,8 +51,12 @@ private data class SearchJson<T>(@SerialName("total_count") val totalCount: Int,
 }
 
 @Serializable
+private data class SearchRepoJsonOwner(@SerialName("avatar_url") val avatarUrl: String? = null)
+
+@Serializable
 private data class SearchRepoJson(
     @SerialName("full_name") val fullName: String,
+    val owner: SearchRepoJsonOwner? = null,
     val description: String? = null,
     val language: String? = null,
     @SerialName("stargazers_count") val stars: Int = 0,
@@ -62,7 +66,7 @@ private data class SearchRepoJson(
 ) {
     fun toModel(): RepoSummary? {
         val (owner, name) = fullName.split('/').takeIf { it.size == 2 } ?: return null
-        return RepoSummary(RepoId(owner, name), description, language, stars, forks, fork, updatedAt?.let(Instant::parse))
+        return RepoSummary(RepoId(owner, name), description, language, stars, forks, fork, updatedAt?.let(Instant::parse), this.owner?.avatarUrl)
     }
 }
 

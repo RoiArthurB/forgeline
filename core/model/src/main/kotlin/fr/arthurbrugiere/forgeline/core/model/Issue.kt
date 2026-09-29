@@ -105,4 +105,6 @@ data class RepoSummary(
     val forks: Int,
     val isFork: Boolean,
     val updatedAt: Instant?,
+    /** The owner's (user or organisation) avatar, when the forge sends it. */
+    val ownerAvatarUrl: String? = null,
 )

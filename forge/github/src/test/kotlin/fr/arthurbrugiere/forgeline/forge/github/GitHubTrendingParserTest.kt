@@ -37,6 +37,7 @@ class GitHubTrendingParserTest {
                     ForgeUser("claude", null, "https://avatars.githubusercontent.com/u/81847?s=40&v=4"),
                     ForgeUser("nickyleach", null, "https://avatars.githubusercontent.com/u/331803?s=40&v=4"),
                 ),
+                ownerAvatarUrl = "https://github.com/paperclipai.png?size=80",
             ),
         )
     }
@@ -78,7 +79,10 @@ class GitHubTrendingParserTest {
         """.trimIndent()
 
         assertThat(GitHubTrendingParser.parse(html)).containsExactly(
-            TrendingRepo(RepoId("someone", "tiny"), null, null, null, stars = 12, forks = 0, periodStars = 1, builtBy = emptyList()),
+            TrendingRepo(
+                RepoId("someone", "tiny"), null, null, null, stars = 12, forks = 0, periodStars = 1, builtBy = emptyList(),
+                ownerAvatarUrl = "https://github.com/someone.png?size=80",
+            ),
         )
     }
 

@@ -50,6 +50,7 @@ class GitHubSearchApiTest {
                 forks = page.items.first().forks,
                 isFork = false,
                 updatedAt = Instant.parse("2026-09-19T08:01:15Z"),
+                ownerAvatarUrl = "https://avatars.githubusercontent.com/u/53313989?v=4",
             ),
         )
         val url = requests.single().url

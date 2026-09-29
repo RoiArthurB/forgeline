@@ -31,6 +31,8 @@ object GitHubTrendingParser {
             builtBy = row.select("a[data-hovercard-type=user] img[alt]")
                 .map { ForgeUser(login = it.attr("alt").removePrefix("@"), name = null, avatarUrl = it.attr("src")) }
                 .distinctBy { it.login },
+            // The page doesn't show the owner's avatar, but GitHub serves every account's at this address.
+            ownerAvatarUrl = "https://github.com/$owner.png?size=80",
         )
     }
 

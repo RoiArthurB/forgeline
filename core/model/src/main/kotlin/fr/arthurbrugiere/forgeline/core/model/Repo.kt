@@ -17,6 +17,8 @@ data class TrendingRepo(
     /** Stars gained during the trending period. */
     val periodStars: Int,
     val builtBy: List<ForgeUser>,
+    /** The owner's (user or organisation) avatar. */
+    val ownerAvatarUrl: String? = null,
 )
 
 data class RepoDetails(

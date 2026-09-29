@@ -80,8 +80,12 @@ private data class ProfileJson(
 }
 
 @Serializable
+private data class RepoJsonOwner(@SerialName("avatar_url") val avatarUrl: String? = null)
+
+@Serializable
 private data class RepoJson(
     @SerialName("full_name") val fullName: String,
+    val owner: RepoJsonOwner? = null,
     val description: String? = null,
     val language: String? = null,
     @SerialName("stargazers_count") val stars: Int = 0,
@@ -91,6 +95,6 @@ private data class RepoJson(
 ) {
     fun toModel(): RepoSummary {
         val (owner, name) = fullName.split('/', limit = 2)
-        return RepoSummary(RepoId(owner, name), description, language, stars, forks, fork, updatedAt?.let(Instant::parse))
+        return RepoSummary(RepoId(owner, name), description, language, stars, forks, fork, updatedAt?.let(Instant::parse), this.owner?.avatarUrl)
     }
 }
