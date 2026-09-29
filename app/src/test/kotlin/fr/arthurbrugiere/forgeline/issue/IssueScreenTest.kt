@@ -43,6 +43,7 @@ class IssueScreenTest {
                 state = state,
                 onBack = {}, onRefresh = { events += "refresh" }, onLoadMore = { events += "more" },
                 onOpenIssue = { events += "issue:${it.repo.fullName}#${it.number}" },
+                onOpenRepo = { events += "repo:${it.fullName}" },
                 onOpenUser = { events += "user:$it" },
                 onOpenInBrowser = { events += "browser:$it" },
                 onLinkClick = { events += "link:$it" },
@@ -96,6 +97,15 @@ class IssueScreenTest {
         setContent(IssueUiState(ref, issueDetails(ref, "Crash on start")))
 
         composeRule.onNodeWithText("Crash on start - #7").assertIsDisplayed()
+    }
+
+    @Test
+    fun the_repository_it_belongs_to_opens_from_the_header() {
+        setContent(IssueUiState(ref, issueDetails(ref, "Crash on start")))
+
+        composeRule.onNodeWithText("octo/repo").performClick()
+
+        assertThat(events).containsExactly("repo:octo/repo")
     }
 
     @Test

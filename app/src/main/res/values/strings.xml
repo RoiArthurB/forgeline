@@ -215,6 +215,7 @@
     <string name="inbox_state_open_issue">Open issue</string>
     <string name="inbox_state_closed_issue">Closed issue</string>
     <string name="inbox_state_not_planned">Issue not planned</string>
+    <string name="issue_open_repo">Open the repository</string>
     <string name="dispatch_title">Run a workflow</string>
     <string name="dispatch_loading">Loading workflows</string>
     <string name="dispatch_failed">Couldn\'t load the workflows</string>

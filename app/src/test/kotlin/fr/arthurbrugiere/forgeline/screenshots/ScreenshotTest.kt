@@ -490,7 +490,7 @@ class ScreenshotTest {
                     TimelineItem.StateChanged(StateChange.CLOSED, ForgeUser("maintainer", null, null), "completed", at),
                 ),
             ),
-            onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenUser = {}, onOpenInBrowser = {},
+            onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {},
             onLinkClick = {}, onErrorShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
         )
     }
