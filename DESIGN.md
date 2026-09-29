@@ -367,8 +367,8 @@ Material 3 composables (Icon, IconButton, Snackbar, PullToRefresh, AlertDialog, 
 - **Use:** a page's sections (a repository's README, Code, Issues, Pull requests, Releases, Actions; a profile's Repositories and Starred).
 
 ### Rows (list items)
-- **Anatomy (shared rows):** optional 36dp round badge, 14dp gap, then the text column. A repository row is `owner/` (muted) + name in Control at body size, a two-line Body description, and a meta line; an issue row is an optional repo line (search results), a two-line Body title, a Meta line (number, time, author), then draft tag and labels, with a comment count on the right.
-- **Trending anatomy:** ember rank (figure) in a 30dp column; owner (secondary, muted) above name (name, ink); ember "+gained" figure on the right; description (body) below; meta line last.
+- **Anatomy (shared rows):** optional 36dp round badge, 14dp gap, then the text column. A repository row leads with its owner's 36dp avatar (left out where every row shares the owner, as on someone's own repositories), then `owner/` (muted) + name in Control at body size, a two-line Body description, and a meta line with the language's linguist-color dot; an issue row is an optional repo line (search results), a two-line Body title, a Meta line (number, time, author), then draft tag and labels, with a comment count on the right.
+- **Trending anatomy:** ember rank (figure) in a 30dp column; the owner's 20dp avatar and login (secondary, muted) above the name (name, ink); ember "+gained" figure on the right; description (body) below; meta line last.
 - **Rest:** transparent on the ground; no divider, no card.
 - **Pressed / Focused:** `surface` fills the row, clipped to 20dp, and the row squishes to 98% on the soft spring, springing back on release (`softPressable`). No ripple.
 - **Swipe (Inbox):** the row slides off a 20dp tint with an ink icon: fresh to mark read, warm for done. Every swipe or menu action shows at once but waits 5 seconds before reaching the forge, with Undo on the snackbar; leaving the Inbox sends what is waiting.

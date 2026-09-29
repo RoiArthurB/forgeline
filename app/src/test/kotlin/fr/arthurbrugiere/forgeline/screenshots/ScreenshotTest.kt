@@ -54,6 +54,7 @@ import fr.arthurbrugiere.forgeline.issue.IssueScreen
 import fr.arthurbrugiere.forgeline.issue.MARKDOWN_PENDING_TAG
 import fr.arthurbrugiere.forgeline.issue.IssueUiState
 import fr.arthurbrugiere.forgeline.user.UserScreen
+import fr.arthurbrugiere.forgeline.user.UserTab
 import fr.arthurbrugiere.forgeline.user.UserUiState
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.Label
@@ -366,6 +367,27 @@ class ScreenshotTest {
                 profile = userProfile("octocat", name = "The Octocat").copy(location = "San Francisco", website = "https://github.blog"),
                 repos = Loadable.Loaded(listOf(RepoSummary(RepoId("octocat", "Hello-World"), "My first repository on GitHub!", "Kotlin", 2_500, 10, false, null))),
                 following = false,
+            ),
+            signedIn = true, onBack = {}, onSelectTab = {}, onRetry = {}, onToggleFollow = {}, onSignIn = {}, onOpenRepo = {},
+            onOpenUrl = {}, onFollowFailureShown = {},
+        )
+    }
+
+    @Test
+    fun user_starred_light() = snapshot("user_starred_light", darkTheme = false) {
+        UserScreen(
+            state = UserUiState(
+                login = "octocat",
+                profile = userProfile("octocat", name = "The Octocat"),
+                tab = UserTab.STARRED,
+                starred = Loadable.Loaded(
+                    listOf(
+                        RepoSummary(RepoId("paperclipai", "paperclip"), "Open-source orchestration for teams of AI agents.", "TypeScript", 85_900, 4_200, false, null),
+                        RepoSummary(RepoId("tokio-rs", "tokio-console"), "A debugger for async Rust programs.", "Rust", 3_800, 164, false, null),
+                        RepoSummary(RepoId("mitchellh", "ghostty-themes"), "Color themes for Ghostty.", "Go", 1_200, 40, false, null),
+                    ),
+                ),
+                following = true,
             ),
             signedIn = true, onBack = {}, onSelectTab = {}, onRetry = {}, onToggleFollow = {}, onSignIn = {}, onOpenRepo = {},
             onOpenUrl = {}, onFollowFailureShown = {},

@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
@@ -36,6 +37,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.ui.format.compactCount
+import fr.arthurbrugiere.forgeline.core.ui.format.languageColor
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
@@ -44,33 +46,59 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 
 private val RowModifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
 
+/**
+ * A repository in a list: its owner's avatar (a user or organisation; left out where every row shares the owner, as
+ * on someone's own repositories), `owner/` muted and the name, a two-line description, then its language with the
+ * linguist color and its stars.
+ */
 @Composable
-fun RepoSummaryRow(repo: RepoSummary, onOpenRepo: (RepoId) -> Unit) {
+fun RepoSummaryRow(repo: RepoSummary, onOpenRepo: (RepoId) -> Unit, showOwner: Boolean = true) {
     val colors = Soft.colors
-    Column(RowModifier.softPressable { onOpenRepo(repo.id) }.padding(horizontal = 12.dp, vertical = 12.dp)) {
-        Text(
-            buildAnnotatedString {
-                withStyle(SpanStyle(color = colors.inkMuted)) { append("${repo.id.owner}/") }
-                append(repo.id.name)
-            },
-            style = Soft.type.control.copy(fontSize = Soft.type.body.fontSize, lineHeight = Soft.type.body.lineHeight),
-            color = colors.ink,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        repo.description?.let {
-            Text(
-                it,
-                style = Soft.type.body,
-                color = colors.ink,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 2.dp).widthIn(max = SoftTokens.MaxMeasure),
+    Row(RowModifier.softPressable { onOpenRepo(repo.id) }.padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.Top) {
+        if (showOwner) {
+            Avatar(
+                repo.ownerAvatarUrl,
+                repo.id.owner,
+                size = 36.dp,
+                placeholderColor = colors.surface,
+                placeholderContentColor = colors.inkMuted,
+                modifier = Modifier.clearAndSetSemantics {},
             )
+            Spacer(Modifier.width(14.dp))
         }
-        Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            repo.language?.let { Text(it, style = Soft.type.meta, color = colors.inkMuted) }
-            Text(stringResource(R.string.trending_stars, compactCount(repo.stars)), style = Soft.type.meta, color = colors.inkMuted)
+        Column(Modifier.weight(1f)) {
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = colors.inkMuted)) { append("${repo.id.owner}/") }
+                    append(repo.id.name)
+                },
+                style = Soft.type.control.copy(fontSize = Soft.type.body.fontSize, lineHeight = Soft.type.body.lineHeight),
+                color = colors.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            repo.description?.let {
+                Text(
+                    it,
+                    style = Soft.type.body,
+                    color = colors.ink,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp).widthIn(max = SoftTokens.MaxMeasure),
+                )
+            }
+            Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                repo.language?.let { language ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        languageColor(language)?.let { dot ->
+                            Box(Modifier.size(9.dp).background(dot, CircleShape))
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(language, style = Soft.type.meta, color = colors.inkMuted)
+                    }
+                }
+                Text(stringResource(R.string.trending_stars, compactCount(repo.stars)), style = Soft.type.meta, color = colors.inkMuted)
+            }
         }
     }
 }

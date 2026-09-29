@@ -391,7 +391,18 @@ private fun RepoRow(rank: Int, item: TrendingItem, period: TrendingPeriod, onTog
                 modifier = Modifier.width(30.dp).padding(top = 3.dp).clearAndSetSemantics { contentDescription = rankDescription },
             )
             Column(Modifier.weight(1f)) {
-                Text(repo.id.owner, style = type.secondary, color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(
+                        repo.ownerAvatarUrl,
+                        repo.id.owner,
+                        size = 20.dp,
+                        placeholderColor = colors.surface,
+                        placeholderContentColor = colors.inkMuted,
+                        modifier = Modifier.clearAndSetSemantics {},
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(repo.id.owner, style = type.secondary, color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
                 Text(repo.id.name, style = type.name, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.width(12.dp))

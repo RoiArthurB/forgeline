@@ -172,7 +172,10 @@ fun UserScreen(
                         UserTab.STARRED -> state.starred to R.string.user_no_starred
                     }
                     loadable(list, empty, onRetry) { repos ->
-                        items(repos, key = { "repo-${it.id.fullName}" }) { RepoSummaryRow(it, onOpenRepo) }
+                        items(repos, key = { "repo-${it.id.fullName}" }) {
+                            // Someone's own repositories all share their avatar; starred ones show each owner's.
+                            RepoSummaryRow(it, onOpenRepo, showOwner = state.tab == UserTab.STARRED)
+                        }
                     }
                 }
             }
