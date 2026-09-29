@@ -14,19 +14,22 @@ import fr.arthurbrugiere.forgeline.core.testing.FakeStarApi
 import fr.arthurbrugiere.forgeline.core.testing.FakeTrendingApi
 import fr.arthurbrugiere.forgeline.core.testing.FakeUserApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoRepoApi
+import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoTrendingApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.forgejoHttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import org.junit.Test
 
 class DefaultForgeClientsTest {
     private val gitHubRepos = FakeRepoApi()
-    private val clients = DefaultForgeClients(
+    private fun clients(codebergTrendingUrl: String = "https://example.org/codeberg/trending.json") = DefaultForgeClients(
         forgejoHttp = forgejoHttpClient(OkHttp.create()),
         codebergClientId = "codeberg-client",
+        codebergTrendingUrl = codebergTrendingUrl,
         repos = gitHubRepos, issues = FakeIssueApi(), users = FakeUserApi(), stars = FakeStarApi(), search = FakeSearchApi(),
         feed = FakeFeedApi(), notifications = FakeNotificationsApi(), auth = FakeForgeAuthApi(), actions = FakeActionsApi(),
         trending = FakeTrendingApi(),
     )
+    private val clients = clients()
 
     @Test
     fun github_uses_its_own_clients() {
@@ -51,8 +54,15 @@ class DefaultForgeClientsTest {
     }
 
     @Test
-    fun forgejo_has_no_actions_or_trending_client_yet() {
+    fun forgejo_has_no_actions_client_yet() {
         assertThat(clients.actions(ForgeInstance.Codeberg)).isNull()
-        assertThat(clients.trending(ForgeInstance.Codeberg)).isNull()
+    }
+
+    @Test
+    fun only_codeberg_has_a_trending_list_and_only_once_it_is_published() {
+        assertThat(clients.trending(ForgeInstance.Codeberg)).isInstanceOf(ForgejoTrendingApi::class.java)
+        assertThat(clients.trending(ForgeInstance.Codeberg)!!.forge).isEqualTo(ForgeInstance.Codeberg)
+        assertThat(clients.trending(ForgeInstance(ForgeType.FORGEJO, "git.example.org"))).isNull()
+        assertThat(clients(codebergTrendingUrl = "").trending(ForgeInstance.Codeberg)).isNull()
     }
 }

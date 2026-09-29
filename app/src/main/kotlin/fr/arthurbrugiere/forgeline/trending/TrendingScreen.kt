@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.trending
 
+import fr.arthurbrugiere.forgeline.core.ui.format.languageColor
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.CompositionLocalProvider
 import android.os.SystemClock
 import android.text.format.DateUtils
 import androidx.compose.animation.core.Animatable
@@ -133,6 +136,9 @@ internal val MaxMeasure = SoftTokens.MaxMeasure
 internal const val DESCRIPTION_TAG = "trending_description"
 
 
+/** Whether rows name their forge: only when the page mixes more than one. */
+private val LocalShowForge = staticCompositionLocalOf { false }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrendingScreen(
@@ -146,7 +152,7 @@ fun TrendingScreen(
     modifier: Modifier = Modifier,
     onReadThrough: (Int) -> Unit = {},
     nowMillis: Long = System.currentTimeMillis(),
-) {
+) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
     val snackbar = remember { SnackbarHostState() }
     val refreshFailed = stringResource(R.string.trending_refresh_failed)
     val starFailed = stringResource(R.string.trending_star_failed)
@@ -418,9 +424,11 @@ private fun RepoRow(rank: Int, item: TrendingItem, period: TrendingPeriod, onTog
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                         itemVerticalAlignment = Alignment.CenterVertically,
                     ) {
+                        if (LocalShowForge.current) MetaText(repo.id.forge.displayName)
                         repo.language?.let { language ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                parseHexColor(repo.languageColor)?.let { dot ->
+                                // Forgejo names a language without its colour: the app's own table fills it in.
+                                (parseHexColor(repo.languageColor) ?: languageColor(language))?.let { dot ->
                                     Box(Modifier.size(9.dp).background(dot, CircleShape))
                                     Spacer(Modifier.width(6.dp))
                                 }

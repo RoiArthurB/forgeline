@@ -3,10 +3,11 @@ package fr.arthurbrugiere.forgeline.core.data.trending
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Insert
-import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
@@ -15,8 +16,11 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-@Entity(tableName = "trending_repos", primaryKeys = ["period", "rank"])
+/** Each forge's own ranking, kept apart: the page merges them as it reads them. */
+@Entity(tableName = "trending_repos", primaryKeys = ["host", "period", "rank"])
 data class TrendingRepoEntity(
+    val host: String,
+    val forgeType: String,
     val period: String,
     val rank: Int,
     val owner: String,
@@ -32,26 +36,28 @@ data class TrendingRepoEntity(
     val builtBy: String,
 )
 
-@Entity(tableName = "trending_fetches")
+@Entity(tableName = "trending_fetches", primaryKeys = ["host", "period"])
 data class TrendingFetchEntity(
-    @PrimaryKey val period: String,
+    val host: String,
+    val period: String,
     val fetchedAtMillis: Long,
 )
 
 
 @Dao
 interface TrendingDao {
-    @Query("SELECT * FROM trending_repos WHERE period = :period ORDER BY rank")
+    /** Every forge's ranking for [period], each in its own order. */
+    @Query("SELECT * FROM trending_repos WHERE period = :period ORDER BY host, rank")
     fun observeRepos(period: String): Flow<List<TrendingRepoEntity>>
 
-    @Query("SELECT fetchedAtMillis FROM trending_fetches WHERE period = :period")
-    fun observeFetchedAt(period: String): Flow<Long?>
+    @Query("SELECT * FROM trending_fetches WHERE period = :period")
+    fun observeFetches(period: String): Flow<List<TrendingFetchEntity>>
 
-    @Query("SELECT fetchedAtMillis FROM trending_fetches WHERE period = :period")
-    suspend fun fetchedAt(period: String): Long?
+    @Query("SELECT fetchedAtMillis FROM trending_fetches WHERE host = :host AND period = :period")
+    suspend fun fetchedAt(host: String, period: String): Long?
 
-    @Query("DELETE FROM trending_repos WHERE period = :period")
-    suspend fun clear(period: String)
+    @Query("DELETE FROM trending_repos WHERE host = :host AND period = :period")
+    suspend fun clear(host: String, period: String)
 
     @Insert
     suspend fun insert(repos: List<TrendingRepoEntity>)
@@ -61,10 +67,10 @@ interface TrendingDao {
 
 
     @Transaction
-    suspend fun replace(period: String, repos: List<TrendingRepoEntity>, fetchedAtMillis: Long) {
-        clear(period)
+    suspend fun replace(host: String, period: String, repos: List<TrendingRepoEntity>, fetchedAtMillis: Long) {
+        clear(host, period)
         insert(repos)
-        upsertFetch(TrendingFetchEntity(period, fetchedAtMillis))
+        upsertFetch(TrendingFetchEntity(host, period, fetchedAtMillis))
     }
 }
 
@@ -74,6 +80,8 @@ private data class StoredUser(val login: String, val avatarUrl: String?)
 private val json = Json { ignoreUnknownKeys = true }
 
 internal fun TrendingRepo.toEntity(period: TrendingPeriod, rank: Int) = TrendingRepoEntity(
+    host = id.forge.host,
+    forgeType = id.forge.type.name,
     period = period.name,
     rank = rank,
     owner = id.owner,
@@ -89,7 +97,7 @@ internal fun TrendingRepo.toEntity(period: TrendingPeriod, rank: Int) = Trending
 )
 
 internal fun TrendingRepoEntity.toModel() = TrendingRepo(
-    id = RepoId(owner, name),
+    id = RepoId(owner, name, ForgeInstance(ForgeType.valueOf(forgeType), host)),
     description = description,
     language = language,
     languageColor = languageColor,

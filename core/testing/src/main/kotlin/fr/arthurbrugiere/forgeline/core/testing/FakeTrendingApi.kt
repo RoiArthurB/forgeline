@@ -7,9 +7,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import fr.arthurbrugiere.forgeline.core.model.TrendingRepo
 
-class FakeTrendingApi : TrendingApi {
-    override val forge: ForgeInstance = ForgeInstance.GitHub
-
+class FakeTrendingApi(override val forge: ForgeInstance = ForgeInstance.GitHub) : TrendingApi {
     val results = mutableMapOf<TrendingPeriod, ForgeResult<List<TrendingRepo>>>()
     val calls = mutableListOf<TrendingPeriod>()
 
@@ -24,7 +22,8 @@ fun trendingRepo(
     stars: Int = 100,
     periodStars: Int = 10,
     description: String? = "Description of $fullName",
+    forge: ForgeInstance = ForgeInstance.GitHub,
 ): TrendingRepo {
     val (owner, name) = fullName.split('/')
-    return TrendingRepo(RepoId(owner, name), description, "Kotlin", "#A97BFF", stars, forks = 5, periodStars, builtBy = emptyList())
+    return TrendingRepo(RepoId(owner, name, forge), description, "Kotlin", "#A97BFF", stars, forks = 5, periodStars, builtBy = emptyList())
 }

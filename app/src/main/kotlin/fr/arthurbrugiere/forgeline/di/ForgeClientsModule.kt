@@ -28,6 +28,7 @@ import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoNotificationsApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoRepoApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoSearchApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoStarApi
+import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoTrendingApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoUserApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.forgejoHttpClient
 import io.ktor.client.HttpClient
@@ -42,6 +43,7 @@ import javax.inject.Singleton
 class DefaultForgeClients @Inject constructor(
     @Forgejo private val forgejoHttp: HttpClient,
     @CodebergClientId private val codebergClientId: String,
+    @CodebergTrendingUrl private val codebergTrendingUrl: String,
     private val repos: RepoApi,
     private val issues: IssueApi,
     private val users: UserApi,
@@ -66,6 +68,10 @@ class DefaultForgeClients @Inject constructor(
 
         // Only Codeberg has a registered OAuth application: self-hosted instances sign in with a token.
         val auth = ForgejoAuthApi(http, forge, clientId = if (forge == ForgeInstance.Codeberg) codebergClientId else "")
+
+        // Forgejo has no Trending: only Codeberg's is measured, by the daily job that publishes it.
+        val trending = codebergTrendingUrl.takeIf { forge == ForgeInstance.Codeberg && it.isNotBlank() }
+            ?.let { ForgejoTrendingApi(http, forge, it) }
     }
 
     private val forgejo = ConcurrentHashMap<ForgeInstance, ForgejoClients>()
@@ -96,13 +102,18 @@ class DefaultForgeClients @Inject constructor(
 
     override fun actions(forge: ForgeInstance): ActionsApi? = actions.takeIf { forge.type == ForgeType.GITHUB }
 
-    override fun trending(forge: ForgeInstance): TrendingApi? = trending.takeIf { forge.type == ForgeType.GITHUB }
+    override fun trending(forge: ForgeInstance): TrendingApi? = pick(forge, trending) { trending }
 }
 
 /** Codeberg's OAuth client ID, from `forgeline.codebergClientId`; blank without one. */
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class CodebergClientId
+
+/** Where Codeberg's Trending is published, from `forgeline.codebergTrendingUrl`; blank leaves Codeberg out. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class CodebergTrendingUrl
 
 /** Forgejo's HTTP client: its own JSON settings and user agent, shared by every instance. */
 @Qualifier
@@ -127,5 +138,9 @@ abstract class ForgeClientsModule {
         @Provides
         @CodebergClientId
         fun provideCodebergClientId(): String = BuildConfig.CODEBERG_CLIENT_ID
+
+        @Provides
+        @CodebergTrendingUrl
+        fun provideCodebergTrendingUrl(): String = BuildConfig.CODEBERG_TRENDING_URL
     }
 }

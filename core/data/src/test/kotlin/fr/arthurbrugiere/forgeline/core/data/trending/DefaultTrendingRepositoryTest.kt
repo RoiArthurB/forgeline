@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.core.data.trending
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
@@ -34,7 +37,10 @@ class DefaultTrendingRepositoryTest {
         override fun getZone() = ZoneOffset.UTC
         override fun withZone(zone: java.time.ZoneId?) = this
     }
-    private val repository = DefaultTrendingRepository(database.trendingDao(), api, database.readingMarkDao(), clock)
+    private val clients = FakeForgeClients(trending = api)
+    private val accounts = FakeAccountRepository()
+    private val repository = DefaultTrendingRepository(database.trendingDao(), clients, accounts, database.readingMarkDao(), clock)
+    private val codebergApi = FakeTrendingApi(ForgeInstance.Codeberg).also { clients.put(ForgeInstance.Codeberg, FakeForgeClients(trending = it)) }
 
     private val paperclip = trendingRepo("paperclipai/paperclip").copy(
         builtBy = listOf(ForgeUser("cryppadotta", null, "https://avatars.example/1")),
@@ -148,5 +154,84 @@ class DefaultTrendingRepositoryTest {
         assertThat(repository.readThrough(TrendingPeriod.DAILY)).isNull()
         repository.markReadThrough(TrendingPeriod.DAILY, fourth, 1)
         assertThat(repository.readThrough(TrendingPeriod.DAILY)).isEqualTo(fourth)
+    }
+
+    private suspend fun signInToCodeberg() = accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "token")
+
+    @Test
+    fun only_github_without_a_codeberg_account() = runTest {
+        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(trendingRepo("ziglang/zig", forge = ForgeInstance.Codeberg)))
+        api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
+
+        repository.refresh(TrendingPeriod.DAILY)
+
+        assertThat(codebergApi.calls).isEmpty()
+        val snapshot = repository.observe(TrendingPeriod.DAILY).first()
+        assertThat(snapshot.repos).containsExactly(paperclip)
+        assertThat(snapshot.forges).containsExactly(ForgeInstance.GitHub)
+    }
+
+    @Test
+    fun a_codeberg_account_mixes_codeberg_in_by_share_of_stars() = runTest {
+        signInToCodeberg()
+        val gh1 = trendingRepo("a/gh1", periodStars = 2400)
+        val gh2 = trendingRepo("a/gh2", periodStars = 1200)
+        val gh3 = trendingRepo("a/gh3", periodStars = 8400)
+        val cb1 = trendingRepo("b/cb1", periodStars = 30, forge = ForgeInstance.Codeberg)
+        val cb2 = trendingRepo("b/cb2", periodStars = 12, forge = ForgeInstance.Codeberg)
+        val cb3 = trendingRepo("b/cb3", periodStars = 108, forge = ForgeInstance.Codeberg)
+        api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(gh1, gh2, gh3))
+        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(cb1, cb2, cb3))
+
+        assertThat(repository.refresh(TrendingPeriod.DAILY)).isEqualTo(RefreshResult.Refreshed)
+
+        val snapshot = repository.observe(TrendingPeriod.DAILY).first()
+        // Shares: gh1 0.2, gh2 0.1, gh3 0.7; cb1 0.2, cb2 0.08, cb3 0.72. GitHub wins the tie, and each forge keeps its
+        // own order: cb3's big share can't pass cb2.
+        assertThat(snapshot.repos).containsExactly(gh1, cb1, gh2, gh3, cb2, cb3).inOrder()
+        assertThat(snapshot.forges).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg).inOrder()
+    }
+
+    @Test
+    fun one_forge_failing_keeps_the_other_and_the_page_doesnt_fail() = runTest {
+        signInToCodeberg()
+        api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
+        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Failure(ForgeError.Http(404, null))
+
+        assertThat(repository.refresh(TrendingPeriod.DAILY)).isEqualTo(RefreshResult.Refreshed)
+        assertThat(repository.observe(TrendingPeriod.DAILY).first().repos).containsExactly(paperclip)
+
+        api.results[TrendingPeriod.DAILY] = ForgeResult.Failure(ForgeError.Network)
+        assertThat(repository.refresh(TrendingPeriod.DAILY, force = true)).isInstanceOf(RefreshResult.Failed::class.java)
+    }
+
+    @Test
+    fun each_forges_rows_are_kept_apart() = runTest {
+        signInToCodeberg()
+        val zig = trendingRepo("ziglang/zig", forge = ForgeInstance.Codeberg)
+        api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
+        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(zig))
+        repository.refresh(TrendingPeriod.DAILY)
+        now = now.plusSeconds(30.minutes.inWholeSeconds)
+
+        // A same-named repository on the other forge doesn't overwrite GitHub's row.
+        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(trendingRepo("paperclipai/paperclip", forge = ForgeInstance.Codeberg)))
+        repository.refresh(TrendingPeriod.DAILY, force = true)
+
+        val snapshot = repository.observe(TrendingPeriod.DAILY).first()
+        assertThat(snapshot.repos.map { it.id.key }).containsExactly("github.com/paperclipai/paperclip", "codeberg.org/paperclipai/paperclip")
+        assertThat(snapshot.fetchedAtMillis).isEqualTo(now.toEpochMilli())
+    }
+
+    @Test
+    fun signing_out_of_codeberg_takes_its_rows_off_the_page() = runTest {
+        val account = signInToCodeberg()
+        api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
+        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(trendingRepo("ziglang/zig", forge = ForgeInstance.Codeberg)))
+        repository.refresh(TrendingPeriod.DAILY)
+
+        accounts.signOut(account.id)
+
+        assertThat(repository.observe(TrendingPeriod.DAILY).first().repos).containsExactly(paperclip)
     }
 }

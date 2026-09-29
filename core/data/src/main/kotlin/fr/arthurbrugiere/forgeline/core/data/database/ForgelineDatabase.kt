@@ -30,7 +30,7 @@ import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepoEntity
         ConversationEntity::class,
         DoneEntity::class,
     ],
-    version = 13,
+    version = 14,
     exportSchema = true,
 )
 abstract class ForgelineDatabase : RoomDatabase() {

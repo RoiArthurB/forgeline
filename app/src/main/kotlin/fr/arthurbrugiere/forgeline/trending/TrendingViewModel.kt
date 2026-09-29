@@ -41,6 +41,8 @@ data class TrendingUiState(
      * moved it since. Fixed for this visit so the mark doesn't chase the reader.
      */
     val resumeAt: Int? = null,
+    /** Whether the page mixes several forges, so each row names its own. */
+    val showForge: Boolean = false,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -74,6 +76,7 @@ class TrendingViewModel @Inject constructor(
             error = flags.error,
             starFailed = flags.starFailed,
             resumeAt = flags.resumeAt[period]?.let { mark -> snapshot.repos.indexOfFirst { it.id == mark }.takeIf { it >= 0 } },
+            showForge = snapshot.forges.size > 1,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrendingUiState(period = period.value))
 

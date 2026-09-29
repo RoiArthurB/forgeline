@@ -100,12 +100,14 @@ One Trending page, mixing GitHub and Codeberg. Two separate problems: getting a 
 
 Codeberg has no trending page, no star timestamps and no star events, so "stars gained today" can only be measured by comparing star counts over time. Doing that on every phone would cost storage, battery, data, and many times the load on Codeberg. Instead, **one scheduled job measures it once a day for everyone**, within a fixed budget of **30 anonymous API requests per run**.
 
-**Where it runs.** A GitHub Actions workflow in this repository (`.github/workflows/codeberg-trending.yml`), daily at a fixed minute. It writes two files to an orphan `codeberg-trending` branch, which is re-created as a single commit on every run so the repository doesn't grow:
+**Where it runs.** A GitHub Actions workflow in this repository (`.github/workflows/codeberg-trending.yml`), daily at 02:17 UTC, running the `tools:codeberg-trending` module. It publishes two files on the repository's GitHub Pages site, under `codeberg/`:
 
-- `state.json`: for each tracked repository (keyed by Codeberg's numeric id, so renames don't break history), its star count on each of the last 31 days, plus new forks per parent per day. About 1,400 repositories × 31 numbers, a few hundred kilobytes.
-- `trending.json`: the daily, weekly and monthly lists, in the shape of `TrendingRepo`, a few tens of kilobytes.
+- `state.json`: for each tracked repository (keyed by Codeberg's numeric id, so renames don't break history), its star count on each of the last 31 recorded days, plus new forks per repository per day. The first real run (2026-09-29) tracked 1,400 repositories in 84 KB for one day.
+- `trending.json`: the daily, weekly and monthly lists, each already in its final order (`TrendingFile` in `forge:forgejo`, shared by the job and the app so they can't drift apart).
 
-The app fetches `trending.json` with one request, cached for an hour like GitHub's trending. No Codeberg request comes from the phone for Trending. The download comes from GitHub, which the app already talks to; nothing identifying is sent.
+Each run first downloads yesterday's `state.json` from the site. Only a 404 (the very first run) starts afresh; any other failure stops the run, since publishing without it would throw away a month of history. A run that can't read the whole ranking (each page is retried twice) fails rather than publish a partial one, and the site keeps the previous day's files.
+
+The app fetches `trending.json` (its address is `forgeline.codebergTrendingUrl` in `gradle.properties`) with one request, cached for an hour like GitHub's trending. No Codeberg request comes from the phone for Trending. The download comes from GitHub, which the app already talks to; nothing identifying is sent.
 
 **The 30 requests.** Measured on Codeberg: about 407,000 source repositories, about 1,150 new ones a day (almost none of them starred) and about 68 new forks a day. Walking the newest repositories would take 23 pages for a single day, so the budget goes where stars are:
 
@@ -145,7 +147,7 @@ Worked example, daily:
 | Codeberg | #1 | 30 | 30 / 150 = 0.20 |
 | Codeberg | #2 | 12 | 0.08 |
 
-Merged order: GitHub #1 and Codeberg #1 (tied at 0.20, the forge listed first in Settings wins ties), GitHub #2, Codeberg #2, and so on.
+Merged order: GitHub #1 and Codeberg #1 (tied at 0.20, GitHub wins ties), GitHub #2, Codeberg #2, and so on.
 
 What checking the ratio turned up:
 
@@ -155,6 +157,8 @@ What checking the ratio turned up:
 - **One standout wins.** A forge with one repository far ahead of the rest gives it a big share and puts it near the top of the merged page. That's intended: it is the story of the day on that forge.
 
 The same merge works for any number of forges, so a self-hosted Forgejo instance could join later if someone ran the same job for it.
+
+**Which forges are on the page.** GitHub's Trending always, since it needs no account, plus Codeberg's once a Codeberg account is signed in: a GitHub-only user's page doesn't change. Each forge's ranking is cached and refreshed separately. A forge that can't be read keeps its cached rows, and the refresh only reports an error when no forge could be read. Rows name their forge only when the page mixes several.
 
 ## Sign-in
 
