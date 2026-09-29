@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import androidx.compose.ui.test.assertTextContains
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -201,5 +203,14 @@ class FeedScreenTest {
 
         composeRule.onNodeWithText("Retry").performClick()
         assertThat(events).containsExactly("refresh")
+    }
+
+    @Test
+    fun with_several_forges_each_row_names_its_forge() {
+        val codeberg = feedEvent("2", actor = "alice", repo = "forgejo/forgejo").let { it.copy(repo = it.repo.copy(forge = ForgeInstance.Codeberg)) }
+        setContent(state(codeberg, feedEvent("1", actor = "bob")).copy(showForge = true))
+
+        composeRule.onNodeWithText("alice starred", substring = true).assertTextContains("Codeberg", substring = true)
+        composeRule.onNodeWithText("bob starred", substring = true).assertTextContains("GitHub", substring = true)
     }
 }

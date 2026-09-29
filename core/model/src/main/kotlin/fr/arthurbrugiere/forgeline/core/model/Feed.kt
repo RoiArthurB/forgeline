@@ -55,8 +55,8 @@ sealed interface FeedAction {
         override val kind = if (action == IssueAction.CLOSED) FeedKind.ISSUES_CLOSED else FeedKind.ISSUES_OPENED
     }
 
-    /** GitHub's events carry no pull request title, only its number. */
-    data class PullRequest(val action: PullRequestAction, val number: Int) : FeedAction {
+    /** GitHub's events carry no pull request title, only its number ([title] null); Forgejo's carry it. */
+    data class PullRequest(val action: PullRequestAction, val number: Int, val title: String? = null) : FeedAction {
         override val kind = when (action) {
             PullRequestAction.CLOSED, PullRequestAction.MERGED -> FeedKind.PRS_CLOSED
             else -> FeedKind.PRS_OPENED

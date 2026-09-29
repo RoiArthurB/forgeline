@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
@@ -30,12 +33,13 @@ class FeedViewModelTest {
     val mainDispatcherRule = MainDispatcherRule(StandardTestDispatcher())
 
     private val feed = FakeFeedRepository()
+    private val accounts = FakeAccountRepository()
     private val previews = FakeFeedPreviewRepository()
     private val settings = FakeUserSettingsRepository()
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
-    private fun TestScope.viewModel() = FeedViewModel(feed, previews, settings).also { it.state.launchIn(backgroundScope) }
+    private fun TestScope.viewModel() = FeedViewModel(feed, previews, settings, accounts).also { it.state.launchIn(backgroundScope) }
 
     @Test
     fun the_left_off_mark_sits_above_what_the_last_visit_read() = test {
@@ -160,5 +164,19 @@ class FeedViewModelTest {
         advanceUntilIdle()
 
         assertThat(viewModel.state.value.previews).isEqualTo(arrived)
+    }
+
+    @Test
+    fun rows_name_their_forge_only_with_several_forges() = test {
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "g")
+        feed.set(feedEvent("1"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.showForge).isFalse()
+
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "c")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.showForge).isTrue()
     }
 }

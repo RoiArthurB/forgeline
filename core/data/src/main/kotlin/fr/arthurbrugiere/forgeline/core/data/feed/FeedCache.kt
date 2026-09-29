@@ -88,7 +88,7 @@ internal fun FeedEvent.toEntity(accountId: String): FeedEventEntity {
         FeedAction.MadePublic -> entity("made_public")
         is FeedAction.Released -> entity("released", text = a.tag, detail = a.name, flag = a.prerelease)
         is FeedAction.Issue -> entity("issue", a.number, a.title, a.action.name)
-        is FeedAction.PullRequest -> entity("pull_request", a.number, detail = a.action.name)
+        is FeedAction.PullRequest -> entity("pull_request", a.number, text = a.title, detail = a.action.name)
         is FeedAction.Commented -> entity("commented", a.number, a.title, flag = a.isPullRequest)
         is FeedAction.Reviewed -> entity("reviewed", a.number, detail = a.state.name)
         is FeedAction.Pushed -> entity("pushed", text = a.branch)
@@ -108,7 +108,7 @@ internal fun FeedEventEntity.toModel(): FeedEvent? {
         "issue" -> number?.let { n ->
             IssueAction.entries.firstOrNull { it.name == detail }?.let { FeedAction.Issue(it, n, text.orEmpty()) }
         }
-        "pull_request" -> number?.let { n -> PullRequestAction.entries.firstOrNull { it.name == detail }?.let { FeedAction.PullRequest(it, n) } }
+        "pull_request" -> number?.let { n -> PullRequestAction.entries.firstOrNull { it.name == detail }?.let { FeedAction.PullRequest(it, n, text) } }
         "commented" -> number?.let { FeedAction.Commented(it, text, flag) }
         "reviewed" -> number?.let { n -> ReviewState.entries.firstOrNull { it.name == detail }?.let { FeedAction.Reviewed(n, it) } }
         "pushed" -> text?.let { FeedAction.Pushed(it) }

@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
@@ -154,6 +156,9 @@ fun FeedRoute(
     )
 }
 
+/** Whether rows name their forge: only when accounts span more than one. */
+private val LocalShowForge = staticCompositionLocalOf { false }
+
 /** The Feed's lilac field: the title and search. */
 @Composable
 private fun FeedHeader() {
@@ -187,7 +192,7 @@ fun FeedScreen(
     onReadThrough: (FeedItem) -> Unit = {},
     nowMillis: Long = System.currentTimeMillis(),
     zone: ZoneId = ZoneId.systemDefault(),
-) {
+) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
     val colors = Soft.colors
     val snackbar = remember { SnackbarHostState() }
     val refreshFailed = stringResource(R.string.trending_refresh_failed)
@@ -332,7 +337,9 @@ private fun FeedRow(
                     append(item.headline().emphasizing(item.names(), colors.ink))
                     // Short, and kept whole with its dot, so a wrap moves "· 15 min. ago" down as one piece.
                     val time = relative(item.createdAt, nowMillis, abbreviated = true).replace(' ', '\u00A0')
-                    withStyle(SpanStyle(color = colors.inkMuted)) { append(" ·\u00A0$time") }
+                    // Which forge, once more than one is signed in.
+                    val forge = item.repo.forge.displayName.takeIf { LocalShowForge.current }?.let { " ·\u00A0$it" }.orEmpty()
+                    withStyle(SpanStyle(color = colors.inkMuted)) { append("$forge ·\u00A0$time") }
                 },
                 style = Soft.type.secondary,
                 color = colors.inkMuted,
@@ -500,9 +507,10 @@ private fun ObjectTitle(title: String) {
     )
 }
 
-/** A pull request's title, which arrives after the Feed shows (events carry only the number). */
+/** A pull request's title: carried by Forgejo's events, fetched after the Feed shows for GitHub's (only the number). */
 @Composable
-private fun PullTitle(item: FeedItem, number: Int, previews: FeedPreviews) = LateTitle(previews.pullTitles[IssueRef(item.repo, number)])
+private fun PullTitle(item: FeedItem, number: Int, previews: FeedPreviews) =
+    LateTitle((item.action as? FeedAction.PullRequest)?.title ?: previews.pullTitles[IssueRef(item.repo, number)])
 
 /** A title that may still be on its way: its placeholder bar until then, and a fade when it lands. */
 @Composable
