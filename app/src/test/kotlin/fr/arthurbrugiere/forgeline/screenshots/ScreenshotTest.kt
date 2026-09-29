@@ -86,6 +86,8 @@ import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
 import fr.arthurbrugiere.forgeline.settings.SettingsScreen
 import fr.arthurbrugiere.forgeline.ui.ForgelineApp
 import org.junit.Rule
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -98,6 +100,14 @@ import org.robolectric.annotation.GraphicsMode
 class ScreenshotTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    private fun awaitHighlighted(code: String) {
+        composeRule.waitUntil(10_000) {
+            composeRule.onAllNodes(hasText(code, substring = true), useUnmergedTree = true).fetchSemanticsNodes().any { node ->
+                node.config.getOrNull(SemanticsProperties.Text).orEmpty().any { it.spanStyles.isNotEmpty() }
+            }
+        }
+    }
 
     private fun snapshot(
         name: String,
@@ -294,7 +304,13 @@ class ScreenshotTest {
     )
 
     @Test
-    fun repo_readme_light() = snapshot("repo_readme_light", darkTheme = false, awaitText = "teams of AI agents") {
+    fun repo_readme_light() = snapshot(
+        "repo_readme_light",
+        darkTheme = false,
+        awaitText = "teams of AI agents",
+        // Code blocks are highlighted off the main thread: wait until the code carries its colors.
+        beforeCapture = { awaitHighlighted("npx paperclip init") },
+    ) {
         RepoPreview(repoState)
     }
 
