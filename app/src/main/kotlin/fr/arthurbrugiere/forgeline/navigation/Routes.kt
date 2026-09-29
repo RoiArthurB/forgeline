@@ -34,6 +34,12 @@ data class FileRoute(val owner: String, val name: String, val path: String, val 
 data class IssueRoute(val owner: String, val name: String, val number: Int) : NavKey
 
 @Serializable
+data class RunRoute(val owner: String, val name: String, val runId: Long) : NavKey
+
+@Serializable
+data class JobLogRoute(val owner: String, val name: String, val runId: Long, val jobId: Long, val jobName: String) : NavKey
+
+@Serializable
 data class UserRoute(val login: String) : NavKey
 
 @Serializable

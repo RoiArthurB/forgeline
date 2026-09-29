@@ -24,6 +24,9 @@ object ForgeLinks {
         val name = segments[1].removeSuffix(".git")
         val number = segments.getOrNull(3)?.toIntOrNull()
         if (number != null && segments[2] in setOf("issues", "pull", "pulls")) return IssueRoute(owner, name, number)
+        // A job's page opens its run, which lists the job.
+        val runId = segments.getOrNull(4)?.toLongOrNull()
+        if (runId != null && segments[2] == "actions" && segments[3] == "runs") return RunRoute(owner, name, runId)
         return RepoRoute(owner, name)
     }
 }

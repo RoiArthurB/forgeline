@@ -67,9 +67,12 @@ import fr.arthurbrugiere.forgeline.core.ui.format.compactCount
 import fr.arthurbrugiere.forgeline.navigation.ForgeLinks
 import fr.arthurbrugiere.forgeline.navigation.RepoRoute
 import fr.arthurbrugiere.forgeline.navigation.IssueRoute
+import fr.arthurbrugiere.forgeline.navigation.RunRoute
 import fr.arthurbrugiere.forgeline.navigation.UserRoute
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.session.SessionState
+import fr.arthurbrugiere.forgeline.actions.RowIcon
+import fr.arthurbrugiere.forgeline.actions.RunStatusIcon
 import fr.arthurbrugiere.forgeline.ui.IssueSummaryRow
 import fr.arthurbrugiere.forgeline.ui.Avatar
 import fr.arthurbrugiere.forgeline.ui.Badge
@@ -122,6 +125,7 @@ fun RepoRoute(
     onOpenRepo: (RepoId) -> Unit,
     onOpenFile: (RepoId, path: String, ref: String) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
+    onOpenRun: (RepoId, Long) -> Unit,
     onOpenUser: (String) -> Unit,
     onSignIn: () -> Unit,
 ) {
@@ -142,11 +146,13 @@ fun RepoRoute(
         onOpenParentDirectory = viewModel::openParentDirectory,
         onOpenFile = { file -> state.details?.let { onOpenFile(it.id, file.path, state.browsedRef ?: it.defaultBranch) } },
         onOpenIssue = { number -> state.details?.let { onOpenIssue(IssueRef(it.id, number)) } },
+        onOpenRun = { runId -> state.details?.let { onOpenRun(it.id, runId) } },
         onOpenUser = onOpenUser,
         onLinkClick = { url ->
             when (val target = ForgeLinks.routeFor(url)) {
                 is RepoRoute -> onOpenRepo(RepoId(target.owner, target.name))
                 is IssueRoute -> onOpenIssue(IssueRef(RepoId(target.owner, target.name), target.number))
+                is RunRoute -> onOpenRun(RepoId(target.owner, target.name), target.runId)
                 is UserRoute -> onOpenUser(target.login)
                 else -> if (!url.startsWith("#")) openUrl(url)
             }
@@ -175,6 +181,7 @@ fun RepoScreen(
     onOpenIssue: (Int) -> Unit,
     onOpenUser: (String) -> Unit,
     onLinkClick: (String) -> Unit,
+    onOpenRun: (Long) -> Unit,
     onOpenInBrowser: (String) -> Unit,
     onLoadRefs: () -> Unit,
     onSelectRef: (String) -> Unit,
@@ -306,7 +313,7 @@ fun RepoScreen(
                                 items(releases, key = { "release-${it.tag}" }) { ReleaseRow(it, state.readmeContext, nowMillis, onLinkClick) }
                             }
                             RepoTab.ACTIONS -> loadable(state.runs, R.string.repo_no_runs, onRetryTab) { runs ->
-                                items(runs, key = { "run-${it.id}" }) { RunRow(it, nowMillis) }
+                                items(runs, key = { "run-${it.id}" }) { RunRow(it, nowMillis, onClick = { onOpenRun(it.id) }) }
                             }
                         }
                     }
@@ -426,14 +433,6 @@ private fun Readme(markdown: String, context: ReadmeContext, onLinkClick: (Strin
     }
 }
 
-/** A soft round icon for a row: the file kind, a release, a run's state. */
-@Composable
-private fun RowIcon(icon: ImageVector, background: Color, tint: Color = Soft.colors.ink) {
-    Box(Modifier.size(36.dp).background(background, CircleShape), contentAlignment = Alignment.Center) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
-    }
-}
-
 private val RowModifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
 
 private fun LazyListScope.code(
@@ -515,9 +514,9 @@ private fun ReleaseRow(release: Release, context: ReadmeContext?, nowMillis: Lon
 }
 
 @Composable
-private fun RunRow(run: WorkflowRun, nowMillis: Long) {
+private fun RunRow(run: WorkflowRun, nowMillis: Long, onClick: () -> Unit) {
     val colors = Soft.colors
-    Row(RowModifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(RowModifier.softPressable(onClick = onClick).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
         RunStatusIcon(run)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
@@ -531,21 +530,6 @@ private fun RunRow(run: WorkflowRun, nowMillis: Long) {
                 color = colors.inkMuted,
             )
         }
-    }
-}
-
-/** A run's state as a soft round badge: mint for success, ember for failure, quiet for the rest. */
-@Composable
-private fun RunStatusIcon(run: WorkflowRun) {
-    val colors = Soft.colors
-    when {
-        run.status == RunStatus.IN_PROGRESS -> Box(Modifier.size(36.dp).background(colors.fields[1], CircleShape), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = colors.ink, trackColor = colors.fields[1])
-        }
-        run.status == RunStatus.QUEUED -> RowIcon(Icons.Outlined.Schedule, colors.surface, colors.inkMuted)
-        run.conclusion == RunConclusion.SUCCESS -> RowIcon(Icons.Outlined.Check, colors.fields[2])
-        run.conclusion == RunConclusion.FAILURE || run.conclusion == RunConclusion.TIMED_OUT -> RowIcon(Icons.Outlined.Close, colors.fields[0], colors.accent)
-        else -> RowIcon(Icons.Outlined.Block, colors.surface, colors.inkMuted)
     }
 }
 

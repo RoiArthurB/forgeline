@@ -28,6 +28,10 @@ import fr.arthurbrugiere.forgeline.repo.RepoRoute as RepoDestination
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.navigation.IssueRoute as IssueKey
+import fr.arthurbrugiere.forgeline.navigation.RunRoute as RunKey
+import fr.arthurbrugiere.forgeline.navigation.JobLogRoute as JobLogKey
+import fr.arthurbrugiere.forgeline.actions.RunRoute as RunDestination
+import fr.arthurbrugiere.forgeline.actions.JobLogRoute as JobLogDestination
 import fr.arthurbrugiere.forgeline.navigation.UserRoute as UserKey
 import fr.arthurbrugiere.forgeline.issue.IssueRoute as IssueDestination
 import fr.arthurbrugiere.forgeline.user.UserRoute as UserDestination
@@ -94,6 +98,16 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
         entry<IssueKey> { key ->
             IssueDestination(key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser)
         }
+        entry<RunKey> { key ->
+            RunDestination(
+                route = key,
+                session = session,
+                onBack = navigator::goBack,
+                onOpenJob = { repo, job -> navigator.navigate(JobLogKey(repo.owner, repo.name, key.runId, job.id, job.name)) },
+                onOpenUser = openUser,
+            )
+        }
+        entry<JobLogKey> { key -> JobLogDestination(key, onBack = navigator::goBack, onSignIn = signIn) }
         entry<UserKey> { key ->
             UserDestination(key, session = session, onBack = navigator::goBack, onOpenRepo = openRepo, onSignIn = signIn)
         }
@@ -105,6 +119,7 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 onOpenRepo = openRepo,
                 onOpenFile = { id, path, ref -> navigator.navigate(FileKey(id.owner, id.name, path, ref)) },
                 onOpenIssue = openIssue,
+                onOpenRun = { id, runId -> navigator.navigate(RunKey(id.owner, id.name, runId)) },
                 onOpenUser = openUser,
                 onSignIn = signIn,
             )

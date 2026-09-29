@@ -19,6 +19,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.issueSummary
 import fr.arthurbrugiere.forgeline.core.testing.repoDetails
+import fr.arthurbrugiere.forgeline.core.testing.workflowRun
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -57,6 +58,7 @@ class RepoScreenTest {
                 onOpenIssue = { events += "issue:$it" },
                 onOpenUser = { events += "user:$it" },
                 onLinkClick = { events += "link:$it" },
+                onOpenRun = { events += "run:$it" },
                 onOpenInBrowser = { events += "browser:$it" },
                 onLoadRefs = { events += "refs" },
                 onSelectRef = { events += "ref:$it" },
@@ -195,6 +197,15 @@ class RepoScreenTest {
         composeRule.onNodeWithText("Retry").performClick()
 
         assertThat(events).containsExactly("retry")
+    }
+
+    @Test
+    fun a_workflow_run_opens() {
+        setContent(loaded.copy(tab = RepoTab.ACTIONS, runs = Loadable.Loaded(listOf(workflowRun(7, title = "Fix the build")))))
+
+        composeRule.onNodeWithText("Fix the build").performClick()
+
+        assertThat(events).containsExactly("run:7")
     }
 
     @Test
