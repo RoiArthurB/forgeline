@@ -226,6 +226,7 @@
     <string name="dispatch_start">Run workflow</string>
     <string name="dispatch_missing">Fill in %1$s to run it.</string>
     <string name="dispatch_started">Workflow started</string>
+    <string name="dispatch_events_only">%1$s · runs on events only</string>
     <string name="log_failed">Couldn\'t load the log</string>
     <string name="log_sign_in_title">Sign in to read logs</string>
     <string name="log_sign_in_body">GitHub only shows job logs to signed-in people, even on public repositories.</string>

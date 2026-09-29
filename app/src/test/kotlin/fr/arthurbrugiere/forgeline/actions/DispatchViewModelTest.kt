@@ -58,6 +58,30 @@ class DispatchViewModelTest {
     }
 
     @Test
+    fun workflows_that_can_be_started_by_hand_come_first() = test {
+        api.inputs[1] = null
+        api.inputs[2] = emptyList()
+
+        val viewModel = opened()
+
+        assertThat(viewModel.state.value.sortedWorkflows).containsExactly(lint, release).inOrder()
+        assertThat(viewModel.state.value.canStartByHand(lint)).isTrue()
+        assertThat(viewModel.state.value.canStartByHand(release)).isFalse()
+    }
+
+    @Test
+    fun a_workflow_read_ahead_opens_without_asking_again() = test {
+        api.inputs[1] = listOf(channel)
+        val viewModel = opened()
+
+        viewModel.select(release)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.values).containsExactly("channel", "stable")
+        assertThat(api.calls.count { it.startsWith("inputs:octo/repo:1@") }).isEqualTo(1)
+    }
+
+    @Test
     fun a_workflow_brings_its_inputs_with_their_defaults() = test {
         api.inputs[1] = listOf(channel, notes, dryRun)
         val viewModel = opened()

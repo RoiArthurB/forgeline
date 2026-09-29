@@ -20,7 +20,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.CallSplit
+import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -112,7 +116,9 @@ fun DispatchContent(
                 is Loadable.Loaded -> if (workflows.value.isEmpty()) {
                     SoftNotice(stringResource(R.string.dispatch_none_title), stringResource(R.string.dispatch_none_body))
                 } else {
-                    workflows.value.forEach { workflow -> WorkflowRow(workflow, onClick = { onSelect(workflow) }) }
+                    state.sortedWorkflows.forEach { workflow ->
+                        WorkflowRow(workflow, state.canStartByHand(workflow), onClick = { onSelect(workflow) })
+                    }
                 }
             }
             return@Column
@@ -166,22 +172,42 @@ fun DispatchContent(
     }
 }
 
+/**
+ * A workflow to pick. [startable] is null while its file is being read; false greys it out, since it only runs on
+ * events, and it can't be picked.
+ */
 @Composable
-private fun WorkflowRow(workflow: Workflow, onClick: () -> Unit) {
+private fun WorkflowRow(workflow: Workflow, startable: Boolean?, onClick: () -> Unit) {
     val colors = Soft.colors
     Row(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp)
-            .softPressable(onClick = onClick)
+            .then(if (startable != false) Modifier.softPressable(role = Role.Button, onClick = onClick) else Modifier)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RowIcon(Icons.Outlined.PlayArrow, colors.fields[1])
+        when (startable) {
+            true -> RowIcon(Icons.Outlined.PlayArrow, colors.fields[2])
+            false -> RowIcon(Icons.Outlined.Bolt, colors.surface, colors.inkMuted)
+            null -> Box(Modifier.size(36.dp).background(colors.surface, CircleShape), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = colors.inkMuted, trackColor = colors.surface)
+            }
+        }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(workflow.name, style = Soft.type.body, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(workflow.path.substringAfterLast('/'), style = Soft.type.meta, color = colors.inkMuted)
+            Text(
+                workflow.name,
+                style = Soft.type.body,
+                color = if (startable == false) colors.inkMuted else colors.ink,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                if (startable == false) stringResource(R.string.dispatch_events_only, workflow.path.substringAfterLast('/')) else workflow.path.substringAfterLast('/'),
+                style = Soft.type.meta,
+                color = colors.inkMuted,
+            )
         }
     }
 }
