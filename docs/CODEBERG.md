@@ -1,6 +1,8 @@
 # Codeberg (Forgejo) integration
 
-A design note for adding Codeberg, and any Forgejo instance, next to GitHub: one Inbox and one Feed for every signed-in forge, and a Trending page for Codeberg, which has none of its own.
+A design note for adding Codeberg, and any Forgejo instance, next to GitHub.
+
+**The rule: Forgeline is one app, not one app per forge.** The Feed, Trending, search and everything else are a single page each, mixing every forge. Only the Inbox may be split per forge, and only if the user asks for it in Settings.
 
 Everything about Forgejo below was checked against its source (Forgejo v1.21 and Gitea `main`) and the Forgejo Go SDK v3 (March 2026), not against the live Codeberg API. Items marked **verify** still need a check against codeberg.org itself.
 
@@ -15,29 +17,32 @@ Everything about Forgejo below was checked against its source (Forgejo v1.21 and
 | Subject types | Issue, PullRequest, Release, Discussion, CheckSuite, Commit | `Issue`, `Pull`, `Commit`, `Repository` (+ `state`: open, closed, merged) | Maps onto `SubjectType`. |
 | Feed of people you follow | `GET /users/{me}/received_events` | **none**: `GET /users/{me}/activities/feeds` only holds your own actions, repos you watch and your orgs (`NotifyWatchers` never fans out to followers) | Fan out to each followed user's feed (see [Feed](#feed)). |
 | Star events | `WatchEvent` | **never emitted** (`ActionStarRepo` exists but nothing creates it) | No stars in a Codeberg Feed. |
-| Trending | scraped from `github.com/trending` | **none** ([Codeberg/Community#213](https://codeberg.org/Codeberg/Community/issues/213)) | Computed on the phone (see [Trending](#trending)). |
+| Trending | scraped from `github.com/trending` | **none** ([Codeberg/Community#213](https://codeberg.org/Codeberg/Community/issues/213)) | Measured once a day for everyone (see [Trending](#trending)). |
 | Star history | `starred_at` via a media type | stars have `created_unix` in the database, but `/stargazers` returns users only, **unordered** | Star history can't be rebuilt from the API. |
-| Sign-in | device flow, or classic PAT | **no device flow**; OAuth2 authorization code with **PKCE** (required for public clients), or a PAT | New sign-in path. |
+| Sign-in | device flow, or classic PAT | **no device flow**; OAuth2 authorization code with **PKCE** (required for public clients), or a PAT | New sign-in path (see [Sign-in](#sign-in)). |
+| Token lifetime | OAuth tokens don't expire | OAuth access tokens expire after **1 hour**, refresh tokens after **730 hours** (Forgejo defaults, **verify** on Codeberg) | Accounts store a refresh token. |
 | Rate limits | 5000/h, documented | fair use, no published numbers | Keep requests per refresh small and bounded. |
 | Page size | up to 100 | 50 (`MAX_RESPONSE_ITEMS` default), `Link` + `X-Total-Count` headers | |
-
-A PAT for Forgejo needs `read:notification`, `write:notification`, `read:user`, `write:user` (follow and star), `read:repository`, `read:issue` and `read:organization`; add `write:issue` once writing issues and reacting land.
 
 ## Groundwork: nothing is tied to one forge
 
 Today the app assumes one forge in three places, and all of them need to change before anything Codeberg-specific.
 
-1. **`RepoId` has no forge.** `RepoId("alice", "tool")` on GitHub and on Codeberg are equal, so caches, Feed merging (`feedItems` keys by `RepoId`), Inbox grouping (by `owner.lowercase()`), star state and previews would silently mix them. `RepoId` gains a `forge: ForgeInstance` (203 references in 46 files). The same goes for `IssueRef` (through `RepoId`), user logins (`UserRoute(login)` becomes `UserRoute(host, login)`), and every `*Route` in `navigation/Routes.kt`. Room entities keyed by `owner, name` gain a `host` column; the database is a rebuildable cache (`fallbackToDestructiveMigration`), so no migration code.
+1. **`RepoId` has no forge.** `RepoId("alice", "tool")` on GitHub and on Codeberg are equal, so caches, Feed merging (`feedItems` keys by `RepoId`), Inbox grouping (by `owner.lowercase()`), star state and previews would silently mix them. `RepoId` gains a `forge: ForgeInstance`. The same goes for `IssueRef` (through `RepoId`), user logins (`UserRoute(login)` becomes `UserRoute(host, login)`), and every `*Route` in `navigation/Routes.kt`. Room entities keyed by `owner, name` gain a `host` column; the database is a rebuildable cache (`fallbackToDestructiveMigration`), so no migration code.
 2. **One implementation per API, bound in `ForgeModule`.** Forgejo is many instances, so the APIs are looked up per forge instead: a `ForgeClients` registry returns the `RepoApi`, `NotificationsApi`, … for a `ForgeInstance`, building a Forgejo client for a host on first use. A new `forge:forgejo` module implements the `core/forge` interfaces, as `forge:github` does. `ForgeType` gains `FORGEJO`, and `ForgeInstance.Codeberg = ForgeInstance(FORGEJO, "codeberg.org")`.
 3. **"The active account".** The Inbox, the Feed and the background check read `accounts.activeAccount`. They read *all* accounts instead. Screens that act on one repository (star, follow, comment) pick the account signed in to that repository's forge, and read anonymously when there isn't one.
 
-Forge differences that the UI has to know about are capabilities on the client, not `if (forge == GITHUB)` checks: `supportsDone`, `feedHasStars`, `trending: TrendingSource` (scraped or computed), `signIn: DeviceFlow | Pkce | TokenOnly`.
+Forge differences that the UI has to know about are capabilities on the client, not `if (forge == GITHUB)` checks: `supportsDone`, `feedHasStars`, `signIn: DeviceFlow | Pkce | TokenOnly`.
 
 Hard-coded `https://github.com/…` URLs (in `UserScreen`, `RepoScreen`, `IssueScreen`, `InboxNotifier`) become `forge.webUrl(…)`. `ForgeLinks` learns `codeberg.org` links.
 
+**Showing the forge.** Rows in unified lists carry a small forge mark (GitHub, Codeberg, or a generic Forgejo mark with the host for self-hosted instances), only when more than one forge is in play. With GitHub alone, nothing changes on screen.
+
 ## Inbox
 
-**One list, several accounts.** The `notifications` table is already keyed by `(accountId, id)` and `inbox_sync` by `accountId`, so the merged Inbox is the same query without the `WHERE accountId = …`, ordered by `updatedAtMillis`. `sync()` runs every account in parallel, each with its own poll interval and error. An account failing shows a per-forge error, and the others still update. Actions (`markRead`, `markDone`, `unsubscribe`, undo) route by the thread's `accountId`, so `InboxViewModel`'s pending-undo map is keyed by `(accountId, threadId)`, not by the bare thread id, which could collide across forges.
+**One list by default.** The `notifications` table is already keyed by `(accountId, id)` and `inbox_sync` by `accountId`, so the unified Inbox is the same query without the `WHERE accountId = …`, ordered by `updatedAtMillis`. `sync()` runs every account in parallel, each with its own poll interval and error. An account failing shows a per-forge error, and the others still update. Actions (`markRead`, `markDone`, `unsubscribe`, undo) route by the thread's `accountId`, so `InboxViewModel`'s pending-undo map is keyed by `(accountId, threadId)`, not by the bare thread id, which could collide across forges.
+
+**Split per forge, as an option.** Settings → Inbox → "Separate Inbox per forge" (off by default). When on, the Inbox shows one pill tab per signed-in account above the existing Unread / Participating / All filters, and each tab is the same list filtered by `accountId`. It is only offered when more than one account is signed in.
 
 **Rebuilding "Needs you" on Forgejo.** Forgejo sends no reason, but the cross-repository issue search takes the same filters GitHub's reasons express. After fetching the threads, one sync makes up to four extra calls:
 
@@ -56,7 +61,7 @@ Each thread whose `(repo, number)` appears in a result takes the strongest match
 
 **Background check.** `InboxSyncWorker` syncs every account, and `takeThreadsToNotify()` works per account (its baseline is already per account). Phone notifications keep their per-reason channels. With more than one forge signed in, each notification's subtitle names the forge.
 
-**What it looks like.** The Inbox stays one list: "Needs you" first, then the rest grouped by owner. Grouping keys by `(forge, owner)`, so `alice` on GitHub and `alice` on Codeberg don't merge. When more than one forge is signed in, a group header carries a small forge mark; with one forge, nothing changes.
+**What it looks like.** "Needs you" first, then the rest grouped by owner. Grouping keys by `(forge, owner)`, so `alice` on GitHub and `alice` on Codeberg don't merge.
 
 ## Feed
 
@@ -85,39 +90,89 @@ The same action shows up in both sources under different ids, since Forgejo stor
 
 Issue and PR events carry `"<number>|…"` in `content`, not the title. Titles come through `FeedPreviewRepository`, which already does this for GitHub PR titles and gains issue titles.
 
-**Merging GitHub and Codeberg in strict order.** Each forge pages back in time at its own pace: one GitHub page might reach back three days, one Codeberg page one day. Showing everything loaded would put Codeberg's day-two events in *above* GitHub's older events later, when the next Codeberg page arrives, and move rows under the reader. So the merged Feed shows events only down to a **horizon**: the newest of the sources' oldest loaded event. Older events wait in the cache until every source has loaded that far, and "load more" pages the source that is furthest behind. The Feed stays strictly chronological, and loaded rows never move. Merging identical events ("alice and 2 others starred…") keys by `RepoId`, which now includes the forge, so it never merges across forges.
+**One Feed, strictly in order.** Each forge pages back in time at its own pace: one GitHub page might reach back three days, one Codeberg page one day. Showing everything loaded would put Codeberg's day-two events in *above* GitHub's older events later, when the next Codeberg page arrives, and move rows under the reader. So the unified Feed shows events only down to a **horizon**: the newest of the sources' oldest loaded event. Older events wait in the cache until every source has loaded that far, and "load more" pages the source that is furthest behind. The Feed stays strictly chronological, and loaded rows never move. Merging identical events ("alice and 2 others starred…") keys by `RepoId`, which now includes the forge, so it never merges across forges.
 
 ## Trending
 
-Codeberg has no trending page, no star timestamps, and no star events. "Stars gained this week" can't be read from the forge, so it is **measured on the phone**, from three signals.
+One Trending page, mixing GitHub and Codeberg. Two separate problems: getting a Codeberg list at all, and ranking two forges' lists together.
 
-1. **New repositories: exact from the first run.** A repository created within the period gained all its stars within it. Walk `GET /repos/search?mode=source&sort=newest&order=desc&limit=50` until `created_at` is older than the period, and take `stars_count` as-is.
-2. **Forks: exact from the first run.** Walk `GET /repos/search?mode=fork&sort=newest&order=desc&limit=50` the same way and count new forks per `parent`. Recent forks are a cold-start signal for established repositories.
-3. **Established repositories: star deltas, which build up over time.** Keep a candidate set: the top ~500 source repositories by stars (`sort=stars`, 10 pages), repositories recently updated (`sort=updated`, a few pages), and everything signals 1 and 2 turned up. Snapshot their `stars_count` on each refresh, keyed by the numeric repository id so renames don't break the history. Stars gained in the period = today's count minus the snapshot closest to the start of the period, clamped at zero.
+### Getting Codeberg's list: one crawl a day, for everyone
 
-**Ranking.** Repositories are ranked by stars gained in the period, with new forks in the period as the tie-breaker. "12 stars this week" is only shown when it's exact (signal 1, or a snapshot that covers the whole period). Otherwise the row says what was measured ("12 stars since Tuesday"). On the first day, weekly and monthly are mostly signal 1, and they fill in by themselves.
+Codeberg has no trending page, no star timestamps and no star events, so "stars gained today" can only be measured by comparing star counts over time. Doing that on every phone would cost storage, battery, data, and many times the load on Codeberg. Instead, **one scheduled job measures it once a day for everyone**, within a fixed budget of **30 anonymous API requests per run**.
 
-**Keeping history without opening the app.** A daily browse would give daily Trending one snapshot a day, which is too few. A periodic WorkManager job (unmetered, battery not low, every 6 hours) takes snapshots in the background. Snapshots are thinned (hourly for two days, then daily) and dropped after 35 days, so the table stays around a few thousand rows.
+**Where it runs.** A GitHub Actions workflow in this repository (`.github/workflows/codeberg-trending.yml`), daily at a fixed minute. It writes two files to an orphan `codeberg-trending` branch, which is re-created as a single commit on every run so the repository doesn't grow:
 
-**Cost.** A refresh costs about 10 (top by stars) + 3 (recently updated) + the newest-repository and newest-fork pages, bounded at 10 pages each. That's 20–35 requests, at most once an hour, and only on unmetered networks in the background. **verify**: how many source repositories and forks Codeberg gets per day and per month, which decides whether the page caps cover a whole month. If they don't, monthly Trending lists what the caps reached and says so.
+- `state.json`: for each tracked repository (keyed by Codeberg's numeric id, so renames don't break history), its star count on each of the last 31 days. About 1000 repositories × 31 numbers, a few hundred kilobytes.
+- `trending.json`: the daily, weekly and monthly lists, in the shape of `TrendingRepo`, a few tens of kilobytes.
 
-**Honesty.** PRODUCT.md says the app shows "the forge's data as the forge ranks and orders it". Codeberg doesn't rank at all, so this ranking is Forgeline's. The Codeberg tab has to say so plainly ("Measured on this phone from Codeberg's public data"), and Trending stays per forge (a GitHub | Codeberg switch), because the two rankings aren't comparable enough to merge.
+The app fetches `trending.json` with one request, cached for an hour like GitHub's trending. No Codeberg request comes from the phone for Trending. The download comes from GitHub, which the app already talks to; nothing identifying is sent.
 
-**Alternative: a shared daily snapshot.** A scheduled job (for example a GitHub Action in this repository) could crawl once a day and publish a static JSON file. Every phone would get full history from day one, and Codeberg would see one crawl instead of one per phone. The catch is that it's a server-side component, even if static and open, which runs against "no backend".
+**The 30 requests** (50 repositories per page, `mode=source` excludes forks and mirrors):
+
+| Pages | Query | Why |
+|---|---|---|
+| 12 | `GET /repos/search?mode=source&sort=stars&order=desc` | The top 600 by stars: the stable set whose counts are compared day to day. |
+| 6 | `GET /repos/search?mode=source&sort=updated&order=desc` | Active repositories outside the top 600. |
+| 6 | `GET /repos/search?mode=source&sort=newest&order=desc` | New repositories: every star they have was gained after `created_at`. |
+| 6 | `GET /repos/search?mode=fork&sort=newest&order=desc` | New forks per `parent`: the tie-breaker. |
+
+**Stars gained in a period** (1, 7 or 30 days) are only ever exact:
+
+- a repository created within the period gained all its stars within it: `stars_count`;
+- a repository with a snapshot from the start of the period: today's count minus that snapshot, clamped at zero;
+- otherwise it isn't listed for that period. It never shows a guess.
+
+A repository only gets a fresh count on days it shows up in one of the pages above, so an old repository outside the top 600 that isn't pushed to can be missed. On launch, weekly and monthly only contain new repositories until 7 and 30 days of history exist; after that the history is always there, for everyone. **verify**: how many source repositories Codeberg gets per day, to check that 6 pages of newest cover a whole day.
+
+Each list is ordered by stars gained in the period, then new forks in the period, and holds at most 25 repositories with at least 2 stars gained, so a lone star doesn't make a repository "trending". `language` comes from the forge; `languageColor` comes from the app's own table; `builtBy` is left empty, since Forgejo has nothing like it.
+
+### Ranking GitHub and Codeberg together: share of the forge's stars
+
+Raw counts can't be compared: GitHub's tenth repository of the day might gain 400 stars when Codeberg's first gains 30. So each repository is scored by its **share of its forge's stars in the list**:
+
+```
+score = periodStars / (sum of periodStars over that forge's list)
+```
+
+The rows still show the real numbers (total stars and "+30 today"); only the order uses the score.
+
+Worked example, daily:
+
+| Forge | Repository | +stars | Share |
+|---|---|---|---|
+| GitHub | #1 | 2400 | 2400 / 12000 = 0.20 |
+| GitHub | #2 | 1200 | 0.10 |
+| Codeberg | #1 | 30 | 30 / 150 = 0.20 |
+| Codeberg | #2 | 12 | 0.08 |
+
+Merged order: GitHub #1 and Codeberg #1 (tied at 0.20, the forge listed first in Settings wins ties), GitHub #2, Codeberg #2, and so on.
+
+What checking the ratio turned up:
+
+- **The forge's own order is kept.** GitHub's trending order isn't strictly by stars gained, and PRODUCT.md says a forge's ranking must be kept. So the lists aren't re-sorted by score; they are *merged* like the merge step of a merge sort: at each step, the head with the higher score goes next. GitHub's #3 can never jump above its #2.
+- **Same list length on both sides.** The sum is over each forge's top 25, so a forge doesn't get bigger shares just by listing fewer repositories. A forge with fewer than 25 entries is summed over what it has; the 2-star floor keeps that from turning a handful of stars into huge shares.
+- **The true totals aren't available.** Neither forge publishes how many stars were given in total that day, so "share of the forge's total" is taken over the trending list, which is where nearly all of a day's attention goes anyway.
+- **One standout wins.** A forge with one repository far ahead of the rest gives it a big share and puts it near the top of the merged page. That's intended: it is the story of the day on that forge.
+
+The same merge works for any number of forges, so a self-hosted Forgejo instance could join later if someone ran the same job for it.
 
 ## Sign-in
 
-- **codeberg.org:** OAuth2 authorization code with PKCE, through a public OAuth application registered on Codeberg by the maintainer, redirecting to a custom scheme (`fr.arthurbrugiere.forgeline:/oauth`) opened in a Custom Tab. **verify**: that Codeberg accepts a custom-scheme redirect URI for a public client (Forgejo's code requires PKCE for them and doesn't restrict the scheme).
-- **Other Forgejo instances:** a PAT with the scopes above, after the user enters the host. An OAuth app can't be registered on every instance in advance.
-- An account is identified by `forge:host:login`, as `Account.idFor` already does.
+Like GitHub, Codeberg offers both, and both are shown when the OAuth client ID is set:
+
+- **"Sign in with Codeberg":** OAuth2 authorization code with PKCE, through a public OAuth application registered on Codeberg, redirecting to `forgeline://oauth/codeberg` in a Custom Tab. See [CODEBERG_OAUTH_APP.md](CODEBERG_OAUTH_APP.md) for creating it. Access tokens expire after an hour, so the account stores the refresh token (encrypted with the same Keystore cipher) and refreshes on a 401 or when expired.
+- **Access token:** a Forgejo access token created by the user, which is also the only option for self-hosted Forgejo instances (after entering the host), since an OAuth app can't be registered on every instance in advance. Scopes: `read:notification`, `write:notification`, `read:user`, `write:user` (follow, star), `read:repository`, `read:issue` and `read:organization`; add `write:issue` once writing issues and reacting land.
+
+An account is identified by `forge:host:login`, as `Account.idFor` already does, so a GitHub and a Codeberg account with the same login are different accounts.
 
 ## Suggested order
 
-1. Groundwork: `RepoId`/routes/entities carry the forge, a `ForgeClients` registry, all-accounts Inbox and Feed (still GitHub-only). No visible change; the existing screenshot tests keep it honest.
+1. Groundwork: `RepoId`, routes and entities carry the forge; the Inbox and the Feed read every account (still GitHub-only). No visible change; the existing screenshot tests keep it honest.
 2. `forge:forgejo` read-only: repositories, READMEs, issues, profiles, search, anonymous browsing of codeberg.org links.
-3. Codeberg sign-in (PAT first, then PKCE).
-4. Merged Inbox (reasons, tombstones, `/new` polling, background check).
-5. Merged Feed (fan-out, deduplication, horizon merge).
-6. Codeberg Trending (signals 1–2 first, then snapshots and the background job).
+3. Codeberg sign-in (access token, then OAuth with PKCE).
+4. Unified Inbox (reasons, tombstones, `/new` polling, background check, the "separate per forge" setting).
+5. Unified Feed (fan-out, deduplication, horizon merge).
+6. Codeberg Trending: the daily job, then the unified page with the share-of-stars merge.
+7. Unified search: each forge's results, merged by rank.
 
 Each step ships by itself, and the Forgejo module is reused for self-hosted instances.
