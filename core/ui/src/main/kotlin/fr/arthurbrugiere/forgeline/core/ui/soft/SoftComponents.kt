@@ -198,7 +198,14 @@ fun SoftHeader(
  * so large font scales grow it instead of cutting words off; every label stays centred.
  */
 @Composable
-fun SoftSwitch(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun SoftSwitch(
+    options: List<String>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    /** Drawn before an option's label, in its color (a forge's logo). */
+    leading: (@Composable (index: Int, color: Color) -> Unit)? = null,
+) {
     val colors = Soft.colors
     val animations = animationsEnabled()
     val thumbIndex by animateFloatAsState(
@@ -229,14 +236,19 @@ fun SoftSwitch(options: List<String>, selected: Int, onSelect: (Int) -> Unit, mo
                         .padding(horizontal = 6.dp, vertical = 8.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    // Shrinks a word that can't wrap (at very large font scales) instead of cutting it off.
-                    Text(
-                        option,
-                        style = Soft.type.control,
-                        color = if (isSelected) colors.onThumb else colors.inkMuted,
-                        textAlign = TextAlign.Center,
-                        autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = Soft.type.control.fontSize),
-                    )
+                    val color = if (isSelected) colors.onThumb else colors.inkMuted
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
+                        leading?.invoke(index, color)
+                        // Shrinks a word that can't wrap (at very large font scales) instead of cutting it off.
+                        Text(
+                            option,
+                            style = Soft.type.control,
+                            color = color,
+                            textAlign = TextAlign.Center,
+                            autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = Soft.type.control.fontSize),
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                    }
                 }
             }
         },
@@ -258,7 +270,14 @@ fun SoftSwitch(options: List<String>, selected: Int, onSelect: (Int) -> Unit, mo
  * springs to the chosen option like SoftSwitch's. Used for a page's sections (a repository's README, Code, Issues...).
  */
 @Composable
-fun SoftChipTabs(options: List<String>, selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+fun SoftChipTabs(
+    options: List<String>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    /** Drawn before an option's label, in its color (a forge's logo). */
+    leading: (@Composable (index: Int, color: Color) -> Unit)? = null,
+) {
     val colors = Soft.colors
     val animations = animationsEnabled()
     val density = LocalDensity.current
@@ -304,7 +323,11 @@ fun SoftChipTabs(options: List<String>, selected: Int, onSelect: (Int) -> Unit, 
                             .padding(horizontal = 18.dp),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(option, style = Soft.type.control, color = if (isSelected) colors.onThumb else colors.inkMuted, maxLines = 1)
+                        val color = if (isSelected) colors.onThumb else colors.inkMuted
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            leading?.invoke(index, color)
+                            Text(option, style = Soft.type.control, color = color, maxLines = 1)
+                        }
                     }
                 }
             }

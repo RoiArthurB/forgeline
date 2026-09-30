@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import fr.arthurbrugiere.forgeline.core.ui.format.hostLabel
+import fr.arthurbrugiere.forgeline.core.ui.format.forgeInlineContent
+import fr.arthurbrugiere.forgeline.core.ui.format.appendForge
+import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.CompositionLocalProvider
@@ -294,9 +298,10 @@ fun InboxScreen(
                 if (state.accountTabs.isNotEmpty()) {
                     item(key = "accounts", contentType = "accounts") {
                         SoftChipTabs(
-                            options = state.accountTabs.map { "@${it.user.login} · ${it.forge.displayName}" },
+                            options = state.accountTabs.map { listOfNotNull("@${it.user.login}", it.forge.hostLabel).joinToString(" · ") },
                             selected = state.accountTabs.indexOfFirst { it.id == state.selectedAccountId }.coerceAtLeast(0),
                             onSelect = { onSelectAccount(state.accountTabs[it].id) },
+                            leading = { index, color -> ForgeIcon(state.accountTabs[index].forge, size = 16.dp, tint = color) },
                         )
                     }
                 }
@@ -601,13 +606,18 @@ private fun ThreadRow(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(top = 6.dp),
                 )
+                // Which forge (its logo), once more than one is signed in.
+                val forge = thread.repo.forge.takeIf { LocalShowForge.current }
+                val rest = listOfNotNull(
+                    stringResource(thread.reason.label).takeIf { section == InboxSection.OTHERS },
+                    relative(thread.updatedAt, nowMillis, abbreviated = true),
+                ).joinToString(" · ")
                 Text(
-                    listOfNotNull(
-                        // Which forge, once more than one is signed in.
-                        thread.repo.forge.displayName.takeIf { LocalShowForge.current },
-                        stringResource(thread.reason.label).takeIf { section == InboxSection.OTHERS },
-                        relative(thread.updatedAt, nowMillis, abbreviated = true),
-                    ).joinToString(" · "),
+                    buildAnnotatedString {
+                        forge?.let { appendForge(it); append(" · ") }
+                        append(rest)
+                    },
+                    inlineContent = forge?.let { forgeInlineContent(it, colors.inkMuted) }.orEmpty(),
                     style = Soft.type.meta,
                     color = colors.inkMuted,
                     modifier = Modifier.padding(top = 2.dp),

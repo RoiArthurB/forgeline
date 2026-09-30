@@ -44,6 +44,8 @@ class CreditsScreenTest {
         composeRule.onNodeWithText("GNU General Public License v3.0", substring = true).assertIsDisplayed()
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Sample Library"))
         composeRule.onNodeWithText("Sample Library").assertIsDisplayed()
+        // The forge logos come from Simple Icons.
+        composeRule.onNodeWithText("Simple Icons", substring = true).assertExists()
     }
 
     @Test

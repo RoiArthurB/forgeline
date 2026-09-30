@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import fr.arthurbrugiere.forgeline.core.ui.format.forgeInlineContent
+import fr.arthurbrugiere.forgeline.core.ui.format.appendForge
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.clickable
@@ -332,15 +334,19 @@ private fun FeedRow(
         )
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
+            // Which forge (its logo), once more than one is signed in.
+            val forge = item.repo.forge.takeIf { LocalShowForge.current }
             Text(
                 buildAnnotatedString {
                     append(item.headline().emphasizing(item.names(), colors.ink))
                     // Short, and kept whole with its dot, so a wrap moves "· 15 min. ago" down as one piece.
                     val time = relative(item.createdAt, nowMillis, abbreviated = true).replace(' ', '\u00A0')
-                    // Which forge, once more than one is signed in.
-                    val forge = item.repo.forge.displayName.takeIf { LocalShowForge.current }?.let { " ·\u00A0$it" }.orEmpty()
-                    withStyle(SpanStyle(color = colors.inkMuted)) { append("$forge ·\u00A0$time") }
+                    withStyle(SpanStyle(color = colors.inkMuted)) {
+                        forge?.let { append(" ·\u00A0"); appendForge(it) }
+                        append(" ·\u00A0$time")
+                    }
                 },
+                inlineContent = forge?.let { forgeInlineContent(it, colors.inkMuted) }.orEmpty(),
                 style = Soft.type.secondary,
                 color = colors.inkMuted,
                 maxLines = 2,

@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.screenshots
 
+import fr.arthurbrugiere.forgeline.core.testing.repoSummary
+import fr.arthurbrugiere.forgeline.core.model.UserSummary
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
@@ -656,6 +659,34 @@ class ScreenshotTest {
                         SearchResult.Issue(IssueSearchResult(RepoId("acme", "rocket"), issueSummary(42, "Heartbeat timer drifts after sleep"))),
                     ),
                     totalCount = 5_322,
+                ),
+            ),
+            onQueryChange = {}, onSubmit = {}, onSelectScope = {}, onLoadMore = {}, onRetry = {},
+            onOpenRepo = {}, onOpenIssue = {}, onOpenUser = { _, _ -> }, onBack = {},
+            nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
+    fun search_mixed_forges_light() = snapshot("search_mixed_forges_light", darkTheme = false) {
+        // Several forges searched: every result wears its forge's logo; a self-hosted server adds its host.
+        val codeberg = ForgeInstance.Codeberg
+        val selfHosted = ForgeInstance(ForgeType.FORGEJO, "git.example.org")
+        SearchScreen(
+            state = SearchUiState(
+                query = "zig",
+                scope = SearchScope.REPOSITORIES,
+                results = ScopeResults(
+                    query = "zig",
+                    items = listOf(
+                        SearchResult.Repository(repoSummary("ziglang/zig", stars = 42_000, description = "General-purpose programming language")),
+                        SearchResult.Repository(repoSummary("ziglang/zig", stars = 6_712, description = "General-purpose programming language", forge = codeberg)),
+                        SearchResult.Repository(repoSummary("team/zig-tools", stars = 12, description = "Helpers for our Zig builds", forge = selfHosted)),
+                        SearchResult.Issue(IssueSearchResult(RepoId("ziglang", "zig", codeberg), issueSummary(21, "Linker crash on arm64"))),
+                        SearchResult.User(UserSummary("andrewrk", null, isOrganization = false, forge = codeberg)),
+                    ),
+                    totalCount = 5,
+                    forges = listOf(ForgeInstance.GitHub, codeberg, selfHosted),
                 ),
             ),
             onQueryChange = {}, onSubmit = {}, onSelectScope = {}, onLoadMore = {}, onRetry = {},

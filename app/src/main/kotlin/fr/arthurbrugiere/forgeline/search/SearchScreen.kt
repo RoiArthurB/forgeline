@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.search
 
+import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -193,7 +194,7 @@ fun SearchScreen(
                     // Keyed by position: GitHub search pages can repeat an item across pages.
                     itemsIndexed(results.items, key = { index, _ -> index }, contentType = { _, item -> item::class }) { _, item ->
                         // Which forge, once more than one is searched.
-                        fun ForgeInstance.named() = displayName.takeIf { results.showForge }
+                        fun ForgeInstance.named() = takeIf { results.showForge }
                         when (item) {
                             is SearchResult.Repository -> RepoSummaryRow(item.repo, onOpenRepo, forge = item.repo.id.forge.named())
                             is SearchResult.Issue -> IssueSummaryRow(
@@ -252,7 +253,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, onSubmit
 }
 
 @Composable
-private fun UserRow(user: UserSummary, forge: String?, onOpenUser: (ForgeInstance, String) -> Unit) {
+private fun UserRow(user: UserSummary, forge: ForgeInstance?, onOpenUser: (ForgeInstance, String) -> Unit) {
     val colors = Soft.colors
     Row(
         Modifier
@@ -268,8 +269,11 @@ private fun UserRow(user: UserSummary, forge: String?, onOpenUser: (ForgeInstanc
         Column {
             Text(user.login, style = Soft.type.body, color = colors.ink)
             val organization = stringResource(R.string.search_organization).takeIf { user.isOrganization }
-            listOfNotNull(organization, forge).takeIf { it.isNotEmpty() }?.let {
-                Text(it.joinToString(" · "), style = Soft.type.meta, color = colors.inkMuted)
+            if (organization != null || forge != null) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    forge?.let { ForgeMark(it, style = Soft.type.meta, color = colors.inkMuted) }
+                    organization?.let { Text(it, style = Soft.type.meta, color = colors.inkMuted) }
+                }
             }
         }
     }

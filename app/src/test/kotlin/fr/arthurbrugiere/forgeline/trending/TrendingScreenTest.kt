@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.trending
 
+import androidx.compose.ui.test.onNodeWithContentDescription
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.compose.ui.test.assertIsDisplayed
 import com.google.common.truth.Truth.assertWithMessage
@@ -215,14 +216,16 @@ class TrendingScreenTest {
         val zig = trendingRepo("ziglang/zig", forge = ForgeInstance.Codeberg).copy(language = "Zig", languageColor = null)
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null), TrendingItem(zig, null)), showForge = true))
 
-        composeRule.onNodeWithText("Codeberg").assertExists()
-        composeRule.onNodeWithText("GitHub").assertExists()
+        // Logos, not names: named for screen readers only.
+        composeRule.onNodeWithContentDescription("Codeberg").assertExists()
+        composeRule.onNodeWithContentDescription("GitHub").assertExists()
+        composeRule.onNodeWithText("Codeberg").assertDoesNotExist()
     }
 
     @Test
     fun one_forge_alone_names_none() {
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null))))
 
-        composeRule.onNodeWithText("GitHub").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("GitHub").assertDoesNotExist()
     }
 }

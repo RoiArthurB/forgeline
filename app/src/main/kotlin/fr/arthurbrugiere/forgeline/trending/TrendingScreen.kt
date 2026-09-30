@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.trending
 
+import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.core.ui.format.languageColor
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -425,7 +426,7 @@ private fun RepoRow(rank: Int, item: TrendingItem, period: TrendingPeriod, onTog
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                         itemVerticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (LocalShowForge.current) MetaText(repo.id.forge.displayName)
+                        if (LocalShowForge.current) ForgeMark(repo.id.forge, style = Soft.type.meta, color = Soft.colors.inkMuted)
                         repo.language?.let { language ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 // Forgejo names a language without its colour: the app's own table fills it in.

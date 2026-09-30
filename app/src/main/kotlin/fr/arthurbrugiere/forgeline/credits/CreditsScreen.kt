@@ -82,6 +82,7 @@ private fun AppLicenseHeader(onOpenLicense: () -> Unit) {
         SoftTonalButton(stringResource(R.string.credits_read_license), onOpenLicense, Modifier.padding(top = 4.dp))
         // The fonts ship in the app under the SIL Open Font License; the library list only covers Gradle dependencies.
         Text(stringResource(R.string.credits_fonts), style = Soft.type.secondary, color = colors.inkMuted, modifier = Modifier.padding(top = 8.dp))
+        Text(stringResource(R.string.credits_icons), style = Soft.type.secondary, color = colors.inkMuted, modifier = Modifier.padding(top = 8.dp))
         Text(
             stringResource(R.string.credits_libraries_intro),
             style = Soft.type.control.copy(fontSize = 17.sp, lineHeight = 22.sp),

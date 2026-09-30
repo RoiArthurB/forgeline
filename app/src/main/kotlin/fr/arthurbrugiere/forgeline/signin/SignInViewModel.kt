@@ -30,7 +30,19 @@ import kotlin.time.Duration.Companion.minutes
 enum class SignInError { NETWORK, INVALID_TOKEN, RATE_LIMITED, DENIED, EXPIRED, NOT_A_FORGE, UNKNOWN }
 
 /** Where to sign in: GitHub, Codeberg, or another Forgejo server by its address. */
-enum class SignInForge { GITHUB, CODEBERG, OTHER }
+enum class SignInForge {
+    GITHUB,
+    CODEBERG,
+    OTHER;
+
+    /** Whose logo the choice shows; any other server runs Forgejo. */
+    val icon: ForgeInstance
+        get() = when (this) {
+            GITHUB -> ForgeInstance.GitHub
+            CODEBERG -> ForgeInstance.Codeberg
+            OTHER -> ForgeInstance(ForgeType.FORGEJO, "")
+        }
+}
 
 sealed interface SignInStep {
     data object ChooseMethod : SignInStep

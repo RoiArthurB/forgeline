@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.search
 
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
@@ -157,9 +158,10 @@ class SearchScreenTest {
             ).let { it.copy(results = it.results.copy(forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg))) },
         )
 
-        composeRule.onNodeWithText("ziglang/zig · Codeberg").assertIsDisplayed()
+        // The issue's repository line starts with the logo, read out as the forge's name.
+        composeRule.onNodeWithText("Codeberg ziglang/zig").assertIsDisplayed()
         // The repository's stats line and the person's line.
-        composeRule.onAllNodesWithText("Codeberg").assertCountEquals(2)
+        composeRule.onAllNodesWithContentDescription("Codeberg").assertCountEquals(2)
         composeRule.onNodeWithText("alice").performClick()
 
         assertThat(events).containsExactly("user:codeberg.org/alice")

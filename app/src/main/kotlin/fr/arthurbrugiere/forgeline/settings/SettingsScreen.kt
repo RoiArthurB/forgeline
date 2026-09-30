@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.settings
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.offset
+import fr.arthurbrugiere.forgeline.core.ui.format.hostLabel
+import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -234,8 +238,20 @@ private fun AccountItem(account: Account, onSignOut: (Account) -> Unit) {
     val login = account.user.login
     SettingRow(
         title = "@$login",
-        summary = account.forge.displayName,
-        leading = { Avatar(account.user.avatarUrl, login, size = 40.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted) },
+        // The forge's logo says which forge; a self-hosted server also names its host.
+        summary = account.forge.hostLabel,
+        leading = {
+            Box {
+                Avatar(account.user.avatarUrl, login, size = 40.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
+                ForgeIcon(
+                    account.forge,
+                    size = 14.dp,
+                    tint = colors.ink,
+                    modifier = Modifier.align(Alignment.BottomEnd).offset(x = 3.dp, y = 3.dp)
+                        .background(colors.raised, CircleShape).padding(3.dp),
+                )
+            }
+        },
         trailing = { SoftTonalButton(stringResource(R.string.sign_out), onClick = { confirming = true }) },
     )
     if (confirming) {

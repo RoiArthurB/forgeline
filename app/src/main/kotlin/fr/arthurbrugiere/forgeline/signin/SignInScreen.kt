@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.signin
 
+import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
 import android.content.ClipData
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -191,6 +192,8 @@ private fun ChooseMethod(
         ),
         selected = state.forge.ordinal,
         onSelect = { onSelectForge(SignInForge.entries[it]) },
+        // Named as well: this is where the forge is chosen.
+        leading = { index, color -> ForgeIcon(SignInForge.entries[index].icon, size = 16.dp, tint = color) },
     )
     if (state.forge == SignInForge.OTHER) {
         SoftTextField(

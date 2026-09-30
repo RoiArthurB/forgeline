@@ -375,6 +375,7 @@
     <string name="credits_app_license">Forgeline is free software, licensed under the GNU General Public License v3.0.</string>
     <string name="credits_read_license">Read the license</string>
     <string name="credits_fonts">Typefaces: Gabarito (© The Gabarito Project Authors) and Lexend (© The Lexend Project Authors), both under the SIL Open Font License 1.1.</string>
+    <string name="credits_icons">Forge logos: Simple Icons (simpleicons.org), dedicated to the public domain under CC0 1.0. The logos remain their owners\' trademarks.</string>
     <string name="credits_libraries_intro">Built with these open source libraries</string>
 
     <plurals name="feed_actors_many">
