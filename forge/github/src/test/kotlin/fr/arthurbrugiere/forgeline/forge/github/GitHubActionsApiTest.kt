@@ -76,7 +76,7 @@ class GitHubActionsApiTest {
     @Test
     fun a_running_job_reports_its_steps_as_they_go() = runTest {
         // Captured while the job ran: its log doesn't exist yet (the logs endpoint answers 404), its steps do.
-        val job = api { json(fixture("job_running.json")) }.job(null, paperclip, 109371394234).value()
+        val job = api { json(fixture("job_running.json")) }.job(null, paperclip, 1, 109371394234).value()
 
         assertThat(job.status).isEqualTo(RunStatus.IN_PROGRESS)
         val current = job.steps.single { it.status == RunStatus.IN_PROGRESS }
@@ -194,5 +194,14 @@ class GitHubActionsApiTest {
             .rerun("token", paperclip, 7, failedJobsOnly = false)
 
         assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "Must have admin rights to Repository.")))
+    }
+
+    @Test
+    fun signed_out_a_log_is_unauthorized_without_asking() = runTest {
+        var asked = false
+        val result = api { asked = true; json("{}") }.jobLog(null, paperclip, 1)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(asked).isFalse()
     }
 }

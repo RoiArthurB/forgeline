@@ -34,6 +34,7 @@ class ForgejoRepoApiTest {
         assertThat(repo.language).isEqualTo("Go")
         assertThat(repo.license).isNull()
         assertThat(repo.pushedAt).isEqualTo(Instant.parse("2026-09-29T14:34:10Z"))
+        assertThat(repo.hasActions).isTrue()
         assertThat(codeberg.requests.single().url.toString()).isEqualTo("https://codeberg.org/api/v1/repos/forgejo/forgejo")
     }
 

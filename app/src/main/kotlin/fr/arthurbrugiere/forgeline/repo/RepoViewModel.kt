@@ -13,7 +13,6 @@ import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
-import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.Readme
@@ -72,8 +71,8 @@ data class RepoUiState(
     /** A workflow was just started by hand, to say so once. */
     val workflowStarted: Boolean = false,
 ) {
-    /** The tabs this repository's forge can fill: Actions only where Forgeline reads its CI (GitHub for now). */
-    val tabs: List<RepoTab> get() = RepoTab.entries.filter { it != RepoTab.ACTIONS || requested.forge.type == ForgeType.GITHUB }
+    /** The tabs this repository fills: Actions unless its CI is switched off (Forgejo repositories can). */
+    val tabs: List<RepoTab> get() = RepoTab.entries.filter { it != RepoTab.ACTIONS || details?.hasActions != false }
 
     /** What the README and Code tabs show: [ref], else the default branch once known. */
     val browsedRef: String? get() = ref ?: details?.defaultBranch

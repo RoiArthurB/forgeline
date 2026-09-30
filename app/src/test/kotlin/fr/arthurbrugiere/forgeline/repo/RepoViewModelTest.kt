@@ -296,4 +296,14 @@ class RepoViewModelTest {
         advanceUntilIdle()
         assertThat(stars.starred).containsExactly(requested)
     }
+
+    @Test
+    fun the_actions_tab_shows_unless_the_repository_switched_its_ci_off() {
+        val codeberg = RepoId("forgejo", "website", ForgeInstance.Codeberg)
+        val details = repoDetails("forgejo/website").copy(id = codeberg)
+
+        assertThat(RepoUiState(codeberg).tabs).contains(RepoTab.ACTIONS)
+        assertThat(RepoUiState(codeberg, details = details).tabs).contains(RepoTab.ACTIONS)
+        assertThat(RepoUiState(codeberg, details = details.copy(hasActions = false)).tabs).doesNotContain(RepoTab.ACTIONS)
+    }
 }

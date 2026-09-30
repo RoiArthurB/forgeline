@@ -160,6 +160,23 @@ The same merge works for any number of forges, so a self-hosted Forgejo instance
 
 **Which forges are on the page.** GitHub's Trending always, since it needs no account, plus Codeberg's once a Codeberg account is signed in: a GitHub-only user's page doesn't change. Each forge's ranking is cached and refreshed separately. A forge that can't be read keeps its cached rows, and the refresh only reports an error when no forge could be read. Rows name their forge only when the page mixes several.
 
+## Actions
+
+Forgejo Actions has an API close to GitHub's, checked against codeberg.org on 2026-09-30 (`forgejo/website`, Forgejo `16.0.0-dev`). The Actions tab, run pages, job logs, starting a workflow by hand and cancelling all work on Codeberg, with these differences:
+
+| | GitHub | Forgejo | Consequence |
+|---|---|---|---|
+| Reading runs, jobs, logs | logs need an account | **public repositories need none**, logs included | Signed out, Codeberg logs still open. |
+| Run list | `per_page` | `page` and `limit`, but **without `page` the limit is ignored**: `limit=3` answered all 4,235 runs, 56 MB | Always send `page=1&limit=20`, pinned by a unit test and the nightly live test. |
+| Run ids | one id, used by the web pages too | an API `id` (7368141) and a per-repository `index_in_repo` (4235) that the web page uses | The run page links to the run's `html_url`; before the run is loaded, or for a job, "open on web" goes to the repository's Actions page rather than to a wrong run. |
+| Jobs | name, times, steps | name and state only, **no steps, no times**, and no single-job call | A job is read from its run's list; Codeberg jobs show no step breakdown. The runner's log doesn't mark where `run:` steps start either, so steps can't be rebuilt from it. |
+| States | `status` + `conclusion` | one `status`: `waiting`, `blocked`, `running`, `success`, `failure`, `cancelled`, `skipped` | Mapped onto GitHub's pair. |
+| Workflows | `GET /actions/workflows` | **no list**: the files in `.forgejo/workflows`, else `.gitea/workflows`, else `.github/workflows` | Listed from the first of those folders that exists; dispatched by file name. |
+| Logs | `##[group]` format | the same format (the runner is based on act), plus the runner's own lines | One shared parser in `core/forge`. |
+| Re-run | yes | **no API** | Re-run buttons are hidden on Codeberg; cancelling works. |
+
+A repository can switch Actions off (`has_actions: false`), and then it has no Actions tab.
+
 ## Search
 
 One search across forges: GitHub's, always, and that of each forge an account is signed in to (Codeberg answers anonymous issue searches with a 500, so signed-out Codeberg search wouldn't work anyway). Every forge is searched at once, with its own token. Forges rank by relevance in their own ways, so scores can't be compared: results are interleaved by rank instead, every forge's best match, then every forge's second, GitHub first. Each forge pages on its own: the next page only asks the forges that have more. A forge that fails is left out and the others still answer; the search fails only when every forge did. Results name their forge once more than one is searched, and a person found on Codeberg opens on Codeberg.
@@ -183,4 +200,4 @@ An account is identified by `forge:host:login`, as `Account.idFor` already does,
 6. Codeberg Trending: the daily job, then the unified page with the share-of-stars merge.
 7. Unified search: each forge's results, merged by rank.
 
-Each step ships by itself, and the Forgejo module is reused for self-hosted instances.
+Each step ships by itself, and the Forgejo module is reused for self-hosted instances. All seven shipped on 2026-09-30, followed by Codeberg's Actions (see [Actions](#actions)).

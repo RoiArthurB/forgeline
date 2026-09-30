@@ -21,6 +21,7 @@ import dagger.Provides
 import fr.arthurbrugiere.forgeline.BuildConfig
 import fr.arthurbrugiere.forgeline.signin.BrowserRedirects
 import fr.arthurbrugiere.forgeline.signin.LoopbackRedirects
+import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoActionsApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoAuthApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoFeedApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoIssueApi
@@ -65,6 +66,7 @@ class DefaultForgeClients @Inject constructor(
         val search = ForgejoSearchApi(http, forge)
         val notifications = ForgejoNotificationsApi(http, forge)
         val feed = ForgejoFeedApi(http, forge)
+        val actions = ForgejoActionsApi(http, forge)
 
         // Only Codeberg has a registered OAuth application: self-hosted instances sign in with a token.
         val auth = ForgejoAuthApi(http, forge, clientId = if (forge == ForgeInstance.Codeberg) codebergClientId else "")
@@ -78,11 +80,6 @@ class DefaultForgeClients @Inject constructor(
 
     private fun <T> pick(forge: ForgeInstance, gitHub: T, forgejo: ForgejoClients.() -> T): T =
         if (forge.type == ForgeType.GITHUB) gitHub else this.forgejo.getOrPut(forge) { ForgejoClients(forgejoHttp, forge) }.forgejo()
-
-    private fun <T> gitHub(forge: ForgeInstance, client: T): T {
-        check(forge.type == ForgeType.GITHUB) { "No client for ${forge.host} yet" }
-        return client
-    }
 
     override fun repos(forge: ForgeInstance) = pick(forge, repos) { repos }
 
@@ -100,7 +97,7 @@ class DefaultForgeClients @Inject constructor(
 
     override fun auth(forge: ForgeInstance) = pick(forge, auth) { auth }
 
-    override fun actions(forge: ForgeInstance): ActionsApi? = actions.takeIf { forge.type == ForgeType.GITHUB }
+    override fun actions(forge: ForgeInstance): ActionsApi? = pick(forge, actions) { actions }
 
     override fun trending(forge: ForgeInstance): TrendingApi? = pick(forge, trending) { trending }
 }

@@ -41,6 +41,7 @@ internal data class RepoJson(
     val fork: Boolean = false,
     val archived: Boolean = false,
     @SerialName("updated_at") val updatedAt: String? = null,
+    @SerialName("has_actions") val hasActions: Boolean = false,
 ) {
     fun id(forge: ForgeInstance) = RepoId(owner.login, name, forge)
 
@@ -60,6 +61,7 @@ internal data class RepoJson(
         isFork = fork,
         isArchived = archived,
         pushedAt = instant(updatedAt),
+        hasActions = hasActions,
     )
 
     fun toSummary(forge: ForgeInstance) = RepoSummary(

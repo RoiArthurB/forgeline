@@ -10,8 +10,6 @@ dependencies {
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.jsoup)
-    // Reads the inputs a workflow asks for when started by hand.
-    implementation(libs.snakeyaml.engine)
 
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.kotlinx.coroutines.test)

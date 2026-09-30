@@ -1,0 +1,26 @@
+[
+ {
+  "name": "links.yml",
+  "path": ".forgejo/workflows/links.yml",
+  "last_commit_when": "2026-07-21T07:54:36+02:00",
+  "type": "file",
+  "target": null,
+  "submodule_git_url": null
+ },
+ {
+  "name": "pr.yml",
+  "path": ".forgejo/workflows/pr.yml",
+  "last_commit_when": "2026-09-27T08:56:03+02:00",
+  "type": "file",
+  "target": null,
+  "submodule_git_url": null
+ },
+ {
+  "name": "push.yml",
+  "path": ".forgejo/workflows/push.yml",
+  "last_commit_when": "2026-09-07T12:30:17+02:00",
+  "type": "file",
+  "target": null,
+  "submodule_git_url": null
+ }
+]

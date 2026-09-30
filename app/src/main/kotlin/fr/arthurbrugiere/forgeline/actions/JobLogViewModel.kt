@@ -82,14 +82,15 @@ sealed interface LogRow {
 @HiltViewModel(assistedFactory = JobLogViewModel.Factory::class)
 class JobLogViewModel @AssistedInject constructor(
     @Assisted private val repo: RepoId,
-    @Assisted private val jobId: Long,
+    @Assisted private val runId: Long,
+    @Assisted("jobId") private val jobId: Long,
     @Assisted jobName: String,
     private val actions: ActionsRepository,
 ) : ViewModel() {
 
     @AssistedFactory
     interface Factory {
-        fun create(repo: RepoId, jobId: Long, jobName: String): JobLogViewModel
+        fun create(repo: RepoId, runId: Long, @Assisted("jobId") jobId: Long, jobName: String): JobLogViewModel
     }
 
     private val _state = MutableStateFlow(JobLogUiState(repo, jobId, jobName))
@@ -110,7 +111,7 @@ class JobLogViewModel @AssistedInject constructor(
     }
 
     private suspend fun check() {
-        val job = (actions.job(repo, jobId) as? ForgeResult.Success)?.value
+        val job = (actions.job(repo, runId, jobId) as? ForgeResult.Success)?.value
         if (job != null) _state.update { it.copy(job = job) }
         // Without the job's state (an error), try the log anyway: a finished job's log may still come.
         if (job == null || job.status == RunStatus.COMPLETED) loadLog() else _state.update { it.copy(log = Loadable.Idle) }

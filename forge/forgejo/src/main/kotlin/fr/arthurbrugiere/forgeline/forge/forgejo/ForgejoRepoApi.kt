@@ -82,7 +82,7 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
     }
 
     // Forgejo Actions come with Codeberg sign-in: its run endpoints answer 404 without a token.
-    override suspend fun workflowRuns(token: String?, id: RepoId): ForgeResult<List<WorkflowRun>> = ForgeResult.Failure(ForgeError.Unsupported)
+    override suspend fun workflowRuns(token: String?, id: RepoId): ForgeResult<List<WorkflowRun>> = ForgejoActionsApi(httpClient, forge).runs(token, id)
 
     override fun rawBaseUrl(id: RepoId, ref: String): String = id.rawBaseUrl(ref)
 

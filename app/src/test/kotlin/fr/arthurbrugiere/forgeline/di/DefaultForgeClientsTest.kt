@@ -13,6 +13,7 @@ import fr.arthurbrugiere.forgeline.core.testing.FakeSearchApi
 import fr.arthurbrugiere.forgeline.core.testing.FakeStarApi
 import fr.arthurbrugiere.forgeline.core.testing.FakeTrendingApi
 import fr.arthurbrugiere.forgeline.core.testing.FakeUserApi
+import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoActionsApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoRepoApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoTrendingApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.forgejoHttpClient
@@ -54,8 +55,12 @@ class DefaultForgeClientsTest {
     }
 
     @Test
-    fun forgejo_has_no_actions_client_yet() {
-        assertThat(clients.actions(ForgeInstance.Codeberg)).isNull()
+    fun each_forgejo_instance_has_actions_without_rerun() {
+        val codeberg = clients.actions(ForgeInstance.Codeberg)
+
+        assertThat(codeberg).isInstanceOf(ForgejoActionsApi::class.java)
+        assertThat(codeberg!!.supportsRerun).isFalse()
+        assertThat(clients.actions(ForgeInstance.GitHub)!!.supportsRerun).isTrue()
     }
 
     @Test

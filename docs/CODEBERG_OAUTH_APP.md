@@ -45,7 +45,7 @@ For self-hosted Forgejo instances, or if you'd rather not use OAuth, create a to
 |---|---|---|
 | notification | read and write | the Inbox, marking threads read |
 | user | read and write | your profile, following people, starring |
-| repository | read | repositories, READMEs, code |
+| repository | read and write | repositories, READMEs, code; starting and cancelling Actions runs |
 | issue | read | issues and pull requests |
 | organization | read | organization profiles and feeds |
 

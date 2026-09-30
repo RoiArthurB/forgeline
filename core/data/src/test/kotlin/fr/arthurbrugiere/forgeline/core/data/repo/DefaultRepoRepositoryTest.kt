@@ -160,4 +160,14 @@ class DefaultRepoRepositoryTest {
         assertThat(repository.observe(cb).first().details?.id).isEqualTo(cb)
         assertThat(repository.observe(RepoId("forgejo", "forgejo")).first().details).isNull()
     }
+
+    @Test
+    fun a_repository_with_its_ci_switched_off_is_remembered_as_such() = runTest {
+        // Without it in the cache, a Codeberg repository without Actions showed an Actions tab once reopened.
+        api.details[id] = repoDetails("octo/repo").copy(hasActions = false)
+
+        repository.refresh(id)
+
+        assertThat(repository.observe(id).first().details?.hasActions).isFalse()
+    }
 }

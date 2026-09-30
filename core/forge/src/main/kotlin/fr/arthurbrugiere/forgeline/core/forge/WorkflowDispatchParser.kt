@@ -1,4 +1,4 @@
-package fr.arthurbrugiere.forgeline.forge.github
+package fr.arthurbrugiere.forgeline.core.forge
 
 import fr.arthurbrugiere.forgeline.core.model.DispatchInput
 import fr.arthurbrugiere.forgeline.core.model.DispatchInputType
@@ -9,7 +9,7 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  * Finds the `workflow_dispatch` trigger in a workflow file and the inputs it declares.
  * YAML 1.2 (snakeyaml-engine) matters: YAML 1.1 reads the `on:` key as the boolean true.
  */
-internal object WorkflowDispatchParser {
+object WorkflowDispatchParser {
 
     /** The inputs, or null when the workflow can't be started by hand (or doesn't parse). */
     fun inputs(yaml: String): List<DispatchInput>? {

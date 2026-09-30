@@ -45,4 +45,20 @@ class ForgejoClientLiveTest {
         assertThat(org.isOrganization).isTrue()
         assertThat(org.publicRepos).isGreaterThan(0)
     }
+
+    @Test
+    fun public_actions_read_signed_out_and_the_run_list_stays_small() = runBlocking<Unit> {
+        // Without `page`, Codeberg once answered every run of a repository (56 MB for 4,235 runs).
+        val website = RepoId("forgejo", "website", ForgeInstance.Codeberg)
+        val api = ForgejoActionsApi(http, ForgeInstance.Codeberg)
+
+        val runs = api.runs(null, website).value()
+        assertThat(runs.size).isAtMost(20)
+        val finished = runs.first { it.conclusion != null }
+        assertThat(finished.webUrl).endsWith("/actions/runs/${finished.runNumber}")
+        val job = api.jobs(null, website, finished.id).value().first()
+        assertThat(api.job(null, website, finished.id, job.id).value().name).isEqualTo(job.name)
+        assertThat(api.jobLog(null, website, job.id).value().entries).isNotEmpty()
+        assertThat(api.workflows(null, website).value()).isNotEmpty()
+    }
 }

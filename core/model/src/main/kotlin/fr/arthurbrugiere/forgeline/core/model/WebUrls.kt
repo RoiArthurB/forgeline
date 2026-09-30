@@ -12,9 +12,14 @@ fun IssueRef.webUrl(isPullRequest: Boolean): String {
     return "${repo.webUrl}/$kind/$number"
 }
 
-fun RepoId.runUrl(runId: Long): String = "$webUrl/actions/runs/$runId"
+/**
+ * A run's page on GitHub. Forgejo's pages number runs within the repository, not by the API's [runId], so there it's
+ * the repository's Actions page: use [WorkflowRun.webUrl] once the run is known.
+ */
+fun RepoId.runUrl(runId: Long): String =
+    if (forge.type == ForgeType.GITHUB) "$webUrl/actions/runs/$runId" else "$webUrl/actions"
 
-/** A job's page on GitHub; Forgejo numbers jobs within their run instead, so its link opens the run. */
+/** A job's page on GitHub; on Forgejo, as for [runUrl], the repository's Actions page. */
 fun RepoId.jobUrl(runId: Long, jobId: Long): String =
     if (forge.type == ForgeType.GITHUB) "${runUrl(runId)}/job/$jobId" else runUrl(runId)
 

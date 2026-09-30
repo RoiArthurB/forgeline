@@ -15,13 +15,16 @@ import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
-/** CI for the active account. Logs and every write need a signed-in account: without one they fail as Unauthorized. */
+/**
+ * CI, with the account signed in to the repository's forge. Every write needs one: without it they fail as Unauthorized.
+ * Logs too on GitHub; Forgejo serves public logs to anyone.
+ */
 interface ActionsRepository {
     suspend fun run(id: RepoId, runId: Long): ForgeResult<WorkflowRun>
 
     suspend fun jobs(id: RepoId, runId: Long): ForgeResult<List<RunJob>>
 
-    suspend fun job(id: RepoId, jobId: Long): ForgeResult<RunJob>
+    suspend fun job(id: RepoId, runId: Long, jobId: Long): ForgeResult<RunJob>
 
     suspend fun jobLog(id: RepoId, jobId: Long): ForgeResult<JobLog>
 
@@ -34,6 +37,9 @@ interface ActionsRepository {
     suspend fun rerun(id: RepoId, runId: Long, failedJobsOnly: Boolean): ForgeResult<Unit>
 
     suspend fun cancel(id: RepoId, runId: Long): ForgeResult<Unit>
+
+    /** Whether [id]'s forge can start a finished run again. */
+    fun supportsRerun(id: RepoId): Boolean
 }
 
 class DefaultActionsRepository @Inject constructor(
@@ -45,9 +51,9 @@ class DefaultActionsRepository @Inject constructor(
 
     override suspend fun jobs(id: RepoId, runId: Long) = on(id) { api, token -> api.jobs(token, id, runId) }
 
-    override suspend fun job(id: RepoId, jobId: Long) = on(id) { api, token -> api.job(token, id, jobId) }
+    override suspend fun job(id: RepoId, runId: Long, jobId: Long) = on(id) { api, token -> api.job(token, id, runId, jobId) }
 
-    override suspend fun jobLog(id: RepoId, jobId: Long) = signedIn(id) { api, token -> api.jobLog(token, id, jobId) }
+    override suspend fun jobLog(id: RepoId, jobId: Long) = on(id) { api, token -> api.jobLog(token, id, jobId) }
 
     override suspend fun workflows(id: RepoId) = on(id) { api, token -> api.workflows(token, id) }
 
@@ -59,6 +65,8 @@ class DefaultActionsRepository @Inject constructor(
     override suspend fun rerun(id: RepoId, runId: Long, failedJobsOnly: Boolean) = signedIn(id) { api, token -> api.rerun(token, id, runId, failedJobsOnly) }
 
     override suspend fun cancel(id: RepoId, runId: Long) = signedIn(id) { api, token -> api.cancel(token, id, runId) }
+
+    override fun supportsRerun(id: RepoId): Boolean = clients.actions(id.forge)?.supportsRerun == true
 
     /** [call] with the repository forge's client and token (null signed out); Unsupported when it has no CI API. */
     private suspend fun <T> on(id: RepoId, call: suspend (ActionsApi, String?) -> ForgeResult<T>): ForgeResult<T> {

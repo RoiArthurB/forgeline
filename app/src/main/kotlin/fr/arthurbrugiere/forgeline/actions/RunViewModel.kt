@@ -36,6 +36,8 @@ data class RunUiState(
     /** The action waiting for the forge's answer. */
     val pending: RunAction? = null,
     val result: RunActionResult? = null,
+    /** Whether the forge can start the run again (Forgejo's API can't). */
+    val canRerun: Boolean = true,
 ) {
     val isFinished: Boolean get() = run?.status == RunStatus.COMPLETED
 }
@@ -52,7 +54,7 @@ class RunViewModel @AssistedInject constructor(
         fun create(repo: RepoId, runId: Long): RunViewModel
     }
 
-    private val _state = MutableStateFlow(RunUiState(repo, runId))
+    private val _state = MutableStateFlow(RunUiState(repo, runId, canRerun = actions.supportsRerun(repo)))
     val state: StateFlow<RunUiState> = _state.asStateFlow()
 
     init {
