@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.settings
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.assertIsOff
@@ -215,5 +216,53 @@ class SettingsScreenTest {
 
         composeRule.onNodeWithText("Inbox & notifications").assertIsDisplayed()
         composeRule.onNodeWithText("Appearance").assertDoesNotExist()
+    }
+
+    @Test
+    fun each_forgejo_server_can_have_its_trending_measured_on_the_phone() {
+        val home = ForgeInstance(ForgeType.FORGEJO, "git.example.org")
+        val github = Account(Account.idFor(ForgeInstance.GitHub, "me"), ForgeInstance.GitHub, ForgeUser("me", null, null))
+        val homeAccount = Account(Account.idFor(home, "me"), home, ForgeUser("me", null, null))
+        val changes = mutableListOf<Pair<String, Boolean>>()
+        composeRule.setContent {
+            SettingsScreen(
+                session = SessionState.SignedIn(github, listOf(github, homeAccount)),
+                onSignIn = {}, onSignOut = {}, settings = UserSettings(), versionName = "1.2.3",
+                onThemeModeChange = {}, onAmoledBlackChange = {}, onOpenCredits = {}, onOpenSourceCode = {}, onBack = {},
+                section = SettingsSection.TRENDING,
+                onTrendingMeasuredChange = { host, on -> changes += host to on },
+            )
+        }
+
+        // GitHub has its own list: only the Forgejo server is offered.
+        composeRule.onNodeWithText("Measure git.example.org here").performClick()
+        composeRule.onNodeWithText("Measure GitHub here").assertDoesNotExist()
+
+        assertThat(changes).containsExactly("git.example.org" to true)
+    }
+
+    @Test
+    fun a_measured_server_says_when_it_was_last_measured() {
+        val home = ForgeInstance(ForgeType.FORGEJO, "git.example.org")
+        val account = Account(Account.idFor(home, "me"), home, ForgeUser("me", null, null))
+        composeRule.setContent {
+            SettingsScreen(
+                session = SessionState.SignedIn(account),
+                onSignIn = {}, onSignOut = {}, settings = UserSettings(measuredTrending = setOf(home.host)), versionName = "1.2.3",
+                onThemeModeChange = {}, onAmoledBlackChange = {}, onOpenCredits = {}, onOpenSourceCode = {}, onBack = {},
+                section = SettingsSection.TRENDING,
+                measuredAt = mapOf(home.host to 0L),
+                nowMillis = 3 * 3_600_000L,
+            )
+        }
+
+        composeRule.onNodeWithText("Measured on this phone, last", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun with_only_github_there_is_nothing_to_measure() {
+        setContent(session = SessionState.SignedIn(Account("id", ForgeInstance.GitHub, ForgeUser("me", null, null))), section = SettingsSection.TRENDING)
+
+        composeRule.onNodeWithText("Nothing to choose yet").assertIsDisplayed()
     }
 }

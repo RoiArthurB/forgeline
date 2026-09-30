@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
+import fr.arthurbrugiere.forgeline.core.forge.TrendingMeter
 import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.forge.FeedApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeAuthApi
@@ -28,6 +29,7 @@ class FakeForgeClients(
     val auth: ForgeAuthApi = FakeForgeAuthApi(),
     val actions: ActionsApi? = FakeActionsApi(),
     val trending: TrendingApi? = FakeTrendingApi(),
+    val trendingMeter: TrendingMeter? = null,
 ) : ForgeClients {
     private val others = mutableMapOf<ForgeInstance, FakeForgeClients>()
     val asked = mutableListOf<String>()
@@ -64,4 +66,6 @@ class FakeForgeClients(
     override fun actions(forge: ForgeInstance) = ask("actions", forge) { actions }
 
     override fun trending(forge: ForgeInstance) = ask("trending", forge) { trending }
+
+    override fun trendingMeter(forge: ForgeInstance) = ask("meter", forge) { trendingMeter }
 }

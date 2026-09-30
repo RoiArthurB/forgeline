@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.settings
 
+import fr.arthurbrugiere.forgeline.core.testing.FakeTrendingRepository
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
@@ -19,7 +20,7 @@ class SettingsViewModelTest {
 
     private val repository = FakeUserSettingsRepository()
     // Lazy: must be created after MainDispatcherRule has installed the test Main dispatcher.
-    private val viewModel by lazy { SettingsViewModel(repository) }
+    private val viewModel by lazy { SettingsViewModel(repository, FakeTrendingRepository()) }
 
     @Test
     fun reflects_repository_settings() = runTest {

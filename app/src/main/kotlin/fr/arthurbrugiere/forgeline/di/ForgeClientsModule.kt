@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.di
 
+import fr.arthurbrugiere.forgeline.core.forge.TrendingMeter
+import fr.arthurbrugiere.forgeline.forge.forgejo.trending.ForgejoTrendingMeter
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -67,6 +69,7 @@ class DefaultForgeClients @Inject constructor(
         val notifications = ForgejoNotificationsApi(http, forge)
         val feed = ForgejoFeedApi(http, forge)
         val actions = ForgejoActionsApi(http, forge)
+        val trendingMeter = ForgejoTrendingMeter(http, forge)
 
         // Only Codeberg has a registered OAuth application: self-hosted instances sign in with a token.
         val auth = ForgejoAuthApi(http, forge, clientId = if (forge == ForgeInstance.Codeberg) codebergClientId else "")
@@ -100,6 +103,8 @@ class DefaultForgeClients @Inject constructor(
     override fun actions(forge: ForgeInstance): ActionsApi? = pick(forge, actions) { actions }
 
     override fun trending(forge: ForgeInstance): TrendingApi? = pick(forge, trending) { trending }
+
+    override fun trendingMeter(forge: ForgeInstance): TrendingMeter? = pick(forge, null) { trendingMeter }
 }
 
 /** Codeberg's OAuth client ID, from `forgeline.codebergClientId`; blank without one. */

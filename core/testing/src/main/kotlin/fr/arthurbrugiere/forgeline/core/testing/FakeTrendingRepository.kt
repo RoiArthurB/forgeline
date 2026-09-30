@@ -23,6 +23,17 @@ class FakeTrendingRepository : TrendingRepository {
 
     val marks = mutableMapOf<TrendingPeriod, Pair<RepoId, Int>>()
 
+    val measured = mutableListOf<ForgeInstance>()
+    var measureResult: RefreshResult = RefreshResult.Refreshed
+    val measuredAt = kotlinx.coroutines.flow.MutableStateFlow<Map<String, Long>>(emptyMap())
+
+    override suspend fun measure(forge: ForgeInstance): RefreshResult {
+        measured += forge
+        return measureResult
+    }
+
+    override fun observeMeasuredAt(): Flow<Map<String, Long>> = measuredAt
+
     /** Marks of pages narrowed to one forge, by period and host. */
     val forgeMarks = mutableMapOf<Pair<TrendingPeriod, String>, Pair<RepoId, Int>>()
 

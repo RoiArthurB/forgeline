@@ -12,4 +12,9 @@ data class UserSettings(
     val feedKinds: Set<FeedKind> = FeedKind.defaults,
     /** One Inbox tab per signed-in account instead of one list; only offered with several accounts. */
     val separateInboxPerForge: Boolean = false,
+    /**
+     * Forges (by host) whose Trending the phone measures itself, once a day: self-hosted servers nobody publishes a
+     * list for, or Codeberg instead of its shared list.
+     */
+    val measuredTrending: Set<String> = emptySet(),
 )

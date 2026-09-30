@@ -28,4 +28,7 @@ interface ForgeClients {
 
     /** Null when the forge has no trending list of its own. */
     fun trending(forge: ForgeInstance): TrendingApi?
+
+    /** What measures the forge's Trending on the phone; null when it can't be measured (GitHub has its own list). */
+    fun trendingMeter(forge: ForgeInstance): TrendingMeter?
 }

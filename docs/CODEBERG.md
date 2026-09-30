@@ -158,7 +158,9 @@ What checking the ratio turned up:
 
 The same merge works for any number of forges, so a self-hosted Forgejo instance could join later if someone ran the same job for it.
 
-**Which forges are on the page.** GitHub's Trending always, since it needs no account, plus Codeberg's once a Codeberg account is signed in: a GitHub-only user's page doesn't change. Each forge's ranking is cached and refreshed separately. A forge that can't be read keeps its cached rows, and the refresh only reports an error when no forge could be read. Rows name their forge only when the page mixes several.
+**Measured on the phone.** A self-hosted Forgejo server has nobody publishing its list, so Settings → Trending offers to measure it on the phone, and Codeberg too for anyone who'd rather not use the shared list. It's the same measurement as the daily job, and the same code (`forge:forgejo`'s `trending` package): once a day, a background task reads the server's repositories by stars, then its newest forks, with the account's token, and keeps a month of star counts in the app's database. Reading stops as soon as the server runs out or repositories fall under 2 stars, so a small server costs a couple of requests; at most 20 pages (1,000 repositories), 28 for Codeberg. It's off by default: nothing is read from a server unless asked. Turning it on measures at once, so the history starts that day.
+
+**Which forges are on the page.** GitHub's Trending always, since it needs no account, plus Codeberg's once a Codeberg account is signed in, and each server measured on the phone: a GitHub-only user's page doesn't change. Each forge's ranking is cached and refreshed separately. A forge that can't be read keeps its cached rows, and the refresh only reports an error when no forge could be read. Rows name their forge only when the page mixes several.
 
 ## Actions
 

@@ -1,5 +1,11 @@
 package fr.arthurbrugiere.forgeline.settings
 
+import java.time.Instant
+import fr.arthurbrugiere.forgeline.ui.relative
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.foundation.layout.height
 import fr.arthurbrugiere.forgeline.you.NavigationRow
 import androidx.compose.material.icons.outlined.Info
@@ -90,6 +96,7 @@ enum class SettingsSection(@StringRes val title: Int, val icon: ImageVector) {
     APPEARANCE(R.string.settings_section_appearance, Icons.Outlined.Palette),
     INBOX(R.string.settings_section_notifications, Icons.Outlined.Notifications),
     FEED(R.string.settings_section_feed, Icons.Outlined.DynamicFeed),
+    TRENDING(R.string.settings_section_trending, Icons.AutoMirrored.Outlined.TrendingUp),
     ABOUT(R.string.settings_section_about, Icons.Outlined.Info),
 }
 
@@ -105,6 +112,7 @@ fun SettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
+    val measuredAt by viewModel.measuredAt.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     SettingsScreen(
         session = session,
@@ -122,6 +130,8 @@ fun SettingsRoute(
         onBack = onBack,
         section = section,
         onOpenSection = onOpenSection,
+        measuredAt = measuredAt,
+        onTrendingMeasuredChange = viewModel::setTrendingMeasured,
     )
 }
 
@@ -145,6 +155,9 @@ fun SettingsScreen(
     /** The page shown; null is the main list of pages. */
     section: SettingsSection? = null,
     onOpenSection: (SettingsSection) -> Unit = {},
+    measuredAt: Map<String, Long> = emptyMap(),
+    onTrendingMeasuredChange: (host: String, measured: Boolean) -> Unit = { _, _ -> },
+    nowMillis: Long = System.currentTimeMillis(),
 ) {
     val colors = Soft.colors
     val listState = rememberLazyListState()
@@ -213,6 +226,39 @@ fun SettingsScreen(
                 }
             }
             if (section == SettingsSection.FEED) item { FeedKindsItem(settings.feedKinds, onFeedKindChange) }
+            if (section == SettingsSection.TRENDING) {
+                // Forgejo forges have no trending list of their own: Codeberg's is published daily, any other
+                // server's can be measured here. GitHub's comes from GitHub.
+                val forges = (session as? SessionState.SignedIn)?.accounts.orEmpty().map { it.forge }.distinct().filter { it.type == ForgeType.FORGEJO }
+                if (forges.isEmpty()) {
+                    item { SoftNotice(stringResource(R.string.settings_trending_none_title), stringResource(R.string.settings_trending_none_body)) }
+                }
+                items(forges, key = { "measure-${it.host}" }) { forge ->
+                    val measured = forge.host in settings.measuredTrending
+                    val last = measuredAt[forge.host]?.takeIf { measured }?.let { relative(Instant.ofEpochMilli(it), nowMillis) }
+                    SwitchItem(
+                        title = stringResource(R.string.settings_trending_measure, forge.displayName),
+                        summary = when {
+                            last != null -> stringResource(R.string.settings_trending_measured_at, last)
+                            forge == ForgeInstance.Codeberg -> stringResource(R.string.settings_trending_measure_codeberg)
+                            else -> stringResource(R.string.settings_trending_measure_server)
+                        },
+                        checked = measured,
+                        onCheckedChange = { onTrendingMeasuredChange(forge.host, it) },
+                        leading = { ForgeIcon(forge, size = 24.dp, tint = colors.ink) },
+                    )
+                }
+                if (forges.isNotEmpty()) {
+                    item {
+                        Text(
+                            stringResource(R.string.settings_trending_how),
+                            style = Soft.type.secondary,
+                            color = colors.inkMuted,
+                            modifier = SettingModifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                        )
+                    }
+                }
+            }
             if (section == SettingsSection.ABOUT) {
                 item { SettingRow(stringResource(R.string.settings_credits), stringResource(R.string.settings_credits_summary), onClick = onOpenCredits) }
                 item { SettingRow(stringResource(R.string.settings_source_code), SOURCE_CODE_URL.removePrefix("https://"), onClick = onOpenSourceCode) }
@@ -235,6 +281,9 @@ private fun SettingsSection.summary(session: SessionState, settings: UserSetting
     SettingsSection.APPEARANCE -> stringResource(settings.themeMode.label)
     SettingsSection.INBOX -> stringResource(R.string.settings_inbox_check_summary, stringResource(settings.inboxCheckInterval.label))
     SettingsSection.FEED -> stringResource(R.string.settings_feed_kinds_summary, settings.feedKinds.size, FeedKind.entries.size)
+    SettingsSection.TRENDING -> settings.measuredTrending.takeIf { it.isNotEmpty() }
+        ?.let { stringResource(R.string.settings_trending_summary_measured, it.sorted().joinToString()) }
+        ?: stringResource(R.string.settings_trending_summary)
     SettingsSection.ABOUT -> stringResource(R.string.settings_version_summary, versionName)
 }
 
@@ -426,11 +475,13 @@ private fun SwitchItem(
     summary: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    leading: (@Composable () -> Unit)? = null,
 ) {
     val colors = Soft.colors
     SettingRow(
         title = title,
         summary = summary,
+        leading = leading,
         modifier = Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
         trailing = {
             Switch(

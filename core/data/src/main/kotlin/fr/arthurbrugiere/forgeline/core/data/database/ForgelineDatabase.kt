@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.database
 
+import fr.arthurbrugiere.forgeline.core.data.trending.TrendingMeasurementEntity
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedDao
@@ -25,12 +26,12 @@ import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepoEntity
 /** Local cache: the UI renders from here first, the network only refreshes it. */
 @Database(
     entities = [
-        TrendingRepoEntity::class, TrendingFetchEntity::class, RepoCacheEntity::class, NotificationEntity::class, InboxSyncEntity::class,
+        TrendingRepoEntity::class, TrendingFetchEntity::class, TrendingMeasurementEntity::class, RepoCacheEntity::class, NotificationEntity::class, InboxSyncEntity::class,
         FeedEventEntity::class, FeedSyncEntity::class, ReadingMarkEntity::class, FeedPreviewEntity::class, SubjectStateEntity::class,
         ConversationEntity::class,
         DoneEntity::class,
     ],
-    version = 14,
+    version = 15,
     exportSchema = true,
 )
 abstract class ForgelineDatabase : RoomDatabase() {

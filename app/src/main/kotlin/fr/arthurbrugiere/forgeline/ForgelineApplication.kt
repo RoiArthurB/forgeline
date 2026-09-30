@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
 import fr.arthurbrugiere.forgeline.notifications.InboxSyncScheduler
+import fr.arthurbrugiere.forgeline.trending.TrendingMeasureScheduler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -17,9 +18,14 @@ class ForgelineApplication : Application(), Configuration.Provider {
     @Inject
     lateinit var inboxSyncScheduler: InboxSyncScheduler
 
+    @Inject
+    lateinit var trendingMeasureScheduler: TrendingMeasureScheduler
+
     override fun onCreate() {
         super.onCreate()
         // Off the main thread: reading settings and accounts must never delay the first frame.
-        inboxSyncScheduler.start(CoroutineScope(SupervisorJob() + Dispatchers.Default))
+        val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        inboxSyncScheduler.start(background)
+        trendingMeasureScheduler.start(background)
     }
 }

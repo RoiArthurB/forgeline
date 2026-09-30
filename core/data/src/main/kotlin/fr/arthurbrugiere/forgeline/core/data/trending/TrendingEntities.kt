@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.trending
 
+import androidx.room.PrimaryKey
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Insert
@@ -44,8 +45,25 @@ data class TrendingFetchEntity(
 )
 
 
+/** A forge's Trending history measured on the phone: opaque to the app, handed back to the next measurement. */
+@Entity(tableName = "trending_measurements")
+data class TrendingMeasurementEntity(
+    @PrimaryKey val host: String,
+    val state: String,
+    val measuredAtMillis: Long,
+)
+
 @Dao
 interface TrendingDao {
+    @Query("SELECT * FROM trending_measurements WHERE host = :host")
+    suspend fun measurement(host: String): TrendingMeasurementEntity?
+
+    @Upsert
+    suspend fun upsertMeasurement(measurement: TrendingMeasurementEntity)
+
+    @Query("SELECT host, '' AS state, measuredAtMillis FROM trending_measurements")
+    fun observeMeasurements(): Flow<List<TrendingMeasurementEntity>>
+
     /** Every forge's ranking for [period], each in its own order. */
     @Query("SELECT * FROM trending_repos WHERE period = :period ORDER BY host, rank")
     fun observeRepos(period: String): Flow<List<TrendingRepoEntity>>

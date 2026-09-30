@@ -29,6 +29,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
                     ?: defaults.themeMode,
                 amoledBlack = prefs[AMOLED_BLACK] ?: defaults.amoledBlack,
                 separateInboxPerForge = prefs[SEPARATE_INBOX] ?: defaults.separateInboxPerForge,
+                measuredTrending = prefs[MEASURED_TRENDING] ?: defaults.measuredTrending,
                 inboxCheckInterval = prefs[INBOX_CHECK]
                     ?.let { stored -> InboxCheckInterval.entries.firstOrNull { it.name == stored } }
                     ?: defaults.inboxCheckInterval,
@@ -67,10 +68,18 @@ class DataStoreUserSettingsRepository @Inject constructor(
         dataStore.edit { it[SEPARATE_INBOX] = enabled }
     }
 
+    override suspend fun setTrendingMeasured(host: String, measured: Boolean) {
+        dataStore.edit { prefs ->
+            val hosts = prefs[MEASURED_TRENDING].orEmpty()
+            prefs[MEASURED_TRENDING] = if (measured) hosts + host else hosts - host
+        }
+    }
+
     private companion object {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val AMOLED_BLACK = booleanPreferencesKey("amoled_black")
         val SEPARATE_INBOX = booleanPreferencesKey("separate_inbox_per_forge")
+        val MEASURED_TRENDING = stringSetPreferencesKey("measured_trending_hosts")
         val INBOX_CHECK = stringPreferencesKey("inbox_check_interval")
         val FEED_SHOWN = stringSetPreferencesKey("feed_kinds_shown")
         val FEED_HIDDEN = stringSetPreferencesKey("feed_kinds_hidden")

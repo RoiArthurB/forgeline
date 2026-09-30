@@ -21,6 +21,9 @@ class FakeUserSettingsRepository(initial: UserSettings = UserSettings()) : UserS
 
     override suspend fun setSeparateInboxPerForge(enabled: Boolean) = state.update { it.copy(separateInboxPerForge = enabled) }
 
+    override suspend fun setTrendingMeasured(host: String, measured: Boolean) =
+        state.update { it.copy(measuredTrending = if (measured) it.measuredTrending + host else it.measuredTrending - host) }
+
     override suspend fun setFeedKindShown(kind: FeedKind, shown: Boolean) =
         state.update { it.copy(feedKinds = if (shown) it.feedKinds + kind else it.feedKinds - kind) }
 

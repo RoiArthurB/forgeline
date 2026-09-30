@@ -1,4 +1,4 @@
-package fr.arthurbrugiere.forgeline.tools.trending
+package fr.arthurbrugiere.forgeline.forge.forgejo.trending
 
 import fr.arthurbrugiere.forgeline.forge.forgejo.TrendingEntry
 import fr.arthurbrugiere.forgeline.forge.forgejo.TrendingFile

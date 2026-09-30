@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.core.data.trending
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import fr.arthurbrugiere.forgeline.core.forge.TrendingMeasurement
+import fr.arthurbrugiere.forgeline.core.testing.FakeTrendingMeter
+import fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
@@ -39,7 +43,8 @@ class DefaultTrendingRepositoryTest {
     }
     private val clients = FakeForgeClients(trending = api)
     private val accounts = FakeAccountRepository()
-    private val repository = DefaultTrendingRepository(database.trendingDao(), clients, accounts, database.readingMarkDao(), clock)
+    private val settings = FakeUserSettingsRepository()
+    private val repository = DefaultTrendingRepository(database.trendingDao(), clients, accounts, database.readingMarkDao(), clock, settings)
     private val codebergApi = FakeTrendingApi(ForgeInstance.Codeberg).also { clients.put(ForgeInstance.Codeberg, FakeForgeClients(trending = it)) }
 
     private val paperclip = trendingRepo("paperclipai/paperclip").copy(
@@ -243,5 +248,71 @@ class DefaultTrendingRepositoryTest {
 
         assertThat(repository.readThrough(TrendingPeriod.DAILY, only = ForgeInstance.Codeberg)).isEqualTo(zig)
         assertThat(repository.readThrough(TrendingPeriod.DAILY)).isEqualTo(RepoId("acme", "tenth"))
+    }
+
+    private val selfHosted = ForgeInstance(ForgeType.FORGEJO, "git.example.org")
+    private val meter = FakeTrendingMeter().also { clients.put(selfHosted, FakeForgeClients(trending = null, trendingMeter = it)) }
+
+    @Test
+    fun a_server_measured_on_the_phone_joins_the_page_with_what_it_measured() = runTest {
+        accounts.signIn(selfHosted, ForgeUser("me", null, null), "t-home")
+        val tool = trendingRepo("team/tool", periodStars = 5, forge = selfHosted)
+        meter.next = ForgeResult.Success(TrendingMeasurement("day-1", mapOf(TrendingPeriod.DAILY to listOf(tool))))
+        api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
+        // Not measured: a self-hosted server has no list, so it's not on the page.
+        assertThat(repository.observe(TrendingPeriod.DAILY).first().forges).containsExactly(ForgeInstance.GitHub)
+
+        settings.setTrendingMeasured(selfHosted.host, true)
+        assertThat(repository.measure(selfHosted)).isEqualTo(RefreshResult.Refreshed)
+        repository.refresh(TrendingPeriod.DAILY)
+
+        val snapshot = repository.observe(TrendingPeriod.DAILY).first()
+        assertThat(snapshot.forges).containsExactly(ForgeInstance.GitHub, selfHosted).inOrder()
+        assertThat(snapshot.repos).containsExactly(paperclip, tool)
+        assertThat(meter.calls.single()).isEqualTo("t-home" to null)
+        assertThat(repository.observeMeasuredAt().first()).containsExactly(selfHosted.host, now.toEpochMilli())
+    }
+
+    @Test
+    fun each_measurement_is_handed_the_history_the_last_one_kept() = runTest {
+        accounts.signIn(selfHosted, ForgeUser("me", null, null), "t")
+        settings.setTrendingMeasured(selfHosted.host, true)
+        meter.next = ForgeResult.Success(TrendingMeasurement("day-1", emptyMap()))
+        repository.measure(selfHosted)
+        meter.next = ForgeResult.Success(TrendingMeasurement("day-2", emptyMap()))
+
+        repository.measure(selfHosted)
+
+        assertThat(meter.calls.map { it.second }).containsExactly(null, "day-1").inOrder()
+    }
+
+    @Test
+    fun a_failed_measurement_keeps_the_history_and_the_lists() = runTest {
+        accounts.signIn(selfHosted, ForgeUser("me", null, null), "t")
+        settings.setTrendingMeasured(selfHosted.host, true)
+        val tool = trendingRepo("team/tool", forge = selfHosted)
+        meter.next = ForgeResult.Success(TrendingMeasurement("day-1", mapOf(TrendingPeriod.DAILY to listOf(tool))))
+        repository.measure(selfHosted)
+        meter.next = ForgeResult.Failure(ForgeError.Network)
+
+        assertThat(repository.measure(selfHosted)).isEqualTo(RefreshResult.Failed(ForgeError.Network))
+
+        assertThat(repository.observe(TrendingPeriod.DAILY).first().repos).contains(tool)
+        meter.next = ForgeResult.Success(TrendingMeasurement("day-2", emptyMap()))
+        repository.measure(selfHosted)
+        assertThat(meter.calls.last().second).isEqualTo("day-1")
+    }
+
+    @Test
+    fun codeberg_measured_on_the_phone_no_longer_reads_the_published_list() = runTest {
+        signInToCodeberg()
+        val codebergMeter = FakeTrendingMeter()
+        clients.put(ForgeInstance.Codeberg, FakeForgeClients(trending = codebergApi, trendingMeter = codebergMeter))
+        settings.setTrendingMeasured(ForgeInstance.Codeberg.host, true)
+
+        repository.refresh(TrendingPeriod.DAILY, force = true)
+
+        assertThat(codebergApi.calls).isEmpty()
+        assertThat(repository.observe(TrendingPeriod.DAILY).first().forges).contains(ForgeInstance.Codeberg)
     }
 }

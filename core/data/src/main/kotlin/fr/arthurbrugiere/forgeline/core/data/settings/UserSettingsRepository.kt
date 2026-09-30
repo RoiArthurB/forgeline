@@ -18,4 +18,7 @@ interface UserSettingsRepository {
     suspend fun setFeedKindShown(kind: FeedKind, shown: Boolean)
 
     suspend fun setSeparateInboxPerForge(enabled: Boolean)
+
+    /** Whether the phone measures [host]'s Trending itself. */
+    suspend fun setTrendingMeasured(host: String, measured: Boolean)
 }

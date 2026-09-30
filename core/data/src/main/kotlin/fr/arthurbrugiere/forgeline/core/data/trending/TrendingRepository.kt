@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.trending
 
+import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
@@ -9,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkDao
 import fr.arthurbrugiere.forgeline.core.data.reading.advance
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -51,6 +53,15 @@ interface TrendingRepository {
     suspend fun readThrough(period: TrendingPeriod, only: ForgeInstance? = null): RepoId?
 
     /**
+     * Measures [forge]'s Trending on the phone (a forge the settings measure): one day more of history, and the lists
+     * it gives. No network for the page itself: it reads what the last measurement left.
+     */
+    suspend fun measure(forge: ForgeInstance): RefreshResult
+
+    /** When each measured forge (by host) was last measured. */
+    fun observeMeasuredAt(): Flow<Map<String, Long>>
+
+    /**
      * Records that [repo], at [rank] (0-based) in the list as shown, was read; only ever moves the mark further down.
      * A page narrowed to [only] one forge keeps its own mark: its ranks aren't the mixed page's.
      */
@@ -58,8 +69,9 @@ interface TrendingRepository {
 }
 
 /**
- * GitHub's Trending, always (it needs no account), and that of each other forge an account is signed in to, when the
- * forge has one. Each forge's ranking is cached and refreshed on its own; the page merges them with [mergeByShare].
+ * GitHub's Trending, always (it needs no account), and that of each other forge an account is signed in to: its
+ * published list when it has one, or the phone's own measurements when the settings ask for them. Each forge's
+ * ranking is cached and refreshed on its own; the page merges them with [mergeByShare].
  */
 class DefaultTrendingRepository @Inject constructor(
     private val dao: TrendingDao,
@@ -67,14 +79,17 @@ class DefaultTrendingRepository @Inject constructor(
     private val accounts: AccountRepository,
     private val marks: ReadingMarkDao,
     private val clock: Clock,
+    private val settings: UserSettingsRepository,
 ) : TrendingRepository {
 
     private val refreshLock = Mutex()
 
     /** The forges on the page, GitHub first: it wins ties in the merge. */
-    private val forges: Flow<List<ForgeInstance>> = accounts.accounts
-        .map { signedIn -> (listOf(ForgeInstance.GitHub) + signedIn.map { it.forge }).distinct().filter { clients.trending(it) != null } }
-        .distinctUntilChanged()
+    private val forges: Flow<List<ForgeInstance>> = combine(accounts.accounts, settings.settings) { signedIn, settings ->
+        (listOf(ForgeInstance.GitHub) + signedIn.map { it.forge }).distinct().filter { forge ->
+            if (forge.host in settings.measuredTrending) clients.trendingMeter(forge) != null else clients.trending(forge) != null
+        }
+    }.distinctUntilChanged()
 
     override fun observe(period: TrendingPeriod): Flow<TrendingSnapshot> =
         combine(forges, dao.observeRepos(period.name), dao.observeFetches(period.name)) { forges, repos, fetches ->
@@ -96,6 +111,8 @@ class DefaultTrendingRepository @Inject constructor(
     }
 
     private suspend fun refresh(forge: ForgeInstance, period: TrendingPeriod, force: Boolean): RefreshResult {
+        // Measured on the phone: the lists are what the last measurement left, nothing to fetch.
+        if (forge.host in settings.settings.first().measuredTrending) return RefreshResult.Fresh
         val api = clients.trending(forge) ?: return RefreshResult.Fresh
         val fetchedAt = dao.fetchedAt(forge.host, period.name)
         if (!force && fetchedAt != null && clock.millis() - fetchedAt < MAX_AGE.inWholeMilliseconds) {
@@ -116,6 +133,27 @@ class DefaultTrendingRepository @Inject constructor(
             }
         }
     }
+
+    override suspend fun measure(forge: ForgeInstance): RefreshResult {
+        val meter = clients.trendingMeter(forge) ?: return RefreshResult.Failed(ForgeError.Unsupported)
+        val previous = dao.measurement(forge.host)?.state
+        return when (val result = meter.measure(accounts.tokenOn(forge), previous)) {
+            is ForgeResult.Failure -> RefreshResult.Failed(result.error)
+            is ForgeResult.Success -> {
+                val now = clock.millis()
+                dao.upsertMeasurement(TrendingMeasurementEntity(forge.host, result.value.state, now))
+                // Empty lists are real here (too little history yet), unlike an empty scraped page.
+                TrendingPeriod.entries.forEach { period ->
+                    val repos = result.value.lists[period].orEmpty()
+                    dao.replace(forge.host, period.name, repos.mapIndexed { rank, repo -> repo.copy(id = repo.id.copy(forge = forge)).toEntity(period, rank) }, now)
+                }
+                RefreshResult.Refreshed
+            }
+        }
+    }
+
+    override fun observeMeasuredAt(): Flow<Map<String, Long>> =
+        dao.observeMeasurements().map { rows -> rows.associate { it.host to it.measuredAtMillis } }
 
     override suspend fun readThrough(period: TrendingPeriod, only: ForgeInstance?): RepoId? =
         marks.get(period.markList(only))?.takeIf { clock.millis() - it.markedAtMillis < MARK_MAX_AGE.inWholeMilliseconds }?.itemKey
