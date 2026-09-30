@@ -216,10 +216,12 @@
     <string name="run_rerun">Re-run</string>
     <string name="run_rerun_all">Re-run all jobs</string>
     <string name="run_rerun_failed">Re-run failed jobs</string>
-    <string name="run_asking_forge">Asking GitHub…</string>
+    <string name="run_asking_forge">Asking %1$s…</string>
     <string name="run_rerun_requested">Re-run requested</string>
     <string name="run_cancel_requested">Cancel requested</string>
-    <string name="run_action_no_access">GitHub refused: you need write access to this repository.</string>
+    <string name="run_action_no_access">%1$s refused: you need write access to this repository.</string>
+    <string name="run_jobs_unlisted_title">Jobs aren\'t listed here</string>
+    <string name="run_jobs_unlisted_body">This server\'s Forgejo doesn\'t list a run\'s jobs through its API yet. They\'re on the run\'s page.</string>
     <string name="log_loading">Loading the log</string>
     <string name="log_live">Running now. GitHub publishes the log when the job finishes; until then its steps update here.</string>
     <string name="log_publishing">GitHub is publishing the log</string>

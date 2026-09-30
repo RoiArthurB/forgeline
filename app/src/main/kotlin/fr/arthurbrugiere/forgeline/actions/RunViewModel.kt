@@ -38,6 +38,8 @@ data class RunUiState(
     val result: RunActionResult? = null,
     /** Whether the forge can start the run again (Forgejo's API can't). */
     val canRerun: Boolean = true,
+    /** The server can't list the run's jobs (older Forgejo): they're only on the run's page. */
+    val jobsUnlisted: Boolean = false,
 ) {
     val isFinished: Boolean get() = run?.status == RunStatus.COMPLETED
 }
@@ -95,12 +97,16 @@ class RunViewModel @AssistedInject constructor(
             val jobs = async { actions.jobs(repo, runId) }
             val runResult = run.await()
             val jobsResult = jobs.await()
+            val unlisted = (jobsResult as? ForgeResult.Failure)?.error == ForgeError.Unsupported
+            val jobsError = (jobsResult as? ForgeResult.Failure)?.error?.takeUnless { unlisted }
             _state.update { state ->
                 state.copy(
                     run = (runResult as? ForgeResult.Success)?.value ?: state.run,
                     jobs = (jobsResult as? ForgeResult.Success)?.value ?: state.jobs,
+                    jobsUnlisted = unlisted,
                     isRefreshing = false,
-                    error = if (showRefreshing) (runResult as? ForgeResult.Failure)?.error ?: (jobsResult as? ForgeResult.Failure)?.error else state.error,
+                    // A server that can't list jobs isn't failing.
+                    error = if (showRefreshing) (runResult as? ForgeResult.Failure)?.error ?: jobsError else state.error,
                 )
             }
         }

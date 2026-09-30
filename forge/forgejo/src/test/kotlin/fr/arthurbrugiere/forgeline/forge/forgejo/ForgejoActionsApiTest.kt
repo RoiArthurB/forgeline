@@ -196,4 +196,16 @@ class ForgejoActionsApiTest {
         // Unsupported answers without asking the forge.
         assertThat(codeberg.requests).hasSize(1)
     }
+
+    @Test
+    fun an_older_server_without_a_job_list_says_so_instead_of_failing() = runTest {
+        // Regression: a self-hosted Forgejo listed runs but answered 404 for a run's jobs, and the run wouldn't open.
+        val api = with(codeberg) {
+            api { request -> if (request.url.encodedPath.endsWith("/jobs")) status(HttpStatusCode.NotFound) else json(fixture("actions_run.json")) }
+        }
+
+        assertThat(api.run(null, website, 7368141)).isInstanceOf(ForgeResult.Success::class.java)
+        assertThat(api.jobs(null, website, 7368141)).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+        assertThat(api.job(null, website, 7368141, 1)).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+    }
 }

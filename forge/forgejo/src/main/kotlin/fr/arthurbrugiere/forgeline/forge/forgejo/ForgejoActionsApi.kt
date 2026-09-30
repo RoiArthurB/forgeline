@@ -45,9 +45,14 @@ class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: F
         call(token, id, "actions", "runs", runId.toString()).toResult { body<RunJson>().toModel() }
     }
 
-    /** Only the latest attempt's jobs, like GitHub's list. */
+    /**
+     * Only the latest attempt's jobs, like GitHub's list. Older Forgejo servers list runs but not their jobs (a 404
+     * for a run that exists): Unsupported, so the run still shows.
+     */
     override suspend fun jobs(token: String?, id: RepoId, runId: Long): ForgeResult<List<RunJob>> = forgejoCall {
-        call(token, id, "actions", "runs", runId.toString(), "jobs").toResult {
+        val response = call(token, id, "actions", "runs", runId.toString(), "jobs")
+        if (response.status == HttpStatusCode.NotFound) return@forgejoCall ForgeResult.Failure(ForgeError.Unsupported)
+        response.toResult {
             val jobs = body<List<JobJson>>()
             val latest = jobs.maxOfOrNull { it.attempt } ?: 0
             jobs.filter { it.attempt == latest }.map { it.toModel() }

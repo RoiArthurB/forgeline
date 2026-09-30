@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.actions.DefaultActionsRepository
@@ -134,5 +137,24 @@ class RunViewModelTest {
 
         assertThat(RunViewModel(codeberg, 7, DefaultActionsRepository(clients, accounts)).state.value.canRerun).isFalse()
         assertThat(viewModel().state.value.canRerun).isTrue()
+    }
+
+    @Test
+    fun a_server_that_cant_list_jobs_shows_the_run_without_an_error() = test {
+        // Regression: an older Forgejo answered the run but not its jobs, and the run screen only showed an error.
+        val codeberg = RepoId("me", "tool", ForgeInstance(ForgeType.FORGEJO, "git.example.org"))
+        val forgejo = object : ActionsApi by FakeActionsApi(supportsRerun = false) {
+            override suspend fun run(token: String?, id: RepoId, runId: Long) = ForgeResult.Success(workflowRun(runId))
+            override suspend fun jobs(token: String?, id: RepoId, runId: Long) = ForgeResult.Failure(ForgeError.Unsupported)
+        }
+        val clients = FakeForgeClients().also { it.put(codeberg.forge, FakeForgeClients(actions = forgejo)) }
+
+        val viewModel = RunViewModel(codeberg, 7, DefaultActionsRepository(clients, accounts))
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertThat(state.run?.id).isEqualTo(7)
+        assertThat(state.jobsUnlisted).isTrue()
+        assertThat(state.error).isNull()
     }
 }

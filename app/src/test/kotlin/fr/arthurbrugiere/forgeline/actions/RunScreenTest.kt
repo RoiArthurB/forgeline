@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -46,7 +48,7 @@ class RunScreenTest {
                 onPerform = { events += "perform:$it" },
                 onOpenJob = { events += "job:${it.id}" },
                 onOpenUser = { events += "user:$it" },
-                onOpenInBrowser = {},
+                onOpenInBrowser = { events += "browser" },
                 onResultShown = { events += "shown" },
                 onErrorShown = {},
                 nowMillis = start.plusSeconds(600).toEpochMilli(),
@@ -136,5 +138,16 @@ class RunScreenTest {
         setContent(failedRun.copy(run = workflowRun(7, status = RunStatus.IN_PROGRESS, conclusion = null), canRerun = false))
 
         composeRule.onNodeWithText("Cancel run").assertExists()
+    }
+
+    @Test
+    fun jobs_a_server_cant_list_point_to_the_runs_page() {
+        val selfHosted = RepoId("me", "tool", ForgeInstance(ForgeType.FORGEJO, "git.example.org"))
+        setContent(RunUiState(selfHosted, 7, run = workflowRun(7), jobsUnlisted = true, canRerun = false))
+
+        composeRule.onNodeWithText("Jobs aren't listed here").assertIsDisplayed()
+        composeRule.onNodeWithText("Open on git.example.org").performClick()
+
+        assertThat(events).contains("browser")
     }
 }

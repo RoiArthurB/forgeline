@@ -175,7 +175,7 @@ Forgejo Actions has an API close to GitHub's, checked against codeberg.org on 20
 | Logs | `##[group]` format | the same format (the runner is based on act), plus the runner's own lines | One shared parser in `core/forge`. |
 | Re-run | yes | **no API** | Re-run buttons are hidden on Codeberg; cancelling works. |
 
-A repository can switch Actions off (`has_actions: false`), and then it has no Actions tab.
+A repository can switch Actions off (`has_actions: false`), and then it has no Actions tab. Older Forgejo servers list runs but answer 404 for a run's jobs (reported on a self-hosted server, 2026-09-30): the run still opens, with a note that its jobs are on the run's page.
 
 ## Search
 

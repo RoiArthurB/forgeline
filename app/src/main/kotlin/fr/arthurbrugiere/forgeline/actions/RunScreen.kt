@@ -140,7 +140,7 @@ fun RunScreen(
     val snackbar = remember { SnackbarHostState() }
     val run = state.run
     val result = state.result
-    val resultText = result?.let { actionResultText(it) }
+    val resultText = result?.let { actionResultText(it, state.repo.forge.displayName) }
     LaunchedEffect(result) {
         if (resultText != null) {
             snackbar.showSnackbar(resultText)
@@ -190,7 +190,7 @@ fun RunScreen(
                         },
                     ) {
                         if (run != null) {
-                            RunHeader(run, state.pending, signedIn, nowMillis, onPerform, onOpenUser, canRerun = state.canRerun)
+                            RunHeader(run, state.pending, signedIn, nowMillis, onPerform, onOpenUser, canRerun = state.canRerun, forgeName = state.repo.forge.displayName)
                         } else {
                             Text(state.repo.fullName, style = Soft.type.title, color = colors.ink)
                         }
@@ -204,6 +204,14 @@ fun RunScreen(
                             stringResource(state.error.message),
                             action = stringResource(R.string.retry),
                             onAction = onRefresh,
+                        )
+                    }
+                    state.jobsUnlisted -> item(key = "jobs-unlisted") {
+                        SoftNotice(
+                            stringResource(R.string.run_jobs_unlisted_title),
+                            stringResource(R.string.run_jobs_unlisted_body),
+                            action = stringResource(R.string.repo_open_on_forge, state.repo.forge.displayName),
+                            onAction = onOpenInBrowser,
                         )
                     }
                     jobs == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.run_loading), rows = 4) }
@@ -233,6 +241,7 @@ private fun RunHeader(
     onPerform: (RunAction) -> Unit,
     onOpenUser: (String) -> Unit,
     canRerun: Boolean = true,
+    forgeName: String = "GitHub",
 ) {
     val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -259,19 +268,19 @@ private fun RunHeader(
             color = colors.inkMuted,
             modifier = run.actor?.let { actor -> Modifier.softPressable { onOpenUser(actor.login) } } ?: Modifier,
         )
-        if (signedIn) RunActions(run, pending, onPerform, canRerun)
+        if (signedIn) RunActions(run, pending, onPerform, canRerun, forgeName)
     }
 }
 
 /** What can be done to the run now: cancel it while it goes, re-run it once it's done. */
 @Composable
-private fun RunActions(run: WorkflowRun, pending: RunAction?, onPerform: (RunAction) -> Unit, canRerun: Boolean = true) {
+private fun RunActions(run: WorkflowRun, pending: RunAction?, onPerform: (RunAction) -> Unit, canRerun: Boolean, forgeName: String) {
     val colors = Soft.colors
     if (pending != null) {
         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = colors.accent, trackColor = colors.ground)
             Spacer(Modifier.width(12.dp))
-            Text(stringResource(R.string.run_asking_forge), style = Soft.type.body, color = colors.ink)
+            Text(stringResource(R.string.run_asking_forge, forgeName), style = Soft.type.body, color = colors.ink)
         }
         return
     }
@@ -324,10 +333,10 @@ private fun JobRow(job: RunJob, nowMillis: Long, onClick: () -> Unit) {
 }
 
 @Composable
-private fun actionResultText(result: RunActionResult): String {
+private fun actionResultText(result: RunActionResult, forgeName: String): String {
     val error = result.error
     return when {
-        error is ForgeError.Http && (error.status == 403 || error.status == 404) -> stringResource(R.string.run_action_no_access)
+        error is ForgeError.Http && (error.status == 403 || error.status == 404) -> stringResource(R.string.run_action_no_access, forgeName)
         error != null -> stringResource(error.message)
         result.action == RunAction.CANCEL -> stringResource(R.string.run_cancel_requested)
         else -> stringResource(R.string.run_rerun_requested)
