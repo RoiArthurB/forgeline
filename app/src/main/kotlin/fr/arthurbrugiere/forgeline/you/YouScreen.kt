@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.you
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.material.icons.outlined.PersonAdd
+import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -47,7 +50,7 @@ fun YouScreen(
     onSignIn: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
-    onOpenProfile: (String) -> Unit = {},
+    onOpenProfile: (Account) -> Unit = {},
 ) {
     val colors = Soft.colors
     Column(
@@ -71,7 +74,12 @@ fun YouScreen(
             },
         ) {
             if (session is SessionState.SignedIn) {
-                AccountHeader(session.account) { onOpenProfile(session.account.user.login) }
+                // Every account, each opening its own profile on its own forge; the active one first.
+                val accounts = listOf(session.account) + session.accounts.filter { it.id != session.account.id }
+                val compact = accounts.size > 1
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    accounts.forEach { account -> AccountHeader(account, compact) { onOpenProfile(account) } }
+                }
             }
         }
         if (session == SessionState.SignedOut) {
@@ -83,13 +91,14 @@ fun YouScreen(
             )
         }
         Spacer(Modifier.padding(top = 8.dp))
+        if (session is SessionState.SignedIn) NavigationRow(Icons.Outlined.PersonAdd, stringResource(R.string.settings_add_account), onSignIn)
         NavigationRow(Icons.Outlined.Settings, stringResource(R.string.settings_title), onOpenSettings)
     }
 }
 
 /** Who is signed in, big and friendly on the field; tapping it opens their profile. */
 @Composable
-private fun AccountHeader(account: Account, onClick: () -> Unit) {
+private fun AccountHeader(account: Account, compact: Boolean, onClick: () -> Unit) {
     val colors = Soft.colors
     Row(
         Modifier
@@ -101,7 +110,7 @@ private fun AccountHeader(account: Account, onClick: () -> Unit) {
         Avatar(
             account.user.avatarUrl,
             account.user.login,
-            size = 64.dp,
+            size = if (compact) 48.dp else 64.dp,
             placeholderColor = colors.ground,
             placeholderContentColor = colors.inkMuted,
         )
@@ -114,7 +123,10 @@ private fun AccountHeader(account: Account, onClick: () -> Unit) {
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text("@${account.user.login} · ${account.forge.host}", style = Soft.type.secondary, color = colors.inkMuted)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("@${account.user.login}", style = Soft.type.secondary, color = colors.inkMuted)
+                ForgeMark(account.forge, style = Soft.type.secondary, color = colors.inkMuted)
+            }
         }
         Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = colors.inkMuted)
     }

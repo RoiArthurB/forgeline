@@ -214,6 +214,14 @@ class ScreenshotTest {
         YouScreen(SessionState.SignedIn(octocat), onSignIn = {}, onOpenSettings = {})
     }
 
+    @Test
+    fun you_several_forges_light() = snapshot("you_several_forges_light", darkTheme = false) {
+        val codeberg = Account(Account.idFor(ForgeInstance.Codeberg, "octocat"), ForgeInstance.Codeberg, ForgeUser("octocat", "The Octocat", null))
+        val selfHosted = ForgeInstance(ForgeType.FORGEJO, "git.example.org")
+        val home = Account(Account.idFor(selfHosted, "octo"), selfHosted, ForgeUser("octo", null, null))
+        YouScreen(SessionState.SignedIn(octocat, listOf(octocat, codeberg, home)), onSignIn = {}, onOpenSettings = {})
+    }
+
     // Synthetic list: plausible names, languages and counts, not real GitHub data.
     private val trendingState = TrendingUiState(
         items = listOf(

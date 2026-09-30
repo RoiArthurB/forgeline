@@ -134,7 +134,7 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 session,
                 onSignIn = signIn,
                 onOpenSettings = { navigator.navigate(SettingsRoute) },
-                onOpenProfile = { login -> (session as? SessionState.SignedIn)?.let { openUser(it.account.forge, login) } },
+                onOpenProfile = { account -> openUser(account.forge, account.user.login) },
             )
         }
         entry<SettingsRoute> {
