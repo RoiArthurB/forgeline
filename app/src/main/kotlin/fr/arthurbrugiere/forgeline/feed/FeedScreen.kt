@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import androidx.compose.ui.platform.LocalDensity
 import fr.arthurbrugiere.forgeline.core.ui.format.forgeInlineContent
 import fr.arthurbrugiere.forgeline.core.ui.format.appendForge
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -349,7 +350,7 @@ private fun FeedRow(
                 inlineContent = forge?.let { forgeInlineContent(it, colors.inkMuted) }.orEmpty(),
                 style = Soft.type.secondary,
                 color = colors.inkMuted,
-                maxLines = 2,
+                maxLines = if (LocalDensity.current.fontScale > 1.3f) 4 else 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 2.dp),
             )

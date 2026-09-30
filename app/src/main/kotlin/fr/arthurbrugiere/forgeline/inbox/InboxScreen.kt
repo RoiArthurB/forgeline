@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import fr.arthurbrugiere.forgeline.core.ui.format.forgeInlineContent
 import fr.arthurbrugiere.forgeline.core.ui.format.appendForge
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
@@ -466,9 +468,9 @@ private fun SectionHeading(section: InboxSection, unread: Int, modifier: Modifie
     val animations = animationsEnabled()
     Row(
         modifier
+            .widthIn(max = SoftTokens.MaxReadingWidth)
             .fillMaxWidth()
             .background(colors.ground)
-            .widthIn(max = SoftTokens.MaxReadingWidth)
             .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 6.dp)
             .semantics(mergeDescendants = true) { heading() },
         verticalAlignment = Alignment.CenterVertically,
@@ -501,6 +503,7 @@ private fun SectionHeading(section: InboxSection, unread: Int, modifier: Modifie
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ThreadRow(
     thread: NotificationThread,
@@ -575,7 +578,12 @@ private fun ThreadRow(
             }
             Spacer(Modifier.width(4.dp))
             Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // A flow, so at a large font the repository drops below the pill instead of being squeezed to "ac…".
+                FlowRow(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    itemVerticalAlignment = Alignment.CenterVertically,
+                ) {
                     // Waiting on you: why, on the warm "for you" tint. Everything else: what it is, on a quiet surface.
                     if (section == InboxSection.NEEDS_YOU) {
                         SoftPill(stringResource(thread.reason.label), thread.type.icon, colors.fields[0])
@@ -588,7 +596,7 @@ private fun ThreadRow(
                         thread.number?.let { "#$it" }
                     }
                     if (where != null) {
-                        Row(Modifier.weight(1f, fill = false), verticalAlignment = Alignment.CenterVertically) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             if (section == InboxSection.NEEDS_YOU) {
                                 OwnerAvatar(thread, 18.dp)
                                 Spacer(Modifier.width(6.dp))

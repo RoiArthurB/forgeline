@@ -10,6 +10,8 @@ import fr.arthurbrugiere.forgeline.navigation.rememberAppNavigator
 import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.hasText
@@ -293,6 +295,46 @@ class ScreenshotTest {
             if (index % 2 == 1) item.copy(repo = item.repo.copy(id = item.repo.id.copy(forge = ForgeInstance.Codeberg))) else item
         }
         TrendingPreview(trendingState.copy(items = items, showForge = true, forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)))
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun trending_two_digit_ranks_font_2_0_light() = snapshot(
+        "trending_two_digit_ranks_font_2_0_light",
+        darkTheme = false,
+        // Rank 10 and beyond, where a fixed-width rank column used to wrap its digits.
+        beforeCapture = { composeRule.onNode(hasScrollAction()).performScrollToIndex(11) },
+    ) {
+        val items = (1..25).map { TrendingItem(trendingRepo("owner$it/project$it", stars = 1_000 * it, periodStars = 300 - it), null) }
+        TrendingPreview(TrendingUiState(items = items, updatedAtMillis = 0L))
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun repo_issues_font_2_0_light() = snapshot("repo_issues_font_2_0_light", darkTheme = false) {
+        RepoPreview(
+            repoState.copy(
+                tab = RepoTab.ISSUES,
+                issues = Loadable.Loaded(listOf(issueSummary(14127, "Heartbeat recovery escalates too early"), issueSummary(14121, "Wake-queue reopen activity record names"))),
+            ),
+        )
+    }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-land-xhdpi")
+    fun repo_issues_tablet_light() = snapshot("repo_issues_tablet_light", darkTheme = false) {
+        RepoPreview(
+            repoState.copy(
+                tab = RepoTab.ISSUES,
+                issues = Loadable.Loaded(listOf(issueSummary(14127, "Heartbeat recovery escalates too early"), issueSummary(14121, "Wake-queue reopen activity record names"))),
+            ),
+        )
+    }
+
+    @Test
+    @Config(qualifiers = "w800dp-h360dp-land-xhdpi")
+    fun app_shell_landscape_phone_light() = snapshot("app_shell_landscape_phone_light", darkTheme = false) {
+        ForgelineApp(session = SessionState.SignedOut, onSignOut = {}, navigator = rememberAppNavigator(settled = true))
     }
 
     @Test
@@ -600,7 +642,18 @@ class ScreenshotTest {
     }
 
     @Test
-    fun inbox_several_accounts_light() = snapshot("inbox_several_accounts_light", darkTheme = false) {
+    fun inbox_several_accounts_light() = snapshot("inbox_several_accounts_light", darkTheme = false) { InboxAccountsPreview() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun inbox_several_accounts_font_2_0_light() = snapshot("inbox_several_accounts_font_2_0_light", darkTheme = false) { InboxAccountsPreview() }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-land-xhdpi")
+    fun inbox_several_accounts_tablet_light() = snapshot("inbox_several_accounts_tablet_light", darkTheme = false) { InboxAccountsPreview() }
+
+    @Composable
+    private fun InboxAccountsPreview() {
         val codeberg = Account(Account.idFor(ForgeInstance.Codeberg, "octocat"), ForgeInstance.Codeberg, ForgeUser("octocat", "The Octocat", null))
         val onCodeberg = notificationThread("51", repo = "forgejo/forgejo", title = "Runner ignores the label filter", reason = NotificationReason.REVIEW_REQUESTED, updatedAt = "2026-09-27T09:20:00Z")
             .let { it.copy(repo = it.repo.copy(forge = ForgeInstance.Codeberg), accountId = codeberg.id) }
@@ -653,7 +706,18 @@ class ScreenshotTest {
     fun feed_dark() = snapshot("feed_dark", darkTheme = true) { FeedPreview() }
 
     @Test
-    fun feed_mixed_forges_light() = snapshot("feed_mixed_forges_light", darkTheme = false) {
+    fun feed_mixed_forges_light() = snapshot("feed_mixed_forges_light", darkTheme = false) { FeedMixedPreview() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun feed_font_2_0_light() = snapshot("feed_font_2_0_light", darkTheme = false) { FeedPreview() }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-land-xhdpi")
+    fun feed_tablet_light() = snapshot("feed_tablet_light", darkTheme = false) { FeedPreview() }
+
+    @Composable
+    private fun FeedMixedPreview() {
         val onCodeberg = feedEvent("21", actor = "alice", repo = "forgejo/forgejo", createdAt = "2026-09-27T09:50:00Z", action = FeedAction.PullRequest(PullRequestAction.MERGED, 43))
             .let { it.copy(repo = it.repo.copy(forge = ForgeInstance.Codeberg)) }
         val onGitHub = feedEvent("20", actor = "bob", repo = "acme/rocket", createdAt = "2026-09-27T09:45:00Z", action = FeedAction.Issue(IssueAction.CLOSED, 42, "Launch fails on cold start"))
@@ -726,7 +790,14 @@ class ScreenshotTest {
     }
 
     @Test
-    fun search_mixed_forges_light() = snapshot("search_mixed_forges_light", darkTheme = false) {
+    fun search_mixed_forges_light() = snapshot("search_mixed_forges_light", darkTheme = false) { SearchMixedPreview() }
+
+    @Test
+    @Config(qualifiers = "w1280dp-h800dp-land-xhdpi")
+    fun search_mixed_forges_tablet_light() = snapshot("search_mixed_forges_tablet_light", darkTheme = false) { SearchMixedPreview() }
+
+    @Composable
+    private fun SearchMixedPreview() {
         // Several forges searched: every result wears its forge's logo; a self-hosted server adds its host.
         val codeberg = ForgeInstance.Codeberg
         val selfHosted = ForgeInstance(ForgeType.FORGEJO, "git.example.org")

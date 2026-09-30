@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.trending
 
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
@@ -395,12 +396,14 @@ private fun RepoRow(rank: Int, item: TrendingItem, period: TrendingPeriod, onTog
             .softPressable(onClick = onOpen)
             .padding(start = 12.dp, end = 4.dp, top = 14.dp, bottom = 4.dp),
     ) {
+        // The rank column grows with the font: a fixed 30dp split "10" in two once the text was scaled up.
+        val rankWidth = with(LocalDensity.current) { 30.sp.toDp() }
         Row(verticalAlignment = Alignment.Top) {
             Text(
                 "$rank",
                 style = type.figure,
                 color = colors.accent,
-                modifier = Modifier.width(30.dp).padding(top = 3.dp).clearAndSetSemantics { contentDescription = rankDescription },
+                modifier = Modifier.width(rankWidth).padding(top = 3.dp).clearAndSetSemantics { contentDescription = rankDescription },
             )
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {

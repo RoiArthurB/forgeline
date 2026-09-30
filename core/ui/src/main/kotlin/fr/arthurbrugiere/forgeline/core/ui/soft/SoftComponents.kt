@@ -1,5 +1,10 @@
 package fr.arthurbrugiere.forgeline.core.ui.soft
 
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.layout.PaddingValues
 import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
@@ -240,13 +245,16 @@ fun SoftSwitch(
                     val color = if (isSelected) colors.onThumb else colors.inkMuted
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
                         leading?.invoke(index, color)
-                        // Shrinks a word that can't wrap (at very large font scales) instead of cutting it off.
+                        // Shrinks a word that can't wrap (at very large font scales) instead of cutting it off, down to 12dp on screen.
                         Text(
                             option,
                             style = Soft.type.control,
                             color = color,
                             textAlign = TextAlign.Center,
-                            autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = Soft.type.control.fontSize),
+                            // A single word must shrink to fit: allowed to break, it would "fit" by wrapping mid-word.
+                            softWrap = ' ' in option,
+                            maxLines = if (' ' in option) Int.MAX_VALUE else 1,
+                            autoSize = TextAutoSize.StepBased(minFontSize = (12f / LocalDensity.current.fontScale).sp, maxFontSize = Soft.type.control.fontSize),
                             modifier = Modifier.weight(1f, fill = false),
                         )
                     }
@@ -288,15 +296,32 @@ fun SoftChipTabs(
     // Where each option sits, so the thumb can travel between options of different widths.
     val bounds = remember(options) { mutableStateListOf<Pair<Dp, Dp>>().apply { repeat(options.size) { add(0.dp to 0.dp) } } }
     val target = bounds.getOrNull(selected) ?: (0.dp to 0.dp)
+    val scroll = rememberScrollState()
+    var viewport by remember { mutableIntStateOf(0) }
+    // Bring the chosen option into view: a strip wider than the screen can open on an option that is cut off.
+    LaunchedEffect(selected, target, viewport) {
+        if (target.second <= 0.dp || viewport <= 0) return@LaunchedEffect
+        val start = with(density) { (contentPadding.calculateLeftPadding(LayoutDirection.Ltr) + 4.dp + target.first).roundToPx() }
+        val end = start + with(density) { target.second.roundToPx() }
+        val edge = with(density) { 8.dp.roundToPx() }
+        val to = when {
+            start - edge < scroll.value -> start - edge
+            end + edge > scroll.value + viewport -> end + edge - viewport
+            else -> return@LaunchedEffect
+        }.coerceIn(0, scroll.maxValue)
+        if (animations) scroll.animateScrollTo(to) else scroll.scrollTo(to)
+    }
     val motion: androidx.compose.animation.core.AnimationSpec<Dp> =
         if (animations) spring(dampingRatio = 0.8f, stiffness = SoftTokens.SpringStiffness) else tween(0)
     val thumbX by animateDpAsState(target.first, motion, label = "thumbX")
     val thumbWidth by animateDpAsState(target.second, motion, label = "thumbWidth")
     Box(
         modifier
+            .widthIn(max = SoftTokens.MaxReadingWidth)
             .fillMaxWidth()
             .background(background)
-            .horizontalScroll(rememberScrollState())
+            .onSizeChanged { viewport = it.width }
+            .horizontalScroll(scroll)
             .padding(contentPadding),
     ) {
         Box(
