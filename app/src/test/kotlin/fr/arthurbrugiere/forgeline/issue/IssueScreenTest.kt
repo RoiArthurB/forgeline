@@ -21,6 +21,10 @@ import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.testing.comment
 import fr.arthurbrugiere.forgeline.core.testing.issueDetails
 import org.junit.Rule
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
+import androidx.compose.ui.test.isHeading
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import androidx.compose.ui.test.onNodeWithContentDescription
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -170,5 +174,22 @@ class IssueScreenTest {
         composeRule.onNodeWithText("Retry").performClick()
 
         assertThat(events).containsExactly("refresh")
+    }
+
+    @Test
+    fun the_header_meets_touch_targets_and_names_its_hero() {
+        setContent(IssueUiState(ref, issueDetails(ref, "Crash on start"), listOf(comment(1, "Same here", login = "hubot"))))
+        waitFor("Same here")
+
+        composeRule.assertEveryTargetIsAtLeast48dp()
+        composeRule.onNode(hasText("Crash on start", substring = true) and isHeading()).assertIsDisplayed()
+    }
+
+    @Test
+    fun open_in_browser_names_the_issues_forge() {
+        val onCodeberg = IssueRef(RepoId("octo", "repo", ForgeInstance.Codeberg), 7)
+        setContent(IssueUiState(onCodeberg, issueDetails(onCodeberg, "Crash on start")))
+
+        composeRule.onNodeWithContentDescription("Open on Codeberg").assertIsDisplayed()
     }
 }

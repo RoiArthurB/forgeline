@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.search
 
+import androidx.compose.foundation.layout.imePadding
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
@@ -141,7 +142,8 @@ fun SearchScreen(
             state = listState,
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = PaddingValues(bottom = listBottomPadding()),
-            modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+            // Results stay above the keyboard (edge-to-edge doesn't resize the window for it).
+            modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)).imePadding(),
         ) {
             item(key = "header") {
                 SoftHeader(
@@ -175,6 +177,7 @@ fun SearchScreen(
                                 focus.requestFocus()
                             },
                             focus = focus,
+                            target = state.searchTarget(),
                         )
                         SoftSwitch(
                             options = SearchScope.entries.map { stringResource(it.label) },
@@ -186,7 +189,12 @@ fun SearchScreen(
             }
             when {
                 !results.submitted -> item(key = "intro") {
-                    SoftNotice(stringResource(R.string.search_intro_title), stringResource(R.string.search_intro_body))
+                    val target = state.searchTarget()
+                    SoftNotice(
+                        target?.let { stringResource(R.string.search_intro_title, it.displayName) } ?: stringResource(R.string.search_intro_title_all),
+                        // GitHub's qualifiers only mean something on GitHub.
+                        stringResource(if (target == ForgeInstance.GitHub) R.string.search_intro_body else R.string.search_intro_body_forgejo),
+                    )
                 }
                 results.items.isEmpty() && results.isLoading -> item(key = "loading") {
                     SoftLoadingRows(stringResource(R.string.search_loading), rows = 4)
@@ -251,12 +259,12 @@ fun SearchScreen(
 
 /** The query in the one text field, on the ground over the lilac field: a search glyph and a clear button. */
 @Composable
-private fun SearchField(query: String, onQueryChange: (String) -> Unit, onSubmit: () -> Unit, onClear: () -> Unit, focus: FocusRequester) {
+private fun SearchField(query: String, onQueryChange: (String) -> Unit, onSubmit: () -> Unit, onClear: () -> Unit, focus: FocusRequester, target: ForgeInstance?) {
     val colors = Soft.colors
     SoftTextField(
         value = query,
         onValueChange = onQueryChange,
-        placeholder = stringResource(R.string.search_hint),
+        placeholder = target?.let { stringResource(R.string.search_hint, it.displayName) } ?: stringResource(R.string.search_hint_all),
         background = colors.ground,
         leading = { Icon(Icons.Outlined.Search, contentDescription = null, tint = colors.inkMuted) },
         trailing = {
@@ -307,3 +315,6 @@ private val SearchScope.label: Int
         SearchScope.ISSUES -> R.string.search_scope_issues
         SearchScope.USERS -> R.string.search_scope_users
     }
+
+/** The one forge a search goes to (the chosen one, or the only one signed in), or null when it spans several. */
+private fun SearchUiState.searchTarget(): ForgeInstance? = onlyForge ?: forges.singleOrNull() ?: ForgeInstance.GitHub.takeIf { forges.isEmpty() }

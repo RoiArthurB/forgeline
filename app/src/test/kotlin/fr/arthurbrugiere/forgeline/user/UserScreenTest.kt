@@ -11,6 +11,9 @@ import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.testing.userProfile
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import org.junit.Rule
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
+import androidx.compose.ui.test.isHeading
+import androidx.compose.ui.test.hasText
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -82,5 +85,13 @@ class UserScreenTest {
         composeRule.onNodeWithText("Starred").performClick()
 
         assertThat(events).containsExactly("tab:STARRED")
+    }
+
+    @Test
+    fun the_header_meets_touch_targets_and_names_its_hero() {
+        setContent(base.copy(profile = base.profile!!.copy(website = "octo.example")))
+
+        composeRule.assertEveryTargetIsAtLeast48dp()
+        composeRule.onNode(hasText("The Octocat") and isHeading()).assertIsDisplayed()
     }
 }

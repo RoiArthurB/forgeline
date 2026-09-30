@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import fr.arthurbrugiere.forgeline.core.model.jobUrl
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -158,7 +160,7 @@ fun JobLogScreen(
                     },
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(state.jobName, style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 30.sp), color = colors.ink)
+                        Text(state.jobName, style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 30.sp), color = colors.ink, modifier = Modifier.semantics { heading() })
                         state.job?.let { job ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 RunStatusIcon(job.status, job.conclusion, size = 28.dp)

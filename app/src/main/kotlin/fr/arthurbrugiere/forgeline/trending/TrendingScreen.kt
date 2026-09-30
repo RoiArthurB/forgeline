@@ -297,7 +297,10 @@ fun TrendingScreen(
                         !hasItems && state.updatedAtMillis != null && !state.isRefreshing -> item(key = "empty") {
                             SoftNotice(
                                 stringResource(R.string.trending_empty_title),
-                                stringResource(R.string.trending_empty_body),
+                                // Name the forge that came back empty; with several mixed, blame none of them.
+                                (state.onlyForge ?: state.forges.singleOrNull() ?: ForgeInstance.GitHub.takeIf { state.forges.isEmpty() })
+                                    ?.let { stringResource(R.string.trending_empty_body, it.displayName) }
+                                    ?: stringResource(R.string.trending_empty_body_mixed),
                                 action = stringResource(R.string.trending_refresh),
                                 onAction = onRefresh,
                             )
@@ -329,7 +332,7 @@ fun TrendingScreen(
             val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
             SoftStatusBarScrim(scrolled)
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current)) { data ->
-                Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground, actionColor = colors.thumb)
+                Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground)
             }
         }
     }

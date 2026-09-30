@@ -154,7 +154,8 @@
     <string name="search_loading">Searching</string>
     <string name="trending_loading">Loading trending repositories</string>
     <string name="trending_empty_title">Nothing trending here yet</string>
-    <string name="trending_empty_body">GitHub returned an empty list. Refresh to check again.</string>
+    <string name="trending_empty_body">%1$s returned an empty list. Refresh to check again.</string>
+    <string name="trending_empty_body_mixed">None of your forges returned anything trending. Refresh to check again.</string>
     <string name="trending_refresh">Refresh</string>
     <string name="trending_star">Star %1$s</string>
     <string name="trending_unstar">Unstar %1$s</string>
@@ -162,8 +163,8 @@
     <string name="trending_forks">%1$s forks</string>
     <string name="trending_error_title">Couldn\'t load Trending</string>
     <string name="trending_error_offline">Check your connection and try again.</string>
-    <string name="trending_error_rate_limited">GitHub is limiting requests right now. Try again in a few minutes.</string>
-    <string name="trending_error_unknown">GitHub didn\'t return the trending list. Try again later.</string>
+    <string name="trending_error_rate_limited">The forge is limiting requests right now. Try again in a few minutes.</string>
+    <string name="trending_error_unknown">The trending list didn\'t load. Try again later.</string>
     <string name="trending_refresh_failed">Couldn\'t refresh. Showing the last saved list.</string>
     <string name="trending_star_failed">Couldn\'t update the star. Try again.</string>
     <string name="retry">Retry</string>
@@ -293,7 +294,7 @@
     <string name="repo_run_meta">%1$s · %2$s · #%3$d</string>
 
     <string name="file_too_large_title">Too large to preview</string>
-    <string name="file_too_large_body">Open it on GitHub to see it.</string>
+    <string name="file_too_large_body">Open it in your browser to see it.</string>
     <string name="file_binary_title">Binary file</string>
     <string name="file_binary_body">This file can\'t be shown as text.</string>
     <string name="file_error_title">Couldn\'t open this file</string>
@@ -322,7 +323,6 @@
     <string name="issue_review_dismissed">%1$s\'s review was dismissed</string>
     <string name="issue_load_more">Load more</string>
     <string name="issue_error_title">Couldn\'t open this conversation</string>
-    <string name="issue_open_on_forge">Open on GitHub</string>
 
     <string name="user_follow">Follow</string>
     <string name="user_following">Following</string>
@@ -337,13 +337,16 @@
 
     <string name="no_browser">No browser available to open this page</string>
     <string name="search">Search</string>
-    <string name="search_hint">Search GitHub</string>
+    <string name="search_hint">Search %1$s</string>
+    <string name="search_hint_all">Search your forges</string>
     <string name="search_clear">Clear</string>
     <string name="search_scope_repositories">Repositories</string>
     <string name="search_scope_issues">Issues &amp; PRs</string>
     <string name="search_scope_users">People</string>
-    <string name="search_intro_title">Find anything on GitHub</string>
+    <string name="search_intro_title">Find anything on %1$s</string>
+    <string name="search_intro_title_all">Find anything on your forges</string>
     <string name="search_intro_body">Find repositories, issues, pull requests and people. GitHub\'s search syntax works too, like language:kotlin or is:open.</string>
+    <string name="search_intro_body_forgejo">Find repositories, issues, pull requests and people.</string>
     <string name="search_empty_title">No results</string>
     <string name="search_empty_body">Nothing matches \u201c%1$s\u201d here. Try another tab or fewer words.</string>
     <string name="search_error_title">Search failed</string>

@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import fr.arthurbrugiere.forgeline.core.ui.format.languageColor
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import fr.arthurbrugiere.forgeline.session.signedInOn
@@ -400,7 +403,7 @@ private fun RepoHeader(
             // Where the repository lives: always said here, whatever else is signed in.
             ForgeMark(details.id.forge, style = Soft.type.secondary, color = colors.inkMuted, size = 16.dp)
         }
-        Text(details.id.name, style = Soft.type.title.copy(fontSize = 30.sp, lineHeight = 34.sp), color = colors.ink)
+        Text(details.id.name, style = Soft.type.title.copy(fontSize = 30.sp, lineHeight = 34.sp), color = colors.ink, modifier = Modifier.semantics { heading() })
         details.description?.let {
             Text(it, style = Soft.type.body.copy(fontSize = 16.sp), color = colors.ink, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure))
         }
@@ -446,7 +449,8 @@ private fun RepoHeader(
                 .padding(top = 4.dp)
                 .clip(SoftTokens.Pill)
                 .background(if (isStarred) colors.ground else colors.thumb)
-                .clickable(role = Role.Button, onClick = onToggleStar)
+                // A toggle, so screen readers hear "on" or "off" as well as the label.
+                .toggleable(value = isStarred, role = Role.Switch, onValueChange = { onToggleStar() })
                 .heightIn(min = 48.dp)
                 .padding(horizontal = 20.dp),
             contentAlignment = Alignment.Center,

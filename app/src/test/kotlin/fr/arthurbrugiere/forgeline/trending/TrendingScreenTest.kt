@@ -285,4 +285,20 @@ class TrendingScreenTest {
 
         assertThat(rank()).isEqualTo(alone)
     }
+
+    @Test
+    fun an_empty_list_names_the_forge_it_came_from() {
+        // Regression: the notice blamed GitHub on every forge.
+        setContent(TrendingUiState(updatedAtMillis = 0L, forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg), onlyForge = ForgeInstance.Codeberg))
+
+        composeRule.onNodeWithText("Codeberg returned an empty list", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun an_empty_mix_blames_no_single_forge() {
+        setContent(TrendingUiState(updatedAtMillis = 0L, forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)))
+
+        composeRule.onNodeWithText("None of your forges", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("GitHub returned", substring = true).assertDoesNotExist()
+    }
 }

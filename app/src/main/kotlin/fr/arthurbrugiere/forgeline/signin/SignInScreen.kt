@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.signin
 
+import androidx.compose.foundation.layout.imePadding
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
 import android.content.ClipData
 import androidx.compose.foundation.layout.Arrangement
@@ -124,6 +125,8 @@ fun SignInScreen(
         modifier
             .fillMaxSize()
             .background(colors.ground)
+            // The token field scrolls above the keyboard (edge-to-edge doesn't resize the window for it).
+            .imePadding()
             .verticalScroll(rememberScrollState())
             .padding(bottom = listBottomPadding()),
         horizontalAlignment = Alignment.CenterHorizontally,

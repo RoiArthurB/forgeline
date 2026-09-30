@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.user
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -148,7 +150,7 @@ fun UserScreen(
                     if (profile != null) {
                         Header(profile, state.following, signedIn, onToggleFollow, onSignIn, onOpenUrl)
                     } else {
-                        Text("@${state.login}", style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp), color = colors.ink)
+                        Text("@${state.login}", style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp), color = colors.ink, modifier = Modifier.semantics { heading() })
                     }
                 }
             }
@@ -205,8 +207,9 @@ private fun Header(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Avatar(profile.avatarUrl, profile.login, size = 72.dp, placeholderColor = colors.ground, placeholderContentColor = colors.inkMuted)
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                profile.name?.let { Text(it, style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp), color = colors.ink) }
-                Text("@${profile.login}", style = Soft.type.secondary, color = colors.inkMuted)
+                // The name leads when there is one; otherwise the login is the page's heading.
+                profile.name?.let { Text(it, style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp), color = colors.ink, modifier = Modifier.semantics { heading() }) }
+                Text("@${profile.login}", style = Soft.type.secondary, color = colors.inkMuted, modifier = if (profile.name == null) Modifier.semantics { heading() } else Modifier)
                 if (profile.isOrganization) SoftTag(stringResource(R.string.user_organization), background = colors.ground)
             }
         }

@@ -47,7 +47,8 @@ fun SoftColors.toMaterial(): ColorScheme {
         onPrimary = ground,
         primaryContainer = fields[0],
         onPrimaryContainer = ink,
-        inversePrimary = thumb,
+        // A snackbar's action, on the inverse (ink) bar: the ember reads on dark ink, not on the pale ink of a dark theme.
+        inversePrimary = if (isDark) SoftLight.accent else thumb,
         secondary = inkMuted,
         onSecondary = ground,
         secondaryContainer = surface,

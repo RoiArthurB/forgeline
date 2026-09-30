@@ -24,6 +24,10 @@ import fr.arthurbrugiere.forgeline.core.testing.issueSummary
 import fr.arthurbrugiere.forgeline.core.testing.repoDetails
 import fr.arthurbrugiere.forgeline.core.testing.workflowRun
 import org.junit.Rule
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
+import androidx.compose.ui.test.isHeading
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.onParent
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -261,5 +265,20 @@ class RepoScreenTest {
         setContent(loaded.copy(requested = details.id, details = details))
 
         composeRule.onNodeWithText("git.example.org").assertIsDisplayed()
+    }
+
+    @Test
+    fun the_header_meets_touch_targets_and_names_its_hero() {
+        val withSite = loaded.copy(details = loaded.details!!.copy(homepage = "https://octo.example"))
+        setContent(withSite)
+
+        composeRule.assertEveryTargetIsAtLeast48dp()
+        composeRule.onNode(hasText("repo") and isHeading()).assertIsDisplayed()
+    }
+
+    @Test
+    fun the_star_button_says_whether_it_is_on() {
+        setContent(loaded.copy(starred = true))
+        composeRule.onNodeWithText("Starred", useUnmergedTree = true).onParent().assertIsOn()
     }
 }

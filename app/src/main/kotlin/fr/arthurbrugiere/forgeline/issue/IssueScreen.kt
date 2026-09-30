@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
 import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
 import fr.arthurbrugiere.forgeline.core.model.webUrl
@@ -203,7 +205,7 @@ fun IssueScreen(
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
                             IconButton(onClick = { onOpenInBrowser(webUrl) }) {
-                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.issue_open_on_forge), tint = colors.ink)
+                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.ref.repo.forge.displayName), tint = colors.ink)
                             }
                         },
                     ) {
@@ -292,7 +294,7 @@ private fun Header(ref: IssueRef, issue: IssueDetails?, nowMillis: Long, onOpenR
             Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp))
         }
         if (issue == null) {
-            Text("#${ref.number}", style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp), color = colors.ink)
+            Text("#${ref.number}", style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp), color = colors.ink, modifier = Modifier.semantics { heading() })
             return@Column
         }
         // The title, then its number (the owner's requested "Title - #123").
@@ -304,6 +306,7 @@ private fun Header(ref: IssueRef, issue: IssueDetails?, nowMillis: Long, onOpenR
                 },
                 style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp),
                 color = colors.ink,
+                modifier = Modifier.semantics { heading() },
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

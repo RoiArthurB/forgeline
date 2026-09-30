@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.core.model.runUrl
 import androidx.compose.foundation.background
@@ -246,7 +248,7 @@ private fun RunHeader(
     val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(run.workflowName, style = Soft.type.secondary, color = colors.inkMuted)
-        Text(run.title, style = Soft.type.title, color = colors.ink, maxLines = 4, overflow = TextOverflow.Ellipsis)
+        Text(run.title, style = Soft.type.title, color = colors.ink, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
         Row(verticalAlignment = Alignment.CenterVertically) {
             RunStatusIcon(run.status, run.conclusion, size = 28.dp)
             Spacer(Modifier.width(10.dp))

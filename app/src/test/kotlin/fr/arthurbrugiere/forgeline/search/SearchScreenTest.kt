@@ -198,4 +198,19 @@ class SearchScreenTest {
         composeRule.onNodeWithText("All forges").assertDoesNotExist()
         composeRule.onNodeWithContentDescription("Forge").assertDoesNotExist()
     }
+
+    @Test
+    fun before_searching_several_forges_it_says_so() {
+        setContent(SearchUiState(forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)))
+
+        composeRule.onNodeWithText("Find anything on your forges").assertIsDisplayed()
+        composeRule.onNodeWithText("Search your forges").assertExists()
+    }
+
+    @Test
+    fun before_searching_one_chosen_forge_it_names_it() {
+        setContent(SearchUiState(forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg), onlyForge = ForgeInstance.Codeberg))
+
+        composeRule.onNodeWithText("Find anything on Codeberg").assertIsDisplayed()
+    }
 }
