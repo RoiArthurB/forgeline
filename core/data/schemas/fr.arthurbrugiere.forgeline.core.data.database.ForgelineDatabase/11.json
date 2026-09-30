@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 11,
-    "identityHash": "9c5422995326abb4e7aaad6906e957fc",
+    "identityHash": "263e806f62e283b7e7ba7c454e0302fd",
     "entities": [
       {
         "tableName": "trending_repos",
@@ -151,7 +151,7 @@
       },
       {
         "tableName": "notifications",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` TEXT NOT NULL, `id` TEXT NOT NULL, `owner` TEXT NOT NULL, `name` TEXT NOT NULL, `title` TEXT NOT NULL, `type` TEXT NOT NULL, `number` INTEGER, `reason` TEXT NOT NULL, `unread` INTEGER NOT NULL, `updatedAtMillis` INTEGER NOT NULL, `ownerAvatarUrl` TEXT, PRIMARY KEY(`accountId`, `id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`accountId` TEXT NOT NULL, `id` TEXT NOT NULL, `host` TEXT NOT NULL, `owner` TEXT NOT NULL, `name` TEXT NOT NULL, `title` TEXT NOT NULL, `type` TEXT NOT NULL, `number` INTEGER, `reason` TEXT NOT NULL, `unread` INTEGER NOT NULL, `updatedAtMillis` INTEGER NOT NULL, `ownerAvatarUrl` TEXT, PRIMARY KEY(`accountId`, `id`))",
         "fields": [
           {
             "fieldPath": "accountId",
@@ -162,6 +162,12 @@
           {
             "fieldPath": "id",
             "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "host",
+            "columnName": "host",
             "affinity": "TEXT",
             "notNull": true
           },
@@ -467,8 +473,14 @@
       },
       {
         "tableName": "subject_states",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`owner` TEXT NOT NULL, `name` TEXT NOT NULL, `number` INTEGER NOT NULL, `state` TEXT NOT NULL, `threadUpdatedAtMillis` INTEGER NOT NULL, `checkedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`owner`, `name`, `number`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`host` TEXT NOT NULL, `owner` TEXT NOT NULL, `name` TEXT NOT NULL, `number` INTEGER NOT NULL, `state` TEXT NOT NULL, `threadUpdatedAtMillis` INTEGER NOT NULL, `checkedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`host`, `owner`, `name`, `number`))",
         "fields": [
+          {
+            "fieldPath": "host",
+            "columnName": "host",
+            "affinity": "TEXT",
+            "notNull": true
+          },
           {
             "fieldPath": "owner",
             "columnName": "owner",
@@ -509,6 +521,7 @@
         "primaryKey": {
           "autoGenerate": false,
           "columnNames": [
+            "host",
             "owner",
             "name",
             "number"
@@ -566,7 +579,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '9c5422995326abb4e7aaad6906e957fc')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '263e806f62e283b7e7ba7c454e0302fd')"
     ]
   }
 }

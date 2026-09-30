@@ -1,0 +1,53 @@
+name: Codeberg trending
+
+# Codeberg has no trending page, so this measures one for everyone, once a day, within 30
+# anonymous requests, and publishes it on GitHub Pages: codeberg/trending.json for the app,
+# codeberg/state.json for tomorrow's run. See docs/CODEBERG.md#trending.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 2 * * *"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Two runs at once would both build on the same yesterday and one would lose its day.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - id: pages
+        uses: actions/configure-pages@v5
+      - name: Fetch the published history
+        # Only a 404 (the very first run) starts afresh: any other failure stops here, since
+        # publishing without yesterday's history would throw away a month of measurements.
+        run: |
+          status=$(curl -sSL --retry 3 -o previous-state.json -w '%{http_code}' "${{ steps.pages.outputs.base_url }}/codeberg/state.json")
+          case "$status" in
+            200) echo "History found." ;;
+            404) echo "No history yet: starting afresh."; rm -f previous-state.json ;;
+            *) echo "Couldn't read the history (HTTP $status)."; exit 1 ;;
+          esac
+      - name: Measure
+        run: ./gradlew :tools:codeberg-trending:run --args="$GITHUB_WORKSPACE/previous-state.json $GITHUB_WORKSPACE/site/codeberg"
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4

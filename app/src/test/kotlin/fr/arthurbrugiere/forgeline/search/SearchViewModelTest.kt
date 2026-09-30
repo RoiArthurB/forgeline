@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.search
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import androidx.lifecycle.SavedStateHandle
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.search.SearchRepository
@@ -32,7 +35,7 @@ class SearchViewModelTest {
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
     private fun TestScope.viewModel(saved: SavedStateHandle = SavedStateHandle()) =
-        SearchViewModel(saved, SearchRepository(api, FakeAccountRepository())).also { it.state.launchIn(backgroundScope) }
+        SearchViewModel(saved, SearchRepository(FakeForgeClients(search = api), FakeAccountRepository())).also { it.state.launchIn(backgroundScope) }
 
     @Test
     fun nothing_is_searched_until_submitted() = test {
@@ -153,5 +156,33 @@ class SearchViewModelTest {
         assertThat(restored.state.value.query).isEqualTo("octo")
         assertThat(restored.state.value.scope).isEqualTo(SearchScope.USERS)
         assertThat(restored.state.value.results.items).hasSize(1)
+    }
+
+    @Test
+    fun a_codeberg_account_mixes_its_results_in_and_pages_each_forge_on_its_own() = test {
+        val codebergApi = FakeSearchApi(pageSize = 2).apply {
+            repositories = listOf(repoSummary("ziglang/zig", forge = ForgeInstance.Codeberg))
+        }
+        val clients = FakeForgeClients(search = api).also { it.put(ForgeInstance.Codeberg, FakeForgeClients(search = codebergApi)) }
+        val accounts = FakeAccountRepository().apply { signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "t") }
+        val viewModel = SearchViewModel(SavedStateHandle(), SearchRepository(clients, accounts)).also { it.state.launchIn(backgroundScope) }
+        viewModel.onQueryChange("tool")
+
+        viewModel.submit()
+        advanceUntilIdle()
+
+        val first = viewModel.state.value.results
+        assertThat(first.items.map { (it as SearchResult.Repository).repo.id.key })
+            .containsExactly("github.com/acme/rocket", "codeberg.org/ziglang/zig", "github.com/acme/fuel").inOrder()
+        assertThat(first.totalCount).isEqualTo(4)
+        assertThat(first.showForge).isTrue()
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.results.items).hasSize(4)
+        assertThat(viewModel.state.value.results.totalCount).isEqualTo(4)
+        assertThat(viewModel.state.value.results.hasMore).isFalse()
+        assertThat(codebergApi.calls).containsExactly("repos:tool@1")
     }
 }

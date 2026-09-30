@@ -19,6 +19,8 @@ class FakeUserSettingsRepository(initial: UserSettings = UserSettings()) : UserS
 
     override suspend fun setAmoledBlack(enabled: Boolean) = state.update { it.copy(amoledBlack = enabled) }
 
+    override suspend fun setSeparateInboxPerForge(enabled: Boolean) = state.update { it.copy(separateInboxPerForge = enabled) }
+
     override suspend fun setFeedKindShown(kind: FeedKind, shown: Boolean) =
         state.update { it.copy(feedKinds = if (shown) it.feedKinds + kind else it.feedKinds - kind) }
 

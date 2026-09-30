@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
+import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
+import fr.arthurbrugiere.forgeline.core.model.webUrl
+import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -116,8 +120,8 @@ fun IssueRoute(
     onOpenIssue: (IssueRef) -> Unit,
     onOpenUser: (String) -> Unit,
 ) {
-    val ref = IssueRef(RepoId(route.owner, route.name), route.number)
-    val viewModel = hiltViewModel<IssueViewModel, IssueViewModel.Factory>(key = "${ref.repo.fullName}#${ref.number}") { it.create(ref) }
+    val ref = route.issue
+    val viewModel = hiltViewModel<IssueViewModel, IssueViewModel.Factory>(key = "${ref.repo.key}#${ref.number}") { it.create(ref) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
     IssueScreen(
@@ -129,14 +133,7 @@ fun IssueRoute(
         onOpenRepo = onOpenRepo,
         onOpenUser = onOpenUser,
         onOpenInBrowser = openUrl,
-        onLinkClick = { url ->
-            when (val target = ForgeLinks.routeFor(url)) {
-                is RepoRoute -> onOpenRepo(RepoId(target.owner, target.name))
-                is IssueRoute -> onOpenIssue(IssueRef(RepoId(target.owner, target.name), target.number))
-                is UserRoute -> onOpenUser(target.login)
-                else -> if (!url.startsWith("#")) openUrl(url)
-            }
-        },
+        onLinkClick = { url -> openForgeLink(url, ref.repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl) },
         onErrorShown = viewModel::errorShown,
     )
 }
@@ -159,11 +156,11 @@ fun IssueScreen(
 ) {
     val issue = state.issue
     val isPullRequest = issue?.pullRequest != null
-    val webUrl = "https://github.com/${state.ref.repo.fullName}/${if (isPullRequest) "pull" else "issues"}/${state.ref.number}"
+    val webUrl = state.ref.webUrl(isPullRequest)
     // Comments may link relative to the repo; HEAD resolves to the default branch on GitHub.
     val context = ReadmeContext(
-        rawBaseUrl = "https://raw.githubusercontent.com/${state.ref.repo.fullName}/HEAD/",
-        blobBaseUrl = "https://github.com/${state.ref.repo.fullName}/blob/HEAD/",
+        rawBaseUrl = state.ref.repo.rawBaseUrl("HEAD"),
+        blobBaseUrl = state.ref.repo.blobBaseUrl("HEAD"),
     )
     val snackbar = remember { SnackbarHostState() }
     val refreshFailed = stringResource(R.string.trending_refresh_failed)

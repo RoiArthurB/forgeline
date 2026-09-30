@@ -25,7 +25,11 @@ import fr.arthurbrugiere.forgeline.navigation.RepoRoute as RepoKey
 import fr.arthurbrugiere.forgeline.navigation.FileRoute as FileKey
 import fr.arthurbrugiere.forgeline.file.FileRoute as FileDestination
 import fr.arthurbrugiere.forgeline.repo.RepoRoute as RepoDestination
+import fr.arthurbrugiere.forgeline.core.model.Account
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.navigation.route
+import fr.arthurbrugiere.forgeline.navigation.userRoute
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.navigation.IssueRoute as IssueKey
 import fr.arthurbrugiere.forgeline.navigation.RunRoute as RunKey
@@ -49,7 +53,7 @@ import fr.arthurbrugiere.forgeline.you.YouScreen
 @Composable
 fun ForgelineApp(
     session: SessionState,
-    onSignOut: () -> Unit,
+    onSignOut: (Account) -> Unit,
     link: NavKey? = null,
     onLinkOpened: () -> Unit = {},
     navigator: AppNavigator = rememberAppNavigator(),
@@ -68,11 +72,12 @@ fun ForgelineApp(
 }
 
 @Composable
-private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, onSignOut: () -> Unit) {
+private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, onSignOut: (Account) -> Unit) {
     val signIn = { navigator.navigate(SignInKey) }
-    val openRepo = { id: RepoId -> navigator.navigate(RepoKey(id.owner, id.name)) }
-    val openIssue = { ref: IssueRef -> navigator.navigate(IssueKey(ref.repo.owner, ref.repo.name, ref.number)) }
-    val openUser = { login: String -> navigator.navigate(UserKey(login)) }
+    val openRepo = { id: RepoId -> navigator.navigate(id.route()) }
+    val openIssue = { ref: IssueRef -> navigator.navigate(ref.route()) }
+    // A login only means someone on a given forge: each screen passes the forge of what it shows.
+    val openUser = { forge: ForgeInstance, login: String -> navigator.navigate(forge.userRoute(login)) }
     val provider = entryProvider<NavKey> {
         entry<InboxRoute> {
             InboxDestination(
@@ -93,18 +98,18 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
         }
         entry<TrendingRoute> { TrendingDestination(session, onSignIn = signIn, onOpenRepo = openRepo) }
         entry<FileKey> { key ->
-            FileDestination(key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser)
+            FileDestination(key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.repo.forge, it) })
         }
         entry<IssueKey> { key ->
-            IssueDestination(key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser)
+            IssueDestination(key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.issue.repo.forge, it) })
         }
         entry<RunKey> { key ->
             RunDestination(
                 route = key,
                 session = session,
                 onBack = navigator::goBack,
-                onOpenJob = { repo, job -> navigator.navigate(JobLogKey(repo.owner, repo.name, key.runId, job.id, job.name)) },
-                onOpenUser = openUser,
+                onOpenJob = { repo, job -> navigator.navigate(JobLogKey(repo.forge.host, repo.owner, repo.name, key.runId, job.id, job.name)) },
+                onOpenUser = { openUser(key.repo.forge, it) },
             )
         }
         entry<JobLogKey> { key -> JobLogDestination(key, onBack = navigator::goBack, onSignIn = signIn) }
@@ -117,15 +122,20 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 session = session,
                 onBack = navigator::goBack,
                 onOpenRepo = openRepo,
-                onOpenFile = { id, path, ref -> navigator.navigate(FileKey(id.owner, id.name, path, ref)) },
+                onOpenFile = { id, path, ref -> navigator.navigate(FileKey(id.forge.host, id.owner, id.name, path, ref)) },
                 onOpenIssue = openIssue,
-                onOpenRun = { id, runId -> navigator.navigate(RunKey(id.owner, id.name, runId)) },
-                onOpenUser = openUser,
+                onOpenRun = { id, runId -> navigator.navigate(RunKey(id.forge.host, id.owner, id.name, runId)) },
+                onOpenUser = { openUser(key.repo.forge, it) },
                 onSignIn = signIn,
             )
         }
         entry<YouRoute> {
-            YouScreen(session, onSignIn = signIn, onOpenSettings = { navigator.navigate(SettingsRoute) }, onOpenProfile = openUser)
+            YouScreen(
+                session,
+                onSignIn = signIn,
+                onOpenSettings = { navigator.navigate(SettingsRoute) },
+                onOpenProfile = { login -> (session as? SessionState.SignedIn)?.let { openUser(it.account.forge, login) } },
+            )
         }
         entry<SettingsRoute> {
             SettingsDestination(

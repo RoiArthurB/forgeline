@@ -1,9 +1,10 @@
 package fr.arthurbrugiere.forgeline.core.data.issue
 
+import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
+import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
-import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
@@ -35,7 +36,7 @@ interface IssueRepository {
 
 @Singleton
 class DefaultIssueRepository @Inject constructor(
-    private val api: IssueApi,
+    private val clients: ForgeClients,
     private val accounts: AccountRepository,
     private val dao: ConversationDao,
     private val clock: Clock,
@@ -49,7 +50,7 @@ class DefaultIssueRepository @Inject constructor(
 
     override suspend fun stored(ref: IssueRef): CachedConversation? {
         cached(ref)?.let { return it }
-        val entity = dao.get(ref.repo.owner, ref.repo.name, ref.number) ?: return null
+        val entity = dao.get(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number) ?: return null
         val stored = CachedConversation(entity.issue?.let(::decodeIssue), entity.firstPage?.let(::decodePage))
         if (stored.issue == null && stored.firstPage == null) return null
         // Something loaded meanwhile is newer than the disk.
@@ -57,7 +58,7 @@ class DefaultIssueRepository @Inject constructor(
     }
 
     override suspend fun prefetch(ref: IssueRef, activityAt: Instant): Boolean {
-        val saved = dao.get(ref.repo.owner, ref.repo.name, ref.number)
+        val saved = dao.get(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number)
         val complete = saved?.issue != null && saved.firstPage != null
         // Nothing kept at all is a conversation the forge couldn't serve: not asked again until it moves.
         val gone = saved != null && saved.issue == null && saved.firstPage == null
@@ -66,7 +67,7 @@ class DefaultIssueRepository @Inject constructor(
         if (result is ForgeResult.Failure) {
             val error = result.error
             if (error is ForgeError.Http && error.status in setOf(403, 404, 410)) {
-                dao.upsert(ConversationEntity(ref.repo.owner, ref.repo.name, ref.number, null, null, clock.millis()))
+                dao.upsert(ConversationEntity(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, null, null, clock.millis()))
             }
             return true
         }
@@ -74,11 +75,11 @@ class DefaultIssueRepository @Inject constructor(
         return true
     }
 
-    override suspend fun issue(ref: IssueRef): ForgeResult<IssueDetails> = api.issue(token(), ref).also { result ->
+    override suspend fun issue(ref: IssueRef): ForgeResult<IssueDetails> = clients.issues(ref.repo.forge).issue(accounts.tokenOn(ref.repo.forge), ref).also { result ->
         if (result is ForgeResult.Success) update(ref) { it.copy(issue = result.value) }
     }
 
-    override suspend fun timeline(ref: IssueRef, page: Int): ForgeResult<TimelinePage> = api.timeline(token(), ref, page).also { result ->
+    override suspend fun timeline(ref: IssueRef, page: Int): ForgeResult<TimelinePage> = clients.issues(ref.repo.forge).timeline(accounts.tokenOn(ref.repo.forge), ref, page).also { result ->
         if (result is ForgeResult.Success && page == 1) update(ref) { it.copy(firstPage = result.value) }
     }
 
@@ -86,13 +87,12 @@ class DefaultIssueRepository @Inject constructor(
         val updated = synchronized(cache) { change(cache[ref] ?: CachedConversation(null, null)).also { cache[ref] = it } }
         dao.upsert(
             ConversationEntity(
-                ref.repo.owner, ref.repo.name, ref.number, updated.issue?.encode(), updated.firstPage?.encode(), clock.millis(),
+                ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, updated.issue?.encode(), updated.firstPage?.encode(), clock.millis(),
             ),
         )
         dao.prune(STORED_CONVERSATIONS)
     }
 
-    private suspend fun token(): String? = accounts.activeAccount.first()?.let { accounts.token(it.id) }
 
     companion object {
         const val CACHE_SIZE = 50

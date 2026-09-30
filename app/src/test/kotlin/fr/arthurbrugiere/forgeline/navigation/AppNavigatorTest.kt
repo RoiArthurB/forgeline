@@ -92,7 +92,7 @@ class AppNavigatorTest {
     fun an_opened_link_lands_on_the_inbox_so_back_returns_to_it() {
         val navigator = navigator()
         navigator.selectTab(TopLevelDestination.TRENDING)
-        val issue = IssueRoute("acme", "rocket", 42)
+        val issue = IssueRoute("github.com", "acme", "rocket", 42)
 
         navigator.openLink(issue)
 

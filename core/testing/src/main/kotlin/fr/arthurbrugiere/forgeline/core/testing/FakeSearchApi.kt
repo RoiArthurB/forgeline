@@ -32,7 +32,12 @@ class FakeSearchApi(private val pageSize: Int = 30) : SearchApi {
     override suspend fun users(token: String?, query: String, page: Int) = page("users", token, query, page, users)
 }
 
-fun repoSummary(fullName: String, stars: Int = 10, description: String? = "A repo"): RepoSummary {
+fun repoSummary(
+    fullName: String,
+    stars: Int = 10,
+    description: String? = "A repo",
+    forge: fr.arthurbrugiere.forgeline.core.model.ForgeInstance = fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitHub,
+): RepoSummary {
     val (owner, name) = fullName.split('/')
-    return RepoSummary(fr.arthurbrugiere.forgeline.core.model.RepoId(owner, name), description, "Kotlin", stars, 1, false, null)
+    return RepoSummary(fr.arthurbrugiere.forgeline.core.model.RepoId(owner, name, forge), description, "Kotlin", stars, 1, false, null)
 }

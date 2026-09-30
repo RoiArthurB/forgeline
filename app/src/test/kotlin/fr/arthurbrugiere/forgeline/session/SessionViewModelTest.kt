@@ -31,11 +31,24 @@ class SessionViewModelTest {
     }
 
     @Test
+    fun every_signed_in_account_is_known() = runTest {
+        val viewModel = SessionViewModel(accounts)
+        val github = accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "t")
+        val codeberg = accounts.signIn(ForgeInstance.Codeberg, ForgeUser("octocat", null, null), "c")
+
+        assertThat(viewModel.session.value).isEqualTo(SessionState.SignedIn(codeberg, listOf(github, codeberg)))
+
+        viewModel.signOut(codeberg)
+
+        assertThat(viewModel.session.value).isEqualTo(SessionState.SignedIn(github, listOf(github)))
+    }
+
+    @Test
     fun sign_out_forgets_the_active_account() = runTest {
-        accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "t")
+        val account = accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "t")
         val viewModel = SessionViewModel(accounts)
 
-        viewModel.signOut()
+        viewModel.signOut(account)
 
         assertThat(viewModel.session.value).isEqualTo(SessionState.SignedOut)
         assertThat(accounts.accounts.first()).isEmpty()

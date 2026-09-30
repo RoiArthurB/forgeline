@@ -56,6 +56,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSwitch
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
@@ -74,12 +75,20 @@ fun SignInRoute(
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(state.step) {
-        if (state.step == SignInStep.SignedIn) onSignedIn()
+        when (val step = state.step) {
+            SignInStep.SignedIn -> onSignedIn()
+            // The forge's approval page opens once; "Open again" is there if the tab was closed.
+            is SignInStep.AwaitingBrowser -> openUrl(step.authorizationUrl)
+            else -> Unit
+        }
     }
 
     SignInScreen(
         state = state,
+        onSelectForge = viewModel::selectForge,
+        onHostChange = viewModel::setHost,
         onStartDeviceFlow = viewModel::startDeviceFlow,
+        onStartBrowserSignIn = viewModel::startBrowserSignIn,
         onContinueOnGitHub = { code, uri ->
             scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("GitHub code", code))) }
             openUrl(uri)
@@ -104,8 +113,12 @@ fun SignInScreen(
     onDismissError: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onSelectForge: (SignInForge) -> Unit = {},
+    onHostChange: (String) -> Unit = {},
+    onStartBrowserSignIn: () -> Unit = {},
 ) {
     val colors = Soft.colors
+    val forgeName = state.forgeName
     Column(
         modifier
             .fillMaxSize()
@@ -116,27 +129,36 @@ fun SignInScreen(
     ) {
         SoftHeader(
             tint = colors.fields[0],
-            title = stringResource(R.string.sign_in_headline),
+            title = if (forgeName.isBlank()) stringResource(R.string.sign_in_headline_other) else stringResource(R.string.sign_in_headline, forgeName),
             onBack = onBack,
             backDescription = stringResource(R.string.navigate_up),
         ) {
-            Text(stringResource(R.string.sign_in_privacy), style = Soft.type.body, color = colors.inkMuted, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure))
+            Text(
+                stringResource(R.string.sign_in_privacy, forgeName.ifBlank { stringResource(R.string.sign_in_forge_other) }),
+                style = Soft.type.body,
+                color = colors.inkMuted,
+                modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure),
+            )
         }
         Column(
             Modifier.widthIn(max = SoftTokens.MaxMeasure).fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             when (val step = state.step) {
-                SignInStep.Verifying, SignInStep.SignedIn -> Verifying()
+                SignInStep.Verifying, SignInStep.SignedIn -> Verifying(forgeName)
                 is SignInStep.AwaitingAuthorization -> AwaitingAuthorization(
                     step = step,
                     onContinueOnGitHub = { onContinueOnGitHub(step.userCode, step.verificationUri) },
                     onCancel = onCancel,
                 )
+                is SignInStep.AwaitingBrowser -> AwaitingBrowser(forgeName, onOpenAgain = { onOpenUrl(step.authorizationUrl) }, onCancel = onCancel)
                 SignInStep.ChooseMethod, is SignInStep.Failed -> ChooseMethod(
                     state = state,
                     error = (step as? SignInStep.Failed)?.error,
+                    onSelectForge = onSelectForge,
+                    onHostChange = onHostChange,
                     onStartDeviceFlow = onStartDeviceFlow,
+                    onStartBrowserSignIn = onStartBrowserSignIn,
                     onSubmitToken = onSubmitToken,
                     onOpenUrl = onOpenUrl,
                     onDismissError = onDismissError,
@@ -150,7 +172,10 @@ fun SignInScreen(
 private fun ChooseMethod(
     state: SignInUiState,
     error: SignInError?,
+    onSelectForge: (SignInForge) -> Unit,
+    onHostChange: (String) -> Unit,
     onStartDeviceFlow: () -> Unit,
+    onStartBrowserSignIn: () -> Unit,
     onSubmitToken: (String) -> Unit,
     onOpenUrl: (String) -> Unit,
     onDismissError: () -> Unit,
@@ -158,11 +183,38 @@ private fun ChooseMethod(
     val colors = Soft.colors
     var token by rememberSaveable { mutableStateOf("") }
 
-    if (error != null) {
-        Text(stringResource(error.message), color = colors.accent, style = Soft.type.body)
+    SoftSwitch(
+        options = listOf(
+            stringResource(R.string.sign_in_forge_github),
+            stringResource(R.string.sign_in_forge_codeberg),
+            stringResource(R.string.sign_in_forge_other),
+        ),
+        selected = state.forge.ordinal,
+        onSelect = { onSelectForge(SignInForge.entries[it]) },
+    )
+    if (state.forge == SignInForge.OTHER) {
+        SoftTextField(
+            value = state.host,
+            onValueChange = {
+                onHostChange(it)
+                if (error != null) onDismissError()
+            },
+            placeholder = stringResource(R.string.sign_in_host),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(stringResource(R.string.sign_in_host_hint), style = Soft.type.secondary, color = colors.inkMuted)
     }
-    if (state.deviceFlowAvailable) {
-        SoftButton(stringResource(R.string.sign_in_with_github), onStartDeviceFlow, Modifier.fillMaxWidth())
+    if (error != null) {
+        Text(stringResource(error.message, state.forgeName.ifBlank { state.host }), color = colors.accent, style = Soft.type.body)
+    }
+    val quickSignIn = state.deviceFlowAvailable || state.browserSignInAvailable
+    if (quickSignIn) {
+        SoftButton(
+            stringResource(R.string.sign_in_with_forge, state.forgeName),
+            if (state.deviceFlowAvailable) onStartDeviceFlow else onStartBrowserSignIn,
+            Modifier.fillMaxWidth(),
+        )
         Text(
             stringResource(R.string.sign_in_or),
             style = Soft.type.label,
@@ -172,17 +224,23 @@ private fun ChooseMethod(
         )
     }
     Text(stringResource(R.string.sign_in_token_title), style = Soft.type.control.copy(fontSize = 17.sp, lineHeight = 22.sp), color = colors.ink)
-    Text(stringResource(R.string.sign_in_token_body), style = Soft.type.body, color = colors.inkMuted)
     Text(
-        stringResource(R.string.sign_in_create_token),
-        style = Soft.type.label,
-        color = colors.accent,
-        modifier = Modifier
-            .clip(SoftTokens.Pill)
-            .clickable(role = Role.Button) { onOpenUrl(state.personalAccessTokenUrl) }
-            .heightIn(min = 48.dp)
-            .wrapContentHeight(Alignment.CenterVertically),
+        stringResource(if (state.forge == SignInForge.GITHUB) R.string.sign_in_token_body else R.string.sign_in_token_body_forgejo),
+        style = Soft.type.body,
+        color = colors.inkMuted,
     )
+    state.personalAccessTokenUrl?.let { url ->
+        Text(
+            stringResource(R.string.sign_in_create_token, state.forgeName),
+            style = Soft.type.label,
+            color = colors.accent,
+            modifier = Modifier
+                .clip(SoftTokens.Pill)
+                .clickable(role = Role.Button) { onOpenUrl(url) }
+                .heightIn(min = 48.dp)
+                .wrapContentHeight(Alignment.CenterVertically),
+        )
+    }
     SoftTextField(
         value = token,
         onValueChange = {
@@ -196,7 +254,7 @@ private fun ChooseMethod(
         modifier = Modifier.fillMaxWidth(),
     )
     val submit = stringResource(R.string.sign_in_with_token)
-    if (state.deviceFlowAvailable) {
+    if (quickSignIn) {
         SoftTonalButton(submit, { onSubmitToken(token) }, Modifier.fillMaxWidth())
     } else {
         SoftButton(submit, { onSubmitToken(token) }, Modifier.fillMaxWidth())
@@ -229,12 +287,22 @@ private fun AwaitingAuthorization(
     SoftTonalButton(stringResource(R.string.cancel), onCancel)
 }
 
+/** The forge's approval page is open in the browser; it comes back here on its own. */
 @Composable
-private fun Verifying() {
+private fun AwaitingBrowser(forgeName: String, onOpenAgain: () -> Unit, onCancel: () -> Unit) {
+    val colors = Soft.colors
+    Text(stringResource(R.string.sign_in_browser_waiting, forgeName), style = Soft.type.body, color = colors.ink)
+    LinearProgressIndicator(Modifier.fillMaxWidth().clip(SoftTokens.Pill), color = colors.accent, trackColor = colors.surface)
+    SoftButton(stringResource(R.string.sign_in_browser_open_again, forgeName), onOpenAgain, Modifier.fillMaxWidth())
+    SoftTonalButton(stringResource(R.string.cancel), onCancel)
+}
+
+@Composable
+private fun Verifying(forgeName: String) {
     val colors = Soft.colors
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         CircularProgressIndicator(color = colors.accent, trackColor = colors.surface)
-        Text(stringResource(R.string.sign_in_verifying), style = Soft.type.body, color = colors.ink)
+        Text(stringResource(R.string.sign_in_verifying, forgeName), style = Soft.type.body, color = colors.ink)
     }
 }
 
@@ -245,5 +313,6 @@ private val SignInError.message: Int
         SignInError.RATE_LIMITED -> R.string.sign_in_error_rate_limited
         SignInError.DENIED -> R.string.sign_in_error_denied
         SignInError.EXPIRED -> R.string.sign_in_error_expired
+        SignInError.NOT_A_FORGE -> R.string.sign_in_error_not_a_forge
         SignInError.UNKNOWN -> R.string.sign_in_error_unknown
     }

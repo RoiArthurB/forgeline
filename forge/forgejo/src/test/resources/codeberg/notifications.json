@@ -1,0 +1,14 @@
+[
+  {"id": 901, "unread": true, "pinned": false, "updated_at": "2026-09-29T15:00:00+02:00",
+   "url": "https://codeberg.org/api/v1/notifications/threads/901",
+   "repository": {"id": 1, "name": "forgejo", "full_name": "forgejo/forgejo", "owner": {"id": 2, "login": "forgejo", "avatar_url": "https://codeberg.org/avatars/forgejo"}},
+   "subject": {"title": "Fix the webhook retries", "type": "Pull", "state": "open", "url": "https://codeberg.org/api/v1/repos/forgejo/forgejo/pulls/14602", "html_url": "https://codeberg.org/forgejo/forgejo/pulls/14602"}},
+  {"id": 902, "unread": false, "pinned": false, "updated_at": "2026-09-29T14:00:00+02:00",
+   "url": "https://codeberg.org/api/v1/notifications/threads/902",
+   "repository": {"id": 1, "name": "forgejo", "full_name": "forgejo/forgejo", "owner": {"id": 2, "login": "forgejo", "avatar_url": "https://codeberg.org/avatars/forgejo"}},
+   "subject": {"title": "A branch name with a pipe breaks the graph", "type": "Issue", "state": "closed", "url": "https://codeberg.org/api/v1/repos/forgejo/forgejo/issues/14601", "html_url": "https://codeberg.org/forgejo/forgejo/issues/14601"}},
+  {"id": 903, "unread": true, "pinned": false, "updated_at": "2026-09-29T13:00:00+02:00",
+   "url": "https://codeberg.org/api/v1/notifications/threads/903",
+   "repository": {"id": 3, "name": "runner", "full_name": "forgejo/runner", "owner": {"id": 2, "login": "forgejo", "avatar_url": "https://codeberg.org/avatars/forgejo"}},
+   "subject": {"title": "v12.0.0", "type": "Repository", "state": "", "url": "", "html_url": "https://codeberg.org/forgejo/runner"}}
+]

@@ -10,4 +10,6 @@ data class UserSettings(
     val amoledBlack: Boolean = false,
     val inboxCheckInterval: InboxCheckInterval = InboxCheckInterval.HOUR_1,
     val feedKinds: Set<FeedKind> = FeedKind.defaults,
+    /** One Inbox tab per signed-in account instead of one list; only offered with several accounts. */
+    val separateInboxPerForge: Boolean = false,
 )

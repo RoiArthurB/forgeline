@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -28,7 +29,7 @@ class IssueViewModelTest {
 
     private val api = FakeIssueApi()
     private val dao = InMemoryConversationDao()
-    private val repository = DefaultIssueRepository(api, FakeAccountRepository(), dao, Clock.systemUTC())
+    private val repository = DefaultIssueRepository(FakeForgeClients(issues = api), FakeAccountRepository(), dao, Clock.systemUTC())
     private val ref = IssueRef(RepoId("octo", "repo"), 7)
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
@@ -52,13 +53,13 @@ class IssueViewModelTest {
     fun a_conversation_viewed_in_an_earlier_launch_shows_at_once_while_it_refreshes() = test {
         api.issues[ref] = issueDetails(ref, "Crash on start")
         api.pages[ref to 1] = TimelinePage(listOf(comment(1, "First")), nextPage = null)
-        DefaultIssueRepository(api, FakeAccountRepository(), dao, Clock.systemUTC()).run {
+        DefaultIssueRepository(FakeForgeClients(issues = api), FakeAccountRepository(), dao, Clock.systemUTC()).run {
             issue(ref)
             timeline(ref, 1)
         }
         // A new launch: nothing in memory, the forge is unreachable.
         api.failure = ForgeError.Network
-        val relaunched = DefaultIssueRepository(api, FakeAccountRepository(), dao, Clock.systemUTC())
+        val relaunched = DefaultIssueRepository(FakeForgeClients(issues = api), FakeAccountRepository(), dao, Clock.systemUTC())
 
         val viewModel = IssueViewModel(ref, relaunched)
         advanceUntilIdle()

@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.notifications
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import android.app.Application
 import android.app.NotificationManager
 import android.content.Context
@@ -72,5 +73,22 @@ class SystemInboxNotifierTest {
         notifier.show(listOf(notificationThread("42")))
 
         assertThat(shadowOf(manager).allNotifications).isEmpty()
+    }
+
+    @Test
+    fun a_codeberg_thread_names_its_forge_and_links_to_codeberg() {
+        val codeberg = notificationThread("7", repo = "forgejo/forgejo", title = "Fix the retries", type = SubjectType.PULL_REQUEST)
+            .let { it.copy(repo = it.repo.copy(forge = ForgeInstance.Codeberg), accountId = "forgejo:codeberg.org:me") }
+        val github = notificationThread("7", repo = "forgejo/forgejo", title = "Same id on GitHub").copy(accountId = "github:github.com:me")
+
+        notifier.show(listOf(codeberg, github))
+
+        // The same thread id on two forges is two notifications.
+        val posted = shadowOf(manager).allNotifications
+        assertThat(posted).hasSize(2)
+        val onCodeberg = posted.single { it.extras.getCharSequence("android.text").toString() == "Fix the retries" }
+        assertThat(onCodeberg.extras.getCharSequence("android.subText").toString()).isEqualTo("Codeberg")
+        assertThat(shadowOf(onCodeberg.contentIntent).savedIntent.dataString).isEqualTo("https://codeberg.org/forgejo/forgejo/pulls/7")
+        assertThat(posted.single { it != onCodeberg }.extras.getCharSequence("android.subText")).isNull()
     }
 }

@@ -14,4 +14,7 @@ sealed interface ForgeError {
     data class RateLimited(val resetAtEpochSeconds: Long?) : ForgeError
 
     data class Http(val status: Int, val message: String?) : ForgeError
+
+    /** The forge has no API for this (Actions on a Forgejo instance, for example). */
+    data object Unsupported : ForgeError
 }

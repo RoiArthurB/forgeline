@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.actions.DefaultActionsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -35,7 +36,7 @@ class RunViewModelTest {
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
-    private fun viewModel() = RunViewModel(repo, 7, DefaultActionsRepository(api, accounts))
+    private fun viewModel() = RunViewModel(repo, 7, DefaultActionsRepository(FakeForgeClients(actions = api), accounts))
 
     private suspend fun signIn() = accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "ghp_token")
 

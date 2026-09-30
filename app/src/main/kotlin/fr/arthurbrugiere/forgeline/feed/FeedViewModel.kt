@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewRepository
+import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedRepository
 import fr.arthurbrugiere.forgeline.core.model.FeedPreviews
 import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
@@ -32,6 +33,8 @@ data class FeedUiState(
      * Null when nothing is new, or before any reading. Fixed for the visit so the mark doesn't chase the reader.
      */
     val leftOffBefore: String? = null,
+    /** Rows say which forge they're from only when more than one forge is signed in. */
+    val showForge: Boolean = false,
 )
 
 @HiltViewModel
@@ -39,6 +42,7 @@ class FeedViewModel @Inject constructor(
     private val feed: FeedRepository,
     private val previews: FeedPreviewRepository,
     settings: UserSettingsRepository,
+    accounts: AccountRepository,
 ) : ViewModel() {
 
     private data class Status(val isRefreshing: Boolean = false, val isLoadingMore: Boolean = false, val error: ForgeError? = null)
@@ -49,13 +53,14 @@ class FeedViewModel @Inject constructor(
     private val readUpTo = MutableStateFlow<Instant?>(null)
 
     val state: StateFlow<FeedUiState> = combine(
-        combine(feed.observe(), readUpTo) { snapshot, readUpTo -> snapshot to readUpTo },
+        combine(feed.observe(), readUpTo, accounts.accounts) { snapshot, readUpTo, signedIn -> Triple(snapshot, readUpTo, signedIn.map { it.forge }.distinct().size > 1) },
         settings.settings,
         status,
         previews.observe(),
-    ) { (snapshot, readUpTo), settings, status, previews ->
+    ) { (snapshot, readUpTo, showForge), settings, status, previews ->
         val items = feedItems(snapshot.events, settings.feedKinds)
         FeedUiState(
+            showForge = showForge,
             items = items,
             leftOffBefore = readUpTo?.let { mark -> items.indexOfFirst { it.createdAt <= mark } }?.takeIf { it > 0 }?.let { items[it].key },
             syncedAtMillis = snapshot.syncedAtMillis,

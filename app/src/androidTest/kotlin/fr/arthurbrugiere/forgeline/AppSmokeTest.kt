@@ -31,7 +31,8 @@ class AppSmokeTest {
     @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
-    private fun tab(label: String) = composeRule.onNode(hasText(label) and isSelectable())
+    // Unselected tabs show only their icon; every tab is named for screen readers.
+    private fun tab(label: String) = composeRule.onNode(hasContentDescription(label) and isSelectable())
 
     /**
      * Regression guard: a system dialog (a launcher ANR on the google_apis image) once stole window
@@ -53,7 +54,7 @@ class AppSmokeTest {
         // Regression: the splash screen once waited forever for settings that only loaded once
         // the UI subscribed. Robolectric couldn't reproduce it; only a real system shows it.
         composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(hasText("Inbox") and isSelectable()).fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(hasContentDescription("Inbox") and isSelectable()).fetchSemanticsNodes().isNotEmpty()
         }
     }
 
@@ -105,7 +106,8 @@ class AppSmokeTest {
         pressBack()
         tab("Feed").performClick()
         composeRule.waitUntil(10_000) {
-            composeRule.onAllNodes(hasText("octocat opened an issue in paperclipai/paperclip")).fetchSemanticsNodes().isNotEmpty()
+            // Feed headlines keep "owner/repo" on one line and end with the time.
+            composeRule.onAllNodes(hasText("octocat opened an issue in paperclipai/\u2060paperclip", substring = true)).fetchSemanticsNodes().isNotEmpty()
         }
 
         // Leave the app signed out for the other tests.

@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingRepo
@@ -21,7 +22,7 @@ object GitHubTrendingParser {
         val path = row.selectFirst("h2 a[href]")?.attr("href")?.trim('/') ?: return null
         val (owner, name) = path.split('/').takeIf { it.size == 2 } ?: return null
         return TrendingRepo(
-            id = RepoId(owner, name),
+            id = RepoId(owner, name, ForgeInstance.GitHub),
             description = row.selectFirst("p")?.text()?.trim()?.ifEmpty { null },
             language = row.selectFirst("[itemprop=programmingLanguage]")?.text()?.trim(),
             languageColor = row.selectFirst(".repo-language-color")?.attr("style")?.let { color.find(it)?.groupValues?.get(1) },

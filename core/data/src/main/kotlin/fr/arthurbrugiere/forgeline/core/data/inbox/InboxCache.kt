@@ -8,6 +8,7 @@ import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -19,6 +20,7 @@ import java.time.Instant
 data class NotificationEntity(
     val accountId: String,
     val id: String,
+    val host: String,
     val owner: String,
     val name: String,
     val title: String,
@@ -34,8 +36,9 @@ data class NotificationEntity(
  * Where an issue or pull request stood when last asked. Kept apart from notifications, which each sync replaces,
  * and asked again once its thread moves on or [checkedAtMillis] gets old.
  */
-@Entity(tableName = "subject_states", primaryKeys = ["owner", "name", "number"])
+@Entity(tableName = "subject_states", primaryKeys = ["host", "owner", "name", "number"])
 data class SubjectStateEntity(
+    val host: String,
     val owner: String,
     val name: String,
     val number: Int,
@@ -44,6 +47,13 @@ data class SubjectStateEntity(
     val threadUpdatedAtMillis: Long,
     val checkedAtMillis: Long,
 )
+
+/**
+ * A thread marked done on a forge that can't mark it done (Forgejo): hidden while it has no activity newer than
+ * [updatedAtMillis], which is how GitHub's done behaves.
+ */
+@Entity(tableName = "inbox_done", primaryKeys = ["accountId", "threadId"])
+data class DoneEntity(val accountId: String, val threadId: String, val updatedAtMillis: Long)
 
 @Entity(tableName = "inbox_sync")
 data class InboxSyncEntity(
@@ -57,8 +67,8 @@ data class InboxSyncEntity(
 
 @Dao
 interface InboxDao {
-    @Query("SELECT * FROM notifications WHERE accountId = :accountId ORDER BY updatedAtMillis DESC")
-    fun observe(accountId: String): Flow<List<NotificationEntity>>
+    @Query("SELECT * FROM notifications ORDER BY updatedAtMillis DESC")
+    fun observeAll(): Flow<List<NotificationEntity>>
 
     @Query("SELECT * FROM notifications WHERE accountId = :accountId ORDER BY updatedAtMillis DESC")
     suspend fun all(accountId: String): List<NotificationEntity>
@@ -87,14 +97,24 @@ interface InboxDao {
     @Query("SELECT * FROM subject_states")
     fun observeStates(): Flow<List<SubjectStateEntity>>
 
+    @Query("SELECT * FROM inbox_done")
+    fun observeDone(): Flow<List<DoneEntity>>
+
+    @Upsert
+    suspend fun upsertDone(entity: DoneEntity)
+
+    /** Forgets what was done on threads the forge no longer lists. */
+    @Query("DELETE FROM inbox_done WHERE accountId = :accountId AND threadId NOT IN (:threadIds)")
+    suspend fun pruneDone(accountId: String, threadIds: List<String>)
+
     @Query("SELECT * FROM subject_states")
     suspend fun states(): List<SubjectStateEntity>
 
     @Upsert
     suspend fun upsertStates(entities: List<SubjectStateEntity>)
 
-    @Query("SELECT * FROM inbox_sync WHERE accountId = :accountId")
-    fun observeSync(accountId: String): Flow<InboxSyncEntity?>
+    @Query("SELECT * FROM inbox_sync")
+    fun observeSyncs(): Flow<List<InboxSyncEntity>>
 
     @Query("SELECT * FROM inbox_sync WHERE accountId = :accountId")
     suspend fun sync(accountId: String): InboxSyncEntity?
@@ -104,13 +124,13 @@ interface InboxDao {
 }
 
 internal fun NotificationThread.toEntity(accountId: String) = NotificationEntity(
-    accountId, id, repo.owner, repo.name, title, type.name, number, reason.name, unread, updatedAt.toEpochMilli(),
+    accountId, id, repo.forge.host, repo.owner, repo.name, title, type.name, number, reason.name, unread, updatedAt.toEpochMilli(),
     ownerAvatarUrl,
 )
 
 internal fun NotificationEntity.toModel() = NotificationThread(
     id = id,
-    repo = RepoId(owner, name),
+    repo = RepoId(owner, name, ForgeInstance.of(host)),
     title = title,
     type = SubjectType.entries.firstOrNull { it.name == type } ?: SubjectType.OTHER,
     number = number,
@@ -118,4 +138,5 @@ internal fun NotificationEntity.toModel() = NotificationThread(
     unread = unread,
     updatedAt = Instant.ofEpochMilli(updatedAtMillis),
     ownerAvatarUrl = ownerAvatarUrl,
+    accountId = accountId,
 )

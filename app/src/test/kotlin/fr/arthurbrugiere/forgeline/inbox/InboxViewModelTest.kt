@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import androidx.lifecycle.SavedStateHandle
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.inbox.SyncResult
@@ -27,12 +30,13 @@ class InboxViewModelTest {
     val mainDispatcherRule = MainDispatcherRule(StandardTestDispatcher())
 
     private val inbox = FakeInboxRepository()
+    private val accounts = FakeAccountRepository()
     private val settings = FakeUserSettingsRepository()
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
     private fun TestScope.viewModel(savedState: SavedStateHandle = SavedStateHandle()) =
-        InboxViewModel(savedState, inbox, settings, backgroundScope).also { it.state.launchIn(backgroundScope) }
+        InboxViewModel(savedState, inbox, settings, accounts, backgroundScope).also { it.state.launchIn(backgroundScope) }
 
     private val mention = notificationThread("1", repo = "acme/rocket", reason = NotificationReason.MENTION, updatedAt = "2026-09-27T09:00:00Z")
     private val watching = notificationThread("2", repo = "octo/tools", reason = NotificationReason.SUBSCRIBED, updatedAt = "2026-09-27T09:30:00Z")
@@ -131,13 +135,29 @@ class InboxViewModelTest {
         viewModel.unsubscribe(watching)
         runCurrent()
         assertThat(viewModel.state.value.groups).isEmpty()
-        assertThat(viewModel.state.value.undo).isEqualTo(PendingUndo("2", InboxAction.UNSUBSCRIBE, serial = 2))
+        assertThat(viewModel.state.value.undo).isEqualTo(PendingUndo(notificationThread("2").key, InboxAction.UNSUBSCRIBE, serial = 2))
         assertThat(inbox.actions).isEmpty()
 
         advanceTimeBy(InboxViewModel.UNDO_MILLIS + 1)
         runCurrent()
         assertThat(inbox.actions).containsExactly("done:1", "unsubscribe:2").inOrder()
         assertThat(viewModel.state.value.undo).isNull()
+    }
+
+    @Test
+    fun the_same_thread_id_on_two_accounts_is_two_threads() = test {
+        // Regression guard: pending actions were keyed by thread id alone, which two forges can share.
+        val onGitHub = notificationThread("1", reason = NotificationReason.SUBSCRIBED).copy(accountId = "github:github.com:me")
+        val onCodeberg = notificationThread("1", repo = "forgejo/forgejo", reason = NotificationReason.SUBSCRIBED)
+            .copy(accountId = "forgejo:codeberg.org:me")
+        inbox.set(onGitHub, onCodeberg)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.markDone(onCodeberg)
+        runCurrent()
+
+        assertThat(viewModel.state.value.groups.flatMap { it.threads }).containsExactly(onGitHub)
     }
 
     @Test
@@ -192,5 +212,30 @@ class InboxViewModelTest {
         settings.setInboxCheckInterval(InboxCheckInterval.OFF)
         advanceUntilIdle()
         assertThat(viewModel.state.value.backgroundChecks).isFalse()
+    }
+
+    @Test
+    fun with_the_setting_on_each_account_gets_its_own_tab() = test {
+        val github = accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "g")
+        val codeberg = accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "c")
+        val onGitHub = notificationThread("1", reason = NotificationReason.SUBSCRIBED).copy(accountId = github.id)
+        val onCodeberg = notificationThread("2", repo = "forgejo/forgejo", reason = NotificationReason.SUBSCRIBED).copy(accountId = codeberg.id)
+        inbox.set(onGitHub, onCodeberg)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        // One list by default, and rows name their forge since two are signed in.
+        assertThat(viewModel.state.value.accountTabs).isEmpty()
+        assertThat(viewModel.state.value.showForge).isTrue()
+        assertThat(viewModel.state.value.groups.flatMap { it.threads }).hasSize(2)
+
+        settings.setSeparateInboxPerForge(true)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.accountTabs).containsExactly(github, codeberg).inOrder()
+        assertThat(viewModel.state.value.groups.flatMap { it.threads }).containsExactly(onGitHub)
+
+        viewModel.selectAccount(codeberg.id)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.groups.flatMap { it.threads }).containsExactly(onCodeberg)
     }
 }

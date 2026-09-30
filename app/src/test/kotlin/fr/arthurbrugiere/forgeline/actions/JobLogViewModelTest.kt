@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.actions.DefaultActionsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -43,7 +44,7 @@ class JobLogViewModelTest {
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
-    private fun viewModel() = JobLogViewModel(repo, 3, "test", DefaultActionsRepository(api, accounts))
+    private fun viewModel() = JobLogViewModel(repo, 3, "test", DefaultActionsRepository(FakeForgeClients(actions = api), accounts))
 
     @Test
     fun groups_holding_an_error_start_open_and_the_rest_folded() = test {

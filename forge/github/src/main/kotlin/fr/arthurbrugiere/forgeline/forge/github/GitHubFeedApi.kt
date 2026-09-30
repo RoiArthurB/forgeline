@@ -5,6 +5,7 @@ import fr.arthurbrugiere.forgeline.core.forge.FeedPage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.FeedEvent
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueAction
 import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
@@ -72,7 +73,7 @@ private data class FeedEventJson(
     fun toModel(): FeedEvent? {
         val (owner, name) = repo.name.split('/').takeIf { it.size == 2 } ?: return null
         val action = runCatching { action() }.getOrNull() ?: return null
-        return FeedEvent(id, ForgeUser(actor.login, null, actor.avatarUrl), RepoId(owner, name), action, Instant.parse(createdAt))
+        return FeedEvent(id, ForgeUser(actor.login, null, actor.avatarUrl), RepoId(owner, name, ForgeInstance.GitHub), action, Instant.parse(createdAt))
     }
 
     private inline fun <reified T> payload(): T = GitHubJson.decodeFromJsonElement(payload)
@@ -132,7 +133,7 @@ private data class FeedEventJson(
     }
 }
 
-private fun String.toRepoId(): RepoId? = split('/').takeIf { it.size == 2 }?.let { RepoId(it[0], it[1]) }
+private fun String.toRepoId(): RepoId? = split('/').takeIf { it.size == 2 }?.let { RepoId(it[0], it[1], ForgeInstance.GitHub) }
 
 @Serializable
 private data class FeedForkeeJson(@SerialName("full_name") val fullName: String)

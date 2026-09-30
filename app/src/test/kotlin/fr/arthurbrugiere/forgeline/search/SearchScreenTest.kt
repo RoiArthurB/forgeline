@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.search
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasContentDescription
@@ -12,7 +13,9 @@ import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
+import fr.arthurbrugiere.forgeline.core.data.search.SearchCursor
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.SearchScope
@@ -44,7 +47,7 @@ class SearchScreenTest {
                 onRetry = { events += "retry" },
                 onOpenRepo = { events += "repo:${it.fullName}" },
                 onOpenIssue = { events += "issue:${it.repo.fullName}#${it.number}" },
-                onOpenUser = { events += "user:$it" },
+                onOpenUser = { forge, login -> events += "user:${forge.host}/$login" },
                 onBack = { events += "back" },
                 nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
             )
@@ -52,7 +55,7 @@ class SearchScreenTest {
     }
 
     private fun loaded(vararg items: SearchResult, total: Int = items.size, more: Boolean = false, scope: SearchScope = SearchScope.REPOSITORIES) =
-        SearchUiState("rocket", scope, ScopeResults("rocket", items.toList(), total, if (more) 2 else null))
+        SearchUiState("rocket", scope, ScopeResults("rocket", items.toList(), total, if (more) SearchCursor(mapOf(ForgeInstance.GitHub to 2)) else null))
 
     @Test
     fun typing_and_the_keyboard_search_key_submit() {
@@ -98,7 +101,7 @@ class SearchScreenTest {
         composeRule.onNodeWithText("Launch fails").performClick()
         composeRule.onNodeWithText("octocat").performClick()
 
-        assertThat(events).containsExactly("repo:acme/rocket", "issue:acme/rocket#42", "user:octocat").inOrder()
+        assertThat(events).containsExactly("repo:acme/rocket", "issue:acme/rocket#42", "user:github.com/octocat").inOrder()
     }
 
     @Test
@@ -139,5 +142,26 @@ class SearchScreenTest {
         composeRule.onNode(hasContentDescription("Navigate up")).performClick()
 
         assertThat(events).containsExactly("query:", "back").inOrder()
+    }
+
+    @Test
+    fun results_from_several_forges_name_theirs_and_open_there() {
+        val zig = repoSummary("ziglang/zig", forge = ForgeInstance.Codeberg)
+        val codebergUser = UserSummary("alice", null, isOrganization = false, forge = ForgeInstance.Codeberg)
+        setContent(
+            loaded(
+                SearchResult.Repository(zig),
+                SearchResult.Issue(IssueSearchResult(zig.id, issueSummary(7, "Crash on start"))),
+                SearchResult.User(codebergUser),
+                total = 3,
+            ).let { it.copy(results = it.results.copy(forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg))) },
+        )
+
+        composeRule.onNodeWithText("ziglang/zig · Codeberg").assertIsDisplayed()
+        // The repository's stats line and the person's line.
+        composeRule.onAllNodesWithText("Codeberg").assertCountEquals(2)
+        composeRule.onNodeWithText("alice").performClick()
+
+        assertThat(events).containsExactly("user:codeberg.org/alice")
     }
 }

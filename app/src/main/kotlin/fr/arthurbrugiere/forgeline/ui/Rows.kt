@@ -51,8 +51,9 @@ private val RowModifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fil
  * on someone's own repositories), `owner/` muted and the name, a two-line description, then its language with the
  * linguist color and its stars.
  */
+/** [forge] names the repository's forge, for lists mixing several. */
 @Composable
-fun RepoSummaryRow(repo: RepoSummary, onOpenRepo: (RepoId) -> Unit, showOwner: Boolean = true) {
+fun RepoSummaryRow(repo: RepoSummary, onOpenRepo: (RepoId) -> Unit, showOwner: Boolean = true, forge: String? = null) {
     val colors = Soft.colors
     Row(RowModifier.softPressable { onOpenRepo(repo.id) }.padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.Top) {
         if (showOwner) {
@@ -98,13 +99,14 @@ fun RepoSummaryRow(repo: RepoSummary, onOpenRepo: (RepoId) -> Unit, showOwner: B
                     }
                 }
                 Text(stringResource(R.string.trending_stars, compactCount(repo.stars)), style = Soft.type.meta, color = colors.inkMuted)
+                forge?.let { Text(it, style = Soft.type.meta, color = colors.inkMuted) }
             }
         }
     }
 }
 
 @Composable
-fun IssueSummaryRow(issue: IssueSummary, nowMillis: Long, onOpen: (Int) -> Unit, repo: RepoId? = null) {
+fun IssueSummaryRow(issue: IssueSummary, nowMillis: Long, onOpen: (Int) -> Unit, repo: RepoId? = null, forge: String? = null) {
     val colors = Soft.colors
     Row(RowModifier.softPressable { onOpen(issue.number) }.padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 12.dp), verticalAlignment = Alignment.Top) {
         Box(
@@ -121,7 +123,7 @@ fun IssueSummaryRow(issue: IssueSummary, nowMillis: Long, onOpen: (Int) -> Unit,
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             // Search results come from anywhere, so they name their repo.
-            repo?.let { Text(it.fullName, style = Soft.type.meta, color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+            repo?.let { Text(listOfNotNull(it.fullName, forge).joinToString(" · "), style = Soft.type.meta, color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis) }
             Text(issue.title, style = Soft.type.body, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
                 stringResource(R.string.repo_issue_meta, issue.number, relative(issue.createdAt, nowMillis), issue.author?.login ?: "ghost"),

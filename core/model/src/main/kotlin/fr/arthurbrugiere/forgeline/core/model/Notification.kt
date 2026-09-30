@@ -26,7 +26,12 @@ data class NotificationThread(
     val ownerAvatarUrl: String? = null,
     /** Null until known, and for subjects that have no state (releases, commits...). */
     val state: SubjectState? = null,
+    /** The signed-in account this thread belongs to; blank until stored for one. */
+    val accountId: String = "",
 ) {
+    /** Identifies the thread across accounts: two forges can use the same thread id. */
+    val key: String get() = "$accountId|$id"
+
     /** The issue or pull request this thread is about, when it is about one. */
     val subject: IssueRef?
         get() = number?.takeIf { type == SubjectType.ISSUE || type == SubjectType.PULL_REQUEST }?.let { IssueRef(repo, it) }

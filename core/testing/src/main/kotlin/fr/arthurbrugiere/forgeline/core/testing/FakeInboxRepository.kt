@@ -36,11 +36,17 @@ class FakeInboxRepository : InboxRepository {
         return ForgeResult.Success(Unit)
     }
 
-    override suspend fun markRead(threadId: String) = act("read", threadId) { list -> list.map { if (it.id == threadId) it.copy(unread = false) else it } }
+    // Actions are logged by thread id alone ("read:1"); the account only matters when two share an id.
+    private fun NotificationThread.isThread(accountId: String, threadId: String) = id == threadId && this.accountId == accountId
 
-    override suspend fun markDone(threadId: String) = act("done", threadId) { list -> list.filterNot { it.id == threadId } }
+    override suspend fun markRead(accountId: String, threadId: String) =
+        act("read", threadId) { list -> list.map { if (it.isThread(accountId, threadId)) it.copy(unread = false) else it } }
 
-    override suspend fun unsubscribe(threadId: String) = act("unsubscribe", threadId) { list -> list.filterNot { it.id == threadId } }
+    override suspend fun markDone(accountId: String, threadId: String) =
+        act("done", threadId) { list -> list.filterNot { it.isThread(accountId, threadId) } }
+
+    override suspend fun unsubscribe(accountId: String, threadId: String) =
+        act("unsubscribe", threadId) { list -> list.filterNot { it.isThread(accountId, threadId) } }
 
     override suspend fun takeThreadsToNotify(): List<NotificationThread> = toNotify.also { toNotify = emptyList() }
 }

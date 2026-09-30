@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.file
 
+import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import android.content.ClipData
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -78,9 +79,9 @@ fun FileRoute(
     onOpenIssue: (IssueRef) -> Unit,
     onOpenUser: (String) -> Unit,
 ) {
-    val target = FileTarget(RepoId(route.owner, route.name), route.path, route.ref)
+    val target = FileTarget(route.repo, route.path, route.ref)
     val viewModel = hiltViewModel<FileViewModel, FileViewModel.Factory>(
-        key = "${target.id.fullName}@${target.ref}:${target.path}",
+        key = "${target.id.key}@${target.ref}:${target.path}",
     ) { it.create(target) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
@@ -91,14 +92,7 @@ fun FileRoute(
         onBack = onBack,
         onRetry = viewModel::retry,
         onOpenInBrowser = openUrl,
-        onLinkClick = { url ->
-            when (val destination = ForgeLinks.routeFor(url)) {
-                is RepoRoute -> onOpenRepo(RepoId(destination.owner, destination.name))
-                is IssueRoute -> onOpenIssue(IssueRef(RepoId(destination.owner, destination.name), destination.number))
-                is UserRoute -> onOpenUser(destination.login)
-                else -> if (!url.startsWith("#")) openUrl(url)
-            }
-        },
+        onLinkClick = { url -> openForgeLink(url, target.id.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl) },
         onCopy = { text -> scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(target.name, text))) } },
     )
 }
@@ -128,7 +122,7 @@ fun FileScreen(
                     }
                 }
                 IconButton(onClick = { onOpenInBrowser(state.webUrl) }) {
-                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge), tint = colors.ink)
+                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.target.id.forge.displayName), tint = colors.ink)
                 }
             },
         ) {
@@ -152,7 +146,7 @@ fun FileScreen(
                     SoftNotice(
                         stringResource(R.string.file_too_large_title),
                         stringResource(R.string.file_too_large_body),
-                        action = stringResource(R.string.repo_open_on_forge),
+                        action = stringResource(R.string.repo_open_on_forge, state.target.id.forge.displayName),
                         onAction = { onOpenInBrowser(state.webUrl) },
                     )
                 } else {
@@ -167,7 +161,7 @@ fun FileScreen(
                     FileContent.Binary -> SoftNotice(
                         stringResource(R.string.file_binary_title),
                         stringResource(R.string.file_binary_body),
-                        action = stringResource(R.string.repo_open_on_forge),
+                        action = stringResource(R.string.repo_open_on_forge, state.target.id.forge.displayName),
                         onAction = { onOpenInBrowser(state.webUrl) },
                     )
                     is FileContent.Text -> if (CodeHighlighter.isMarkdown(state.target.name)) {

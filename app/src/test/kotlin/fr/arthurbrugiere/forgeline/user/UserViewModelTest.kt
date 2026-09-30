@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.user
 
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.user.DefaultUserRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -28,7 +29,7 @@ class UserViewModelTest {
 
     private val api = FakeUserApi()
     private val accounts = FakeAccountRepository()
-    private val repository = DefaultUserRepository(api, accounts)
+    private val repository = DefaultUserRepository(FakeForgeClients(users = api), accounts)
     private val repo = RepoSummary(RepoId("octocat", "Hello-World"), "Hi", "Kotlin", 10, 2, false, null)
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
@@ -40,7 +41,7 @@ class UserViewModelTest {
         api.users["octocat"] = userProfile("octocat")
         api.repos["octocat"] = listOf(repo)
 
-        val viewModel = UserViewModel("octocat", repository)
+        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", repository)
         advanceUntilIdle()
 
         assertThat(viewModel.state.value.profile).isEqualTo(userProfile("octocat"))
@@ -52,7 +53,7 @@ class UserViewModelTest {
     fun the_starred_tab_loads_when_opened() = test {
         api.users["octocat"] = userProfile("octocat")
         api.starred["octocat"] = listOf(repo)
-        val viewModel = UserViewModel("octocat", repository)
+        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", repository)
         advanceUntilIdle()
 
         viewModel.selectTab(UserTab.STARRED)
@@ -65,7 +66,7 @@ class UserViewModelTest {
     fun following_is_instant_and_adjusts_the_follower_count() = test {
         signIn()
         api.users["octocat"] = userProfile("octocat")
-        val viewModel = UserViewModel("octocat", repository)
+        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", repository)
         advanceUntilIdle()
         assertThat(viewModel.state.value.following).isFalse()
 
@@ -82,7 +83,7 @@ class UserViewModelTest {
     fun a_failed_follow_is_rolled_back() = test {
         signIn()
         api.users["octocat"] = userProfile("octocat")
-        val viewModel = UserViewModel("octocat", repository)
+        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", repository)
         advanceUntilIdle()
         api.failure = ForgeError.Network
 
@@ -96,7 +97,7 @@ class UserViewModelTest {
 
     @Test
     fun an_unknown_user_is_an_error() = test {
-        val viewModel = UserViewModel("nobody", repository)
+        val viewModel = UserViewModel(ForgeInstance.GitHub, "nobody", repository)
         advanceUntilIdle()
 
         assertThat(viewModel.state.value.error).isEqualTo(ForgeError.Http(404, "Not Found"))

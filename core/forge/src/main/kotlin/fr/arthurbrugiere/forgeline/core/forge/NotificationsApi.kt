@@ -18,6 +18,12 @@ interface NotificationsApi {
 
     suspend fun markRead(token: String, threadId: String): ForgeResult<Unit>
 
+    /**
+     * Whether [markDone] removes the thread on the forge. When it can't (Forgejo), done only marks it read and the Inbox
+     * hides the thread itself until it has new activity.
+     */
+    val supportsDone: Boolean get() = true
+
     /** Removes the thread from the inbox until there's new activity. */
     suspend fun markDone(token: String, threadId: String): ForgeResult<Unit>
 

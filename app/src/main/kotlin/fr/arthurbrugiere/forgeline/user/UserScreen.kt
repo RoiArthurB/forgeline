@@ -81,7 +81,9 @@ fun UserRoute(
     onOpenRepo: (RepoId) -> Unit,
     onSignIn: () -> Unit,
 ) {
-    val viewModel = hiltViewModel<UserViewModel, UserViewModel.Factory>(key = route.login.lowercase()) { it.create(route.login) }
+    val viewModel = hiltViewModel<UserViewModel, UserViewModel.Factory>(key = "${route.host}/${route.login.lowercase()}") {
+        it.create(route.forge, route.login)
+    }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
     UserScreen(
@@ -137,8 +139,8 @@ fun UserScreen(
                     onBack = onBack,
                     backDescription = stringResource(R.string.navigate_up),
                     actions = {
-                        IconButton(onClick = { onOpenUrl("https://github.com/${state.login}") }) {
-                            Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge), tint = colors.ink)
+                        IconButton(onClick = { onOpenUrl("${state.forge.webUrl}/${state.login}") }) {
+                            Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.forge.displayName), tint = colors.ink)
                         }
                     },
                 ) {

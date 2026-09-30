@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.notifications
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.webUrl
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -44,12 +47,11 @@ enum class InboxChannel(val id: String, @param:StringRes val label: Int, val imp
 
 /** The web page of a thread; the app routes it back in-app when the notification is tapped. */
 fun inboxLink(thread: NotificationThread): String {
-    val base = "https://github.com/${thread.repo.fullName}"
-    val number = thread.number ?: return base
+    val number = thread.number ?: return thread.repo.webUrl
     return when (thread.type) {
-        SubjectType.ISSUE -> "$base/issues/$number"
-        SubjectType.PULL_REQUEST -> "$base/pull/$number"
-        else -> base
+        SubjectType.ISSUE -> IssueRef(thread.repo, number).webUrl(isPullRequest = false)
+        SubjectType.PULL_REQUEST -> IssueRef(thread.repo, number).webUrl(isPullRequest = true)
+        else -> thread.repo.webUrl
     }
 }
 
@@ -62,7 +64,8 @@ class SystemInboxNotifier @Inject constructor(@param:ApplicationContext private 
         )
         // Also false on Android 13+ until the notification permission is granted.
         if (!manager.areNotificationsEnabled()) return
-        threads.forEach { thread -> manager.notify(TAG, thread.id.hashCode(), build(thread)) }
+        // By account and id: two forges can use the same thread id.
+        threads.forEach { thread -> manager.notify(TAG, thread.key.hashCode(), build(thread)) }
     }
 
     private fun build(thread: NotificationThread): Notification {
@@ -70,7 +73,7 @@ class SystemInboxNotifier @Inject constructor(@param:ApplicationContext private 
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         val tap = PendingIntent.getActivity(
             context,
-            thread.id.hashCode(),
+            thread.key.hashCode(),
             open,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
@@ -78,6 +81,8 @@ class SystemInboxNotifier @Inject constructor(@param:ApplicationContext private 
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(thread.repo.fullName)
             .setContentText(thread.title)
+            // Named when it's not GitHub, so nothing changes with GitHub alone.
+            .apply { if (thread.repo.forge != ForgeInstance.GitHub) setSubText(thread.repo.forge.displayName) }
             .setWhen(thread.updatedAt.toEpochMilli())
             .setShowWhen(true)
             .setContentIntent(tap)

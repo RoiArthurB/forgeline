@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.clickable
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
@@ -45,6 +47,7 @@ import fr.arthurbrugiere.forgeline.ui.ReportReading
 import fr.arthurbrugiere.forgeline.ui.LeftOffMark
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.IssueAction
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -121,7 +124,7 @@ fun FeedRoute(
     onSignIn: () -> Unit,
     onOpenRepo: (RepoId) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
-    onOpenUser: (String) -> Unit,
+    onOpenUser: (ForgeInstance, String) -> Unit,
 ) {
     if (session !is SessionState.SignedIn) {
         Column(Modifier.fillMaxSize().background(Soft.colors.ground), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -153,6 +156,9 @@ fun FeedRoute(
     )
 }
 
+/** Whether rows name their forge: only when accounts span more than one. */
+private val LocalShowForge = staticCompositionLocalOf { false }
+
 /** The Feed's lilac field: the title and search. */
 @Composable
 private fun FeedHeader() {
@@ -179,14 +185,14 @@ fun FeedScreen(
     onLoadMore: () -> Unit,
     onOpenRepo: (RepoId) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
-    onOpenUser: (String) -> Unit,
+    onOpenUser: (ForgeInstance, String) -> Unit,
     onErrorShown: () -> Unit,
     modifier: Modifier = Modifier,
     onVisible: (List<FeedItem>) -> Unit = {},
     onReadThrough: (FeedItem) -> Unit = {},
     nowMillis: Long = System.currentTimeMillis(),
     zone: ZoneId = ZoneId.systemDefault(),
-) {
+) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
     val colors = Soft.colors
     val snackbar = remember { SnackbarHostState() }
     val refreshFailed = stringResource(R.string.trending_refresh_failed)
@@ -300,7 +306,7 @@ private fun FeedRow(
     nowMillis: Long,
     onOpenRepo: (RepoId) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
-    onOpenUser: (String) -> Unit,
+    onOpenUser: (ForgeInstance, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = Soft.colors
@@ -321,7 +327,7 @@ private fun FeedRow(
             placeholderContentColor = colors.inkMuted,
             modifier = Modifier
                 .clip(CircleShape)
-                .clickable { onOpenUser(actor.login) }
+                .clickable { onOpenUser(item.repo.forge, actor.login) }
                 .semantics { contentDescription = actor.login },
         )
         Spacer(Modifier.width(12.dp))
@@ -331,7 +337,9 @@ private fun FeedRow(
                     append(item.headline().emphasizing(item.names(), colors.ink))
                     // Short, and kept whole with its dot, so a wrap moves "· 15 min. ago" down as one piece.
                     val time = relative(item.createdAt, nowMillis, abbreviated = true).replace(' ', '\u00A0')
-                    withStyle(SpanStyle(color = colors.inkMuted)) { append(" ·\u00A0$time") }
+                    // Which forge, once more than one is signed in.
+                    val forge = item.repo.forge.displayName.takeIf { LocalShowForge.current }?.let { " ·\u00A0$it" }.orEmpty()
+                    withStyle(SpanStyle(color = colors.inkMuted)) { append("$forge ·\u00A0$time") }
                 },
                 style = Soft.type.secondary,
                 color = colors.inkMuted,
@@ -499,9 +507,10 @@ private fun ObjectTitle(title: String) {
     )
 }
 
-/** A pull request's title, which arrives after the Feed shows (events carry only the number). */
+/** A pull request's title: carried by Forgejo's events, fetched after the Feed shows for GitHub's (only the number). */
 @Composable
-private fun PullTitle(item: FeedItem, number: Int, previews: FeedPreviews) = LateTitle(previews.pullTitles[IssueRef(item.repo, number)])
+private fun PullTitle(item: FeedItem, number: Int, previews: FeedPreviews) =
+    LateTitle((item.action as? FeedAction.PullRequest)?.title ?: previews.pullTitles[IssueRef(item.repo, number)])
 
 /** A title that may still be on its way: its placeholder bar until then, and a fade when it lands. */
 @Composable
@@ -534,14 +543,14 @@ private fun Instant.day(nowMillis: Long, zone: ZoneId): Day {
     }
 }
 
-private fun FeedItem.open(onOpenRepo: (RepoId) -> Unit, onOpenIssue: (IssueRef) -> Unit, onOpenUser: (String) -> Unit) {
+private fun FeedItem.open(onOpenRepo: (RepoId) -> Unit, onOpenIssue: (IssueRef) -> Unit, onOpenUser: (ForgeInstance, String) -> Unit) {
     when (val action = action) {
         is FeedAction.Issue -> onOpenIssue(IssueRef(repo, action.number))
         is FeedAction.PullRequest -> onOpenIssue(IssueRef(repo, action.number))
         is FeedAction.Commented -> onOpenIssue(IssueRef(repo, action.number))
         is FeedAction.Reviewed -> onOpenIssue(IssueRef(repo, action.number))
         is FeedAction.Forked -> onOpenRepo(action.fork)
-        is FeedAction.AddedMember -> onOpenUser(action.login)
+        is FeedAction.AddedMember -> onOpenUser(repo.forge, action.login)
         else -> onOpenRepo(repo)
     }
 }

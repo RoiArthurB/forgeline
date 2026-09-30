@@ -28,6 +28,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
                     ?.let { stored -> ThemeMode.entries.firstOrNull { it.name == stored } }
                     ?: defaults.themeMode,
                 amoledBlack = prefs[AMOLED_BLACK] ?: defaults.amoledBlack,
+                separateInboxPerForge = prefs[SEPARATE_INBOX] ?: defaults.separateInboxPerForge,
                 inboxCheckInterval = prefs[INBOX_CHECK]
                     ?.let { stored -> InboxCheckInterval.entries.firstOrNull { it.name == stored } }
                     ?: defaults.inboxCheckInterval,
@@ -62,9 +63,14 @@ class DataStoreUserSettingsRepository @Inject constructor(
         }
     }
 
+    override suspend fun setSeparateInboxPerForge(enabled: Boolean) {
+        dataStore.edit { it[SEPARATE_INBOX] = enabled }
+    }
+
     private companion object {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val AMOLED_BLACK = booleanPreferencesKey("amoled_black")
+        val SEPARATE_INBOX = booleanPreferencesKey("separate_inbox_per_forge")
         val INBOX_CHECK = stringPreferencesKey("inbox_check_interval")
         val FEED_SHOWN = stringSetPreferencesKey("feed_kinds_shown")
         val FEED_HIDDEN = stringSetPreferencesKey("feed_kinds_hidden")

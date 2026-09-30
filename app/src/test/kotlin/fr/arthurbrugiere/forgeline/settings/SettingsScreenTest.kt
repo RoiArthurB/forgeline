@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.settings
 
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
@@ -41,6 +42,7 @@ class SettingsScreenTest {
     private var backPressed = false
 
     private var signedOut = false
+    private var signedOutOf: Account? = null
     private var interval: InboxCheckInterval? = null
     private val feedChanges = mutableListOf<Pair<FeedKind, Boolean>>()
 
@@ -49,7 +51,7 @@ class SettingsScreenTest {
             SettingsScreen(
                 session = session,
                 onSignIn = {},
-                onSignOut = { signedOut = true },
+                onSignOut = { signedOut = true; signedOutOf = it },
                 settings = settings,
                 versionName = "1.2.3",
                 onThemeModeChange = { themeMode = it },
@@ -61,6 +63,23 @@ class SettingsScreenTest {
                 onBack = { backPressed = true },
             )
         }
+    }
+
+    @Test
+    fun every_account_is_listed_and_signs_out_on_its_own() {
+        val github = Account(Account.idFor(ForgeInstance.GitHub, "octocat"), ForgeInstance.GitHub, ForgeUser("octocat", null, null))
+        val codeberg = Account(Account.idFor(ForgeInstance.Codeberg, "alice"), ForgeInstance.Codeberg, ForgeUser("alice", null, null))
+        setContent(session = SessionState.SignedIn(github, listOf(github, codeberg)))
+
+        composeRule.onNodeWithText("@octocat").assertIsDisplayed()
+        composeRule.onNodeWithText("@alice").assertIsDisplayed()
+        composeRule.onNodeWithText("Codeberg").assertIsDisplayed()
+        composeRule.onNodeWithText("Add an account").assertIsDisplayed()
+
+        composeRule.onAllNodesWithText("Sign out")[1].performClick()
+        composeRule.onAllNodesWithText("Sign out").onLast().performClick()
+
+        assertThat(signedOutOf).isEqualTo(codeberg)
     }
 
     @Test

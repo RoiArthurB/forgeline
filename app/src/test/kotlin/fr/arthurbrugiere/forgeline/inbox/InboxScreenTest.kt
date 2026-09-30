@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
@@ -52,7 +53,7 @@ class InboxScreenTest {
                 onActionFailureShown = {},
                 notificationPrompt = prompt,
                 onAllowNotifications = { events += "allow" },
-                onUndo = { events += "undo:${it.threadId}:${it.action}" },
+                onUndo = { events += "undo:${it.key.substringAfter('|')}:${it.action}" },
                 nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
             )
         }
@@ -104,7 +105,7 @@ class InboxScreenTest {
 
     @Test
     fun a_held_action_offers_undo() {
-        setContent(grouped.copy(undo = PendingUndo("42", InboxAction.DONE, serial = 1)))
+        setContent(grouped.copy(undo = PendingUndo(notificationThread("42").key, InboxAction.DONE, serial = 1)))
 
         composeRule.onNodeWithText("Marked as done").assertIsDisplayed()
         composeRule.onNodeWithText("Undo").performClick()
@@ -147,7 +148,7 @@ class InboxScreenTest {
 
     @Test
     fun undo_goes_away_once_the_action_is_sent() {
-        var state by mutableStateOf(grouped.copy(undo = PendingUndo("42", InboxAction.READ, serial = 1)))
+        var state by mutableStateOf(grouped.copy(undo = PendingUndo(notificationThread("42").key, InboxAction.READ, serial = 1)))
         composeRule.setContent {
             InboxScreen(
                 state = state, onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {},
@@ -247,5 +248,17 @@ class InboxScreenTest {
         setContent(grouped)
 
         composeRule.onAllNodes(hasText("Get notified about new activity")).assertCountEquals(0)
+    }
+
+    @Test
+    fun the_same_thread_id_on_two_forges_shows_twice() {
+        // Regression guard: rows were keyed by thread id alone, and duplicate keys crash the list.
+        val github = notificationThread("1", repo = "octo/tools", reason = NotificationReason.SUBSCRIBED).copy(accountId = "github:github.com:me")
+        val codeberg = notificationThread("1", repo = "forgejo/forgejo", reason = NotificationReason.SUBSCRIBED)
+            .let { it.copy(repo = it.repo.copy(forge = ForgeInstance.Codeberg), accountId = "forgejo:codeberg.org:me") }
+        setContent(grouped.copy(groups = listOf(SectionGroup(InboxSection.OTHERS, listOf(github, codeberg))), showForge = true))
+
+        composeRule.onNodeWithText("Codeberg · Watching", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("GitHub · Watching", substring = true).assertIsDisplayed()
     }
 }

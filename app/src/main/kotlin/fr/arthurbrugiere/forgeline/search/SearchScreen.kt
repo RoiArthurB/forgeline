@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.search
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -80,7 +81,7 @@ import androidx.compose.runtime.getValue
 fun SearchRoute(
     onOpenRepo: (RepoId) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
-    onOpenUser: (String) -> Unit,
+    onOpenUser: (ForgeInstance, String) -> Unit,
     onBack: () -> Unit,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
@@ -110,7 +111,7 @@ fun SearchScreen(
     onRetry: () -> Unit,
     onOpenRepo: (RepoId) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
-    onOpenUser: (String) -> Unit,
+    onOpenUser: (ForgeInstance, String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     nowMillis: Long = System.currentTimeMillis(),
@@ -191,15 +192,18 @@ fun SearchScreen(
                     }
                     // Keyed by position: GitHub search pages can repeat an item across pages.
                     itemsIndexed(results.items, key = { index, _ -> index }, contentType = { _, item -> item::class }) { _, item ->
+                        // Which forge, once more than one is searched.
+                        fun ForgeInstance.named() = displayName.takeIf { results.showForge }
                         when (item) {
-                            is SearchResult.Repository -> RepoSummaryRow(item.repo, onOpenRepo)
+                            is SearchResult.Repository -> RepoSummaryRow(item.repo, onOpenRepo, forge = item.repo.id.forge.named())
                             is SearchResult.Issue -> IssueSummaryRow(
                                 item.result.issue,
                                 nowMillis,
                                 onOpen = { number -> onOpenIssue(IssueRef(item.result.repo, number)) },
                                 repo = item.result.repo,
+                                forge = item.result.repo.forge.named(),
                             )
-                            is SearchResult.User -> UserRow(item.user, onOpenUser)
+                            is SearchResult.User -> UserRow(item.user, item.user.forge.named(), onOpenUser)
                         }
                     }
                     when {
@@ -248,14 +252,14 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, onSubmit
 }
 
 @Composable
-private fun UserRow(user: UserSummary, onOpenUser: (String) -> Unit) {
+private fun UserRow(user: UserSummary, forge: String?, onOpenUser: (ForgeInstance, String) -> Unit) {
     val colors = Soft.colors
     Row(
         Modifier
             .widthIn(max = SoftTokens.MaxReadingWidth)
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp)
-            .softPressable { onOpenUser(user.login) }
+            .softPressable { onOpenUser(user.forge, user.login) }
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -263,7 +267,10 @@ private fun UserRow(user: UserSummary, onOpenUser: (String) -> Unit) {
         Spacer(Modifier.width(14.dp))
         Column {
             Text(user.login, style = Soft.type.body, color = colors.ink)
-            if (user.isOrganization) Text(stringResource(R.string.search_organization), style = Soft.type.meta, color = colors.inkMuted)
+            val organization = stringResource(R.string.search_organization).takeIf { user.isOrganization }
+            listOfNotNull(organization, forge).takeIf { it.isNotEmpty() }?.let {
+                Text(it.joinToString(" · "), style = Soft.type.meta, color = colors.inkMuted)
+            }
         }
     }
 }

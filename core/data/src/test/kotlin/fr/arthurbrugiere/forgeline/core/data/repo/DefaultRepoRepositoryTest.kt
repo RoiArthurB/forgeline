@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.repo
 
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
@@ -38,7 +39,7 @@ class DefaultRepoRepositoryTest {
         override fun getZone(): ZoneId = ZoneOffset.UTC
         override fun withZone(zone: ZoneId?) = this
     }
-    private val repository = DefaultRepoRepository(database.repoDao(), api, accounts, clock)
+    private val repository = DefaultRepoRepository(database.repoDao(), FakeForgeClients(repos = api), accounts, clock)
 
     private val id = RepoId("octo", "repo")
     private val readme = Readme("README.md", "# Hello")
@@ -139,5 +140,24 @@ class DefaultRepoRepositoryTest {
             "issues:octo/repo", "pulls:octo/repo", "releases:octo/repo", "runs:octo/repo",
             "contents:octo/repo:src@main", "file:octo/repo:src/a.kt@main",
         ).inOrder()
+    }
+
+    @Test
+    fun a_codeberg_repository_is_read_from_codeberg_with_its_account() = runTest {
+        val cb = RepoId("forgejo", "forgejo", ForgeInstance.Codeberg)
+        val codeberg = FakeRepoApi().apply { details[cb] = repoDetails("forgejo/forgejo").copy(id = cb) }
+        val clients = FakeForgeClients(repos = api).apply { put(ForgeInstance.Codeberg, FakeForgeClients(repos = codeberg)) }
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "gh_token")
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "cb_token")
+        val repository = DefaultRepoRepository(database.repoDao(), clients, accounts, clock)
+
+        repository.refresh(cb, force = true)
+
+        assertThat(codeberg.calls.first()).isEqualTo("repo:forgejo/forgejo")
+        assertThat(codeberg.tokens.first()).isEqualTo("cb_token")
+        assertThat(api.calls).isEmpty()
+        // Cached apart from a GitHub repository of the same name.
+        assertThat(repository.observe(cb).first().details?.id).isEqualTo(cb)
+        assertThat(repository.observe(RepoId("forgejo", "forgejo")).first().details).isNull()
     }
 }

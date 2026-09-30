@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.data.feed
 
+import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
+import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -7,8 +9,6 @@ import androidx.room.Query
 import androidx.room.Upsert
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
-import fr.arthurbrugiere.forgeline.core.forge.IssueApi
-import fr.arthurbrugiere.forgeline.core.forge.RepoApi
 import fr.arthurbrugiere.forgeline.core.model.FeedPreviews
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -65,8 +65,7 @@ interface FeedPreviewRepository {
 
 class DefaultFeedPreviewRepository @Inject constructor(
     private val dao: FeedPreviewDao,
-    private val repoApi: RepoApi,
-    private val issueApi: IssueApi,
+    private val clients: ForgeClients,
     private val accounts: AccountRepository,
     private val clock: Clock,
 ) : FeedPreviewRepository {
@@ -96,8 +95,6 @@ class DefaultFeedPreviewRepository @Inject constructor(
             keys.filter { it !in fresh && it !in requested }.also { requested += it }
         }
         if (wanted.isEmpty()) return
-        val account = accounts.activeAccount.first()
-        val token = account?.let { accounts.token(it.id) }
         val permits = Semaphore(CONCURRENCY)
         val fetched = coroutineScope {
             wanted.map { key ->
@@ -105,12 +102,12 @@ class DefaultFeedPreviewRepository @Inject constructor(
                     permits.withPermit {
                         when {
                             key.startsWith(REPO) -> repoId(key.removePrefix(REPO))?.let { id ->
-                                (repoApi.repo(token, id) as? ForgeResult.Success)?.value?.let {
+                                (clients.repos(id.forge).repo(accounts.tokenOn(id.forge), id) as? ForgeResult.Success)?.value?.let {
                                     FeedPreviewEntity(key, it.description, it.language, it.stars, null, now)
                                 }
                             }
                             else -> pullRef(key.removePrefix(PULL))?.let { ref ->
-                                (issueApi.issue(token, ref) as? ForgeResult.Success)?.value?.let {
+                                (clients.issues(ref.repo.forge).issue(accounts.tokenOn(ref.repo.forge), ref) as? ForgeResult.Success)?.value?.let {
                                     FeedPreviewEntity(key, null, null, null, it.title, now)
                                 }
                             }
@@ -130,10 +127,10 @@ class DefaultFeedPreviewRepository @Inject constructor(
         val MAX_AGE = 24.hours
         val KEEP = 7.days
 
-        fun RepoId.previewKey() = REPO + fullName.lowercase()
-        fun IssueRef.previewKey() = PULL + repo.fullName.lowercase() + "#" + number
+        fun RepoId.previewKey() = REPO + key.lowercase()
+        fun IssueRef.previewKey() = PULL + repo.key.lowercase() + "#" + number
 
-        fun repoId(value: String): RepoId? = value.split('/').takeIf { it.size == 2 }?.let { RepoId(it[0], it[1]) }
+        fun repoId(value: String): RepoId? = RepoId.fromKey(value)
 
         fun pullRef(value: String): IssueRef? {
             val repo = repoId(value.substringBefore('#')) ?: return null

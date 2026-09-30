@@ -41,7 +41,8 @@ val FeedItem.previewRepo: RepoId?
 /** The pull request whose title this row shows: pull request events carry only the number. */
 val FeedItem.previewPull: IssueRef?
     get() = when (val a = action) {
-        is FeedAction.PullRequest -> IssueRef(repo, a.number)
+        // Forgejo's events carry the title; GitHub's need it fetched.
+        is FeedAction.PullRequest -> if (a.title == null) IssueRef(repo, a.number) else null
         is FeedAction.Reviewed -> IssueRef(repo, a.number)
         is FeedAction.Commented -> if (a.isPullRequest && a.title == null) IssueRef(repo, a.number) else null
         else -> null

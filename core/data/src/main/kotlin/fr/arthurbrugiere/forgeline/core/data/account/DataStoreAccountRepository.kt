@@ -15,13 +15,32 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
+import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.OAuthTokens
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.security.GeneralSecurityException
+import java.time.Clock
 import javax.inject.Inject
+
+/** Asks a forge for a new access token. */
+fun interface TokenRefresher {
+    suspend fun refresh(forge: ForgeInstance, refreshToken: String): ForgeResult<OAuthTokens>
+}
+
+class ForgeTokenRefresher @Inject constructor(private val clients: ForgeClients) : TokenRefresher {
+    override suspend fun refresh(forge: ForgeInstance, refreshToken: String) = clients.auth(forge).refresh(refreshToken)
+}
 
 class DataStoreAccountRepository @Inject constructor(
     @param:AccountsDataStore private val dataStore: DataStore<Preferences>,
     private val cipher: TokenCipher,
+    private val refresher: TokenRefresher,
+    private val clock: Clock,
 ) : AccountRepository {
+
+    private val refreshing = Mutex()
 
     private val state: Flow<StoredState> = dataStore.data.map { it.toState() }
 
@@ -33,7 +52,7 @@ class DataStoreAccountRepository @Inject constructor(
         .map { stored -> stored.accounts.firstOrNull { it.id == stored.activeId }?.toAccount() }
         .distinctUntilChanged()
 
-    override suspend fun signIn(forge: ForgeInstance, user: ForgeUser, token: String): Account {
+    override suspend fun signIn(forge: ForgeInstance, user: ForgeUser, token: String, refreshToken: String?, expiresAtMillis: Long?): Account {
         val stored = StoredAccount(
             id = Account.idFor(forge, user.login),
             forgeType = forge.type.name,
@@ -42,6 +61,8 @@ class DataStoreAccountRepository @Inject constructor(
             name = user.name,
             avatarUrl = user.avatarUrl,
             encryptedToken = cipher.encrypt(token),
+            encryptedRefreshToken = refreshToken?.let(cipher::encrypt),
+            expiresAtMillis = expiresAtMillis,
         )
         dataStore.edit { prefs ->
             val current = prefs.toState()
@@ -52,13 +73,41 @@ class DataStoreAccountRepository @Inject constructor(
 
     override suspend fun token(accountId: String): String? {
         val stored = state.first().accounts.firstOrNull { it.id == accountId } ?: return null
-        return try {
-            cipher.decrypt(stored.encryptedToken)
-        } catch (e: GeneralSecurityException) {
-            null
-        } catch (e: IllegalArgumentException) {
-            null
+        if (!stored.expiresSoon()) return decrypt(stored.encryptedToken)
+        // One refresh at a time: two calls racing would spend the refresh token twice.
+        return refreshing.withLock {
+            val current = state.first().accounts.firstOrNull { it.id == accountId } ?: return@withLock null
+            if (!current.expiresSoon()) return@withLock decrypt(current.encryptedToken)
+            val refreshToken = current.encryptedRefreshToken?.let(::decrypt) ?: return@withLock decrypt(current.encryptedToken)
+            when (val result = refresher.refresh(current.toAccount().forge, refreshToken)) {
+                // Offline or refused: hand back what there is; the forge will say if it no longer works.
+                is ForgeResult.Failure -> decrypt(current.encryptedToken)
+                is ForgeResult.Success -> {
+                    val tokens = result.value
+                    val renewed = current.copy(
+                        encryptedToken = cipher.encrypt(tokens.accessToken),
+                        // Forgejo rotates refresh tokens; keep the old one only if none came back.
+                        encryptedRefreshToken = tokens.refreshToken?.let(cipher::encrypt) ?: current.encryptedRefreshToken,
+                        expiresAtMillis = tokens.expiresInSeconds?.let { clock.millis() + it * 1_000 },
+                    )
+                    dataStore.edit { prefs ->
+                        val latest = prefs.toState()
+                        prefs.write(latest.copy(accounts = latest.accounts.map { if (it.id == accountId) renewed else it }))
+                    }
+                    tokens.accessToken
+                }
+            }
         }
+    }
+
+    private fun StoredAccount.expiresSoon(): Boolean = expiresAtMillis != null && clock.millis() >= expiresAtMillis - REFRESH_EARLY_MILLIS
+
+    private fun decrypt(value: String): String? = try {
+        cipher.decrypt(value)
+    } catch (e: GeneralSecurityException) {
+        null
+    } catch (e: IllegalArgumentException) {
+        null
     }
 
     override suspend fun signOut(accountId: String) {
@@ -91,6 +140,8 @@ class DataStoreAccountRepository @Inject constructor(
         val name: String?,
         val avatarUrl: String?,
         val encryptedToken: String,
+        val encryptedRefreshToken: String? = null,
+        val expiresAtMillis: Long? = null,
     ) {
         fun toAccount() = Account(
             id = id,
@@ -103,5 +154,8 @@ class DataStoreAccountRepository @Inject constructor(
         val ACCOUNTS = stringPreferencesKey("accounts")
         val ACTIVE_ID = stringPreferencesKey("active_account_id")
         val json = Json { ignoreUnknownKeys = true }
+
+        /** Refreshed a minute early, so a token doesn't expire on its way to the forge. */
+        const val REFRESH_EARLY_MILLIS = 60_000L
     }
 }

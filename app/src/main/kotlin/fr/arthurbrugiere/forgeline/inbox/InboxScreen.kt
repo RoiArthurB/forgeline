@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
+import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -152,6 +155,7 @@ fun InboxRoute(
         notificationPrompt = notifications.prompt.takeIf { state.backgroundChecks },
         onAllowNotifications = notifications.onAllow,
         onSelectFilter = viewModel::selectFilter,
+        onSelectAccount = viewModel::selectAccount,
         onRefresh = viewModel::refresh,
         onOpen = { thread ->
             viewModel.opened(thread)
@@ -183,6 +187,9 @@ private fun InboxSignedOut(session: SessionState, onSignIn: () -> Unit) {
 }
 
 /** The Inbox's tinted field: the title, search and, once signed in, the filter switch (each filter its own tint). */
+/** Whether rows name their forge: only when accounts span more than one. */
+private val LocalShowForge = staticCompositionLocalOf { false }
+
 @Composable
 private fun InboxHeader(filter: InboxFilter?, onSelectFilter: (InboxFilter) -> Unit) {
     val colors = Soft.colors
@@ -225,8 +232,9 @@ fun InboxScreen(
     notificationPrompt: NotificationPrompt? = null,
     onAllowNotifications: () -> Unit = {},
     onUndo: (PendingUndo) -> Unit = {},
+    onSelectAccount: (String) -> Unit = {},
     nowMillis: Long = System.currentTimeMillis(),
-) {
+) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
     val colors = Soft.colors
     val snackbar = remember { SnackbarHostState() }
     val refreshFailed = stringResource(R.string.trending_refresh_failed)
@@ -283,6 +291,15 @@ fun InboxScreen(
                 modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
             ) {
                 item(key = "header", contentType = "header") { InboxHeader(state.filter, onSelectFilter) }
+                if (state.accountTabs.isNotEmpty()) {
+                    item(key = "accounts", contentType = "accounts") {
+                        SoftChipTabs(
+                            options = state.accountTabs.map { "@${it.user.login} · ${it.forge.displayName}" },
+                            selected = state.accountTabs.indexOfFirst { it.id == state.selectedAccountId }.coerceAtLeast(0),
+                            onSelect = { onSelectAccount(state.accountTabs[it].id) },
+                        )
+                    }
+                }
                 if (notificationPrompt != null) {
                     item(key = "prompt") {
                         NotificationPromptCard(
@@ -363,7 +380,8 @@ private fun LazyListScope.threadItems(
     onMarkDone: (NotificationThread) -> Unit,
     onUnsubscribe: (NotificationThread) -> Unit,
 ) {
-    items(threads, key = { "thread-${it.id}" }, contentType = { "thread" }) { thread ->
+    // Keyed by account and id: two forges can use the same thread id, and duplicate keys crash the list.
+    items(threads, key = { "thread-${it.key}" }, contentType = { "thread" }) { thread ->
         ThreadRow(
             thread, section, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe,
             Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem(),
@@ -585,6 +603,8 @@ private fun ThreadRow(
                 )
                 Text(
                     listOfNotNull(
+                        // Which forge, once more than one is signed in.
+                        thread.repo.forge.displayName.takeIf { LocalShowForge.current },
                         stringResource(thread.reason.label).takeIf { section == InboxSection.OTHERS },
                         relative(thread.updatedAt, nowMillis, abbreviated = true),
                     ).joinToString(" · "),

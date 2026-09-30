@@ -21,9 +21,13 @@ class FakeAccountRepository : AccountRepository {
         list.firstOrNull { it.account.id == id }?.account
     }
 
-    override suspend fun signIn(forge: ForgeInstance, user: ForgeUser, token: String): Account {
+    /** Refresh tokens and expiries handed to [signIn], by account id. */
+    val refreshTokens = mutableMapOf<String, Pair<String?, Long?>>()
+
+    override suspend fun signIn(forge: ForgeInstance, user: ForgeUser, token: String, refreshToken: String?, expiresAtMillis: Long?): Account {
         val account = Account(Account.idFor(forge, user.login), forge, user)
         entries.update { list -> list.filterNot { it.account.id == account.id } + Entry(account, token) }
+        refreshTokens[account.id] = refreshToken to expiresAtMillis
         activeId.value = account.id
         return account
     }

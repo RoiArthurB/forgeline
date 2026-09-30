@@ -201,4 +201,20 @@ class TrendingViewModelTest {
         advanceUntilIdle()
         assertThat(viewModel.state.value.resumeAt).isNull()
     }
+
+    @Test
+    fun rows_name_their_forge_only_when_the_page_mixes_forges() = test {
+        trending.snapshots.getValue(TrendingPeriod.DAILY).value = TrendingSnapshot(listOf(paperclip), 1_000, listOf(ForgeInstance.GitHub))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.showForge).isFalse()
+
+        val zig = trendingRepo("ziglang/zig", forge = ForgeInstance.Codeberg)
+        trending.snapshots.getValue(TrendingPeriod.DAILY).value =
+            TrendingSnapshot(listOf(paperclip, zig), 1_000, listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg))
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.showForge).isTrue()
+        assertThat(viewModel.state.value.items.map { it.repo.id.forge }).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg).inOrder()
+    }
 }

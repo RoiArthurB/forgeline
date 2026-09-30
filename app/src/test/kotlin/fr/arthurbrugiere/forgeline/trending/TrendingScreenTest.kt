@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.trending
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.compose.ui.test.assertIsDisplayed
 import com.google.common.truth.Truth.assertWithMessage
 import androidx.compose.ui.test.getBoundsInRoot
@@ -207,5 +208,21 @@ class TrendingScreenTest {
         assertThat(descriptionMaxLines(1f)).isEqualTo(3)
         assertThat(descriptionMaxLines(1.3f)).isEqualTo(Int.MAX_VALUE)
         assertThat(descriptionMaxLines(2f)).isEqualTo(Int.MAX_VALUE)
+    }
+
+    @Test
+    fun a_page_mixing_forges_names_each_rows_forge() {
+        val zig = trendingRepo("ziglang/zig", forge = ForgeInstance.Codeberg).copy(language = "Zig", languageColor = null)
+        setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null), TrendingItem(zig, null)), showForge = true))
+
+        composeRule.onNodeWithText("Codeberg").assertExists()
+        composeRule.onNodeWithText("GitHub").assertExists()
+    }
+
+    @Test
+    fun one_forge_alone_names_none() {
+        setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null))))
+
+        composeRule.onNodeWithText("GitHub").assertDoesNotExist()
     }
 }

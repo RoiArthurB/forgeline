@@ -10,6 +10,8 @@ import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.data.inbox.SyncResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -38,7 +40,8 @@ data class SectionGroup(val section: InboxSection, val threads: List<Notificatio
 enum class InboxAction { READ, DONE, UNSUBSCRIBE }
 
 /** The latest action that can still be undone. [serial] tells two identical actions apart. */
-data class PendingUndo(val threadId: String, val action: InboxAction, val serial: Long)
+/** [key] is the thread's [NotificationThread.key]: its account and id. */
+data class PendingUndo(val key: String, val action: InboxAction, val serial: Long)
 
 data class InboxUiState(
     val filter: InboxFilter = InboxFilter.UNREAD,
@@ -50,6 +53,12 @@ data class InboxUiState(
     /** Whether the Inbox is checked in the background, which is when notifications matter. */
     val backgroundChecks: Boolean = false,
     val undo: PendingUndo? = null,
+    /** One tab per account when the Inbox is split per forge (a setting, with several accounts); empty otherwise. */
+    val accountTabs: List<Account> = emptyList(),
+    /** The account whose tab is shown, when there are tabs. */
+    val selectedAccountId: String? = null,
+    /** Rows say which forge they're from only when more than one forge is signed in. */
+    val showForge: Boolean = false,
 )
 
 @HiltViewModel
@@ -57,10 +66,19 @@ class InboxViewModel @Inject constructor(
     private val savedState: SavedStateHandle,
     private val inbox: InboxRepository,
     settings: UserSettingsRepository,
+    accounts: AccountRepository,
     @param:ApplicationScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     private val filter = savedState.getStateFlow(FILTER_KEY, InboxFilter.UNREAD)
+    private val selectedAccount = savedState.getStateFlow<String?>(ACCOUNT_KEY, null)
+
+    private data class Split(val tabs: List<Account>, val selected: String?, val showForge: Boolean)
+
+    private val split = combine(accounts.accounts, settings.settings, selectedAccount) { signedIn, settings, selected ->
+        val tabs = if (settings.separateInboxPerForge && signedIn.size > 1) signedIn else emptyList()
+        Split(tabs, selected?.takeIf { id -> tabs.any { it.id == id } } ?: tabs.firstOrNull()?.id, signedIn.map { it.forge }.distinct().size > 1)
+    }
     private val status = MutableStateFlow(Status())
 
     private data class Status(val isRefreshing: Boolean = false, val error: ForgeError? = null, val actionFailed: Boolean = false)
@@ -75,12 +93,17 @@ class InboxViewModel @Inject constructor(
         combine(inbox.observe(), pending) { snapshot, pending -> snapshot to pending },
         filter,
         status,
-        settings.settings.map { it.inboxCheckInterval != InboxCheckInterval.OFF },
+        combine(settings.settings.map { it.inboxCheckInterval != InboxCheckInterval.OFF }, split) { checks, split -> checks to split },
         undo,
-    ) { (snapshot, pending), filter, status, backgroundChecks, undo ->
+    ) { (snapshot, pending), filter, status, (backgroundChecks, split), undo ->
         InboxUiState(
             filter = filter,
-            groups = snapshot.threads.applying(pending).filter { filter.matches(it) }.bySection(),
+            groups = snapshot.threads.applying(pending)
+                .filter { filter.matches(it) && (split.selected == null || it.accountId == split.selected) }
+                .bySection(),
+            accountTabs = split.tabs,
+            selectedAccountId = split.selected,
+            showForge = split.showForge,
             syncedAtMillis = snapshot.syncedAtMillis,
             isRefreshing = status.isRefreshing,
             error = status.error,
@@ -98,10 +121,14 @@ class InboxViewModel @Inject constructor(
         savedState[FILTER_KEY] = filter
     }
 
+    fun selectAccount(accountId: String) {
+        savedState[ACCOUNT_KEY] = accountId
+    }
+
     fun refresh() = sync(force = true)
 
     fun opened(thread: NotificationThread) {
-        if (thread.unread) viewModelScope.launch { inbox.markRead(thread.id) }
+        if (thread.unread) viewModelScope.launch { inbox.markRead(thread.accountId, thread.id) }
     }
 
     fun markRead(thread: NotificationThread) = hold(thread, InboxAction.READ)
@@ -112,8 +139,8 @@ class InboxViewModel @Inject constructor(
 
     /** Takes back [undo]'s action before it reaches the forge: the thread comes back as it was. */
     fun undo(undo: PendingUndo) {
-        timers.remove(undo.threadId)?.cancel() ?: return
-        pending.update { it - undo.threadId }
+        timers.remove(undo.key)?.cancel() ?: return
+        pending.update { it - undo.key }
         this.undo.update { if (it == undo) null else it }
     }
 
@@ -139,29 +166,32 @@ class InboxViewModel @Inject constructor(
      * (the forge has no way to undo "done"). Several actions can wait at once; Undo offers the latest.
      */
     private fun hold(thread: NotificationThread, action: InboxAction) {
-        timers.remove(thread.id)?.cancel()
-        val next = PendingUndo(thread.id, action, ++serial)
-        pending.update { it + (thread.id to action) }
+        timers.remove(thread.key)?.cancel()
+        val next = PendingUndo(thread.key, action, ++serial)
+        pending.update { it + (thread.key to action) }
         undo.value = next
-        timers[thread.id] = viewModelScope.launch {
+        timers[thread.key] = viewModelScope.launch {
             delay(UNDO_MILLIS)
-            timers.remove(thread.id)
+            timers.remove(thread.key)
             undo.update { if (it == next) null else it }
-            send(thread.id, action)
+            send(thread.key, action)
         }
     }
 
-    private fun send(threadId: String, action: InboxAction) {
+    /** [key] is a [NotificationThread.key]: the account, then the thread's id. */
+    private fun send(key: String, action: InboxAction) {
+        val accountId = key.substringBefore('|')
+        val threadId = key.substringAfter('|')
         appScope.launch {
             val result = when (action) {
-                InboxAction.READ -> inbox.markRead(threadId)
-                InboxAction.DONE -> inbox.markDone(threadId)
-                InboxAction.UNSUBSCRIBE -> inbox.unsubscribe(threadId)
+                InboxAction.READ -> inbox.markRead(accountId, threadId)
+                InboxAction.DONE -> inbox.markDone(accountId, threadId)
+                InboxAction.UNSUBSCRIBE -> inbox.unsubscribe(accountId, threadId)
             }
             // The repository now reflects the outcome (or restored the thread), so stop overriding it, unless a
             // newer action on the same thread is waiting.
             viewModelScope.launch {
-                if (threadId !in timers) pending.update { it - threadId }
+                if (key !in timers) pending.update { it - key }
                 if (result is ForgeResult.Failure) status.update { it.copy(actionFailed = true) }
             }
         }
@@ -173,7 +203,7 @@ class InboxViewModel @Inject constructor(
 
     private fun List<NotificationThread>.applying(pending: Map<String, InboxAction>): List<NotificationThread> =
         if (pending.isEmpty()) this else mapNotNull { thread ->
-            when (pending[thread.id]) {
+            when (pending[thread.key]) {
                 null -> thread
                 InboxAction.READ -> thread.copy(unread = false)
                 InboxAction.DONE, InboxAction.UNSUBSCRIBE -> null
@@ -195,7 +225,7 @@ class InboxViewModel @Inject constructor(
                 SectionGroup(
                     section,
                     if (section == InboxSection.OTHERS) {
-                        threads.groupBy { it.repo.owner.lowercase() }.values.flatMap { owned -> owned.groupBy { it.repo }.values.flatten() }
+                        threads.groupBy { it.repo.forge to it.repo.owner.lowercase() }.values.flatMap { owned -> owned.groupBy { it.repo }.values.flatten() }
                     } else {
                         threads
                     },
@@ -205,5 +235,6 @@ class InboxViewModel @Inject constructor(
     companion object {
         const val UNDO_MILLIS = 5_000L
         private const val FILTER_KEY = "filter"
+        private const val ACCOUNT_KEY = "account"
     }
 }

@@ -3,6 +3,8 @@ package fr.arthurbrugiere.forgeline.forge.github
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
+import fr.arthurbrugiere.forgeline.core.forge.VersionOrder
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueState
@@ -113,27 +115,6 @@ class GitHubRepoApi(
     private fun String.segments(): Array<String> = split('/').filter { it.isNotEmpty() }.toTypedArray()
 }
 
-/** Compares runs of digits as numbers, so v1.10 comes after v1.9. */
-private object VersionOrder : Comparator<String> {
-    private val chunks = Regex("""\d+|\D+""")
-
-    override fun compare(a: String, b: String): Int {
-        val left = chunks.findAll(a).map { it.value }.toList()
-        val right = chunks.findAll(b).map { it.value }.toList()
-        for (i in 0 until minOf(left.size, right.size)) {
-            val x = left[i]
-            val y = right[i]
-            val order = if (x[0].isDigit() && y[0].isDigit()) {
-                x.trimStart('0').length.compareTo(y.trimStart('0').length).takeIf { it != 0 } ?: x.trimStart('0').compareTo(y.trimStart('0'))
-            } else {
-                x.compareTo(y, ignoreCase = true)
-            }
-            if (order != 0) return order
-        }
-        return left.size.compareTo(right.size)
-    }
-}
-
 @Serializable
 private data class GitRefResponse(val ref: String)
 
@@ -163,7 +144,7 @@ private data class RepoResponse(
     @SerialName("pushed_at") val pushedAt: String? = null,
 ) {
     fun toModel() = RepoDetails(
-        id = RepoId(owner.login, name),
+        id = RepoId(owner.login, name, ForgeInstance.GitHub),
         description = description,
         homepage = homepage?.ifBlank { null },
         topics = topics,

@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import fr.arthurbrugiere.forgeline.core.model.runUrl
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -88,8 +89,8 @@ fun RunRoute(
     onOpenJob: (RepoId, RunJob) -> Unit,
     onOpenUser: (String) -> Unit,
 ) {
-    val repo = RepoId(route.owner, route.name)
-    val viewModel = hiltViewModel<RunViewModel, RunViewModel.Factory>(key = "${repo.fullName}/runs/${route.runId}") { it.create(repo, route.runId) }
+    val repo = route.repo
+    val viewModel = hiltViewModel<RunViewModel, RunViewModel.Factory>(key = "${repo.key}/runs/${route.runId}") { it.create(repo, route.runId) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
     // A run that is still going is checked again while it is on screen.
@@ -111,7 +112,7 @@ fun RunRoute(
         onPerform = viewModel::perform,
         onOpenJob = { onOpenJob(repo, it) },
         onOpenUser = onOpenUser,
-        onOpenInBrowser = { openUrl("https://github.com/${repo.fullName}/actions/runs/${route.runId}") },
+        onOpenInBrowser = { openUrl(repo.runUrl(route.runId)) },
         onResultShown = viewModel::resultShown,
         onErrorShown = viewModel::errorShown,
     )
@@ -182,7 +183,7 @@ fun RunScreen(
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
                             IconButton(onClick = onOpenInBrowser) {
-                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge), tint = colors.ink)
+                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.repo.forge.displayName), tint = colors.ink)
                             }
                         },
                     ) {
