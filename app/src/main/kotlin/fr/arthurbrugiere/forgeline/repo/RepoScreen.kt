@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
@@ -258,7 +259,7 @@ fun RepoScreen(
                 state = listState,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 contentPadding = PaddingValues(bottom = listBottomPadding()),
-                modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+                modifier = Modifier.fillMaxSize().sideSafeArea(),
             ) {
                 item(key = "header") {
                     SoftHeader(
@@ -403,7 +404,7 @@ private fun RepoHeader(
             // Where the repository lives: always said here, whatever else is signed in.
             ForgeMark(details.id.forge, style = Soft.type.secondary, color = colors.inkMuted, size = 16.dp)
         }
-        Text(details.id.name, style = Soft.type.title.copy(fontSize = 30.sp, lineHeight = 34.sp), color = colors.ink, modifier = Modifier.semantics { heading() })
+        Text(details.id.name, style = Soft.type.detailTitle, color = colors.ink, modifier = Modifier.semantics { heading() })
         details.description?.let {
             Text(it, style = Soft.type.body.copy(fontSize = 16.sp), color = colors.ink, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure))
         }

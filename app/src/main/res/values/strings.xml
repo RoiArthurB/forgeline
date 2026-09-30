@@ -172,6 +172,7 @@
     <string name="settings_separate_inbox">Inbox tabs per account</string>
     <string name="settings_separate_inbox_summary">See one account at a time, or all together</string>
     <string name="inbox_all_accounts">All accounts</string>
+    <string name="inbox_unread_state">Unread</string>
     <string name="search_all_forges">All forges</string>
     <string name="choice_forge">Forge</string>
     <string name="choice_account">Account</string>

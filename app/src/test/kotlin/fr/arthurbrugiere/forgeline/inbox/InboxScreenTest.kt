@@ -27,6 +27,8 @@ import org.junit.Rule
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.semantics.SemanticsProperties
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -287,5 +289,15 @@ class InboxScreenTest {
         composeRule.onNodeWithText("All accounts").performClick()
 
         assertThat(picked).containsExactly(codeberg.id, null).inOrder()
+    }
+
+    @Test
+    fun screen_readers_hear_which_notifications_are_unread() {
+        // Regression: unread was only a colour dot and a bolder title.
+        val read = notificationThread("44", repo = "acme/rocket", title = "Already seen", reason = NotificationReason.MENTION, unread = false)
+        setContent(InboxUiState(groups = listOf(SectionGroup(InboxSection.NEEDS_YOU, listOf(mention, read))), syncedAtMillis = 1))
+
+        composeRule.onNode(hasText("Launch fails on cold start") and SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Unread")).assertExists()
+        composeRule.onNode(hasText("Already seen") and SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription)).assertDoesNotExist()
     }
 }

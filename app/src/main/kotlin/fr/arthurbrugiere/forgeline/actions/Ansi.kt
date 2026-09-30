@@ -9,15 +9,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 
-/** The eight terminal colors (black, red, green, yellow, blue, magenta, cyan, white), tuned to read on the log's ground. */
+/** The eight terminal colors (black, red, green, yellow, blue, magenta, cyan, white), tuned to 4.5:1 on the log's ground and on the error band. */
 data class AnsiPalette(val colors: List<Color>, val dim: Color)
 
 val AnsiLight = AnsiPalette(
     colors = listOf(
-        Color(0xFF5A566B), Color(0xFFB8321E), Color(0xFF2E7D46), Color(0xFF8A6100),
-        Color(0xFF2F5FC4), Color(0xFF8E44AD), Color(0xFF1F7A8C), Color(0xFF5A566B),
+        Color(0xFF5A566B), Color(0xFFB8321E), Color(0xFF2B7642), Color(0xFF8A6100),
+        Color(0xFF2F5FC4), Color(0xFF8E44AD), Color(0xFF1D7283), Color(0xFF5A566B),
     ),
-    dim = Color(0xFF6E6A7E),
+    dim = Color(0xFF6A667A),
 )
 
 val AnsiDark = AnsiPalette(

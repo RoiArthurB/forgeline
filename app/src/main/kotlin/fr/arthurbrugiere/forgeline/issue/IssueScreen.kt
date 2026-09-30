@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
@@ -196,7 +197,7 @@ fun IssueScreen(
                 state = listState,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 contentPadding = PaddingValues(bottom = listBottomPadding()),
-                modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+                modifier = Modifier.fillMaxSize().sideSafeArea(),
             ) {
                 item(key = "header") {
                     SoftHeader(
@@ -294,7 +295,7 @@ private fun Header(ref: IssueRef, issue: IssueDetails?, nowMillis: Long, onOpenR
             Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp))
         }
         if (issue == null) {
-            Text("#${ref.number}", style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp), color = colors.ink, modifier = Modifier.semantics { heading() })
+            Text("#${ref.number}", style = Soft.type.hero, color = colors.ink, modifier = Modifier.semantics { heading() })
             return@Column
         }
         // The title, then its number (the owner's requested "Title - #123").
@@ -304,7 +305,7 @@ private fun Header(ref: IssueRef, issue: IssueDetails?, nowMillis: Long, onOpenR
                     append(issue.title)
                     withStyle(SpanStyle(color = colors.inkMuted)) { append(" - #${ref.number}") }
                 },
-                style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp),
+                style = Soft.type.hero,
                 color = colors.ink,
                 modifier = Modifier.semantics { heading() },
             )

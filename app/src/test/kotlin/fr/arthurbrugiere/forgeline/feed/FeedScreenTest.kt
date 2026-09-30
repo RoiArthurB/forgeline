@@ -21,6 +21,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoPreview
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.core.testing.feedEvent
 import org.junit.Rule
+import androidx.compose.ui.test.hasText
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -79,7 +80,7 @@ class FeedScreenTest {
             ),
         )
 
-        composeRule.onNodeWithText("alice and bob starred ·\u00A01\u00A0hr.\u00A0ago", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("alice and bob starred\u00A0· 1\u00A0hr.\u00A0ago", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("carol and dave starred", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("acme/\u2060rocket").assertIsDisplayed()
         composeRule.onNodeWithText("octo/\u2060tools").assertIsDisplayed()
@@ -222,5 +223,16 @@ class FeedScreenTest {
         )
 
         composeRule.onNodeWithText("Launch fails").assertIsDisplayed()
+    }
+
+    @Test
+    fun the_time_dot_never_starts_a_line() {
+        // Regression: a wrap before "·" left it alone at the start of the second line. It now sticks to what precedes it.
+        setContent(FeedUiState(items = feedItems(listOf(feedEvent("1", actor = "bob", repo = "acme/rocket")), FeedKind.defaults), syncedAtMillis = 1))
+
+        val line = composeRule.onNode(hasText("bob", substring = true) and hasText("ago", substring = true)).fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString()
+        assertThat(line).doesNotContain(" ·")
+        assertThat(line).contains("\u00A0·")
     }
 }

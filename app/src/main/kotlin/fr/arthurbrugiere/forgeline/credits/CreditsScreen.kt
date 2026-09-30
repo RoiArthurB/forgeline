@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.credits
 
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -53,7 +54,7 @@ fun CreditsScreen(
     modifier: Modifier = Modifier,
 ) {
     val colors = Soft.colors
-    Box(modifier.fillMaxSize().background(colors.ground)) {
+    Box(modifier.fillMaxSize().background(colors.ground).sideSafeArea()) {
         LibrariesContainer(
             libraries = libraries,
             modifier = Modifier.fillMaxSize(),
@@ -85,7 +86,7 @@ private fun AppLicenseHeader(onOpenLicense: () -> Unit) {
         Text(stringResource(R.string.credits_icons), style = Soft.type.secondary, color = colors.inkMuted, modifier = Modifier.padding(top = 8.dp))
         Text(
             stringResource(R.string.credits_libraries_intro),
-            style = Soft.type.control.copy(fontSize = 17.sp, lineHeight = 22.sp),
+            style = Soft.type.section,
             color = colors.ink,
             modifier = Modifier.padding(top = 12.dp),
         )

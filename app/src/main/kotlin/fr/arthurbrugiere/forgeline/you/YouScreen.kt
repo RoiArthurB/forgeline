@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.you
 
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.outlined.PersonAdd
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
@@ -57,6 +58,7 @@ fun YouScreen(
         modifier
             .fillMaxSize()
             .background(colors.ground)
+            .sideSafeArea()
             .verticalScroll(rememberScrollState())
             .padding(bottom = listBottomPadding()),
         horizontalAlignment = Alignment.CenterHorizontally,

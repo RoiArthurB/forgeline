@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalDensity
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -304,7 +306,7 @@ fun InboxScreen(
                 state = listState,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 contentPadding = PaddingValues(bottom = listBottomPadding()),
-                modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+                modifier = Modifier.fillMaxSize().sideSafeArea(),
             ) {
                 item(key = "header", contentType = "header") {
                     InboxHeader(
@@ -501,7 +503,7 @@ private fun SectionHeading(section: InboxSection, unread: Int, modifier: Modifie
     ) {
         Text(
             stringResource(if (section == InboxSection.NEEDS_YOU) R.string.inbox_section_needs_you else R.string.inbox_section_others),
-            style = Soft.type.control.copy(fontSize = 17.sp, lineHeight = 22.sp),
+            style = Soft.type.section,
             color = colors.ink,
         )
         AnimatedVisibility(unread > 0, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
@@ -539,6 +541,7 @@ private fun ThreadRow(
     onUnsubscribe: (NotificationThread) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val unreadState = stringResource(R.string.inbox_unread_state)
     val colors = Soft.colors
     // Not saved: a thread brought back by Undo keeps its list key, so a saved swipe state would come back dismissed
     // and mark it done again at once. A returning row always starts settled.
@@ -581,6 +584,8 @@ private fun ThreadRow(
                 .softPressable { onOpen(thread) }
                 // Swipes are invisible to screen readers: the same actions as accessibility actions.
                 .semantics {
+                    // The dot and the bolder title are visual only: say it.
+                    if (thread.unread) stateDescription = unreadState
                     customActions = buildList {
                         if (thread.unread) add(CustomAccessibilityAction(markReadLabel) { onMarkRead(thread); true })
                         add(CustomAccessibilityAction(doneLabel) { onMarkDone(thread); true })

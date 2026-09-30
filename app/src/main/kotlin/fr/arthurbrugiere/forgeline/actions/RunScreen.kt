@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import fr.arthurbrugiere.forgeline.session.signedInOn
@@ -178,7 +179,7 @@ fun RunScreen(
                 state = listState,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 contentPadding = PaddingValues(bottom = listBottomPadding()),
-                modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+                modifier = Modifier.fillMaxSize().sideSafeArea(),
             ) {
                 item(key = "header") {
                     SoftHeader(

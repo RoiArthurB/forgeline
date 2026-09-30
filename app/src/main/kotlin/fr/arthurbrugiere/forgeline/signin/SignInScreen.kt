@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.signin
 
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.foundation.layout.imePadding
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
 import android.content.ClipData
@@ -126,6 +127,7 @@ fun SignInScreen(
             .fillMaxSize()
             .background(colors.ground)
             // The token field scrolls above the keyboard (edge-to-edge doesn't resize the window for it).
+            .sideSafeArea()
             .imePadding()
             .verticalScroll(rememberScrollState())
             .padding(bottom = listBottomPadding()),
@@ -229,7 +231,7 @@ private fun ChooseMethod(
             modifier = Modifier.fillMaxWidth(),
         )
     }
-    Text(stringResource(R.string.sign_in_token_title), style = Soft.type.control.copy(fontSize = 17.sp, lineHeight = 22.sp), color = colors.ink)
+    Text(stringResource(R.string.sign_in_token_title), style = Soft.type.section, color = colors.ink)
     Text(
         stringResource(if (state.forge == SignInForge.GITHUB) R.string.sign_in_token_body else R.string.sign_in_token_body_forgejo),
         style = Soft.type.body,

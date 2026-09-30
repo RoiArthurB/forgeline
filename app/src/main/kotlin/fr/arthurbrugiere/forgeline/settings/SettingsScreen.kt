@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.settings
 
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import java.time.Instant
 import fr.arthurbrugiere.forgeline.ui.relative
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
@@ -165,7 +166,7 @@ fun SettingsScreen(
             state = listState,
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = PaddingValues(bottom = listBottomPadding()),
-            modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+            modifier = Modifier.fillMaxSize().sideSafeArea(),
         ) {
             item {
                 SoftHeader(

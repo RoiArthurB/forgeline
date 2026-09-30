@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.search
 
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.foundation.layout.imePadding
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
@@ -143,7 +144,7 @@ fun SearchScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = PaddingValues(bottom = listBottomPadding()),
             // Results stay above the keyboard (edge-to-edge doesn't resize the window for it).
-            modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)).imePadding(),
+            modifier = Modifier.fillMaxSize().sideSafeArea().imePadding(),
         ) {
             item(key = "header") {
                 SoftHeader(

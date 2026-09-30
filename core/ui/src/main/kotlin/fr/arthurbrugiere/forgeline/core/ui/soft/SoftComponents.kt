@@ -186,7 +186,7 @@ fun SoftHeader(
             if (onBack != null && title != null) {
                 Text(
                     title,
-                    style = Soft.type.title.copy(fontSize = 30.sp, lineHeight = 34.sp),
+                    style = Soft.type.detailTitle,
                     color = colors.ink,
                     modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp).semantics { heading() },
                 )
@@ -526,7 +526,7 @@ fun SoftStatusBarScrim(visible: Boolean, modifier: Modifier = Modifier) {
 fun SoftSectionTitle(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
-        style = Soft.type.control.copy(fontSize = 17.sp, lineHeight = 22.sp),
+        style = Soft.type.section,
         color = Soft.colors.ink,
         modifier = modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 6.dp).semantics { heading() },
     )

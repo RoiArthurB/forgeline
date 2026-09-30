@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.file
 
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import android.content.ClipData
 import androidx.compose.foundation.layout.Box
@@ -110,7 +111,7 @@ fun FileScreen(
 ) {
     val colors = Soft.colors
     val content = state.content
-    Column(modifier.fillMaxSize().background(colors.ground), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier.fillMaxSize().background(colors.ground).sideSafeArea(), horizontalAlignment = Alignment.CenterHorizontally) {
         SoftHeader(
             tint = colors.fields[1],
             onBack = onBack,

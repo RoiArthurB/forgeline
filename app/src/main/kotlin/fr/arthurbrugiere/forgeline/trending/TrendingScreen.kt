@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.trending
 
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
@@ -233,7 +234,7 @@ fun TrendingScreen(
                     contentPadding = PaddingValues(bottom = listBottomPadding()),
                     modifier = Modifier
                         .fillMaxSize()
-                        .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+                        .sideSafeArea(),
                 ) {
                     item(key = "header", contentType = "header") {
                         val openSearch = LocalOpenSearch.current

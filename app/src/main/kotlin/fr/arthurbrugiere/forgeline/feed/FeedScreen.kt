@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.ui.platform.LocalDensity
 import fr.arthurbrugiere.forgeline.core.ui.format.forgeInlineContent
 import fr.arthurbrugiere.forgeline.core.ui.format.appendForge
@@ -253,7 +254,7 @@ fun FeedScreen(
                 state = listState,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 contentPadding = PaddingValues(bottom = listBottomPadding()),
-                modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+                modifier = Modifier.fillMaxSize().sideSafeArea(),
             ) {
                 item(key = "header", contentType = "header") { FeedHeader() }
                 when {
@@ -343,11 +344,11 @@ private fun FeedRow(
             Text(
                 buildAnnotatedString {
                     append(item.headline().emphasizing(item.names(), colors.ink))
-                    // Short, and kept whole with its dot, so a wrap moves "· 15 min. ago" down as one piece.
+                    // Each dot sticks to what precedes it, so a line never starts with "·"; the time is kept whole.
                     val time = relative(item.createdAt, nowMillis, abbreviated = true).replace(' ', '\u00A0')
                     withStyle(SpanStyle(color = colors.inkMuted)) {
-                        forge?.let { append(" ·\u00A0"); appendForge(it) }
-                        append(" ·\u00A0$time")
+                        forge?.let { append("\u00A0· "); appendForge(it) }
+                        append("\u00A0· $time")
                     }
                 },
                 inlineContent = forge?.let { forgeInlineContent(it, colors.inkMuted) }.orEmpty(),

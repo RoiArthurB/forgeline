@@ -201,3 +201,10 @@ private fun <T> snapTween() = androidx.compose.animation.core.tween<T>(0)
 /** Bottom padding for a screen's list: breathing room plus the space the navigation takes. */
 @Composable
 fun listBottomPadding(extra: Dp = 24.dp): Dp = LocalBottomBarSpace.current + extra
+
+/**
+ * Keeps a screen clear of whatever sits on its sides: the navigation bar of a phone in landscape, or a camera cutout.
+ * Every screen's content column takes it, header included, so nothing lands under the bar.
+ */
+@Composable
+fun Modifier.sideSafeArea(): Modifier = windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))

@@ -3,6 +3,11 @@ package fr.arthurbrugiere.forgeline.actions
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLight
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDark
+import fr.arthurbrugiere.forgeline.core.ui.soft.amoled
+import fr.arthurbrugiere.forgeline.core.ui.soft.contrastRatio
 import org.junit.Test
 
 class AnsiTest {
@@ -53,5 +58,22 @@ class AnsiTest {
         val text = ansiAnnotated("\u001B[41;30mFAIL\u001B[0m", AnsiLight)
 
         assertThat(text.spanStyles.single().item.color).isEqualTo(AnsiLight.colors[0])
+    }
+
+    @Test
+    fun every_log_colour_reads_on_the_log_and_on_the_error_band() {
+        // Regression: light green, cyan and dim fell to 4.2-4.4:1 on the error band behind ERROR lines.
+        val grounds = listOf(
+            "light ground" to (AnsiLight to SoftLight.ground), "light error band" to (AnsiLight to SoftLight.fields[0]),
+            "dark ground" to (AnsiDark to SoftDark.ground), "dark error band" to (AnsiDark to SoftDark.fields[0]),
+            "amoled ground" to (AnsiDark to SoftDark.amoled().ground), "amoled error band" to (AnsiDark to SoftDark.amoled().fields[0]),
+        )
+        grounds.forEach { (name, pair) ->
+            val (palette, ground) = pair
+            (palette.colors + palette.dim).forEachIndexed { index, color ->
+                val ratio = contrastRatio(color, ground)
+                assertWithMessage("colour $index on the $name: %s:1".format("%.2f".format(ratio))).that(ratio).isAtLeast(4.5f)
+            }
+        }
     }
 }

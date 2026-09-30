@@ -99,6 +99,12 @@ val Lexend = FontFamily(
 @Immutable
 data class SoftType(
     val title: TextStyle = TextStyle(fontFamily = Gabarito, fontWeight = FontWeight.Bold, fontSize = 34.sp, lineHeight = 38.sp, letterSpacing = (-0.01).em),
+    /** A detail screen's title in its field (a repository, a search): one step under a tab's [title]. */
+    val detailTitle: TextStyle = title.copy(fontSize = 30.sp, lineHeight = 34.sp),
+    /** Who or what a detail screen is about when that is a sentence: an issue's title, a person's name, a job. */
+    val hero: TextStyle = title.copy(fontSize = 26.sp, lineHeight = 31.sp),
+    /** A section's title over its rows (Needs you, a settings group, a card's heading). */
+    val section: TextStyle = TextStyle(fontFamily = Gabarito, fontWeight = FontWeight.Medium, fontSize = 17.sp, lineHeight = 22.sp),
     val name: TextStyle = TextStyle(fontFamily = Gabarito, fontWeight = FontWeight.Bold, fontSize = 21.sp, lineHeight = 25.sp),
     /** Ranks and counts: tabular, so they line up down a list. */
     val figure: TextStyle = TextStyle(fontFamily = Gabarito, fontWeight = FontWeight.Bold, fontSize = 16.sp, lineHeight = 20.sp, fontFeatureSettings = "tnum"),

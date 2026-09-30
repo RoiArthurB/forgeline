@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.user
 
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import fr.arthurbrugiere.forgeline.session.signedInOn
@@ -134,7 +135,7 @@ fun UserScreen(
             state = listState,
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = PaddingValues(bottom = listBottomPadding()),
-            modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+            modifier = Modifier.fillMaxSize().sideSafeArea(),
         ) {
             item(key = "header") {
                 SoftHeader(
@@ -150,7 +151,7 @@ fun UserScreen(
                     if (profile != null) {
                         Header(profile, state.following, signedIn, onToggleFollow, onSignIn, onOpenUrl)
                     } else {
-                        Text("@${state.login}", style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp), color = colors.ink, modifier = Modifier.semantics { heading() })
+                        Text("@${state.login}", style = Soft.type.hero, color = colors.ink, modifier = Modifier.semantics { heading() })
                     }
                 }
             }
@@ -208,7 +209,7 @@ private fun Header(
             Avatar(profile.avatarUrl, profile.login, size = 72.dp, placeholderColor = colors.ground, placeholderContentColor = colors.inkMuted)
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 // The name leads when there is one; otherwise the login is the page's heading.
-                profile.name?.let { Text(it, style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 31.sp), color = colors.ink, modifier = Modifier.semantics { heading() }) }
+                profile.name?.let { Text(it, style = Soft.type.hero, color = colors.ink, modifier = Modifier.semantics { heading() }) }
                 Text("@${profile.login}", style = Soft.type.secondary, color = colors.inkMuted, modifier = if (profile.name == null) Modifier.semantics { heading() } else Modifier)
                 if (profile.isOrganization) SoftTag(stringResource(R.string.user_organization), background = colors.ground)
             }

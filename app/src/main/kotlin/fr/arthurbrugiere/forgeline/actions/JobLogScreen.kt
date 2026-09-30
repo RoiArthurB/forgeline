@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import fr.arthurbrugiere.forgeline.core.model.jobUrl
@@ -142,7 +143,7 @@ fun JobLogScreen(
             state = listState,
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = PaddingValues(bottom = listBottomPadding()),
-            modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
+            modifier = Modifier.fillMaxSize().sideSafeArea(),
         ) {
             item(key = "header") {
                 SoftHeader(
@@ -160,7 +161,7 @@ fun JobLogScreen(
                     },
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(state.jobName, style = Soft.type.title.copy(fontSize = 26.sp, lineHeight = 30.sp), color = colors.ink, modifier = Modifier.semantics { heading() })
+                        Text(state.jobName, style = Soft.type.hero, color = colors.ink, modifier = Modifier.semantics { heading() })
                         state.job?.let { job ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 RunStatusIcon(job.status, job.conclusion, size = 28.dp)

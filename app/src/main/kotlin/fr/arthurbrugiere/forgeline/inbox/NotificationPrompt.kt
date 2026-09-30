@@ -91,7 +91,7 @@ fun NotificationPromptCard(prompt: NotificationPrompt, onAllow: () -> Unit, modi
                 Icon(Icons.Outlined.NotificationsActive, contentDescription = null, tint = colors.ink, modifier = Modifier.size(20.dp))
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(stringResource(R.string.inbox_permission_title), style = Soft.type.control.copy(fontSize = 17.sp, lineHeight = 22.sp), color = colors.ink)
+                Text(stringResource(R.string.inbox_permission_title), style = Soft.type.section, color = colors.ink)
                 Text(stringResource(R.string.inbox_permission_body), style = Soft.type.secondary, color = colors.inkMuted)
             }
         }
