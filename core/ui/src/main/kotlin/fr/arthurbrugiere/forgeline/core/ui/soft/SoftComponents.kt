@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.ui.soft
 
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.runtime.setValue
@@ -427,15 +428,27 @@ fun SoftTextField(
 
 /** An empty or error state: a title, one line of cause or reassurance, and optionally one filled pill action. */
 @Composable
-fun SoftNotice(title: String, body: String, modifier: Modifier = Modifier, action: String? = null, onAction: () -> Unit = {}) {
+fun SoftNotice(
+    title: String,
+    body: String,
+    modifier: Modifier = Modifier,
+    action: String? = null,
+    onAction: () -> Unit = {},
+    /** A quieter way out beside the main action (a signed-out wall's "Browse Trending"). */
+    secondaryAction: String? = null,
+    onSecondaryAction: () -> Unit = {},
+) {
     val colors = Soft.colors
     Column(modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 32.dp)) {
-        Text(title, style = Soft.type.name, color = colors.ink)
+        Text(title, style = Soft.type.name, color = colors.ink, modifier = Modifier.semantics { heading() })
         Spacer(Modifier.height(6.dp))
         Text(body, style = Soft.type.body, color = colors.inkMuted, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure))
-        if (action != null) {
+        if (action != null || secondaryAction != null) {
             Spacer(Modifier.height(20.dp))
-            SoftButton(action, onAction)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                action?.let { SoftButton(it, onAction) }
+                secondaryAction?.let { SoftTonalButton(it, onSecondaryAction) }
+            }
         }
     }
 }

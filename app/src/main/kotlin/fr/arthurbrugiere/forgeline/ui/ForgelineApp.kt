@@ -90,11 +90,13 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
     val openIssue = { ref: IssueRef -> navigator.navigate(ref.route()) }
     // A login only means someone on a given forge: each screen passes the forge of what it shows.
     val openUser = { forge: ForgeInstance, login: String -> navigator.navigate(forge.userRoute(login)) }
+    val browseTrending = { navigator.selectTab(TopLevelDestination.TRENDING) }
     val provider = entryProvider<NavKey> {
         entry<InboxRoute> {
             InboxDestination(
                 session = session,
                 onSignIn = signIn,
+                onBrowseTrending = browseTrending,
                 onOpenThread = { thread ->
                     val number = thread.number
                     if (number != null && (thread.type == SubjectType.ISSUE || thread.type == SubjectType.PULL_REQUEST)) {
@@ -106,7 +108,7 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
             )
         }
         entry<FeedRoute> {
-            FeedDestination(session, onSignIn = signIn, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser)
+            FeedDestination(session, onSignIn = signIn, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser, onBrowseTrending = browseTrending)
         }
         entry<TrendingRoute> { TrendingDestination(session, onSignIn = signIn, onOpenRepo = openRepo) }
         entry<FileKey> { key ->

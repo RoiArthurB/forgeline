@@ -146,9 +146,10 @@ fun InboxRoute(
     session: SessionState,
     onSignIn: () -> Unit,
     onOpenThread: (NotificationThread) -> Unit,
+    onBrowseTrending: () -> Unit = {},
 ) {
     if (session !is SessionState.SignedIn) {
-        InboxSignedOut(session, onSignIn)
+        InboxSignedOut(session, onSignIn, onBrowseTrending)
         return
     }
     // Keyed by account so switching accounts never shows the previous inbox's state.
@@ -176,7 +177,7 @@ fun InboxRoute(
 }
 
 @Composable
-private fun InboxSignedOut(session: SessionState, onSignIn: () -> Unit) {
+private fun InboxSignedOut(session: SessionState, onSignIn: () -> Unit, onBrowseTrending: () -> Unit) {
     val colors = Soft.colors
     Column(Modifier.fillMaxSize().background(colors.ground), horizontalAlignment = Alignment.CenterHorizontally) {
         InboxHeader(filter = null, onSelectFilter = {})
@@ -186,6 +187,8 @@ private fun InboxSignedOut(session: SessionState, onSignIn: () -> Unit) {
                 stringResource(R.string.inbox_signed_out_body),
                 action = stringResource(R.string.sign_in),
                 onAction = onSignIn,
+                secondaryAction = stringResource(R.string.browse_trending),
+                onSecondaryAction = onBrowseTrending,
             )
         }
     }

@@ -128,6 +128,7 @@ fun FeedRoute(
     onOpenRepo: (RepoId) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
     onOpenUser: (ForgeInstance, String) -> Unit,
+    onBrowseTrending: () -> Unit = {},
 ) {
     if (session !is SessionState.SignedIn) {
         Column(Modifier.fillMaxSize().background(Soft.colors.ground), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -138,6 +139,8 @@ fun FeedRoute(
                     stringResource(R.string.feed_signed_out_body),
                     action = stringResource(R.string.sign_in),
                     onAction = onSignIn,
+                    secondaryAction = stringResource(R.string.browse_trending),
+                    onSecondaryAction = onBrowseTrending,
                 )
             }
         }

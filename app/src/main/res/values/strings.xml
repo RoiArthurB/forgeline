@@ -12,8 +12,8 @@
     <string name="cancel">Cancel</string>
     <string name="done">Done</string>
 
-    <string name="inbox_signed_out_title">Your inbox lives on GitHub</string>
-    <string name="inbox_signed_out_body">Sign in to triage your notifications here.</string>
+    <string name="inbox_signed_out_title">Your notifications, in one place</string>
+    <string name="inbox_signed_out_body">Sign in to GitHub, Codeberg or your own Forgejo to read and clear what needs you.</string>
     <string name="inbox_filter_unread">Unread</string>
     <string name="inbox_filter_participating">Participating</string>
     <string name="inbox_filter_all">All</string>
@@ -63,7 +63,8 @@
     <string name="reason_security_alert">Security alert</string>
     <string name="reason_other">Update</string>
     <string name="feed_signed_out_title">Follow the people you follow</string>
-    <string name="feed_signed_out_body">Sign in to see what they star, fork and release.</string>
+    <string name="feed_signed_out_body">Sign in to GitHub, Codeberg or your own Forgejo to see what they star, fork and release.</string>
+    <string name="browse_trending">Browse Trending</string>
     <string name="feed_empty_title">Quiet for now</string>
     <string name="feed_empty_body">Activity from the people you follow and the repositories you watch shows up here.</string>
     <string name="feed_error_title">Couldn\'t load your Feed</string>
@@ -101,8 +102,8 @@
     <string name="feed_day_week">This week</string>
     <string name="feed_day_earlier">Earlier</string>
     <string name="feed_member_added">%1$s added %3$s to %2$s</string>
-    <string name="you_signed_out_title">Connect your GitHub account</string>
-    <string name="you_signed_out_body">Your inbox and feed need an account. Trending and browsing work without one.</string>
+    <string name="you_signed_out_title">Connect an account</string>
+    <string name="you_signed_out_body">GitHub, Codeberg or your own Forgejo. Your inbox and feed need an account; Trending and browsing work without one.</string>
 
     <string name="sign_in_title">Sign in</string>
     <string name="sign_in_headline">Connect to %1$s</string>
@@ -347,7 +348,7 @@
     <string name="search_organization">Organization</string>
     <string name="settings_title">Settings</string>
     <string name="settings_section_account">Accounts</string>
-    <string name="settings_signed_out_summary">Connect your GitHub account</string>
+    <string name="settings_signed_out_summary">Connect a GitHub, Codeberg or Forgejo account</string>
     <string name="sign_out_confirm_title">Sign out of @%1$s?</string>
     <string name="sign_out_confirm_body">Your token will be deleted from this device.</string>
     <string name="settings_section_appearance">Appearance</string>

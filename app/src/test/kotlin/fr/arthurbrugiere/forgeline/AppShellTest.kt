@@ -49,7 +49,20 @@ class AppShellTest {
         // The inbox is a sign-in wall until an account exists; Trending works signed out.
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclip", substring = true)).fetchSemanticsNodes().isNotEmpty() }
         tab("Trending").assertIsSelected()
-        composeRule.onNodeWithText("Your inbox lives on GitHub").assertDoesNotExist()
+        composeRule.onNodeWithText("Your notifications, in one place").assertDoesNotExist()
+    }
+
+    @Test
+    fun the_signed_out_walls_name_every_forge_and_lead_back_to_trending() {
+        tab("Inbox").performClick()
+        // Codeberg and self-hosted Forgejo work too: the wall must not say GitHub alone.
+        composeRule.onNodeWithText("GitHub, Codeberg or your own Forgejo", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Browse Trending").performClick()
+        tab("Trending").assertIsSelected()
+
+        tab("Feed").performClick()
+        composeRule.onNodeWithText("Browse Trending").performClick()
+        tab("Trending").assertIsSelected()
     }
 
     @Test
@@ -87,7 +100,7 @@ class AppShellTest {
         composeRule.onNodeWithText("Sign in with GitHub").assertDoesNotExist()
 
         composeRule.onNode(hasContentDescription("Navigate up")).performClick()
-        composeRule.onNodeWithText("Your inbox lives on GitHub").assertIsDisplayed()
+        composeRule.onNodeWithText("Your notifications, in one place").assertIsDisplayed()
     }
 
     @Test
