@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.onNodeWithContentDescription
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -260,5 +264,25 @@ class InboxScreenTest {
 
         composeRule.onNodeWithText("Codeberg · Watching", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("GitHub · Watching", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun account_tabs_start_with_all_and_each_wears_its_forge() {
+        val github = Account(Account.idFor(ForgeInstance.GitHub, "me"), ForgeInstance.GitHub, ForgeUser("me", null, null))
+        val codeberg = Account(Account.idFor(ForgeInstance.Codeberg, "me"), ForgeInstance.Codeberg, ForgeUser("me", null, null))
+        val picked = mutableListOf<String?>()
+        composeRule.setContent {
+            InboxScreen(
+                state = grouped.copy(accountTabs = listOf(github, codeberg)),
+                onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
+                onErrorShown = {}, onActionFailureShown = {}, onSelectAccount = { picked += it },
+            )
+        }
+
+        composeRule.onNodeWithText("All accounts").assertIsSelected()
+        composeRule.onNodeWithContentDescription("Codeberg").performClick()
+        composeRule.onNodeWithText("All accounts").performClick()
+
+        assertThat(picked).containsExactly(codeberg.id, null).inOrder()
     }
 }

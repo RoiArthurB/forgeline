@@ -236,7 +236,7 @@ fun InboxScreen(
     notificationPrompt: NotificationPrompt? = null,
     onAllowNotifications: () -> Unit = {},
     onUndo: (PendingUndo) -> Unit = {},
-    onSelectAccount: (String) -> Unit = {},
+    onSelectAccount: (String?) -> Unit = {},
     nowMillis: Long = System.currentTimeMillis(),
 ) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
     val colors = Soft.colors
@@ -298,10 +298,14 @@ fun InboxScreen(
                 if (state.accountTabs.isNotEmpty()) {
                     item(key = "accounts", contentType = "accounts") {
                         SoftChipTabs(
-                            options = state.accountTabs.map { listOfNotNull("@${it.user.login}", it.forge.hostLabel).joinToString(" · ") },
-                            selected = state.accountTabs.indexOfFirst { it.id == state.selectedAccountId }.coerceAtLeast(0),
-                            onSelect = { onSelectAccount(state.accountTabs[it].id) },
-                            leading = { index, color -> ForgeIcon(state.accountTabs[index].forge, size = 16.dp, tint = color) },
+                            // "All" first, then one tab per account.
+                            options = listOf(stringResource(R.string.inbox_all_accounts)) +
+                                state.accountTabs.map { listOfNotNull("@${it.user.login}", it.forge.hostLabel).joinToString(" · ") },
+                            selected = state.accountTabs.indexOfFirst { it.id == state.selectedAccountId } + 1,
+                            onSelect = { onSelectAccount(state.accountTabs.getOrNull(it - 1)?.id) },
+                            leading = { index, color ->
+                                state.accountTabs.getOrNull(index - 1)?.let { ForgeIcon(it.forge, size = 16.dp, tint = color) }
+                            },
                         )
                     }
                 }

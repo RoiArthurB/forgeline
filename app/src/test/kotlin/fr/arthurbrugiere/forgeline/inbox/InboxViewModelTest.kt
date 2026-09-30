@@ -232,10 +232,16 @@ class InboxViewModelTest {
         settings.setSeparateInboxPerForge(true)
         advanceUntilIdle()
         assertThat(viewModel.state.value.accountTabs).containsExactly(github, codeberg).inOrder()
-        assertThat(viewModel.state.value.groups.flatMap { it.threads }).containsExactly(onGitHub)
+        // Split, "All" stays the default: the unified list is one tab among the others.
+        assertThat(viewModel.state.value.selectedAccountId).isNull()
+        assertThat(viewModel.state.value.groups.flatMap { it.threads }).hasSize(2)
 
         viewModel.selectAccount(codeberg.id)
         advanceUntilIdle()
         assertThat(viewModel.state.value.groups.flatMap { it.threads }).containsExactly(onCodeberg)
+
+        viewModel.selectAccount(null)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.groups.flatMap { it.threads }).hasSize(2)
     }
 }

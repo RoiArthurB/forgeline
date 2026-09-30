@@ -53,7 +53,10 @@ data class InboxUiState(
     /** Whether the Inbox is checked in the background, which is when notifications matter. */
     val backgroundChecks: Boolean = false,
     val undo: PendingUndo? = null,
-    /** One tab per account when the Inbox is split per forge (a setting, with several accounts); empty otherwise. */
+    /**
+     * One tab per account, after an "All" tab, when the Inbox is split per forge (a setting, with several accounts);
+     * empty otherwise.
+     */
     val accountTabs: List<Account> = emptyList(),
     /** The account whose tab is shown, when there are tabs. */
     val selectedAccountId: String? = null,
@@ -77,7 +80,8 @@ class InboxViewModel @Inject constructor(
 
     private val split = combine(accounts.accounts, settings.settings, selectedAccount) { signedIn, settings, selected ->
         val tabs = if (settings.separateInboxPerForge && signedIn.size > 1) signedIn else emptyList()
-        Split(tabs, selected?.takeIf { id -> tabs.any { it.id == id } } ?: tabs.firstOrNull()?.id, signedIn.map { it.forge }.distinct().size > 1)
+        // Nothing selected is "All": the unified list stays the default, even split.
+        Split(tabs, selected?.takeIf { id -> tabs.any { it.id == id } }, signedIn.map { it.forge }.distinct().size > 1)
     }
     private val status = MutableStateFlow(Status())
 
@@ -121,7 +125,8 @@ class InboxViewModel @Inject constructor(
         savedState[FILTER_KEY] = filter
     }
 
-    fun selectAccount(accountId: String) {
+    /** Shows one account's threads; null shows every account's. */
+    fun selectAccount(accountId: String?) {
         savedState[ACCOUNT_KEY] = accountId
     }
 
