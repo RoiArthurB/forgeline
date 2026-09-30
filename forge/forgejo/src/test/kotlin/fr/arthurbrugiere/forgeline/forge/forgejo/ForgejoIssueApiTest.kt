@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import io.ktor.http.HttpStatusCode
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -60,5 +62,29 @@ class ForgejoIssueApiTest {
         assertThat((items[1] as TimelineItem.Review).state).isEqualTo(ReviewState.APPROVED)
         assertThat((items[2] as TimelineItem.Comment).author?.login).isEqualTo("forgejo-actions")
         assertThat((items[3] as TimelineItem.StateChanged).change).isEqualTo(StateChange.MERGED)
+    }
+
+    @Test
+    fun a_plain_issue_skips_the_pull_request_call() = runTest {
+        val first = with(codeberg) { fixture("issues.json") }.let { all -> kotlinx.serialization.json.Json.parseToJsonElement(all) }
+            .let { (it as kotlinx.serialization.json.JsonArray)[0].toString() }
+        val issues = with(codeberg) {
+            ForgejoIssueApi(client { if (it.url.encodedPath.endsWith("/reactions")) json("[]") else json(first) }, ForgeInstance.Codeberg)
+        }
+
+        val issue = issues.issue(null, IssueRef(pull.repo, 14601)).value()
+
+        assertThat(issue.pullRequest).isNull()
+        assertThat(issue.state).isEqualTo(IssueState.OPEN)
+        assertThat(codeberg.requests.none { "/pulls/" in it.url.encodedPath }).isTrue()
+    }
+
+    @Test
+    fun a_missing_issue_is_an_error() = runTest {
+        val issues = with(codeberg) { ForgejoIssueApi(client { status(HttpStatusCode.NotFound) }, ForgeInstance.Codeberg) }
+
+        val result = issues.issue(null, IssueRef(pull.repo, 1))
+
+        assertThat((result as ForgeResult.Failure).error).isInstanceOf(ForgeError.Http::class.java)
     }
 }

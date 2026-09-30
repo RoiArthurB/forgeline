@@ -114,4 +114,17 @@ class ForgejoNotificationsApiTest {
         assertThat(codeberg.requests.last().method).isEqualTo(HttpMethod.Delete)
         assertThat(codeberg.requests.last().url.encodedPath).isEqualTo("/api/v1/repos/forgejo/forgejo/issues/14601/subscriptions/earl-warren")
     }
+
+    @Test
+    fun reading_a_thread_marks_it_read_and_done_does_the_same() = runTest {
+        // Forgejo has no "done": the Inbox hides a done thread itself (supportsDone is false).
+        assertThat(api.markRead("t", "902")).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.markDone("t", "903")).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(api.supportsDone).isFalse()
+        assertThat(codeberg.requests.map { Triple(it.method, it.url.encodedPath, it.url.parameters["to-status"]) }).containsExactly(
+            Triple(HttpMethod.Patch, "/api/v1/notifications/threads/902", "read"),
+            Triple(HttpMethod.Patch, "/api/v1/notifications/threads/903", "read"),
+        ).inOrder()
+    }
 }

@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -108,5 +109,44 @@ class ForgejoUserApiTest {
         val results = with(codeberg) { ForgejoSearchApi(client { json(issue) }, ForgeInstance.Codeberg) }.issues("t", "crash").value()
 
         assertThat(results.items.single().repo).isEqualTo(RepoId("alice", "tool", ForgeInstance.Codeberg))
+    }
+
+    @Test
+    fun starring_puts_and_unstarring_deletes() = runTest {
+        val repo = RepoId("forgejo", "forgejo", ForgeInstance.Codeberg)
+        val api = with(codeberg) { ForgejoStarApi(client { status(HttpStatusCode.NoContent) }, ForgeInstance.Codeberg) }
+
+        assertThat(api.setStarred("t", repo, starred = true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.setStarred("t", repo, starred = false)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(codeberg.requests.map { it.method to it.url.encodedPath }).containsExactly(
+            HttpMethod.Put to "/api/v1/user/starred/forgejo/forgejo",
+            HttpMethod.Delete to "/api/v1/user/starred/forgejo/forgejo",
+        ).inOrder()
+        assertThat(codeberg.requests.map { it.headers["Authorization"] }.toSet()).containsExactly("token t")
+    }
+
+    @Test
+    fun a_refused_star_is_an_error_and_an_unclear_answer_leaves_the_state_unknown() = runTest {
+        val repo = RepoId("forgejo", "forgejo", ForgeInstance.Codeberg)
+        val api = with(codeberg) { ForgejoStarApi(client { status(HttpStatusCode.InternalServerError) }, ForgeInstance.Codeberg) }
+
+        assertThat(api.setStarred("t", repo, starred = true)).isInstanceOf(ForgeResult.Failure::class.java)
+        // Unknown, not "not starred": the button then doesn't pretend either way.
+        assertThat(api.starredStatus("t", listOf(repo)).value()).isEmpty()
+    }
+
+    @Test
+    fun a_persons_stars_are_on_their_forge_and_need_an_account_on_codeberg() = runTest {
+        val signedIn = with(codeberg) { ForgejoUserApi(client { json(fixture("user_repos.json")) }, ForgeInstance.Codeberg) }
+            .starred("t", "alice").value()
+        assertThat(signedIn).isNotEmpty()
+        assertThat(signedIn.all { it.id.forge == ForgeInstance.Codeberg }).isTrue()
+        assertThat(codeberg.requests.last().url.encodedPath).isEqualTo("/api/v1/users/alice/starred")
+
+        // Codeberg answered 401 to anonymous star lists (2026-09-29).
+        val anonymous = with(codeberg) { ForgejoUserApi(client { status(HttpStatusCode.Unauthorized) }, ForgeInstance.Codeberg) }
+            .starred(null, "alice")
+        assertThat(anonymous).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
     }
 }
