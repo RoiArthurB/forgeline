@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import androidx.compose.ui.test.onNodeWithContentDescription
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
@@ -242,5 +245,22 @@ class RepoScreenTest {
 
         composeRule.onNodeWithText("Couldn't open this repository").assertIsDisplayed()
         composeRule.onNodeWithText("It doesn't exist, or it's private.").assertIsDisplayed()
+    }
+
+    @Test
+    fun the_header_says_which_forge_the_repository_lives_on() {
+        setContent(loaded)
+
+        composeRule.onNodeWithContentDescription("GitHub").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_self_hosted_repository_names_its_server() {
+        val selfHosted = ForgeInstance(ForgeType.FORGEJO, "git.example.org")
+        val details = repoDetails("octo/repo").let { it.copy(id = it.id.copy(forge = selfHosted)) }
+        setContent(loaded.copy(requested = details.id, details = details))
+
+        composeRule.onNodeWithContentDescription(selfHosted.displayName).assertIsDisplayed()
+        composeRule.onNodeWithText("git.example.org").assertIsDisplayed()
     }
 }

@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import fr.arthurbrugiere.forgeline.core.ui.format.languageColor
+import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -386,13 +388,17 @@ private fun RepoHeader(
 ) {
     val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.clip(SoftTokens.Pill).clickable { onOpenUser(details.id.owner) }.padding(end = 8.dp),
-        ) {
-            Avatar(details.ownerAvatarUrl, details.id.owner, size = 28.dp, placeholderColor = colors.ground, placeholderContentColor = colors.inkMuted)
-            Text(details.id.owner, style = Soft.type.secondary, color = colors.inkMuted)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.clip(SoftTokens.Pill).clickable { onOpenUser(details.id.owner) }.padding(end = 8.dp),
+            ) {
+                Avatar(details.ownerAvatarUrl, details.id.owner, size = 28.dp, placeholderColor = colors.ground, placeholderContentColor = colors.inkMuted)
+                Text(details.id.owner, style = Soft.type.secondary, color = colors.inkMuted)
+            }
+            // Where the repository lives: always said here, whatever else is signed in.
+            ForgeMark(details.id.forge, style = Soft.type.secondary, color = colors.inkMuted, size = 16.dp)
         }
         Text(details.id.name, style = Soft.type.title.copy(fontSize = 30.sp, lineHeight = 34.sp), color = colors.ink)
         details.description?.let {
@@ -417,7 +423,15 @@ private fun RepoHeader(
             Stat(stringResource(R.string.trending_stars, compactCount(details.stars)))
             Stat(stringResource(R.string.trending_forks, compactCount(details.forks)))
             Stat(stringResource(R.string.repo_watchers, compactCount(details.watchers)))
-            details.language?.let { Stat(it) }
+            details.language?.let { language ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    languageColor(language)?.let { dot ->
+                        Box(Modifier.size(9.dp).background(dot, CircleShape))
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Stat(language)
+                }
+            }
             details.license?.let { Stat(it) }
         }
         if (details.isArchived || details.isFork) {
