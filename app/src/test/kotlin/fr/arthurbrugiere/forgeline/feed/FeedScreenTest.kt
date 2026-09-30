@@ -213,4 +213,14 @@ class FeedScreenTest {
         composeRule.onNodeWithText("alice starred", substring = true).assertTextContains("Codeberg", substring = true)
         composeRule.onNodeWithText("bob starred", substring = true).assertTextContains("GitHub", substring = true)
     }
+
+    @Test
+    fun a_comment_on_an_issue_shows_the_title_fetched_for_it() {
+        setContent(
+            state(feedEvent("1", actor = "carol", action = FeedAction.Commented(12, null, isPullRequest = false))),
+            FeedPreviews(pullTitles = mapOf(IssueRef(RepoId("acme", "rocket"), 12) to "Launch fails")),
+        )
+
+        composeRule.onNodeWithText("Launch fails").assertIsDisplayed()
+    }
 }

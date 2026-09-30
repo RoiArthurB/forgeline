@@ -80,4 +80,10 @@ class DeepLinkTest {
             }
         }
     }
+
+    @Test
+    fun codeberg_links_can_open_in_forgeline() {
+        assertThat(handlers("https://codeberg.org/forgejo/forgejo/issues/14601")).contains(context.packageName)
+        assertThat(handlers("https://codeberg.org/alice")).contains(context.packageName)
+    }
 }

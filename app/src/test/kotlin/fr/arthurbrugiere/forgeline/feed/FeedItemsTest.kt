@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
@@ -67,5 +69,17 @@ class FeedItemsTest {
         )
 
         assertThat(items.map { it.key }).containsExactly("1")
+    }
+
+    @Test
+    fun a_comment_without_its_conversations_title_asks_for_it_issue_or_pull_request() {
+        // GitHub's comment events name the issue; Codeberg's carry the comment instead, so the title is fetched.
+        val onIssue = feedItems(listOf(feedEvent("1", action = FeedAction.Commented(12, null, isPullRequest = false))), FeedKind.entries.toSet()).single()
+        val onPull = feedItems(listOf(feedEvent("2", action = FeedAction.Commented(13, null, isPullRequest = true))), FeedKind.entries.toSet()).single()
+        val named = feedItems(listOf(feedEvent("3", action = FeedAction.Commented(14, "Launch fails", isPullRequest = false))), FeedKind.entries.toSet()).single()
+
+        assertThat(onIssue.previewPull).isEqualTo(IssueRef(RepoId("acme", "rocket"), 12))
+        assertThat(onPull.previewPull).isEqualTo(IssueRef(RepoId("acme", "rocket"), 13))
+        assertThat(named.previewPull).isNull()
     }
 }

@@ -400,7 +400,7 @@ private fun FeedObject(item: FeedItem, previews: FeedPreviews, modifier: Modifie
         is FeedAction.Commented -> Column(modifier) {
             StatePill(stringResource(R.string.feed_state_comment), Icons.Outlined.ChatBubbleOutline, colors.fields[1], number = a.number)
             val title = a.title ?: previews.pullTitles[IssueRef(item.repo, a.number)]
-            if (title != null || a.isPullRequest) LateTitle(title)
+            LateTitle(title)
         }
         is FeedAction.Pushed -> StatePill(a.branch, Icons.Outlined.Commit, colors.surface, monospace = true, modifier = modifier)
         is FeedAction.Branch -> StatePill(a.name, if (a.isTag) Icons.Outlined.Sell else Icons.Outlined.AccountTree, colors.surface, monospace = true, modifier = modifier)

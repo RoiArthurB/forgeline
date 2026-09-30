@@ -31,8 +31,8 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- github.com links open in-app. Not auto-verified (we don't own the domain): Android
-                 asks, or people enable it under "Open by default". -->
+            <!-- github.com and codeberg.org links open in-app. Not auto-verified (we don't own the
+                 domains): Android asks, or people enable it under "Open by default". -->
             <intent-filter tools:ignore="AppLinkWarning">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -40,6 +40,7 @@
                 <data android:scheme="https" />
                 <data android:host="github.com" />
                 <data android:host="www.github.com" />
+                <data android:host="codeberg.org" />
             </intent-filter>
         </activity>
 
