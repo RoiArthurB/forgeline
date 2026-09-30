@@ -48,10 +48,13 @@ interface TrendingRepository {
      * The repository read furthest down [period] during the current browse, or null once it has gone stale. A repo,
      * not a rank: the list reorders as it refreshes, and the reader stopped at a repo, not at a number.
      */
-    suspend fun readThrough(period: TrendingPeriod): RepoId?
+    suspend fun readThrough(period: TrendingPeriod, only: ForgeInstance? = null): RepoId?
 
-    /** Records that [repo], at [rank] (0-based) in the list as shown, was read; only ever moves the mark further down. */
-    suspend fun markReadThrough(period: TrendingPeriod, repo: RepoId, rank: Int)
+    /**
+     * Records that [repo], at [rank] (0-based) in the list as shown, was read; only ever moves the mark further down.
+     * A page narrowed to [only] one forge keeps its own mark: its ranks aren't the mixed page's.
+     */
+    suspend fun markReadThrough(period: TrendingPeriod, repo: RepoId, rank: Int, only: ForgeInstance? = null)
 }
 
 /**
@@ -114,14 +117,14 @@ class DefaultTrendingRepository @Inject constructor(
         }
     }
 
-    override suspend fun readThrough(period: TrendingPeriod): RepoId? =
-        marks.get(period.markList())?.takeIf { clock.millis() - it.markedAtMillis < MARK_MAX_AGE.inWholeMilliseconds }?.itemKey
+    override suspend fun readThrough(period: TrendingPeriod, only: ForgeInstance?): RepoId? =
+        marks.get(period.markList(only))?.takeIf { clock.millis() - it.markedAtMillis < MARK_MAX_AGE.inWholeMilliseconds }?.itemKey
             ?.let(RepoId::fromKey)
 
-    override suspend fun markReadThrough(period: TrendingPeriod, repo: RepoId, rank: Int) =
-        marks.advance(period.markList(), repo.key, rank.toLong(), clock.millis(), MARK_MAX_AGE.inWholeMilliseconds)
+    override suspend fun markReadThrough(period: TrendingPeriod, repo: RepoId, rank: Int, only: ForgeInstance?) =
+        marks.advance(period.markList(only), repo.key, rank.toLong(), clock.millis(), MARK_MAX_AGE.inWholeMilliseconds)
 
-    private fun TrendingPeriod.markList() = "trending:$name"
+    private fun TrendingPeriod.markList(only: ForgeInstance?) = "trending:$name" + only?.let { ":${it.host}" }.orEmpty()
 
     private companion object {
         val MAX_AGE = 1.hours

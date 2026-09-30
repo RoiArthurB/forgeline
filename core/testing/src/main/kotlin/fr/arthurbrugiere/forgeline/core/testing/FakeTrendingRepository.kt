@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepository
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingSnapshot
@@ -22,9 +23,17 @@ class FakeTrendingRepository : TrendingRepository {
 
     val marks = mutableMapOf<TrendingPeriod, Pair<RepoId, Int>>()
 
-    override suspend fun readThrough(period: TrendingPeriod): RepoId? = marks[period]?.first
+    /** Marks of pages narrowed to one forge, by period and host. */
+    val forgeMarks = mutableMapOf<Pair<TrendingPeriod, String>, Pair<RepoId, Int>>()
 
-    override suspend fun markReadThrough(period: TrendingPeriod, repo: RepoId, rank: Int) {
-        if (rank > (marks[period]?.second ?: -1)) marks[period] = repo to rank
+    override suspend fun readThrough(period: TrendingPeriod, only: ForgeInstance?): RepoId? =
+        if (only == null) marks[period]?.first else forgeMarks[period to only.host]?.first
+
+    override suspend fun markReadThrough(period: TrendingPeriod, repo: RepoId, rank: Int, only: ForgeInstance?) {
+        if (only == null) {
+            if (rank > (marks[period]?.second ?: -1)) marks[period] = repo to rank
+        } else if (rank > (forgeMarks[period to only.host]?.second ?: -1)) {
+            forgeMarks[period to only.host] = repo to rank
+        }
     }
 }

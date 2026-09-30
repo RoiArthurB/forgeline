@@ -234,4 +234,14 @@ class DefaultTrendingRepositoryTest {
 
         assertThat(repository.observe(TrendingPeriod.DAILY).first().repos).containsExactly(paperclip)
     }
+
+    @Test
+    fun a_page_narrowed_to_one_forge_keeps_its_own_reading_mark() = runTest {
+        val zig = RepoId("ziglang", "zig", ForgeInstance.Codeberg)
+        repository.markReadThrough(TrendingPeriod.DAILY, zig, 0, only = ForgeInstance.Codeberg)
+        repository.markReadThrough(TrendingPeriod.DAILY, RepoId("acme", "tenth"), 9)
+
+        assertThat(repository.readThrough(TrendingPeriod.DAILY, only = ForgeInstance.Codeberg)).isEqualTo(zig)
+        assertThat(repository.readThrough(TrendingPeriod.DAILY)).isEqualTo(RepoId("acme", "tenth"))
+    }
 }

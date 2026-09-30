@@ -1,5 +1,10 @@
 package fr.arthurbrugiere.forgeline.trending
 
+import androidx.compose.ui.graphics.Color
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
+import fr.arthurbrugiere.forgeline.core.ui.format.hostLabel
+import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.core.ui.format.languageColor
@@ -129,6 +134,7 @@ fun TrendingRoute(
         onErrorShown = viewModel::errorShown,
         onStarFailureShown = viewModel::starFailureShown,
         onReadThrough = viewModel::readThrough,
+        onSelectForge = viewModel::selectForge,
     )
 }
 
@@ -154,6 +160,7 @@ fun TrendingScreen(
     modifier: Modifier = Modifier,
     onReadThrough: (Int) -> Unit = {},
     nowMillis: Long = System.currentTimeMillis(),
+    onSelectForge: (ForgeInstance?) -> Unit = {},
 ) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
     val snackbar = remember { SnackbarHostState() }
     val refreshFailed = stringResource(R.string.trending_refresh_failed)
@@ -240,11 +247,24 @@ fun TrendingScreen(
                                 }
                             },
                         ) {
-                            SoftSwitch(
-                                options = TrendingPeriod.entries.map { stringResource(it.label) },
-                                selected = state.period.ordinal,
-                                onSelect = { onPeriodChange(TrendingPeriod.entries[it]) },
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                SoftSwitch(
+                                    options = TrendingPeriod.entries.map { stringResource(it.label) },
+                                    selected = state.period.ordinal,
+                                    onSelect = { onPeriodChange(TrendingPeriod.entries[it]) },
+                                )
+                                if (state.forges.size > 1) {
+                                    // Every forge mixed, or one forge's ranking alone.
+                                    SoftChipTabs(
+                                        options = listOf(stringResource(R.string.search_all_forges)) + state.forges.map { it.hostLabel.orEmpty() },
+                                        selected = state.forges.indexOf(state.onlyForge) + 1,
+                                        onSelect = { onSelectForge(state.forges.getOrNull(it - 1)) },
+                                        leading = { index, color -> state.forges.getOrNull(index - 1)?.let { ForgeIcon(it, size = 18.dp, tint = color) } },
+                                        background = Color.Transparent,
+                                        contentPadding = PaddingValues(0.dp),
+                                    )
+                                }
+                            }
                         }
                     }
                     if (hasItems) {
@@ -281,7 +301,8 @@ fun TrendingScreen(
                         !hasItems -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.trending_loading)) }
                         else -> itemsIndexed(
                             state.items,
-                            key = { _, item -> item.repo.id.fullName },
+                            // By forge too: the same owner/name can trend on GitHub and on Codeberg.
+                            key = { _, item -> item.repo.id.key },
                             contentType = { _, _ -> "row" },
                         ) { index, item ->
                             val rise = animations && index < 8 &&

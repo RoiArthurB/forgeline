@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.trending
 
+import kotlinx.coroutines.flow.first
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -43,6 +45,10 @@ data class TrendingUiState(
     val resumeAt: Int? = null,
     /** Whether the page mixes several forges, so each row names its own. */
     val showForge: Boolean = false,
+    /** The forges on the page; one can be picked when there are several. */
+    val forges: List<ForgeInstance> = emptyList(),
+    /** The one forge shown, or null for the mixed page. */
+    val onlyForge: ForgeInstance? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -60,31 +66,46 @@ class TrendingViewModel @Inject constructor(
     private val refreshing = MutableStateFlow(false)
     private val error = MutableStateFlow<ForgeError?>(null)
     private val starFailed = MutableStateFlow(false)
-    private val resumeAt = MutableStateFlow<Map<TrendingPeriod, RepoId?>>(emptyMap())
+    /** Where each view (a period, mixed or narrowed to one forge's host) was left, fixed for this visit. */
+    private val resumeAt = MutableStateFlow<Map<Pair<TrendingPeriod, String?>, RepoId?>>(emptyMap())
+
+    // Saved by host so the choice survives process death; null is the mixed page.
+    private val onlyHost = savedState.getStateFlow<String?>(FORGE_KEY, null)
 
     val state: StateFlow<TrendingUiState> = combine(
-        period,
+        combine(period, onlyHost) { period, host -> period to host },
         snapshot,
         starred,
         combine(refreshing, error, starFailed, resumeAt) { r, e, f, m -> Flags(r, e, f, m) },
-    ) { period, snapshot, starred, flags ->
+    ) { (period, host), snapshot, starred, flags ->
+        // A forge no longer on the page (signed out of it) falls back to the mixed page.
+        val only = snapshot.forges.firstOrNull { it.host == host }?.takeIf { snapshot.forges.size > 1 }
+        // Filtering the merged page keeps each forge's own order.
+        val repos = snapshot.repos.filter { only == null || it.id.forge == only }
         TrendingUiState(
             period = period,
-            items = snapshot.repos.map { TrendingItem(it, starred[it.id]) },
+            items = repos.map { TrendingItem(it, starred[it.id]) },
             updatedAtMillis = snapshot.fetchedAtMillis,
             isRefreshing = flags.refreshing,
             error = flags.error,
             starFailed = flags.starFailed,
-            resumeAt = flags.resumeAt[period]?.let { mark -> snapshot.repos.indexOfFirst { it.id == mark }.takeIf { it >= 0 } },
-            showForge = snapshot.forges.size > 1,
+            resumeAt = flags.resumeAt[period to only?.host]?.let { mark -> repos.indexOfFirst { it.id == mark }.takeIf { it >= 0 } },
+            showForge = snapshot.forges.size > 1 && only == null,
+            forges = snapshot.forges,
+            onlyForge = only,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TrendingUiState(period = period.value))
 
     init {
         viewModelScope.launch {
-            period.collect { period ->
-                if (period !in resumeAt.value) resumeAt.update { it + (period to trending.readThrough(period)) }
-                refresh(period, force = false)
+            period.collect { period -> refresh(period, force = false) }
+        }
+        viewModelScope.launch {
+            combine(period, onlyHost) { period, host -> period to host }.collect { view ->
+                if (view !in resumeAt.value) {
+                    val only = view.second?.let { host -> trending.observe(view.first).first().forges.firstOrNull { it.host == host } }
+                    resumeAt.update { it + (view to trending.readThrough(view.first, only)) }
+                }
             }
         }
         viewModelScope.launch {
@@ -101,6 +122,11 @@ class TrendingViewModel @Inject constructor(
     fun selectPeriod(period: TrendingPeriod) {
         error.value = null
         savedState[PERIOD_KEY] = period
+    }
+
+    /** Shows [forge]'s ranking alone, or the mixed page when null. */
+    fun selectForge(forge: ForgeInstance?) {
+        savedState[FORGE_KEY] = forge?.host
     }
 
     fun refresh() {
@@ -121,8 +147,9 @@ class TrendingViewModel @Inject constructor(
     /** The list has been read down to [rank] (0-based), as shown now. */
     fun readThrough(rank: Int) {
         val period = period.value
-        val repo = state.value.items.getOrNull(rank)?.repo?.id ?: return
-        viewModelScope.launch { trending.markReadThrough(period, repo, rank) }
+        val shown = state.value
+        val repo = shown.items.getOrNull(rank)?.repo?.id ?: return
+        viewModelScope.launch { trending.markReadThrough(period, repo, rank, shown.onlyForge) }
     }
 
     fun errorShown() {
@@ -145,10 +172,11 @@ class TrendingViewModel @Inject constructor(
         val refreshing: Boolean,
         val error: ForgeError?,
         val starFailed: Boolean,
-        val resumeAt: Map<TrendingPeriod, RepoId?>,
+        val resumeAt: Map<Pair<TrendingPeriod, String?>, RepoId?>,
     )
 
     private companion object {
         const val PERIOD_KEY = "period"
+        const val FORGE_KEY = "forge"
     }
 }

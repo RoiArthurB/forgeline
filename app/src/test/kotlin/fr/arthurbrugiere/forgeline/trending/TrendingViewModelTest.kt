@@ -217,4 +217,31 @@ class TrendingViewModelTest {
         assertThat(viewModel.state.value.showForge).isTrue()
         assertThat(viewModel.state.value.items.map { it.repo.id.forge }).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg).inOrder()
     }
+
+    @Test
+    fun one_forge_can_be_shown_alone_with_its_own_reading_mark() = test {
+        val zig = trendingRepo("ziglang/zig", forge = ForgeInstance.Codeberg)
+        trending.snapshots.getValue(TrendingPeriod.DAILY).value =
+            TrendingSnapshot(listOf(paperclip, zig, hindsight), 1_000, listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.selectForge(ForgeInstance.Codeberg)
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertThat(state.onlyForge).isEqualTo(ForgeInstance.Codeberg)
+        assertThat(state.items.map { it.repo }).containsExactly(zig)
+        // One forge alone: rows needn't wear their logo.
+        assertThat(state.showForge).isFalse()
+
+        viewModel.readThrough(0)
+        advanceUntilIdle()
+        assertThat(trending.forgeMarks[TrendingPeriod.DAILY to "codeberg.org"]).isEqualTo(zig.id to 0)
+        assertThat(trending.marks).isEmpty()
+
+        viewModel.selectForge(null)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.items.map { it.repo }).containsExactly(paperclip, zig, hindsight).inOrder()
+    }
 }

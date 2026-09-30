@@ -281,6 +281,15 @@ class ScreenshotTest {
     fun trending_resume_light() = snapshot("trending_resume_light", darkTheme = false) { TrendingPreview(trendingState.copy(resumeAt = 1)) }
 
     @Test
+    fun trending_mixed_forges_light() = snapshot("trending_mixed_forges_light", darkTheme = false) {
+        // GitHub and Codeberg on one page: every row wears its forge's logo, and one forge can be picked.
+        val items = trendingState.items.mapIndexed { index, item ->
+            if (index % 2 == 1) item.copy(repo = item.repo.copy(id = item.repo.id.copy(forge = ForgeInstance.Codeberg))) else item
+        }
+        TrendingPreview(trendingState.copy(items = items, showForge = true, forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)))
+    }
+
+    @Test
     fun trending_empty_light() = snapshot("trending_empty_light", darkTheme = false) { TrendingPreview(TrendingUiState(updatedAtMillis = 0L)) }
 
     // Large font scales on a small phone: labels grow or shrink to fit, nothing is cut off.

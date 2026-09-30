@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.trending
 
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onNodeWithContentDescription
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.compose.ui.test.assertIsDisplayed
@@ -227,5 +228,32 @@ class TrendingScreenTest {
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null))))
 
         composeRule.onNodeWithContentDescription("GitHub").assertDoesNotExist()
+    }
+
+    @Test
+    fun the_same_name_on_two_forges_is_two_rows() {
+        // Regression: rows were keyed by owner/name, and a repository trending on both forges crashed the list.
+        val onCodeberg = paperclip.copy(id = paperclip.id.copy(forge = ForgeInstance.Codeberg))
+        setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null), TrendingItem(onCodeberg, null)), showForge = true))
+
+        composeRule.onNodeWithContentDescription("Codeberg").assertExists()
+        composeRule.onNodeWithContentDescription("GitHub").assertExists()
+    }
+
+    @Test
+    fun one_forge_can_be_picked_when_several_trend() {
+        val picked = mutableListOf<ForgeInstance?>()
+        composeRule.setContent {
+            TrendingScreen(
+                state = TrendingUiState(items = listOf(TrendingItem(paperclip, null)), forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)),
+                onPeriodChange = {}, onRefresh = {}, onToggleStar = {}, onOpenRepo = {}, onErrorShown = {}, onStarFailureShown = {},
+                onSelectForge = { picked += it },
+            )
+        }
+
+        composeRule.onNodeWithText("All forges").assertIsSelected()
+        composeRule.onNodeWithContentDescription("Codeberg").performClick()
+
+        assertThat(picked).containsExactly(ForgeInstance.Codeberg)
     }
 }

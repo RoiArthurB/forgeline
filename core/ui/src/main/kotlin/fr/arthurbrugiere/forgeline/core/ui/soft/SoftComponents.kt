@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.ui.soft
 
+import androidx.compose.foundation.layout.PaddingValues
 import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
@@ -277,6 +278,9 @@ fun SoftChipTabs(
     modifier: Modifier = Modifier,
     /** Drawn before an option's label, in its color (a forge's logo). */
     leading: (@Composable (index: Int, color: Color) -> Unit)? = null,
+    /** The strip behind the chips: the ground by default, transparent inside a header. */
+    background: Color = Soft.colors.ground,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
 ) {
     val colors = Soft.colors
     val animations = animationsEnabled()
@@ -291,9 +295,9 @@ fun SoftChipTabs(
     Box(
         modifier
             .fillMaxWidth()
-            .background(colors.ground)
+            .background(background)
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+            .padding(contentPadding),
     ) {
         Box(
             Modifier
