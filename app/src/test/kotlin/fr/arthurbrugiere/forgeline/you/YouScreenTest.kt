@@ -30,7 +30,7 @@ class YouScreenTest {
 
         composeRule.onNodeWithText("The Octocat").assertIsDisplayed()
         composeRule.onNodeWithText("@octocat").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("GitHub").assertIsDisplayed()
+        composeRule.onNodeWithText("GitHub").assertIsDisplayed()
         composeRule.onNodeWithText("Sign in").assertDoesNotExist()
     }
 
@@ -55,7 +55,7 @@ class YouScreenTest {
         }
 
         composeRule.onNodeWithText("The Octocat").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Codeberg").assertIsDisplayed()
+        composeRule.onNodeWithText("Codeberg").assertIsDisplayed()
         composeRule.onNodeWithText("Alice").performClick()
         composeRule.onNodeWithText("Add an account").performClick()
 

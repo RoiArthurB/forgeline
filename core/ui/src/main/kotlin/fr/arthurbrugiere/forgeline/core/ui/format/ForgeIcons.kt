@@ -26,8 +26,9 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.ui.R
 
-// A forge is shown by its logo (Simple Icons, CC0) wherever a list mixes forges. A self-hosted server also gets its
-// host, since the Forgejo logo alone doesn't say which server. Screen readers still hear the forge's name.
+// A forge is shown by its logo (Simple Icons, CC0) and its name wherever a list mixes forges: "GitHub", "Codeberg" or
+// a self-hosted server's host. A 14dp monochrome mark alone leaves two same-named rows to be told apart by decoding a
+// glyph. Where the name is written the logo is decoration, so screen readers hear it once.
 
 @get:DrawableRes
 val ForgeInstance.iconRes: Int
@@ -37,33 +38,41 @@ val ForgeInstance.iconRes: Int
         else -> R.drawable.ic_forge_forgejo
     }
 
-/** What to write next to the logo: a self-hosted server's host, nothing for forges the logo names alone. */
-val ForgeInstance.hostLabel: String?
-    get() = if (this == ForgeInstance.GitHub || this == ForgeInstance.Codeberg) null else host
-
+/**
+ * The logo alone. Its [contentDescription] is the forge's name; pass null where the name is written next to it (a chip's
+ * label, a row's meta line) so it isn't read twice.
+ */
 @Composable
-fun ForgeIcon(forge: ForgeInstance, modifier: Modifier = Modifier, size: Dp = 14.dp, tint: Color = LocalContentColor.current) {
-    Icon(painterResource(forge.iconRes), contentDescription = forge.displayName, tint = tint, modifier = modifier.size(size))
+fun ForgeIcon(
+    forge: ForgeInstance,
+    modifier: Modifier = Modifier,
+    size: Dp = 14.dp,
+    tint: Color = LocalContentColor.current,
+    contentDescription: String? = forge.displayName,
+) {
+    Icon(painterResource(forge.iconRes), contentDescription = contentDescription, tint = tint, modifier = modifier.size(size))
 }
 
-/** The logo, then a self-hosted server's host in [style]. */
+/** The logo, then the forge's name in [style]. */
 @Composable
 fun ForgeMark(forge: ForgeInstance, style: TextStyle, color: Color, modifier: Modifier = Modifier, size: Dp = 14.dp) {
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-        ForgeIcon(forge, size = size, tint = color)
-        forge.hostLabel?.let { Text(it, style = style, color = color, maxLines = 1) }
+        ForgeIcon(forge, size = size, tint = color, contentDescription = null)
+        Text(forge.displayName, style = style, color = color, maxLines = 1)
     }
 }
 
 private fun ForgeInstance.inlineId() = "forge:$host"
 
 /**
- * Puts [forge]'s logo inside a line of text, for lines built as one [AnnotatedString]. The text then needs
- * [forgeInlineContent] for the same forge. Its alternate text is the forge's name, for screen readers.
+ * Puts [forge]'s logo and then its name inside a line of text, for lines built as one [AnnotatedString]. The text then
+ * needs [forgeInlineContent] for the same forge. The logo's alternate text is a word joiner, silent and unbreakable: the
+ * name follows it in the text, so screen readers must not hear it twice, the placeholder needs a character to sit on,
+ * and a wrapping line must never leave the logo at the end of one line and its name at the start of the next.
  */
 fun AnnotatedString.Builder.appendForge(forge: ForgeInstance) {
-    appendInlineContent(forge.inlineId(), forge.displayName)
-    forge.hostLabel?.let { append(" $it") }
+    appendInlineContent(forge.inlineId(), "\u2060")
+    append("\u00A0${forge.displayName}")
 }
 
 /** What draws the logo [appendForge] put in the text, as tall as the text. */

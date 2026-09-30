@@ -20,30 +20,43 @@ class ForgeIconsTest {
     }
 
     @Test
-    fun only_a_self_hosted_server_writes_its_host_next_to_the_logo() {
-        assertThat(ForgeInstance.GitHub.hostLabel).isNull()
-        assertThat(ForgeInstance.Codeberg.hostLabel).isNull()
-        assertThat(selfHosted.hostLabel).isEqualTo("git.example.org")
+    fun every_forge_is_named_next_to_its_logo() {
+        // Rows and chips that mix forges must not lean on a 14dp logo alone: "GitHub", "Codeberg", or the server's host.
+        assertThat(ForgeInstance.GitHub.displayName).isEqualTo("GitHub")
+        assertThat(ForgeInstance.Codeberg.displayName).isEqualTo("Codeberg")
+        assertThat(selfHosted.displayName).isEqualTo("git.example.org")
     }
 
     @Test
-    fun in_a_line_of_text_the_logo_is_an_icon_named_for_screen_readers() {
+    fun in_a_line_of_text_the_logo_is_followed_by_the_forges_name() {
+        val github = buildAnnotatedString { appendForge(ForgeInstance.GitHub); append(" · 2h") }
+        val codeberg = buildAnnotatedString { appendForge(ForgeInstance.Codeberg); append(" · 2h") }
+        val host = buildAnnotatedString { appendForge(selfHosted) }
+
+        assertThat(github.text).contains("GitHub · 2h")
+        assertThat(codeberg.text).contains("Codeberg · 2h")
+        assertThat(host.text).endsWith("git.example.org")
+    }
+
+    @Test
+    fun the_logo_and_its_name_never_wrap_apart() {
+        val text = buildAnnotatedString { appendForge(ForgeInstance.GitHub) }
+
+        // A plain space here let a narrow line end on the logo and start the next one with "GitHub".
+        assertThat(text.text).isEqualTo("\u2060\u00A0GitHub")
+    }
+
+    @Test
+    fun the_inline_logo_is_silent_because_the_name_is_written_out() {
         val text = buildAnnotatedString {
             appendForge(ForgeInstance.Codeberg)
             append(" · 2h")
         }
 
-        // The name is only the logo's alternate text: an inline icon, not written out.
+        // The logo's alternate text must not repeat the name a screen reader reads right after it.
         val icon = text.getStringAnnotations(tag = "androidx.compose.foundation.text.inlineContent", start = 0, end = text.length).single()
-        assertThat(text.text.substring(icon.start, icon.end)).isEqualTo("Codeberg")
+        assertThat(text.text.substring(icon.start, icon.end)).doesNotContain("Codeberg")
         assertThat(forgeInlineContent(ForgeInstance.Codeberg, Color.Black)).containsKey(icon.item)
-    }
-
-    @Test
-    fun a_self_hosted_server_keeps_its_host_after_the_logo() {
-        val text = buildAnnotatedString { appendForge(selfHosted) }
-
-        assertThat(text.text).endsWith("git.example.org")
         assertThat(forgeInlineContent(selfHosted, Color.Black).values.single()).isInstanceOf(InlineTextContent::class.java)
     }
 }

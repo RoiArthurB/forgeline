@@ -18,7 +18,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.annotation.StringRes
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.offset
-import fr.arthurbrugiere.forgeline.core.ui.format.hostLabel
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Column
@@ -329,8 +328,8 @@ private fun AccountItem(account: Account, onSignOut: (Account) -> Unit) {
     val login = account.user.login
     SettingRow(
         title = "@$login",
-        // The forge's logo says which forge; a self-hosted server also names its host.
-        summary = account.forge.hostLabel,
+        // Two accounts can share a login: the forge's name says which is which, the logo on the avatar echoes it.
+        summary = account.forge.displayName,
         leading = {
             Box {
                 Avatar(account.user.avatarUrl, login, size = 40.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
@@ -338,6 +337,7 @@ private fun AccountItem(account: Account, onSignOut: (Account) -> Unit) {
                     account.forge,
                     size = 14.dp,
                     tint = colors.ink,
+                    contentDescription = null,
                     modifier = Modifier.align(Alignment.BottomEnd).offset(x = 3.dp, y = 3.dp)
                         .background(colors.raised, CircleShape).padding(3.dp),
                 )

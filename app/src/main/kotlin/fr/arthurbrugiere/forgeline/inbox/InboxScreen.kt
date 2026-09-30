@@ -1,6 +1,5 @@
 package fr.arthurbrugiere.forgeline.inbox
 
-import fr.arthurbrugiere.forgeline.core.ui.format.hostLabel
 import fr.arthurbrugiere.forgeline.core.ui.format.forgeInlineContent
 import fr.arthurbrugiere.forgeline.core.ui.format.appendForge
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
@@ -300,11 +299,11 @@ fun InboxScreen(
                         SoftChipTabs(
                             // "All" first, then one tab per account.
                             options = listOf(stringResource(R.string.inbox_all_accounts)) +
-                                state.accountTabs.map { listOfNotNull("@${it.user.login}", it.forge.hostLabel).joinToString(" · ") },
+                                state.accountTabs.map { "@${it.user.login} · ${it.forge.displayName}" },
                             selected = state.accountTabs.indexOfFirst { it.id == state.selectedAccountId } + 1,
                             onSelect = { onSelectAccount(state.accountTabs.getOrNull(it - 1)?.id) },
                             leading = { index, color ->
-                                state.accountTabs.getOrNull(index - 1)?.let { ForgeIcon(it.forge, size = 16.dp, tint = color) }
+                                state.accountTabs.getOrNull(index - 1)?.let { ForgeIcon(it.forge, size = 16.dp, tint = color, contentDescription = null) }
                             },
                         )
                     }

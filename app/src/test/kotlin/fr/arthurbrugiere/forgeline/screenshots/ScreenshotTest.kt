@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import fr.arthurbrugiere.forgeline.navigation.rememberAppNavigator
 import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.hasContentDescription
@@ -175,14 +176,18 @@ class ScreenshotTest {
     }
 
     @Test
-    fun app_shell_light() = snapshot("app_shell_light", darkTheme = false) { ForgelineApp(session = SessionState.SignedOut, onSignOut = {}) }
+    fun app_shell_light() = snapshot("app_shell_light", darkTheme = false) { ForgelineApp(session = SessionState.SignedOut, onSignOut = {}, navigator = rememberAppNavigator(settled = true)) }
 
     @Test
-    fun app_shell_dark() = snapshot("app_shell_dark", darkTheme = true) { ForgelineApp(session = SessionState.SignedOut, onSignOut = {}) }
+    fun app_shell_dark() = snapshot("app_shell_dark", darkTheme = true) { ForgelineApp(session = SessionState.SignedOut, onSignOut = {}, navigator = rememberAppNavigator(settled = true)) }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun app_shell_font_2_0_light() = snapshot("app_shell_font_2_0_light", darkTheme = false) { ForgelineApp(session = SessionState.SignedOut, onSignOut = {}, navigator = rememberAppNavigator(settled = true)) }
 
     @Test
     @Config(qualifiers = "w1280dp-h800dp-land-xhdpi")
-    fun app_shell_tablet() = snapshot("app_shell_tablet", darkTheme = false) { ForgelineApp(session = SessionState.SignedOut, onSignOut = {}) }
+    fun app_shell_tablet() = snapshot("app_shell_tablet", darkTheme = false) { ForgelineApp(session = SessionState.SignedOut, onSignOut = {}, navigator = rememberAppNavigator(settled = true)) }
 
     @Test
     fun settings_light() = snapshot("settings_light", darkTheme = false) { SettingsPreview() }
@@ -595,6 +600,26 @@ class ScreenshotTest {
     }
 
     @Test
+    fun inbox_several_accounts_light() = snapshot("inbox_several_accounts_light", darkTheme = false) {
+        val codeberg = Account(Account.idFor(ForgeInstance.Codeberg, "octocat"), ForgeInstance.Codeberg, ForgeUser("octocat", "The Octocat", null))
+        val onCodeberg = notificationThread("51", repo = "forgejo/forgejo", title = "Runner ignores the label filter", reason = NotificationReason.REVIEW_REQUESTED, updatedAt = "2026-09-27T09:20:00Z")
+            .let { it.copy(repo = it.repo.copy(forge = ForgeInstance.Codeberg), accountId = codeberg.id) }
+        val onGitHub = notificationThread("42", repo = "acme/rocket", title = "Launch fails on cold start", updatedAt = "2026-09-27T09:30:00Z")
+        val octocatOnGitHub = Account(Account.idFor(ForgeInstance.GitHub, "octocat"), ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null))
+        InboxScreen(
+            state = InboxUiState(
+                filter = InboxFilter.ALL,
+                groups = listOf(SectionGroup(InboxSection.NEEDS_YOU, listOf(onGitHub, onCodeberg))),
+                accountTabs = listOf(octocatOnGitHub, codeberg),
+                showForge = true,
+                syncedAtMillis = 1,
+            ),
+            onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
+            onErrorShown = {}, onActionFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
     fun inbox_undo_dark() = snapshot("inbox_undo_dark", darkTheme = true, awaitText = "Undo") {
         InboxScreen(
             state = InboxUiState(
@@ -626,6 +651,21 @@ class ScreenshotTest {
 
     @Test
     fun feed_dark() = snapshot("feed_dark", darkTheme = true) { FeedPreview() }
+
+    @Test
+    fun feed_mixed_forges_light() = snapshot("feed_mixed_forges_light", darkTheme = false) {
+        val onCodeberg = feedEvent("21", actor = "alice", repo = "forgejo/forgejo", createdAt = "2026-09-27T09:50:00Z", action = FeedAction.PullRequest(PullRequestAction.MERGED, 43))
+            .let { it.copy(repo = it.repo.copy(forge = ForgeInstance.Codeberg)) }
+        val onGitHub = feedEvent("20", actor = "bob", repo = "acme/rocket", createdAt = "2026-09-27T09:45:00Z", action = FeedAction.Issue(IssueAction.CLOSED, 42, "Launch fails on cold start"))
+        val onSelfHosted = feedEvent("19", actor = "carol", repo = "octo/tools", createdAt = "2026-09-27T09:40:00Z", action = FeedAction.Released("v2.0.0", "Tools 2.0: faster everything", prerelease = false))
+            .let { it.copy(repo = it.repo.copy(forge = ForgeInstance(ForgeType.FORGEJO, "git.example.org"))) }
+        FeedScreen(
+            state = FeedUiState(items = feedItems(listOf(onCodeberg, onGitHub, onSelfHosted), FeedKind.defaults), showForge = true, syncedAtMillis = 1),
+            onRefresh = {}, onLoadMore = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = { _, _ -> }, onErrorShown = {},
+            nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+            zone = java.time.ZoneOffset.UTC,
+        )
+    }
 
     @Composable
     private fun FeedPreview() {

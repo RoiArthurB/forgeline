@@ -1,8 +1,12 @@
 package fr.arthurbrugiere.forgeline.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
@@ -14,6 +18,7 @@ import fr.arthurbrugiere.forgeline.credits.CreditsRoute
 import fr.arthurbrugiere.forgeline.feed.FeedRoute as FeedDestination
 import fr.arthurbrugiere.forgeline.inbox.InboxRoute as InboxDestination
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.navigation.AppNavigator
 import fr.arthurbrugiere.forgeline.navigation.CreditsRoute as CreditsKey
 import fr.arthurbrugiere.forgeline.navigation.FeedRoute
@@ -64,6 +69,12 @@ fun ForgelineApp(
             navigator.openLink(link)
             onLinkOpened()
         }
+    }
+    if (!navigator.settled) {
+        // Which tab to open on depends on whether anyone is signed in, so wait for the session rather than flash the wrong one.
+        LaunchedEffect(session) { if (session !is SessionState.Loading) navigator.settle(signedIn = session is SessionState.SignedIn) }
+        Box(Modifier.fillMaxSize().background(Soft.colors.ground))
+        return
     }
     SoftNavigation(selected = navigator.currentTab, onSelect = navigator::selectTab) {
         CompositionLocalProvider(LocalOpenSearch provides { navigator.navigate(SearchKey) }) {

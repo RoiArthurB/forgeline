@@ -1,17 +1,14 @@
 package fr.arthurbrugiere.forgeline.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
@@ -33,16 +30,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
@@ -60,8 +60,8 @@ private val BarHeight = 64.dp
 private val BarMargin = 12.dp
 
 /**
- * The app shell's navigation: a floating pill bar on phones, a soft rail on wider windows. The selected tab is an
- * ember pill carrying its label; the others show their icon, named for screen readers.
+ * The app shell's navigation: a floating pill bar on phones, a soft rail on wider windows. Every tab shows its label
+ * under its icon; the selected one sits on an ember pill. Each is also named once for screen readers.
  */
 @Composable
 fun SoftNavigation(
@@ -101,7 +101,7 @@ private fun SoftBar(selected: TopLevelDestination, onSelect: (TopLevelDestinatio
             .heightIn(min = BarHeight)
             .padding(6.dp)
             .selectableGroup(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TopLevelDestination.entries.forEach { destination ->
@@ -111,36 +111,38 @@ private fun SoftBar(selected: TopLevelDestination, onSelect: (TopLevelDestinatio
 }
 
 @Composable
-private fun BarItem(destination: TopLevelDestination, selected: Boolean, onClick: () -> Unit) {
+private fun RowScope.BarItem(destination: TopLevelDestination, selected: Boolean, onClick: () -> Unit) {
     val colors = Soft.colors
     val label = stringResource(destination.label)
     val animations = animationsEnabled()
-    Row(
+    // Labels follow the font size up to 1.15x, then hold: four tabs share the bar, and a clipped "Inb…" names nothing. Every
+    // tab is still named in full for screen readers.
+    val labelSize = Soft.type.meta.fontSize * minOf(1f, 1.15f / LocalDensity.current.fontScale)
+    val pill by animateColorAsState(if (selected) colors.thumb else colors.raised, if (animations) tween(180) else snapTween(), label = "pill")
+    // Every tab carries its label: an icon alone asks the visitor to remember which glyph is Feed.
+    Column(
         Modifier
+            .weight(1f)
             .clip(SoftTokens.Pill)
-            .background(if (selected) colors.thumb else colors.raised)
+            .background(pill)
             .selectable(selected = selected, role = Role.Tab, onClick = onClick)
             .semantics { contentDescription = label }
             .heightIn(min = 52.dp)
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 2.dp, vertical = 5.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
-        Row(Modifier.clearAndSetSemantics {}, verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                if (selected) destination.selectedIcon else destination.icon,
-                contentDescription = null,
-                tint = if (selected) colors.onThumb else colors.inkMuted,
+        Column(Modifier.clearAndSetSemantics {}, horizontalAlignment = Alignment.CenterHorizontally) {
+            val ink = if (selected) colors.onThumb else colors.inkMuted
+            Icon(if (selected) destination.selectedIcon else destination.icon, contentDescription = null, tint = ink)
+            Text(
+                label,
+                style = Soft.type.label.copy(fontSize = labelSize),
+                color = ink,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
-            AnimatedVisibility(
-                visible = selected,
-                enter = if (animations) fadeIn() + expandHorizontally() else fadeIn(snapTween()),
-                exit = if (animations) fadeOut() + shrinkHorizontally() else fadeOut(snapTween()),
-            ) {
-                Row {
-                    Spacer(Modifier.width(8.dp))
-                    Text(label, style = Soft.type.control, color = colors.onThumb, maxLines = 1)
-                }
-            }
         }
     }
 }

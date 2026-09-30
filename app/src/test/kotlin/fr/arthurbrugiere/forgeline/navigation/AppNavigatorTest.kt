@@ -7,9 +7,10 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 class AppNavigatorTest {
-    private fun navigator(): AppNavigator = AppNavigator(
+    private fun navigator(settled: Boolean = true): AppNavigator = AppNavigator(
         stacks = TopLevelDestination.entries.associateWith { mutableStateListOf<NavKey>(it.root) },
-        currentTabState = mutableStateOf(AppNavigator.START_TAB),
+        currentTabState = mutableStateOf(AppNavigator.SIGNED_IN_HOME),
+        settledState = mutableStateOf(settled),
     )
 
     @Test
@@ -18,6 +19,52 @@ class AppNavigatorTest {
 
         assertThat(navigator.currentTab).isEqualTo(TopLevelDestination.INBOX)
         assertThat(navigator.visibleBackStacks()).containsExactly(TopLevelDestination.INBOX)
+    }
+
+    @Test
+    fun signed_in_settles_on_the_inbox() {
+        val navigator = navigator(settled = false)
+
+        navigator.settle(signedIn = true)
+
+        assertThat(navigator.currentTab).isEqualTo(TopLevelDestination.INBOX)
+        assertThat(navigator.home).isEqualTo(TopLevelDestination.INBOX)
+    }
+
+    @Test
+    fun signed_in_nowhere_settles_on_trending_and_back_returns_there() {
+        val navigator = navigator(settled = false)
+
+        navigator.settle(signedIn = false)
+
+        assertThat(navigator.currentTab).isEqualTo(TopLevelDestination.TRENDING)
+        assertThat(navigator.visibleBackStacks()).containsExactly(TopLevelDestination.TRENDING)
+        navigator.selectTab(TopLevelDestination.FEED)
+        navigator.goBack()
+        assertThat(navigator.currentTab).isEqualTo(TopLevelDestination.TRENDING)
+    }
+
+    @Test
+    fun the_home_is_decided_once_so_signing_in_later_does_not_move_the_visitor() {
+        val navigator = navigator(settled = false)
+        navigator.settle(signedIn = false)
+
+        navigator.settle(signedIn = true)
+
+        assertThat(navigator.currentTab).isEqualTo(TopLevelDestination.TRENDING)
+        assertThat(navigator.home).isEqualTo(TopLevelDestination.TRENDING)
+    }
+
+    @Test
+    fun a_link_opened_before_settling_stays_open() {
+        val navigator = navigator(settled = false)
+        val issue = IssueRoute("github.com", "acme", "rocket", 42)
+        navigator.openLink(issue)
+
+        navigator.settle(signedIn = false)
+
+        assertThat(navigator.currentTab).isEqualTo(TopLevelDestination.INBOX)
+        assertThat(navigator.backStackOf(TopLevelDestination.INBOX)).containsExactly(InboxRoute, issue).inOrder()
     }
 
     @Test

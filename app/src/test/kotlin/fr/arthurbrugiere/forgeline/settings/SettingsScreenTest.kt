@@ -83,9 +83,9 @@ class SettingsScreenTest {
 
         composeRule.onNodeWithText("@octocat").assertIsDisplayed()
         composeRule.onNodeWithText("@alice").assertIsDisplayed()
-        // Each account wears its forge's logo, named for screen readers.
-        composeRule.onNodeWithContentDescription("Codeberg").assertIsDisplayed()
-        composeRule.onNodeWithText("Codeberg").assertDoesNotExist()
+        // Each account says its forge in words under its login, beside the logo on its avatar.
+        composeRule.onNodeWithText("Codeberg").assertIsDisplayed()
+        composeRule.onNodeWithText("GitHub").assertIsDisplayed()
         composeRule.onNodeWithText("Add an account").assertIsDisplayed()
 
         composeRule.onAllNodesWithText("Sign out")[1].performClick()

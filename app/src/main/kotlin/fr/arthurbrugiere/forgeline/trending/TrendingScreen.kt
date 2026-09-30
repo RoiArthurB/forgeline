@@ -3,7 +3,6 @@ package fr.arthurbrugiere.forgeline.trending
 import androidx.compose.ui.graphics.Color
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
-import fr.arthurbrugiere.forgeline.core.ui.format.hostLabel
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import fr.arthurbrugiere.forgeline.session.signedInOn
@@ -256,10 +255,10 @@ fun TrendingScreen(
                                 if (state.forges.size > 1) {
                                     // Every forge mixed, or one forge's ranking alone.
                                     SoftChipTabs(
-                                        options = listOf(stringResource(R.string.search_all_forges)) + state.forges.map { it.hostLabel.orEmpty() },
+                                        options = listOf(stringResource(R.string.search_all_forges)) + state.forges.map { it.displayName },
                                         selected = state.forges.indexOf(state.onlyForge) + 1,
                                         onSelect = { onSelectForge(state.forges.getOrNull(it - 1)) },
-                                        leading = { index, color -> state.forges.getOrNull(index - 1)?.let { ForgeIcon(it, size = 18.dp, tint = color) } },
+                                        leading = { index, color -> state.forges.getOrNull(index - 1)?.let { ForgeIcon(it, size = 18.dp, tint = color, contentDescription = null) } },
                                         background = Color.Transparent,
                                         contentPadding = PaddingValues(0.dp),
                                     )

@@ -217,17 +217,17 @@ class TrendingScreenTest {
         val zig = trendingRepo("ziglang/zig", forge = ForgeInstance.Codeberg).copy(language = "Zig", languageColor = null)
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null), TrendingItem(zig, null)), showForge = true))
 
-        // Logos, not names: named for screen readers only.
-        composeRule.onNodeWithContentDescription("Codeberg").assertExists()
-        composeRule.onNodeWithContentDescription("GitHub").assertExists()
-        composeRule.onNodeWithText("Codeberg").assertDoesNotExist()
+        // A logo and its name, so a row never depends on a 14dp mark alone. The name is written, so the logo is silent.
+        composeRule.onNodeWithText("Codeberg").assertExists()
+        composeRule.onNodeWithText("GitHub").assertExists()
+        composeRule.onNodeWithContentDescription("Codeberg").assertDoesNotExist()
     }
 
     @Test
     fun one_forge_alone_names_none() {
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null))))
 
-        composeRule.onNodeWithContentDescription("GitHub").assertDoesNotExist()
+        composeRule.onNodeWithText("GitHub").assertDoesNotExist()
     }
 
     @Test
@@ -236,8 +236,8 @@ class TrendingScreenTest {
         val onCodeberg = paperclip.copy(id = paperclip.id.copy(forge = ForgeInstance.Codeberg))
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null), TrendingItem(onCodeberg, null)), showForge = true))
 
-        composeRule.onNodeWithContentDescription("Codeberg").assertExists()
-        composeRule.onNodeWithContentDescription("GitHub").assertExists()
+        composeRule.onNodeWithText("Codeberg").assertExists()
+        composeRule.onNodeWithText("GitHub").assertExists()
     }
 
     @Test
@@ -252,7 +252,9 @@ class TrendingScreenTest {
         }
 
         composeRule.onNodeWithText("All forges").assertIsSelected()
-        composeRule.onNodeWithContentDescription("Codeberg").performClick()
+        // The chips name their forge next to the logo.
+        composeRule.onNodeWithText("GitHub").assertIsDisplayed()
+        composeRule.onNodeWithText("Codeberg").performClick()
 
         assertThat(picked).containsExactly(ForgeInstance.Codeberg)
     }

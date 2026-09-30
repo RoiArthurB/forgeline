@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.performScrollToNode
@@ -32,13 +33,23 @@ class AppShellTest {
     @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
-    // Unselected tabs show only their icon; every tab is named for screen readers.
+    // Every tab shows its label under its icon and is named once for screen readers.
     private fun tab(label: String) = composeRule.onNode(hasContentDescription(label) and isSelectable())
 
     @Test
-    fun opens_on_the_inbox() {
-        tab("Inbox").assertIsSelected()
-        composeRule.onNodeWithText("Your inbox lives on GitHub").assertIsDisplayed()
+    fun every_tab_shows_its_label_not_only_the_selected_one() {
+        // The labels live under a cleared subtree (the tab is named once), so look in the unmerged tree.
+        listOf("Inbox", "Feed", "Trending", "You").forEach { label ->
+            composeRule.onNode(hasText(label) and hasAnyAncestor(isSelectable()), useUnmergedTree = true).assertIsDisplayed()
+        }
+    }
+
+    @Test
+    fun signed_in_nowhere_opens_on_trending_where_there_is_something_to_read() {
+        // The inbox is a sign-in wall until an account exists; Trending works signed out.
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclip", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        tab("Trending").assertIsSelected()
+        composeRule.onNodeWithText("Your inbox lives on GitHub").assertDoesNotExist()
     }
 
     @Test
@@ -68,6 +79,7 @@ class AppShellTest {
 
     @Test
     fun signing_in_from_the_inbox_opens_the_sign_in_screen() {
+        tab("Inbox").performClick()
         composeRule.onNodeWithText("Sign in").performClick()
 
         composeRule.onNodeWithText("Connect to GitHub").assertIsDisplayed()
@@ -135,8 +147,8 @@ class AppShellTest {
     }
 
     @Test
-    fun system_back_from_a_tab_returns_to_the_inbox() {
-        tab("Trending").performClick()
+    fun system_back_from_a_tab_returns_to_home_which_is_trending_when_signed_out() {
+        tab("Feed").performClick()
         composeRule.waitForIdle()
 
         composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
@@ -144,7 +156,7 @@ class AppShellTest {
         // Navigation 3 finishes the pop animation before invoking onBack.
         composeRule.waitForIdle()
         composeRule.mainClock.advanceTimeBy(1_000)
-        tab("Inbox").assertIsSelected()
+        tab("Trending").assertIsSelected()
     }
 
     @Test

@@ -251,7 +251,7 @@ class RepoScreenTest {
     fun the_header_says_which_forge_the_repository_lives_on() {
         setContent(loaded)
 
-        composeRule.onNodeWithContentDescription("GitHub").assertIsDisplayed()
+        composeRule.onNodeWithText("GitHub").assertIsDisplayed()
     }
 
     @Test
@@ -260,7 +260,6 @@ class RepoScreenTest {
         val details = repoDetails("octo/repo").let { it.copy(id = it.id.copy(forge = selfHosted)) }
         setContent(loaded.copy(requested = details.id, details = details))
 
-        composeRule.onNodeWithContentDescription(selfHosted.displayName).assertIsDisplayed()
         composeRule.onNodeWithText("git.example.org").assertIsDisplayed()
     }
 }

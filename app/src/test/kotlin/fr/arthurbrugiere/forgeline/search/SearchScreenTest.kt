@@ -159,10 +159,12 @@ class SearchScreenTest {
             ).let { it.copy(results = it.results.copy(forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg))) },
         )
 
-        // The issue's repository line starts with the logo, read out as the forge's name.
-        composeRule.onNodeWithText("Codeberg ziglang/zig").assertIsDisplayed()
-        // The repository's stats line and the person's line.
-        composeRule.onAllNodesWithContentDescription("Codeberg").assertCountEquals(2)
+        // The issue's repository line writes the forge before the repository.
+        composeRule.onNodeWithText("Codeberg ziglang/zig", substring = true).assertIsDisplayed()
+        // The repository's stats line and the person's line say it in words.
+        composeRule.onAllNodesWithText("Codeberg").assertCountEquals(2)
+        // Written out, so the logos beside the words are not read a second time.
+        composeRule.onAllNodesWithContentDescription("Codeberg").assertCountEquals(0)
         composeRule.onNodeWithText("alice").performClick()
 
         assertThat(events).containsExactly("user:codeberg.org/alice")
@@ -181,7 +183,8 @@ class SearchScreenTest {
         }
 
         composeRule.onNodeWithText("All forges").assertIsSelected()
-        composeRule.onNodeWithContentDescription("Codeberg").performClick()
+        composeRule.onNodeWithText("GitHub").assertIsDisplayed()
+        composeRule.onNodeWithText("Codeberg").performClick()
         composeRule.onNodeWithText("All forges").performClick()
 
         assertThat(picked).containsExactly(ForgeInstance.Codeberg, null).inOrder()

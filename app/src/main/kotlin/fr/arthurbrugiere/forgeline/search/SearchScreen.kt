@@ -1,7 +1,6 @@
 package fr.arthurbrugiere.forgeline.search
 
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
-import fr.arthurbrugiere.forgeline.core.ui.format.hostLabel
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -169,12 +168,12 @@ fun SearchScreen(
             }
             if (state.forges.size > 1) {
                 item(key = "forges") {
-                    // All forges, or one: each shown by its logo (and a self-hosted server by its host).
+                    // All forges, or one: each shown by its logo and its name.
                     SoftChipTabs(
-                        options = listOf(stringResource(R.string.search_all_forges)) + state.forges.map { it.hostLabel.orEmpty() },
+                        options = listOf(stringResource(R.string.search_all_forges)) + state.forges.map { it.displayName },
                         selected = state.forges.indexOf(state.onlyForge) + 1,
                         onSelect = { onSelectForge(state.forges.getOrNull(it - 1)) },
-                        leading = { index, color -> state.forges.getOrNull(index - 1)?.let { ForgeIcon(it, size = 18.dp, tint = color) } },
+                        leading = { index, color -> state.forges.getOrNull(index - 1)?.let { ForgeIcon(it, size = 18.dp, tint = color, contentDescription = null) } },
                     )
                 }
             }
