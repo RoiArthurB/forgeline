@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.model.Account
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -20,6 +21,9 @@ sealed interface SessionState {
     /** [account] is the active one; [accounts] every one signed in, across forges. */
     data class SignedIn(val account: Account, val accounts: List<Account> = listOf(account)) : SessionState
 }
+
+/** Whether an account is signed in to [forge]: starring, following or running CI there needs one on that forge. */
+fun SessionState.signedInOn(forge: ForgeInstance): Boolean = this is SessionState.SignedIn && accounts.any { it.forge == forge }
 
 @HiltViewModel
 class SessionViewModel @Inject constructor(

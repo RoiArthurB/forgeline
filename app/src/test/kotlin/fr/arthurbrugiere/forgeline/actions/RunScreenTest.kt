@@ -122,4 +122,19 @@ class RunScreenTest {
 
         assertThat(events).containsExactly("refresh")
     }
+
+    @Test
+    fun without_rerun_a_finished_run_offers_nothing_to_press() {
+        setContent(failedRun.copy(canRerun = false))
+
+        composeRule.onNodeWithText("Re-run failed jobs").assertDoesNotExist()
+        composeRule.onNodeWithText("Re-run all jobs").assertDoesNotExist()
+    }
+
+    @Test
+    fun without_rerun_a_running_run_can_still_be_cancelled() {
+        setContent(failedRun.copy(run = workflowRun(7, status = RunStatus.IN_PROGRESS, conclusion = null), canRerun = false))
+
+        composeRule.onNodeWithText("Cancel run").assertExists()
+    }
 }

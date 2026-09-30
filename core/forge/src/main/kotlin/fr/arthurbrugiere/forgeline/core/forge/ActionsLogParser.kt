@@ -1,15 +1,15 @@
-package fr.arthurbrugiere.forgeline.forge.github
+package fr.arthurbrugiere.forgeline.core.forge
 
 import fr.arthurbrugiere.forgeline.core.model.JobLog
 import fr.arthurbrugiere.forgeline.core.model.LogEntry
 import fr.arthurbrugiere.forgeline.core.model.LogLineKind
 
 /**
- * Reads a GitHub Actions job log: every line starts with a timestamp, `##[group]`/`##[endgroup]` fold lines, and
+ * Reads a GitHub or Forgejo Actions job log (Forgejo's runner writes the same format): every line starts with a timestamp, `##[group]`/`##[endgroup]` fold lines, and
  * `##[error]`-style markers set a line's kind. A line without a timestamp continues the one before (a multi-line
  * error), so it keeps its kind. ANSI color codes are left in the text.
  */
-internal object GitHubLogParser {
+object ActionsLogParser {
     private val timestamp = Regex("""^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z ?""")
     private val markers = mapOf(
         "##[error]" to LogLineKind.ERROR,

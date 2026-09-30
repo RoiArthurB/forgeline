@@ -2,7 +2,9 @@ package fr.arthurbrugiere.forgeline.forge.github
 
 import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.forge.ActionsLogParser
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.WorkflowDispatchParser
 import fr.arthurbrugiere.forgeline.core.model.DispatchInput
 import fr.arthurbrugiere.forgeline.core.model.JobLog
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -39,17 +41,19 @@ class GitHubActionsApi(
             .toResult { body<JobsResponse>().jobs.map { it.toModel() } }
     }
 
-    override suspend fun job(token: String?, id: RepoId, jobId: Long): ForgeResult<RunJob> = gitHubCall {
+    override suspend fun job(token: String?, id: RepoId, runId: Long, jobId: Long): ForgeResult<RunJob> = gitHubCall {
         call(token, id, "actions", "jobs", jobId.toString()).toResult { body<JobResponse>().toModel() }
     }
 
-    override suspend fun jobLog(token: String, id: RepoId, jobId: Long): ForgeResult<JobLog> = gitHubCall {
+    override suspend fun jobLog(token: String?, id: RepoId, jobId: Long): ForgeResult<JobLog> = gitHubCall {
+        // Signed-in users only, even on public repositories.
+        if (token == null) return@gitHubCall ForgeResult.Failure(ForgeError.Unauthorized)
         // Answers a redirect to short-lived blob storage, which the client follows.
         val response = call(token, id, "actions", "jobs", jobId.toString(), "logs")
         if (response.status != HttpStatusCode.OK) return@gitHubCall response.failure()
         val text = response.bodyAsText()
         // Logs run to megabytes: parse off the caller's thread.
-        ForgeResult.Success(withContext(Dispatchers.Default) { GitHubLogParser.parse(text) })
+        ForgeResult.Success(withContext(Dispatchers.Default) { ActionsLogParser.parse(text) })
     }
 
     override suspend fun workflows(token: String?, id: RepoId): ForgeResult<List<Workflow>> = gitHubCall {

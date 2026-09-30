@@ -82,7 +82,7 @@ import kotlinx.coroutines.launch
 fun JobLogRoute(route: JobLogRoute, onBack: () -> Unit, onSignIn: () -> Unit) {
     val repo = route.repo
     val viewModel = hiltViewModel<JobLogViewModel, JobLogViewModel.Factory>(key = "${repo.key}/jobs/${route.jobId}") {
-        it.create(repo, route.jobId, route.jobName)
+        it.create(repo, route.runId, route.jobId, route.jobName)
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()

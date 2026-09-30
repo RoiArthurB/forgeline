@@ -56,6 +56,8 @@ data class RepoDetails(
     val isFork: Boolean,
     val isArchived: Boolean,
     val pushedAt: java.time.Instant?,
+    /** Whether the repository uses the forge's CI; Forgejo repositories can switch it off. */
+    val hasActions: Boolean = true,
 )
 
 data class Readme(val path: String, val markdown: String)
@@ -114,6 +116,8 @@ data class WorkflowRun(
     val attempt: Int = 1,
     val startedAt: java.time.Instant? = null,
     val updatedAt: java.time.Instant? = null,
+    /** The run's page, when the forge says it: Forgejo's pages count runs per repository, not by [id]. */
+    val webUrl: String? = null,
 )
 
 data class RunStep(

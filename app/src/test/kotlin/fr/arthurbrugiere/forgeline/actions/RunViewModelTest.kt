@@ -126,4 +126,13 @@ class RunViewModelTest {
 
         assertThat(api.calls.count { it.startsWith("cancel:") }).isEqualTo(1)
     }
+
+    @Test
+    fun a_forge_without_rerun_says_so() = test {
+        val codeberg = RepoId("forgejo", "website", ForgeInstance.Codeberg)
+        val clients = FakeForgeClients().also { it.put(ForgeInstance.Codeberg, FakeForgeClients(actions = FakeActionsApi(supportsRerun = false))) }
+
+        assertThat(RunViewModel(codeberg, 7, DefaultActionsRepository(clients, accounts)).state.value.canRerun).isFalse()
+        assertThat(viewModel().state.value.canRerun).isTrue()
+    }
 }

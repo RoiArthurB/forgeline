@@ -93,4 +93,11 @@ class ForgeLinksTest {
         assertThat(RepoRoute("codeberg.org", "forgejo", "forgejo").repo.forge).isEqualTo(ForgeInstance.Codeberg)
         assertThat(IssueRoute("github.com", "octo", "repo", 7).issue.repo.forge).isEqualTo(ForgeInstance.GitHub)
     }
+
+    @Test
+    fun codeberg_run_links_stay_in_the_browser() {
+        // 4235 is the run's number in its repository; the API knows it as 7368141, so the app would open the wrong run.
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/website/actions/runs/4235")).isNull()
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/website/actions/runs/4235/jobs/0")).isNull()
+    }
 }

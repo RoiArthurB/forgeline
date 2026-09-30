@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.core.model.runUrl
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -106,13 +107,14 @@ fun RunRoute(
     }
     RunScreen(
         state = state,
-        signedIn = session is SessionState.SignedIn,
+        signedIn = session.signedInOn(repo.forge),
         onBack = onBack,
         onRefresh = viewModel::refresh,
         onPerform = viewModel::perform,
         onOpenJob = { onOpenJob(repo, it) },
         onOpenUser = onOpenUser,
-        onOpenInBrowser = { openUrl(repo.runUrl(route.runId)) },
+        // Forgejo's run pages go by the run's number, known once the run is.
+        onOpenInBrowser = { openUrl(state.run?.webUrl ?: repo.runUrl(route.runId)) },
         onResultShown = viewModel::resultShown,
         onErrorShown = viewModel::errorShown,
     )
@@ -188,7 +190,7 @@ fun RunScreen(
                         },
                     ) {
                         if (run != null) {
-                            RunHeader(run, state.pending, signedIn, nowMillis, onPerform, onOpenUser)
+                            RunHeader(run, state.pending, signedIn, nowMillis, onPerform, onOpenUser, canRerun = state.canRerun)
                         } else {
                             Text(state.repo.fullName, style = Soft.type.title, color = colors.ink)
                         }
@@ -230,6 +232,7 @@ private fun RunHeader(
     nowMillis: Long,
     onPerform: (RunAction) -> Unit,
     onOpenUser: (String) -> Unit,
+    canRerun: Boolean = true,
 ) {
     val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -256,13 +259,13 @@ private fun RunHeader(
             color = colors.inkMuted,
             modifier = run.actor?.let { actor -> Modifier.softPressable { onOpenUser(actor.login) } } ?: Modifier,
         )
-        if (signedIn) RunActions(run, pending, onPerform)
+        if (signedIn) RunActions(run, pending, onPerform, canRerun)
     }
 }
 
 /** What can be done to the run now: cancel it while it goes, re-run it once it's done. */
 @Composable
-private fun RunActions(run: WorkflowRun, pending: RunAction?, onPerform: (RunAction) -> Unit) {
+private fun RunActions(run: WorkflowRun, pending: RunAction?, onPerform: (RunAction) -> Unit, canRerun: Boolean = true) {
     val colors = Soft.colors
     if (pending != null) {
         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -275,6 +278,7 @@ private fun RunActions(run: WorkflowRun, pending: RunAction?, onPerform: (RunAct
     FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         when {
             run.status != RunStatus.COMPLETED -> SoftTonalButton(stringResource(R.string.run_cancel), onClick = { onPerform(RunAction.CANCEL) })
+            !canRerun -> Unit
             run.conclusion.failed || run.conclusion == RunConclusion.CANCELLED -> {
                 SoftButton(stringResource(R.string.run_rerun_failed), onClick = { onPerform(RunAction.RERUN_FAILED) })
                 SoftTonalButton(stringResource(R.string.run_rerun_all), onClick = { onPerform(RunAction.RERUN_ALL) })

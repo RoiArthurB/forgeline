@@ -44,7 +44,7 @@ class JobLogViewModelTest {
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
-    private fun viewModel() = JobLogViewModel(repo, 3, "test", DefaultActionsRepository(FakeForgeClients(actions = api), accounts))
+    private fun viewModel() = JobLogViewModel(repo, 1, 3, "test", DefaultActionsRepository(FakeForgeClients(actions = api), accounts))
 
     @Test
     fun groups_holding_an_error_start_open_and_the_rest_folded() = test {
@@ -134,5 +134,21 @@ class JobLogViewModelTest {
         advanceUntilIdle()
 
         assertThat(viewModel.state.value.log).isEqualTo(Loadable.Failed(ForgeError.Unauthorized))
+    }
+
+    @Test
+    fun a_codeberg_jobs_public_log_loads_signed_out_and_the_job_is_asked_of_its_run() = test {
+        // Codeberg serves public logs to anyone, and has no single-job call: the job comes from its run.
+        api.logsNeedToken = false
+        api.jobs[1] = listOf(job(RunStatus.COMPLETED, RunConclusion.SUCCESS))
+        api.logs[3] = JobLog(listOf(LogEntry.Line("🏁  Job succeeded")))
+        val codeberg = RepoId("forgejo", "website", ForgeInstance.Codeberg)
+        val viewModel = JobLogViewModel(codeberg, 1, 3, "publish", DefaultActionsRepository(FakeForgeClients().also {
+            it.put(ForgeInstance.Codeberg, FakeForgeClients(actions = api))
+        }, accounts))
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.log).isInstanceOf(Loadable.Loaded::class.java)
+        assertThat(api.calls).contains("job:forgejo/website:1/3")
     }
 }

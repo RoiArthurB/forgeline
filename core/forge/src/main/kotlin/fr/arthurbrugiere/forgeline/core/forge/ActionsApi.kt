@@ -9,16 +9,25 @@ import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 
 /** A repository's CI: runs, their jobs and logs, and starting or stopping them. Writes need a token. */
 interface ActionsApi {
+    /** Whether finished runs can be started again; Forgejo's API has no re-run. */
+    val supportsRerun: Boolean get() = true
+
     suspend fun run(token: String?, id: RepoId, runId: Long): ForgeResult<WorkflowRun>
 
     /** The latest attempt's jobs, in the order the forge lists them. */
     suspend fun jobs(token: String?, id: RepoId, runId: Long): ForgeResult<List<RunJob>>
 
-    /** One job, with its steps: while it runs, the only live view GitHub offers. */
-    suspend fun job(token: String?, id: RepoId, jobId: Long): ForgeResult<RunJob>
+    /**
+     * One job of run [runId], with its steps when the forge tells them: while it runs, the only live view GitHub
+     * offers. Forgejo's API doesn't tell steps.
+     */
+    suspend fun job(token: String?, id: RepoId, runId: Long, jobId: Long): ForgeResult<RunJob>
 
-    /** GitHub serves logs to signed-in users only, even on public repositories, and only once the job has finished. */
-    suspend fun jobLog(token: String, id: RepoId, jobId: Long): ForgeResult<JobLog>
+    /**
+     * A finished job's log. GitHub serves logs to signed-in users only, even on public repositories (Unauthorized
+     * without a token); Forgejo serves public ones to anyone.
+     */
+    suspend fun jobLog(token: String?, id: RepoId, jobId: Long): ForgeResult<JobLog>
 
     /** Active workflows defined in the repository. */
     suspend fun workflows(token: String?, id: RepoId): ForgeResult<List<Workflow>>

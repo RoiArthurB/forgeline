@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.user
 
+import fr.arthurbrugiere.forgeline.session.signedInOn
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -88,7 +89,7 @@ fun UserRoute(
     val openUrl = rememberCustomTabOpener()
     UserScreen(
         state = state,
-        signedIn = session is SessionState.SignedIn,
+        signedIn = session.signedInOn(route.forge),
         onBack = onBack,
         onSelectTab = viewModel::selectTab,
         onRetry = viewModel::retry,

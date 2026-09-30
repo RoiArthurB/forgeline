@@ -11,7 +11,7 @@ import fr.arthurbrugiere.forgeline.core.model.Workflow
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 
 /** Records every call as "method:owner/name:extra"; unknown runs and jobs answer 404. */
-class FakeActionsApi : ActionsApi {
+class FakeActionsApi(override val supportsRerun: Boolean = true) : ActionsApi {
     val runs = mutableMapOf<Long, WorkflowRun>()
     val jobs = mutableMapOf<Long, List<RunJob>>()
     val logs = mutableMapOf<Long, JobLog>()
@@ -33,10 +33,17 @@ class FakeActionsApi : ActionsApi {
 
     override suspend fun jobs(token: String?, id: RepoId, runId: Long) = found(jobs[runId]).also { calls += "jobs:${id.fullName}:$runId" }
 
-    override suspend fun job(token: String?, id: RepoId, jobId: Long) =
-        found(jobs.values.flatten().lastOrNull { it.id == jobId }).also { calls += "job:${id.fullName}:$jobId" }
+    override suspend fun job(token: String?, id: RepoId, runId: Long, jobId: Long) =
+        found(jobs[runId]?.lastOrNull { it.id == jobId }).also { calls += "job:${id.fullName}:$runId/$jobId" }
 
-    override suspend fun jobLog(token: String, id: RepoId, jobId: Long) = found(logs[jobId]).also { calls += "log:${id.fullName}:$jobId" }
+    /** Like GitHub's: without a token, Unauthorized. */
+    var logsNeedToken = true
+
+    override suspend fun jobLog(token: String?, id: RepoId, jobId: Long): ForgeResult<JobLog> {
+        calls += "log:${id.fullName}:$jobId"
+        if (token == null && logsNeedToken) return ForgeResult.Failure(ForgeError.Unauthorized)
+        return found(logs[jobId])
+    }
 
     override suspend fun workflows(token: String?, id: RepoId) = ForgeResult.Success(workflows).also { calls += "workflows:${id.fullName}" }
 

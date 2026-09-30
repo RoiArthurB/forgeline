@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.session
 
+import fr.arthurbrugiere.forgeline.core.model.Account
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
@@ -52,5 +53,17 @@ class SessionViewModelTest {
 
         assertThat(viewModel.session.value).isEqualTo(SessionState.SignedOut)
         assertThat(accounts.accounts.first()).isEmpty()
+    }
+
+    @Test
+    fun being_signed_in_counts_on_the_accounts_own_forge_only() {
+        // A GitHub account can't star or run CI on Codeberg: screens there ask to sign in to Codeberg instead.
+        val gitHub = Account(Account.idFor(ForgeInstance.GitHub, "me"), ForgeInstance.GitHub, ForgeUser("me", null, null))
+        val codeberg = Account(Account.idFor(ForgeInstance.Codeberg, "me"), ForgeInstance.Codeberg, ForgeUser("me", null, null))
+
+        assertThat(SessionState.SignedOut.signedInOn(ForgeInstance.GitHub)).isFalse()
+        assertThat(SessionState.SignedIn(gitHub).signedInOn(ForgeInstance.GitHub)).isTrue()
+        assertThat(SessionState.SignedIn(gitHub).signedInOn(ForgeInstance.Codeberg)).isFalse()
+        assertThat(SessionState.SignedIn(gitHub, listOf(gitHub, codeberg)).signedInOn(ForgeInstance.Codeberg)).isTrue()
     }
 }

@@ -29,15 +29,22 @@ class DefaultActionsRepositoryTest {
     }
 
     @Test
-    fun signed_out_logs_and_writes_fail_without_reaching_the_forge() = runTest {
-        api.logs[1] = JobLog(emptyList())
-
-        assertThat(repository.jobLog(repo, 1)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+    fun signed_out_writes_fail_without_reaching_the_forge() = runTest {
         assertThat(repository.rerun(repo, 7, failedJobsOnly = true)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
         assertThat(repository.cancel(repo, 7)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
         assertThat(repository.dispatch(repo, Workflow(1, "CI", ".github/workflows/ci.yml"), "main", emptyMap()))
             .isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
         assertThat(api.calls).isEmpty()
+    }
+
+    @Test
+    fun signed_out_the_client_decides_about_logs() = runTest {
+        // GitHub's client refuses without a token; Forgejo's serves public logs to anyone.
+        api.logs[1] = JobLog(emptyList())
+
+        assertThat(repository.jobLog(repo, 1)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        api.logsNeedToken = false
+        assertThat(repository.jobLog(repo, 1)).isEqualTo(ForgeResult.Success(JobLog(emptyList())))
     }
 
     @Test

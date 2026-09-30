@@ -17,7 +17,10 @@ class WebUrlsTest {
     @Test
     fun runs_and_jobs_open_on_their_forge() {
         assertThat(github.jobUrl(1, 2)).isEqualTo("https://github.com/alice/tool/actions/runs/1/job/2")
-        assertThat(codeberg.jobUrl(1, 2)).isEqualTo("https://codeberg.org/alice/tool/actions/runs/1")
+        assertThat(github.runUrl(1)).isEqualTo("https://github.com/alice/tool/actions/runs/1")
+        // Forgejo's run pages count runs per repository, not by API id: a wrong run would be worse than the list.
+        assertThat(codeberg.runUrl(7368141)).isEqualTo("https://codeberg.org/alice/tool/actions")
+        assertThat(codeberg.jobUrl(1, 2)).isEqualTo("https://codeberg.org/alice/tool/actions")
     }
 
     @Test

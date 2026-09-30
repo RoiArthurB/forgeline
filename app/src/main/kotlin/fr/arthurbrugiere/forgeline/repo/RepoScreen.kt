@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -136,7 +137,7 @@ fun RepoRoute(
     val viewModel = hiltViewModel<RepoViewModel, RepoViewModel.Factory>(key = id.key) { it.create(id) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
-    val signedIn = session is SessionState.SignedIn
+    val signedIn = session.signedInOn(id.forge)
     var dispatching by rememberSaveable { mutableStateOf(false) }
     val details = state.details
     if (dispatching && details != null) {
