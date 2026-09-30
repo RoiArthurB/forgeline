@@ -170,6 +170,7 @@
     <string name="settings_separate_inbox">Inbox tabs per account</string>
     <string name="settings_separate_inbox_summary">See one account at a time, or all together</string>
     <string name="inbox_all_accounts">All accounts</string>
+    <string name="search_all_forges">All forges</string>
     <string name="settings_add_account_summary">GitHub, Codeberg or another Forgejo server</string>
     <string name="error_unsupported">This forge doesn\'t offer this.</string>
 

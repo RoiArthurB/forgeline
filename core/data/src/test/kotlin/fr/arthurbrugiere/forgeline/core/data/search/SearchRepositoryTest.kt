@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.search
 
+import kotlinx.coroutines.flow.first
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -85,5 +86,19 @@ class SearchRepositoryTest {
         codebergApi.failure = ForgeError.Http(500, null)
 
         assertThat(repository.repositories("tool")).isEqualTo(ForgeResult.Failure(ForgeError.Network))
+    }
+
+    @Test
+    fun a_search_can_ask_one_forge_alone() = runTest {
+        signInToCodeberg()
+        api.repositories = listOf(repoSummary("a/gh1"))
+        codebergApi.repositories = listOf(repoSummary("b/cb1", forge = ForgeInstance.Codeberg))
+
+        val page = (repository.repositories("tool", only = ForgeInstance.Codeberg) as ForgeResult.Success).value
+
+        assertThat(page.items.map { it.id.forge }).containsExactly(ForgeInstance.Codeberg)
+        assertThat(page.forges).containsExactly(ForgeInstance.Codeberg)
+        assertThat(api.calls).isEmpty()
+        assertThat(repository.forges.first()).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg).inOrder()
     }
 }

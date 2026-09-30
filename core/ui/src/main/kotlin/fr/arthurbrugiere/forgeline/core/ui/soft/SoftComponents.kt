@@ -326,7 +326,8 @@ fun SoftChipTabs(
                         val color = if (isSelected) colors.onThumb else colors.inkMuted
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             leading?.invoke(index, color)
-                            Text(option, style = Soft.type.control, color = color, maxLines = 1)
+                            // A logo alone needs no label.
+                            if (option.isNotEmpty()) Text(option, style = Soft.type.control, color = color, maxLines = 1)
                         }
                     }
                 }

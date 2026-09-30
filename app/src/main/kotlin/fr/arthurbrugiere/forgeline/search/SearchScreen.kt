@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.search
 
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
+import fr.arthurbrugiere.forgeline.core.ui.format.hostLabel
+import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.compose.foundation.layout.Box
@@ -92,6 +95,7 @@ fun SearchRoute(
         onQueryChange = viewModel::onQueryChange,
         onSubmit = viewModel::submit,
         onSelectScope = viewModel::selectScope,
+        onSelectForge = viewModel::selectForge,
         onLoadMore = viewModel::loadMore,
         onRetry = viewModel::retry,
         onOpenRepo = onOpenRepo,
@@ -108,6 +112,7 @@ fun SearchScreen(
     onQueryChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onSelectScope: (SearchScope) -> Unit,
+    onSelectForge: (ForgeInstance?) -> Unit = {},
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
     onOpenRepo: (RepoId) -> Unit,
@@ -160,6 +165,17 @@ fun SearchScreen(
                             onSelect = { onSelectScope(SearchScope.entries[it]) },
                         )
                     }
+                }
+            }
+            if (state.forges.size > 1) {
+                item(key = "forges") {
+                    // All forges, or one: each shown by its logo (and a self-hosted server by its host).
+                    SoftChipTabs(
+                        options = listOf(stringResource(R.string.search_all_forges)) + state.forges.map { it.hostLabel.orEmpty() },
+                        selected = state.forges.indexOf(state.onlyForge) + 1,
+                        onSelect = { onSelectForge(state.forges.getOrNull(it - 1)) },
+                        leading = { index, color -> state.forges.getOrNull(index - 1)?.let { ForgeIcon(it, size = 18.dp, tint = color) } },
+                    )
                 }
             }
             when {

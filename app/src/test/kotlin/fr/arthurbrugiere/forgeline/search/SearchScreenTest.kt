@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.search
 
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
@@ -165,5 +166,31 @@ class SearchScreenTest {
         composeRule.onNodeWithText("alice").performClick()
 
         assertThat(events).containsExactly("user:codeberg.org/alice")
+    }
+
+    @Test
+    fun one_forge_can_be_picked_among_several() {
+        val picked = mutableListOf<ForgeInstance?>()
+        composeRule.setContent {
+            SearchScreen(
+                state = SearchUiState(forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)),
+                onQueryChange = {}, onSubmit = {}, onSelectScope = {}, onLoadMore = {}, onRetry = {},
+                onOpenRepo = {}, onOpenIssue = {}, onOpenUser = { _, _ -> }, onBack = {},
+                onSelectForge = { picked += it },
+            )
+        }
+
+        composeRule.onNodeWithText("All forges").assertIsSelected()
+        composeRule.onNodeWithContentDescription("Codeberg").performClick()
+        composeRule.onNodeWithText("All forges").performClick()
+
+        assertThat(picked).containsExactly(ForgeInstance.Codeberg, null).inOrder()
+    }
+
+    @Test
+    fun with_one_forge_there_is_nothing_to_pick() {
+        setContent(SearchUiState(forges = listOf(ForgeInstance.GitHub)))
+
+        composeRule.onNodeWithText("All forges").assertDoesNotExist()
     }
 }

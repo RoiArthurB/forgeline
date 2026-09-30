@@ -52,6 +52,10 @@ data class SearchUiState(
     val query: String = "",
     val scope: SearchScope = SearchScope.REPOSITORIES,
     val results: ScopeResults = ScopeResults(),
+    /** The forges a search can ask; a choice among them is offered when there are several. */
+    val forges: List<ForgeInstance> = emptyList(),
+    /** The one forge searched, or null for all of them. */
+    val onlyForge: ForgeInstance? = null,
 )
 
 @HiltViewModel
@@ -67,8 +71,13 @@ class SearchViewModel @Inject constructor(
     // Searches only run on submit: GitHub allows 10 searches a minute signed out, 30 signed in.
     private val submitted: String? get() = savedState[SUBMITTED_KEY]
 
-    val state: StateFlow<SearchUiState> = combine(query, scope, results) { query, scope, results ->
-        SearchUiState(query, scope, results[scope] ?: ScopeResults())
+    // Saved by host: a forge chosen survives process death. Null searches every forge.
+    private val onlyHost = savedState.getStateFlow<String?>(FORGE_KEY, null)
+    private val forges = search.forges.stateIn(viewModelScope, SharingStarted.Eagerly, listOf(ForgeInstance.GitHub))
+    private val onlyForge: ForgeInstance? get() = onlyHost.value?.let { host -> forges.value.firstOrNull { it.host == host } }
+
+    val state: StateFlow<SearchUiState> = combine(query, scope, results, forges, onlyHost) { query, scope, results, forges, host ->
+        SearchUiState(query, scope, results[scope] ?: ScopeResults(), forges, forges.firstOrNull { it.host == host })
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchUiState(query.value, scope.value))
 
     init {
@@ -92,6 +101,14 @@ class SearchViewModel @Inject constructor(
         if (results.value[selected]?.query != text) load(selected, cursor = null)
     }
 
+    /** Searches [forge] alone, or every forge when null; the current search runs again there. */
+    fun selectForge(forge: ForgeInstance?) {
+        if (forge?.host == onlyHost.value) return
+        savedState[FORGE_KEY] = forge?.host
+        results.value = emptyMap()
+        if (submitted != null) load(scope.value, cursor = null)
+    }
+
     fun loadMore() {
         val current = results.value[scope.value] ?: return
         val next = current.next ?: return
@@ -112,9 +129,9 @@ class SearchViewModel @Inject constructor(
         }
         viewModelScope.launch {
             val result: ForgeResult<MergedSearchPage<SearchResult>> = when (target) {
-                SearchScope.REPOSITORIES -> search.repositories(text, cursor).map { SearchResult.Repository(it) }
-                SearchScope.ISSUES -> search.issues(text, cursor).map { SearchResult.Issue(it) }
-                SearchScope.USERS -> search.users(text, cursor).map { SearchResult.User(it) }
+                SearchScope.REPOSITORIES -> search.repositories(text, cursor, onlyForge).map { SearchResult.Repository(it) }
+                SearchScope.ISSUES -> search.issues(text, cursor, onlyForge).map { SearchResult.Issue(it) }
+                SearchScope.USERS -> search.users(text, cursor, onlyForge).map { SearchResult.User(it) }
             }
             // A newer search replaced this one while it was in flight.
             if (submitted != text) return@launch
@@ -146,5 +163,6 @@ class SearchViewModel @Inject constructor(
         const val QUERY_KEY = "query"
         const val SUBMITTED_KEY = "submitted"
         const val SCOPE_KEY = "scope"
+        const val FORGE_KEY = "forge"
     }
 }

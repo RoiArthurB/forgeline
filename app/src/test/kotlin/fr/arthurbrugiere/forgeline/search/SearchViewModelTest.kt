@@ -185,4 +185,32 @@ class SearchViewModelTest {
         assertThat(viewModel.state.value.results.hasMore).isFalse()
         assertThat(codebergApi.calls).containsExactly("repos:tool@1")
     }
+
+    @Test
+    fun picking_a_forge_searches_it_alone_and_all_forges_again_after() = test {
+        val codebergApi = FakeSearchApi(pageSize = 2).apply {
+            repositories = listOf(repoSummary("ziglang/zig", forge = ForgeInstance.Codeberg))
+        }
+        val clients = FakeForgeClients(search = api).also { it.put(ForgeInstance.Codeberg, FakeForgeClients(search = codebergApi)) }
+        val accounts = FakeAccountRepository().apply { signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "t") }
+        val saved = SavedStateHandle()
+        val viewModel = SearchViewModel(saved, SearchRepository(clients, accounts)).also { it.state.launchIn(backgroundScope) }
+        viewModel.onQueryChange("tool")
+        viewModel.submit()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.forges).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg).inOrder()
+
+        viewModel.selectForge(ForgeInstance.Codeberg)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.onlyForge).isEqualTo(ForgeInstance.Codeberg)
+        assertThat(viewModel.state.value.results.items.map { (it as SearchResult.Repository).repo.id.forge }.toSet())
+            .containsExactly(ForgeInstance.Codeberg)
+        assertThat(api.calls).containsExactly("repos:tool@1")
+
+        viewModel.selectForge(null)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.results.items).hasSize(3)
+        assertThat(api.calls).containsExactly("repos:tool@1", "repos:tool@1")
+    }
 }

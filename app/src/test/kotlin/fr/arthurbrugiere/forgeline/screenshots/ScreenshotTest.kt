@@ -696,6 +696,7 @@ class ScreenshotTest {
                     totalCount = 5,
                     forges = listOf(ForgeInstance.GitHub, codeberg, selfHosted),
                 ),
+                forges = listOf(ForgeInstance.GitHub, codeberg, selfHosted),
             ),
             onQueryChange = {}, onSubmit = {}, onSelectScope = {}, onLoadMore = {}, onRetry = {},
             onOpenRepo = {}, onOpenIssue = {}, onOpenUser = { _, _ -> }, onBack = {},

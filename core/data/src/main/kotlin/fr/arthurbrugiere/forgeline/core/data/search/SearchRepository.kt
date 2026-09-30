@@ -13,7 +13,10 @@ import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 /** Where a search continues: the next page to read from each forge that has more. */
@@ -32,14 +35,21 @@ class SearchRepository @Inject constructor(
     private val clients: ForgeClients,
     private val accounts: AccountRepository,
 ) {
-    suspend fun repositories(query: String, cursor: SearchCursor? = null): ForgeResult<MergedSearchPage<RepoSummary>> =
-        search(cursor) { token, page -> repositories(token, query, page) }
+    /** The forges a search can ask: GitHub, then each forge an account is signed in to. */
+    val forges: Flow<List<ForgeInstance>> = accounts.accounts
+        .map { signedIn -> (listOf(ForgeInstance.GitHub) + signedIn.map { it.forge }).distinct() }
+        .distinctUntilChanged()
 
-    suspend fun issues(query: String, cursor: SearchCursor? = null): ForgeResult<MergedSearchPage<IssueSearchResult>> =
-        search(cursor) { token, page -> issues(token, query, page) }
+    // [only] narrows a search to one forge; null searches them all.
 
-    suspend fun users(query: String, cursor: SearchCursor? = null): ForgeResult<MergedSearchPage<UserSummary>> =
-        search(cursor) { token, page -> users(token, query, page) }
+    suspend fun repositories(query: String, cursor: SearchCursor? = null, only: ForgeInstance? = null): ForgeResult<MergedSearchPage<RepoSummary>> =
+        search(cursor, only) { token, page -> repositories(token, query, page) }
+
+    suspend fun issues(query: String, cursor: SearchCursor? = null, only: ForgeInstance? = null): ForgeResult<MergedSearchPage<IssueSearchResult>> =
+        search(cursor, only) { token, page -> issues(token, query, page) }
+
+    suspend fun users(query: String, cursor: SearchCursor? = null, only: ForgeInstance? = null): ForgeResult<MergedSearchPage<UserSummary>> =
+        search(cursor, only) { token, page -> users(token, query, page) }
 
     /**
      * Reads the next page of every forge in [cursor], or the first of every forge. A forge that fails is left out of
@@ -47,10 +57,11 @@ class SearchRepository @Inject constructor(
      */
     private suspend fun <T> search(
         cursor: SearchCursor?,
+        only: ForgeInstance?,
         fetch: suspend SearchApi.(token: String?, page: Int) -> ForgeResult<SearchPage<T>>,
     ): ForgeResult<MergedSearchPage<T>> {
-        val forges = forges()
-        val pages = cursor?.pages ?: forges.associateWith { 1 }
+        val searched = forges.first().filter { only == null || it == only }.ifEmpty { listOfNotNull(only) }
+        val pages = cursor?.pages ?: searched.associateWith { 1 }
         val results = coroutineScope {
             pages.map { (forge, page) -> async { forge to clients.search(forge).fetch(accounts.tokenOn(forge), page) } }.awaitAll()
         }
@@ -62,13 +73,10 @@ class SearchRepository @Inject constructor(
                 items = interleave(found.map { it.second.items }),
                 totalCount = found.sumOf { it.second.totalCount },
                 next = next.takeIf { it.isNotEmpty() }?.let(::SearchCursor),
-                forges = forges,
+                forges = searched,
             ),
         )
     }
-
-    private suspend fun forges(): List<ForgeInstance> =
-        (listOf(ForgeInstance.GitHub) + accounts.accounts.first().map { it.forge }).distinct()
 
     private fun <T> interleave(lists: List<List<T>>): List<T> = buildList {
         for (rank in 0 until (lists.maxOfOrNull { it.size } ?: 0)) lists.forEach { list -> list.getOrNull(rank)?.let(::add) }
