@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.core.data.feed
 
+import kotlin.time.Duration.Companion.minutes
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import androidx.room.Dao
@@ -59,7 +63,10 @@ data class PreviewFreshness(val key: String, val fetchedAtMillis: Long)
 interface FeedPreviewRepository {
     fun observe(): Flow<FeedPreviews>
 
-    /** Fetches what's missing or stale among [repos] and [pulls]; failures are left for a later visit. */
+    /**
+     * Fetches what's missing or stale among [repos] and [pulls]. The fetches finish even if the caller leaves; a failed
+     * one is tried again on a later visit, after a short wait.
+     */
     suspend fun ensure(repos: Set<RepoId>, pulls: Set<IssueRef>)
 }
 
@@ -68,12 +75,19 @@ class DefaultFeedPreviewRepository @Inject constructor(
     private val clients: ForgeClients,
     private val accounts: AccountRepository,
     private val clock: Clock,
+    @param:BackgroundScope private val scope: CoroutineScope,
 ) : FeedPreviewRepository {
 
     private val lock = Mutex()
 
-    /** Keys asked for in this process, so scrolling back and forth never re-requests (or retries a failure). */
-    private val requested = mutableSetOf<String>()
+    /** Keys being fetched now, so scrolling back and forth never asks twice at once. */
+    private val inFlight = mutableSetOf<String>()
+
+    /**
+     * When each key last failed. Regression: failures (and fetches cut off by leaving the Feed) were remembered as
+     * asked for the whole process, so a pull request's title stayed blank until the app restarted.
+     */
+    private val failedAt = mutableMapOf<String, Long>()
 
     override fun observe(): Flow<FeedPreviews> = dao.observeAll().map { rows ->
         val repos = mutableMapOf<RepoId, RepoPreview>()
@@ -92,39 +106,60 @@ class DefaultFeedPreviewRepository @Inject constructor(
         val wanted = lock.withLock {
             val fresh = dao.freshness().filter { now - it.fetchedAtMillis < MAX_AGE.inWholeMilliseconds }.map { it.key }.toSet()
             val keys = repos.map { it.previewKey() } + pulls.map { it.previewKey() }
-            keys.filter { it !in fresh && it !in requested }.also { requested += it }
+            keys.filter { key ->
+                key !in fresh && key !in inFlight && failedAt[key]?.let { now - it < RETRY_AFTER.inWholeMilliseconds } != true
+            }.also { inFlight += it }
         }
         if (wanted.isEmpty()) return
+        // In the app's scope: leaving the Feed mid-fetch no longer loses the answers.
+        scope.async { fetch(wanted, now) }.await()
+    }
+
+    private suspend fun fetch(wanted: List<String>, now: Long) {
         val permits = Semaphore(CONCURRENCY)
-        val fetched = coroutineScope {
-            wanted.map { key ->
-                async {
-                    permits.withPermit {
-                        when {
-                            key.startsWith(REPO) -> repoId(key.removePrefix(REPO))?.let { id ->
-                                (clients.repos(id.forge).repo(accounts.tokenOn(id.forge), id) as? ForgeResult.Success)?.value?.let {
-                                    FeedPreviewEntity(key, it.description, it.language, it.stars, null, now)
-                                }
-                            }
-                            else -> pullRef(key.removePrefix(PULL))?.let { ref ->
-                                (clients.issues(ref.repo.forge).issue(accounts.tokenOn(ref.repo.forge), ref) as? ForgeResult.Success)?.value?.let {
-                                    FeedPreviewEntity(key, null, null, null, it.title, now)
-                                }
-                            }
-                        }
-                    }
-                }
-            }.awaitAll().filterNotNull()
+        val fetched = try {
+            coroutineScope {
+                wanted.map { key -> async { permits.withPermit { key to preview(key, now) } } }.awaitAll()
+            }
+        } finally {
+            lock.withLock { inFlight -= wanted.toSet() }
         }
-        if (fetched.isNotEmpty()) dao.upsert(fetched)
+        lock.withLock {
+            fetched.forEach { (key, preview) -> if (preview == null) failedAt[key] = now else failedAt -= key }
+        }
+        fetched.mapNotNull { it.second }.takeIf { it.isNotEmpty() }?.let { dao.upsert(it) }
         dao.deleteOlderThan(now - KEEP.inWholeMilliseconds)
+    }
+
+    /** One preview, or null when it couldn't be had: one bad answer never takes the others down with it. */
+    private suspend fun preview(key: String, now: Long): FeedPreviewEntity? = try {
+        when {
+            key.startsWith(REPO) -> repoId(key.removePrefix(REPO))?.let { id ->
+                (clients.repos(id.forge).repo(accounts.tokenOn(id.forge), id) as? ForgeResult.Success)?.value?.let {
+                    FeedPreviewEntity(key, it.description, it.language, it.stars, null, now)
+                }
+            }
+            else -> pullRef(key.removePrefix(PULL))?.let { ref ->
+                (clients.issues(ref.repo.forge).title(accounts.tokenOn(ref.repo.forge), ref) as? ForgeResult.Success)?.value?.let {
+                    FeedPreviewEntity(key, null, null, null, it, now)
+                }
+            }
+        }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        null
     }
 
     private companion object {
         const val REPO = "repo:"
         const val PULL = "pull:"
-        const val CONCURRENCY = 4
+        /** Previews asked at once: far forges answer slowly, so small waves add up. */
+        const val CONCURRENCY = 8
         val MAX_AGE = 24.hours
+
+        /** A failed preview waits this long before being asked again. */
+        val RETRY_AFTER = 1.minutes
         val KEEP = 7.days
 
         fun RepoId.previewKey() = REPO + key.lowercase()

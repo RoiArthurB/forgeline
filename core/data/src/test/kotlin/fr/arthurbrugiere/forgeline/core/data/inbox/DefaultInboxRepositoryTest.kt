@@ -1,5 +1,17 @@
 package fr.arthurbrugiere.forgeline.core.data.inbox
 
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.job
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CoroutineScope
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -48,18 +60,23 @@ class DefaultInboxRepositoryTest {
     private val issueApi = FakeIssueApi()
     private val clients = FakeForgeClients(notifications = api)
     private val conversations = DefaultIssueRepository(FakeForgeClients(issues = issueApi), accounts, database.conversationDao(), clock)
-    private val repository = DefaultInboxRepository(database.inboxDao(), clients, accounts, conversations, clock)
+    private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val repository = DefaultInboxRepository(database.inboxDao(), clients, accounts, conversations, clock, background)
 
     private val me = Account.idFor(ForgeInstance.GitHub, "me")
 
     private suspend fun signIn(login: String = "me") = accounts.signIn(ForgeInstance.GitHub, ForgeUser(login, null, null), "t-$login")
 
     @After
-    fun closeDatabase() = database.close()
+    fun closeDatabase() {
+        // Background work still running would read a closed database: stop it first.
+        runBlocking { background.coroutineContext.job.cancelAndJoin() }
+        database.close()
+    }
 
     @Test
     fun signed_out_the_inbox_is_empty_and_never_syncs() = runTest {
-        assertThat(repository.sync(force = true)).isEqualTo(SyncResult.SignedOut)
+        assertThat(repository.sync(force = true, waitForFollowUps = true)).isEqualTo(SyncResult.SignedOut)
         assertThat(repository.observe().first().threads).isEmpty()
         assertThat(api.calls).isEmpty()
     }
@@ -72,7 +89,7 @@ class DefaultInboxRepositoryTest {
             notificationThread("2", updatedAt = "2026-09-27T09:00:00Z"),
         )
 
-        assertThat(repository.sync(force = true)).isInstanceOf(SyncResult.Updated::class.java)
+        assertThat(repository.sync(force = true, waitForFollowUps = true)).isInstanceOf(SyncResult.Updated::class.java)
 
         val snapshot = repository.observe().first()
         assertThat(snapshot.threads.map { it.id }).containsExactly("2", "1").inOrder()
@@ -83,15 +100,15 @@ class DefaultInboxRepositoryTest {
     fun syncs_are_conditional_and_respect_the_poll_interval() = runTest {
         signIn()
         api.threads = listOf(notificationThread("1"))
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
 
         now = now.plusSeconds(30)
-        assertThat(repository.sync()).isEqualTo(SyncResult.NotModified)
+        assertThat(repository.sync(waitForFollowUps = true)).isEqualTo(SyncResult.NotModified)
         assertThat(api.calls.filter { it == "threads" }).containsExactly("threads")
 
         now = now.plusSeconds(60)
         api.notModified = true
-        assertThat(repository.sync()).isEqualTo(SyncResult.NotModified)
+        assertThat(repository.sync(waitForFollowUps = true)).isEqualTo(SyncResult.NotModified)
         assertThat(api.ifModifiedSince.last()).isEqualTo("modified-1")
         assertThat(repository.observe().first().threads).hasSize(1)
     }
@@ -107,7 +124,7 @@ class DefaultInboxRepositoryTest {
         api.states[IssueRef(RepoId("acme", "rocket"), 1)] = SubjectState.MERGED
         api.states[IssueRef(RepoId("acme", "rocket"), 2)] = SubjectState.OPEN
 
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
 
         val states = repository.observe().first().threads.associate { it.id to it.state }
         assertThat(states).containsExactly("1", SubjectState.MERGED, "2", SubjectState.OPEN, "r", null)
@@ -120,20 +137,20 @@ class DefaultInboxRepositoryTest {
         signIn()
         api.threads = listOf(notificationThread("1", type = SubjectType.PULL_REQUEST), notificationThread("2", type = SubjectType.PULL_REQUEST))
         api.states[IssueRef(RepoId("acme", "rocket"), 1)] = SubjectState.OPEN
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
 
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
         assertThat(api.calls.count { it.startsWith("states:") }).isEqualTo(2)
         // #2 got no answer (gone), so it's asked again; #1 is known and nothing moved.
         assertThat(api.calls.last()).isEqualTo("states:acme/rocket#2")
 
         api.threads = listOf(notificationThread("1", type = SubjectType.PULL_REQUEST, updatedAt = "2026-09-27T09:30:00Z"))
         api.states[IssueRef(RepoId("acme", "rocket"), 1)] = SubjectState.MERGED
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
         assertThat(repository.observe().first().threads.single().state).isEqualTo(SubjectState.MERGED)
 
         now = now.plusSeconds(3_601)
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
         assertThat(api.calls.last()).isEqualTo("states:acme/rocket#1")
     }
 
@@ -141,10 +158,10 @@ class DefaultInboxRepositoryTest {
     fun a_fresh_sync_replaces_threads_done_elsewhere() = runTest {
         signIn()
         api.threads = listOf(notificationThread("1"), notificationThread("2"))
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
         api.threads = listOf(notificationThread("2"))
 
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
 
         assertThat(repository.observe().first().threads.map { it.id }).containsExactly("2")
     }
@@ -153,10 +170,10 @@ class DefaultInboxRepositoryTest {
     fun a_failed_sync_keeps_the_inbox() = runTest {
         signIn()
         api.threads = listOf(notificationThread("1"))
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
         api.failure = ForgeError.Network
 
-        assertThat(repository.sync(force = true)).isEqualTo(SyncResult.Failed(ForgeError.Network))
+        assertThat(repository.sync(force = true, waitForFollowUps = true)).isEqualTo(SyncResult.Failed(ForgeError.Network))
         assertThat(repository.observe().first().threads).hasSize(1)
     }
 
@@ -164,13 +181,13 @@ class DefaultInboxRepositoryTest {
     fun mark_read_is_instant_and_rolled_back_on_failure() = runTest {
         signIn()
         api.threads = listOf(notificationThread("1", unread = true))
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
 
         assertThat(repository.markRead(me, "1")).isEqualTo(ForgeResult.Success(Unit))
         assertThat(repository.observe().first().threads.single().unread).isFalse()
 
         api.threads = listOf(notificationThread("1", unread = true))
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
         api.failure = ForgeError.Network
         assertThat(repository.markRead(me, "1")).isEqualTo(ForgeResult.Failure(ForgeError.Network))
         assertThat(repository.observe().first().threads.single().unread).isTrue()
@@ -180,7 +197,7 @@ class DefaultInboxRepositoryTest {
     fun mark_done_removes_the_thread_and_restores_it_on_failure() = runTest {
         signIn()
         api.threads = listOf(notificationThread("1"), notificationThread("2"))
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
 
         repository.markDone(me, "1")
         assertThat(repository.observe().first().threads.map { it.id }).containsExactly("2")
@@ -194,7 +211,7 @@ class DefaultInboxRepositoryTest {
     fun unsubscribing_also_clears_the_thread() = runTest {
         signIn()
         api.threads = listOf(notificationThread("1"))
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
 
         repository.unsubscribe(me, "1")
 
@@ -207,7 +224,7 @@ class DefaultInboxRepositoryTest {
         signIn()
         api.threads = listOf(notificationThread("1", updatedAt = "2026-09-27T08:00:00Z"))
 
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
 
         assertThat(repository.takeThreadsToNotify()).isEmpty()
     }
@@ -216,14 +233,14 @@ class DefaultInboxRepositoryTest {
     fun only_new_unread_activity_is_notified_and_only_once() = runTest {
         signIn()
         api.threads = listOf(notificationThread("1", updatedAt = "2026-09-27T08:00:00Z"))
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
         repository.takeThreadsToNotify()
         api.threads = listOf(
             notificationThread("1", updatedAt = "2026-09-27T08:00:00Z"),
             notificationThread("2", updatedAt = "2026-09-27T09:30:00Z"),
             notificationThread("3", updatedAt = "2026-09-27T09:40:00Z", unread = false),
         )
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
 
         assertThat(repository.takeThreadsToNotify().map { it.id }).containsExactly("2")
         assertThat(repository.takeThreadsToNotify()).isEmpty()
@@ -238,7 +255,7 @@ class DefaultInboxRepositoryTest {
         accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "cb_token")
         api.threads = listOf(notificationThread("1"))
 
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
 
         val threads = repository.observe().first().threads
         assertThat(threads.map { it.repo.fullName }).containsExactly("forgejo/forgejo", "acme/rocket").inOrder()
@@ -260,7 +277,7 @@ class DefaultInboxRepositoryTest {
         accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "cb_token")
         api.threads = listOf(notificationThread("1"))
 
-        assertThat(repository.sync(force = true)).isInstanceOf(SyncResult.Updated::class.java)
+        assertThat(repository.sync(force = true, waitForFollowUps = true)).isInstanceOf(SyncResult.Updated::class.java)
         assertThat(repository.observe().first().threads).hasSize(1)
     }
 
@@ -268,7 +285,7 @@ class DefaultInboxRepositoryTest {
     fun a_signed_out_account_leaves_the_inbox() = runTest {
         signIn("alice")
         api.threads = listOf(notificationThread("1"))
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
 
         accounts.signOut(Account.idFor(ForgeInstance.GitHub, "alice"))
 
@@ -287,12 +304,12 @@ class DefaultInboxRepositoryTest {
         val pull = IssueRef(RepoId("acme", "rocket"), 1)
         issueApi.issues[pull] = issueDetails(pull)
 
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
 
         // Unread and waiting on you, with a conversation to load: only #1.
-        assertThat(issueApi.calls).containsExactly("issue:acme/rocket#1", "timeline:acme/rocket#1@1").inOrder()
+        assertThat(issueApi.calls).containsExactly("issue:acme/rocket#1", "timeline:acme/rocket#1@1")
         // Kept, and nothing new since: the next sync doesn't ask again.
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
         assertThat(issueApi.calls).hasSize(2)
     }
 
@@ -303,7 +320,7 @@ class DefaultInboxRepositoryTest {
             notificationThread("$it", reason = NotificationReason.MENTION, updatedAt = "2026-09-27T0${it % 10}:00:00Z")
         }
 
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
 
         assertThat(issueApi.calls.count { it.startsWith("issue:") }).isEqualTo(DefaultInboxRepository.PREFETCHED_CONVERSATIONS)
     }
@@ -317,19 +334,19 @@ class DefaultInboxRepositoryTest {
     fun done_on_a_forge_without_done_hides_the_thread_until_it_has_news() = runTest {
         val codeberg = FakeNotificationsApi(supportsDone = false).apply { threads = listOf(notificationThread("7", repo = "forgejo/forgejo")) }
         val me = codebergAccount(codeberg)
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
 
         repository.markDone(me, "7")
 
         assertThat(codeberg.calls).contains("done:7")
         assertThat(repository.observe().first().threads).isEmpty()
         // Still listed by the forge, as read: still hidden.
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
         assertThat(repository.observe().first().threads).isEmpty()
 
         // New activity brings it back, like GitHub's done.
         codeberg.threads = listOf(notificationThread("7", repo = "forgejo/forgejo", updatedAt = "2026-09-27T11:00:00Z"))
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
         assertThat(repository.observe().first().threads.map { it.id }).containsExactly("7")
     }
 
@@ -340,9 +357,48 @@ class DefaultInboxRepositoryTest {
         }
         codebergAccount(codeberg)
 
-        repository.sync(force = true)
+        repository.sync(force = true, waitForFollowUps = true)
 
         assertThat(repository.observe().first().threads.single().state).isEqualTo(SubjectState.MERGED)
         assertThat(codeberg.calls.none { it.startsWith("states:") }).isTrue()
+    }
+
+    /** Waits on the real clock: the work runs on real threads, which the test's virtual time doesn't wait for. */
+    private suspend fun <T> realTime(block: suspend () -> T): T = withContext(Dispatchers.Default) { withTimeout(5_000) { block() } }
+
+    @Test
+    fun accounts_sync_at_the_same_time_not_one_after_another() = runTest {
+        // Regression: one lock for every account made each wait for the one before, a round trip to Europe each.
+        signIn()
+        val codebergApi = FakeNotificationsApi(supportsDone = false)
+        clients.put(ForgeInstance.Codeberg, FakeForgeClients(notifications = codebergApi))
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "t-codeberg")
+        val slow = CompletableDeferred<Unit>()
+        api.gate = slow
+
+        val sync = async { repository.sync(force = true, waitForFollowUps = true) }
+        // GitHub is still answering; Codeberg is asked all the same.
+        realTime { while (codebergApi.calls.isEmpty()) delay(10) }
+        assertThat(api.calls).containsExactly("threads")
+        slow.complete(Unit)
+
+        assertThat(sync.await()).isInstanceOf(SyncResult.Updated::class.java)
+    }
+
+    @Test
+    fun the_refresh_ends_with_the_threads_not_with_the_conversations_loaded_ahead() = runTest {
+        signIn()
+        api.threads = listOf(notificationThread("1", reason = NotificationReason.REVIEW_REQUESTED, type = SubjectType.PULL_REQUEST))
+        val pull = IssueRef(RepoId("acme", "rocket"), 1)
+        issueApi.issues[pull] = issueDetails(pull)
+        val slow = CompletableDeferred<Unit>()
+        issueApi.gate = slow
+
+        // The conversation is still loading, yet the sync is over and the thread on screen.
+        assertThat(realTime { repository.sync(force = true) }).isInstanceOf(SyncResult.Updated::class.java)
+        assertThat(repository.observe().first().threads.map { it.id }).containsExactly("1")
+
+        slow.complete(Unit)
+        realTime { while (conversations.stored(pull)?.issue == null) delay(10) }
     }
 }

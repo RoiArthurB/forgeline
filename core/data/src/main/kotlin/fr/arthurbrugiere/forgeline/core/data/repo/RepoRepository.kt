@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.data.repo
 
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.async
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
@@ -72,12 +74,19 @@ class DefaultRepoRepository @Inject constructor(
         if (!force && fetchedAt != null && clock.millis() - fetchedAt < MAX_AGE.inWholeMilliseconds) return RefreshResult.Fresh
         val api = clients.repos(id.forge)
         val token = accounts.tokenOn(id.forge)
-        val details = when (val result = api.repo(token, id)) {
-            is ForgeResult.Failure -> return RefreshResult.Failed(result.error)
-            is ForgeResult.Success -> result.value
+        // The details and the README side by side: one round trip to a far forge instead of two.
+        val (detailsResult, readmeAsked) = coroutineScope {
+            val details = async { api.repo(token, id) }
+            val readme = async { api.readme(token, id) }
+            details.await() to readme.await()
         }
-        // details.id is canonical: a moved repo answers its old name, but search wouldn't.
-        val readme = when (val result = api.readme(token, details.id)) {
+        val details = when (detailsResult) {
+            is ForgeResult.Failure -> return RefreshResult.Failed(detailsResult.error)
+            is ForgeResult.Success -> detailsResult.value
+        }
+        // details.id is canonical: a moved repo may not answer its old name for the README, so ask again there.
+        val readmeResult = if (details.id == id) readmeAsked else api.readme(token, details.id)
+        val readme = when (val result = readmeResult) {
             is ForgeResult.Failure -> return RefreshResult.Failed(result.error)
             is ForgeResult.Success -> result.value
         }

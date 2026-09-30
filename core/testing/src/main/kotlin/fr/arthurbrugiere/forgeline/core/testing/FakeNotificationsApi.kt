@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
+import kotlinx.coroutines.CompletableDeferred
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
@@ -21,8 +22,12 @@ class FakeNotificationsApi(override val supportsDone: Boolean = true) : Notifica
     val calls = mutableListOf<String>()
     val ifModifiedSince = mutableListOf<String?>()
 
+    /** When set, threads wait for it: a slow forge. */
+    var gate: CompletableDeferred<Unit>? = null
+
     override suspend fun threads(token: String, ifModifiedSince: String?, maxPages: Int): ForgeResult<NotificationsSync> {
         calls += "threads"
+        gate?.await()
         this.ifModifiedSince += ifModifiedSince
         failure?.let { return ForgeResult.Failure(it) }
         if (notModified) return ForgeResult.Success(NotificationsSync(null, ifModifiedSince, pollIntervalSeconds))

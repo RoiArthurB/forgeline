@@ -155,4 +155,12 @@ class GitHubIssueApiTest {
 
         assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "Not Found")))
     }
+
+    @Test
+    fun a_pull_requests_title_takes_one_request() = runTest {
+        val title = api { json(fixture("pr_issue.json")) }.title(null, pr).value()
+
+        assertThat(title).isNotEmpty()
+        assertThat(requests.single().url.encodedPath).isEqualTo("/repos/paperclipai/paperclip/issues/14187")
+    }
 }

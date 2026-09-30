@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
+import kotlinx.coroutines.CompletableDeferred
 import fr.arthurbrugiere.forgeline.core.forge.FeedApi
 import fr.arthurbrugiere.forgeline.core.forge.FeedPage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -17,8 +18,12 @@ class FakeFeedApi : FeedApi {
     var failure: ForgeError? = null
     val calls = mutableListOf<String>()
 
+    /** When set, pages wait for it: a slow forge. */
+    var gate: CompletableDeferred<Unit>? = null
+
     override suspend fun receivedEvents(token: String?, login: String, page: Int, ifModifiedSince: String?): ForgeResult<FeedPage> {
         calls += "$login@$page" + (ifModifiedSince?.let { " since $it" } ?: "")
+        gate?.await()
         failure?.let { return ForgeResult.Failure(it) }
         if (page == 1 && ifModifiedSince == lastModified) return ForgeResult.Success(FeedPage(null, null, lastModified, 60))
         val next = (page + 1).takeIf { it in pages }

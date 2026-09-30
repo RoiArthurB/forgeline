@@ -41,6 +41,12 @@ class GitHubIssueApi(
         ForgeResult.Success(issue.toModel(ref, pull))
     }
 
+    /** The issue endpoint names pull requests too: no second call for the title. */
+    override suspend fun title(token: String?, ref: IssueRef): ForgeResult<String> = gitHubCall {
+        httpClient.gitHubApi(apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString())
+            .toResult { body<IssueJson>().title }
+    }
+
     override suspend fun timeline(token: String?, ref: IssueRef, page: Int): ForgeResult<TimelinePage> = gitHubCall {
         val response = httpClient.gitHubApi(
             apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "timeline",

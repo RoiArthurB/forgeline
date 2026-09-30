@@ -10,6 +10,12 @@ import fr.arthurbrugiere.forgeline.core.model.UserProfile
 interface IssueApi {
     suspend fun issue(token: String?, ref: IssueRef): ForgeResult<IssueDetails>
 
+    /** Just the title, for rows that only name a conversation: one request where [issue] may need several. */
+    suspend fun title(token: String?, ref: IssueRef): ForgeResult<String> = when (val result = issue(token, ref)) {
+        is ForgeResult.Failure -> result
+        is ForgeResult.Success -> ForgeResult.Success(result.value.title)
+    }
+
     /** Oldest first. [page] starts at 1. */
     suspend fun timeline(token: String?, ref: IssueRef, page: Int): ForgeResult<TimelinePage>
 }

@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.async
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsSync
@@ -37,69 +40,73 @@ class GitHubNotificationsApi(
     private val apiBaseUrl: String = "https://api.github.com",
 ) : NotificationsApi {
 
+    /**
+     * The first page (conditional: a 304 there means nothing changed at all), then every other page at once: the first
+     * announces the last, and waiting for each page's "next" would cost a round trip per page.
+     */
     override suspend fun threads(token: String, ifModifiedSince: String?, maxPages: Int): ForgeResult<NotificationsSync> = gitHubCall {
-        val threads = mutableListOf<NotificationThread>()
-        var lastModified: String? = null
-        var pollInterval: Int? = null
-        var page: Int? = 1
-        while (page != null && page <= maxPages) {
-            val currentPage: Int = page
-            val response = httpClient.request {
-                method = HttpMethod.Get
-                url {
-                    takeFrom(apiBaseUrl)
-                    appendPathSegments("notifications")
-                    parameters.append("all", "true")
-                    parameters.append("per_page", "50")
-                    parameters.append("page", currentPage.toString())
-                }
-                gitHubHeaders(token)
-                // Only the first page is conditional: a 304 there means nothing changed at all.
-                if (currentPage == 1 && ifModifiedSince != null) header(HttpHeaders.IfModifiedSince, ifModifiedSince)
-            }
-            if (currentPage == 1) {
-                lastModified = response.headers[HttpHeaders.LastModified] ?: ifModifiedSince
-                pollInterval = response.headers["X-Poll-Interval"]?.toIntOrNull()
-                if (response.status == HttpStatusCode.NotModified) return@gitHubCall ForgeResult.Success(NotificationsSync(null, lastModified, pollInterval))
-            }
-            if (response.status != HttpStatusCode.OK) return@gitHubCall response.failure()
-            threads += response.body<List<ThreadJson>>().mapNotNull { it.toModel() }
-            page = response.nextPage()
-        }
+        val first = page(token, 1, ifModifiedSince)
+        val lastModified = first.headers[HttpHeaders.LastModified] ?: ifModifiedSince
+        val pollInterval = first.headers["X-Poll-Interval"]?.toIntOrNull()
+        if (first.status == HttpStatusCode.NotModified) return@gitHubCall ForgeResult.Success(NotificationsSync(null, lastModified, pollInterval))
+        if (first.status != HttpStatusCode.OK) return@gitHubCall first.failure()
+        val last = minOf(first.lastPage() ?: first.nextPage() ?: 1, maxPages)
+        val rest = coroutineScope { (2..last).map { number -> async { page(token, number, null) } }.awaitAll() }
+        rest.firstOrNull { it.status != HttpStatusCode.OK }?.let { return@gitHubCall it.failure() }
+        val threads = (listOf(first) + rest).flatMap { response -> response.body<List<ThreadJson>>().mapNotNull { it.toModel() } }
         ForgeResult.Success(NotificationsSync(threads, lastModified, pollInterval))
+    }
+
+    private suspend fun page(token: String, number: Int, ifModifiedSince: String?) = httpClient.request {
+        method = HttpMethod.Get
+        url {
+            takeFrom(apiBaseUrl)
+            appendPathSegments("notifications")
+            parameters.append("all", "true")
+            parameters.append("per_page", "50")
+            parameters.append("page", number.toString())
+        }
+        gitHubHeaders(token)
+        if (ifModifiedSince != null) header(HttpHeaders.IfModifiedSince, ifModifiedSince)
     }
 
     override suspend fun subjectStates(token: String, subjects: List<IssueRef>): ForgeResult<Map<IssueRef, SubjectState>> {
         if (subjects.isEmpty()) return ForgeResult.Success(emptyMap())
+        // One GraphQL request per 100 subjects, where REST would need one per subject; the requests go out together.
+        val answers = coroutineScope {
+            subjects.distinct().chunked(STATES_PER_REQUEST).map { chunk -> async { states(token, chunk) } }.awaitAll()
+        }
+        answers.firstOrNull { it is ForgeResult.Failure }?.let { return it as ForgeResult.Failure }
+        return ForgeResult.Success(answers.flatMap { (it as ForgeResult.Success).value.entries }.associate { it.key to it.value })
+    }
+
+    private suspend fun states(token: String, chunk: List<IssueRef>): ForgeResult<Map<IssueRef, SubjectState>> {
+        val repos = chunk.groupBy { it.repo }.entries.toList()
+        val params = repos.indices.joinToString(", ") { "\$o$it: String!, \$n$it: String!" }
+        val fields = repos.withIndex().joinToString(" ") { (i, entry) ->
+            val items = entry.value.joinToString(" ") { "i${it.number}: issueOrPullRequest(number: ${it.number}) { ...state }" }
+            "r$i: repository(owner: \$o$i, name: \$n$i) { $items }"
+        }
+        val query = "query SubjectStates($params) { $fields } fragment state on IssueOrPullRequest { " +
+            "__typename ... on Issue { state stateReason } ... on PullRequest { state isDraft } }"
+        val variables = repos.withIndex().flatMap { (i, entry) -> listOf("o$i" to entry.key.owner, "n$i" to entry.key.name) }.toMap()
+        val result = gitHubCall {
+            httpClient.gitHubApi(
+                apiBaseUrl, token, "graphql", method = HttpMethod.Post,
+                body = buildJsonObject {
+                    put("query", query)
+                    put("variables", buildJsonObject { variables.forEach { (key, value) -> put(key, value) } })
+                },
+            ).toResult { body<StatesResponse>() }
+        }
+        val data = when (result) {
+            is ForgeResult.Failure -> return result
+            is ForgeResult.Success -> result.value.data ?: return ForgeResult.Success(emptyMap())
+        }
         val states = mutableMapOf<IssueRef, SubjectState>()
-        // One GraphQL request per 100 subjects, where REST would need one per subject.
-        for (chunk in subjects.distinct().chunked(STATES_PER_REQUEST)) {
-            val repos = chunk.groupBy { it.repo }.entries.toList()
-            val params = repos.indices.joinToString(", ") { "\$o$it: String!, \$n$it: String!" }
-            val fields = repos.withIndex().joinToString(" ") { (i, entry) ->
-                val items = entry.value.joinToString(" ") { "i${it.number}: issueOrPullRequest(number: ${it.number}) { ...state }" }
-                "r$i: repository(owner: \$o$i, name: \$n$i) { $items }"
-            }
-            val query = "query SubjectStates($params) { $fields } fragment state on IssueOrPullRequest { " +
-                "__typename ... on Issue { state stateReason } ... on PullRequest { state isDraft } }"
-            val variables = repos.withIndex().flatMap { (i, entry) -> listOf("o$i" to entry.key.owner, "n$i" to entry.key.name) }.toMap()
-            val result = gitHubCall {
-                httpClient.gitHubApi(
-                    apiBaseUrl, token, "graphql", method = HttpMethod.Post,
-                    body = buildJsonObject {
-                        put("query", query)
-                        put("variables", buildJsonObject { variables.forEach { (key, value) -> put(key, value) } })
-                    },
-                ).toResult { body<StatesResponse>() }
-            }
-            val data = when (result) {
-                is ForgeResult.Failure -> return result
-                is ForgeResult.Success -> result.value.data ?: continue
-            }
-            repos.forEachIndexed { i, (_, refs) ->
-                val repo = data["r$i"] as? JsonObject ?: return@forEachIndexed
-                refs.forEach { ref -> (repo["i${ref.number}"] as? JsonObject)?.let(::subjectState)?.let { states[ref] = it } }
-            }
+        repos.forEachIndexed { i, (_, refs) ->
+            val repo = data["r$i"] as? JsonObject ?: return@forEachIndexed
+            refs.forEach { ref -> (repo["i${ref.number}"] as? JsonObject)?.let(::subjectState)?.let { states[ref] = it } }
         }
         return ForgeResult.Success(states)
     }

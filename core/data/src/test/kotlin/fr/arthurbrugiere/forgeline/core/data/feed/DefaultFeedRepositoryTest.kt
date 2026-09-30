@@ -1,5 +1,11 @@
 package fr.arthurbrugiere.forgeline.core.data.feed
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.async
+import kotlinx.coroutines.CompletableDeferred
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import androidx.room.Room
@@ -194,5 +200,22 @@ class DefaultFeedRepositoryTest {
         repository.markRead("e1", Instant.parse("2026-09-27T08:00:00Z"))
 
         assertThat(repository.readUpTo()).isEqualTo(Instant.parse("2026-09-27T09:00:00Z"))
+    }
+
+    @Test
+    fun accounts_refresh_at_the_same_time_not_one_after_another() = runTest {
+        // Regression: one lock for every account made each wait for the one before.
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "g")
+        val codeberg = FakeFeedApi()
+        clients.put(ForgeInstance.Codeberg, FakeForgeClients(feed = codeberg))
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "c")
+        val slow = CompletableDeferred<Unit>()
+        api.gate = slow
+
+        val refresh = async { repository.refresh(force = true) }
+        withContext(Dispatchers.Default) { withTimeout(5_000) { while (codeberg.calls.isEmpty()) delay(10) } }
+        slow.complete(Unit)
+
+        assertThat(refresh.await()).isEqualTo(ForgeResult.Success(Unit))
     }
 }

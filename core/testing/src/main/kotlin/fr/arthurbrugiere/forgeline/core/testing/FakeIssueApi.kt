@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
+import kotlinx.coroutines.CompletableDeferred
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
@@ -21,8 +22,12 @@ class FakeIssueApi : IssueApi {
     val calls = mutableListOf<String>()
     val tokens = mutableListOf<String?>()
 
+    /** When set, issues wait for it: a slow forge. */
+    var gate: CompletableDeferred<Unit>? = null
+
     override suspend fun issue(token: String?, ref: IssueRef): ForgeResult<IssueDetails> {
         calls += "issue:${ref.repo.fullName}#${ref.number}"
+        gate?.await()
         tokens += token
         failure?.let { return ForgeResult.Failure(it) }
         return issues[ref]?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Http(404, "Not Found"))

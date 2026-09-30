@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.data.di
 
+import android.util.Log
+import kotlinx.coroutines.CoroutineExceptionHandler
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -45,6 +47,9 @@ import fr.arthurbrugiere.forgeline.core.data.trending.DefaultTrendingRepository
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingDao
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepository
 import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import java.time.Clock
 import javax.inject.Singleton
 
@@ -122,6 +127,15 @@ abstract class DataModule {
 
         @Provides
         fun provideClock(): Clock = Clock.systemUTC()
+
+        /** For work that outlives the screen that started it, like what an Inbox sync does after the list is in. */
+        @Provides
+        @Singleton
+        @BackgroundScope
+        fun provideBackgroundScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + LogFailures)
+
+        // Background work is extra (states, conversations ahead): its failure is logged, never a crash.
+        private val LogFailures = CoroutineExceptionHandler { _, error -> Log.w("Forgeline", "Background work failed", error) }
 
         @Provides
         @Singleton

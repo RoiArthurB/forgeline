@@ -24,8 +24,12 @@ class FakeInboxRepository : InboxRepository {
 
     override fun observe(): Flow<InboxSnapshot> = snapshot
 
-    override suspend fun sync(force: Boolean): SyncResult {
+    /** Whether each sync waited for its follow-ups, as a background check does. */
+    val waitedForFollowUps = mutableListOf<Boolean>()
+
+    override suspend fun sync(force: Boolean, waitForFollowUps: Boolean): SyncResult {
         syncs += force
+        waitedForFollowUps += waitForFollowUps
         return nextSync
     }
 

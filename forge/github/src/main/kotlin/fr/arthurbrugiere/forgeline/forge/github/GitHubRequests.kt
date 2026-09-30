@@ -46,3 +46,8 @@ private val nextPage = Regex("""<[^>]*[?&]page=(\d+)[^>]*>;\s*rel="next"""")
 
 /** GitHub paginates with `Link: <...page=2>; rel="next"`. */
 internal fun HttpResponse.nextPage(): Int? = headers["Link"]?.let { nextPage.find(it)?.groupValues?.get(1)?.toIntOrNull() }
+
+private val lastPage = Regex("""<[^>]*[?&]page=(\d+)[^>]*>;\s*rel="last"""")
+
+/** The last page GitHub announces (`rel="last"`), so the pages in between can be asked all at once. */
+internal fun HttpResponse.lastPage(): Int? = headers["Link"]?.let { lastPage.find(it)?.groupValues?.get(1)?.toIntOrNull() }

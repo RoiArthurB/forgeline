@@ -89,7 +89,9 @@ class DefaultRepoRepositoryTest {
 
         repository.refresh(id)
 
-        assertThat(api.calls).containsExactly("repo:octo/repo", "readme:newowner/repo").inOrder()
+        // The README is asked alongside the details, under the old name; the move costs one more request.
+        assertThat(api.calls).containsAtLeast("repo:octo/repo", "readme:newowner/repo")
+        assertThat(api.calls.last()).isEqualTo("readme:newowner/repo")
         assertThat(repository.observe(id).first().readme).isEqualTo(readme)
     }
 

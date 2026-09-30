@@ -28,7 +28,8 @@ class InboxSyncWorker(
         EntryPointAccessors.fromApplication<Dependencies>(context).notifier(),
     )
 
-    override suspend fun doWork(): Result = when (val result = inbox.sync()) {
+    // Waits for the follow-ups (states, conversations ahead): nothing keeps the process alive after the work ends.
+    override suspend fun doWork(): Result = when (val result = inbox.sync(waitForFollowUps = true)) {
         is SyncResult.Failed -> if (result.error is ForgeError.Network) Result.retry() else Result.success()
         SyncResult.SignedOut -> Result.success()
         else -> {

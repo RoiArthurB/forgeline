@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.feed
 
+import java.util.concurrent.ConcurrentHashMap
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkDao
 import fr.arthurbrugiere.forgeline.core.data.reading.advance
@@ -60,7 +61,13 @@ class DefaultFeedRepository @Inject constructor(
 
     override suspend fun markRead(itemKey: String, at: Instant) = marks.advance(MARK_LIST, itemKey, at.toEpochMilli(), clock.millis())
 
-    private val lock = Mutex()
+    /** One lock per account: an account's refresh and paging never overlap, and accounts never wait for each other. */
+    private val locks = ConcurrentHashMap<String, Mutex>()
+
+    private fun lockOf(account: Account) = locks.getOrPut(account.id) { Mutex() }
+
+    /** One page loaded at a time: the next choice of account depends on what the last page brought. */
+    private val pagingLock = Mutex()
 
     override fun observe(): Flow<FeedSnapshot> = accounts.accounts.flatMapLatest { signedIn ->
         if (signedIn.isEmpty()) {
@@ -91,7 +98,7 @@ class DefaultFeedRepository @Inject constructor(
         return results.firstOrNull { it is ForgeResult.Success } ?: results.first()
     }
 
-    private suspend fun refresh(account: Account, force: Boolean): ForgeResult<Unit> = lock.withLock {
+    private suspend fun refresh(account: Account, force: Boolean): ForgeResult<Unit> = lockOf(account).withLock {
         val token = accounts.token(account.id) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
         val state = dao.sync(account.id)
         val interval = (state?.pollIntervalSeconds ?: DEFAULT_POLL_SECONDS) * 1_000L
@@ -117,21 +124,25 @@ class DefaultFeedRepository @Inject constructor(
         }
     }
 
-    override suspend fun loadMore(): ForgeResult<Unit> = lock.withLock {
+    override suspend fun loadMore(): ForgeResult<Unit> = pagingLock.withLock {
         val signedIn = accounts.accounts.first()
         // The account whose loaded Feed ends the latest holds the horizon up: page it back.
         val behind = signedIn.mapNotNull { account ->
             val state = dao.sync(account.id)?.takeIf { it.nextPage != null } ?: return@mapNotNull null
             Triple(account, state, dao.oldest(account.id) ?: Long.MAX_VALUE)
         }.maxByOrNull { it.third } ?: return ForgeResult.Success(Unit)
-        val (account, state, _) = behind
-        val token = accounts.token(account.id) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
-        when (val result = clients.feed(account.forge).receivedEvents(token, account.user.login, page = state.nextPage!!)) {
-            is ForgeResult.Failure -> result
-            is ForgeResult.Success -> {
-                dao.insert(result.value.events.orEmpty().map { it.on(account).toEntity(account.id) })
-                dao.upsertSync(state.copy(nextPage = result.value.nextPage))
-                ForgeResult.Success(Unit)
+        val (account, _, _) = behind
+        lockOf(account).withLock {
+            // A refresh may have run meanwhile: page on from where it left things.
+            val state = dao.sync(account.id)?.takeIf { it.nextPage != null } ?: return ForgeResult.Success(Unit)
+            val token = accounts.token(account.id) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+            when (val result = clients.feed(account.forge).receivedEvents(token, account.user.login, page = state.nextPage!!)) {
+                is ForgeResult.Failure -> result
+                is ForgeResult.Success -> {
+                    dao.insert(result.value.events.orEmpty().map { it.on(account).toEntity(account.id) })
+                    dao.upsertSync(state.copy(nextPage = result.value.nextPage))
+                    ForgeResult.Success(Unit)
+                }
             }
         }
     }

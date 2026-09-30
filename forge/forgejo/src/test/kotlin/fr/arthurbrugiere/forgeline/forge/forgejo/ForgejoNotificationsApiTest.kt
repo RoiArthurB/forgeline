@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.CompletableDeferred
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsSync
@@ -126,5 +128,35 @@ class ForgejoNotificationsApiTest {
             Triple(HttpMethod.Patch, "/api/v1/notifications/threads/902", "read"),
             Triple(HttpMethod.Patch, "/api/v1/notifications/threads/903", "read"),
         ).inOrder()
+    }
+
+    @Test
+    fun the_pages_after_the_first_are_asked_all_at_once() = runTest {
+        // Regression: each page waited for the one before, a round trip each to a far forge.
+        val bothAsked = CompletableDeferred<Unit>()
+        val later = mutableSetOf<String>()
+        val paged = with(codeberg) {
+            ForgejoNotificationsApi(
+                client { request ->
+                    val page = request.url.parameters["page"]
+                    when {
+                        request.url.encodedPath.endsWith("/issues/search") -> json("[]")
+                        page == "1" -> json(fixture("notifications.json"), headers = mapOf("X-Total-Count" to "120"))
+                        else -> {
+                            later += page.orEmpty()
+                            if (later.size == 2) bothAsked.complete(Unit)
+                            withTimeout(5_000) { bothAsked.await() }
+                            json("[]")
+                        }
+                    }
+                },
+                ForgeInstance.Codeberg,
+            )
+        }
+
+        paged.threads("t", ifModifiedSince = null, maxPages = 3)
+
+        // 120 threads, 50 a page: pages 2 and 3, together.
+        assertThat(later).containsExactly("2", "3")
     }
 }

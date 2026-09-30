@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.CompletableDeferred
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -174,5 +176,39 @@ class GitHubNotificationsApiTest {
         api { json("""{"data":{}}""") }.subjectStates("tok", refs)
 
         assertThat(requests).hasSize(2)
+    }
+
+    @Test
+    fun the_pages_after_the_first_are_asked_all_at_once() = runTest {
+        // Regression: each page waited for the one before, a round trip each to a far forge.
+        val inFlight = java.util.concurrent.atomic.AtomicInteger()
+        var most = 0
+        val bothAsked = CompletableDeferred<Unit>()
+        val link = """<https://api.github.com/notifications?page=2>; rel="next", <https://api.github.com/notifications?page=3>; rel="last""""
+        val sync = api { request ->
+            val page = request.url.parameters["page"]
+            if (page == "1") return@api json(fixture, mapOf("Link" to link))
+            most = maxOf(most, inFlight.incrementAndGet())
+            if (most >= 2) bothAsked.complete(Unit)
+            // Each later page answers only once the other is asked too: one after another would never end.
+            withTimeout(5_000) { bothAsked.await() }
+            inFlight.decrementAndGet()
+            json("[]")
+        }.threads("tok", ifModifiedSince = "Sat, 27 Sep 2026 09:00:00 GMT", maxPages = 3).value()
+
+        assertThat(most).isEqualTo(2)
+        assertThat(sync.threads).hasSize(5)
+        assertThat(requests.map { it.url.parameters["page"] }).containsExactly("1", "2", "3")
+        // Only the first page is conditional.
+        assertThat(requests.filter { it.url.parameters["page"] != "1" }.map { it.headers[HttpHeaders.IfModifiedSince] }).containsExactly(null, null)
+    }
+
+    @Test
+    fun no_more_pages_are_asked_than_allowed() = runTest {
+        val link = """<https://api.github.com/notifications?page=2>; rel="next", <https://api.github.com/notifications?page=9>; rel="last""""
+        api { request -> if (request.url.parameters["page"] == "1") json(fixture, mapOf("Link" to link)) else json("[]") }
+            .threads("tok", ifModifiedSince = null, maxPages = 3)
+
+        assertThat(requests.map { it.url.parameters["page"] }).containsExactly("1", "2", "3")
     }
 }

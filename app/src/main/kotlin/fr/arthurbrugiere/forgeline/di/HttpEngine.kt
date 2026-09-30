@@ -1,0 +1,35 @@
+package fr.arthurbrugiere.forgeline.di
+
+import io.ktor.client.engine.HttpClientEngine
+import io.ktor.client.engine.okhttp.OkHttp
+import okhttp3.ConnectionPool
+import okhttp3.Dispatcher
+import java.util.concurrent.TimeUnit
+
+/**
+ * How many requests one forge serves at once. OkHttp's default, 5, capped every fan-out (an Inbox sync, the Feed's
+ * followed people, conversations loaded ahead) whatever the code asked for: far from the forge, each wave of 5 costs a
+ * full round trip. Over HTTP/2 (GitHub, Codeberg), more requests share the one connection instead of opening others.
+ */
+const val REQUESTS_PER_FORGE = 16
+
+/** Every request in flight across forges. */
+const val REQUESTS_IN_FLIGHT = 64
+
+fun forgeDispatcher(): Dispatcher = Dispatcher().apply {
+    maxRequestsPerHost = REQUESTS_PER_FORGE
+    maxRequests = REQUESTS_IN_FLIGHT
+}
+
+/**
+ * The engine every forge client runs on. Connections are kept 5 minutes (OkHttp's default), so a TLS handshake to a
+ * far forge (two round trips) is paid once per session, not per request.
+ */
+fun forgeEngine(): HttpClientEngine = OkHttp.create {
+    config {
+        dispatcher(forgeDispatcher())
+        connectionPool(ConnectionPool(IDLE_CONNECTIONS, 5, TimeUnit.MINUTES))
+    }
+}
+
+private const val IDLE_CONNECTIONS = 8

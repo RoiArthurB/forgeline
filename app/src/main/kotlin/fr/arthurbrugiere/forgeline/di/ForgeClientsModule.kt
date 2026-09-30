@@ -35,7 +35,6 @@ import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoTrendingApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoUserApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.forgejoHttpClient
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.okhttp.OkHttp
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Qualifier
@@ -135,7 +134,7 @@ abstract class ForgeClientsModule {
         @Provides
         @Singleton
         @Forgejo
-        fun provideForgejoHttpClient(): HttpClient = forgejoHttpClient(OkHttp.create())
+        fun provideForgejoHttpClient(): HttpClient = forgejoHttpClient(forgeEngine())
 
         @Provides
         @CodebergClientId

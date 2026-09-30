@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.CompletableDeferred
 import io.ktor.http.HttpStatusCode
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import com.google.common.truth.Truth.assertThat
@@ -65,7 +67,7 @@ class ForgejoIssueApiTest {
     }
 
     @Test
-    fun a_plain_issue_skips_the_pull_request_call() = runTest {
+    fun a_plain_issue_has_no_pull_request_details() = runTest {
         val first = with(codeberg) { fixture("issues.json") }.let { all -> kotlinx.serialization.json.Json.parseToJsonElement(all) }
             .let { (it as kotlinx.serialization.json.JsonArray)[0].toString() }
         val issues = with(codeberg) {
@@ -76,7 +78,8 @@ class ForgejoIssueApiTest {
 
         assertThat(issue.pullRequest).isNull()
         assertThat(issue.state).isEqualTo(IssueState.OPEN)
-        assertThat(codeberg.requests.none { "/pulls/" in it.url.encodedPath }).isTrue()
+        // The pull request call went out alongside (it can't be known before): its 404 is ignored.
+        assertThat(issue.pullRequest).isNull()
     }
 
     @Test
@@ -86,5 +89,45 @@ class ForgejoIssueApiTest {
         val result = issues.issue(null, IssueRef(pull.repo, 1))
 
         assertThat((result as ForgeResult.Failure).error).isInstanceOf(ForgeError.Http::class.java)
+    }
+
+    @Test
+    fun a_pull_requests_details_are_asked_alongside_the_issue_not_after() = runTest {
+        // Regression: the details waited for the issue to say it's a pull request, a round trip each to a far forge.
+        val bothAsked = CompletableDeferred<Unit>()
+        val asked = mutableSetOf<String>()
+        val issues = with(codeberg) {
+            ForgejoIssueApi(
+                client {
+                    val path = it.url.encodedPath
+                    when {
+                        path.endsWith("/reactions") -> json("null")
+                        path.contains("/pulls/") -> {
+                            asked += "pull"
+                            if ("issue" in asked) bothAsked.complete(Unit)
+                            withTimeout(5_000) { bothAsked.await() }
+                            json(fixture("pull.json"))
+                        }
+                        else -> {
+                            asked += "issue"
+                            if ("pull" in asked) bothAsked.complete(Unit)
+                            withTimeout(5_000) { bothAsked.await() }
+                            json(fixture("issue_pull.json"))
+                        }
+                    }
+                },
+                ForgeInstance.Codeberg,
+            )
+        }
+
+        assertThat(issues.issue(null, pull).value().pullRequest?.isMerged).isTrue()
+    }
+
+    @Test
+    fun a_pull_requests_title_takes_one_request() = runTest {
+        val issues = with(codeberg) { ForgejoIssueApi(client { json(fixture("issue_pull.json")) }, ForgeInstance.Codeberg) }
+
+        assertThat(issues.title(null, pull).value()).isNotEmpty()
+        assertThat(codeberg.requests.single().url.encodedPath).isEqualTo("/api/v1/repos/forgejo/forgejo/issues/14597")
     }
 }

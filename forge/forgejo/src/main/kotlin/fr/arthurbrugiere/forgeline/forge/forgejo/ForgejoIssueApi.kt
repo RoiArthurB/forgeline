@@ -26,15 +26,19 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     override suspend fun issue(token: String?, ref: IssueRef): ForgeResult<IssueDetails> = forgejoCall {
         coroutineScope {
             val reactions = async { get(token, ref, "issues", ref.number.toString(), "reactions") }
+            // The pull request's branches and size live on its own endpoint. Asked alongside the issue, before knowing
+            // it's a pull request: a plain issue wastes one 404, a pull request saves a round trip to a far forge.
+            val pullAnswer = async { get(token, ref, "pulls", ref.number.toString()) }
             val response = get(token, ref, "issues", ref.number.toString())
             if (response.status != HttpStatusCode.OK) return@coroutineScope response.failure()
             val issue = response.body<IssueJson>()
-            // The pull request's branches and size live on its own endpoint.
             val pull = if (issue.isPullRequest) {
-                val details = get(token, ref, "pulls", ref.number.toString())
+                val details = pullAnswer.await()
                 if (details.status != HttpStatusCode.OK) return@coroutineScope details.failure()
                 details.body<PullJson>()
             } else {
+                // Not a pull request: don't wait for the 404.
+                pullAnswer.cancel()
                 null
             }
             // No reactions answers null, not an empty list (Codeberg, 2026-09-29).
@@ -72,15 +76,34 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         }
     }
 
+    /** The issue endpoint names pull requests too: no second call for the title. */
+    override suspend fun title(token: String?, ref: IssueRef): ForgeResult<String> = forgejoCall {
+        get(token, ref, "issues", ref.number.toString()).toResult { body<IssueJson>().title }
+    }
+
     override suspend fun timeline(token: String?, ref: IssueRef, page: Int): ForgeResult<TimelinePage> = forgejoCall {
+        coroutineScope {
+            // A review entry doesn't say whether it approved; the pull request's reviews do. Asked alongside the
+            // timeline, before knowing there are reviews: one round trip instead of two.
+            val reviews = async { reviewStates(token, ref) }
+            timelinePage(token, ref, page) { entries -> if (entries.any { it.type == "review" }) reviews.await() else emptyMap() }
+                .also { reviews.cancel() }
+        }
+    }
+
+    private suspend fun timelinePage(
+        token: String?,
+        ref: IssueRef,
+        page: Int,
+        reviews: suspend (List<TimelineJson>) -> Map<Long, ReviewState>,
+    ): ForgeResult<TimelinePage> {
         val response = get(token, ref, "issues", ref.number.toString(), "timeline", query = mapOf("page" to page.toString(), "limit" to "$PAGE_SIZE"))
-        if (response.status != HttpStatusCode.OK) return@forgejoCall response.failure()
+        if (response.status != HttpStatusCode.OK) return response.failure()
         val entries = response.body<List<TimelineJson>>()
-        // A review entry doesn't say whether it approved; the pull request's reviews do.
-        val reviewStates = if (entries.any { it.type == "review" }) reviewStates(token, ref) else emptyMap()
+        val reviewStates = reviews(entries)
         val items = entries.mapNotNull { it.toItem(reviewStates) }
         val next = response.nextPage() ?: (page + 1).takeIf { entries.size == PAGE_SIZE }
-        ForgeResult.Success(TimelinePage(items, next))
+        return ForgeResult.Success(TimelinePage(items, next))
     }
 
     private suspend fun reviewStates(token: String?, ref: IssueRef): Map<Long, ReviewState> {

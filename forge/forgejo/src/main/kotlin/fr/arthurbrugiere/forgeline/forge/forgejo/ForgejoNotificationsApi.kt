@@ -44,21 +44,24 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
             val new = if (count.status == HttpStatusCode.NoContent) 0 else count.body<CountJson>().new
             if (new == 0) return@forgejoCall ForgeResult.Success(NotificationsSync(null, "$MARKER${checks + 1}", POLL_SECONDS))
         }
-        val threads = mutableListOf<ThreadJson>()
-        var page: Int? = 1
-        while (page != null && page <= maxPages) {
-            val response = httpClient.forgejoApi(
-                forge, token, "notifications",
-                query = mapOf("all" to "true", "limit" to "$PAGE_SIZE", "page" to page.toString()),
-            )
-            if (response.status != HttpStatusCode.OK) return@forgejoCall response.failure()
-            val batch = response.body<List<ThreadJson>>()
-            threads += batch
-            page = response.nextPage() ?: (page + 1).takeIf { batch.size == PAGE_SIZE }
-        }
+        // The first page says how many threads there are: the others are asked all at once, not one after another.
+        val first = page(token, 1)
+        if (first.status != HttpStatusCode.OK) return@forgejoCall first.failure()
+        val firstBatch = first.body<List<ThreadJson>>()
+        val pages = first.totalCount()?.let { (it + PAGE_SIZE - 1) / PAGE_SIZE }
+            ?: first.nextPage()?.let { 2 }
+            ?: if (firstBatch.size == PAGE_SIZE) 2 else 1
+        val rest = coroutineScope { (2..minOf(pages, maxPages)).map { number -> async { page(token, number) } }.awaitAll() }
+        rest.firstOrNull { it.status != HttpStatusCode.OK }?.let { return@forgejoCall it.failure() }
+        val threads = firstBatch + rest.flatMap { it.body<List<ThreadJson>>() }
         val reasons = reasons(token, threads)
         ForgeResult.Success(NotificationsSync(threads.mapNotNull { it.toModel(reasons) }, "${MARKER}0", POLL_SECONDS))
     }
+
+    private suspend fun page(token: String, number: Int) = httpClient.forgejoApi(
+        forge, token, "notifications",
+        query = mapOf("all" to "true", "limit" to "$PAGE_SIZE", "page" to number.toString()),
+    )
 
     override suspend fun markRead(token: String, threadId: String): ForgeResult<Unit> = forgejoCall {
         httpClient.forgejoApi(forge, token, "notifications", "threads", threadId, method = HttpMethod.Patch, query = mapOf("to-status" to "read"))

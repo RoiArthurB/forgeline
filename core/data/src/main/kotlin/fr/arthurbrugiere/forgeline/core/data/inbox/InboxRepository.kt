@@ -11,7 +11,13 @@ import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.SubjectState
+import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -43,10 +49,13 @@ interface InboxRepository {
     fun observe(): Flow<InboxSnapshot>
 
     /**
-     * Syncs every account, each on its own forge and poll interval. Unless [force]d, each waits for its forge's poll
-     * interval and asks only for changes. Updated when any account changed; Failed only when every account failed.
+     * Syncs every account at once, each on its own forge and poll interval. Unless [force]d, each waits for its forge's
+     * poll interval and asks only for changes. Updated when any account changed; Failed only when every account failed.
+     *
+     * Returns as soon as the threads are in: where their issues stand and the conversations loaded ahead follow in
+     * the background, unless [waitForFollowUps] (a background check, which must finish its work before it ends).
      */
-    suspend fun sync(force: Boolean = false): SyncResult
+    suspend fun sync(force: Boolean = false, waitForFollowUps: Boolean = false): SyncResult
 
     // Threads are identified by their account and id: two forges can use the same thread id.
     suspend fun markRead(accountId: String, threadId: String): ForgeResult<Unit>
@@ -70,9 +79,16 @@ class DefaultInboxRepository @Inject constructor(
     private val accounts: AccountRepository,
     private val conversations: IssueRepository,
     private val clock: Clock,
+    @param:BackgroundScope private val scope: CoroutineScope,
 ) : InboxRepository {
 
-    private val syncLock = Mutex()
+    /** One lock per account: two syncs of one account never overlap, and accounts never wait for each other. */
+    private val syncLocks = ConcurrentHashMap<String, Mutex>()
+
+    private fun lockOf(account: Account) = syncLocks.getOrPut(account.id) { Mutex() }
+
+    /** Follow-ups (states, conversations) run one round at a time: a newer sync's round waits for the current one. */
+    private val followUpLock = Mutex()
 
     override fun observe(): Flow<InboxSnapshot> = accounts.accounts.flatMapLatest { signedIn ->
         if (signedIn.isEmpty()) {
@@ -98,14 +114,14 @@ class DefaultInboxRepository @Inject constructor(
         }
     }
 
-    override suspend fun sync(force: Boolean): SyncResult {
+    override suspend fun sync(force: Boolean, waitForFollowUps: Boolean): SyncResult {
         val signedIn = accounts.accounts.first()
         if (signedIn.isEmpty()) return SyncResult.SignedOut
         val results = coroutineScope { signedIn.map { account -> async { syncAccount(account, force) } }.awaitAll() }
-        // Threads first, on screen at once; where their issues and pull requests stand follows.
-        signedIn.zip(results).filter { (_, result) -> result is SyncResult.Updated || result is SyncResult.NotModified }.forEach { (account, _) ->
-            refreshStates(account)
-            prefetchConversations(account)
+        // Threads first, on screen at once; where their issues and pull requests stand follows, off the refresh.
+        val synced = signedIn.zip(results).filter { (_, result) -> result is SyncResult.Updated || result is SyncResult.NotModified }.map { it.first }
+        if (synced.isNotEmpty()) {
+            if (waitForFollowUps) followUp(synced) else scope.launch { followUp(synced) }
         }
         val updated = results.filterIsInstance<SyncResult.Updated>()
         return when {
@@ -119,13 +135,27 @@ class DefaultInboxRepository @Inject constructor(
      * Loads the conversations waiting on you ahead of time (unread, newest first, a few per sync), so opening one,
      * or tapping its phone notification, shows it at once. Ones kept since their latest activity are skipped.
      */
-    private suspend fun prefetchConversations(account: Account) {
-        dao.all(account.id).asSequence()
+    private suspend fun prefetchConversations(account: Account, permits: Semaphore) {
+        val waiting = dao.all(account.id).asSequence()
             .map { it.toModel() }
             .filter { it.unread && it.needsYou }
             .mapNotNull { thread -> thread.subject?.let { it to thread.updatedAt } }
             .take(PREFETCHED_CONVERSATIONS)
-            .forEach { (ref, activityAt) -> conversations.prefetch(ref, activityAt) }
+            .toList()
+        coroutineScope {
+            waiting.forEach { (ref, activityAt) -> launch { permits.withPermit { conversations.prefetch(ref, activityAt) } } }
+        }
+    }
+
+    /** Every account's subject states and conversations ahead, all at once, a few conversations at a time. */
+    private suspend fun followUp(synced: List<Account>) = followUpLock.withLock {
+        val permits = Semaphore(PREFETCH_CONCURRENCY)
+        coroutineScope {
+            synced.forEach { account ->
+                launch { refreshStates(account) }
+                launch { prefetchConversations(account, permits) }
+            }
+        }
     }
 
     /** Asks where the inbox's issues and pull requests stand, for those never asked, moved on since, or asked long ago. */
@@ -149,7 +179,7 @@ class DefaultInboxRepository @Inject constructor(
         )
     }
 
-    private suspend fun syncAccount(account: Account, force: Boolean): SyncResult = syncLock.withLock {
+    private suspend fun syncAccount(account: Account, force: Boolean): SyncResult = lockOf(account).withLock {
         val token = accounts.token(account.id) ?: return SyncResult.SignedOut
         val state = dao.sync(account.id)
         val interval = (state?.pollIntervalSeconds ?: DEFAULT_POLL_SECONDS) * 1_000L
@@ -245,5 +275,8 @@ class DefaultInboxRepository @Inject constructor(
 
         /** Conversations loaded ahead per sync: two requests each, so a busy inbox doesn't eat the rate limit. */
         const val PREFETCHED_CONVERSATIONS = 10
+
+        /** Conversations loaded at once, across accounts: far forges answer slowly, so waiting on one at a time adds up. */
+        const val PREFETCH_CONCURRENCY = 6
     }
 }

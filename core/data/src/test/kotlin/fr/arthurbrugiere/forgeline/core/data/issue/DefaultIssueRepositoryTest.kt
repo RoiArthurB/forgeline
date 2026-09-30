@@ -152,7 +152,8 @@ class DefaultIssueRepositoryTest {
         assertThat(repository.prefetch(ref, Instant.parse("2026-09-29T09:00:00Z"))).isTrue()
         assertThat(repository.prefetch(ref, Instant.parse("2026-09-29T09:00:00Z"))).isFalse()
         assertThat(repository.stored(ref)).isNull()
-        assertThat(api.calls).containsExactly("issue:octo/repo#7")
+        // Asked once (its timeline alongside), then left alone.
+        assertThat(api.calls.count { it == "issue:octo/repo#7" }).isEqualTo(1)
     }
 
     @Test
@@ -162,6 +163,7 @@ class DefaultIssueRepositoryTest {
         repository.prefetch(ref, Instant.parse("2026-09-29T09:00:00Z"))
         repository.prefetch(ref, Instant.parse("2026-09-29T09:00:00Z"))
 
-        assertThat(api.calls).containsExactly("issue:octo/repo#7", "issue:octo/repo#7")
+        // The issue and its timeline are asked side by side, each time.
+        assertThat(api.calls.count { it == "issue:octo/repo#7" }).isEqualTo(2)
     }
 }

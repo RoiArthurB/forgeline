@@ -42,14 +42,25 @@ class ForgejoFeedApi(
     private val lastRead = ConcurrentHashMap<String, Long>()
 
     override suspend fun receivedEvents(token: String?, login: String, page: Int, ifModifiedSince: String?): ForgeResult<FeedPage> = forgejoCall {
-        val own = httpClient.forgejoApi(forge, token, "users", login, "activities", "feeds", query = mapOf("limit" to "$PAGE_SIZE", "page" to page.toString()))
-        if (own.status != HttpStatusCode.OK) return@forgejoCall own.failure()
+        coroutineScope {
+            // Followed people only join the newest page: older pages follow your own feed back in time. Both are asked
+            // at once, not one after the other.
+            val followed = if (page == 1 && token != null) async { followedActivity(token) } else null
+            val own = httpClient.forgejoApi(forge, token, "users", login, "activities", "feeds", query = mapOf("limit" to "$PAGE_SIZE", "page" to page.toString()))
+            if (own.status != HttpStatusCode.OK) {
+                followed?.cancel()
+                return@coroutineScope own.failure()
+            }
+            feedPage(own, page, followed?.await().orEmpty())
+        }
+    }
+
+    private suspend fun feedPage(own: io.ktor.client.statement.HttpResponse, page: Int, followed: List<ActivityJson>): ForgeResult<FeedPage> {
         val activities = own.body<List<ActivityJson>>().toMutableList()
         val hasMore = own.nextPage() != null || (own.totalCount()?.let { it > page * PAGE_SIZE } ?: (activities.size == PAGE_SIZE))
-        // Followed people only join the newest page: older pages follow your own feed back in time.
-        if (page == 1 && token != null) activities += followedActivity(token)
+        activities += followed
         val events = activities.distinctBy { it.sameAction() }.mapNotNull { it.toModel() }.sortedByDescending { it.createdAt }
-        ForgeResult.Success(FeedPage(events, nextPage = (page + 1).takeIf { hasMore }))
+        return ForgeResult.Success(FeedPage(events, nextPage = (page + 1).takeIf { hasMore }))
     }
 
     private suspend fun followedActivity(token: String): List<ActivityJson> {
@@ -115,7 +126,8 @@ class ForgejoFeedApi(
         const val PAGE_SIZE = 30
         const val PER_PERSON = 20
         const val FOLLOWED_PER_REFRESH = 20
-        const val CONCURRENCY = 4
+        /** Followed people read at once: far from the forge, each wave costs a round trip. */
+        const val CONCURRENCY = 10
     }
 }
 

@@ -47,6 +47,8 @@ class InboxSyncWorkerTest {
 
         assertThat(run()).isEqualTo(ListenableWorker.Result.success())
         assertThat(inbox.syncs).containsExactly(false)
+        // The work ends with the process free to die: the conversations loaded ahead must be in by then.
+        assertThat(inbox.waitedForFollowUps).containsExactly(true)
         assertThat(shown.single().map { it.id }).containsExactly("42")
     }
 

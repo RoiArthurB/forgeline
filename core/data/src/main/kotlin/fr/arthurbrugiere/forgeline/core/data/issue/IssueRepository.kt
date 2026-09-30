@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.data.issue
 
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.async
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
@@ -63,15 +65,20 @@ class DefaultIssueRepository @Inject constructor(
         // Nothing kept at all is a conversation the forge couldn't serve: not asked again until it moves.
         val gone = saved != null && saved.issue == null && saved.firstPage == null
         if (saved != null && (complete || gone) && saved.viewedAtMillis >= activityAt.toEpochMilli()) return false
-        val result = issue(ref)
+        // The issue and its first page side by side: one round trip to a far forge instead of two.
+        val (result, _) = coroutineScope {
+            val issue = async { issue(ref) }
+            val timeline = async { timeline(ref, page = 1) }
+            issue.await() to timeline.await()
+        }
         if (result is ForgeResult.Failure) {
             val error = result.error
             if (error is ForgeError.Http && error.status in setOf(403, 404, 410)) {
+                // Whatever the timeline alongside answered, the conversation is gone: nothing kept, not asked again.
+                synchronized(cache) { cache.remove(ref) }
                 dao.upsert(ConversationEntity(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, null, null, clock.millis()))
             }
-            return true
         }
-        timeline(ref, page = 1)
         return true
     }
 
