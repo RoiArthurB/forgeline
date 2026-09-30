@@ -33,5 +33,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 ## Unresolved
 
-- The navigation bar and other tabs keep the old look until the world reaches them.
-- Dynamic color no longer affects Trending.
+- Resolved 2026-09-30: the world now covers every tab and the navigation bar (see DESIGN.md).
+- Dynamic color no longer affects Trending (kept off by decision).
+- With several forges, the forge choice sits in the "Updated…" line as a pill, not in the field (DESIGN.md, the One Axis Rule).
