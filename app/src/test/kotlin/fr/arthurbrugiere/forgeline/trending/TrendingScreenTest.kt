@@ -19,6 +19,11 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import fr.arthurbrugiere.forgeline.core.testing.trendingRepo
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -251,11 +256,33 @@ class TrendingScreenTest {
             )
         }
 
-        composeRule.onNodeWithText("All forges").assertIsSelected()
-        // The chips name their forge next to the logo.
+        // One pill says which forge is shown; its menu names every forge.
+        composeRule.onNode(hasContentDescription("Forge") and SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "All forges")).assertIsDisplayed()
+        composeRule.onNodeWithText("GitHub").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Forge").performClick()
         composeRule.onNodeWithText("GitHub").assertIsDisplayed()
         composeRule.onNodeWithText("Codeberg").performClick()
 
         assertThat(picked).containsExactly(ForgeInstance.Codeberg)
+    }
+
+    @Test
+    fun a_second_forge_does_not_push_the_list_down() {
+        // Regression: a second strip of forge chips in the header pushed the first row ~56dp further down.
+        var forges by mutableStateOf(listOf(ForgeInstance.GitHub))
+        composeRule.setContent {
+            TrendingScreen(
+                state = TrendingUiState(items = listOf(TrendingItem(paperclip, null)), updatedAtMillis = 0L, forges = forges),
+                onPeriodChange = {}, onRefresh = {}, onToggleStar = {}, onOpenRepo = {}, onErrorShown = {}, onStarFailureShown = {},
+                nowMillis = 60_000L,
+            )
+        }
+        val rank = { composeRule.onNode(hasContentDescription("Rank 1"), useUnmergedTree = true).getBoundsInRoot().top }
+        val alone = rank()
+
+        forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)
+        composeRule.waitForIdle()
+
+        assertThat(rank()).isEqualTo(alone)
     }
 }

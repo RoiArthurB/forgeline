@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.search
 
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
@@ -143,7 +144,24 @@ fun SearchScreen(
             modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
         ) {
             item(key = "header") {
-                SoftHeader(tint = colors.fields[1], onBack = onBack, backDescription = stringResource(R.string.navigate_up)) {
+                SoftHeader(
+                    tint = colors.fields[1],
+                    onBack = onBack,
+                    backDescription = stringResource(R.string.navigate_up),
+                    actions = {
+                        if (state.forges.size > 1) {
+                            // All forges, or one: beside Back, where the row is otherwise empty.
+                            SoftChoicePill(
+                                name = stringResource(R.string.choice_forge),
+                                options = listOf(stringResource(R.string.search_all_forges)) + state.forges.map { it.displayName },
+                                selected = state.forges.indexOf(state.onlyForge) + 1,
+                                onSelect = { onSelectForge(state.forges.getOrNull(it - 1)) },
+                                leading = { index, color -> state.forges.getOrNull(index - 1)?.let { ForgeIcon(it, size = 18.dp, tint = color, contentDescription = null) } },
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                        }
+                    },
+                ) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         SearchField(
                             query = state.query,
@@ -164,17 +182,6 @@ fun SearchScreen(
                             onSelect = { onSelectScope(SearchScope.entries[it]) },
                         )
                     }
-                }
-            }
-            if (state.forges.size > 1) {
-                item(key = "forges") {
-                    // All forges, or one: each shown by its logo and its name.
-                    SoftChipTabs(
-                        options = listOf(stringResource(R.string.search_all_forges)) + state.forges.map { it.displayName },
-                        selected = state.forges.indexOf(state.onlyForge) + 1,
-                        onSelect = { onSelectForge(state.forges.getOrNull(it - 1)) },
-                        leading = { index, color -> state.forges.getOrNull(index - 1)?.let { ForgeIcon(it, size = 18.dp, tint = color, contentDescription = null) } },
-                    )
                 }
             }
             when {

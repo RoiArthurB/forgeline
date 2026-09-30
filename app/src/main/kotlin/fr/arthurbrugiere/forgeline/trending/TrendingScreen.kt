@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.trending
 
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -247,27 +248,16 @@ fun TrendingScreen(
                                 }
                             },
                         ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                SoftSwitch(
-                                    options = TrendingPeriod.entries.map { stringResource(it.label) },
-                                    selected = state.period.ordinal,
-                                    onSelect = { onPeriodChange(TrendingPeriod.entries[it]) },
-                                )
-                                if (state.forges.size > 1) {
-                                    // Every forge mixed, or one forge's ranking alone.
-                                    SoftChipTabs(
-                                        options = listOf(stringResource(R.string.search_all_forges)) + state.forges.map { it.displayName },
-                                        selected = state.forges.indexOf(state.onlyForge) + 1,
-                                        onSelect = { onSelectForge(state.forges.getOrNull(it - 1)) },
-                                        leading = { index, color -> state.forges.getOrNull(index - 1)?.let { ForgeIcon(it, size = 18.dp, tint = color, contentDescription = null) } },
-                                        background = Color.Transparent,
-                                        contentPadding = PaddingValues(0.dp),
-                                    )
-                                }
-                            }
+                            // The period is the one axis in the open; which forge sits in the status line below.
+                            SoftSwitch(
+                                options = TrendingPeriod.entries.map { stringResource(it.label) },
+                                selected = state.period.ordinal,
+                                onSelect = { onPeriodChange(TrendingPeriod.entries[it]) },
+                            )
                         }
                     }
-                    if (hasItems) {
+                    // Shown with several forges even when one forge has nothing, so the choice is never stranded.
+                    if (hasItems || state.forges.size > 1) {
                         item(key = "status", contentType = "status") {
                             StatusLine(
                                 updatedAtMillis = state.updatedAtMillis,
@@ -276,6 +266,20 @@ fun TrendingScreen(
                                 onResume = {
                                     val above = with(density) { 88.dp.roundToPx() }
                                     scope.launch { listState.animateScrollToItem(FIRST_ROW + resumeAt!! + 1, -above) }
+                                },
+                                forgePicker = if (state.forges.size > 1) {
+                                    {
+                                        // Every forge mixed, or one forge's ranking alone.
+                                        SoftChoicePill(
+                                            name = stringResource(R.string.choice_forge),
+                                            options = listOf(stringResource(R.string.search_all_forges)) + state.forges.map { it.displayName },
+                                            selected = state.forges.indexOf(state.onlyForge) + 1,
+                                            onSelect = { onSelectForge(state.forges.getOrNull(it - 1)) },
+                                            leading = { index, color -> state.forges.getOrNull(index - 1)?.let { ForgeIcon(it, size = 18.dp, tint = color, contentDescription = null) } },
+                                        )
+                                    }
+                                } else {
+                                    null
                                 },
                             )
                         }
@@ -350,7 +354,7 @@ private fun riseIn(id: RepoId, period: TrendingPeriod, index: Int, enabled: Bool
 }
 
 @Composable
-private fun StatusLine(updatedAtMillis: Long?, nowMillis: Long, resumeAt: Int?, onResume: () -> Unit) {
+private fun StatusLine(updatedAtMillis: Long?, nowMillis: Long, resumeAt: Int?, onResume: () -> Unit, forgePicker: (@Composable () -> Unit)? = null) {
     val colors = Soft.colors
     Row(
         Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 8.dp).heightIn(min = 48.dp),
@@ -377,6 +381,11 @@ private fun StatusLine(updatedAtMillis: Long?, nowMillis: Long, resumeAt: Int?, 
                 Text(stringResource(R.string.trending_resume), style = Soft.type.label, color = colors.inkMuted)
                 Icon(Icons.Outlined.ArrowDownward, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(16.dp))
             }
+        }
+        forgePicker?.let {
+            Spacer(Modifier.width(8.dp))
+            it()
+            Spacer(Modifier.width(12.dp))
         }
     }
 }

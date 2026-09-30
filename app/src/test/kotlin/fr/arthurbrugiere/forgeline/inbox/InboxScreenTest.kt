@@ -267,7 +267,7 @@ class InboxScreenTest {
     }
 
     @Test
-    fun account_tabs_start_with_all_and_each_names_its_forge() {
+    fun one_account_pill_starts_on_all_and_names_each_forge() {
         val github = Account(Account.idFor(ForgeInstance.GitHub, "me"), ForgeInstance.GitHub, ForgeUser("me", null, null))
         val codeberg = Account(Account.idFor(ForgeInstance.Codeberg, "me"), ForgeInstance.Codeberg, ForgeUser("me", null, null))
         val picked = mutableListOf<String?>()
@@ -279,10 +279,11 @@ class InboxScreenTest {
             )
         }
 
-        composeRule.onNodeWithText("All accounts").assertIsSelected()
-        // Each tab says its forge in words, not only with a logo: two accounts can share a login.
+        // One pill in the header's title row; its menu names each account's forge in words (two can share a login).
+        composeRule.onNodeWithContentDescription("Account").performClick()
         composeRule.onNodeWithText("@me · GitHub").assertIsDisplayed()
         composeRule.onNodeWithText("@me · Codeberg").performClick()
+        composeRule.onNodeWithContentDescription("Account").performClick()
         composeRule.onNodeWithText("All accounts").performClick()
 
         assertThat(picked).containsExactly(codeberg.id, null).inOrder()

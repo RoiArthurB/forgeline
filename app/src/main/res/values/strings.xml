@@ -172,6 +172,8 @@
     <string name="settings_separate_inbox_summary">See one account at a time, or all together</string>
     <string name="inbox_all_accounts">All accounts</string>
     <string name="search_all_forges">All forges</string>
+    <string name="choice_forge">Forge</string>
+    <string name="choice_account">Account</string>
     <string name="settings_inbox_check_summary">Checks: %1$s</string>
     <string name="settings_section_trending">Trending</string>
     <string name="settings_trending_summary">Each forge\'s own list</string>

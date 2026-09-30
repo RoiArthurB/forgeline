@@ -182,9 +182,10 @@ class SearchScreenTest {
             )
         }
 
-        composeRule.onNodeWithText("All forges").assertIsSelected()
+        composeRule.onNodeWithContentDescription("Forge").performClick()
         composeRule.onNodeWithText("GitHub").assertIsDisplayed()
         composeRule.onNodeWithText("Codeberg").performClick()
+        composeRule.onNodeWithContentDescription("Forge").performClick()
         composeRule.onNodeWithText("All forges").performClick()
 
         assertThat(picked).containsExactly(ForgeInstance.Codeberg, null).inOrder()
@@ -195,5 +196,6 @@ class SearchScreenTest {
         setContent(SearchUiState(forges = listOf(ForgeInstance.GitHub)))
 
         composeRule.onNodeWithText("All forges").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Forge").assertDoesNotExist()
     }
 }

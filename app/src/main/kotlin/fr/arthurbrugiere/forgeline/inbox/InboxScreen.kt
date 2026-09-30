@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import androidx.compose.ui.platform.LocalDensity
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import fr.arthurbrugiere.forgeline.core.ui.format.forgeInlineContent
@@ -199,13 +201,16 @@ private fun InboxSignedOut(session: SessionState, onSignIn: () -> Unit, onBrowse
 private val LocalShowForge = staticCompositionLocalOf { false }
 
 @Composable
-private fun InboxHeader(filter: InboxFilter?, onSelectFilter: (InboxFilter) -> Unit) {
+private fun InboxHeader(filter: InboxFilter?, onSelectFilter: (InboxFilter) -> Unit, accountPicker: (@Composable () -> Unit)? = null) {
     val colors = Soft.colors
     val openSearch = LocalOpenSearch.current
+    // Beside the short title while it fits; at very large fonts it drops under the title so "Inbox" never breaks.
+    val pickerInRow = LocalDensity.current.fontScale <= 1.3f
     SoftHeader(
         tint = colors.fields[filter?.ordinal ?: 0],
         title = stringResource(R.string.tab_inbox),
         actions = {
+            if (pickerInRow) accountPicker?.invoke()
             if (openSearch != null) {
                 IconButton(onClick = openSearch) {
                     Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = colors.ink)
@@ -214,11 +219,14 @@ private fun InboxHeader(filter: InboxFilter?, onSelectFilter: (InboxFilter) -> U
         },
         content = filter?.let {
             {
-                SoftSwitch(
-                    options = InboxFilter.entries.map { stringResource(it.label) },
-                    selected = filter.ordinal,
-                    onSelect = { onSelectFilter(InboxFilter.entries[it]) },
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (!pickerInRow) accountPicker?.invoke()
+                    SoftSwitch(
+                        options = InboxFilter.entries.map { stringResource(it.label) },
+                        selected = filter.ordinal,
+                        onSelect = { onSelectFilter(InboxFilter.entries[it]) },
+                    )
+                }
             }
         },
     )
@@ -298,20 +306,33 @@ fun InboxScreen(
                 contentPadding = PaddingValues(bottom = listBottomPadding()),
                 modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal)),
             ) {
-                item(key = "header", contentType = "header") { InboxHeader(state.filter, onSelectFilter) }
-                if (state.accountTabs.isNotEmpty()) {
-                    item(key = "accounts", contentType = "accounts") {
-                        SoftChipTabs(
-                            // "All" first, then one tab per account.
-                            options = listOf(stringResource(R.string.inbox_all_accounts)) +
-                                state.accountTabs.map { "@${it.user.login} · ${it.forge.displayName}" },
-                            selected = state.accountTabs.indexOfFirst { it.id == state.selectedAccountId } + 1,
-                            onSelect = { onSelectAccount(state.accountTabs.getOrNull(it - 1)?.id) },
-                            leading = { index, color ->
-                                state.accountTabs.getOrNull(index - 1)?.let { ForgeIcon(it.forge, size = 16.dp, tint = color, contentDescription = null) }
-                            },
-                        )
-                    }
+                item(key = "header", contentType = "header") {
+                    InboxHeader(
+                        state.filter,
+                        onSelectFilter,
+                        accountPicker = if (state.accountTabs.isNotEmpty()) {
+                            {
+                                // "All" first, then one per account, each naming its forge (two can share a login).
+                                val allAccounts = stringResource(R.string.inbox_all_accounts)
+                                SoftChoicePill(
+                                    name = stringResource(R.string.choice_account),
+                                    options = listOf(allAccounts) +
+                                        state.accountTabs.map { "@${it.user.login} · ${it.forge.displayName}" },
+                                    selected = state.accountTabs.indexOfFirst { it.id == state.selectedAccountId } + 1,
+                                    onSelect = { onSelectAccount(state.accountTabs.getOrNull(it - 1)?.id) },
+                                    // Beside the title the pill says "All accounts" or "@login" with the account's logo; the menu
+                                    // and screen readers keep the full "@login · Forge".
+                                    shortLabel = { index -> state.accountTabs.getOrNull(index - 1)?.let { "@${it.user.login}" } ?: allAccounts },
+                                    maxWidth = 160.dp,
+                                    leading = { index, color ->
+                                        state.accountTabs.getOrNull(index - 1)?.let { ForgeIcon(it.forge, size = 16.dp, tint = color, contentDescription = null) }
+                                    },
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                    )
                 }
                 if (notificationPrompt != null) {
                     item(key = "prompt") {
