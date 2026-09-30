@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.data.inbox
 
+import fr.arthurbrugiere.forgeline.core.forge.IssueApi
+import fr.arthurbrugiere.forgeline.core.testing.Rendezvous
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
@@ -400,5 +402,27 @@ class DefaultInboxRepositoryTest {
 
         slow.complete(Unit)
         realTime { while (conversations.stored(pull)?.issue == null) delay(10) }
+    }
+
+    @Test
+    fun conversations_are_loaded_ahead_several_at_a_time() = runTest {
+        // Regression: they were loaded one after another, a few round trips each to a far forge.
+        signIn()
+        api.threads = listOf(
+            notificationThread("1", reason = NotificationReason.REVIEW_REQUESTED, type = SubjectType.PULL_REQUEST),
+            notificationThread("2", reason = NotificationReason.REVIEW_REQUESTED, type = SubjectType.PULL_REQUEST).copy(number = 2),
+        )
+        val refs = listOf(IssueRef(RepoId("acme", "rocket"), 1), IssueRef(RepoId("acme", "rocket"), 2))
+        refs.forEach { issueApi.issues[it] = issueDetails(it) }
+        val together = Rendezvous(2)
+        val meeting = object : IssueApi by issueApi {
+            override suspend fun issue(token: String?, ref: IssueRef) = together.arrive("#${ref.number}").let { issueApi.issue(token, ref) }
+        }
+        val ahead = DefaultIssueRepository(FakeForgeClients(issues = meeting), accounts, database.conversationDao(), clock)
+        val inbox = DefaultInboxRepository(database.inboxDao(), clients, accounts, ahead, clock, background)
+
+        realTime { inbox.sync(force = true, waitForFollowUps = true) }
+
+        refs.forEach { assertThat(ahead.stored(it)?.issue).isNotNull() }
     }
 }

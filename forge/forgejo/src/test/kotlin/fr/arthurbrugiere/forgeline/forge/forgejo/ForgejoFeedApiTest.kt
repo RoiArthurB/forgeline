@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.CompletableDeferred
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.FeedPage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -70,5 +72,31 @@ class ForgejoFeedApiTest {
 
         assertThat(codeberg.requests.map { it.url.encodedPath }).containsExactly("/api/v1/users/earl-warren/activities/feeds")
         assertThat(codeberg.requests.single().url.parameters["page"]).isEqualTo("2")
+    }
+
+    @Test
+    fun your_own_feed_and_the_people_you_follow_are_asked_together() = runTest {
+        // Regression: the people you follow waited for your own feed, a round trip each to a far forge.
+        val arrived = java.util.concurrent.atomic.AtomicInteger()
+        val both = CompletableDeferred<Unit>()
+        suspend fun meet() {
+            if (arrived.incrementAndGet() == 2) both.complete(Unit)
+            withTimeout(5_000) { both.await() }
+        }
+        val together = with(codeberg) {
+            ForgejoFeedApi(
+                client { request ->
+                    val path = request.url.encodedPath
+                    when {
+                        path == "/api/v1/user/following" -> { meet(); json(following) }
+                        request.url.parameters["only-performed-by"] == "true" -> json("[]")
+                        else -> { meet(); json(fixture("activities.json")) }
+                    }
+                },
+                ForgeInstance.Codeberg,
+            )
+        }
+
+        assertThat(together.receivedEvents("t", "earl-warren", page = 1)).isInstanceOf(ForgeResult.Success::class.java)
     }
 }

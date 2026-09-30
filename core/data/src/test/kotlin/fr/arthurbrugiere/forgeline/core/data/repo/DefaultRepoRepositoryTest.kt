@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.data.repo
 
+import fr.arthurbrugiere.forgeline.core.forge.RepoApi
+import fr.arthurbrugiere.forgeline.core.testing.Rendezvous
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -171,5 +173,21 @@ class DefaultRepoRepositoryTest {
         repository.refresh(id)
 
         assertThat(repository.observe(id).first().details?.hasActions).isFalse()
+    }
+
+    @Test
+    fun a_repositorys_details_and_readme_are_asked_together() = runTest {
+        // One round trip to a far forge instead of two.
+        api.details[id] = repoDetails("octo/repo")
+        api.readmes[id] = readme
+        val together = Rendezvous(2)
+        val meeting = object : RepoApi by api {
+            override suspend fun repo(token: String?, id: RepoId) = together.arrive("repo").let { api.repo(token, id) }
+            override suspend fun readme(token: String?, id: RepoId, ref: String?) = together.arrive("readme").let { api.readme(token, id, ref) }
+        }
+        val repository = DefaultRepoRepository(database.repoDao(), FakeForgeClients(repos = meeting), accounts, clock)
+
+        assertThat(repository.refresh(id)).isEqualTo(RefreshResult.Refreshed)
+        assertThat(repository.observe(id).first().readme).isEqualTo(readme)
     }
 }

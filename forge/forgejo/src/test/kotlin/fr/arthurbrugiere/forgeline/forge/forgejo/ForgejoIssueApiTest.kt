@@ -130,4 +130,71 @@ class ForgejoIssueApiTest {
         assertThat(issues.title(null, pull).value()).isNotEmpty()
         assertThat(codeberg.requests.single().url.encodedPath).isEqualTo("/api/v1/repos/forgejo/forgejo/issues/14597")
     }
+
+    @Test
+    fun a_plain_issue_never_waits_for_the_pull_request_call_asked_alongside() = runTest {
+        val first = with(codeberg) { fixture("issues.json") }.let { kotlinx.serialization.json.Json.parseToJsonElement(it) }
+            .let { (it as kotlinx.serialization.json.JsonArray)[0].toString() }
+        val never = CompletableDeferred<Unit>()
+        val issues = with(codeberg) {
+            ForgejoIssueApi(
+                client {
+                    val path = it.url.encodedPath
+                    when {
+                        // The pull request call hangs: a plain issue must not wait for it.
+                        path.contains("/pulls/") -> { never.await(); json("{}") }
+                        path.endsWith("/reactions") -> json("[]")
+                        else -> json(first)
+                    }
+                },
+                ForgeInstance.Codeberg,
+            )
+        }
+
+        val issue = withTimeout(5_000) { issues.issue(null, IssueRef(pull.repo, 14601)) }
+
+        assertThat(issue.value().pullRequest).isNull()
+    }
+
+    @Test
+    fun review_states_are_asked_alongside_the_timeline_not_after() = runTest {
+        // Regression: the reviews waited for the timeline to show a review, a round trip each to a far forge.
+        val arrived = java.util.concurrent.atomic.AtomicInteger()
+        val both = CompletableDeferred<Unit>()
+        suspend fun meet() {
+            if (arrived.incrementAndGet() == 2) both.complete(Unit)
+            withTimeout(5_000) { both.await() }
+        }
+        val issues = with(codeberg) {
+            ForgejoIssueApi(
+                client {
+                    val path = it.url.encodedPath
+                    when {
+                        path.endsWith("/reviews") -> { meet(); json(fixture("reviews.json")) }
+                        else -> { meet(); json(fixture("timeline.json")) }
+                    }
+                },
+                ForgeInstance.Codeberg,
+            )
+        }
+
+        val items = issues.timeline(null, pull, page = 1).value().items
+
+        assertThat(items.filterIsInstance<TimelineItem.Review>()).isNotEmpty()
+    }
+
+    @Test
+    fun a_timeline_without_reviews_never_waits_for_them() = runTest {
+        val never = CompletableDeferred<Unit>()
+        val issues = with(codeberg) {
+            ForgejoIssueApi(
+                client { if (it.url.encodedPath.endsWith("/reviews")) { never.await(); json("[]") } else json("[]") },
+                ForgeInstance.Codeberg,
+            )
+        }
+
+        val page = withTimeout(5_000) { issues.timeline(null, pull, page = 1) }
+
+        assertThat(page.value().items).isEmpty()
+    }
 }

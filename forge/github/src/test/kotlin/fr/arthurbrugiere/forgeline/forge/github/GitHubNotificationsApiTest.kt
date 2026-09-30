@@ -211,4 +211,20 @@ class GitHubNotificationsApiTest {
 
         assertThat(requests.map { it.url.parameters["page"] }).containsExactly("1", "2", "3")
     }
+
+    @Test
+    fun state_lookups_of_more_than_a_hundred_subjects_are_asked_together() = runTest {
+        // Regression: each batch of 100 waited for the one before.
+        val subjects = (1..150).map { IssueRef(RepoId("acme", "rocket"), it) }
+        val arrived = java.util.concurrent.atomic.AtomicInteger()
+        val both = CompletableDeferred<Unit>()
+        val states = api {
+            if (arrived.incrementAndGet() == 2) both.complete(Unit)
+            withTimeout(5_000) { both.await() }
+            json("""{"data":{}}""")
+        }.subjectStates("tok", subjects)
+
+        assertThat(states).isInstanceOf(ForgeResult.Success::class.java)
+        assertThat(requests.count { it.url.encodedPath.endsWith("/graphql") }).isEqualTo(2)
+    }
 }

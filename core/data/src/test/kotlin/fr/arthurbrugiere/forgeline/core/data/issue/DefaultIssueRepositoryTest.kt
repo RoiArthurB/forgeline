@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.data.issue
 
+import fr.arthurbrugiere.forgeline.core.forge.IssueApi
+import fr.arthurbrugiere.forgeline.core.testing.Rendezvous
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -165,5 +167,20 @@ class DefaultIssueRepositoryTest {
 
         // The issue and its timeline are asked side by side, each time.
         assertThat(api.calls.count { it == "issue:octo/repo#7" }).isEqualTo(2)
+    }
+
+    @Test
+    fun a_conversation_loaded_ahead_asks_its_issue_and_timeline_together() = runTest {
+        // One round trip to a far forge instead of two.
+        api.issues[ref] = issueDetails(ref)
+        val together = Rendezvous(2)
+        val meeting = object : IssueApi by api {
+            override suspend fun issue(token: String?, ref: IssueRef) = together.arrive("issue").let { api.issue(token, ref) }
+            override suspend fun timeline(token: String?, ref: IssueRef, page: Int) = together.arrive("timeline").let { api.timeline(token, ref, page) }
+        }
+        val repository = DefaultIssueRepository(FakeForgeClients(issues = meeting), accounts, database.conversationDao(), clock)
+
+        assertThat(repository.prefetch(ref, Instant.parse("2026-09-29T09:00:00Z"))).isTrue()
+        assertThat(repository.stored(ref)?.issue).isNotNull()
     }
 }

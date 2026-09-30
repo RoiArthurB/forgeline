@@ -218,4 +218,26 @@ class DefaultFeedRepositoryTest {
 
         assertThat(refresh.await()).isEqualTo(ForgeResult.Success(Unit))
     }
+
+    @Test
+    fun loading_more_never_waits_for_another_accounts_refresh() = runTest {
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "g")
+        api.pages[1] = listOf(feedEvent("1", createdAt = "2026-09-27T09:00:00Z"))
+        api.pages[2] = listOf(feedEvent("2", createdAt = "2026-09-26T09:00:00Z"))
+        repository.refresh(force = true)
+        val codeberg = FakeFeedApi()
+        clients.put(ForgeInstance.Codeberg, FakeForgeClients(feed = codeberg))
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "c")
+        val slow = CompletableDeferred<Unit>()
+        codeberg.gate = slow
+
+        val refresh = async { repository.refresh(force = true) }
+        withContext(Dispatchers.Default) { withTimeout(5_000) { while (codeberg.calls.isEmpty()) delay(10) } }
+        // Codeberg is still answering; GitHub's next page comes all the same.
+        assertThat(withContext(Dispatchers.Default) { withTimeout(5_000) { repository.loadMore() } }).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.calls).contains("me@2")
+
+        slow.complete(Unit)
+        refresh.await()
+    }
 }
