@@ -335,7 +335,7 @@ Spacing moves in 4dp steps (4, 8, 12, 16, 20, 24, 32), with 2dp and 6dp for tigh
 
 Navigation is responsive at 600dp. Below it, a floating pill bar (at most 480dp wide, 16dp from the sides, 12dp above the system bar) floats over content, and `LocalBottomBarSpace` (bar height, both margins and the system inset) is added under every list so its last row and snackbars clear the bar. At 600dp and up, a soft rail (88dp wide, 12dp inset) stands at the start and the content takes the rest; only the system inset is reserved.
 
-Insets: every screen's content column, header included, takes the horizontal safe-drawing inset (`Modifier.sideSafeArea()`), so a landscape navigation bar or a camera cutout never covers content; Search and Sign-in also take `imePadding` so results and the field stay above the keyboard. Tablets get the same single column, centred; there is no two-pane layout (see Unresolved).
+Insets: every screen's content column, header included, takes the horizontal safe-drawing inset (`Modifier.sideSafeArea()`), so a landscape navigation bar or a camera cutout never covers content; Search and Sign-in also take `imePadding` so results and the field stay above the keyboard. Tablets get the same single column, centred, by decision: there is no tablet-specific layout, and none is planned.
 
 Trending keeps its own row anatomy: rank in a 30dp column, meta line stats left (14dp apart), the star toggle on the right edge, and builders' avatars (22dp, overlapping by 6dp) just before the toggle only when everything fits; crowded rows drop the builders first, then wrap the stats.
 
@@ -513,6 +513,5 @@ Inverted: `ink` background, `ground` text, 16dp corners; it sits above the navig
 
 ## Unresolved
 
-- **No two-pane layout.** Tablets and large screens get the single centred `MaxReadingWidth` (720dp) column with the `SoftRail` at 600dp and up; list and detail never sit side by side.
 - **Dynamic colour stays off,** by decision (see Don'ts); listed so it is not mistaken for a gap.
 - **Actions log copy is still GitHub-specific** (`log_live`, `log_publishing`, `log_sign_in_body` name GitHub), though the app spans several forges.

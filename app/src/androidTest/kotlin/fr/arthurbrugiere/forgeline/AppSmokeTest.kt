@@ -31,7 +31,7 @@ class AppSmokeTest {
     @get:Rule(order = 1)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
-    // Unselected tabs show only their icon; every tab is named for screen readers.
+    // Every tab is named once for screen readers.
     private fun tab(label: String) = composeRule.onNode(hasContentDescription(label) and isSelectable())
 
     /**
@@ -53,31 +53,37 @@ class AppSmokeTest {
     fun gets_past_the_splash_screen() {
         // Regression: the splash screen once waited forever for settings that only loaded once
         // the UI subscribed. Robolectric couldn't reproduce it; only a real system shows it.
-        composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(hasContentDescription("Inbox") and isSelectable()).fetchSemanticsNodes().isNotEmpty()
-        }
+        awaitTabs()
+    }
+
+    // The shell waits for the session before showing any tab (signed out it opens on Trending, signed in on Inbox).
+    private fun awaitTabs() = composeRule.waitUntil(5_000) {
+        composeRule.onAllNodes(hasContentDescription("Inbox") and isSelectable()).fetchSemanticsNodes().isNotEmpty()
     }
 
     @Test
-    fun browse_every_tab_then_back_to_the_inbox() {
-        tab("Inbox").assertIsSelected()
-        tab("Feed").performClick()
-        composeRule.onNodeWithText("Follow the people you follow").assertIsDisplayed()
-        tab("Trending").performClick()
+    fun signed_out_it_opens_on_trending_and_back_returns_there() {
+        awaitTabs()
+        tab("Trending").assertIsSelected()
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodes(hasText("paperclip", substring = true)).fetchSemanticsNodes().isNotEmpty()
         }
+        tab("Inbox").performClick()
+        composeRule.onNodeWithText("Your notifications, in one place").assertIsDisplayed()
+        tab("Feed").performClick()
+        composeRule.onNodeWithText("Follow the people you follow").assertIsDisplayed()
 
         pressBack()
 
         composeRule.waitUntil(5_000) {
-            composeRule.onAllNodes(hasText("Your inbox lives on GitHub")).fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodes(hasText("paperclip", substring = true)).fetchSemanticsNodes().isNotEmpty()
         }
-        tab("Inbox").assertIsSelected()
+        tab("Trending").assertIsSelected()
     }
 
     @Test
     fun reach_credits_through_settings_and_come_back() {
+        awaitTabs()
         tab("You").performClick()
         composeRule.onNodeWithText("Settings").performClick()
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("About"))
@@ -92,6 +98,8 @@ class AppSmokeTest {
     @Test
     fun sign_in_then_triage_the_inbox_and_read_the_feed() {
         // Runs on a real system image: token encryption needs the Android Keystore.
+        awaitTabs()
+        tab("Inbox").performClick()
         composeRule.onNodeWithText("Sign in").performClick()
         composeRule.onNodeWithText("Personal access token").performTextInput("ghp_emulator")
         composeRule.onNodeWithText("Sign in with token").performClick()
@@ -121,6 +129,7 @@ class AppSmokeTest {
 
     @Test
     fun theme_choice_survives_an_activity_recreation() {
+        awaitTabs()
         tab("You").performClick()
         composeRule.onNodeWithText("Settings").performClick()
         composeRule.onNodeWithText("Appearance").performClick()
