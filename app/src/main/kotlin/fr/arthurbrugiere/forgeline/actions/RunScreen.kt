@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.core.model.runUrl
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -106,7 +107,7 @@ fun RunRoute(
     }
     RunScreen(
         state = state,
-        signedIn = (session as? SessionState.SignedIn)?.accounts.orEmpty().any { it.forge == repo.forge },
+        signedIn = session.signedInOn(repo.forge),
         onBack = onBack,
         onRefresh = viewModel::refresh,
         onPerform = viewModel::perform,

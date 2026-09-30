@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.trending
 
+import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.core.ui.format.languageColor
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.CompositionLocalProvider
@@ -117,12 +118,12 @@ fun TrendingRoute(
     viewModel: TrendingViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val signedIn = session is SessionState.SignedIn
     TrendingScreen(
         state = state,
         onPeriodChange = viewModel::selectPeriod,
         onRefresh = viewModel::refresh,
-        onToggleStar = { repo -> if (signedIn) viewModel.toggleStar(repo) else onSignIn() },
+        // Starring needs an account on the repository's own forge.
+        onToggleStar = { repo -> if (session.signedInOn(repo.forge)) viewModel.toggleStar(repo) else onSignIn() },
         onOpenRepo = onOpenRepo,
         onErrorShown = viewModel::errorShown,
         onStarFailureShown = viewModel::starFailureShown,
