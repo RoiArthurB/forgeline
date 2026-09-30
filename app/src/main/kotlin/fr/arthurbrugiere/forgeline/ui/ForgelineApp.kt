@@ -19,6 +19,7 @@ import fr.arthurbrugiere.forgeline.navigation.CreditsRoute as CreditsKey
 import fr.arthurbrugiere.forgeline.navigation.FeedRoute
 import fr.arthurbrugiere.forgeline.navigation.InboxRoute
 import fr.arthurbrugiere.forgeline.navigation.SettingsRoute
+import fr.arthurbrugiere.forgeline.navigation.SettingsSectionRoute
 import fr.arthurbrugiere.forgeline.navigation.SearchRoute as SearchKey
 import fr.arthurbrugiere.forgeline.search.SearchRoute as SearchDestination
 import fr.arthurbrugiere.forgeline.navigation.RepoRoute as RepoKey
@@ -144,6 +145,17 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 onSignOut = onSignOut,
                 onBack = navigator::goBack,
                 onOpenCredits = { navigator.navigate(CreditsKey) },
+                onOpenSection = { navigator.navigate(SettingsSectionRoute(it)) },
+            )
+        }
+        entry<SettingsSectionRoute> { key ->
+            SettingsDestination(
+                session = session,
+                onSignIn = signIn,
+                onSignOut = onSignOut,
+                onBack = navigator::goBack,
+                onOpenCredits = { navigator.navigate(CreditsKey) },
+                section = key.section,
             )
         }
         entry<SignInKey> {

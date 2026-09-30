@@ -80,12 +80,13 @@ class AppSmokeTest {
     fun reach_credits_through_settings_and_come_back() {
         tab("You").performClick()
         composeRule.onNodeWithText("Settings").performClick()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Credits and licenses"))
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("About"))
+        composeRule.onNodeWithText("About").performClick()
         composeRule.onNodeWithText("Credits and licenses").performClick()
         composeRule.onNodeWithText("Read the license").assertIsDisplayed()
 
         composeRule.onNode(hasContentDescription("Navigate up")).performClick()
-        composeRule.onNodeWithText("Appearance").assertIsDisplayed()
+        composeRule.onNodeWithText("Source code").assertIsDisplayed()
     }
 
     @Test
@@ -113,6 +114,7 @@ class AppSmokeTest {
         // Leave the app signed out for the other tests.
         tab("You").performClick()
         composeRule.onNodeWithText("Settings").performClick()
+        composeRule.onNodeWithText("Accounts").performClick()
         composeRule.onNodeWithText("Sign out").performClick()
         composeRule.onAllNodesWithText("Sign out")[1].performClick()
     }
@@ -121,6 +123,7 @@ class AppSmokeTest {
     fun theme_choice_survives_an_activity_recreation() {
         tab("You").performClick()
         composeRule.onNodeWithText("Settings").performClick()
+        composeRule.onNodeWithText("Appearance").performClick()
         composeRule.onNodeWithText("Dark").performClick()
 
         composeRule.activityRule.scenario.recreate()

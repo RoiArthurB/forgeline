@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.screenshots
 
+import fr.arthurbrugiere.forgeline.settings.SettingsSection
 import fr.arthurbrugiere.forgeline.core.testing.repoSummary
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
@@ -188,7 +189,7 @@ class ScreenshotTest {
 
     @Test
     fun settings_dark_amoled() = snapshot("settings_dark_amoled", darkTheme = true, amoledBlack = true) {
-        SettingsPreview(UserSettings(themeMode = ThemeMode.DARK, amoledBlack = true))
+        SettingsPreview(UserSettings(themeMode = ThemeMode.DARK, amoledBlack = true), section = SettingsSection.APPEARANCE)
     }
 
     @Test
@@ -726,7 +727,7 @@ class ScreenshotTest {
     private val octocat = Account("id", ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null))
 
     @Composable
-    private fun SettingsPreview(settings: UserSettings = UserSettings()) {
+    private fun SettingsPreview(settings: UserSettings = UserSettings(), section: SettingsSection? = null) {
         SettingsScreen(
             session = SessionState.SignedIn(octocat),
             onSignIn = {},
@@ -738,6 +739,7 @@ class ScreenshotTest {
             onOpenCredits = {},
             onOpenSourceCode = {},
             onBack = {},
+            section = section,
         )
     }
 }

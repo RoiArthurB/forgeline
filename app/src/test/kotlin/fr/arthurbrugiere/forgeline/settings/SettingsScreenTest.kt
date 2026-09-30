@@ -47,7 +47,13 @@ class SettingsScreenTest {
     private var interval: InboxCheckInterval? = null
     private val feedChanges = mutableListOf<Pair<FeedKind, Boolean>>()
 
-    private fun setContent(settings: UserSettings = UserSettings(), session: SessionState = SessionState.SignedOut) {
+    private var openedSection: SettingsSection? = null
+
+    private fun setContent(
+        settings: UserSettings = UserSettings(),
+        session: SessionState = SessionState.SignedOut,
+        section: SettingsSection? = null,
+    ) {
         composeRule.setContent {
             SettingsScreen(
                 session = session,
@@ -62,6 +68,8 @@ class SettingsScreenTest {
                 onFeedKindChange = { kind, shown -> feedChanges += kind to shown },
                 onOpenSourceCode = { sourceCodeOpened = true },
                 onBack = { backPressed = true },
+                section = section,
+                onOpenSection = { openedSection = it },
             )
         }
     }
@@ -70,7 +78,7 @@ class SettingsScreenTest {
     fun every_account_is_listed_and_signs_out_on_its_own() {
         val github = Account(Account.idFor(ForgeInstance.GitHub, "octocat"), ForgeInstance.GitHub, ForgeUser("octocat", null, null))
         val codeberg = Account(Account.idFor(ForgeInstance.Codeberg, "alice"), ForgeInstance.Codeberg, ForgeUser("alice", null, null))
-        setContent(session = SessionState.SignedIn(github, listOf(github, codeberg)))
+        setContent(session = SessionState.SignedIn(github, listOf(github, codeberg)), section = SettingsSection.ACCOUNTS)
 
         composeRule.onNodeWithText("@octocat").assertIsDisplayed()
         composeRule.onNodeWithText("@alice").assertIsDisplayed()
@@ -87,7 +95,7 @@ class SettingsScreenTest {
 
     @Test
     fun shows_current_settings() {
-        setContent(UserSettings(themeMode = ThemeMode.DARK, amoledBlack = true))
+        setContent(UserSettings(themeMode = ThemeMode.DARK, amoledBlack = true), section = SettingsSection.APPEARANCE)
 
         composeRule.onNodeWithText("Dark").assertIsSelected()
         composeRule.onNodeWithText("Pure black").assertIsOn()
@@ -95,7 +103,7 @@ class SettingsScreenTest {
 
     @Test
     fun selecting_a_theme_reports_it() {
-        setContent()
+        setContent(section = SettingsSection.APPEARANCE)
 
         composeRule.onNodeWithText("Light").performClick()
 
@@ -104,7 +112,7 @@ class SettingsScreenTest {
 
     @Test
     fun tapping_a_switch_row_toggles_it() {
-        setContent()
+        setContent(section = SettingsSection.APPEARANCE)
 
         composeRule.onNodeWithText("Pure black").performClick()
 
@@ -113,7 +121,7 @@ class SettingsScreenTest {
 
     @Test
     fun about_section_shows_version_and_opens_source_code() {
-        setContent()
+        setContent(section = SettingsSection.ABOUT)
 
         val list = composeRule.onNode(hasScrollAction())
         list.performScrollToNode(hasText("1.2.3"))
@@ -126,7 +134,7 @@ class SettingsScreenTest {
 
     @Test
     fun credits_row_opens_credits() {
-        setContent()
+        setContent(section = SettingsSection.ABOUT)
 
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Credits and licenses"))
         composeRule.onNodeWithText("Credits and licenses").performClick()
@@ -137,7 +145,7 @@ class SettingsScreenTest {
     @Test
     fun signing_out_asks_for_confirmation() {
         val account = Account("id", ForgeInstance.GitHub, ForgeUser("octocat", null, null))
-        setContent(session = SessionState.SignedIn(account))
+        setContent(session = SessionState.SignedIn(account), section = SettingsSection.ACCOUNTS)
 
         composeRule.onNodeWithText("@octocat").assertIsDisplayed()
         composeRule.onNodeWithText("Sign out").performClick()
@@ -151,7 +159,7 @@ class SettingsScreenTest {
 
     @Test
     fun the_inbox_check_interval_is_chosen_from_a_dialog() {
-        setContent()
+        setContent(section = SettingsSection.INBOX)
 
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Check for new notifications"))
         composeRule.onNodeWithText("Every hour").performClick()
@@ -162,7 +170,7 @@ class SettingsScreenTest {
 
     @Test
     fun feed_activity_kinds_are_toggled_from_a_checklist() {
-        setContent()
+        setContent(section = SettingsSection.FEED)
 
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Feed activity"))
         composeRule.onNodeWithText("Showing 8 of 13").performClick()
@@ -181,5 +189,31 @@ class SettingsScreenTest {
         composeRule.onNode(hasContentDescription("Navigate up")).performClick()
 
         assertThat(backPressed).isTrue()
+    }
+
+    @Test
+    fun the_main_list_names_each_page_with_what_it_holds_and_opens_it() {
+        val account = Account("id", ForgeInstance.GitHub, ForgeUser("octocat", null, null))
+        setContent(UserSettings(themeMode = ThemeMode.DARK), session = SessionState.SignedIn(account))
+
+        composeRule.onNodeWithText("Accounts").assertIsDisplayed()
+        composeRule.onNodeWithText("@octocat").assertIsDisplayed()
+        composeRule.onNodeWithText("Dark").assertIsDisplayed()
+        composeRule.onNodeWithText("Checks: Every hour").assertIsDisplayed()
+        composeRule.onNodeWithText("Showing 8 of 13").assertIsDisplayed()
+        // Settings themselves live on the pages.
+        composeRule.onNodeWithText("Pure black").assertDoesNotExist()
+
+        composeRule.onNodeWithText("Appearance").performClick()
+
+        assertThat(openedSection).isEqualTo(SettingsSection.APPEARANCE)
+    }
+
+    @Test
+    fun a_page_is_titled_by_its_section() {
+        setContent(section = SettingsSection.INBOX)
+
+        composeRule.onNodeWithText("Inbox & notifications").assertIsDisplayed()
+        composeRule.onNodeWithText("Appearance").assertDoesNotExist()
     }
 }

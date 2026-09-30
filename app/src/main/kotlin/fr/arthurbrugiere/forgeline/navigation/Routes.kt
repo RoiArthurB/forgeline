@@ -21,6 +21,10 @@ data object YouRoute : NavKey
 @Serializable
 data object SettingsRoute : NavKey
 
+/** One page of Settings. */
+@Serializable
+data class SettingsSectionRoute(val section: fr.arthurbrugiere.forgeline.settings.SettingsSection) : NavKey
+
 @Serializable
 data object CreditsRoute : NavKey
 

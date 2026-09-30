@@ -1,5 +1,15 @@
 package fr.arthurbrugiere.forgeline.settings
 
+import androidx.compose.foundation.layout.height
+import fr.arthurbrugiere.forgeline.you.NavigationRow
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.DynamicFeed
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.Icons
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.annotation.StringRes
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.offset
 import fr.arthurbrugiere.forgeline.core.ui.format.hostLabel
@@ -63,7 +73,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.clip
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSectionTitle
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSwitch
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
@@ -75,6 +84,15 @@ import androidx.compose.runtime.setValue
 
 const val SOURCE_CODE_URL = "https://github.com/RoiArthurB/forgeline"
 
+/** Settings' pages, each opened from the main list. */
+enum class SettingsSection(@StringRes val title: Int, val icon: ImageVector) {
+    ACCOUNTS(R.string.settings_section_account, Icons.Outlined.Person),
+    APPEARANCE(R.string.settings_section_appearance, Icons.Outlined.Palette),
+    INBOX(R.string.settings_section_notifications, Icons.Outlined.Notifications),
+    FEED(R.string.settings_section_feed, Icons.Outlined.DynamicFeed),
+    ABOUT(R.string.settings_section_about, Icons.Outlined.Info),
+}
+
 @Composable
 fun SettingsRoute(
     session: SessionState,
@@ -82,6 +100,8 @@ fun SettingsRoute(
     onSignOut: (Account) -> Unit,
     onBack: () -> Unit,
     onOpenCredits: () -> Unit,
+    section: SettingsSection? = null,
+    onOpenSection: (SettingsSection) -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
@@ -100,6 +120,8 @@ fun SettingsRoute(
         onOpenCredits = onOpenCredits,
         onOpenSourceCode = { uriHandler.openUri(SOURCE_CODE_URL) },
         onBack = onBack,
+        section = section,
+        onOpenSection = onOpenSection,
     )
 }
 
@@ -120,6 +142,9 @@ fun SettingsScreen(
     onInboxCheckIntervalChange: (InboxCheckInterval) -> Unit = {},
     onFeedKindChange: (FeedKind, Boolean) -> Unit = { _, _ -> },
     onSeparateInboxChange: (Boolean) -> Unit = {},
+    /** The page shown; null is the main list of pages. */
+    section: SettingsSection? = null,
+    onOpenSection: (SettingsSection) -> Unit = {},
 ) {
     val colors = Soft.colors
     val listState = rememberLazyListState()
@@ -133,13 +158,18 @@ fun SettingsScreen(
             item {
                 SoftHeader(
                     tint = colors.fields[2],
-                    title = stringResource(R.string.settings_title),
+                    title = stringResource(section?.title ?: R.string.settings_title),
                     onBack = onBack,
                     backDescription = stringResource(R.string.navigate_up),
                 )
             }
-            if (session != SessionState.Loading) {
-                item { SoftSectionTitle(stringResource(R.string.settings_section_account)) }
+            if (section == null) {
+                item { Spacer(Modifier.height(8.dp)) }
+                items(SettingsSection.entries, key = { it.name }) { page ->
+                    NavigationRow(page.icon, stringResource(page.title), onClick = { onOpenSection(page) }, summary = page.summary(session, settings, versionName))
+                }
+            }
+            if (section == SettingsSection.ACCOUNTS && session != SessionState.Loading) {
                 when (session) {
                     is SessionState.SignedIn -> {
                         // Every signed-in account, one per forge or more, each signed out on its own.
@@ -151,8 +181,7 @@ fun SettingsScreen(
                     else -> item { SettingRow(stringResource(R.string.sign_in), stringResource(R.string.settings_signed_out_summary), onClick = onSignIn) }
                 }
             }
-            item { SoftSectionTitle(stringResource(R.string.settings_section_appearance)) }
-            item {
+            if (section == SettingsSection.APPEARANCE) item {
                 Column(SettingModifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
                     Text(stringResource(R.string.settings_theme), style = Soft.type.body, color = colors.ink)
                     SoftSwitch(
@@ -163,7 +192,7 @@ fun SettingsScreen(
                     )
                 }
             }
-            item {
+            if (section == SettingsSection.APPEARANCE) item {
                 SwitchItem(
                     title = stringResource(R.string.settings_amoled),
                     summary = stringResource(R.string.settings_amoled_summary),
@@ -171,10 +200,9 @@ fun SettingsScreen(
                     onCheckedChange = onAmoledBlackChange,
                 )
             }
-            item { SoftSectionTitle(stringResource(R.string.settings_section_notifications)) }
-            item { InboxCheckItem(settings.inboxCheckInterval, onInboxCheckIntervalChange) }
+            if (section == SettingsSection.INBOX) item { InboxCheckItem(settings.inboxCheckInterval, onInboxCheckIntervalChange) }
             // Only meaningful with several accounts: one list, or one tab per account.
-            if ((session as? SessionState.SignedIn)?.accounts.orEmpty().size > 1) {
+            if (section == SettingsSection.INBOX && (session as? SessionState.SignedIn)?.accounts.orEmpty().size > 1) {
                 item {
                     SwitchItem(
                         title = stringResource(R.string.settings_separate_inbox),
@@ -184,16 +212,30 @@ fun SettingsScreen(
                     )
                 }
             }
-            item { SoftSectionTitle(stringResource(R.string.settings_section_feed)) }
-            item { FeedKindsItem(settings.feedKinds, onFeedKindChange) }
-            item { SoftSectionTitle(stringResource(R.string.settings_section_about)) }
-            item { SettingRow(stringResource(R.string.settings_credits), stringResource(R.string.settings_credits_summary), onClick = onOpenCredits) }
-            item { SettingRow(stringResource(R.string.settings_source_code), SOURCE_CODE_URL.removePrefix("https://"), onClick = onOpenSourceCode) }
-            item { SettingRow(stringResource(R.string.settings_version), versionName) }
+            if (section == SettingsSection.FEED) item { FeedKindsItem(settings.feedKinds, onFeedKindChange) }
+            if (section == SettingsSection.ABOUT) {
+                item { SettingRow(stringResource(R.string.settings_credits), stringResource(R.string.settings_credits_summary), onClick = onOpenCredits) }
+                item { SettingRow(stringResource(R.string.settings_source_code), SOURCE_CODE_URL.removePrefix("https://"), onClick = onOpenSourceCode) }
+                item { SettingRow(stringResource(R.string.settings_version), versionName) }
+            }
         }
         val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
         SoftStatusBarScrim(scrolled)
     }
+}
+
+/** What a page holds now, under its name in the main list. */
+@Composable
+private fun SettingsSection.summary(session: SessionState, settings: UserSettings, versionName: String): String? = when (this) {
+    SettingsSection.ACCOUNTS -> when (session) {
+        is SessionState.SignedIn -> session.accounts.joinToString { "@${it.user.login}" }
+        SessionState.SignedOut -> stringResource(R.string.settings_signed_out_summary)
+        SessionState.Loading -> null
+    }
+    SettingsSection.APPEARANCE -> stringResource(settings.themeMode.label)
+    SettingsSection.INBOX -> stringResource(R.string.settings_inbox_check_summary, stringResource(settings.inboxCheckInterval.label))
+    SettingsSection.FEED -> stringResource(R.string.settings_feed_kinds_summary, settings.feedKinds.size, FeedKind.entries.size)
+    SettingsSection.ABOUT -> stringResource(R.string.settings_version_summary, versionName)
 }
 
 private val SettingModifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)

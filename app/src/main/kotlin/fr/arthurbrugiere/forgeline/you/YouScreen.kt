@@ -134,7 +134,7 @@ private fun AccountHeader(account: Account, compact: Boolean, onClick: () -> Uni
 
 /** A row that leads somewhere: a soft round icon, its name, and a chevron. */
 @Composable
-internal fun NavigationRow(icon: ImageVector, label: String, onClick: () -> Unit) {
+internal fun NavigationRow(icon: ImageVector, label: String, onClick: () -> Unit, summary: String? = null) {
     val colors = Soft.colors
     Row(
         Modifier
@@ -149,7 +149,10 @@ internal fun NavigationRow(icon: ImageVector, label: String, onClick: () -> Unit
             Icon(icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(20.dp))
         }
         Spacer(Modifier.width(14.dp))
-        Text(label, style = Soft.type.body, color = colors.ink, modifier = Modifier.weight(1f))
+        Column(Modifier.weight(1f)) {
+            Text(label, style = Soft.type.body, color = colors.ink)
+            summary?.let { Text(it, style = Soft.type.secondary, color = colors.inkMuted) }
+        }
         Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = colors.inkMuted)
     }
 }

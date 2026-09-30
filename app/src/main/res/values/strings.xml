@@ -171,6 +171,8 @@
     <string name="settings_separate_inbox_summary">See one account at a time, or all together</string>
     <string name="inbox_all_accounts">All accounts</string>
     <string name="search_all_forges">All forges</string>
+    <string name="settings_inbox_check_summary">Checks: %1$s</string>
+    <string name="settings_version_summary">Credits, source code, version %1$s</string>
     <string name="settings_add_account_summary">GitHub, Codeberg or another Forgejo server</string>
     <string name="error_unsupported">This forge doesn\'t offer this.</string>
 
@@ -334,7 +336,7 @@
     <string name="search_error_title">Search failed</string>
     <string name="search_organization">Organization</string>
     <string name="settings_title">Settings</string>
-    <string name="settings_section_account">Account</string>
+    <string name="settings_section_account">Accounts</string>
     <string name="settings_signed_out_summary">Connect your GitHub account</string>
     <string name="sign_out_confirm_title">Sign out of @%1$s?</string>
     <string name="sign_out_confirm_body">Your token will be deleted from this device.</string>
@@ -345,7 +347,7 @@
     <string name="theme_dark">Dark</string>
     <string name="settings_amoled">Pure black</string>
     <string name="settings_amoled_summary">Use a pure black background in dark theme</string>
-    <string name="settings_section_notifications">Notifications</string>
+    <string name="settings_section_notifications">Inbox &amp; notifications</string>
     <string name="settings_inbox_check">Check for new notifications</string>
     <string name="interval_off">Never</string>
     <string name="interval_15m">Every 15 minutes</string>

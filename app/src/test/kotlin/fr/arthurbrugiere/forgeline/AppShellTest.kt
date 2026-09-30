@@ -82,7 +82,9 @@ class AppShellTest {
     fun credits_open_from_settings() {
         tab("You").performClick()
         composeRule.onNodeWithText("Settings").performClick()
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Credits and licenses"))
+        // Credits live on Settings' About page.
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("About"))
+        composeRule.onNodeWithText("About").performClick()
         composeRule.onNodeWithText("Credits and licenses").performClick()
 
         composeRule.onNodeWithText("Read the license").assertIsDisplayed()
