@@ -41,7 +41,10 @@ object ForgeLinks {
         if (number != null && segments[2] in setOf("issues", "pull", "pulls")) return IssueRoute(forge.host, owner, name, number)
         // A job's page opens its run, which lists the job.
         val runId = segments.getOrNull(4)?.toLongOrNull()
-        if (runId != null && segments[2] == "actions" && segments[3] == "runs") return RunRoute(forge.host, owner, name, runId)
+        if (runId != null && segments[2] == "actions" && segments[3] == "runs") {
+            // Forgejo's run pages count runs per repository, not by the API's id: those stay in the browser.
+            return if (forge.type == ForgeType.GITHUB) RunRoute(forge.host, owner, name, runId) else null
+        }
         return RepoRoute(forge.host, owner, name)
     }
 }
