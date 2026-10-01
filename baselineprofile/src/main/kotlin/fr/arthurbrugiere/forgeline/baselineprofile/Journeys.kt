@@ -35,13 +35,14 @@ fun MacrobenchmarkScope.browseTabs() {
  */
 fun MacrobenchmarkScope.readTrending() {
     openTab("Trending")
-    if (!device.wait(Until.hasObject(By.textContains("today")), NETWORK_TIMEOUT_MS)) return
+    // A row says "+120 today" to accessibility only (it shows "+120"), so it is found by description.
+    if (!device.wait(Until.hasObject(By.descContains("today")), NETWORK_TIMEOUT_MS)) return
     device.findObject(By.scrollable(true))?.let { list ->
         list.setGestureMargin(device.displayWidth / 5)
         list.fling(Direction.DOWN)
         list.fling(Direction.UP)
     }
-    device.findObject(By.textContains("today"))?.click() ?: return
+    device.findObject(By.descContains("today"))?.click() ?: return
     device.wait(Until.hasObject(By.text("README")), NETWORK_TIMEOUT_MS)
     device.findObject(By.scrollable(true))?.fling(Direction.DOWN)
     device.pressBack()
