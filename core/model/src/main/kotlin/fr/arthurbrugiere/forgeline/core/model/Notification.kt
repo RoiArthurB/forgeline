@@ -38,15 +38,20 @@ data class NotificationThread(
 
     /** GitHub's "participating": you're directly involved, not just watching. */
     val isParticipating: Boolean
-        get() = reason in setOf(
-            NotificationReason.MENTION, NotificationReason.TEAM_MENTION, NotificationReason.REVIEW_REQUESTED,
-            NotificationReason.ASSIGN, NotificationReason.AUTHOR, NotificationReason.COMMENT, NotificationReason.STATE_CHANGE,
-        )
+        get() = reason in PARTICIPATING
 
     /** Waiting on you: asked for your review, named you, assigned you, or flagged a security issue. */
     val needsYou: Boolean
-        get() = reason in setOf(
-            NotificationReason.REVIEW_REQUESTED, NotificationReason.MENTION, NotificationReason.TEAM_MENTION,
-            NotificationReason.ASSIGN, NotificationReason.SECURITY_ALERT,
-        )
+        get() = reason in NEEDS_YOU
 }
+
+// Built once: these are asked for every thread each time the Inbox is drawn up.
+private val PARTICIPATING = setOf(
+    NotificationReason.MENTION, NotificationReason.TEAM_MENTION, NotificationReason.REVIEW_REQUESTED,
+    NotificationReason.ASSIGN, NotificationReason.AUTHOR, NotificationReason.COMMENT, NotificationReason.STATE_CHANGE,
+)
+
+private val NEEDS_YOU = setOf(
+    NotificationReason.REVIEW_REQUESTED, NotificationReason.MENTION, NotificationReason.TEAM_MENTION,
+    NotificationReason.ASSIGN, NotificationReason.SECURITY_ALERT,
+)

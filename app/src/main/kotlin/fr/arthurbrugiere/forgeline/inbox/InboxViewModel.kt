@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -200,10 +201,6 @@ class InboxViewModel @Inject constructor(
                 if (result is ForgeResult.Failure) status.update { it.copy(actionFailed = true) }
             }
         }
-    }
-
-    private fun <T> MutableStateFlow<T>.update(change: (T) -> T) {
-        value = change(value)
     }
 
     private fun List<NotificationThread>.applying(pending: Map<String, InboxAction>): List<NotificationThread> =
