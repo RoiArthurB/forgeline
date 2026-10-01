@@ -42,6 +42,8 @@ internal data class RepoJson(
     val archived: Boolean = false,
     @SerialName("updated_at") val updatedAt: String? = null,
     @SerialName("has_actions") val hasActions: Boolean = false,
+    /** How many releases the repository has; null on servers too old to say. */
+    @SerialName("release_counter") val releaseCounter: Int? = null,
 ) {
     fun id(forge: ForgeInstance) = RepoId(owner.login, name, forge)
 

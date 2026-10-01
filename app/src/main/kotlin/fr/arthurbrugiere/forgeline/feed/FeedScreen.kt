@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import fr.arthurbrugiere.forgeline.ui.openInCustomTab
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.outlined.Campaign
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.ui.platform.LocalDensity
 import fr.arthurbrugiere.forgeline.core.ui.format.forgeInlineContent
@@ -150,8 +153,10 @@ fun FeedRoute(
     // Keyed by account so switching accounts never shows the previous Feed.
     val viewModel = hiltViewModel<FeedViewModel>(key = session.account.id)
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     FeedScreen(
         state = state,
+        onOpenUrl = { openInCustomTab(context, it) },
         onRefresh = viewModel::refresh,
         onLoadMore = viewModel::loadMore,
         onOpenRepo = onOpenRepo,
@@ -195,6 +200,7 @@ fun FeedScreen(
     onOpenUser: (ForgeInstance, String) -> Unit,
     onErrorShown: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenUrl: (String) -> Unit = {},
     onVisible: (List<FeedItem>) -> Unit = {},
     onReadThrough: (FeedItem) -> Unit = {},
     nowMillis: Long = System.currentTimeMillis(),
@@ -279,7 +285,7 @@ fun FeedScreen(
                             items(items, key = { it.key }, contentType = { it.action.kind }) { item ->
                                 Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem()) {
                                     if (item.key == state.leftOffBefore) LeftOffMark()
-                                    FeedRow(item, state.previews, nowMillis, onOpenRepo, onOpenIssue, onOpenUser)
+                                    FeedRow(item, state.previews, nowMillis, onOpenRepo, onOpenIssue, onOpenUser, onOpenUrl)
                                 }
                             }
                         }
@@ -314,6 +320,7 @@ private fun FeedRow(
     onOpenRepo: (RepoId) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
     onOpenUser: (ForgeInstance, String) -> Unit,
+    onOpenUrl: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = Soft.colors
@@ -322,7 +329,7 @@ private fun FeedRow(
         modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp)
-            .softPressable { item.open(onOpenRepo, onOpenIssue, onOpenUser) }
+            .softPressable { item.open(onOpenRepo, onOpenIssue, onOpenUser, onOpenUrl) }
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top,
     ) {
@@ -376,6 +383,10 @@ private fun FeedObject(item: FeedItem, previews: FeedPreviews, modifier: Modifie
                 if (a.prerelease) SoftTag(stringResource(R.string.repo_prerelease))
             }
             a.name?.takeIf { it != a.tag }?.let { ObjectTitle(it) }
+        }
+        is FeedAction.Announced -> Column(modifier) {
+            StatePill(stringResource(R.string.feed_state_announcement), Icons.Outlined.Campaign, colors.fields[1], number = a.number)
+            ObjectTitle(a.title)
         }
         is FeedAction.Issue -> Column(modifier) {
             when (a.action) {
@@ -554,8 +565,10 @@ private fun Instant.day(nowMillis: Long, zone: ZoneId): Day {
     }
 }
 
-private fun FeedItem.open(onOpenRepo: (RepoId) -> Unit, onOpenIssue: (IssueRef) -> Unit, onOpenUser: (ForgeInstance, String) -> Unit) {
+private fun FeedItem.open(onOpenRepo: (RepoId) -> Unit, onOpenIssue: (IssueRef) -> Unit, onOpenUser: (ForgeInstance, String) -> Unit, onOpenUrl: (String) -> Unit) {
     when (val action = action) {
+        // No discussion screen in the app: an announcement opens on its forge.
+        is FeedAction.Announced -> onOpenUrl("${repo.webUrl}/discussions/${action.number}")
         is FeedAction.Issue -> onOpenIssue(IssueRef(repo, action.number))
         is FeedAction.PullRequest -> onOpenIssue(IssueRef(repo, action.number))
         is FeedAction.Commented -> onOpenIssue(IssueRef(repo, action.number))
@@ -586,6 +599,7 @@ private fun FeedItem.rawHeadline(): String {
         is FeedAction.CreatedRepo -> stringResource(R.string.feed_line_created, who)
         FeedAction.MadePublic -> stringResource(R.string.feed_line_made_public, who)
         is FeedAction.Released -> stringResource(R.string.feed_line_released, who, repo)
+        is FeedAction.Announced -> stringResource(R.string.feed_line_announced, who, repo)
         is FeedAction.Issue -> stringResource(
             when (a.action) {
                 IssueAction.OPENED -> R.string.feed_issue_opened

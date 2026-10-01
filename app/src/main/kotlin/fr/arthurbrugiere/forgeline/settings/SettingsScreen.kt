@@ -448,6 +448,8 @@ private val FeedKind.label: Int
         FeedKind.FORKS -> R.string.feed_kind_forks
         FeedKind.NEW_REPOS -> R.string.feed_kind_new_repos
         FeedKind.RELEASES -> R.string.feed_kind_releases
+        FeedKind.PRERELEASES -> R.string.feed_kind_prereleases
+        FeedKind.ANNOUNCEMENTS -> R.string.feed_kind_announcements
         FeedKind.ISSUES_OPENED -> R.string.feed_kind_issues_opened
         FeedKind.ISSUES_CLOSED -> R.string.feed_kind_issues_closed
         FeedKind.PRS_OPENED -> R.string.feed_kind_prs_opened

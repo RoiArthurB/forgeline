@@ -45,6 +45,7 @@ class FeedScreenTest {
                 onOpenRepo = { events += "repo:${it.fullName}" },
                 onOpenIssue = { events += "issue:${it.repo.fullName}#${it.number}" },
                 onOpenUser = { _, login -> events += "user:$login" },
+                onOpenUrl = { events += "url:$it" },
                 onErrorShown = {},
                 nowMillis = Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
                 zone = java.time.ZoneOffset.UTC,
@@ -234,5 +235,29 @@ class FeedScreenTest {
             .config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString()
         assertThat(line).doesNotContain(" ·")
         assertThat(line).contains("\u00A0·")
+    }
+
+    @Test
+    fun an_announcement_from_a_starred_repository_reads_as_one_and_opens_its_discussion() {
+        val announced = feedEvent("a", actor = "alextran", repo = "immich-app/immich", action = FeedAction.Announced(880, "Immich turns three"))
+        setContent(FeedUiState(items = feedItems(listOf(announced), FeedKind.defaults), syncedAtMillis = 1))
+
+        composeRule.onNodeWithText("alextran announced in immich-app/\u2060immich", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Announcement", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Immich turns three", useUnmergedTree = true).performClick()
+
+        // Forgeline has no discussion screen: the announcement opens on the forge.
+        assertThat(events).containsExactly("url:https://github.com/immich-app/immich/discussions/880")
+    }
+
+    @Test
+    fun a_pre_release_can_be_switched_off_on_its_own() {
+        val stable = feedEvent("1", repo = "octo/tools", action = FeedAction.Released("v2.0.0", null, prerelease = false))
+        val candidate = feedEvent("2", repo = "octo/next", action = FeedAction.Released("v3.0.0-rc.1", null, prerelease = true))
+
+        val items = feedItems(listOf(stable, candidate), FeedKind.defaults - FeedKind.PRERELEASES)
+
+        assertThat(items.map { it.repo.name }).containsExactly("tools")
+        assertThat(feedItems(listOf(stable, candidate), FeedKind.defaults).map { it.repo.name }).containsExactly("tools", "next")
     }
 }

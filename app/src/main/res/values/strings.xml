@@ -77,6 +77,8 @@
     <string name="feed_line_created">%1$s created a repository</string>
     <string name="feed_line_made_public">%1$s made a repository public</string>
     <string name="feed_line_released">%1$s released %2$s</string>
+    <string name="feed_line_announced">%1$s announced in %2$s</string>
+    <string name="feed_state_announcement">Announcement</string>
     <string name="feed_line_pr_opened">%1$s opened a pull request in %2$s</string>
     <string name="feed_line_pr_merged">%1$s merged a pull request in %2$s</string>
     <string name="feed_line_pr_closed">%1$s closed a pull request in %2$s</string>
@@ -379,6 +381,8 @@
     <string name="feed_kind_forks">Forks</string>
     <string name="feed_kind_new_repos">New repositories</string>
     <string name="feed_kind_releases">Releases</string>
+    <string name="feed_kind_prereleases">Pre-releases (release candidates, betas)</string>
+    <string name="feed_kind_announcements">Announcements</string>
     <string name="feed_kind_issues_opened">Issues opened</string>
     <string name="feed_kind_issues_closed">Issues closed</string>
     <string name="feed_kind_prs_opened">Pull requests opened</string>

@@ -742,6 +742,22 @@ class ScreenshotTest {
     @Config(qualifiers = "w1280dp-h800dp-land-xhdpi")
     fun feed_tablet_light() = snapshot("feed_tablet_light", darkTheme = false) { FeedPreview() }
 
+    @Test
+    fun feed_starred_repositories_light() = snapshot("feed_starred_repositories_light", darkTheme = false) {
+        // What starred repositories publish: a pre-release, a stable release with a name, and an announcement.
+        val events = listOf(
+            feedEvent("s1", actor = "alextran", repo = "immich-app/immich", createdAt = "2026-09-27T09:50:00Z", action = FeedAction.Released("v3.3.0-rc.1", null, prerelease = true)),
+            feedEvent("s2", actor = "netbirdio", repo = "netbirdio/netbird", createdAt = "2026-09-27T09:30:00Z", action = FeedAction.Released("v0.80.0", "Faster peer sync", prerelease = false)),
+            feedEvent("s3", actor = "alextran", repo = "immich-app/immich", createdAt = "2026-09-27T08:00:00Z", action = FeedAction.Announced(880, "Immich turns three")),
+        )
+        FeedScreen(
+            state = FeedUiState(items = feedItems(events, FeedKind.defaults), syncedAtMillis = 1),
+            onRefresh = {}, onLoadMore = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = { _, _ -> }, onErrorShown = {},
+            nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+            zone = java.time.ZoneOffset.UTC,
+        )
+    }
+
     @Composable
     private fun FeedMixedPreview() {
         val onCodeberg = feedEvent("21", actor = "alice", repo = "forgejo/forgejo", createdAt = "2026-09-27T09:50:00Z", action = FeedAction.PullRequest(PullRequestAction.MERGED, 43))

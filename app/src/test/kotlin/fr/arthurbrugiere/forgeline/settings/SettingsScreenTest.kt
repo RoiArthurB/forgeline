@@ -174,7 +174,7 @@ class SettingsScreenTest {
         setContent(section = SettingsSection.FEED)
 
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Feed activity"))
-        composeRule.onNodeWithText("Showing 8 of 13").performClick()
+        composeRule.onNodeWithText("Showing 10 of 15").performClick()
         composeRule.onNodeWithText("Stars").assertIsOn()
         composeRule.onNodeWithText("Pushes").assertIsOff()
         composeRule.onNodeWithText("Stars").performClick()
@@ -201,7 +201,7 @@ class SettingsScreenTest {
         composeRule.onNodeWithText("@octocat").assertIsDisplayed()
         composeRule.onNodeWithText("Dark").assertIsDisplayed()
         composeRule.onNodeWithText("Checks: Every hour").assertIsDisplayed()
-        composeRule.onNodeWithText("Showing 8 of 13").assertIsDisplayed()
+        composeRule.onNodeWithText("Showing 10 of 15").assertIsDisplayed()
         // Settings themselves live on the pages.
         composeRule.onNodeWithText("Pure black").assertDoesNotExist()
 

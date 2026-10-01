@@ -20,9 +20,14 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.appendPathSegments
 import io.ktor.http.takeFrom
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import java.time.Instant
 
@@ -53,7 +58,158 @@ class GitHubFeedApi(
             else -> response.failure()
         }
     }
+
+    /**
+     * GitHub's events never mention starred repositories. Asking for every star's releases and discussions in one
+     * GraphQL request is too heavy (100 repositories: 7 s for releases alone, HTTP 504 with discussions, measured
+     * 2026-10-01), so this goes in two steps: the stars are listed over REST, every page at once, then only those pushed
+     * to since [since] are asked about, [BATCH] repositories per request, all requests together.
+     */
+    override suspend fun starredActivity(token: String, since: Instant): ForgeResult<List<FeedEvent>> {
+        val first = when (val result = gitHubCall { starredPage(token, 1) }) {
+            is ForgeResult.Failure -> return result
+            is ForgeResult.Success -> result.value
+        }
+        val last = (first.second ?: 1).coerceAtMost(MAX_STARRED_PAGES)
+        val stars = first.first + coroutineScope {
+            // A later page that fails only loses its own stars.
+            (2..last).map { page -> async { (gitHubCall { starredPage(token, page) } as? ForgeResult.Success)?.value?.first.orEmpty() } }.awaitAll().flatten()
+        }
+        val active = stars.filter { star -> !star.archived && (star.pushedAt?.let { runCatching { Instant.parse(it) }.getOrNull() }?.let { it >= since } ?: true) }
+        val events = coroutineScope {
+            active.chunked(BATCH).map { batch -> async { published(token, batch, since) } }.awaitAll().flatten()
+        }
+        return ForgeResult.Success(events)
+    }
+
+    /** One page of stars, and the last page's number when GitHub announces it. */
+    private suspend fun starredPage(token: String, page: Int): ForgeResult<Pair<List<StarJson>, Int?>> {
+        val response = httpClient.gitHubApi(apiBaseUrl, token, "user", "starred", query = mapOf("per_page" to "100", "page" to page.toString()))
+        return if (response.status == HttpStatusCode.OK) ForgeResult.Success(response.body<List<StarJson>>() to response.lastPage()) else response.failure()
+    }
+
+    /** The latest release of each repository in [batch], and the newest discussions where there are any; empty when the request fails. */
+    private suspend fun published(token: String, batch: List<StarJson>, since: Instant): List<FeedEvent> {
+        val params = batch.indices.joinToString(", ") { "\$o$it: String!, \$n$it: String!" }
+        val fields = batch.withIndex().joinToString(" ") { (i, star) ->
+            "r$i: repository(owner: \$o$i, name: \$n$i) { $RELEASES${if (star.hasDiscussions) " $DISCUSSIONS" else ""} }"
+        }
+        val result = gitHubCall {
+            httpClient.gitHubApi(
+                apiBaseUrl, token, "graphql", method = HttpMethod.Post,
+                body = buildJsonObject {
+                    put("query", "query Published($params) { $fields }")
+                    put(
+                        "variables",
+                        buildJsonObject {
+                            batch.forEachIndexed { i, star ->
+                                put("o$i", star.fullName.substringBefore('/'))
+                                put("n$i", star.fullName.substringAfter('/'))
+                            }
+                        },
+                    )
+                },
+            ).toResult { body<PublishedResponse>() }
+        }
+        val data = (result as? ForgeResult.Success)?.value?.data ?: return emptyList()
+        return batch.withIndex().flatMap { (i, star) ->
+            val node = data["r$i"] as? JsonObject ?: return@flatMap emptyList()
+            runCatching { GitHubJson.decodeFromJsonElement<PublishedJson>(node) }.getOrNull()?.events(star, since).orEmpty()
+        }
+    }
+
+    private companion object {
+        /** 1,000 starred repositories at most: beyond that, the oldest stars are left out. */
+        const val MAX_STARRED_PAGES = 10
+
+        /** Repositories per GraphQL request: 20 answer in about 3 s, far from GitHub's 10 s limit. */
+        const val BATCH = 20
+        const val RELEASES = "releases(first: 1, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { tagName name publishedAt isPrerelease isDraft author { login avatarUrl } } }"
+
+        /** Enough discussions to find an announcement behind a few newer questions. */
+        const val DISCUSSIONS = "discussions(first: 5, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { number title createdAt category { slug } author { login avatarUrl } } }"
+    }
 }
+
+@Serializable
+private data class StarOwnerJson(val login: String, @SerialName("avatar_url") val avatarUrl: String? = null)
+
+@Serializable
+private data class StarJson(
+    @SerialName("full_name") val fullName: String,
+    val owner: StarOwnerJson,
+    @SerialName("pushed_at") val pushedAt: String? = null,
+    @SerialName("has_discussions") val hasDiscussions: Boolean = false,
+    val archived: Boolean = false,
+)
+
+@Serializable
+private data class PublishedResponse(val data: JsonObject? = null)
+
+@Serializable
+private data class PublishedActorJson(val login: String, val avatarUrl: String? = null) {
+    /** Null for automation ("github-actions[bot]"): a bot's name says nothing, so the repository's owner signs instead. */
+    fun toModel(): ForgeUser? = if (login.endsWith("[bot]")) null else ForgeUser(login, null, avatarUrl)
+}
+
+@Serializable
+private data class PublishedNodes<T>(val nodes: List<T> = emptyList())
+
+@Serializable
+private data class PublishedReleaseJson(
+    val tagName: String,
+    val name: String? = null,
+    val publishedAt: String? = null,
+    val isPrerelease: Boolean = false,
+    val isDraft: Boolean = false,
+    val author: PublishedActorJson? = null,
+)
+
+@Serializable
+private data class PublishedCategoryJson(val slug: String? = null)
+
+@Serializable
+private data class PublishedDiscussionJson(
+    val number: Int,
+    val title: String,
+    val createdAt: String,
+    val category: PublishedCategoryJson? = null,
+    val author: PublishedActorJson? = null,
+)
+
+@Serializable
+private data class PublishedJson(
+    val releases: PublishedNodes<PublishedReleaseJson> = PublishedNodes(),
+    val discussions: PublishedNodes<PublishedDiscussionJson> = PublishedNodes(),
+) {
+    fun events(star: StarJson, since: Instant): List<FeedEvent> {
+        val (ownerLogin, name) = star.fullName.split('/').takeIf { it.size == 2 } ?: return emptyList()
+        val repo = RepoId(ownerLogin, name)
+        // A release made by automation has no author, or a bot: the repository's owner signs it.
+        val owner = ForgeUser(star.owner.login, null, star.owner.avatarUrl)
+        val release = releases.nodes.firstOrNull()?.takeIf { !it.isDraft }?.let { json ->
+            val at = json.publishedAt?.let { runCatching { Instant.parse(it) }.getOrNull() }?.takeIf { it >= since } ?: return@let null
+            FeedEvent(
+                "starred-release:${star.fullName}:${json.tagName}",
+                json.author?.toModel() ?: owner,
+                repo,
+                FeedAction.Released(json.tagName, json.name?.ifBlank { null }, json.isPrerelease),
+                at,
+            )
+        }
+        val announcements = discussions.nodes.filter { it.category?.slug == ANNOUNCEMENTS }.mapNotNull { json ->
+            val at = runCatching { Instant.parse(json.createdAt) }.getOrNull()?.takeIf { it >= since } ?: return@mapNotNull null
+            // Posted with the release (many projects automate it): the release row already says it.
+            if (release != null && kotlin.math.abs(at.epochSecond - release.createdAt.epochSecond) <= WITH_RELEASE_SECONDS) return@mapNotNull null
+            FeedEvent("announcement:${star.fullName}:${json.number}", json.author?.toModel() ?: owner, repo, FeedAction.Announced(json.number, json.title), at)
+        }
+        return listOfNotNull(release) + announcements
+    }
+}
+
+// Not in a companion: a private companion on a @Serializable class hides the serializer generated beside it.
+private const val ANNOUNCEMENTS = "announcements"
+private const val WITH_RELEASE_SECONDS = 300L
 
 @Serializable
 private data class FeedActorJson(val login: String, @SerialName("avatar_url") val avatarUrl: String? = null)

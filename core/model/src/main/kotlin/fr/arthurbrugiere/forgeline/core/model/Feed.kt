@@ -8,6 +8,12 @@ enum class FeedKind(val shownByDefault: Boolean) {
     FORKS(true),
     NEW_REPOS(true),
     RELEASES(true),
+
+    /** Release candidates, betas and other pre-releases: shown like GitHub's own feed does, and easy to switch off. */
+    PRERELEASES(true),
+
+    /** A repository's announcements (GitHub's Announcements discussions); Forgejo has none. */
+    ANNOUNCEMENTS(true),
     ISSUES_OPENED(true),
     ISSUES_CLOSED(true),
     PRS_OPENED(true),
@@ -48,7 +54,12 @@ sealed interface FeedAction {
     }
 
     data class Released(val tag: String, val name: String?, val prerelease: Boolean) : FeedAction {
-        override val kind = FeedKind.RELEASES
+        override val kind = if (prerelease) FeedKind.PRERELEASES else FeedKind.RELEASES
+    }
+
+    /** A post in a repository's Announcements, by its discussion [number]. */
+    data class Announced(val number: Int, val title: String) : FeedAction {
+        override val kind = FeedKind.ANNOUNCEMENTS
     }
 
     data class Issue(val action: IssueAction, val number: Int, val title: String) : FeedAction {

@@ -22,6 +22,11 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Clock
+import java.time.Duration
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
+import fr.arthurbrugiere.forgeline.core.model.FeedAction
+import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -60,6 +65,7 @@ class DefaultFeedRepository @Inject constructor(
     private val accounts: AccountRepository,
     private val marks: ReadingMarkDao,
     private val clock: Clock,
+    @param:BackgroundScope private val scope: CoroutineScope,
 ) : FeedRepository {
 
     override suspend fun readUpTo(): Instant? = marks.get(MARK_LIST)?.position?.let(Instant::ofEpochMilli)
@@ -79,15 +85,24 @@ class DefaultFeedRepository @Inject constructor(
             flowOf(FeedSnapshot(emptyList(), null, hasMore = false))
         } else {
             val ids = signedIn.map { it.id }.toSet()
+            val starredIds = ids.map { STARRED + it }.toSet()
             combine(dao.observeAll(), dao.observeSyncs()) { events, syncs ->
                 val mine = events.filter { it.accountId in ids }
+                // What starred repositories published: shown with the rest, but never moving the horizon, which only
+                // an account's own pages do.
+                val starred = events.filter { it.accountId in starredIds }
                 val states = syncs.filter { it.accountId in ids }
                 // Accounts with older pages left end their loaded Feed somewhere: nothing below the latest of those ends shows yet.
                 val horizon = states.filter { it.nextPage != null }
                     .mapNotNull { state -> mine.filter { it.accountId == state.accountId }.minOfOrNull { it.createdAtMillis } }
                     .maxOrNull()
+                // A release can come twice, from a watched repository's events and from the starred ones: it shows once.
+                val releases = HashSet<String>()
                 FeedSnapshot(
-                    events = mine.filter { horizon == null || it.createdAtMillis >= horizon }.mapNotNull { it.toModel() },
+                    events = (mine + starred).filter { horizon == null || it.createdAtMillis >= horizon }
+                        .sortedByDescending { it.createdAtMillis }
+                        .mapNotNull { it.toModel() }
+                        .filter { event -> (event.action as? FeedAction.Released)?.let { releases.add("${event.repo.key}#${it.tag}") } ?: true },
                     syncedAtMillis = states.takeIf { it.size == ids.size }?.minOfOrNull { it.syncedAtMillis },
                     hasMore = states.any { it.nextPage != null },
                 )
@@ -98,6 +113,8 @@ class DefaultFeedRepository @Inject constructor(
     override suspend fun refresh(force: Boolean, onFirstFresh: () -> Unit): ForgeResult<Unit> {
         val signedIn = accounts.accounts.first()
         if (signedIn.isEmpty()) return ForgeResult.Failure(ForgeError.Unauthorized)
+        // Starred repositories take many seconds to read: in the background, never part of the refresh.
+        scope.launch { syncStarred(force) }
         val reported = AtomicBoolean(false)
         val results = coroutineScope {
             signedIn.map { account ->
@@ -136,6 +153,30 @@ class DefaultFeedRepository @Inject constructor(
         }
     }
 
+    /**
+     * Reads what each account's starred repositories published in the last [STARRED_WINDOW_DAYS] days (releases and,
+     * on GitHub, announcements) and keeps it beside the account's own Feed. At most every half hour, or every five
+     * minutes when [force]d: one ask is several slow requests. A failure keeps what was there and is asked again next time.
+     */
+    suspend fun syncStarred(force: Boolean = false) {
+        coroutineScope { accounts.accounts.first().forEach { account -> launch { syncStarred(account, force) } } }
+    }
+
+    private suspend fun syncStarred(account: Account, force: Boolean) = starredLocks.getOrPut(account.id) { Mutex() }.withLock {
+        val key = STARRED + account.id
+        val wait = if (force) STARRED_FORCED_MILLIS else STARRED_INTERVAL_MILLIS
+        dao.sync(key)?.let { if (clock.millis() - it.syncedAtMillis < wait) return@withLock }
+        val token = accounts.token(account.id) ?: return@withLock
+        val since = clock.instant().minus(Duration.ofDays(STARRED_WINDOW_DAYS))
+        val result = clients.feed(account.forge).starredActivity(token, since)
+        if (result is ForgeResult.Success) {
+            dao.replace(key, result.value.map { it.on(account).toEntity(key) })
+            dao.upsertSync(FeedSyncEntity(key, lastModified = null, pollIntervalSeconds = null, syncedAtMillis = clock.millis(), nextPage = null))
+        }
+    }
+
+    private val starredLocks = ConcurrentHashMap<String, Mutex>()
+
     override suspend fun loadMore(): ForgeResult<Unit> = pagingLock.withLock {
         val signedIn = accounts.accounts.first()
         // The account whose loaded Feed ends the latest holds the horizon up: page it back.
@@ -164,6 +205,12 @@ class DefaultFeedRepository @Inject constructor(
 
     private companion object {
         const val DEFAULT_POLL_SECONDS = 60
+
+        /** Rows of starred-repository activity are kept under the account's id with this prefix, apart from its own events. */
+        const val STARRED = "starred:"
+        const val STARRED_WINDOW_DAYS = 30L
+        const val STARRED_INTERVAL_MILLIS = 30 * 60_000L
+        const val STARRED_FORCED_MILLIS = 5 * 60_000L
 
         /** One Feed across accounts, so one reading mark. */
         const val MARK_LIST = "feed"

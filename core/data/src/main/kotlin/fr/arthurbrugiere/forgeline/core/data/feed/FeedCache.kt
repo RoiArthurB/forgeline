@@ -87,6 +87,7 @@ internal fun FeedEvent.toEntity(accountId: String): FeedEventEntity {
         is FeedAction.CreatedRepo -> entity("created_repo", text = a.description)
         FeedAction.MadePublic -> entity("made_public")
         is FeedAction.Released -> entity("released", text = a.tag, detail = a.name, flag = a.prerelease)
+        is FeedAction.Announced -> entity("announced", a.number, a.title)
         is FeedAction.Issue -> entity("issue", a.number, a.title, a.action.name)
         is FeedAction.PullRequest -> entity("pull_request", a.number, text = a.title, detail = a.action.name)
         is FeedAction.Commented -> entity("commented", a.number, a.title, flag = a.isPullRequest)
@@ -105,6 +106,7 @@ internal fun FeedEventEntity.toModel(): FeedEvent? {
         "created_repo" -> FeedAction.CreatedRepo(text)
         "made_public" -> FeedAction.MadePublic
         "released" -> text?.let { FeedAction.Released(it, detail, flag) }
+        "announced" -> number?.let { FeedAction.Announced(it, text.orEmpty()) }
         "issue" -> number?.let { n ->
             IssueAction.entries.firstOrNull { it.name == detail }?.let { FeedAction.Issue(it, n, text.orEmpty()) }
         }

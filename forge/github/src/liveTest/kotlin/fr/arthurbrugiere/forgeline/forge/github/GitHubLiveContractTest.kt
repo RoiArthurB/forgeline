@@ -142,4 +142,18 @@ class GitHubLiveContractTest {
         assertWithMessage("users: $users").that(users).isInstanceOf(ForgeResult.Success::class.java)
         assertThat((users as ForgeResult.Success).value.items.single().isOrganization).isTrue()
     }
+
+    @Test
+    fun the_starred_repositories_queries_are_still_accepted() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        // The stars are listed over REST, then asked about in aliased GraphQL batches: a query GitHub stops accepting
+        // (or starts timing out on, as one large request did) must show here, not as a silently empty Feed.
+        val started = System.currentTimeMillis()
+        val activity = GitHubFeedApi(client).starredActivity(pat, java.time.Instant.now().minus(java.time.Duration.ofDays(30)))
+        val took = System.currentTimeMillis() - started
+
+        assertWithMessage("starred activity: $activity").that(activity).isInstanceOf(ForgeResult.Success::class.java)
+        System.err.println("STARRED ${(activity as ForgeResult.Success).value.size} events in $took ms")
+        activity.value.sortedByDescending { it.createdAt }.take(8).forEach { System.err.println("STARRED ${it.createdAt} ${it.repo.fullName} ${it.action} by ${it.actor.login}") }
+    }
 }

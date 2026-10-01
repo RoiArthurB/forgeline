@@ -24,6 +24,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.Clock
+import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -86,6 +87,51 @@ class ForgejoFeedApi(
         }
     }
 
+    /**
+     * Forgejo's feed says nothing about starred repositories either, and it has no query for "latest release of each":
+     * the stars are listed, then each repository that could have a recent release is asked for its latest one, all at
+     * once. Repositories with no release, archived, or untouched since [since] are skipped unasked.
+     */
+    override suspend fun starredActivity(token: String, since: Instant): ForgeResult<List<FeedEvent>> = forgejoCall {
+        val starred = mutableListOf<RepoJson>()
+        for (page in 1..MAX_STARRED_PAGES) {
+            val response = httpClient.forgejoApi(forge, token, "user", "starred", query = mapOf("limit" to "$STARRED_PAGE_SIZE", "page" to page.toString()))
+            if (response.status != HttpStatusCode.OK) {
+                if (page == 1) return@forgejoCall response.failure()
+                break
+            }
+            val repos = response.body<List<RepoJson>>()
+            starred += repos
+            if (repos.size < STARRED_PAGE_SIZE) break
+        }
+        val candidates = starred.filter { repo ->
+            !repo.archived && repo.releaseCounter != 0 && (instant(repo.updatedAt)?.let { it >= since } ?: true)
+        }
+        val gate = Semaphore(RELEASES_AT_ONCE)
+        val events = coroutineScope {
+            candidates.map { repo ->
+                async {
+                    gate.withPermit {
+                        val response = httpClient.forgejoApi(forge, token, "repos", repo.owner.login, repo.name, "releases", query = mapOf("limit" to "1"))
+                        if (response.status != HttpStatusCode.OK) return@withPermit null
+                        val release = response.body<List<ReleaseJson>>().firstOrNull()?.takeIf { !it.draft } ?: return@withPermit null
+                        val at = instant(release.publishedAt)?.takeIf { it >= since } ?: return@withPermit null
+                        val id = repo.id(forge)
+                        FeedEvent(
+                            "starred-release:${id.fullName}:${release.tag}",
+                            // A release made by automation has no author: the repository's owner signs it.
+                            (release.author ?: repo.owner).toModel(),
+                            id,
+                            FeedAction.Released(release.tag, release.name?.ifBlank { null }, release.prerelease),
+                            at,
+                        )
+                    }
+                }
+            }.awaitAll().filterNotNull()
+        }
+        ForgeResult.Success(events)
+    }
+
     private fun ActivityJson.toModel(): FeedEvent? {
         val repo = repo ?: return null
         val actor = actUser?.toModel() ?: return null
@@ -126,6 +172,13 @@ class ForgejoFeedApi(
         const val PAGE_SIZE = 30
         const val PER_PERSON = 20
         const val FOLLOWED_PER_REFRESH = 20
+        const val STARRED_PAGE_SIZE = 50
+
+        /** 500 starred repositories at most. */
+        const val MAX_STARRED_PAGES = 10
+
+        /** Latest-release requests in flight; the HTTP engine caps what really goes out per forge. */
+        const val RELEASES_AT_ONCE = 16
         /**
          * Followed people read at once: all of a refresh's, in one wave. Far from the forge each feed takes seconds
          * (Codeberg: about 3 s, measured from Vietnam on 2026-10-01), so a second wave doubled the wait. The HTTP

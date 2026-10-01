@@ -119,4 +119,145 @@ class GitHubFeedApiTest {
 
         assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "Not Found")))
     }
+
+    private val since = Instant.parse("2026-09-01T00:00:00Z")
+
+    private fun star(fullName: String, pushedAt: String = "2026-09-25T10:00:00Z", discussions: Boolean = false, archived: Boolean = false): String {
+        val owner = fullName.substringBefore('/')
+        return """{"full_name":"$fullName","pushed_at":"$pushedAt","has_discussions":$discussions,"archived":$archived,""" +
+            """"owner":{"login":"$owner","avatar_url":"https://avatars.example/$owner"}}"""
+    }
+
+    private val immich = """{"releases":{"nodes":[{"tagName":"v3.3.0-rc.1","name":"v3.3.0-rc.1","publishedAt":"2026-09-30T22:05:07Z","isPrerelease":true,"isDraft":false,"author":{"login":"alextran","avatarUrl":"https://avatars.example/alextran"}}]},
+        "discussions":{"nodes":[
+          {"number":901,"title":"[Feature] Death date for people","createdAt":"2026-09-30T23:06:29Z","category":{"slug":"feature-request"},"author":{"login":"someone","avatarUrl":null}},
+          {"number":900,"title":"v3.3.0-rc.1","createdAt":"2026-09-30T22:05:07Z","category":{"slug":"announcements"},"author":{"login":"alextran","avatarUrl":"https://avatars.example/alextran"}},
+          {"number":880,"title":"Immich turns three","createdAt":"2026-09-20T10:00:00Z","category":{"slug":"announcements"},"author":{"login":"alextran","avatarUrl":"https://avatars.example/alextran"}}]}}"""
+    private val draft = """{"releases":{"nodes":[{"tagName":"v9","name":null,"publishedAt":null,"isPrerelease":false,"isDraft":true,"author":null}]}}"""
+    private val longAgo = """{"releases":{"nodes":[{"tagName":"v1.0.0","name":"First","publishedAt":"2024-01-01T00:00:00Z","isPrerelease":false,"isDraft":false,"author":null}]}}"""
+    private val netbird = """{"releases":{"nodes":[{"tagName":"v0.80.0","name":"","publishedAt":"2026-09-29T12:00:00Z","isPrerelease":false,"isDraft":false,"author":null}]}}"""
+
+    private fun HttpRequestData.text() = (body as io.ktor.http.content.TextContent).text
+
+    /** Two pages of stars; the repositories worth asking are immich, acme/draft, slow/project (page 1) and netbird (page 2). */
+    private fun starredApi() = api { request ->
+        when {
+            request.url.encodedPath == "/user/starred" && request.url.parameters["page"] == "1" -> json(
+                "[${star("immich-app/immich", discussions = true)},${star("old/quiet", pushedAt = "2024-01-01T00:00:00Z")}," +
+                    "${star("acme/draft")},${star("shelved/repo", archived = true)},${star("slow/project")}]",
+                headers = mapOf(HttpHeaders.Link to """<https://api.github.com/user/starred?per_page=100&page=2>; rel="next", <https://api.github.com/user/starred?per_page=100&page=2>; rel="last""""),
+            )
+            request.url.encodedPath == "/user/starred" -> json("[${star("netbirdio/netbird")}]")
+            else -> json("""{"data":{"r0":$immich,"r1":$draft,"r2":$longAgo,"r3":$netbird}}""")
+        }
+    }
+
+    private suspend fun starredActivity(): List<FeedEvent> = starredApi().starredActivity("tok", since).value()
+
+    @Test
+    fun starred_repositories_give_their_latest_release_and_announcements() = runTest {
+        val events = starredActivity()
+
+        // Every page of stars is read: netbird is on the second.
+        assertThat(events.map { it.repo.fullName to it.action }).containsExactly(
+            "immich-app/immich" to FeedAction.Released("v3.3.0-rc.1", "v3.3.0-rc.1", prerelease = true),
+            "immich-app/immich" to FeedAction.Announced(880, "Immich turns three"),
+            "netbirdio/netbird" to FeedAction.Released("v0.80.0", null, prerelease = false),
+        )
+    }
+
+    @Test
+    fun only_starred_repositories_active_lately_are_asked_and_discussions_only_where_they_exist() = runTest {
+        starredActivity()
+
+        // One request of 100 repositories with releases and discussions timed out at GitHub (HTTP 504, 2026-10-01): the
+        // stars are listed first, and only those pushed to since [since], not archived, are asked about.
+        val asked = requests.single { it.url.encodedPath == "/graphql" }.text()
+        assertThat(asked).contains("immich")
+        assertThat(asked).contains("netbird")
+        assertThat(asked).doesNotContain("quiet")
+        assertThat(asked).doesNotContain("shelved")
+        // Discussions are asked only of the one repository that has them enabled.
+        assertThat(Regex("discussions\\(").findAll(asked).count()).isEqualTo(1)
+    }
+
+    @Test
+    fun an_announcement_posted_with_its_release_shows_once_as_the_release() = runTest {
+        val actions = starredActivity().filter { it.repo.name == "immich" }.map { it.action }
+
+        // Discussion #900 "v3.3.0-rc.1" was posted the second the release was: the release row says it.
+        assertThat(actions).doesNotContain(FeedAction.Announced(900, "v3.3.0-rc.1"))
+        // Other discussion categories (feature requests, Q&A) never show.
+        assertThat(actions.filterIsInstance<FeedAction.Announced>().map { it.number }).containsExactly(880)
+    }
+
+    @Test
+    fun old_releases_and_drafts_from_starred_repositories_are_left_out() = runTest {
+        val repos = starredActivity().map { it.repo.fullName }
+
+        assertThat(repos).doesNotContain("slow/project")
+        assertThat(repos).doesNotContain("acme/draft")
+    }
+
+    @Test
+    fun a_starred_release_is_signed_by_its_author_or_else_by_the_repository_owner() = runTest {
+        val events = starredActivity()
+
+        assertThat(events.first { it.repo.name == "immich" }.actor).isEqualTo(ForgeUser("alextran", null, "https://avatars.example/alextran"))
+        assertThat(events.first { it.repo.name == "netbird" }.actor).isEqualTo(ForgeUser("netbirdio", null, "https://avatars.example/netbirdio"))
+        assertThat(events.first { it.repo.name == "immich" }.createdAt).isEqualTo(Instant.parse("2026-09-30T22:05:07Z"))
+    }
+
+    @Test
+    fun a_release_published_by_a_bot_is_signed_by_the_repository_owner() = runTest {
+        // Seen on the real API (2026-10-01): "github-actions[bot] released ..." names nobody worth reading.
+        val byBot = """{"releases":{"nodes":[{"tagName":"v1","name":"v1","publishedAt":"2026-09-29T12:00:00Z","isPrerelease":false,"isDraft":false,"author":{"login":"github-actions[bot]","avatarUrl":"https://avatars.example/bot"}}]}}"""
+        val api = api { request ->
+            if (request.url.encodedPath == "/user/starred") json("[${star("acme/rocket")}]") else json("""{"data":{"r0":$byBot}}""")
+        }
+
+        assertThat(api.starredActivity("tok", since).value().single().actor).isEqualTo(ForgeUser("acme", null, "https://avatars.example/acme"))
+    }
+
+    @Test
+    fun many_starred_repositories_are_asked_in_small_batches_all_at_once() = runTest {
+        // 45 active stars: three requests of at most 20, together. One after another, each batch costs about 3 s.
+        val arrived = java.util.concurrent.atomic.AtomicInteger()
+        val all = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val batched = api { request ->
+            if (request.url.encodedPath == "/user/starred") {
+                json((1..45).joinToString(",", "[", "]") { star("o/repo$it") })
+            } else {
+                if (arrived.incrementAndGet() == 3) all.complete(Unit)
+                kotlinx.coroutines.withTimeout(5_000) { all.await() }
+                json("""{"data":{}}""")
+            }
+        }
+
+        assertThat(batched.starredActivity("tok", since)).isEqualTo(ForgeResult.Success(emptyList<FeedEvent>()))
+        assertThat(requests.count { it.url.encodedPath == "/graphql" }).isEqualTo(3)
+    }
+
+    @Test
+    fun one_batch_failing_keeps_the_others() = runTest {
+        var batch = 0
+        val flaky = api { request ->
+            when {
+                request.url.encodedPath == "/user/starred" -> json((1..21).joinToString(",", "[", "]") { star("o/repo$it") })
+                "repo21" in request.text() -> json("{}", status = HttpStatusCode.BadGateway)
+                else -> json("""{"data":{"r0":$netbird}}""").also { batch++ }
+            }
+        }
+
+        val events = flaky.starredActivity("tok", since).value()
+
+        assertThat(events.map { it.repo.fullName }).containsExactly("o/repo1")
+    }
+
+    @Test
+    fun starred_repositories_that_cannot_be_listed_are_a_failure() = runTest {
+        val result = api { json("{}", status = HttpStatusCode.Unauthorized) }.starredActivity("tok", since)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+    }
 }

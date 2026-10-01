@@ -21,6 +21,19 @@ class FakeFeedApi : FeedApi {
     /** When set, pages wait for it: a slow forge. */
     var gate: CompletableDeferred<Unit>? = null
 
+    /** What the starred repositories published; null when the forge can't be asked right now. */
+    var starred: List<FeedEvent>? = emptyList()
+    val starredCalls = mutableListOf<Instant>()
+
+    /** When set, starred activity waits for it: GitHub takes about 10 s per 100 stars. */
+    var starredGate: CompletableDeferred<Unit>? = null
+
+    override suspend fun starredActivity(token: String, since: Instant): ForgeResult<List<FeedEvent>> {
+        starredCalls += since
+        starredGate?.await()
+        return starred?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Network)
+    }
+
     override suspend fun receivedEvents(token: String?, login: String, page: Int, ifModifiedSince: String?): ForgeResult<FeedPage> {
         calls += "$login@$page" + (ifModifiedSince?.let { " since $it" } ?: "")
         gate?.await()
