@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import io.ktor.client.plugins.timeout
+import io.ktor.client.plugins.HttpTimeout
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -37,6 +39,8 @@ internal val ForgejoJson = Json {
 fun forgejoHttpClient(engine: HttpClientEngine): HttpClient = HttpClient(engine) {
     expectSuccess = false
     install(ContentNegotiation) { json(ForgejoJson) }
+    // Lets a single slow call ask for more time (see forgejoApi's patienceMillis); others keep the engine's limits.
+    install(HttpTimeout)
     defaultRequest {
         header(HttpHeaders.UserAgent, "Forgeline (+https://github.com/RoiArthurB/forgeline)")
     }
@@ -50,8 +54,11 @@ internal suspend fun HttpClient.forgejoApi(
     method: HttpMethod = HttpMethod.Get,
     query: Map<String, String> = emptyMap(),
     body: JsonObject? = null,
+    /** How long this call may go without a byte from the server; null keeps the engine's limit (10 s). */
+    patienceMillis: Long? = null,
 ): HttpResponse = request {
     this.method = method
+    if (patienceMillis != null) timeout { socketTimeoutMillis = patienceMillis }
     url {
         takeFrom("${forge.webUrl}/api/v1")
         appendPathSegments(*segments)

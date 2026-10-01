@@ -15,7 +15,8 @@ dependencies {
 }
 
 // Contract tests against the real Codeberg, run nightly by .github/workflows/live.yml. They pin what
-// docs/CODEBERG.md relies on, and all run without an account.
+// docs/CODEBERG.md relies on. Most run without an account; the signed-in ones only read, need
+// CODEBERG_LIVE_TOKEN and are skipped without it.
 testing {
     suites {
         register<JvmTestSuite>("liveTest") {
@@ -28,7 +29,10 @@ testing {
                 implementation(libs.kotlinx.coroutines.core)
             }
             targets.all {
-                testTask.configure { outputs.upToDateWhen { false } }
+                testTask.configure {
+                    environment("CODEBERG_LIVE_TOKEN", providers.environmentVariable("CODEBERG_LIVE_TOKEN").getOrElse(""))
+                    outputs.upToDateWhen { false }
+                }
             }
         }
     }

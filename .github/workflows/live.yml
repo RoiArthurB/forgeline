@@ -25,6 +25,8 @@ jobs:
       - name: Run live contract tests
         env:
           LIVE_TEST_PAT: ${{ secrets.LIVE_TEST_PAT }}
+          # Optional: a read-only Codeberg token. Without it the signed-in Codeberg checks are skipped.
+          CODEBERG_LIVE_TOKEN: ${{ secrets.CODEBERG_LIVE_TOKEN }}
         run: ./gradlew :forge:github:liveTest :forge:forgejo:liveTest --continue
       - name: Upload report
         if: failure()

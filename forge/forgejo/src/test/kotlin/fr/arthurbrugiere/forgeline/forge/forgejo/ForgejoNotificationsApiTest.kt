@@ -159,4 +159,29 @@ class ForgejoNotificationsApiTest {
         // 120 threads, 50 a page: pages 2 and 3, together.
         assertThat(later).containsExactly("2", "3")
     }
+
+    @Test
+    fun a_search_that_times_out_never_takes_the_inbox_down() = runTest {
+        // Regression: Codeberg's issue searches take 7 to 11 s (measured 2026-10-01). One of them running past the read
+        // timeout failed the whole sync, so the Codeberg Inbox sometimes couldn't refresh at all.
+        val flaky = with(codeberg) {
+            ForgejoNotificationsApi(
+                client { request ->
+                    val path = request.url.encodedPath
+                    when {
+                        path.endsWith("/notifications") -> json(fixture("notifications.json"))
+                        request.url.parameters["review_requested"] == "true" -> throw java.net.SocketTimeoutException("timeout")
+                        path.endsWith("/issues/search") -> json("[]")
+                        else -> status(io.ktor.http.HttpStatusCode.NoContent)
+                    }
+                },
+                ForgeInstance.Codeberg,
+            )
+        }
+
+        val sync = flaky.threads("t", ifModifiedSince = null, maxPages = 1)
+
+        assertThat(sync).isInstanceOf(ForgeResult.Success::class.java)
+        assertThat(sync.value().threads).isNotEmpty()
+    }
 }

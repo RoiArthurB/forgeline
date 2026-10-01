@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import java.io.IOException
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsSync
@@ -103,7 +104,14 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
         val found = coroutineScope {
             searches.map { (reason, filter) ->
                 async {
-                    val response = httpClient.forgejoApi(forge, token, "repos", "issues", "search", query = filter + ("limit" to "$PAGE_SIZE"))
+                    // These searches are slow on a big instance (Codeberg: 7 to 11 s each, measured 2026-10-01), so they
+                    // get more time than other calls, and one that still fails only loses its own reason: the threads
+                    // themselves must show whatever happens here.
+                    val response = try {
+                        httpClient.forgejoApi(forge, token, "repos", "issues", "search", query = filter + ("limit" to "$PAGE_SIZE"), patienceMillis = SEARCH_PATIENCE_MILLIS)
+                    } catch (e: IOException) {
+                        return@async emptyList()
+                    }
                     if (response.status != HttpStatusCode.OK) return@async emptyList()
                     response.body<List<IssueJson>>().mapNotNull { issue -> issue.repository?.let { "${it.owner}/${it.name}#${issue.number}".lowercase() to reason } }
                 }
@@ -143,6 +151,8 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
     }
 
     private companion object {
+        /** How long a reason search may stay silent: well past the slowest seen, short of leaving the Inbox waiting forever. */
+        const val SEARCH_PATIENCE_MILLIS = 30_000L
         const val PAGE_SIZE = 50
         const val MARKER = "checks:"
         const val FULL_EVERY = 4
