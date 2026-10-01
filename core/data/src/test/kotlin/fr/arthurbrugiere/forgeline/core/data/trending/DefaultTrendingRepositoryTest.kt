@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.testing.FakeTrendingMeter
 import fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
+import fr.arthurbrugiere.forgeline.core.testing.RecordingDispatcher
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
@@ -44,7 +45,8 @@ class DefaultTrendingRepositoryTest {
     private val clients = FakeForgeClients(trending = api)
     private val accounts = FakeAccountRepository()
     private val settings = FakeUserSettingsRepository()
-    private val repository = DefaultTrendingRepository(database.trendingDao(), clients, accounts, database.readingMarkDao(), clock, settings)
+    private val computation = RecordingDispatcher()
+    private val repository = DefaultTrendingRepository(database.trendingDao(), clients, accounts, database.readingMarkDao(), clock, settings, computation)
     private val codebergApi = FakeTrendingApi(ForgeInstance.Codeberg).also { clients.put(ForgeInstance.Codeberg, FakeForgeClients(trending = it)) }
 
     private val paperclip = trendingRepo("paperclipai/paperclip").copy(
@@ -55,6 +57,14 @@ class DefaultTrendingRepositoryTest {
 
     @After
     fun closeDatabase() = database.close()
+
+    @Test
+    fun the_page_is_merged_off_the_thread_that_reads_it() = runTest {
+        // Regression: rankings were decoded and merged on the collector's thread, the main thread in the app.
+        repository.observe(TrendingPeriod.DAILY).first()
+
+        assertThat(computation.uses.get()).isGreaterThan(0)
+    }
 
     @Test
     fun nothing_is_cached_at_first() = runTest {

@@ -25,6 +25,7 @@ import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
+import fr.arthurbrugiere.forgeline.core.testing.RecordingDispatcher
 import fr.arthurbrugiere.forgeline.core.testing.FakeNotificationsApi
 import fr.arthurbrugiere.forgeline.core.testing.notificationThread
 import kotlinx.coroutines.flow.first
@@ -63,7 +64,8 @@ class DefaultInboxRepositoryTest {
     private val clients = FakeForgeClients(notifications = api)
     private val conversations = DefaultIssueRepository(FakeForgeClients(issues = issueApi), accounts, database.conversationDao(), clock)
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val repository = DefaultInboxRepository(database.inboxDao(), clients, accounts, conversations, clock, background)
+    private val computation = RecordingDispatcher()
+    private val repository = DefaultInboxRepository(database.inboxDao(), clients, accounts, conversations, clock, background, computation)
 
     private val me = Account.idFor(ForgeInstance.GitHub, "me")
 
@@ -74,6 +76,16 @@ class DefaultInboxRepositoryTest {
         // Background work still running would read a closed database: stop it first.
         runBlocking { background.coroutineContext.job.cancelAndJoin() }
         database.close()
+    }
+
+    @Test
+    fun the_list_is_built_off_the_thread_that_reads_it() = runTest {
+        // Regression: threads were mapped and filtered on the collector's thread, the main thread in the app.
+        signIn()
+
+        repository.observe().first()
+
+        assertThat(computation.uses.get()).isGreaterThan(0)
     }
 
     @Test
@@ -449,7 +461,7 @@ class DefaultInboxRepositoryTest {
             override suspend fun issue(token: String?, ref: IssueRef) = together.arrive("#${ref.number}").let { issueApi.issue(token, ref) }
         }
         val ahead = DefaultIssueRepository(FakeForgeClients(issues = meeting), accounts, database.conversationDao(), clock)
-        val inbox = DefaultInboxRepository(database.inboxDao(), clients, accounts, ahead, clock, background)
+        val inbox = DefaultInboxRepository(database.inboxDao(), clients, accounts, ahead, clock, background, computation)
 
         realTime { inbox.sync(force = true, waitForFollowUps = true) }
 

@@ -84,6 +84,7 @@ dependencies {
     testImplementation(projects.core.testing)
     testImplementation(libs.hilt.android.testing)
     testImplementation(libs.androidx.work.testing)
+    testImplementation(libs.ktor.client.mock)
     kspTest(libs.hilt.compiler)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.compose.ui.test.junit4)

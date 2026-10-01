@@ -50,6 +50,7 @@ import fr.arthurbrugiere.forgeline.core.data.trending.TrendingDao
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepository
 import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import java.time.Clock
@@ -132,6 +133,10 @@ abstract class DataModule {
 
         @Provides
         fun provideClock(): Clock = Clock.systemUTC()
+
+        @Provides
+        @Computation
+        fun provideComputationDispatcher(): CoroutineDispatcher = Dispatchers.Default
 
         /** For work that outlives the screen that started it, like what an Inbox sync does after the list is in. */
         @Provides

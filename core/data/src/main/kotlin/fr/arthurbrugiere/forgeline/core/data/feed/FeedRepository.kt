@@ -29,6 +29,9 @@ import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import java.time.Instant
 import javax.inject.Inject
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.CoroutineDispatcher
+import fr.arthurbrugiere.forgeline.core.data.di.Computation
 import javax.inject.Singleton
 
 data class FeedSnapshot(val events: List<FeedEvent>, val syncedAtMillis: Long?, val hasMore: Boolean)
@@ -66,6 +69,7 @@ class DefaultFeedRepository @Inject constructor(
     private val marks: ReadingMarkDao,
     private val clock: Clock,
     @param:BackgroundScope private val scope: CoroutineScope,
+    @param:Computation private val computation: CoroutineDispatcher,
 ) : FeedRepository {
 
     override suspend fun readUpTo(): Instant? = marks.get(MARK_LIST)?.position?.let(Instant::ofEpochMilli)
@@ -108,7 +112,8 @@ class DefaultFeedRepository @Inject constructor(
                 )
             }
         }
-    }
+        // Regression: the timeline was sorted and merged on whichever thread read it, which was the main thread.
+    }.flowOn(computation)
 
     override suspend fun refresh(force: Boolean, onFirstFresh: () -> Unit): ForgeResult<Unit> {
         val signedIn = accounts.accounts.first()

@@ -29,6 +29,9 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import java.time.Clock
 import javax.inject.Inject
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.CoroutineDispatcher
+import fr.arthurbrugiere.forgeline.core.data.di.Computation
 import javax.inject.Singleton
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
@@ -82,6 +85,7 @@ class DefaultFeedPreviewRepository @Inject constructor(
     private val accounts: AccountRepository,
     private val clock: Clock,
     @param:BackgroundScope private val scope: CoroutineScope,
+    @param:Computation private val computation: CoroutineDispatcher,
 ) : FeedPreviewRepository {
 
     private val lock = Mutex()
@@ -105,7 +109,7 @@ class DefaultFeedPreviewRepository @Inject constructor(
             }
         }
         FeedPreviews(repos, pulls)
-    }
+    }.flowOn(computation)
 
     override suspend fun ensure(repos: Set<RepoId>, pulls: Set<IssueRef>) {
         val now = clock.millis()

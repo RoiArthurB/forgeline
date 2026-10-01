@@ -18,6 +18,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
+import fr.arthurbrugiere.forgeline.core.data.di.Computation
+import fr.arthurbrugiere.forgeline.core.data.feed.FeedSnapshot
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 data class FeedUiState(
@@ -44,6 +50,7 @@ class FeedViewModel @Inject constructor(
     private val previews: FeedPreviewRepository,
     settings: UserSettingsRepository,
     accounts: AccountRepository,
+    @param:Computation private val computation: CoroutineDispatcher,
 ) : ViewModel() {
 
     private data class Status(val isRefreshing: Boolean = false, val isLoadingMore: Boolean = false, val error: ForgeError? = null)
@@ -53,13 +60,22 @@ class FeedViewModel @Inject constructor(
     /** How far the last visit read, read once when the Feed opens. */
     private val readUpTo = MutableStateFlow<Instant?>(null)
 
+    private data class Rows(val snapshot: FeedSnapshot, val items: List<FeedItem>)
+
+    /**
+     * The rows, built only when the events or the kinds shown change, and off the main thread. Regression: they were
+     * rebuilt on the main thread for every preview that arrived and every refresh that started or ended.
+     */
+    private val rows = combine(feed.observe(), settings.settings.map { it.feedKinds }.distinctUntilChanged()) { snapshot, kinds ->
+        Rows(snapshot, feedItems(snapshot.events, kinds))
+    }.flowOn(computation)
+
     val state: StateFlow<FeedUiState> = combine(
-        combine(feed.observe(), readUpTo, accounts.accounts) { snapshot, readUpTo, signedIn -> Triple(snapshot, readUpTo, signedIn.map { it.forge }.distinct().size > 1) },
-        settings.settings,
+        combine(rows, readUpTo, accounts.accounts) { rows, readUpTo, signedIn -> Triple(rows, readUpTo, signedIn.map { it.forge }.distinct().size > 1) },
         status,
         previews.observe(),
-    ) { (snapshot, readUpTo, showForge), settings, status, previews ->
-        val items = feedItems(snapshot.events, settings.feedKinds)
+    ) { (rows, readUpTo, showForge), status, previews ->
+        val (snapshot, items) = rows
         FeedUiState(
             showForge = showForge,
             items = items,

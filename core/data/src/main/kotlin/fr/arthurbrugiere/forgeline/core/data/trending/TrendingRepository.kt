@@ -24,6 +24,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Clock
 import javax.inject.Inject
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.CoroutineDispatcher
+import fr.arthurbrugiere.forgeline.core.data.di.Computation
 import javax.inject.Singleton
 import kotlin.time.Duration.Companion.hours
 
@@ -82,6 +85,7 @@ class DefaultTrendingRepository @Inject constructor(
     private val marks: ReadingMarkDao,
     private val clock: Clock,
     private val settings: UserSettingsRepository,
+    @param:Computation private val computation: CoroutineDispatcher,
 ) : TrendingRepository {
 
     private val refreshLock = Mutex()
@@ -98,7 +102,7 @@ class DefaultTrendingRepository @Inject constructor(
             val byForge = repos.map { it.toModel() }.groupBy { it.id.forge }
             val times = fetches.filter { fetch -> forges.any { it.host == fetch.host } }.map { it.fetchedAtMillis }
             TrendingSnapshot(mergeByShare(forges.map { byForge[it].orEmpty() }), times.minOrNull(), forges)
-        }
+        }.flowOn(computation)
 
     /** Refreshes every forge's ranking at once. Fails only when none could be read: one forge down keeps the others. */
     override suspend fun refresh(period: TrendingPeriod, force: Boolean): RefreshResult = refreshLock.withLock {

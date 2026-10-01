@@ -39,7 +39,7 @@ class FeedViewModelTest {
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
-    private fun TestScope.viewModel() = FeedViewModel(feed, previews, settings, accounts).also { it.state.launchIn(backgroundScope) }
+    private fun TestScope.viewModel() = FeedViewModel(feed, previews, settings, accounts, mainDispatcherRule.testDispatcher).also { it.state.launchIn(backgroundScope) }
 
     @Test
     fun the_left_off_mark_sits_above_what_the_last_visit_read() = test {
@@ -59,6 +59,22 @@ class FeedViewModelTest {
         assertThat(feed.readUpTo).isEqualTo(Instant.parse("2026-09-27T09:30:00Z"))
         // Fixed for the visit: reading doesn't move the mark shown.
         assertThat(viewModel.state.value.leftOffBefore).isEqualTo("2")
+    }
+
+    @Test
+    fun the_rows_are_not_rebuilt_when_a_preview_arrives_or_a_refresh_ends() = test {
+        // Regression: every preview fetched while scrolling, and every refresh, sorted and merged the whole Feed again.
+        feed.set(feedEvent("2", createdAt = "2026-09-27T09:00:00Z"), feedEvent("1", repo = "octo/tools", createdAt = "2026-09-27T08:00:00Z"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        val rows = viewModel.state.value.items
+
+        previews.previews.value = FeedPreviews(repos = mapOf(RepoId("octo", "tools") to RepoPreview("Tools", "Kotlin", 3)))
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.previews.repos).hasSize(1)
+        assertThat(viewModel.state.value.items).isSameInstanceAs(rows)
     }
 
     @Test

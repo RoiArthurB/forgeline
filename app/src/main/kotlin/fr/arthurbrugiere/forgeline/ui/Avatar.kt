@@ -46,7 +46,28 @@ fun Avatar(
             }
         }
         if (url != null) {
-            AsyncImage(model = url, contentDescription = null, modifier = Modifier.size(size), onSuccess = { loaded = true })
+            val pixels = with(LocalDensity.current) { size.roundToPx() }
+            AsyncImage(model = remember(url, pixels) { sizedAvatarUrl(url, pixels) }, contentDescription = null, modifier = Modifier.size(size), onSuccess = { loaded = true })
         }
     }
+}
+
+private const val GITHUB_AVATARS = "https://avatars.githubusercontent.com/"
+
+/** The sizes asked of GitHub: a few steps, so one download serves every avatar shown near that size. */
+private val AVATAR_STEPS = listOf(48, 96, 144, 192, 288)
+
+/** GitHub's own largest. */
+private const val AVATAR_FULL = 460
+
+/**
+ * [url] asked at about [pixels] wide, where the forge can: GitHub sends 460 px unless told (`s=`), several times the
+ * bytes a row's avatar needs. Other forges' avatars are left as they are (Codeberg refuses a size).
+ */
+internal fun sizedAvatarUrl(url: String, pixels: Int): String {
+    if (!url.startsWith(GITHUB_AVATARS)) return url
+    val query = url.substringAfter('?', "")
+    if (query.split('&').any { it.startsWith("s=") || it.startsWith("size=") }) return url
+    val size = AVATAR_STEPS.firstOrNull { it >= pixels } ?: AVATAR_FULL
+    return url + (if (query.isEmpty() && '?' !in url) "?" else "&") + "s=$size"
 }

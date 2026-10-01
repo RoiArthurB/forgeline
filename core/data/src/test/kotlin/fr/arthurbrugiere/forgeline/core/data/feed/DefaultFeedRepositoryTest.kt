@@ -27,6 +27,7 @@ import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
+import fr.arthurbrugiere.forgeline.core.testing.RecordingDispatcher
 import fr.arthurbrugiere.forgeline.core.testing.FakeFeedApi
 import fr.arthurbrugiere.forgeline.core.testing.feedEvent
 import kotlinx.coroutines.flow.first
@@ -55,7 +56,8 @@ class DefaultFeedRepositoryTest {
     }
     private val clients = FakeForgeClients(feed = api)
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private val repository = DefaultFeedRepository(database.feedDao(), clients, accounts, database.readingMarkDao(), clock, background)
+    private val computation = RecordingDispatcher()
+    private val repository = DefaultFeedRepository(database.feedDao(), clients, accounts, database.readingMarkDao(), clock, background, computation)
 
     private suspend fun signIn(login: String = "me") = accounts.signIn(ForgeInstance.GitHub, ForgeUser(login, null, null), "t-$login")
 
@@ -64,6 +66,16 @@ class DefaultFeedRepositoryTest {
         // Background work must stop before the database closes under it.
         runBlocking { background.coroutineContext[Job]!!.cancelAndJoin() }
         database.close()
+    }
+
+    @Test
+    fun the_timeline_is_built_off_the_thread_that_reads_it() = runTest {
+        // Regression: events were sorted and merged on the collector's thread, the main thread in the app.
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "t")
+
+        repository.observe().first()
+
+        assertThat(computation.uses.get()).isGreaterThan(0)
     }
 
     @Test

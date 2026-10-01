@@ -22,6 +22,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoPreview
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
+import fr.arthurbrugiere.forgeline.core.testing.RecordingDispatcher
 import fr.arthurbrugiere.forgeline.core.testing.FakeIssueApi
 import fr.arthurbrugiere.forgeline.core.testing.FakeRepoApi
 import fr.arthurbrugiere.forgeline.core.testing.issueDetails
@@ -52,14 +53,24 @@ class DefaultFeedPreviewRepositoryTest {
         override fun withZone(zone: ZoneId?) = this
     }
 
+    private val computation = RecordingDispatcher()
+
     private fun TestScope.repository(issues: IssueApi = issueApi) =
-        DefaultFeedPreviewRepository(database.feedPreviewDao(), FakeForgeClients(repos = repoApi, issues = issues), accounts, clock, backgroundScope)
+        DefaultFeedPreviewRepository(database.feedPreviewDao(), FakeForgeClients(repos = repoApi, issues = issues), accounts, clock, backgroundScope, computation)
 
     private val rocket = RepoId("acme", "rocket")
     private val pull = IssueRef(rocket, 43)
 
     @After
     fun close() = database.close()
+
+    @Test
+    fun previews_are_read_off_the_thread_that_asks_for_them() = runTest {
+        // Regression: every stored preview was parsed on the collector's thread, the main thread in the app.
+        repository().observe().first()
+
+        assertThat(computation.uses.get()).isGreaterThan(0)
+    }
 
     @Test
     fun repo_previews_and_pull_titles_are_fetched_with_the_token_and_cached() = runTest {

@@ -2,7 +2,11 @@ package fr.arthurbrugiere.forgeline
 
 import android.app.Application
 import androidx.work.Configuration
+import coil3.ImageLoader
+import coil3.PlatformContext
+import coil3.SingletonImageLoader
 import dagger.Lazy
+import fr.arthurbrugiere.forgeline.di.forgeImageLoader
 import dagger.hilt.android.HiltAndroidApp
 import fr.arthurbrugiere.forgeline.core.data.account.AccountDataCleaner
 import fr.arthurbrugiere.forgeline.notifications.InboxSyncScheduler
@@ -14,7 +18,10 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltAndroidApp
-class ForgelineApplication : Application(), Configuration.Provider {
+class ForgelineApplication : Application(), Configuration.Provider, SingletonImageLoader.Factory {
+    // Built on first use, off the launch path.
+    override fun newImageLoader(context: PlatformContext): ImageLoader = forgeImageLoader(context)
+
     // WorkManager starts on first use instead of at launch (its initializer is removed in the manifest).
     override val workManagerConfiguration: Configuration get() = Configuration.Builder().build()
 

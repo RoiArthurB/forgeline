@@ -30,6 +30,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Clock
 import javax.inject.Inject
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.CoroutineDispatcher
+import fr.arthurbrugiere.forgeline.core.data.di.Computation
 import javax.inject.Singleton
 
 data class InboxSnapshot(val threads: List<NotificationThread>, val syncedAtMillis: Long?)
@@ -80,6 +83,7 @@ class DefaultInboxRepository @Inject constructor(
     private val conversations: IssueRepository,
     private val clock: Clock,
     @param:BackgroundScope private val scope: CoroutineScope,
+    @param:Computation private val computation: CoroutineDispatcher,
 ) : InboxRepository {
 
     /** One lock per account: two syncs of one account never overlap, and accounts never wait for each other. */
@@ -112,7 +116,8 @@ class DefaultInboxRepository @Inject constructor(
                 )
             }
         }
-    }
+        // Regression: the list was built on whichever thread read it, which was the main thread.
+    }.flowOn(computation)
 
     override suspend fun sync(force: Boolean, waitForFollowUps: Boolean): SyncResult {
         val signedIn = accounts.accounts.first()

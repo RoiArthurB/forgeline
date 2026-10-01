@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.di
 
+import android.content.Context
+import coil3.ImageLoader
+import coil3.network.ktor3.KtorNetworkFetcherFactory
+import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
 import okhttp3.ConnectionPool
@@ -33,3 +37,14 @@ fun forgeEngine(): HttpClientEngine = OkHttp.create {
 }
 
 private const val IDLE_CONNECTIONS = 8
+
+/**
+ * Loads every picture (avatars, README images) through [engine]. Coil's own client was held to OkHttp's 5 requests
+ * per host, so a screen of avatars, all from one host, loaded in waves.
+ */
+fun forgeImageLoader(context: Context, engine: HttpClientEngine = forgeEngine()): ImageLoader {
+    val client = lazy { HttpClient(engine) }
+    return ImageLoader.Builder(context)
+        .components { add(KtorNetworkFetcherFactory(httpClient = { client.value })) }
+        .build()
+}
