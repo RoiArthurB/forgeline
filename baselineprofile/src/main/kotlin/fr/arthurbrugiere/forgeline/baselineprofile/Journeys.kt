@@ -10,9 +10,14 @@ const val PACKAGE_NAME = "fr.arthurbrugiere.forgeline"
 private const val TIMEOUT_MS = 5_000L
 private const val NETWORK_TIMEOUT_MS = 15_000L
 
+/**
+ * A tab is named by its description, not by its text (the label under the icon is hidden from accessibility so the
+ * tab is announced once). Regression: looking for the text found nothing and skipped the tab without a word, so the
+ * profile was recorded without the tabs. A tab that can't be found now fails the recording.
+ */
 fun MacrobenchmarkScope.openTab(label: String) {
-    device.wait(Until.hasObject(By.text(label)), TIMEOUT_MS)
-    device.findObject(By.text(label))?.click()
+    check(device.wait(Until.hasObject(By.desc(label)), TIMEOUT_MS)) { "No \"$label\" tab on screen" }
+    device.findObject(By.desc(label)).click()
     device.waitForIdle()
 }
 
