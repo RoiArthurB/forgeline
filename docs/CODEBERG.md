@@ -152,7 +152,7 @@ Merged order: GitHub #1 and Codeberg #1 (tied at 0.20, GitHub wins ties), GitHub
 What checking the ratio turned up:
 
 - **The forge's own order is kept.** GitHub's trending order isn't strictly by stars gained, and PRODUCT.md says a forge's ranking must be kept. So the lists aren't re-sorted by score; they are *merged* like the merge step of a merge sort: at each step, the head with the higher score goes next. GitHub's #3 can never jump above its #2.
-- **Same list length on both sides.** The sum is over each forge's top 25, so a forge doesn't get bigger shares just by listing fewer repositories. A forge with fewer than 25 entries is summed over what it has; the 2-star floor keeps that from turning a handful of stars into huge shares.
+- **Same list length on both sides.** The sum is over each forge's top 25, so a forge doesn't get bigger shares just by listing fewer repositories. A forge with fewer than 25 entries is summed over what it has. Under 10 entries its shares are scaled down in proportion (`entries / 10`): the 2-star floor alone didn't keep a handful of stars from turning into huge shares, and three projects with 3, 2 and 2 stars would have stood above a repository that gained over a thousand. Lists are that short on quiet days and while a forge's history builds up.
 - **The true totals aren't available.** Neither forge publishes how many stars were given in total that day, so "share of the forge's total" is taken over the trending list, which is where nearly all of a day's attention goes anyway.
 - **One standout wins.** A forge with one repository far ahead of the rest gives it a big share and puts it near the top of the merged page. That's intended: it is the story of the day on that forge.
 

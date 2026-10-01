@@ -157,13 +157,21 @@ abstract class ForgeClientsModule {
         @Provides
         @CodebergClientId
         fun provideCodebergClientId(): String = BuildConfig.CODEBERG_CLIENT_ID
-
-        @Provides
-        @CodebergTrendingUrl
-        fun provideCodebergTrendingUrl(): String = BuildConfig.CODEBERG_TRENDING_URL
-
-        @Provides
-        @GitLabTrendingUrl
-        fun provideGitLabTrendingUrl(): String = BuildConfig.GITLAB_TRENDING_URL
     }
+}
+
+/**
+ * Where the daily job publishes the Trending lists everyone sees. A module of its own, so app-level tests can blank
+ * the addresses and stay off the network: a blank address leaves the forge out of the page.
+ */
+@Module
+@InstallIn(SingletonComponent::class)
+object PublishedTrendingModule {
+    @Provides
+    @CodebergTrendingUrl
+    fun provideCodebergTrendingUrl(): String = BuildConfig.CODEBERG_TRENDING_URL
+
+    @Provides
+    @GitLabTrendingUrl
+    fun provideGitLabTrendingUrl(): String = BuildConfig.GITLAB_TRENDING_URL
 }

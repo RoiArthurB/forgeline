@@ -194,13 +194,23 @@ class DefaultTrendingRepository @Inject constructor(
  * Merges each forge's ranking into one page, by each repository's share of its forge's stars gained over the list
  * (`periodStars / sum`), so 30 stars on Codeberg can stand with 2,400 on GitHub. Like a merge sort's merge step: each
  * forge's own order is kept, and the head with the larger share goes next; the forge listed first wins ties.
+ *
+ * A forge listing fewer than [MIN_SHARE_ENTRIES] repositories has its shares scaled down in proportion
+ * (`size / MIN_SHARE_ENTRIES`). Regression: a share is only comparable when the list it is taken over is long enough.
+ * Three projects with 3, 2 and 2 stars "held" 43%, 29% and 29% of their forge and stood above a repository that
+ * gained over a thousand; a forge's lists are that short on quiet days and while its history builds up.
  */
+/** The list length from which a forge's shares count in full. Every list GitHub gives is longer. */
+const val MIN_SHARE_ENTRIES = 10
+
 fun mergeByShare(rankings: List<List<TrendingRepo>>): List<TrendingRepo> {
     val totals = rankings.map { list -> list.sumOf { it.periodStars.toLong() } }
     val next = IntArray(rankings.size)
     fun share(forge: Int): Double {
         val total = totals[forge]
-        return if (total == 0L) 0.0 else rankings[forge][next[forge]].periodStars.toDouble() / total
+        if (total == 0L) return 0.0
+        val weight = minOf(1.0, rankings[forge].size.toDouble() / MIN_SHARE_ENTRIES)
+        return rankings[forge][next[forge]].periodStars.toDouble() / total * weight
     }
     return buildList {
         while (true) {
