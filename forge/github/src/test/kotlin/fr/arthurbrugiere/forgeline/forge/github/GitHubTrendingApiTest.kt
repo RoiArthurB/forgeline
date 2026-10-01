@@ -16,7 +16,7 @@ import org.junit.Test
 import java.io.IOException
 
 class GitHubTrendingApiTest {
-    private val requests = mutableListOf<HttpRequestData>()
+    private val requests = java.util.concurrent.CopyOnWriteArrayList<HttpRequestData>()
     private val page = requireNotNull(javaClass.getResource("/github/trending_daily.html")).readText()
 
     private fun kotlinx.coroutines.test.TestScope.api(respond: suspend io.ktor.client.engine.mock.MockRequestHandleScope.() -> io.ktor.client.request.HttpResponseData) =

@@ -28,7 +28,7 @@ import java.time.Instant
  * objects (no title) and the "merged" action.
  */
 class GitHubFeedApiTest {
-    private val requests = mutableListOf<HttpRequestData>()
+    private val requests = java.util.concurrent.CopyOnWriteArrayList<HttpRequestData>()
     private val fixture = requireNotNull(javaClass.getResource("/github/feed/received_events.json")).readText()
 
     private fun MockRequestHandleScope.json(body: String, headers: Map<String, String> = emptyMap(), status: HttpStatusCode = HttpStatusCode.OK) =

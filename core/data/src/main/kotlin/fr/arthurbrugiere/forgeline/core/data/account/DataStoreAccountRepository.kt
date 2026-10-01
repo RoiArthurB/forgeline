@@ -23,6 +23,7 @@ import kotlinx.coroutines.sync.withLock
 import java.security.GeneralSecurityException
 import java.time.Clock
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /** Asks a forge for a new access token. */
 fun interface TokenRefresher {
@@ -33,6 +34,7 @@ class ForgeTokenRefresher @Inject constructor(private val clients: ForgeClients)
     override suspend fun refresh(forge: ForgeInstance, refreshToken: String) = clients.auth(forge).refresh(refreshToken)
 }
 
+@Singleton
 class DataStoreAccountRepository @Inject constructor(
     @param:AccountsDataStore private val dataStore: DataStore<Preferences>,
     private val cipher: TokenCipher,

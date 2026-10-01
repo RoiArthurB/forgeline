@@ -206,8 +206,7 @@ class DefaultFeedRepository @Inject constructor(
     private companion object {
         const val DEFAULT_POLL_SECONDS = 60
 
-        /** Rows of starred-repository activity are kept under the account's id with this prefix, apart from its own events. */
-        const val STARRED = "starred:"
+        const val STARRED = STARRED_PREFIX
         const val STARRED_WINDOW_DAYS = 30L
         const val STARRED_INTERVAL_MILLIS = 30 * 60_000L
         const val STARRED_FORCED_MILLIS = 5 * 60_000L

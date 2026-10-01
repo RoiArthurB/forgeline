@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import io.ktor.client.call.NoTransformationFoundException
+import io.ktor.serialization.ContentConvertException
+import java.time.DateTimeException
 import io.ktor.client.plugins.timeout
 import io.ktor.client.plugins.HttpTimeout
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -78,7 +81,17 @@ internal suspend inline fun <T> forgejoCall(block: () -> ForgeResult<T>): ForgeR
     throw e
 } catch (e: IOException) {
     ForgeResult.Failure(ForgeError.Network)
+} catch (e: Exception) {
+    // Regression: an answer the app couldn't read (a web page, a field missing, a bad date) used to crash it.
+    if (e.isUnreadableAnswer()) ForgeResult.Failure(ForgeError.Unreadable) else throw e
 }
+
+/** Whether [this] comes from reading an answer that isn't what the API promises, rather than from a bug elsewhere. */
+@PublishedApi
+internal fun Exception.isUnreadableAnswer(): Boolean =
+    this is ContentConvertException || this is NoTransformationFoundException ||
+        // Covers kotlinx.serialization's errors, bad numbers and bad Base64.
+        this is IllegalArgumentException || this is DateTimeException || this is NoSuchElementException
 
 internal suspend inline fun <T> HttpResponse.toResult(parse: HttpResponse.() -> T): ForgeResult<T> =
     if (status.isSuccess()) ForgeResult.Success(parse()) else failure()

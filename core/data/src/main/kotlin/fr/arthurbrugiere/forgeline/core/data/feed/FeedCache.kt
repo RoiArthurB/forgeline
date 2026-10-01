@@ -19,6 +19,9 @@ import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 
+/** Rows of starred-repository activity are kept under the account's id with this prefix, apart from its own events. */
+internal const val STARRED_PREFIX = "starred:"
+
 /** A Feed event; its action is spread over a few generic columns (see [toEntity]). */
 @Entity(tableName = "feed_events", primaryKeys = ["accountId", "id"])
 data class FeedEventEntity(
@@ -65,6 +68,19 @@ interface FeedDao {
     suspend fun replace(accountId: String, entities: List<FeedEventEntity>) {
         clear(accountId)
         insert(entities)
+    }
+
+    @Query("DELETE FROM feed_events WHERE accountId NOT IN (:accountIds)")
+    suspend fun keepEventsOf(accountIds: List<String>)
+
+    @Query("DELETE FROM feed_sync WHERE accountId NOT IN (:accountIds)")
+    suspend fun keepSyncsOf(accountIds: List<String>)
+
+    /** Deletes every row kept under an id other than [accountIds]: those of accounts that signed out. */
+    @Transaction
+    suspend fun keepOnly(accountIds: List<String>) {
+        keepEventsOf(accountIds)
+        keepSyncsOf(accountIds)
     }
 
     @Query("SELECT * FROM feed_sync")

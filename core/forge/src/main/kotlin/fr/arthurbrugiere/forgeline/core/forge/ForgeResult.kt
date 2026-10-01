@@ -15,6 +15,9 @@ sealed interface ForgeError {
 
     data class Http(val status: Int, val message: String?) : ForgeError
 
+    /** The forge answered, but not with what its API promises: a page instead of data, a field missing, a date that isn't one. */
+    data object Unreadable : ForgeError
+
     /** The forge has no API for this (Actions on a Forgejo instance, for example). */
     data object Unsupported : ForgeError
 }

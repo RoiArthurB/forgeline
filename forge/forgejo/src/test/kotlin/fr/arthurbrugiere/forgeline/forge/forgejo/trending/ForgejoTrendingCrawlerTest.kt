@@ -21,7 +21,7 @@ import java.time.ZoneOffset
 /** Against real codeberg.org answers captured on 2026-09-30 (trimmed to two repositories). */
 class ForgejoTrendingCrawlerTest {
     private val now = Instant.parse("2026-09-30T02:17:00Z")
-    private val requests = mutableListOf<HttpRequestData>()
+    private val requests = java.util.concurrent.CopyOnWriteArrayList<HttpRequestData>()
 
     private fun fixture(name: String) = requireNotNull(javaClass.getResource("/codeberg/$name")).readText()
 

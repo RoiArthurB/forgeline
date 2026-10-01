@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.account.SignedOutData
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import kotlinx.coroutines.flow.SharingStarted
@@ -28,12 +29,17 @@ fun SessionState.signedInOn(forge: ForgeInstance): Boolean = this is SessionStat
 @HiltViewModel
 class SessionViewModel @Inject constructor(
     private val accounts: AccountRepository,
+    private val signedOutData: SignedOutData,
 ) : ViewModel() {
     val session: StateFlow<SessionState> = combine(accounts.activeAccount, accounts.accounts) { active, all ->
         active?.let { SessionState.SignedIn(it, all) } ?: SessionState.SignedOut
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SessionState.Loading)
 
     fun signOut(account: Account) {
-        viewModelScope.launch { accounts.signOut(account.id) }
+        viewModelScope.launch {
+            accounts.signOut(account.id)
+            // What the app kept for the account goes with it.
+            signedOutData.forget(account)
+        }
     }
 }

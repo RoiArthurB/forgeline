@@ -110,6 +110,26 @@ interface InboxDao {
     @Query("SELECT * FROM subject_states")
     suspend fun states(): List<SubjectStateEntity>
 
+    @Query("DELETE FROM subject_states WHERE host = :host")
+    suspend fun clearStates(host: String)
+
+    @Query("DELETE FROM notifications WHERE accountId NOT IN (:accountIds)")
+    suspend fun keepThreadsOf(accountIds: List<String>)
+
+    @Query("DELETE FROM inbox_sync WHERE accountId NOT IN (:accountIds)")
+    suspend fun keepSyncsOf(accountIds: List<String>)
+
+    @Query("DELETE FROM inbox_done WHERE accountId NOT IN (:accountIds)")
+    suspend fun keepDoneOf(accountIds: List<String>)
+
+    /** Deletes every row of accounts other than [accountIds]: those that signed out. */
+    @Transaction
+    suspend fun keepOnly(accountIds: List<String>) {
+        keepThreadsOf(accountIds)
+        keepSyncsOf(accountIds)
+        keepDoneOf(accountIds)
+    }
+
     @Upsert
     suspend fun upsertStates(entities: List<SubjectStateEntity>)
 

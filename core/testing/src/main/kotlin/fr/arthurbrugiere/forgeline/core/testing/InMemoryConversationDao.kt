@@ -15,6 +15,10 @@ class InMemoryConversationDao : ConversationDao {
         entities[key(entity.host, entity.owner, entity.name, entity.number)] = entity
     }
 
+    override suspend fun clear(host: String) {
+        entities.values.removeAll { it.host == host }
+    }
+
     override suspend fun prune(keep: Int) {
         entities.values.sortedByDescending { it.viewedAtMillis }.drop(keep).forEach { entities.remove(key(it.host, it.owner, it.name, it.number)) }
     }

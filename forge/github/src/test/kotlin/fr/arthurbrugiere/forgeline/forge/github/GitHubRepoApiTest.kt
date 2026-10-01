@@ -22,7 +22,7 @@ import java.time.Instant
 
 /** Fixtures are real api.github.com responses for paperclipai/paperclip captured on 2026-09-26. */
 class GitHubRepoApiTest {
-    private val requests = mutableListOf<HttpRequestData>()
+    private val requests = java.util.concurrent.CopyOnWriteArrayList<HttpRequestData>()
     private val paperclip = RepoId("paperclipai", "paperclip")
 
     private fun fixture(name: String) = requireNotNull(javaClass.getResource("/github/repo/$name")) { name }.readText()
@@ -237,5 +237,28 @@ class GitHubRepoApiTest {
 
         assertThat(api.rawBaseUrl(paperclip, "master")).isEqualTo("https://raw.githubusercontent.com/paperclipai/paperclip/master/")
         assertThat(api.blobBaseUrl(paperclip, "master")).isEqualTo("https://github.com/paperclipai/paperclip/blob/master/")
+    }
+
+    // Regression: only network errors were caught, so an answer the app couldn't read crashed it.
+
+    @Test
+    fun an_answer_missing_what_the_api_promises_is_a_failure_not_a_crash() = runTest {
+        val result = api { json("""{"name":"paperclip"}""") }.repo(null, paperclip)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unreadable))
+    }
+
+    @Test
+    fun a_web_page_where_data_was_expected_is_a_failure_not_a_crash() = runTest {
+        val result = api { respond("<html>Maintenance</html>", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "text/html")) }.repo(null, paperclip)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unreadable))
+    }
+
+    @Test
+    fun a_date_that_is_not_one_is_a_failure_not_a_crash() = runTest {
+        val body = """{"name":"paperclip","owner":{"login":"paperclipai"},"default_branch":"master","pushed_at":"yesterday"}"""
+
+        assertThat(api { json(body) }.repo(null, paperclip)).isEqualTo(ForgeResult.Failure(ForgeError.Unreadable))
     }
 }

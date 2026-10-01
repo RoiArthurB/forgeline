@@ -27,6 +27,9 @@ interface UserRepository {
     suspend fun isFollowing(forge: ForgeInstance, login: String): Boolean?
 
     suspend fun setFollowing(forge: ForgeInstance, login: String, follow: Boolean): ForgeResult<Unit>
+
+    /** Forgets every profile kept from [forge]. */
+    fun forget(forge: ForgeInstance)
 }
 
 @Singleton
@@ -48,6 +51,10 @@ class DefaultUserRepository @Inject constructor(
         clients.users(forge).user(accounts.tokenOn(forge), login).also { result ->
             if (result is ForgeResult.Success) synchronized(profiles) { profiles[key(forge, login)] = result.value }
         }
+
+    override fun forget(forge: ForgeInstance) {
+        synchronized(profiles) { profiles.keys.removeAll { it.startsWith("${forge.host}/") } }
+    }
 
     override suspend fun repos(forge: ForgeInstance, login: String) = clients.users(forge).repos(accounts.tokenOn(forge), login)
 

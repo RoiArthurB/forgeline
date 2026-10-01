@@ -35,6 +35,10 @@ interface RepoDao {
 
     @Upsert
     suspend fun upsert(entity: RepoCacheEntity)
+
+    /** Deletes every repository kept from [host]. */
+    @Query("DELETE FROM repo_cache WHERE requestedName LIKE :host || '/%'")
+    suspend fun clear(host: String)
 }
 
 @Serializable

@@ -322,6 +322,20 @@ class SignInViewModelTest {
     }
 
     @Test
+    fun a_server_answering_with_a_web_page_is_not_a_forge() = test {
+        val website = ForgeInstance(ForgeType.FORGEJO, "example.org")
+        clients.put(website, FakeForgeClients(auth = FakeForgeAuthApi(supportsDeviceFlow = false, forge = website).apply { userFailure = ForgeError.Unreadable }))
+        val viewModel = viewModel()
+
+        viewModel.selectForge(SignInForge.OTHER)
+        viewModel.setHost("example.org")
+        viewModel.signInWithToken("tok")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.Failed(SignInError.NOT_A_FORGE))
+    }
+
+    @Test
     fun without_an_address_there_is_nothing_to_sign_in_to() = test {
         val viewModel = viewModel()
 

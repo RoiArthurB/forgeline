@@ -21,7 +21,7 @@ import java.time.Instant
 
 /** Fixtures are real public search responses captured on 2026-09-27 (trimmed to a few items). */
 class GitHubSearchApiTest {
-    private val requests = mutableListOf<HttpRequestData>()
+    private val requests = java.util.concurrent.CopyOnWriteArrayList<HttpRequestData>()
 
     private fun fixture(name: String) = requireNotNull(javaClass.getResource("/github/search/$name.json")).readText()
 

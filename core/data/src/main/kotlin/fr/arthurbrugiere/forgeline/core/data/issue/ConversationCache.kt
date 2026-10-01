@@ -43,6 +43,9 @@ interface ConversationDao {
     @Upsert
     suspend fun upsert(entity: ConversationEntity)
 
+    @Query("DELETE FROM conversations WHERE host = :host")
+    suspend fun clear(host: String)
+
     /** Keeps the [keep] most recently viewed conversations. */
     @Query("DELETE FROM conversations WHERE viewedAtMillis < (SELECT MIN(viewedAtMillis) FROM (SELECT viewedAtMillis FROM conversations ORDER BY viewedAtMillis DESC LIMIT :keep))")
     suspend fun prune(keep: Int)

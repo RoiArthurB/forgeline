@@ -17,7 +17,7 @@ import org.junit.Test
 
 /** Fixtures: real api.github.com responses for octocat and the github org, captured 2026-09-27. */
 class GitHubUserApiTest {
-    private val requests = mutableListOf<HttpRequestData>()
+    private val requests = java.util.concurrent.CopyOnWriteArrayList<HttpRequestData>()
 
     private fun fixture(name: String) = requireNotNull(javaClass.getResource("/github/user/$name")) { name }.readText()
 

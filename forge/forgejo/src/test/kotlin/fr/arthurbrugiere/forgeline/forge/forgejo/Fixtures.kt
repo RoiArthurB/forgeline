@@ -11,7 +11,8 @@ import io.ktor.http.headersOf
 
 /** Real codeberg.org answers captured on 2026-09-29 (some lists trimmed), served by path. */
 internal class Codeberg {
-    val requests = mutableListOf<HttpRequestData>()
+    // Requests sent at once arrive on several threads: a plain list lost its footing now and then (a flaky test).
+    val requests = java.util.concurrent.CopyOnWriteArrayList<HttpRequestData>()
 
     fun fixture(name: String) = requireNotNull(javaClass.getResource("/codeberg/$name")) { name }.readText()
 

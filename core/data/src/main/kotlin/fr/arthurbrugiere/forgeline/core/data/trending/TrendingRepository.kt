@@ -24,6 +24,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Clock
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.time.Duration.Companion.hours
 
 /**
@@ -73,6 +74,7 @@ interface TrendingRepository {
  * published list when it has one, or the phone's own measurements when the settings ask for them. Each forge's
  * ranking is cached and refreshed on its own; the page merges them with [mergeByShare].
  */
+@Singleton
 class DefaultTrendingRepository @Inject constructor(
     private val dao: TrendingDao,
     private val clients: ForgeClients,

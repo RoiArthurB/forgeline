@@ -29,6 +29,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import java.time.Clock
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 
@@ -54,6 +55,10 @@ interface FeedPreviewDao {
     @Upsert
     suspend fun upsert(previews: List<FeedPreviewEntity>)
 
+    /** Deletes the previews of [host]'s repositories and pull requests. */
+    @Query("DELETE FROM feed_previews WHERE key LIKE 'repo:' || :host || '/%' OR key LIKE 'pull:' || :host || '/%'")
+    suspend fun clear(host: String)
+
     @Query("DELETE FROM feed_previews WHERE fetchedAtMillis < :before")
     suspend fun deleteOlderThan(before: Long)
 }
@@ -70,6 +75,7 @@ interface FeedPreviewRepository {
     suspend fun ensure(repos: Set<RepoId>, pulls: Set<IssueRef>)
 }
 
+@Singleton
 class DefaultFeedPreviewRepository @Inject constructor(
     private val dao: FeedPreviewDao,
     private val clients: ForgeClients,

@@ -8,6 +8,7 @@ import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
 import kotlinx.coroutines.flow.first
@@ -34,6 +35,9 @@ interface IssueRepository {
     suspend fun prefetch(ref: IssueRef, activityAt: Instant): Boolean
 
     suspend fun timeline(ref: IssueRef, page: Int): ForgeResult<TimelinePage>
+
+    /** Deletes every conversation kept from [forge], in this session and on disk. */
+    suspend fun forget(forge: ForgeInstance)
 }
 
 @Singleton
@@ -88,6 +92,11 @@ class DefaultIssueRepository @Inject constructor(
 
     override suspend fun timeline(ref: IssueRef, page: Int): ForgeResult<TimelinePage> = clients.issues(ref.repo.forge).timeline(accounts.tokenOn(ref.repo.forge), ref, page).also { result ->
         if (result is ForgeResult.Success && page == 1) update(ref) { it.copy(firstPage = result.value) }
+    }
+
+    override suspend fun forget(forge: ForgeInstance) {
+        synchronized(cache) { cache.keys.removeAll { it.repo.forge == forge } }
+        dao.clear(forge.host)
     }
 
     private suspend fun update(ref: IssueRef, change: (CachedConversation) -> CachedConversation) {

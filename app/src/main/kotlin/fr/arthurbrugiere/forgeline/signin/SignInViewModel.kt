@@ -227,6 +227,8 @@ class SignInViewModel @Inject constructor(
                 is ForgeError.RateLimited -> SignInError.RATE_LIMITED
                 // A server that isn't a Forgejo answers its API paths with a 404.
                 is ForgeError.Http -> if (error.status == 404 && _state.value.forge == SignInForge.OTHER) SignInError.NOT_A_FORGE else SignInError.UNKNOWN
+                // A server that isn't a Forgejo can also answer them with a web page.
+                ForgeError.Unreadable -> if (_state.value.forge == SignInForge.OTHER) SignInError.NOT_A_FORGE else SignInError.UNKNOWN
                 ForgeError.Unsupported -> SignInError.UNKNOWN
             },
         ),

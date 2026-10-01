@@ -27,7 +27,7 @@ import java.util.Base64
 
 /** Fixtures are real api.github.com responses for paperclipai/paperclip captured on 2026-09-29, some trimmed. */
 class GitHubActionsApiTest {
-    private val requests = mutableListOf<HttpRequestData>()
+    private val requests = java.util.concurrent.CopyOnWriteArrayList<HttpRequestData>()
     private val paperclip = RepoId("paperclipai", "paperclip")
     private val release = Workflow(1, "Release", ".github/workflows/release.yml")
 

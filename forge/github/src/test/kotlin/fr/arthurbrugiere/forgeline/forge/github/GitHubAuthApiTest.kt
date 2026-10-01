@@ -22,7 +22,7 @@ import org.junit.Test
 import java.io.IOException
 
 class GitHubAuthApiTest {
-    private val requests = mutableListOf<HttpRequestData>()
+    private val requests = java.util.concurrent.CopyOnWriteArrayList<HttpRequestData>()
 
     private fun api(
         clientId: String = "client-123",

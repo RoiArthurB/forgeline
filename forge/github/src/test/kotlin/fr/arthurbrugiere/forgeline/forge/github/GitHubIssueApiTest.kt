@@ -24,7 +24,7 @@ import java.time.Instant
 
 /** Fixtures: real paperclipai/paperclip issue #5462 and merged PR #14187, captured 2026-09-27. */
 class GitHubIssueApiTest {
-    private val requests = mutableListOf<HttpRequestData>()
+    private val requests = java.util.concurrent.CopyOnWriteArrayList<HttpRequestData>()
     private val repo = RepoId("paperclipai", "paperclip")
     private val issue = IssueRef(repo, 5462)
     private val pr = IssueRef(repo, 14187)

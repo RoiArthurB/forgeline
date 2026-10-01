@@ -13,7 +13,9 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import fr.arthurbrugiere.forgeline.core.data.account.AccountDataCleaner
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.account.SignedOutData
 import fr.arthurbrugiere.forgeline.core.data.account.ForgeTokenRefresher
 import fr.arthurbrugiere.forgeline.core.data.account.TokenRefresher
 import fr.arthurbrugiere.forgeline.core.data.account.DataStoreAccountRepository
@@ -61,6 +63,9 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindAccountRepository(impl: DataStoreAccountRepository): AccountRepository
+
+    @Binds
+    abstract fun bindSignedOutData(impl: AccountDataCleaner): SignedOutData
 
     @Binds
     abstract fun bindTokenCipher(impl: KeystoreTokenCipher): TokenCipher

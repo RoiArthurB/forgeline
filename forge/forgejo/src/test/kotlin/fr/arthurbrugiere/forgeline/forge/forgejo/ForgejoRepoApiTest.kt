@@ -135,4 +135,21 @@ class ForgejoRepoApiTest {
 
         assertThat((result as ForgeResult.Failure).error).isInstanceOf(ForgeError.RateLimited::class.java)
     }
+
+    // Regression: only network errors were caught, so an answer the app couldn't read crashed it. A self-hosted
+    // server behind a proxy can answer its API paths with a web page.
+
+    @Test
+    fun a_web_page_where_data_was_expected_is_a_failure_not_a_crash() = runTest {
+        val result = with(codeberg) { api { text("<html>Maintenance</html>") } }.repo(null, forgejo)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unreadable))
+    }
+
+    @Test
+    fun an_answer_missing_what_the_api_promises_is_a_failure_not_a_crash() = runTest {
+        val result = with(codeberg) { api { json("""{"description":"no name, no owner"}""") } }.repo(null, forgejo)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unreadable))
+    }
 }

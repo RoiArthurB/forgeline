@@ -4,11 +4,11 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.TrendingMeasurement
 import fr.arthurbrugiere.forgeline.core.forge.TrendingMeter
+import fr.arthurbrugiere.forgeline.forge.forgejo.isUnreadableAnswer
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
-import kotlinx.serialization.SerializationException
 import java.io.IOException
 import java.time.Clock
 
@@ -36,8 +36,8 @@ class ForgejoTrendingMeter(
         throw e
     } catch (e: IOException) {
         ForgeResult.Failure(ForgeError.Network)
-    } catch (e: SerializationException) {
-        ForgeResult.Failure(ForgeError.Http(200, "Unreadable search answer"))
+    } catch (e: Exception) {
+        if (e.isUnreadableAnswer()) ForgeResult.Failure(ForgeError.Unreadable) else throw e
     }
 
     private companion object {

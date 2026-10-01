@@ -31,7 +31,7 @@ import java.time.Instant
  * the exact shape of a real /notifications response inspected on 2026-09-27.
  */
 class GitHubNotificationsApiTest {
-    private val requests = mutableListOf<HttpRequestData>()
+    private val requests = java.util.concurrent.CopyOnWriteArrayList<HttpRequestData>()
     private val fixture = requireNotNull(javaClass.getResource("/github/notifications/threads.json")).readText()
 
     private fun MockRequestHandleScope.json(body: String, headers: Map<String, String> = emptyMap(), status: HttpStatusCode = HttpStatusCode.OK) =

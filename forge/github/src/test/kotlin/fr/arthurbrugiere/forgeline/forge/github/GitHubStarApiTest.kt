@@ -21,7 +21,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Test
 
 class GitHubStarApiTest {
-    private val requests = mutableListOf<HttpRequestData>()
+    private val requests = java.util.concurrent.CopyOnWriteArrayList<HttpRequestData>()
 
     private fun api(handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData) =
         GitHubStarApi(gitHubHttpClient(MockEngine { requests += it; handler(it) }))
