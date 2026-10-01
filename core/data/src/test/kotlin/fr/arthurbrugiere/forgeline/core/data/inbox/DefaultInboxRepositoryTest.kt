@@ -408,8 +408,9 @@ class DefaultInboxRepositoryTest {
         api.gate = slow
 
         val sync = async { repository.sync(force = true, waitForFollowUps = true) }
-        // GitHub is still answering; Codeberg is asked all the same.
-        realTime { while (codebergApi.calls.isEmpty()) delay(10) }
+        // GitHub is still answering; Codeberg is asked all the same. Both run on real threads, so wait for both to have
+        // been asked: asserting GitHub's call the instant Codeberg's shows raced on a slow machine (CI, 2026-10-01).
+        realTime { while (codebergApi.calls.isEmpty() || api.calls.isEmpty()) delay(10) }
         assertThat(api.calls).containsExactly("threads")
         slow.complete(Unit)
 
