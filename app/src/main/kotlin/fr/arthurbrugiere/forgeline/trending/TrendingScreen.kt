@@ -116,7 +116,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalUriHandler
+import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import androidx.compose.runtime.setValue
 
 @Composable
@@ -127,7 +127,7 @@ fun TrendingRoute(
     viewModel: TrendingViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val uriHandler = LocalUriHandler.current
+    val openUrl = rememberCustomTabOpener()
     TrendingScreen(
         state = state,
         onPeriodChange = viewModel::selectPeriod,
@@ -135,7 +135,7 @@ fun TrendingRoute(
         // Starring needs an account on the repository's own forge.
         onToggleStar = { repo -> if (session.signedInOn(repo.forge)) viewModel.toggleStar(repo) else onSignIn() },
         // The app can't open a GitLab repository yet: its page on gitlab.com can.
-        onOpenRepo = { repo -> if (repo.forge.isBrowsable) onOpenRepo(repo) else uriHandler.openUri(repo.webUrl) },
+        onOpenRepo = { repo -> if (repo.forge.isBrowsable) onOpenRepo(repo) else openUrl(repo.webUrl) },
         onErrorShown = viewModel::errorShown,
         onStarFailureShown = viewModel::starFailureShown,
         onReadThrough = viewModel::readThrough,
