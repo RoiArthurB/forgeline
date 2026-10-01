@@ -53,17 +53,21 @@ data class TrendingMeasurementEntity(
     val measuredAtMillis: Long,
 )
 
+/** Kept in the reader's own database ([fr.arthurbrugiere.forgeline.core.data.database.UserStateDatabase]): a history can't be fetched again. */
 @Dao
-interface TrendingDao {
+interface TrendingMeasurementDao {
     @Query("SELECT * FROM trending_measurements WHERE host = :host")
     suspend fun measurement(host: String): TrendingMeasurementEntity?
 
     @Upsert
-    suspend fun upsertMeasurement(measurement: TrendingMeasurementEntity)
+    suspend fun upsert(measurement: TrendingMeasurementEntity)
 
     @Query("SELECT host, '' AS state, measuredAtMillis FROM trending_measurements")
-    fun observeMeasurements(): Flow<List<TrendingMeasurementEntity>>
+    fun observe(): Flow<List<TrendingMeasurementEntity>>
+}
 
+@Dao
+interface TrendingDao {
     /** Every forge's ranking for [period], each in its own order. */
     @Query("SELECT * FROM trending_repos WHERE period = :period ORDER BY host, rank")
     fun observeRepos(period: String): Flow<List<TrendingRepoEntity>>

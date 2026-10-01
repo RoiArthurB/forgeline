@@ -12,6 +12,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.database.ForgelineDatabase
+import fr.arthurbrugiere.forgeline.core.data.database.UserStateDatabase
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
@@ -35,6 +36,9 @@ class DefaultTrendingRepositoryTest {
     private val database = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), ForgelineDatabase::class.java)
         .allowMainThreadQueries()
         .build()
+    private val state = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), UserStateDatabase::class.java)
+        .allowMainThreadQueries()
+        .build()
     private val api = FakeTrendingApi()
     private var now = Instant.parse("2026-09-26T08:00:00Z")
     private val clock = object : Clock() {
@@ -46,7 +50,7 @@ class DefaultTrendingRepositoryTest {
     private val accounts = FakeAccountRepository()
     private val settings = FakeUserSettingsRepository()
     private val computation = RecordingDispatcher()
-    private val repository = DefaultTrendingRepository(database.trendingDao(), clients, accounts, database.readingMarkDao(), clock, settings, computation)
+    private val repository = DefaultTrendingRepository(database.trendingDao(), state.trendingMeasurementDao(), clients, accounts, state.readingMarkDao(), clock, settings, computation)
     private val codebergApi = FakeTrendingApi(ForgeInstance.Codeberg).also { clients.put(ForgeInstance.Codeberg, FakeForgeClients(trending = it)) }
 
     private val paperclip = trendingRepo("paperclipai/paperclip").copy(
@@ -56,7 +60,10 @@ class DefaultTrendingRepositoryTest {
     private val hindsight = trendingRepo("vectorize-io/hindsight", description = null)
 
     @After
-    fun closeDatabase() = database.close()
+    fun closeDatabase() {
+        database.close()
+        state.close()
+    }
 
     @Test
     fun the_page_is_merged_off_the_thread_that_reads_it() = runTest {

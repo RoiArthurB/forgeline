@@ -97,16 +97,6 @@ interface InboxDao {
     @Query("SELECT * FROM subject_states")
     fun observeStates(): Flow<List<SubjectStateEntity>>
 
-    @Query("SELECT * FROM inbox_done")
-    fun observeDone(): Flow<List<DoneEntity>>
-
-    @Upsert
-    suspend fun upsertDone(entity: DoneEntity)
-
-    /** Forgets what was done on threads the forge no longer lists. */
-    @Query("DELETE FROM inbox_done WHERE accountId = :accountId AND threadId NOT IN (:threadIds)")
-    suspend fun pruneDone(accountId: String, threadIds: List<String>)
-
     @Query("SELECT * FROM subject_states")
     suspend fun states(): List<SubjectStateEntity>
 
@@ -119,15 +109,11 @@ interface InboxDao {
     @Query("DELETE FROM inbox_sync WHERE accountId NOT IN (:accountIds)")
     suspend fun keepSyncsOf(accountIds: List<String>)
 
-    @Query("DELETE FROM inbox_done WHERE accountId NOT IN (:accountIds)")
-    suspend fun keepDoneOf(accountIds: List<String>)
-
     /** Deletes every row of accounts other than [accountIds]: those that signed out. */
     @Transaction
     suspend fun keepOnly(accountIds: List<String>) {
         keepThreadsOf(accountIds)
         keepSyncsOf(accountIds)
-        keepDoneOf(accountIds)
     }
 
     @Upsert
@@ -141,6 +127,24 @@ interface InboxDao {
 
     @Upsert
     suspend fun upsertSync(entity: InboxSyncEntity)
+}
+
+/** Kept in the reader's own database ([fr.arthurbrugiere.forgeline.core.data.database.UserStateDatabase]), not the cache. */
+@Dao
+interface DoneDao {
+    @Query("SELECT * FROM inbox_done")
+    fun observe(): Flow<List<DoneEntity>>
+
+    @Upsert
+    suspend fun upsert(entity: DoneEntity)
+
+    /** Forgets what was done on threads the forge no longer lists. */
+    @Query("DELETE FROM inbox_done WHERE accountId = :accountId AND threadId NOT IN (:threadIds)")
+    suspend fun prune(accountId: String, threadIds: List<String>)
+
+    /** Deletes what was done by accounts other than [accountIds]: those that signed out. */
+    @Query("DELETE FROM inbox_done WHERE accountId NOT IN (:accountIds)")
+    suspend fun keepOnly(accountIds: List<String>)
 }
 
 internal fun NotificationThread.toEntity(accountId: String) = NotificationEntity(

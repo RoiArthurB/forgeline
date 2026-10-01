@@ -21,7 +21,12 @@ import fr.arthurbrugiere.forgeline.core.data.account.TokenRefresher
 import fr.arthurbrugiere.forgeline.core.data.account.DataStoreAccountRepository
 import fr.arthurbrugiere.forgeline.core.data.account.KeystoreTokenCipher
 import fr.arthurbrugiere.forgeline.core.data.account.TokenCipher
+import fr.arthurbrugiere.forgeline.core.data.database.CACHE_DATABASE
 import fr.arthurbrugiere.forgeline.core.data.database.ForgelineDatabase
+import fr.arthurbrugiere.forgeline.core.data.database.UserStateDatabase
+import fr.arthurbrugiere.forgeline.core.data.database.userStateDatabase
+import fr.arthurbrugiere.forgeline.core.data.inbox.DoneDao
+import fr.arthurbrugiere.forgeline.core.data.trending.TrendingMeasurementDao
 import fr.arthurbrugiere.forgeline.core.data.feed.DefaultFeedRepository
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedDao
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedRepository
@@ -105,7 +110,7 @@ abstract class DataModule {
         @Provides
         @Singleton
         fun provideDatabase(@ApplicationContext context: Context): ForgelineDatabase =
-            Room.databaseBuilder(context, ForgelineDatabase::class.java, "forgeline.db")
+            Room.databaseBuilder(context, ForgelineDatabase::class.java, CACHE_DATABASE)
                 // Everything in it is a cache of forge data: safe to rebuild.
                 .fallbackToDestructiveMigration(dropAllTables = true)
                 .build()
@@ -128,8 +133,19 @@ abstract class DataModule {
         @Provides
         fun provideConversationDao(database: ForgelineDatabase): ConversationDao = database.conversationDao()
 
+        /** What the reader did: never rebuilt, unlike the cache. */
         @Provides
-        fun provideReadingMarkDao(database: ForgelineDatabase): ReadingMarkDao = database.readingMarkDao()
+        @Singleton
+        fun provideUserStateDatabase(@ApplicationContext context: Context): UserStateDatabase = userStateDatabase(context)
+
+        @Provides
+        fun provideReadingMarkDao(database: UserStateDatabase): ReadingMarkDao = database.readingMarkDao()
+
+        @Provides
+        fun provideDoneDao(database: UserStateDatabase): DoneDao = database.doneDao()
+
+        @Provides
+        fun provideTrendingMeasurementDao(database: UserStateDatabase): TrendingMeasurementDao = database.trendingMeasurementDao()
 
         @Provides
         fun provideClock(): Clock = Clock.systemUTC()

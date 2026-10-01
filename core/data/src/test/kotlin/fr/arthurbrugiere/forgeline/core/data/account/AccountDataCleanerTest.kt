@@ -4,6 +4,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.database.ForgelineDatabase
+import fr.arthurbrugiere.forgeline.core.data.database.UserStateDatabase
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedEventEntity
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewEntity
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedSyncEntity
@@ -43,6 +44,9 @@ class AccountDataCleanerTest {
     private val database = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), ForgelineDatabase::class.java)
         .allowMainThreadQueries()
         .build()
+    private val state = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), UserStateDatabase::class.java)
+        .allowMainThreadQueries()
+        .build()
     private val accounts = FakeAccountRepository()
     private val issueApi = FakeIssueApi()
     private val userApi = FakeUserApi().apply { users["alice"] = userProfile("alice") }
@@ -50,13 +54,16 @@ class AccountDataCleanerTest {
     private val conversations = DefaultIssueRepository(clients, accounts, database.conversationDao(), Clock.systemUTC())
     private val users = DefaultUserRepository(clients, accounts)
     private val cleaner = AccountDataCleaner(
-        accounts, database.inboxDao(), database.feedDao(), database.repoDao(), database.feedPreviewDao(), conversations, users,
+        accounts, database.inboxDao(), state.doneDao(), database.feedDao(), database.repoDao(), database.feedPreviewDao(), conversations, users,
     )
 
     private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)
 
     @After
-    fun closeDatabase() = database.close()
+    fun closeDatabase() {
+        database.close()
+        state.close()
+    }
 
     private fun issue(forge: ForgeInstance) = IssueRef(RepoId("acme", "secret", forge), 7)
 
@@ -65,7 +72,7 @@ class AccountDataCleanerTest {
         val host = account.forge.host
         database.inboxDao().insert(listOf(NotificationEntity(account.id, "1", host, "acme", "secret", "Private plans", "ISSUE", 7, "MENTION", true, 1_000, null)))
         database.inboxDao().upsertSync(InboxSyncEntity(account.id, null, 60, 1_000, 1_000))
-        database.inboxDao().upsertDone(DoneEntity(account.id, "1", 500))
+        state.doneDao().upsert(DoneEntity(account.id, "1", 500))
         database.inboxDao().upsertStates(listOf(SubjectStateEntity(host, "acme", "secret", 7, "OPEN", 1_000, 1_000)))
         listOf(account.id, STARRED_PREFIX + account.id).forEach { key ->
             database.feedDao().insert(listOf(FeedEventEntity(key, "e1", "alice", null, host, "acme", "secret", 1_000, "starred", null, null, null, false)))
@@ -99,7 +106,7 @@ class AccountDataCleanerTest {
 
         assertThat(database.inboxDao().all(codeberg.id)).isEmpty()
         assertThat(database.inboxDao().sync(codeberg.id)).isNull()
-        assertThat(database.inboxDao().observeDone().first().map { it.accountId }).doesNotContain(codeberg.id)
+        assertThat(state.doneDao().observe().first().map { it.accountId }).doesNotContain(codeberg.id)
         assertThat(database.inboxDao().states().map { it.host }).doesNotContain("codeberg.org")
         assertThat(database.feedDao().observeAll().first().map { it.accountId }).containsNoneOf(codeberg.id, STARRED_PREFIX + codeberg.id)
         assertThat(database.feedDao().sync(codeberg.id)).isNull()
@@ -118,7 +125,7 @@ class AccountDataCleanerTest {
 
         assertThat(database.inboxDao().all(github.id)).hasSize(1)
         assertThat(database.inboxDao().sync(github.id)).isNotNull()
-        assertThat(database.inboxDao().observeDone().first().map { it.accountId }).containsExactly(github.id)
+        assertThat(state.doneDao().observe().first().map { it.accountId }).containsExactly(github.id)
         assertThat(database.inboxDao().states().map { it.host }).containsExactly("github.com")
         assertThat(database.feedDao().observeAll().first().map { it.accountId }).containsExactly(github.id, STARRED_PREFIX + github.id)
         assertThat(database.repoDao().fetchedAt("github.com/acme/secret")).isNotNull()

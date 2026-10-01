@@ -80,6 +80,7 @@ interface TrendingRepository {
 @Singleton
 class DefaultTrendingRepository @Inject constructor(
     private val dao: TrendingDao,
+    private val measurements: TrendingMeasurementDao,
     private val clients: ForgeClients,
     private val accounts: AccountRepository,
     private val marks: ReadingMarkDao,
@@ -142,12 +143,12 @@ class DefaultTrendingRepository @Inject constructor(
 
     override suspend fun measure(forge: ForgeInstance): RefreshResult {
         val meter = clients.trendingMeter(forge) ?: return RefreshResult.Failed(ForgeError.Unsupported)
-        val previous = dao.measurement(forge.host)?.state
+        val previous = measurements.measurement(forge.host)?.state
         return when (val result = meter.measure(accounts.tokenOn(forge), previous)) {
             is ForgeResult.Failure -> RefreshResult.Failed(result.error)
             is ForgeResult.Success -> {
                 val now = clock.millis()
-                dao.upsertMeasurement(TrendingMeasurementEntity(forge.host, result.value.state, now))
+                measurements.upsert(TrendingMeasurementEntity(forge.host, result.value.state, now))
                 // Empty lists are real here (too little history yet), unlike an empty scraped page.
                 TrendingPeriod.entries.forEach { period ->
                     val repos = result.value.lists[period].orEmpty()
@@ -159,7 +160,7 @@ class DefaultTrendingRepository @Inject constructor(
     }
 
     override fun observeMeasuredAt(): Flow<Map<String, Long>> =
-        dao.observeMeasurements().map { rows -> rows.associate { it.host to it.measuredAtMillis } }
+        measurements.observe().map { rows -> rows.associate { it.host to it.measuredAtMillis } }
 
     override suspend fun readThrough(period: TrendingPeriod, only: ForgeInstance?): RepoId? =
         marks.get(period.markList(only))?.takeIf { clock.millis() - it.markedAtMillis < MARK_MAX_AGE.inWholeMilliseconds }?.itemKey

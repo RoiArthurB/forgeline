@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.core.data.account
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedDao
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewDao
 import fr.arthurbrugiere.forgeline.core.data.feed.STARRED_PREFIX
+import fr.arthurbrugiere.forgeline.core.data.inbox.DoneDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxDao
 import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoDao
@@ -27,6 +28,7 @@ fun interface SignedOutData {
 class AccountDataCleaner @Inject constructor(
     private val accounts: AccountRepository,
     private val inbox: InboxDao,
+    private val done: DoneDao,
     private val feed: FeedDao,
     private val repos: RepoDao,
     private val previews: FeedPreviewDao,
@@ -51,6 +53,7 @@ class AccountDataCleaner @Inject constructor(
     suspend fun sweep() {
         val ids = accounts.accounts.first().map { it.id }
         inbox.keepOnly(ids)
+        done.keepOnly(ids)
         feed.keepOnly(ids + ids.map { STARRED_PREFIX + it })
     }
 }

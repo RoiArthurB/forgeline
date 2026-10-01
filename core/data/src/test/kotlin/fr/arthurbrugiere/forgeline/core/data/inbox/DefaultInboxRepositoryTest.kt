@@ -19,6 +19,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.database.ForgelineDatabase
+import fr.arthurbrugiere.forgeline.core.data.database.UserStateDatabase
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Account
@@ -52,6 +53,9 @@ class DefaultInboxRepositoryTest {
     private val database = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), ForgelineDatabase::class.java)
         .allowMainThreadQueries()
         .build()
+    private val state = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), UserStateDatabase::class.java)
+        .allowMainThreadQueries()
+        .build()
     private val api = FakeNotificationsApi()
     private val accounts = FakeAccountRepository()
     private var now = Instant.parse("2026-09-27T10:00:00Z")
@@ -65,7 +69,7 @@ class DefaultInboxRepositoryTest {
     private val conversations = DefaultIssueRepository(FakeForgeClients(issues = issueApi), accounts, database.conversationDao(), clock)
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val computation = RecordingDispatcher()
-    private val repository = DefaultInboxRepository(database.inboxDao(), clients, accounts, conversations, clock, background, computation)
+    private val repository = DefaultInboxRepository(database.inboxDao(), state.doneDao(), clients, accounts, conversations, clock, background, computation)
 
     private val me = Account.idFor(ForgeInstance.GitHub, "me")
 
@@ -76,6 +80,7 @@ class DefaultInboxRepositoryTest {
         // Background work still running would read a closed database: stop it first.
         runBlocking { background.coroutineContext.job.cancelAndJoin() }
         database.close()
+        state.close()
     }
 
     @Test
@@ -461,7 +466,7 @@ class DefaultInboxRepositoryTest {
             override suspend fun issue(token: String?, ref: IssueRef) = together.arrive("#${ref.number}").let { issueApi.issue(token, ref) }
         }
         val ahead = DefaultIssueRepository(FakeForgeClients(issues = meeting), accounts, database.conversationDao(), clock)
-        val inbox = DefaultInboxRepository(database.inboxDao(), clients, accounts, ahead, clock, background, computation)
+        val inbox = DefaultInboxRepository(database.inboxDao(), state.doneDao(), clients, accounts, ahead, clock, background, computation)
 
         realTime { inbox.sync(force = true, waitForFollowUps = true) }
 

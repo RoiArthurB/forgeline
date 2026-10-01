@@ -78,6 +78,7 @@ interface InboxRepository {
 @Singleton
 class DefaultInboxRepository @Inject constructor(
     private val dao: InboxDao,
+    private val doneDao: DoneDao,
     private val clients: ForgeClients,
     private val accounts: AccountRepository,
     private val conversations: IssueRepository,
@@ -99,7 +100,7 @@ class DefaultInboxRepository @Inject constructor(
             flowOf(InboxSnapshot(emptyList(), null))
         } else {
             val ids = signedIn.map { it.id }.toSet()
-            combine(dao.observeAll(), dao.observeSyncs(), dao.observeStates(), dao.observeDone()) { threads, syncs, states, done ->
+            combine(dao.observeAll(), dao.observeSyncs(), dao.observeStates(), doneDao.observe()) { threads, syncs, states, done ->
                 val byRef = states.associateBy { it.ref() }
                 val doneAt = done.associate { (it.accountId to it.threadId) to it.updatedAtMillis }
                 InboxSnapshot(
@@ -200,7 +201,7 @@ class DefaultInboxRepository @Inject constructor(
                 val threads = sync.threads?.map { it.copy(accountId = account.id, repo = it.repo.copy(forge = account.forge)) }
                 if (threads != null) {
                     dao.replace(account.id, threads.map { it.toEntity(account.id) })
-                    dao.pruneDone(account.id, threads.map { it.id })
+                    doneDao.prune(account.id, threads.map { it.id })
                     // Forges that say where a thread's subject stands (Forgejo) save asking for it.
                     val now = clock.millis()
                     val known = threads.mapNotNull { thread ->
@@ -241,7 +242,7 @@ class DefaultInboxRepository @Inject constructor(
             val result = api.markDone(token, threadId)
             if (result is ForgeResult.Success && removed != null) {
                 dao.setUnread(account.id, threadId, false)
-                dao.upsertDone(DoneEntity(account.id, threadId, removed.updatedAtMillis))
+                doneDao.upsert(DoneEntity(account.id, threadId, removed.updatedAtMillis))
             }
             return result
         }

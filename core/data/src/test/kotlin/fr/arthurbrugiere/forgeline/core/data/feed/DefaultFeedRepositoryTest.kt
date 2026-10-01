@@ -17,6 +17,7 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.database.ForgelineDatabase
+import fr.arthurbrugiere.forgeline.core.data.database.UserStateDatabase
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
@@ -46,6 +47,9 @@ class DefaultFeedRepositoryTest {
     private val database = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), ForgelineDatabase::class.java)
         .allowMainThreadQueries()
         .build()
+    private val state = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), UserStateDatabase::class.java)
+        .allowMainThreadQueries()
+        .build()
     private val api = FakeFeedApi()
     private val accounts = FakeAccountRepository()
     private var now = Instant.parse("2026-09-27T10:00:00Z")
@@ -57,7 +61,7 @@ class DefaultFeedRepositoryTest {
     private val clients = FakeForgeClients(feed = api)
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val computation = RecordingDispatcher()
-    private val repository = DefaultFeedRepository(database.feedDao(), clients, accounts, database.readingMarkDao(), clock, background, computation)
+    private val repository = DefaultFeedRepository(database.feedDao(), clients, accounts, state.readingMarkDao(), clock, background, computation)
 
     private suspend fun signIn(login: String = "me") = accounts.signIn(ForgeInstance.GitHub, ForgeUser(login, null, null), "t-$login")
 
@@ -66,6 +70,7 @@ class DefaultFeedRepositoryTest {
         // Background work must stop before the database closes under it.
         runBlocking { background.coroutineContext[Job]!!.cancelAndJoin() }
         database.close()
+        state.close()
     }
 
     @Test
