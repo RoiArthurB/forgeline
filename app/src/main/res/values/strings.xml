@@ -325,6 +325,15 @@
     <string name="issue_review_commented">%1$s reviewed</string>
     <string name="issue_review_dismissed">%1$s\'s review was dismissed</string>
     <string name="issue_load_more">Load more</string>
+    <string name="issue_comment_placeholder">Add a comment</string>
+    <string name="issue_comment_send">Comment</string>
+    <string name="issue_comment_sending">Sending</string>
+    <string name="issue_comment_sign_in">Sign in to %1$s to comment.</string>
+    <string name="issue_comment_error_refused">You can\'t comment here. The conversation may be locked, or your sign-in may not allow it.</string>
+    <string name="issue_comment_error_expired">Your sign-in to %1$s no longer works. Sign in again, then send: your comment is kept.</string>
+    <string name="issue_comment_error_offline">Not sent: check your connection and send again. Your comment is kept.</string>
+    <string name="issue_comment_error">Not sent. Your comment is kept: try again.</string>
+    <string name="issue_comment_posted_out_of_sight">Comment posted. Load the rest of the conversation to see it.</string>
     <string name="issue_error_title">Couldn\'t open this conversation</string>
 
     <string name="user_follow">Follow</string>

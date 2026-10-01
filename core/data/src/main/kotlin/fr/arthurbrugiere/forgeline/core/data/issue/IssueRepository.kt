@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
 import kotlinx.coroutines.flow.first
 import java.time.Clock
@@ -35,6 +36,12 @@ interface IssueRepository {
     suspend fun prefetch(ref: IssueRef, activityAt: Instant): Boolean
 
     suspend fun timeline(ref: IssueRef, page: Int): ForgeResult<TimelinePage>
+
+    /**
+     * Adds a comment to [ref]'s conversation as the account signed in on its forge; Unauthorized without one. The
+     * conversation kept gains the comment when all of it was loaded.
+     */
+    suspend fun comment(ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment>
 
     /** Deletes every conversation kept from [forge], in this session and on disk. */
     suspend fun forget(forge: ForgeInstance)
@@ -92,6 +99,22 @@ class DefaultIssueRepository @Inject constructor(
 
     override suspend fun timeline(ref: IssueRef, page: Int): ForgeResult<TimelinePage> = clients.issues(ref.repo.forge).timeline(accounts.tokenOn(ref.repo.forge), ref, page).also { result ->
         if (result is ForgeResult.Success && page == 1) update(ref) { it.copy(firstPage = result.value) }
+    }
+
+    override suspend fun comment(ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment> {
+        val token = accounts.tokenOn(ref.repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return clients.issues(ref.repo.forge).comment(token, ref, body).also { result ->
+            // Nothing kept, nothing to add to: an empty entry would read as a conversation the forge couldn't serve.
+            if (result is ForgeResult.Success && cached(ref) != null) {
+                update(ref) { kept ->
+                    kept.copy(
+                        issue = kept.issue?.let { it.copy(comments = it.comments + 1) },
+                        // Only at the end of a conversation loaded whole: after pages not loaded, it would be misplaced.
+                        firstPage = kept.firstPage?.let { page -> if (page.nextPage == null) page.copy(items = page.items + result.value) else page },
+                    )
+                }
+            }
+        }
     }
 
     override suspend fun forget(forge: ForgeInstance) {

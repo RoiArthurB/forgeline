@@ -368,7 +368,8 @@ fun SoftChipTabs(
 
 /**
  * The one text field: a soft filled pill with its label as the placeholder, an optional leading glyph and trailing
- * action, and an error line under it. No outline, like the rest of the world.
+ * action, and an error line under it. No outline, like the rest of the world. With [singleLine] off it grows with
+ * what is written, from [minLines] to [maxLines], on a rounded field instead of a pill.
  */
 @Composable
 fun SoftTextField(
@@ -383,13 +384,20 @@ fun SoftTextField(
     visualTransformation: VisualTransformation = VisualTransformation.None,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
+    singleLine: Boolean = true,
+    minLines: Int = 1,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+    readOnly: Boolean = false,
 ) {
     val colors = Soft.colors
     Column(modifier) {
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            singleLine = true,
+            singleLine = singleLine,
+            minLines = minLines,
+            maxLines = maxLines,
+            readOnly = readOnly,
             textStyle = Soft.type.body.copy(fontSize = 16.sp, color = colors.ink),
             cursorBrush = SolidColor(colors.accent),
             visualTransformation = visualTransformation,
@@ -400,11 +408,12 @@ fun SoftTextField(
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .clip(SoftTokens.Pill)
+                        .clip(if (singleLine) SoftTokens.Pill else RoundedCornerShape(24.dp))
                         .background(background)
                         .heightIn(min = 52.dp)
-                        .padding(start = if (leading != null) 16.dp else 20.dp, end = if (trailing != null) 4.dp else 20.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                        .padding(start = if (leading != null) 16.dp else 20.dp, end = if (trailing != null) 4.dp else 20.dp)
+                        .padding(vertical = if (singleLine) 0.dp else 14.dp),
+                    verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top,
                 ) {
                     if (leading != null) {
                         leading()
@@ -453,20 +462,20 @@ fun SoftNotice(
     }
 }
 
-/** The filled ember pill: one primary action. */
+/** The filled ember pill: one primary action. Not [enabled], it goes quiet (a tinted track, muted ink) and can't be pressed. */
 @Composable
-fun SoftButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun SoftButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val colors = Soft.colors
     Box(
         modifier
             .clip(SoftTokens.Pill)
-            .background(colors.thumb)
-            .clickable(role = Role.Button, onClick = onClick)
+            .background(if (enabled) colors.thumb else colors.surface)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .heightIn(min = 48.dp)
             .padding(horizontal = 24.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, style = Soft.type.control, color = colors.onThumb)
+        Text(label, style = Soft.type.control, color = if (enabled) colors.onThumb else colors.inkMuted)
     }
 }
 

@@ -183,4 +183,65 @@ class DefaultIssueRepositoryTest {
         assertThat(repository.prefetch(ref, Instant.parse("2026-09-29T09:00:00Z"))).isTrue()
         assertThat(repository.stored(ref)?.issue).isNotNull()
     }
+
+    private suspend fun signIn() = accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
+
+    @Test
+    fun commenting_needs_an_account_on_the_conversation_s_forge() = runTest {
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "codeberg-tok")
+
+        assertThat(repository.comment(ref, "Hello")).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(api.posted).isEmpty()
+    }
+
+    @Test
+    fun a_comment_is_posted_with_the_account_of_the_conversation_s_forge() = runTest {
+        signIn()
+
+        val result = repository.comment(ref, "Hello")
+
+        assertThat((result as ForgeResult.Success).value.body).isEqualTo("Hello")
+        assertThat(api.posted).containsExactly("${ref.repo.fullName}#${ref.number}: Hello")
+        assertThat(api.tokens.last()).isEqualTo("tok")
+    }
+
+    @Test
+    fun a_posted_comment_joins_the_conversation_kept_when_all_of_it_was_loaded() = runTest {
+        signIn()
+        api.issues[ref] = issueDetails(ref)
+        api.pages[ref to 1] = TimelinePage(listOf(comment(1, "Hi")), nextPage = null)
+        repository.issue(ref)
+        repository.timeline(ref, 1)
+
+        val posted = (repository.comment(ref, "Hello") as ForgeResult.Success).value
+
+        // Reopening shows it at once, in this session and the next.
+        assertThat(repository.cached(ref)?.firstPage?.items).containsExactly(comment(1, "Hi"), posted).inOrder()
+        assertThat(repository.cached(ref)?.issue?.comments).isEqualTo(issueDetails(ref).comments + 1)
+        val relaunched = DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock)
+        assertThat(relaunched.stored(ref)?.firstPage?.items).containsExactly(comment(1, "Hi"), posted).inOrder()
+    }
+
+    @Test
+    fun a_posted_comment_is_not_added_to_a_conversation_kept_only_in_part() = runTest {
+        // It belongs after pages that aren't loaded: adding it to the first page would put it in the wrong place.
+        signIn()
+        api.pages[ref to 1] = TimelinePage(listOf(comment(1, "Hi")), nextPage = 2)
+        repository.timeline(ref, 1)
+
+        repository.comment(ref, "Hello")
+
+        assertThat(repository.cached(ref)?.firstPage?.items).containsExactly(comment(1, "Hi"))
+    }
+
+    @Test
+    fun a_refused_comment_changes_nothing() = runTest {
+        signIn()
+        api.pages[ref to 1] = TimelinePage(listOf(comment(1, "Hi")), nextPage = null)
+        repository.timeline(ref, 1)
+        api.commentFailure = ForgeError.Http(403, "locked")
+
+        assertThat(repository.comment(ref, "Hello")).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "locked")))
+        assertThat(repository.cached(ref)?.firstPage?.items).containsExactly(comment(1, "Hi"))
+    }
 }

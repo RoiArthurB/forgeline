@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.buildJsonObject
+import io.ktor.http.HttpMethod
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -54,6 +57,24 @@ class GitHubIssueApi(
         )
         response.toResult { TimelinePage(body<List<EventJson>>().mapNotNull { it.toModel() }, nextPage()) }
     }
+
+    override suspend fun comment(token: String, ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment> = gitHubCall {
+        httpClient.gitHubApi(
+            apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "comments",
+            method = HttpMethod.Post, body = buildJsonObject { put("body", body) },
+        ).toResult { body<CommentJson>().toModel() }
+    }
+}
+
+@Serializable
+private data class CommentJson(
+    val id: Long,
+    val user: UserJson? = null,
+    val body: String? = null,
+    @SerialName("created_at") val createdAt: String,
+    val reactions: ReactionsJson? = null,
+) {
+    fun toModel() = TimelineItem.Comment(id, user?.toModel(), body.orEmpty(), Instant.parse(createdAt), reactions?.toModel().orEmpty())
 }
 
 @Serializable

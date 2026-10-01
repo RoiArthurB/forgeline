@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.core.model.TimelineItem
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import androidx.lifecycle.SavedStateHandle
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
@@ -29,7 +33,8 @@ class IssueViewModelTest {
 
     private val api = FakeIssueApi()
     private val dao = InMemoryConversationDao()
-    private val repository = DefaultIssueRepository(FakeForgeClients(issues = api), FakeAccountRepository(), dao, Clock.systemUTC())
+    private val accounts = FakeAccountRepository()
+    private val repository = DefaultIssueRepository(FakeForgeClients(issues = api), accounts, dao, Clock.systemUTC())
     private val ref = IssueRef(RepoId("octo", "repo"), 7)
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
@@ -39,7 +44,7 @@ class IssueViewModelTest {
         api.issues[ref] = issueDetails(ref)
         api.pages[ref to 1] = TimelinePage(listOf(comment(1, "First")), nextPage = 2)
 
-        val viewModel = IssueViewModel(ref, repository)
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle())
         advanceUntilIdle()
 
         val state = viewModel.state.value
@@ -61,7 +66,7 @@ class IssueViewModelTest {
         api.failure = ForgeError.Network
         val relaunched = DefaultIssueRepository(FakeForgeClients(issues = api), FakeAccountRepository(), dao, Clock.systemUTC())
 
-        val viewModel = IssueViewModel(ref, relaunched)
+        val viewModel = IssueViewModel(ref, relaunched, SavedStateHandle())
         advanceUntilIdle()
 
         assertThat(viewModel.state.value.issue?.title).isEqualTo("Crash on start")
@@ -74,7 +79,7 @@ class IssueViewModelTest {
         api.issues[ref] = issueDetails(ref)
         api.pages[ref to 1] = TimelinePage(listOf(comment(1, "First")), nextPage = 2)
         api.pages[ref to 2] = TimelinePage(listOf(comment(2, "Second")), nextPage = null)
-        val viewModel = IssueViewModel(ref, repository)
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle())
         advanceUntilIdle()
 
         viewModel.loadMore()
@@ -88,11 +93,11 @@ class IssueViewModelTest {
     fun a_conversation_seen_before_shows_instantly_then_refreshes() = test {
         api.issues[ref] = issueDetails(ref, title = "Old title")
         api.pages[ref to 1] = TimelinePage(listOf(comment(1, "First")), null)
-        IssueViewModel(ref, repository)
+        IssueViewModel(ref, repository, SavedStateHandle())
         advanceUntilIdle()
         api.issues[ref] = issueDetails(ref, title = "New title")
 
-        val reopened = IssueViewModel(ref, repository)
+        val reopened = IssueViewModel(ref, repository, SavedStateHandle())
 
         assertThat(reopened.state.value.issue?.title).isEqualTo("Old title")
         assertThat(reopened.state.value.items).containsExactly(comment(1, "First"))
@@ -104,7 +109,7 @@ class IssueViewModelTest {
     fun a_failure_without_anything_to_show_is_an_error() = test {
         api.failure = ForgeError.Network
 
-        val viewModel = IssueViewModel(ref, repository)
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle())
         advanceUntilIdle()
 
         assertThat(viewModel.state.value.error).isEqualTo(ForgeError.Network)
@@ -116,7 +121,7 @@ class IssueViewModelTest {
         api.issues[ref] = issueDetails(ref)
         api.pages[ref to 1] = TimelinePage(listOf(comment(1, "First")), nextPage = 2)
         api.pages[ref to 2] = TimelinePage(listOf(comment(2, "Second")), nextPage = null)
-        val viewModel = IssueViewModel(ref, repository)
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle())
         advanceUntilIdle()
         viewModel.loadMore()
         advanceUntilIdle()
@@ -126,5 +131,98 @@ class IssueViewModelTest {
 
         assertThat(viewModel.state.value.items).containsExactly(comment(1, "First"))
         assertThat(viewModel.state.value.nextPage).isEqualTo(2)
+    }
+
+    private suspend fun TestScope.openedSignedIn(nextPage: Int? = null): IssueViewModel {
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
+        api.issues[ref] = issueDetails(ref)
+        api.pages[ref to 1] = TimelinePage(listOf(comment(1, "First")), nextPage = nextPage)
+        return IssueViewModel(ref, repository, SavedStateHandle()).also { advanceUntilIdle() }
+    }
+
+    @Test
+    fun a_comment_is_posted_joins_the_conversation_and_empties_the_draft() = test {
+        val viewModel = openedSignedIn()
+
+        viewModel.draftChanged("  Thanks, fixed!  ")
+        viewModel.sendComment()
+        assertThat(viewModel.state.value.isCommenting).isTrue()
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertThat(api.posted).containsExactly("octo/repo#7: Thanks, fixed!")
+        assertThat(state.items.map { (it as TimelineItem.Comment).body }).containsExactly("First", "Thanks, fixed!").inOrder()
+        assertThat(state.issue?.comments).isEqualTo(issueDetails(ref).comments + 1)
+        assertThat(state.draft).isEmpty()
+        assertThat(state.isCommenting).isFalse()
+        assertThat(state.commentError).isNull()
+        assertThat(state.commentPostedOutOfSight).isFalse()
+    }
+
+    @Test
+    fun a_refused_comment_keeps_the_draft_and_says_why() = test {
+        val viewModel = openedSignedIn()
+        api.commentFailure = ForgeError.Http(403, "locked")
+
+        viewModel.draftChanged("Hello")
+        viewModel.sendComment()
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertThat(state.draft).isEqualTo("Hello")
+        assertThat(state.commentError).isEqualTo(ForgeError.Http(403, "locked"))
+        assertThat(state.items).containsExactly(comment(1, "First"))
+        // Typing again takes the error away.
+        viewModel.draftChanged("Hello again")
+        assertThat(viewModel.state.value.commentError).isNull()
+    }
+
+    @Test
+    fun an_empty_comment_is_not_sent() = test {
+        val viewModel = openedSignedIn()
+
+        viewModel.draftChanged("   \n ")
+        viewModel.sendComment()
+        advanceUntilIdle()
+
+        assertThat(api.posted).isEmpty()
+    }
+
+    @Test
+    fun a_comment_is_sent_once_however_often_send_is_tapped() = test {
+        val viewModel = openedSignedIn()
+
+        viewModel.draftChanged("Hello")
+        viewModel.sendComment()
+        viewModel.sendComment()
+        advanceUntilIdle()
+
+        assertThat(api.posted).hasSize(1)
+    }
+
+    @Test
+    fun a_comment_posted_past_what_is_loaded_is_announced_not_misplaced() = test {
+        // More of the conversation is still to load: the comment belongs after it.
+        val viewModel = openedSignedIn(nextPage = 2)
+
+        viewModel.draftChanged("Hello")
+        viewModel.sendComment()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.items).containsExactly(comment(1, "First"))
+        assertThat(viewModel.state.value.commentPostedOutOfSight).isTrue()
+        viewModel.commentNoticeShown()
+        assertThat(viewModel.state.value.commentPostedOutOfSight).isFalse()
+    }
+
+    @Test
+    fun a_draft_survives_the_app_being_stopped() = test {
+        val saved = SavedStateHandle()
+        api.issues[ref] = issueDetails(ref)
+        IssueViewModel(ref, repository, saved).draftChanged("Half a thought")
+
+        val restored = IssueViewModel(ref, repository, saved)
+
+        assertThat(restored.state.value.draft).isEqualTo("Half a thought")
     }
 }

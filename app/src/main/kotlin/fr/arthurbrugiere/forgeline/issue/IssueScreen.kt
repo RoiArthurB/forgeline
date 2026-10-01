@@ -1,5 +1,13 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.session.signedInOn
+import fr.arthurbrugiere.forgeline.session.SessionState
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.layout.imePadding
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
@@ -122,6 +130,8 @@ fun IssueRoute(
     onOpenRepo: (RepoId) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
     onOpenUser: (String) -> Unit,
+    session: SessionState,
+    onSignIn: () -> Unit,
 ) {
     val ref = route.issue
     val viewModel = hiltViewModel<IssueViewModel, IssueViewModel.Factory>(key = "${ref.repo.key}#${ref.number}") { it.create(ref) }
@@ -129,6 +139,12 @@ fun IssueRoute(
     val openUrl = rememberCustomTabOpener()
     IssueScreen(
         state = state,
+        // Commenting takes an account on the conversation's own forge.
+        canComment = session.signedInOn(ref.repo.forge),
+        onDraftChange = viewModel::draftChanged,
+        onSendComment = viewModel::sendComment,
+        onSignIn = onSignIn,
+        onCommentNoticeShown = viewModel::commentNoticeShown,
         onBack = onBack,
         onRefresh = viewModel::refresh,
         onLoadMore = viewModel::loadMore,
@@ -145,6 +161,11 @@ fun IssueRoute(
 @Composable
 fun IssueScreen(
     state: IssueUiState,
+    canComment: Boolean,
+    onDraftChange: (String) -> Unit,
+    onSendComment: () -> Unit,
+    onSignIn: () -> Unit,
+    onCommentNoticeShown: () -> Unit,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
@@ -174,6 +195,14 @@ fun IssueScreen(
         }
     }
 
+    val postedOutOfSight = stringResource(R.string.issue_comment_posted_out_of_sight)
+    LaunchedEffect(state.commentPostedOutOfSight) {
+        if (state.commentPostedOutOfSight) {
+            onCommentNoticeShown()
+            snackbar.showSnackbar(postedOutOfSight)
+        }
+    }
+
     val colors = Soft.colors
     val listState = rememberLazyListState()
     Box(modifier.fillMaxSize().background(colors.ground)) {
@@ -197,7 +226,8 @@ fun IssueScreen(
                 state = listState,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 contentPadding = PaddingValues(bottom = listBottomPadding()),
-                modifier = Modifier.fillMaxSize().sideSafeArea(),
+                // The comment box stays above the keyboard (edge-to-edge doesn't resize the window for it).
+                modifier = Modifier.fillMaxSize().sideSafeArea().imePadding(),
             ) {
                 item(key = "header") {
                     SoftHeader(
@@ -251,6 +281,10 @@ fun IssueScreen(
                                 }
                             }
                         }
+                        // Where the next comment will appear: the conversation ends with the reader's turn.
+                        item(key = "composer") {
+                            Composer(state, canComment, onDraftChange, onSendComment, onSignIn)
+                        }
                     }
                 }
             }
@@ -260,6 +294,52 @@ fun IssueScreen(
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current)) { data ->
             Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground)
         }
+    }
+}
+
+/**
+ * The reader's turn, closing the conversation: a field that grows with the comment and one action. Signed out of the
+ * conversation's forge, it says so and offers to sign in. A comment that wasn't sent stays written.
+ */
+@Composable
+private fun Composer(state: IssueUiState, canComment: Boolean, onDraftChange: (String) -> Unit, onSend: () -> Unit, onSignIn: () -> Unit) {
+    val colors = Soft.colors
+    val forge = state.ref.repo.forge.displayName
+    Column(
+        Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (!canComment) {
+            Text(stringResource(R.string.issue_comment_sign_in, forge), style = Soft.type.body, color = colors.inkMuted)
+            SoftTonalButton(stringResource(R.string.sign_in), onSignIn)
+            return@Column
+        }
+        SoftTextField(
+            value = state.draft,
+            onValueChange = onDraftChange,
+            placeholder = stringResource(R.string.issue_comment_placeholder),
+            error = state.commentError?.let { error ->
+                when {
+                    error == ForgeError.Unauthorized -> stringResource(R.string.issue_comment_error_expired, forge)
+                    error is ForgeError.Http && (error.status == 403 || error.status == 404) -> stringResource(R.string.issue_comment_error_refused)
+                    error == ForgeError.Network -> stringResource(R.string.issue_comment_error_offline)
+                    else -> stringResource(R.string.issue_comment_error)
+                }
+            },
+            singleLine = false,
+            minLines = 2,
+            maxLines = 12,
+            // Not to be changed while it is on its way.
+            readOnly = state.isCommenting,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        SoftButton(
+            stringResource(if (state.isCommenting) R.string.issue_comment_sending else R.string.issue_comment_send),
+            onSend,
+            Modifier.align(Alignment.End),
+            enabled = state.draft.isNotBlank() && !state.isCommenting,
+        )
     }
 }
 

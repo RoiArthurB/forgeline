@@ -30,4 +30,4 @@ A client ID only identifies the app on GitHub's consent screen ("Forgeline wants
 
 ## Scopes requested
 
-`notifications read:user user:follow public_repo`: read and manage notifications, read your profile, follow/unfollow people, and star public repositories. The same scopes are pre-filled when creating a personal access token from the sign-in screen.
+`notifications read:user user:follow public_repo`: read and manage notifications, read your profile, follow/unfollow people, and star and comment on public repositories. The same scopes are pre-filled when creating a personal access token from the sign-in screen.

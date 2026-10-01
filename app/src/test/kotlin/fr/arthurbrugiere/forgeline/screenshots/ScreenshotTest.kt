@@ -558,9 +558,48 @@ class ScreenshotTest {
                     TimelineItem.StateChanged(StateChange.CLOSED, ForgeUser("maintainer", null, null), "completed", at),
                 ),
             ),
+            canComment = true, onDraftChange = {}, onSendComment = {}, onSignIn = {}, onCommentNoticeShown = {},
             onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {},
             onLinkClick = {}, onErrorShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
         )
+    }
+
+    /** A short conversation, so the comment box that closes it is on screen. */
+    @Composable
+    private fun IssueWithComposer(state: (IssueUiState) -> IssueUiState, canComment: Boolean = true) {
+        val ref = IssueRef(RepoId("paperclipai", "paperclip"), 14127)
+        IssueScreen(
+            state = state(
+                IssueUiState(
+                    ref = ref,
+                    issue = issueDetails(ref, "Heartbeat recovery escalates too early").copy(body = "It pages after one missed beat."),
+                    items = listOf(comment(1, "Same here on 2026.9.", login = "hubot")),
+                ),
+            ),
+            canComment = canComment, onDraftChange = {}, onSendComment = {}, onSignIn = {}, onCommentNoticeShown = {},
+            onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {},
+            onLinkClick = {}, onErrorShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
+    fun issue_comment_empty_light() = snapshot("issue_comment_empty_light", darkTheme = false, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG) {
+        IssueWithComposer({ it })
+    }
+
+    @Test
+    fun issue_comment_written_dark() = snapshot("issue_comment_written_dark", darkTheme = true, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG) {
+        IssueWithComposer({ it.copy(draft = "Confirmed on 2026.10 too. The threshold in `heartbeat.yml` is read as seconds, not beats.") })
+    }
+
+    @Test
+    fun issue_comment_refused_light() = snapshot("issue_comment_refused_light", darkTheme = false, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG) {
+        IssueWithComposer({ it.copy(draft = "Confirmed on 2026.10 too.", commentError = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http(403, "locked")) })
+    }
+
+    @Test
+    fun issue_comment_signed_out_light() = snapshot("issue_comment_signed_out_light", darkTheme = false, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG) {
+        IssueWithComposer({ it }, canComment = false)
     }
 
     @Test

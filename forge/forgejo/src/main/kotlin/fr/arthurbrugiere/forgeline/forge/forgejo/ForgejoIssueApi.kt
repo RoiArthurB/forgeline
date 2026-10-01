@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.buildJsonObject
+import io.ktor.http.HttpMethod
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -88,6 +91,16 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             val reviews = async { reviewStates(token, ref) }
             timelinePage(token, ref, page) { entries -> if (entries.any { it.type == "review" }) reviews.await() else emptyMap() }
                 .also { reviews.cancel() }
+        }
+    }
+
+    override suspend fun comment(token: String, ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment> = forgejoCall {
+        httpClient.forgejoApi(
+            forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "comments",
+            method = HttpMethod.Post, body = buildJsonObject { put("body", body) },
+        ).toResult {
+            val created = body<TimelineJson>()
+            TimelineItem.Comment(created.id, created.user?.toModel(), created.body.orEmpty(), instant(created.createdAt) ?: Instant.now(), emptyMap())
         }
     }
 
@@ -201,7 +214,8 @@ private data class RefIssueJson(
 @Serializable
 private data class TimelineJson(
     val id: Long,
-    val type: String,
+    // A created comment comes back without a type.
+    val type: String = "comment",
     val body: String? = null,
     val user: UserJson? = null,
     @SerialName("created_at") val createdAt: String? = null,

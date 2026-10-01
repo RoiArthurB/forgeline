@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import io.ktor.http.content.TextContent
+import io.ktor.http.HttpMethod
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -162,5 +164,36 @@ class GitHubIssueApiTest {
 
         assertThat(title).isNotEmpty()
         assertThat(requests.single().url.encodedPath).isEqualTo("/repos/paperclipai/paperclip/issues/14187")
+    }
+
+    // The answer below follows GitHub's documented shape for a created comment: posting can't be captured from a
+    // real account in tests.
+    private val created = """{"id":4242,"user":{"login":"octocat","avatar_url":"https://avatars.githubusercontent.com/u/583231?v=4"},
+        "body":"Thanks, **fixed** in 1.2","created_at":"2026-10-01T09:30:00Z","reactions":{"+1":0,"-1":0,"laugh":0,"hooray":0,"confused":0,"heart":0,"rocket":0,"eyes":0}}"""
+
+    @Test
+    fun a_comment_is_posted_to_the_conversation_and_comes_back_as_kept() = runTest {
+        val comment = api { json(created, status = HttpStatusCode.Created) }.comment("tok", issue, "Thanks, **fixed** in 1.2").value()
+
+        assertThat(comment).isEqualTo(
+            TimelineItem.Comment(
+                4242, fr.arthurbrugiere.forgeline.core.model.ForgeUser("octocat", null, "https://avatars.githubusercontent.com/u/583231?v=4"),
+                "Thanks, **fixed** in 1.2", Instant.parse("2026-10-01T09:30:00Z"), emptyMap(),
+            ),
+        )
+        val request = requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Post)
+        assertThat(request.url.toString()).isEqualTo("https://api.github.com/repos/paperclipai/paperclip/issues/5462/comments")
+        assertThat(request.headers[HttpHeaders.Authorization]).isEqualTo("Bearer tok")
+        assertThat((request.body as TextContent).text).isEqualTo("""{"body":"Thanks, **fixed** in 1.2"}""")
+    }
+
+    @Test
+    fun a_comment_the_forge_refuses_is_a_failure() = runTest {
+        // A locked conversation, or a sign-in that can't write there.
+        val result = api { json("""{"message":"Unable to create comment because issue is locked."}""", status = HttpStatusCode.Forbidden) }
+            .comment("tok", issue, "Hello")
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "Unable to create comment because issue is locked.")))
     }
 }

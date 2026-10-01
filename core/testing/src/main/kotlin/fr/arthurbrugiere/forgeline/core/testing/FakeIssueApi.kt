@@ -39,6 +39,21 @@ class FakeIssueApi : IssueApi {
         failure?.let { return ForgeResult.Failure(it) }
         return ForgeResult.Success(pages[ref to page] ?: TimelinePage(emptyList(), null))
     }
+
+    /** Comments posted, as "owner/name#number: body". */
+    val posted = mutableListOf<String>()
+
+    /** What posting a comment fails with, apart from [failure], which is for reading. */
+    var commentFailure: ForgeError? = null
+
+    override suspend fun comment(token: String, ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment> {
+        calls += "comment:${ref.repo.fullName}#${ref.number}"
+        gate?.await()
+        tokens += token
+        commentFailure?.let { return ForgeResult.Failure(it) }
+        posted += "${ref.repo.fullName}#${ref.number}: $body"
+        return ForgeResult.Success(comment(1_000L + posted.size, body, login = "me"))
+    }
 }
 
 class FakeUserApi : UserApi {

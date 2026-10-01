@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.core.forge
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
+import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
 
@@ -18,6 +19,9 @@ interface IssueApi {
 
     /** Oldest first. [page] starts at 1. */
     suspend fun timeline(token: String?, ref: IssueRef, page: Int): ForgeResult<TimelinePage>
+
+    /** Adds a comment to the conversation, [body] being Markdown, and answers it as the forge kept it. */
+    suspend fun comment(token: String, ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment>
 }
 
 interface UserApi {

@@ -1,5 +1,13 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -41,10 +49,14 @@ class IssueScreenTest {
     private val ref = IssueRef(RepoId("octo", "repo"), 7)
     private val at = Instant.parse("2026-09-26T09:00:00Z")
 
-    private fun setContent(state: IssueUiState) {
+    private fun setContent(state: IssueUiState, canComment: Boolean = true) {
+        shown.value = state
         composeRule.setContent {
             IssueScreen(
-                state = state,
+                state = shown.value,
+                canComment = canComment,
+                onDraftChange = { events += "draft:$it" }, onSendComment = { events += "send" }, onSignIn = { events += "signin" },
+                onCommentNoticeShown = { events += "noticed" },
                 onBack = {}, onRefresh = { events += "refresh" }, onLoadMore = { events += "more" },
                 onOpenIssue = { events += "issue:${it.repo.fullName}#${it.number}" },
                 onOpenRepo = { events += "repo:${it.fullName}" },
@@ -191,5 +203,85 @@ class IssueScreenTest {
         setContent(IssueUiState(onCodeberg, issueDetails(onCodeberg, "Crash on start")))
 
         composeRule.onNodeWithContentDescription("Open on Codeberg").assertIsDisplayed()
+    }
+
+    private val opened = IssueUiState(ref, issueDetails(ref, "Crash on start"), listOf(comment(1, "Same here", login = "hubot")))
+
+    /** The comment box closes the conversation: scroll down to it. */
+    private fun reach(matcher: SemanticsMatcher) {
+        composeRule.onNode(hasScrollAction()).performScrollToNode(matcher)
+    }
+
+    @Test
+    fun a_comment_can_be_written_at_the_end_of_the_conversation() {
+        setContent(opened)
+
+        reach(hasSetTextAction())
+        composeRule.onNode(hasSetTextAction()).performTextInput("Thanks")
+
+        assertThat(events).contains("draft:Thanks")
+    }
+
+    @Test
+    fun an_empty_comment_can_t_be_sent_and_a_written_one_can() {
+        setContent(opened)
+        reach(hasText("Comment"))
+        composeRule.onNodeWithText("Comment").assertIsNotEnabled()
+
+        setDraft("Thanks, fixed!")
+        reach(hasText("Comment"))
+        composeRule.onNodeWithText("Comment").assertIsEnabled().performClick()
+
+        assertThat(events).contains("send")
+    }
+
+    private val shown = mutableStateOf(opened)
+
+    private fun setDraft(text: String) {
+        shown.value = opened.copy(draft = text)
+    }
+
+    @Test
+    fun while_a_comment_is_sent_it_can_t_be_sent_again() {
+        setContent(opened.copy(draft = "Thanks", isCommenting = true))
+
+        reach(hasText("Sending"))
+        composeRule.onNodeWithText("Sending").assertIsNotEnabled()
+    }
+
+    @Test
+    fun a_comment_that_wasn_t_sent_stays_written_and_says_why() {
+        setContent(opened.copy(draft = "Thanks", commentError = ForgeError.Http(403, "locked")))
+
+        reach(hasText("You can't comment here", substring = true))
+        composeRule.onNodeWithText("Thanks").assertExists()
+        composeRule.onNodeWithText("Comment").assertIsEnabled()
+    }
+
+    @Test
+    fun signed_out_of_the_forge_the_box_asks_to_sign_in_there() {
+        setContent(opened, canComment = false)
+
+        reach(hasText("Sign in to GitHub to comment."))
+        composeRule.onNode(hasSetTextAction()).assertDoesNotExist()
+        composeRule.onNodeWithText("Sign in").performClick()
+
+        assertThat(events).contains("signin")
+    }
+
+    @Test
+    fun nothing_can_be_written_before_the_conversation_has_loaded() {
+        setContent(IssueUiState(ref))
+
+        composeRule.onNode(hasSetTextAction()).assertDoesNotExist()
+        composeRule.onNodeWithText("Sign in to GitHub to comment.").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_comment_posted_past_what_is_loaded_is_announced() {
+        setContent(opened.copy(nextPage = 2, commentPostedOutOfSight = true))
+
+        waitFor("Comment posted")
+        composeRule.runOnIdle { assertThat(events).contains("noticed") }
     }
 }

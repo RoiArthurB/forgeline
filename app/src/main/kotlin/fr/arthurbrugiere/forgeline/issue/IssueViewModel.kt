@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.assisted.Assisted
@@ -27,12 +28,19 @@ data class IssueUiState(
     val isRefreshing: Boolean = false,
     val isLoadingMore: Boolean = false,
     val error: ForgeError? = null,
+    /** The comment being written; kept while it is sent and when sending fails. */
+    val draft: String = "",
+    val isCommenting: Boolean = false,
+    val commentError: ForgeError? = null,
+    /** A comment was posted but more of the conversation is still to load, so it can't be shown in its place yet. */
+    val commentPostedOutOfSight: Boolean = false,
 )
 
 @HiltViewModel(assistedFactory = IssueViewModel.Factory::class)
 class IssueViewModel @AssistedInject constructor(
     @Assisted private val ref: IssueRef,
     private val repository: IssueRepository,
+    private val savedState: SavedStateHandle,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -42,7 +50,8 @@ class IssueViewModel @AssistedInject constructor(
 
     private val _state = MutableStateFlow(
         repository.cached(ref).let { cached ->
-            IssueUiState(ref, cached?.issue, cached?.firstPage?.items.orEmpty(), cached?.firstPage?.nextPage)
+            // The draft outlives the app being stopped: a comment half written is not to be typed again.
+            IssueUiState(ref, cached?.issue, cached?.firstPage?.items.orEmpty(), cached?.firstPage?.nextPage, draft = savedState[DRAFT_KEY] ?: "")
         },
     )
     val state: StateFlow<IssueUiState> = _state.asStateFlow()
@@ -98,4 +107,41 @@ class IssueViewModel @AssistedInject constructor(
     }
 
     fun errorShown() = _state.update { it.copy(error = null) }
+
+    fun draftChanged(text: String) {
+        savedState[DRAFT_KEY] = text
+        _state.update { it.copy(draft = text, commentError = null) }
+    }
+
+    /** Posts the draft. It stays until the forge has taken it, so a failure loses nothing. */
+    fun sendComment() {
+        val body = _state.value.draft.trim()
+        if (body.isEmpty() || _state.value.isCommenting) return
+        _state.update { it.copy(isCommenting = true, commentError = null) }
+        viewModelScope.launch {
+            when (val result = repository.comment(ref, body)) {
+                is ForgeResult.Failure -> _state.update { it.copy(isCommenting = false, commentError = result.error) }
+                is ForgeResult.Success -> {
+                    savedState[DRAFT_KEY] = ""
+                    _state.update { state ->
+                        // At the end of a conversation loaded whole; otherwise it shows once the rest is loaded.
+                        val atEnd = state.nextPage == null
+                        state.copy(
+                            draft = "",
+                            isCommenting = false,
+                            items = if (atEnd) state.items + result.value else state.items,
+                            issue = state.issue?.let { it.copy(comments = it.comments + 1) },
+                            commentPostedOutOfSight = !atEnd,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun commentNoticeShown() = _state.update { it.copy(commentPostedOutOfSight = false) }
+
+    private companion object {
+        const val DRAFT_KEY = "draft"
+    }
 }

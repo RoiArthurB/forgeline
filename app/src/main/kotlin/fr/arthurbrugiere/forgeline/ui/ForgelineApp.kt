@@ -115,7 +115,10 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
             FileDestination(key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.repo.forge, it) })
         }
         entry<IssueKey> { key ->
-            IssueDestination(key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.issue.repo.forge, it) })
+            IssueDestination(
+                key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.issue.repo.forge, it) },
+                session = session, onSignIn = signIn,
+            )
         }
         entry<RunKey> { key ->
             RunDestination(

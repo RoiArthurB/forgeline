@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import io.ktor.http.HttpHeaders
+import java.time.Instant
+import io.ktor.http.content.TextContent
+import io.ktor.http.HttpMethod
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
@@ -200,5 +204,34 @@ class ForgejoIssueApiTest {
         val page = withContext(Dispatchers.Default) { withTimeout(5_000) { issues.timeline(null, pull, page = 1) } }
 
         assertThat(page.value().items).isEmpty()
+    }
+
+    // The answer below follows Forgejo's API description for a created comment: posting can't be captured from a
+    // real account in tests.
+    private val created = """{"id":9001,"user":{"login":"me","full_name":"","avatar_url":"https://codeberg.org/avatars/abc"},
+        "body":"Works for me on 16.0","created_at":"2026-10-01T11:30:00+02:00","updated_at":"2026-10-01T11:30:00+02:00"}"""
+
+    @Test
+    fun a_comment_is_posted_to_the_conversation_and_comes_back_as_kept() = runTest {
+        val posting = with(codeberg) { ForgejoIssueApi(client { json(created, HttpStatusCode.Created) }, ForgeInstance.Codeberg) }
+
+        val comment = posting.comment("tok", pull, "Works for me on 16.0").value()
+
+        assertThat(comment.id).isEqualTo(9001)
+        assertThat(comment.author?.login).isEqualTo("me")
+        assertThat(comment.body).isEqualTo("Works for me on 16.0")
+        assertThat(comment.createdAt).isEqualTo(Instant.parse("2026-10-01T09:30:00Z"))
+        val request = codeberg.requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Post)
+        assertThat(request.url.toString()).isEqualTo("https://codeberg.org/api/v1/repos/forgejo/forgejo/issues/14597/comments")
+        assertThat(request.headers[HttpHeaders.Authorization]).isEqualTo("token tok")
+        assertThat((request.body as TextContent).text).isEqualTo("""{"body":"Works for me on 16.0"}""")
+    }
+
+    @Test
+    fun a_comment_the_forge_refuses_is_a_failure() = runTest {
+        val posting = with(codeberg) { ForgejoIssueApi(client { json("""{"message":"issue is locked"}""", HttpStatusCode.Forbidden) }, ForgeInstance.Codeberg) }
+
+        assertThat(posting.comment("tok", pull, "Hello")).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "issue is locked")))
     }
 }
