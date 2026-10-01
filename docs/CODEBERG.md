@@ -100,7 +100,7 @@ One Trending page, mixing GitHub and Codeberg. Two separate problems: getting a 
 
 Codeberg has no trending page, no star timestamps and no star events, so "stars gained today" can only be measured by comparing star counts over time. Doing that on every phone would cost storage, battery, data, and many times the load on Codeberg. Instead, **one scheduled job measures it once a day for everyone**, within a fixed budget of **30 anonymous API requests per run**.
 
-**Where it runs.** A GitHub Actions workflow in this repository (`.github/workflows/codeberg-trending.yml`), daily at 02:17 UTC, running the `tools:codeberg-trending` module. It publishes two files on the repository's GitHub Pages site, under `codeberg/`:
+**Where it runs.** A GitHub Actions workflow in this repository (`.github/workflows/trending.yml`, which measures gitlab.com the same way: see [GITLAB.md](GITLAB.md#trending)), daily at 02:17 UTC, running the `tools:trending` module. It publishes two files on the repository's GitHub Pages site, under `codeberg/`:
 
 - `state.json`: for each tracked repository (keyed by Codeberg's numeric id, so renames don't break history), its star count on each of the last 31 recorded days, plus new forks per repository per day. The first real run (2026-09-29) tracked 1,400 repositories in 84 KB for one day.
 - `trending.json`: the daily, weekly and monthly lists, each already in its final order (`TrendingFile` in `forge:forgejo`, shared by the job and the app so they can't drift apart).

@@ -3,9 +3,9 @@ package fr.arthurbrugiere.forgeline.configchecks
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
-/** The daily Codeberg Trending job keeps a month of history in what it publishes: these guard that history. */
-class CodebergTrendingWorkflowTest {
-    private val workflow = Repo.text(".github/workflows/codeberg-trending.yml")
+/** The daily Trending job keeps a month of history per forge in what it publishes: these guard that history. */
+class TrendingWorkflowTest {
+    private val workflow = Repo.text(".github/workflows/trending.yml")
 
     @Test
     fun only_a_missing_history_starts_afresh() {
@@ -20,12 +20,20 @@ class CodebergTrendingWorkflowTest {
     }
 
     @Test
+    fun one_forge_failing_keeps_its_history_in_the_deployment() {
+        // One deployment replaces the whole site: a forge left out of it would lose its history.
+        assertThat(workflow).contains("""cp "previous-${'$'}forge.json" "site/${'$'}forge/state.json"""")
+        assertThat(workflow).contains("""[ "${'$'}measured" -gt 0 ]""")
+    }
+
+    @Test
     fun the_app_reads_the_file_the_job_publishes() {
         val url = Regex("""forgeline\.codebergTrendingUrl=(\S+)""").find(Repo.text("gradle.properties"))!!.groupValues[1]
         assertThat(url).startsWith("https://")
         assertThat(url).endsWith("/codeberg/trending.json")
-        assertThat(workflow).contains("site/codeberg")
+        assertThat(workflow).contains("for forge in codeberg gitlab")
+        assertThat(workflow).contains("site/${'$'}forge")
         assertThat(workflow).containsMatch("""path:\s*site""")
-        assertThat(workflow).contains("/codeberg/state.json")
+        assertThat(workflow).contains("${'$'}base/state.json")
     }
 }

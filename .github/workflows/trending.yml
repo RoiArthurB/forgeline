@@ -1,0 +1,72 @@
+name: Trending
+
+# Codeberg and gitlab.com have no trending page, so this measures one for each, for everyone, once a
+# day, with anonymous requests, and publishes them on GitHub Pages: <forge>/trending.json for the app,
+# <forge>/state.json for tomorrow's run. See docs/CODEBERG.md#trending and docs/GITLAB.md#trending.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 2 * * *"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Two runs at once would both build on the same yesterday and one would lose its day.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v6
+      - id: pages
+        uses: actions/configure-pages@v5
+      - name: Measure
+        # Both forges go out in one Pages deployment, which replaces the whole site. So each forge's
+        # history is read first: only a 404 (that forge's very first run) starts afresh, and any other
+        # failure stops here, since publishing without it would throw away a month of measurements. A
+        # forge that can't be measured today publishes yesterday's files again, so the other forge's day
+        # isn't lost; with nothing measured at all, nothing is published.
+        run: |
+          measured=0
+          for forge in codeberg gitlab; do
+            echo "::group::$forge"
+            base="${{ steps.pages.outputs.base_url }}/$forge"
+            status=$(curl -sSL --retry 3 -o "previous-$forge.json" -w '%{http_code}' "$base/state.json")
+            case "$status" in
+              200) echo "History found." ;;
+              404) echo "No history yet: starting afresh."; rm -f "previous-$forge.json" ;;
+              *) echo "Couldn't read $forge's history (HTTP $status)."; exit 1 ;;
+            esac
+            if ./gradlew :tools:trending:run --args="$forge $GITHUB_WORKSPACE/previous-$forge.json $GITHUB_WORKSPACE/site/$forge"; then
+              measured=$((measured + 1))
+            elif [ -f "previous-$forge.json" ]; then
+              echo "::warning::Couldn't measure $forge today: publishing yesterday's files again."
+              mkdir -p "site/$forge"
+              cp "previous-$forge.json" "site/$forge/state.json"
+              curl -sSfL --retry 3 -o "site/$forge/trending.json" "$base/trending.json"
+            else
+              echo "::warning::Couldn't measure $forge, which has no history yet."
+              rm -rf "site/$forge"
+            fi
+            echo "::endgroup::"
+          done
+          [ "$measured" -gt 0 ]
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
