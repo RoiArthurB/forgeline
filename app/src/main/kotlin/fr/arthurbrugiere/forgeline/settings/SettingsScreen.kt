@@ -227,9 +227,9 @@ fun SettingsScreen(
             }
             if (section == SettingsSection.FEED) item { FeedKindsItem(settings.feedKinds, onFeedKindChange) }
             if (section == SettingsSection.TRENDING) {
-                // Forgejo forges have no trending list of their own: Codeberg's is published daily, any other
-                // server's can be measured here. GitHub's comes from GitHub.
-                val forges = (session as? SessionState.SignedIn)?.accounts.orEmpty().map { it.forge }.distinct().filter { it.type == ForgeType.FORGEJO }
+                // Only GitHub has a trending list of its own. Codeberg's and gitlab.com's are published daily for
+                // everyone; once signed in there, the phone can measure them instead, and any other server's too.
+                val forges = (session as? SessionState.SignedIn)?.accounts.orEmpty().map { it.forge }.distinct().filter { it.type != ForgeType.GITHUB }
                 if (forges.isEmpty()) {
                     item { SoftNotice(stringResource(R.string.settings_trending_none_title), stringResource(R.string.settings_trending_none_body)) }
                 }
@@ -240,7 +240,7 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_trending_measure, forge.displayName),
                         summary = when {
                             last != null -> stringResource(R.string.settings_trending_measured_at, last)
-                            forge == ForgeInstance.Codeberg -> stringResource(R.string.settings_trending_measure_codeberg)
+                            forge == ForgeInstance.Codeberg || forge == ForgeInstance.GitLab -> stringResource(R.string.settings_trending_measure_codeberg)
                             else -> stringResource(R.string.settings_trending_measure_server)
                         },
                         checked = measured,

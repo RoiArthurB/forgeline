@@ -17,8 +17,9 @@ data class RepoId(val owner: String, val name: String, val forge: ForgeInstance 
         /** Reads a [key]; null when it isn't one. */
         fun fromKey(key: String): RepoId? {
             val parts = key.split('/')
-            if (parts.size != 3 || parts.any { it.isEmpty() }) return null
-            return RepoId(parts[1], parts[2], ForgeInstance.of(parts[0]))
+            if (parts.size < 3 || parts.any { it.isEmpty() }) return null
+            // GitLab owners can be nested groups (`group/subgroup`): everything between the host and the name.
+            return RepoId(parts.subList(1, parts.size - 1).joinToString("/"), parts.last(), ForgeInstance.of(parts[0]))
         }
     }
 }

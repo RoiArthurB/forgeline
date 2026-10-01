@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.forge.forgejo.trending.ForgejoTrendingCrawler
 import fr.arthurbrugiere.forgeline.forge.forgejo.trending.TrendingState
 import fr.arthurbrugiere.forgeline.forge.forgejo.trending.lists
 import fr.arthurbrugiere.forgeline.forge.forgejo.trending.record
+import fr.arthurbrugiere.forgeline.forge.gitlab.trending.GitLabTrendingCrawler
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json

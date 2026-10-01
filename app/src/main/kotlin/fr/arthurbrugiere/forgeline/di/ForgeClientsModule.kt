@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.di
 
 import fr.arthurbrugiere.forgeline.core.forge.TrendingMeter
 import fr.arthurbrugiere.forgeline.forge.forgejo.trending.ForgejoTrendingMeter
+import fr.arthurbrugiere.forgeline.forge.gitlab.trending.GitLabTrendingMeter
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -40,12 +41,16 @@ import javax.inject.Inject
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
-/** GitHub's clients come from [ForgeModule]; each Forgejo instance gets its own from `forge:forgejo`, built on first use. */
+/**
+ * GitHub's clients come from [ForgeModule]; each Forgejo instance gets its own from `forge:forgejo`, built on first use.
+ * gitlab.com only has Trending so far, from `forge:gitlab`.
+ */
 @Singleton
 class DefaultForgeClients @Inject constructor(
     @Forgejo private val forgejoHttp: HttpClient,
     @CodebergClientId private val codebergClientId: String,
     @CodebergTrendingUrl private val codebergTrendingUrl: String,
+    @GitLabTrendingUrl private val gitlabTrendingUrl: String,
     private val repos: RepoApi,
     private val issues: IssueApi,
     private val users: UserApi,
@@ -80,8 +85,14 @@ class DefaultForgeClients @Inject constructor(
 
     private val forgejo = ConcurrentHashMap<ForgeInstance, ForgejoClients>()
 
+    // Anything but Trending asked of GitLab goes to a Forgejo client and fails like an unknown server: the app doesn't
+    // offer it (ForgeInstance.isBrowsable).
     private fun <T> pick(forge: ForgeInstance, gitHub: T, forgejo: ForgejoClients.() -> T): T =
         if (forge.type == ForgeType.GITHUB) gitHub else this.forgejo.getOrPut(forge) { ForgejoClients(forgejoHttp, forge) }.forgejo()
+
+    // gitlab.com's daily list has the same format as Codeberg's.
+    private val gitlabTrending = gitlabTrendingUrl.takeIf { it.isNotBlank() }?.let { ForgejoTrendingApi(forgejoHttp, ForgeInstance.GitLab, it) }
+    private val gitlabTrendingMeter = GitLabTrendingMeter(forgejoHttp)
 
     override fun repos(forge: ForgeInstance) = pick(forge, repos) { repos }
 
@@ -101,9 +112,11 @@ class DefaultForgeClients @Inject constructor(
 
     override fun actions(forge: ForgeInstance): ActionsApi? = pick(forge, actions) { actions }
 
-    override fun trending(forge: ForgeInstance): TrendingApi? = pick(forge, trending) { trending }
+    override fun trending(forge: ForgeInstance): TrendingApi? =
+        if (forge == ForgeInstance.GitLab) gitlabTrending else pick(forge, trending) { trending }
 
-    override fun trendingMeter(forge: ForgeInstance): TrendingMeter? = pick(forge, null) { trendingMeter }
+    override fun trendingMeter(forge: ForgeInstance): TrendingMeter? =
+        if (forge == ForgeInstance.GitLab) gitlabTrendingMeter else pick(forge, null) { trendingMeter }
 }
 
 /** Codeberg's OAuth client ID, from `forgeline.codebergClientId`; blank without one. */
@@ -115,6 +128,11 @@ annotation class CodebergClientId
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class CodebergTrendingUrl
+
+/** Where gitlab.com's Trending is published, from `forgeline.gitlabTrendingUrl`; blank leaves GitLab out. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class GitLabTrendingUrl
 
 /** Forgejo's HTTP client: its own JSON settings and user agent, shared by every instance. */
 @Qualifier
@@ -143,5 +161,9 @@ abstract class ForgeClientsModule {
         @Provides
         @CodebergTrendingUrl
         fun provideCodebergTrendingUrl(): String = BuildConfig.CODEBERG_TRENDING_URL
+
+        @Provides
+        @GitLabTrendingUrl
+        fun provideGitLabTrendingUrl(): String = BuildConfig.GITLAB_TRENDING_URL
     }
 }

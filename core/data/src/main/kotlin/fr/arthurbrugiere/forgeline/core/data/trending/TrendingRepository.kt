@@ -73,9 +73,9 @@ interface TrendingRepository {
 }
 
 /**
- * GitHub's Trending, always (it needs no account), and that of each other forge an account is signed in to: its
- * published list when it has one, or the phone's own measurements when the settings ask for them. Each forge's
- * ranking is cached and refreshed on its own; the page merges them with [mergeByShare].
+ * GitHub's Trending and the lists published daily for Codeberg and gitlab.com, always (none needs an account), and that
+ * of each other forge an account is signed in to. A forge signed in to can be measured on the phone instead, when the
+ * settings ask for it. Each forge's ranking is cached and refreshed on its own; the page merges them with [mergeByShare].
  */
 @Singleton
 class DefaultTrendingRepository @Inject constructor(
@@ -93,10 +93,17 @@ class DefaultTrendingRepository @Inject constructor(
 
     /** The forges on the page, GitHub first: it wins ties in the merge. */
     private val forges: Flow<List<ForgeInstance>> = combine(accounts.accounts, settings.settings) { signedIn, settings ->
-        (listOf(ForgeInstance.GitHub) + signedIn.map { it.forge }).distinct().filter { forge ->
-            if (forge.host in settings.measuredTrending) clients.trendingMeter(forge) != null else clients.trending(forge) != null
+        val measured = measuredHere(signedIn.map { it.forge }, settings.measuredTrending)
+        (PUBLISHED + signedIn.map { it.forge }).distinct().filter { forge ->
+            if (forge in measured) clients.trendingMeter(forge) != null else clients.trending(forge) != null
         }
     }.distinctUntilChanged()
+
+    /** Forges measured on the phone: those the settings ask for, while signed in there. Signing out goes back to the published list. */
+    private fun measuredHere(signedIn: List<ForgeInstance>, hosts: Set<String>) = signedIn.filter { it.host in hosts }.toSet()
+
+    private suspend fun isMeasuredHere(forge: ForgeInstance) =
+        forge in measuredHere(accounts.accounts.first().map { it.forge }, settings.settings.first().measuredTrending)
 
     override fun observe(period: TrendingPeriod): Flow<TrendingSnapshot> =
         combine(forges, dao.observeRepos(period.name), dao.observeFetches(period.name)) { forges, repos, fetches ->
@@ -119,7 +126,7 @@ class DefaultTrendingRepository @Inject constructor(
 
     private suspend fun refresh(forge: ForgeInstance, period: TrendingPeriod, force: Boolean): RefreshResult {
         // Measured on the phone: the lists are what the last measurement left, nothing to fetch.
-        if (forge.host in settings.settings.first().measuredTrending) return RefreshResult.Fresh
+        if (isMeasuredHere(forge)) return RefreshResult.Fresh
         val api = clients.trending(forge) ?: return RefreshResult.Fresh
         val fetchedAt = dao.fetchedAt(forge.host, period.name)
         if (!force && fetchedAt != null && clock.millis() - fetchedAt < MAX_AGE.inWholeMilliseconds) {
@@ -128,8 +135,9 @@ class DefaultTrendingRepository @Inject constructor(
         return when (val result = api.trending(period)) {
             is ForgeResult.Failure -> RefreshResult.Failed(result.error)
             is ForgeResult.Success -> {
-                // An empty page means the markup changed, not that nothing trends: keep the cache.
-                if (result.value.isEmpty()) return RefreshResult.Failed(ForgeError.Http(200, "No trending repositories found"))
+                // An empty scraped page means GitHub's markup changed, not that nothing trends: keep the cache. A
+                // published list can be empty for real (a quiet day on gitlab.com).
+                if (result.value.isEmpty() && forge == ForgeInstance.GitHub) return RefreshResult.Failed(ForgeError.Http(200, "No trending repositories found"))
                 dao.replace(
                     forge.host,
                     period.name,
@@ -172,6 +180,9 @@ class DefaultTrendingRepository @Inject constructor(
     private fun TrendingPeriod.markList(only: ForgeInstance?) = "trending:$name" + only?.let { ":${it.host}" }.orEmpty()
 
     private companion object {
+        /** Forges whose Trending is on everyone's page: GitHub's own, and the lists published daily for the others. */
+        val PUBLISHED = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab)
+
         val MAX_AGE = 1.hours
 
         /** A daily browse: yesterday evening's place still counts this morning, last week's doesn't. */

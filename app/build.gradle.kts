@@ -26,6 +26,9 @@ android {
         // Codeberg has no trending page: a daily job publishes one. Empty leaves Codeberg out of Trending.
         val codebergTrendingUrl = providers.gradleProperty("forgeline.codebergTrendingUrl").getOrElse("").trim()
         buildConfigField("String", "CODEBERG_TRENDING_URL", "\"$codebergTrendingUrl\"")
+        // Nor has gitlab.com: the same job publishes its list. Empty leaves GitLab out of Trending.
+        val gitlabTrendingUrl = providers.gradleProperty("forgeline.gitlabTrendingUrl").getOrElse("").trim()
+        buildConfigField("String", "GITLAB_TRENDING_URL", "\"$gitlabTrendingUrl\"")
     }
 
     buildFeatures {
@@ -61,6 +64,7 @@ dependencies {
     implementation(projects.core.markdown)
     implementation(projects.forge.github)
     implementation(projects.forge.forgejo)
+    implementation(projects.forge.gitlab)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.ktor3)

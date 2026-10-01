@@ -26,6 +26,17 @@ class RepoIdTest {
     }
 
     @Test
+    fun a_gitlab_project_under_nested_groups_reads_back_from_its_key() {
+        val nested = RepoId("group/subgroup", "tool", ForgeInstance.GitLab)
+
+        assertThat(RepoId.fromKey(nested.key)).isEqualTo(nested)
+        assertThat(nested.webUrl).isEqualTo("https://gitlab.com/group/subgroup/tool")
+        assertThat(ForgeInstance.of("GitLab.com")).isEqualTo(ForgeInstance.GitLab)
+        assertThat(ForgeInstance.GitLab.isBrowsable).isFalse()
+        assertThat(ForgeInstance.Codeberg.isBrowsable).isTrue()
+    }
+
+    @Test
     fun a_host_is_github_or_a_forgejo_instance() {
         assertThat(ForgeInstance.of("github.com")).isEqualTo(ForgeInstance.GitHub)
         assertThat(ForgeInstance.of("www.GitHub.com")).isEqualTo(ForgeInstance.GitHub)

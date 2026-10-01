@@ -24,6 +24,8 @@ fun trendingRepo(
     description: String? = "Description of $fullName",
     forge: ForgeInstance = ForgeInstance.GitHub,
 ): TrendingRepo {
-    val (owner, name) = fullName.split('/')
+    // GitLab owners can be nested groups: the name is the last part.
+    val owner = fullName.substringBeforeLast('/')
+    val name = fullName.substringAfterLast('/')
     return TrendingRepo(RepoId(owner, name, forge), description, "Kotlin", "#A97BFF", stars, forks = 5, periodStars, builtBy = emptyList())
 }

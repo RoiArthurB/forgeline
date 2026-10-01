@@ -8,7 +8,7 @@ Forgeline brings your forges to your phone as a timeline: an **Inbox** for what 
 
 ## What's in v0.3
 
-- **Several forges at once:** GitHub, Codeberg and any self-hosted Forgejo server share one Inbox, Feed, Trending page and search. Each row names its forge, and one forge can be picked alone. Codeberg's Trending is measured daily and mixed in by share of stars.
+- **Several forges at once:** GitHub, Codeberg and any self-hosted Forgejo server share one Inbox, Feed, Trending page and search. Each row names its forge, and one forge can be picked alone. Codeberg's and gitlab.com's Trending are measured daily, shown to everyone without signing in, and mixed in by share of stars.
 - **Inbox:** what needs you first (review requests, mentions, assignments, security alerts), then everything else grouped by owner and repository. Pull requests and issues say whether they're open, merged or closed. Swipe right to mark read, left to mark done, with 5 seconds to Undo. Background checks (every hour by default, or off) post phone notifications on separate channels, and the conversations waiting on you are loaded ahead so they open instantly.
 - **Feed:** what the people you follow and the repositories you watch are doing, in strict chronological order, grouped by day, each event leading with the repository or pull request it's about. Identical events on the same repository merge. Releases (and, on GitHub, announcements) from the repositories you starred join in, which the forges' own event feeds leave out. You choose which kinds of activity show up in Settings.
 - **Trending:** GitHub's trending repositories for today, this week or this month, exactly as GitHub ranks them. It works without signing in.

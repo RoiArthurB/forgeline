@@ -16,6 +16,7 @@ class ForgeIconsTest {
     fun each_forge_has_its_own_logo_and_any_other_server_forgejos() {
         assertThat(ForgeInstance.GitHub.iconRes).isEqualTo(R.drawable.ic_forge_github)
         assertThat(ForgeInstance.Codeberg.iconRes).isEqualTo(R.drawable.ic_forge_codeberg)
+        assertThat(ForgeInstance.GitLab.iconRes).isEqualTo(R.drawable.ic_forge_gitlab)
         assertThat(selfHosted.iconRes).isEqualTo(R.drawable.ic_forge_forgejo)
     }
 

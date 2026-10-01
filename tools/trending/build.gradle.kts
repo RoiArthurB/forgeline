@@ -12,6 +12,7 @@ application {
 
 dependencies {
     implementation(projects.forge.forgejo)
+    implementation(projects.forge.gitlab)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
