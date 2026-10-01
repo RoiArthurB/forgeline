@@ -91,6 +91,7 @@ class DefaultRepoRepository @Inject constructor(
             is ForgeResult.Success -> result.value
         }
         dao.upsert(RepoCacheEntity(id.cacheKey(), details.encode(), readme?.path, readme?.markdown, clock.millis()))
+        dao.prune(STORED_REPOS)
         return RefreshResult.Refreshed
     }
 
@@ -115,7 +116,10 @@ class DefaultRepoRepository @Inject constructor(
     override fun blobBaseUrl(id: RepoId, ref: String) = clients.repos(id.forge).blobBaseUrl(id, ref)
 
 
-    private companion object {
-        val MAX_AGE = 30.minutes
+    companion object {
+        private val MAX_AGE = 30.minutes
+
+        /** Repositories kept on disk, README included: the ones opened last. Regression: the cache only grew. */
+        const val STORED_REPOS = 200
     }
 }

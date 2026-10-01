@@ -71,6 +71,21 @@ class DefaultRepoRepositoryTest {
     }
 
     @Test
+    fun only_the_repositories_opened_last_are_kept() = runTest {
+        // Regression: every repository ever opened stayed on the phone, README included, and the cache only grew.
+        val opened = (1..DefaultRepoRepository.STORED_REPOS + 3).map { RepoId("octo", "repo$it") }
+        opened.forEach { repo ->
+            api.details[repo] = repoDetails(repo.fullName)
+            now = now.plusSeconds(1)
+            repository.refresh(repo)
+        }
+
+        assertThat(opened.take(3).map { repository.observe(it).first().details }).containsExactly(null, null, null)
+        assertThat(repository.observe(opened[3]).first().details).isNotNull()
+        assertThat(repository.observe(opened.last()).first().details).isNotNull()
+    }
+
+    @Test
     fun a_repo_without_readme_is_remembered_as_such() = runTest {
         api.details[id] = repoDetails("octo/repo")
         api.readmes[id] = null

@@ -64,6 +64,53 @@ class DataStoreAccountRepositoryTest {
         assertThat(repository.token(account.id)).isEqualTo("ghp_secret")
     }
 
+    /** Counts decryptions: on a phone each one is a round trip to the Keystore. */
+    private class CountingCipher : TokenCipher {
+        var decryptions = 0
+
+        override fun encrypt(plaintext: String) = ReversingCipher.encrypt(plaintext)
+
+        override fun decrypt(ciphertext: String): String {
+            decryptions++
+            return ReversingCipher.decrypt(ciphertext)
+        }
+    }
+
+    @Test
+    fun a_token_is_decrypted_once_not_for_every_request() = runTest {
+        // Regression: every forge request went through the Keystore to read the same token again.
+        val cipher = CountingCipher()
+        val repository = DataStoreAccountRepository(dataStore(), cipher, refresher, clock)
+        val account = repository.signIn(ForgeInstance.GitHub, octocat, "ghp_secret")
+
+        repeat(5) { assertThat(repository.token(account.id)).isEqualTo("ghp_secret") }
+
+        assertThat(cipher.decryptions).isAtMost(1)
+    }
+
+    @Test
+    fun signing_in_again_reads_the_new_token_not_the_one_remembered() = runTest {
+        val repository = DataStoreAccountRepository(dataStore(), CountingCipher(), refresher, clock)
+        val account = repository.signIn(ForgeInstance.GitHub, octocat, "ghp_old")
+        repository.token(account.id)
+
+        repository.signIn(ForgeInstance.GitHub, octocat, "ghp_new")
+
+        assertThat(repository.token(account.id)).isEqualTo("ghp_new")
+    }
+
+    @Test
+    fun a_signed_out_account_s_token_is_no_longer_remembered() = runTest {
+        val repository = DataStoreAccountRepository(dataStore(), CountingCipher(), refresher, clock)
+        val account = repository.signIn(ForgeInstance.GitHub, octocat, "ghp_secret")
+        repository.token(account.id)
+
+        repository.signOut(account.id)
+
+        assertThat(repository.token(account.id)).isNull()
+        assertThat(repository.rememberedTokens).isEqualTo(0)
+    }
+
     @Test
     fun tokens_are_stored_encrypted() = runTest {
         val store = dataStore()

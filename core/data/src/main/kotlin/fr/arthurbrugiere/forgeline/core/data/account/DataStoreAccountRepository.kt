@@ -22,6 +22,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.security.GeneralSecurityException
 import java.time.Clock
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -96,6 +97,8 @@ class DataStoreAccountRepository @Inject constructor(
                         val latest = prefs.toState()
                         prefs.write(latest.copy(accounts = latest.accounts.map { if (it.id == accountId) renewed else it }))
                     }
+                    // The token it replaces is no longer worth remembering.
+                    decrypted.remove(current.encryptedToken)
                     tokens.accessToken
                 }
             }
@@ -104,7 +107,17 @@ class DataStoreAccountRepository @Inject constructor(
 
     private fun StoredAccount.expiresSoon(): Boolean = expiresAtMillis != null && clock.millis() >= expiresAtMillis - REFRESH_EARLY_MILLIS
 
-    private fun decrypt(value: String): String? = try {
+    /**
+     * Tokens already decrypted, by what is stored: a renewed or replaced token is stored differently, so it is never
+     * answered from here. Regression: every forge request went through the Keystore to read the same token again.
+     */
+    private val decrypted = ConcurrentHashMap<String, String>()
+
+    internal val rememberedTokens: Int get() = decrypted.size
+
+    private fun decrypt(value: String): String? = decrypted[value] ?: readEncrypted(value)?.also { decrypted[value] = it }
+
+    private fun readEncrypted(value: String): String? = try {
         cipher.decrypt(value)
     } catch (e: GeneralSecurityException) {
         null
@@ -119,6 +132,8 @@ class DataStoreAccountRepository @Inject constructor(
             val activeId = if (current.activeId == accountId) remaining.lastOrNull()?.id else current.activeId
             prefs.write(StoredState(remaining, activeId))
         }
+        // Nothing of the account stays in memory; the others' tokens are read again when next needed.
+        decrypted.clear()
     }
 
     private fun Preferences.toState(): StoredState = StoredState(

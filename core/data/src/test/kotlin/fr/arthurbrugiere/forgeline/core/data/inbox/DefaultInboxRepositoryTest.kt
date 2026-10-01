@@ -44,6 +44,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
@@ -396,6 +397,23 @@ class DefaultInboxRepositoryTest {
         codeberg.threads = listOf(notificationThread("7", repo = "forgejo/forgejo", updatedAt = "2026-09-27T11:00:00Z"))
         repository.sync(force = true, waitForFollowUps = true)
         assertThat(repository.observe().first().threads.map { it.id }).containsExactly("7")
+    }
+
+    @Test
+    fun the_state_of_a_conversation_long_gone_from_the_inbox_is_forgotten() = runTest {
+        // Regression: every state ever asked for was kept, and read whole each time the Inbox changed.
+        signIn()
+        api.threads = listOf(notificationThread("1", number = 1))
+        api.states[IssueRef(RepoId("acme", "rocket"), 1)] = SubjectState.OPEN
+        repository.sync(force = true, waitForFollowUps = true)
+        assertThat(database.inboxDao().states().map { it.number }).containsExactly(1)
+
+        now = now.plus(Duration.ofDays(8))
+        api.threads = listOf(notificationThread("2", number = 2))
+        api.states[IssueRef(RepoId("acme", "rocket"), 2)] = SubjectState.OPEN
+        repository.sync(force = true, waitForFollowUps = true)
+
+        assertThat(database.inboxDao().states().map { it.number }).containsExactly(2)
     }
 
     @Test

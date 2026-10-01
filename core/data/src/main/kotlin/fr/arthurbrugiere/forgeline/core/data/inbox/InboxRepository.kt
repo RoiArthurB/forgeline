@@ -170,8 +170,10 @@ class DefaultInboxRepository @Inject constructor(
     /** Asks where the inbox's issues and pull requests stand, for those never asked, moved on since, or asked long ago. */
     private suspend fun refreshStates(account: Account) {
         val token = accounts.token(account.id) ?: return
-        val known = dao.states().associateBy { it.ref() }
         val now = clock.millis()
+        // A conversation still in the inbox has its state asked (or sent with its thread) far more often than this.
+        dao.pruneStates(now - STATE_KEEP_MILLIS)
+        val known = dao.states().associateBy { it.ref() }
         val stale = dao.all(account.id).map { it.toModel() }.mapNotNull { thread ->
             val ref = thread.subject ?: return@mapNotNull null
             val state = known[ref]
@@ -281,6 +283,9 @@ class DefaultInboxRepository @Inject constructor(
 
         /** A merge or close can happen without new activity on your thread: ask again after an hour anyway. */
         const val STATE_MAX_AGE_MILLIS = 60 * 60 * 1_000L
+
+        /** How long a state is kept without being asked again. Regression: states were kept for ever. */
+        const val STATE_KEEP_MILLIS = 7 * 24 * 60 * 60 * 1_000L
 
         /** Conversations loaded ahead per sync: two requests each, so a busy inbox doesn't eat the rate limit. */
         const val PREFETCHED_CONVERSATIONS = 10

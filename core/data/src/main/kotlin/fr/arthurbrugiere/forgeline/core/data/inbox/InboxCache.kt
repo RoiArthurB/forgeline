@@ -100,6 +100,10 @@ interface InboxDao {
     @Query("SELECT * FROM subject_states")
     suspend fun states(): List<SubjectStateEntity>
 
+    /** Forgets the states last asked before [before]: their conversations left the inbox long ago. */
+    @Query("DELETE FROM subject_states WHERE checkedAtMillis < :before")
+    suspend fun pruneStates(before: Long)
+
     @Query("DELETE FROM subject_states WHERE host = :host")
     suspend fun clearStates(host: String)
 

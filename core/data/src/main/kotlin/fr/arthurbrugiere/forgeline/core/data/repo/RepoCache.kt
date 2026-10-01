@@ -36,6 +36,10 @@ interface RepoDao {
     @Upsert
     suspend fun upsert(entity: RepoCacheEntity)
 
+    /** Keeps the [keep] repositories fetched last. */
+    @Query("DELETE FROM repo_cache WHERE requestedName NOT IN (SELECT requestedName FROM repo_cache ORDER BY fetchedAtMillis DESC LIMIT :keep)")
+    suspend fun prune(keep: Int)
+
     /** Deletes every repository kept from [host]. */
     @Query("DELETE FROM repo_cache WHERE requestedName LIKE :host || '/%'")
     suspend fun clear(host: String)
