@@ -34,9 +34,9 @@ class FakeForgeClients(
     private val others = mutableMapOf<ForgeInstance, FakeForgeClients>()
     val asked = mutableListOf<String>()
 
-    /** The fakes answering for [forge]; GitHub's are this object's own. */
+    /** The fakes answering for [forge]; GitHub's are this object's own. Other forges publish no Trending unless [put] says so. */
     fun on(forge: ForgeInstance): FakeForgeClients =
-        if (forge == ForgeInstance.GitHub) this else others.getOrPut(forge) { FakeForgeClients() }
+        if (forge == ForgeInstance.GitHub) this else others.getOrPut(forge) { FakeForgeClients(trending = null) }
 
     fun put(forge: ForgeInstance, clients: FakeForgeClients) {
         others[forge] = clients

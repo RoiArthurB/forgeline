@@ -1,8 +1,11 @@
 package fr.arthurbrugiere.forgeline.core.model
 
-enum class ForgeType { GITHUB, FORGEJO }
+enum class ForgeType { GITHUB, FORGEJO, GITLAB }
 
-/** A forge server: github.com, codeberg.org, or a self-hosted Forgejo instance. [host] is lowercase. */
+/**
+ * A forge server: github.com, codeberg.org, a self-hosted Forgejo instance, or gitlab.com (Trending only so far). [host]
+ * is lowercase.
+ */
 data class ForgeInstance(val type: ForgeType, val host: String) {
     /** Where the forge's web pages live, without a trailing `/`. */
     val webUrl: String get() = "https://$host"
@@ -12,17 +15,29 @@ data class ForgeInstance(val type: ForgeType, val host: String) {
         get() = when (this) {
             GitHub -> "GitHub"
             Codeberg -> "Codeberg"
+            GitLab -> "GitLab"
             else -> host
         }
+
+    /**
+     * Whether the app can sign in to the forge and open what's on it. gitlab.com isn't yet: it is only on Trending, and
+     * its repositories open in the browser.
+     */
+    val isBrowsable: Boolean get() = type != ForgeType.GITLAB
 
     companion object {
         val GitHub = ForgeInstance(ForgeType.GITHUB, "github.com")
         val Codeberg = ForgeInstance(ForgeType.FORGEJO, "codeberg.org")
+        val GitLab = ForgeInstance(ForgeType.GITLAB, "gitlab.com")
 
-        /** The forge at [host]: GitHub for github.com, else a Forgejo instance (Codeberg or self-hosted). */
+        /** The forge at [host]: GitHub for github.com, GitLab for gitlab.com, else a Forgejo instance (Codeberg or self-hosted). */
         fun of(host: String): ForgeInstance {
             val lower = host.lowercase().removePrefix("www.")
-            return if (lower == GitHub.host) GitHub else ForgeInstance(ForgeType.FORGEJO, lower)
+            return when (lower) {
+                GitHub.host -> GitHub
+                GitLab.host -> GitLab
+                else -> ForgeInstance(ForgeType.FORGEJO, lower)
+            }
         }
     }
 }

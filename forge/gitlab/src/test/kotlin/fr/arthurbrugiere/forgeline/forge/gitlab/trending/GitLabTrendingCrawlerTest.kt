@@ -1,4 +1,4 @@
-package fr.arthurbrugiere.forgeline.tools.trending
+package fr.arthurbrugiere.forgeline.forge.gitlab.trending
 
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.forge.forgejo.forgejoHttpClient

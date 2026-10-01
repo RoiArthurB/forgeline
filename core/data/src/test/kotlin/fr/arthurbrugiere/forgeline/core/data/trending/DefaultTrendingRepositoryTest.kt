@@ -137,6 +137,8 @@ class DefaultTrendingRepositoryTest {
 
     @Test
     fun a_failed_refresh_keeps_the_cache() = runTest {
+        // Codeberg's published list is on every page: out of reach here too, so the refresh reads nothing.
+        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Failure(ForgeError.Network)
         api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
         repository.refresh(TrendingPeriod.DAILY)
         api.results[TrendingPeriod.DAILY] = ForgeResult.Failure(ForgeError.Network)
@@ -148,6 +150,7 @@ class DefaultTrendingRepositoryTest {
     @Test
     fun an_empty_ranking_never_wipes_the_cache() = runTest {
         // An empty page most likely means GitHub changed its markup, not that nothing trends.
+        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Failure(ForgeError.Network)
         api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
         repository.refresh(TrendingPeriod.DAILY)
         api.results[TrendingPeriod.DAILY] = ForgeResult.Success(emptyList())
@@ -181,16 +184,19 @@ class DefaultTrendingRepositoryTest {
     private suspend fun signInToCodeberg() = accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "token")
 
     @Test
-    fun only_github_without_a_codeberg_account() = runTest {
-        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(trendingRepo("ziglang/zig", forge = ForgeInstance.Codeberg)))
+    fun codeberg_and_gitlab_published_lists_join_without_an_account() = runTest {
+        val zig = trendingRepo("ziglang/zig", forge = ForgeInstance.Codeberg)
+        val gitlabApi = FakeTrendingApi(ForgeInstance.GitLab).also { clients.put(ForgeInstance.GitLab, FakeForgeClients(trending = it)) }
+        val tool = trendingRepo("group/sub/tool", forge = ForgeInstance.GitLab)
+        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(zig))
+        gitlabApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(tool))
         api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
 
         repository.refresh(TrendingPeriod.DAILY)
 
-        assertThat(codebergApi.calls).isEmpty()
         val snapshot = repository.observe(TrendingPeriod.DAILY).first()
-        assertThat(snapshot.repos).containsExactly(paperclip)
-        assertThat(snapshot.forges).containsExactly(ForgeInstance.GitHub)
+        assertThat(snapshot.repos).containsExactly(paperclip, zig, tool).inOrder()
+        assertThat(snapshot.forges).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab).inOrder()
     }
 
     @Test
@@ -246,15 +252,20 @@ class DefaultTrendingRepositoryTest {
     }
 
     @Test
-    fun signing_out_of_codeberg_takes_its_rows_off_the_page() = runTest {
+    fun signing_out_of_codeberg_while_measuring_it_goes_back_to_the_published_list() = runTest {
         val account = signInToCodeberg()
-        api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
-        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(trendingRepo("ziglang/zig", forge = ForgeInstance.Codeberg)))
+        clients.put(ForgeInstance.Codeberg, FakeForgeClients(trending = codebergApi, trendingMeter = FakeTrendingMeter()))
+        settings.setTrendingMeasured(ForgeInstance.Codeberg.host, true)
+        val zig = trendingRepo("ziglang/zig", forge = ForgeInstance.Codeberg)
+        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(zig))
         repository.refresh(TrendingPeriod.DAILY)
+        assertThat(codebergApi.calls).isEmpty()
 
         accounts.signOut(account.id)
+        repository.refresh(TrendingPeriod.DAILY)
 
-        assertThat(repository.observe(TrendingPeriod.DAILY).first().repos).containsExactly(paperclip)
+        assertThat(codebergApi.calls).isNotEmpty()
+        assertThat(repository.observe(TrendingPeriod.DAILY).first().repos).contains(zig)
     }
 
     @Test
@@ -277,14 +288,14 @@ class DefaultTrendingRepositoryTest {
         meter.next = ForgeResult.Success(TrendingMeasurement("day-1", mapOf(TrendingPeriod.DAILY to listOf(tool))))
         api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
         // Not measured: a self-hosted server has no list, so it's not on the page.
-        assertThat(repository.observe(TrendingPeriod.DAILY).first().forges).containsExactly(ForgeInstance.GitHub)
+        assertThat(repository.observe(TrendingPeriod.DAILY).first().forges).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg)
 
         settings.setTrendingMeasured(selfHosted.host, true)
         assertThat(repository.measure(selfHosted)).isEqualTo(RefreshResult.Refreshed)
         repository.refresh(TrendingPeriod.DAILY)
 
         val snapshot = repository.observe(TrendingPeriod.DAILY).first()
-        assertThat(snapshot.forges).containsExactly(ForgeInstance.GitHub, selfHosted).inOrder()
+        assertThat(snapshot.forges).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg, selfHosted).inOrder()
         assertThat(snapshot.repos).containsExactly(paperclip, tool)
         assertThat(meter.calls.single()).isEqualTo("t-home" to null)
         assertThat(repository.observeMeasuredAt().first()).containsExactly(selfHosted.host, now.toEpochMilli())

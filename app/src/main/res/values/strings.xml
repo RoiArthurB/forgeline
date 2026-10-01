@@ -192,7 +192,7 @@
     <string name="settings_trending_measured_at">Measured on this phone, last %1$s</string>
     <string name="settings_trending_how">Once a day, the phone reads the server\'s most-starred repositories and its newest forks, and keeps their star counts. Stars gained show from the second day; weekly and monthly lists fill in over 7 and 30 days. A small server takes a few requests.</string>
     <string name="settings_trending_none_title">Nothing to choose yet</string>
-    <string name="settings_trending_none_body">GitHub has its own Trending. Sign in to Codeberg or another Forgejo server to choose how theirs is measured.</string>
+    <string name="settings_trending_none_body">GitHub has its own Trending, and Codeberg\'s and GitLab\'s are published for everyone each day. Sign in to Codeberg or another Forgejo server to measure theirs on this phone instead.</string>
     <string name="settings_version_summary">Credits, source code, version %1$s</string>
     <string name="settings_add_account_summary">GitHub, Codeberg or another Forgejo server</string>
     <string name="error_unsupported">This forge doesn\'t offer this.</string>

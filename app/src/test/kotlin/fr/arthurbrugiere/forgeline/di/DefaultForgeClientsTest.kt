@@ -17,15 +17,20 @@ import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoActionsApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoRepoApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoTrendingApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.forgejoHttpClient
+import fr.arthurbrugiere.forgeline.forge.gitlab.trending.GitLabTrendingMeter
 import io.ktor.client.engine.okhttp.OkHttp
 import org.junit.Test
 
 class DefaultForgeClientsTest {
     private val gitHubRepos = FakeRepoApi()
-    private fun clients(codebergTrendingUrl: String = "https://example.org/codeberg/trending.json") = DefaultForgeClients(
+    private fun clients(
+        codebergTrendingUrl: String = "https://example.org/codeberg/trending.json",
+        gitlabTrendingUrl: String = "https://example.org/gitlab/trending.json",
+    ) = DefaultForgeClients(
         forgejoHttp = forgejoHttpClient(OkHttp.create()),
         codebergClientId = "codeberg-client",
         codebergTrendingUrl = codebergTrendingUrl,
+        gitlabTrendingUrl = gitlabTrendingUrl,
         repos = gitHubRepos, issues = FakeIssueApi(), users = FakeUserApi(), stars = FakeStarApi(), search = FakeSearchApi(),
         feed = FakeFeedApi(), notifications = FakeNotificationsApi(), auth = FakeForgeAuthApi(), actions = FakeActionsApi(),
         trending = FakeTrendingApi(),
@@ -69,5 +74,12 @@ class DefaultForgeClientsTest {
         assertThat(clients.trending(ForgeInstance.Codeberg)!!.forge).isEqualTo(ForgeInstance.Codeberg)
         assertThat(clients.trending(ForgeInstance(ForgeType.FORGEJO, "git.example.org"))).isNull()
         assertThat(clients(codebergTrendingUrl = "").trending(ForgeInstance.Codeberg)).isNull()
+    }
+
+    @Test
+    fun gitlab_has_its_published_list_and_its_own_meter() {
+        assertThat(clients.trending(ForgeInstance.GitLab)!!.forge).isEqualTo(ForgeInstance.GitLab)
+        assertThat(clients.trendingMeter(ForgeInstance.GitLab)).isInstanceOf(GitLabTrendingMeter::class.java)
+        assertThat(clients(gitlabTrendingUrl = "").trending(ForgeInstance.GitLab)).isNull()
     }
 }
