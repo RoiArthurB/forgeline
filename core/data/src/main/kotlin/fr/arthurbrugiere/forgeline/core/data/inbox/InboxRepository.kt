@@ -132,13 +132,16 @@ class DefaultInboxRepository @Inject constructor(
     }
 
     /**
-     * Loads the conversations waiting on you ahead of time (unread, newest first, a few per sync), so opening one,
-     * or tapping its phone notification, shows it at once. Ones kept since their latest activity are skipped.
+     * Loads the conversations waiting on you ahead of time (newest first, a few per sync), so opening one, or tapping
+     * its phone notification, shows it at once. Read ones count too: you reopen them, and "Needs you" lists them until
+     * they're done. When there are more than fit, unread ones go first. Ones kept since their latest activity are skipped.
      */
     private suspend fun prefetchConversations(account: Account, permits: Semaphore) {
         val waiting = dao.all(account.id).asSequence()
             .map { it.toModel() }
-            .filter { it.unread && it.needsYou }
+            .filter { it.needsYou }
+            // Stable: newest first within unread, then within read.
+            .sortedByDescending { it.unread }
             .mapNotNull { thread -> thread.subject?.let { it to thread.updatedAt } }
             .take(PREFETCHED_CONVERSATIONS)
             .toList()

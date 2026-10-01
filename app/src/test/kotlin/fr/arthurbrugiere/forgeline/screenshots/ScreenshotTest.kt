@@ -673,6 +673,32 @@ class ScreenshotTest {
     }
 
     @Test
+    fun inbox_everything_else_mixed_forges_light() = snapshot("inbox_everything_else_mixed_forges_light", darkTheme = false) {
+        fun on(forge: ForgeInstance, id: String, repo: String, title: String) =
+            notificationThread(id, repo = repo, title = title, reason = NotificationReason.SUBSCRIBED, updatedAt = "2026-09-27T09:3${id}:00Z")
+                .let { it.copy(repo = it.repo.copy(forge = forge)) }
+        InboxScreen(
+            state = InboxUiState(
+                filter = InboxFilter.ALL,
+                groups = listOf(
+                    SectionGroup(
+                        InboxSection.OTHERS,
+                        listOf(
+                            on(ForgeInstance.Codeberg, "1", "forgejo/forgejo", "Runner ignores the label filter"),
+                            on(ForgeInstance.GitHub, "2", "acme/rocket", "Cold start docs are out of date"),
+                            on(ForgeInstance.GitHub, "3", "acme/launchpad", "Retry the fuel pump"),
+                        ),
+                    ),
+                ),
+                showForge = true,
+                syncedAtMillis = 1,
+            ),
+            onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
+            onErrorShown = {}, onActionFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
     fun inbox_undo_dark() = snapshot("inbox_undo_dark", darkTheme = true, awaitText = "Undo") {
         InboxScreen(
             state = InboxUiState(

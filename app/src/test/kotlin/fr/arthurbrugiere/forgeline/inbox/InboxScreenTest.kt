@@ -23,6 +23,7 @@ import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.testing.notificationThread
 import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
+import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import org.junit.Rule
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -299,5 +300,50 @@ class InboxScreenTest {
 
         composeRule.onNode(hasText("Launch fails on cold start") and SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Unread")).assertExists()
         composeRule.onNode(hasText("Already seen") and SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription)).assertDoesNotExist()
+    }
+
+    private fun onForge(forge: ForgeInstance, id: String, repo: String) =
+        notificationThread(id, repo = repo, title = "Thread $id", reason = NotificationReason.SUBSCRIBED)
+            .let { it.copy(repo = it.repo.copy(forge = forge)) }
+
+    private fun others(vararg threads: NotificationThread, showForge: Boolean = true) =
+        setContent(InboxUiState(groups = listOf(SectionGroup(InboxSection.OTHERS, threads.toList())), syncedAtMillis = 1, showForge = showForge))
+
+    private fun forgeIcons(name: String) = composeRule.onAllNodes(hasContentDescription(name), useUnmergedTree = true)
+
+    @Test
+    fun a_repository_heading_wears_its_forge_after_the_name() {
+        others(onForge(ForgeInstance.Codeberg, "1", "octo/tools"), onForge(ForgeInstance.GitHub, "2", "acme/rocket"))
+
+        // Each lone repository: avatar, owner/ and name, then its forge's logo.
+        forgeIcons("Codeberg").assertCountEquals(1)
+        forgeIcons("GitHub").assertCountEquals(1)
+    }
+
+    @Test
+    fun an_owner_with_several_repositories_wears_the_forge_on_the_owner_and_on_each_repository() {
+        others(
+            onForge(ForgeInstance.Codeberg, "1", "octo/tools"),
+            onForge(ForgeInstance.Codeberg, "2", "octo/docs"),
+        )
+
+        // <avatar> octo <logo>, then "tools <logo>" and "docs <logo>".
+        forgeIcons("Codeberg").assertCountEquals(3)
+    }
+
+    @Test
+    fun the_same_owner_on_two_forges_gets_two_headings() {
+        // Regression: threads were grouped by owner name alone, so "acme" on GitHub and on Codeberg shared one heading.
+        others(onForge(ForgeInstance.GitHub, "1", "acme/rocket"), onForge(ForgeInstance.Codeberg, "2", "acme/rocket"))
+
+        forgeIcons("GitHub").assertCountEquals(1)
+        forgeIcons("Codeberg").assertCountEquals(1)
+    }
+
+    @Test
+    fun one_forge_alone_draws_no_logos_in_headings() {
+        others(onForge(ForgeInstance.GitHub, "1", "acme/rocket"), showForge = false)
+
+        forgeIcons("GitHub").assertCountEquals(0)
     }
 }

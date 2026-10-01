@@ -374,15 +374,16 @@ fun InboxScreen(
                         } else {
                             // Everything else reads owner by owner, then repository by repository. An owner with a
                             // single repository gets one combined heading; one with several heads them all.
-                            group.threads.groupBy { it.repo.owner.lowercase() }.forEach { (owner, owned) ->
+                            // By forge too: "acme" on GitHub and "acme" on Codeberg are different owners.
+                            group.threads.groupBy { it.repo.forge to it.repo.owner.lowercase() }.forEach { (forgeOwner, owned) ->
                                 val repos = owned.groupBy { it.repo }
                                 if (repos.size > 1) {
-                                    item(key = "owner-$owner", contentType = "owner") {
+                                    item(key = "owner-${forgeOwner.first.host}-${forgeOwner.second}", contentType = "owner") {
                                         OwnerHeading(owned.first(), Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem())
                                     }
                                 }
                                 repos.forEach { (repo, threads) ->
-                                    item(key = "repo-${repo.fullName}", contentType = "repo") {
+                                    item(key = "repo-${repo.key}", contentType = "repo") {
                                         RepoHeading(threads.first(), showOwner = repos.size == 1, Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem())
                                     }
                                     threadItems(threads, group.section, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe)
@@ -437,7 +438,8 @@ private fun OwnerHeading(thread: NotificationThread, modifier: Modifier = Modifi
     ) {
         OwnerAvatar(thread, 24.dp)
         Spacer(Modifier.width(10.dp))
-        Text(thread.repo.owner, style = Soft.type.control, color = Soft.colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(thread.repo.owner, style = Soft.type.control, color = Soft.colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+        HeadingForge(thread)
     }
 }
 
@@ -469,8 +471,18 @@ private fun RepoHeading(thread: NotificationThread, showOwner: Boolean, modifier
             color = colors.ink,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false),
         )
+        HeadingForge(thread)
     }
+}
+
+/** The forge's logo after a heading's name, once accounts span several forges; the heading reads out the forge too. */
+@Composable
+private fun HeadingForge(thread: NotificationThread) {
+    if (!LocalShowForge.current) return
+    Spacer(Modifier.width(8.dp))
+    ForgeIcon(thread.repo.forge, size = 16.dp, tint = Soft.colors.inkMuted)
 }
 
 /** The repository owner's avatar (a user or an organisation), its initial on the soft surface until it loads. */

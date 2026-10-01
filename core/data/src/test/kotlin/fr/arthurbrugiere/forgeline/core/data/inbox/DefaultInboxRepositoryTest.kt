@@ -304,15 +304,44 @@ class DefaultInboxRepositoryTest {
             notificationThread("r", reason = NotificationReason.MENTION, type = SubjectType.RELEASE, number = null),
         )
         val pull = IssueRef(RepoId("acme", "rocket"), 1)
+        val read = IssueRef(RepoId("acme", "rocket"), 2)
         issueApi.issues[pull] = issueDetails(pull)
+        issueApi.issues[read] = issueDetails(read)
 
         repository.sync(force = true, waitForFollowUps = true)
 
-        // Unread and waiting on you, with a conversation to load: only #1.
-        assertThat(issueApi.calls).containsExactly("issue:acme/rocket#1", "timeline:acme/rocket#1@1")
+        // Waiting on you, read or not, with a conversation to load: #1 and #2. Not #3 (only subscribed) or the release.
+        assertThat(issueApi.calls).containsExactly("issue:acme/rocket#1", "timeline:acme/rocket#1@1", "issue:acme/rocket#2", "timeline:acme/rocket#2@1")
         // Kept, and nothing new since: the next sync doesn't ask again.
         repository.sync(force = true, waitForFollowUps = true)
-        assertThat(issueApi.calls).hasSize(2)
+        assertThat(issueApi.calls).hasSize(4)
+    }
+
+    @Test
+    fun a_read_conversation_waiting_on_you_is_loaded_ahead_too() = runTest {
+        // Regression: only unread ones were loaded ahead, so reopening one you had already read waited on the network.
+        signIn()
+        api.threads = listOf(notificationThread("7", reason = NotificationReason.MENTION, unread = false))
+        val ref = IssueRef(RepoId("acme", "rocket"), 7)
+        issueApi.issues[ref] = issueDetails(ref)
+
+        repository.sync(force = true, waitForFollowUps = true)
+
+        assertThat(issueApi.calls).contains("issue:acme/rocket#7")
+    }
+
+    @Test
+    fun unread_conversations_are_loaded_ahead_before_read_ones_when_there_are_too_many() = runTest {
+        signIn()
+        val cap = DefaultInboxRepository.PREFETCHED_CONVERSATIONS
+        // Read ones are the newest; the one unread conversation is the oldest of all.
+        api.threads = (1..cap + 3).map { notificationThread("$it", reason = NotificationReason.MENTION, unread = false, updatedAt = "2026-09-27T09:%02d:00Z".format(30 + it)) } +
+            notificationThread("99", reason = NotificationReason.MENTION, unread = true, updatedAt = "2026-09-27T08:00:00Z")
+
+        repository.sync(force = true, waitForFollowUps = true)
+
+        assertThat(issueApi.calls.count { it.startsWith("issue:") }).isEqualTo(cap)
+        assertThat(issueApi.calls).contains("issue:acme/rocket#99")
     }
 
     @Test
