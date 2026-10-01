@@ -4,14 +4,14 @@ A fast, discovery-first Android client for code forges.
 
 Forgeline brings your forges to your phone as a timeline: an **Inbox** for what needs you, a **Feed** of what the people you follow are doing, and a **Trending** page for the daily discovery ritual. It opens in about a second and renders everything natively, so you never get bounced to a mobile web page.
 
-> **Status:** early development (v0.3). GitHub, Codeberg and self-hosted Forgejo servers work today, several accounts at once; GitLab is planned.
+> **Status:** early development (v0.4). GitHub, Codeberg and self-hosted Forgejo servers work today, several accounts at once, private repositories included. gitlab.com is on Trending; the rest of GitLab is planned.
 
-## What's in v0.3
+## What's in v0.4
 
 - **Several forges at once:** GitHub, Codeberg and any self-hosted Forgejo server share one Inbox, Feed, Trending page and search. Each row names its forge, and one forge can be picked alone. Codeberg's and gitlab.com's Trending are measured daily, shown to everyone without signing in, and mixed in by share of stars.
 - **Inbox:** what needs you first (review requests, mentions, assignments, security alerts), then everything else grouped by owner and repository. Pull requests and issues say whether they're open, merged or closed. Swipe right to mark read, left to mark done, with 5 seconds to Undo. Background checks (every hour by default, or off) post phone notifications on separate channels, and the conversations waiting on you are loaded ahead so they open instantly.
 - **Feed:** what the people you follow and the repositories you watch are doing, in strict chronological order, grouped by day, each event leading with the repository or pull request it's about. Identical events on the same repository merge. Releases (and, on GitHub, announcements) from the repositories you starred join in, which the forges' own event feeds leave out. You choose which kinds of activity show up in Settings.
-- **Trending:** GitHub's trending repositories for today, this week or this month, exactly as GitHub ranks them. It works without signing in.
+- **Trending:** what is trending today, this week or this month on GitHub (as GitHub ranks it), Codeberg and gitlab.com, mixed into one page or one forge at a time. It works without signing in. GitLab projects open in the browser for now.
 - **Where you left off:** Trending and the Feed mark where your last visit's reading stopped.
 - **Repositories:** the README rendered natively, a code browser with syntax highlighting at any branch or tag, and issues, pull requests, releases and Actions.
 - **GitHub Actions:** runs with their jobs and failed steps, job logs with colors and folded sections, live steps while a job runs, re-run and cancel, and starting a workflow by hand with its inputs.
@@ -21,7 +21,7 @@ Forgeline brings your forges to your phone as a timeline: an **Inbox** for what 
 
 Release notes for each version are in [docs/release-notes](docs/release-notes).
 
-Sign in with the one-tap device flow, or with a classic personal access token that has the `notifications`, `read:user`, `user:follow` and `public_repo` scopes.
+Sign in with the one-tap device flow, or with a classic personal access token that has the `notifications`, `read:user`, `user:follow` and `repo` scopes (`repo` is what reaches your private repositories).
 
 ## Principles
 
