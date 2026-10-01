@@ -20,6 +20,16 @@ class BaselineProfileTest {
     }
 
     @Test
+    fun the_baseline_profile_covers_the_design_system_every_screen_is_built_from() {
+        // Regression: the profile committed on 2026-09-27 predated the Soft design system and the new navigation, so
+        // none of what the screens are now made of was precompiled. The recording had also stopped opening the tabs.
+        val profile = Repo.text("$dir/baseline-prof.txt")
+        for (part in listOf("core/ui/soft/SoftComponents", "ui/SoftNavigation", "you/YouScreen")) {
+            assertWithMessage(part).that(profile).contains("fr/arthurbrugiere/forgeline/$part")
+        }
+    }
+
+    @Test
     fun the_startup_profile_only_holds_launch_code() {
         // It orders the DEX for launch; journey code in it would push launch classes further out.
         val startup = Repo.text("$dir/startup-prof.txt")
