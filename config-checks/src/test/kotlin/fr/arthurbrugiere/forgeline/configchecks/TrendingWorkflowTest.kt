@@ -36,12 +36,4 @@ class TrendingWorkflowTest {
         assertThat(workflow).containsMatch("""path:\s*site""")
         assertThat(workflow).contains("${'$'}base/state.json")
     }
-
-    @Test
-    fun a_prepared_history_is_only_used_when_none_is_published() {
-        // It sits in the 404 branch: a published history always wins, so the seed can't overwrite real measurements.
-        val notFound = workflow.substringAfter("404)").substringBefore(";;")
-        assertThat(notFound).contains("tools/trending/seed/${'$'}forge-state.json")
-        assertThat(workflow.substringBefore("404)")).doesNotContain("tools/trending/seed")
-    }
 }

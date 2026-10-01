@@ -48,15 +48,7 @@ jobs:
             status=$(curl -sSL --retry 3 -o "previous-$forge.json" -w '%{http_code}' "$base/state.json")
             case "$status" in
               200) echo "History found." ;;
-              404)
-                # A forge's very first run can start from a history prepared by hand (tools/trending/seed), so its
-                # weekly and monthly lists don't take a month to fill. Once published, the seed is never read again.
-                if [ -f "tools/trending/seed/$forge-state.json" ]; then
-                  echo "No history yet: starting from the prepared one."
-                  cp "tools/trending/seed/$forge-state.json" "previous-$forge.json"
-                else
-                  echo "No history yet: starting afresh."; rm -f "previous-$forge.json"
-                fi ;;
+              404) echo "No history yet: starting afresh."; rm -f "previous-$forge.json" ;;
               *) echo "Couldn't read $forge's history (HTTP $status)."; exit 1 ;;
             esac
             if ./gradlew :tools:trending:run --args="$forge $GITHUB_WORKSPACE/previous-$forge.json $GITHUB_WORKSPACE/site/$forge"; then
