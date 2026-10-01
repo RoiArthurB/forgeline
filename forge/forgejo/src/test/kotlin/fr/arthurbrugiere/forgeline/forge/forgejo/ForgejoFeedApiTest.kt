@@ -99,4 +99,31 @@ class ForgejoFeedApiTest {
 
         assertThat(together.receivedEvents("t", "earl-warren", page = 1)).isInstanceOf(ForgeResult.Success::class.java)
     }
+
+    @Test
+    fun every_followed_person_read_in_a_refresh_is_asked_in_one_wave() = runTest {
+        // Regression: 20 people were read 10 at a time. Codeberg takes about 3 s per feed from far away, so the second
+        // wave doubled the wait.
+        val people = (1..20).joinToString(",", "[", "]") { """{"login":"person$it"}""" }
+        val arrived = java.util.concurrent.atomic.AtomicInteger()
+        val all = CompletableDeferred<Unit>()
+        val oneWave = with(codeberg) {
+            ForgejoFeedApi(
+                client { request ->
+                    when {
+                        request.url.encodedPath == "/api/v1/user/following" -> json(people)
+                        request.url.parameters["only-performed-by"] == "true" -> {
+                            if (arrived.incrementAndGet() == 20) all.complete(Unit)
+                            withTimeout(5_000) { all.await() }
+                            json("[]")
+                        }
+                        else -> json(fixture("activities.json"))
+                    }
+                },
+                ForgeInstance.Codeberg,
+            )
+        }
+
+        assertThat(oneWave.receivedEvents("t", "earl-warren", page = 1)).isInstanceOf(ForgeResult.Success::class.java)
+    }
 }

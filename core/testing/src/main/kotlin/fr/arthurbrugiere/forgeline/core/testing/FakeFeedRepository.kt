@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
+import kotlinx.coroutines.CompletableDeferred
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedRepository
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedSnapshot
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -24,9 +25,15 @@ class FakeFeedRepository : FeedRepository {
 
     override fun observe(): Flow<FeedSnapshot> = snapshot
 
-    override suspend fun refresh(force: Boolean): ForgeResult<Unit> {
+    /** When set, a refresh reports its first fresh forge, then waits for this: a slow second forge. */
+    var afterFirstFresh: CompletableDeferred<Unit>? = null
+
+    override suspend fun refresh(force: Boolean, onFirstFresh: () -> Unit): ForgeResult<Unit> {
         refreshes += force
-        return failure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(Unit)
+        failure?.let { return ForgeResult.Failure(it) }
+        onFirstFresh()
+        afterFirstFresh?.await()
+        return ForgeResult.Success(Unit)
     }
 
     var readUpTo: Instant? = null

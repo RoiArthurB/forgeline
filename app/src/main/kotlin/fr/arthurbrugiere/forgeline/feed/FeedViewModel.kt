@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
 import javax.inject.Inject
@@ -108,8 +109,9 @@ class FeedViewModel @Inject constructor(
     private fun load(force: Boolean) {
         status.value = status.value.copy(isRefreshing = true, error = null)
         viewModelScope.launch {
-            val result = feed.refresh(force)
-            status.value = status.value.copy(isRefreshing = false, error = (result as? ForgeResult.Failure)?.error)
+            // The indicator stops at the first forge with fresh activity: a slower forge's rows join when it answers.
+            val result = feed.refresh(force) { status.update { it.copy(isRefreshing = false) } }
+            status.update { it.copy(isRefreshing = false, error = (result as? ForgeResult.Failure)?.error) }
         }
     }
 }

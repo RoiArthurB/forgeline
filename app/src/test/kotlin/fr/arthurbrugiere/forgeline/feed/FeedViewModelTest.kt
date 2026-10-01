@@ -179,4 +179,21 @@ class FeedViewModelTest {
 
         assertThat(viewModel.state.value.showForge).isTrue()
     }
+
+    @Test
+    fun the_refresh_indicator_stops_at_the_first_fresh_forge_not_the_last() = test {
+        // Regression: the indicator waited for the slowest forge.
+        val slowForge = kotlinx.coroutines.CompletableDeferred<Unit>()
+        feed.afterFirstFresh = slowForge
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(feed.refreshes).isNotEmpty()
+        assertThat(viewModel.state.value.isRefreshing).isFalse()
+
+        slowForge.complete(Unit)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.isRefreshing).isFalse()
+        assertThat(viewModel.state.value.error).isNull()
+    }
 }

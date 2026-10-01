@@ -240,4 +240,38 @@ class DefaultFeedRepositoryTest {
         slow.complete(Unit)
         refresh.await()
     }
+
+    @Test
+    fun the_first_forge_to_answer_is_reported_while_a_slow_one_is_still_loading() = runTest {
+        // Regression: a pull-to-refresh waited for every forge, so a slow one (Codeberg's feed takes 3 to 8 s from far
+        // away) held the indicator although GitHub's news had already arrived.
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "g")
+        api.pages[1] = listOf(feedEvent("1", createdAt = "2026-09-27T09:00:00Z"))
+        val codeberg = FakeFeedApi()
+        clients.put(ForgeInstance.Codeberg, FakeForgeClients(feed = codeberg))
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "c")
+        val slow = CompletableDeferred<Unit>()
+        codeberg.gate = slow
+        val fresh = CompletableDeferred<Unit>()
+
+        val refresh = async { repository.refresh(force = true) { fresh.complete(Unit) } }
+        withContext(Dispatchers.Default) { withTimeout(5_000) { fresh.await() } }
+
+        // GitHub's events are saved and reported; Codeberg hasn't answered and the refresh is still running.
+        assertThat(refresh.isCompleted).isFalse()
+        assertThat(repository.observe().first().events.map { it.id }).containsExactly("1")
+        slow.complete(Unit)
+        assertThat(refresh.await()).isEqualTo(ForgeResult.Success(Unit))
+    }
+
+    @Test
+    fun nothing_fresh_is_reported_when_every_forge_fails() = runTest {
+        signIn()
+        api.failure = ForgeError.Network
+        var fresh = 0
+
+        repository.refresh(force = true) { fresh++ }
+
+        assertThat(fresh).isEqualTo(0)
+    }
 }

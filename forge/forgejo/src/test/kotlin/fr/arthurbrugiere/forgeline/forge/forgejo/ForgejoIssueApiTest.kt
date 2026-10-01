@@ -1,6 +1,8 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CompletableDeferred
 import io.ktor.http.HttpStatusCode
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -151,7 +153,8 @@ class ForgejoIssueApiTest {
             )
         }
 
-        val issue = withTimeout(5_000) { issues.issue(null, IssueRef(pull.repo, 14601)) }
+        // Real time: the fake server answers on its own thread, and virtual time would skip straight to the timeout.
+        val issue = withContext(Dispatchers.Default) { withTimeout(5_000) { issues.issue(null, IssueRef(pull.repo, 14601)) } }
 
         assertThat(issue.value().pullRequest).isNull()
     }
@@ -193,7 +196,8 @@ class ForgejoIssueApiTest {
             )
         }
 
-        val page = withTimeout(5_000) { issues.timeline(null, pull, page = 1) }
+        // Real time, for the same reason.
+        val page = withContext(Dispatchers.Default) { withTimeout(5_000) { issues.timeline(null, pull, page = 1) } }
 
         assertThat(page.value().items).isEmpty()
     }

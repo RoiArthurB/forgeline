@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.data.feed
 
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkDao
 import fr.arthurbrugiere.forgeline.core.data.reading.advance
@@ -34,8 +35,12 @@ interface FeedRepository {
      */
     fun observe(): Flow<FeedSnapshot>
 
-    /** Replaces each account's Feed with its latest page. Unless [force]d, waits for each forge's poll interval and asks only for changes. */
-    suspend fun refresh(force: Boolean = false): ForgeResult<Unit>
+    /**
+     * Replaces each account's Feed with its latest page. Unless [force]d, waits for each forge's poll interval and asks
+     * only for changes. Returns once every forge has answered; [onFirstFresh] is called earlier, as soon as the first
+     * forge's answer is saved, so a refresh indicator needn't wait for the slowest forge.
+     */
+    suspend fun refresh(force: Boolean = false, onFirstFresh: () -> Unit = {}): ForgeResult<Unit>
 
     /** Pages back the account whose loaded Feed ends the latest, which moves the horizon down. */
     suspend fun loadMore(): ForgeResult<Unit>
@@ -90,10 +95,17 @@ class DefaultFeedRepository @Inject constructor(
         }
     }
 
-    override suspend fun refresh(force: Boolean): ForgeResult<Unit> {
+    override suspend fun refresh(force: Boolean, onFirstFresh: () -> Unit): ForgeResult<Unit> {
         val signedIn = accounts.accounts.first()
         if (signedIn.isEmpty()) return ForgeResult.Failure(ForgeError.Unauthorized)
-        val results = coroutineScope { signedIn.map { async { refresh(it, force) } }.awaitAll() }
+        val reported = AtomicBoolean(false)
+        val results = coroutineScope {
+            signedIn.map { account ->
+                async {
+                    refresh(account, force).also { if (it is ForgeResult.Success && reported.compareAndSet(false, true)) onFirstFresh() }
+                }
+            }.awaitAll()
+        }
         // One forge failing doesn't hide the others; it's reported only when every account failed.
         return results.firstOrNull { it is ForgeResult.Success } ?: results.first()
     }

@@ -126,8 +126,12 @@ class ForgejoFeedApi(
         const val PAGE_SIZE = 30
         const val PER_PERSON = 20
         const val FOLLOWED_PER_REFRESH = 20
-        /** Followed people read at once: far from the forge, each wave costs a round trip. */
-        const val CONCURRENCY = 10
+        /**
+         * Followed people read at once: all of a refresh's, in one wave. Far from the forge each feed takes seconds
+         * (Codeberg: about 3 s, measured from Vietnam on 2026-10-01), so a second wave doubled the wait. The HTTP
+         * engine still caps what really goes out per forge.
+         */
+        const val CONCURRENCY = FOLLOWED_PER_REFRESH
     }
 }
 
