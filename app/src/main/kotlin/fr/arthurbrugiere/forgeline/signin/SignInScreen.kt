@@ -139,12 +139,17 @@ fun SignInScreen(
             onBack = onBack,
             backDescription = stringResource(R.string.navigate_up),
         ) {
-            Text(
-                stringResource(R.string.sign_in_privacy, forgeName.ifBlank { stringResource(R.string.sign_in_forge_other) }),
-                style = Soft.type.body,
-                color = colors.inkMuted,
-                modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure),
-            )
+            // GitHub's own screen asks for "full control of private repositories": say why before it does.
+            Column(Modifier.widthIn(max = SoftTokens.MaxMeasure), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    stringResource(R.string.sign_in_privacy, forgeName.ifBlank { stringResource(R.string.sign_in_forge_other) }),
+                    style = Soft.type.body,
+                    color = colors.inkMuted,
+                )
+                if (state.forge == SignInForge.GITHUB) {
+                    Text(stringResource(R.string.sign_in_github_access), style = Soft.type.body, color = colors.inkMuted)
+                }
+            }
         }
         Column(
             Modifier.widthIn(max = SoftTokens.MaxMeasure).fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp),

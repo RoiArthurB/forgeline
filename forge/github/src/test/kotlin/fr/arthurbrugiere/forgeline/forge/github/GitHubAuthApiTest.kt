@@ -74,7 +74,7 @@ class GitHubAuthApiTest {
         val form = request.form()
         assertThat(form["client_id"]).isEqualTo("client-123")
         // Forms encode spaces as "+".
-        assertThat(form["scope"]!!.split(" ", "+")).containsExactly("notifications", "read:user", "user:follow", "public_repo")
+        assertThat(form["scope"]!!.split(" ", "+")).containsExactly("notifications", "read:user", "user:follow", "repo")
     }
 
     @Test
@@ -173,7 +173,33 @@ class GitHubAuthApiTest {
         val url = api { error("no call expected") }.personalAccessTokenUrl
 
         assertThat(url).startsWith("https://github.com/settings/tokens/new?")
-        assertThat(url).contains("scopes=notifications,read:user,user:follow,public_repo")
+        assertThat(url).contains("scopes=notifications,read:user,user:follow,repo")
         assertThat(url).contains("description=Forgeline")
+    }
+
+    // Regression: the app asked GitHub for public repositories only, so private ones could be neither opened nor
+    // acted on. Sign-ins made before that stay limited until renewed, and GitHub says so with each answer.
+
+    private fun user(scopes: String?) = api {
+        respond(
+            """{"login":"octocat"}""", HttpStatusCode.OK,
+            headersOf(*listOfNotNull(HttpHeaders.ContentType to listOf("application/json"), scopes?.let { "X-OAuth-Scopes" to listOf(it) }).toTypedArray()),
+        )
+    }
+
+    @Test
+    fun a_sign_in_granted_repositories_reaches_private_ones() = runTest {
+        assertThat(user("notifications, read:user, repo, user:follow").reachesPrivateRepositories("tok")).isEqualTo(ForgeResult.Success(true))
+    }
+
+    @Test
+    fun a_sign_in_granted_public_repositories_only_does_not() = runTest {
+        assertThat(user("notifications, public_repo, read:user, user:follow").reachesPrivateRepositories("tok")).isEqualTo(ForgeResult.Success(false))
+    }
+
+    @Test
+    fun a_token_that_names_no_scopes_is_not_judged() = runTest {
+        // Fine-grained tokens: what they reach is set per repository, and GitHub doesn't list it.
+        assertThat(user(null).reachesPrivateRepositories("tok")).isEqualTo(ForgeResult.Success(null))
     }
 }

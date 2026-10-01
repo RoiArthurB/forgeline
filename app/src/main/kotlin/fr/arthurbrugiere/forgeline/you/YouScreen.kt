@@ -92,6 +92,17 @@ fun YouScreen(
                 onAction = onSignIn,
             )
         }
+        // A sign-in made before private repositories were asked for: say so, once per forge, with the way out.
+        if (session is SessionState.SignedIn) {
+            session.accounts.filter { it.id in session.limited }.map { it.forge }.distinct().forEach { forge ->
+                SoftNotice(
+                    stringResource(R.string.you_limited_title),
+                    stringResource(R.string.you_limited_body, forge.displayName),
+                    action = stringResource(R.string.you_limited_action, forge.displayName),
+                    onAction = onSignIn,
+                )
+            }
+        }
         Spacer(Modifier.padding(top = 8.dp))
         if (session is SessionState.SignedIn) NavigationRow(Icons.Outlined.PersonAdd, stringResource(R.string.settings_add_account), onSignIn)
         NavigationRow(Icons.Outlined.Settings, stringResource(R.string.settings_title), onOpenSettings)

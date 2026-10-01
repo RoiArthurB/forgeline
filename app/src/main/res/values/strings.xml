@@ -104,6 +104,10 @@
     <string name="feed_day_week">This week</string>
     <string name="feed_day_earlier">Earlier</string>
     <string name="feed_member_added">%1$s added %3$s to %2$s</string>
+    <string name="you_limited_title">Private repositories are out of reach</string>
+    <string name="you_limited_body">This sign-in to %1$s only covers public repositories. Sign in again to open your private ones, and to comment, star and run workflows there.</string>
+    <string name="you_limited_action">Sign in to %1$s again</string>
+    <string name="sign_in_github_access">GitHub will ask for access to your repositories, private ones included. Forgeline needs it to show them, and to comment, star and run workflows there.</string>
     <string name="you_signed_out_title">Connect an account</string>
     <string name="you_signed_out_body">GitHub, Codeberg or your own Forgejo. Your inbox and feed need an account; Trending and browsing work without one.</string>
 
@@ -119,8 +123,8 @@
     <string name="sign_in_with_forge">Sign in with %1$s</string>
     <string name="sign_in_or">or</string>
     <string name="sign_in_token_title">Use a personal access token</string>
-    <string name="sign_in_token_body">Create a classic token with the notifications, read:user, user:follow and public_repo scopes, then paste it here.</string>
-    <string name="sign_in_token_body_forgejo">Create an access token with read and write access to notifications, repositories, issues and your user, then paste it here.</string>
+    <string name="sign_in_token_body">Create a classic token with the notifications, read:user, user:follow and repo scopes, then paste it here.</string>
+    <string name="sign_in_token_body_forgejo">Create an access token that reaches all your repositories (public, private and limited), with read and write access to notifications, repositories, issues and your user, then paste it here.</string>
     <string name="sign_in_create_token">Create a token on %1$s</string>
     <string name="sign_in_token_label">Personal access token</string>
     <string name="sign_in_with_token">Sign in with token</string>

@@ -62,4 +62,27 @@ class YouScreenTest {
         assertThat(opened).containsExactly(codeberg)
         assertThat(signIn).isTrue()
     }
+
+    @Test
+    fun a_sign_in_that_stops_at_public_repositories_says_so_and_offers_to_renew_it() {
+        // Regression: private repositories were silently out of reach, on sign-ins that only asked for public ones.
+        val account = Account("id", ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null))
+        var signIn = false
+        composeRule.setContent {
+            YouScreen(SessionState.SignedIn(account, limited = setOf("id")), onSignIn = { signIn = true }, onOpenSettings = {})
+        }
+
+        composeRule.onNodeWithText("Private repositories are out of reach").assertIsDisplayed()
+        composeRule.onNodeWithText("Sign in to GitHub again").performClick()
+
+        assertThat(signIn).isTrue()
+    }
+
+    @Test
+    fun a_sign_in_that_reaches_everything_says_nothing() {
+        val account = Account("id", ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null))
+        composeRule.setContent { YouScreen(SessionState.SignedIn(account), onSignIn = {}, onOpenSettings = {}) }
+
+        composeRule.onNodeWithText("Private repositories are out of reach").assertDoesNotExist()
+    }
 }

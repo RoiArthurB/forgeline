@@ -45,6 +45,11 @@ class FakeForgeAuthApi(
         return pollResults.removeFirstOrNull() ?: ForgeResult.Success(DeviceTokenPoll.Pending)
     }
 
+    /** What each token reaches; a token not listed isn't judged. */
+    val privateAccess = mutableMapOf<String, Boolean>()
+
+    override suspend fun reachesPrivateRepositories(token: String): ForgeResult<Boolean?> = ForgeResult.Success(privateAccess[token])
+
     override suspend fun fetchAuthenticatedUser(token: String): ForgeResult<ForgeUser> {
         userFailure?.let { return ForgeResult.Failure(it) }
         return users[token]?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Unauthorized)

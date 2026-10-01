@@ -76,9 +76,23 @@ class GitHubAuthApi(
         response.toResult { body<UserResponse>().toModel() }
     }
 
+    /** GitHub lists a classic or OAuth token's scopes with every answer. */
+    override suspend fun reachesPrivateRepositories(token: String): ForgeResult<Boolean?> = gitHubCall {
+        val response = httpClient.get("$apiBaseUrl/user") {
+            bearerAuth(token)
+            accept(ContentType.parse("application/vnd.github+json"))
+            header("X-GitHub-Api-Version", API_VERSION)
+        }
+        response.toResult { headers["X-OAuth-Scopes"]?.split(',')?.map { it.trim() }?.contains("repo") }
+    }
+
     companion object {
         const val API_VERSION = "2022-11-28"
-        val SCOPES = listOf("notifications", "read:user", "user:follow", "public_repo")
+        /**
+         * `repo`, not `public_repo`: private repositories are read and acted on too (conversations, comments, stars,
+         * workflows). GitHub has no narrower scope that reads a private repository.
+         */
+        val SCOPES = listOf("notifications", "read:user", "user:follow", "repo")
     }
 }
 

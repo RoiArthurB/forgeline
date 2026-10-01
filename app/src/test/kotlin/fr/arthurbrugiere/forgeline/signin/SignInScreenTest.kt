@@ -98,4 +98,11 @@ class SignInScreenTest {
 
         assertThat(events).containsExactly("dismiss")
     }
+
+    @Test
+    fun signing_in_to_github_says_why_it_asks_for_private_repositories() {
+        setContent()
+
+        composeRule.onNodeWithText("private ones included", substring = true).assertIsDisplayed()
+    }
 }
