@@ -199,9 +199,15 @@ class DefaultTrendingRepository @Inject constructor(
  * (`size / MIN_SHARE_ENTRIES`). Regression: a share is only comparable when the list it is taken over is long enough.
  * Three projects with 3, 2 and 2 stars "held" 43%, 29% and 29% of their forge and stood above a repository that
  * gained over a thousand; a forge's lists are that short on quiet days and while its history builds up.
+ *
+ * And a forge whose whole list gained fewer than [MIN_FORGE_STARS] is weighed as if it had gained that many: with 17
+ * stars gained across gitlab.com's list, the first project's 3 stars were 18% of its forge and led the page.
  */
 /** The list length from which a forge's shares count in full. Every list GitHub gives is longer. */
 const val MIN_SHARE_ENTRIES = 10
+
+/** The stars a forge's list must have gained in all for its shares to count in full. */
+const val MIN_FORGE_STARS = 100L
 
 fun mergeByShare(rankings: List<List<TrendingRepo>>): List<TrendingRepo> {
     val totals = rankings.map { list -> list.sumOf { it.periodStars.toLong() } }
@@ -210,7 +216,7 @@ fun mergeByShare(rankings: List<List<TrendingRepo>>): List<TrendingRepo> {
         val total = totals[forge]
         if (total == 0L) return 0.0
         val weight = minOf(1.0, rankings[forge].size.toDouble() / MIN_SHARE_ENTRIES)
-        return rankings[forge][next[forge]].periodStars.toDouble() / total * weight
+        return rankings[forge][next[forge]].periodStars.toDouble() / maxOf(total, MIN_FORGE_STARS) * weight
     }
     return buildList {
         while (true) {

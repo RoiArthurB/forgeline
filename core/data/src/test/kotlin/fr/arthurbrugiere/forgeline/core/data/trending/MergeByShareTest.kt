@@ -23,9 +23,16 @@ class MergeByShareTest {
         val page = mergeByShare(listOf(gitHub, gitLab)).names()
 
         assertThat(page.first()).isEqualTo("github/r1")
-        assertThat(page.take(4).count { it.startsWith("gitlab/") }).isAtMost(1)
-        // Its leader still stands near the top: the forge's story of the day.
-        assertThat(page.indexOf("gitlab/r1")).isLessThan(5)
+        assertThat(page.take(4).none { it.startsWith("gitlab/") }).isTrue()
+    }
+
+    @Test
+    fun a_short_list_that_gained_real_stars_keeps_its_leader_near_the_top() {
+        // Three repositories, 110 stars between them: the forge's story of the day still shows early.
+        val page = mergeByShare(listOf(gitHub, list(ForgeInstance.Codeberg, 40, 35, 35))).names()
+
+        assertThat(page.first()).isEqualTo("github/r1")
+        assertThat(page.indexOf("codeberg/r1")).isLessThan(5)
     }
 
     @Test
@@ -55,5 +62,21 @@ class MergeByShareTest {
             val own = page.filter { it.startsWith("$forge/") }
             assertThat(own).isEqualTo(own.sortedBy { it.substringAfter("/r").toInt() })
         }
+    }
+
+    @Test
+    fun a_forge_that_gained_a_handful_of_stars_in_all_does_not_lead_the_page() {
+        // Regression, with the three lists really published on 2026-10-01: gitlab.com's whole daily list gained 17
+        // stars, so its first project (+3) held 18% of its forge and stood first, above GitHub's +1,179.
+        val gitHubThatDay = list(ForgeInstance.GitHub, 1179, 888, 2503, 112, 640, 590, 480, 455, 420, 388, 301, 250, 240, 199, 155)
+        val codeberg = list(ForgeInstance.Codeberg, 14, 12, 8, 7, 6, 6, 6, 5, 5, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2)
+        val gitLab = list(ForgeInstance.GitLab, 3, 2, 2, 2, 2, 2, 2, 2)
+
+        val page = mergeByShare(listOf(gitHubThatDay, codeberg, gitLab)).names()
+
+        assertThat(page.first()).isEqualTo("github/r1")
+        assertThat(page.take(10).none { it.startsWith("gitlab/") }).isTrue()
+        // Codeberg gained 115 that day: enough to be weighed as it is.
+        assertThat(page.indexOf("codeberg/r1")).isLessThan(3)
     }
 }
