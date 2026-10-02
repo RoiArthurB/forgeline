@@ -12,6 +12,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +35,10 @@ data class IssueUiState(
     val commentError: ForgeError? = null,
     /** A comment was posted but more of the conversation is still to load, so it can't be shown in its place yet. */
     val commentPostedOutOfSight: Boolean = false,
+    /** Whether the reader may close or reopen this conversation: its author, or someone who manages the repository. */
+    val canChangeState: Boolean = false,
+    val isChangingState: Boolean = false,
+    val stateError: ForgeError? = null,
 )
 
 @HiltViewModel(assistedFactory = IssueViewModel.Factory::class)
@@ -68,9 +73,43 @@ class IssueViewModel @AssistedInject constructor(
                         state.copy(issue = stored.issue, items = stored.firstPage?.items.orEmpty(), nextPage = stored.firstPage?.nextPage)
                     }
                 }
+                checkPermissions()
             }
         }
+        checkPermissions()
         refresh()
+    }
+
+    /**
+     * Asks whether the reader may close or reopen this conversation, once it is known who opened it. Asked again when
+     * the accounts signed in change.
+     */
+    fun checkPermissions() {
+        val issue = _state.value.issue ?: return
+        viewModelScope.launch {
+            val allowed = repository.canChangeState(ref, issue.author?.login)
+            _state.update { it.copy(canChangeState = allowed) }
+        }
+    }
+
+    /** Closes an open conversation, reopens a closed one. A merged pull request stays merged. */
+    fun toggleOpen() {
+        val issue = _state.value.issue ?: return
+        if (_state.value.isChangingState || issue.state == IssueState.MERGED) return
+        val open = issue.state != IssueState.OPEN
+        _state.update { it.copy(isChangingState = true, stateError = null) }
+        viewModelScope.launch {
+            when (val result = repository.setOpen(ref, open)) {
+                is ForgeResult.Failure -> _state.update { it.copy(isChangingState = false, stateError = result.error) }
+                is ForgeResult.Success -> {
+                    _state.update { state ->
+                        state.copy(isChangingState = false, issue = state.issue?.copy(state = if (open) IssueState.OPEN else IssueState.CLOSED))
+                    }
+                    // The forge's own account of it: the line that closes the conversation, and who wrote it.
+                    refresh()
+                }
+            }
+        }
     }
 
     fun refresh() {
@@ -89,6 +128,7 @@ class IssueViewModel @AssistedInject constructor(
                     error = (issueResult as? ForgeResult.Failure)?.error ?: (pageResult as? ForgeResult.Failure)?.error,
                 )
             }
+            checkPermissions()
         }
     }
 

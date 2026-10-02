@@ -26,6 +26,12 @@ interface IssueApi {
 
     /** Opens an issue in [repo], [body] being Markdown and possibly empty, and answers it as the forge kept it. */
     suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails>
+
+    /** Closes the issue or pull request [ref], or reopens it. A merged pull request can't be reopened. */
+    suspend fun setOpen(token: String, ref: IssueRef, open: Boolean): ForgeResult<Unit>
+
+    /** Whether the signed-in user may close and reopen any conversation of [repo], not only the ones they opened. */
+    suspend fun canManage(token: String, repo: RepoId): ForgeResult<Boolean>
 }
 
 interface UserApi {

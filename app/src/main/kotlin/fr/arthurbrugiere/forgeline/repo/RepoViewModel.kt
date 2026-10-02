@@ -117,9 +117,12 @@ class RepoViewModel @AssistedInject constructor(
         }
 
         viewModelScope.launch {
-            // An issue opened from the app belongs in the list already loaded.
-            conversations.created.collect { ref ->
-                if (ref.repo == canonicalId() && local.value.issues != Loadable.Idle) loadTab(RepoTab.ISSUES)
+            // What was opened, closed or reopened from the app shows in the lists already loaded. The forge is asked
+            // rather than the list patched: an issue and a pull request share their numbering.
+            conversations.changed.collect { ref ->
+                if (ref.repo != canonicalId()) return@collect
+                if (local.value.issues != Loadable.Idle) loadTab(RepoTab.ISSUES)
+                if (local.value.pulls != Loadable.Idle) loadTab(RepoTab.PULLS)
             }
         }
     }

@@ -89,6 +89,18 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         ).toResult { body<IssueJson>().let { it.toDetails(IssueRef(repo, it.number), pull = null, reactions = emptyMap()) } }
     }
 
+    /** A pull request is an issue to this endpoint: one call closes either. */
+    override suspend fun setOpen(token: String, ref: IssueRef, open: Boolean): ForgeResult<Unit> = forgejoCall {
+        httpClient.forgejoApi(
+            forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(),
+            method = HttpMethod.Patch, body = buildJsonObject { put("state", if (open) "open" else "closed") },
+        ).toResult { }
+    }
+
+    override suspend fun canManage(token: String, repo: RepoId): ForgeResult<Boolean> = forgejoCall {
+        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name).toResult { body<PermittedRepoJson>().permissions.push }
+    }
+
     private fun IssueJson.toDetails(ref: IssueRef, pull: PullJson?, reactions: Map<Reaction, Int>) = IssueDetails(
         ref = ref,
         title = title,
@@ -190,6 +202,12 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         }
     }
 }
+
+@Serializable
+private data class PermissionsJson(val push: Boolean = false)
+
+@Serializable
+private data class PermittedRepoJson(val permissions: PermissionsJson = PermissionsJson())
 
 @Serializable
 private data class BranchJson(val ref: String, val label: String? = null)

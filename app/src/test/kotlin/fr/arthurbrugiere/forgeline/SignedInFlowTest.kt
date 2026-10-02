@@ -86,6 +86,28 @@ class SignedInFlowTest {
     }
 
     @Test
+    fun an_issue_closes_and_reopens_from_its_conversation() {
+        // Signed in as whoever opened it.
+        openIssuesSignedIn()
+        composeRule.onNodeWithText("Heartbeat recovery escalates too early").performClick()
+        waitFor("I can reproduce this on every restart.")
+        composeRule.onNodeWithText("Open").assertIsDisplayed()
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Close issue")).fetchSemanticsNodes().isNotEmpty() }
+        reach(hasText("Close issue"))
+        composeRule.onNodeWithText("Close issue").performClick()
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Reopen issue")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Closed"))
+        composeRule.onNodeWithText("Closed").assertIsDisplayed()
+
+        reach(hasText("Reopen issue"))
+        composeRule.onNodeWithText("Reopen issue").performClick()
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Close issue")).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test
     fun an_issue_written_in_the_form_opens_as_a_conversation_and_back_returns_to_the_repository() {
         openIssuesSignedIn()
 

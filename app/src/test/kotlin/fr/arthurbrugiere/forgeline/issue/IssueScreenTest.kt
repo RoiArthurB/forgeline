@@ -55,7 +55,7 @@ class IssueScreenTest {
             IssueScreen(
                 state = shown.value,
                 canComment = canComment,
-                onDraftChange = { events += "draft:$it" }, onSendComment = { events += "send" }, onSignIn = { events += "signin" },
+                onDraftChange = { events += "draft:$it" }, onSendComment = { events += "send" }, onToggleOpen = { events += "toggle" }, onSignIn = { events += "signin" },
                 onCommentNoticeShown = { events += "noticed" },
                 onBack = {}, onRefresh = { events += "refresh" }, onLoadMore = { events += "more" },
                 onOpenIssue = { events += "issue:${it.repo.fullName}#${it.number}" },
@@ -283,5 +283,89 @@ class IssueScreenTest {
 
         waitFor("Comment posted")
         composeRule.runOnIdle { assertThat(events).contains("noticed") }
+    }
+
+    private val closable = opened.copy(canChangeState = true)
+
+    @Test
+    fun whoever_may_close_an_open_issue_finds_it_beside_the_comment_s_action() {
+        setContent(closable)
+
+        reach(hasText("Close issue"))
+        composeRule.onNodeWithText("Close issue").performClick()
+
+        assertThat(events).containsExactly("toggle")
+    }
+
+    @Test
+    fun a_closed_issue_offers_to_reopen() {
+        setContent(closable.copy(issue = issueDetails(ref, "Crash on start", IssueState.CLOSED)))
+
+        reach(hasText("Reopen issue"))
+        composeRule.onNodeWithText("Close issue").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_pull_request_is_named_as_one() {
+        val pull = PullRequestInfo(false, false, "main", "fix/it", 12, 3, 2, 1)
+        setContent(closable.copy(issue = issueDetails(ref, "Fix it").copy(pullRequest = pull)))
+        reach(hasText("Close pull request"))
+
+        shown.value = closable.copy(issue = issueDetails(ref, "Fix it", IssueState.CLOSED).copy(pullRequest = pull))
+        reach(hasText("Reopen pull request"))
+    }
+
+    @Test
+    fun a_merged_pull_request_offers_neither() {
+        val merged = issueDetails(ref, "Fix it", IssueState.MERGED).copy(pullRequest = PullRequestInfo(false, true, "main", "fix/it", 12, 3, 2, 1))
+        setContent(closable.copy(issue = merged))
+
+        reach(hasText("Comment"))
+        composeRule.onNodeWithText("Close pull request").assertDoesNotExist()
+        composeRule.onNodeWithText("Reopen pull request").assertDoesNotExist()
+    }
+
+    @Test
+    fun whoever_may_not_close_it_is_offered_nothing() {
+        setContent(opened)
+
+        reach(hasText("Comment"))
+        composeRule.onNodeWithText("Close issue").assertDoesNotExist()
+    }
+
+    @Test
+    fun signed_out_nothing_can_be_closed() {
+        // The permission was known, then the account was signed out.
+        setContent(closable, canComment = false)
+
+        reach(hasText("Sign in to GitHub to comment."))
+        composeRule.onNodeWithText("Close issue").assertDoesNotExist()
+    }
+
+    @Test
+    fun while_it_closes_the_action_says_so_and_waits() {
+        setContent(closable.copy(isChangingState = true))
+
+        reach(hasText("Closing"))
+        composeRule.onNodeWithText("Closing").assertIsNotEnabled()
+
+        shown.value = closable.copy(issue = issueDetails(ref, "Crash on start", IssueState.CLOSED), isChangingState = true)
+        reach(hasText("Reopening"))
+    }
+
+    @Test
+    fun a_refused_state_change_says_who_can() {
+        setContent(closable.copy(stateError = ForgeError.Http(403, "no")))
+
+        reach(hasText("Only whoever opened it and the repository's maintainers can.", substring = true))
+        composeRule.onNodeWithText("Close issue").assertIsEnabled()
+    }
+
+    @Test
+    fun the_close_action_is_large_enough_to_press() {
+        setContent(closable)
+        reach(hasText("Close issue"))
+
+        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 }

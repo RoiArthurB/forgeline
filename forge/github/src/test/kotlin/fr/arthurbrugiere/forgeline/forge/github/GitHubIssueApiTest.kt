@@ -228,4 +228,46 @@ class GitHubIssueApiTest {
 
         assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(410, "Issues are disabled for this repo")))
     }
+
+    @Test
+    fun closing_and_reopening_change_the_state_of_the_issue_or_pull_request() = runTest {
+        // The answer is the issue as GitHub keeps it; only its success is read.
+        val changing = api { json(opened) }
+
+        assertThat(changing.setOpen("tok", issue, open = false)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(changing.setOpen("tok", pr, open = true)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(requests.map { it.method }).containsExactly(HttpMethod.Patch, HttpMethod.Patch)
+        // A pull request goes through the issue endpoint too.
+        assertThat(requests.map { it.url.toString() }).containsExactly(
+            "https://api.github.com/repos/paperclipai/paperclip/issues/5462",
+            "https://api.github.com/repos/paperclipai/paperclip/issues/14187",
+        ).inOrder()
+        assertThat(requests.map { (it.body as TextContent).text }).containsExactly("""{"state":"closed"}""", """{"state":"open"}""").inOrder()
+        assertThat(requests.first().headers[HttpHeaders.Authorization]).isEqualTo("Bearer tok")
+    }
+
+    @Test
+    fun a_state_change_the_forge_refuses_is_a_failure() = runTest {
+        val result = api { json("""{"message":"Must have admin rights to Repository."}""", status = HttpStatusCode.Forbidden) }.setOpen("tok", issue, open = false)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "Must have admin rights to Repository.")))
+    }
+
+    @Test
+    fun whoever_can_triage_or_push_may_manage_a_repository_s_conversations() = runTest {
+        fun permissions(triage: Boolean, push: Boolean) = """{"name":"paperclip","permissions":{"admin":false,"maintain":false,"push":$push,"triage":$triage,"pull":true}}"""
+
+        assertThat(api { json(permissions(triage = true, push = false)) }.canManage("tok", repo).value()).isTrue()
+        assertThat(api { json(permissions(triage = false, push = true)) }.canManage("tok", repo).value()).isTrue()
+        assertThat(api { json(permissions(triage = false, push = false)) }.canManage("tok", repo).value()).isFalse()
+        assertThat(requests.first().url.toString()).isEqualTo("https://api.github.com/repos/paperclipai/paperclip")
+        assertThat(requests.first().headers[HttpHeaders.Authorization]).isEqualTo("Bearer tok")
+    }
+
+    @Test
+    fun a_repository_that_doesn_t_state_permissions_can_t_be_managed() = runTest {
+        // Read without the right to know, GitHub leaves the permissions out.
+        assertThat(api { json("""{"name":"paperclip"}""") }.canManage("tok", repo).value()).isFalse()
+    }
 }

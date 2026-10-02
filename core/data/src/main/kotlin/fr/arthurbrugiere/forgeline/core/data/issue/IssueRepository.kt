@@ -3,7 +3,10 @@ package fr.arthurbrugiere.forgeline.core.data.issue
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.async
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
+import fr.arthurbrugiere.forgeline.core.data.account.accountOn
 import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
+import fr.arthurbrugiere.forgeline.core.model.IssueState
+import java.util.concurrent.ConcurrentHashMap
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -49,12 +52,27 @@ interface IssueRepository {
 
     /**
      * Opens an issue in [repo] as the account signed in on its forge; Unauthorized without one. The new conversation is
-     * kept, so it opens at once, and announced on [created].
+     * kept, so it opens at once, and announced on [changed].
      */
     suspend fun create(repo: RepoId, title: String, body: String): ForgeResult<IssueDetails>
 
-    /** Every issue opened from this app, as it happens: lists of a repository's issues are out of date by one. */
-    val created: Flow<IssueRef>
+    /**
+     * Whether the account signed in on [ref]'s forge may close or reopen it: the one who opened it ([author]) always,
+     * else whoever the forge lets manage the repository's conversations. False signed out, or when the forge won't say.
+     */
+    suspend fun canChangeState(ref: IssueRef, author: String?): Boolean
+
+    /**
+     * Closes [ref], or reopens it, as the account signed in on its forge; Unauthorized without one. The conversation
+     * kept changes state, and the change is announced on [changed].
+     */
+    suspend fun setOpen(ref: IssueRef, open: Boolean): ForgeResult<Unit>
+
+    /**
+     * Every conversation opened, closed or reopened from this app, as it happens: a list of a repository's open
+     * issues or pull requests is out of date by one.
+     */
+    val changed: Flow<IssueRef>
 
     /** Deletes every conversation kept from [forge], in this session and on disk. */
     suspend fun forget(forge: ForgeInstance)
@@ -130,9 +148,43 @@ class DefaultIssueRepository @Inject constructor(
         }
     }
 
-    private val opened = MutableSharedFlow<IssueRef>(extraBufferCapacity = 8)
+    private val changes = MutableSharedFlow<IssueRef>(extraBufferCapacity = 8)
 
-    override val created: Flow<IssueRef> = opened.asSharedFlow()
+    override val changed: Flow<IssueRef> = changes.asSharedFlow()
+
+    /** What each account may manage, asked once per repository and session; keyed by account, then repository. */
+    private val managed = ConcurrentHashMap<Pair<String, RepoId>, Boolean>()
+
+    override suspend fun canChangeState(ref: IssueRef, author: String?): Boolean {
+        val account = accounts.accountOn(ref.repo.forge) ?: return false
+        if (author != null && author.equals(account.user.login, ignoreCase = true)) return true
+        managed[account.id to ref.repo]?.let { return it }
+        val token = accounts.token(account.id) ?: return false
+        // A failure isn't remembered: it is asked again the next time the conversation opens.
+        val answer = clients.issues(ref.repo.forge).canManage(token, ref.repo) as? ForgeResult.Success ?: return false
+        managed[account.id to ref.repo] = answer.value
+        return answer.value
+    }
+
+    override suspend fun setOpen(ref: IssueRef, open: Boolean): ForgeResult<Unit> {
+        val token = accounts.tokenOn(ref.repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return clients.issues(ref.repo.forge).setOpen(token, ref, open).also { result ->
+            if (result is ForgeResult.Success) {
+                // Nothing kept, nothing to change: an empty entry would read as a conversation the forge couldn't serve.
+                if (cached(ref)?.issue != null) {
+                    update(ref) { kept ->
+                        kept.copy(
+                            issue = kept.issue?.copy(
+                                state = if (open) IssueState.OPEN else IssueState.CLOSED,
+                                closedAt = if (open) null else clock.instant(),
+                            ),
+                        )
+                    }
+                }
+                changes.tryEmit(ref)
+            }
+        }
+    }
 
     override suspend fun create(repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> {
         val token = accounts.tokenOn(repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
@@ -140,12 +192,13 @@ class DefaultIssueRepository @Inject constructor(
             if (result is ForgeResult.Success) {
                 // A new issue has no conversation yet: kept whole, it opens without asking the forge first.
                 update(result.value.ref) { CachedConversation(result.value, TimelinePage(emptyList(), nextPage = null)) }
-                opened.tryEmit(result.value.ref)
+                changes.tryEmit(result.value.ref)
             }
         }
     }
 
     override suspend fun forget(forge: ForgeInstance) {
+        managed.keys.removeAll { it.second.forge == forge }
         synchronized(cache) { cache.keys.removeAll { it.repo.forge == forge } }
         dao.clear(forge.host)
     }

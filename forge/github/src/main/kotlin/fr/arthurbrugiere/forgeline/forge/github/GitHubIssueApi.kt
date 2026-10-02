@@ -75,7 +75,27 @@ class GitHubIssueApi(
             },
         ).toResult { body<IssueJson>().let { it.toModel(IssueRef(repo, it.number), pull = null) } }
     }
+
+    /** A pull request is an issue to this endpoint: one call closes either. */
+    override suspend fun setOpen(token: String, ref: IssueRef, open: Boolean): ForgeResult<Unit> = gitHubCall {
+        httpClient.gitHubApi(
+            apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(),
+            method = HttpMethod.Patch, body = buildJsonObject { put("state", if (open) "open" else "closed") },
+        ).toResult { }
+    }
+
+    override suspend fun canManage(token: String, repo: RepoId): ForgeResult<Boolean> = gitHubCall {
+        httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name)
+            // Triage is the least role that closes other people's issues.
+            .toResult { body<PermittedRepoJson>().permissions.let { it.triage || it.push } }
+    }
 }
+
+@Serializable
+private data class PermissionsJson(val triage: Boolean = false, val push: Boolean = false)
+
+@Serializable
+private data class PermittedRepoJson(val permissions: PermissionsJson = PermissionsJson())
 
 @Serializable
 private data class CommentJson(

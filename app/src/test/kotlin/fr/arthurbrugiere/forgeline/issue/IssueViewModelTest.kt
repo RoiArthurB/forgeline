@@ -9,6 +9,7 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
@@ -224,5 +225,127 @@ class IssueViewModelTest {
         val restored = IssueViewModel(ref, repository, saved)
 
         assertThat(restored.state.value.draft).isEqualTo("Half a thought")
+    }
+
+    @Test
+    fun someone_else_s_conversation_in_someone_else_s_repository_can_t_be_closed() = test {
+        val viewModel = openedSignedIn()
+
+        assertThat(viewModel.state.value.canChangeState).isFalse()
+    }
+
+    @Test
+    fun whoever_opened_the_conversation_can_close_it() = test {
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "tok")
+        api.issues[ref] = issueDetails(ref)
+
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle())
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.canChangeState).isTrue()
+    }
+
+    @Test
+    fun whoever_manages_the_repository_can_close_anyone_s_conversation() = test {
+        api.managed += ref.repo
+
+        val viewModel = openedSignedIn()
+
+        assertThat(viewModel.state.value.canChangeState).isTrue()
+    }
+
+    @Test
+    fun signing_in_while_the_conversation_is_open_is_asked_about_again() = test {
+        api.issues[ref] = issueDetails(ref)
+        api.managed += ref.repo
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle())
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.canChangeState).isFalse()
+
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
+        viewModel.checkPermissions()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.canChangeState).isTrue()
+    }
+
+    @Test
+    fun closing_shows_at_once_then_reloads_what_the_forge_says_of_it() = test {
+        api.managed += ref.repo
+        val viewModel = openedSignedIn()
+        val loadsBefore = api.calls.count { it.startsWith("timeline:") }
+
+        viewModel.toggleOpen()
+        assertThat(viewModel.state.value.isChangingState).isTrue()
+        advanceUntilIdle()
+
+        assertThat(api.stateChanges).containsExactly("octo/repo#7: closed")
+        assertThat(viewModel.state.value.issue?.state).isEqualTo(IssueState.CLOSED)
+        assertThat(viewModel.state.value.isChangingState).isFalse()
+        assertThat(viewModel.state.value.stateError).isNull()
+        // The line that closes the conversation comes from the forge.
+        assertThat(api.calls.count { it.startsWith("timeline:") }).isEqualTo(loadsBefore + 1)
+    }
+
+    @Test
+    fun a_closed_conversation_reopens() = test {
+        api.managed += ref.repo
+        val viewModel = openedSignedIn()
+        viewModel.toggleOpen()
+        advanceUntilIdle()
+
+        viewModel.toggleOpen()
+        advanceUntilIdle()
+
+        assertThat(api.stateChanges).containsExactly("octo/repo#7: closed", "octo/repo#7: open").inOrder()
+        assertThat(viewModel.state.value.issue?.state).isEqualTo(IssueState.OPEN)
+    }
+
+    @Test
+    fun a_refused_state_change_leaves_the_conversation_as_it_was_and_says_why() = test {
+        api.managed += ref.repo
+        val viewModel = openedSignedIn()
+        api.stateFailure = ForgeError.Http(403, "no")
+
+        viewModel.toggleOpen()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.issue?.state).isEqualTo(IssueState.OPEN)
+        assertThat(viewModel.state.value.stateError).isEqualTo(ForgeError.Http(403, "no"))
+        assertThat(viewModel.state.value.isChangingState).isFalse()
+
+        // Trying again takes the error away.
+        api.stateFailure = null
+        viewModel.toggleOpen()
+        assertThat(viewModel.state.value.stateError).isNull()
+    }
+
+    @Test
+    fun a_conversation_is_closed_once_however_often_it_is_tapped() = test {
+        api.managed += ref.repo
+        val viewModel = openedSignedIn()
+        api.gate = kotlinx.coroutines.CompletableDeferred()
+
+        viewModel.toggleOpen()
+        viewModel.toggleOpen()
+        advanceUntilIdle()
+        api.gate?.complete(Unit)
+        advanceUntilIdle()
+
+        assertThat(api.stateChanges).hasSize(1)
+    }
+
+    @Test
+    fun a_merged_pull_request_stays_merged() = test {
+        api.managed += ref.repo
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
+        api.issues[ref] = issueDetails(ref, state = IssueState.MERGED)
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle())
+        advanceUntilIdle()
+
+        viewModel.toggleOpen()
+        advanceUntilIdle()
+
+        assertThat(api.stateChanges).isEmpty()
     }
 }

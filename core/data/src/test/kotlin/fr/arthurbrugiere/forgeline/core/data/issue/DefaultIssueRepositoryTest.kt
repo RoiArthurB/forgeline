@@ -280,7 +280,7 @@ class DefaultIssueRepositoryTest {
     fun an_opened_issue_is_announced_and_a_refused_one_is_not() = runTest {
         signIn()
         val announced = mutableListOf<IssueRef>()
-        val listening = launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) { repository.created.collect { announced += it } }
+        val listening = launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) { repository.changed.collect { announced += it } }
 
         api.createFailure = ForgeError.Http(410, "Issues are disabled for this repo")
         assertThat(repository.create(ref.repo, "Crash", "Steps")).isEqualTo(ForgeResult.Failure(ForgeError.Http(410, "Issues are disabled for this repo")))
@@ -289,6 +289,113 @@ class DefaultIssueRepositoryTest {
         api.createFailure = null
         val created = (repository.create(ref.repo, "Crash", "Steps") as ForgeResult.Success).value
         assertThat(announced).containsExactly(created.ref)
+        listening.cancel()
+    }
+
+    @Test
+    fun nobody_signed_in_on_the_forge_can_close_a_conversation() = runTest {
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "codeberg-tok")
+
+        assertThat(repository.canChangeState(ref, author = "me")).isFalse()
+        assertThat(api.calls).isEmpty()
+    }
+
+    @Test
+    fun whoever_opened_a_conversation_can_close_it_without_asking_the_forge() = runTest {
+        signIn()
+
+        assertThat(repository.canChangeState(ref, author = "Me")).isTrue()
+        assertThat(api.calls).isEmpty()
+    }
+
+    @Test
+    fun someone_else_s_conversation_can_be_closed_by_whoever_manages_the_repository() = runTest {
+        signIn()
+        assertThat(repository.canChangeState(ref, author = "octocat")).isFalse()
+
+        api.managed += RepoId("octo", "mine")
+        assertThat(repository.canChangeState(IssueRef(RepoId("octo", "mine"), 3), author = "octocat")).isTrue()
+    }
+
+    @Test
+    fun the_forge_is_asked_once_per_repository_whatever_the_conversation() = runTest {
+        signIn()
+
+        repository.canChangeState(ref, author = "octocat")
+        repository.canChangeState(IssueRef(ref.repo, ref.number + 1), author = null)
+
+        assertThat(api.calls.filter { it.startsWith("canManage:") }).hasSize(1)
+    }
+
+    @Test
+    fun a_permission_the_forge_couldn_t_tell_is_asked_again() = runTest {
+        signIn()
+        api.managed += ref.repo
+        api.manageFailure = ForgeError.Network
+        assertThat(repository.canChangeState(ref, author = "octocat")).isFalse()
+
+        api.manageFailure = null
+
+        assertThat(repository.canChangeState(ref, author = "octocat")).isTrue()
+    }
+
+    @Test
+    fun closing_needs_an_account_on_the_conversation_s_forge() = runTest {
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "codeberg-tok")
+
+        assertThat(repository.setOpen(ref, open = false)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(api.stateChanges).isEmpty()
+    }
+
+    @Test
+    fun a_closed_conversation_is_kept_closed_and_reopens_open() = runTest {
+        signIn()
+        api.issues[ref] = issueDetails(ref)
+        repository.issue(ref)
+        now = 5_000L
+
+        assertThat(repository.setOpen(ref, open = false)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(api.stateChanges).containsExactly("${ref.repo.fullName}#${ref.number}: closed")
+        assertThat(api.tokens.last()).isEqualTo("tok")
+        assertThat(repository.cached(ref)?.issue?.state).isEqualTo(fr.arthurbrugiere.forgeline.core.model.IssueState.CLOSED)
+        assertThat(repository.cached(ref)?.issue?.closedAt).isEqualTo(Instant.ofEpochMilli(5_000L))
+        // The next launch reads it closed too.
+        val relaunched = DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock)
+        assertThat(relaunched.stored(ref)?.issue?.state).isEqualTo(fr.arthurbrugiere.forgeline.core.model.IssueState.CLOSED)
+
+        repository.setOpen(ref, open = true)
+
+        assertThat(repository.cached(ref)?.issue?.state).isEqualTo(fr.arthurbrugiere.forgeline.core.model.IssueState.OPEN)
+        assertThat(repository.cached(ref)?.issue?.closedAt).isNull()
+    }
+
+    @Test
+    fun closing_a_conversation_never_loaded_keeps_nothing() = runTest {
+        // An entry without its issue would read as a conversation the forge couldn't serve.
+        signIn()
+
+        repository.setOpen(ref, open = false)
+
+        assertThat(repository.cached(ref)).isNull()
+    }
+
+    @Test
+    fun a_state_change_is_announced_and_a_refused_one_changes_nothing() = runTest {
+        signIn()
+        api.issues[ref] = issueDetails(ref)
+        repository.issue(ref)
+        val announced = mutableListOf<IssueRef>()
+        val listening = launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) { repository.changed.collect { announced += it } }
+
+        api.stateFailure = ForgeError.Http(403, "no")
+        assertThat(repository.setOpen(ref, open = false)).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "no")))
+        assertThat(announced).isEmpty()
+        assertThat(repository.cached(ref)?.issue?.state).isEqualTo(fr.arthurbrugiere.forgeline.core.model.IssueState.OPEN)
+
+        api.stateFailure = null
+        repository.setOpen(ref, open = false)
+        assertThat(announced).containsExactly(ref)
         listening.cancel()
     }
 }

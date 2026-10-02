@@ -479,20 +479,20 @@ fun SoftButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier
     }
 }
 
-/** A quiet pill: a secondary action on a tinted track. */
+/** A quiet pill: a secondary action on a tinted track. Not [enabled], its ink mutes and it can't be pressed. */
 @Composable
-fun SoftTonalButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun SoftTonalButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val colors = Soft.colors
     Box(
         modifier
             .clip(SoftTokens.Pill)
             .background(colors.surface)
-            .clickable(role = Role.Button, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .heightIn(min = 48.dp)
             .padding(horizontal = 20.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, style = Soft.type.control, color = colors.ink)
+        Text(label, style = Soft.type.control, color = if (enabled) colors.ink else colors.inkMuted)
     }
 }
 

@@ -75,6 +75,34 @@ class FakeIssueApi : IssueApi {
         issues[created.ref] = created
         return ForgeResult.Success(created)
     }
+
+    /** Conversations closed and reopened, as "owner/name#number: closed". */
+    val stateChanges = mutableListOf<String>()
+
+    /** What closing or reopening fails with, apart from [failure], which is for reading. */
+    var stateFailure: ForgeError? = null
+
+    override suspend fun setOpen(token: String, ref: IssueRef, open: Boolean): ForgeResult<Unit> {
+        calls += "setOpen:${ref.repo.fullName}#${ref.number}"
+        gate?.await()
+        tokens += token
+        stateFailure?.let { return ForgeResult.Failure(it) }
+        stateChanges += "${ref.repo.fullName}#${ref.number}: ${if (open) "open" else "closed"}"
+        issues[ref]?.let { issues[ref] = it.copy(state = if (open) IssueState.OPEN else IssueState.CLOSED) }
+        return ForgeResult.Success(Unit)
+    }
+
+    /** Repositories whose every conversation the signed-in user may close. */
+    val managed = mutableSetOf<RepoId>()
+
+    /** What asking for the permission fails with. */
+    var manageFailure: ForgeError? = null
+
+    override suspend fun canManage(token: String, repo: RepoId): ForgeResult<Boolean> {
+        calls += "canManage:${repo.fullName}"
+        manageFailure?.let { return ForgeResult.Failure(it) }
+        return ForgeResult.Success(repo in managed)
+    }
 }
 
 class FakeUserApi : UserApi {

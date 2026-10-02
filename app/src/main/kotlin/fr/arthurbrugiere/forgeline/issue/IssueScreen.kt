@@ -137,12 +137,16 @@ fun IssueRoute(
     val viewModel = hiltViewModel<IssueViewModel, IssueViewModel.Factory>(key = "${ref.repo.key}#${ref.number}") { it.create(ref) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
+    val signedIn = session.signedInOn(ref.repo.forge)
+    // Who may close the conversation depends on who is signed in: signing in from here is asked about on the way back.
+    LaunchedEffect(signedIn) { viewModel.checkPermissions() }
     IssueScreen(
         state = state,
         // Commenting takes an account on the conversation's own forge.
-        canComment = session.signedInOn(ref.repo.forge),
+        canComment = signedIn,
         onDraftChange = viewModel::draftChanged,
         onSendComment = viewModel::sendComment,
+        onToggleOpen = viewModel::toggleOpen,
         onSignIn = onSignIn,
         onCommentNoticeShown = viewModel::commentNoticeShown,
         onBack = onBack,
@@ -164,6 +168,7 @@ fun IssueScreen(
     canComment: Boolean,
     onDraftChange: (String) -> Unit,
     onSendComment: () -> Unit,
+    onToggleOpen: () -> Unit,
     onSignIn: () -> Unit,
     onCommentNoticeShown: () -> Unit,
     onBack: () -> Unit,
@@ -283,7 +288,7 @@ fun IssueScreen(
                         }
                         // Where the next comment will appear: the conversation ends with the reader's turn.
                         item(key = "composer") {
-                            Composer(state, canComment, onDraftChange, onSendComment, onSignIn)
+                            Composer(state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn)
                         }
                     }
                 }
@@ -299,10 +304,18 @@ fun IssueScreen(
 
 /**
  * The reader's turn, closing the conversation: a field that grows with the comment and one action. Signed out of the
- * conversation's forge, it says so and offers to sign in. A comment that wasn't sent stays written.
+ * conversation's forge, it says so and offers to sign in. A comment that wasn't sent stays written. Whoever may close
+ * the conversation, or reopen it, finds that beside the comment's action, quieter.
  */
 @Composable
-private fun Composer(state: IssueUiState, canComment: Boolean, onDraftChange: (String) -> Unit, onSend: () -> Unit, onSignIn: () -> Unit) {
+private fun Composer(
+    state: IssueUiState,
+    canComment: Boolean,
+    onDraftChange: (String) -> Unit,
+    onSend: () -> Unit,
+    onToggleOpen: () -> Unit,
+    onSignIn: () -> Unit,
+) {
     val colors = Soft.colors
     val forge = state.ref.repo.forge.displayName
     Column(
@@ -334,12 +347,47 @@ private fun Composer(state: IssueUiState, canComment: Boolean, onDraftChange: (S
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             modifier = Modifier.fillMaxWidth(),
         )
-        SoftButton(
-            stringResource(if (state.isCommenting) R.string.issue_comment_sending else R.string.issue_comment_send),
-            onSend,
-            Modifier.align(Alignment.End),
-            enabled = state.draft.isNotBlank() && !state.isCommenting,
-        )
+        // Side by side while they fit; at large text the comment's action goes under the other, still at the end.
+        FlowRow(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            val issue = state.issue
+            // A merged pull request stays merged.
+            if (state.canChangeState && issue != null && issue.state != IssueState.MERGED) {
+                val isOpen = issue.state == IssueState.OPEN
+                val isPullRequest = issue.pullRequest != null
+                SoftTonalButton(
+                    stringResource(
+                        when {
+                            state.isChangingState -> if (isOpen) R.string.issue_closing else R.string.issue_reopening
+                            isOpen -> if (isPullRequest) R.string.issue_close_pull else R.string.issue_close
+                            else -> if (isPullRequest) R.string.issue_reopen_pull else R.string.issue_reopen
+                        },
+                    ),
+                    onToggleOpen,
+                    enabled = !state.isChangingState,
+                )
+            }
+            SoftButton(
+                stringResource(if (state.isCommenting) R.string.issue_comment_sending else R.string.issue_comment_send),
+                onSend,
+                enabled = state.draft.isNotBlank() && !state.isCommenting,
+            )
+        }
+        state.stateError?.let { error ->
+            Text(
+                when {
+                    error == ForgeError.Unauthorized -> stringResource(R.string.issue_state_error_expired, forge)
+                    error is ForgeError.Http && (error.status == 403 || error.status == 404) -> stringResource(R.string.issue_state_error_refused)
+                    error == ForgeError.Network -> stringResource(R.string.issue_state_error_offline)
+                    else -> stringResource(R.string.issue_state_error)
+                },
+                style = Soft.type.secondary,
+                color = colors.accent,
+            )
+        }
     }
 }
 

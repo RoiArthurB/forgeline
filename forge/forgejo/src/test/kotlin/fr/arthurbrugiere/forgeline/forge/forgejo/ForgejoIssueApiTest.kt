@@ -267,4 +267,38 @@ class ForgejoIssueApiTest {
 
         assertThat(opening.create("tok", pull.repo, "Hello", "")).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "repository is archived")))
     }
+
+    @Test
+    fun closing_and_reopening_change_the_state_of_the_issue_or_pull_request() = runTest {
+        // The answer is the issue as Forgejo keeps it (201); only its success is read.
+        val changing = with(codeberg) { ForgejoIssueApi(client { json(opened, HttpStatusCode.Created) }, ForgeInstance.Codeberg) }
+
+        assertThat(changing.setOpen("tok", pull, open = false)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(changing.setOpen("tok", pull, open = true)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(codeberg.requests.map { it.method }).containsExactly(HttpMethod.Patch, HttpMethod.Patch)
+        // A pull request goes through the issue endpoint too.
+        assertThat(codeberg.requests.map { it.url.toString() }.distinct()).containsExactly("https://codeberg.org/api/v1/repos/forgejo/forgejo/issues/14597")
+        assertThat(codeberg.requests.map { (it.body as TextContent).text }).containsExactly("""{"state":"closed"}""", """{"state":"open"}""").inOrder()
+        assertThat(codeberg.requests.first().headers[HttpHeaders.Authorization]).isEqualTo("token tok")
+    }
+
+    @Test
+    fun a_state_change_the_forge_refuses_is_a_failure() = runTest {
+        val changing = with(codeberg) { ForgejoIssueApi(client { json("""{"message":"user should have permission to write"}""", HttpStatusCode.Forbidden) }, ForgeInstance.Codeberg) }
+
+        assertThat(changing.setOpen("tok", pull, open = false)).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "user should have permission to write")))
+    }
+
+    @Test
+    fun whoever_can_push_may_manage_a_repository_s_conversations() = runTest {
+        fun asking(push: Boolean) = with(codeberg) {
+            ForgejoIssueApi(client { json("""{"name":"forgejo","permissions":{"admin":false,"push":$push,"pull":true}}""") }, ForgeInstance.Codeberg)
+        }
+
+        assertThat(asking(push = true).canManage("tok", pull.repo).value()).isTrue()
+        assertThat(asking(push = false).canManage("tok", pull.repo).value()).isFalse()
+        assertThat(codeberg.requests.first().url.toString()).isEqualTo("https://codeberg.org/api/v1/repos/forgejo/forgejo")
+        assertThat(codeberg.requests.first().headers[HttpHeaders.Authorization]).isEqualTo("token tok")
+    }
 }

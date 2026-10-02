@@ -15,6 +15,7 @@ import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.onNodeWithText
@@ -565,7 +566,7 @@ class ScreenshotTest {
                     TimelineItem.StateChanged(StateChange.CLOSED, ForgeUser("maintainer", null, null), "completed", at),
                 ),
             ),
-            canComment = true, onDraftChange = {}, onSendComment = {}, onSignIn = {}, onCommentNoticeShown = {},
+            canComment = true, onDraftChange = {}, onSendComment = {}, onToggleOpen = {}, onSignIn = {}, onCommentNoticeShown = {},
             onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {},
             onLinkClick = {}, onErrorShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
         )
@@ -583,7 +584,7 @@ class ScreenshotTest {
                     items = listOf(comment(1, "Same here on 2026.9.", login = "hubot")),
                 ),
             ),
-            canComment = canComment, onDraftChange = {}, onSendComment = {}, onSignIn = {}, onCommentNoticeShown = {},
+            canComment = canComment, onDraftChange = {}, onSendComment = {}, onToggleOpen = {}, onSignIn = {}, onCommentNoticeShown = {},
             onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {},
             onLinkClick = {}, onErrorShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
         )
@@ -602,6 +603,34 @@ class ScreenshotTest {
     @Test
     fun issue_comment_refused_light() = snapshot("issue_comment_refused_light", darkTheme = false, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG) {
         IssueWithComposer({ it.copy(draft = "Confirmed on 2026.10 too.", commentError = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http(403, "locked")) })
+    }
+
+    @Test
+    fun issue_close_light() = snapshot("issue_close_light", darkTheme = false, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG) {
+        IssueWithComposer({ it.copy(canChangeState = true, draft = "Fixed in 2026.10.") })
+    }
+
+    @Test
+    fun issue_reopen_refused_dark() = snapshot("issue_reopen_refused_dark", darkTheme = true, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG) {
+        IssueWithComposer({
+            it.copy(
+                issue = it.issue?.copy(state = fr.arthurbrugiere.forgeline.core.model.IssueState.CLOSED),
+                canChangeState = true,
+                stateError = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http(403, "no"),
+            )
+        })
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun issue_close_font_2_0_light() = snapshot(
+        "issue_close_font_2_0_light", darkTheme = false, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG,
+        // The two actions no longer fit side by side: scroll to where they stack.
+        beforeCapture = {
+            composeRule.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToNode(hasText("Comment"))
+        },
+    ) {
+        IssueWithComposer({ it.copy(canChangeState = true) })
     }
 
     @Test

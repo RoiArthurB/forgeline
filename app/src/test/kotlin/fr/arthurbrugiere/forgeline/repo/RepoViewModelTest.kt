@@ -9,6 +9,7 @@ import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
@@ -290,6 +291,22 @@ class RepoViewModelTest {
         advanceUntilIdle()
 
         assertThat(repos.calls.count { it.startsWith("issues:") }).isEqualTo(2)
+    }
+
+    @Test
+    fun a_conversation_closed_from_the_app_reloads_the_issues_and_pull_requests_shown() = test {
+        cache()
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
+        val viewModel = viewModel()
+        viewModel.selectTab(RepoTab.ISSUES)
+        viewModel.selectTab(RepoTab.PULLS)
+        advanceUntilIdle()
+
+        conversations.setOpen(IssueRef(details.id, 3), open = false)
+        advanceUntilIdle()
+
+        assertThat(repos.calls.count { it.startsWith("issues:") }).isEqualTo(2)
+        assertThat(repos.calls.count { it.startsWith("pulls:") }).isEqualTo(2)
     }
 
     @Test
