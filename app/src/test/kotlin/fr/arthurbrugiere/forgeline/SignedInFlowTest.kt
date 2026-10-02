@@ -1,6 +1,10 @@
 package fr.arthurbrugiere.forgeline
 
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -26,11 +30,11 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import javax.inject.Inject
 
-/** The whole way through the app, signed in: from a repository's Issues tab to the conversation of the issue opened. */
+/** The whole way through the app, signed in: what someone does to a conversation, from the tab they start on. */
 @HiltAndroidTest
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = PHONE, application = HiltTestApplication::class)
-class OpenIssueFlowTest {
+class SignedInFlowTest {
     @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
 
@@ -46,8 +50,8 @@ class OpenIssueFlowTest {
     private fun waitFor(text: String) =
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
 
-    @Test
-    fun an_issue_written_in_the_form_opens_as_a_conversation_and_back_returns_to_the_repository() {
+    /** Signs in to GitHub, then goes to the Issues tab of the repository the fake forge serves. */
+    private fun openIssuesSignedIn() {
         hiltRule.inject()
         runBlocking { accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null), "tok") }
         composeRule.onNode(hasContentDescription("Trending") and isSelectable()).performClick()
@@ -56,6 +60,34 @@ class OpenIssueFlowTest {
         waitFor("Issues")
         composeRule.onNodeWithText("Issues").performClick()
         waitFor("New issue")
+    }
+
+    /** The comment box closes the conversation: scroll down to it. */
+    private fun reach(matcher: SemanticsMatcher) {
+        composeRule.onNode(hasScrollAction()).performScrollToNode(matcher)
+    }
+
+    @Test
+    fun a_comment_written_under_a_conversation_joins_it_and_empties_the_box() {
+        openIssuesSignedIn()
+        composeRule.onNodeWithText("Heartbeat recovery escalates too early").performClick()
+        waitFor("I can reproduce this on every restart.")
+
+        reach(hasSetTextAction())
+        composeRule.onNode(hasSetTextAction()).performTextInput("Fixed in 2026.10, thanks.")
+        reach(hasText("Comment"))
+        composeRule.onNodeWithText("Comment").performClick()
+
+        // Posted: it is the last word of the conversation, and the box is ready for the next one.
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Add a comment")).fetchSemanticsNodes().isNotEmpty() }
+        waitFor("Fixed in 2026.10, thanks.")
+        composeRule.onNodeWithText("I can reproduce this on every restart.", substring = true).assertExists()
+        composeRule.onNodeWithText("Comment").assertIsNotEnabled()
+    }
+
+    @Test
+    fun an_issue_written_in_the_form_opens_as_a_conversation_and_back_returns_to_the_repository() {
+        openIssuesSignedIn()
 
         composeRule.onNodeWithText("New issue").performClick()
         composeRule.onAllNodes(hasSetTextAction())[0].performTextInput("Crash when the list is empty")
