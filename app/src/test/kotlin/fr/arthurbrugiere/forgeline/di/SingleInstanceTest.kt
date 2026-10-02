@@ -32,6 +32,8 @@ class SingleInstanceTest {
     @Inject lateinit var previewsAgain: FeedPreviewRepository
     @Inject lateinit var trending: TrendingRepository
     @Inject lateinit var trendingAgain: TrendingRepository
+    @Inject lateinit var repos: fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
+    @Inject lateinit var reposAgain: fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 
     @Before
     fun inject() = hiltRule.inject()
@@ -44,6 +46,13 @@ class SingleInstanceTest {
     @Test
     fun the_feed_previews_remember_what_is_being_fetched_across_screens() {
         assertThat(previewsAgain).isSameInstanceAs(previews)
+    }
+
+    @Test
+    fun the_releases_a_repository_listed_are_there_for_the_release_page() {
+        // Regression: each screen had its own repository, so a release opened from its list was loaded again, and
+        // lost what only the list knows of it (whether it is the latest).
+        assertThat(reposAgain).isSameInstanceAs(repos)
     }
 
     @Test

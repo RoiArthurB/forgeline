@@ -103,7 +103,26 @@ data class Release(
     val publishedAt: java.time.Instant?,
     val isPrerelease: Boolean,
     val author: ForgeUser?,
+    /** The files published with the release, as the forge lists them. */
+    val assets: List<ReleaseAsset> = emptyList(),
+    /** Where the source at this tag downloads from; null when the release hides its archives. */
+    val zipUrl: String? = null,
+    val tarUrl: String? = null,
+    /** The release's page on the forge. */
+    val webUrl: String? = null,
+    val reactions: Map<Reaction, Int> = emptyMap(),
+    /** The newest release that isn't a pre-release; only known from the repository's list. */
+    val isLatest: Boolean = false,
 )
+
+/** [downloads] is null when the forge doesn't count them. [url] downloads it in a browser. */
+data class ReleaseAsset(val name: String, val sizeBytes: Long, val downloads: Int?, val url: String)
+
+/** Marks the newest release that isn't a pre-release, in a list newest first. */
+fun List<Release>.withLatest(): List<Release> {
+    val latest = indexOfFirst { !it.isPrerelease }
+    return mapIndexed { index, release -> if (index == latest) release.copy(isLatest = true) else release }
+}
 
 enum class RunStatus { QUEUED, IN_PROGRESS, COMPLETED, OTHER }
 

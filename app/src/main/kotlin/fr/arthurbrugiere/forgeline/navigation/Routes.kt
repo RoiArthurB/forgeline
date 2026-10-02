@@ -54,6 +54,12 @@ data class NewIssueRoute(val host: String, val owner: String, val name: String) 
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
 }
 
+/** One release of a repository, by its tag. */
+@Serializable
+data class ReleaseRoute(val host: String, val owner: String, val name: String, val tag: String) : NavKey {
+    val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
+}
+
 @Serializable
 data class RunRoute(val host: String, val owner: String, val name: String, val runId: Long) : NavKey {
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
@@ -73,6 +79,8 @@ data class UserRoute(val host: String, val login: String) : NavKey {
 data object SearchRoute : NavKey
 
 fun RepoId.route() = RepoRoute(forge.host, owner, name)
+
+fun RepoId.releaseRoute(tag: String) = ReleaseRoute(forge.host, owner, name, tag)
 
 fun RepoId.newIssueRoute() = NewIssueRoute(forge.host, owner, name)
 

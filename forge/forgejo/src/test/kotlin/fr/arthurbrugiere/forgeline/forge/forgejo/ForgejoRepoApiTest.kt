@@ -222,4 +222,46 @@ class ForgejoRepoApiTest {
 
         assertThat(with(codeberg) { api { json(mixed) } }.pinnedIssues(null, forgejo).value().map { it.number }).containsExactly(1)
     }
+
+    @Test
+    fun a_release_lists_its_files_its_source_and_its_page() = runTest {
+        val releases = with(codeberg) { api { json(fixture("releases.json")) } }.releases(null, forgejo).value()
+        val release = releases.first()
+
+        val asset = release.assets.first()
+        assertThat(asset.name).isEqualTo("forgejo-16.0.5-linux-amd64")
+        assertThat(asset.sizeBytes).isEqualTo(122_204_040)
+        assertThat(asset.downloads).isEqualTo(4321)
+        assertThat(asset.url).isEqualTo("https://codeberg.org/forgejo/forgejo/releases/download/v16.0.5/forgejo-16.0.5-linux-amd64")
+        assertThat(release.zipUrl).isEqualTo("https://codeberg.org/forgejo/forgejo/archive/v16.0.5.zip")
+        assertThat(release.tarUrl).isEqualTo("https://codeberg.org/forgejo/forgejo/archive/v16.0.5.tar.gz")
+        assertThat(release.webUrl).isEqualTo("https://codeberg.org/forgejo/forgejo/releases/tag/v16.0.5")
+        assertThat(releases.map { it.isLatest }.first()).isTrue()
+        assertThat(releases.count { it.isLatest }).isEqualTo(1)
+    }
+
+    @Test
+    fun a_release_that_hides_its_archives_offers_no_source() = runTest {
+        val hidden = codeberg.fixture("releases.json").replace("\"hide_archive_links\":false", "\"hide_archive_links\":true")
+
+        val release = with(codeberg) { api { json(hidden) } }.releases(null, forgejo).value().first()
+
+        assertThat(release.zipUrl).isNull()
+        assertThat(release.tarUrl).isNull()
+    }
+
+    @Test
+    fun one_release_is_asked_for_by_its_tag_even_one_with_slashes() = runTest {
+        val one = kotlinx.serialization.json.Json.parseToJsonElement(codeberg.fixture("releases.json")).let { (it as kotlinx.serialization.json.JsonArray).first().toString() }
+        val api = with(codeberg) { api { json(one) } }
+
+        val release = api.release(null, forgejo, "v16.0.5").value()
+        api.release(null, forgejo, "v16.0/forgejo")
+
+        assertThat(release.tag).isEqualTo("v16.0.5")
+        assertThat(release.assets).isNotEmpty()
+        assertThat(codeberg.requests.map { it.url.encodedPath }).containsExactly(
+            "/api/v1/repos/forgejo/forgejo/releases/tags/v16.0.5", "/api/v1/repos/forgejo/forgejo/releases/tags/v16.0/forgejo",
+        ).inOrder()
+    }
 }

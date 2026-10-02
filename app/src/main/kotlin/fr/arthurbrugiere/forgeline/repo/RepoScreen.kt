@@ -59,6 +59,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
@@ -130,6 +131,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
+import fr.arthurbrugiere.forgeline.ui.LocalOpenRelease
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -151,6 +153,7 @@ fun RepoRoute(
     val viewModel = hiltViewModel<RepoViewModel, RepoViewModel.Factory>(key = id.key) { it.create(id) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
+    val openRelease = LocalOpenRelease.current
     val signedIn = session.signedInOn(id.forge)
     var dispatching by rememberSaveable { mutableStateOf(false) }
     val details = state.details
@@ -181,9 +184,10 @@ fun RepoRoute(
         onNewIssue = { if (signedIn) state.details?.let { onNewIssue(it.id) } else onSignIn() },
         onShowOpen = viewModel::showOpen,
         onSearch = viewModel::search,
+        onOpenRelease = { tag -> state.details?.let { openRelease?.invoke(it.id, tag) } },
         onOpenRun = { runId -> state.details?.let { onOpenRun(it.id, runId) } },
         onOpenUser = onOpenUser,
-        onLinkClick = { url -> openForgeLink(url, id.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRun) },
+        onLinkClick = { url -> openForgeLink(url, id.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRun, openRelease) },
         onOpenInBrowser = openUrl,
         onLoadRefs = viewModel::loadRefs,
         onRunWorkflow = if (signedIn) ({ dispatching = true }) else null,
@@ -210,6 +214,8 @@ fun RepoScreen(
     onOpenIssue: (Int) -> Unit,
     onNewIssue: () -> Unit,
     onOpenUser: (String) -> Unit,
+    /** Opens the page of the release under a tag. */
+    onOpenRelease: (String) -> Unit = {},
     /** Lists the open (true) or the closed issues or pull requests. */
     onShowOpen: (Boolean) -> Unit = {},
     /** Looks for words among the issues or pull requests. */
@@ -375,7 +381,7 @@ fun RepoScreen(
                                 }
                             }
                             RepoTab.RELEASES -> loadable(state.releases, R.string.repo_no_releases, onRetryTab) { releases ->
-                                items(releases, key = { "release-${it.tag}" }) { ReleaseRow(it, state.readmeContext, nowMillis, onLinkClick) }
+                                items(releases, key = { "release-${it.tag}" }) { ReleaseRow(it, nowMillis, onClick = { onOpenRelease(it.tag) }) }
                             }
                             RepoTab.ACTIONS -> {
                                 if (onRunWorkflow != null) {
@@ -631,29 +637,30 @@ private fun LazyListScope.code(
     }
 }
 
+/** One release in the list: what it is called, its tag and age, where it stands, and how much it ships. Its page holds the rest. */
 @Composable
-private fun ReleaseRow(release: Release, context: ReadmeContext?, nowMillis: Long, onLinkClick: (String) -> Unit) {
+private fun ReleaseRow(release: Release, nowMillis: Long, onClick: () -> Unit) {
     val colors = Soft.colors
-    var expanded by rememberSaveable(release.tag) { mutableStateOf(false) }
-    Column(RowModifier.softPressable { expanded = !expanded }.padding(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RowIcon(Icons.Outlined.NewReleases, colors.fields[0])
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(release.name ?: release.tag, style = Soft.type.body, color = colors.ink)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        listOfNotNull(release.tag.takeIf { release.name != null }, release.publishedAt?.let { relative(it, nowMillis) }).joinToString(" · "),
-                        style = Soft.type.meta,
-                        color = colors.inkMuted,
-                    )
+    Row(RowModifier.softPressable(onClick = onClick).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        RowIcon(Icons.Outlined.NewReleases, if (release.isPrerelease) colors.surface else colors.fields[0])
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(release.name ?: release.tag, style = Soft.type.body, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(
+                listOfNotNull(
+                    release.tag.takeIf { release.name != null },
+                    release.publishedAt?.let { relative(it, nowMillis) },
+                    release.assets.size.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.release_assets, it, it) },
+                ).joinToString(" · "),
+                style = Soft.type.meta,
+                color = colors.inkMuted,
+            )
+            if (release.isLatest || release.isPrerelease) {
+                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (release.isLatest) Badge(stringResource(R.string.release_latest))
                     if (release.isPrerelease) Badge(stringResource(R.string.repo_prerelease))
                 }
             }
-        }
-        val body = release.body
-        if (expanded && body != null && context != null) {
-            rememberReadmeState(body, context, colors.isDark)?.let { ForgelineMarkdown(it, onLinkClick, Modifier.padding(start = 50.dp, top = 8.dp)) }
         }
     }
 }

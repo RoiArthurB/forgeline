@@ -77,6 +77,20 @@ class FakeRepoRepository : RepoRepository {
 
     override suspend fun releases(id: RepoId) = releases.also { calls += "releases:${id.fullName}" }
 
+    /** Releases already seen this session, by tag. */
+    val seenReleases = mutableMapOf<String, Release>()
+
+    /** What loading one release answers, by tag; 404 otherwise. */
+    val releaseAnswers = mutableMapOf<String, ForgeResult<Release>>()
+
+    override fun cachedRelease(id: RepoId, tag: String): Release? = seenReleases[tag]
+
+    override suspend fun release(id: RepoId, tag: String): ForgeResult<Release> {
+        calls += "release:${id.fullName}@$tag"
+        gate?.await()
+        return releaseAnswers[tag] ?: ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http(404, "Not Found"))
+    }
+
     override suspend fun workflowRuns(id: RepoId) = runs.also { calls += "runs:${id.fullName}" }
 
     override fun rawBaseUrl(id: RepoId, ref: String) = "https://raw.example/${id.fullName}/$ref/"

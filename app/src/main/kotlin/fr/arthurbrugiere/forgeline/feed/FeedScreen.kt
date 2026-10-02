@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
+import fr.arthurbrugiere.forgeline.ui.LocalOpenRelease
 import fr.arthurbrugiere.forgeline.ui.ReportReading
 import fr.arthurbrugiere.forgeline.ui.LeftOffMark
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
@@ -325,11 +326,12 @@ private fun FeedRow(
 ) {
     val colors = Soft.colors
     val actor = item.actors.first()
+    val openRelease = LocalOpenRelease.current
     Row(
         modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp)
-            .softPressable { item.open(onOpenRepo, onOpenIssue, onOpenUser, onOpenUrl) }
+            .softPressable { item.open(onOpenRepo, onOpenIssue, onOpenUser, onOpenUrl, openRelease) }
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top,
     ) {
@@ -565,8 +567,16 @@ private fun Instant.day(nowMillis: Long, zone: ZoneId): Day {
     }
 }
 
-private fun FeedItem.open(onOpenRepo: (RepoId) -> Unit, onOpenIssue: (IssueRef) -> Unit, onOpenUser: (ForgeInstance, String) -> Unit, onOpenUrl: (String) -> Unit) {
+private fun FeedItem.open(
+    onOpenRepo: (RepoId) -> Unit,
+    onOpenIssue: (IssueRef) -> Unit,
+    onOpenUser: (ForgeInstance, String) -> Unit,
+    onOpenUrl: (String) -> Unit,
+    onOpenRelease: ((RepoId, String) -> Unit)?,
+) {
     when (val action = action) {
+        // What was released, not only where: outside the app shell there is no release page, so its repository.
+        is FeedAction.Released -> if (onOpenRelease != null) onOpenRelease(repo, action.tag) else onOpenRepo(repo)
         // No discussion screen in the app: an announcement opens on its forge.
         is FeedAction.Announced -> onOpenUrl("${repo.webUrl}/discussions/${action.number}")
         is FeedAction.Issue -> onOpenIssue(IssueRef(repo, action.number))

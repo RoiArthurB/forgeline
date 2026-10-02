@@ -160,6 +160,43 @@ class DefaultRepoRepositoryTest {
         assertThat(api.calls).containsAtLeast("issues:octo/repo closed", "issues:octo/repo \"crash\"", "pulls:octo/repo closed \"fix\"", "pinned:octo/repo").inOrder()
     }
 
+    private fun release(tag: String, prerelease: Boolean = false) = fr.arthurbrugiere.forgeline.core.model.Release(tag, null, "Notes of $tag", null, prerelease, null)
+
+    @Test
+    fun a_release_seen_in_its_list_opens_without_asking_the_forge() = runTest {
+        api.releases = listOf(release("v2").copy(isLatest = true), release("v1"))
+        assertThat(repository.cachedRelease(id, "v2")).isNull()
+
+        repository.releases(id)
+
+        assertThat(repository.cachedRelease(id, "v2")).isEqualTo(release("v2").copy(isLatest = true))
+        assertThat(repository.cachedRelease(id, "v1")).isEqualTo(release("v1"))
+        assertThat(repository.cachedRelease(id, "v0")).isNull()
+        assertThat(api.calls.none { it.startsWith("release:") }).isTrue()
+    }
+
+    @Test
+    fun a_release_loaded_alone_keeps_what_only_the_list_knew_of_it() = runTest {
+        api.releases = listOf(release("v2").copy(isLatest = true), release("v1"))
+        repository.releases(id)
+
+        // Alone, the forge doesn't say whether it is the latest.
+        val reloaded = (repository.release(id, "v2") as ForgeResult.Success).value
+
+        assertThat(reloaded.isLatest).isTrue()
+        assertThat((repository.release(id, "v1") as ForgeResult.Success).value.isLatest).isFalse()
+        assertThat(api.calls).containsAtLeast("release:octo/repo@v2", "release:octo/repo@v1")
+    }
+
+    @Test
+    fun a_release_never_listed_is_asked_of_the_forge_then_kept() = runTest {
+        api.releases = listOf(release("v1"))
+
+        assertThat(repository.release(id, "v1")).isEqualTo(ForgeResult.Success(release("v1")))
+        assertThat(repository.cachedRelease(id, "v1")).isEqualTo(release("v1"))
+        assertThat(repository.release(id, "nope")).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "Not Found")))
+    }
+
     @Test
     fun lists_pass_through_to_the_forge() = runTest {
         api.issues = emptyList()

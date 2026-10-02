@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.Release
+import fr.arthurbrugiere.forgeline.core.model.withLatest
 import fr.arthurbrugiere.forgeline.core.model.RepoDetails
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
@@ -91,7 +92,12 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
 
     override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = forgejoCall {
         get(token, id, "releases", query = mapOf("limit" to "30"))
-            .toResult { body<List<ReleaseJson>>().filterNot { it.draft }.map { it.toModel() } }
+            .toResult { body<List<ReleaseJson>>().filterNot { it.draft }.map { it.toModel() }.withLatest() }
+    }
+
+    override suspend fun release(token: String?, id: RepoId, tag: String): ForgeResult<Release> = forgejoCall {
+        // A tag may hold slashes: each part is its own path segment.
+        get(token, id, "releases", "tags", *tag.split('/').filter { it.isNotEmpty() }.toTypedArray()).toResult { body<ReleaseJson>().toModel() }
     }
 
     // Forgejo Actions come with Codeberg sign-in: its run endpoints answer 404 without a token.

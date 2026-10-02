@@ -7,6 +7,7 @@ import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.Release
+import fr.arthurbrugiere.forgeline.core.model.ReleaseAsset
 import fr.arthurbrugiere.forgeline.core.model.RepoDetails
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
@@ -150,9 +151,34 @@ internal data class ReleaseJson(
     val prerelease: Boolean = false,
     val draft: Boolean = false,
     val author: UserJson? = null,
+    val assets: List<AssetJson> = emptyList(),
+    @SerialName("html_url") val htmlUrl: String? = null,
+    @SerialName("zipball_url") val zipUrl: String? = null,
+    @SerialName("tarball_url") val tarUrl: String? = null,
+    /** A release can leave out the source archives Forgejo makes for its tag. */
+    @SerialName("hide_archive_links") val hideArchives: Boolean = false,
 ) {
-    fun toModel() = Release(tag, name?.ifBlank { null }, body?.ifBlank { null }, instant(publishedAt), prerelease, author?.toModel())
+    fun toModel() = Release(
+        tag = tag,
+        name = name?.ifBlank { null },
+        body = body?.ifBlank { null },
+        publishedAt = instant(publishedAt),
+        isPrerelease = prerelease,
+        author = author?.toModel(),
+        assets = assets.map { ReleaseAsset(it.name, it.size, it.downloads, it.url) },
+        zipUrl = zipUrl?.takeUnless { hideArchives },
+        tarUrl = tarUrl?.takeUnless { hideArchives },
+        webUrl = htmlUrl,
+    )
 }
+
+@Serializable
+internal data class AssetJson(
+    val name: String,
+    val size: Long = 0,
+    @SerialName("download_count") val downloads: Int? = null,
+    @SerialName("browser_download_url") val url: String,
+)
 
 @Serializable
 internal data class ContentJson(val name: String, val path: String, val type: String, val size: Long = 0)

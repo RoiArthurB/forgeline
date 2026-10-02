@@ -36,8 +36,14 @@ class FeedScreenTest {
 
     private val events = mutableListOf<String>()
 
+    /** Whether the feed sits in the app shell, which has a page for a release. */
+    private var hasReleasePage = false
+
     private fun setContent(state: FeedUiState, previews: FeedPreviews = FeedPreviews()) {
         composeRule.setContent {
+            val openRelease: ((fr.arthurbrugiere.forgeline.core.model.RepoId, String) -> Unit)? =
+                if (hasReleasePage) ({ repo, tag -> events += "release:${repo.fullName}@$tag" }) else null
+            androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalOpenRelease provides openRelease) {
             FeedScreen(
                 state = state.copy(previews = previews),
                 onRefresh = { events += "refresh" },
@@ -50,7 +56,27 @@ class FeedScreenTest {
                 nowMillis = Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
                 zone = java.time.ZoneOffset.UTC,
             )
+            }
         }
+    }
+
+    @Test
+    fun a_release_opens_its_page_and_its_repository_where_there_is_none() {
+        hasReleasePage = true
+        setContent(state(feedEvent("6", actor = "alice", repo = "octo/tools", action = FeedAction.Released("v2.0.0", "Tools 2.0", prerelease = false))))
+
+        composeRule.onNodeWithText("Tools 2.0").performClick()
+
+        assertThat(events).containsExactly("release:octo/tools@v2.0.0")
+    }
+
+    @Test
+    fun outside_the_app_shell_a_release_opens_its_repository() {
+        setContent(state(feedEvent("6", actor = "alice", repo = "octo/tools", action = FeedAction.Released("v2.0.0", "Tools 2.0", prerelease = false))))
+
+        composeRule.onNodeWithText("Tools 2.0").performClick()
+
+        assertThat(events).containsExactly("repo:octo/tools")
     }
 
     private fun state(vararg events: fr.arthurbrugiere.forgeline.core.model.FeedEvent, hasMore: Boolean = false) =

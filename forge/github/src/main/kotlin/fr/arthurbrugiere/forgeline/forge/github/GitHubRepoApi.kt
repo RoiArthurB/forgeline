@@ -22,6 +22,9 @@ import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.Release
+import fr.arthurbrugiere.forgeline.core.model.withLatest
+import fr.arthurbrugiere.forgeline.core.model.ReleaseAsset
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoDetails
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
@@ -138,7 +141,12 @@ class GitHubRepoApi(
 
     override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = gitHubCall {
         get(token, "repos", id.owner, id.name, "releases", query = mapOf("per_page" to "30"))
-            .toResult { body<List<ReleaseResponse>>().filterNot { it.draft }.map { it.toModel() } }
+            .toResult { body<List<ReleaseResponse>>().filterNot { it.draft }.map { it.toModel(id) }.withLatest() }
+    }
+
+    override suspend fun release(token: String?, id: RepoId, tag: String): ForgeResult<Release> = gitHubCall {
+        // A tag may hold slashes: each part is its own path segment.
+        get(token, "repos", id.owner, id.name, "releases", "tags", *tag.segments()).toResult { body<ReleaseResponse>().toModel(id) }
     }
 
     override suspend fun workflowRuns(token: String?, id: RepoId): ForgeResult<List<WorkflowRun>> = gitHubCall {
@@ -329,15 +337,49 @@ private data class ReleaseResponse(
     val prerelease: Boolean = false,
     val draft: Boolean = false,
     val author: Owner? = null,
+    val assets: List<AssetResponse> = emptyList(),
+    @SerialName("html_url") val htmlUrl: String? = null,
+    val reactions: ReleaseReactions? = null,
 ) {
-    fun toModel() = Release(
+    fun toModel(id: RepoId) = Release(
         tag = tag,
         name = name?.ifBlank { null },
         body = body?.ifBlank { null },
         publishedAt = publishedAt?.let(Instant::parse),
         isPrerelease = prerelease,
         author = author?.toModel(),
+        assets = assets.map { ReleaseAsset(it.name, it.size, it.downloads, it.url) },
+        // The archive links the API sends need the API's headers; these are the ones the site offers.
+        zipUrl = "https://github.com/${id.fullName}/archive/refs/tags/$tag.zip",
+        tarUrl = "https://github.com/${id.fullName}/archive/refs/tags/$tag.tar.gz",
+        webUrl = htmlUrl,
+        reactions = reactions?.toModel().orEmpty(),
     )
+}
+
+@Serializable
+private data class AssetResponse(
+    val name: String,
+    val size: Long = 0,
+    @SerialName("download_count") val downloads: Int? = null,
+    @SerialName("browser_download_url") val url: String,
+)
+
+@Serializable
+private data class ReleaseReactions(
+    @SerialName("+1") val thumbsUp: Int = 0,
+    @SerialName("-1") val thumbsDown: Int = 0,
+    val laugh: Int = 0,
+    val hooray: Int = 0,
+    val confused: Int = 0,
+    val heart: Int = 0,
+    val rocket: Int = 0,
+    val eyes: Int = 0,
+) {
+    fun toModel(): Map<Reaction, Int> = mapOf(
+        Reaction.THUMBS_UP to thumbsUp, Reaction.THUMBS_DOWN to thumbsDown, Reaction.LAUGH to laugh, Reaction.HOORAY to hooray,
+        Reaction.CONFUSED to confused, Reaction.HEART to heart, Reaction.ROCKET to rocket, Reaction.EYES to eyes,
+    ).filterValues { it > 0 }
 }
 
 @Serializable

@@ -71,6 +71,13 @@ class FakeRepoApi : RepoApi {
 
     override suspend fun releases(token: String?, id: RepoId) = answer("releases:${id.fullName}", token) { releases }
 
+    override suspend fun release(token: String?, id: RepoId, tag: String): ForgeResult<Release> {
+        calls += "release:${id.fullName}@$tag"
+        tokens += token
+        failure?.let { return ForgeResult.Failure(it) }
+        return releases.firstOrNull { it.tag == tag }?.let { ForgeResult.Success(it.copy(isLatest = false)) } ?: ForgeResult.Failure(ForgeError.Http(404, "Not Found"))
+    }
+
     override suspend fun workflowRuns(token: String?, id: RepoId) = answer("runs:${id.fullName}", token) { runs }
 
     override fun rawBaseUrl(id: RepoId, ref: String) = "https://raw.example/${id.fullName}/$ref/"

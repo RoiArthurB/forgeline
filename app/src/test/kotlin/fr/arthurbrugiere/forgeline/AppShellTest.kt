@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.performScrollToNode
@@ -241,5 +242,27 @@ class AppShellTest {
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Heartbeat recovery escalates too early")).fetchSemanticsNodes().isNotEmpty() }
         // A search's results stand alone: nothing pinned above them.
         composeRule.onNodeWithText("Read this before reporting a bug").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_release_opens_from_the_repository_with_its_notes_and_files() {
+        tab("Trending").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclip")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("paperclip").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Issues")).fetchSemanticsNodes().isNotEmpty() }
+        // The Releases tab sits past the edge of the tab strip.
+        composeRule.onNodeWithText("Releases").performScrollTo().performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("September")).fetchSemanticsNodes().isNotEmpty() }
+
+        composeRule.onNodeWithText("September").performClick()
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Heartbeats recover on their own.", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("Latest").assertIsDisplayed()
+        composeRule.onNodeWithText("paperclip-linux-amd64").assertExists()
+        composeRule.onNodeWithText("5.8 MB · 144 downloads").assertExists()
+        composeRule.onNodeWithText("Source code (zip)").assertExists()
+
+        composeRule.onNode(hasContentDescription("Navigate up")).performClick()
+        composeRule.onNodeWithText("September").assertIsDisplayed()
     }
 }

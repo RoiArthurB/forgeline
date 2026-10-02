@@ -30,6 +30,8 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.onParent
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import androidx.compose.ui.test.assertIsSelected
+import fr.arthurbrugiere.forgeline.core.model.Release
+import fr.arthurbrugiere.forgeline.core.model.ReleaseAsset
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -68,6 +70,7 @@ class RepoScreenTest {
                 onNewIssue = { events += "new-issue" },
                 onShowOpen = { events += "open:$it" },
                 onSearch = { events += "search:$it" },
+                onOpenRelease = { events += "release:$it" },
                 onOpenUser = { events += "user:$it" },
                 onLinkClick = { events += "link:$it" },
                 onOpenRun = { events += "run:$it" },
@@ -421,5 +424,36 @@ class RepoScreenTest {
     fun the_star_button_says_whether_it_is_on() {
         setContent(loaded.copy(starred = true))
         composeRule.onNodeWithText("Starred", useUnmergedTree = true).onParent().assertIsOn()
+    }
+
+    private val releases = listOf(
+        Release(
+            "v2.0.0", "Tools 2.0", "Faster.", java.time.Instant.ofEpochMilli(0).minusSeconds(3 * 86_400L), false, null,
+            assets = listOf(ReleaseAsset("tools.apk", 100, 1, "https://example.org/tools.apk"), ReleaseAsset("sums.txt", 10, 1, "https://example.org/sums.txt")),
+            isLatest = true,
+        ),
+        Release("v2.1.0-rc.1", null, null, null, true, null),
+    )
+
+    @Test
+    fun a_release_row_says_its_tag_age_and_files_and_opens_its_page() {
+        setContent(loaded.copy(tab = RepoTab.RELEASES, releases = Loadable.Loaded(releases)))
+
+        // Under the fold of this short screen: there, not necessarily in view.
+        composeRule.onNode(hasText("v2.0.0 · ", substring = true) and hasText(" · 2 files", substring = true)).assertExists()
+        composeRule.onNodeWithText("Latest").assertExists()
+        composeRule.onNodeWithText("Tools 2.0").performClick()
+
+        assertThat(events).containsExactly("release:v2.0.0")
+    }
+
+    @Test
+    fun a_pre_release_without_a_name_goes_by_its_tag_and_says_what_it_is() {
+        setContent(loaded.copy(tab = RepoTab.RELEASES, releases = Loadable.Loaded(releases)))
+
+        composeRule.onNodeWithText("Pre-release").assertExists()
+        composeRule.onNodeWithText("v2.1.0-rc.1").performClick()
+
+        assertThat(events).containsExactly("release:v2.1.0-rc.1")
     }
 }

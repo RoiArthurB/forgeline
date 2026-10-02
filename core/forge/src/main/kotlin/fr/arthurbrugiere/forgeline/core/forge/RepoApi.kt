@@ -38,6 +38,9 @@ interface RepoApi {
 
     suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>>
 
+    /** The release published under [tag]; 404 when there is none, or it is still a draft. */
+    suspend fun release(token: String?, id: RepoId, tag: String): ForgeResult<Release>
+
     suspend fun workflowRuns(token: String?, id: RepoId): ForgeResult<List<WorkflowRun>>
 
     /** Where raw file bytes live, ending with `/`: README images resolve against it. */

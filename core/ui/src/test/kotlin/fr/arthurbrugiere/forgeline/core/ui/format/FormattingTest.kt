@@ -47,4 +47,18 @@ class FormattingTest {
         assertThat(parseHexColor("blue")).isNull()
         assertThat(parseHexColor("#12345")).isNull()
     }
+
+    @Test
+    fun file_sizes_read_as_forges_write_them() {
+        fun size(bytes: Long) = formatBytes(bytes, Locale.ENGLISH)
+
+        assertThat(size(0)).isEqualTo("0 B")
+        assertThat(size(1023)).isEqualTo("1023 B")
+        assertThat(size(2329)).isEqualTo("2.3 KB")
+        assertThat(size(6_081_740)).isEqualTo("5.8 MB")
+        // No decimal once it has two digits.
+        assertThat(size(122_204_040)).isEqualTo("117 MB")
+        assertThat(size(3L * 1024 * 1024 * 1024)).isEqualTo("3 GB")
+        assertThat(formatBytes(2329, Locale.FRENCH)).isEqualTo("2,3 KB")
+    }
 }

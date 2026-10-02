@@ -222,6 +222,17 @@
     <string name="repo_no_issues">No open issues.</string>
     <string name="repo_no_pulls">No open pull requests.</string>
     <string name="repo_no_releases">No releases yet.</string>
+    <string name="release_latest">Latest</string>
+    <string name="release_published_by">%1$s released this %2$s</string>
+    <string name="release_published">Released %1$s</string>
+    <string name="release_no_notes">No release notes.</string>
+    <string name="release_source">Source code</string>
+    <string name="release_source_zip">Source code (zip)</string>
+    <string name="release_source_tar">Source code (tar.gz)</string>
+    <string name="release_download">Download</string>
+    <string name="release_loading">Loading this release</string>
+    <string name="release_error_title">Couldn\'t open this release</string>
+    <string name="release_error_not_found">No release is published under this tag.</string>
     <string name="repo_no_runs">No workflow runs.</string>
     <string name="repo_empty_folder">This folder is empty.</string>
     <string name="repo_parent_folder">Parent folder</string>
@@ -548,6 +559,14 @@
     <plurals name="log_jump_to_error">
         <item quantity="one">Jump to the error</item>
         <item quantity="other">Jump to an error (%d)</item>
+    </plurals>
+    <plurals name="release_assets">
+        <item quantity="one">%1$d file</item>
+        <item quantity="other">%1$d files</item>
+    </plurals>
+    <plurals name="release_asset_meta">
+        <item quantity="one">%1$s · %2$s download</item>
+        <item quantity="other">%1$s · %2$s downloads</item>
     </plurals>
     <plurals name="repo_comments">
         <item quantity="one">%d comment</item>

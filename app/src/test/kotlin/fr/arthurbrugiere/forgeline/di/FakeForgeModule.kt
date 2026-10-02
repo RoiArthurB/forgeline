@@ -75,6 +75,13 @@ object FakeForgeModule {
             issueSummary(13990, "Installer ignores the proxy setting", state = fr.arthurbrugiere.forgeline.core.model.IssueState.CLOSED),
         )
         pinned = listOf(issueSummary(12000, "Read this before reporting a bug"))
+        releases = listOf(
+            fr.arthurbrugiere.forgeline.core.model.Release(
+                tag = "v2026.916.1", name = "September", body = "Heartbeats recover on their own.", publishedAt = null, isPrerelease = false, author = null,
+                assets = listOf(fr.arthurbrugiere.forgeline.core.model.ReleaseAsset("paperclip-linux-amd64", 6_081_740, 144, "https://example.org/paperclip-linux-amd64")),
+                zipUrl = "https://example.org/paperclip.zip", isLatest = true,
+            ),
+        )
         pulls = listOf(issueSummary(14129, "Keep install flags on retry", isPullRequest = true))
         directories[paperclip to ""] = listOf(RepoFile("package.json", "package.json", RepoFileType.FILE, 30))
         files[paperclip to "package.json"] = "{\n  \"name\": \"paperclip\"\n}\n"

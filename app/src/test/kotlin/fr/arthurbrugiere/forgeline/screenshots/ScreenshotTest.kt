@@ -813,6 +813,63 @@ class ScreenshotTest {
     @Test
     fun new_issue_signed_out_light() = snapshot("new_issue_signed_out_light", darkTheme = false) { NewIssue({ it }, signedIn = false) }
 
+    private val shownRelease = fr.arthurbrugiere.forgeline.core.model.Release(
+        tag = "v2026.916.1",
+        name = "September: heartbeats that recover on their own",
+        body = "## What's new\n\n- Heartbeat recovery waits three beats before paging\n- The installer honours the proxy setting\n\nSee the [upgrade guide](docs/UPGRADE.md).",
+        publishedAt = java.time.Instant.parse("2026-09-21T21:22:44Z"),
+        isPrerelease = false,
+        author = ForgeUser("cryppadotta", null, null),
+        assets = listOf(
+            fr.arthurbrugiere.forgeline.core.model.ReleaseAsset("paperclip-2026.916.1-linux-amd64.tar.gz", 122_204_040, 4_321, "https://example.org/a"),
+            fr.arthurbrugiere.forgeline.core.model.ReleaseAsset("paperclip-2026.916.1.apk", 6_081_740, 1_532, "https://example.org/b"),
+            fr.arthurbrugiere.forgeline.core.model.ReleaseAsset("checksums.txt", 512, 87, "https://example.org/c"),
+        ),
+        zipUrl = "https://example.org/zip", tarUrl = "https://example.org/tar",
+        reactions = mapOf(Reaction.HOORAY to 12, Reaction.ROCKET to 3),
+        isLatest = true,
+    )
+
+    @Composable
+    private fun ReleasePreview(release: fr.arthurbrugiere.forgeline.core.model.Release = shownRelease) {
+        fr.arthurbrugiere.forgeline.release.ReleaseScreen(
+            state = fr.arthurbrugiere.forgeline.release.ReleaseUiState(RepoId("paperclipai", "paperclip"), release.tag, release),
+            onBack = {}, onRefresh = {}, onOpenRepo = {}, onOpenUser = {}, onDownload = {}, onOpenInBrowser = {}, onLinkClick = {}, onErrorShown = {},
+            nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
+    fun release_light() = snapshot("release_light", darkTheme = false, awaitText = "Heartbeat recovery waits") { ReleasePreview() }
+
+    @Test
+    fun release_dark() = snapshot("release_dark", darkTheme = true, awaitText = "Heartbeat recovery waits") { ReleasePreview() }
+
+    @Test
+    fun release_prerelease_bare_light() = snapshot("release_prerelease_bare_light", darkTheme = false) {
+        ReleasePreview(fr.arthurbrugiere.forgeline.core.model.Release("v2026.1001.0-rc.1", null, null, java.time.Instant.parse("2026-09-25T10:00:00Z"), true, null))
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun release_font_2_0_light() = snapshot("release_font_2_0_light", darkTheme = false, awaitText = "Heartbeat recovery waits") { ReleasePreview() }
+
+    @Test
+    fun repo_releases_light() = snapshot("repo_releases_light", darkTheme = false, beforeCapture = { composeRule.onAllNodes(hasScrollAction())[0].performScrollToIndex(1) }) {
+        RepoPreview(
+            repoState.copy(
+                tab = RepoTab.RELEASES,
+                releases = Loadable.Loaded(
+                    listOf(
+                        fr.arthurbrugiere.forgeline.core.model.Release("v2026.1001.0-rc.1", null, null, java.time.Instant.parse("2026-09-25T10:00:00Z"), true, null),
+                        shownRelease,
+                        fr.arthurbrugiere.forgeline.core.model.Release("v2026.831.1", "August", null, java.time.Instant.parse("2026-08-31T10:00:00Z"), false, null),
+                    ),
+                ),
+            ),
+        )
+    }
+
     @Test
     fun user_dark() = snapshot("user_dark", darkTheme = true) {
         UserScreen(

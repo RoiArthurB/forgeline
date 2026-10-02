@@ -41,6 +41,9 @@ import fr.arthurbrugiere.forgeline.navigation.IssueRoute as IssueKey
 import fr.arthurbrugiere.forgeline.navigation.NewIssueRoute as NewIssueKey
 import fr.arthurbrugiere.forgeline.issue.NewIssueRoute as NewIssueDestination
 import fr.arthurbrugiere.forgeline.navigation.newIssueRoute
+import fr.arthurbrugiere.forgeline.navigation.ReleaseRoute as ReleaseKey
+import fr.arthurbrugiere.forgeline.release.ReleaseRoute as ReleaseDestination
+import fr.arthurbrugiere.forgeline.navigation.releaseRoute
 import fr.arthurbrugiere.forgeline.navigation.RunRoute as RunKey
 import fr.arthurbrugiere.forgeline.navigation.JobLogRoute as JobLogKey
 import fr.arthurbrugiere.forgeline.actions.RunRoute as RunDestination
@@ -80,7 +83,10 @@ fun ForgelineApp(
         return
     }
     SoftNavigation(selected = navigator.currentTab, onSelect = navigator::selectTab) {
-        CompositionLocalProvider(LocalOpenSearch provides { navigator.navigate(SearchKey) }) {
+        CompositionLocalProvider(
+            LocalOpenSearch provides { navigator.navigate(SearchKey) },
+            LocalOpenRelease provides { repo, tag -> navigator.navigate(repo.releaseRoute(tag)) },
+        ) {
             ForgelineNavDisplay(navigator, session, onSignOut)
         }
     }
@@ -129,6 +135,12 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
             NewIssueDestination(
                 key, session = session, onBack = navigator::goBack, onSignIn = signIn,
                 onCreated = { navigator.replaceCurrent(it.route()) },
+            )
+        }
+        entry<ReleaseKey> { key ->
+            ReleaseDestination(
+                key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.repo.forge, it) },
+                onOpenRelease = { repo, tag -> navigator.navigate(repo.releaseRoute(tag)) },
             )
         }
         entry<RunKey> { key ->

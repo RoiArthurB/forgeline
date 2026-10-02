@@ -15,6 +15,20 @@ fun compactCount(value: Int, locale: Locale = Locale.getDefault()): String {
     }
 }
 
+/** A file's size as forges write it ("2.3 KB", "117 MB"): one decimal under ten, none above. */
+fun formatBytes(bytes: Long, locale: Locale = Locale.getDefault()): String {
+    if (bytes < 1024) return "$bytes B"
+    val units = listOf("KB", "MB", "GB", "TB")
+    var value = bytes / 1024.0
+    var unit = 0
+    while (value >= 1024 && unit < units.lastIndex) {
+        value /= 1024
+        unit++
+    }
+    val format = DecimalFormat(if (value < 10) "0.#" else "0", DecimalFormatSymbols.getInstance(locale))
+    return "${format.format(value)} ${units[unit]}"
+}
+
 /** Parses `#rgb` or `#rrggbb` as served by forges; anything else is ignored. */
 fun parseHexColor(hex: String?): Color? {
     val digits = hex?.removePrefix("#")?.takeIf { hex.startsWith("#") } ?: return null

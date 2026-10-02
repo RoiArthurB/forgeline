@@ -20,7 +20,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import java.time.Clock
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.time.Duration.Companion.minutes
 
 data class RepoSnapshot(
@@ -54,6 +56,12 @@ interface RepoRepository {
 
     suspend fun releases(id: RepoId): ForgeResult<List<Release>>
 
+    /** The release under [tag] as last listed or loaded this session, to show at once; null when it wasn't. */
+    fun cachedRelease(id: RepoId, tag: String): Release?
+
+    /** Loads the release under [tag]. What only the list knows of it (whether it is the latest) is kept. */
+    suspend fun release(id: RepoId, tag: String): ForgeResult<Release>
+
     suspend fun workflowRuns(id: RepoId): ForgeResult<List<WorkflowRun>>
 
     fun rawBaseUrl(id: RepoId, ref: String): String
@@ -61,6 +69,8 @@ interface RepoRepository {
     fun blobBaseUrl(id: RepoId, ref: String): String
 }
 
+// One for the whole app: the releases a repository's list loaded are what a release's page opens from.
+@Singleton
 class DefaultRepoRepository @Inject constructor(
     private val dao: RepoDao,
     private val clients: ForgeClients,
@@ -112,7 +122,20 @@ class DefaultRepoRepository @Inject constructor(
 
     override suspend fun pinnedIssues(id: RepoId) = clients.repos(id.forge).pinnedIssues(accounts.tokenOn(id.forge), id)
 
-    override suspend fun releases(id: RepoId) = clients.repos(id.forge).releases(accounts.tokenOn(id.forge), id)
+    /** Releases seen this session, by repository then tag: opening one from its list asks the forge nothing. */
+    private val seenReleases = ConcurrentHashMap<Pair<RepoId, String>, Release>()
+
+    override suspend fun releases(id: RepoId) = clients.repos(id.forge).releases(accounts.tokenOn(id.forge), id).also { result ->
+        if (result is ForgeResult.Success) result.value.forEach { seenReleases[id to it.tag] = it }
+    }
+
+    override fun cachedRelease(id: RepoId, tag: String): Release? = seenReleases[id to tag]
+
+    override suspend fun release(id: RepoId, tag: String): ForgeResult<Release> =
+        when (val result = clients.repos(id.forge).release(accounts.tokenOn(id.forge), id, tag)) {
+            is ForgeResult.Failure -> result
+            is ForgeResult.Success -> ForgeResult.Success(result.value.copy(isLatest = seenReleases[id to tag]?.isLatest == true).also { seenReleases[id to tag] = it })
+        }
 
     override suspend fun workflowRuns(id: RepoId) = clients.repos(id.forge).workflowRuns(accounts.tokenOn(id.forge), id)
 

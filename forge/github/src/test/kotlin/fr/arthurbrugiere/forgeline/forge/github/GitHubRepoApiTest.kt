@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.forge.github
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
@@ -351,5 +352,63 @@ class GitHubRepoApiTest {
         // GitHub's GraphQL API answers nobody without a token.
         assertThat(api { error("no request expected") }.pinnedIssues(null, paperclip).value()).isEmpty()
         assertThat(requests).isEmpty()
+    }
+
+    @Test
+    fun a_release_lists_its_files_its_source_and_its_page() = runTest {
+        val release = api { json(fixture("releases.json")) }.releases(null, paperclip).value().first()
+
+        val asset = release.assets.first()
+        assertThat(asset.name).isEqualTo("feature-catalog.json")
+        assertThat(asset.sizeBytes).isEqualTo(2329)
+        assertThat(asset.downloads).isEqualTo(144)
+        assertThat(asset.url).isEqualTo("https://github.com/paperclipai/paperclip/releases/download/v2026.916.1/feature-catalog.json")
+        // The site's archive links, which a browser can fetch; the API's own need its headers.
+        assertThat(release.zipUrl).isEqualTo("https://github.com/paperclipai/paperclip/archive/refs/tags/v2026.916.1.zip")
+        assertThat(release.tarUrl).isEqualTo("https://github.com/paperclipai/paperclip/archive/refs/tags/v2026.916.1.tar.gz")
+        assertThat(release.webUrl).isEqualTo("https://github.com/paperclipai/paperclip/releases/tag/v2026.916.1")
+    }
+
+    @Test
+    fun the_newest_release_that_isn_t_a_pre_release_is_the_latest() = runTest {
+        val releases = api { json(fixture("releases.json")) }.releases(null, paperclip).value()
+        assertThat(releases.map { it.isLatest }).containsExactly(true, false, false).inOrder()
+
+        val candidateFirst = fixture("releases.json").replaceFirst("\"prerelease\":false", "\"prerelease\":true")
+        assertThat(api { json(candidateFirst) }.releases(null, paperclip).value().map { it.isLatest }).containsExactly(false, true, false).inOrder()
+    }
+
+    @Test
+    fun one_release_is_asked_for_by_its_tag_even_one_with_slashes() = runTest {
+        val one = kotlinx.serialization.json.Json.parseToJsonElement(fixture("releases.json")).let { (it as kotlinx.serialization.json.JsonArray).first().toString() }
+        val api = api { json(one) }
+
+        val release = api.release(null, paperclip, "v2026.916.1").value()
+        api.release(null, paperclip, "desktop/v1.2")
+
+        assertThat(release.tag).isEqualTo("v2026.916.1")
+        assertThat(release.assets).isNotEmpty()
+        // Whether it is the latest is only known from the list.
+        assertThat(release.isLatest).isFalse()
+        assertThat(requests.map { it.url.encodedPath }).containsExactly(
+            "/repos/paperclipai/paperclip/releases/tags/v2026.916.1", "/repos/paperclipai/paperclip/releases/tags/desktop/v1.2",
+        ).inOrder()
+    }
+
+    @Test
+    fun a_tag_without_a_release_is_not_found() = runTest {
+        val result = api { json("""{"message":"Not Found"}""", HttpStatusCode.NotFound) }.release(null, paperclip, "nope")
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "Not Found")))
+    }
+
+    @Test
+    fun a_release_s_reactions_are_counted() = runTest {
+        val reacted = """[{"tag_name":"v1","html_url":"https://github.com/paperclipai/paperclip/releases/tag/v1","assets":[],
+            "reactions":{"total_count":7,"+1":4,"-1":0,"laugh":0,"hooray":2,"confused":0,"heart":0,"rocket":1,"eyes":0}}]"""
+
+        val release = api { json(reacted) }.releases(null, paperclip).value().single()
+
+        assertThat(release.reactions).containsExactly(Reaction.THUMBS_UP, 4, Reaction.HOORAY, 2, Reaction.ROCKET, 1)
     }
 }

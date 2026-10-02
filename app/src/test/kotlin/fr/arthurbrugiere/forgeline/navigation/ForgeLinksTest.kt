@@ -100,4 +100,38 @@ class ForgeLinksTest {
         assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/website/actions/runs/4235")).isNull()
         assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/website/actions/runs/4235/jobs/0")).isNull()
     }
+
+    @Test
+    fun a_release_s_url_opens_its_page_on_either_forge() {
+        assertThat(ForgeLinks.routeFor("https://github.com/RoiArthurB/forgeline/releases/tag/v0.4.0"))
+            .isEqualTo(ReleaseRoute("github.com", "RoiArthurB", "forgeline", "v0.4.0"))
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/forgejo/releases/tag/v16.0.5#notes"))
+            .isEqualTo(ReleaseRoute("codeberg.org", "forgejo", "forgejo", "v16.0.5"))
+        // A tag may hold slashes.
+        assertThat(ForgeLinks.routeFor("https://github.com/octo/repo/releases/tag/desktop/v1.2"))
+            .isEqualTo(ReleaseRoute("github.com", "octo", "repo", "desktop/v1.2"))
+    }
+
+    @Test
+    fun the_releases_list_and_a_download_stay_with_the_repository() {
+        assertThat(ForgeLinks.routeFor("https://github.com/octo/repo/releases")).isEqualTo(RepoRoute("github.com", "octo", "repo"))
+        assertThat(ForgeLinks.routeFor("https://github.com/octo/repo/releases/tag/")).isEqualTo(RepoRoute("github.com", "octo", "repo"))
+        assertThat(ForgeLinks.routeFor("https://github.com/octo/repo/releases/download/v1/app.apk")).isEqualTo(RepoRoute("github.com", "octo", "repo"))
+    }
+
+    @Test
+    fun a_release_link_opens_the_release_where_there_is_a_page_for_it_and_its_repository_elsewhere() {
+        val opened = mutableListOf<String>()
+        val url = "https://github.com/octo/repo/releases/tag/v1"
+        fun open(onOpenRelease: ((fr.arthurbrugiere.forgeline.core.model.RepoId, String) -> Unit)?) = openForgeLink(
+            url, ForgeInstance.GitHub,
+            onOpenRepo = { opened += "repo:${it.fullName}" }, onOpenIssue = {}, onOpenUser = {}, openUrl = { opened += "url:$it" },
+            onOpenRelease = onOpenRelease,
+        )
+
+        open { repo, tag -> opened += "release:${repo.fullName}@$tag" }
+        open(null)
+
+        assertThat(opened).containsExactly("release:octo/repo@v1", "repo:octo/repo").inOrder()
+    }
 }
