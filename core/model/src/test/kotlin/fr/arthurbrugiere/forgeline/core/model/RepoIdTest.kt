@@ -43,4 +43,23 @@ class RepoIdTest {
         assertThat(ForgeInstance.of("codeberg.org")).isEqualTo(ForgeInstance.Codeberg)
         assertThat(ForgeInstance.of("git.example.org")).isEqualTo(ForgeInstance(ForgeType.FORGEJO, "git.example.org"))
     }
+
+    @Test
+    fun repositories_are_equal_and_hash_identically_regardless_of_case() {
+        val uppercase = RepoId("RoiArthurB", "Forgeline", ForgeInstance.GitHub)
+        val lowercase = RepoId("roiarthurb", "forgeline", ForgeInstance.GitHub)
+
+        assertThat(uppercase).isEqualTo(lowercase)
+        assertThat(uppercase.hashCode()).isEqualTo(lowercase.hashCode())
+        assertThat(mapOf(lowercase to "ok")[uppercase]).isEqualTo("ok")
+    }
+
+    @Test
+    fun case_insensitivity_handles_ascii_letters_deterministically() {
+        val igniaUpper = RepoId("Ignia-org", "Ignia-app", ForgeInstance.GitHub)
+        val igniaLower = RepoId("ignia-org", "ignia-app", ForgeInstance.GitHub)
+
+        assertThat(igniaUpper).isEqualTo(igniaLower)
+        assertThat(igniaUpper.hashCode()).isEqualTo(igniaLower.hashCode())
+    }
 }

@@ -28,6 +28,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import java.time.Clock
+import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.CoroutineDispatcher
@@ -172,8 +173,8 @@ class DefaultFeedPreviewRepository @Inject constructor(
         val RETRY_AFTER = 1.minutes
         val KEEP = 7.days
 
-        fun RepoId.previewKey() = REPO + key.lowercase()
-        fun IssueRef.previewKey() = PULL + repo.key.lowercase() + "#" + number
+        fun RepoId.previewKey() = REPO + key.lowercase(Locale.ROOT)
+        fun IssueRef.previewKey() = PULL + repo.key.lowercase(Locale.ROOT) + "#" + number
 
         fun repoId(value: String): RepoId? = RepoId.fromKey(value)
 

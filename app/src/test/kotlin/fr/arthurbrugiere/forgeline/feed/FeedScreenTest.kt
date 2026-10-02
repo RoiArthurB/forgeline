@@ -286,4 +286,18 @@ class FeedScreenTest {
         assertThat(items.map { it.repo.name }).containsExactly("tools")
         assertThat(feedItems(listOf(stable, candidate), FeedKind.defaults).map { it.repo.name }).containsExactly("tools", "next")
     }
+
+    @Test
+    fun pull_request_titles_display_for_repositories_with_uppercase_names() {
+        setContent(
+            state(
+                feedEvent("1", actor = "octocat", repo = "RoiArthurB/forgeline", action = FeedAction.PullRequest(PullRequestAction.OPENED, 4)),
+            ),
+            FeedPreviews(pullTitles = mapOf(IssueRef(RepoId("roiarthurb", "forgeline"), 4) to "Fix PR title display bug")),
+        )
+
+        composeRule.onNodeWithText("octocat opened a pull request in RoiArthurB/\u2060forgeline", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("#4").assertIsDisplayed()
+        composeRule.onNodeWithText("Fix PR title display bug").assertIsDisplayed()
+    }
 }

@@ -161,4 +161,19 @@ class DefaultFeedPreviewRepositoryTest {
         assertThat(titles).isEqualTo(1)
         assertThat(issueApi.calls).isEmpty()
     }
+
+    @Test
+    fun previews_and_pull_titles_are_cached_and_matched_regardless_of_repo_casing() = runTest {
+        val uppercaseRepo = RepoId("RoiArthurB", "forgeline")
+        val uppercasePull = IssueRef(uppercaseRepo, 4)
+        repoApi.details[uppercaseRepo] = repoDetails("RoiArthurB/forgeline", stars = 100)
+        issueApi.issues[uppercasePull] = issueDetails(uppercasePull, "Display PR titles correctly")
+
+        val repository = repository()
+        repository.ensure(setOf(uppercaseRepo), setOf(uppercasePull))
+
+        val previews = repository.observe().first()
+        assertThat(previews.pullTitles[uppercasePull]).isEqualTo("Display PR titles correctly")
+        assertThat(previews.repos[uppercaseRepo]?.stars).isEqualTo(100)
+    }
 }

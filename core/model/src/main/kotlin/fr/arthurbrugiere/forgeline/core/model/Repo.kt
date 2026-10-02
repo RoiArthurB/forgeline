@@ -13,6 +13,21 @@ data class RepoId(val owner: String, val name: String, val forge: ForgeInstance 
     /** A stable text key for caches and routes, forge included: `github.com/owner/name`. */
     val key: String get() = "${forge.host}/$fullName"
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is RepoId) return false
+        return forge == other.forge &&
+            owner.equals(other.owner, ignoreCase = true) &&
+            name.equals(other.name, ignoreCase = true)
+    }
+
+    override fun hashCode(): Int {
+        var result = forge.hashCode()
+        result = 31 * result + owner.lowercase(java.util.Locale.ROOT).hashCode()
+        result = 31 * result + name.lowercase(java.util.Locale.ROOT).hashCode()
+        return result
+    }
+
     companion object {
         /** Reads a [key]; null when it isn't one. */
         fun fromKey(key: String): RepoId? {
