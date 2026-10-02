@@ -13,6 +13,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +38,8 @@ data class IssueUiState(
     val commentPostedOutOfSight: Boolean = false,
     /** Whether the reader may close or reopen this conversation: its author, or someone who manages the repository. */
     val canChangeState: Boolean = false,
+    /** What the reader may do in the conversation's repository beyond reading it. */
+    val access: RepoAccess = RepoAccess.NONE,
     val isChangingState: Boolean = false,
     val stateError: ForgeError? = null,
 )
@@ -81,14 +84,15 @@ class IssueViewModel @AssistedInject constructor(
     }
 
     /**
-     * Asks whether the reader may close or reopen this conversation, once it is known who opened it. Asked again when
-     * the accounts signed in change.
+     * Asks what the reader may do here (comment on a locked conversation, close it), once it is known who opened it.
+     * Asked again when the accounts signed in change.
      */
     fun checkPermissions() {
         val issue = _state.value.issue ?: return
         viewModelScope.launch {
+            val access = repository.access(ref.repo)
             val allowed = repository.canChangeState(ref, issue.author?.login)
-            _state.update { it.copy(canChangeState = allowed) }
+            _state.update { it.copy(canChangeState = allowed, access = access) }
         }
     }
 

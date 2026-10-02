@@ -5,7 +5,9 @@ import kotlinx.serialization.json.buildJsonObject
 import io.ktor.http.HttpMethod
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
+import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -13,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.PullRequestInfo
 import fr.arthurbrugiere.forgeline.core.model.Reaction
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.core.model.StateChange
@@ -84,15 +87,21 @@ class GitHubIssueApi(
         ).toResult { }
     }
 
-    override suspend fun canManage(token: String, repo: RepoId): ForgeResult<Boolean> = gitHubCall {
-        httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name)
-            // Triage is the least role that closes other people's issues.
-            .toResult { body<PermittedRepoJson>().permissions.let { it.triage || it.push } }
+    override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoAccess> = gitHubCall {
+        httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name).toResult {
+            val permissions = body<PermittedRepoJson>().permissions
+            when {
+                permissions.admin -> RepoAccess.ADMIN
+                permissions.push || permissions.maintain -> RepoAccess.WRITE
+                permissions.triage -> RepoAccess.TRIAGE
+                else -> RepoAccess.NONE
+            }
+        }
     }
 }
 
 @Serializable
-private data class PermissionsJson(val triage: Boolean = false, val push: Boolean = false)
+private data class PermissionsJson(val admin: Boolean = false, val maintain: Boolean = false, val push: Boolean = false, val triage: Boolean = false)
 
 @Serializable
 private data class PermittedRepoJson(val permissions: PermissionsJson = PermissionsJson())
@@ -111,6 +120,11 @@ private data class CommentJson(
 @Serializable
 internal data class UserJson(val login: String, @SerialName("avatar_url") val avatarUrl: String? = null) {
     fun toModel() = ForgeUser(login = login, name = null, avatarUrl = avatarUrl)
+}
+
+@Serializable
+private data class MilestoneJson(val number: Long = 0, val title: String) {
+    fun toModel() = Milestone(number, title)
 }
 
 @Serializable
@@ -165,6 +179,9 @@ private data class IssueJson(
     val comments: Int = 0,
     val reactions: ReactionsJson? = null,
     @SerialName("pull_request") val pullRequest: kotlinx.serialization.json.JsonElement? = null,
+    val locked: Boolean = false,
+    val assignees: List<UserJson> = emptyList(),
+    val milestone: MilestoneJson? = null,
 ) {
     fun toModel(ref: IssueRef, pull: PullJson?) = IssueDetails(
         ref = ref,
@@ -185,6 +202,9 @@ private data class IssueJson(
         pullRequest = pull?.let {
             PullRequestInfo(it.draft, it.merged, it.base.ref, it.head.ref, it.additions, it.deletions, it.changedFiles, it.commits)
         },
+        isLocked = locked,
+        assignees = assignees.map { it.toModel() },
+        milestone = milestone?.toModel(),
     )
 }
 
@@ -226,7 +246,12 @@ private data class EventJson(
     val sha: String? = null,
     val message: String? = null,
     val author: CommitAuthorJson? = null,
+    val assignee: UserJson? = null,
+    val milestone: MilestoneJson? = null,
 ) {
+    private fun event(event: ConversationEvent, at: Instant?, subject: String? = null): TimelineItem? =
+        at?.let { TimelineItem.Event(event, actor?.toModel(), subject, it) }
+
     /** Null for events that are noise in a conversation (subscribed, mentioned, head_ref_deleted...). */
     fun toModel(): TimelineItem? {
         val at = createdAt?.let(Instant::parse)
@@ -262,6 +287,16 @@ private data class EventJson(
                     IssueRef(RepoId(repo[0], repo[1], ForgeInstance.GitHub), issue.number), issue.title, issue.pullRequest != null, actor?.toModel(), at ?: return null,
                 )
             }
+            "locked" -> event(ConversationEvent.LOCKED, at)
+            "unlocked" -> event(ConversationEvent.UNLOCKED, at)
+            "pinned" -> event(ConversationEvent.PINNED, at)
+            "unpinned" -> event(ConversationEvent.UNPINNED, at)
+            "assigned" -> event(ConversationEvent.ASSIGNED, at, assignee?.login ?: return null)
+            "unassigned" -> event(ConversationEvent.UNASSIGNED, at, assignee?.login ?: return null)
+            "milestoned" -> event(ConversationEvent.MILESTONED, at, milestone?.title ?: return null)
+            "demilestoned" -> event(ConversationEvent.DEMILESTONED, at, milestone?.title ?: return null)
+            "transferred" -> event(ConversationEvent.TRANSFERRED, at)
+            "converted_to_discussion" -> event(ConversationEvent.CONVERTED_TO_DISCUSSION, at)
             "committed" -> TimelineItem.Committed(sha ?: return null, message.orEmpty(), author?.name, author?.date?.let(Instant::parse))
             else -> null
         }

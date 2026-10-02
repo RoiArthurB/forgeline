@@ -9,6 +9,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
@@ -313,7 +314,7 @@ class DefaultIssueRepositoryTest {
         signIn()
         assertThat(repository.canChangeState(ref, author = "octocat")).isFalse()
 
-        api.managed += RepoId("octo", "mine")
+        api.access[RepoId("octo", "mine")] = RepoAccess.TRIAGE
         assertThat(repository.canChangeState(IssueRef(RepoId("octo", "mine"), 3), author = "octocat")).isTrue()
     }
 
@@ -324,17 +325,17 @@ class DefaultIssueRepositoryTest {
         repository.canChangeState(ref, author = "octocat")
         repository.canChangeState(IssueRef(ref.repo, ref.number + 1), author = null)
 
-        assertThat(api.calls.filter { it.startsWith("canManage:") }).hasSize(1)
+        assertThat(api.calls.filter { it.startsWith("access:") }).hasSize(1)
     }
 
     @Test
     fun a_permission_the_forge_couldn_t_tell_is_asked_again() = runTest {
         signIn()
-        api.managed += ref.repo
-        api.manageFailure = ForgeError.Network
+        api.access[ref.repo] = RepoAccess.WRITE
+        api.accessFailure = ForgeError.Network
         assertThat(repository.canChangeState(ref, author = "octocat")).isFalse()
 
-        api.manageFailure = null
+        api.accessFailure = null
 
         assertThat(repository.canChangeState(ref, author = "octocat")).isTrue()
     }
@@ -397,5 +398,34 @@ class DefaultIssueRepositoryTest {
         repository.setOpen(ref, open = false)
         assertThat(announced).containsExactly(ref)
         listening.cancel()
+    }
+
+    @Test
+    fun what_an_account_may_do_is_what_the_forge_says_and_nothing_signed_out() = runTest {
+        api.access[ref.repo] = RepoAccess.ADMIN
+        assertThat(repository.access(ref.repo)).isEqualTo(RepoAccess.NONE)
+        assertThat(api.calls).isEmpty()
+
+        signIn()
+
+        assertThat(repository.access(ref.repo)).isEqualTo(RepoAccess.ADMIN)
+    }
+
+    @Test
+    fun a_locked_assigned_conversation_is_kept_as_such_across_launches() = runTest {
+        val triaged = issueDetails(ref).copy(
+            isLocked = true, assignees = listOf(ForgeUser("me", null, null)), milestone = fr.arthurbrugiere.forgeline.core.model.Milestone(4, "2026.10"),
+        )
+        api.issues[ref] = triaged
+        val event = TimelineItem.Event(fr.arthurbrugiere.forgeline.core.model.ConversationEvent.LOCKED, ForgeUser("maintainer", null, null), null, Instant.parse("2026-10-01T16:44:08Z"))
+        val assigned = TimelineItem.Event(fr.arthurbrugiere.forgeline.core.model.ConversationEvent.ASSIGNED, ForgeUser("maintainer", null, null), "me", Instant.parse("2026-10-01T16:45:00Z"))
+        api.pages[ref to 1] = TimelinePage(listOf(event, assigned), nextPage = null)
+        repository.issue(ref)
+        repository.timeline(ref, 1)
+
+        val relaunched = DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock)
+
+        assertThat(relaunched.stored(ref)?.issue).isEqualTo(triaged)
+        assertThat(relaunched.stored(ref)?.firstPage?.items).containsExactly(event, assigned).inOrder()
     }
 }

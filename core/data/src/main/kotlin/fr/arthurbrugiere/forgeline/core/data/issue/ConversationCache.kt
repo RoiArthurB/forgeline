@@ -4,7 +4,9 @@ import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Query
 import androidx.room.Upsert
+import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -108,6 +110,10 @@ private data class StoredIssue(
     val comments: Int,
     val reactions: Map<Reaction, Int>,
     val pull: StoredPull?,
+    val isLocked: Boolean = false,
+    val assignees: List<StoredUser> = emptyList(),
+    val milestoneId: Long? = null,
+    val milestoneTitle: String? = null,
 ) {
     fun toModel() = IssueDetails(
         ref = IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number),
@@ -122,6 +128,9 @@ private data class StoredIssue(
         comments = comments,
         reactions = reactions,
         pullRequest = pull?.run { PullRequestInfo(isDraft, isMerged, baseRef, headRef, additions, deletions, changedFiles, commits) },
+        isLocked = isLocked,
+        assignees = assignees.map { it.toModel() },
+        milestone = if (milestoneId != null && milestoneTitle != null) Milestone(milestoneId, milestoneTitle) else null,
     )
 
     companion object {
@@ -130,6 +139,7 @@ private data class StoredIssue(
                 ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, title, body, state, stateReason, StoredUser.of(author),
                 labels.map { StoredLabel(it.name, it.color) }, createdAt.toEpochMilli(), closedAt?.toEpochMilli(), comments, reactions,
                 pullRequest?.run { StoredPull(isDraft, isMerged, baseRef, headRef, additions, deletions, changedFiles, commits) },
+                isLocked, assignees.mapNotNull(StoredUser::of), milestone?.id, milestone?.title,
             )
         }
     }
@@ -189,6 +199,12 @@ private sealed interface StoredItem {
     }
 
     @Serializable
+    @SerialName("event")
+    data class Event(val event: ConversationEvent, val actor: StoredUser?, val subject: String?, val at: Long) : StoredItem {
+        override fun toModel() = TimelineItem.Event(event, actor?.toModel(), subject, Instant.ofEpochMilli(at))
+    }
+
+    @Serializable
     @SerialName("commit")
     data class Committed(val sha: String, val message: String, val authorName: String?, val at: Long?) : StoredItem {
         override fun toModel() = TimelineItem.Committed(sha, message, authorName, at?.let(Instant::ofEpochMilli))
@@ -205,6 +221,7 @@ private sealed interface StoredItem {
                 item.source.repo.forge.host, item.source.repo.owner, item.source.repo.name, item.source.number, item.sourceTitle, item.sourceIsPullRequest,
                 StoredUser.of(item.actor), item.createdAt.toEpochMilli(),
             )
+            is TimelineItem.Event -> Event(item.event, StoredUser.of(item.actor), item.subject, item.createdAt.toEpochMilli())
             is TimelineItem.Committed -> Committed(item.sha, item.message, item.authorName, item.createdAt?.toEpochMilli())
         }
     }

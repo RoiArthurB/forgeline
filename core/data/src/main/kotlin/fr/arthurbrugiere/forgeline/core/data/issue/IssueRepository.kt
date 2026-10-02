@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.data.account.accountOn
 import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import java.util.concurrent.ConcurrentHashMap
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -57,8 +58,14 @@ interface IssueRepository {
     suspend fun create(repo: RepoId, title: String, body: String): ForgeResult<IssueDetails>
 
     /**
+     * What the account signed in on [repo]'s forge may do there beyond reading. Asked once per repository and
+     * session; nothing signed out, or when the forge won't say.
+     */
+    suspend fun access(repo: RepoId): RepoAccess
+
+    /**
      * Whether the account signed in on [ref]'s forge may close or reopen it: the one who opened it ([author]) always,
-     * else whoever the forge lets manage the repository's conversations. False signed out, or when the forge won't say.
+     * else whoever the forge lets manage the repository's conversations.
      */
     suspend fun canChangeState(ref: IssueRef, author: String?): Boolean
 
@@ -152,18 +159,23 @@ class DefaultIssueRepository @Inject constructor(
 
     override val changed: Flow<IssueRef> = changes.asSharedFlow()
 
-    /** What each account may manage, asked once per repository and session; keyed by account, then repository. */
-    private val managed = ConcurrentHashMap<Pair<String, RepoId>, Boolean>()
+    /** What each account may do where, as the forge said this session; keyed by account, then repository. */
+    private val managed = ConcurrentHashMap<Pair<String, RepoId>, RepoAccess>()
+
+    override suspend fun access(repo: RepoId): RepoAccess {
+        val account = accounts.accountOn(repo.forge) ?: return RepoAccess.NONE
+        managed[account.id to repo]?.let { return it }
+        val token = accounts.token(account.id) ?: return RepoAccess.NONE
+        // A failure isn't remembered: it is asked again the next time a conversation opens.
+        val answer = clients.issues(repo.forge).access(token, repo) as? ForgeResult.Success ?: return RepoAccess.NONE
+        managed[account.id to repo] = answer.value
+        return answer.value
+    }
 
     override suspend fun canChangeState(ref: IssueRef, author: String?): Boolean {
         val account = accounts.accountOn(ref.repo.forge) ?: return false
         if (author != null && author.equals(account.user.login, ignoreCase = true)) return true
-        managed[account.id to ref.repo]?.let { return it }
-        val token = accounts.token(account.id) ?: return false
-        // A failure isn't remembered: it is asked again the next time the conversation opens.
-        val answer = clients.issues(ref.repo.forge).canManage(token, ref.repo) as? ForgeResult.Success ?: return false
-        managed[account.id to ref.repo] = answer.value
-        return answer.value
+        return access(ref.repo) >= RepoAccess.TRIAGE
     }
 
     override suspend fun setOpen(ref: IssueRef, open: Boolean): ForgeResult<Unit> {

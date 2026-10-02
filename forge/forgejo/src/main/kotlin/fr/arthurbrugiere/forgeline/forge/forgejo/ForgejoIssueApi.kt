@@ -5,11 +5,13 @@ import kotlinx.serialization.json.buildJsonObject
 import io.ktor.http.HttpMethod
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
+import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.PullRequestInfo
 import fr.arthurbrugiere.forgeline.core.model.Reaction
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.core.model.StateChange
@@ -97,8 +99,16 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         ).toResult { }
     }
 
-    override suspend fun canManage(token: String, repo: RepoId): ForgeResult<Boolean> = forgejoCall {
-        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name).toResult { body<PermittedRepoJson>().permissions.push }
+    /** Forgejo has no triage role: whoever can push manages the conversations too. */
+    override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoAccess> = forgejoCall {
+        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name).toResult {
+            val permissions = body<PermittedRepoJson>().permissions
+            when {
+                permissions.admin -> RepoAccess.ADMIN
+                permissions.push -> RepoAccess.WRITE
+                else -> RepoAccess.NONE
+            }
+        }
     }
 
     private fun IssueJson.toDetails(ref: IssueRef, pull: PullJson?, reactions: Map<Reaction, Int>) = IssueDetails(
@@ -113,6 +123,9 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         closedAt = instant(closedAt),
         comments = comments,
         reactions = reactions,
+        isLocked = isLocked,
+        assignees = assignees.orEmpty().map { it.toModel() },
+        milestone = milestone?.takeIf { it.id > 0 }?.toModel(),
         pullRequest = pull?.let {
             PullRequestInfo(
                 isDraft = it.draft,
@@ -181,7 +194,17 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
                     at,
                 )
             }
-            // Review requests, pushes, milestones, branch deletions... are noise in a conversation, as on GitHub.
+            "lock" -> TimelineItem.Event(ConversationEvent.LOCKED, actor, null, at)
+            "unlock" -> TimelineItem.Event(ConversationEvent.UNLOCKED, actor, null, at)
+            "pin" -> TimelineItem.Event(ConversationEvent.PINNED, actor, null, at)
+            "unpin" -> TimelineItem.Event(ConversationEvent.UNPINNED, actor, null, at)
+            "assignees" -> assignee?.let {
+                TimelineItem.Event(if (removedAssignee) ConversationEvent.UNASSIGNED else ConversationEvent.ASSIGNED, actor, it.login, at)
+            }
+            // Setting one names it; taking it away names the one that was there.
+            "milestone" -> milestone?.takeIf { it.id > 0 }?.let { TimelineItem.Event(ConversationEvent.MILESTONED, actor, it.title, at) }
+                ?: oldMilestone?.takeIf { it.id > 0 }?.let { TimelineItem.Event(ConversationEvent.DEMILESTONED, actor, it.title, at) }
+            // Review requests, pushes, branch deletions... are noise in a conversation, as on GitHub.
             else -> null
         }
     }
@@ -204,7 +227,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
 }
 
 @Serializable
-private data class PermissionsJson(val push: Boolean = false)
+private data class PermissionsJson(val admin: Boolean = false, val push: Boolean = false)
 
 @Serializable
 private data class PermittedRepoJson(val permissions: PermissionsJson = PermissionsJson())
@@ -254,4 +277,8 @@ private data class TimelineJson(
     @SerialName("new_title") val newTitle: String? = null,
     @SerialName("ref_issue") val refIssue: RefIssueJson? = null,
     @SerialName("review_id") val reviewId: Long? = null,
+    val assignee: UserJson? = null,
+    @SerialName("removed_assignee") val removedAssignee: Boolean = false,
+    val milestone: MilestoneJson? = null,
+    @SerialName("old_milestone") val oldMilestone: MilestoneJson? = null,
 )

@@ -9,6 +9,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
@@ -92,16 +93,16 @@ class FakeIssueApi : IssueApi {
         return ForgeResult.Success(Unit)
     }
 
-    /** Repositories whose every conversation the signed-in user may close. */
-    val managed = mutableSetOf<RepoId>()
+    /** What the signed-in user may do in each repository; nothing where not said. */
+    val access = mutableMapOf<RepoId, RepoAccess>()
 
-    /** What asking for the permission fails with. */
-    var manageFailure: ForgeError? = null
+    /** What asking for it fails with. */
+    var accessFailure: ForgeError? = null
 
-    override suspend fun canManage(token: String, repo: RepoId): ForgeResult<Boolean> {
-        calls += "canManage:${repo.fullName}"
-        manageFailure?.let { return ForgeResult.Failure(it) }
-        return ForgeResult.Success(repo in managed)
+    override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoAccess> {
+        calls += "access:${repo.fullName}"
+        accessFailure?.let { return ForgeResult.Failure(it) }
+        return ForgeResult.Success(access[repo] ?: RepoAccess.NONE)
     }
 }
 

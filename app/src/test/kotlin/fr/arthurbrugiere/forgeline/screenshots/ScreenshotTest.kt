@@ -634,6 +634,25 @@ class ScreenshotTest {
     }
 
     @Test
+    fun issue_locked_light() = snapshot("issue_locked_light", darkTheme = false, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG) {
+        val maintainer = ForgeUser("maintainer", null, null)
+        val at = java.time.Instant.parse("2026-09-26T09:30:00Z")
+        IssueWithComposer({
+            it.copy(
+                issue = it.issue?.copy(
+                    state = fr.arthurbrugiere.forgeline.core.model.IssueState.CLOSED, isLocked = true,
+                    assignees = listOf(maintainer), milestone = fr.arthurbrugiere.forgeline.core.model.Milestone(4, "2026.10"),
+                ),
+                items = it.items + listOf(
+                    TimelineItem.Event(fr.arthurbrugiere.forgeline.core.model.ConversationEvent.ASSIGNED, maintainer, "maintainer", at),
+                    TimelineItem.Event(fr.arthurbrugiere.forgeline.core.model.ConversationEvent.LOCKED, maintainer, null, at),
+                    TimelineItem.Event(fr.arthurbrugiere.forgeline.core.model.ConversationEvent.CONVERTED_TO_DISCUSSION, maintainer, null, at),
+                ),
+            )
+        })
+    }
+
+    @Test
     fun issue_comment_signed_out_light() = snapshot("issue_comment_signed_out_light", darkTheme = false, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG) {
         IssueWithComposer({ it }, canComment = false)
     }

@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.core.forge
 
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
@@ -30,8 +31,8 @@ interface IssueApi {
     /** Closes the issue or pull request [ref], or reopens it. A merged pull request can't be reopened. */
     suspend fun setOpen(token: String, ref: IssueRef, open: Boolean): ForgeResult<Unit>
 
-    /** Whether the signed-in user may close and reopen any conversation of [repo], not only the ones they opened. */
-    suspend fun canManage(token: String, repo: RepoId): ForgeResult<Boolean>
+    /** What the signed-in user may do in [repo] beyond reading it. */
+    suspend fun access(token: String, repo: RepoId): ForgeResult<RepoAccess>
 }
 
 interface UserApi {

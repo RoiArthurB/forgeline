@@ -5,7 +5,10 @@ import io.ktor.http.HttpMethod
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.Milestone
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -21,6 +24,9 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 import org.junit.Test
 import java.time.Instant
 
@@ -255,19 +261,84 @@ class GitHubIssueApiTest {
     }
 
     @Test
-    fun whoever_can_triage_or_push_may_manage_a_repository_s_conversations() = runTest {
-        fun permissions(triage: Boolean, push: Boolean) = """{"name":"paperclip","permissions":{"admin":false,"maintain":false,"push":$push,"triage":$triage,"pull":true}}"""
+    fun the_forge_s_permissions_say_what_the_signed_in_user_may_do() = runTest {
+        fun permissions(admin: Boolean = false, maintain: Boolean = false, push: Boolean = false, triage: Boolean = false) =
+            """{"name":"paperclip","permissions":{"admin":$admin,"maintain":$maintain,"push":$push,"triage":$triage,"pull":true}}"""
 
-        assertThat(api { json(permissions(triage = true, push = false)) }.canManage("tok", repo).value()).isTrue()
-        assertThat(api { json(permissions(triage = false, push = true)) }.canManage("tok", repo).value()).isTrue()
-        assertThat(api { json(permissions(triage = false, push = false)) }.canManage("tok", repo).value()).isFalse()
+        assertThat(api { json(permissions(admin = true, push = true, triage = true)) }.access("tok", repo).value()).isEqualTo(RepoAccess.ADMIN)
+        assertThat(api { json(permissions(maintain = true, triage = true)) }.access("tok", repo).value()).isEqualTo(RepoAccess.WRITE)
+        assertThat(api { json(permissions(push = true, triage = true)) }.access("tok", repo).value()).isEqualTo(RepoAccess.WRITE)
+        assertThat(api { json(permissions(triage = true)) }.access("tok", repo).value()).isEqualTo(RepoAccess.TRIAGE)
+        assertThat(api { json(permissions()) }.access("tok", repo).value()).isEqualTo(RepoAccess.NONE)
         assertThat(requests.first().url.toString()).isEqualTo("https://api.github.com/repos/paperclipai/paperclip")
         assertThat(requests.first().headers[HttpHeaders.Authorization]).isEqualTo("Bearer tok")
     }
 
     @Test
-    fun a_repository_that_doesn_t_state_permissions_can_t_be_managed() = runTest {
+    fun a_repository_that_doesn_t_state_permissions_grants_nothing() = runTest {
         // Read without the right to know, GitHub leaves the permissions out.
-        assertThat(api { json("""{"name":"paperclip"}""") }.canManage("tok", repo).value()).isFalse()
+        assertThat(api { json("""{"name":"paperclip"}""") }.access("tok", repo).value()).isEqualTo(RepoAccess.NONE)
+    }
+
+    // Fixtures: netbirdio/netbird issue #5434, locked then converted to a discussion, captured 2026-10-02.
+    private val locked = IssueRef(RepoId("netbirdio", "netbird"), 5434)
+
+    @Test
+    fun a_locked_issue_says_so() = runTest {
+        val details = api { json(fixture("locked_issue.json")) }.issue(null, locked).value()
+
+        assertThat(details.isLocked).isTrue()
+        assertThat(details.state).isEqualTo(IssueState.CLOSED)
+        assertThat(details.assignees).isEmpty()
+        assertThat(details.milestone).isNull()
+        // The issues captured earlier are not.
+        assertThat(api { json(fixture("issue_closed.json")) }.issue(null, issue).value().isLocked).isFalse()
+    }
+
+    @Test
+    fun locking_and_converting_to_a_discussion_are_part_of_the_conversation() = runTest {
+        val events = api { json(fixture("locked_timeline.json")) }.timeline(null, locked, 1).value().items.filterIsInstance<TimelineItem.Event>()
+
+        assertThat(events.map { it.event }).containsExactly(ConversationEvent.LOCKED, ConversationEvent.CONVERTED_TO_DISCUSSION).inOrder()
+        assertThat(events.map { it.actor?.login }).containsExactly("netbirdio", "thomashacker").inOrder()
+        assertThat(events.first().createdAt).isEqualTo(Instant.parse("2026-10-01T16:44:08Z"))
+    }
+
+    @Test
+    fun who_it_is_assigned_to_and_its_milestone_are_read_from_the_issue() = runTest {
+        // GitHub's documented shape, added to a captured issue: no public issue to capture holds both for long.
+        val triaged = JsonObject(
+            Json.parseToJsonElement(fixture("issue_closed.json")).jsonObject + mapOf(
+                "assignees" to Json.parseToJsonElement("""[{"login":"octocat","avatar_url":"https://avatars.githubusercontent.com/u/583231?v=4"},{"login":"hubot"}]"""),
+                "milestone" to Json.parseToJsonElement("""{"number":4,"title":"2026.10"}"""),
+            ),
+        ).toString()
+        val details = api { json(triaged) }.issue(null, issue).value()
+
+        assertThat(details.assignees.map { it.login }).containsExactly("octocat", "hubot").inOrder()
+        assertThat(details.milestone).isEqualTo(Milestone(4, "2026.10"))
+    }
+
+    @Test
+    fun triage_events_name_who_and_what() = runTest {
+        // GitHub's documented shapes for events the captured timelines don't hold.
+        fun event(name: String, extra: String = "") =
+            """{"event":"$name","actor":{"login":"maintainer"},"created_at":"2026-10-02T03:00:00Z"$extra}"""
+        val timeline = listOf(
+            event("assigned", ""","assignee":{"login":"octocat"}"""),
+            event("unassigned", ""","assignee":{"login":"octocat"}"""),
+            event("milestoned", ""","milestone":{"title":"2026.10"}"""),
+            event("demilestoned", ""","milestone":{"title":"2026.10"}"""),
+            event("pinned"), event("unpinned"), event("unlocked"), event("transferred"),
+        ).joinToString(",", "[", "]")
+
+        val events = api { json(timeline) }.timeline(null, issue, 1).value().items.filterIsInstance<TimelineItem.Event>()
+
+        assertThat(events.map { it.event }).containsExactly(
+            ConversationEvent.ASSIGNED, ConversationEvent.UNASSIGNED, ConversationEvent.MILESTONED, ConversationEvent.DEMILESTONED,
+            ConversationEvent.PINNED, ConversationEvent.UNPINNED, ConversationEvent.UNLOCKED, ConversationEvent.TRANSFERRED,
+        ).inOrder()
+        assertThat(events.map { it.subject }).containsExactly("octocat", "octocat", "2026.10", "2026.10", null, null, null, null).inOrder()
+        assertThat(events.map { it.actor?.login }.distinct()).containsExactly("maintainer")
     }
 }

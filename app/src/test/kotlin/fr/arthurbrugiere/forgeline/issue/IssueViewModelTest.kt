@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
@@ -247,7 +248,7 @@ class IssueViewModelTest {
 
     @Test
     fun whoever_manages_the_repository_can_close_anyone_s_conversation() = test {
-        api.managed += ref.repo
+        api.access[ref.repo] = RepoAccess.TRIAGE
 
         val viewModel = openedSignedIn()
 
@@ -257,7 +258,7 @@ class IssueViewModelTest {
     @Test
     fun signing_in_while_the_conversation_is_open_is_asked_about_again() = test {
         api.issues[ref] = issueDetails(ref)
-        api.managed += ref.repo
+        api.access[ref.repo] = RepoAccess.TRIAGE
         val viewModel = IssueViewModel(ref, repository, SavedStateHandle())
         advanceUntilIdle()
         assertThat(viewModel.state.value.canChangeState).isFalse()
@@ -271,7 +272,7 @@ class IssueViewModelTest {
 
     @Test
     fun closing_shows_at_once_then_reloads_what_the_forge_says_of_it() = test {
-        api.managed += ref.repo
+        api.access[ref.repo] = RepoAccess.TRIAGE
         val viewModel = openedSignedIn()
         val loadsBefore = api.calls.count { it.startsWith("timeline:") }
 
@@ -289,7 +290,7 @@ class IssueViewModelTest {
 
     @Test
     fun a_closed_conversation_reopens() = test {
-        api.managed += ref.repo
+        api.access[ref.repo] = RepoAccess.TRIAGE
         val viewModel = openedSignedIn()
         viewModel.toggleOpen()
         advanceUntilIdle()
@@ -303,7 +304,7 @@ class IssueViewModelTest {
 
     @Test
     fun a_refused_state_change_leaves_the_conversation_as_it_was_and_says_why() = test {
-        api.managed += ref.repo
+        api.access[ref.repo] = RepoAccess.TRIAGE
         val viewModel = openedSignedIn()
         api.stateFailure = ForgeError.Http(403, "no")
 
@@ -322,7 +323,7 @@ class IssueViewModelTest {
 
     @Test
     fun a_conversation_is_closed_once_however_often_it_is_tapped() = test {
-        api.managed += ref.repo
+        api.access[ref.repo] = RepoAccess.TRIAGE
         val viewModel = openedSignedIn()
         api.gate = kotlinx.coroutines.CompletableDeferred()
 
@@ -337,7 +338,7 @@ class IssueViewModelTest {
 
     @Test
     fun a_merged_pull_request_stays_merged() = test {
-        api.managed += ref.repo
+        api.access[ref.repo] = RepoAccess.TRIAGE
         accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
         api.issues[ref] = issueDetails(ref, state = IssueState.MERGED)
         val viewModel = IssueViewModel(ref, repository, SavedStateHandle())
@@ -347,5 +348,14 @@ class IssueViewModelTest {
         advanceUntilIdle()
 
         assertThat(api.stateChanges).isEmpty()
+    }
+
+    @Test
+    fun what_the_reader_may_do_in_the_repository_is_known_once_the_conversation_is() = test {
+        api.access[ref.repo] = RepoAccess.WRITE
+
+        val viewModel = openedSignedIn()
+
+        assertThat(viewModel.state.value.access).isEqualTo(RepoAccess.WRITE)
     }
 }

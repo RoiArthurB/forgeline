@@ -35,6 +35,15 @@ import androidx.compose.material.icons.outlined.Adjust
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.Commit
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.material.icons.outlined.PersonOutline
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.SwapHoriz
+import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.RateReview
@@ -327,6 +336,11 @@ private fun Composer(
             SoftTonalButton(stringResource(R.string.sign_in), onSignIn)
             return@Column
         }
+        // A locked conversation only takes comments from whoever can write to the repository.
+        if (state.issue?.isLocked == true && state.access < RepoAccess.WRITE) {
+            Text(stringResource(R.string.issue_comment_locked), style = Soft.type.body, color = colors.inkMuted)
+            return@Column
+        }
         SoftTextField(
             value = state.draft,
             onValueChange = onDraftChange,
@@ -438,13 +452,20 @@ private fun Header(ref: IssueRef, issue: IssueDetails?, nowMillis: Long, onOpenR
                 modifier = Modifier.semantics { heading() },
             )
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        // Wraps at large text: on one row the sentence was squeezed beside the tags and clipped.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
+        ) {
             StateTag(issue)
+            if (issue.isLocked) HeaderTag(Icons.Outlined.Lock, stringResource(R.string.issue_locked))
             Text(
                 stringResource(R.string.issue_opened_by, issue.author?.login ?: "ghost", relative(issue.createdAt, nowMillis)),
                 style = Soft.type.secondary,
                 color = colors.inkMuted,
-                modifier = Modifier.clip(SoftTokens.Pill).clickable(enabled = issue.author != null) { issue.author?.let { onOpenUser(it.login) } },
+                // Not a pill: over two lines its round ends cut into the first and last letters.
+                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = issue.author != null) { issue.author?.let { onOpenUser(it.login) } },
             )
         }
         issue.pullRequest?.let { pr ->
@@ -477,6 +498,15 @@ private fun Header(ref: IssueRef, issue: IssueDetails?, nowMillis: Long, onOpenR
                 issue.labels.forEach { LabelChip(it) }
             }
         }
+        // Who it is on and what it is for: one quiet line each, only when there is something to say.
+        if (issue.assignees.isNotEmpty()) {
+            Text(
+                stringResource(R.string.issue_assigned_to, issue.assignees.joinToString(", ") { it.login }),
+                style = Soft.type.secondary,
+                color = colors.inkMuted,
+            )
+        }
+        issue.milestone?.let { Text(stringResource(R.string.issue_milestone, it.title), style = Soft.type.secondary, color = colors.inkMuted) }
     }
 }
 
@@ -489,13 +519,20 @@ private fun StateTag(issue: IssueDetails) {
         issue.state == IssueState.MERGED -> R.string.issue_state_merged to Icons.AutoMirrored.Outlined.CallMerge
         else -> R.string.issue_state_closed to Icons.Outlined.CheckCircleOutline
     }
+    HeaderTag(icon, stringResource(label))
+}
+
+/** A pill in the header field: a glyph and a word, for where the conversation stands. */
+@Composable
+private fun HeaderTag(icon: ImageVector, label: String) {
+    val colors = Soft.colors
     Row(
         Modifier.clip(SoftTokens.Pill).background(colors.ground).padding(start = 8.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = colors.ink)
-        Text(stringResource(label), style = Soft.type.label, color = colors.ink)
+        Text(label, style = Soft.type.label, color = colors.ink)
     }
 }
 
@@ -618,6 +655,31 @@ private fun TimelineEntry(
             stringResource(R.string.issue_referenced_event, item.actor?.login ?: "ghost", item.source.number, item.sourceTitle),
             onClick = { onOpenIssue(item.source) },
         )
+        is TimelineItem.Event -> {
+            val who = item.actor?.login ?: "ghost"
+            val subject = item.subject.orEmpty()
+            val (icon, text) = when (item.event) {
+                ConversationEvent.LOCKED -> Icons.Outlined.Lock to stringResource(R.string.issue_locked_event, who, time)
+                ConversationEvent.UNLOCKED -> Icons.Outlined.LockOpen to stringResource(R.string.issue_unlocked_event, who, time)
+                ConversationEvent.PINNED -> Icons.Outlined.PushPin to stringResource(R.string.issue_pinned_event, who, time)
+                ConversationEvent.UNPINNED -> Icons.Outlined.PushPin to stringResource(R.string.issue_unpinned_event, who, time)
+                ConversationEvent.ASSIGNED -> Icons.Outlined.PersonOutline to if (subject.equals(who, ignoreCase = true)) {
+                    stringResource(R.string.issue_self_assigned_event, who, time)
+                } else {
+                    stringResource(R.string.issue_assigned_event, who, subject, time)
+                }
+                ConversationEvent.UNASSIGNED -> Icons.Outlined.PersonOutline to if (subject.equals(who, ignoreCase = true)) {
+                    stringResource(R.string.issue_self_unassigned_event, who, time)
+                } else {
+                    stringResource(R.string.issue_unassigned_event, who, subject, time)
+                }
+                ConversationEvent.MILESTONED -> Icons.Outlined.Flag to stringResource(R.string.issue_milestoned_event, who, subject, time)
+                ConversationEvent.DEMILESTONED -> Icons.Outlined.Flag to stringResource(R.string.issue_demilestoned_event, who, subject, time)
+                ConversationEvent.TRANSFERRED -> Icons.Outlined.SwapHoriz to stringResource(R.string.issue_transferred_event, who, time)
+                ConversationEvent.CONVERTED_TO_DISCUSSION -> Icons.Outlined.Forum to stringResource(R.string.issue_converted_event, who, time)
+            }
+            EventLine(icon, text)
+        }
         is TimelineItem.Committed -> EventLine(
             Icons.Outlined.Commit,
             "${item.sha.take(7)}  ${item.message.lineSequence().first()}",

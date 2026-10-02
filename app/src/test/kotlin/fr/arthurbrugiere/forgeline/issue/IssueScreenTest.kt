@@ -16,7 +16,10 @@ import androidx.compose.ui.test.performClick
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.Milestone
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.Label
@@ -367,5 +370,84 @@ class IssueScreenTest {
         reach(hasText("Close issue"))
 
         composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    private val lockedIssue = opened.copy(issue = issueDetails(ref, "Crash on start", IssueState.CLOSED).copy(isLocked = true))
+
+    @Test
+    fun a_locked_conversation_says_so_and_takes_no_comment_from_outsiders() {
+        setContent(lockedIssue)
+
+        composeRule.onNodeWithText("Locked").assertIsDisplayed()
+        reach(hasText("This conversation is locked.", substring = true))
+        composeRule.onNode(hasSetTextAction()).assertDoesNotExist()
+        composeRule.onNodeWithText("Comment").assertDoesNotExist()
+    }
+
+    @Test
+    fun whoever_can_write_to_the_repository_still_comments_on_a_locked_conversation() {
+        setContent(lockedIssue.copy(access = RepoAccess.WRITE))
+
+        reach(hasSetTextAction())
+        composeRule.onNodeWithText("This conversation is locked.", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun triaging_alone_doesn_t_open_a_locked_conversation() {
+        setContent(lockedIssue.copy(access = RepoAccess.TRIAGE))
+
+        reach(hasText("This conversation is locked.", substring = true))
+    }
+
+    @Test
+    fun who_it_is_assigned_to_and_its_milestone_show_under_the_title() {
+        val triaged = issueDetails(ref, "Crash on start").copy(
+            assignees = listOf(ForgeUser("octocat", null, null), ForgeUser("hubot", null, null)), milestone = Milestone(4, "2026.10"),
+        )
+        setContent(opened.copy(issue = triaged))
+
+        composeRule.onNodeWithText("Assigned to octocat, hubot").assertIsDisplayed()
+        composeRule.onNodeWithText("Milestone: 2026.10").assertIsDisplayed()
+    }
+
+    @Test
+    fun an_issue_nobody_triaged_says_nothing_of_it() {
+        setContent(opened)
+
+        composeRule.onNodeWithText("Assigned to", substring = true).assertDoesNotExist()
+        composeRule.onNodeWithText("Milestone:", substring = true).assertDoesNotExist()
+        composeRule.onNodeWithText("Locked").assertDoesNotExist()
+    }
+
+    @Test
+    fun what_was_done_to_the_conversation_reads_as_sentences() {
+        fun event(event: ConversationEvent, subject: String? = null) = TimelineItem.Event(event, ForgeUser("maintainer", null, null), subject, at)
+        setContent(
+            opened.copy(
+                items = listOf(
+                    event(ConversationEvent.LOCKED), event(ConversationEvent.CONVERTED_TO_DISCUSSION), event(ConversationEvent.UNLOCKED),
+                    event(ConversationEvent.PINNED), event(ConversationEvent.UNPINNED),
+                    event(ConversationEvent.ASSIGNED, "octocat"), event(ConversationEvent.ASSIGNED, "maintainer"),
+                    event(ConversationEvent.UNASSIGNED, "octocat"), event(ConversationEvent.UNASSIGNED, "Maintainer"),
+                    event(ConversationEvent.MILESTONED, "2026.10"), event(ConversationEvent.DEMILESTONED, "2026.10"),
+                    event(ConversationEvent.TRANSFERRED),
+                ),
+            ),
+        )
+
+        listOf(
+            "maintainer locked this and limited it to collaborators",
+            "maintainer converted this to a discussion",
+            "maintainer unlocked this",
+            "maintainer pinned this",
+            "maintainer unpinned this",
+            "maintainer assigned octocat",
+            "maintainer took this on",
+            "maintainer unassigned octocat",
+            "maintainer stepped away from this",
+            "maintainer added this to the 2026.10 milestone",
+            "maintainer removed this from the 2026.10 milestone",
+            "maintainer transferred this from another repository",
+        ).forEach { sentence -> reach(hasText(sentence, substring = true)) }
     }
 }

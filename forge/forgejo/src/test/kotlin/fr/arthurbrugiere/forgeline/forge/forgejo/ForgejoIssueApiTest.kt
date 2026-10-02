@@ -13,7 +13,10 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.Milestone
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
@@ -62,8 +65,13 @@ class ForgejoIssueApiTest {
     fun the_timeline_keeps_the_conversation_and_drops_the_noise() = runTest {
         val items = api.timeline(null, pull, page = 1).value().items
 
-        // Review requests, pushes, milestones, branch deletions and commit references are left out.
-        assertThat(items.map { it::class.simpleName }).containsExactly("Labeled", "Review", "Comment", "StateChanged").inOrder()
+        // Review requests, pushes, branch deletions and commit references are left out.
+        assertThat(items.map { it::class.simpleName }).containsExactly("Labeled", "Review", "Comment", "StateChanged", "Event").inOrder()
+        // After the merge, the release bot filed it under the release it shipped in.
+        assertThat(items[4]).isEqualTo(
+            TimelineItem.Event(ConversationEvent.MILESTONED, (items[4] as TimelineItem.Event).actor, "Forgejo v17.0.0", (items[4] as TimelineItem.Event).createdAt),
+        )
+        assertThat((items[4] as TimelineItem.Event).actor?.login).isEqualTo("forgejo-release-notes-assistant")
         assertThat((items[0] as TimelineItem.Labeled).added).isTrue()
         assertThat((items[0] as TimelineItem.Labeled).label.name).isEqualTo("test/present")
         // The review entry doesn't say it approved: the pull request's reviews do.
@@ -291,14 +299,75 @@ class ForgejoIssueApiTest {
     }
 
     @Test
-    fun whoever_can_push_may_manage_a_repository_s_conversations() = runTest {
-        fun asking(push: Boolean) = with(codeberg) {
-            ForgejoIssueApi(client { json("""{"name":"forgejo","permissions":{"admin":false,"push":$push,"pull":true}}""") }, ForgeInstance.Codeberg)
+    fun the_forge_s_permissions_say_what_the_signed_in_user_may_do() = runTest {
+        fun asking(admin: Boolean, push: Boolean) = with(codeberg) {
+            ForgejoIssueApi(client { json("""{"name":"forgejo","permissions":{"admin":$admin,"push":$push,"pull":true}}""") }, ForgeInstance.Codeberg)
         }
 
-        assertThat(asking(push = true).canManage("tok", pull.repo).value()).isTrue()
-        assertThat(asking(push = false).canManage("tok", pull.repo).value()).isFalse()
+        assertThat(asking(admin = true, push = true).access("tok", pull.repo).value()).isEqualTo(RepoAccess.ADMIN)
+        // Forgejo has no triage role: pushing is what manages conversations.
+        assertThat(asking(admin = false, push = true).access("tok", pull.repo).value()).isEqualTo(RepoAccess.WRITE)
+        assertThat(asking(admin = false, push = false).access("tok", pull.repo).value()).isEqualTo(RepoAccess.NONE)
         assertThat(codeberg.requests.first().url.toString()).isEqualTo("https://codeberg.org/api/v1/repos/forgejo/forgejo")
         assertThat(codeberg.requests.first().headers[HttpHeaders.Authorization]).isEqualTo("token tok")
+    }
+
+    // The answers below follow Forgejo's API description (Codeberg, 16.0): no captured conversation holds these.
+    private fun triaged(issueFields: String, timeline: String) = with(codeberg) {
+        ForgejoIssueApi(
+            client {
+                val path = it.url.encodedPath
+                when {
+                    path.endsWith("/reactions") -> json("null")
+                    path.endsWith("/timeline") -> json(timeline)
+                    path.contains("/pulls/") -> json("""{"message":"not found"}""", HttpStatusCode.NotFound)
+                    else -> json("""{"number":7,"title":"Crash","state":"open","created_at":"2026-10-02T04:20:00+02:00"$issueFields}""")
+                }
+            },
+            ForgeInstance.Codeberg,
+        )
+    }
+
+    @Test
+    fun a_locked_assigned_issue_with_a_milestone_says_so() = runTest {
+        val api = triaged(""","is_locked":true,"assignees":[{"login":"me"},{"login":"earl-warren"}],"milestone":{"id":9000,"title":"16.0"}""", "[]")
+
+        val details = api.issue(null, IssueRef(pull.repo, 7)).value()
+
+        assertThat(details.isLocked).isTrue()
+        assertThat(details.assignees.map { it.login }).containsExactly("me", "earl-warren").inOrder()
+        assertThat(details.milestone).isEqualTo(Milestone(9000, "16.0"))
+    }
+
+    @Test
+    fun an_issue_nobody_triaged_has_neither() = runTest {
+        // Nobody assigned and no milestone both answer null.
+        val details = triaged(""","is_locked":false,"assignees":null,"milestone":null""", "[]").issue(null, IssueRef(pull.repo, 7)).value()
+
+        assertThat(details.isLocked).isFalse()
+        assertThat(details.assignees).isEmpty()
+        assertThat(details.milestone).isNull()
+    }
+
+    @Test
+    fun triage_events_name_who_and_what() = runTest {
+        fun entry(id: Int, type: String, extra: String = "") =
+            """{"id":$id,"type":"$type","user":{"login":"maintainer"},"created_at":"2026-10-02T05:00:00+02:00"$extra}"""
+        val timeline = listOf(
+            entry(1, "lock"), entry(2, "unlock"), entry(3, "pin"), entry(4, "unpin"),
+            entry(5, "assignees", ""","assignee":{"login":"me"},"removed_assignee":false"""),
+            entry(6, "assignees", ""","assignee":{"login":"me"},"removed_assignee":true"""),
+            entry(7, "milestone", ""","milestone":{"id":9000,"title":"16.0"},"old_milestone":null"""),
+            entry(8, "milestone", ""","milestone":null,"old_milestone":{"id":9000,"title":"16.0"}"""),
+        ).joinToString(",", "[", "]")
+
+        val events = triaged("", timeline).timeline(null, IssueRef(pull.repo, 7), 1).value().items.filterIsInstance<TimelineItem.Event>()
+
+        assertThat(events.map { it.event }).containsExactly(
+            ConversationEvent.LOCKED, ConversationEvent.UNLOCKED, ConversationEvent.PINNED, ConversationEvent.UNPINNED,
+            ConversationEvent.ASSIGNED, ConversationEvent.UNASSIGNED, ConversationEvent.MILESTONED, ConversationEvent.DEMILESTONED,
+        ).inOrder()
+        assertThat(events.map { it.subject }).containsExactly(null, null, null, null, "me", "me", "16.0", "16.0").inOrder()
+        assertThat(events.map { it.actor?.login }.distinct()).containsExactly("maintainer")
     }
 }

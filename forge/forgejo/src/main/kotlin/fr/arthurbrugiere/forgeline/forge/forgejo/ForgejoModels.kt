@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.forge.forgejo
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.Release
@@ -92,6 +93,11 @@ internal data class IssuePullJson(val merged: Boolean = false, val draft: Boolea
 internal data class IssueRepoJson(val owner: String, val name: String)
 
 @Serializable
+internal data class MilestoneJson(val id: Long = 0, val title: String = "") {
+    fun toModel() = Milestone(id, title)
+}
+
+@Serializable
 internal data class IssueJson(
     val number: Int,
     val title: String,
@@ -108,6 +114,10 @@ internal data class IssueJson(
     // Pull request lists carry these at the top level.
     val merged: Boolean? = null,
     val draft: Boolean? = null,
+    @SerialName("is_locked") val isLocked: Boolean = false,
+    // Nobody assigned answers null, not an empty list.
+    val assignees: List<UserJson>? = null,
+    val milestone: MilestoneJson? = null,
 ) {
     val isPullRequest: Boolean get() = pullRequest != null || merged != null
 
