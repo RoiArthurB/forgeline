@@ -12,5 +12,6 @@ dependencies {
     api(libs.junit)
     api(libs.kotlinx.coroutines.test)
     api(libs.turbine)
+    api(libs.androidx.room.runtime)
     api(libs.truth)
 }
