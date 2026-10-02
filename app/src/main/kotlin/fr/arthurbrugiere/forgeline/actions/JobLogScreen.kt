@@ -139,12 +139,13 @@ fun JobLogScreen(
     // Each tap jumps to the next error, round and round.
     var nextError by rememberSaveable { mutableIntStateOf(0) }
     Box(modifier.fillMaxSize().background(colors.ground)) {
-        LazyColumn(
-            state = listState,
-            horizontalAlignment = Alignment.CenterHorizontally,
-            contentPadding = PaddingValues(bottom = listBottomPadding()),
-            modifier = Modifier.fillMaxSize().sideSafeArea(),
-        ) {
+        SelectionContainer(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                state = listState,
+                horizontalAlignment = Alignment.CenterHorizontally,
+                contentPadding = PaddingValues(bottom = listBottomPadding()),
+                modifier = Modifier.fillMaxSize().sideSafeArea(),
+            ) {
             item(key = "header") {
                 SoftHeader(
                     tint = when {
@@ -230,6 +231,7 @@ fun JobLogScreen(
                 }
             }
         }
+        }
         val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
         SoftStatusBarScrim(scrolled)
     }
@@ -302,12 +304,13 @@ private fun LogLine(row: LogRow.Line, palette: AnsiPalette) {
         LogLineKind.DEBUG -> colors.inkMuted
         LogLineKind.PLAIN -> colors.ink
     }
-    SelectionContainer(
-        LineModifier
+    Text(
+        text,
+        style = LogText,
+        color = tint,
+        modifier = LineModifier
             .padding(horizontal = 8.dp)
             .then(if (line.kind == LogLineKind.ERROR) Modifier.background(colors.fields[0]) else Modifier)
             .padding(start = if (row.inGroup != null) 32.dp else 8.dp, end = 8.dp, top = 1.dp, bottom = 1.dp),
-    ) {
-        Text(text, style = LogText, color = tint)
-    }
+    )
 }

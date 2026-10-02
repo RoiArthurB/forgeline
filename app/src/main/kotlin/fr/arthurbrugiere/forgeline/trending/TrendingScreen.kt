@@ -345,18 +345,19 @@ fun TrendingScreen(
 /** Rows shown right after a period change rise in softly, staggered down the list. They start visible. */
 @Composable
 private fun riseIn(id: RepoId, period: TrendingPeriod, index: Int, enabled: Boolean): Modifier {
-    val progress = remember(id, period) { Animatable(if (enabled) 0f else 1f) }
+    if (!enabled) return Modifier
+    val progress = remember(id, period) { Animatable(0f) }
     LaunchedEffect(progress) {
         if (progress.value < 1f) {
             delay(index * 35L)
             progress.animateTo(1f, SoftTokens.spring())
         }
     }
-    if (progress.value >= 1f && !progress.isRunning) return Modifier
     val rise = with(LocalDensity.current) { 16.dp.toPx() }
     return Modifier.graphicsLayer {
-        alpha = 0.35f + 0.65f * progress.value
-        translationY = (1f - progress.value) * rise
+        val currentProgress = progress.value
+        alpha = 0.35f + 0.65f * currentProgress
+        translationY = (1f - currentProgress) * rise
     }
 }
 
