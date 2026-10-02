@@ -59,7 +59,9 @@ class SignedInFlowTest {
         composeRule.onNodeWithText("paperclip").performClick()
         waitFor("Issues")
         composeRule.onNodeWithText("Issues").performClick()
+        // The action shows before the list has loaded: wait for the list, which the tests open a conversation from.
         waitFor("New issue")
+        waitFor("Heartbeat recovery escalates too early")
     }
 
     /** The comment box closes the conversation: scroll down to it. */
@@ -105,6 +107,70 @@ class SignedInFlowTest {
         composeRule.onNodeWithText("Reopen issue").performClick()
 
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Close issue")).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    private fun openManage() {
+        composeRule.onNodeWithText("Heartbeat recovery escalates too early").performClick()
+        waitFor("I can reproduce this on every restart.")
+        // What the reader may do is asked once the conversation is known: the full menu follows.
+        composeRule.onNode(hasContentDescription("Manage")).performClick()
+        waitFor("Delete issue")
+    }
+
+    @Test
+    fun labels_chosen_in_the_manage_sheet_show_on_the_conversation() {
+        openIssuesSignedIn()
+        openManage()
+
+        composeRule.onNodeWithText("Labels").performClick()
+        waitFor("enhancement")
+        composeRule.onNodeWithText("enhancement").performClick()
+        composeRule.onNodeWithText("Save").performClick()
+
+        // The sheet closed, and the header wears the label.
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Save")).fetchSemanticsNodes().isEmpty() }
+        waitFor("enhancement")
+        composeRule.onNodeWithText("Delete issue").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_transferred_issue_opens_where_it_went_and_back_returns_to_the_repository() {
+        openIssuesSignedIn()
+        openManage()
+
+        composeRule.onNodeWithText("Transfer issue").performClick()
+        // The comment box is still there under the sheet: the destination is the field that asks for a repository.
+        composeRule.onNode(hasSetTextAction() and hasText("Repository name")).performTextInput("docs")
+        composeRule.onNodeWithText("Transfer").performClick()
+
+        waitFor("paperclipai/docs")
+        waitFor("Heartbeat recovery escalates too early - #14127")
+        composeRule.onNode(hasContentDescription("Navigate up")).performClick()
+        composeRule.onNodeWithText("New issue").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_deleted_issue_leaves_its_conversation_for_the_repository() {
+        openIssuesSignedIn()
+        openManage()
+
+        composeRule.onNodeWithText("Delete issue").performClick()
+        composeRule.onNodeWithText("Delete for good").performClick()
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("New issue")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("I can reproduce this on every restart.", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun duplicating_an_issue_opens_the_form_already_written() {
+        openIssuesSignedIn()
+        openManage()
+
+        composeRule.onNodeWithText("Duplicate issue").performClick()
+
+        waitFor("Open issue")
+        composeRule.onNodeWithText("Heartbeat recovery escalates too early").assertIsDisplayed()
+        composeRule.onNodeWithText("Body of #14127").assertIsDisplayed()
     }
 
     @Test

@@ -179,6 +179,22 @@ Forgejo Actions has an API close to GitHub's, checked against codeberg.org on 20
 
 A repository can switch Actions off (`has_actions: false`), and then it has no Actions tab. Older Forgejo servers list runs but answer 404 for a run's jobs (reported on a self-hosted server, 2026-09-30): the run still opens, with a note that its jobs are on the run's page.
 
+## Managing a conversation
+
+What can be done to an issue or pull request beyond commenting depends on the forge's API (checked against Codeberg's API description, Forgejo 16.0, on 2026-10-02) and on the signed-in user's role, read from the repository's `permissions`.
+
+| Action | GitHub | Forgejo |
+|---|---|---|
+| Labels, assignees, milestone | REST; triage role and up | REST (labels by name; the organisation's labels are listed with the repository's); push and up, Forgejo has no triage role |
+| Close with a reason | `state_reason` (completed, not planned, duplicate) | no reason kept: closes plainly |
+| Lock, unlock | REST | not in the API: not offered |
+| Pin, unpin | GraphQL (`pinIssue`) | REST (`/pin`) |
+| Transfer | GraphQL (`transferIssue`) | not in the API: not offered |
+| Delete | GraphQL (`deleteIssue`), admin | REST, admin |
+| Duplicate | opens the new-issue form with the title and description | same |
+
+The role is asked once per repository and session (`GET /repos/{owner}/{repo}`). It decides what the app offers; the forge still decides what it accepts, and a refusal is shown as such.
+
 ## Search
 
 One search across forges: GitHub's, always, and that of each forge an account is signed in to (Codeberg answers anonymous issue searches with a 500, so signed-out Codeberg search wouldn't work anyway). Every forge is searched at once, with its own token. Forges rank by relevance in their own ways, so scores can't be compared: results are interleaved by rank instead, every forge's best match, then every forge's second, GitHub first. Each forge pages on its own: the next page only asks the forges that have more. A forge that fails is left out and the others still answer; the search fails only when every forge did. Results name their forge once more than one is searched, and a person found on Codeberg opens on Codeberg.
@@ -188,7 +204,7 @@ One search across forges: GitHub's, always, and that of each forge an account is
 Like GitHub, Codeberg offers both, and both are shown when the OAuth client ID is set:
 
 - **"Sign in with Codeberg":** OAuth2 authorization code with PKCE, through a public OAuth application registered on Codeberg, redirecting to a loopback address on the phone (`http://127.0.0.1:<port>/oauth/codeberg`; Codeberg rejects custom schemes, checked 2026-09-29). See [CODEBERG_OAUTH_APP.md](CODEBERG_OAUTH_APP.md) for creating it. Access tokens expire after an hour, so the account stores the refresh token (encrypted with the same Keystore cipher) and refreshes on a 401 or when expired.
-- **Access token:** a Forgejo access token created by the user, which is also the only option for self-hosted Forgejo instances (after entering the host), since an OAuth app can't be registered on every instance in advance. Scopes: `read:notification`, `write:notification`, `read:user`, `write:user` (follow, star), `read:repository`, `write:repository` (start and cancel workflow runs), `read:issue`, `write:issue` (comment, open, close and reopen issues) and `read:organization`, on **all** repositories (public, private and limited), not public only.
+- **Access token:** a Forgejo access token created by the user, which is also the only option for self-hosted Forgejo instances (after entering the host), since an OAuth app can't be registered on every instance in advance. Scopes: `read:notification`, `write:notification`, `read:user`, `write:user` (follow, star), `read:repository`, `write:repository` (start and cancel workflow runs), `read:issue`, `write:issue` (comment, open, close and reopen issues, set labels, assignees and milestone, pin, delete) and `read:organization`, on **all** repositories (public, private and limited), not public only.
 
 An account is identified by `forge:host:login`, as `Account.idFor` already does, so a GitHub and a Codeberg account with the same login are different accounts.
 

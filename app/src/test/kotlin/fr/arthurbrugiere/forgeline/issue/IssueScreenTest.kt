@@ -16,6 +16,7 @@ import androidx.compose.ui.test.performClick
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.Milestone
@@ -449,5 +450,28 @@ class IssueScreenTest {
             "maintainer removed this from the 2026.10 milestone",
             "maintainer transferred this from another repository",
         ).forEach { sentence -> reach(hasText(sentence, substring = true)) }
+    }
+
+    @Test
+    fun the_header_offers_to_manage_an_issue_to_whoever_is_signed_in() {
+        setContent(opened)
+        composeRule.onNodeWithContentDescription("Manage").assertIsDisplayed()
+    }
+
+    @Test
+    fun signed_out_there_is_nothing_to_manage() {
+        setContent(opened, canComment = false)
+
+        composeRule.onNodeWithContentDescription("Manage").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_pull_request_is_only_managed_by_whoever_has_a_role_in_its_repository() {
+        val pull = issueDetails(ref, "Fix it").copy(pullRequest = PullRequestInfo(false, false, "main", "fix/it", 12, 3, 2, 1))
+        setContent(opened.copy(issue = pull))
+        composeRule.onNodeWithContentDescription("Manage").assertDoesNotExist()
+
+        shown.value = opened.copy(issue = pull, access = RepoAccess.TRIAGE, supported = setOf(ConversationAction.LABELS))
+        composeRule.onNodeWithContentDescription("Manage").assertIsDisplayed()
     }
 }

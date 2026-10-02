@@ -42,6 +42,10 @@ import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.SwapHoriz
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import androidx.compose.material.icons.outlined.Label
@@ -141,6 +145,10 @@ fun IssueRoute(
     onOpenUser: (String) -> Unit,
     session: SessionState,
     onSignIn: () -> Unit,
+    /** Opens the form for a new issue in a repository; a duplicate starts there. */
+    onNewIssue: (RepoId) -> Unit,
+    /** The issue is now somewhere else: its conversation there takes this one's place. */
+    onMoved: (IssueRef) -> Unit,
 ) {
     val ref = route.issue
     val viewModel = hiltViewModel<IssueViewModel, IssueViewModel.Factory>(key = "${ref.repo.key}#${ref.number}") { it.create(ref) }
@@ -149,6 +157,29 @@ fun IssueRoute(
     val signedIn = session.signedInOn(ref.repo.forge)
     // Who may close the conversation depends on who is signed in: signing in from here is asked about on the way back.
     LaunchedEffect(signedIn) { viewModel.checkPermissions() }
+    LaunchedEffect(state.movedTo) { state.movedTo?.let(onMoved) }
+    LaunchedEffect(state.deleted) { if (state.deleted) onBack() }
+    val manage = remember(viewModel) {
+        ManageActions(
+            onOpened = viewModel::manageOpened,
+            onDoneShown = viewModel::manageDoneShown,
+            onLoadLabels = viewModel::loadLabels,
+            onLoadAssignable = viewModel::loadAssignable,
+            onLoadMilestones = viewModel::loadMilestones,
+            onSetLabels = viewModel::setLabels,
+            onSetAssignees = viewModel::setAssignees,
+            onSetMilestone = viewModel::setMilestone,
+            onClose = viewModel::close,
+            onToggleLocked = viewModel::toggleLocked,
+            onTogglePinned = viewModel::togglePinned,
+            onDuplicate = {
+                viewModel.duplicate()
+                onNewIssue(ref.repo)
+            },
+            onTransfer = viewModel::transfer,
+            onDelete = viewModel::delete,
+        )
+    }
     IssueScreen(
         state = state,
         // Commenting takes an account on the conversation's own forge.
@@ -156,6 +187,7 @@ fun IssueRoute(
         onDraftChange = viewModel::draftChanged,
         onSendComment = viewModel::sendComment,
         onToggleOpen = viewModel::toggleOpen,
+        manage = manage,
         onSignIn = onSignIn,
         onCommentNoticeShown = viewModel::commentNoticeShown,
         onBack = onBack,
@@ -190,9 +222,12 @@ fun IssueScreen(
     onLinkClick: (String) -> Unit,
     onErrorShown: () -> Unit,
     modifier: Modifier = Modifier,
+    manage: ManageActions = ManageActions(),
     nowMillis: Long = System.currentTimeMillis(),
 ) {
     val issue = state.issue
+    var managing by rememberSaveable { mutableStateOf(false) }
+    if (managing) IssueManageSheet(state, manage, onDismiss = { managing = false })
     val isPullRequest = issue?.pullRequest != null
     val webUrl = state.ref.webUrl(isPullRequest)
     // Comments may link relative to the repo; HEAD resolves to the default branch on GitHub.
@@ -249,6 +284,11 @@ fun IssueScreen(
                         onBack = onBack,
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
+                            if (state.canManage(signedIn = canComment)) {
+                                IconButton(onClick = { managing = true }) {
+                                    Icon(Icons.Outlined.Tune, contentDescription = stringResource(R.string.manage_title), tint = colors.ink)
+                                }
+                            }
                             IconButton(onClick = { onOpenInBrowser(webUrl) }) {
                                 Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.ref.repo.forge.displayName), tint = colors.ink)
                             }

@@ -1,6 +1,14 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.core.model.CloseReason
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.ConversationAction
+import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.Milestone
+import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import io.ktor.http.HttpMethod
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -92,11 +100,74 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     }
 
     /** A pull request is an issue to this endpoint: one call closes either. */
-    override suspend fun setOpen(token: String, ref: IssueRef, open: Boolean): ForgeResult<Unit> = forgejoCall {
+    /** Forgejo keeps no reason for closing: [reason] is left out. */
+    override suspend fun setOpen(token: String, ref: IssueRef, open: Boolean, reason: CloseReason?): ForgeResult<Unit> =
+        edit(token, ref) { put("state", if (open) "open" else "closed") }
+
+    private suspend fun edit(token: String, ref: IssueRef, fields: JsonObjectBuilder.() -> Unit): ForgeResult<Unit> = forgejoCall {
         httpClient.forgejoApi(
             forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(),
-            method = HttpMethod.Patch, body = buildJsonObject { put("state", if (open) "open" else "closed") },
+            method = HttpMethod.Patch, body = buildJsonObject(fields),
         ).toResult { }
+    }
+
+    /** Forgejo's API neither locks a conversation nor moves an issue to another repository (16.0). */
+    override val actions: Set<ConversationAction> = setOf(ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.PIN, ConversationAction.DELETE)
+
+    // The lists below stop at their first page: a repository with more is rare, and none needs them all to triage.
+
+    /** The repository's own labels, then its organisation's: both can be put on its conversations. */
+    override suspend fun labels(token: String, repo: RepoId): ForgeResult<List<Label>> = forgejoCall {
+        coroutineScope {
+            val shared = async { httpClient.forgejoApi(forge, token, "orgs", repo.owner, "labels", query = FIRST_PAGE) }
+            val own = httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "labels", query = FIRST_PAGE)
+            if (own.status != HttpStatusCode.OK) {
+                shared.cancel()
+                return@coroutineScope own.failure()
+            }
+            // An owner that is a person has no organisation labels: that answers 404.
+            val fromOrganisation = shared.await().takeIf { it.status == HttpStatusCode.OK }?.body<List<LabelJson>>().orEmpty()
+            ForgeResult.Success((own.body<List<LabelJson>>() + fromOrganisation).map { it.toModel() }.distinctBy { it.name })
+        }
+    }
+
+    /** Forgejo takes names as well as ids here. */
+    override suspend fun setLabels(token: String, ref: IssueRef, names: List<String>): ForgeResult<Unit> = forgejoCall {
+        httpClient.forgejoApi(
+            forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "labels",
+            method = HttpMethod.Put, body = buildJsonObject { putJsonArray("labels") { names.forEach { add(it) } } },
+        ).toResult { }
+    }
+
+    override suspend fun assignable(token: String, repo: RepoId): ForgeResult<List<ForgeUser>> = forgejoCall {
+        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "assignees").toResult { body<List<UserJson>>().map { it.toModel() } }
+    }
+
+    override suspend fun setAssignees(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> =
+        edit(token, ref) { putJsonArray("assignees") { logins.forEach { add(it) } } }
+
+    override suspend fun milestones(token: String, repo: RepoId): ForgeResult<List<Milestone>> = forgejoCall {
+        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "milestones", query = FIRST_PAGE + ("state" to "open"))
+            .toResult { body<List<MilestoneJson>>().map { it.toModel() } }
+    }
+
+    /** No milestone is said with 0. */
+    override suspend fun setMilestone(token: String, ref: IssueRef, milestone: Milestone?): ForgeResult<Unit> =
+        edit(token, ref) { put("milestone", milestone?.id ?: 0) }
+
+    override suspend fun isPinned(token: String, ref: IssueRef): ForgeResult<Boolean> = forgejoCall {
+        get(token, ref, "issues", ref.number.toString()).toResult { body<PinnedJson>().pinOrder > 0 }
+    }
+
+    override suspend fun setPinned(token: String, ref: IssueRef, pinned: Boolean): ForgeResult<Unit> = forgejoCall {
+        httpClient.forgejoApi(
+            forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "pin",
+            method = if (pinned) HttpMethod.Post else HttpMethod.Delete,
+        ).toResult { }
+    }
+
+    override suspend fun delete(token: String, ref: IssueRef): ForgeResult<Unit> = forgejoCall {
+        httpClient.forgejoApi(forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), method = HttpMethod.Delete).toResult { }
     }
 
     /** Forgejo has no triage role: whoever can push manages the conversations too. */
@@ -212,6 +283,8 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     private companion object {
         const val PAGE_SIZE = 50
 
+        val FIRST_PAGE = mapOf("limit" to "$PAGE_SIZE")
+
         fun reaction(content: String): Reaction? = when (content) {
             "+1" -> Reaction.THUMBS_UP
             "-1" -> Reaction.THUMBS_DOWN
@@ -225,6 +298,9 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         }
     }
 }
+
+@Serializable
+private data class PinnedJson(@SerialName("pin_order") val pinOrder: Int = 0)
 
 @Serializable
 private data class PermissionsJson(val admin: Boolean = false, val push: Boolean = false)

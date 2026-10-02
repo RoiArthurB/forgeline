@@ -5,7 +5,10 @@ import io.ktor.http.HttpMethod
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.CloseReason
+import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
+import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
@@ -340,5 +343,156 @@ class GitHubIssueApiTest {
         ).inOrder()
         assertThat(events.map { it.subject }).containsExactly("octocat", "octocat", "2026.10", "2026.10", null, null, null, null).inOrder()
         assertThat(events.map { it.actor?.login }.distinct()).containsExactly("maintainer")
+    }
+
+    private val bodies get() = requests.map { (it.body as? TextContent)?.text }
+
+    @Test
+    fun github_can_do_everything_to_a_conversation() {
+        assertThat(api { json("{}") }.actions).containsExactlyElementsIn(ConversationAction.entries)
+    }
+
+    @Test
+    fun closing_can_say_why_and_reopening_never_does() = runTest {
+        val changing = api { json(opened) }
+
+        changing.setOpen("tok", issue, open = false, reason = CloseReason.NOT_PLANNED)
+        changing.setOpen("tok", issue, open = false, reason = CloseReason.DUPLICATE)
+        changing.setOpen("tok", issue, open = true, reason = CloseReason.COMPLETED)
+
+        assertThat(bodies).containsExactly(
+            """{"state":"closed","state_reason":"not_planned"}""", """{"state":"closed","state_reason":"duplicate"}""", """{"state":"open"}""",
+        ).inOrder()
+    }
+
+    @Test
+    fun the_repository_s_labels_assignable_people_and_open_milestones_are_listed() = runTest {
+        val listing = api { request ->
+            when (request.url.encodedPath.substringAfterLast('/')) {
+                "labels" -> json("""[{"name":"bug","color":"d73a4a"},{"name":"question","color":"d876e3"}]""")
+                "assignees" -> json("""[{"login":"octocat","avatar_url":"https://avatars.githubusercontent.com/u/583231?v=4"}]""")
+                else -> json("""[{"number":4,"title":"2026.10","state":"open"}]""")
+            }
+        }
+
+        assertThat(listing.labels("tok", repo).value()).containsExactly(Label("bug", "d73a4a"), Label("question", "d876e3")).inOrder()
+        assertThat(listing.assignable("tok", repo).value().map { it.login }).containsExactly("octocat")
+        assertThat(listing.milestones("tok", repo).value()).containsExactly(Milestone(4, "2026.10"))
+
+        assertThat(requests.map { it.url.encodedPath }).containsExactly(
+            "/repos/paperclipai/paperclip/labels", "/repos/paperclipai/paperclip/assignees", "/repos/paperclipai/paperclip/milestones",
+        ).inOrder()
+        assertThat(requests.map { it.url.parameters["per_page"] }.distinct()).containsExactly("100")
+        assertThat(requests.last().url.parameters["state"]).isEqualTo("open")
+        assertThat(requests.map { it.headers[HttpHeaders.Authorization] }.distinct()).containsExactly("Bearer tok")
+    }
+
+    @Test
+    fun labels_assignees_and_milestone_are_set_whole() = runTest {
+        val changing = api { json(opened) }
+
+        assertThat(changing.setLabels("tok", issue, listOf("bug", "question"))).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(changing.setAssignees("tok", issue, listOf("octocat"))).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(changing.setMilestone("tok", issue, Milestone(4, "2026.10"))).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(changing.setMilestone("tok", issue, null)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly(
+            "PUT /repos/paperclipai/paperclip/issues/5462/labels",
+            "PATCH /repos/paperclipai/paperclip/issues/5462",
+            "PATCH /repos/paperclipai/paperclip/issues/5462",
+            "PATCH /repos/paperclipai/paperclip/issues/5462",
+        ).inOrder()
+        assertThat(bodies).containsExactly(
+            """{"labels":["bug","question"]}""", """{"assignees":["octocat"]}""", """{"milestone":4}""", """{"milestone":null}""",
+        ).inOrder()
+    }
+
+    @Test
+    fun a_conversation_is_locked_and_unlocked() = runTest {
+        val changing = api { respond("", HttpStatusCode.NoContent) }
+
+        assertThat(changing.setLocked("tok", issue, locked = true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(changing.setLocked("tok", issue, locked = false)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly(
+            "PUT /repos/paperclipai/paperclip/issues/5462/lock", "DELETE /repos/paperclipai/paperclip/issues/5462/lock",
+        ).inOrder()
+    }
+
+    // The answers below follow GitHub's GraphQL schema: pinning, transferring and deleting can't be captured from a
+    // real account in tests.
+    private fun graphQl(answer: (body: String) -> String) = api { request ->
+        check(request.url.encodedPath == "/graphql" && request.method == HttpMethod.Post) { request.url }
+        json(answer((request.body as TextContent).text))
+    }
+
+    private val node = """{"data":{"repository":{"issue":{"id":"I_abc","isPinned":true}}}}"""
+
+    @Test
+    fun whether_an_issue_is_pinned_is_asked_by_its_number() = runTest {
+        assertThat(graphQl { node }.isPinned("tok", issue).value()).isTrue()
+
+        assertThat(bodies.single()).contains(""""variables":{"owner":"paperclipai","name":"paperclip","number":5462}""")
+        assertThat(requests.single().headers[HttpHeaders.Authorization]).isEqualTo("Bearer tok")
+    }
+
+    @Test
+    fun pinning_unpinning_and_deleting_name_the_issue_by_its_node() = runTest {
+        val acting = graphQl { body -> if ("mutation" in body) """{"data":{"done":{"clientMutationId":null}}}""" else node }
+
+        assertThat(acting.setPinned("tok", issue, pinned = true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(acting.setPinned("tok", issue, pinned = false)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(acting.delete("tok", issue)).isEqualTo(ForgeResult.Success(Unit))
+
+        val mutations = bodies.filterNotNull().filter { "mutation" in it }
+        assertThat(mutations).hasSize(3)
+        assertThat(mutations[0]).contains("pinIssue(input: {issueId: \$id})")
+        assertThat(mutations[1]).contains("unpinIssue(input: {issueId: \$id})")
+        assertThat(mutations[2]).contains("deleteIssue(input: {issueId: \$id})")
+        mutations.forEach { assertThat(it).contains(""""variables":{"id":"I_abc"}""") }
+    }
+
+    @Test
+    fun a_transferred_issue_says_where_it_went() = runTest {
+        val acting = graphQl { body ->
+            if ("transferIssue" in body) {
+                """{"data":{"transferIssue":{"issue":{"number":12,"repository":{"name":"docs","owner":{"login":"paperclipai"}}}}}}"""
+            } else {
+                """{"data":{"from":{"issue":{"id":"I_abc"}},"to":{"id":"R_xyz"}}}"""
+            }
+        }
+
+        val moved = acting.transfer("tok", issue, RepoId("paperclipai", "docs")).value()
+
+        assertThat(moved).isEqualTo(IssueRef(RepoId("paperclipai", "docs"), 12))
+        assertThat(bodies[0]).contains(""""variables":{"owner":"paperclipai","name":"paperclip","number":5462,"toOwner":"paperclipai","toName":"docs"}""")
+        assertThat(bodies[1]).contains(""""variables":{"issue":"I_abc","repository":"R_xyz"}""")
+    }
+
+    @Test
+    fun transferring_to_a_repository_github_doesn_t_know_is_not_found_and_changes_nothing() = runTest {
+        val acting = graphQl { """{"data":{"from":{"issue":{"id":"I_abc"}},"to":null},"errors":[{"type":"NOT_FOUND","message":"Could not resolve to a Repository with the name 'paperclipai/nope'."}]}""" }
+
+        val result = acting.transfer("tok", issue, RepoId("paperclipai", "nope"))
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "Could not resolve to a Repository with the name 'paperclipai/nope'.")))
+        assertThat(requests).hasSize(1)
+    }
+
+    @Test
+    fun what_graphql_refuses_is_a_failure_though_it_answers_200() = runTest {
+        val acting = graphQl { body ->
+            if ("mutation" in body) """{"data":{"deleteIssue":null},"errors":[{"type":"FORBIDDEN","message":"octocat does not have the correct permissions to execute `DeleteIssue`"}]}""" else node
+        }
+
+        assertThat(acting.delete("tok", issue))
+            .isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "octocat does not have the correct permissions to execute `DeleteIssue`")))
+    }
+
+    @Test
+    fun a_pull_request_has_no_issue_node_to_pin() = runTest {
+        val acting = graphQl { """{"data":{"repository":{"issue":null}},"errors":[{"type":"NOT_FOUND","message":"Could not resolve to an Issue with the number of 14187."}]}""" }
+
+        assertThat(acting.setPinned("tok", pr, pinned = true)).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "Could not resolve to an Issue with the number of 14187.")))
     }
 }

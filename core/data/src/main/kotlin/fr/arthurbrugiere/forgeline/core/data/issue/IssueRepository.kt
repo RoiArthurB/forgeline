@@ -11,7 +11,13 @@ import java.util.concurrent.ConcurrentHashMap
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.IssueApi
+import fr.arthurbrugiere.forgeline.core.model.CloseReason
+import fr.arthurbrugiere.forgeline.core.model.ConversationAction
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
+import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -73,7 +79,37 @@ interface IssueRepository {
      * Closes [ref], or reopens it, as the account signed in on its forge; Unauthorized without one. The conversation
      * kept changes state, and the change is announced on [changed].
      */
-    suspend fun setOpen(ref: IssueRef, open: Boolean): ForgeResult<Unit>
+    suspend fun setOpen(ref: IssueRef, open: Boolean, reason: CloseReason? = null): ForgeResult<Unit>
+
+    /** What [forge]'s API can do to a conversation beyond commenting on it and closing it. */
+    fun actions(forge: ForgeInstance): Set<ConversationAction>
+
+    // What follows acts as the account signed in on the conversation's forge, and answers Unauthorized without one.
+    // Each change is announced on [changed]; the conversation kept is brought up to date by loading it again.
+
+    suspend fun labels(repo: RepoId): ForgeResult<List<Label>>
+
+    suspend fun setLabels(ref: IssueRef, names: List<String>): ForgeResult<Unit>
+
+    suspend fun assignable(repo: RepoId): ForgeResult<List<ForgeUser>>
+
+    suspend fun setAssignees(ref: IssueRef, logins: List<String>): ForgeResult<Unit>
+
+    suspend fun milestones(repo: RepoId): ForgeResult<List<Milestone>>
+
+    suspend fun setMilestone(ref: IssueRef, milestone: Milestone?): ForgeResult<Unit>
+
+    suspend fun setLocked(ref: IssueRef, locked: Boolean): ForgeResult<Unit>
+
+    suspend fun isPinned(ref: IssueRef): ForgeResult<Boolean>
+
+    suspend fun setPinned(ref: IssueRef, pinned: Boolean): ForgeResult<Unit>
+
+    /** Moves the issue to [to] and answers where it now is; the conversation kept under its old place is dropped. */
+    suspend fun transfer(ref: IssueRef, to: RepoId): ForgeResult<IssueRef>
+
+    /** Deletes the issue for good, on the forge and from what is kept here. */
+    suspend fun delete(ref: IssueRef): ForgeResult<Unit>
 
     /**
      * Every conversation opened, closed or reopened from this app, as it happens: a list of a repository's open
@@ -178,9 +214,9 @@ class DefaultIssueRepository @Inject constructor(
         return access(ref.repo) >= RepoAccess.TRIAGE
     }
 
-    override suspend fun setOpen(ref: IssueRef, open: Boolean): ForgeResult<Unit> {
+    override suspend fun setOpen(ref: IssueRef, open: Boolean, reason: CloseReason?): ForgeResult<Unit> {
         val token = accounts.tokenOn(ref.repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
-        return clients.issues(ref.repo.forge).setOpen(token, ref, open).also { result ->
+        return clients.issues(ref.repo.forge).setOpen(token, ref, open, reason).also { result ->
             if (result is ForgeResult.Success) {
                 // Nothing kept, nothing to change: an empty entry would read as a conversation the forge couldn't serve.
                 if (cached(ref)?.issue != null) {
@@ -207,6 +243,58 @@ class DefaultIssueRepository @Inject constructor(
                 changes.tryEmit(result.value.ref)
             }
         }
+    }
+
+    override fun actions(forge: ForgeInstance): Set<ConversationAction> = clients.issues(forge).actions
+
+    private suspend fun <T> signedIn(forge: ForgeInstance, call: suspend IssueApi.(token: String) -> ForgeResult<T>): ForgeResult<T> {
+        val token = accounts.tokenOn(forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return clients.issues(forge).call(token)
+    }
+
+    private suspend fun <T> changing(ref: IssueRef, call: suspend IssueApi.(token: String) -> ForgeResult<T>): ForgeResult<T> =
+        signedIn(ref.repo.forge, call).also { if (it is ForgeResult.Success) changes.tryEmit(ref) }
+
+    override suspend fun labels(repo: RepoId) = signedIn(repo.forge) { labels(it, repo) }
+
+    override suspend fun setLabels(ref: IssueRef, names: List<String>) = changing(ref) { setLabels(it, ref, names) }
+
+    override suspend fun assignable(repo: RepoId) = signedIn(repo.forge) { assignable(it, repo) }
+
+    override suspend fun setAssignees(ref: IssueRef, logins: List<String>) = changing(ref) { setAssignees(it, ref, logins) }
+
+    override suspend fun milestones(repo: RepoId) = signedIn(repo.forge) { milestones(it, repo) }
+
+    override suspend fun setMilestone(ref: IssueRef, milestone: Milestone?) = changing(ref) { setMilestone(it, ref, milestone) }
+
+    override suspend fun setLocked(ref: IssueRef, locked: Boolean) = changing(ref) { setLocked(it, ref, locked) }
+
+    override suspend fun isPinned(ref: IssueRef) = signedIn(ref.repo.forge) { isPinned(it, ref) }
+
+    override suspend fun setPinned(ref: IssueRef, pinned: Boolean) = changing(ref) { setPinned(it, ref, pinned) }
+
+    override suspend fun transfer(ref: IssueRef, to: RepoId): ForgeResult<IssueRef> {
+        // Dropped before it is announced: whoever hears of the change must not find the old place still kept.
+        val result = signedIn(ref.repo.forge) { transfer(it, ref, to) }
+        if (result is ForgeResult.Success) {
+            drop(ref)
+            changes.tryEmit(ref)
+        }
+        return result
+    }
+
+    override suspend fun delete(ref: IssueRef): ForgeResult<Unit> {
+        val result = signedIn(ref.repo.forge) { delete(it, ref) }
+        if (result is ForgeResult.Success) {
+            drop(ref)
+            changes.tryEmit(ref)
+        }
+        return result
+    }
+
+    private suspend fun drop(ref: IssueRef) {
+        synchronized(cache) { cache.remove(ref) }
+        dao.delete(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number)
     }
 
     override suspend fun forget(forge: ForgeInstance) {

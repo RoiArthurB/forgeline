@@ -5,7 +5,11 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
+import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.ConversationAction
+import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
@@ -83,14 +87,94 @@ class FakeIssueApi : IssueApi {
     /** What closing or reopening fails with, apart from [failure], which is for reading. */
     var stateFailure: ForgeError? = null
 
-    override suspend fun setOpen(token: String, ref: IssueRef, open: Boolean): ForgeResult<Unit> {
+    override suspend fun setOpen(token: String, ref: IssueRef, open: Boolean, reason: CloseReason?): ForgeResult<Unit> {
         calls += "setOpen:${ref.repo.fullName}#${ref.number}"
         gate?.await()
         tokens += token
         stateFailure?.let { return ForgeResult.Failure(it) }
-        stateChanges += "${ref.repo.fullName}#${ref.number}: ${if (open) "open" else "closed"}"
-        issues[ref]?.let { issues[ref] = it.copy(state = if (open) IssueState.OPEN else IssueState.CLOSED) }
+        stateChanges += "${ref.repo.fullName}#${ref.number}: ${if (open) "open" else "closed"}" + reason?.let { " as ${it.name.lowercase()}" }.orEmpty()
+        issues[ref]?.let { issues[ref] = it.copy(state = if (open) IssueState.OPEN else IssueState.CLOSED, stateReason = reason?.name?.lowercase()) }
         return ForgeResult.Success(Unit)
+    }
+
+    /** What this forge can do; everything unless a test says otherwise. */
+    override var actions: Set<ConversationAction> = ConversationAction.entries.toSet()
+
+    var repoLabels = listOf(Label("bug", "d73a4a"), Label("enhancement", "a2eeef"), Label("question", "d876e3"))
+    var assignableUsers = listOf(ForgeUser("octocat", null, null), ForgeUser("hubot", null, null))
+    var repoMilestones = listOf(Milestone(4, "2026.10"), Milestone(5, "2026.11"))
+    val pinned = mutableSetOf<IssueRef>()
+
+    /** Where a transferred issue lands: the same number, unless said otherwise. */
+    var transferredNumber: Int? = null
+
+    /** Everything done through the calls below, as "labels octo/repo#7: bug, question". */
+    val managed = mutableListOf<String>()
+
+    /** What the calls below fail with, apart from [failure], which is for reading. */
+    var manageFailure: ForgeError? = null
+
+    private suspend fun <T> manage(token: String, what: String, change: () -> T): ForgeResult<T> {
+        calls += "manage:$what"
+        gate?.await()
+        tokens += token
+        manageFailure?.let { return ForgeResult.Failure(it) }
+        managed += what
+        return ForgeResult.Success(change())
+    }
+
+    private fun <T> read(token: String, what: String, value: T): ForgeResult<T> {
+        calls += what
+        tokens += token
+        manageFailure?.let { return ForgeResult.Failure(it) }
+        return ForgeResult.Success(value)
+    }
+
+    private val IssueRef.label get() = "${repo.fullName}#$number"
+
+    override suspend fun labels(token: String, repo: RepoId) = read(token, "labels:${repo.fullName}", repoLabels)
+
+    override suspend fun setLabels(token: String, ref: IssueRef, names: List<String>) = manage(token, "labels ${ref.label}: ${names.joinToString()}") {
+        issues[ref]?.let { issue -> issues[ref] = issue.copy(labels = names.map { name -> repoLabels.firstOrNull { it.name == name } ?: Label(name, null) }) }
+        Unit
+    }
+
+    override suspend fun assignable(token: String, repo: RepoId) = read(token, "assignable:${repo.fullName}", assignableUsers)
+
+    override suspend fun setAssignees(token: String, ref: IssueRef, logins: List<String>) = manage(token, "assignees ${ref.label}: ${logins.joinToString()}") {
+        issues[ref]?.let { issues[ref] = it.copy(assignees = logins.map { login -> ForgeUser(login, null, null) }) }
+        Unit
+    }
+
+    override suspend fun milestones(token: String, repo: RepoId) = read(token, "milestones:${repo.fullName}", repoMilestones)
+
+    override suspend fun setMilestone(token: String, ref: IssueRef, milestone: Milestone?) = manage(token, "milestone ${ref.label}: ${milestone?.title}") {
+        issues[ref]?.let { issues[ref] = it.copy(milestone = milestone) }
+        Unit
+    }
+
+    override suspend fun setLocked(token: String, ref: IssueRef, locked: Boolean) = manage(token, "${if (locked) "lock" else "unlock"} ${ref.label}") {
+        issues[ref]?.let { issues[ref] = it.copy(isLocked = locked) }
+        Unit
+    }
+
+    override suspend fun isPinned(token: String, ref: IssueRef) = read(token, "isPinned:${ref.label}", ref in pinned)
+
+    override suspend fun setPinned(token: String, ref: IssueRef, pinned: Boolean) = manage(token, "${if (pinned) "pin" else "unpin"} ${ref.label}") {
+        if (pinned) this.pinned += ref else this.pinned -= ref
+        Unit
+    }
+
+    override suspend fun transfer(token: String, ref: IssueRef, to: RepoId) = manage(token, "transfer ${ref.label} to ${to.fullName}") {
+        val moved = IssueRef(to, transferredNumber ?: ref.number)
+        issues.remove(ref)?.let { issues[moved] = it.copy(ref = moved) }
+        pages.remove(ref to 1)?.let { pages[moved to 1] = it }
+        moved
+    }
+
+    override suspend fun delete(token: String, ref: IssueRef) = manage(token, "delete ${ref.label}") {
+        issues.remove(ref)
+        Unit
     }
 
     /** What the signed-in user may do in each repository; nothing where not said. */

@@ -13,7 +13,10 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.CloseReason
+import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
+import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
@@ -369,5 +372,120 @@ class ForgejoIssueApiTest {
         ).inOrder()
         assertThat(events.map { it.subject }).containsExactly(null, null, null, null, "me", "me", "16.0", "16.0").inOrder()
         assertThat(events.map { it.actor?.login }.distinct()).containsExactly("maintainer")
+    }
+
+    private fun answering(route: suspend io.ktor.client.engine.mock.MockRequestHandleScope.(io.ktor.client.request.HttpRequestData) -> io.ktor.client.request.HttpResponseData) =
+        with(codeberg) { ForgejoIssueApi(client { route(it) }, ForgeInstance.Codeberg) }
+
+    private val sent get() = codeberg.requests.map { "${it.method.value} ${it.url.encodedPath}" }
+    private val bodies get() = codeberg.requests.map { (it.body as? TextContent)?.text }
+    private val seven = IssueRef(pull.repo, 7)
+
+    @Test
+    fun forgejo_neither_locks_a_conversation_nor_moves_an_issue() = runTest {
+        val api = answering { with(codeberg) { json("{}") } }
+
+        assertThat(api.actions).containsExactly(
+            ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.PIN, ConversationAction.DELETE,
+        )
+        assertThat(api.setLocked("tok", seven, locked = true)).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+        assertThat(api.transfer("tok", seven, RepoId("forgejo", "docs", ForgeInstance.Codeberg))).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+        assertThat(codeberg.requests).isEmpty()
+    }
+
+    @Test
+    fun closing_keeps_no_reason() = runTest {
+        answering { with(codeberg) { json(opened, HttpStatusCode.Created) } }.setOpen("tok", seven, open = false, reason = CloseReason.NOT_PLANNED)
+
+        assertThat(bodies.single()).isEqualTo("""{"state":"closed"}""")
+    }
+
+    @Test
+    fun a_repository_s_labels_are_its_own_then_its_organisation_s() = runTest {
+        val api = answering {
+            with(codeberg) {
+                if (it.url.encodedPath.startsWith("/api/v1/orgs/")) json("""[{"id":3,"name":"Kind/Bug","color":"ee0701"},{"id":4,"name":"bug","color":"000000"}]""")
+                else json("""[{"id":1,"name":"bug","color":"#d73a4a"},{"id":2,"name":"question","color":"d876e3"}]""")
+            }
+        }
+
+        // A name both have is the repository's.
+        assertThat(api.labels("tok", pull.repo).value())
+            .containsExactly(Label("bug", "d73a4a"), Label("question", "d876e3"), Label("Kind/Bug", "ee0701")).inOrder()
+        assertThat(sent).containsExactly("GET /api/v1/repos/forgejo/forgejo/labels", "GET /api/v1/orgs/forgejo/labels")
+    }
+
+    @Test
+    fun an_owner_without_organisation_labels_still_lists_the_repository_s() = runTest {
+        val api = answering {
+            with(codeberg) {
+                if (it.url.encodedPath.startsWith("/api/v1/orgs/")) json("""{"message":"not found"}""", HttpStatusCode.NotFound)
+                else json("""[{"id":1,"name":"bug","color":"d73a4a"}]""")
+            }
+        }
+
+        assertThat(api.labels("tok", pull.repo).value()).containsExactly(Label("bug", "d73a4a"))
+    }
+
+    @Test
+    fun assignable_people_and_open_milestones_are_listed() = runTest {
+        val api = answering {
+            with(codeberg) {
+                if (it.url.encodedPath.endsWith("/assignees")) json("""[{"login":"me","full_name":"","avatar_url":"https://codeberg.org/avatars/abc"}]""")
+                else json("""[{"id":9000,"title":"16.0","state":"open"}]""")
+            }
+        }
+
+        assertThat(api.assignable("tok", pull.repo).value().map { it.login }).containsExactly("me")
+        assertThat(api.milestones("tok", pull.repo).value()).containsExactly(Milestone(9000, "16.0"))
+        assertThat(sent).containsExactly("GET /api/v1/repos/forgejo/forgejo/assignees", "GET /api/v1/repos/forgejo/forgejo/milestones").inOrder()
+        assertThat(codeberg.requests.last().url.parameters["state"]).isEqualTo("open")
+    }
+
+    @Test
+    fun labels_assignees_and_milestone_are_set_whole() = runTest {
+        val api = answering { with(codeberg) { json(opened, HttpStatusCode.Created) } }
+
+        assertThat(api.setLabels("tok", seven, listOf("bug", "Kind/Bug"))).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.setAssignees("tok", seven, listOf("me"))).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.setMilestone("tok", seven, Milestone(9000, "16.0"))).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.setMilestone("tok", seven, null)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(sent).containsExactly(
+            "PUT /api/v1/repos/forgejo/forgejo/issues/7/labels",
+            "PATCH /api/v1/repos/forgejo/forgejo/issues/7",
+            "PATCH /api/v1/repos/forgejo/forgejo/issues/7",
+            "PATCH /api/v1/repos/forgejo/forgejo/issues/7",
+        ).inOrder()
+        // Labels go by name, and no milestone is said with 0.
+        assertThat(bodies).containsExactly(
+            """{"labels":["bug","Kind/Bug"]}""", """{"assignees":["me"]}""", """{"milestone":9000}""", """{"milestone":0}""",
+        ).inOrder()
+    }
+
+    @Test
+    fun an_issue_is_pinned_unpinned_and_deleted() = runTest {
+        val api = answering {
+            with(codeberg) { if (it.method == HttpMethod.Get) json("""{"number":7,"title":"Crash","state":"open","created_at":"2026-10-02T04:20:00+02:00","pin_order":2}""") else json("", HttpStatusCode.NoContent) }
+        }
+
+        assertThat(api.isPinned("tok", seven).value()).isTrue()
+        assertThat(api.setPinned("tok", seven, pinned = true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.setPinned("tok", seven, pinned = false)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.delete("tok", seven)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(sent).containsExactly(
+            "GET /api/v1/repos/forgejo/forgejo/issues/7",
+            "POST /api/v1/repos/forgejo/forgejo/issues/7/pin",
+            "DELETE /api/v1/repos/forgejo/forgejo/issues/7/pin",
+            "DELETE /api/v1/repos/forgejo/forgejo/issues/7",
+        ).inOrder()
+    }
+
+    @Test
+    fun an_issue_that_isn_t_pinned_says_so() = runTest {
+        val api = answering { with(codeberg) { json("""{"number":7,"title":"Crash","state":"open","created_at":"2026-10-02T04:20:00+02:00","pin_order":0}""") } }
+
+        assertThat(api.isPinned("tok", seven).value()).isFalse()
     }
 }

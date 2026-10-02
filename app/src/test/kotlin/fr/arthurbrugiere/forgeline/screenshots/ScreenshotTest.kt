@@ -4,6 +4,8 @@ import fr.arthurbrugiere.forgeline.settings.SettingsSection
 import fr.arthurbrugiere.forgeline.core.testing.repoSummary
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import fr.arthurbrugiere.forgeline.navigation.rememberAppNavigator
@@ -82,6 +84,10 @@ import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import fr.arthurbrugiere.forgeline.core.testing.notificationThread
 import fr.arthurbrugiere.forgeline.issue.IssueScreen
+import fr.arthurbrugiere.forgeline.issue.IssueManageContent
+import fr.arthurbrugiere.forgeline.issue.ManageActions
+import fr.arthurbrugiere.forgeline.issue.ManagePage
+import fr.arthurbrugiere.forgeline.issue.ManageUiState
 import fr.arthurbrugiere.forgeline.issue.NewIssueScreen
 import fr.arthurbrugiere.forgeline.issue.NewIssueUiState
 import fr.arthurbrugiere.forgeline.issue.MARKDOWN_PENDING_TAG
@@ -651,6 +657,48 @@ class ScreenshotTest {
             )
         })
     }
+
+    @Composable
+    private fun ManageSheetPreview(page: ManagePage, change: (IssueUiState) -> IssueUiState = { it }) {
+        val ref = IssueRef(RepoId("paperclipai", "paperclip"), 14127)
+        val labels = listOf(Label("bug", "d73a4a"), Label("enhancement", "a2eeef"), Label("needs triage", "fbca04"), Label("question", "d876e3"))
+        val people = listOf(ForgeUser("cryppadotta", null, null), ForgeUser("devinfoley", null, null))
+        val milestone = fr.arthurbrugiere.forgeline.core.model.Milestone(4, "2026.10")
+        val state = IssueUiState(
+            ref,
+            issueDetails(ref, "Heartbeat recovery escalates too early").copy(labels = labels.take(1), assignees = people.take(1), milestone = milestone),
+            access = fr.arthurbrugiere.forgeline.core.model.RepoAccess.ADMIN, canChangeState = true,
+            supported = fr.arthurbrugiere.forgeline.core.model.ConversationAction.entries.toSet(),
+            manage = ManageUiState(Loadable.Loaded(labels), Loadable.Loaded(people), Loadable.Loaded(listOf(milestone)), pinned = false),
+        )
+        // The sheet's own ground, without the sheet: its content is what is drawn here.
+        androidx.compose.foundation.layout.Box(
+            androidx.compose.ui.Modifier.fillMaxSize().background(fr.arthurbrugiere.forgeline.core.ui.soft.Soft.colors.ground).padding(top = androidx.compose.ui.unit.Dp(24f)),
+        ) {
+            IssueManageContent(change(state), ManageActions(), onDismiss = {}, startPage = page)
+        }
+    }
+
+    @Test
+    fun issue_manage_menu_light() = snapshot("issue_manage_menu_light", darkTheme = false) { ManageSheetPreview(ManagePage.MENU) }
+
+    @Test
+    fun issue_manage_menu_dark() = snapshot("issue_manage_menu_dark", darkTheme = true) { ManageSheetPreview(ManagePage.MENU) }
+
+    @Test
+    fun issue_manage_labels_dark() = snapshot("issue_manage_labels_dark", darkTheme = true) { ManageSheetPreview(ManagePage.LABELS) }
+
+    @Test
+    fun issue_manage_assignees_light() = snapshot("issue_manage_assignees_light", darkTheme = false) { ManageSheetPreview(ManagePage.ASSIGNEES) }
+
+    @Test
+    fun issue_manage_delete_refused_light() = snapshot("issue_manage_delete_refused_light", darkTheme = false) {
+        ManageSheetPreview(ManagePage.DELETE) { it.copy(manage = it.manage.copy(error = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http(403, "no"))) }
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun issue_manage_menu_font_2_0_light() = snapshot("issue_manage_menu_font_2_0_light", darkTheme = false) { ManageSheetPreview(ManagePage.MENU) }
 
     @Test
     fun issue_comment_signed_out_light() = snapshot("issue_comment_signed_out_light", darkTheme = false, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG) {

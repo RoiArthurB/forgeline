@@ -44,6 +44,12 @@ data class IssueDetails(
  */
 enum class RepoAccess { NONE, TRIAGE, WRITE, ADMIN }
 
+/** What can be done to a conversation beyond commenting on it and closing it; a forge's API offers some of them. */
+enum class ConversationAction { LABELS, ASSIGNEES, MILESTONE, CLOSE_REASON, LOCK, PIN, TRANSFER, DELETE }
+
+/** Why an issue is closed, where the forge keeps that. */
+enum class CloseReason { COMPLETED, NOT_PLANNED, DUPLICATE }
+
 /** [id] is what the forge takes to set it on an issue: its number on GitHub, its id on Forgejo. */
 data class Milestone(val id: Long, val title: String)
 

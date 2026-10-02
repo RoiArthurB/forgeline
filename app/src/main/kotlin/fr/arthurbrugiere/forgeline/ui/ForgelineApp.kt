@@ -121,6 +121,8 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
             IssueDestination(
                 key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.issue.repo.forge, it) },
                 session = session, onSignIn = signIn,
+                onNewIssue = { id -> navigator.navigate(id.newIssueRoute()) },
+                onMoved = { navigator.replaceCurrent(it.route()) },
             )
         }
         entry<NewIssueKey> { key ->

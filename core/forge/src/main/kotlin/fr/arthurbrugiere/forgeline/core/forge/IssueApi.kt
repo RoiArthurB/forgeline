@@ -1,6 +1,11 @@
 package fr.arthurbrugiere.forgeline.core.forge
 
+import fr.arthurbrugiere.forgeline.core.model.CloseReason
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
+import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -28,12 +33,52 @@ interface IssueApi {
     /** Opens an issue in [repo], [body] being Markdown and possibly empty, and answers it as the forge kept it. */
     suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails>
 
-    /** Closes the issue or pull request [ref], or reopens it. A merged pull request can't be reopened. */
-    suspend fun setOpen(token: String, ref: IssueRef, open: Boolean): ForgeResult<Unit>
+    /**
+     * Closes the issue or pull request [ref], or reopens it. A merged pull request can't be reopened. [reason] says
+     * why it is closed, on forges that keep that ([ConversationAction.CLOSE_REASON]).
+     */
+    suspend fun setOpen(token: String, ref: IssueRef, open: Boolean, reason: CloseReason? = null): ForgeResult<Unit>
 
     /** What the signed-in user may do in [repo] beyond reading it. */
     suspend fun access(token: String, repo: RepoId): ForgeResult<RepoAccess>
+
+    /** What this forge's API can do to a conversation; the calls below answer Unsupported for the rest. */
+    val actions: Set<ConversationAction> get() = emptySet()
+
+    /** The labels [repo]'s conversations can wear. */
+    suspend fun labels(token: String, repo: RepoId): ForgeResult<List<Label>> = unsupported
+
+    /** Makes [names] the labels of [ref], taking away any other. */
+    suspend fun setLabels(token: String, ref: IssueRef, names: List<String>): ForgeResult<Unit> = unsupported
+
+    /** Who a conversation of [repo] can be assigned to. */
+    suspend fun assignable(token: String, repo: RepoId): ForgeResult<List<ForgeUser>> = unsupported
+
+    /** Makes [logins] the assignees of [ref], taking away anyone else. */
+    suspend fun setAssignees(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> = unsupported
+
+    /** The open milestones of [repo]. */
+    suspend fun milestones(token: String, repo: RepoId): ForgeResult<List<Milestone>> = unsupported
+
+    /** Files [ref] under [milestone], or under none. */
+    suspend fun setMilestone(token: String, ref: IssueRef, milestone: Milestone?): ForgeResult<Unit> = unsupported
+
+    /** A locked conversation only takes comments from the repository's collaborators. */
+    suspend fun setLocked(token: String, ref: IssueRef, locked: Boolean): ForgeResult<Unit> = unsupported
+
+    suspend fun isPinned(token: String, ref: IssueRef): ForgeResult<Boolean> = unsupported
+
+    /** A pinned issue stays at the top of its repository's issues. */
+    suspend fun setPinned(token: String, ref: IssueRef, pinned: Boolean): ForgeResult<Unit> = unsupported
+
+    /** Moves the issue [ref] to the repository [to], and answers where it now is. */
+    suspend fun transfer(token: String, ref: IssueRef, to: RepoId): ForgeResult<IssueRef> = unsupported
+
+    /** Deletes the issue [ref] and its conversation, for good. */
+    suspend fun delete(token: String, ref: IssueRef): ForgeResult<Unit> = unsupported
 }
+
+private val unsupported = ForgeResult.Failure(ForgeError.Unsupported)
 
 interface UserApi {
     suspend fun user(token: String?, login: String): ForgeResult<UserProfile>

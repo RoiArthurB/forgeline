@@ -10,7 +10,14 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.CloseReason
+import fr.arthurbrugiere.forgeline.core.model.ConversationAction
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
+import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.Milestone
+import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.repo.Loadable
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
@@ -42,6 +49,43 @@ data class IssueUiState(
     val access: RepoAccess = RepoAccess.NONE,
     val isChangingState: Boolean = false,
     val stateError: ForgeError? = null,
+    /** What the forge's API can do to a conversation; [actions] is what the reader may do of it here. */
+    val supported: Set<ConversationAction> = emptySet(),
+    val manage: ManageUiState = ManageUiState(),
+    /** Where the issue went once transferred: this screen gives way to it. */
+    val movedTo: IssueRef? = null,
+    /** The issue was deleted: there is nothing left to show. */
+    val deleted: Boolean = false,
+) {
+    /** What the reader may do to this conversation: the forge can, their role allows it, and it applies. */
+    val actions: Set<ConversationAction>
+        get() {
+            val issue = issue ?: return emptySet()
+            // Pinning, transferring and deleting are for issues; a pull request is closed without a reason.
+            val isIssue = issue.pullRequest == null
+            return supported.filterTo(mutableSetOf()) { action ->
+                when (action) {
+                    ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE -> access >= RepoAccess.TRIAGE
+                    ConversationAction.CLOSE_REASON -> isIssue && issue.state == IssueState.OPEN && canChangeState
+                    ConversationAction.LOCK -> access >= RepoAccess.WRITE
+                    ConversationAction.PIN, ConversationAction.TRANSFER -> isIssue && access >= RepoAccess.WRITE
+                    ConversationAction.DELETE -> isIssue && access == RepoAccess.ADMIN
+                }
+            }
+        }
+}
+
+/** What the sheet that manages a conversation needs: the choices the repository offers, and how the last change went. */
+data class ManageUiState(
+    val labels: Loadable<List<Label>> = Loadable.Idle,
+    val assignable: Loadable<List<ForgeUser>> = Loadable.Idle,
+    val milestones: Loadable<List<Milestone>> = Loadable.Idle,
+    /** Null until the forge has said. */
+    val pinned: Boolean? = null,
+    val isWorking: Boolean = false,
+    val error: ForgeError? = null,
+    /** A change went through: the sheet closes on what it changed. */
+    val done: Boolean = false,
 )
 
 @HiltViewModel(assistedFactory = IssueViewModel.Factory::class)
@@ -49,6 +93,7 @@ class IssueViewModel @AssistedInject constructor(
     @Assisted private val ref: IssueRef,
     private val repository: IssueRepository,
     private val savedState: SavedStateHandle,
+    private val drafts: IssueDrafts,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -92,7 +137,7 @@ class IssueViewModel @AssistedInject constructor(
         viewModelScope.launch {
             val access = repository.access(ref.repo)
             val allowed = repository.canChangeState(ref, issue.author?.login)
-            _state.update { it.copy(canChangeState = allowed, access = access) }
+            _state.update { it.copy(canChangeState = allowed, access = access, supported = repository.actions(ref.repo.forge)) }
         }
     }
 
@@ -183,9 +228,110 @@ class IssueViewModel @AssistedInject constructor(
         }
     }
 
+    /** Closes the issue saying why, where the forge keeps that. */
+    fun close(reason: CloseReason) = manage({ repository.setOpen(ref, open = false, reason) })
+
+    /** The sheet opened: the last change's outcome is forgotten, and whether the issue is pinned is asked once. */
+    fun manageOpened() {
+        _state.update { it.copy(manage = it.manage.copy(error = null, done = false)) }
+        if (ConversationAction.PIN !in _state.value.actions || _state.value.manage.pinned != null) return
+        viewModelScope.launch {
+            val pinned = (repository.isPinned(ref) as? ForgeResult.Success)?.value
+            _state.update { it.copy(manage = it.manage.copy(pinned = pinned)) }
+        }
+    }
+
+    fun manageDoneShown() = _state.update { it.copy(manage = it.manage.copy(done = false)) }
+
+    fun loadLabels() = load({ it.labels }, { repository.labels(ref.repo) }) { manage, value -> manage.copy(labels = value) }
+
+    fun loadAssignable() = load({ it.assignable }, { repository.assignable(ref.repo) }) { manage, value -> manage.copy(assignable = value) }
+
+    fun loadMilestones() = load({ it.milestones }, { repository.milestones(ref.repo) }) { manage, value -> manage.copy(milestones = value) }
+
+    /** Loads one of the repository's lists the first time its page opens, and again after a failure. */
+    private fun <T> load(current: (ManageUiState) -> Loadable<T>, ask: suspend () -> ForgeResult<T>, put: (ManageUiState, Loadable<T>) -> ManageUiState) {
+        val now = current(_state.value.manage)
+        if (now is Loadable.Loaded || now == Loadable.Loading) return
+        _state.update { it.copy(manage = put(it.manage, Loadable.Loading)) }
+        viewModelScope.launch {
+            val loaded = when (val result = ask()) {
+                is ForgeResult.Success -> Loadable.Loaded(result.value)
+                is ForgeResult.Failure -> Loadable.Failed(result.error)
+            }
+            _state.update { it.copy(manage = put(it.manage, loaded)) }
+        }
+    }
+
+    fun setLabels(names: List<String>) = manage({ repository.setLabels(ref, names) })
+
+    fun setAssignees(logins: List<String>) = manage({ repository.setAssignees(ref, logins) })
+
+    fun setMilestone(milestone: Milestone?) = manage({ repository.setMilestone(ref, milestone) })
+
+    fun toggleLocked() {
+        val locked = _state.value.issue?.isLocked ?: return
+        manage({ repository.setLocked(ref, !locked) })
+    }
+
+    fun togglePinned() {
+        val pinned = _state.value.manage.pinned ?: return
+        manage({ repository.setPinned(ref, !pinned) }) { it.copy(manage = it.manage.copy(pinned = !pinned)) }
+    }
+
+    /** Moves the issue to [destination], "owner/name" or a name alone for a repository of the same owner. */
+    fun transfer(destination: String) {
+        val to = transferTarget(ref.repo, destination) ?: return
+        manage({ repository.transfer(ref, to) }, reload = false) { state, moved -> state.copy(movedTo = moved) }
+    }
+
+    fun delete() = manage({ repository.delete(ref) }, reload = false) { it.copy(deleted = true) }
+
+    /** Starts a new issue in the same repository from this one's title and description, to be changed before it is sent. */
+    fun duplicate() {
+        val issue = _state.value.issue ?: return
+        drafts.keep(ref.repo, IssueDraft(issue.title, issue.body.orEmpty()))
+    }
+
+    private fun manage(change: suspend () -> ForgeResult<Unit>, reload: Boolean = true, then: (IssueUiState) -> IssueUiState = { it }) =
+        manage(change, reload) { state, _ -> then(state) }
+
+    /**
+     * One change at a time. Once the forge took it, the sheet closes and the conversation loads again ([reload]) so
+     * the header and the line that tells of the change come from the forge.
+     */
+    private fun <T> manage(change: suspend () -> ForgeResult<T>, reload: Boolean, then: (IssueUiState, T) -> IssueUiState) {
+        if (_state.value.manage.isWorking) return
+        _state.update { it.copy(manage = it.manage.copy(isWorking = true, error = null)) }
+        viewModelScope.launch {
+            when (val result = change()) {
+                is ForgeResult.Failure -> _state.update { it.copy(manage = it.manage.copy(isWorking = false, error = result.error)) }
+                is ForgeResult.Success -> {
+                    _state.update { then(it.copy(manage = it.manage.copy(isWorking = false, done = true)), result.value) }
+                    if (reload) refresh()
+                }
+            }
+        }
+    }
+
     fun commentNoticeShown() = _state.update { it.copy(commentPostedOutOfSight = false) }
 
     private companion object {
         const val DRAFT_KEY = "draft"
     }
+}
+
+/**
+ * The repository [written] names, seen from [from]: "owner/name", or a name alone for one of the same owner. Null
+ * when it names nothing, or [from] itself.
+ */
+fun transferTarget(from: RepoId, written: String): RepoId? {
+    val parts = written.trim().removeSuffix("/").split('/')
+    val target = when {
+        parts.any { it.isBlank() || it.any(Char::isWhitespace) } -> return null
+        parts.size == 1 -> RepoId(from.owner, parts[0], from.forge)
+        parts.size == 2 -> RepoId(parts[0], parts[1], from.forge)
+        else -> return null
+    }
+    return target.takeUnless { it.owner.equals(from.owner, ignoreCase = true) && it.name.equals(from.name, ignoreCase = true) }
 }

@@ -428,4 +428,110 @@ class DefaultIssueRepositoryTest {
         assertThat(relaunched.stored(ref)?.issue).isEqualTo(triaged)
         assertThat(relaunched.stored(ref)?.firstPage?.items).containsExactly(event, assigned).inOrder()
     }
+
+    @Test
+    fun what_can_be_done_to_a_conversation_is_what_its_forge_can() = runTest {
+        api.actions = setOf(fr.arthurbrugiere.forgeline.core.model.ConversationAction.LABELS)
+
+        assertThat(repository.actions(ForgeInstance.GitHub)).containsExactly(fr.arthurbrugiere.forgeline.core.model.ConversationAction.LABELS)
+    }
+
+    @Test
+    fun managing_a_conversation_needs_an_account_on_its_forge() = runTest {
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "codeberg-tok")
+        val unauthorized = ForgeResult.Failure(ForgeError.Unauthorized)
+
+        assertThat(repository.labels(ref.repo)).isEqualTo(unauthorized)
+        assertThat(repository.setLabels(ref, listOf("bug"))).isEqualTo(unauthorized)
+        assertThat(repository.assignable(ref.repo)).isEqualTo(unauthorized)
+        assertThat(repository.setAssignees(ref, listOf("me"))).isEqualTo(unauthorized)
+        assertThat(repository.milestones(ref.repo)).isEqualTo(unauthorized)
+        assertThat(repository.setMilestone(ref, null)).isEqualTo(unauthorized)
+        assertThat(repository.setLocked(ref, true)).isEqualTo(unauthorized)
+        assertThat(repository.isPinned(ref)).isEqualTo(unauthorized)
+        assertThat(repository.setPinned(ref, true)).isEqualTo(unauthorized)
+        assertThat(repository.transfer(ref, RepoId("octo", "other"))).isEqualTo(unauthorized)
+        assertThat(repository.delete(ref)).isEqualTo(unauthorized)
+        assertThat(api.calls).isEmpty()
+    }
+
+    @Test
+    fun every_change_goes_to_the_forge_with_the_account_s_token_and_is_announced() = runTest {
+        signIn()
+        val announced = mutableListOf<IssueRef>()
+        val listening = launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) { repository.changed.collect { announced += it } }
+
+        repository.setLabels(ref, listOf("bug", "question"))
+        repository.setAssignees(ref, listOf("octocat"))
+        repository.setMilestone(ref, fr.arthurbrugiere.forgeline.core.model.Milestone(4, "2026.10"))
+        repository.setLocked(ref, true)
+        repository.setPinned(ref, true)
+        repository.setOpen(ref, open = false, reason = fr.arthurbrugiere.forgeline.core.model.CloseReason.NOT_PLANNED)
+
+        assertThat(api.managed).containsExactly(
+            "labels octo/repo#7: bug, question", "assignees octo/repo#7: octocat", "milestone octo/repo#7: 2026.10", "lock octo/repo#7", "pin octo/repo#7",
+        ).inOrder()
+        assertThat(api.stateChanges).containsExactly("octo/repo#7: closed as not_planned")
+        assertThat(api.tokens.distinct()).containsExactly("tok")
+        assertThat(announced).hasSize(6)
+        listening.cancel()
+    }
+
+    @Test
+    fun the_choices_a_repository_offers_are_read_without_announcing_anything() = runTest {
+        signIn()
+        val announced = mutableListOf<IssueRef>()
+        val listening = launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) { repository.changed.collect { announced += it } }
+        api.pinned += ref
+
+        assertThat((repository.labels(ref.repo) as ForgeResult.Success).value).isEqualTo(api.repoLabels)
+        assertThat((repository.assignable(ref.repo) as ForgeResult.Success).value).isEqualTo(api.assignableUsers)
+        assertThat((repository.milestones(ref.repo) as ForgeResult.Success).value).isEqualTo(api.repoMilestones)
+        assertThat(repository.isPinned(ref)).isEqualTo(ForgeResult.Success(true))
+        assertThat(announced).isEmpty()
+        listening.cancel()
+    }
+
+    @Test
+    fun a_refused_change_is_not_announced() = runTest {
+        signIn()
+        val announced = mutableListOf<IssueRef>()
+        val listening = launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) { repository.changed.collect { announced += it } }
+        api.manageFailure = ForgeError.Http(403, "no")
+
+        assertThat(repository.setLabels(ref, listOf("bug"))).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "no")))
+        assertThat(repository.delete(ref)).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "no")))
+        assertThat(announced).isEmpty()
+        listening.cancel()
+    }
+
+    @Test
+    fun a_transferred_issue_is_no_longer_kept_under_its_old_place() = runTest {
+        signIn()
+        api.issues[ref] = issueDetails(ref)
+        repository.issue(ref)
+        api.transferredNumber = 12
+
+        val moved = (repository.transfer(ref, RepoId("octo", "docs")) as ForgeResult.Success).value
+
+        assertThat(moved).isEqualTo(IssueRef(RepoId("octo", "docs"), 12))
+        assertThat(repository.cached(ref)).isNull()
+        assertThat(DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock).stored(ref)).isNull()
+    }
+
+    @Test
+    fun a_deleted_issue_is_forgotten_here_too_and_a_refused_deletion_keeps_it() = runTest {
+        signIn()
+        api.issues[ref] = issueDetails(ref)
+        repository.issue(ref)
+        api.manageFailure = ForgeError.Http(403, "no")
+        repository.delete(ref)
+        assertThat(repository.cached(ref)).isNotNull()
+
+        api.manageFailure = null
+        assertThat(repository.delete(ref)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(repository.cached(ref)).isNull()
+        assertThat(DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock).stored(ref)).isNull()
+    }
 }

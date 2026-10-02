@@ -1,6 +1,26 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.CloseReason
+import fr.arthurbrugiere.forgeline.core.model.ConversationAction
+import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import io.ktor.http.HttpMethod
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -80,11 +100,177 @@ class GitHubIssueApi(
     }
 
     /** A pull request is an issue to this endpoint: one call closes either. */
-    override suspend fun setOpen(token: String, ref: IssueRef, open: Boolean): ForgeResult<Unit> = gitHubCall {
+    override suspend fun setOpen(token: String, ref: IssueRef, open: Boolean, reason: CloseReason?): ForgeResult<Unit> = edit(token, ref) {
+        put("state", if (open) "open" else "closed")
+        if (!open && reason != null) put("state_reason", reason.name.lowercase())
+    }
+
+    private suspend fun edit(token: String, ref: IssueRef, fields: JsonObjectBuilder.() -> Unit): ForgeResult<Unit> = gitHubCall {
         httpClient.gitHubApi(
             apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(),
-            method = HttpMethod.Patch, body = buildJsonObject { put("state", if (open) "open" else "closed") },
+            method = HttpMethod.Patch, body = buildJsonObject(fields),
         ).toResult { }
+    }
+
+    override val actions: Set<ConversationAction> = ConversationAction.entries.toSet()
+
+    // The lists below stop at their first hundred: a repository with more is rare, and none needs them all to triage.
+
+    override suspend fun labels(token: String, repo: RepoId): ForgeResult<List<Label>> = gitHubCall {
+        httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, "labels", query = FIRST_HUNDRED)
+            .toResult { body<List<LabelJson>>().map { it.toModel() } }
+    }
+
+    override suspend fun setLabels(token: String, ref: IssueRef, names: List<String>): ForgeResult<Unit> = gitHubCall {
+        httpClient.gitHubApi(
+            apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "labels",
+            method = HttpMethod.Put, body = buildJsonObject { putJsonArray("labels") { names.forEach { add(it) } } },
+        ).toResult { }
+    }
+
+    override suspend fun assignable(token: String, repo: RepoId): ForgeResult<List<ForgeUser>> = gitHubCall {
+        httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, "assignees", query = FIRST_HUNDRED)
+            .toResult { body<List<UserJson>>().map { it.toModel() } }
+    }
+
+    override suspend fun setAssignees(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> =
+        edit(token, ref) { putJsonArray("assignees") { logins.forEach { add(it) } } }
+
+    override suspend fun milestones(token: String, repo: RepoId): ForgeResult<List<Milestone>> = gitHubCall {
+        httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, "milestones", query = FIRST_HUNDRED + ("state" to "open"))
+            .toResult { body<List<MilestoneJson>>().map { it.toModel() } }
+    }
+
+    override suspend fun setMilestone(token: String, ref: IssueRef, milestone: Milestone?): ForgeResult<Unit> =
+        edit(token, ref) { put("milestone", milestone?.id) }
+
+    override suspend fun setLocked(token: String, ref: IssueRef, locked: Boolean): ForgeResult<Unit> = gitHubCall {
+        httpClient.gitHubApi(
+            apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "lock",
+            method = if (locked) HttpMethod.Put else HttpMethod.Delete,
+        ).toResult { }
+    }
+
+    // Pinning, transferring and deleting only exist in GitHub's GraphQL API, which names an issue by its node id.
+
+    override suspend fun isPinned(token: String, ref: IssueRef): ForgeResult<Boolean> =
+        node(token, ref).map { it.getValue("isPinned").jsonPrimitive.booleanOrNull == true }
+
+    override suspend fun setPinned(token: String, ref: IssueRef, pinned: Boolean): ForgeResult<Unit> = onNode(token, ref) { id ->
+        val mutation = if (pinned) "pinIssue" else "unpinIssue"
+        graphQl(token, "mutation(\$id: ID!) { $mutation(input: {issueId: \$id}) { clientMutationId } }", buildJsonObject { put("id", id) }).map { }
+    }
+
+    override suspend fun delete(token: String, ref: IssueRef): ForgeResult<Unit> = onNode(token, ref) { id ->
+        graphQl(token, "mutation(\$id: ID!) { deleteIssue(input: {issueId: \$id}) { clientMutationId } }", buildJsonObject { put("id", id) }).map { }
+    }
+
+    override suspend fun transfer(token: String, ref: IssueRef, to: RepoId): ForgeResult<IssueRef> {
+        val found = graphQl(
+            token,
+            "query(\$owner: String!, \$name: String!, \$number: Int!, \$toOwner: String!, \$toName: String!) { " +
+                "from: repository(owner: \$owner, name: \$name) { issue(number: \$number) { id } } " +
+                "to: repository(owner: \$toOwner, name: \$toName) { id } }",
+            buildJsonObject {
+                put("owner", ref.repo.owner)
+                put("name", ref.repo.name)
+                put("number", ref.number)
+                put("toOwner", to.owner)
+                put("toName", to.name)
+            },
+        )
+        val ids = when (found) {
+            is ForgeResult.Failure -> return found
+            is ForgeResult.Success -> found.value
+        }
+        val issueId = ids.objectAt("from", "issue")?.get("id")?.jsonPrimitive?.contentOrNull
+        val repositoryId = ids.objectAt("to")?.get("id")?.jsonPrimitive?.contentOrNull
+        if (issueId == null || repositoryId == null) return ForgeResult.Failure(ForgeError.Http(404, null))
+        return graphQl(
+            token,
+            "mutation(\$issue: ID!, \$repository: ID!) { transferIssue(input: {issueId: \$issue, repositoryId: \$repository}) { " +
+                "issue { number repository { name owner { login } } } } }",
+            buildJsonObject {
+                put("issue", issueId)
+                put("repository", repositoryId)
+            },
+        ).map { data ->
+            val moved = data.objectAt("transferIssue", "issue") ?: throw NoSuchElementException("transferIssue.issue")
+            val repository = moved.getValue("repository").jsonObject
+            IssueRef(
+                RepoId(repository.getValue("owner").jsonObject.getValue("login").jsonPrimitive.content, repository.getValue("name").jsonPrimitive.content, ref.repo.forge),
+                moved.getValue("number").jsonPrimitive.int,
+            )
+        }
+    }
+
+    /** The issue's node: its id and whether it is pinned. 404 when GitHub doesn't know it, or it is a pull request. */
+    private suspend fun node(token: String, ref: IssueRef): ForgeResult<JsonObject> {
+        val found = graphQl(
+            token,
+            "query(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { issue(number: \$number) { id isPinned } } }",
+            buildJsonObject {
+                put("owner", ref.repo.owner)
+                put("name", ref.repo.name)
+                put("number", ref.number)
+            },
+        )
+        return when (found) {
+            is ForgeResult.Failure -> found
+            is ForgeResult.Success -> found.value.objectAt("repository", "issue")?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Http(404, null))
+        }
+    }
+
+    private suspend fun <T> onNode(token: String, ref: IssueRef, act: suspend (id: String) -> ForgeResult<T>): ForgeResult<T> =
+        when (val node = node(token, ref)) {
+            is ForgeResult.Failure -> node
+            is ForgeResult.Success -> act(node.value.getValue("id").jsonPrimitive.content)
+        }
+
+    /**
+     * One GraphQL request. GitHub answers 200 even when it refuses: a refusal is told apart by its errors, FORBIDDEN
+     * for a missing permission and NOT_FOUND for what the token can't see.
+     */
+    private suspend fun graphQl(token: String, query: String, variables: JsonObject): ForgeResult<JsonObject> = gitHubCall {
+        val response = httpClient.post("$apiBaseUrl/graphql") {
+            bearerAuth(token)
+            header("X-GitHub-Api-Version", GitHubAuthApi.API_VERSION)
+            contentType(ContentType.Application.Json)
+            setBody(
+                buildJsonObject {
+                    put("query", query)
+                    put("variables", variables)
+                },
+            )
+        }
+        if (!response.status.isSuccess()) return@gitHubCall response.failure()
+        val answer = response.body<GraphQlAnswer>()
+        val error = answer.errors.firstOrNull()
+        when {
+            error != null -> ForgeResult.Failure(
+                ForgeError.Http(
+                    when (error.type) {
+                        "FORBIDDEN" -> 403
+                        "NOT_FOUND" -> 404
+                        else -> 422
+                    },
+                    error.message,
+                ),
+            )
+            else -> ForgeResult.Success(answer.data ?: JsonObject(emptyMap()))
+        }
+    }
+
+    private fun JsonObject.objectAt(vararg path: String): JsonObject? =
+        path.fold<String, JsonObject?>(this) { at, key -> at?.get(key)?.takeUnless { it is JsonNull }?.jsonObject }
+
+    private inline fun <T, R> ForgeResult<T>.map(transform: (T) -> R): ForgeResult<R> = when (this) {
+        is ForgeResult.Failure -> this
+        is ForgeResult.Success -> ForgeResult.Success(transform(value))
+    }
+
+    private companion object {
+        val FIRST_HUNDRED = mapOf("per_page" to "100")
     }
 
     override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoAccess> = gitHubCall {
@@ -99,6 +285,12 @@ class GitHubIssueApi(
         }
     }
 }
+
+@Serializable
+private data class GraphQlErrorJson(val type: String? = null, val message: String? = null)
+
+@Serializable
+private data class GraphQlAnswer(val data: JsonObject? = null, val errors: List<GraphQlErrorJson> = emptyList())
 
 @Serializable
 private data class PermissionsJson(val admin: Boolean = false, val maintain: Boolean = false, val push: Boolean = false, val triage: Boolean = false)

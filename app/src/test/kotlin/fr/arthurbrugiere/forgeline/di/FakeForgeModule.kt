@@ -86,6 +86,8 @@ object FakeForgeModule {
         val ref = IssueRef(RepoId("paperclipai", "paperclip"), 14127)
         issues[ref] = issueDetails(ref, "Heartbeat recovery escalates too early")
         pages[ref to 1] = TimelinePage(listOf(comment(1, "I can reproduce this on every restart.", login = "hubot")), null)
+        // Whoever signs in owns the repository: everything can be managed.
+        access[ref.repo] = fr.arthurbrugiere.forgeline.core.model.RepoAccess.ADMIN
     }
 
     @Provides
