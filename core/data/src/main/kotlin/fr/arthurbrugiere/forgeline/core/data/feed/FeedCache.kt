@@ -17,13 +17,21 @@ import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import kotlinx.coroutines.flow.Flow
+import androidx.room.Index
 import java.time.Instant
 
 /** Rows of starred-repository activity are kept under the account's id with this prefix, apart from its own events. */
 internal const val STARRED_PREFIX = "starred:"
 
 /** A Feed event; its action is spread over a few generic columns (see [toEntity]). */
-@Entity(tableName = "feed_events", primaryKeys = ["accountId", "id"])
+@Entity(
+    tableName = "feed_events",
+    primaryKeys = ["accountId", "id"],
+    indices = [
+        Index(value = ["createdAtMillis", "accountId", "id"], orders = [Index.Order.DESC, Index.Order.ASC, Index.Order.DESC]),
+        Index(value = ["accountId", "createdAtMillis"]),
+    ],
+)
 data class FeedEventEntity(
     val accountId: String,
     val id: String,

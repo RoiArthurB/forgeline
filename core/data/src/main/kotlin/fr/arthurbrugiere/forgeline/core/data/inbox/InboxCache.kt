@@ -12,11 +12,19 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import androidx.room.Index
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 
-@Entity(tableName = "notifications", primaryKeys = ["accountId", "id"])
+@Entity(
+    tableName = "notifications",
+    primaryKeys = ["accountId", "id"],
+    indices = [
+        Index(value = ["updatedAtMillis"], orders = [Index.Order.DESC]),
+        Index(value = ["accountId", "updatedAtMillis"], orders = [Index.Order.ASC, Index.Order.DESC]),
+    ],
+)
 data class NotificationEntity(
     val accountId: String,
     val id: String,
@@ -36,7 +44,13 @@ data class NotificationEntity(
  * Where an issue or pull request stood when last asked. Kept apart from notifications, which each sync replaces,
  * and asked again once its thread moves on or [checkedAtMillis] gets old.
  */
-@Entity(tableName = "subject_states", primaryKeys = ["host", "owner", "name", "number"])
+@Entity(
+    tableName = "subject_states",
+    primaryKeys = ["host", "owner", "name", "number"],
+    indices = [
+        Index(value = ["checkedAtMillis"]),
+    ],
+)
 data class SubjectStateEntity(
     val host: String,
     val owner: String,
