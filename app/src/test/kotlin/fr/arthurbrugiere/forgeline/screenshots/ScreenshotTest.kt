@@ -817,7 +817,9 @@ class ScreenshotTest {
         tag = "v2026.916.1",
         name = "September: heartbeats that recover on their own",
         body = "## What's new\n\n- Heartbeat recovery waits three beats before paging\n- The installer honours the proxy setting\n\nSee the [upgrade guide](docs/UPGRADE.md).",
-        publishedAt = java.time.Instant.parse("2026-09-21T21:22:44Z"),
+        // The same time of day as the "now" these pictures are taken at: "4 days ago" counts calendar days, which a
+        // release published late in the evening would make 4 in one time zone and 5 in another.
+        publishedAt = java.time.Instant.parse("2026-09-22T10:00:00Z"),
         isPrerelease = false,
         author = ForgeUser("cryppadotta", null, null),
         assets = listOf(
