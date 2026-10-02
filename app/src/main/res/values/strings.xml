@@ -210,6 +210,15 @@
     <string name="repo_archived">Archived</string>
     <string name="repo_fork">Fork</string>
     <string name="repo_no_readme">This repository has no README.</string>
+    <string name="repo_list_open">Open</string>
+    <string name="repo_list_closed">Closed</string>
+    <string name="repo_search_issues">Search issues</string>
+    <string name="repo_search_pulls">Search pull requests</string>
+    <string name="repo_pinned">Pinned</string>
+    <string name="repo_open_issues">Open issues</string>
+    <string name="repo_no_closed_issues">No closed issues.</string>
+    <string name="repo_no_closed_pulls">No closed pull requests.</string>
+    <string name="repo_no_match">Nothing matches these words.</string>
     <string name="repo_no_issues">No open issues.</string>
     <string name="repo_no_pulls">No open pull requests.</string>
     <string name="repo_no_releases">No releases yet.</string>

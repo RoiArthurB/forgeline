@@ -8,6 +8,16 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.IssueQuery
+import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.Readme
@@ -82,17 +92,48 @@ class GitHubRepoApi(
             ?: ForgeResult.Failure(ForgeError.Http(413, "File too large to preview"))
     }
 
-    override suspend fun openIssues(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> = gitHubCall {
-        // Search, not /issues: that endpoint mixes in pull requests, which crowd issues out on busy repos.
-        get(
-            token, "search", "issues",
-            query = mapOf("q" to "repo:${id.fullName} is:issue is:open", "sort" to "created", "order" to "desc", "per_page" to "30"),
-        ).toResult { body<SearchResponse>().items.map { it.toModel(isPullRequest = false) } }
+    // Search, not /issues: that endpoint mixes in pull requests, which crowd issues out on busy repos.
+    override suspend fun issues(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = gitHubCall {
+        search(token, id, query, isPullRequest = false)
     }
 
-    override suspend fun openPullRequests(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> = gitHubCall {
-        get(token, "repos", id.owner, id.name, "pulls", query = mapOf("state" to "open", "per_page" to "30"))
+    override suspend fun pullRequests(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = gitHubCall {
+        // The pulls endpoint says which are drafts, but can't look for words: those go through search.
+        if (query.text.isNotBlank()) return@gitHubCall search(token, id, query, isPullRequest = true)
+        get(token, "repos", id.owner, id.name, "pulls", query = mapOf("state" to if (query.open) "open" else "closed", "per_page" to "30"))
             .toResult { body<List<IssueResponse>>().map { it.toModel(isPullRequest = true) } }
+    }
+
+    private suspend fun search(token: String?, id: RepoId, query: IssueQuery, isPullRequest: Boolean): ForgeResult<List<IssueSummary>> {
+        val words = query.text.trim()
+        val q = listOf("repo:${id.fullName}", if (isPullRequest) "is:pr" else "is:issue", if (query.open) "is:open" else "is:closed", words)
+            .filter { it.isNotEmpty() }.joinToString(" ")
+        // Newest first; with words, GitHub's best match first.
+        val order = if (words.isEmpty()) mapOf("sort" to "created", "order" to "desc") else emptyMap()
+        return get(token, "search", "issues", query = mapOf("q" to q) + order + ("per_page" to "30"))
+            .toResult { body<SearchResponse>().items.map { it.toModel(isPullRequest) } }
+    }
+
+    /** Only GitHub's GraphQL API knows which issues are pinned, and it answers nobody signed out. */
+    override suspend fun pinnedIssues(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> {
+        if (token == null) return ForgeResult.Success(emptyList())
+        return gitHubCall {
+            val response = httpClient.post("$apiBaseUrl/graphql") {
+                bearerAuth(token)
+                header("X-GitHub-Api-Version", GitHubAuthApi.API_VERSION)
+                contentType(ContentType.Application.Json)
+                setBody(
+                    buildJsonObject {
+                        put("query", PINNED_QUERY)
+                        putJsonObject("variables") {
+                            put("owner", id.owner)
+                            put("name", id.name)
+                        }
+                    },
+                )
+            }
+            response.toResult { body<PinnedAnswer>().data?.repository?.pinnedIssues?.nodes.orEmpty().map { it.issue.toModel() } }
+        }
     }
 
     override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = gitHubCall {
@@ -203,12 +244,14 @@ private data class IssueResponse(
     val labels: List<LabelResponse> = emptyList(),
     val draft: Boolean = false,
     @SerialName("merged_at") val mergedAt: String? = null,
+    // Where search results say a pull request was merged.
+    @SerialName("pull_request") val pullRequest: MergedResponse? = null,
 ) {
     fun toModel(isPullRequest: Boolean) = IssueSummary(
         number = number,
         title = title,
         state = when {
-            mergedAt != null -> IssueState.MERGED
+            mergedAt != null || pullRequest?.mergedAt != null -> IssueState.MERGED
             state == "closed" -> IssueState.CLOSED
             else -> IssueState.OPEN
         },
@@ -222,7 +265,60 @@ private data class IssueResponse(
 }
 
 @Serializable
+private data class MergedResponse(@SerialName("merged_at") val mergedAt: String? = null)
+
+@Serializable
 private data class SearchResponse(val items: List<IssueResponse>)
+
+private const val PINNED_QUERY = "query(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { pinnedIssues(first: 3) { nodes { issue { " +
+    "number title state createdAt author { login avatarUrl } comments { totalCount } labels(first: 10) { nodes { name color } } } } } } }"
+
+@Serializable
+private data class PinnedAnswer(val data: PinnedData? = null)
+
+@Serializable
+private data class PinnedData(val repository: PinnedRepository? = null)
+
+@Serializable
+private data class PinnedRepository(val pinnedIssues: PinnedIssues = PinnedIssues())
+
+@Serializable
+private data class PinnedIssues(val nodes: List<PinnedNode> = emptyList())
+
+@Serializable
+private data class PinnedNode(val issue: PinnedIssue)
+
+@Serializable
+private data class PinnedAuthor(val login: String, val avatarUrl: String? = null)
+
+@Serializable
+private data class PinnedCount(val totalCount: Int = 0)
+
+@Serializable
+private data class PinnedLabels(val nodes: List<LabelResponse> = emptyList())
+
+@Serializable
+private data class PinnedIssue(
+    val number: Int,
+    val title: String,
+    val state: String,
+    val createdAt: String,
+    val author: PinnedAuthor? = null,
+    val comments: PinnedCount = PinnedCount(),
+    val labels: PinnedLabels = PinnedLabels(),
+) {
+    fun toModel() = IssueSummary(
+        number = number,
+        title = title,
+        state = if (state == "CLOSED") IssueState.CLOSED else IssueState.OPEN,
+        author = author?.let { ForgeUser(it.login, null, it.avatarUrl) },
+        comments = comments.totalCount,
+        createdAt = Instant.parse(createdAt),
+        labels = labels.nodes.map { Label(it.name, it.color) },
+        isPullRequest = false,
+        isDraft = false,
+    )
+}
 
 @Serializable
 private data class ReleaseResponse(

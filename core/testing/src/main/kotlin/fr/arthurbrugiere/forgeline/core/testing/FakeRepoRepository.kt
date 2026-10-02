@@ -5,6 +5,7 @@ import fr.arthurbrugiere.forgeline.core.data.repo.RepoSnapshot
 import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
+import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.Release
@@ -52,9 +53,27 @@ class FakeRepoRepository : RepoRepository {
         return files[path] ?: ForgeResult.Success("")
     }
 
-    override suspend fun openIssues(id: RepoId) = issues.also { calls += "issues:${id.fullName}" }
+    /** What a list other than the default one answers, by "closed" or its words; [issues] and [pulls] otherwise. */
+    val answers = mutableMapOf<IssueQuery, ForgeResult<List<IssueSummary>>>()
 
-    override suspend fun openPullRequests(id: RepoId) = pulls.also { calls += "pulls:${id.fullName}" }
+    /** When set, lists wait for it: a slow forge. */
+    var gate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+
+    override suspend fun issues(id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> {
+        calls += "issues:${id.fullName}${query.suffix}"
+        gate?.await()
+        return answers[query] ?: issues
+    }
+
+    override suspend fun pullRequests(id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> {
+        calls += "pulls:${id.fullName}${query.suffix}"
+        gate?.await()
+        return answers[query] ?: pulls
+    }
+
+    var pinned: ForgeResult<List<IssueSummary>> = ForgeResult.Success(emptyList())
+
+    override suspend fun pinnedIssues(id: RepoId) = pinned.also { calls += "pinned:${id.fullName}" }
 
     override suspend fun releases(id: RepoId) = releases.also { calls += "releases:${id.fullName}" }
 

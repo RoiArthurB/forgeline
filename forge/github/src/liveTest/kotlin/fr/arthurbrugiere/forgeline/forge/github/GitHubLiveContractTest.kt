@@ -58,7 +58,7 @@ class GitHubLiveContractTest {
         val file = api.fileText(token, canonical, "README.md", branch)
         assertWithMessage("file: $file").that((file as ForgeResult.Success).value).isNotEmpty()
 
-        for (list in listOf(api.openIssues(token, canonical), api.openPullRequests(token, canonical), api.releases(token, canonical), api.workflowRuns(token, canonical))) {
+        for (list in listOf(api.issues(token, canonical), api.pullRequests(token, canonical), api.releases(token, canonical), api.workflowRuns(token, canonical))) {
             assertWithMessage("list: $list").that(list).isInstanceOf(ForgeResult.Success::class.java)
         }
     }

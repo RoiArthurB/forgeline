@@ -28,6 +28,8 @@ import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.onParent
+import fr.arthurbrugiere.forgeline.core.model.IssueQuery
+import androidx.compose.ui.test.assertIsSelected
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -64,6 +66,8 @@ class RepoScreenTest {
                 onOpenFile = { events += "file:${it.path}" },
                 onOpenIssue = { events += "issue:$it" },
                 onNewIssue = { events += "new-issue" },
+                onShowOpen = { events += "open:$it" },
+                onSearch = { events += "search:$it" },
                 onOpenUser = { events += "user:$it" },
                 onLinkClick = { events += "link:$it" },
                 onOpenRun = { events += "run:$it" },
@@ -138,6 +142,117 @@ class RepoScreenTest {
         setContent(loaded.copy(tab = RepoTab.ISSUES, issues = Loadable.Loaded(emptyList()), details = loaded.details?.copy(hasIssues = false)))
 
         composeRule.onNodeWithText("New issue").assertDoesNotExist()
+    }
+
+    private val someIssues = Loadable.Loaded(listOf(issueSummary(14127, "Heartbeat recovery escalates")))
+
+    @Test
+    fun the_issues_tab_switches_between_open_and_closed() {
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = someIssues))
+        composeRule.onNodeWithText("Open").assertIsSelected()
+
+        composeRule.onNodeWithText("Closed").performClick()
+
+        assertThat(events).containsExactly("open:false")
+    }
+
+    @Test
+    fun the_closed_list_says_so_when_it_is_empty() {
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = Loadable.Loaded(emptyList()), issueQuery = IssueQuery(open = false)))
+
+        composeRule.onNodeWithText("Closed").assertIsSelected()
+        composeRule.onNodeWithText("No closed issues.").assertIsDisplayed()
+    }
+
+    @Test
+    fun words_are_looked_for_among_the_issues_and_cleared_in_one_press() {
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = someIssues))
+        composeRule.onNodeWithText("Search issues").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Clear").assertDoesNotExist()
+
+        composeRule.onNode(hasSetTextAction()).performTextInput("crash")
+        assertThat(events).containsExactly("search:crash")
+    }
+
+    @Test
+    fun a_search_can_be_cleared_and_says_when_nothing_matches() {
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = Loadable.Loaded(emptyList()), issueQuery = IssueQuery(text = "crash")))
+
+        composeRule.onNodeWithText("Nothing matches these words.").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Clear").performClick()
+
+        assertThat(events).containsExactly("search:")
+    }
+
+    @Test
+    fun pinned_issues_head_the_open_list_under_their_own_title() {
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = someIssues, pinned = listOf(issueSummary(2, "Read before reporting"))))
+
+        composeRule.onNode(hasText("Pinned") and isHeading()).assertIsDisplayed()
+        composeRule.onNode(hasText("Open issues") and isHeading()).assertIsDisplayed()
+        composeRule.onNodeWithText("Read before reporting").performClick()
+
+        assertThat(events).containsExactly("issue:2")
+    }
+
+    @Test
+    fun a_pinned_issue_that_is_also_in_the_list_shows_in_both_places() {
+        // The forge lists it among the open ones too: two rows, and no clash between them.
+        val pinned = issueSummary(14127, "Heartbeat recovery escalates")
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = someIssues, pinned = listOf(pinned)))
+
+        assertThat(composeRule.onAllNodes(hasText("Heartbeat recovery escalates")).fetchSemanticsNodes()).hasSize(2)
+    }
+
+    @Test
+    fun pinned_issues_stay_out_of_the_closed_list_and_of_search_results() {
+        val pinned = listOf(issueSummary(2, "Read before reporting"))
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = someIssues, pinned = pinned, issueQuery = IssueQuery(open = false)))
+        composeRule.onNodeWithText("Read before reporting").assertDoesNotExist()
+        composeRule.onNodeWithText("Pinned").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_search_shows_no_pinned_issue() {
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = someIssues, pinned = listOf(issueSummary(2, "Read before reporting")), issueQuery = IssueQuery(text = "heart")))
+
+        composeRule.onNodeWithText("Read before reporting").assertDoesNotExist()
+    }
+
+    @Test
+    fun without_pinned_issues_the_list_needs_no_title() {
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = someIssues))
+
+        composeRule.onNodeWithText("Pinned").assertDoesNotExist()
+        composeRule.onNodeWithText("Open issues").assertDoesNotExist()
+    }
+
+    @Test
+    fun pull_requests_are_filtered_and_searched_the_same_way_without_a_new_issue_action() {
+        setContent(loaded.copy(tab = RepoTab.PULLS, pulls = Loadable.Loaded(emptyList()), pullQuery = IssueQuery(open = false)))
+
+        composeRule.onNodeWithText("No closed pull requests.").assertIsDisplayed()
+        composeRule.onNodeWithText("New issue").assertDoesNotExist()
+        composeRule.onNodeWithText("Open").performClick()
+        composeRule.onNode(hasSetTextAction()).performTextInput("fix")
+
+        assertThat(events).containsExactly("open:true", "search:fix").inOrder()
+    }
+
+    @Test
+    fun an_archived_repository_still_filters_and_searches_its_issues() {
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = someIssues, details = loaded.details?.copy(isArchived = true)))
+
+        composeRule.onNodeWithText("Closed").assertIsDisplayed()
+        composeRule.onNodeWithText("Search issues").assertIsDisplayed()
+        composeRule.onNodeWithText("New issue").assertDoesNotExist()
+    }
+
+    @Test
+    fun the_list_controls_are_large_enough_to_press() {
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = someIssues, issueQuery = IssueQuery(text = "crash")))
+
+        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 
     @Test

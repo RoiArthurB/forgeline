@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.forge.RepoApi
 import fr.arthurbrugiere.forgeline.core.forge.VersionOrder
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
+import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.Release
@@ -66,14 +67,26 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
         raw(token, id, path, ref).toResult { bodyAsText() }
     }
 
-    override suspend fun openIssues(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> = forgejoCall {
-        get(token, id, "issues", query = mapOf("state" to "open", "type" to "issues", "limit" to "30"))
+    override suspend fun issues(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = forgejoCall { list(token, id, "issues", query) }
+
+    override suspend fun pullRequests(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = forgejoCall {
+        // The pulls endpoint can't look for words: those go through the issue list, which lists pull requests too.
+        if (query.text.isNotBlank()) return@forgejoCall list(token, id, "pulls", query)
+        get(token, id, "pulls", query = mapOf("state" to query.state, "sort" to "newest", "limit" to "30"))
             .toResult { body<List<IssueJson>>().map { it.toSummary() } }
     }
 
-    override suspend fun openPullRequests(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> = forgejoCall {
-        get(token, id, "pulls", query = mapOf("state" to "open", "sort" to "newest", "limit" to "30"))
-            .toResult { body<List<IssueJson>>().map { it.toSummary() } }
+    private suspend fun list(token: String?, id: RepoId, type: String, query: IssueQuery): ForgeResult<List<IssueSummary>> {
+        val words = query.text.trim()
+        val parameters = mapOf("state" to query.state, "type" to type, "limit" to "30") + if (words.isEmpty()) emptyMap() else mapOf("q" to words)
+        return get(token, id, "issues", query = parameters).toResult { body<List<IssueJson>>().map { it.toSummary() } }
+    }
+
+    private val IssueQuery.state get() = if (open) "open" else "closed"
+
+    /** Forgejo pins pull requests apart: only the issues are asked for. */
+    override suspend fun pinnedIssues(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> = forgejoCall {
+        get(token, id, "issues", "pinned").toResult { body<List<IssueJson>>().filterNot { it.isPullRequest }.map { it.toSummary() } }
     }
 
     override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = forgejoCall {

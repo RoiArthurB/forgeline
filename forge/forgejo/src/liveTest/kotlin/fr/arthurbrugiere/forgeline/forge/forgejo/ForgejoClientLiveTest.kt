@@ -25,8 +25,8 @@ class ForgejoClientLiveTest {
         assertThat(repo.stars).isGreaterThan(1000)
         assertThat(api.readme(null, forgejo).value()?.markdown).isNotEmpty()
         assertThat(api.refs(null, forgejo).value().branches).contains(repo.defaultBranch)
-        assertThat(api.openIssues(null, forgejo).value()).isNotEmpty()
-        assertThat(api.openPullRequests(null, forgejo).value().all { it.isPullRequest }).isTrue()
+        assertThat(api.issues(null, forgejo).value()).isNotEmpty()
+        assertThat(api.pullRequests(null, forgejo).value().all { it.isPullRequest }).isTrue()
     }
 
     @Test

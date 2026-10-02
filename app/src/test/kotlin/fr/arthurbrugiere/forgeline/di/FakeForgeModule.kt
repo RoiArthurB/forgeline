@@ -70,7 +70,11 @@ object FakeForgeModule {
         val paperclip = RepoId("paperclipai", "paperclip")
         details[paperclip] = repoDetails("paperclipai/paperclip", defaultBranch = "master", stars = 85_955)
         readmes[paperclip] = Readme("README.md", "# Paperclip\n\nOpen-source orchestration for teams of AI agents.")
-        issues = listOf(issueSummary(14127, "Heartbeat recovery escalates too early"))
+        issues = listOf(
+            issueSummary(14127, "Heartbeat recovery escalates too early"),
+            issueSummary(13990, "Installer ignores the proxy setting", state = fr.arthurbrugiere.forgeline.core.model.IssueState.CLOSED),
+        )
+        pinned = listOf(issueSummary(12000, "Read this before reporting a bug"))
         pulls = listOf(issueSummary(14129, "Keep install flags on retry", isPullRequest = true))
         directories[paperclip to ""] = listOf(RepoFile("package.json", "package.json", RepoFileType.FILE, 30))
         files[paperclip to "package.json"] = "{\n  \"name\": \"paperclip\"\n}\n"

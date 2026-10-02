@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.forge
 
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
+import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.Release
@@ -27,10 +28,13 @@ interface RepoApi {
 
     suspend fun fileText(token: String?, id: RepoId, path: String, ref: String): ForgeResult<String>
 
-    /** Most recent open issues, pull requests excluded. */
-    suspend fun openIssues(token: String?, id: RepoId): ForgeResult<List<IssueSummary>>
+    /** The issues [query] asks for, pull requests excluded: most recent first, or best match first when it has words. */
+    suspend fun issues(token: String?, id: RepoId, query: IssueQuery = IssueQuery()): ForgeResult<List<IssueSummary>>
 
-    suspend fun openPullRequests(token: String?, id: RepoId): ForgeResult<List<IssueSummary>>
+    suspend fun pullRequests(token: String?, id: RepoId, query: IssueQuery = IssueQuery()): ForgeResult<List<IssueSummary>>
+
+    /** The issues pinned to the top of the repository's list; none where the forge can't say. */
+    suspend fun pinnedIssues(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> = ForgeResult.Success(emptyList())
 
     suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>>
 

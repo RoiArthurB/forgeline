@@ -18,6 +18,8 @@ import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeRepoApi
 import fr.arthurbrugiere.forgeline.core.testing.repoDetails
 import kotlinx.coroutines.flow.first
+import fr.arthurbrugiere.forgeline.core.model.IssueQuery
+import fr.arthurbrugiere.forgeline.core.testing.issueSummary
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Test
@@ -145,11 +147,25 @@ class DefaultRepoRepositoryTest {
     }
 
     @Test
+    fun closed_lists_searches_and_pinned_issues_pass_through_to_the_forge() = runTest {
+        val closed = issueSummary(3, "Old crash", state = fr.arthurbrugiere.forgeline.core.model.IssueState.CLOSED)
+        api.issues = listOf(issueSummary(1, "Crash on start"), issueSummary(2, "Slow list"), closed)
+        api.pinned = listOf(issueSummary(2, "Slow list"))
+
+        assertThat(repository.issues(id, IssueQuery(open = false))).isEqualTo(ForgeResult.Success(listOf(closed)))
+        assertThat(repository.issues(id, IssueQuery(text = "crash"))).isEqualTo(ForgeResult.Success(listOf(issueSummary(1, "Crash on start"))))
+        repository.pullRequests(id, IssueQuery(open = false, text = "fix"))
+        assertThat(repository.pinnedIssues(id)).isEqualTo(ForgeResult.Success(listOf(issueSummary(2, "Slow list"))))
+
+        assertThat(api.calls).containsAtLeast("issues:octo/repo closed", "issues:octo/repo \"crash\"", "pulls:octo/repo closed \"fix\"", "pinned:octo/repo").inOrder()
+    }
+
+    @Test
     fun lists_pass_through_to_the_forge() = runTest {
         api.issues = emptyList()
 
-        assertThat(repository.openIssues(id)).isEqualTo(ForgeResult.Success(emptyList<Any>()))
-        repository.openPullRequests(id)
+        assertThat(repository.issues(id)).isEqualTo(ForgeResult.Success(emptyList<Any>()))
+        repository.pullRequests(id)
         repository.releases(id)
         repository.workflowRuns(id)
         repository.contents(id, "src", "main")

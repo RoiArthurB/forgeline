@@ -4,6 +4,8 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
+import fr.arthurbrugiere.forgeline.core.model.IssueQuery
+import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.Release
@@ -53,9 +55,19 @@ class FakeRepoApi : RepoApi {
     override suspend fun fileText(token: String?, id: RepoId, path: String, ref: String): ForgeResult<String> =
         answer("file:${id.fullName}:$path@$ref", token) { files[id to path] ?: "" }
 
-    override suspend fun openIssues(token: String?, id: RepoId) = answer("issues:${id.fullName}", token) { issues }
+    /** Like a forge: the open or the closed ones, whose title holds the words. */
+    private fun List<IssueSummary>.matching(query: IssueQuery) =
+        filter { (it.state == IssueState.OPEN) == query.open && it.title.contains(query.text.trim(), ignoreCase = true) }
 
-    override suspend fun openPullRequests(token: String?, id: RepoId) = answer("pulls:${id.fullName}", token) { pulls }
+    override suspend fun issues(token: String?, id: RepoId, query: IssueQuery) =
+        answer("issues:${id.fullName}${query.suffix}", token) { issues.matching(query) }
+
+    override suspend fun pullRequests(token: String?, id: RepoId, query: IssueQuery) =
+        answer("pulls:${id.fullName}${query.suffix}", token) { pulls.matching(query) }
+
+    var pinned = emptyList<IssueSummary>()
+
+    override suspend fun pinnedIssues(token: String?, id: RepoId) = answer("pinned:${id.fullName}", token) { pinned }
 
     override suspend fun releases(token: String?, id: RepoId) = answer("releases:${id.fullName}", token) { releases }
 
@@ -75,10 +87,10 @@ fun repoDetails(fullName: String, defaultBranch: String = "main", stars: Int = 1
     )
 }
 
-fun issueSummary(number: Int, title: String, isPullRequest: Boolean = false) = fr.arthurbrugiere.forgeline.core.model.IssueSummary(
+fun issueSummary(number: Int, title: String, isPullRequest: Boolean = false, state: IssueState = IssueState.OPEN) = fr.arthurbrugiere.forgeline.core.model.IssueSummary(
     number = number,
     title = title,
-    state = fr.arthurbrugiere.forgeline.core.model.IssueState.OPEN,
+    state = state,
     author = fr.arthurbrugiere.forgeline.core.model.ForgeUser("octocat", null, null),
     comments = if (isPullRequest) null else 2,
     createdAt = java.time.Instant.parse("2026-09-26T08:00:00Z"),
@@ -86,3 +98,6 @@ fun issueSummary(number: Int, title: String, isPullRequest: Boolean = false) = f
     isPullRequest = isPullRequest,
     isDraft = false,
 )
+
+/** How a list call other than the default one is told apart in a fake's calls: " closed", " \"words\"". */
+val IssueQuery.suffix: String get() = (if (open) "" else " closed") + (if (text.isBlank()) "" else " \"${text.trim()}\"")

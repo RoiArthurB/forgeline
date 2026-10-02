@@ -190,6 +190,7 @@ class SignedInFlowTest {
         // Back skips the form: it returns to the repository's issues.
         composeRule.onNode(hasContentDescription("Navigate up")).performClick()
         composeRule.onNodeWithText("New issue").assertIsDisplayed()
-        assertThat(composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes()).isEmpty()
+        composeRule.onNodeWithText("Search issues").assertIsDisplayed()
+        composeRule.onNodeWithText("Open issue").assertDoesNotExist()
     }
 }

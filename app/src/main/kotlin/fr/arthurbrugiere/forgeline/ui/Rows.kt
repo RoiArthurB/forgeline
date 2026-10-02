@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import fr.arthurbrugiere.forgeline.core.model.IssueState
+import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.automirrored.outlined.CallMerge
 import androidx.compose.material.icons.outlined.Adjust
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
@@ -110,19 +113,32 @@ fun RepoSummaryRow(repo: RepoSummary, onOpenRepo: (RepoId) -> Unit, showOwner: B
 }
 
 @Composable
-fun IssueSummaryRow(issue: IssueSummary, nowMillis: Long, onOpen: (Int) -> Unit, repo: RepoId? = null, forge: ForgeInstance? = null) {
+fun IssueSummaryRow(
+    issue: IssueSummary,
+    nowMillis: Long,
+    onOpen: (Int) -> Unit,
+    repo: RepoId? = null,
+    forge: ForgeInstance? = null,
+    /** Pinned above its repository's list: it wears a pin instead of its state. */
+    pinned: Boolean = false,
+) {
     val colors = Soft.colors
+    // Open ones wear their kind's color; a merged pull request the cool field; what was closed, or isn't ready, goes quiet.
+    val quiet = issue.isDraft || issue.state == IssueState.CLOSED
+    val badge = when {
+        quiet -> colors.surface
+        issue.state == IssueState.MERGED -> colors.fields[1]
+        else -> colors.fields[if (issue.isPullRequest) 2 else 0]
+    }
+    val icon = when {
+        pinned -> Icons.Outlined.PushPin
+        issue.isPullRequest -> Icons.AutoMirrored.Outlined.CallMerge
+        issue.state == IssueState.CLOSED -> Icons.Outlined.CheckCircleOutline
+        else -> Icons.Outlined.Adjust
+    }
     Row(RowModifier.softPressable { onOpen(issue.number) }.padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 12.dp), verticalAlignment = Alignment.Top) {
-        Box(
-            Modifier.size(36.dp).background(if (issue.isDraft) colors.surface else colors.fields[if (issue.isPullRequest) 2 else 0], CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                if (issue.isPullRequest) Icons.AutoMirrored.Outlined.CallMerge else Icons.Outlined.Adjust,
-                contentDescription = null,
-                tint = if (issue.isDraft) colors.inkMuted else colors.ink,
-                modifier = Modifier.size(18.dp),
-            )
+        Box(Modifier.size(36.dp).background(badge, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = if (quiet) colors.inkMuted else colors.ink, modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {

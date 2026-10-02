@@ -205,4 +205,41 @@ class AppShellTest {
 
         composeRule.onNodeWithText("Connect to GitHub").assertIsDisplayed()
     }
+
+    private fun openIssuesTab() {
+        tab("Trending").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclip")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("paperclip").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Issues")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("Issues").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Heartbeat recovery escalates too early")).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test
+    fun a_repository_s_pinned_and_closed_issues_can_be_read() {
+        openIssuesTab()
+        composeRule.onNodeWithText("Read this before reporting a bug").assertIsDisplayed()
+        composeRule.onNodeWithText("Installer ignores the proxy setting").assertDoesNotExist()
+
+        composeRule.onNodeWithText("Closed").performClick()
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Installer ignores the proxy setting")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("Heartbeat recovery escalates too early").assertDoesNotExist()
+        composeRule.onNodeWithText("Read this before reporting a bug").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_repository_s_issues_can_be_searched() {
+        openIssuesTab()
+
+        composeRule.onNode(hasSetTextAction() and hasText("Search issues")).performTextInput("nothing like this")
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Nothing matches these words.")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNode(hasContentDescription("Clear")).performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Heartbeat recovery escalates too early")).fetchSemanticsNodes().isNotEmpty() }
+
+        composeRule.onNode(hasSetTextAction()).performTextInput("heartbeat")
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Heartbeat recovery escalates too early")).fetchSemanticsNodes().isNotEmpty() }
+        // A search's results stand alone: nothing pinned above them.
+        composeRule.onNodeWithText("Read this before reporting a bug").assertDoesNotExist()
+    }
 }

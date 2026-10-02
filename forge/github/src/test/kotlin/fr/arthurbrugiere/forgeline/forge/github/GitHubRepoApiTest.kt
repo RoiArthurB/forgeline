@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.forge.github
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -194,7 +195,7 @@ class GitHubRepoApiTest {
 
     @Test
     fun open_issues_come_from_search_so_pull_requests_never_crowd_them_out() = runTest {
-        val issues = api { json(fixture("search_issues.json")) }.openIssues(null, paperclip).value()
+        val issues = api { json(fixture("search_issues.json")) }.issues(null, paperclip).value()
 
         assertThat(issues).hasSize(5)
         assertThat(issues.first().number).isEqualTo(14127)
@@ -208,7 +209,7 @@ class GitHubRepoApiTest {
 
     @Test
     fun lists_open_pull_requests() = runTest {
-        val pulls = api { json(fixture("pulls.json")) }.openPullRequests(null, paperclip).value()
+        val pulls = api { json(fixture("pulls.json")) }.pullRequests(null, paperclip).value()
 
         assertThat(pulls.map { it.number }).containsExactly(14129, 14128, 14126, 14125).inOrder()
         assertThat(pulls.all { it.isPullRequest }).isTrue()
@@ -268,5 +269,87 @@ class GitHubRepoApiTest {
         val body = """{"name":"paperclip","owner":{"login":"paperclipai"},"default_branch":"master","pushed_at":"yesterday"}"""
 
         assertThat(api { json(body) }.repo(null, paperclip)).isEqualTo(ForgeResult.Failure(ForgeError.Unreadable))
+    }
+
+    private val q get() = requests.last().url.parameters["q"]
+
+    @Test
+    fun closed_issues_are_asked_for_newest_first() = runTest {
+        api { json(fixture("search_issues.json")) }.issues(null, paperclip, IssueQuery(open = false))
+
+        assertThat(q).isEqualTo("repo:paperclipai/paperclip is:issue is:closed")
+        assertThat(requests.last().url.parameters["sort"]).isEqualTo("created")
+        assertThat(requests.last().url.parameters["order"]).isEqualTo("desc")
+    }
+
+    @Test
+    fun words_are_looked_for_among_the_repository_s_issues_best_match_first() = runTest {
+        api { json(fixture("search_issues.json")) }.issues(null, paperclip, IssueQuery(text = "  heartbeat recovery "))
+
+        assertThat(q).isEqualTo("repo:paperclipai/paperclip is:issue is:open heartbeat recovery")
+        // No sort: GitHub's own ranking of the match.
+        assertThat(requests.last().url.parameters["sort"]).isNull()
+        assertThat(requests.last().url.parameters["per_page"]).isEqualTo("30")
+    }
+
+    @Test
+    fun closed_pull_requests_say_which_were_merged() = runTest {
+        val merged = fixture("pulls.json").replaceFirst("\"merged_at\":null", "\"merged_at\":\"2026-09-26T10:00:00Z\"").replace("\"state\":\"open\"", "\"state\":\"closed\"")
+        val pulls = api { json(merged) }.pullRequests(null, paperclip, IssueQuery(open = false)).value()
+
+        assertThat(pulls.first().state).isEqualTo(IssueState.MERGED)
+        assertThat(pulls.drop(1).map { it.state }.distinct()).containsExactly(IssueState.CLOSED)
+        assertThat(requests.single().url.encodedPath).isEqualTo("/repos/paperclipai/paperclip/pulls")
+        assertThat(requests.single().url.parameters["state"]).isEqualTo("closed")
+    }
+
+    @Test
+    fun words_among_pull_requests_go_through_search_which_says_merged_differently() = runTest {
+        // GitHub's search shape: a pull request carries its merge under "pull_request" (checked on cli/cli, 2026-10-02).
+        val found = """{"items":[
+            {"number":5143,"title":"Fix pager","state":"closed","user":{"login":"octocat"},"comments":3,"created_at":"2022-02-10T16:09:17Z","labels":[],
+             "pull_request":{"merged_at":"2022-02-14T16:09:17Z"}},
+            {"number":14155,"title":"Pager again","state":"closed","user":{"login":"hubot"},"comments":0,"created_at":"2026-09-10T16:09:17Z","labels":[],
+             "pull_request":{"merged_at":null}}]}"""
+
+        val pulls = api { json(found) }.pullRequests(null, paperclip, IssueQuery(open = false, text = "pager")).value()
+
+        assertThat(pulls.map { it.state }).containsExactly(IssueState.MERGED, IssueState.CLOSED).inOrder()
+        assertThat(pulls.all { it.isPullRequest }).isTrue()
+        assertThat(requests.single().url.encodedPath).isEqualTo("/search/issues")
+        assertThat(q).isEqualTo("repo:paperclipai/paperclip is:pr is:closed pager")
+    }
+
+    // Fixture: cli/cli's pinned issue, captured 2026-10-02.
+    @Test
+    fun pinned_issues_come_from_graphql() = runTest {
+        val pinned = api { json(fixture("pinned.json")) }.pinnedIssues("tok", RepoId("cli", "cli")).value()
+
+        val issue = pinned.single()
+        assertThat(issue.number).isEqualTo(13118)
+        assertThat(issue.title).startsWith("Upcoming PGP signing key rotation")
+        assertThat(issue.state).isEqualTo(IssueState.OPEN)
+        assertThat(issue.author?.login).isEqualTo("babakks")
+        assertThat(issue.comments).isEqualTo(43)
+        assertThat(issue.labels.map { it.name }).containsExactly("enhancement", "packaging").inOrder()
+        assertThat(issue.isPullRequest).isFalse()
+        val request = requests.single()
+        assertThat(request.url.toString()).isEqualTo("https://api.github.com/graphql")
+        assertThat(request.headers[HttpHeaders.Authorization]).isEqualTo("Bearer tok")
+        assertThat((request.body as io.ktor.http.content.TextContent).text).contains(""""variables":{"owner":"cli","name":"cli"}""")
+    }
+
+    @Test
+    fun a_repository_that_pins_nothing_answers_none() = runTest {
+        assertThat(api { json("""{"data":{"repository":{"pinnedIssues":{"nodes":[]}}}}""") }.pinnedIssues("tok", paperclip).value()).isEmpty()
+        // A repository GraphQL can't see answers no data at all.
+        assertThat(api { json("""{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","message":"no"}]}""") }.pinnedIssues("tok", paperclip).value()).isEmpty()
+    }
+
+    @Test
+    fun signed_out_pinned_issues_are_not_asked_for() = runTest {
+        // GitHub's GraphQL API answers nobody without a token.
+        assertThat(api { error("no request expected") }.pinnedIssues(null, paperclip).value()).isEmpty()
+        assertThat(requests).isEmpty()
     }
 }

@@ -8,6 +8,7 @@ import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
+import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.Release
@@ -45,9 +46,11 @@ interface RepoRepository {
 
     suspend fun fileText(id: RepoId, path: String, ref: String): ForgeResult<String>
 
-    suspend fun openIssues(id: RepoId): ForgeResult<List<IssueSummary>>
+    suspend fun issues(id: RepoId, query: IssueQuery = IssueQuery()): ForgeResult<List<IssueSummary>>
 
-    suspend fun openPullRequests(id: RepoId): ForgeResult<List<IssueSummary>>
+    suspend fun pullRequests(id: RepoId, query: IssueQuery = IssueQuery()): ForgeResult<List<IssueSummary>>
+
+    suspend fun pinnedIssues(id: RepoId): ForgeResult<List<IssueSummary>>
 
     suspend fun releases(id: RepoId): ForgeResult<List<Release>>
 
@@ -103,9 +106,11 @@ class DefaultRepoRepository @Inject constructor(
 
     override suspend fun fileText(id: RepoId, path: String, ref: String) = clients.repos(id.forge).fileText(accounts.tokenOn(id.forge), id, path, ref)
 
-    override suspend fun openIssues(id: RepoId) = clients.repos(id.forge).openIssues(accounts.tokenOn(id.forge), id)
+    override suspend fun issues(id: RepoId, query: IssueQuery) = clients.repos(id.forge).issues(accounts.tokenOn(id.forge), id, query)
 
-    override suspend fun openPullRequests(id: RepoId) = clients.repos(id.forge).openPullRequests(accounts.tokenOn(id.forge), id)
+    override suspend fun pullRequests(id: RepoId, query: IssueQuery) = clients.repos(id.forge).pullRequests(accounts.tokenOn(id.forge), id, query)
+
+    override suspend fun pinnedIssues(id: RepoId) = clients.repos(id.forge).pinnedIssues(accounts.tokenOn(id.forge), id)
 
     override suspend fun releases(id: RepoId) = clients.repos(id.forge).releases(accounts.tokenOn(id.forge), id)
 

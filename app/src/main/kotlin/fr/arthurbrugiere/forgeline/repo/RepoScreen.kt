@@ -25,6 +25,13 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.ui.platform.LocalDensity
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSwitch
+import fr.arthurbrugiere.forgeline.core.model.IssueQuery
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.Star
@@ -172,6 +179,8 @@ fun RepoRoute(
         onOpenIssue = { number -> state.details?.let { onOpenIssue(IssueRef(it.id, number)) } },
         // Opening an issue needs an account on the repository's forge, like starring it.
         onNewIssue = { if (signedIn) state.details?.let { onNewIssue(it.id) } else onSignIn() },
+        onShowOpen = viewModel::showOpen,
+        onSearch = viewModel::search,
         onOpenRun = { runId -> state.details?.let { onOpenRun(it.id, runId) } },
         onOpenUser = onOpenUser,
         onLinkClick = { url -> openForgeLink(url, id.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRun) },
@@ -201,6 +210,10 @@ fun RepoScreen(
     onOpenIssue: (Int) -> Unit,
     onNewIssue: () -> Unit,
     onOpenUser: (String) -> Unit,
+    /** Lists the open (true) or the closed issues or pull requests. */
+    onShowOpen: (Boolean) -> Unit = {},
+    /** Looks for words among the issues or pull requests. */
+    onSearch: (String) -> Unit = {},
     onLinkClick: (String) -> Unit,
     onOpenRun: (Long) -> Unit,
     onOpenInBrowser: (String) -> Unit,
@@ -339,19 +352,27 @@ fun RepoScreen(
                             }
                             RepoTab.CODE -> code(state.code, onRetryTab, onOpenDirectory, onOpenParentDirectory, onOpenFile)
                             RepoTab.ISSUES -> {
-                                if (details.takesIssues) {
-                                    item(key = "new-issue") {
-                                        Box(RowModifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                                            SoftTonalButton(stringResource(R.string.new_issue_title), onClick = onNewIssue)
-                                        }
-                                    }
+                                item(key = "issues-find") {
+                                    ListControls(
+                                        state.issueQuery, stringResource(R.string.repo_search_issues), onShowOpen, onSearch,
+                                        onNewIssue = onNewIssue.takeIf { details.takesIssues },
+                                    )
                                 }
-                                loadable(state.issues, R.string.repo_no_issues, onRetryTab) { issues ->
+                                // What the repository pins heads its plain list: not the closed ones, nor a search's results.
+                                if (state.issueQuery.isDefault && state.pinned.isNotEmpty() && state.issues is Loadable.Loaded) {
+                                    item(key = "pinned-title") { ListTitle(stringResource(R.string.repo_pinned)) }
+                                    items(state.pinned, key = { "pinned-${it.number}" }) { IssueSummaryRow(it, nowMillis, onOpenIssue, pinned = true) }
+                                    item(key = "open-title") { ListTitle(stringResource(R.string.repo_open_issues)) }
+                                }
+                                loadable(state.issues, state.issueQuery.emptyMessage(R.string.repo_no_issues, R.string.repo_no_closed_issues), onRetryTab) { issues ->
                                     items(issues, key = { "issue-${it.number}" }) { IssueSummaryRow(it, nowMillis, onOpenIssue) }
                                 }
                             }
-                            RepoTab.PULLS -> loadable(state.pulls, R.string.repo_no_pulls, onRetryTab) { pulls ->
-                                items(pulls, key = { "pull-${it.number}" }) { IssueSummaryRow(it, nowMillis, onOpenIssue) }
+                            RepoTab.PULLS -> {
+                                item(key = "pulls-find") { ListControls(state.pullQuery, stringResource(R.string.repo_search_pulls), onShowOpen, onSearch, onNewIssue = null) }
+                                loadable(state.pulls, state.pullQuery.emptyMessage(R.string.repo_no_pulls, R.string.repo_no_closed_pulls), onRetryTab) { pulls ->
+                                    items(pulls, key = { "pull-${it.number}" }) { IssueSummaryRow(it, nowMillis, onOpenIssue) }
+                                }
                             }
                             RepoTab.RELEASES -> loadable(state.releases, R.string.repo_no_releases, onRetryTab) { releases ->
                                 items(releases, key = { "release-${it.tag}" }) { ReleaseRow(it, state.readmeContext, nowMillis, onLinkClick) }
@@ -392,6 +413,61 @@ fun RepoScreen(
             Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground)
         }
     }
+}
+
+/** What an empty list says: nothing matches the words, or there is none open, or none closed. */
+private fun IssueQuery.emptyMessage(noneOpen: Int, noneClosed: Int): Int = when {
+    text.isNotBlank() -> R.string.repo_no_match
+    open -> noneOpen
+    else -> noneClosed
+}
+
+/**
+ * What heads a list of issues or pull requests: the open or the closed ones, the action that opens a new one where
+ * there is one, and a field to look for words among them.
+ */
+@Composable
+private fun ListControls(query: IssueQuery, searchHint: String, onShowOpen: (Boolean) -> Unit, onSearch: (String) -> Unit, onNewIssue: (() -> Unit)?) {
+    val colors = Soft.colors
+    Column(RowModifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        val options = listOf(stringResource(R.string.repo_list_open), stringResource(R.string.repo_list_closed))
+        // Side by side, the switch's words shrink at large text: there, the action goes under it.
+        if (onNewIssue != null && LocalDensity.current.fontScale > 1.3f) {
+            SoftSwitch(options, selected = if (query.open) 0 else 1, onSelect = { onShowOpen(it == 0) })
+            SoftTonalButton(stringResource(R.string.new_issue_title), onClick = onNewIssue)
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SoftSwitch(options, selected = if (query.open) 0 else 1, onSelect = { onShowOpen(it == 0) }, modifier = Modifier.weight(1f))
+                if (onNewIssue != null) SoftTonalButton(stringResource(R.string.new_issue_title), onClick = onNewIssue)
+            }
+        }
+        SoftTextField(
+            value = query.text,
+            onValueChange = onSearch,
+            placeholder = searchHint,
+            leading = { Icon(Icons.Outlined.Search, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(20.dp)) },
+            trailing = {
+                if (query.text.isNotEmpty()) {
+                    IconButton(onClick = { onSearch("") }) {
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.search_clear), tint = colors.inkMuted)
+                    }
+                }
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/** A quiet word above a group of rows. */
+@Composable
+private fun ListTitle(text: String) {
+    Text(
+        text,
+        style = Soft.type.label,
+        color = Soft.colors.inkMuted,
+        modifier = RowModifier.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 2.dp).semantics { heading() },
+    )
 }
 
 /** An archived repository is read-only, and an owner can switch issues off. */

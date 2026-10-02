@@ -15,7 +15,9 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
+import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
+import kotlinx.coroutines.Job
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.Release
 import fr.arthurbrugiere.forgeline.core.model.RepoDetails
@@ -62,6 +64,11 @@ data class RepoUiState(
     val code: CodeState = CodeState(),
     val issues: Loadable<List<IssueSummary>> = Loadable.Idle,
     val pulls: Loadable<List<IssueSummary>> = Loadable.Idle,
+    /** Which issues and pull requests are listed: the open ones unless asked otherwise. */
+    val issueQuery: IssueQuery = IssueQuery(),
+    val pullQuery: IssueQuery = IssueQuery(),
+    /** The issues the repository pins above its list. */
+    val pinned: List<IssueSummary> = emptyList(),
     val releases: Loadable<List<Release>> = Loadable.Idle,
     val runs: Loadable<List<WorkflowRun>> = Loadable.Idle,
     /** The branch or tag browsed; null for the default branch. */
@@ -130,6 +137,43 @@ class RepoViewModel @AssistedInject constructor(
     fun selectTab(tab: RepoTab) {
         local.update { it.copy(tab = tab) }
         if (tab.content(local.value) == Loadable.Idle) loadTab(tab)
+    }
+
+    /** Lists the open or the closed conversations of the tab shown. */
+    fun showOpen(open: Boolean) {
+        val tab = local.value.tab
+        if (query(tab)?.open == open) return
+        setQuery(tab) { it.copy(open = open) }
+        searching[tab]?.cancel()
+        loadTab(tab)
+    }
+
+    /** Looks for [text] among the conversations of the tab shown, once the writing pauses. */
+    fun search(text: String) {
+        val tab = local.value.tab
+        if (query(tab)?.text == text) return
+        setQuery(tab) { it.copy(text = text) }
+        searching[tab]?.cancel()
+        searching[tab] = viewModelScope.launch {
+            delay(SEARCH_PAUSE_MILLIS)
+            loadTab(tab)
+        }
+    }
+
+    private val searching = mutableMapOf<RepoTab, Job>()
+
+    private fun query(tab: RepoTab): IssueQuery? = when (tab) {
+        RepoTab.ISSUES -> local.value.issueQuery
+        RepoTab.PULLS -> local.value.pullQuery
+        else -> null
+    }
+
+    private fun setQuery(tab: RepoTab, change: (IssueQuery) -> IssueQuery) = local.update {
+        when (tab) {
+            RepoTab.ISSUES -> it.copy(issueQuery = change(it.issueQuery))
+            RepoTab.PULLS -> it.copy(pullQuery = change(it.pullQuery))
+            else -> it
+        }
     }
 
     fun retryTab() {
@@ -217,20 +261,27 @@ class RepoViewModel @AssistedInject constructor(
         setTab(tab, Loadable.Loading)
         val ref = local.value.ref
         val path = local.value.code.path
+        val query = query(tab)
         viewModelScope.launch {
             // Tabs need the canonical name, which only the details know.
             val details = snapshot.map { it.details }.filterNotNull().first()
             val id = details.id
             val result: ForgeResult<Any> = when (tab) {
                 RepoTab.CODE -> repos.contents(id, path, ref ?: details.defaultBranch)
-                RepoTab.ISSUES -> repos.openIssues(id)
-                RepoTab.PULLS -> repos.openPullRequests(id)
+                RepoTab.ISSUES -> {
+                    // The pinned issues head the plain list only, and are asked alongside it. Without them the list still shows.
+                    if (query?.isDefault == true) launch { (repos.pinnedIssues(id) as? ForgeResult.Success)?.let { pinned -> local.update { it.copy(pinned = pinned.value) } } }
+                    repos.issues(id, query ?: IssueQuery())
+                }
+                RepoTab.PULLS -> repos.pullRequests(id, query ?: IssueQuery())
                 RepoTab.RELEASES -> repos.releases(id)
                 RepoTab.ACTIONS -> repos.workflowRuns(id)
                 RepoTab.README -> return@launch
             }
             // A folder listing that arrives after the reader moved to another ref or folder is dropped.
             if (tab == RepoTab.CODE && (local.value.ref != ref || local.value.code.path != path)) return@launch
+            // So is a list that arrives after the reader asked for another.
+            if (query != query(tab)) return@launch
             setTab(tab, result.toLoadable())
         }
     }
@@ -268,6 +319,9 @@ class RepoViewModel @AssistedInject constructor(
     companion object {
         /** GitHub lists a run started by hand a few seconds after accepting it. */
         const val WORKFLOW_QUEUE_MILLIS = 3_000L
+
+        /** How long the writing must pause before a search is sent: GitHub allows few searches a minute. */
+        const val SEARCH_PAUSE_MILLIS = 400L
     }
 
     private fun readmeContext(details: RepoDetails, ref: String, readme: Readme?): ReadmeContext {

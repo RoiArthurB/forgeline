@@ -13,17 +13,18 @@ import java.time.Instant
 
 class FakeFeedApi : FeedApi {
     /** Events per page; a page is followed by the next one when it exists. */
-    val pages = mutableMapOf<Int, List<FeedEvent>>()
+    val pages: MutableMap<Int, List<FeedEvent>> = java.util.concurrent.ConcurrentHashMap()
     var lastModified: String = "Sun, 27 Sep 2026 10:00:00 GMT"
     var failure: ForgeError? = null
-    val calls = mutableListOf<String>()
+    // The feed refreshes in the background while a test reads what was asked: plain lists broke under that now and then.
+    val calls: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
 
     /** When set, pages wait for it: a slow forge. */
     var gate: CompletableDeferred<Unit>? = null
 
     /** What the starred repositories published; null when the forge can't be asked right now. */
     var starred: List<FeedEvent>? = emptyList()
-    val starredCalls = mutableListOf<Instant>()
+    val starredCalls: MutableList<Instant> = java.util.concurrent.CopyOnWriteArrayList()
 
     /** When set, starred activity waits for it: GitHub takes about 10 s per 100 stars. */
     var starredGate: CompletableDeferred<Unit>? = null

@@ -77,6 +77,12 @@ data class Label(val name: String, val color: String?)
 
 enum class IssueState { OPEN, CLOSED, MERGED }
 
+/** Which of a repository's issues or pull requests to list: the open or the closed ones, and words they must hold. */
+data class IssueQuery(val open: Boolean = true, val text: String = "") {
+    /** What a list shows before anyone asks for anything else. */
+    val isDefault: Boolean get() = open && text.isBlank()
+}
+
 data class IssueSummary(
     val number: Int,
     val title: String,

@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -98,8 +99,8 @@ class ForgejoRepoApiTest {
     fun open_issues_and_pull_requests_are_listed_apart() = runTest {
         val api = with(codeberg) { api { path -> json(fixture(if (path.endsWith("/pulls")) "pulls.json" else "issues.json")) } }
 
-        val issues = api.openIssues(null, forgejo).value()
-        val pulls = api.openPullRequests(null, forgejo).value()
+        val issues = api.issues(null, forgejo).value()
+        val pulls = api.pullRequests(null, forgejo).value()
 
         assertThat(issues.map { it.number }).containsExactly(14601, 14600, 14595).inOrder()
         assertThat(issues.none { it.isPullRequest }).isTrue()
@@ -159,5 +160,66 @@ class ForgejoRepoApiTest {
         val result = with(codeberg) { api { json("""{"description":"no name, no owner"}""") } }.repo(null, forgejo)
 
         assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unreadable))
+    }
+
+    private val asked get() = codeberg.requests.last().url
+
+    @Test
+    fun closed_issues_and_words_are_asked_of_the_issue_list() = runTest {
+        val api = with(codeberg) { api { json(fixture("issues.json")) } }
+
+        api.issues(null, forgejo, IssueQuery(open = false))
+        assertThat(asked.encodedPath).isEqualTo("/api/v1/repos/forgejo/forgejo/issues")
+        assertThat(asked.parameters["state"]).isEqualTo("closed")
+        assertThat(asked.parameters["type"]).isEqualTo("issues")
+        assertThat(asked.parameters["q"]).isNull()
+
+        api.issues(null, forgejo, IssueQuery(text = " webhook "))
+        assertThat(asked.parameters["state"]).isEqualTo("open")
+        assertThat(asked.parameters["q"]).isEqualTo("webhook")
+    }
+
+    @Test
+    fun closed_pull_requests_come_from_the_pulls_list() = runTest {
+        with(codeberg) { api { json(fixture("pulls.json")) } }.pullRequests(null, forgejo, IssueQuery(open = false))
+
+        assertThat(asked.encodedPath).isEqualTo("/api/v1/repos/forgejo/forgejo/pulls")
+        assertThat(asked.parameters["state"]).isEqualTo("closed")
+    }
+
+    @Test
+    fun words_among_pull_requests_go_through_the_issue_list_which_says_merged() = runTest {
+        // Forgejo's shape for a pull request in the issue list (checked on Codeberg, 2026-10-02).
+        val found = """[{"number":14609,"title":"fix: Slack PR notifications","state":"closed","created_at":"2026-09-30T05:00:00+02:00",
+            "pull_request":{"merged":true,"draft":false}},
+            {"number":14599,"title":"fix: Slack again","state":"closed","created_at":"2026-09-30T03:00:00+02:00","pull_request":{"merged":false,"draft":false}}]"""
+
+        val pulls = with(codeberg) { api { json(found) } }.pullRequests(null, forgejo, IssueQuery(open = false, text = "slack")).value()
+
+        assertThat(pulls.map { it.state }).containsExactly(IssueState.MERGED, IssueState.CLOSED).inOrder()
+        assertThat(pulls.all { it.isPullRequest }).isTrue()
+        assertThat(asked.encodedPath).isEqualTo("/api/v1/repos/forgejo/forgejo/issues")
+        assertThat(asked.parameters["type"]).isEqualTo("pulls")
+        assertThat(asked.parameters["q"]).isEqualTo("slack")
+        assertThat(asked.parameters["state"]).isEqualTo("closed")
+    }
+
+    // Fixture: forgejo/forgejo's pinned issue, captured 2026-10-02 with its long description emptied.
+    @Test
+    fun pinned_issues_are_listed() = runTest {
+        val pinned = with(codeberg) { api { json(fixture("pinned.json")) } }.pinnedIssues(null, forgejo).value()
+
+        assertThat(pinned.map { it.number }).containsExactly(2779)
+        assertThat(pinned.single().title).isEqualTo("Dependency Dashboard")
+        assertThat(pinned.single().author?.login).isEqualTo("forgejo-renovate-action")
+        assertThat(asked.encodedPath).isEqualTo("/api/v1/repos/forgejo/forgejo/issues/pinned")
+    }
+
+    @Test
+    fun a_pinned_pull_request_is_not_an_issue() = runTest {
+        val mixed = """[{"number":1,"title":"Pinned issue","state":"open","created_at":"2026-09-30T05:00:00+02:00"},
+            {"number":2,"title":"Pinned pull","state":"open","created_at":"2026-09-30T05:00:00+02:00","pull_request":{"merged":false,"draft":false}}]"""
+
+        assertThat(with(codeberg) { api { json(mixed) } }.pinnedIssues(null, forgejo).value().map { it.number }).containsExactly(1)
     }
 }

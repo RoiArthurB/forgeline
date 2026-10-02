@@ -29,6 +29,9 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import fr.arthurbrugiere.forgeline.core.model.IssueQuery
+import fr.arthurbrugiere.forgeline.core.model.IssueState
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -322,6 +325,156 @@ class RepoViewModelTest {
         advanceUntilIdle()
 
         assertThat(repos.calls.count { it.startsWith("issues:") }).isEqualTo(0)
+    }
+
+    private val closed = issueSummary(3, "Old crash", state = IssueState.CLOSED)
+
+    private fun TestScope.onIssues(): RepoViewModel {
+        cache()
+        repos.issues = ForgeResult.Success(listOf(issueSummary(1, "Bug")))
+        return viewModel().also {
+            it.selectTab(RepoTab.ISSUES)
+            advanceUntilIdle()
+        }
+    }
+
+    private val issueCalls get() = repos.calls.filter { it.startsWith("issues:") }
+
+    @Test
+    fun the_closed_issues_are_listed_on_demand_and_the_open_ones_come_back() = test {
+        repos.answers[IssueQuery(open = false)] = ForgeResult.Success(listOf(closed))
+        val viewModel = onIssues()
+
+        // The forge takes its time: the list it replaces gives way at once.
+        repos.gate = kotlinx.coroutines.CompletableDeferred()
+        viewModel.showOpen(false)
+        runCurrent()
+        assertThat(viewModel.state.value.issues).isEqualTo(Loadable.Loading)
+        repos.gate?.complete(Unit)
+        repos.gate = null
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.issueQuery).isEqualTo(IssueQuery(open = false))
+        assertThat(viewModel.state.value.issues).isEqualTo(Loadable.Loaded(listOf(closed)))
+
+        viewModel.showOpen(true)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.issues).isEqualTo(Loadable.Loaded(listOf(issueSummary(1, "Bug"))))
+        assertThat(issueCalls).containsExactly("issues:octo/repo", "issues:octo/repo closed", "issues:octo/repo").inOrder()
+    }
+
+    @Test
+    fun asking_for_what_is_already_listed_loads_nothing() = test {
+        val viewModel = onIssues()
+
+        viewModel.showOpen(true)
+        viewModel.search("")
+        advanceUntilIdle()
+
+        assertThat(issueCalls).hasSize(1)
+    }
+
+    @Test
+    fun a_search_is_sent_once_the_writing_pauses_not_for_every_letter() = test {
+        repos.answers[IssueQuery(text = "crash")] = ForgeResult.Success(listOf(issueSummary(9, "Crash on start")))
+        val viewModel = onIssues()
+
+        "cras".fold("") { written, letter -> (written + letter).also(viewModel::search) }
+        advanceTimeBy(RepoViewModel.SEARCH_PAUSE_MILLIS - 1)
+        viewModel.search("crash")
+        runCurrent()
+        // The field shows what is written at once; nothing is asked yet.
+        assertThat(viewModel.state.value.issueQuery.text).isEqualTo("crash")
+        assertThat(issueCalls).hasSize(1)
+        advanceUntilIdle()
+
+        assertThat(issueCalls).containsExactly("issues:octo/repo", "issues:octo/repo \"crash\"").inOrder()
+        assertThat(viewModel.state.value.issues).isEqualTo(Loadable.Loaded(listOf(issueSummary(9, "Crash on start"))))
+    }
+
+    @Test
+    fun a_search_keeps_to_the_open_or_closed_ones_chosen() = test {
+        val viewModel = onIssues()
+        viewModel.showOpen(false)
+        advanceUntilIdle()
+
+        viewModel.search("crash")
+        advanceUntilIdle()
+
+        assertThat(issueCalls.last()).isEqualTo("issues:octo/repo closed \"crash\"")
+    }
+
+    @Test
+    fun a_list_that_answers_after_another_was_asked_for_is_dropped() = test {
+        repos.answers[IssueQuery(open = false)] = ForgeResult.Success(listOf(closed))
+        val viewModel = onIssues()
+        repos.gate = kotlinx.coroutines.CompletableDeferred()
+
+        viewModel.showOpen(false)
+        runCurrent()
+        viewModel.showOpen(true)
+        runCurrent()
+        repos.gate?.complete(Unit)
+        advanceUntilIdle()
+
+        // Both answers came; only the one for what is asked now is shown.
+        assertThat(viewModel.state.value.issueQuery).isEqualTo(IssueQuery())
+        assertThat(viewModel.state.value.issues).isEqualTo(Loadable.Loaded(listOf(issueSummary(1, "Bug"))))
+    }
+
+    @Test
+    fun issues_and_pull_requests_are_filtered_apart() = test {
+        val viewModel = onIssues()
+        viewModel.showOpen(false)
+        advanceUntilIdle()
+
+        viewModel.selectTab(RepoTab.PULLS)
+        advanceUntilIdle()
+        viewModel.search("fix")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.issueQuery).isEqualTo(IssueQuery(open = false))
+        assertThat(viewModel.state.value.pullQuery).isEqualTo(IssueQuery(text = "fix"))
+        assertThat(repos.calls.filter { it.startsWith("pulls:") }).containsExactly("pulls:octo/repo", "pulls:octo/repo \"fix\"").inOrder()
+    }
+
+    @Test
+    fun the_pinned_issues_load_with_the_plain_list_only() = test {
+        repos.pinned = ForgeResult.Success(listOf(issueSummary(2, "Read before reporting")))
+        val viewModel = onIssues()
+        assertThat(viewModel.state.value.pinned).containsExactly(issueSummary(2, "Read before reporting"))
+
+        viewModel.showOpen(false)
+        advanceUntilIdle()
+        viewModel.search("crash")
+        advanceUntilIdle()
+
+        assertThat(repos.calls.count { it.startsWith("pinned:") }).isEqualTo(1)
+    }
+
+    @Test
+    fun pinned_issues_that_fail_to_load_leave_the_list_as_it_is() = test {
+        repos.pinned = ForgeResult.Failure(ForgeError.Network)
+
+        val viewModel = onIssues()
+
+        assertThat(viewModel.state.value.pinned).isEmpty()
+        assertThat(viewModel.state.value.issues).isEqualTo(Loadable.Loaded(listOf(issueSummary(1, "Bug"))))
+    }
+
+    @Test
+    fun a_filter_asked_on_another_tab_changes_nothing() = test {
+        cache()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.showOpen(false)
+        viewModel.search("crash")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.issueQuery).isEqualTo(IssueQuery())
+        assertThat(viewModel.state.value.pullQuery).isEqualTo(IssueQuery())
+        assertThat(repos.calls.none { it.startsWith("issues:") || it.startsWith("pulls:") }).isTrue()
     }
 
     @Test

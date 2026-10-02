@@ -335,6 +335,44 @@ class ScreenshotTest {
     }
 
     @Test
+    fun repo_issues_pinned_light() = snapshot("repo_issues_pinned_light", darkTheme = false, beforeCapture = { composeRule.onAllNodes(hasScrollAction())[0].performScrollToIndex(1) }) {
+        RepoPreview(
+            repoState.copy(
+                tab = RepoTab.ISSUES,
+                pinned = listOf(issueSummary(12000, "Read this before reporting a bug")),
+                issues = Loadable.Loaded(listOf(issueSummary(14127, "Heartbeat recovery escalates too early"), issueSummary(14121, "Wake-queue reopen activity record names"))),
+            ),
+        )
+    }
+
+    @Test
+    fun repo_issues_closed_search_dark() = snapshot("repo_issues_closed_search_dark", darkTheme = true, beforeCapture = { composeRule.onAllNodes(hasScrollAction())[0].performScrollToIndex(1) }) {
+        RepoPreview(
+            repoState.copy(
+                tab = RepoTab.ISSUES,
+                issueQuery = fr.arthurbrugiere.forgeline.core.model.IssueQuery(open = false, text = "proxy"),
+                issues = Loadable.Loaded(listOf(issueSummary(13990, "Installer ignores the proxy setting", state = fr.arthurbrugiere.forgeline.core.model.IssueState.CLOSED))),
+            ),
+        )
+    }
+
+    @Test
+    fun repo_pulls_closed_light() = snapshot("repo_pulls_closed_light", darkTheme = false, beforeCapture = { composeRule.onAllNodes(hasScrollAction())[0].performScrollToIndex(1) }) {
+        RepoPreview(
+            repoState.copy(
+                tab = RepoTab.PULLS,
+                pullQuery = fr.arthurbrugiere.forgeline.core.model.IssueQuery(open = false),
+                pulls = Loadable.Loaded(
+                    listOf(
+                        issueSummary(14129, "Keep install flags on retry", isPullRequest = true, state = fr.arthurbrugiere.forgeline.core.model.IssueState.MERGED),
+                        issueSummary(14101, "Try a faster heartbeat", isPullRequest = true, state = fr.arthurbrugiere.forgeline.core.model.IssueState.CLOSED),
+                    ),
+                ),
+            ),
+        )
+    }
+
+    @Test
     @Config(qualifiers = "w1280dp-h800dp-land-xhdpi")
     fun repo_issues_tablet_light() = snapshot("repo_issues_tablet_light", darkTheme = false) {
         RepoPreview(
