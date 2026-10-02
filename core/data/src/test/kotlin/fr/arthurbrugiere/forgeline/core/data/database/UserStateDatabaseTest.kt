@@ -63,4 +63,23 @@ class UserStateDatabaseTest {
         assertThat(state.doneDao().observe().first()).isEmpty()
         state.close()
     }
+
+    @Test
+    fun handles_partial_or_missing_tables_in_cache_database_without_failing() = runTest {
+        // Create cache database with only reading_marks table (inbox_done and trending_measurements missing)
+        val cache = Room.databaseBuilder(context, ForgelineDatabase::class.java, CACHE_DATABASE).allowMainThreadQueries().build()
+        cache.openHelper.writableDatabase.apply {
+            execSQL("INSERT INTO reading_marks (list, itemKey, position, markedAtMillis) VALUES ('feed', 'e100', 300, 400)")
+            // Intentionally drop the other table
+            execSQL("DROP TABLE IF EXISTS inbox_done")
+        }
+        cache.close()
+
+        val state = userStateDatabase(context) { allowMainThreadQueries() }
+
+        // reading_marks should be carried over, and missing inbox_done shouldn't cause a crash
+        assertThat(state.readingMarkDao().get("feed")?.itemKey).isEqualTo("e100")
+        assertThat(state.doneDao().observe().first()).isEmpty()
+        state.close()
+    }
 }

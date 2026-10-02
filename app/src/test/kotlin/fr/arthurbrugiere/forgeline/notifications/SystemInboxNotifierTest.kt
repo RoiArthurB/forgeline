@@ -91,4 +91,60 @@ class SystemInboxNotifierTest {
         assertThat(shadowOf(onCodeberg.contentIntent).savedIntent.dataString).isEqualTo("https://codeberg.org/forgejo/forgejo/pulls/7")
         assertThat(posted.single { it != onCodeberg }.extras.getCharSequence("android.subText")).isNull()
     }
+
+    @Test
+    fun large_batch_of_notifications_posts_all_with_unique_ids() {
+        val threads = (1..50).map { i ->
+            notificationThread(
+                id = "$i",
+                repo = "octo/repo_${i % 5}",
+                title = "Notification number $i",
+                reason = NotificationReason.entries[i % NotificationReason.entries.size],
+            )
+        }
+
+        notifier.show(threads)
+
+        val posted = shadowOf(manager).allNotifications
+        assertThat(posted).hasSize(50)
+    }
+
+    @Test
+    fun updating_existing_notifications_uses_stable_ids_without_duplicates() {
+        val initialThreads = (1..10).map { i ->
+            notificationThread(
+                id = "$i",
+                repo = "octo/repo",
+                title = "Initial title $i",
+            )
+        }
+        notifier.show(initialThreads)
+        assertThat(shadowOf(manager).allNotifications).hasSize(10)
+
+        // Resync with updated titles for the same threads
+        val updatedThreads = (1..10).map { i ->
+            notificationThread(
+                id = "$i",
+                repo = "octo/repo",
+                title = "Updated title $i",
+            )
+        }
+        notifier.show(updatedThreads)
+
+        val posted = shadowOf(manager).allNotifications
+        assertThat(posted).hasSize(10)
+        assertThat(posted.map { it.extras.getCharSequence("android.text").toString() })
+            .containsExactlyElementsIn((1..10).map { "Updated title $it" })
+    }
+
+    @Test
+    fun channel_registration_is_idempotent_across_repeated_shows() {
+        repeat(5) {
+            notifier.show(listOf(notificationThread("1")))
+        }
+
+        val channelIds = manager.notificationChannels.map { it.id }
+        assertThat(channelIds).containsNoDuplicates()
+        assertThat(channelIds).containsAtLeastElementsIn(InboxChannel.entries.map { it.id })
+    }
 }

@@ -160,8 +160,8 @@ fun DispatchContent(
                                 color = colors.accent,
                             )
                         }
-                        if (state.canStart) {
-                            SoftButton(stringResource(if (state.sending) R.string.run_asking_forge else R.string.dispatch_start), onClick = onStart)
+                        if (state.canStart || state.sending) {
+                            SoftButton(stringResource(if (state.sending) R.string.run_asking_forge else R.string.dispatch_start), enabled = !state.sending, onClick = onStart)
                         } else if (state.missing.isNotEmpty()) {
                             Text(stringResource(R.string.dispatch_missing, state.missing.joinToString(", ")), style = Soft.type.secondary, color = colors.inkMuted)
                         }
