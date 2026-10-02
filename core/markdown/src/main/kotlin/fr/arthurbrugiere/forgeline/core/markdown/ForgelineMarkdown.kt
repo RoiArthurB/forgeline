@@ -81,55 +81,61 @@ fun ForgelineMarkdown(
     }
 }
 
-internal data class MarkdownCacheKey(
-    val markdown: String,
-    val rawBaseUrl: String,
-    val blobBaseUrl: String,
-    val darkTheme: Boolean,
-)
+/** What a parse depends on: the text, where it lives (its relative links and images resolve there), and the theme. */
+internal data class MarkdownCacheKey(val markdown: String, val context: ReadmeContext, val darkTheme: Boolean)
 
-/** In-memory LRU cache holding parsed Markdown ASTs to eliminate scroll re-parsing churn and placeholder flicker. */
+/**
+ * Parsed Markdown kept in memory, so a comment that scrolls back into view or a README gone back to shows at once
+ * instead of being parsed again behind a placeholder. The ones read longest ago give way first, once there are more
+ * than [MAX_ENTRIES] or their text adds up to more than [MAX_CHARS]: a few long READMEs weigh what many comments do.
+ */
 internal object MarkdownAstCache {
-    private const val MAX_ENTRIES = 128
-    private val lock = Any()
-    private val lru = object : LinkedHashMap<MarkdownCacheKey, State>(MAX_ENTRIES, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<MarkdownCacheKey, State>?): Boolean {
-            return size > MAX_ENTRIES
-        }
-    }
+    const val MAX_ENTRIES = 128
 
-    fun get(key: MarkdownCacheKey): State? = synchronized(lock) {
-        lru[key]
-    }
+    /** About 4 MB of text, which the parsed trees multiply a few times. */
+    const val MAX_CHARS = 2_000_000
+
+    private val lock = Any()
+    private val lru = LinkedHashMap<MarkdownCacheKey, State>(MAX_ENTRIES, 0.75f, true)
+    private var chars = 0
+
+    fun get(key: MarkdownCacheKey): State? = synchronized(lock) { lru[key] }
 
     fun put(key: MarkdownCacheKey, state: State) = synchronized(lock) {
-        lru[key] = state
+        // Larger than everything the cache may hold: keeping it would push all the rest out for one document.
+        if (key.markdown.length > MAX_CHARS) return@synchronized
+        if (lru.put(key, state) == null) chars += key.markdown.length
+        val eldest = lru.entries.iterator()
+        while ((lru.size > MAX_ENTRIES || chars > MAX_CHARS) && eldest.hasNext()) {
+            chars -= eldest.next().key.markdown.length
+            eldest.remove()
+        }
     }
 
     fun clear() = synchronized(lock) {
         lru.clear()
+        chars = 0
     }
 }
 
 /**
- * Preprocesses and parses a README off the main thread; null until ready. Returns cached state immediately
- * if available, eliminating scroll re-parsing churn and placeholder flicker. [darkTheme] picks
- * `<picture>` variants, so it should follow the app theme rather than the system one.
+ * Preprocesses and parses a README off the main thread; null until ready. What was parsed before is returned at
+ * once (see [MarkdownAstCache]). [darkTheme] picks `<picture>` variants, so it should follow the app theme rather
+ * than the system one.
  */
 @Composable
 fun rememberReadmeState(markdown: String, context: ReadmeContext, darkTheme: Boolean): State? {
-    val key = remember(markdown, context, darkTheme) {
-        MarkdownCacheKey(markdown, context.rawBaseUrl, context.blobBaseUrl, darkTheme)
-    }
+    val key = remember(markdown, context, darkTheme) { MarkdownCacheKey(markdown, context, darkTheme) }
+    // Looked up whenever what is shown changes, not only when the screen first appears: a state produced below keeps
+    // its last value across such a change, which showed the previous document in place of one already parsed.
     val cached = remember(key) { MarkdownAstCache.get(key) }
-    val state by produceState<State?>(initialValue = cached, key) {
-        if (cached == null) {
-            val parsed = withContext(Dispatchers.Default) {
-                parseForgeMarkdown(ReadmePreprocessor.prepare(markdown, context, darkTheme))
-            }
-            MarkdownAstCache.put(key, parsed)
-            value = parsed
+    if (cached != null) return cached
+    val state by produceState<State?>(initialValue = null, key) {
+        val parsed = withContext(Dispatchers.Default) {
+            parseForgeMarkdown(ReadmePreprocessor.prepare(markdown, context, darkTheme))
         }
+        MarkdownAstCache.put(key, parsed)
+        value = parsed
     }
     return state
 }

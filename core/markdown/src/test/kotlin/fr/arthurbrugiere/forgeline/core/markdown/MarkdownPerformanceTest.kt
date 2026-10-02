@@ -67,13 +67,12 @@ class MarkdownPerformanceTest {
         }
         println(coldResult.formatSummary())
 
-        // Simulated cache lookup (as when an LRU cache or remember keeps the parsed State)
-        val preParsedState = parseForgeMarkdown(ReadmePreprocessor.prepare(readme, context, darkTheme = false))
-        val cache = mapOf("anthropics_claude-code-action" to preParsedState)
+        // What a comment scrolling back into view costs: a lookup in the cache the screens use.
+        val key = MarkdownCacheKey(readme, context, darkTheme = false)
+        MarkdownAstCache.put(key, parseForgeMarkdown(ReadmePreprocessor.prepare(readme, context, darkTheme = false)))
 
         val cachedResult = recorder.measure("Cached README Lookup") {
-            val state = cache["anthropics_claude-code-action"]
-            assertThat(state).isNotNull()
+            assertThat(MarkdownAstCache.get(key)).isNotNull()
         }
         println(cachedResult.formatSummary())
 
