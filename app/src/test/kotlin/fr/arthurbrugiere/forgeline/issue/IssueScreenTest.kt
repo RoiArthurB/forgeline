@@ -474,4 +474,35 @@ class IssueScreenTest {
         shown.value = opened.copy(issue = pull, access = RepoAccess.TRIAGE, supported = setOf(ConversationAction.LABELS))
         composeRule.onNodeWithContentDescription("Manage").assertIsDisplayed()
     }
+
+    @Test
+    fun the_day_it_is_due_shows_under_the_title() {
+        setContent(opened.copy(issue = issueDetails(ref, "Crash on start").copy(dueDate = java.time.LocalDate.parse("2026-10-10"))))
+
+        composeRule.onNodeWithText("Due Oct 10, 2026").assertIsDisplayed()
+    }
+
+    @Test
+    fun deadlines_time_and_dependencies_read_as_sentences() {
+        fun event(event: ConversationEvent, subject: String? = null) = TimelineItem.Event(event, ForgeUser("maintainer", null, null), subject, at)
+        setContent(
+            opened.copy(
+                items = listOf(
+                    event(ConversationEvent.DEADLINE_SET, "2026-10-10"), event(ConversationEvent.DEADLINE_REMOVED),
+                    event(ConversationEvent.TRACKING_STARTED), event(ConversationEvent.TRACKING_STOPPED), event(ConversationEvent.TIME_ADDED),
+                    event(ConversationEvent.DEPENDENCY_ADDED, "#3 Schema first"), event(ConversationEvent.DEPENDENCY_REMOVED, "other/docs#106 Website copy"),
+                ),
+            ),
+        )
+
+        listOf(
+            "maintainer set the due date to Oct 10, 2026",
+            "maintainer removed the due date",
+            "maintainer started working on this",
+            "maintainer stopped working on this",
+            "maintainer recorded time spent",
+            "maintainer made this depend on #3 Schema first",
+            "maintainer removed the dependency on other/docs#106 Website copy",
+        ).forEach { sentence -> reach(hasText(sentence, substring = true)) }
+    }
 }

@@ -192,6 +192,11 @@ What can be done to an issue or pull request beyond commenting depends on the fo
 | Transfer | GraphQL (`transferIssue`) | not in the API: not offered |
 | Delete | GraphQL (`deleteIssue`), admin | REST, admin |
 | Duplicate | opens the new-issue form with the title and description | same |
+| Due date | none on GitHub | REST (`due_date` as a day, `unset_due_date` to remove) |
+| Time tracker (timer, add time) | none on GitHub | REST, when the repository switches it on; kept to those who can push if it says so |
+| Dependencies | none in GitHub's REST API | REST, when the repository switches them on |
+
+Where Forgejo's API can't lock, whoever could lock on the site is offered a row that opens the conversation there.
 
 The role is asked once per repository and session (`GET /repos/{owner}/{repo}`). It decides what the app offers; the forge still decides what it accepts, and a refusal is shown as such.
 
@@ -204,7 +209,7 @@ One search across forges: GitHub's, always, and that of each forge an account is
 Like GitHub, Codeberg offers both, and both are shown when the OAuth client ID is set:
 
 - **"Sign in with Codeberg":** OAuth2 authorization code with PKCE, through a public OAuth application registered on Codeberg, redirecting to a loopback address on the phone (`http://127.0.0.1:<port>/oauth/codeberg`; Codeberg rejects custom schemes, checked 2026-09-29). See [CODEBERG_OAUTH_APP.md](CODEBERG_OAUTH_APP.md) for creating it. Access tokens expire after an hour, so the account stores the refresh token (encrypted with the same Keystore cipher) and refreshes on a 401 or when expired.
-- **Access token:** a Forgejo access token created by the user, which is also the only option for self-hosted Forgejo instances (after entering the host), since an OAuth app can't be registered on every instance in advance. Scopes: `read:notification`, `write:notification`, `read:user`, `write:user` (follow, star), `read:repository`, `write:repository` (start and cancel workflow runs), `read:issue`, `write:issue` (comment, open, close and reopen issues, set labels, assignees and milestone, pin, delete) and `read:organization`, on **all** repositories (public, private and limited), not public only.
+- **Access token:** a Forgejo access token created by the user, which is also the only option for self-hosted Forgejo instances (after entering the host), since an OAuth app can't be registered on every instance in advance. Scopes: `read:notification`, `write:notification`, `read:user`, `write:user` (follow, star), `read:repository`, `write:repository` (start and cancel workflow runs), `read:issue`, `write:issue` (comment, open, close and reopen issues, set labels, assignees, milestone and due date, track time, set dependencies, pin, delete) and `read:organization`, on **all** repositories (public, private and limited), not public only.
 
 An account is identified by `forge:host:login`, as `Account.idFor` already does, so a GitHub and a Codeberg account with the same login are different accounts.
 

@@ -713,7 +713,48 @@ class ScreenshotTest {
         androidx.compose.foundation.layout.Box(
             androidx.compose.ui.Modifier.fillMaxSize().background(fr.arthurbrugiere.forgeline.core.ui.soft.Soft.colors.ground).padding(top = androidx.compose.ui.unit.Dp(24f)),
         ) {
-            IssueManageContent(change(state), ManageActions(), onDismiss = {}, startPage = page)
+            IssueManageContent(change(state), ManageActions(), onDismiss = {}, startPage = page, nowMillis = java.time.Instant.parse("2026-10-02T10:00:00Z").toEpochMilli())
+        }
+    }
+
+    // The calendar rings today's date: a month far from now keeps these pictures the same from one day to the next.
+    private val farDueDate = java.time.LocalDate.parse("2031-03-14")
+
+    @Test
+    fun issue_manage_due_date_light() = snapshot("issue_manage_due_date_light", darkTheme = false) {
+        ManageSheetPreview(ManagePage.DUE_DATE) { it.copy(issue = it.issue?.copy(dueDate = farDueDate)) }
+    }
+
+    @Test
+    fun issue_manage_due_date_dark() = snapshot("issue_manage_due_date_dark", darkTheme = true) {
+        ManageSheetPreview(ManagePage.DUE_DATE) { it.copy(issue = it.issue?.copy(dueDate = farDueDate)) }
+    }
+
+    @Test
+    fun issue_manage_time_light() = snapshot("issue_manage_time_light", darkTheme = false) {
+        ManageSheetPreview(ManagePage.TIME) {
+            it.copy(
+                manage = it.manage.copy(
+                    tracking = Loadable.Loaded(fr.arthurbrugiere.forgeline.core.model.TimeTracking(9_000, java.time.Instant.parse("2026-10-02T09:20:00Z"))),
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun issue_manage_dependencies_dark() = snapshot("issue_manage_dependencies_dark", darkTheme = true) {
+        ManageSheetPreview(ManagePage.DEPENDENCIES) {
+            val repo = it.ref.repo
+            it.copy(
+                manage = it.manage.copy(
+                    dependencies = Loadable.Loaded(
+                        listOf(
+                            fr.arthurbrugiere.forgeline.core.model.LinkedIssue(IssueRef(repo, 13990), "Installer ignores the proxy setting", fr.arthurbrugiere.forgeline.core.model.IssueState.CLOSED),
+                            fr.arthurbrugiere.forgeline.core.model.LinkedIssue(IssueRef(RepoId("paperclipai", "docs"), 212), "Document the heartbeat thresholds", fr.arthurbrugiere.forgeline.core.model.IssueState.OPEN),
+                        ),
+                    ),
+                ),
+            )
         }
     }
 

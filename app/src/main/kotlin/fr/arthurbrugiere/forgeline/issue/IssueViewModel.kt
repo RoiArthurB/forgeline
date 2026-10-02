@@ -15,6 +15,9 @@ import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
+import fr.arthurbrugiere.forgeline.core.model.TimeTracking
+import java.time.LocalDate
 import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.repo.Loadable
@@ -70,6 +73,9 @@ data class IssueUiState(
                     ConversationAction.LOCK -> access >= RepoAccess.WRITE
                     ConversationAction.PIN, ConversationAction.TRANSFER -> isIssue && access >= RepoAccess.WRITE
                     ConversationAction.DELETE -> isIssue && access == RepoAccess.ADMIN
+                    ConversationAction.DUE_DATE, ConversationAction.DEPENDENCIES -> access >= RepoAccess.TRIAGE
+                    // Whoever the repository lets track time: the forge already took it away from anyone else.
+                    ConversationAction.TIME_TRACKING -> true
                 }
             }
         }
@@ -80,6 +86,8 @@ data class ManageUiState(
     val labels: Loadable<List<Label>> = Loadable.Idle,
     val assignable: Loadable<List<ForgeUser>> = Loadable.Idle,
     val milestones: Loadable<List<Milestone>> = Loadable.Idle,
+    val tracking: Loadable<TimeTracking> = Loadable.Idle,
+    val dependencies: Loadable<List<LinkedIssue>> = Loadable.Idle,
     /** Null until the forge has said. */
     val pinned: Boolean? = null,
     val isWorking: Boolean = false,
@@ -137,7 +145,7 @@ class IssueViewModel @AssistedInject constructor(
         viewModelScope.launch {
             val access = repository.access(ref.repo)
             val allowed = repository.canChangeState(ref, issue.author?.login)
-            _state.update { it.copy(canChangeState = allowed, access = access, supported = repository.actions(ref.repo.forge)) }
+            _state.update { it.copy(canChangeState = allowed, access = access, supported = repository.actions(ref.repo)) }
         }
     }
 
@@ -263,6 +271,33 @@ class IssueViewModel @AssistedInject constructor(
         }
     }
 
+    fun loadTracking() = load({ it.tracking }, { repository.timeTracking(ref) }) { manage, value -> manage.copy(tracking = value) }
+
+    fun loadDependencies() = load({ it.dependencies }, { repository.dependencies(ref) }) { manage, value -> manage.copy(dependencies = value) }
+
+    fun setDueDate(date: LocalDate?) = manage({ repository.setDueDate(ref, date) })
+
+    /** Starts the reader's timer on this conversation, or stops it, which records the time it ran. */
+    fun toggleTimer() {
+        val tracking = (_state.value.manage.tracking as? Loadable.Loaded)?.value ?: return
+        // What was loaded is out of date once the timer changed: it is asked again when the page reopens.
+        manage({ repository.setTimerRunning(ref, tracking.runningSince == null) }) { it.copy(manage = it.manage.copy(tracking = Loadable.Idle)) }
+    }
+
+    fun addTime(seconds: Long) {
+        if (seconds <= 0) return
+        manage({ repository.addTime(ref, seconds) }) { it.copy(manage = it.manage.copy(tracking = Loadable.Idle)) }
+    }
+
+    /** Makes this conversation depend on [written]: a number, "#12", or "owner/name#12" for one in another repository. */
+    fun addDependency(written: String) {
+        val on = dependencyTarget(ref, written) ?: return
+        manage({ repository.addDependency(ref, on) }) { it.copy(manage = it.manage.copy(dependencies = Loadable.Idle)) }
+    }
+
+    fun removeDependency(on: IssueRef) =
+        manage({ repository.removeDependency(ref, on) }) { it.copy(manage = it.manage.copy(dependencies = Loadable.Idle)) }
+
     fun setLabels(names: List<String>) = manage({ repository.setLabels(ref, names) })
 
     fun setAssignees(logins: List<String>) = manage({ repository.setAssignees(ref, logins) })
@@ -319,6 +354,20 @@ class IssueViewModel @AssistedInject constructor(
     private companion object {
         const val DRAFT_KEY = "draft"
     }
+}
+
+/**
+ * The conversation [written] names, seen from [from]: "12" or "#12" in the same repository, "owner/name#12" in
+ * another. Null when it names nothing, or [from] itself.
+ */
+fun dependencyTarget(from: IssueRef, written: String): IssueRef? {
+    val text = written.trim()
+    val number = text.substringAfterLast('#').toIntOrNull()?.takeIf { it > 0 } ?: return null
+    val repo = when {
+        '#' !in text || text.startsWith('#') -> from.repo
+        else -> text.substringBeforeLast('#').split('/').takeIf { it.size == 2 && it.none(String::isBlank) }?.let { RepoId(it[0], it[1], from.repo.forge) } ?: return null
+    }
+    return IssueRef(repo, number).takeUnless { it.number == from.number && it.repo.fullName.equals(from.repo.fullName, ignoreCase = true) }
 }
 
 /**

@@ -34,7 +34,13 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Adjust
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.Commit
+import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Event
+import androidx.compose.material.icons.outlined.Timer
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Lock
@@ -159,7 +165,7 @@ fun IssueRoute(
     LaunchedEffect(signedIn) { viewModel.checkPermissions() }
     LaunchedEffect(state.movedTo) { state.movedTo?.let(onMoved) }
     LaunchedEffect(state.deleted) { if (state.deleted) onBack() }
-    val manage = remember(viewModel) {
+    val manage = remember(viewModel, openUrl) {
         ManageActions(
             onOpened = viewModel::manageOpened,
             onDoneShown = viewModel::manageDoneShown,
@@ -178,6 +184,14 @@ fun IssueRoute(
             },
             onTransfer = viewModel::transfer,
             onDelete = viewModel::delete,
+            onSetDueDate = viewModel::setDueDate,
+            onLoadTracking = viewModel::loadTracking,
+            onToggleTimer = viewModel::toggleTimer,
+            onAddTime = viewModel::addTime,
+            onLoadDependencies = viewModel::loadDependencies,
+            onAddDependency = viewModel::addDependency,
+            onRemoveDependency = viewModel::removeDependency,
+            onOpenOnForge = { openUrl(ref.webUrl(viewModel.state.value.issue?.pullRequest != null)) },
         )
     }
     IssueScreen(
@@ -445,6 +459,9 @@ private fun Composer(
     }
 }
 
+/** A day as the reader's language writes it, like "Oct 10, 2026". */
+internal fun formatDay(day: LocalDate): String = day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+
 /** Fresh while open, cool once merged, warm once closed: the header field says where the conversation stands. */
 private val IssueDetails.tintIndex: Int
     get() = when (state) {
@@ -547,6 +564,7 @@ private fun Header(ref: IssueRef, issue: IssueDetails?, nowMillis: Long, onOpenR
             )
         }
         issue.milestone?.let { Text(stringResource(R.string.issue_milestone, it.title), style = Soft.type.secondary, color = colors.inkMuted) }
+        issue.dueDate?.let { Text(stringResource(R.string.issue_due, formatDay(it)), style = Soft.type.secondary, color = colors.inkMuted) }
     }
 }
 
@@ -716,6 +734,16 @@ private fun TimelineEntry(
                 ConversationEvent.MILESTONED -> Icons.Outlined.Flag to stringResource(R.string.issue_milestoned_event, who, subject, time)
                 ConversationEvent.DEMILESTONED -> Icons.Outlined.Flag to stringResource(R.string.issue_demilestoned_event, who, subject, time)
                 ConversationEvent.TRANSFERRED -> Icons.Outlined.SwapHoriz to stringResource(R.string.issue_transferred_event, who, time)
+                // The day is kept as written (ISO); anything else is shown as it came.
+                ConversationEvent.DEADLINE_SET -> Icons.Outlined.Event to stringResource(
+                    R.string.issue_deadline_set_event, who, runCatching { formatDay(LocalDate.parse(subject)) }.getOrDefault(subject), time,
+                )
+                ConversationEvent.DEADLINE_REMOVED -> Icons.Outlined.Event to stringResource(R.string.issue_deadline_removed_event, who, time)
+                ConversationEvent.TRACKING_STARTED -> Icons.Outlined.Timer to stringResource(R.string.issue_tracking_started_event, who, time)
+                ConversationEvent.TRACKING_STOPPED -> Icons.Outlined.Timer to stringResource(R.string.issue_tracking_stopped_event, who, time)
+                ConversationEvent.TIME_ADDED -> Icons.Outlined.Timer to stringResource(R.string.issue_time_added_event, who, time)
+                ConversationEvent.DEPENDENCY_ADDED -> Icons.Outlined.AccountTree to stringResource(R.string.issue_dependency_added_event, who, subject, time)
+                ConversationEvent.DEPENDENCY_REMOVED -> Icons.Outlined.AccountTree to stringResource(R.string.issue_dependency_removed_event, who, subject, time)
                 ConversationEvent.CONVERTED_TO_DISCUSSION -> Icons.Outlined.Forum to stringResource(R.string.issue_converted_event, who, time)
             }
             EventLine(icon, text)

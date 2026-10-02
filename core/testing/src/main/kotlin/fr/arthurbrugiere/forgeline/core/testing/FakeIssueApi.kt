@@ -13,7 +13,10 @@ import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
@@ -177,16 +180,59 @@ class FakeIssueApi : IssueApi {
         Unit
     }
 
+    override suspend fun setDueDate(token: String, ref: IssueRef, date: java.time.LocalDate?) = manage(token, "due ${ref.label}: $date") {
+        issues[ref]?.let { issues[ref] = it.copy(dueDate = date) }
+        Unit
+    }
+
+    /** Seconds spent on each conversation, and the ones the signed-in user's timer runs on. */
+    val spent = mutableMapOf<IssueRef, Long>()
+    val timers = mutableMapOf<IssueRef, Instant>()
+
+    /** How long a timer ran when it is stopped. */
+    var timerSeconds = 600L
+
+    override suspend fun timeTracking(token: String, ref: IssueRef) = read(token, "tracking:${ref.label}", TimeTracking(spent[ref] ?: 0, timers[ref]))
+
+    override suspend fun setTimerRunning(token: String, ref: IssueRef, running: Boolean) = manage(token, "${if (running) "start" else "stop"} timer ${ref.label}") {
+        if (running) {
+            timers[ref] = Instant.parse("2026-10-02T08:00:00Z")
+        } else if (timers.remove(ref) != null) {
+            spent[ref] = (spent[ref] ?: 0) + timerSeconds
+        }
+        Unit
+    }
+
+    override suspend fun addTime(token: String, ref: IssueRef, seconds: Long) = manage(token, "time ${ref.label}: $seconds") {
+        spent[ref] = (spent[ref] ?: 0) + seconds
+        Unit
+    }
+
+    val dependsOn = mutableMapOf<IssueRef, List<LinkedIssue>>()
+
+    override suspend fun dependencies(token: String, ref: IssueRef) = read(token, "dependencies:${ref.label}", dependsOn[ref].orEmpty())
+
+    override suspend fun addDependency(token: String, ref: IssueRef, on: IssueRef) = manage(token, "depend ${ref.label} on ${on.label}") {
+        dependsOn[ref] = dependsOn[ref].orEmpty() + LinkedIssue(on, issues[on]?.title ?: "Issue ${on.number}", issues[on]?.state ?: IssueState.OPEN)
+    }
+
+    override suspend fun removeDependency(token: String, ref: IssueRef, on: IssueRef) = manage(token, "undepend ${ref.label} on ${on.label}") {
+        dependsOn[ref] = dependsOn[ref].orEmpty().filterNot { it.ref == on }
+    }
+
     /** What the signed-in user may do in each repository; nothing where not said. */
     val access = mutableMapOf<RepoId, RepoAccess>()
 
     /** What asking for it fails with. */
     var accessFailure: ForgeError? = null
 
-    override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoAccess> {
+    /** What each repository switches off; nothing where not said. */
+    val switchedOff = mutableMapOf<RepoId, Set<ConversationAction>>()
+
+    override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoRights> {
         calls += "access:${repo.fullName}"
         accessFailure?.let { return ForgeResult.Failure(it) }
-        return ForgeResult.Success(access[repo] ?: RepoAccess.NONE)
+        return ForgeResult.Success(RepoRights(access[repo] ?: RepoAccess.NONE, switchedOff[repo].orEmpty()))
     }
 }
 

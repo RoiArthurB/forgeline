@@ -36,6 +36,8 @@ data class IssueDetails(
     val isLocked: Boolean = false,
     val assignees: List<ForgeUser> = emptyList(),
     val milestone: Milestone? = null,
+    /** The day it is due, on forges that keep one. */
+    val dueDate: java.time.LocalDate? = null,
 )
 
 /**
@@ -45,7 +47,19 @@ data class IssueDetails(
 enum class RepoAccess { NONE, TRIAGE, WRITE, ADMIN }
 
 /** What can be done to a conversation beyond commenting on it and closing it; a forge's API offers some of them. */
-enum class ConversationAction { LABELS, ASSIGNEES, MILESTONE, CLOSE_REASON, LOCK, PIN, TRANSFER, DELETE }
+enum class ConversationAction { LABELS, ASSIGNEES, MILESTONE, CLOSE_REASON, LOCK, PIN, TRANSFER, DELETE, DUE_DATE, TIME_TRACKING, DEPENDENCIES }
+
+/**
+ * What the signed-in user may do in a repository, and what its settings or their role take away there
+ * ([switchedOff]): a Forgejo repository can switch time tracking and dependencies off, or keep tracking to contributors.
+ */
+data class RepoRights(val access: RepoAccess, val switchedOff: Set<ConversationAction> = emptySet())
+
+/** The time spent on a conversation by everyone, and since when the signed-in user's own timer runs on it, if it does. */
+data class TimeTracking(val totalSeconds: Long, val runningSince: Instant?)
+
+/** Another conversation this one is tied to: one it depends on. */
+data class LinkedIssue(val ref: IssueRef, val title: String, val state: IssueState)
 
 /** Why an issue is closed, where the forge keeps that. */
 enum class CloseReason { COMPLETED, NOT_PLANNED, DUPLICATE }
@@ -56,6 +70,7 @@ data class Milestone(val id: Long, val title: String)
 /** Something done to a conversation rather than said in it. */
 enum class ConversationEvent {
     LOCKED, UNLOCKED, PINNED, UNPINNED, ASSIGNED, UNASSIGNED, MILESTONED, DEMILESTONED, TRANSFERRED,
+    DEADLINE_SET, DEADLINE_REMOVED, TRACKING_STARTED, TRACKING_STOPPED, TIME_ADDED, DEPENDENCY_ADDED, DEPENDENCY_REMOVED,
 
     /** GitHub moved the issue to Discussions: the conversation goes on there. */
     CONVERTED_TO_DISCUSSION,
@@ -104,7 +119,10 @@ sealed interface TimelineItem {
         override val createdAt: Instant,
     ) : TimelineItem
 
-    /** [subject] is who was assigned or unassigned, or the milestone's title; null for the other events. */
+    /**
+     * [subject] is who was assigned or unassigned, the milestone's title, the day it is due (ISO), or the conversation
+     * depended on ("#12 Its title"); null for the other events.
+     */
     data class Event(val event: ConversationEvent, val actor: ForgeUser?, val subject: String?, override val createdAt: Instant) : TimelineItem
 
     data class Committed(val sha: String, val message: String, val authorName: String?, override val createdAt: Instant?) : TimelineItem

@@ -36,6 +36,7 @@ import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.PullRequestInfo
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.core.model.StateChange
@@ -112,7 +113,11 @@ class GitHubIssueApi(
         ).toResult { }
     }
 
-    override val actions: Set<ConversationAction> = ConversationAction.entries.toSet()
+    /** GitHub keeps no due date, time spent or dependencies on an issue. */
+    override val actions: Set<ConversationAction> = setOf(
+        ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.CLOSE_REASON,
+        ConversationAction.LOCK, ConversationAction.PIN, ConversationAction.TRANSFER, ConversationAction.DELETE,
+    )
 
     // The lists below stop at their first hundred: a repository with more is rare, and none needs them all to triage.
 
@@ -273,15 +278,17 @@ class GitHubIssueApi(
         val FIRST_HUNDRED = mapOf("per_page" to "100")
     }
 
-    override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoAccess> = gitHubCall {
+    override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoRights> = gitHubCall {
         httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name).toResult {
             val permissions = body<PermittedRepoJson>().permissions
-            when {
-                permissions.admin -> RepoAccess.ADMIN
-                permissions.push || permissions.maintain -> RepoAccess.WRITE
-                permissions.triage -> RepoAccess.TRIAGE
-                else -> RepoAccess.NONE
-            }
+            RepoRights(
+                when {
+                    permissions.admin -> RepoAccess.ADMIN
+                    permissions.push || permissions.maintain -> RepoAccess.WRITE
+                    permissions.triage -> RepoAccess.TRIAGE
+                    else -> RepoAccess.NONE
+                },
+            )
         }
     }
 }

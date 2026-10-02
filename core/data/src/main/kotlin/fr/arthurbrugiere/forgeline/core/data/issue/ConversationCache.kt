@@ -117,6 +117,7 @@ private data class StoredIssue(
     val assignees: List<StoredUser> = emptyList(),
     val milestoneId: Long? = null,
     val milestoneTitle: String? = null,
+    val dueEpochDay: Long? = null,
 ) {
     fun toModel() = IssueDetails(
         ref = IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number),
@@ -134,6 +135,7 @@ private data class StoredIssue(
         isLocked = isLocked,
         assignees = assignees.map { it.toModel() },
         milestone = if (milestoneId != null && milestoneTitle != null) Milestone(milestoneId, milestoneTitle) else null,
+        dueDate = dueEpochDay?.let(java.time.LocalDate::ofEpochDay),
     )
 
     companion object {
@@ -142,7 +144,7 @@ private data class StoredIssue(
                 ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, title, body, state, stateReason, StoredUser.of(author),
                 labels.map { StoredLabel(it.name, it.color) }, createdAt.toEpochMilli(), closedAt?.toEpochMilli(), comments, reactions,
                 pullRequest?.run { StoredPull(isDraft, isMerged, baseRef, headRef, additions, deletions, changedFiles, commits) },
-                isLocked, assignees.mapNotNull(StoredUser::of), milestone?.id, milestone?.title,
+                isLocked, assignees.mapNotNull(StoredUser::of), milestone?.id, milestone?.title, dueDate?.toEpochDay(),
             )
         }
     }

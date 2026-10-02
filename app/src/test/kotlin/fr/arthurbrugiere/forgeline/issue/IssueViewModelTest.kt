@@ -31,6 +31,9 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
+import fr.arthurbrugiere.forgeline.core.model.TimeTracking
+import java.time.LocalDate
 import java.time.Clock
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -381,7 +384,11 @@ class IssueViewModelTest {
 
     @Test
     fun what_can_be_done_grows_with_the_reader_s_role() = test {
-        val triage = setOf(ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.CLOSE_REASON)
+        val anyone = setOf(ConversationAction.TIME_TRACKING)
+        val triage = anyone + setOf(
+            ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.CLOSE_REASON,
+            ConversationAction.DUE_DATE, ConversationAction.DEPENDENCIES,
+        )
         val write = triage + setOf(ConversationAction.LOCK, ConversationAction.PIN, ConversationAction.TRANSFER)
 
         // A role is asked once per session: each one below is a new session.
@@ -390,7 +397,8 @@ class IssueViewModelTest {
             return managing(access, repository = session).state.value.actions
         }
 
-        assertThat(actionsAs(RepoAccess.NONE)).isEmpty()
+        // Time is tracked by whoever the repository lets: the forge takes it away from the others.
+        assertThat(actionsAs(RepoAccess.NONE)).containsExactlyElementsIn(anyone)
         assertThat(actionsAs(RepoAccess.TRIAGE)).containsExactlyElementsIn(triage)
         assertThat(actionsAs(RepoAccess.WRITE)).containsExactlyElementsIn(write)
         assertThat(actionsAs(RepoAccess.ADMIN)).containsExactlyElementsIn(write + ConversationAction.DELETE)
@@ -400,15 +408,17 @@ class IssueViewModelTest {
     fun whoever_opened_an_issue_may_say_why_they_close_it_and_nothing_more() = test {
         val viewModel = managing(RepoAccess.NONE, issueDetails(ref).copy(author = ForgeUser("me", null, null)))
 
-        assertThat(viewModel.state.value.actions).containsExactly(ConversationAction.CLOSE_REASON)
+        assertThat(viewModel.state.value.actions).containsExactly(ConversationAction.CLOSE_REASON, ConversationAction.TIME_TRACKING)
     }
 
     @Test
     fun a_pull_request_is_triaged_and_locked_but_not_pinned_moved_deleted_or_closed_with_a_reason() = test {
         val viewModel = managing(RepoAccess.ADMIN, issueDetails(ref).copy(pullRequest = pullRequest))
 
-        assertThat(viewModel.state.value.actions)
-            .containsExactly(ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.LOCK)
+        assertThat(viewModel.state.value.actions).containsExactly(
+            ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.LOCK,
+            ConversationAction.DUE_DATE, ConversationAction.TIME_TRACKING, ConversationAction.DEPENDENCIES,
+        )
     }
 
     @Test
@@ -642,5 +652,120 @@ class IssueViewModelTest {
 
         assertThat(drafts[ref.repo]).isEqualTo(IssueDraft("Crash on start", "Steps:\n1. Open it"))
         assertThat(api.opened).isEmpty()
+    }
+
+    @Test
+    fun what_a_repository_switches_off_is_not_offered() = test {
+        api.switchedOff[ref.repo] = setOf(ConversationAction.TIME_TRACKING, ConversationAction.DEPENDENCIES)
+
+        val actions = managing(RepoAccess.ADMIN).state.value.actions
+
+        assertThat(actions).containsNoneOf(ConversationAction.TIME_TRACKING, ConversationAction.DEPENDENCIES)
+        assertThat(actions).contains(ConversationAction.DUE_DATE)
+    }
+
+    @Test
+    fun a_due_date_is_set_and_taken_away() = test {
+        val viewModel = managing(RepoAccess.WRITE)
+
+        viewModel.setDueDate(LocalDate.parse("2026-10-10"))
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.issue?.dueDate).isEqualTo(LocalDate.parse("2026-10-10"))
+        assertThat(viewModel.state.value.manage.done).isTrue()
+
+        viewModel.setDueDate(null)
+        advanceUntilIdle()
+
+        assertThat(api.managed).containsExactly("due octo/repo#7: 2026-10-10", "due octo/repo#7: null").inOrder()
+        assertThat(viewModel.state.value.issue?.dueDate).isNull()
+    }
+
+    @Test
+    fun the_timer_starts_then_stops_and_the_time_spent_is_asked_again_each_time() = test {
+        val viewModel = managing(RepoAccess.NONE)
+        // Nothing to toggle before the forge said whether a timer runs.
+        viewModel.toggleTimer()
+        advanceUntilIdle()
+        assertThat(api.managed).isEmpty()
+
+        viewModel.loadTracking()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.manage.tracking).isEqualTo(Loadable.Loaded(TimeTracking(0, null)))
+        viewModel.toggleTimer()
+        advanceUntilIdle()
+        // What was loaded no longer holds.
+        assertThat(viewModel.state.value.manage.tracking).isEqualTo(Loadable.Idle)
+
+        viewModel.loadTracking()
+        advanceUntilIdle()
+        assertThat((viewModel.state.value.manage.tracking as Loadable.Loaded).value.runningSince).isNotNull()
+        viewModel.toggleTimer()
+        advanceUntilIdle()
+        viewModel.loadTracking()
+        advanceUntilIdle()
+
+        assertThat(api.managed).containsExactly("start timer octo/repo#7", "stop timer octo/repo#7").inOrder()
+        assertThat(viewModel.state.value.manage.tracking).isEqualTo(Loadable.Loaded(TimeTracking(api.timerSeconds, null)))
+    }
+
+    @Test
+    fun time_already_spent_is_recorded_and_no_time_is_not() = test {
+        val viewModel = managing(RepoAccess.NONE)
+
+        viewModel.addTime(0)
+        viewModel.addTime(5_400)
+        advanceUntilIdle()
+
+        assertThat(api.managed).containsExactly("time octo/repo#7: 5400")
+        assertThat(viewModel.state.value.manage.done).isTrue()
+    }
+
+    @Test
+    fun dependencies_are_listed_added_and_removed() = test {
+        val viewModel = managing(RepoAccess.WRITE)
+        viewModel.loadDependencies()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.manage.dependencies).isEqualTo(Loadable.Loaded(emptyList<LinkedIssue>()))
+
+        viewModel.addDependency("#3")
+        advanceUntilIdle()
+        viewModel.loadDependencies()
+        advanceUntilIdle()
+        assertThat((viewModel.state.value.manage.dependencies as Loadable.Loaded).value.map { it.ref }).containsExactly(IssueRef(ref.repo, 3))
+
+        viewModel.removeDependency(IssueRef(ref.repo, 3))
+        advanceUntilIdle()
+        viewModel.loadDependencies()
+        advanceUntilIdle()
+
+        assertThat(api.managed).containsExactly("depend octo/repo#7 on octo/repo#3", "undepend octo/repo#7 on octo/repo#3").inOrder()
+        assertThat(viewModel.state.value.manage.dependencies).isEqualTo(Loadable.Loaded(emptyList<LinkedIssue>()))
+    }
+
+    @Test
+    fun a_dependency_is_named_by_its_number_alone_or_with_its_repository() {
+        val codeberg = RepoId("octo", "repo", ForgeInstance.Codeberg)
+        val from = IssueRef(codeberg, 7)
+
+        assertThat(dependencyTarget(from, "12")).isEqualTo(IssueRef(codeberg, 12))
+        assertThat(dependencyTarget(from, " #12 ")).isEqualTo(IssueRef(codeberg, 12))
+        assertThat(dependencyTarget(from, "other/docs#3")).isEqualTo(IssueRef(RepoId("other", "docs", ForgeInstance.Codeberg), 3))
+        assertThat(dependencyTarget(from, "")).isNull()
+        assertThat(dependencyTarget(from, "twelve")).isNull()
+        assertThat(dependencyTarget(from, "#0")).isNull()
+        assertThat(dependencyTarget(from, "docs#3")).isNull()
+        // An issue can't wait on itself.
+        assertThat(dependencyTarget(from, "7")).isNull()
+        assertThat(dependencyTarget(from, "Octo/Repo#7")).isNull()
+    }
+
+    @Test
+    fun a_dependency_that_names_nothing_asks_the_forge_nothing() = test {
+        val viewModel = managing(RepoAccess.WRITE)
+
+        viewModel.addDependency("twelve")
+        advanceUntilIdle()
+
+        assertThat(api.managed).isEmpty()
     }
 }

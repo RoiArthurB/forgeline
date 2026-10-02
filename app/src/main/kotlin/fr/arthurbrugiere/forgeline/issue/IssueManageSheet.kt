@@ -17,7 +17,23 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Label
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Event
+import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.ui.text.input.KeyboardType
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
+import fr.arthurbrugiere.forgeline.ui.relative
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -83,9 +99,18 @@ class ManageActions(
     val onDuplicate: () -> Unit = {},
     val onTransfer: (String) -> Unit = {},
     val onDelete: () -> Unit = {},
+    val onSetDueDate: (LocalDate?) -> Unit = {},
+    val onLoadTracking: () -> Unit = {},
+    val onToggleTimer: () -> Unit = {},
+    val onAddTime: (seconds: Long) -> Unit = {},
+    val onLoadDependencies: () -> Unit = {},
+    val onAddDependency: (String) -> Unit = {},
+    val onRemoveDependency: (IssueRef) -> Unit = {},
+    /** Opens the conversation on its forge's site, for what only the site can do. */
+    val onOpenOnForge: () -> Unit = {},
 )
 
-enum class ManagePage { MENU, LABELS, ASSIGNEES, MILESTONE, TRANSFER, DELETE }
+enum class ManagePage { MENU, LABELS, ASSIGNEES, MILESTONE, DUE_DATE, TIME, DEPENDENCIES, TRANSFER, DELETE }
 
 /** Whether there is anything to manage: an action the reader may take, or an issue to start another from. */
 fun IssueUiState.canManage(signedIn: Boolean): Boolean = signedIn && issue != null && (actions.isNotEmpty() || issue.pullRequest == null)
@@ -117,7 +142,13 @@ fun IssueManageSheet(state: IssueUiState, actions: ManageActions, onDismiss: () 
  * can do and the reader may do is listed.
  */
 @Composable
-fun IssueManageContent(state: IssueUiState, actions: ManageActions, onDismiss: () -> Unit, startPage: ManagePage = ManagePage.MENU) {
+fun IssueManageContent(
+    state: IssueUiState,
+    actions: ManageActions,
+    onDismiss: () -> Unit,
+    startPage: ManagePage = ManagePage.MENU,
+    nowMillis: Long = System.currentTimeMillis(),
+) {
     var page by rememberSaveable { mutableStateOf(startPage) }
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
         when (page) {
@@ -125,6 +156,9 @@ fun IssueManageContent(state: IssueUiState, actions: ManageActions, onDismiss: (
             ManagePage.LABELS -> LabelsPage(state, actions) { page = ManagePage.MENU }
             ManagePage.ASSIGNEES -> AssigneesPage(state, actions) { page = ManagePage.MENU }
             ManagePage.MILESTONE -> MilestonePage(state, actions) { page = ManagePage.MENU }
+            ManagePage.DUE_DATE -> DueDatePage(state, actions) { page = ManagePage.MENU }
+            ManagePage.TIME -> TimePage(state, actions, nowMillis) { page = ManagePage.MENU }
+            ManagePage.DEPENDENCIES -> DependenciesPage(state, actions) { page = ManagePage.MENU }
             ManagePage.TRANSFER -> TransferPage(state, actions) { page = ManagePage.MENU }
             ManagePage.DELETE -> DeletePage(state, actions) { page = ManagePage.MENU }
         }
@@ -171,6 +205,21 @@ private fun Menu(state: IssueUiState, actions: ManageActions, onOpen: (ManagePag
             onOpen(ManagePage.MILESTONE)
         }
     }
+    if (ConversationAction.DUE_DATE in can) {
+        MenuRow(Icons.Outlined.Event, stringResource(R.string.manage_due_date), issue.dueDate?.let { formatDay(it) } ?: none, enabled) { onOpen(ManagePage.DUE_DATE) }
+    }
+    if (ConversationAction.TIME_TRACKING in can) {
+        MenuRow(Icons.Outlined.Timer, stringResource(R.string.manage_time), null, enabled) {
+            actions.onLoadTracking()
+            onOpen(ManagePage.TIME)
+        }
+    }
+    if (ConversationAction.DEPENDENCIES in can) {
+        MenuRow(Icons.Outlined.AccountTree, stringResource(R.string.manage_dependencies), null, enabled) {
+            actions.onLoadDependencies()
+            onOpen(ManagePage.DEPENDENCIES)
+        }
+    }
     if (ConversationAction.CLOSE_REASON in can) {
         MenuRow(Icons.Outlined.Block, stringResource(R.string.manage_close_not_planned), null, enabled) { actions.onClose(CloseReason.NOT_PLANNED) }
         MenuRow(Icons.Outlined.Difference, stringResource(R.string.manage_close_duplicate), null, enabled) { actions.onClose(CloseReason.DUPLICATE) }
@@ -181,6 +230,18 @@ private fun Menu(state: IssueUiState, actions: ManageActions, onOpen: (ManagePag
             stringResource(if (issue.isLocked) R.string.manage_unlock else R.string.manage_lock),
             null, enabled, onClick = actions.onToggleLocked,
         )
+    }
+    // A forge whose API can't lock still locks on its site: whoever may is sent there.
+    if (ConversationAction.LOCK !in state.supported && state.access >= RepoAccess.WRITE) {
+        MenuRow(
+            if (issue.isLocked) Icons.Outlined.LockOpen else Icons.Outlined.Lock,
+            stringResource(if (issue.isLocked) R.string.manage_unlock else R.string.manage_lock),
+            stringResource(R.string.manage_on_forge, state.ref.repo.forge.displayName),
+            enabled,
+        ) {
+            actions.onOpenOnForge()
+            onDismiss()
+        }
     }
     if (ConversationAction.PIN in can) {
         // Not to be pressed until the forge has said whether it is pinned.
@@ -329,6 +390,155 @@ private fun MilestonePage(state: IssueUiState, actions: ManageActions, onBack: (
         milestones.forEach { milestone ->
             ChoiceRow(current?.id == milestone.id, !state.manage.isWorking, { actions.onSetMilestone(milestone) }) {
                 Text(milestone.title, style = Soft.type.body, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+/** The day it is due, picked on a calendar. Taking it away is its own action: there is no "no day" to pick. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DueDatePage(state: IssueUiState, actions: ManageActions, onBack: () -> Unit) {
+    val colors = Soft.colors
+    val current = state.issue?.dueDate
+    // The calendar counts days in UTC, which is how the day is kept.
+    val picker = rememberDatePickerState(initialSelectedDateMillis = current?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli())
+    val picked = picker.selectedDateMillis?.let { Instant.ofEpochMilli(it).atOffset(ZoneOffset.UTC).toLocalDate() }
+    PageTitle(stringResource(R.string.manage_due_date), onBack)
+    DatePicker(
+        state = picker,
+        title = null,
+        headline = null,
+        showModeToggle = false,
+        colors = DatePickerDefaults.colors(
+            containerColor = colors.ground,
+            weekdayContentColor = colors.inkMuted,
+            subheadContentColor = colors.inkMuted,
+            navigationContentColor = colors.ink,
+            yearContentColor = colors.ink,
+            currentYearContentColor = colors.accent,
+            selectedYearContentColor = colors.onThumb,
+            selectedYearContainerColor = colors.thumb,
+            dayContentColor = colors.ink,
+            selectedDayContentColor = colors.onThumb,
+            selectedDayContainerColor = colors.thumb,
+            todayContentColor = colors.accent,
+            todayDateBorderColor = colors.accent,
+            dividerColor = colors.surface,
+        ),
+    )
+    FlowRow(
+        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (current != null) SoftTonalButton(stringResource(R.string.manage_due_remove), { actions.onSetDueDate(null) }, enabled = !state.manage.isWorking)
+        SoftButton(
+            stringResource(if (state.manage.isWorking) R.string.manage_saving else R.string.manage_save),
+            { actions.onSetDueDate(picked) },
+            enabled = !state.manage.isWorking && picked != null && picked != current,
+        )
+    }
+}
+
+/** How long, in hours and minutes: seconds don't matter to time spent on an issue. */
+@Composable
+internal fun duration(seconds: Long): String {
+    val minutes = seconds / 60
+    return if (minutes >= 60) stringResource(R.string.duration_hours_minutes, minutes / 60, minutes % 60) else stringResource(R.string.duration_minutes, minutes)
+}
+
+/** The time spent by everyone, the reader's own timer, and a way to record time after the fact. */
+@Composable
+private fun TimePage(state: IssueUiState, actions: ManageActions, nowMillis: Long, onBack: () -> Unit) {
+    val colors = Soft.colors
+    var hours by rememberSaveable { mutableStateOf("") }
+    var minutes by rememberSaveable { mutableStateOf("") }
+    PageTitle(stringResource(R.string.manage_time), onBack)
+    when (val tracking = state.manage.tracking) {
+        Loadable.Idle, Loadable.Loading -> SoftLoadingRows(stringResource(R.string.manage_loading), rows = 2, leadingDot = false)
+        is Loadable.Failed -> SoftNotice(
+            stringResource(R.string.manage_load_failed),
+            stringResource(tracking.error.message),
+            action = stringResource(R.string.retry),
+            onAction = actions.onLoadTracking,
+        )
+        is Loadable.Loaded -> Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val working = state.manage.isWorking
+            Text(
+                if (tracking.value.totalSeconds > 0) stringResource(R.string.manage_time_spent, duration(tracking.value.totalSeconds)) else stringResource(R.string.manage_time_none),
+                style = Soft.type.body,
+                color = colors.ink,
+            )
+            val since = tracking.value.runningSince
+            if (since != null) {
+                Text(stringResource(R.string.manage_timer_running, relative(since, nowMillis)), style = Soft.type.body, color = colors.inkMuted)
+                SoftButton(stringResource(R.string.manage_timer_stop), actions.onToggleTimer, enabled = !working)
+            } else {
+                SoftTonalButton(stringResource(R.string.manage_timer_start), actions.onToggleTimer, enabled = !working)
+            }
+            Text(stringResource(R.string.manage_time_add_title), style = Soft.type.label, color = colors.inkMuted, modifier = Modifier.padding(top = 8.dp).semantics { heading() })
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SoftTextField(
+                    hours, { hours = it.filter(Char::isDigit).take(3) }, stringResource(R.string.manage_time_hours),
+                    Modifier.weight(1f), readOnly = working, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
+                SoftTextField(
+                    minutes, { minutes = it.filter(Char::isDigit).take(3) }, stringResource(R.string.manage_time_minutes),
+                    Modifier.weight(1f), readOnly = working, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
+            }
+            val seconds = (hours.toLongOrNull() ?: 0) * 3_600 + (minutes.toLongOrNull() ?: 0) * 60
+            SoftButton(stringResource(R.string.manage_time_add), { actions.onAddTime(seconds) }, Modifier.align(Alignment.End), enabled = !working && seconds > 0)
+        }
+    }
+}
+
+/** What this conversation waits on: each can be taken away, and another added by its number. */
+@Composable
+private fun DependenciesPage(state: IssueUiState, actions: ManageActions, onBack: () -> Unit) {
+    val colors = Soft.colors
+    var written by rememberSaveable { mutableStateOf("") }
+    val working = state.manage.isWorking
+    PageTitle(stringResource(R.string.manage_dependencies), onBack)
+    when (val dependencies = state.manage.dependencies) {
+        Loadable.Idle, Loadable.Loading -> SoftLoadingRows(stringResource(R.string.manage_loading), rows = 2, leadingDot = false)
+        is Loadable.Failed -> SoftNotice(
+            stringResource(R.string.manage_load_failed),
+            stringResource(dependencies.error.message),
+            action = stringResource(R.string.retry),
+            onAction = actions.onLoadDependencies,
+        )
+        is Loadable.Loaded -> {
+            if (dependencies.value.isEmpty()) {
+                Text(stringResource(R.string.manage_dependencies_none), style = Soft.type.body, color = colors.inkMuted, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            }
+            dependencies.value.forEach { linked ->
+                // One in another repository names it.
+                val name = (if (linked.ref.repo == state.ref.repo) "" else linked.ref.repo.fullName) + "#${linked.ref.number}"
+                Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(start = 20.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(linked.title, style = Soft.type.body, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            stringResource(if (linked.state == IssueState.OPEN) R.string.manage_dependency_open else R.string.manage_dependency_closed, name),
+                            style = Soft.type.meta,
+                            color = colors.inkMuted,
+                        )
+                    }
+                    IconButton(onClick = { actions.onRemoveDependency(linked.ref) }, enabled = !working) {
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.manage_dependency_remove, name), tint = colors.inkMuted)
+                    }
+                }
+            }
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SoftTextField(
+                    written, { written = it }, stringResource(R.string.manage_dependency_placeholder),
+                    Modifier.fillMaxWidth(), readOnly = working,
+                )
+                SoftButton(
+                    stringResource(R.string.manage_dependency_add), { actions.onAddDependency(written) }, Modifier.align(Alignment.End),
+                    enabled = !working && dependencyTarget(state.ref, written) != null,
+                )
             }
         }
     }

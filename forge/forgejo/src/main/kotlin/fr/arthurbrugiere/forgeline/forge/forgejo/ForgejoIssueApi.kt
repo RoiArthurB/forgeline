@@ -33,6 +33,11 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.TimeTracking
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.time.Instant
 
 class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : IssueApi {
@@ -112,7 +117,73 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     }
 
     /** Forgejo's API neither locks a conversation nor moves an issue to another repository (16.0). */
-    override val actions: Set<ConversationAction> = setOf(ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.PIN, ConversationAction.DELETE)
+    override val actions: Set<ConversationAction> = setOf(
+        ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.PIN, ConversationAction.DELETE,
+        ConversationAction.DUE_DATE, ConversationAction.TIME_TRACKING, ConversationAction.DEPENDENCIES,
+    )
+
+    /**
+     * The day is sent at midnight UTC: Forgejo keeps the end of that day. Taking the date away has its own field,
+     * since a missing date means "leave it".
+     */
+    override suspend fun setDueDate(token: String, ref: IssueRef, date: LocalDate?): ForgeResult<Unit> = edit(token, ref) {
+        if (date == null) put("unset_due_date", true) else put("due_date", "${date}T00:00:00Z")
+    }
+
+    /** Everyone's time on the conversation, from its first page of entries, and the signed-in user's timer if it runs here. */
+    override suspend fun timeTracking(token: String, ref: IssueRef): ForgeResult<TimeTracking> = forgejoCall {
+        coroutineScope {
+            val timers = async { httpClient.forgejoApi(forge, token, "user", "stopwatches") }
+            val times = get(token, ref, "issues", ref.number.toString(), "times", query = FIRST_PAGE)
+            if (times.status != HttpStatusCode.OK) {
+                timers.cancel()
+                return@coroutineScope times.failure()
+            }
+            val running = timers.await().takeIf { it.status == HttpStatusCode.OK }?.body<List<StopwatchJson>>().orEmpty()
+                .firstOrNull { it.issue == ref.number && it.repo.equals(ref.repo.name, ignoreCase = true) && it.owner.equals(ref.repo.owner, ignoreCase = true) }
+            ForgeResult.Success(TimeTracking(times.body<List<TrackedTimeJson>>().sumOf { it.time }, running?.let { instant(it.created) }))
+        }
+    }
+
+    override suspend fun setTimerRunning(token: String, ref: IssueRef, running: Boolean): ForgeResult<Unit> = forgejoCall {
+        httpClient.forgejoApi(
+            forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "stopwatch", if (running) "start" else "stop",
+            method = HttpMethod.Post,
+        ).toResult { }
+    }
+
+    override suspend fun addTime(token: String, ref: IssueRef, seconds: Long): ForgeResult<Unit> = forgejoCall {
+        httpClient.forgejoApi(
+            forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "times",
+            method = HttpMethod.Post, body = buildJsonObject { put("time", seconds) },
+        ).toResult { }
+    }
+
+    override suspend fun dependencies(token: String, ref: IssueRef): ForgeResult<List<LinkedIssue>> = forgejoCall {
+        get(token, ref, "issues", ref.number.toString(), "dependencies").toResult {
+            body<List<IssueJson>>().map { issue ->
+                // A dependency can live in another repository, which it then names.
+                val repo = issue.repository?.let { RepoId(it.owner, it.name, forge) } ?: ref.repo
+                LinkedIssue(IssueRef(repo, issue.number), issue.title, issue.state())
+            }
+        }
+    }
+
+    override suspend fun addDependency(token: String, ref: IssueRef, on: IssueRef): ForgeResult<Unit> = dependency(token, ref, on, HttpMethod.Post)
+
+    override suspend fun removeDependency(token: String, ref: IssueRef, on: IssueRef): ForgeResult<Unit> = dependency(token, ref, on, HttpMethod.Delete)
+
+    private suspend fun dependency(token: String, ref: IssueRef, on: IssueRef, method: HttpMethod): ForgeResult<Unit> = forgejoCall {
+        httpClient.forgejoApi(
+            forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "dependencies",
+            method = method,
+            body = buildJsonObject {
+                put("owner", on.repo.owner)
+                put("repo", on.repo.name)
+                put("index", on.number)
+            },
+        ).toResult { }
+    }
 
     // The lists below stop at their first page: a repository with more is rare, and none needs them all to triage.
 
@@ -170,15 +241,28 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         httpClient.forgejoApi(forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), method = HttpMethod.Delete).toResult { }
     }
 
-    /** Forgejo has no triage role: whoever can push manages the conversations too. */
-    override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoAccess> = forgejoCall {
+    /**
+     * Forgejo has no triage role: whoever can push manages the conversations too. A repository's own settings switch
+     * time tracking and dependencies on, and may keep tracking to those who can push.
+     */
+    override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoRights> = forgejoCall {
         httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name).toResult {
-            val permissions = body<PermittedRepoJson>().permissions
-            when {
-                permissions.admin -> RepoAccess.ADMIN
-                permissions.push -> RepoAccess.WRITE
-                else -> RepoAccess.NONE
-            }
+            val answer = body<PermittedRepoJson>()
+            val permissions = answer.permissions
+            // Without its own tracker (issues kept elsewhere), neither applies.
+            val tracker = answer.tracker
+            val tracksTime = tracker != null && tracker.timeTracker && (permissions.push || !tracker.contributorsOnly)
+            RepoRights(
+                access = when {
+                    permissions.admin -> RepoAccess.ADMIN
+                    permissions.push -> RepoAccess.WRITE
+                    else -> RepoAccess.NONE
+                },
+                switchedOff = setOfNotNull(
+                    ConversationAction.TIME_TRACKING.takeUnless { tracksTime },
+                    ConversationAction.DEPENDENCIES.takeUnless { tracker?.dependencies == true },
+                ),
+            )
         }
     }
 
@@ -197,6 +281,8 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         isLocked = isLocked,
         assignees = assignees.orEmpty().map { it.toModel() },
         milestone = milestone?.takeIf { it.id > 0 }?.toModel(),
+        // Kept as the end of a day; read in UTC, where it was sent as that day.
+        dueDate = instant(dueDate)?.atOffset(ZoneOffset.UTC)?.toLocalDate(),
         pullRequest = pull?.let {
             PullRequestInfo(
                 isDraft = it.draft,
@@ -222,7 +308,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         if (response.status != HttpStatusCode.OK) return response.failure()
         val entries = response.body<List<TimelineJson>>()
         val reviewStates = reviews(entries)
-        val items = entries.mapNotNull { it.toItem(reviewStates) }
+        val items = entries.mapNotNull { it.toItem(reviewStates, ref.repo) }
         val next = response.nextPage() ?: (page + 1).takeIf { entries.size == PAGE_SIZE }
         return ForgeResult.Success(TimelinePage(items, next))
     }
@@ -243,7 +329,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     private suspend fun get(token: String?, ref: IssueRef, vararg segments: String, query: Map<String, String> = emptyMap()): HttpResponse =
         httpClient.forgejoApi(forge, token, "repos", ref.repo.owner, ref.repo.name, *segments, query = query)
 
-    private fun TimelineJson.toItem(reviewStates: Map<Long, ReviewState>): TimelineItem? {
+    private fun TimelineJson.toItem(reviewStates: Map<Long, ReviewState>, home: RepoId): TimelineItem? {
         val at = instant(createdAt) ?: return null
         val actor = user?.toModel()
         return when (type) {
@@ -275,6 +361,21 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             // Setting one names it; taking it away names the one that was there.
             "milestone" -> milestone?.takeIf { it.id > 0 }?.let { TimelineItem.Event(ConversationEvent.MILESTONED, actor, it.title, at) }
                 ?: oldMilestone?.takeIf { it.id > 0 }?.let { TimelineItem.Event(ConversationEvent.DEMILESTONED, actor, it.title, at) }
+            // A new date is written alone, a changed one as "new|old", a removed one as the date it was.
+            "added_deadline", "modified_deadline" -> TimelineItem.Event(ConversationEvent.DEADLINE_SET, actor, body?.substringBefore('|')?.ifBlank { null }, at)
+            "removed_deadline" -> TimelineItem.Event(ConversationEvent.DEADLINE_REMOVED, actor, null, at)
+            "start_tracking" -> TimelineItem.Event(ConversationEvent.TRACKING_STARTED, actor, null, at)
+            "stop_tracking" -> TimelineItem.Event(ConversationEvent.TRACKING_STOPPED, actor, null, at)
+            "add_time_manual" -> TimelineItem.Event(ConversationEvent.TIME_ADDED, actor, null, at)
+            "add_dependency", "remove_dependency" -> dependentIssue?.let {
+                TimelineItem.Event(
+                    if (type == "add_dependency") ConversationEvent.DEPENDENCY_ADDED else ConversationEvent.DEPENDENCY_REMOVED,
+                    actor,
+                    // One in another repository names it.
+                    it.repository?.fullName?.takeUnless { name -> name.equals(home.fullName, ignoreCase = true) }.orEmpty() + "#${it.number} ${it.title}",
+                    at,
+                )
+            }
             // Review requests, pushes, branch deletions... are noise in a conversation, as on GitHub.
             else -> null
         }
@@ -306,7 +407,28 @@ private data class PinnedJson(@SerialName("pin_order") val pinOrder: Int = 0)
 private data class PermissionsJson(val admin: Boolean = false, val push: Boolean = false)
 
 @Serializable
-private data class PermittedRepoJson(val permissions: PermissionsJson = PermissionsJson())
+private data class TrackerJson(
+    @SerialName("enable_time_tracker") val timeTracker: Boolean = false,
+    @SerialName("allow_only_contributors_to_track_time") val contributorsOnly: Boolean = false,
+    @SerialName("enable_issue_dependencies") val dependencies: Boolean = false,
+)
+
+@Serializable
+private data class PermittedRepoJson(
+    val permissions: PermissionsJson = PermissionsJson(),
+    @SerialName("internal_tracker") val tracker: TrackerJson? = null,
+)
+
+@Serializable
+private data class TrackedTimeJson(val time: Long = 0)
+
+@Serializable
+private data class StopwatchJson(
+    val created: String? = null,
+    @SerialName("issue_index") val issue: Int = 0,
+    @SerialName("repo_owner_name") val owner: String = "",
+    @SerialName("repo_name") val repo: String = "",
+)
 
 @Serializable
 private data class BranchJson(val ref: String, val label: String? = null)
@@ -357,4 +479,5 @@ private data class TimelineJson(
     @SerialName("removed_assignee") val removedAssignee: Boolean = false,
     val milestone: MilestoneJson? = null,
     @SerialName("old_milestone") val oldMilestone: MilestoneJson? = null,
+    @SerialName("dependent_issue") val dependentIssue: RefIssueJson? = null,
 )

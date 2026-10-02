@@ -25,6 +25,9 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.core.model.StateChange
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
+import fr.arthurbrugiere.forgeline.core.model.TimeTracking
+import java.time.LocalDate
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
@@ -307,10 +310,10 @@ class ForgejoIssueApiTest {
             ForgejoIssueApi(client { json("""{"name":"forgejo","permissions":{"admin":$admin,"push":$push,"pull":true}}""") }, ForgeInstance.Codeberg)
         }
 
-        assertThat(asking(admin = true, push = true).access("tok", pull.repo).value()).isEqualTo(RepoAccess.ADMIN)
+        assertThat(asking(admin = true, push = true).access("tok", pull.repo).value().access).isEqualTo(RepoAccess.ADMIN)
         // Forgejo has no triage role: pushing is what manages conversations.
-        assertThat(asking(admin = false, push = true).access("tok", pull.repo).value()).isEqualTo(RepoAccess.WRITE)
-        assertThat(asking(admin = false, push = false).access("tok", pull.repo).value()).isEqualTo(RepoAccess.NONE)
+        assertThat(asking(admin = false, push = true).access("tok", pull.repo).value().access).isEqualTo(RepoAccess.WRITE)
+        assertThat(asking(admin = false, push = false).access("tok", pull.repo).value().access).isEqualTo(RepoAccess.NONE)
         assertThat(codeberg.requests.first().url.toString()).isEqualTo("https://codeberg.org/api/v1/repos/forgejo/forgejo")
         assertThat(codeberg.requests.first().headers[HttpHeaders.Authorization]).isEqualTo("token tok")
     }
@@ -387,6 +390,7 @@ class ForgejoIssueApiTest {
 
         assertThat(api.actions).containsExactly(
             ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.PIN, ConversationAction.DELETE,
+            ConversationAction.DUE_DATE, ConversationAction.TIME_TRACKING, ConversationAction.DEPENDENCIES,
         )
         assertThat(api.setLocked("tok", seven, locked = true)).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
         assertThat(api.transfer("tok", seven, RepoId("forgejo", "docs", ForgeInstance.Codeberg))).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
@@ -487,5 +491,169 @@ class ForgejoIssueApiTest {
         val api = answering { with(codeberg) { json("""{"number":7,"title":"Crash","state":"open","created_at":"2026-10-02T04:20:00+02:00","pin_order":0}""") } }
 
         assertThat(api.isPinned("tok", seven).value()).isFalse()
+    }
+
+    private fun rights(push: Boolean, tracker: String?) = with(codeberg) {
+        ForgejoIssueApi(
+            client { json("""{"name":"forgejo","permissions":{"admin":false,"push":$push,"pull":true}""" + (tracker?.let { ""","internal_tracker":$it""" } ?: "") + "}") },
+            ForgeInstance.Codeberg,
+        )
+    }
+
+    private fun tracker(time: Boolean, contributorsOnly: Boolean, dependencies: Boolean) =
+        """{"enable_time_tracker":$time,"allow_only_contributors_to_track_time":$contributorsOnly,"enable_issue_dependencies":$dependencies}"""
+
+    @Test
+    fun a_repository_s_settings_switch_time_tracking_and_dependencies_off() = runTest {
+        // forgejo/forgejo's own settings (2026-10-02): no time tracker, dependencies on.
+        assertThat(rights(push = true, tracker(time = false, contributorsOnly = true, dependencies = true)).access("tok", pull.repo).value().switchedOff)
+            .containsExactly(ConversationAction.TIME_TRACKING)
+        assertThat(rights(push = true, tracker(time = true, contributorsOnly = true, dependencies = false)).access("tok", pull.repo).value().switchedOff)
+            .containsExactly(ConversationAction.DEPENDENCIES)
+        assertThat(rights(push = true, tracker(time = true, contributorsOnly = true, dependencies = true)).access("tok", pull.repo).value().switchedOff).isEmpty()
+    }
+
+    @Test
+    fun time_tracking_kept_to_contributors_is_off_for_everyone_else() = runTest {
+        assertThat(rights(push = false, tracker(time = true, contributorsOnly = true, dependencies = true)).access("tok", pull.repo).value().switchedOff)
+            .containsExactly(ConversationAction.TIME_TRACKING)
+        // Open to anyone: a passer-by can track time too.
+        assertThat(rights(push = false, tracker(time = true, contributorsOnly = false, dependencies = true)).access("tok", pull.repo).value().switchedOff).isEmpty()
+    }
+
+    @Test
+    fun a_repository_that_keeps_its_issues_elsewhere_tracks_neither() = runTest {
+        assertThat(rights(push = true, tracker = null).access("tok", pull.repo).value().switchedOff)
+            .containsExactly(ConversationAction.TIME_TRACKING, ConversationAction.DEPENDENCIES)
+    }
+
+    @Test
+    fun the_day_an_issue_is_due_is_read_whichever_way_it_was_set() = runTest {
+        // Set through the API, Forgejo answers the end of that day in its own zone, which is already the next day there.
+        assertThat(triaged(""","due_date":"2026-10-11T01:59:59+02:00"""", "[]").issue(null, seven).value().dueDate).isEqualTo(LocalDate.parse("2026-10-10"))
+        // Set on the site: the end of the day there.
+        assertThat(triaged(""","due_date":"2026-10-10T23:59:59+02:00"""", "[]").issue(null, seven).value().dueDate).isEqualTo(LocalDate.parse("2026-10-10"))
+        assertThat(triaged(""","due_date":null""", "[]").issue(null, seven).value().dueDate).isNull()
+    }
+
+    @Test
+    fun a_due_date_is_set_as_a_day_and_taken_away_with_its_own_field() = runTest {
+        val api = answering { with(codeberg) { json(opened, HttpStatusCode.Created) } }
+
+        assertThat(api.setDueDate("tok", seven, LocalDate.parse("2026-10-10"))).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.setDueDate("tok", seven, null)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(sent).containsExactly("PATCH /api/v1/repos/forgejo/forgejo/issues/7", "PATCH /api/v1/repos/forgejo/forgejo/issues/7")
+        assertThat(bodies).containsExactly("""{"due_date":"2026-10-10T00:00:00Z"}""", """{"unset_due_date":true}""").inOrder()
+    }
+
+    @Test
+    fun time_spent_is_everyone_s_and_the_timer_is_the_one_running_here() = runTest {
+        val api = answering {
+            with(codeberg) {
+                if (it.url.encodedPath.endsWith("/user/stopwatches")) {
+                    json(
+                        """[{"created":"2026-10-02T09:00:00+02:00","issue_index":7,"repo_owner_name":"other","repo_name":"forgejo","seconds":60},
+                        {"created":"2026-10-02T10:00:00+02:00","issue_index":7,"repo_owner_name":"forgejo","repo_name":"forgejo","seconds":60}]""",
+                    )
+                } else {
+                    json("""[{"id":1,"time":3600,"user_name":"me"},{"id":2,"time":1800,"user_name":"earl-warren"}]""")
+                }
+            }
+        }
+
+        val tracking = api.timeTracking("tok", seven).value()
+
+        assertThat(tracking).isEqualTo(TimeTracking(5_400, Instant.parse("2026-10-02T08:00:00Z")))
+        assertThat(sent).containsExactly("GET /api/v1/repos/forgejo/forgejo/issues/7/times", "GET /api/v1/user/stopwatches")
+    }
+
+    @Test
+    fun without_a_timer_here_none_runs_and_timers_that_can_t_be_read_don_t_hide_the_time_spent() = runTest {
+        val api = answering {
+            with(codeberg) { if (it.url.encodedPath.endsWith("/user/stopwatches")) json("""{"message":"no"}""", HttpStatusCode.Forbidden) else json("""[{"id":1,"time":120}]""") }
+        }
+
+        assertThat(api.timeTracking("tok", seven).value()).isEqualTo(TimeTracking(120, null))
+    }
+
+    @Test
+    fun the_timer_starts_and_stops_and_time_is_added_in_seconds() = runTest {
+        val api = answering { with(codeberg) { json("{}", HttpStatusCode.Created) } }
+
+        assertThat(api.setTimerRunning("tok", seven, running = true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.setTimerRunning("tok", seven, running = false)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.addTime("tok", seven, 5_400)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(sent).containsExactly(
+            "POST /api/v1/repos/forgejo/forgejo/issues/7/stopwatch/start",
+            "POST /api/v1/repos/forgejo/forgejo/issues/7/stopwatch/stop",
+            "POST /api/v1/repos/forgejo/forgejo/issues/7/times",
+        ).inOrder()
+        assertThat(bodies.last()).isEqualTo("""{"time":5400}""")
+    }
+
+    @Test
+    fun a_timer_that_already_runs_is_a_failure() = runTest {
+        val api = answering { with(codeberg) { json("""{"message":"already running"}""", HttpStatusCode.Conflict) } }
+
+        assertThat(api.setTimerRunning("tok", seven, running = true)).isEqualTo(ForgeResult.Failure(ForgeError.Http(409, "already running")))
+    }
+
+    @Test
+    fun dependencies_name_their_repository_when_it_is_another() = runTest {
+        val api = answering {
+            with(codeberg) {
+                json(
+                    """[{"number":3,"title":"Schema first","state":"closed","created_at":"2026-09-30T05:00:00+02:00"},
+                    {"number":106,"title":"Website copy","state":"open","created_at":"2026-09-30T05:00:00+02:00","repository":{"owner":"dzeuros","name":"website"}}]""",
+                )
+            }
+        }
+
+        assertThat(api.dependencies("tok", seven).value()).containsExactly(
+            LinkedIssue(IssueRef(pull.repo, 3), "Schema first", IssueState.CLOSED),
+            LinkedIssue(IssueRef(RepoId("dzeuros", "website", ForgeInstance.Codeberg), 106), "Website copy", IssueState.OPEN),
+        ).inOrder()
+        assertThat(sent).containsExactly("GET /api/v1/repos/forgejo/forgejo/issues/7/dependencies")
+    }
+
+    @Test
+    fun a_dependency_is_added_and_removed_by_naming_the_other_issue() = runTest {
+        val api = answering { with(codeberg) { json(opened, HttpStatusCode.Created) } }
+        val other = IssueRef(RepoId("dzeuros", "website", ForgeInstance.Codeberg), 106)
+
+        assertThat(api.addDependency("tok", seven, other)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.removeDependency("tok", seven, other)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(sent).containsExactly(
+            "POST /api/v1/repos/forgejo/forgejo/issues/7/dependencies", "DELETE /api/v1/repos/forgejo/forgejo/issues/7/dependencies",
+        ).inOrder()
+        assertThat(bodies.distinct()).containsExactly("""{"owner":"dzeuros","repo":"website","index":106}""")
+    }
+
+    @Test
+    fun deadlines_time_and_dependencies_are_part_of_the_conversation() = runTest {
+        fun entry(id: Int, type: String, extra: String = "") =
+            """{"id":$id,"type":"$type","user":{"login":"maintainer"},"created_at":"2026-10-02T05:00:00+02:00"$extra}"""
+        // The dependency entries follow what Codeberg sends (seen on forgejo/forgejo, 2026-10-02); the others its API description.
+        val timeline = listOf(
+            entry(1, "added_deadline", ""","body":"2026-10-10""""),
+            entry(2, "modified_deadline", ""","body":"2026-10-12|2026-10-10""""),
+            entry(3, "removed_deadline", ""","body":"2026-10-12""""),
+            entry(4, "start_tracking"), entry(5, "stop_tracking", ""","body":"|3600""""), entry(6, "add_time_manual", ""","body":"|600""""),
+            entry(7, "add_dependency", ""","dependent_issue":{"number":3,"title":"Schema first","repository":{"full_name":"forgejo/forgejo"}}"""),
+            entry(8, "remove_dependency", ""","dependent_issue":{"number":106,"title":"Website copy","repository":{"full_name":"dzeuros/website"}}"""),
+        ).joinToString(",", "[", "]")
+
+        val events = triaged("", timeline).timeline(null, seven, 1).value().items.filterIsInstance<TimelineItem.Event>()
+
+        assertThat(events.map { it.event }).containsExactly(
+            ConversationEvent.DEADLINE_SET, ConversationEvent.DEADLINE_SET, ConversationEvent.DEADLINE_REMOVED,
+            ConversationEvent.TRACKING_STARTED, ConversationEvent.TRACKING_STOPPED, ConversationEvent.TIME_ADDED,
+            ConversationEvent.DEPENDENCY_ADDED, ConversationEvent.DEPENDENCY_REMOVED,
+        ).inOrder()
+        // A changed date names the new one; a dependency in another repository names it.
+        assertThat(events.map { it.subject }).containsExactly("2026-10-10", "2026-10-12", null, null, null, null, "#3 Schema first", "dzeuros/website#106 Website copy").inOrder()
     }
 }

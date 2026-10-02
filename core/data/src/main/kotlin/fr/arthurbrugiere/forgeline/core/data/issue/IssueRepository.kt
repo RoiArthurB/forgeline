@@ -6,7 +6,11 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.data.account.accountOn
 import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.TimeTracking
+import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -81,8 +85,11 @@ interface IssueRepository {
      */
     suspend fun setOpen(ref: IssueRef, open: Boolean, reason: CloseReason? = null): ForgeResult<Unit>
 
-    /** What [forge]'s API can do to a conversation beyond commenting on it and closing it. */
-    fun actions(forge: ForgeInstance): Set<ConversationAction>
+    /**
+     * What can be done to a conversation of [repo] beyond commenting on it and closing it: what its forge's API can
+     * do, less what the repository switches off for the account signed in.
+     */
+    suspend fun actions(repo: RepoId): Set<ConversationAction>
 
     // What follows acts as the account signed in on the conversation's forge, and answers Unauthorized without one.
     // Each change is announced on [changed]; the conversation kept is brought up to date by loading it again.
@@ -110,6 +117,20 @@ interface IssueRepository {
 
     /** Deletes the issue for good, on the forge and from what is kept here. */
     suspend fun delete(ref: IssueRef): ForgeResult<Unit>
+
+    suspend fun setDueDate(ref: IssueRef, date: LocalDate?): ForgeResult<Unit>
+
+    suspend fun timeTracking(ref: IssueRef): ForgeResult<TimeTracking>
+
+    suspend fun setTimerRunning(ref: IssueRef, running: Boolean): ForgeResult<Unit>
+
+    suspend fun addTime(ref: IssueRef, seconds: Long): ForgeResult<Unit>
+
+    suspend fun dependencies(ref: IssueRef): ForgeResult<List<LinkedIssue>>
+
+    suspend fun addDependency(ref: IssueRef, on: IssueRef): ForgeResult<Unit>
+
+    suspend fun removeDependency(ref: IssueRef, on: IssueRef): ForgeResult<Unit>
 
     /**
      * Every conversation opened, closed or reopened from this app, as it happens: a list of a repository's open
@@ -196,14 +217,16 @@ class DefaultIssueRepository @Inject constructor(
     override val changed: Flow<IssueRef> = changes.asSharedFlow()
 
     /** What each account may do where, as the forge said this session; keyed by account, then repository. */
-    private val managed = ConcurrentHashMap<Pair<String, RepoId>, RepoAccess>()
+    private val managed = ConcurrentHashMap<Pair<String, RepoId>, RepoRights>()
 
-    override suspend fun access(repo: RepoId): RepoAccess {
-        val account = accounts.accountOn(repo.forge) ?: return RepoAccess.NONE
+    override suspend fun access(repo: RepoId): RepoAccess = rights(repo).access
+
+    private suspend fun rights(repo: RepoId): RepoRights {
+        val account = accounts.accountOn(repo.forge) ?: return RepoRights(RepoAccess.NONE)
         managed[account.id to repo]?.let { return it }
-        val token = accounts.token(account.id) ?: return RepoAccess.NONE
+        val token = accounts.token(account.id) ?: return RepoRights(RepoAccess.NONE)
         // A failure isn't remembered: it is asked again the next time a conversation opens.
-        val answer = clients.issues(repo.forge).access(token, repo) as? ForgeResult.Success ?: return RepoAccess.NONE
+        val answer = clients.issues(repo.forge).access(token, repo) as? ForgeResult.Success ?: return RepoRights(RepoAccess.NONE)
         managed[account.id to repo] = answer.value
         return answer.value
     }
@@ -245,7 +268,21 @@ class DefaultIssueRepository @Inject constructor(
         }
     }
 
-    override fun actions(forge: ForgeInstance): Set<ConversationAction> = clients.issues(forge).actions
+    override suspend fun actions(repo: RepoId): Set<ConversationAction> = clients.issues(repo.forge).actions - rights(repo).switchedOff
+
+    override suspend fun setDueDate(ref: IssueRef, date: LocalDate?) = changing(ref) { setDueDate(it, ref, date) }
+
+    override suspend fun timeTracking(ref: IssueRef) = signedIn(ref.repo.forge) { timeTracking(it, ref) }
+
+    override suspend fun setTimerRunning(ref: IssueRef, running: Boolean) = changing(ref) { setTimerRunning(it, ref, running) }
+
+    override suspend fun addTime(ref: IssueRef, seconds: Long) = changing(ref) { addTime(it, ref, seconds) }
+
+    override suspend fun dependencies(ref: IssueRef) = signedIn(ref.repo.forge) { dependencies(it, ref) }
+
+    override suspend fun addDependency(ref: IssueRef, on: IssueRef) = changing(ref) { addDependency(it, ref, on) }
+
+    override suspend fun removeDependency(ref: IssueRef, on: IssueRef) = changing(ref) { removeDependency(it, ref, on) }
 
     private suspend fun <T> signedIn(forge: ForgeInstance, call: suspend IssueApi.(token: String) -> ForgeResult<T>): ForgeResult<T> {
         val token = accounts.tokenOn(forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)

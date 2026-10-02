@@ -118,6 +118,7 @@ internal data class IssueJson(
     // Nobody assigned answers null, not an empty list.
     val assignees: List<UserJson>? = null,
     val milestone: MilestoneJson? = null,
+    @SerialName("due_date") val dueDate: String? = null,
 ) {
     val isPullRequest: Boolean get() = pullRequest != null || merged != null
 

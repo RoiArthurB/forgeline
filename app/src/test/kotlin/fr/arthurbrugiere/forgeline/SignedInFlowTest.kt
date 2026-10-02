@@ -174,6 +174,44 @@ class SignedInFlowTest {
     }
 
     @Test
+    fun time_added_in_the_tracker_counts_the_next_time_it_opens() {
+        openIssuesSignedIn()
+        openManage()
+
+        composeRule.onNodeWithText("Time tracker").performClick()
+        waitFor("No time recorded yet.")
+        composeRule.onNode(hasSetTextAction() and hasText("Hours")).performTextInput("1")
+        composeRule.onNode(hasSetTextAction() and hasText("Minutes")).performTextInput("30")
+        composeRule.onNodeWithText("Add time").performClick()
+        // The sheet closed on the change.
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Add time")).fetchSemanticsNodes().isEmpty() }
+
+        composeRule.onNode(hasContentDescription("Manage")).performClick()
+        waitFor("Time tracker")
+        composeRule.onNodeWithText("Time tracker").performClick()
+
+        waitFor("Time spent so far: 1 h 30 min")
+    }
+
+    @Test
+    fun a_dependency_added_by_its_number_is_listed_the_next_time() {
+        openIssuesSignedIn()
+        openManage()
+
+        composeRule.onNodeWithText("Dependencies").performClick()
+        waitFor("This doesn't depend on anything yet.")
+        composeRule.onNode(hasSetTextAction() and hasText("Issue number, like 12")).performTextInput("#13990")
+        composeRule.onNodeWithText("Add dependency").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Add dependency")).fetchSemanticsNodes().isEmpty() }
+
+        composeRule.onNode(hasContentDescription("Manage")).performClick()
+        waitFor("Dependencies")
+        composeRule.onNodeWithText("Dependencies").performClick()
+
+        waitFor("#13990 · open")
+    }
+
+    @Test
     fun an_issue_written_in_the_form_opens_as_a_conversation_and_back_returns_to_the_repository() {
         openIssuesSignedIn()
 

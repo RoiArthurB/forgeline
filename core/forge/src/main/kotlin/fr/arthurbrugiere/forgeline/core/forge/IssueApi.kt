@@ -7,7 +7,10 @@ import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
-import fr.arthurbrugiere.forgeline.core.model.RepoAccess
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.TimeTracking
+import java.time.LocalDate
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
@@ -39,8 +42,8 @@ interface IssueApi {
      */
     suspend fun setOpen(token: String, ref: IssueRef, open: Boolean, reason: CloseReason? = null): ForgeResult<Unit>
 
-    /** What the signed-in user may do in [repo] beyond reading it. */
-    suspend fun access(token: String, repo: RepoId): ForgeResult<RepoAccess>
+    /** What the signed-in user may do in [repo] beyond reading it, and what the repository switches off. */
+    suspend fun access(token: String, repo: RepoId): ForgeResult<RepoRights>
 
     /** What this forge's API can do to a conversation; the calls below answer Unsupported for the rest. */
     val actions: Set<ConversationAction> get() = emptySet()
@@ -76,6 +79,24 @@ interface IssueApi {
 
     /** Deletes the issue [ref] and its conversation, for good. */
     suspend fun delete(token: String, ref: IssueRef): ForgeResult<Unit> = unsupported
+
+    /** Says the day [ref] is due, or that it has none. */
+    suspend fun setDueDate(token: String, ref: IssueRef, date: LocalDate?): ForgeResult<Unit> = unsupported
+
+    suspend fun timeTracking(token: String, ref: IssueRef): ForgeResult<TimeTracking> = unsupported
+
+    /** Starts the signed-in user's timer on [ref], or stops it: stopping records the time it ran. */
+    suspend fun setTimerRunning(token: String, ref: IssueRef, running: Boolean): ForgeResult<Unit> = unsupported
+
+    /** Records [seconds] spent on [ref] by the signed-in user. */
+    suspend fun addTime(token: String, ref: IssueRef, seconds: Long): ForgeResult<Unit> = unsupported
+
+    /** The conversations [ref] depends on: it can't be closed before they are. */
+    suspend fun dependencies(token: String, ref: IssueRef): ForgeResult<List<LinkedIssue>> = unsupported
+
+    suspend fun addDependency(token: String, ref: IssueRef, on: IssueRef): ForgeResult<Unit> = unsupported
+
+    suspend fun removeDependency(token: String, ref: IssueRef, on: IssueRef): ForgeResult<Unit> = unsupported
 }
 
 private val unsupported = ForgeResult.Failure(ForgeError.Unsupported)

@@ -32,6 +32,11 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.issueDetails
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
+import fr.arthurbrugiere.forgeline.core.model.TimeTracking
+import java.time.Instant
+import java.time.LocalDate
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -74,11 +79,21 @@ class IssueManageSheetTest {
         onDuplicate = { events += "duplicate" },
         onTransfer = { events += "transfer:$it" },
         onDelete = { events += "delete" },
+        onSetDueDate = { events += "due:$it" },
+        onLoadTracking = { events += "load-tracking" },
+        onToggleTimer = { events += "timer" },
+        onAddTime = { events += "time:$it" },
+        onLoadDependencies = { events += "load-dependencies" },
+        onAddDependency = { events += "depend:$it" },
+        onRemoveDependency = { events += "undepend:${it.number}" },
+        onOpenOnForge = { events += "open-on-forge" },
     )
 
     private fun setContent(state: IssueUiState = owned, page: ManagePage = ManagePage.MENU) {
         shown.value = state
-        composeRule.setContent { IssueManageContent(shown.value, actions, onDismiss = { events += "dismiss" }, startPage = page) }
+        composeRule.setContent {
+            IssueManageContent(shown.value, actions, onDismiss = { events += "dismiss" }, startPage = page, nowMillis = Instant.parse("2026-10-02T10:00:00Z").toEpochMilli())
+        }
     }
 
     private fun choice(text: String) = composeRule.onNode(isToggleable() and hasAnyDescendant(hasText(text)), useUnmergedTree = true)
@@ -120,12 +135,154 @@ class IssueManageSheetTest {
     }
 
     @Test
-    fun a_forge_that_can_t_lock_or_transfer_offers_neither() {
-        setContent(owned.copy(supported = ConversationAction.entries.toSet() - ConversationAction.LOCK - ConversationAction.TRANSFER - ConversationAction.CLOSE_REASON))
+    fun a_forge_that_can_t_transfer_or_say_why_it_closes_offers_neither() {
+        setContent(owned.copy(supported = ConversationAction.entries.toSet() - ConversationAction.TRANSFER - ConversationAction.CLOSE_REASON))
 
-        listOf("Lock conversation", "Transfer issue", "Close as not planned", "Close as duplicate").forEach { composeRule.onNodeWithText(it).assertDoesNotExist() }
+        listOf("Transfer issue", "Close as not planned", "Close as duplicate").forEach { composeRule.onNodeWithText(it).assertDoesNotExist() }
         composeRule.onNodeWithText("Pin issue").assertExists()
         composeRule.onNodeWithText("Delete issue").assertExists()
+    }
+
+    private val onCodeberg = IssueRef(RepoId("octo", "repo", ForgeInstance.Codeberg), 7)
+    private val forgejo = owned.copy(
+        ref = onCodeberg,
+        issue = owned.issue!!.copy(ref = onCodeberg),
+        supported = ConversationAction.entries.toSet() - ConversationAction.LOCK - ConversationAction.TRANSFER - ConversationAction.CLOSE_REASON,
+    )
+
+    @Test
+    fun a_forge_whose_api_can_t_lock_sends_whoever_may_to_its_site() {
+        setContent(forgejo)
+        composeRule.onNodeWithText("On Codeberg's site: its API can't do this").assertExists()
+
+        composeRule.onNodeWithText("Lock conversation").performClick()
+
+        assertThat(events).containsExactly("open-on-forge", "dismiss").inOrder()
+    }
+
+    @Test
+    fun whoever_can_t_lock_on_the_site_either_is_not_sent_there() {
+        setContent(forgejo.copy(access = RepoAccess.NONE))
+
+        composeRule.onNodeWithText("Lock conversation").assertDoesNotExist()
+    }
+
+    @Test
+    fun the_due_date_row_says_the_day_and_opens_a_calendar_on_it() {
+        setContent(owned.copy(issue = owned.issue!!.copy(dueDate = LocalDate.parse("2026-10-10"))))
+        composeRule.onNodeWithText("Oct 10, 2026").assertExists()
+
+        composeRule.onNodeWithText("Due date").performClick()
+
+        composeRule.onNode(hasText("Due date") and isHeading()).assertIsDisplayed()
+        composeRule.onNodeWithText("October 2026").assertExists()
+        // The day it already has is nothing new to save; it can be taken away.
+        composeRule.onNodeWithText("Save").assertIsNotEnabled()
+        composeRule.onNodeWithText("Remove due date").performClick()
+
+        assertThat(events).containsExactly("due:null")
+    }
+
+    @Test
+    fun a_day_picked_on_the_calendar_is_saved() {
+        setContent(owned.copy(issue = owned.issue!!.copy(dueDate = LocalDate.parse("2026-10-10"))), page = ManagePage.DUE_DATE)
+
+        composeRule.onNode(hasText("Saturday, October 17, 2026", substring = true)).performClick()
+        composeRule.onNodeWithText("Save").assertIsEnabled().performClick()
+
+        assertThat(events).containsExactly("due:2026-10-17")
+    }
+
+    @Test
+    fun an_issue_without_a_due_date_has_none_to_remove_or_save_yet() {
+        setContent(page = ManagePage.DUE_DATE)
+
+        composeRule.onNodeWithText("Remove due date").assertDoesNotExist()
+        composeRule.onNodeWithText("Save").assertIsNotEnabled()
+    }
+
+    private fun tracked(seconds: Long, since: Instant? = null) = owned.copy(manage = owned.manage.copy(tracking = Loadable.Loaded(TimeTracking(seconds, since))))
+
+    @Test
+    fun the_time_tracker_loads_when_its_page_opens_and_says_the_time_spent() {
+        setContent(tracked(9_000))
+
+        composeRule.onNodeWithText("Time tracker").performClick()
+
+        assertThat(events).containsExactly("load-tracking")
+        composeRule.onNodeWithText("Time spent so far: 2 h 30 min").assertIsDisplayed()
+        composeRule.onNodeWithText("Start timer").performClick()
+        assertThat(events).containsExactly("load-tracking", "timer").inOrder()
+    }
+
+    @Test
+    fun a_running_timer_says_since_when_and_offers_to_stop() {
+        setContent(tracked(0, Instant.parse("2026-10-02T08:00:00Z")), page = ManagePage.TIME)
+
+        composeRule.onNodeWithText("No time recorded yet.").assertIsDisplayed()
+        composeRule.onNodeWithText("Your timer started 2 hours ago.", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Start timer").assertDoesNotExist()
+        composeRule.onNodeWithText("Stop timer").performClick()
+
+        assertThat(events).containsExactly("timer")
+    }
+
+    @Test
+    fun time_already_spent_is_added_in_hours_and_minutes() {
+        setContent(tracked(1_500), page = ManagePage.TIME)
+        composeRule.onNodeWithText("Time spent so far: 25 min").assertIsDisplayed()
+        composeRule.onNodeWithText("Add time").assertIsNotEnabled()
+
+        composeRule.onAllNodes(hasSetTextAction())[0].performTextInput("1")
+        // Letters are left out: these are numbers.
+        composeRule.onAllNodes(hasSetTextAction())[1].performTextInput("3x0")
+        composeRule.onNodeWithText("Add time").assertIsEnabled().performClick()
+
+        assertThat(events).containsExactly("time:5400")
+    }
+
+    private fun depending(vararg on: LinkedIssue) = owned.copy(manage = owned.manage.copy(dependencies = Loadable.Loaded(on.toList())))
+
+    @Test
+    fun dependencies_load_when_their_page_opens_and_say_where_each_stands() {
+        val elsewhere = LinkedIssue(IssueRef(RepoId("other", "docs"), 106), "Website copy", IssueState.OPEN)
+        setContent(depending(LinkedIssue(IssueRef(ref.repo, 3), "Schema first", IssueState.CLOSED), elsewhere))
+
+        composeRule.onNodeWithText("Dependencies").performClick()
+
+        assertThat(events).containsExactly("load-dependencies")
+        composeRule.onNodeWithText("Schema first").assertIsDisplayed()
+        composeRule.onNodeWithText("#3 · closed").assertIsDisplayed()
+        // One in another repository names it.
+        composeRule.onNodeWithText("other/docs#106 · open").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_dependency_is_removed_or_another_added_by_its_number() {
+        setContent(depending(LinkedIssue(IssueRef(ref.repo, 3), "Schema first", IssueState.CLOSED)), page = ManagePage.DEPENDENCIES)
+        composeRule.onNodeWithText("Add dependency").assertIsNotEnabled()
+
+        composeRule.onNodeWithContentDescription("Remove the dependency on #3").performClick()
+        composeRule.onNode(hasSetTextAction()).performTextInput("#12")
+        composeRule.onNodeWithText("Add dependency").assertIsEnabled().performClick()
+
+        assertThat(events).containsExactly("undepend:3", "depend:#12").inOrder()
+    }
+
+    @Test
+    fun an_issue_that_depends_on_nothing_says_so_and_can_t_depend_on_itself() {
+        setContent(depending(), page = ManagePage.DEPENDENCIES)
+        composeRule.onNodeWithText("This doesn't depend on anything yet.").assertIsDisplayed()
+
+        composeRule.onNode(hasSetTextAction()).performTextInput("7")
+
+        composeRule.onNodeWithText("Add dependency").assertIsNotEnabled()
+    }
+
+    @Test
+    fun the_new_pages_are_large_enough_to_press() {
+        setContent(tracked(0, Instant.parse("2026-10-02T08:00:00Z")), page = ManagePage.TIME)
+        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 
     @Test
@@ -142,7 +299,8 @@ class IssueManageSheetTest {
     fun nothing_set_reads_none() {
         setContent(owned.copy(issue = issueDetails(ref, "Crash on start")))
 
-        assertThat(composeRule.onAllNodes(hasText("None")).fetchSemanticsNodes()).hasSize(3)
+        // Labels, assignees, milestone and due date.
+        assertThat(composeRule.onAllNodes(hasText("None")).fetchSemanticsNodes()).hasSize(4)
     }
 
     @Test
@@ -326,7 +484,9 @@ class IssueManageSheetTest {
         // An issue can always be duplicated by someone signed in; a pull request needs a role.
         assertThat(nobody.canManage(signedIn = true)).isTrue()
         assertThat(nobody.canManage(signedIn = false)).isFalse()
-        assertThat(nobody.copy(issue = pull).canManage(signedIn = true)).isFalse()
+        // Unless the repository lets anyone track time, which a pull request takes too.
+        assertThat(nobody.copy(issue = pull).canManage(signedIn = true)).isTrue()
+        assertThat(nobody.copy(issue = pull, supported = nobody.supported - ConversationAction.TIME_TRACKING).canManage(signedIn = true)).isFalse()
         assertThat(owned.copy(issue = pull).canManage(signedIn = true)).isTrue()
         assertThat(IssueUiState(ref).canManage(signedIn = true)).isFalse()
         assertThat(owned.copy(issue = owned.issue!!.copy(state = IssueState.CLOSED)).canManage(signedIn = true)).isTrue()

@@ -268,11 +268,11 @@ class GitHubIssueApiTest {
         fun permissions(admin: Boolean = false, maintain: Boolean = false, push: Boolean = false, triage: Boolean = false) =
             """{"name":"paperclip","permissions":{"admin":$admin,"maintain":$maintain,"push":$push,"triage":$triage,"pull":true}}"""
 
-        assertThat(api { json(permissions(admin = true, push = true, triage = true)) }.access("tok", repo).value()).isEqualTo(RepoAccess.ADMIN)
-        assertThat(api { json(permissions(maintain = true, triage = true)) }.access("tok", repo).value()).isEqualTo(RepoAccess.WRITE)
-        assertThat(api { json(permissions(push = true, triage = true)) }.access("tok", repo).value()).isEqualTo(RepoAccess.WRITE)
-        assertThat(api { json(permissions(triage = true)) }.access("tok", repo).value()).isEqualTo(RepoAccess.TRIAGE)
-        assertThat(api { json(permissions()) }.access("tok", repo).value()).isEqualTo(RepoAccess.NONE)
+        assertThat(api { json(permissions(admin = true, push = true, triage = true)) }.access("tok", repo).value().access).isEqualTo(RepoAccess.ADMIN)
+        assertThat(api { json(permissions(maintain = true, triage = true)) }.access("tok", repo).value().access).isEqualTo(RepoAccess.WRITE)
+        assertThat(api { json(permissions(push = true, triage = true)) }.access("tok", repo).value().access).isEqualTo(RepoAccess.WRITE)
+        assertThat(api { json(permissions(triage = true)) }.access("tok", repo).value().access).isEqualTo(RepoAccess.TRIAGE)
+        assertThat(api { json(permissions()) }.access("tok", repo).value().access).isEqualTo(RepoAccess.NONE)
         assertThat(requests.first().url.toString()).isEqualTo("https://api.github.com/repos/paperclipai/paperclip")
         assertThat(requests.first().headers[HttpHeaders.Authorization]).isEqualTo("Bearer tok")
     }
@@ -280,7 +280,7 @@ class GitHubIssueApiTest {
     @Test
     fun a_repository_that_doesn_t_state_permissions_grants_nothing() = runTest {
         // Read without the right to know, GitHub leaves the permissions out.
-        assertThat(api { json("""{"name":"paperclip"}""") }.access("tok", repo).value()).isEqualTo(RepoAccess.NONE)
+        assertThat(api { json("""{"name":"paperclip"}""") }.access("tok", repo).value().access).isEqualTo(RepoAccess.NONE)
     }
 
     // Fixtures: netbirdio/netbird issue #5434, locked then converted to a discussion, captured 2026-10-02.
@@ -348,8 +348,26 @@ class GitHubIssueApiTest {
     private val bodies get() = requests.map { (it.body as? TextContent)?.text }
 
     @Test
-    fun github_can_do_everything_to_a_conversation() {
-        assertThat(api { json("{}") }.actions).containsExactlyElementsIn(ConversationAction.entries)
+    fun github_keeps_no_due_date_time_spent_or_dependencies() = runTest {
+        val api = api { error("no request expected") }
+
+        assertThat(api.actions).containsExactlyElementsIn(
+            ConversationAction.entries - setOf(ConversationAction.DUE_DATE, ConversationAction.TIME_TRACKING, ConversationAction.DEPENDENCIES),
+        )
+        val unsupported = ForgeResult.Failure(ForgeError.Unsupported)
+        assertThat(api.setDueDate("tok", issue, java.time.LocalDate.parse("2026-10-10"))).isEqualTo(unsupported)
+        assertThat(api.timeTracking("tok", issue)).isEqualTo(unsupported)
+        assertThat(api.setTimerRunning("tok", issue, true)).isEqualTo(unsupported)
+        assertThat(api.addTime("tok", issue, 60)).isEqualTo(unsupported)
+        assertThat(api.dependencies("tok", issue)).isEqualTo(unsupported)
+        assertThat(api.addDependency("tok", issue, pr)).isEqualTo(unsupported)
+        assertThat(api.removeDependency("tok", issue, pr)).isEqualTo(unsupported)
+        assertThat(requests).isEmpty()
+    }
+
+    @Test
+    fun a_github_repository_switches_nothing_off() = runTest {
+        assertThat(api { json("""{"name":"paperclip","permissions":{"admin":true}}""") }.access("tok", repo).value().switchedOff).isEmpty()
     }
 
     @Test

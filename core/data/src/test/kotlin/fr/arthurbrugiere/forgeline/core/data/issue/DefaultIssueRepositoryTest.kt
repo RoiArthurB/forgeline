@@ -430,10 +430,53 @@ class DefaultIssueRepositoryTest {
     }
 
     @Test
-    fun what_can_be_done_to_a_conversation_is_what_its_forge_can() = runTest {
-        api.actions = setOf(fr.arthurbrugiere.forgeline.core.model.ConversationAction.LABELS)
+    fun what_can_be_done_to_a_conversation_is_what_its_forge_can_less_what_the_repository_switches_off() = runTest {
+        val labels = fr.arthurbrugiere.forgeline.core.model.ConversationAction.LABELS
+        val time = fr.arthurbrugiere.forgeline.core.model.ConversationAction.TIME_TRACKING
+        api.actions = setOf(labels, time)
+        // Signed out, nothing says what the repository switches off: only the forge's abilities are known.
+        assertThat(repository.actions(ref.repo)).containsExactly(labels, time)
 
-        assertThat(repository.actions(ForgeInstance.GitHub)).containsExactly(fr.arthurbrugiere.forgeline.core.model.ConversationAction.LABELS)
+        signIn()
+        api.switchedOff[ref.repo] = setOf(time)
+
+        assertThat(repository.actions(ref.repo)).containsExactly(labels)
+        // The role and the settings come in one answer.
+        repository.access(ref.repo)
+        assertThat(api.calls.count { it.startsWith("access:") }).isEqualTo(1)
+    }
+
+    @Test
+    fun due_dates_time_and_dependencies_go_to_the_forge_and_are_announced() = runTest {
+        signIn()
+        val other = IssueRef(ref.repo, 3)
+        val announced = mutableListOf<IssueRef>()
+        val listening = launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) { repository.changed.collect { announced += it } }
+
+        repository.setDueDate(ref, java.time.LocalDate.parse("2026-10-10"))
+        repository.setTimerRunning(ref, true)
+        repository.addTime(ref, 1_800)
+        repository.addDependency(ref, other)
+        assertThat((repository.dependencies(ref) as ForgeResult.Success).value.map { it.ref }).containsExactly(other)
+        assertThat((repository.timeTracking(ref) as ForgeResult.Success).value.totalSeconds).isEqualTo(1_800)
+        repository.removeDependency(ref, other)
+
+        assertThat(api.managed).containsExactly(
+            "due octo/repo#7: 2026-10-10", "start timer octo/repo#7", "time octo/repo#7: 1800", "depend octo/repo#7 on octo/repo#3", "undepend octo/repo#7 on octo/repo#3",
+        ).inOrder()
+        // Reading announces nothing.
+        assertThat(announced).hasSize(5)
+        listening.cancel()
+    }
+
+    @Test
+    fun a_due_date_survives_a_relaunch() = runTest {
+        api.issues[ref] = issueDetails(ref).copy(dueDate = java.time.LocalDate.parse("2026-10-10"))
+        repository.issue(ref)
+
+        val relaunched = DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock)
+
+        assertThat(relaunched.stored(ref)?.issue?.dueDate).isEqualTo(java.time.LocalDate.parse("2026-10-10"))
     }
 
     @Test
