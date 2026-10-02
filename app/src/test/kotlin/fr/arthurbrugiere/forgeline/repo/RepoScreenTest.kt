@@ -63,6 +63,7 @@ class RepoScreenTest {
                 onOpenParentDirectory = { events += "up" },
                 onOpenFile = { events += "file:${it.path}" },
                 onOpenIssue = { events += "issue:$it" },
+                onNewIssue = { events += "new-issue" },
                 onOpenUser = { events += "user:$it" },
                 onLinkClick = { events += "link:$it" },
                 onOpenRun = { events += "run:$it" },
@@ -112,6 +113,31 @@ class RepoScreenTest {
         composeRule.onNodeWithText("Issues").performClick()
 
         assertThat(events).containsExactly("tab:ISSUES")
+    }
+
+    @Test
+    fun an_issue_can_be_opened_from_the_issues_tab_even_when_it_is_empty() {
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = Loadable.Loaded(emptyList())))
+
+        composeRule.onNodeWithText("No open issues.").assertIsDisplayed()
+        composeRule.onNodeWithText("New issue").performClick()
+
+        assertThat(events).containsExactly("new-issue")
+    }
+
+    @Test
+    fun a_repository_that_takes_no_issues_offers_none() {
+        val issues = Loadable.Loaded(listOf(issueSummary(14127, "Heartbeat recovery escalates")))
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = issues, details = loaded.details?.copy(isArchived = true)))
+        composeRule.onNodeWithText("Heartbeat recovery escalates").assertIsDisplayed()
+        composeRule.onNodeWithText("New issue").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_repository_with_its_issues_switched_off_offers_none() {
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = Loadable.Loaded(emptyList()), details = loaded.details?.copy(hasIssues = false)))
+
+        composeRule.onNodeWithText("New issue").assertDoesNotExist()
     }
 
     @Test

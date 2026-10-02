@@ -135,6 +135,7 @@ fun RepoRoute(
     onOpenRepo: (RepoId) -> Unit,
     onOpenFile: (RepoId, path: String, ref: String) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
+    onNewIssue: (RepoId) -> Unit,
     onOpenRun: (RepoId, Long) -> Unit,
     onOpenUser: (String) -> Unit,
     onSignIn: () -> Unit,
@@ -169,6 +170,8 @@ fun RepoRoute(
         onOpenParentDirectory = viewModel::openParentDirectory,
         onOpenFile = { file -> state.details?.let { onOpenFile(it.id, file.path, state.browsedRef ?: it.defaultBranch) } },
         onOpenIssue = { number -> state.details?.let { onOpenIssue(IssueRef(it.id, number)) } },
+        // Opening an issue needs an account on the repository's forge, like starring it.
+        onNewIssue = { if (signedIn) state.details?.let { onNewIssue(it.id) } else onSignIn() },
         onOpenRun = { runId -> state.details?.let { onOpenRun(it.id, runId) } },
         onOpenUser = onOpenUser,
         onLinkClick = { url -> openForgeLink(url, id.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRun) },
@@ -196,6 +199,7 @@ fun RepoScreen(
     onOpenParentDirectory: () -> Unit,
     onOpenFile: (RepoFile) -> Unit,
     onOpenIssue: (Int) -> Unit,
+    onNewIssue: () -> Unit,
     onOpenUser: (String) -> Unit,
     onLinkClick: (String) -> Unit,
     onOpenRun: (Long) -> Unit,
@@ -334,8 +338,17 @@ fun RepoScreen(
                                 }
                             }
                             RepoTab.CODE -> code(state.code, onRetryTab, onOpenDirectory, onOpenParentDirectory, onOpenFile)
-                            RepoTab.ISSUES -> loadable(state.issues, R.string.repo_no_issues, onRetryTab) { issues ->
-                                items(issues, key = { "issue-${it.number}" }) { IssueSummaryRow(it, nowMillis, onOpenIssue) }
+                            RepoTab.ISSUES -> {
+                                if (details.takesIssues) {
+                                    item(key = "new-issue") {
+                                        Box(RowModifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                                            SoftTonalButton(stringResource(R.string.new_issue_title), onClick = onNewIssue)
+                                        }
+                                    }
+                                }
+                                loadable(state.issues, R.string.repo_no_issues, onRetryTab) { issues ->
+                                    items(issues, key = { "issue-${it.number}" }) { IssueSummaryRow(it, nowMillis, onOpenIssue) }
+                                }
                             }
                             RepoTab.PULLS -> loadable(state.pulls, R.string.repo_no_pulls, onRetryTab) { pulls ->
                                 items(pulls, key = { "pull-${it.number}" }) { IssueSummaryRow(it, nowMillis, onOpenIssue) }
@@ -380,6 +393,9 @@ fun RepoScreen(
         }
     }
 }
+
+/** An archived repository is read-only, and an owner can switch issues off. */
+private val RepoDetails.takesIssues: Boolean get() = hasIssues && !isArchived
 
 @Composable
 private fun RepoHeader(

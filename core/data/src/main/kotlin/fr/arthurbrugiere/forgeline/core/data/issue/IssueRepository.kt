@@ -10,6 +10,10 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.RepoId
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
 import kotlinx.coroutines.flow.first
@@ -42,6 +46,15 @@ interface IssueRepository {
      * conversation kept gains the comment when all of it was loaded.
      */
     suspend fun comment(ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment>
+
+    /**
+     * Opens an issue in [repo] as the account signed in on its forge; Unauthorized without one. The new conversation is
+     * kept, so it opens at once, and announced on [created].
+     */
+    suspend fun create(repo: RepoId, title: String, body: String): ForgeResult<IssueDetails>
+
+    /** Every issue opened from this app, as it happens: lists of a repository's issues are out of date by one. */
+    val created: Flow<IssueRef>
 
     /** Deletes every conversation kept from [forge], in this session and on disk. */
     suspend fun forget(forge: ForgeInstance)
@@ -113,6 +126,21 @@ class DefaultIssueRepository @Inject constructor(
                         firstPage = kept.firstPage?.let { page -> if (page.nextPage == null) page.copy(items = page.items + result.value) else page },
                     )
                 }
+            }
+        }
+    }
+
+    private val opened = MutableSharedFlow<IssueRef>(extraBufferCapacity = 8)
+
+    override val created: Flow<IssueRef> = opened.asSharedFlow()
+
+    override suspend fun create(repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> {
+        val token = accounts.tokenOn(repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return clients.issues(repo.forge).create(token, repo, title, body).also { result ->
+            if (result is ForgeResult.Success) {
+                // A new issue has no conversation yet: kept whole, it opens without asking the forge first.
+                update(result.value.ref) { CachedConversation(result.value, TimelinePage(emptyList(), nextPage = null)) }
+                opened.tryEmit(result.value.ref)
             }
         }
     }

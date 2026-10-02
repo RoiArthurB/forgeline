@@ -9,6 +9,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
@@ -53,6 +54,26 @@ class FakeIssueApi : IssueApi {
         commentFailure?.let { return ForgeResult.Failure(it) }
         posted += "${ref.repo.fullName}#${ref.number}: $body"
         return ForgeResult.Success(comment(1_000L + posted.size, body, login = "me"))
+    }
+
+    /** Issues opened, as "owner/name: title / body". */
+    val opened = mutableListOf<String>()
+
+    /** What opening an issue fails with, apart from [failure], which is for reading. */
+    var createFailure: ForgeError? = null
+
+    /** The number the forge gives the next issue opened. */
+    var nextNumber = 100
+
+    override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> {
+        calls += "create:${repo.fullName}"
+        gate?.await()
+        tokens += token
+        createFailure?.let { return ForgeResult.Failure(it) }
+        opened += "${repo.fullName}: $title / $body"
+        val created = issueDetails(IssueRef(repo, nextNumber++), title).copy(body = body.ifBlank { null }, author = ForgeUser("me", null, null), comments = 0)
+        issues[created.ref] = created
+        return ForgeResult.Success(created)
     }
 }
 

@@ -181,6 +181,15 @@ class DefaultRepoRepositoryTest {
     }
 
     @Test
+    fun a_repository_with_its_issues_switched_off_is_remembered_as_such() = runTest {
+        api.details[id] = repoDetails("octo/repo").copy(hasIssues = false)
+
+        repository.refresh(id)
+
+        assertThat(repository.observe(id).first().details?.hasIssues).isFalse()
+    }
+
+    @Test
     fun a_repository_with_its_ci_switched_off_is_remembered_as_such() = runTest {
         // Without it in the cache, a Codeberg repository without Actions showed an Actions tab once reopened.
         api.details[id] = repoDetails("octo/repo").copy(hasActions = false)

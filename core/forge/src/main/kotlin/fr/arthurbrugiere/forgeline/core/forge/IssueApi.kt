@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.core.forge
 
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
@@ -22,6 +23,9 @@ interface IssueApi {
 
     /** Adds a comment to the conversation, [body] being Markdown, and answers it as the forge kept it. */
     suspend fun comment(token: String, ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment>
+
+    /** Opens an issue in [repo], [body] being Markdown and possibly empty, and answers it as the forge kept it. */
+    suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails>
 }
 
 interface UserApi {

@@ -64,6 +64,17 @@ class GitHubIssueApi(
             method = HttpMethod.Post, body = buildJsonObject { put("body", body) },
         ).toResult { body<CommentJson>().toModel() }
     }
+
+    override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = gitHubCall {
+        httpClient.gitHubApi(
+            apiBaseUrl, token, "repos", repo.owner, repo.name, "issues",
+            method = HttpMethod.Post,
+            body = buildJsonObject {
+                put("title", title)
+                put("body", body)
+            },
+        ).toResult { body<IssueJson>().let { it.toModel(IssueRef(repo, it.number), pull = null) } }
+    }
 }
 
 @Serializable
@@ -121,6 +132,8 @@ private data class PullJson(
 
 @Serializable
 private data class IssueJson(
+    // Only read from a created issue: one that was asked for is already numbered.
+    val number: Int = 0,
     val title: String,
     val body: String? = null,
     val state: String,

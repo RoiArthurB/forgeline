@@ -15,7 +15,7 @@ Forgeline brings your forges to your phone as a timeline: an **Inbox** for what 
 - **Where you left off:** Trending and the Feed mark where your last visit's reading stopped.
 - **Repositories:** the README rendered natively, a code browser with syntax highlighting at any branch or tag, and issues, pull requests, releases and Actions.
 - **GitHub Actions:** runs with their jobs and failed steps, job logs with colors and folded sections, live steps while a job runs, re-run and cancel, and starting a workflow by hand with its inputs.
-- **Conversations and profiles:** issue and pull request timelines with reviews, merges and reactions, kept on your phone so they reopen instantly, and user and organization profiles. You can comment on a conversation, star and follow from the app.
+- **Conversations and profiles:** issue and pull request timelines with reviews, merges and reactions, kept on your phone so they reopen instantly, and user and organization profiles. You can open an issue, comment on a conversation, star and follow from the app.
 - **Search:** repositories, issues and pull requests, and people, with GitHub's search syntax (`language:kotlin`, `is:open`, …). There is no code search, by design.
 - **github.com links open in the app.** Android doesn't send them to Forgeline automatically, because the app can't verify a domain it doesn't own. To turn it on, go to *Settings → Apps → Forgeline → Open by default → Add links* and select `github.com`.
 

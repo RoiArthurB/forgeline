@@ -36,6 +36,13 @@ class GitHubRepoApiTest {
     private fun <T> ForgeResult<T>.value(): T = (this as ForgeResult.Success).value
 
     @Test
+    fun a_repository_with_its_issues_switched_off_says_so() = runTest {
+        val repo = api { json(fixture("repo.json").replace("\"has_issues\":true", "\"has_issues\":false")) }.repo(null, paperclip).value()
+
+        assertThat(repo.hasIssues).isFalse()
+    }
+
+    @Test
     fun parses_repository_details() = runTest {
         val repo = api { json(fixture("repo.json")) }.repo(null, paperclip).value()
 
@@ -46,6 +53,7 @@ class GitHubRepoApiTest {
         assertThat(repo.stars).isGreaterThan(80_000)
         assertThat(repo.ownerAvatarUrl).startsWith("https://avatars.githubusercontent.com/")
         assertThat(repo.isArchived).isFalse()
+        assertThat(repo.hasIssues).isTrue()
         assertThat(requests.single().url.toString()).isEqualTo("https://api.github.com/repos/paperclipai/paperclip")
     }
 

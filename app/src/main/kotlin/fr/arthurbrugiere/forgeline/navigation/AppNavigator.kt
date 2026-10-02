@@ -57,6 +57,13 @@ class AppNavigator(
         stacks.getValue(currentTab).add(key)
     }
 
+    /** Puts [key] in place of the screen shown: Back from what a form led to doesn't return to the form. */
+    fun replaceCurrent(key: NavKey) {
+        val stack = stacks.getValue(currentTab)
+        if (stack.size > 1) stack.removeAt(stack.lastIndex)
+        stack.add(key)
+    }
+
     /** Opens an external link (a tapped notification) on top of the home tab. */
     fun openLink(key: NavKey) {
         currentTabState.value = home

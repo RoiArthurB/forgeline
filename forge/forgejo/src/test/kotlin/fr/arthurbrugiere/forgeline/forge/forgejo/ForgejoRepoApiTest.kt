@@ -23,6 +23,13 @@ class ForgejoRepoApiTest {
     private fun <T> ForgeResult<T>.value(): T = (this as ForgeResult.Success).value
 
     @Test
+    fun a_repository_with_its_issues_switched_off_says_so() = runTest {
+        val repo = with(codeberg) { api { json(fixture("repo.json").replace("\"has_issues\":true", "\"has_issues\":false")) } }.repo(null, forgejo).value()
+
+        assertThat(repo.hasIssues).isFalse()
+    }
+
+    @Test
     fun reads_a_repository_on_its_forge() = runTest {
         val repo = with(codeberg) { api { json(fixture("repo.json")) } }.repo(null, forgejo).value()
 
@@ -35,6 +42,7 @@ class ForgejoRepoApiTest {
         assertThat(repo.license).isNull()
         assertThat(repo.pushedAt).isEqualTo(Instant.parse("2026-09-29T14:34:10Z"))
         assertThat(repo.hasActions).isTrue()
+        assertThat(repo.hasIssues).isTrue()
         assertThat(codeberg.requests.single().url.toString()).isEqualTo("https://codeberg.org/api/v1/repos/forgejo/forgejo")
     }
 

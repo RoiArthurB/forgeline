@@ -48,6 +48,12 @@ data class IssueRoute(val host: String, val owner: String, val name: String, val
     val issue: IssueRef get() = IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number)
 }
 
+/** The form that opens an issue in a repository. */
+@Serializable
+data class NewIssueRoute(val host: String, val owner: String, val name: String) : NavKey {
+    val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
+}
+
 @Serializable
 data class RunRoute(val host: String, val owner: String, val name: String, val runId: Long) : NavKey {
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
@@ -67,6 +73,8 @@ data class UserRoute(val host: String, val login: String) : NavKey {
 data object SearchRoute : NavKey
 
 fun RepoId.route() = RepoRoute(forge.host, owner, name)
+
+fun RepoId.newIssueRoute() = NewIssueRoute(forge.host, owner, name)
 
 fun IssueRef.route() = IssueRoute(repo.forge.host, repo.owner, repo.name, number)
 

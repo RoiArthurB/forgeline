@@ -338,6 +338,15 @@
     <string name="issue_comment_error_offline">Not sent: check your connection and send again. Your comment is kept.</string>
     <string name="issue_comment_error">Not sent. Your comment is kept: try again.</string>
     <string name="issue_comment_posted_out_of_sight">Comment posted. Load the rest of the conversation to see it.</string>
+    <string name="new_issue_title">New issue</string>
+    <string name="new_issue_title_placeholder">Title</string>
+    <string name="new_issue_body_placeholder">Describe it. Markdown works.</string>
+    <string name="new_issue_send">Open issue</string>
+    <string name="new_issue_sign_in">Sign in to %1$s to open an issue.</string>
+    <string name="new_issue_error_refused">You can\'t open an issue here. The repository may not take them, or your sign-in may not allow it.</string>
+    <string name="new_issue_error_expired">Your sign-in to %1$s no longer works. Sign in again, then send: your issue is kept.</string>
+    <string name="new_issue_error_offline">Not sent: check your connection and send again. Your issue is kept.</string>
+    <string name="new_issue_error">Not sent. Your issue is kept: try again.</string>
     <string name="issue_error_title">Couldn\'t open this conversation</string>
 
     <string name="user_follow">Follow</string>

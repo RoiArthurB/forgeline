@@ -7,6 +7,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 import fr.arthurbrugiere.forgeline.core.data.star.StarRepository
 import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
@@ -84,6 +85,7 @@ class RepoViewModel @AssistedInject constructor(
     private val repos: RepoRepository,
     private val stars: StarRepository,
     accounts: AccountRepository,
+    conversations: IssueRepository,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -112,6 +114,13 @@ class RepoViewModel @AssistedInject constructor(
                     val starred = if (account == null) null else stars.starredStatus(listOf(id))[id]
                     local.update { it.copy(starred = starred) }
                 }
+        }
+
+        viewModelScope.launch {
+            // An issue opened from the app belongs in the list already loaded.
+            conversations.created.collect { ref ->
+                if (ref.repo == canonicalId() && local.value.issues != Loadable.Idle) loadTab(RepoTab.ISSUES)
+            }
         }
     }
 

@@ -142,6 +142,7 @@ private data class RepoResponse(
     val fork: Boolean = false,
     val archived: Boolean = false,
     @SerialName("pushed_at") val pushedAt: String? = null,
+    @SerialName("has_issues") val hasIssues: Boolean = true,
 ) {
     fun toModel() = RepoDetails(
         id = RepoId(owner.login, name, ForgeInstance.GitHub),
@@ -159,6 +160,7 @@ private data class RepoResponse(
         isFork = fork,
         isArchived = archived,
         pushedAt = pushedAt?.let(Instant::parse),
+        hasIssues = hasIssues,
     )
 }
 

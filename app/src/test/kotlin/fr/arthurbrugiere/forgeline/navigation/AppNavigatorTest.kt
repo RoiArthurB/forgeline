@@ -148,4 +148,27 @@ class AppNavigatorTest {
         navigator.goBack()
         assertThat(navigator.backStackOf(TopLevelDestination.INBOX)).containsExactly(InboxRoute)
     }
+
+    @Test
+    fun replacing_the_current_screen_leaves_back_pointing_past_it() {
+        // A form that opened something: Back from the result returns to where the form was opened, not to the form.
+        val navigator = navigator()
+        navigator.selectTab(TopLevelDestination.YOU)
+        navigator.navigate(SettingsRoute)
+        navigator.navigate(CreditsRoute)
+
+        navigator.replaceCurrent(SignInRoute)
+
+        assertThat(navigator.backStackOf(TopLevelDestination.YOU)).containsExactly(YouRoute, SettingsRoute, SignInRoute).inOrder()
+    }
+
+    @Test
+    fun replacing_never_removes_a_tab_s_root() {
+        val navigator = navigator()
+        navigator.selectTab(TopLevelDestination.YOU)
+
+        navigator.replaceCurrent(SettingsRoute)
+
+        assertThat(navigator.backStackOf(TopLevelDestination.YOU)).containsExactly(YouRoute, SettingsRoute).inOrder()
+    }
 }

@@ -191,4 +191,18 @@ class AppShellTest {
             composeRule.onAllNodes(hasText("Open-source orchestration for teams of AI agents.", substring = true)).fetchSemanticsNodes().isNotEmpty()
         }
     }
+
+    @Test
+    fun opening_an_issue_signed_out_leads_to_signing_in() {
+        tab("Trending").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclip")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("paperclip").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Issues")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("Issues").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("New issue")).fetchSemanticsNodes().isNotEmpty() }
+
+        composeRule.onNodeWithText("New issue").performClick()
+
+        composeRule.onNodeWithText("Connect to GitHub").assertIsDisplayed()
+    }
 }

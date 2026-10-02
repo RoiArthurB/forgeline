@@ -234,4 +234,37 @@ class ForgejoIssueApiTest {
 
         assertThat(posting.comment("tok", pull, "Hello")).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "issue is locked")))
     }
+
+    // The answer below follows Forgejo's API description for a created issue: opening one can't be captured from a
+    // real account in tests.
+    private val opened = """{"id":77001,"number":9321,"title":"Crash when the list is empty","body":"Steps:\n1. Open it","state":"open",
+        "user":{"login":"me","full_name":"","avatar_url":"https://codeberg.org/avatars/abc"},"labels":[],"comments":0,
+        "created_at":"2026-10-02T04:20:00+02:00","updated_at":"2026-10-02T04:20:00+02:00","closed_at":null,"pull_request":null}"""
+
+    @Test
+    fun an_issue_is_opened_in_the_repository_and_comes_back_numbered() = runTest {
+        val opening = with(codeberg) { ForgejoIssueApi(client { json(opened, HttpStatusCode.Created) }, ForgeInstance.Codeberg) }
+
+        val created = opening.create("tok", pull.repo, "Crash when the list is empty", "Steps:\n1. Open it").value()
+
+        assertThat(created.ref).isEqualTo(IssueRef(pull.repo, 9321))
+        assertThat(created.title).isEqualTo("Crash when the list is empty")
+        assertThat(created.body).isEqualTo("Steps:\n1. Open it")
+        assertThat(created.state).isEqualTo(IssueState.OPEN)
+        assertThat(created.author?.login).isEqualTo("me")
+        assertThat(created.createdAt).isEqualTo(Instant.parse("2026-10-02T02:20:00Z"))
+        assertThat(created.pullRequest).isNull()
+        val request = codeberg.requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Post)
+        assertThat(request.url.toString()).isEqualTo("https://codeberg.org/api/v1/repos/forgejo/forgejo/issues")
+        assertThat(request.headers[HttpHeaders.Authorization]).isEqualTo("token tok")
+        assertThat((request.body as TextContent).text).isEqualTo("""{"title":"Crash when the list is empty","body":"Steps:\n1. Open it"}""")
+    }
+
+    @Test
+    fun an_issue_the_forge_refuses_is_a_failure() = runTest {
+        val opening = with(codeberg) { ForgejoIssueApi(client { json("""{"message":"repository is archived"}""", HttpStatusCode.Forbidden) }, ForgeInstance.Codeberg) }
+
+        assertThat(opening.create("tok", pull.repo, "Hello", "")).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "repository is archived")))
+    }
 }

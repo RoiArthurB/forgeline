@@ -13,7 +13,12 @@ import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
+import fr.arthurbrugiere.forgeline.core.testing.FakeIssueApi
+import fr.arthurbrugiere.forgeline.core.testing.InMemoryConversationDao
+import java.time.Clock
 import fr.arthurbrugiere.forgeline.core.testing.FakeRepoRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeStarRepository
 import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
@@ -42,7 +47,10 @@ class RepoViewModelTest {
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
-    private fun TestScope.viewModel() = RepoViewModel(requested, repos, stars, accounts).also { it.state.launchIn(backgroundScope) }
+    private val issueApi = FakeIssueApi()
+    private val conversations = DefaultIssueRepository(FakeForgeClients(issues = issueApi), accounts, InMemoryConversationDao(), Clock.systemUTC())
+
+    private fun TestScope.viewModel() = RepoViewModel(requested, repos, stars, accounts, conversations).also { it.state.launchIn(backgroundScope) }
 
     private fun cache(readme: Readme? = Readme("README.md", "# Hi"), repo: fr.arthurbrugiere.forgeline.core.model.RepoDetails = details) {
         repos.snapshot.value = RepoSnapshot(repo, readme, 1_000)
@@ -268,6 +276,35 @@ class RepoViewModelTest {
 
         assertThat(repos.refreshes).containsExactly(false, true).inOrder()
         assertThat(repos.calls.count { it.startsWith("issues:") }).isEqualTo(2)
+    }
+
+    @Test
+    fun an_issue_opened_from_the_app_reloads_the_list_already_shown() = test {
+        cache()
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
+        val viewModel = viewModel()
+        viewModel.selectTab(RepoTab.ISSUES)
+        advanceUntilIdle()
+
+        conversations.create(details.id, "Crash", "Steps")
+        advanceUntilIdle()
+
+        assertThat(repos.calls.count { it.startsWith("issues:") }).isEqualTo(2)
+    }
+
+    @Test
+    fun an_issue_opened_elsewhere_or_before_the_list_was_asked_loads_nothing() = test {
+        cache()
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
+        viewModel()
+        advanceUntilIdle()
+
+        // The Issues tab was never opened: it loads when it is.
+        conversations.create(details.id, "Crash", "Steps")
+        conversations.create(RepoId("octo", "other"), "Crash", "Steps")
+        advanceUntilIdle()
+
+        assertThat(repos.calls.count { it.startsWith("issues:") }).isEqualTo(0)
     }
 
     @Test

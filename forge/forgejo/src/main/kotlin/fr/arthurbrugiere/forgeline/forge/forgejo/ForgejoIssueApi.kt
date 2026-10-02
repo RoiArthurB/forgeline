@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.PullRequestInfo
 import fr.arthurbrugiere.forgeline.core.model.Reaction
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.core.model.StateChange
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
@@ -48,34 +49,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             val counts = reactions.await().takeIf { it.status == HttpStatusCode.OK }
                 ?.let { runCatching { it.body<List<ReactionJson>?>() }.getOrNull() }.orEmpty()
                 .mapNotNull { reaction(it.content) }.groupingBy { it }.eachCount()
-            ForgeResult.Success(
-                IssueDetails(
-                    ref = ref,
-                    title = issue.title,
-                    body = issue.body?.ifBlank { null },
-                    state = issue.state(),
-                    stateReason = null,
-                    author = issue.user?.toModel(),
-                    labels = issue.labels.map { it.toModel() },
-                    createdAt = instant(issue.createdAt) ?: Instant.EPOCH,
-                    closedAt = instant(issue.closedAt),
-                    comments = issue.comments,
-                    reactions = counts,
-                    pullRequest = pull?.let {
-                        PullRequestInfo(
-                            isDraft = it.draft,
-                            isMerged = it.merged,
-                            baseRef = it.base.ref,
-                            // A pull request from another repository only names a pull ref; its label says owner:branch.
-                            headRef = it.head.label?.takeIf { _ -> it.head.ref.startsWith("refs/pull/") } ?: it.head.ref,
-                            additions = it.additions ?: 0,
-                            deletions = it.deletions ?: 0,
-                            changedFiles = it.changedFiles ?: 0,
-                            commits = it.commits ?: 0,
-                        )
-                    },
-                ),
-            )
+            ForgeResult.Success(issue.toDetails(ref, pull, counts))
         }
     }
 
@@ -103,6 +77,44 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             TimelineItem.Comment(created.id, created.user?.toModel(), created.body.orEmpty(), instant(created.createdAt) ?: Instant.now(), emptyMap())
         }
     }
+
+    override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = forgejoCall {
+        httpClient.forgejoApi(
+            forge, token, "repos", repo.owner, repo.name, "issues",
+            method = HttpMethod.Post,
+            body = buildJsonObject {
+                put("title", title)
+                put("body", body)
+            },
+        ).toResult { body<IssueJson>().let { it.toDetails(IssueRef(repo, it.number), pull = null, reactions = emptyMap()) } }
+    }
+
+    private fun IssueJson.toDetails(ref: IssueRef, pull: PullJson?, reactions: Map<Reaction, Int>) = IssueDetails(
+        ref = ref,
+        title = title,
+        body = body?.ifBlank { null },
+        state = state(),
+        stateReason = null,
+        author = user?.toModel(),
+        labels = labels.map { it.toModel() },
+        createdAt = instant(createdAt) ?: Instant.EPOCH,
+        closedAt = instant(closedAt),
+        comments = comments,
+        reactions = reactions,
+        pullRequest = pull?.let {
+            PullRequestInfo(
+                isDraft = it.draft,
+                isMerged = it.merged,
+                baseRef = it.base.ref,
+                // A pull request from another repository only names a pull ref; its label says owner:branch.
+                headRef = it.head.label?.takeIf { _ -> it.head.ref.startsWith("refs/pull/") } ?: it.head.ref,
+                additions = it.additions ?: 0,
+                deletions = it.deletions ?: 0,
+                changedFiles = it.changedFiles ?: 0,
+                commits = it.commits ?: 0,
+            )
+        },
+    )
 
     private suspend fun timelinePage(
         token: String?,
@@ -150,7 +162,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             "issue_ref", "pull_ref", "comment_ref" -> refIssue?.let { source ->
                 val repo = source.repository?.fullName?.split('/')?.takeIf { it.size == 2 } ?: return null
                 TimelineItem.CrossReferenced(
-                    IssueRef(fr.arthurbrugiere.forgeline.core.model.RepoId(repo[0], repo[1], forge), source.number),
+                    IssueRef(RepoId(repo[0], repo[1], forge), source.number),
                     source.title,
                     source.pullRequest != null,
                     actor,

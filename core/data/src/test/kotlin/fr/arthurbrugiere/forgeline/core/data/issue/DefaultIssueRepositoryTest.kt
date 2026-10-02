@@ -15,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeIssueApi
 import fr.arthurbrugiere.forgeline.core.testing.comment
 import fr.arthurbrugiere.forgeline.core.testing.issueDetails
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import androidx.room.Room
@@ -243,5 +244,51 @@ class DefaultIssueRepositoryTest {
 
         assertThat(repository.comment(ref, "Hello")).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "locked")))
         assertThat(repository.cached(ref)?.firstPage?.items).containsExactly(comment(1, "Hi"))
+    }
+
+    @Test
+    fun opening_an_issue_needs_an_account_on_the_repository_s_forge() = runTest {
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "codeberg-tok")
+
+        assertThat(repository.create(ref.repo, "Crash", "Steps")).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(api.opened).isEmpty()
+    }
+
+    @Test
+    fun an_issue_is_opened_with_the_account_of_the_repository_s_forge() = runTest {
+        signIn()
+
+        val created = (repository.create(ref.repo, "Crash", "Steps") as ForgeResult.Success).value
+
+        assertThat(created.title).isEqualTo("Crash")
+        assertThat(api.opened).containsExactly("${ref.repo.fullName}: Crash / Steps")
+        assertThat(api.tokens.last()).isEqualTo("tok")
+    }
+
+    @Test
+    fun an_opened_issue_is_kept_whole_so_it_opens_without_the_forge() = runTest {
+        signIn()
+
+        val created = (repository.create(ref.repo, "Crash", "Steps") as ForgeResult.Success).value
+
+        assertThat(repository.cached(created.ref)).isEqualTo(CachedConversation(created, TimelinePage(emptyList(), nextPage = null)))
+        val relaunched = DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock)
+        assertThat(relaunched.stored(created.ref)?.issue).isEqualTo(created)
+    }
+
+    @Test
+    fun an_opened_issue_is_announced_and_a_refused_one_is_not() = runTest {
+        signIn()
+        val announced = mutableListOf<IssueRef>()
+        val listening = launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) { repository.created.collect { announced += it } }
+
+        api.createFailure = ForgeError.Http(410, "Issues are disabled for this repo")
+        assertThat(repository.create(ref.repo, "Crash", "Steps")).isEqualTo(ForgeResult.Failure(ForgeError.Http(410, "Issues are disabled for this repo")))
+        assertThat(announced).isEmpty()
+
+        api.createFailure = null
+        val created = (repository.create(ref.repo, "Crash", "Steps") as ForgeResult.Success).value
+        assertThat(announced).containsExactly(created.ref)
+        listening.cancel()
     }
 }

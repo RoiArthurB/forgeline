@@ -59,6 +59,8 @@ data class RepoDetails(
     val pushedAt: java.time.Instant?,
     /** Whether the repository uses the forge's CI; Forgejo repositories can switch it off. */
     val hasActions: Boolean = true,
+    /** Whether the repository takes issues; its owner can switch them off. */
+    val hasIssues: Boolean = true,
 )
 
 data class Readme(val path: String, val markdown: String)

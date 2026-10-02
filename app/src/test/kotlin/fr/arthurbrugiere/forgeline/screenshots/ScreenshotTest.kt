@@ -81,6 +81,8 @@ import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import fr.arthurbrugiere.forgeline.core.testing.notificationThread
 import fr.arthurbrugiere.forgeline.issue.IssueScreen
+import fr.arthurbrugiere.forgeline.issue.NewIssueScreen
+import fr.arthurbrugiere.forgeline.issue.NewIssueUiState
 import fr.arthurbrugiere.forgeline.issue.MARKDOWN_PENDING_TAG
 import fr.arthurbrugiere.forgeline.issue.IssueUiState
 import fr.arthurbrugiere.forgeline.user.UserScreen
@@ -607,6 +609,35 @@ class ScreenshotTest {
         IssueWithComposer({ it }, canComment = false)
     }
 
+    @Composable
+    private fun NewIssue(state: (NewIssueUiState) -> NewIssueUiState, signedIn: Boolean = true) {
+        NewIssueScreen(
+            state = state(NewIssueUiState(RepoId("paperclipai", "paperclip"))), signedIn = signedIn,
+            onTitleChange = {}, onBodyChange = {}, onSend = {}, onSignIn = {}, onBack = {},
+        )
+    }
+
+    @Test
+    fun new_issue_empty_light() = snapshot("new_issue_empty_light", darkTheme = false) { NewIssue({ it }) }
+
+    @Test
+    fun new_issue_written_dark() = snapshot("new_issue_written_dark", darkTheme = true) {
+        NewIssue({
+            it.copy(
+                title = "Heartbeat recovery escalates too early",
+                body = "It pages after one missed beat.\n\nSteps:\n1. Stop the runner\n2. Wait 30 seconds\n\nExpected: three missed beats before paging.",
+            )
+        })
+    }
+
+    @Test
+    fun new_issue_refused_light() = snapshot("new_issue_refused_light", darkTheme = false) {
+        NewIssue({ it.copy(title = "Heartbeat recovery escalates too early", body = "It pages after one missed beat.", error = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http(410, "disabled")) })
+    }
+
+    @Test
+    fun new_issue_signed_out_light() = snapshot("new_issue_signed_out_light", darkTheme = false) { NewIssue({ it }, signedIn = false) }
+
     @Test
     fun user_dark() = snapshot("user_dark", darkTheme = true) {
         UserScreen(
@@ -915,7 +946,7 @@ class ScreenshotTest {
     private fun RepoPreview(state: RepoUiState) {
         RepoScreen(
             state = state, signedIn = true, onBack = {}, onRefresh = {}, onSelectTab = {}, onRetryTab = {}, onToggleStar = {},
-            onOpenDirectory = {}, onOpenParentDirectory = {}, onOpenFile = {}, onOpenIssue = {}, onOpenUser = {}, onLinkClick = {}, onOpenRun = {}, onOpenInBrowser = {}, onLoadRefs = {}, onSelectRef = {},
+            onOpenDirectory = {}, onOpenParentDirectory = {}, onOpenFile = {}, onOpenIssue = {}, onNewIssue = {}, onOpenUser = {}, onLinkClick = {}, onOpenRun = {}, onOpenInBrowser = {}, onLoadRefs = {}, onSelectRef = {},
             onRunWorkflow = {}, onWorkflowStartShown = {},
             onErrorShown = {}, onStarFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
         )

@@ -38,6 +38,9 @@ import fr.arthurbrugiere.forgeline.navigation.route
 import fr.arthurbrugiere.forgeline.navigation.userRoute
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.navigation.IssueRoute as IssueKey
+import fr.arthurbrugiere.forgeline.navigation.NewIssueRoute as NewIssueKey
+import fr.arthurbrugiere.forgeline.issue.NewIssueRoute as NewIssueDestination
+import fr.arthurbrugiere.forgeline.navigation.newIssueRoute
 import fr.arthurbrugiere.forgeline.navigation.RunRoute as RunKey
 import fr.arthurbrugiere.forgeline.navigation.JobLogRoute as JobLogKey
 import fr.arthurbrugiere.forgeline.actions.RunRoute as RunDestination
@@ -120,6 +123,12 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 session = session, onSignIn = signIn,
             )
         }
+        entry<NewIssueKey> { key ->
+            NewIssueDestination(
+                key, session = session, onBack = navigator::goBack, onSignIn = signIn,
+                onCreated = { navigator.replaceCurrent(it.route()) },
+            )
+        }
         entry<RunKey> { key ->
             RunDestination(
                 route = key,
@@ -141,6 +150,7 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 onOpenRepo = openRepo,
                 onOpenFile = { id, path, ref -> navigator.navigate(FileKey(id.forge.host, id.owner, id.name, path, ref)) },
                 onOpenIssue = openIssue,
+                onNewIssue = { id -> navigator.navigate(id.newIssueRoute()) },
                 onOpenRun = { id, runId -> navigator.navigate(RunKey(id.forge.host, id.owner, id.name, runId)) },
                 onOpenUser = { openUser(key.repo.forge, it) },
                 onSignIn = signIn,

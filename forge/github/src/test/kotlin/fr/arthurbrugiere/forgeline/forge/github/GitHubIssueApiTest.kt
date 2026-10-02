@@ -196,4 +196,36 @@ class GitHubIssueApiTest {
 
         assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "Unable to create comment because issue is locked.")))
     }
+
+    // The answer below follows GitHub's documented shape for a created issue: opening one can't be captured from a
+    // real account in tests.
+    private val opened = """{"number":5501,"title":"Crash when the list is empty","body":"Steps:\n1. Open it","state":"open",
+        "user":{"login":"octocat","avatar_url":"https://avatars.githubusercontent.com/u/583231?v=4"},"labels":[],"comments":0,
+        "created_at":"2026-10-02T02:20:00Z","closed_at":null}"""
+
+    @Test
+    fun an_issue_is_opened_in_the_repository_and_comes_back_numbered() = runTest {
+        val created = api { json(opened, status = HttpStatusCode.Created) }.create("tok", repo, "Crash when the list is empty", "Steps:\n1. Open it").value()
+
+        assertThat(created.ref).isEqualTo(IssueRef(repo, 5501))
+        assertThat(created.title).isEqualTo("Crash when the list is empty")
+        assertThat(created.body).isEqualTo("Steps:\n1. Open it")
+        assertThat(created.state).isEqualTo(IssueState.OPEN)
+        assertThat(created.author?.login).isEqualTo("octocat")
+        assertThat(created.createdAt).isEqualTo(Instant.parse("2026-10-02T02:20:00Z"))
+        assertThat(created.pullRequest).isNull()
+        val request = requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Post)
+        assertThat(request.url.toString()).isEqualTo("https://api.github.com/repos/paperclipai/paperclip/issues")
+        assertThat(request.headers[HttpHeaders.Authorization]).isEqualTo("Bearer tok")
+        assertThat((request.body as TextContent).text).isEqualTo("""{"title":"Crash when the list is empty","body":"Steps:\n1. Open it"}""")
+    }
+
+    @Test
+    fun an_issue_the_forge_refuses_is_a_failure() = runTest {
+        // What GitHub answers when a repository's issues are switched off.
+        val result = api { json("""{"message":"Issues are disabled for this repo"}""", status = HttpStatusCode.Gone) }.create("tok", repo, "Hello", "")
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(410, "Issues are disabled for this repo")))
+    }
 }
