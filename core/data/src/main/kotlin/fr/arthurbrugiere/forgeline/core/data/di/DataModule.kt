@@ -19,8 +19,6 @@ import fr.arthurbrugiere.forgeline.core.data.account.SignedOutData
 import fr.arthurbrugiere.forgeline.core.data.account.ForgeTokenRefresher
 import fr.arthurbrugiere.forgeline.core.data.account.TokenRefresher
 import fr.arthurbrugiere.forgeline.core.data.account.DataStoreAccountRepository
-import fr.arthurbrugiere.forgeline.core.data.account.KeystoreTokenCipher
-import fr.arthurbrugiere.forgeline.core.data.account.TokenCipher
 import fr.arthurbrugiere.forgeline.core.data.database.CACHE_DATABASE
 import fr.arthurbrugiere.forgeline.core.data.database.ForgelineDatabase
 import fr.arthurbrugiere.forgeline.core.data.database.UserStateDatabase
@@ -72,9 +70,6 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindSignedOutData(impl: AccountDataCleaner): SignedOutData
-
-    @Binds
-    abstract fun bindTokenCipher(impl: KeystoreTokenCipher): TokenCipher
 
     @Binds
     abstract fun bindTokenRefresher(impl: ForgeTokenRefresher): TokenRefresher
