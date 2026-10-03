@@ -237,6 +237,12 @@ class ScreenshotTest {
     }
 
     @Test
+    fun you_sign_in_ended_light() = snapshot("you_sign_in_ended_light", darkTheme = false) {
+        val codeberg = Account(Account.idFor(ForgeInstance.Codeberg, "octocat"), ForgeInstance.Codeberg, ForgeUser("octocat", "The Octocat", null))
+        YouScreen(SessionState.SignedIn(codeberg, listOf(octocat, codeberg), ended = setOf(codeberg.id)), onSignIn = {}, onOpenSettings = {})
+    }
+
+    @Test
     fun you_several_forges_light() = snapshot("you_several_forges_light", darkTheme = false) {
         val codeberg = Account(Account.idFor(ForgeInstance.Codeberg, "octocat"), ForgeInstance.Codeberg, ForgeUser("octocat", "The Octocat", null))
         val selfHosted = ForgeInstance(ForgeType.FORGEJO, "git.example.org")

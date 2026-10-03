@@ -196,7 +196,11 @@ class DefaultInboxRepository @Inject constructor(
         val interval = (state?.pollIntervalSeconds ?: DEFAULT_POLL_SECONDS) * 1_000L
         if (!force && state != null && clock.millis() - state.syncedAtMillis < interval) return SyncResult.NotModified
         when (val result = clients.notifications(account.forge).threads(token, if (force) null else state?.lastModified)) {
-            is ForgeResult.Failure -> SyncResult.Failed(result.error)
+            is ForgeResult.Failure -> {
+                // The forge turned the token down: nothing will sync for this account until it signs in again.
+                if (result.error == ForgeError.Unauthorized) accounts.markSignInEnded(account.id)
+                SyncResult.Failed(result.error)
+            }
             is ForgeResult.Success -> {
                 val sync = result.value
                 // An account's threads are on its forge, whatever the client filled in.

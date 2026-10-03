@@ -160,6 +160,26 @@ class DefaultFeedRepositoryTest {
     }
 
     @Test
+    fun a_forge_that_turns_the_token_down_ends_that_accounts_sign_in() = runTest {
+        val account = signIn()
+        api.failure = ForgeError.Unauthorized
+
+        assertThat(repository.refresh(force = true)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+
+        assertThat(accounts.ended.value).containsExactly(account.id)
+    }
+
+    @Test
+    fun a_forge_that_cannot_be_reached_ends_nothing() = runTest {
+        signIn()
+        api.failure = ForgeError.Network
+
+        repository.refresh(force = true)
+
+        assertThat(accounts.ended.value).isEmpty()
+    }
+
+    @Test
     fun a_failed_refresh_keeps_the_cache() = runTest {
         signIn()
         api.pages[1] = listOf(feedEvent("1"))

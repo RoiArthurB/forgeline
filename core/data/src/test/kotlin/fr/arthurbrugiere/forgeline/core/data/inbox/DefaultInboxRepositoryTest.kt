@@ -187,6 +187,28 @@ class DefaultInboxRepositoryTest {
     }
 
     @Test
+    fun a_forge_that_turns_the_token_down_ends_that_accounts_sign_in_and_only_its() = runTest {
+        // Regression: the refusal was silent, the Inbox just failed with "something went wrong" at every sync.
+        val account = signIn()
+        val other = signIn("you")
+        api.failure = ForgeError.Unauthorized
+
+        assertThat(repository.sync(force = true, waitForFollowUps = true)).isEqualTo(SyncResult.Failed(ForgeError.Unauthorized))
+
+        assertThat(accounts.ended.value).containsExactly(account.id, other.id)
+    }
+
+    @Test
+    fun a_forge_that_cannot_be_reached_ends_nothing() = runTest {
+        signIn()
+        api.failure = ForgeError.Network
+
+        repository.sync(force = true, waitForFollowUps = true)
+
+        assertThat(accounts.ended.value).isEmpty()
+    }
+
+    @Test
     fun a_failed_sync_keeps_the_inbox() = runTest {
         signIn()
         api.threads = listOf(notificationThread("1"))

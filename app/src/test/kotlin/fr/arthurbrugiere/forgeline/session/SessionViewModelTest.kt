@@ -118,4 +118,33 @@ class SessionViewModelTest {
 
         assertThat((viewModel.session.value as SessionState.SignedIn).limited).isEmpty()
     }
+
+    @Test
+    fun an_account_whose_sign_in_the_forge_no_longer_renews_is_marked_until_it_signs_in_again() = runTest {
+        val viewModel = SessionViewModel(accounts, signedOutData, clients)
+        val github = accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "t")
+        val codeberg = accounts.signIn(ForgeInstance.Codeberg, ForgeUser("octocat", null, null), "c")
+        assertThat((viewModel.session.value as SessionState.SignedIn).ended).isEmpty()
+
+        accounts.ended.value = setOf(codeberg.id)
+
+        assertThat((viewModel.session.value as SessionState.SignedIn).ended).containsExactly(codeberg.id)
+        assertThat((viewModel.session.value as SessionState.SignedIn).accounts).containsExactly(github, codeberg)
+
+        accounts.ended.value = emptySet()
+        assertThat((viewModel.session.value as SessionState.SignedIn).ended).isEmpty()
+    }
+
+    @Test
+    fun an_account_signed_out_is_no_longer_marked() = runTest {
+        val viewModel = SessionViewModel(accounts, signedOutData, clients)
+        val github = accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "t")
+        val codeberg = accounts.signIn(ForgeInstance.Codeberg, ForgeUser("octocat", null, null), "c")
+        accounts.ended.value = setOf(codeberg.id)
+
+        viewModel.signOut(codeberg)
+
+        assertThat((viewModel.session.value as SessionState.SignedIn).ended).isEmpty()
+        assertThat((viewModel.session.value as SessionState.SignedIn).account).isEqualTo(github)
+    }
 }

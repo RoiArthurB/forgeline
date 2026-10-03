@@ -29,4 +29,17 @@ interface AccountRepository {
     suspend fun token(accountId: String): String?
 
     suspend fun signOut(accountId: String)
+
+    /**
+     * The ids of accounts whose sign-in has ended: the forge refused to renew it (its refresh token was spent or
+     * revoked), or it expired with nothing to renew it. Their requests are refused until the person signs in again.
+     * Learned when a token is asked for, so not before the first request of a launch.
+     */
+    val signInEnded: Flow<Set<String>>
+
+    /**
+     * A forge refused the token it was given for [accountId] (401): the sign-in is over, whatever the app thought of
+     * its expiry (revoked on the forge's site, say). Cleared by signing in again.
+     */
+    fun markSignInEnded(accountId: String)
 }

@@ -139,7 +139,11 @@ class DefaultFeedRepository @Inject constructor(
         if (!force && state != null && clock.millis() - state.syncedAtMillis < interval) return ForgeResult.Success(Unit)
         val api = clients.feed(account.forge)
         when (val result = api.receivedEvents(token, account.user.login, page = 1, ifModifiedSince = if (force) null else state?.lastModified)) {
-            is ForgeResult.Failure -> result
+            is ForgeResult.Failure -> {
+                // The forge turned the token down: nothing will sync for this account until it signs in again.
+                if (result.error == ForgeError.Unauthorized) accounts.markSignInEnded(account.id)
+                result
+            }
             is ForgeResult.Success -> {
                 val page = result.value
                 page.events?.let { events -> dao.replace(account.id, events.map { it.on(account).toEntity(account.id) }) }

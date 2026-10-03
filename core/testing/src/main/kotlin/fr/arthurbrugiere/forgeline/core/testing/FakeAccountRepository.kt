@@ -21,6 +21,13 @@ class FakeAccountRepository : AccountRepository {
         list.firstOrNull { it.account.id == id }?.account
     }
 
+    /** Ids of accounts whose sign-in has ended; a test sets it. */
+    val ended = MutableStateFlow<Set<String>>(emptySet())
+
+    override val signInEnded: Flow<Set<String>> = ended
+
+    override fun markSignInEnded(accountId: String) = ended.update { it + accountId }
+
     /** Refresh tokens and expiries handed to [signIn], by account id. */
     val refreshTokens = mutableMapOf<String, Pair<String?, Long?>>()
 

@@ -85,4 +85,28 @@ class YouScreenTest {
 
         composeRule.onNodeWithText("Private repositories are out of reach").assertDoesNotExist()
     }
+
+    @Test
+    fun a_sign_in_the_forge_refused_to_renew_names_the_account_and_offers_to_make_it_again() {
+        // Regression: the refusal was silent: every sync of that account failed with "something went wrong".
+        val account = Account("id", ForgeInstance.Codeberg, ForgeUser("octocat", "The Octocat", null))
+        var signIn = false
+        composeRule.setContent {
+            YouScreen(SessionState.SignedIn(account, ended = setOf("id")), onSignIn = { signIn = true }, onOpenSettings = {})
+        }
+
+        composeRule.onNodeWithText("Your sign-in to Codeberg ended").assertIsDisplayed()
+        composeRule.onNodeWithText("refused to renew the sign-in of octocat", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Sign in to Codeberg again").performClick()
+
+        assertThat(signIn).isTrue()
+    }
+
+    @Test
+    fun an_account_signed_in_for_good_has_no_such_notice() {
+        val account = Account("id", ForgeInstance.Codeberg, ForgeUser("octocat", "The Octocat", null))
+        composeRule.setContent { YouScreen(SessionState.SignedIn(account), onSignIn = {}, onOpenSettings = {}) }
+
+        composeRule.onNodeWithText("ended", substring = true).assertDoesNotExist()
+    }
 }

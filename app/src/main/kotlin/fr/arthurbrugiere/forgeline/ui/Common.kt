@@ -100,5 +100,6 @@ val ForgeError.message: Int
         ForgeError.Network -> R.string.trending_error_offline
         is ForgeError.RateLimited -> R.string.trending_error_rate_limited
         ForgeError.Unsupported -> R.string.error_unsupported
+        ForgeError.Unauthorized -> R.string.error_unauthorized
         else -> R.string.sign_in_error_unknown
     }

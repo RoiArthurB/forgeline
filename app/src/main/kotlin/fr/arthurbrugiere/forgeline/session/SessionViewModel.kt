@@ -25,9 +25,15 @@ sealed interface SessionState {
 
     /**
      * [account] is the active one; [accounts] every one signed in, across forges. [limited] holds the ids of those whose
-     * sign-in stops at public repositories: their private ones show as missing until they sign in again.
+     * sign-in stops at public repositories: their private ones show as missing until they sign in again. [ended] holds
+     * those whose forge refused to renew the sign-in: nothing syncs for them until they sign in again.
      */
-    data class SignedIn(val account: Account, val accounts: List<Account> = listOf(account), val limited: Set<String> = emptySet()) : SessionState
+    data class SignedIn(
+        val account: Account,
+        val accounts: List<Account> = listOf(account),
+        val limited: Set<String> = emptySet(),
+        val ended: Set<String> = emptySet(),
+    ) : SessionState
 }
 
 /** Whether an account is signed in to [forge]: starring, following or running CI there needs one on that forge. */
@@ -42,8 +48,9 @@ class SessionViewModel @Inject constructor(
     /** Accounts whose forge says their sign-in doesn't reach private repositories; asked whenever the accounts change. */
     private val limited = MutableStateFlow<Set<String>>(emptySet())
 
-    val session: StateFlow<SessionState> = combine(accounts.activeAccount, accounts.accounts, limited) { active, all, limited ->
-        active?.let { SessionState.SignedIn(it, all, limited.intersect(all.map { account -> account.id }.toSet())) } ?: SessionState.SignedOut
+    val session: StateFlow<SessionState> = combine(accounts.activeAccount, accounts.accounts, limited, accounts.signInEnded) { active, all, limited, ended ->
+        val ids = all.map { account -> account.id }.toSet()
+        active?.let { SessionState.SignedIn(it, all, limited.intersect(ids), ended.intersect(ids)) } ?: SessionState.SignedOut
     }.stateIn(viewModelScope, SharingStarted.Eagerly, SessionState.Loading)
 
     init {

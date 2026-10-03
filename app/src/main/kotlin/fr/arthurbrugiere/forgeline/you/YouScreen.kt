@@ -92,6 +92,17 @@ fun YouScreen(
                 onAction = onSignIn,
             )
         }
+        // A sign-in the forge no longer renews: everything for that account fails until it is made again.
+        if (session is SessionState.SignedIn) {
+            session.accounts.filter { it.id in session.ended }.forEach { account ->
+                SoftNotice(
+                    stringResource(R.string.you_ended_title, account.forge.displayName),
+                    stringResource(R.string.you_ended_body, account.forge.displayName, account.user.login),
+                    action = stringResource(R.string.you_ended_action, account.forge.displayName),
+                    onAction = onSignIn,
+                )
+            }
+        }
         // A sign-in made before private repositories were asked for: say so, once per forge, with the way out.
         if (session is SessionState.SignedIn) {
             session.accounts.filter { it.id in session.limited }.map { it.forge }.distinct().forEach { forge ->

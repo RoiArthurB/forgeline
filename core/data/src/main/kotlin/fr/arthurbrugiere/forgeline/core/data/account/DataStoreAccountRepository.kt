@@ -5,17 +5,24 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import fr.arthurbrugiere.forgeline.core.data.di.AccountsDataStore
+import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.OAuthTokens
 import kotlinx.coroutines.sync.Mutex
@@ -41,9 +48,15 @@ class DataStoreAccountRepository @Inject constructor(
     private val cipher: TokenCipher,
     private val refresher: TokenRefresher,
     private val clock: Clock,
+    /** Renewing a token goes on in here, whoever asked for it: see [token]. */
+    @param:BackgroundScope private val scope: CoroutineScope,
 ) : AccountRepository {
 
     private val refreshing = Mutex()
+
+    private val ended = MutableStateFlow<Set<String>>(emptySet())
+
+    override val signInEnded: Flow<Set<String>> = ended.asStateFlow()
 
     private val state: Flow<StoredState> = dataStore.data.map { it.toState() }
 
@@ -71,36 +84,56 @@ class DataStoreAccountRepository @Inject constructor(
             val current = prefs.toState()
             prefs.write(StoredState(current.accounts.filterNot { it.id == stored.id } + stored, stored.id))
         }
+        ended.update { it - stored.id }
         return stored.toAccount()
     }
 
     override suspend fun token(accountId: String): String? {
         val stored = state.first().accounts.firstOrNull { it.id == accountId } ?: return null
         if (!stored.expiresSoon()) return decrypt(stored.encryptedToken)
-        // One refresh at a time: two calls racing would spend the refresh token twice.
-        return refreshing.withLock {
-            val current = state.first().accounts.firstOrNull { it.id == accountId } ?: return@withLock null
-            if (!current.expiresSoon()) return@withLock decrypt(current.encryptedToken)
-            val refreshToken = current.encryptedRefreshToken?.let(::decrypt) ?: return@withLock decrypt(current.encryptedToken)
-            when (val result = refresher.refresh(current.toAccount().forge, refreshToken)) {
-                // Offline or refused: hand back what there is; the forge will say if it no longer works.
-                is ForgeResult.Failure -> decrypt(current.encryptedToken)
-                is ForgeResult.Success -> {
-                    val tokens = result.value
-                    val renewed = current.copy(
-                        encryptedToken = cipher.encrypt(tokens.accessToken),
-                        // Forgejo rotates refresh tokens; keep the old one only if none came back.
-                        encryptedRefreshToken = tokens.refreshToken?.let(cipher::encrypt) ?: current.encryptedRefreshToken,
-                        expiresAtMillis = tokens.expiresInSeconds?.let { clock.millis() + it * 1_000 },
-                    )
-                    dataStore.edit { prefs ->
-                        val latest = prefs.toState()
-                        prefs.write(latest.copy(accounts = latest.accounts.map { if (it.id == accountId) renewed else it }))
-                    }
-                    // The token it replaces is no longer worth remembering.
-                    decrypted.remove(current.encryptedToken)
-                    tokens.accessToken
+        // Renewed apart from whoever asked: a forge spends a refresh token once, so a call cancelled after the forge
+        // answered (a screen left mid-refresh) would lose the new tokens and the next call would spend the old one
+        // again, refused. Started from here, the renewal runs to its end and stores what it got.
+        return scope.async { refreshing.withLock { renew(accountId) } }.await()
+    }
+
+    override fun markSignInEnded(accountId: String) = ended.update { it + accountId }
+
+    /** One renewal at a time: two calls racing would spend the refresh token twice. */
+    private suspend fun renew(accountId: String): String? {
+        val current = state.first().accounts.firstOrNull { it.id == accountId } ?: return null
+        // Renewed meanwhile by the call that held the lock before this one.
+        if (!current.expiresSoon()) return decrypt(current.encryptedToken)
+        val refreshToken = current.encryptedRefreshToken?.let(::decrypt)
+        if (refreshToken == null) {
+            // Nothing to renew it with: once it has really expired, it is over.
+            if (clock.millis() >= (current.expiresAtMillis ?: Long.MAX_VALUE)) ended.update { it + accountId }
+            return decrypt(current.encryptedToken)
+        }
+        return when (val result = refresher.refresh(current.toAccount().forge, refreshToken)) {
+            is ForgeResult.Failure -> {
+                // Refused (a refresh token spent or revoked) is over; offline or a busy forge is for another time.
+                // Either way hand back what there is: the forge will say if it no longer works.
+                val error = result.error
+                if (error == ForgeError.Unauthorized || (error is ForgeError.Http && error.status in 400..401)) ended.update { it + accountId }
+                decrypt(current.encryptedToken)
+            }
+            is ForgeResult.Success -> {
+                val tokens = result.value
+                val renewed = current.copy(
+                    encryptedToken = cipher.encrypt(tokens.accessToken),
+                    // Forgejo rotates refresh tokens; keep the old one only if none came back.
+                    encryptedRefreshToken = tokens.refreshToken?.let(cipher::encrypt) ?: current.encryptedRefreshToken,
+                    expiresAtMillis = tokens.expiresInSeconds?.let { clock.millis() + it * 1_000 },
+                )
+                dataStore.edit { prefs ->
+                    val latest = prefs.toState()
+                    prefs.write(latest.copy(accounts = latest.accounts.map { if (it.id == accountId) renewed else it }))
                 }
+                // The token it replaces is no longer worth remembering.
+                decrypted.remove(current.encryptedToken)
+                ended.update { it - accountId }
+                tokens.accessToken
             }
         }
     }
@@ -132,6 +165,7 @@ class DataStoreAccountRepository @Inject constructor(
             val activeId = if (current.activeId == accountId) remaining.lastOrNull()?.id else current.activeId
             prefs.write(StoredState(remaining, activeId))
         }
+        ended.update { it - accountId }
         // Nothing of the account stays in memory; the others' tokens are read again when next needed.
         decrypted.clear()
     }
