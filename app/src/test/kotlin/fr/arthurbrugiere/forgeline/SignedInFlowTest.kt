@@ -2,10 +2,12 @@ package fr.arthurbrugiere.forgeline
 
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelectable
@@ -230,5 +232,27 @@ class SignedInFlowTest {
         composeRule.onNodeWithText("New issue").assertIsDisplayed()
         composeRule.onNodeWithText("Search issues").assertIsDisplayed()
         composeRule.onNodeWithText("Open issue").assertDoesNotExist()
+    }
+
+    @Test
+    fun an_unread_thread_opens_at_what_is_new_and_either_end_is_one_tap_away() {
+        hiltRule.inject()
+        runBlocking { accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null), "tok") }
+        composeRule.onNode(hasContentDescription("Inbox") and isSelectable()).performClick()
+        waitFor("Keep install flags on retry")
+
+        composeRule.onNodeWithText("Keep install flags on retry").performClick()
+
+        // Read up to the 30th remark: the 31st, on the second page, is where it opens.
+        waitFor("Remark 31 on the retry.")
+        composeRule.onNodeWithText("Remark 31 on the retry.").assertIsDisplayed()
+        composeRule.onNodeWithText("Remark 30 on the retry.").assertIsNotDisplayed()
+
+        composeRule.onNodeWithContentDescription("Go to the top").performClick()
+        composeRule.onNodeWithText("Keep install flags on retry - #14129").assertIsDisplayed()
+
+        composeRule.onNodeWithContentDescription("Go to the latest").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Add a comment")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("Remark 40 on the retry.").assertIsDisplayed()
     }
 }

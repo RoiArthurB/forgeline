@@ -117,6 +117,19 @@ class DefaultInboxRepositoryTest {
     }
 
     @Test
+    fun a_thread_keeps_when_it_was_last_read() = runTest {
+        signIn()
+        val lastRead = Instant.parse("2026-09-26T18:00:00Z")
+        api.threads = listOf(notificationThread("1").copy(lastReadAt = lastRead), notificationThread("2"))
+
+        repository.sync(force = true, waitForFollowUps = true)
+
+        val threads = repository.observe().first().threads.associateBy { it.id }
+        assertThat(threads.getValue("1").lastReadAt).isEqualTo(lastRead)
+        assertThat(threads.getValue("2").lastReadAt).isNull()
+    }
+
+    @Test
     fun syncs_are_conditional_and_respect_the_poll_interval() = runTest {
         signIn()
         api.threads = listOf(notificationThread("1"))

@@ -25,18 +25,37 @@ import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** Where the conversation's list is asked to go. */
+sealed interface ScrollTarget {
+    /** The end of the conversation, where the reader's turn is. */
+    data object End : ScrollTarget
+
+    /** One entry of the timeline, by its place in [IssueUiState.items]. */
+    data class Item(val index: Int) : ScrollTarget
+}
+
 data class IssueUiState(
     val ref: IssueRef,
     val issue: IssueDetails? = null,
     val items: List<TimelineItem> = emptyList(),
     val nextPage: Int? = null,
+    /** The last page of the conversation, where the forge says. */
+    val lastPage: Int? = null,
+    /** Where the list goes next, asked once: the screen moves there and says so. */
+    val scrollTo: ScrollTarget? = null,
     val isRefreshing: Boolean = false,
     val isLoadingMore: Boolean = false,
     val error: ForgeError? = null,
@@ -112,10 +131,14 @@ class IssueViewModel @AssistedInject constructor(
     private val _state = MutableStateFlow(
         repository.cached(ref).let { cached ->
             // The draft outlives the app being stopped: a comment half written is not to be typed again.
-            IssueUiState(ref, cached?.issue, cached?.firstPage?.items.orEmpty(), cached?.firstPage?.nextPage, draft = savedState[DRAFT_KEY] ?: "")
+            IssueUiState(ref, cached?.issue, cached?.firstPage?.items.orEmpty(), cached?.firstPage?.nextPage, cached?.firstPage?.lastPage, draft = savedState[DRAFT_KEY] ?: "")
         },
     )
     val state: StateFlow<IssueUiState> = _state.asStateFlow()
+
+    private var refreshing: Job? = null
+    private val paging = Mutex()
+    private var openedAtUnread = false
 
     init {
         // Not seen this session: the copy kept on disk shows while the forge answers, unless the answer comes first.
@@ -126,7 +149,7 @@ class IssueViewModel @AssistedInject constructor(
                     if (state.issue != null || state.items.isNotEmpty()) {
                         state
                     } else {
-                        state.copy(issue = stored.issue, items = stored.firstPage?.items.orEmpty(), nextPage = stored.firstPage?.nextPage)
+                        state.copy(issue = stored.issue, items = stored.firstPage?.items.orEmpty(), nextPage = stored.firstPage?.nextPage, lastPage = stored.firstPage?.lastPage)
                     }
                 }
                 checkPermissions()
@@ -171,7 +194,7 @@ class IssueViewModel @AssistedInject constructor(
 
     fun refresh() {
         _state.update { it.copy(isRefreshing = true, error = null) }
-        viewModelScope.launch {
+        refreshing = viewModelScope.launch {
             val issue = async { repository.issue(ref) }
             val firstPage = async { repository.timeline(ref, page = 1) }
             val issueResult = issue.await()
@@ -181,6 +204,7 @@ class IssueViewModel @AssistedInject constructor(
                     issue = (issueResult as? ForgeResult.Success)?.value ?: state.issue,
                     items = (pageResult as? ForgeResult.Success)?.value?.items ?: state.items,
                     nextPage = if (pageResult is ForgeResult.Success) pageResult.value.nextPage else state.nextPage,
+                    lastPage = if (pageResult is ForgeResult.Success) pageResult.value.lastPage else state.lastPage,
                     isRefreshing = false,
                     error = (issueResult as? ForgeResult.Failure)?.error ?: (pageResult as? ForgeResult.Failure)?.error,
                 )
@@ -190,17 +214,73 @@ class IssueViewModel @AssistedInject constructor(
     }
 
     fun loadMore() {
-        val page = _state.value.nextPage ?: return
-        if (_state.value.isLoadingMore) return
-        _state.update { it.copy(isLoadingMore = true) }
+        if (_state.value.nextPage == null || _state.value.isLoadingMore) return
         viewModelScope.launch {
-            when (val result = repository.timeline(ref, page)) {
-                is ForgeResult.Success -> _state.update {
-                    it.copy(items = it.items + result.value.items, nextPage = result.value.nextPage, isLoadingMore = false)
+            paging.withLock {
+                val page = _state.value.nextPage ?: return@withLock
+                _state.update { it.copy(isLoadingMore = true) }
+                when (val result = repository.timeline(ref, page)) {
+                    is ForgeResult.Success -> _state.update {
+                        it.copy(items = it.items + result.value.items, nextPage = result.value.nextPage, isLoadingMore = false)
+                    }
+                    is ForgeResult.Failure -> _state.update { it.copy(isLoadingMore = false, error = result.error) }
                 }
-                is ForgeResult.Failure -> _state.update { it.copy(isLoadingMore = false, error = result.error) }
             }
         }
+    }
+
+    /** Goes to the end of the conversation, loading what is left of it first. */
+    fun toEnd() {
+        viewModelScope.launch {
+            refreshing?.join()
+            if (loadRest()) _state.update { it.copy(scrollTo = ScrollTarget.End) }
+        }
+    }
+
+    /**
+     * Opens the conversation where the reader left it: at the first entry newer than [lastRead], or at the latest one
+     * when the forge doesn't say when that was. Once per screen: coming back to it leaves the list where it is.
+     */
+    fun openAtUnread(lastRead: Instant?) {
+        if (openedAtUnread) return
+        openedAtUnread = true
+        viewModelScope.launch {
+            // The forge's answer, not the copy kept: what is new is exactly what the copy lacks.
+            refreshing?.join()
+            if (!loadRest()) return@launch
+            val items = _state.value.items
+            if (items.isEmpty()) return@launch
+            val firstNew = if (lastRead == null) -1 else items.indexOfFirst { it.createdAt?.isAfter(lastRead) == true }
+            _state.update { it.copy(scrollTo = ScrollTarget.Item(if (firstNew >= 0) firstNew else items.lastIndex)) }
+        }
+    }
+
+    fun scrolled() = _state.update { it.copy(scrollTo = null) }
+
+    /**
+     * Loads every page still to come, all at once when the forge says how many there are. False when one failed: what
+     * came before it stays, and the rest can be asked again.
+     */
+    private suspend fun loadRest(): Boolean = paging.withLock {
+        while (true) {
+            val next = _state.value.nextPage ?: break
+            _state.update { it.copy(isLoadingMore = true) }
+            val last = _state.value.lastPage?.takeIf { it > next } ?: next
+            val results = coroutineScope { (next..last).map { page -> async { repository.timeline(ref, page) } }.awaitAll() }
+            val loaded = results.takeWhile { it is ForgeResult.Success }.map { (it as ForgeResult.Success).value }
+            val failure = results.firstOrNull { it is ForgeResult.Failure } as? ForgeResult.Failure
+            _state.update { state ->
+                state.copy(
+                    items = state.items + loaded.flatMap { it.items },
+                    // A forge that kept announcing the same page would be asked forever.
+                    nextPage = if (failure == null) loaded.last().nextPage?.takeIf { it > last } else next + loaded.size,
+                    isLoadingMore = false,
+                    error = failure?.error,
+                )
+            }
+            if (failure != null) return@withLock false
+        }
+        true
     }
 
     fun errorShown() = _state.update { it.copy(error = null) }

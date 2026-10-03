@@ -63,13 +63,13 @@ private val json = Json {
 
 internal fun IssueDetails.encode(): String = json.encodeToString(StoredIssue.of(this))
 
-internal fun TimelinePage.encode(): String = json.encodeToString(StoredPage(items.map(StoredItem::of), nextPage))
+internal fun TimelinePage.encode(): String = json.encodeToString(StoredPage(items.map(StoredItem::of), nextPage, lastPage))
 
 /** Null when stored by an app version this one can't read: the network answer replaces it. */
 internal fun decodeIssue(text: String): IssueDetails? = runCatching { json.decodeFromString<StoredIssue>(text).toModel() }.getOrNull()
 
 internal fun decodePage(text: String): TimelinePage? = runCatching {
-    json.decodeFromString<StoredPage>(text).run { TimelinePage(items.map { it.toModel() }, nextPage) }
+    json.decodeFromString<StoredPage>(text).run { TimelinePage(items.map { it.toModel() }, nextPage, lastPage) }
 }.getOrNull()
 
 @Serializable
@@ -151,7 +151,7 @@ private data class StoredIssue(
 }
 
 @Serializable
-private data class StoredPage(val items: List<StoredItem>, val nextPage: Int?)
+private data class StoredPage(val items: List<StoredItem>, val nextPage: Int?, val lastPage: Int? = null)
 
 @Serializable
 private sealed interface StoredItem {

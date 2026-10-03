@@ -353,6 +353,8 @@
     <string name="issue_review_commented">%1$s reviewed</string>
     <string name="issue_review_dismissed">%1$s\'s review was dismissed</string>
     <string name="issue_load_more">Load more</string>
+    <string name="issue_to_top">Go to the top</string>
+    <string name="issue_to_end">Go to the latest</string>
     <string name="issue_comment_placeholder">Add a comment</string>
     <string name="issue_comment_send">Comment</string>
     <string name="issue_comment_sending">Sending</string>

@@ -158,6 +158,8 @@ class GitHubIssueApiTest {
         val page = api { json("[]", mapOf("Link" to link)) }.timeline(null, issue, 1).value()
 
         assertThat(page.nextPage).isEqualTo(2)
+        // The last one too: the pages in between can be asked together.
+        assertThat(page.lastPage).isEqualTo(4)
     }
 
     @Test

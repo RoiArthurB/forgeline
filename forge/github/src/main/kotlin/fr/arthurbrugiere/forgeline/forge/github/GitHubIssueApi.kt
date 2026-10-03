@@ -79,7 +79,7 @@ class GitHubIssueApi(
             apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "timeline",
             query = mapOf("per_page" to "100", "page" to page.toString()),
         )
-        response.toResult { TimelinePage(body<List<EventJson>>().mapNotNull { it.toModel() }, nextPage()) }
+        response.toResult { TimelinePage(body<List<EventJson>>().mapNotNull { it.toModel() }, nextPage(), lastPage()) }
     }
 
     override suspend fun comment(token: String, ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment> = gitHubCall {

@@ -164,6 +164,7 @@ private data class ThreadJson(
     val unread: Boolean,
     val reason: String,
     @SerialName("updated_at") val updatedAt: String,
+    @SerialName("last_read_at") val lastReadAt: String? = null,
     val subject: SubjectJson,
     val repository: ThreadRepoJson,
 ) {
@@ -202,6 +203,7 @@ private data class ThreadJson(
             },
             unread = unread,
             updatedAt = Instant.parse(updatedAt),
+            lastReadAt = lastReadAt?.let { runCatching { Instant.parse(it) }.getOrNull() },
             ownerAvatarUrl = repository.owner?.avatarUrl,
         )
     }

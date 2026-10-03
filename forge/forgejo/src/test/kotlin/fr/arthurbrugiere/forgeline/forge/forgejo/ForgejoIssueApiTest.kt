@@ -656,4 +656,16 @@ class ForgejoIssueApiTest {
         // A changed date names the new one; a dependency in another repository names it.
         assertThat(events.map { it.subject }).containsExactly("2026-10-10", "2026-10-12", null, null, null, null, "#3 Schema first", "dzeuros/website#106 Website copy").inOrder()
     }
+
+    @Test
+    fun the_timeline_says_how_many_pages_there_are() = runTest {
+        val counted = with(codeberg) {
+            ForgejoIssueApi(client { json("[]", headers = mapOf("X-Total-Count" to "120")) }, ForgeInstance.Codeberg)
+        }
+
+        // 120 entries, 50 a page: the pages after the first can be asked together.
+        assertThat(counted.timeline(null, pull, page = 1).value().lastPage).isEqualTo(3)
+        // A forge that doesn't count leaves it unknown: pages are then asked one after the other.
+        assertThat(api.timeline(null, pull, page = 1).value().lastPage).isNull()
+    }
 }

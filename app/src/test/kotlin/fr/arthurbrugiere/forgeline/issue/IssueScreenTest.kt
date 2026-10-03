@@ -13,6 +13,8 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.onRoot
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -69,6 +71,11 @@ class IssueScreenTest {
                 onLinkClick = { events += "link:$it" },
                 onErrorShown = {},
                 nowMillis = at.toEpochMilli(),
+                onToEnd = { events += "end" },
+                onScrolled = {
+                    events += "scrolled"
+                    shown.value = shown.value.copy(scrollTo = null)
+                },
             )
         }
     }
@@ -504,5 +511,91 @@ class IssueScreenTest {
             "maintainer made this depend on #3 Schema first",
             "maintainer removed the dependency on other/docs#106 Website copy",
         ).forEach { sentence -> reach(hasText(sentence, substring = true)) }
+    }
+
+    private fun longConversation(nextPage: Int? = null) =
+        IssueUiState(ref, issueDetails(ref, "Crash on start"), (1..40L).map { comment(it, "Comment number $it") }, nextPage = nextPage)
+
+    @Test
+    fun a_conversation_that_fits_the_screen_offers_no_way_across_it() {
+        setContent(IssueUiState(ref, issueDetails(ref, "Crash on start")))
+
+        composeRule.onNodeWithContentDescription("Go to the top").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Go to the latest").assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun with_the_readers_turn_in_sight_nothing_floats_over_it() {
+        // Regression: a conversation just longer than the screen offered its end from on top of "Comment".
+        setContent(IssueUiState(ref, issueDetails(ref, "Crash on start"), listOf(comment(1, "Same here", login = "hubot"))))
+        waitFor("Same here")
+
+        composeRule.onNodeWithText("Comment").assertExists()
+        composeRule.onNodeWithContentDescription("Go to the latest").assertDoesNotExist()
+    }
+
+    @Test
+    fun at_the_top_of_a_long_conversation_only_the_end_is_offered() {
+        setContent(longConversation())
+
+        composeRule.onNodeWithContentDescription("Go to the top").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Go to the latest").performClick()
+
+        // The rest may still be to load: the view model says when the list can go there.
+        assertThat(events).containsExactly("end")
+    }
+
+    @Test
+    fun asked_to_the_end_the_list_lands_on_the_readers_turn_and_offers_the_way_back_up() {
+        setContent(longConversation())
+
+        shown.value = shown.value.copy(scrollTo = ScrollTarget.End)
+
+        composeRule.mainClock.advanceTimeBy(1_000)
+        composeRule.onNodeWithText("Add a comment").assertIsDisplayed()
+        // Regression: comments laid out after the jump pushed the end away, and the list stopped short of it.
+        composeRule.onNodeWithContentDescription("Go to the latest").assertDoesNotExist()
+
+        composeRule.onNodeWithContentDescription("Go to the top").performClick()
+
+        composeRule.onNodeWithText("Crash on start - #7").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Go to the top").assertDoesNotExist()
+    }
+
+    @Test
+    fun asked_to_an_entry_the_list_opens_on_it_with_both_ends_offered() {
+        setContent(longConversation())
+
+        shown.value = shown.value.copy(scrollTo = ScrollTarget.Item(19))
+
+        waitFor("Comment number 20")
+        composeRule.onNodeWithText("Comment number 20").assertIsDisplayed()
+        // The one before it is above the screen, not on it.
+        composeRule.onNodeWithText("Comment number 19").assertIsNotDisplayed()
+        composeRule.onNodeWithContentDescription("Go to the top").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Go to the latest").assertIsDisplayed()
+    }
+
+    @Test
+    fun at_the_end_of_what_is_loaded_the_rest_is_still_one_tap_away() {
+        setContent(longConversation(nextPage = 2))
+        shown.value = shown.value.copy(scrollTo = ScrollTarget.End)
+        composeRule.mainClock.advanceTimeBy(1_000)
+        composeRule.onNodeWithText("Add a comment").assertIsDisplayed()
+        events.clear()
+
+        composeRule.onNodeWithContentDescription("Go to the latest").performClick()
+
+        assertThat(events).containsExactly("end")
+    }
+
+    @Test
+    fun while_the_rest_loads_the_way_to_the_end_waits() {
+        setContent(longConversation(nextPage = 2).copy(isLoadingMore = true))
+
+        composeRule.onNodeWithContentDescription("Go to the latest").performClick()
+
+        assertThat(events).isEmpty()
     }
 }

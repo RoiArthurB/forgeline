@@ -9,6 +9,14 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.imePadding
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
+import androidx.compose.ui.draw.shadow
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.withFrameMillis
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
@@ -166,6 +174,7 @@ fun IssueRoute(
     LaunchedEffect(signedIn) { viewModel.checkPermissions() }
     LaunchedEffect(state.movedTo) { state.movedTo?.let(onMoved) }
     LaunchedEffect(state.deleted) { if (state.deleted) onBack() }
+    LaunchedEffect(viewModel) { if (route.unread) viewModel.openAtUnread(route.lastReadAtMillis?.let(Instant::ofEpochMilli)) }
     val manage = remember(viewModel, openUrl) {
         ManageActions(
             onOpened = viewModel::manageOpened,
@@ -208,6 +217,8 @@ fun IssueRoute(
         onBack = onBack,
         onRefresh = viewModel::refresh,
         onLoadMore = viewModel::loadMore,
+        onToEnd = viewModel::toEnd,
+        onScrolled = viewModel::scrolled,
         onOpenIssue = onOpenIssue,
         onOpenRepo = onOpenRepo,
         onOpenUser = onOpenUser,
@@ -239,6 +250,9 @@ fun IssueScreen(
     modifier: Modifier = Modifier,
     manage: ManageActions = ManageActions(),
     nowMillis: Long = System.currentTimeMillis(),
+    /** Loads what is left of the conversation and asks, through the state, to be taken to its end. */
+    onToEnd: () -> Unit = {},
+    onScrolled: () -> Unit = {},
 ) {
     val issue = state.issue
     var managing by rememberSaveable { mutableStateOf(false) }
@@ -269,6 +283,29 @@ fun IssueScreen(
 
     val colors = Soft.colors
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    // An entry lands below the status bar, not under it.
+    val topInset = WindowInsets.statusBars.getTop(LocalDensity.current) + with(LocalDensity.current) { 8.dp.roundToPx() }
+    LaunchedEffect(state.scrollTo) {
+        when (val target = state.scrollTo) {
+            null -> return@LaunchedEffect
+            // The header and the description come first; the reader's turn comes last, after "Load more" if any.
+            ScrollTarget.End -> {
+                val end = TIMELINE_START + state.items.size + if (state.nextPage != null) 1 else 0
+                listState.scrollToItem(end)
+                // Comments are laid out as their Markdown is read, off the main thread: those that grow afterwards push
+                // the end away. It is followed until they have settled.
+                val start = withFrameMillis { it }
+                while (withFrameMillis { it } - start < SETTLE_MILLIS) {
+                    // The reader took over: the list is theirs.
+                    if (listState.isScrollInProgress) break
+                    if (listState.canScrollForward) listState.scrollToItem(end)
+                }
+            }
+            is ScrollTarget.Item -> listState.scrollToItem(TIMELINE_START + target.index, -topInset)
+        }
+        onScrolled()
+    }
     Box(modifier.fillMaxSize().background(colors.ground)) {
         val pullState = rememberPullToRefreshState()
         PullToRefreshBox(
@@ -289,7 +326,8 @@ fun IssueScreen(
             LazyColumn(
                 state = listState,
                 horizontalAlignment = Alignment.CenterHorizontally,
-                contentPadding = PaddingValues(bottom = listBottomPadding()),
+                // Room under the reader's turn for the buttons that float over the list's end.
+                contentPadding = PaddingValues(bottom = listBottomPadding(extra = 24.dp + JumpSize)),
                 // The comment box stays above the keyboard (edge-to-edge doesn't resize the window for it).
                 modifier = Modifier.fillMaxSize().sideSafeArea().imePadding(),
             ) {
@@ -360,8 +398,62 @@ fun IssueScreen(
         }
         val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
         SoftStatusBarScrim(scrolled)
+        // A long conversation is crossed in one tap: each end is offered while the list isn't there. The end is also
+        // offered while some of the conversation is still to load, which is what stands between the reader and it.
+        // With the reader's turn in sight the end is as good as reached, and a button there would sit on "Comment".
+        val turnInSight by remember {
+            derivedStateOf { listState.layoutInfo.run { visibleItemsInfo.lastOrNull()?.index == totalItemsCount - 1 } }
+        }
+        val atEnd by remember { derivedStateOf { !listState.canScrollForward } }
+        if (issue != null) {
+            Column(
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .sideSafeArea()
+                    .imePadding()
+                    .padding(end = 16.dp, bottom = LocalBottomBarSpace.current + 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (scrolled) {
+                    JumpButton(Icons.Outlined.KeyboardArrowUp, stringResource(R.string.issue_to_top)) { scope.launch { listState.scrollToItem(0) } }
+                }
+                if (!turnInSight || (atEnd && state.nextPage != null)) {
+                    JumpButton(Icons.Outlined.KeyboardArrowDown, stringResource(R.string.issue_to_end), busy = state.isLoadingMore, onClick = onToEnd)
+                }
+            }
+        }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current)) { data ->
             Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground)
+        }
+    }
+}
+
+/** Where the timeline starts in the list: after the header and the description. */
+private const val TIMELINE_START = 2
+
+private val JumpSize = 48.dp
+
+/** How long the end of the conversation is followed once the list was sent there. */
+private const val SETTLE_MILLIS = 600L
+
+/** A round button floating over the conversation, like the navigation bar it sits above. */
+@Composable
+private fun JumpButton(icon: ImageVector, label: String, busy: Boolean = false, onClick: () -> Unit) {
+    val colors = Soft.colors
+    Box(
+        Modifier
+            .shadow(8.dp, CircleShape, ambientColor = colors.ink.copy(alpha = 0.18f), spotColor = colors.ink.copy(alpha = 0.18f))
+            .clip(CircleShape)
+            .background(colors.raised)
+            .softPressable(role = Role.Button) { if (!busy) onClick() }
+            .size(JumpSize)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (busy) {
+            CircularProgressIndicator(Modifier.size(22.dp), color = colors.accent, trackColor = colors.surface, strokeWidth = 2.5.dp)
+        } else {
+            Icon(icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(26.dp))
         }
     }
 }

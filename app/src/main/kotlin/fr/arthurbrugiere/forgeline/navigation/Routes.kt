@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.navigation
 import androidx.navigation3.runtime.NavKey
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import kotlinx.serialization.Serializable
 
@@ -43,8 +44,19 @@ data class FileRoute(val host: String, val owner: String, val name: String, val 
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
 }
 
+/**
+ * A conversation. Opened from a notification that is [unread], it starts at what is new since [lastReadAtMillis], or
+ * at its latest entry when the forge doesn't say when it was last read.
+ */
 @Serializable
-data class IssueRoute(val host: String, val owner: String, val name: String, val number: Int) : NavKey {
+data class IssueRoute(
+    val host: String,
+    val owner: String,
+    val name: String,
+    val number: Int,
+    val unread: Boolean = false,
+    val lastReadAtMillis: Long? = null,
+) : NavKey {
     val issue: IssueRef get() = IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number)
 }
 
@@ -85,5 +97,8 @@ fun RepoId.releaseRoute(tag: String) = ReleaseRoute(forge.host, owner, name, tag
 fun RepoId.newIssueRoute() = NewIssueRoute(forge.host, owner, name)
 
 fun IssueRef.route() = IssueRoute(repo.forge.host, repo.owner, repo.name, number)
+
+/** The conversation of a thread, for a thread about one; an unread thread opens at what is new. */
+fun NotificationThread.route(): IssueRoute? = subject?.route()?.copy(unread = unread, lastReadAtMillis = lastReadAt?.toEpochMilli())
 
 fun ForgeInstance.userRoute(login: String) = UserRoute(host, login)

@@ -28,6 +28,9 @@ class FakeIssueApi : IssueApi {
     val issues = mutableMapOf<IssueRef, IssueDetails>()
     val pages = mutableMapOf<Pair<IssueRef, Int>, TimelinePage>()
     var failure: ForgeError? = null
+
+    /** Timeline pages the forge fails to serve, while the others come. */
+    val failingPages = mutableSetOf<Int>()
     val calls = mutableListOf<String>()
     val tokens = mutableListOf<String?>()
 
@@ -46,6 +49,7 @@ class FakeIssueApi : IssueApi {
         calls += "timeline:${ref.repo.fullName}#${ref.number}@$page"
         tokens += token
         failure?.let { return ForgeResult.Failure(it) }
+        if (page in failingPages) return ForgeResult.Failure(ForgeError.Network)
         return ForgeResult.Success(pages[ref to page] ?: TimelinePage(emptyList(), null))
     }
 

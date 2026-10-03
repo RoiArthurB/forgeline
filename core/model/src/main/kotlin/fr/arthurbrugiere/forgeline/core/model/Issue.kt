@@ -128,7 +128,11 @@ sealed interface TimelineItem {
     data class Committed(val sha: String, val message: String, val authorName: String?, override val createdAt: Instant?) : TimelineItem
 }
 
-data class TimelinePage(val items: List<TimelineItem>, val nextPage: Int?)
+/**
+ * One page of a conversation. [lastPage] is the last one there is, when the forge says: the pages up to it can then be
+ * asked all at once instead of one after the other.
+ */
+data class TimelinePage(val items: List<TimelineItem>, val nextPage: Int?, val lastPage: Int? = null)
 
 data class UserProfile(
     val login: String,

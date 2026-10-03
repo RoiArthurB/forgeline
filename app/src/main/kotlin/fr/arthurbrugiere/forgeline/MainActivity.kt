@@ -12,7 +12,9 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.navigation3.runtime.NavKey
-import fr.arthurbrugiere.forgeline.navigation.ForgeLinks
+import fr.arthurbrugiere.forgeline.navigation.linkRoute
+import fr.arthurbrugiere.forgeline.notifications.EXTRA_LAST_READ_AT
+import fr.arthurbrugiere.forgeline.notifications.EXTRA_UNREAD
 import fr.arthurbrugiere.forgeline.ui.openInCustomTab
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -71,7 +73,8 @@ class MainActivity : ComponentActivity() {
 
     private fun openLink(intent: Intent) {
         val url = intent.dataString ?: return
-        val route = ForgeLinks.routeFor(url)
+        val lastReadAt = intent.getLongExtra(EXTRA_LAST_READ_AT, -1).takeIf { it >= 0 }
+        val route = linkRoute(url, intent.getBooleanExtra(EXTRA_UNREAD, false), lastReadAt)
         // A github.com page Forgeline can't show (settings, orgs...): hand it to the browser.
         if (route == null) openInCustomTab(this, url) else link = route
     }

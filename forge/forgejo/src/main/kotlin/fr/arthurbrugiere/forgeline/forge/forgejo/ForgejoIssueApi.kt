@@ -310,7 +310,9 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         val reviewStates = reviews(entries)
         val items = entries.mapNotNull { it.toItem(reviewStates, ref.repo) }
         val next = response.nextPage() ?: (page + 1).takeIf { entries.size == PAGE_SIZE }
-        return ForgeResult.Success(TimelinePage(items, next))
+        // The count covers every entry, shown or not: it gives the number of pages, not of items.
+        val last = response.totalCount()?.let { (it + PAGE_SIZE - 1) / PAGE_SIZE }
+        return ForgeResult.Success(TimelinePage(items, next, last))
     }
 
     private suspend fun reviewStates(token: String?, ref: IssueRef): Map<Long, ReviewState> {

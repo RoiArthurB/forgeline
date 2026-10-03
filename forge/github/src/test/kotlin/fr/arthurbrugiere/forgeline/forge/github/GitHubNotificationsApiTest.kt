@@ -227,4 +227,13 @@ class GitHubNotificationsApiTest {
         assertThat(states).isInstanceOf(ForgeResult.Success::class.java)
         assertThat(requests.count { it.url.encodedPath.endsWith("/graphql") }).isEqualTo(2)
     }
+
+    @Test
+    fun a_thread_says_when_it_was_last_read() = runTest {
+        val threads = api { json(fixture) }.threads("tok", ifModifiedSince = null).value().threads!!
+
+        // Never read: nothing to go by. Read before: what came after is what's new.
+        assertThat(threads[0].lastReadAt).isNull()
+        assertThat(threads[3].lastReadAt).isEqualTo(java.time.Instant.parse("2026-09-26T18:00:00Z"))
+    }
 }

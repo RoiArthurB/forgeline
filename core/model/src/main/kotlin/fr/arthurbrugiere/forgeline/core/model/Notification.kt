@@ -28,6 +28,8 @@ data class NotificationThread(
     val state: SubjectState? = null,
     /** The signed-in account this thread belongs to; blank until stored for one. */
     val accountId: String = "",
+    /** When the reader last read the thread, where the forge says; what came after is new to them. */
+    val lastReadAt: Instant? = null,
 ) {
     /** Identifies the thread across accounts: two forges can use the same thread id. */
     val key: String get() = "$accountId|$id"

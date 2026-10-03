@@ -45,6 +45,10 @@ enum class InboxChannel(val id: String, @param:StringRes val label: Int, val imp
     }
 }
 
+/** Whether the thread a notification opens is unread, and when it was last read: see [linkRoute]. */
+const val EXTRA_UNREAD = "fr.arthurbrugiere.forgeline.UNREAD"
+const val EXTRA_LAST_READ_AT = "fr.arthurbrugiere.forgeline.LAST_READ_AT"
+
 /** The web page of a thread; the app routes it back in-app when the notification is tapped. */
 fun inboxLink(thread: NotificationThread): String {
     val number = thread.number ?: return thread.repo.webUrl
@@ -71,6 +75,9 @@ class SystemInboxNotifier @Inject constructor(@param:ApplicationContext private 
     private fun build(thread: NotificationThread): Notification {
         val open = Intent(Intent.ACTION_VIEW, inboxLink(thread).toUri(), context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            // What the link can't say: the conversation opens at what is new since it was last read.
+            .putExtra(EXTRA_UNREAD, thread.unread)
+            .apply { thread.lastReadAt?.let { putExtra(EXTRA_LAST_READ_AT, it.toEpochMilli()) } }
         val tap = PendingIntent.getActivity(
             context,
             thread.key.hashCode(),

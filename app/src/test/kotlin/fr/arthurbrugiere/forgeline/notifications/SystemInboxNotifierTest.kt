@@ -147,4 +147,23 @@ class SystemInboxNotifierTest {
         assertThat(channelIds).containsNoDuplicates()
         assertThat(channelIds).containsAtLeastElementsIn(InboxChannel.entries.map { it.id })
     }
+
+    @Test
+    fun a_tap_carries_when_the_thread_was_last_read() {
+        val lastRead = java.time.Instant.parse("2026-09-26T18:00:00Z")
+        notifier.show(listOf(notificationThread("42", repo = "acme/rocket", title = "Launch fails").copy(unread = true, lastReadAt = lastRead)))
+
+        val tap = shadowOf(shadowOf(manager).allNotifications.single().contentIntent).savedIntent
+        assertThat(tap.getBooleanExtra(EXTRA_UNREAD, false)).isTrue()
+        assertThat(tap.getLongExtra(EXTRA_LAST_READ_AT, -1)).isEqualTo(lastRead.toEpochMilli())
+    }
+
+    @Test
+    fun a_thread_never_read_carries_no_time() {
+        notifier.show(listOf(notificationThread("42", repo = "acme/rocket", title = "Launch fails").copy(unread = true)))
+
+        val tap = shadowOf(shadowOf(manager).allNotifications.single().contentIntent).savedIntent
+        assertThat(tap.getBooleanExtra(EXTRA_UNREAD, false)).isTrue()
+        assertThat(tap.hasExtra(EXTRA_LAST_READ_AT)).isFalse()
+    }
 }

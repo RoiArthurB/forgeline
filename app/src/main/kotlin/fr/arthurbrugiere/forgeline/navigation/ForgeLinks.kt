@@ -52,3 +52,12 @@ object ForgeLinks {
         return RepoRoute(forge.host, owner, name)
     }
 }
+
+/**
+ * Where a link opens. One tapped on a notification of an [unread] thread opens its conversation at what is new since
+ * [lastReadAtMillis]; any other link opens what it names from the top.
+ */
+fun linkRoute(url: String, unread: Boolean = false, lastReadAtMillis: Long? = null): NavKey? {
+    val route = ForgeLinks.routeFor(url)
+    return if (route is IssueRoute && unread) route.copy(unread = true, lastReadAtMillis = lastReadAtMillis) else route
+}

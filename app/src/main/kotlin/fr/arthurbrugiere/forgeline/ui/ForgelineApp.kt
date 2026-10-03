@@ -107,12 +107,8 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 onSignIn = signIn,
                 onBrowseTrending = browseTrending,
                 onOpenThread = { thread ->
-                    val number = thread.number
-                    if (number != null && (thread.type == SubjectType.ISSUE || thread.type == SubjectType.PULL_REQUEST)) {
-                        openIssue(IssueRef(thread.repo, number))
-                    } else {
-                        openRepo(thread.repo)
-                    }
+                    // An unread thread opens where the reader left it, not at the title.
+                    thread.route()?.let(navigator::navigate) ?: openRepo(thread.repo)
                 },
             )
         }

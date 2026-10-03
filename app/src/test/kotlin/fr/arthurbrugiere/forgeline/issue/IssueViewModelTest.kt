@@ -768,4 +768,170 @@ class IssueViewModelTest {
 
         assertThat(api.managed).isEmpty()
     }
+
+    private fun at(minute: Int) = java.time.Instant.parse("2026-09-26T09:00:00Z").plusSeconds(minute * 60L)
+
+    private fun commentAt(id: Long, minute: Int) = comment(id, "Comment $id").copy(createdAt = at(minute))
+
+    /** A conversation of [pages] pages, two comments each, a minute apart; the forge says how many when [counted]. */
+    private fun longConversation(pages: Int, counted: Boolean) {
+        api.issues[ref] = issueDetails(ref)
+        for (page in 1..pages) {
+            val first = (page - 1) * 2 + 1L
+            api.pages[ref to page] = TimelinePage(
+                listOf(commentAt(first, first.toInt()), commentAt(first + 1, first.toInt() + 1)),
+                nextPage = (page + 1).takeIf { it <= pages },
+                lastPage = pages.takeIf { counted && page < pages },
+            )
+        }
+    }
+
+    private fun IssueViewModel.shownIds() = state.value.items.map { (it as TimelineItem.Comment).id }
+
+    @Test
+    fun going_to_the_end_loads_what_is_left_of_the_conversation() = test {
+        longConversation(pages = 4, counted = true)
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle(), drafts)
+        advanceUntilIdle()
+        api.calls.clear()
+
+        viewModel.toEnd()
+        advanceUntilIdle()
+
+        // Every page, each once, in the conversation's order.
+        assertThat(api.calls).containsExactly("timeline:octo/repo#7@2", "timeline:octo/repo#7@3", "timeline:octo/repo#7@4")
+        assertThat(viewModel.shownIds()).containsExactly(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L).inOrder()
+        assertThat(viewModel.state.value.nextPage).isNull()
+        assertThat(viewModel.state.value.isLoadingMore).isFalse()
+        assertThat(viewModel.state.value.scrollTo).isEqualTo(ScrollTarget.End)
+
+        viewModel.scrolled()
+
+        assertThat(viewModel.state.value.scrollTo).isNull()
+    }
+
+    @Test
+    fun a_forge_that_doesnt_count_its_pages_is_asked_one_after_the_other() = test {
+        longConversation(pages = 3, counted = false)
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle(), drafts)
+        advanceUntilIdle()
+
+        viewModel.toEnd()
+        advanceUntilIdle()
+
+        assertThat(viewModel.shownIds()).containsExactly(1L, 2L, 3L, 4L, 5L, 6L).inOrder()
+        assertThat(viewModel.state.value.scrollTo).isEqualTo(ScrollTarget.End)
+    }
+
+    @Test
+    fun a_conversation_loaded_whole_goes_to_its_end_without_asking() = test {
+        val viewModel = openedSignedIn()
+        api.calls.clear()
+
+        viewModel.toEnd()
+        advanceUntilIdle()
+
+        assertThat(api.calls.filter { it.startsWith("timeline") }).isEmpty()
+        assertThat(viewModel.state.value.scrollTo).isEqualTo(ScrollTarget.End)
+    }
+
+    @Test
+    fun a_page_that_fails_keeps_what_came_before_it_and_stays_put() = test {
+        longConversation(pages = 4, counted = true)
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle(), drafts)
+        advanceUntilIdle()
+        api.failingPages += 3
+
+        viewModel.toEnd()
+        advanceUntilIdle()
+
+        // Page 4 came, but out of place without page 3: it is asked again with it.
+        assertThat(viewModel.shownIds()).containsExactly(1L, 2L, 3L, 4L).inOrder()
+        assertThat(viewModel.state.value.nextPage).isEqualTo(3)
+        assertThat(viewModel.state.value.error).isEqualTo(ForgeError.Network)
+        assertThat(viewModel.state.value.scrollTo).isNull()
+
+        api.failingPages.clear()
+        viewModel.toEnd()
+        advanceUntilIdle()
+
+        assertThat(viewModel.shownIds()).containsExactly(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L).inOrder()
+        assertThat(viewModel.state.value.scrollTo).isEqualTo(ScrollTarget.End)
+    }
+
+    @Test
+    fun an_unread_conversation_opens_at_the_first_entry_since_it_was_read() = test {
+        longConversation(pages = 3, counted = true)
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle(), drafts)
+
+        // Read just after the fourth comment: the fifth, on a page not loaded yet, is the first new one.
+        viewModel.openAtUnread(at(4).plusSeconds(1))
+        advanceUntilIdle()
+
+        assertThat(viewModel.shownIds()).hasSize(6)
+        assertThat(viewModel.state.value.scrollTo).isEqualTo(ScrollTarget.Item(4))
+    }
+
+    @Test
+    fun without_knowing_when_it_was_read_it_opens_at_the_latest_entry() = test {
+        longConversation(pages = 3, counted = false)
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle(), drafts)
+
+        viewModel.openAtUnread(null)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.scrollTo).isEqualTo(ScrollTarget.Item(5))
+    }
+
+    @Test
+    fun with_nothing_newer_than_the_last_read_it_opens_at_the_latest_entry() = test {
+        longConversation(pages = 2, counted = true)
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle(), drafts)
+
+        viewModel.openAtUnread(at(60))
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.scrollTo).isEqualTo(ScrollTarget.Item(3))
+    }
+
+    @Test
+    fun a_conversation_without_a_timeline_stays_at_its_description() = test {
+        api.issues[ref] = issueDetails(ref)
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle(), drafts)
+
+        viewModel.openAtUnread(null)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.scrollTo).isNull()
+    }
+
+    @Test
+    fun it_opens_at_what_is_new_once_not_each_time_the_screen_comes_back() = test {
+        longConversation(pages = 2, counted = true)
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle(), drafts)
+        viewModel.openAtUnread(null)
+        advanceUntilIdle()
+        viewModel.scrolled()
+
+        viewModel.openAtUnread(null)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.scrollTo).isNull()
+    }
+
+    @Test
+    fun what_is_new_is_looked_for_in_the_forges_answer_not_in_the_copy_kept() = test {
+        // Seen before, when it had one comment.
+        api.issues[ref] = issueDetails(ref)
+        api.pages[ref to 1] = TimelinePage(listOf(commentAt(1, 1)), null)
+        IssueViewModel(ref, repository, SavedStateHandle(), drafts)
+        advanceUntilIdle()
+        api.pages[ref to 1] = TimelinePage(listOf(commentAt(1, 1), commentAt(2, 2), commentAt(3, 3)), null)
+
+        val reopened = IssueViewModel(ref, repository, SavedStateHandle(), drafts)
+        reopened.openAtUnread(at(1).plusSeconds(1))
+        advanceUntilIdle()
+
+        assertThat(reopened.state.value.scrollTo).isEqualTo(ScrollTarget.Item(1))
+    }
 }

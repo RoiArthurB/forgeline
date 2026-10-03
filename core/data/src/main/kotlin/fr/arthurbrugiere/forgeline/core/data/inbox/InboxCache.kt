@@ -38,6 +38,7 @@ data class NotificationEntity(
     val unread: Boolean,
     val updatedAtMillis: Long,
     val ownerAvatarUrl: String?,
+    val lastReadAtMillis: Long? = null,
 )
 
 /**
@@ -167,7 +168,7 @@ interface DoneDao {
 
 internal fun NotificationThread.toEntity(accountId: String) = NotificationEntity(
     accountId, id, repo.forge.host, repo.owner, repo.name, title, type.name, number, reason.name, unread, updatedAt.toEpochMilli(),
-    ownerAvatarUrl,
+    ownerAvatarUrl, lastReadAt?.toEpochMilli(),
 )
 
 internal fun NotificationEntity.toModel() = NotificationThread(
@@ -181,4 +182,5 @@ internal fun NotificationEntity.toModel() = NotificationThread(
     updatedAt = Instant.ofEpochMilli(updatedAtMillis),
     ownerAvatarUrl = ownerAvatarUrl,
     accountId = accountId,
+    lastReadAt = lastReadAtMillis?.let(Instant::ofEpochMilli),
 )

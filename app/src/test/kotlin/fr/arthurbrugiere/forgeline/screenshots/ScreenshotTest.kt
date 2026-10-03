@@ -622,6 +622,31 @@ class ScreenshotTest {
         )
     }
 
+    /** In the middle of a long conversation: both ends are one tap away. */
+    @Composable
+    private fun LongIssue(state: (IssueUiState) -> IssueUiState = { it }) {
+        val ref = IssueRef(RepoId("paperclipai", "paperclip"), 14127)
+        IssueScreen(
+            state = state(
+                IssueUiState(
+                    ref = ref,
+                    issue = issueDetails(ref, "Heartbeat recovery escalates too early"),
+                    items = (1..30L).map { comment(it, "Remark $it: it happens after every restart.", login = "hubot") },
+                    scrollTo = fr.arthurbrugiere.forgeline.issue.ScrollTarget.Item(14),
+                ),
+            ),
+            canComment = true, onDraftChange = {}, onSendComment = {}, onToggleOpen = {}, onSignIn = {}, onCommentNoticeShown = {},
+            onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {},
+            onLinkClick = {}, onErrorShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
+    fun issue_jump_light() = snapshot("issue_jump_light", darkTheme = false, awaitText = "Remark 15:", awaitGoneTag = MARKDOWN_PENDING_TAG) { LongIssue() }
+
+    @Test
+    fun issue_jump_dark() = snapshot("issue_jump_dark", darkTheme = true, awaitText = "Remark 15:", awaitGoneTag = MARKDOWN_PENDING_TAG) { LongIssue() }
+
     /** A short conversation, so the comment box that closes it is on screen. */
     @Composable
     private fun IssueWithComposer(state: (IssueUiState) -> IssueUiState, canComment: Boolean = true) {

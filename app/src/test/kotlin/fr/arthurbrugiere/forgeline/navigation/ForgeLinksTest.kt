@@ -134,4 +134,29 @@ class ForgeLinksTest {
 
         assertThat(opened).containsExactly("release:octo/repo@v1", "repo:octo/repo").inOrder()
     }
+
+    @Test
+    fun a_notification_link_opens_the_conversation_at_what_is_new() {
+        val url = "https://github.com/acme/rocket/issues/42"
+
+        assertThat(linkRoute(url, unread = true, lastReadAtMillis = 1_000L))
+            .isEqualTo(IssueRoute("github.com", "acme", "rocket", 42, unread = true, lastReadAtMillis = 1_000L))
+        // Any other link opens what it names from the top.
+        assertThat(linkRoute(url)).isEqualTo(IssueRoute("github.com", "acme", "rocket", 42))
+        assertThat(linkRoute("https://github.com/acme/rocket", unread = true)).isEqualTo(RepoRoute("github.com", "acme", "rocket"))
+        assertThat(linkRoute("https://example.com/acme/rocket/issues/42", unread = true)).isNull()
+    }
+
+    @Test
+    fun a_thread_opens_its_conversation_where_the_reader_left_it() {
+        val lastRead = java.time.Instant.parse("2026-09-26T18:00:00Z")
+        val thread = fr.arthurbrugiere.forgeline.core.testing.notificationThread("42", repo = "acme/rocket", title = "Launch fails")
+
+        assertThat(thread.copy(unread = true, lastReadAt = lastRead).route())
+            .isEqualTo(IssueRoute("github.com", "acme", "rocket", 42, unread = true, lastReadAtMillis = lastRead.toEpochMilli()))
+        // Read already: nothing new to go to.
+        assertThat(thread.copy(unread = false).route()).isEqualTo(IssueRoute("github.com", "acme", "rocket", 42))
+        // Not about a conversation: its repository opens instead.
+        assertThat(thread.copy(type = fr.arthurbrugiere.forgeline.core.model.SubjectType.RELEASE).route()).isNull()
+    }
 }

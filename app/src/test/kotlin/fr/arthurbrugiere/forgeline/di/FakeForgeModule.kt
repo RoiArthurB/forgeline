@@ -97,6 +97,13 @@ object FakeForgeModule {
         val ref = IssueRef(RepoId("paperclipai", "paperclip"), 14127)
         issues[ref] = issueDetails(ref, "Heartbeat recovery escalates too early")
         pages[ref to 1] = TimelinePage(listOf(comment(1, "I can reproduce this on every restart.", login = "hubot")), null)
+        // A long one, in two pages, that the Inbox has a thread about.
+        val long = IssueRef(ref.repo, 14129)
+        issues[long] = issueDetails(long, "Keep install flags on retry")
+        val start = java.time.Instant.parse("2026-09-26T09:00:00Z")
+        fun remark(n: Int) = comment(n.toLong(), "Remark $n on the retry.", login = "hubot").copy(createdAt = start.plusSeconds(n * 60L))
+        pages[long to 1] = TimelinePage((1..20).map(::remark), nextPage = 2, lastPage = 2)
+        pages[long to 2] = TimelinePage((21..40).map(::remark), nextPage = null)
         // Whoever signs in owns the repository: everything can be managed.
         access[ref.repo] = fr.arthurbrugiere.forgeline.core.model.RepoAccess.ADMIN
     }
@@ -112,7 +119,9 @@ object FakeForgeModule {
     fun provideNotificationsApi(): NotificationsApi = FakeNotificationsApi().apply {
         threads = listOf(
             notificationThread("14127", repo = "paperclipai/paperclip", title = "Heartbeat recovery escalates too early"),
-            notificationThread("14129", repo = "paperclipai/paperclip", title = "Keep install flags on retry", type = SubjectType.PULL_REQUEST),
+            // Last read after its 30th remark.
+            notificationThread("14129", repo = "paperclipai/paperclip", title = "Keep install flags on retry", type = SubjectType.PULL_REQUEST)
+                .copy(lastReadAt = java.time.Instant.parse("2026-09-26T09:30:30Z")),
         )
     }
 
