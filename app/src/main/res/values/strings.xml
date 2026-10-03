@@ -197,7 +197,7 @@
     <string name="settings_add_account_summary">GitHub, Codeberg or another Forgejo server</string>
     <string name="error_unauthorized">The forge no longer accepts your sign-in. Sign in again from the You tab.</string>
     <string name="you_ended_title">Your sign-in to %1$s ended</string>
-    <string name="you_ended_body">%1$s refused to renew the sign-in of %2$s, so nothing syncs for it. Sign in again to bring it back.</string>
+    <string name="you_ended_body">Forgeline can no longer use the sign-in of %2$s on %1$s: %1$s refused it, or it can\'t be read on this device. Nothing syncs for it until you sign in again.</string>
     <string name="you_ended_action">Sign in to %1$s again</string>
     <string name="error_unsupported">This forge doesn\'t offer this.</string>
 

@@ -336,4 +336,29 @@ class DataStoreAccountRepositoryTest {
         repository.signOut(account.id)
         assertThat(repository.signInEnded.first()).isEmpty()
     }
+
+    @Test
+    fun a_token_that_cannot_be_read_on_this_device_ends_the_sign_in_instead_of_failing_silently() = runTest {
+        // Regression: a Keystore that lost its key made every token unreadable; each sync treated the account as
+        // signed out and nothing said so.
+        val store = dataStore()
+        val account = DataStoreAccountRepository(store, ReversingCipher, refresher, clock, backgroundScope)
+            .signIn(ForgeInstance.GitHub, octocat, "ghp_secret")
+        val repository = DataStoreAccountRepository(store, BrokenCipher, refresher, clock, backgroundScope)
+        assertThat(repository.signInEnded.first()).isEmpty()
+
+        assertThat(repository.token(account.id)).isNull()
+
+        assertThat(repository.signInEnded.first()).containsExactly(account.id)
+    }
+
+    @Test
+    fun a_token_that_is_read_fine_ends_nothing() = runTest {
+        val repository = DataStoreAccountRepository(dataStore(), ReversingCipher, refresher, clock, backgroundScope)
+        val account = repository.signIn(ForgeInstance.GitHub, octocat, "ghp_secret")
+
+        assertThat(repository.token(account.id)).isEqualTo("ghp_secret")
+
+        assertThat(repository.signInEnded.first()).isEmpty()
+    }
 }

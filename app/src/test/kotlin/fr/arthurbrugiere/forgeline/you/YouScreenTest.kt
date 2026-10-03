@@ -96,7 +96,7 @@ class YouScreenTest {
         }
 
         composeRule.onNodeWithText("Your sign-in to Codeberg ended").assertIsDisplayed()
-        composeRule.onNodeWithText("refused to renew the sign-in of octocat", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("can no longer use the sign-in of octocat on Codeberg", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("Sign in to Codeberg again").performClick()
 
         assertThat(signIn).isTrue()

@@ -90,7 +90,7 @@ class DataStoreAccountRepository @Inject constructor(
 
     override suspend fun token(accountId: String): String? {
         val stored = state.first().accounts.firstOrNull { it.id == accountId } ?: return null
-        if (!stored.expiresSoon()) return decrypt(stored.encryptedToken)
+        if (!stored.expiresSoon()) return readable(accountId, decrypt(stored.encryptedToken))
         // Renewed apart from whoever asked: a forge spends a refresh token once, so a call cancelled after the forge
         // answered (a screen left mid-refresh) would lose the new tokens and the next call would spend the old one
         // again, refused. Started from here, the renewal runs to its end and stores what it got.
@@ -99,11 +99,20 @@ class DataStoreAccountRepository @Inject constructor(
 
     override fun markSignInEnded(accountId: String) = ended.update { it + accountId }
 
+    /**
+     * A token the Keystore can't give back (its key is gone or was invalidated) is as good as none: every request of
+     * the account would go out anonymous or not at all, and nothing said why. It is over until signed in again.
+     */
+    private fun readable(accountId: String, token: String?): String? {
+        if (token == null) ended.update { it + accountId }
+        return token
+    }
+
     /** One renewal at a time: two calls racing would spend the refresh token twice. */
     private suspend fun renew(accountId: String): String? {
         val current = state.first().accounts.firstOrNull { it.id == accountId } ?: return null
         // Renewed meanwhile by the call that held the lock before this one.
-        if (!current.expiresSoon()) return decrypt(current.encryptedToken)
+        if (!current.expiresSoon()) return readable(accountId, decrypt(current.encryptedToken))
         val refreshToken = current.encryptedRefreshToken?.let(::decrypt)
         if (refreshToken == null) {
             // Nothing to renew it with: once it has really expired, it is over.
