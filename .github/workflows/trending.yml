@@ -33,7 +33,7 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v6
       - id: pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
       - name: Measure
         # Both forges go out in one Pages deployment, which replaces the whole site. So each forge's
         # history is read first: only a 404 (that forge's very first run) starts afresh, and any other
