@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
 import java.io.IOException
+import java.net.ProtocolException
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsSync
@@ -65,9 +66,18 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
     )
 
     override suspend fun markRead(token: String, threadId: String): ForgeResult<Unit> = forgejoCall {
-        httpClient.forgejoApi(forge, token, "notifications", "threads", threadId, method = HttpMethod.Patch, query = mapOf("to-status" to "read"))
-            .toResult { }
+        try {
+            httpClient.forgejoApi(forge, token, "notifications", "threads", threadId, method = HttpMethod.Patch, query = mapOf("to-status" to "read"))
+                .toResult { }
+        } catch (e: IOException) {
+            // Forgejo answers 205 with the thread as a body, which HTTP forbids and OkHttp refuses to read. The answer
+            // is thrown away, but it was a yes: the thread is read.
+            if (e.isResetContentWithBody()) ForgeResult.Success(Unit) else throw e
+        }
     }
+
+    private fun Throwable.isResetContentWithBody(): Boolean =
+        generateSequence(this) { it.cause }.any { it is ProtocolException && it.message?.startsWith("HTTP 205") == true }
 
     /** Forgejo can't make a thread go away: it's marked read, and the Inbox remembers it was done. */
     override suspend fun markDone(token: String, threadId: String): ForgeResult<Unit> = markRead(token, threadId)

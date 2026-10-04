@@ -184,4 +184,26 @@ class ForgejoNotificationsApiTest {
         assertThat(sync).isInstanceOf(ForgeResult.Success::class.java)
         assertThat(sync.value().threads).isNotEmpty()
     }
+
+    @Test
+    fun a_thread_is_read_though_the_answer_breaks_the_protocol() = runTest {
+        // Regression: Forgejo answers a status change with 205 and a body, which OkHttp refuses to read ("HTTP 205 had
+        // non-zero Content-Length"). The thread was read on the forge, but the app called it a network failure, so
+        // nothing swiped away on Codeberg ever stayed away (seen on a phone, 2026-10-04).
+        val refusing = with(codeberg) {
+            ForgejoNotificationsApi(client { throw java.net.ProtocolException("HTTP 205 had non-zero Content-Length: 1532") }, ForgeInstance.Codeberg)
+        }
+
+        assertThat(refusing.markRead("t", "901")).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(refusing.markDone("t", "901")).isEqualTo(ForgeResult.Success(Unit))
+    }
+
+    @Test
+    fun any_other_broken_answer_is_still_a_failure() = runTest {
+        val broken = with(codeberg) {
+            ForgejoNotificationsApi(client { throw java.net.ProtocolException("unexpected end of stream") }, ForgeInstance.Codeberg)
+        }
+
+        assertThat(broken.markRead("t", "901")).isEqualTo(ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Network))
+    }
 }
