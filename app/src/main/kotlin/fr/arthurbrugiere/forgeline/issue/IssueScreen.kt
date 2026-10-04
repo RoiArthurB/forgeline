@@ -13,6 +13,11 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.withFrameMillis
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.MutableIntState
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
@@ -284,6 +289,10 @@ fun IssueScreen(
     val colors = Soft.colors
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    // How many comments in sight still show their text unread: each changes size once its Markdown lands.
+    val unread = remember { mutableIntStateOf(0) }
+    // Counts the times the list was sent somewhere: a place being held gives way to the next one asked for.
+    var sent by remember { mutableIntStateOf(0) }
     // An entry lands below the status bar, not under it.
     val topInset = WindowInsets.statusBars.getTop(LocalDensity.current) + with(LocalDensity.current) { 8.dp.roundToPx() }
     LaunchedEffect(state.scrollTo) {
@@ -293,16 +302,26 @@ fun IssueScreen(
             ScrollTarget.End -> TIMELINE_START + state.items.size + (if (state.nextPage != null) 1 else 0) to 0
             is ScrollTarget.Item -> TIMELINE_START + target.index to -topInset
         }
+        val mine = ++sent
         listState.scrollToItem(index, offset)
         // Comments are laid out as their Markdown is read, off the main thread: those that grow afterwards push the
-        // place asked for away. It is held until they have settled, unless the reader takes over.
+        // place asked for away. It is put back each time, until every comment in sight is read and nothing has moved
+        // it for a while; unless the reader takes over, by hand or by asking for another place.
+        fun inPlace() = when (state.scrollTo) {
+            ScrollTarget.End -> !listState.canScrollForward
+            else -> listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }?.offset == -offset
+        }
         val start = withFrameMillis { it }
-        while (withFrameMillis { it } - start < SETTLE_MILLIS) {
-            if (listState.isScrollInProgress) break
-            listState.scrollToItem(index, offset)
+        var settledSince = start
+        while (true) {
+            val now = withFrameMillis { it }
+            if (sent != mine || listState.isScrollInProgress || now - settledSince >= SETTLE_MILLIS || now - start >= HOLD_LIMIT_MILLIS) break
+            if (!inPlace()) listState.scrollToItem(index, offset) else if (unread.intValue == 0) continue
+            settledSince = now
         }
         onScrolled()
     }
+    CompositionLocalProvider(LocalUnreadMarkdown provides unread) {
     Box(modifier.fillMaxSize().background(colors.ground)) {
         val pullState = rememberPullToRefreshState()
         PullToRefreshBox(
@@ -412,7 +431,10 @@ fun IssueScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 if (scrolled) {
-                    JumpButton(Icons.Outlined.KeyboardArrowUp, stringResource(R.string.issue_to_top)) { scope.launch { listState.scrollToItem(0) } }
+                    JumpButton(Icons.Outlined.KeyboardArrowUp, stringResource(R.string.issue_to_top)) {
+                        sent++
+                        scope.launch { listState.scrollToItem(0) }
+                    }
                 }
                 if (!turnInSight || (atEnd && state.nextPage != null)) {
                     JumpButton(Icons.Outlined.KeyboardArrowDown, stringResource(R.string.issue_to_end), busy = state.isLoadingMore, onClick = onToEnd)
@@ -423,6 +445,7 @@ fun IssueScreen(
             Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground)
         }
     }
+    }
 }
 
 /** Where the timeline starts in the list: after the header and the description. */
@@ -430,8 +453,11 @@ private const val TIMELINE_START = 2
 
 private val JumpSize = 48.dp
 
-/** How long the list holds the place it was sent to, while what is around it settles. */
+/** How long nothing must have moved the list from the place it was sent to before it is left alone. */
 private const val SETTLE_MILLIS = 600L
+
+/** However restless what is around it, the list is the reader's again after this long. */
+private const val HOLD_LIMIT_MILLIS = 5_000L
 
 /** A round button floating over the conversation, like the navigation bar it sits above. */
 @Composable
@@ -689,6 +715,9 @@ private val TimelineGutter = 40.dp
 /** On a comment body still being parsed; lets tests wait until every body is rendered. */
 const val MARKDOWN_PENDING_TAG = "markdown-pending"
 
+/** The count of comments in sight whose Markdown is still being read, kept by the conversation they are in. */
+private val LocalUnreadMarkdown = compositionLocalOf<MutableIntState> { mutableIntStateOf(0) }
+
 /** One comment as a conversation turn: the author and when, then their words; unboxed, the reading is the point. */
 @Composable
 private fun Comment(
@@ -727,6 +756,12 @@ private fun Markdown(body: String, context: ReadmeContext, onLinkClick: (String)
     val colors = Soft.colors
     val parsed = rememberReadmeState(body, context, colors.isDark)
     if (parsed == null) {
+        // Counted while it shows: a list sent somewhere waits for it before letting go.
+        val unread = LocalUnreadMarkdown.current
+        DisposableEffect(unread) {
+            unread.intValue++
+            onDispose { unread.intValue-- }
+        }
         // Styled like the rendered paragraph, so nothing jumps when parsing lands.
         Text(
             body,

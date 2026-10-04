@@ -622,18 +622,19 @@ class ScreenshotTest {
         )
     }
 
+    /** Where the long conversation below is sent once it is on screen. */
+    private val jump = androidx.compose.runtime.mutableStateOf<fr.arthurbrugiere.forgeline.issue.ScrollTarget?>(null)
+
     /** In the middle of a long conversation: both ends are one tap away. */
     @Composable
-    private fun LongIssue(state: (IssueUiState) -> IssueUiState = { it }) {
+    private fun LongIssue() {
         val ref = IssueRef(RepoId("paperclipai", "paperclip"), 14127)
         IssueScreen(
-            state = state(
-                IssueUiState(
-                    ref = ref,
-                    issue = issueDetails(ref, "Heartbeat recovery escalates too early"),
-                    items = (1..30L).map { comment(it, "Remark $it: it happens after every restart.", login = "hubot") },
-                    scrollTo = fr.arthurbrugiere.forgeline.issue.ScrollTarget.Item(14),
-                ),
+            state = IssueUiState(
+                ref = ref,
+                issue = issueDetails(ref, "Heartbeat recovery escalates too early"),
+                items = (1..30L).map { comment(it, "Remark $it: it happens after every restart.", login = "hubot") },
+                scrollTo = jump.value,
             ),
             canComment = true, onDraftChange = {}, onSendComment = {}, onToggleOpen = {}, onSignIn = {}, onCommentNoticeShown = {},
             onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {},
@@ -641,14 +642,26 @@ class ScreenshotTest {
         )
     }
 
-    /** The list holds the place it was sent to for a moment: captured sooner, it is sometimes a few pixels off. */
-    private fun settle() = composeRule.mainClock.advanceTimeBy(1_000)
+    /**
+     * Sends the conversation to its 15th remark and lets the list settle there. Time passes frame by frame and no
+     * faster than a real clock, the main thread taking what other threads have finished in between, as on a device:
+     * a test clock that runs ahead is done holding the list in place before the comments have been laid out.
+     */
+    private fun jumpAndSettle() {
+        composeRule.mainClock.autoAdvance = false
+        jump.value = fr.arthurbrugiere.forgeline.issue.ScrollTarget.Item(14)
+        repeat(125) {
+            composeRule.mainClock.advanceTimeByFrame()
+            Thread.sleep(16)
+            composeRule.waitForIdle()
+        }
+    }
 
     @Test
-    fun issue_jump_light() = snapshot("issue_jump_light", darkTheme = false, awaitText = "Remark 15:", awaitGoneTag = MARKDOWN_PENDING_TAG, beforeCapture = ::settle) { LongIssue() }
+    fun issue_jump_light() = snapshot("issue_jump_light", darkTheme = false, awaitText = "Remark 1:", awaitGoneTag = MARKDOWN_PENDING_TAG, beforeCapture = ::jumpAndSettle) { LongIssue() }
 
     @Test
-    fun issue_jump_dark() = snapshot("issue_jump_dark", darkTheme = true, awaitText = "Remark 15:", awaitGoneTag = MARKDOWN_PENDING_TAG, beforeCapture = ::settle) { LongIssue() }
+    fun issue_jump_dark() = snapshot("issue_jump_dark", darkTheme = true, awaitText = "Remark 1:", awaitGoneTag = MARKDOWN_PENDING_TAG, beforeCapture = ::jumpAndSettle) { LongIssue() }
 
     /** A short conversation, so the comment box that closes it is on screen. */
     @Composable

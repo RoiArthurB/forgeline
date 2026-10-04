@@ -514,6 +514,22 @@ class IssueScreenTest {
         ).forEach { sentence -> reach(hasText(sentence, substring = true)) }
     }
 
+    /**
+     * Lets [millis] pass frame by frame and no faster than a real clock, the main thread taking what other threads
+     * have finished in between, as on a device. Comments are read off the main thread: a test clock that runs ahead
+     * is done holding the list in place before they have landed, which no device does.
+     */
+    private fun letTimePass(millis: Long) {
+        val autoAdvance = composeRule.mainClock.autoAdvance
+        composeRule.mainClock.autoAdvance = false
+        repeat((millis / 16).toInt()) {
+            composeRule.mainClock.advanceTimeByFrame()
+            Thread.sleep(16)
+            composeRule.waitForIdle()
+        }
+        composeRule.mainClock.autoAdvance = autoAdvance
+    }
+
     private fun longConversation(nextPage: Int? = null) =
         IssueUiState(ref, issueDetails(ref, "Crash on start"), (1..40L).map { comment(it, "Comment number $it") }, nextPage = nextPage)
 
@@ -553,7 +569,7 @@ class IssueScreenTest {
 
         shown.value = shown.value.copy(scrollTo = ScrollTarget.End)
 
-        composeRule.mainClock.advanceTimeBy(1_000)
+        letTimePass(1_500)
         composeRule.onNodeWithText("Add a comment").assertIsDisplayed()
         // Regression: comments laid out after the jump pushed the end away, and the list stopped short of it.
         composeRule.onNodeWithContentDescription("Go to the latest").assertDoesNotExist()
@@ -570,9 +586,11 @@ class IssueScreenTest {
         val long = (1..30).joinToString("\n\n") { "Paragraph $it of a long remark." }
         setContent(longConversation().let { state -> state.copy(items = state.items.mapIndexed { i, item -> if (i == 18) comment(19, long) else item }) })
 
+        composeRule.mainClock.autoAdvance = false
         shown.value = shown.value.copy(scrollTo = ScrollTarget.Item(19))
 
-        composeRule.mainClock.advanceTimeBy(1_000)
+        letTimePass(2_000)
+        composeRule.mainClock.autoAdvance = true
         waitFor("Comment number 20")
         composeRule.onNodeWithText("Comment number 20").assertIsDisplayed()
         // Regression: the comment above it grew once its Markdown was read, and the list ended up in the middle of
@@ -590,7 +608,7 @@ class IssueScreenTest {
     fun at_the_end_of_what_is_loaded_the_rest_is_still_one_tap_away() {
         setContent(longConversation(nextPage = 2))
         shown.value = shown.value.copy(scrollTo = ScrollTarget.End)
-        composeRule.mainClock.advanceTimeBy(1_000)
+        letTimePass(1_500)
         composeRule.onNodeWithText("Add a comment").assertIsDisplayed()
         events.clear()
 
@@ -624,5 +642,19 @@ class IssueScreenTest {
         composeRule.mainClock.advanceTimeBy(100)
 
         assertThat(events).contains("scrolled")
+    }
+
+    @Test
+    fun going_to_the_top_wins_over_a_place_still_being_held() {
+        setContent(longConversation())
+        composeRule.mainClock.autoAdvance = false
+        shown.value = shown.value.copy(scrollTo = ScrollTarget.Item(19))
+        letTimePass(100)
+
+        // Asked for while the list still holds comment 20 in place: it must not be pulled back there.
+        composeRule.onNodeWithContentDescription("Go to the top").performClick()
+        letTimePass(1_500)
+
+        composeRule.onNodeWithText("Crash on start - #7").assertIsDisplayed()
     }
 }
