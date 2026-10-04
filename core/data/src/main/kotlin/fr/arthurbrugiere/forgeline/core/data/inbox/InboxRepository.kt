@@ -102,11 +102,12 @@ class DefaultInboxRepository @Inject constructor(
             val ids = signedIn.map { it.id }.toSet()
             combine(dao.observeAll(), dao.observeSyncs(), dao.observeStates(), doneDao.observe()) { threads, syncs, states, done ->
                 val byRef = states.associateBy { it.ref() }
-                val doneAt = done.associate { (it.accountId to it.threadId) to it.updatedAtMillis }
+                val doneKeys = done.mapTo(HashSet()) { it.accountId to it.threadId }
                 InboxSnapshot(
                     threads.filter { it.accountId in ids }
-                        // Done where the forge couldn't: gone until something new happens on it.
-                        .filterNot { entity -> doneAt[entity.accountId to entity.id]?.let { entity.updatedAtMillis <= it } == true }
+                        // Done where the forge couldn't: gone until something new happens on it, which is when it
+                        // is unread again. Not by its date: marking it read moves that too.
+                        .filterNot { entity -> !entity.unread && (entity.accountId to entity.id) in doneKeys }
                         .map { entity ->
                         val thread = entity.toModel()
                         val state = thread.subject?.let { byRef[it] }?.state?.let { name -> SubjectState.entries.firstOrNull { it.name == name } }
@@ -207,7 +208,8 @@ class DefaultInboxRepository @Inject constructor(
                 val threads = sync.threads?.map { it.copy(accountId = account.id, repo = it.repo.copy(forge = account.forge)) }
                 if (threads != null) {
                     dao.replace(account.id, threads.map { it.toEntity(account.id) })
-                    doneDao.prune(account.id, threads.map { it.id })
+                    // Done is remembered while the thread stays listed and read: unread again, it is back for good.
+                    doneDao.prune(account.id, threads.filterNot { it.unread }.map { it.id })
                     // Forges that say where a thread's subject stands (Forgejo) save asking for it.
                     val now = clock.millis()
                     val known = threads.mapNotNull { thread ->
@@ -244,7 +246,7 @@ class DefaultInboxRepository @Inject constructor(
         val api = clients.notifications(account.forge)
         val removed = dao.get(account.id, threadId)
         if (!api.supportsDone) {
-            // The forge only marks it read: the Inbox remembers it was done, at its current activity.
+            // The forge only marks it read: the Inbox remembers it was done, until it is unread again.
             val result = api.markDone(token, threadId)
             if (result is ForgeResult.Success && removed != null) {
                 dao.setUnread(account.id, threadId, false)

@@ -425,6 +425,7 @@ class DefaultInboxRepositoryTest {
         assertThat(codeberg.calls).contains("done:7")
         assertThat(repository.observe().first().threads).isEmpty()
         // Still listed by the forge, as read: still hidden.
+        codeberg.threads = listOf(notificationThread("7", repo = "forgejo/forgejo", unread = false))
         repository.sync(force = true, waitForFollowUps = true)
         assertThat(repository.observe().first().threads).isEmpty()
 
@@ -432,6 +433,26 @@ class DefaultInboxRepositoryTest {
         codeberg.threads = listOf(notificationThread("7", repo = "forgejo/forgejo", updatedAt = "2026-09-27T11:00:00Z"))
         repository.sync(force = true, waitForFollowUps = true)
         assertThat(repository.observe().first().threads.map { it.id }).containsExactly("7")
+
+        // Back for good: only read later, it stays listed.
+        codeberg.threads = listOf(notificationThread("7", repo = "forgejo/forgejo", updatedAt = "2026-09-27T11:00:00Z", unread = false))
+        repository.sync(force = true, waitForFollowUps = true)
+        assertThat(repository.observe().first().threads.map { it.id }).containsExactly("7")
+    }
+
+    @Test
+    fun a_thread_done_stays_done_though_reading_it_moved_its_date() = runTest {
+        // Regression: Forgejo dates a thread from its last change, and marking it read is one (seen on Codeberg,
+        // 2026-10-04). Done looked like new activity at the next sync, and the thread came back.
+        val codeberg = FakeNotificationsApi(supportsDone = false).apply { threads = listOf(notificationThread("7", repo = "forgejo/forgejo")) }
+        val me = codebergAccount(codeberg)
+        repository.sync(force = true, waitForFollowUps = true)
+
+        repository.markDone(me, "7")
+        codeberg.threads = listOf(notificationThread("7", repo = "forgejo/forgejo", updatedAt = "2026-09-27T09:00:05Z", unread = false))
+        repository.sync(force = true, waitForFollowUps = true)
+
+        assertThat(repository.observe().first().threads).isEmpty()
     }
 
     @Test

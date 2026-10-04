@@ -64,8 +64,9 @@ data class SubjectStateEntity(
 )
 
 /**
- * A thread marked done on a forge that can't mark it done (Forgejo): hidden while it has no activity newer than
- * [updatedAtMillis], which is how GitHub's done behaves.
+ * A thread marked done on a forge that can't mark it done (Forgejo): hidden while it stays read, and shown
+ * again once new activity makes it unread, which is how GitHub's done behaves. [updatedAtMillis] is when it was done
+ * and decides nothing: the forge moves a thread's date when it is marked read.
  */
 @Entity(tableName = "inbox_done", primaryKeys = ["accountId", "threadId"])
 data class DoneEntity(val accountId: String, val threadId: String, val updatedAtMillis: Long)
