@@ -4,9 +4,9 @@ A fast, discovery-first Android client for code forges.
 
 Forgeline brings your forges to your phone as a timeline: an **Inbox** for what needs you, a **Feed** of what the people you follow are doing, and a **Trending** page for the daily discovery ritual. It opens in about a second and renders everything natively, so you never get bounced to a mobile web page.
 
-> **Status:** early development (v0.5). GitHub, gitlab.com, Codeberg and self-hosted Forgejo servers work today, several accounts at once, private repositories included.
+> **Status:** early development (v0.6). GitHub, gitlab.com, Codeberg and self-hosted Forgejo servers work today, several accounts at once, private repositories included.
 
-## What's in v0.5
+## What's in v0.6
 
 - **Several forges at once:** GitHub, GitLab (gitlab.com and self-hosted), Codeberg and any self-hosted Forgejo server share one Inbox, Feed, Trending page and search. Each row names its forge, and one forge can be picked alone. Codeberg's and gitlab.com's Trending are measured daily, shown to everyone without signing in, and mixed in by share of stars.
 - **Inbox:** what needs you first (review requests, mentions, assignments, security alerts, and GitLab Todos), then everything else grouped by owner and repository. Pull requests/merge requests and issues say whether they're open, merged or closed. Swipe right to mark read, left to mark done, with 5 seconds to Undo. Background checks (every hour by default, or off) post phone notifications on separate channels, and the conversations waiting on you are loaded ahead so they open instantly.
