@@ -50,6 +50,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableIntStateOf
 import fr.arthurbrugiere.forgeline.ui.LocalOpenRelease
 import fr.arthurbrugiere.forgeline.ui.ReportReading
 import fr.arthurbrugiere.forgeline.ui.LeftOffMark
@@ -350,9 +352,15 @@ private fun FeedRow(
         Column(Modifier.weight(1f)) {
             // Which forge (its logo), once more than one is signed in.
             val forge = item.repo.forge.takeIf { LocalShowForge.current }
+            // A name is never broken across lines, and GitLab's can be long (group/subgroup/project): one that doesn't
+            // leave room pushed the end of the line out of sight, which is the forge and the time. The repository's
+            // name gives way first, step by step, then the row takes one more line.
+            var squeeze by remember(item.key, forge) { mutableIntStateOf(0) }
+            val repoLabel = feedRepoLabel(item.repo.fullName, squeeze)
+            val lines = (if (LocalDensity.current.fontScale > 1.3f) 4 else 2) + if (squeeze > LAST_SQUEEZE) 1 else 0
             Text(
                 buildAnnotatedString {
-                    append(item.headline().emphasizing(item.names(), colors.ink))
+                    append(item.headline(repoLabel).emphasizing(item.names(repoLabel), colors.ink))
                     // Each dot sticks to what precedes it, so a line never starts with "·"; the time is kept whole.
                     val time = relative(item.createdAt, nowMillis, abbreviated = true).replace(' ', '\u00A0')
                     withStyle(SpanStyle(color = colors.inkMuted)) {
@@ -363,8 +371,9 @@ private fun FeedRow(
                 inlineContent = forge?.let { forgeInlineContent(it, colors.inkMuted) }.orEmpty(),
                 style = Soft.type.secondary,
                 color = colors.inkMuted,
-                maxLines = if (LocalDensity.current.fontScale > 1.3f) 4 else 2,
+                maxLines = lines,
                 overflow = TextOverflow.Ellipsis,
+                onTextLayout = { if (it.hasVisualOverflow && squeeze <= LAST_SQUEEZE) squeeze++ },
                 modifier = Modifier.padding(top = 2.dp),
             )
             FeedObject(item, previews, Modifier.padding(top = 8.dp))
@@ -593,17 +602,34 @@ private fun FeedItem.open(
 /** A word joiner after each slash, so "owner/name" never breaks across lines. */
 internal fun String.unbreakable(): String = replace("/", "/\u2060")
 
-@Composable
-private fun FeedItem.headline(): String = rawHeadline().unbreakable()
+/** The steps a repository's name gives way by before a row takes another line: see [feedRepoLabel]. */
+private const val LAST_SQUEEZE = 2
+
+/**
+ * A repository's name in a Feed line, shortened as [squeeze] grows: whole, then a nested path without its middle
+ * (`group/…/project`), then the project alone. Tapping the row still opens the repository, which says where it is.
+ */
+internal fun feedRepoLabel(fullName: String, squeeze: Int): String {
+    val parts = fullName.split('/')
+    return when {
+        squeeze <= 0 -> fullName
+        squeeze == 1 && parts.size > 2 -> "${parts.first()}/…/${parts.last()}"
+        squeeze == 1 -> fullName
+        else -> parts.last()
+    }
+}
 
 @Composable
-private fun FeedItem.rawHeadline(): String {
+private fun FeedItem.headline(repoLabel: String): String = rawHeadline(repoLabel).unbreakable()
+
+@Composable
+private fun FeedItem.rawHeadline(repoLabel: String): String {
     val who = when (actors.size) {
         1 -> actors[0].login
         2 -> stringResource(R.string.feed_actors_two, actors[0].login, actors[1].login)
         else -> pluralStringResource(R.plurals.feed_actors_many, actors.size - 1, actors[0].login, actors.size - 1)
     }
-    val repo = repo.fullName
+    val repo = repoLabel
     return when (val a = action) {
         FeedAction.Starred -> stringResource(R.string.feed_line_starred, who)
         is FeedAction.Forked -> stringResource(R.string.feed_line_forked, who, a.fork.fullName)
@@ -648,11 +674,11 @@ private fun FeedItem.rawHeadline(): String {
 }
 
 /** The people and repos a headline names, emphasized so the timeline can be skimmed. */
-private fun FeedItem.names(): List<String> = rawNames().map { it.unbreakable() }
+private fun FeedItem.names(repoLabel: String): List<String> = rawNames(repoLabel).map { it.unbreakable() }
 
-private fun FeedItem.rawNames(): List<String> = buildList {
+private fun FeedItem.rawNames(repoLabel: String): List<String> = buildList {
     addAll(actors.take(2).map { it.login })
-    add(repo.fullName)
+    add(repoLabel)
     when (val a = action) {
         is FeedAction.Forked -> add(a.fork.fullName)
         is FeedAction.AddedMember -> add(a.login)

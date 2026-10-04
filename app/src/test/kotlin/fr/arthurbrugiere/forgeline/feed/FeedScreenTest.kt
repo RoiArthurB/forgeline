@@ -322,4 +322,20 @@ class FeedScreenTest {
 
         assertThat(opened.map { it.number to it.isPullRequest }).containsExactly(7 to true, 7 to false, 9 to true).inOrder()
     }
+
+    @Test
+    fun a_repositorys_name_gives_way_step_by_step_when_a_line_has_no_room_for_it() {
+        // Regression: GitLab's nested paths are long and never broken across lines. One that took the line pushed the
+        // forge's logo and the time out of sight; the name now shortens first.
+        val nested = "gitlab-org/ci-cd/release-tooling/runner-tools"
+
+        assertThat(feedRepoLabel(nested, 0)).isEqualTo(nested)
+        assertThat(feedRepoLabel(nested, 1)).isEqualTo("gitlab-org/…/runner-tools")
+        assertThat(feedRepoLabel(nested, 2)).isEqualTo("runner-tools")
+        // An owner and a name have no middle to drop: whole, then the name alone.
+        assertThat(feedRepoLabel("acme/rocket", 1)).isEqualTo("acme/rocket")
+        assertThat(feedRepoLabel("acme/rocket", 2)).isEqualTo("rocket")
+        // Past the last step the name stays at its shortest: the row takes another line instead.
+        assertThat(feedRepoLabel(nested, 3)).isEqualTo("runner-tools")
+    }
 }

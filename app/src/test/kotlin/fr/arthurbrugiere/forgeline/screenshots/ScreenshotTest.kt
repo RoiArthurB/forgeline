@@ -1134,8 +1134,13 @@ class ScreenshotTest {
         val onGitHub = feedEvent("20", actor = "bob", repo = "acme/rocket", createdAt = "2026-09-27T09:45:00Z", action = FeedAction.Issue(IssueAction.CLOSED, 42, "Launch fails on cold start"))
         val onSelfHosted = feedEvent("19", actor = "carol", repo = "octo/tools", createdAt = "2026-09-27T09:40:00Z", action = FeedAction.Released("v2.0.0", "Tools 2.0: faster everything", prerelease = false))
             .let { it.copy(repo = it.repo.copy(forge = ForgeInstance(ForgeType.FORGEJO, "git.example.org"))) }
+        // On gitlab.com, in a nested group as its projects often are, and what a real account's Feed is made of: a push.
+        val onGitLab = feedEvent("18", actor = "dana", repo = "x/y", createdAt = "2026-09-27T09:35:00Z", action = FeedAction.Commented(7, "Keep install flags on retry", isPullRequest = true))
+            .let { it.copy(repo = RepoId("gitlab-org/ci-cd", "runner-tools", ForgeInstance.GitLab)) }
+        val pushedOnGitLab = feedEvent("17", actor = "dana", repo = "x/y", createdAt = "2026-09-27T09:30:00Z", action = FeedAction.Pushed("main"))
+            .let { it.copy(repo = RepoId("gitlab-org/ci-cd/release-tooling/pipelines", "runner-tools-and-helpers", ForgeInstance.GitLab)) }
         FeedScreen(
-            state = FeedUiState(items = feedItems(listOf(onCodeberg, onGitHub, onSelfHosted), FeedKind.defaults), showForge = true, syncedAtMillis = 1),
+            state = FeedUiState(items = feedItems(listOf(onCodeberg, onGitHub, onSelfHosted, onGitLab, pushedOnGitLab), fr.arthurbrugiere.forgeline.core.model.FeedKind.entries.toSet()), showForge = true, syncedAtMillis = 1),
             onRefresh = {}, onLoadMore = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = { _, _ -> }, onErrorShown = {},
             nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
             zone = java.time.ZoneOffset.UTC,
