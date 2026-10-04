@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CompletableDeferred
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -19,8 +20,9 @@ class FakeNotificationsApi(override val supportsDone: Boolean = true) : Notifica
     var notModified = false
     var pollIntervalSeconds: Int? = 60
     var failure: ForgeError? = null
-    val calls = mutableListOf<String>()
-    val ifModifiedSince = mutableListOf<String?>()
+    // Accounts sync at the same time, on background threads: what records them takes that.
+    val calls: MutableList<String> = CopyOnWriteArrayList()
+    val ifModifiedSince: MutableList<String?> = CopyOnWriteArrayList()
 
     /** When set, threads wait for it: a slow forge. */
     var gate: CompletableDeferred<Unit>? = null

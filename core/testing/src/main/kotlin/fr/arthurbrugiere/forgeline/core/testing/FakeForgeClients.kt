@@ -31,8 +31,10 @@ class FakeForgeClients(
     val trending: TrendingApi? = FakeTrendingApi(),
     val trendingMeter: TrendingMeter? = null,
 ) : ForgeClients {
-    private val others = mutableMapOf<ForgeInstance, FakeForgeClients>()
-    val asked = mutableListOf<String>()
+    private val others = java.util.concurrent.ConcurrentHashMap<ForgeInstance, FakeForgeClients>()
+    // Regression: an Inbox sync asks for several conversations at once, from background threads. A plain list lost
+    // its footing under two of them now and then ("Index 1 out of bounds for length 0") and failed an unrelated test.
+    val asked: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
 
     /** The fakes answering for [forge]; GitHub's are this object's own. Other forges publish no Trending unless [put] says so. */
     fun on(forge: ForgeInstance): FakeForgeClients =

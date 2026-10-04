@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CompletableDeferred
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -31,8 +32,9 @@ class FakeIssueApi : IssueApi {
 
     /** Timeline pages the forge fails to serve, while the others come. */
     val failingPages = mutableSetOf<Int>()
-    val calls = mutableListOf<String>()
-    val tokens = mutableListOf<String?>()
+    // Conversations are loaded ahead several at a time, on background threads: what records them takes that.
+    val calls: MutableList<String> = CopyOnWriteArrayList()
+    val tokens: MutableList<String?> = CopyOnWriteArrayList()
 
     /** When set, issues wait for it: a slow forge. */
     var gate: CompletableDeferred<Unit>? = null
