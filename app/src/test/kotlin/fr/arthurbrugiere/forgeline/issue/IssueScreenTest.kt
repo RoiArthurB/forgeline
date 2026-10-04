@@ -565,14 +565,22 @@ class IssueScreenTest {
 
     @Test
     fun asked_to_an_entry_the_list_opens_on_it_with_both_ends_offered() {
-        setContent(longConversation())
+        // The comment above the one asked for is a long one, as they are where it matters.
+        val long = (1..30).joinToString("\n\n") { "Paragraph $it of a long remark." }
+        setContent(longConversation().let { state -> state.copy(items = state.items.mapIndexed { i, item -> if (i == 18) comment(19, long) else item }) })
 
         shown.value = shown.value.copy(scrollTo = ScrollTarget.Item(19))
 
+        composeRule.mainClock.advanceTimeBy(1_000)
         waitFor("Comment number 20")
         composeRule.onNodeWithText("Comment number 20").assertIsDisplayed()
+        // Regression: the comment above it grew once its Markdown was read, and the list ended up in the middle of
+        // that one instead (seen on a phone, on a conversation of 237 comments, 2026-10-04).
+        val top = composeRule.onNodeWithText("Comment number 20").fetchSemanticsNode().boundsInRoot.top
+        val height = composeRule.onRoot().fetchSemanticsNode().boundsInRoot.height
+        assertThat(top).isLessThan(height / 8)
         // The one before it is above the screen, not on it.
-        composeRule.onNodeWithText("Comment number 19").assertIsNotDisplayed()
+        composeRule.onNodeWithText("Paragraph 1 of a long remark.").assertIsNotDisplayed()
         composeRule.onNodeWithContentDescription("Go to the top").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Go to the latest").assertIsDisplayed()
     }

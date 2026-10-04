@@ -287,22 +287,19 @@ fun IssueScreen(
     // An entry lands below the status bar, not under it.
     val topInset = WindowInsets.statusBars.getTop(LocalDensity.current) + with(LocalDensity.current) { 8.dp.roundToPx() }
     LaunchedEffect(state.scrollTo) {
-        when (val target = state.scrollTo) {
+        // The header and the description come first; the reader's turn comes last, after "Load more" if any.
+        val (index, offset) = when (val target = state.scrollTo) {
             null -> return@LaunchedEffect
-            // The header and the description come first; the reader's turn comes last, after "Load more" if any.
-            ScrollTarget.End -> {
-                val end = TIMELINE_START + state.items.size + if (state.nextPage != null) 1 else 0
-                listState.scrollToItem(end)
-                // Comments are laid out as their Markdown is read, off the main thread: those that grow afterwards push
-                // the end away. It is followed until they have settled.
-                val start = withFrameMillis { it }
-                while (withFrameMillis { it } - start < SETTLE_MILLIS) {
-                    // The reader took over: the list is theirs.
-                    if (listState.isScrollInProgress) break
-                    if (listState.canScrollForward) listState.scrollToItem(end)
-                }
-            }
-            is ScrollTarget.Item -> listState.scrollToItem(TIMELINE_START + target.index, -topInset)
+            ScrollTarget.End -> TIMELINE_START + state.items.size + (if (state.nextPage != null) 1 else 0) to 0
+            is ScrollTarget.Item -> TIMELINE_START + target.index to -topInset
+        }
+        listState.scrollToItem(index, offset)
+        // Comments are laid out as their Markdown is read, off the main thread: those that grow afterwards push the
+        // place asked for away. It is held until they have settled, unless the reader takes over.
+        val start = withFrameMillis { it }
+        while (withFrameMillis { it } - start < SETTLE_MILLIS) {
+            if (listState.isScrollInProgress) break
+            listState.scrollToItem(index, offset)
         }
         onScrolled()
     }
@@ -433,7 +430,7 @@ private const val TIMELINE_START = 2
 
 private val JumpSize = 48.dp
 
-/** How long the end of the conversation is followed once the list was sent there. */
+/** How long the list holds the place it was sent to, while what is around it settles. */
 private const val SETTLE_MILLIS = 600L
 
 /** A round button floating over the conversation, like the navigation bar it sits above. */
