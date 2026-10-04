@@ -373,7 +373,7 @@ private fun FeedRow(
                 color = colors.inkMuted,
                 maxLines = lines,
                 overflow = TextOverflow.Ellipsis,
-                onTextLayout = { if (it.hasVisualOverflow && squeeze <= LAST_SQUEEZE) squeeze++ },
+                onTextLayout = { if (it.hasVisualOverflow) squeeze = nextFeedSqueeze(item.repo.fullName, squeeze) },
                 modifier = Modifier.padding(top = 2.dp),
             )
             FeedObject(item, previews, Modifier.padding(top = 8.dp))
@@ -617,6 +617,15 @@ internal fun feedRepoLabel(fullName: String, squeeze: Int): String {
         squeeze == 1 -> fullName
         else -> parts.last()
     }
+}
+
+/**
+ * The step after [squeeze] for a line that still doesn't fit: the next one that changes the name (a step that leaves
+ * the line as it was would never be laid out again), then the extra line, which is the last.
+ */
+internal fun nextFeedSqueeze(fullName: String, squeeze: Int): Int {
+    val current = feedRepoLabel(fullName, squeeze)
+    return ((squeeze + 1)..LAST_SQUEEZE).firstOrNull { feedRepoLabel(fullName, it) != current } ?: (LAST_SQUEEZE + 1)
 }
 
 @Composable

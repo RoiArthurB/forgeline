@@ -338,4 +338,18 @@ class FeedScreenTest {
         // Past the last step the name stays at its shortest: the row takes another line instead.
         assertThat(feedRepoLabel(nested, 3)).isEqualTo("runner-tools")
     }
+
+    @Test
+    fun a_step_that_changes_nothing_is_skipped() {
+        // Regression: an owner/name has no middle to drop, so the first step left the line as it was. Nothing was laid
+        // out again, and the row stayed cut: seen on a phone with a long GitLab project and a long GitHub one.
+        assertThat(nextFeedSqueeze("RoiArthurB/forgeline-scratch-deletion_scheduled-87209551", 0)).isEqualTo(2)
+        assertThat(nextFeedSqueeze("gitlab-org/ci-cd/runner-tools", 0)).isEqualTo(1)
+        assertThat(nextFeedSqueeze("gitlab-org/ci-cd/runner-tools", 1)).isEqualTo(2)
+        // After the shortest name, one more line; after that, nothing more to give.
+        assertThat(nextFeedSqueeze("acme/rocket", 2)).isEqualTo(3)
+        assertThat(nextFeedSqueeze("acme/rocket", 3)).isEqualTo(3)
+        // A name with no owner at all can only take the line.
+        assertThat(nextFeedSqueeze("rocket", 0)).isEqualTo(3)
+    }
 }

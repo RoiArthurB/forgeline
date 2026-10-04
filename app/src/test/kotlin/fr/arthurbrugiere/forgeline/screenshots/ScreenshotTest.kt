@@ -1139,8 +1139,12 @@ class ScreenshotTest {
             .let { it.copy(repo = RepoId("gitlab-org/ci-cd", "runner-tools", ForgeInstance.GitLab)) }
         val pushedOnGitLab = feedEvent("17", actor = "dana", repo = "x/y", createdAt = "2026-09-27T09:30:00Z", action = FeedAction.Pushed("main"))
             .let { it.copy(repo = RepoId("gitlab-org/ci-cd/release-tooling/pipelines", "runner-tools-and-helpers", ForgeInstance.GitLab)) }
+        // As seen on a phone: an owner and a name, long enough to take the line by themselves.
+        val longOnGitLab = feedEvent("16", actor = "erin", repo = "x/y", createdAt = "2026-09-27T09:25:00Z", action = FeedAction.Issue(IssueAction.OPENED, 1, "Heartbeat recovery escalates too early"))
+            .let { it.copy(repo = RepoId("RoiArthurB", "forgeline-scratch-deletion_scheduled-87209551", ForgeInstance.GitLab)) }
+        val longOnGitHub = feedEvent("15", actor = "frank", repo = "project-SIMPLE/simple.BeDev.AEDES.UnityVR", createdAt = "2026-09-27T09:20:00Z", action = FeedAction.PullRequest(PullRequestAction.OPENED, 58, "Fix the headset pairing"))
         FeedScreen(
-            state = FeedUiState(items = feedItems(listOf(onCodeberg, onGitHub, onSelfHosted, onGitLab, pushedOnGitLab), fr.arthurbrugiere.forgeline.core.model.FeedKind.entries.toSet()), showForge = true, syncedAtMillis = 1),
+            state = FeedUiState(items = feedItems(listOf(onCodeberg, onGitHub, onSelfHosted, onGitLab, pushedOnGitLab, longOnGitLab, longOnGitHub), fr.arthurbrugiere.forgeline.core.model.FeedKind.entries.toSet()), showForge = true, syncedAtMillis = 1),
             onRefresh = {}, onLoadMore = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = { _, _ -> }, onErrorShown = {},
             nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
             zone = java.time.ZoneOffset.UTC,
