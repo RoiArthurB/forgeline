@@ -86,4 +86,10 @@ class DeepLinkTest {
         assertThat(handlers("https://codeberg.org/forgejo/forgejo/issues/14601")).contains(context.packageName)
         assertThat(handlers("https://codeberg.org/alice")).contains(context.packageName)
     }
+
+    @Test
+    fun gitlab_links_are_offered_to_the_app() {
+        assertThat(handlers("https://gitlab.com/gitlab-org/gitlab-runner/-/merge_requests/100")).contains(context.packageName)
+        assertThat(handlers("https://gitlab.com/gitlab-org/gitlab-runner/-/work_items/100")).contains(context.packageName)
+    }
 }
