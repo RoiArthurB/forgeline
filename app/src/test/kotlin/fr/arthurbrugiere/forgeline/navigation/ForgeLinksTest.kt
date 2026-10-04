@@ -171,10 +171,19 @@ class ForgeLinksTest {
         val thread = fr.arthurbrugiere.forgeline.core.testing.notificationThread("42", repo = "acme/rocket", title = "Launch fails")
 
         assertThat(thread.copy(unread = true, lastReadAt = lastRead).route())
-            .isEqualTo(IssueRoute("github.com", "acme", "rocket", 42, unread = true, lastReadAtMillis = lastRead.toEpochMilli()))
+            .isEqualTo(IssueRoute("github.com", "acme", "rocket", 42, isPullRequest = false, unread = true, lastReadAtMillis = lastRead.toEpochMilli()))
         // Read already: nothing new to go to.
-        assertThat(thread.copy(unread = false).route()).isEqualTo(IssueRoute("github.com", "acme", "rocket", 42))
+        assertThat(thread.copy(unread = false).route()).isEqualTo(IssueRoute("github.com", "acme", "rocket", 42, isPullRequest = false))
+        // A thread about a pull request says so: on GitLab that is another conversation than the issue of its number.
+        assertThat(thread.copy(type = fr.arthurbrugiere.forgeline.core.model.SubjectType.PULL_REQUEST).route()?.isPullRequest).isTrue()
         // Not about a conversation: its repository opens instead.
         assertThat(thread.copy(type = fr.arthurbrugiere.forgeline.core.model.SubjectType.RELEASE).route()).isNull()
+    }
+
+    @Test
+    fun a_gitlab_issue_addressed_as_a_work_item_opens_as_the_issue() {
+        // What gitlab.com's API now gives as an issue's page (seen 2026-10-04).
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/RoiArthurB/forgeline-scratch/-/work_items/1"))
+            .isEqualTo(IssueRoute("gitlab.com", "RoiArthurB", "forgeline-scratch", 1, isPullRequest = false))
     }
 }

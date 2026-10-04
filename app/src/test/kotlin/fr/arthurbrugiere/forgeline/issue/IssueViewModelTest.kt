@@ -934,4 +934,25 @@ class IssueViewModelTest {
 
         assertThat(reopened.state.value.scrollTo).isEqualTo(ScrollTarget.Item(1))
     }
+
+    @Test
+    fun what_the_forge_only_does_to_issues_is_not_offered_on_a_pull_request() = test {
+        // GitLab: a merge request has no due date, and one sent anyway would land on the issue with its number.
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
+        api.access[ref.repo] = fr.arthurbrugiere.forgeline.core.model.RepoAccess.ADMIN
+        api.issueOnly = setOf(ConversationAction.DUE_DATE)
+        api.issues[ref] = issueDetails(ref).copy(pullRequest = fr.arthurbrugiere.forgeline.core.model.PullRequestInfo(false, false, "main", "fix", 1, 1, 1, 1))
+        val onPullRequest = IssueViewModel(ref, repository, SavedStateHandle(), drafts).also { advanceUntilIdle() }
+
+        assertThat(onPullRequest.state.value.actions).doesNotContain(ConversationAction.DUE_DATE)
+        assertThat(onPullRequest.state.value.actions).contains(ConversationAction.LABELS)
+
+        // On an issue of the same forge it is.
+        val other = IssueRef(ref.repo, 8)
+        api.issues[other] = issueDetails(other)
+        val onIssue = IssueViewModel(other, DefaultIssueRepository(FakeForgeClients(issues = api), accounts, InMemoryConversationDao(), Clock.systemUTC()), SavedStateHandle(), drafts)
+            .also { advanceUntilIdle() }
+
+        assertThat(onIssue.state.value.actions).contains(ConversationAction.DUE_DATE)
+    }
 }

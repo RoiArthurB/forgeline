@@ -1,9 +1,16 @@
 package fr.arthurbrugiere.forgeline.core.model
 
-enum class ForgeType { GITHUB, FORGEJO, GITLAB }
+enum class ForgeType {
+    GITHUB,
+    FORGEJO,
+    GITLAB;
+
+    /** Whether merge requests have their own numbering, so that one can share its number with an issue. */
+    val numbersMergeRequestsApart: Boolean get() = this == GITLAB
+}
 
 /**
- * A forge server: github.com, codeberg.org, a self-hosted Forgejo instance, or gitlab.com (Trending only so far). [host]
+ * A forge server: github.com, codeberg.org, a self-hosted Forgejo instance, or gitlab.com. [host]
  * is lowercase.
  */
 data class ForgeInstance(val type: ForgeType, val host: String) {

@@ -231,7 +231,7 @@ fun SearchScreen(
                             is SearchResult.Issue -> IssueSummaryRow(
                                 item.result.issue,
                                 nowMillis,
-                                onOpen = { number -> onOpenIssue(IssueRef(item.result.repo, number)) },
+                                onOpen = { number -> onOpenIssue(IssueRef(item.result.repo, number, item.result.issue.isPullRequest)) },
                                 repo = item.result.repo,
                                 forge = item.result.repo.forge.named(),
                             )

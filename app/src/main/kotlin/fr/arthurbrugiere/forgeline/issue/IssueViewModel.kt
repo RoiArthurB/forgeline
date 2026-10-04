@@ -168,7 +168,9 @@ class IssueViewModel @AssistedInject constructor(
         viewModelScope.launch {
             val access = repository.access(ref.repo)
             val allowed = repository.canChangeState(ref, issue.author?.login)
-            _state.update { it.copy(canChangeState = allowed, access = access, supported = repository.actions(ref.repo)) }
+            // What the forge only does to issues is not offered on a pull request.
+            val supported = repository.actions(ref.repo) - if (issue.pullRequest != null) repository.issueOnly(ref.repo) else emptySet()
+            _state.update { it.copy(canChangeState = allowed, access = access, supported = supported) }
         }
     }
 

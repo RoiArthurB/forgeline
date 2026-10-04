@@ -32,6 +32,8 @@ class FakeIssueApi : IssueApi {
 
     /** Timeline pages the forge fails to serve, while the others come. */
     val failingPages = mutableSetOf<Int>()
+
+    override var issueOnly: Set<ConversationAction> = emptySet()
     // Conversations are loaded ahead several at a time, on background threads: what records them takes that.
     val calls: MutableList<String> = CopyOnWriteArrayList()
     val tokens: MutableList<String?> = CopyOnWriteArrayList()

@@ -30,18 +30,20 @@ class GitLabSearchApi(
         }
     }
 
+    // Through the search endpoint: listing every merge request of gitlab.com that matches (`/merge_requests?scope=all`)
+    // times out there (408 after 15 s, measured 2026-10-04), where the search answers in a second or two.
     override suspend fun issues(token: String?, query: String, page: Int): ForgeResult<SearchPage<IssueSearchResult>> = gitlabCall {
         coroutineScope {
             val issuesDeferred = async {
                 httpClient.gitlabApi(
-                    forge, token, "issues",
-                    query = mapOf("scope" to "all", "search" to query, "page" to page.toString(), "per_page" to "$HALF_PAGE_SIZE"),
+                    forge, token, "search",
+                    query = mapOf("scope" to "issues", "search" to query, "page" to page.toString(), "per_page" to "$HALF_PAGE_SIZE"),
                 )
             }
             val mrsDeferred = async {
                 httpClient.gitlabApi(
-                    forge, token, "merge_requests",
-                    query = mapOf("scope" to "all", "search" to query, "page" to page.toString(), "per_page" to "$HALF_PAGE_SIZE"),
+                    forge, token, "search",
+                    query = mapOf("scope" to "merge_requests", "search" to query, "page" to page.toString(), "per_page" to "$HALF_PAGE_SIZE"),
                 )
             }
 

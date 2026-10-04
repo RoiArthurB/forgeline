@@ -170,7 +170,7 @@ fun IssueRoute(
     onMoved: (IssueRef) -> Unit,
 ) {
     val ref = route.issue
-    val viewModel = hiltViewModel<IssueViewModel, IssueViewModel.Factory>(key = "${ref.repo.key}#${ref.number}") { it.create(ref) }
+    val viewModel = hiltViewModel<IssueViewModel, IssueViewModel.Factory>(key = "${ref.repo.key}${if (ref.isPullRequest == true) "!" else "#"}${ref.number}") { it.create(ref) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
     val openRelease = fr.arthurbrugiere.forgeline.ui.LocalOpenRelease.current

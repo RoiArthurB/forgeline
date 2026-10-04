@@ -174,14 +174,17 @@ class DefaultFeedPreviewRepository @Inject constructor(
         val KEEP = 7.days
 
         fun RepoId.previewKey() = REPO + key.lowercase(Locale.ROOT)
-        fun IssueRef.previewKey() = PULL + repo.key.lowercase(Locale.ROOT) + "#" + number
+        // "!" for a merge request where those are numbered apart (GitLab), so it isn't kept as the issue of that number.
+        fun IssueRef.previewKey() =
+            PULL + repo.key.lowercase(Locale.ROOT) + (if (repo.forge.type.numbersMergeRequestsApart && isPullRequest == true) "!" else "#") + number
 
         fun repoId(value: String): RepoId? = RepoId.fromKey(value)
 
         fun pullRef(value: String): IssueRef? {
-            val repo = repoId(value.substringBefore('#')) ?: return null
-            val number = value.substringAfter('#', "").toIntOrNull() ?: return null
-            return IssueRef(repo, number)
+            val mark = value.lastIndexOfAny(charArrayOf('#', '!')).takeIf { it >= 0 } ?: return null
+            val repo = repoId(value.substring(0, mark)) ?: return null
+            val number = value.substring(mark + 1).toIntOrNull() ?: return null
+            return IssueRef(repo, number, isPullRequest = if (repo.forge.type.numbersMergeRequestsApart) value[mark] == '!' else null)
         }
     }
 }

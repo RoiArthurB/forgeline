@@ -179,7 +179,8 @@ fun RepoRoute(
         onOpenDirectory = viewModel::openDirectory,
         onOpenParentDirectory = viewModel::openParentDirectory,
         onOpenFile = { file -> state.details?.let { onOpenFile(it.id, file.path, state.browsedRef ?: it.defaultBranch) } },
-        onOpenIssue = { number -> state.details?.let { onOpenIssue(IssueRef(it.id, number)) } },
+        // The kind goes with the number: on GitLab a merge request and an issue can share theirs.
+        onOpenIssue = { number, isPullRequest -> state.details?.let { onOpenIssue(IssueRef(it.id, number, isPullRequest)) } },
         // Opening an issue needs an account on the repository's forge, like starring it.
         onNewIssue = { if (signedIn) state.details?.let { onNewIssue(it.id) } else onSignIn() },
         onShowOpen = viewModel::showOpen,
@@ -211,7 +212,7 @@ fun RepoScreen(
     onOpenDirectory: (String) -> Unit,
     onOpenParentDirectory: () -> Unit,
     onOpenFile: (RepoFile) -> Unit,
-    onOpenIssue: (Int) -> Unit,
+    onOpenIssue: (number: Int, isPullRequest: Boolean) -> Unit,
     onNewIssue: () -> Unit,
     onOpenUser: (String) -> Unit,
     /** Opens the page of the release under a tag. */
@@ -367,17 +368,17 @@ fun RepoScreen(
                                 // What the repository pins heads its plain list: not the closed ones, nor a search's results.
                                 if (state.issueQuery.isDefault && state.pinned.isNotEmpty() && state.issues is Loadable.Loaded) {
                                     item(key = "pinned-title") { ListTitle(stringResource(R.string.repo_pinned)) }
-                                    items(state.pinned, key = { "pinned-${it.number}" }) { IssueSummaryRow(it, nowMillis, onOpenIssue, pinned = true) }
+                                    items(state.pinned, key = { "pinned-${it.number}" }) { IssueSummaryRow(it, nowMillis, { number -> onOpenIssue(number, it.isPullRequest) }, pinned = true) }
                                     item(key = "open-title") { ListTitle(stringResource(R.string.repo_open_issues)) }
                                 }
                                 loadable(state.issues, state.issueQuery.emptyMessage(R.string.repo_no_issues, R.string.repo_no_closed_issues), onRetryTab) { issues ->
-                                    items(issues, key = { "issue-${it.number}" }) { IssueSummaryRow(it, nowMillis, onOpenIssue) }
+                                    items(issues, key = { "issue-${it.number}" }) { IssueSummaryRow(it, nowMillis, { number -> onOpenIssue(number, it.isPullRequest) }) }
                                 }
                             }
                             RepoTab.PULLS -> {
                                 item(key = "pulls-find") { ListControls(state.pullQuery, stringResource(R.string.repo_search_pulls), onShowOpen, onSearch, onNewIssue = null) }
                                 loadable(state.pulls, state.pullQuery.emptyMessage(R.string.repo_no_pulls, R.string.repo_no_closed_pulls), onRetryTab) { pulls ->
-                                    items(pulls, key = { "pull-${it.number}" }) { IssueSummaryRow(it, nowMillis, onOpenIssue) }
+                                    items(pulls, key = { "pull-${it.number}" }) { IssueSummaryRow(it, nowMillis, { number -> onOpenIssue(number, it.isPullRequest) }) }
                                 }
                             }
                             RepoTab.RELEASES -> loadable(state.releases, R.string.repo_no_releases, onRetryTab) { releases ->

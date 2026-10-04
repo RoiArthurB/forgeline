@@ -48,7 +48,7 @@ class SearchScreenTest {
                 onLoadMore = { events += "more" },
                 onRetry = { events += "retry" },
                 onOpenRepo = { events += "repo:${it.fullName}" },
-                onOpenIssue = { events += "issue:${it.repo.fullName}#${it.number}" },
+                onOpenIssue = { events += "issue:${it.repo.fullName}#${it.number}" + if (it.isPullRequest == true) " (pull request)" else "" },
                 onOpenUser = { forge, login -> events += "user:${forge.host}/$login" },
                 onBack = { events += "back" },
                 nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),

@@ -578,4 +578,39 @@ class DefaultIssueRepositoryTest {
         assertThat(repository.cached(ref)).isNull()
         assertThat(DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock).stored(ref)).isNull()
     }
+
+    @Test
+    fun on_gitlab_an_issue_and_a_merge_request_with_one_number_are_kept_apart() = runTest {
+        val repo = RepoId("acme", "rocket", ForgeInstance.GitLab)
+        val issue = IssueRef(repo, 1, isPullRequest = false)
+        val mergeRequest = IssueRef(repo, 1, isPullRequest = true)
+        val gitlab = FakeIssueApi().apply {
+            issues[issue] = issueDetails(issue, title = "Launch fails")
+            issues[mergeRequest] = issueDetails(mergeRequest, title = "Keep install flags")
+        }
+        val clients = FakeForgeClients().apply { put(ForgeInstance.GitLab, FakeForgeClients(issues = gitlab)) }
+        DefaultIssueRepository(clients, accounts, database.conversationDao(), clock).run {
+            issue(issue)
+            issue(mergeRequest)
+        }
+
+        val relaunched = DefaultIssueRepository(clients, accounts, database.conversationDao(), clock)
+
+        assertThat(relaunched.stored(issue)?.issue?.title).isEqualTo("Launch fails")
+        assertThat(relaunched.stored(mergeRequest)?.issue?.title).isEqualTo("Keep install flags")
+        // One that doesn't say its kind is the issue, as for the forge.
+        assertThat(relaunched.stored(IssueRef(repo, 1))?.issue?.title).isEqualTo("Launch fails")
+    }
+
+    @Test
+    fun where_numbers_are_shared_a_conversation_is_kept_once_whatever_is_known_of_its_kind() = runTest {
+        val known = IssueRef(ref.repo, ref.number, isPullRequest = true)
+        api.issues[ref] = issueDetails(ref, title = "Fix it")
+        repository.issue(known)
+
+        val relaunched = DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock)
+
+        assertThat(relaunched.stored(ref)?.issue?.title).isEqualTo("Fix it")
+        assertThat(relaunched.stored(known)?.issue?.title).isEqualTo("Fix it")
+    }
 }

@@ -186,7 +186,7 @@ class DefaultInboxRepository @Inject constructor(
         val states = (clients.notifications(account.forge).subjectStates(token, stale.keys.toList()) as? ForgeResult.Success)?.value ?: return
         dao.upsertStates(
             states.map { (ref, state) ->
-                SubjectStateEntity(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, state.name, stale.getValue(ref), now)
+                SubjectStateEntity(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, state.name, stale.getValue(ref), now, ref.storedKind)
             },
         )
     }
@@ -215,7 +215,7 @@ class DefaultInboxRepository @Inject constructor(
                     val known = threads.mapNotNull { thread ->
                         val ref = thread.subject ?: return@mapNotNull null
                         val state = thread.state ?: return@mapNotNull null
-                        SubjectStateEntity(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, state.name, thread.updatedAt.toEpochMilli(), now)
+                        SubjectStateEntity(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, state.name, thread.updatedAt.toEpochMilli(), now, ref.storedKind)
                     }
                     if (known.isNotEmpty()) dao.upsertStates(known)
                 }
@@ -280,7 +280,10 @@ class DefaultInboxRepository @Inject constructor(
         return account to token
     }
 
-    private fun SubjectStateEntity.ref() = IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number)
+    private fun SubjectStateEntity.ref() = IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number, isPullRequest)
+
+    /** The kind as it is stored: only where it tells two conversations apart, so the others keep one row each. */
+    private val IssueRef.storedKind: Boolean get() = repo.forge.type.numbersMergeRequestsApart && isPullRequest == true
 
     private fun List<NotificationThread>?.newestMillis(): Long = this?.maxOfOrNull { it.updatedAt.toEpochMilli() } ?: 0L
 

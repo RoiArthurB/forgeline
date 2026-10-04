@@ -297,7 +297,8 @@ class GitLabCapturedAnswersTest {
         val api = GitLabSearchApi(
             gitlabHttpClient(
                 MockEngine { request ->
-                    val body = if (request.url.encodedPath.endsWith("/issues")) {
+                    requests += request
+                    val body = if (request.url.parameters["scope"] == "issues") {
                         // An address with nothing to tell the project by.
                         captured("issues_list.json").replace("/-/work_items/1", "")
                     } else {
@@ -312,6 +313,9 @@ class GitLabCapturedAnswersTest {
 
         assertThat(found.map { it.repo }).containsExactly(repo)
         assertThat(found.single().issue.isPullRequest).isTrue()
+        // Both asked of the search endpoint: listing every matching merge request of gitlab.com times out.
+        assertThat(requests.map { it.url.encodedPath.substringAfter("/api/v4") to it.url.parameters["scope"] })
+            .containsExactly("/search" to "issues", "/search" to "merge_requests")
     }
 
     @Test

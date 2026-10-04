@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 18,
-    "identityHash": "ec905c1051a7cc3091b5c05f5024adde",
+    "identityHash": "d72f4ca3ceda75227d7bd2d47b235659",
     "entities": [
       {
         "tableName": "trending_repos",
@@ -587,7 +587,7 @@
       },
       {
         "tableName": "subject_states",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`host` TEXT NOT NULL, `owner` TEXT NOT NULL, `name` TEXT NOT NULL, `number` INTEGER NOT NULL, `state` TEXT NOT NULL, `threadUpdatedAtMillis` INTEGER NOT NULL, `checkedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`host`, `owner`, `name`, `number`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`host` TEXT NOT NULL, `owner` TEXT NOT NULL, `name` TEXT NOT NULL, `number` INTEGER NOT NULL, `isPullRequest` INTEGER NOT NULL, `state` TEXT NOT NULL, `threadUpdatedAtMillis` INTEGER NOT NULL, `checkedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`host`, `owner`, `name`, `number`, `isPullRequest`))",
         "fields": [
           {
             "fieldPath": "host",
@@ -610,6 +610,12 @@
           {
             "fieldPath": "number",
             "columnName": "number",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isPullRequest",
+            "columnName": "isPullRequest",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -638,7 +644,8 @@
             "host",
             "owner",
             "name",
-            "number"
+            "number",
+            "isPullRequest"
           ]
         },
         "indices": [
@@ -749,7 +756,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ec905c1051a7cc3091b5c05f5024adde')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd72f4ca3ceda75227d7bd2d47b235659')"
     ]
   }
 }

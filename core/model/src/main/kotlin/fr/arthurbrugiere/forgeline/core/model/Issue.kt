@@ -4,25 +4,22 @@ import java.time.Instant
 
 enum class Reaction { THUMBS_UP, THUMBS_DOWN, LAUGH, HOORAY, CONFUSED, HEART, ROCKET, EYES }
 
+/**
+ * A conversation in a repository. [isPullRequest] says which kind, where that is known.
+ *
+ * GitHub and Forgejo number issues and pull requests together: there the number alone tells a conversation, and two
+ * references to it are the same whether or not they say its kind. GitLab numbers merge requests apart from issues
+ * (#7 and !7 are two conversations): there the kind is part of which one it is, and a reference that doesn't say is
+ * an issue, as it is for GitLab's clients.
+ */
 data class IssueRef(val repo: RepoId, val number: Int, val isPullRequest: Boolean? = null) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is IssueRef) return false
-        if (repo != other.repo || number != other.number) return false
-        if (repo.forge.type == ForgeType.GITLAB) {
-            return isPullRequest == other.isPullRequest
-        }
-        return true
-    }
+    /** The kind, where two conversations can share a number; nothing where they can't. */
+    private val kind: Boolean? get() = if (repo.forge.type.numbersMergeRequestsApart) isPullRequest == true else null
 
-    override fun hashCode(): Int {
-        var result = repo.hashCode()
-        result = 31 * result + number
-        if (repo.forge.type == ForgeType.GITLAB) {
-            result = 31 * result + (isPullRequest?.hashCode() ?: 0)
-        }
-        return result
-    }
+    override fun equals(other: Any?): Boolean =
+        this === other || (other is IssueRef && repo == other.repo && number == other.number && kind == other.kind)
+
+    override fun hashCode(): Int = 31 * (31 * repo.hashCode() + number) + kind.hashCode()
 }
 
 data class PullRequestInfo(

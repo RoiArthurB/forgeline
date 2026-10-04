@@ -47,7 +47,7 @@ data class NotificationEntity(
  */
 @Entity(
     tableName = "subject_states",
-    primaryKeys = ["host", "owner", "name", "number"],
+    primaryKeys = ["host", "owner", "name", "number", "isPullRequest"],
     indices = [
         Index(value = ["checkedAtMillis"]),
     ],
@@ -61,6 +61,8 @@ data class SubjectStateEntity(
     /** The thread's activity time when this was asked, so newer activity asks again. */
     val threadUpdatedAtMillis: Long,
     val checkedAtMillis: Long,
+    /** Part of which conversation it is where merge requests are numbered apart (GitLab); false elsewhere. */
+    val isPullRequest: Boolean = false,
 )
 
 /**

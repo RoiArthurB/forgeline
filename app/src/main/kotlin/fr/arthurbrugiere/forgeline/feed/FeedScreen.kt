@@ -417,7 +417,7 @@ private fun FeedObject(item: FeedItem, previews: FeedPreviews, modifier: Modifie
         }
         is FeedAction.Commented -> Column(modifier) {
             StatePill(stringResource(R.string.feed_state_comment), Icons.Outlined.ChatBubbleOutline, colors.fields[1], number = a.number)
-            val title = a.title ?: previews.pullTitles[IssueRef(item.repo, a.number)]
+            val title = a.title ?: previews.pullTitles[IssueRef(item.repo, a.number, a.isPullRequest)]
             LateTitle(title)
         }
         is FeedAction.Pushed -> StatePill(a.branch, Icons.Outlined.Commit, colors.surface, monospace = true, modifier = modifier)
@@ -534,7 +534,7 @@ private fun ObjectTitle(title: String) {
 /** A pull request's title: carried by Forgejo's events, fetched after the Feed shows for GitHub's (only the number). */
 @Composable
 private fun PullTitle(item: FeedItem, number: Int, previews: FeedPreviews) =
-    LateTitle((item.action as? FeedAction.PullRequest)?.title ?: previews.pullTitles[IssueRef(item.repo, number)])
+    LateTitle((item.action as? FeedAction.PullRequest)?.title ?: previews.pullTitles[IssueRef(item.repo, number, isPullRequest = true)])
 
 /** A title that may still be on its way: its placeholder bar until then, and a fade when it lands. */
 @Composable
@@ -579,10 +579,11 @@ private fun FeedItem.open(
         is FeedAction.Released -> if (onOpenRelease != null) onOpenRelease(repo, action.tag) else onOpenRepo(repo)
         // No discussion screen in the app: an announcement opens on its forge.
         is FeedAction.Announced -> onOpenUrl("${repo.webUrl}/discussions/${action.number}")
-        is FeedAction.Issue -> onOpenIssue(IssueRef(repo, action.number))
-        is FeedAction.PullRequest -> onOpenIssue(IssueRef(repo, action.number))
-        is FeedAction.Commented -> onOpenIssue(IssueRef(repo, action.number))
-        is FeedAction.Reviewed -> onOpenIssue(IssueRef(repo, action.number))
+        // Each says its kind: on GitLab a merge request and an issue can share a number.
+        is FeedAction.Issue -> onOpenIssue(IssueRef(repo, action.number, isPullRequest = false))
+        is FeedAction.PullRequest -> onOpenIssue(IssueRef(repo, action.number, isPullRequest = true))
+        is FeedAction.Commented -> onOpenIssue(IssueRef(repo, action.number, action.isPullRequest))
+        is FeedAction.Reviewed -> onOpenIssue(IssueRef(repo, action.number, isPullRequest = true))
         is FeedAction.Forked -> onOpenRepo(action.fork)
         is FeedAction.AddedMember -> onOpenUser(repo.forge, action.login)
         else -> onOpenRepo(repo)

@@ -35,6 +35,7 @@ class FeedScreenTest {
     val composeRule = createComposeRule()
 
     private val events = mutableListOf<String>()
+    private val opened = mutableListOf<fr.arthurbrugiere.forgeline.core.model.IssueRef>()
 
     /** Whether the feed sits in the app shell, which has a page for a release. */
     private var hasReleasePage = false
@@ -49,7 +50,10 @@ class FeedScreenTest {
                 onRefresh = { events += "refresh" },
                 onLoadMore = { events += "more" },
                 onOpenRepo = { events += "repo:${it.fullName}" },
-                onOpenIssue = { events += "issue:${it.repo.fullName}#${it.number}" },
+                onOpenIssue = {
+                    events += "issue:${it.repo.fullName}#${it.number}"
+                    opened += it
+                },
                 onOpenUser = { _, login -> events += "user:$login" },
                 onOpenUrl = { events += "url:$it" },
                 onErrorShown = {},
@@ -299,5 +303,23 @@ class FeedScreenTest {
         composeRule.onNodeWithText("octocat opened a pull request in RoiArthurB/\u2060forgeline", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("#4").assertIsDisplayed()
         composeRule.onNodeWithText("Fix PR title display bug").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_row_opens_its_conversation_as_the_kind_its_event_says() {
+        // Regression: only the number was passed on. On GitLab a merge request and an issue can share theirs.
+        setContent(
+            state(
+                feedEvent("3", actor = "alice", repo = "octo/tools", action = FeedAction.PullRequest(fr.arthurbrugiere.forgeline.core.model.PullRequestAction.OPENED, 7, "Keep install flags")),
+                feedEvent("2", actor = "bob", repo = "octo/tools", action = FeedAction.Issue(fr.arthurbrugiere.forgeline.core.model.IssueAction.OPENED, 7, "Launch fails")),
+                feedEvent("1", actor = "carol", repo = "octo/tools", action = FeedAction.Commented(9, "Flaky upload", isPullRequest = true)),
+            ),
+        )
+
+        composeRule.onNodeWithText("Keep install flags", substring = true).performClick()
+        composeRule.onNodeWithText("Launch fails", substring = true).performClick()
+        composeRule.onNodeWithText("Flaky upload", substring = true).performClick()
+
+        assertThat(opened.map { it.number to it.isPullRequest }).containsExactly(7 to true, 7 to false, 9 to true).inOrder()
     }
 }

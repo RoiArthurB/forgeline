@@ -42,9 +42,9 @@ val FeedItem.previewRepo: RepoId?
 val FeedItem.previewPull: IssueRef?
     get() = when (val a = action) {
         // Forgejo's events carry the title; GitHub's need it fetched.
-        is FeedAction.PullRequest -> if (a.title == null) IssueRef(repo, a.number) else null
-        is FeedAction.Reviewed -> IssueRef(repo, a.number)
+        is FeedAction.PullRequest -> if (a.title == null) IssueRef(repo, a.number, isPullRequest = true) else null
+        is FeedAction.Reviewed -> IssueRef(repo, a.number, isPullRequest = true)
         // GitHub's comment events name their issue; Codeberg's give the comment, not the title.
-        is FeedAction.Commented -> if (a.title == null) IssueRef(repo, a.number) else null
+        is FeedAction.Commented -> if (a.title == null) IssueRef(repo, a.number, a.isPullRequest) else null
         else -> null
     }

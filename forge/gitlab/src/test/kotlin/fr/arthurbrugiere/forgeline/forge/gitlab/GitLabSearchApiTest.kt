@@ -49,7 +49,7 @@ class GitLabSearchApiTest {
     @Test
     fun searches_issues_and_merge_requests() = runTest {
         val api = api { req ->
-            if (req.url.encodedPath.endsWith("/merge_requests")) {
+            if (req.url.parameters["scope"] == "merge_requests") {
                 json("""
                     [
                         {

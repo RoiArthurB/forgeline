@@ -546,4 +546,23 @@ class DefaultInboxRepositoryTest {
 
         refs.forEach { assertThat(ahead.stored(it)?.issue).isNotNull() }
     }
+
+    @Test
+    fun on_gitlab_an_issue_and_a_merge_request_with_one_number_each_show_where_they_stand() = runTest {
+        // Regression: states were kept by number alone and looked up without the kind. On GitLab, where #1 and !1 are
+        // two conversations, neither thread found its state and one row overwrote the other.
+        val gitlab = FakeNotificationsApi().apply {
+            threads = listOf(
+                notificationThread("10", repo = "acme/rocket", type = SubjectType.PULL_REQUEST, number = 1).copy(state = SubjectState.MERGED),
+                notificationThread("11", repo = "acme/rocket", type = SubjectType.ISSUE, number = 1).copy(state = SubjectState.OPEN),
+            )
+        }
+        clients.put(ForgeInstance.GitLab, FakeForgeClients(notifications = gitlab))
+        accounts.signIn(ForgeInstance.GitLab, ForgeUser("me", null, null), "gl_token")
+
+        repository.sync(force = true, waitForFollowUps = true)
+
+        val states = repository.observe().first().threads.associate { it.id to it.state }
+        assertThat(states).containsExactly("10", SubjectState.MERGED, "11", SubjectState.OPEN)
+    }
 }

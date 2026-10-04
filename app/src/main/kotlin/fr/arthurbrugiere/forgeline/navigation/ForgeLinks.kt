@@ -54,7 +54,8 @@ object ForgeLinks {
                 val subSegments = segments.subList(dashIndex + 1, segments.size)
                 val number = subSegments.getOrNull(1)?.toIntOrNull()
                 when (subSegments[0]) {
-                    "issues" -> if (number != null) return IssueRoute(forge.host, owner, name, number, isPullRequest = false)
+                    // GitLab now addresses an issue as a work item too (seen on gitlab.com, 2026-10-04).
+                    "issues", "work_items" -> if (number != null) return IssueRoute(forge.host, owner, name, number, isPullRequest = false)
                     "merge_requests" -> if (number != null) return IssueRoute(forge.host, owner, name, number, isPullRequest = true)
                     "pipelines" -> {
                         val runId = subSegments.getOrNull(1)?.toLongOrNull()

@@ -44,6 +44,9 @@ class RepoScreenTest {
     val composeRule = createComposeRule()
 
     private val events = mutableListOf<String>()
+
+    /** For each conversation opened, whether the row said it was a pull request. */
+    private val openedAsPullRequest = mutableListOf<Boolean>()
     private val id = RepoId("octo", "repo")
     private val context = ReadmeContext("https://raw.example/octo/repo/main/", "https://blob.example/octo/repo/main/")
     private val loaded = RepoUiState(
@@ -66,7 +69,10 @@ class RepoScreenTest {
                 onOpenDirectory = { events += "dir:$it" },
                 onOpenParentDirectory = { events += "up" },
                 onOpenFile = { events += "file:${it.path}" },
-                onOpenIssue = { events += "issue:$it" },
+                onOpenIssue = { number, isPullRequest ->
+                    events += "issue:$number"
+                    openedAsPullRequest += isPullRequest
+                },
                 onNewIssue = { events += "new-issue" },
                 onShowOpen = { events += "open:$it" },
                 onSearch = { events += "search:$it" },
@@ -455,5 +461,25 @@ class RepoScreenTest {
         composeRule.onNodeWithText("v2.1.0-rc.1").performClick()
 
         assertThat(events).containsExactly("release:v2.1.0-rc.1")
+    }
+
+    @Test
+    fun a_row_opens_its_conversation_as_the_kind_it_is() {
+        // Regression: only the number was passed on. On GitLab !7 and #7 are two conversations, and the issue opened.
+        setContent(loaded.copy(tab = RepoTab.PULLS, pulls = Loadable.Loaded(listOf(issueSummary(7, "Keep install flags on retry", isPullRequest = true)))))
+
+        composeRule.onNodeWithText("Keep install flags on retry").performClick()
+
+        assertThat(events).containsExactly("issue:7")
+        assertThat(openedAsPullRequest).containsExactly(true)
+    }
+
+    @Test
+    fun an_issue_row_opens_as_an_issue() {
+        setContent(loaded.copy(tab = RepoTab.ISSUES, issues = Loadable.Loaded(listOf(issueSummary(7, "Launch fails on cold start")))))
+
+        composeRule.onNodeWithText("Launch fails on cold start").performClick()
+
+        assertThat(openedAsPullRequest).containsExactly(false)
     }
 }
