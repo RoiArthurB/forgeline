@@ -13,6 +13,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.onRoot
 import com.google.common.truth.Truth.assertThat
@@ -605,5 +606,23 @@ class IssueScreenTest {
         composeRule.onNodeWithContentDescription("Go to the latest").performClick()
 
         assertThat(events).isEmpty()
+    }
+
+    @Test
+    fun the_list_holds_its_place_only_until_the_reader_moves_it() {
+        setContent(longConversation())
+        composeRule.mainClock.autoAdvance = false
+
+        shown.value = shown.value.copy(scrollTo = ScrollTarget.Item(19))
+        composeRule.mainClock.advanceTimeBy(100)
+        assertThat(events).doesNotContain("scrolled")
+        // A finger on the list, dragging: it is the reader's now, well before the list would have let go by itself.
+        composeRule.onNode(androidx.compose.ui.test.hasScrollAction()).performTouchInput {
+            down(center)
+            moveBy(androidx.compose.ui.geometry.Offset(0f, 300f))
+        }
+        composeRule.mainClock.advanceTimeBy(100)
+
+        assertThat(events).contains("scrolled")
     }
 }

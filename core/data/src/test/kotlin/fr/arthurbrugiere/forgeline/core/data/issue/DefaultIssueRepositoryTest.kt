@@ -56,7 +56,7 @@ class DefaultIssueRepositoryTest {
         val review = TimelineItem.Review(2, ForgeUser("rev", null, null), ReviewState.APPROVED, null, Instant.parse("2026-09-26T09:00:00Z"))
         val labeled = TimelineItem.Labeled(true, Label("bug", "d73a4a"), ForgeUser("maint", null, null), Instant.parse("2026-09-26T09:30:00Z"))
         api.issues[ref] = issueDetails(ref)
-        api.pages[ref to 1] = TimelinePage(listOf(comment(1, "Hi"), review, labeled), nextPage = 2)
+        api.pages[ref to 1] = TimelinePage(listOf(comment(1, "Hi"), review, labeled), nextPage = 2, lastPage = 6)
         repository.issue(ref)
         repository.timeline(ref, 1)
 
@@ -65,7 +65,8 @@ class DefaultIssueRepositoryTest {
         assertThat(relaunched.cached(ref)).isNull()
         val stored = relaunched.stored(ref)!!
         assertThat(stored.issue).isEqualTo(issueDetails(ref))
-        assertThat(stored.firstPage).isEqualTo(TimelinePage(listOf(comment(1, "Hi"), review, labeled), nextPage = 2))
+        // The last page too: the rest of a long conversation is asked all at once from the copy kept.
+        assertThat(stored.firstPage).isEqualTo(TimelinePage(listOf(comment(1, "Hi"), review, labeled), nextPage = 2, lastPage = 6))
         assertThat(relaunched.cached(ref)).isEqualTo(stored)
     }
 

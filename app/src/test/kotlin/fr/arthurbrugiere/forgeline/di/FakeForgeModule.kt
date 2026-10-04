@@ -122,6 +122,9 @@ object FakeForgeModule {
             // Last read after its 30th remark.
             notificationThread("14129", repo = "paperclipai/paperclip", title = "Keep install flags on retry", type = SubjectType.PULL_REQUEST)
                 .copy(lastReadAt = java.time.Instant.parse("2026-09-26T09:30:30Z")),
+            // Only watched: listed under their repository's heading.
+            notificationThread("301", repo = "octo/tools", title = "Flaky upload on slow links", reason = fr.arthurbrugiere.forgeline.core.model.NotificationReason.SUBSCRIBED),
+            notificationThread("302", repo = "octo/tools", title = "Bump the SDK", reason = fr.arthurbrugiere.forgeline.core.model.NotificationReason.SUBSCRIBED),
         )
     }
 

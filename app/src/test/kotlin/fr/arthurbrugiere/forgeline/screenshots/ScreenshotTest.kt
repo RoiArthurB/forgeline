@@ -641,11 +641,14 @@ class ScreenshotTest {
         )
     }
 
-    @Test
-    fun issue_jump_light() = snapshot("issue_jump_light", darkTheme = false, awaitText = "Remark 15:", awaitGoneTag = MARKDOWN_PENDING_TAG) { LongIssue() }
+    /** The list holds the place it was sent to for a moment: captured sooner, it is sometimes a few pixels off. */
+    private fun settle() = composeRule.mainClock.advanceTimeBy(1_000)
 
     @Test
-    fun issue_jump_dark() = snapshot("issue_jump_dark", darkTheme = true, awaitText = "Remark 15:", awaitGoneTag = MARKDOWN_PENDING_TAG) { LongIssue() }
+    fun issue_jump_light() = snapshot("issue_jump_light", darkTheme = false, awaitText = "Remark 15:", awaitGoneTag = MARKDOWN_PENDING_TAG, beforeCapture = ::settle) { LongIssue() }
+
+    @Test
+    fun issue_jump_dark() = snapshot("issue_jump_dark", darkTheme = true, awaitText = "Remark 15:", awaitGoneTag = MARKDOWN_PENDING_TAG, beforeCapture = ::settle) { LongIssue() }
 
     /** A short conversation, so the comment box that closes it is on screen. */
     @Composable

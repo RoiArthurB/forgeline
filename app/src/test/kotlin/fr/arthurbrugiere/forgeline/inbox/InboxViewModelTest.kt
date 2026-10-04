@@ -310,4 +310,27 @@ class InboxViewModelTest {
 
         assertThat(viewModel.state.value.undo).isNull()
     }
+
+    @Test
+    fun undoing_a_repository_brings_back_only_what_has_not_reached_the_forge() = test {
+        inbox.set(rocketA, rocketB)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.markAllDone(listOf(rocketA, rocketB))
+        runCurrent()
+        val undo = viewModel.state.value.undo!!
+        // Halfway through, one of them is acted on again: its wait starts over, the other's doesn't.
+        advanceTimeBy(InboxViewModel.UNDO_MILLIS / 2)
+        viewModel.markDone(rocketB)
+        advanceTimeBy(InboxViewModel.UNDO_MILLIS / 2 + 1)
+        runCurrent()
+        assertThat(inbox.actions).containsExactly("done:10")
+
+        viewModel.undo(undo)
+        advanceUntilIdle()
+
+        // The first is with the forge; the second never left.
+        assertThat(inbox.actions).containsExactly("done:10")
+        assertThat(viewModel.state.value.groups.flatMap { g -> g.threads.map { it.id } }).contains("11")
+    }
 }

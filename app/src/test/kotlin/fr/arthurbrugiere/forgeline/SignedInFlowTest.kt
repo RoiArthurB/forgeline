@@ -7,6 +7,8 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -254,5 +256,27 @@ class SignedInFlowTest {
         composeRule.onNodeWithContentDescription("Go to the latest").performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Add a comment")).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("Remark 40 on the retry.").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_repository_swiped_away_in_the_inbox_takes_its_threads_and_undo_brings_them_back() {
+        hiltRule.inject()
+        runBlocking { accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null), "tok") }
+        composeRule.onNode(hasContentDescription("Inbox") and isSelectable()).performClick()
+        waitFor("Flaky upload on slow links")
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Bump the SDK"))
+
+        composeRule.onNodeWithText("octo/\u2060tools").performTouchInput { swipeLeft() }
+
+        // Both of its threads, and only they.
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Flaky upload on slow links")).fetchSemanticsNodes().isEmpty() }
+        composeRule.onNodeWithText("Bump the SDK").assertDoesNotExist()
+        composeRule.onNodeWithText("Marked 2 as done").assertIsDisplayed()
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Keep install flags on retry"))
+
+        composeRule.onNodeWithText("Undo").performClick()
+
+        waitFor("Flaky upload on slow links")
+        waitFor("Bump the SDK")
     }
 }
