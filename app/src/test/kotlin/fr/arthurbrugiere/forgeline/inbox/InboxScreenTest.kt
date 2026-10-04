@@ -61,6 +61,7 @@ class InboxScreenTest {
                 notificationPrompt = prompt,
                 onAllowNotifications = { events += "allow" },
                 onUndo = { events += "undo:${it.key.substringAfter('|')}:${it.action}" },
+                onMarkAllDone = { threads -> events += "all-done:" + threads.joinToString(",") { it.id } },
                 nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
             )
         }
@@ -345,5 +346,60 @@ class InboxScreenTest {
         others(onForge(ForgeInstance.GitHub, "1", "acme/rocket"), showForge = false)
 
         forgeIcons("GitHub").assertCountEquals(0)
+    }
+
+    private val watched = InboxUiState(
+        groups = listOf(
+            SectionGroup(
+                InboxSection.OTHERS,
+                listOf(
+                    notificationThread("50", repo = "octo/tools", title = "Flaky upload", reason = NotificationReason.SUBSCRIBED),
+                    notificationThread("51", repo = "octo/tools", title = "Bump the SDK", reason = NotificationReason.SUBSCRIBED),
+                    notificationThread("60", repo = "acme/rocket", title = "Fuel gauge drifts", reason = NotificationReason.SUBSCRIBED),
+                ),
+            ),
+        ),
+        syncedAtMillis = 1,
+    )
+
+    @Test
+    fun a_repository_swiped_away_takes_every_thread_under_its_heading() {
+        setContent(watched)
+
+        composeRule.onNodeWithText("tools", substring = true).performTouchInput { swipeLeft() }
+        composeRule.waitForIdle()
+
+        // Its two threads, and not the other repository's.
+        assertThat(events).containsExactly("all-done:50,51")
+    }
+
+    @Test
+    fun a_repository_heading_is_not_swiped_the_other_way() {
+        setContent(watched)
+
+        composeRule.onNodeWithText("tools", substring = true).performTouchInput { swipeRight() }
+        composeRule.waitForIdle()
+
+        assertThat(events).isEmpty()
+    }
+
+    @Test
+    fun a_screen_reader_can_mark_a_whole_repository_done() {
+        setContent(watched)
+
+        val actions = composeRule.onNodeWithText("tools", substring = true).fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsActions.CustomActions]
+        actions.single { it.label == "Mark all as done" }.action()
+
+        assertThat(events).containsExactly("all-done:50,51")
+    }
+
+    @Test
+    fun undo_says_how_many_threads_went_with_a_repository() {
+        val keys = watched.groups.single().threads.take(2).map { it.key }
+        setContent(watched.copy(undo = PendingUndo(keys[0], InboxAction.DONE, serial = 1, others = keys.drop(1))))
+
+        composeRule.onNodeWithText("Marked 2 as done").assertIsDisplayed()
+        composeRule.onNodeWithText("Undo").assertIsDisplayed()
     }
 }

@@ -41,8 +41,13 @@ data class SectionGroup(val section: InboxSection, val threads: List<Notificatio
 enum class InboxAction { READ, DONE, UNSUBSCRIBE }
 
 /** The latest action that can still be undone. [serial] tells two identical actions apart. */
-/** [key] is the thread's [NotificationThread.key]: its account and id. */
-data class PendingUndo(val key: String, val action: InboxAction, val serial: Long)
+/**
+ * [key] is the thread's [NotificationThread.key]: its account and id. [others] are the threads the same gesture took
+ * with it, a whole repository's: one Undo brings them all back.
+ */
+data class PendingUndo(val key: String, val action: InboxAction, val serial: Long, val others: List<String> = emptyList()) {
+    val keys: List<String> get() = listOf(key) + others
+}
 
 data class InboxUiState(
     val filter: InboxFilter = InboxFilter.UNREAD,
@@ -137,16 +142,21 @@ class InboxViewModel @Inject constructor(
         if (thread.unread) viewModelScope.launch { inbox.markRead(thread.accountId, thread.id) }
     }
 
-    fun markRead(thread: NotificationThread) = hold(thread, InboxAction.READ)
+    fun markRead(thread: NotificationThread) = hold(listOf(thread), InboxAction.READ)
 
-    fun markDone(thread: NotificationThread) = hold(thread, InboxAction.DONE)
+    fun markDone(thread: NotificationThread) = hold(listOf(thread), InboxAction.DONE)
 
-    fun unsubscribe(thread: NotificationThread) = hold(thread, InboxAction.UNSUBSCRIBE)
+    /** Marks [threads] done in one go: a repository's, swiped away by its heading. */
+    fun markAllDone(threads: List<NotificationThread>) = hold(threads, InboxAction.DONE)
+
+    fun unsubscribe(thread: NotificationThread) = hold(listOf(thread), InboxAction.UNSUBSCRIBE)
 
     /** Takes back [undo]'s action before it reaches the forge: the thread comes back as it was. */
     fun undo(undo: PendingUndo) {
-        timers.remove(undo.key)?.cancel() ?: return
-        pending.update { it - undo.key }
+        // Those already sent are with the forge; the others come back.
+        val held = undo.keys.filter { timers.remove(it)?.apply { cancel() } != null }
+        if (held.isEmpty()) return
+        pending.update { it - held.toSet() }
         this.undo.update { if (it == undo) null else it }
     }
 
@@ -171,16 +181,21 @@ class InboxViewModel @Inject constructor(
      * Shows [action] as done right away but holds it for [UNDO_MILLIS], so an accidental swipe can be taken back
      * (the forge has no way to undo "done"). Several actions can wait at once; Undo offers the latest.
      */
-    private fun hold(thread: NotificationThread, action: InboxAction) {
-        timers.remove(thread.key)?.cancel()
-        val next = PendingUndo(thread.key, action, ++serial)
-        pending.update { it + (thread.key to action) }
+    private fun hold(threads: List<NotificationThread>, action: InboxAction) {
+        val keys = threads.map { it.key }.distinct()
+        if (keys.isEmpty()) return
+        val next = PendingUndo(keys.first(), action, ++serial, keys.drop(1))
+        pending.update { it + keys.associateWith { action } }
         undo.value = next
-        timers[thread.key] = viewModelScope.launch {
-            delay(UNDO_MILLIS)
-            timers.remove(thread.key)
-            undo.update { if (it == next) null else it }
-            send(thread.key, action)
+        // Each thread waits on its own: a later action on one of them replaces only that one's.
+        keys.forEach { key ->
+            timers.remove(key)?.cancel()
+            timers[key] = viewModelScope.launch {
+                delay(UNDO_MILLIS)
+                timers.remove(key)
+                undo.update { if (it == next) null else it }
+                send(key, action)
+            }
         }
     }
 

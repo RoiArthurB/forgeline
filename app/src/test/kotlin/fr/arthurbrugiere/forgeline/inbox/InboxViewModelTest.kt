@@ -244,4 +244,70 @@ class InboxViewModelTest {
         advanceUntilIdle()
         assertThat(viewModel.state.value.groups.flatMap { it.threads }).hasSize(2)
     }
+
+    private val rocketA = notificationThread("10", repo = "acme/rocket", reason = NotificationReason.SUBSCRIBED, updatedAt = "2026-09-27T09:50:00Z")
+    private val rocketB = notificationThread("11", repo = "acme/rocket", reason = NotificationReason.SUBSCRIBED, updatedAt = "2026-09-27T09:40:00Z")
+
+    @Test
+    fun a_repository_swiped_away_takes_all_its_threads_after_the_undo_window() = test {
+        inbox.set(rocketA, rocketB, watching)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.markAllDone(listOf(rocketA, rocketB))
+        runCurrent()
+
+        // Gone at once, with one way back for both; nothing sent yet.
+        assertThat(viewModel.state.value.groups.flatMap { g -> g.threads.map { it.id } }).containsExactly("2")
+        assertThat(viewModel.state.value.undo).isEqualTo(PendingUndo(rocketA.key, InboxAction.DONE, serial = 1, others = listOf(rocketB.key)))
+        assertThat(inbox.actions).isEmpty()
+
+        advanceTimeBy(InboxViewModel.UNDO_MILLIS + 1)
+        runCurrent()
+
+        assertThat(inbox.actions).containsExactly("done:10", "done:11")
+        assertThat(viewModel.state.value.undo).isNull()
+    }
+
+    @Test
+    fun one_undo_brings_a_whole_repository_back() = test {
+        inbox.set(rocketA, rocketB)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.markAllDone(listOf(rocketA, rocketB))
+        runCurrent()
+        viewModel.undo(viewModel.state.value.undo!!)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.groups.flatMap { g -> g.threads.map { it.id } }).containsExactly("10", "11").inOrder()
+        assertThat(viewModel.state.value.undo).isNull()
+        assertThat(inbox.actions).isEmpty()
+    }
+
+    @Test
+    fun an_action_on_one_thread_of_a_swiped_repository_leaves_the_others_to_be_sent() = test {
+        inbox.set(rocketA, rocketB)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.markAllDone(listOf(rocketA, rocketB))
+        runCurrent()
+        viewModel.unsubscribe(rocketB)
+        advanceTimeBy(InboxViewModel.UNDO_MILLIS + 1)
+        runCurrent()
+
+        assertThat(inbox.actions).containsExactly("done:10", "unsubscribe:11")
+    }
+
+    @Test
+    fun nothing_to_swipe_away_does_nothing() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.markAllDone(emptyList())
+        runCurrent()
+
+        assertThat(viewModel.state.value.undo).isNull()
+    }
 }

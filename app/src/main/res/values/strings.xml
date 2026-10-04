@@ -40,6 +40,11 @@
     <string name="inbox_undo">Undo</string>
     <string name="inbox_undo_read">Marked as read</string>
     <string name="inbox_undo_done">Marked as done</string>
+    <plurals name="inbox_undo_done_many">
+        <item quantity="one">Marked %d as done</item>
+        <item quantity="other">Marked %d as done</item>
+    </plurals>
+    <string name="inbox_mark_all_done">Mark all as done</string>
     <string name="inbox_undo_unsubscribed">Unsubscribed</string>
     <string name="inbox_permission_title">Get notified about new activity</string>
     <string name="inbox_permission_body">Forgeline checks your Inbox in the background. Allow notifications to hear about mentions and reviews.</string>

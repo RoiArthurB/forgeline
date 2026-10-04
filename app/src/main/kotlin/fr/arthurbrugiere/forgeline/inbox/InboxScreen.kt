@@ -44,6 +44,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -173,6 +174,7 @@ fun InboxRoute(
         },
         onMarkRead = viewModel::markRead,
         onMarkDone = viewModel::markDone,
+        onMarkAllDone = viewModel::markAllDone,
         onUnsubscribe = viewModel::unsubscribe,
         onUndo = viewModel::undo,
         onErrorShown = viewModel::errorShown,
@@ -250,6 +252,8 @@ fun InboxScreen(
     notificationPrompt: NotificationPrompt? = null,
     onAllowNotifications: () -> Unit = {},
     onUndo: (PendingUndo) -> Unit = {},
+    /** A repository's heading was swiped away: every thread listed under it is done. */
+    onMarkAllDone: (List<NotificationThread>) -> Unit = {},
     onSelectAccount: (String?) -> Unit = {},
     nowMillis: Long = System.currentTimeMillis(),
 ) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
@@ -272,9 +276,16 @@ fun InboxScreen(
         InboxAction.UNSUBSCRIBE to stringResource(R.string.inbox_undo_unsubscribed),
     )
     val undoLabel = stringResource(R.string.inbox_undo)
+    val resources = LocalResources.current
     LaunchedEffect(state.undo) {
         val undo = state.undo ?: return@LaunchedEffect
-        val result = snackbar.showSnackbar(undoMessages.getValue(undo.action), actionLabel = undoLabel, duration = SnackbarDuration.Indefinite)
+        // A repository swiped away says how many threads went with it.
+        val message = if (undo.action == InboxAction.DONE && undo.others.isNotEmpty()) {
+            resources.getQuantityString(R.plurals.inbox_undo_done_many, undo.keys.size, undo.keys.size)
+        } else {
+            undoMessages.getValue(undo.action)
+        }
+        val result = snackbar.showSnackbar(message, actionLabel = undoLabel, duration = SnackbarDuration.Indefinite)
         if (result == SnackbarResult.ActionPerformed) onUndo(undo)
     }
     LaunchedEffect(state.actionFailed) {
@@ -384,7 +395,10 @@ fun InboxScreen(
                                 }
                                 repos.forEach { (repo, threads) ->
                                     item(key = "repo-${repo.key}", contentType = "repo") {
-                                        RepoHeading(threads.first(), showOwner = repos.size == 1, Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem())
+                                        RepoHeading(
+                                            threads.first(), showOwner = repos.size == 1, onMarkAllDone = { onMarkAllDone(threads) },
+                                            Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem(),
+                                        )
                                     }
                                     threadItems(threads, group.section, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe)
                                 }
@@ -445,35 +459,54 @@ private fun OwnerHeading(thread: NotificationThread, modifier: Modifier = Modifi
 
 /**
  * A repository under Everything else. Alone under its owner: the owner's avatar, `owner/` muted and the name. Under an
- * owner heading: just the name, lined up with the threads below it.
+ * owner heading: just the name, lined up with the threads below it. Swiped away like a thread, it takes every thread
+ * listed under it: all done at once.
  */
 @Composable
-private fun RepoHeading(thread: NotificationThread, showOwner: Boolean, modifier: Modifier = Modifier) {
+private fun RepoHeading(thread: NotificationThread, showOwner: Boolean, onMarkAllDone: () -> Unit, modifier: Modifier = Modifier) {
     val colors = Soft.colors
-    Row(
-        modifier
-            .fillMaxWidth()
-            // Under an owner heading, the name lines up with its threads' pills and titles.
-            .padding(start = if (showOwner) 20.dp else 36.dp, end = 20.dp, top = if (showOwner) 14.dp else 10.dp, bottom = 2.dp)
-            .semantics(mergeDescendants = true) { heading() },
-        verticalAlignment = Alignment.CenterVertically,
+    val markAllDone = stringResource(R.string.inbox_mark_all_done)
+    // Not saved, like a thread's: a heading brought back by Undo starts settled.
+    val threshold = SwipeToDismissBoxDefaults.positionalThreshold
+    val swipe = remember { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, threshold) }
+    SwipeToDismissBox(
+        state = swipe,
+        modifier = modifier.padding(start = 8.dp, end = 8.dp, top = if (showOwner) 10.dp else 6.dp),
+        enableDismissFromStartToEnd = false,
+        backgroundContent = { SwipeBackground(swipe.dismissDirection) },
+        onDismiss = { direction -> if (direction == SwipeToDismissBoxValue.EndToStart) onMarkAllDone() },
     ) {
-        if (showOwner) {
-            OwnerAvatar(thread, 24.dp)
-            Spacer(Modifier.width(10.dp))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(SoftTokens.RowCorner)
+                .background(colors.ground)
+                // Under an owner heading, the name lines up with its threads' pills and titles.
+                .padding(start = if (showOwner) 12.dp else 28.dp, end = 12.dp, top = 4.dp, bottom = 2.dp)
+                .semantics(mergeDescendants = true) {
+                    heading()
+                    // Swipes are invisible to screen readers: the same action as an accessibility action.
+                    customActions = listOf(CustomAccessibilityAction(markAllDone) { onMarkAllDone(); true })
+                },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (showOwner) {
+                OwnerAvatar(thread, 24.dp)
+                Spacer(Modifier.width(10.dp))
+            }
+            Text(
+                buildAnnotatedString {
+                    if (showOwner) withStyle(SpanStyle(color = colors.inkMuted)) { append("${thread.repo.owner}/\u2060") }
+                    append(thread.repo.name)
+                },
+                style = Soft.type.control,
+                color = colors.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            HeadingForge(thread)
         }
-        Text(
-            buildAnnotatedString {
-                if (showOwner) withStyle(SpanStyle(color = colors.inkMuted)) { append("${thread.repo.owner}/\u2060") }
-                append(thread.repo.name)
-            },
-            style = Soft.type.control,
-            color = colors.ink,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false),
-        )
-        HeadingForge(thread)
     }
 }
 
