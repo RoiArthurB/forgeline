@@ -22,7 +22,7 @@ class GitLabAuthApiTest {
         respond(body, status, headersOf(HttpHeaders.ContentType, "application/json"))
 
     private fun api(clientId: String = "client-123", handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData = { json("{}") }) =
-        GitLabAuthApi(gitlabHttpClient(MockEngine { requests += it; handler(it) }), ForgeInstance.GitLab, clientId)
+        GitLabAuthApi(gitlabHttpClient(MockEngine { requests += it; handler(it) }), ForgeInstance.GitLab, { clientId })
 
     private fun <T> ForgeResult<T>.value(): T = (this as ForgeResult.Success).value
 
@@ -38,7 +38,7 @@ class GitLabAuthApiTest {
         assertThat(url).contains("state=random-state")
         assertThat(url).contains("code_challenge=code-challenge-s256")
         assertThat(url).contains("code_challenge_method=S256")
-        assertThat(url).contains("scope=api+read_user+openid")
+        assertThat(url).contains("scope=api+read_user")
     }
 
     @Test

@@ -8,7 +8,7 @@ Forgeline brings your forges to your phone as a timeline: an **Inbox** for what 
 
 ## What's in v0.5
 
-- **Several forges at once:** GitHub, gitlab.com (new in v0.5; self-hosted GitLab not yet), Codeberg and any self-hosted Forgejo server share one Inbox, Feed, Trending page and search. Each row names its forge, and one forge can be picked alone. Codeberg's and gitlab.com's Trending are measured daily, shown to everyone without signing in, and mixed in by share of stars.
+- **Several forges at once:** GitHub, GitLab (gitlab.com and self-hosted), Codeberg and any self-hosted Forgejo server share one Inbox, Feed, Trending page and search. Each row names its forge, and one forge can be picked alone. Codeberg's and gitlab.com's Trending are measured daily, shown to everyone without signing in, and mixed in by share of stars.
 - **Inbox:** what needs you first (review requests, mentions, assignments, security alerts, and GitLab Todos), then everything else grouped by owner and repository. Pull requests/merge requests and issues say whether they're open, merged or closed. Swipe right to mark read, left to mark done, with 5 seconds to Undo. Background checks (every hour by default, or off) post phone notifications on separate channels, and the conversations waiting on you are loaded ahead so they open instantly.
 - **Feed:** what the people you follow and the repositories you watch are doing, in strict chronological order, grouped by day, each event leading with the repository or pull request it's about. Identical events on the same repository merge. Releases (and, on GitHub, announcements) from the repositories you starred join in, which the forges' own event feeds leave out. You choose which kinds of activity show up in Settings.
 - **Trending:** what is trending today, this week or this month on GitHub (as GitHub ranks it), Codeberg and gitlab.com, mixed into one page or one forge at a time. It works without signing in.
@@ -21,7 +21,7 @@ Forgeline brings your forges to your phone as a timeline: an **Inbox** for what 
 
 Release notes for each version are in [docs/release-notes](docs/release-notes).
 
-Sign in with the one-tap device flow (GitHub), browser OAuth with PKCE (Codeberg), or personal access tokens (every forge; the only way on gitlab.com for now).
+Sign in with the one-tap device flow (GitHub), browser OAuth with PKCE (Codeberg), or personal access tokens (every forge). GitLab signs in through the browser too, once its application is registered: see [docs/GITLAB_OAUTH_APP.md](docs/GITLAB_OAUTH_APP.md).
 
 ## Principles
 

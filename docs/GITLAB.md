@@ -1,6 +1,6 @@
 # GitLab
 
-Forgeline supports `gitlab.com`. A self-hosted GitLab isn't reachable yet: any host other than gitlab.com is taken for a Forgejo server (`ForgeInstance.of`), and "Other" in sign-in creates a Forgejo account. Users can sign in, browse projects, triage issues and merge requests, review CI/CD pipelines and job logs, receive inbox notifications via GitLab Todos, view user/group activity feeds, and follow GitLab deep links.
+Forgeline supports `gitlab.com` and self-hosted GitLab servers ("Other" in sign-in finds out what a server runs; see [GITLAB_OAUTH_APP.md](GITLAB_OAUTH_APP.md)). Links to a self-hosted server open in the browser, as for a self-hosted Forgejo. Users can sign in, browse projects, triage issues and merge requests, review CI/CD pipelines and job logs, receive inbox notifications via GitLab Todos, view user/group activity feeds, and follow GitLab deep links.
 
 ---
 
@@ -10,11 +10,11 @@ Forgeline supports `gitlab.com`. A self-hosted GitLab isn't reachable yet: any h
 For `gitlab.com`, browser sign-in uses OAuth 2.0 with PKCE (Proof Key for Code Exchange, RFC 7636) and a loopback redirect on the device:
 - **Authorization Endpoint:** `https://gitlab.com/oauth/authorize`
 - **Token Endpoint:** `https://gitlab.com/oauth/token`
-- **Scopes:** `api read_user openid`
-- **Client ID:** Configured via `forgeline.gitlabClientId` in `gradle.properties`. When omitted, sign-in falls back to Personal Access Tokens.
+- **Scopes:** `api read_user`
+- **Client ID:** gitlab.com's is `forgeline.gitlabClientId` in `gradle.properties`; a self-hosted server's is typed at sign-in. Without one, sign-in falls back to Personal Access Tokens. Registering one: [GITLAB_OAUTH_APP.md](GITLAB_OAUTH_APP.md).
 
 ### 2. Personal Access Tokens (PAT)
-Users can sign in to `gitlab.com` with a Personal Access Token created at:
+Users can sign in to `gitlab.com` or a self-hosted server with a Personal Access Token created at:
 - `https://<host>/-/user_settings/personal_access_tokens`
 - Required scopes: `api`, `read_user`
 

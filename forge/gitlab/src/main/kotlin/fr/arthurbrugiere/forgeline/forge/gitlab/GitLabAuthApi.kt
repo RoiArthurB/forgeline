@@ -21,14 +21,15 @@ import kotlinx.serialization.Serializable
 class GitLabAuthApi(
     private val httpClient: HttpClient,
     override val forge: ForgeInstance = ForgeInstance.GitLab,
-    private val clientId: String = "",
+    /** The OAuth application's ID on this server; blank without one. Asked each time: a self-hosted server's is typed at sign-in. */
+    private val clientId: () -> String = { "" },
 ) : ForgeAuthApi {
 
     override val personalAccessTokenUrl: String = "${forge.webUrl}/-/user_settings/personal_access_tokens"
 
     override val supportsDeviceFlow: Boolean = false
 
-    override val supportsBrowserSignIn: Boolean = clientId.isNotBlank()
+    override val supportsBrowserSignIn: Boolean get() = clientId().isNotBlank()
 
     override suspend fun requestDeviceCode(): ForgeResult<DeviceCode> = ForgeResult.Failure(ForgeError.Unsupported)
 
@@ -40,13 +41,13 @@ class GitLabAuthApi(
 
     override fun authorizationUrl(redirectUri: String, state: String, codeChallenge: String): String =
         URLBuilder("${forge.webUrl}/oauth/authorize").apply {
-            parameters.append("client_id", clientId)
+            parameters.append("client_id", clientId())
             parameters.append("redirect_uri", redirectUri)
             parameters.append("response_type", "code")
             parameters.append("state", state)
             parameters.append("code_challenge", codeChallenge)
             parameters.append("code_challenge_method", "S256")
-            parameters.append("scope", "api read_user openid")
+            parameters.append("scope", "api read_user")
         }.buildString()
 
     override suspend fun exchangeCode(code: String, redirectUri: String, codeVerifier: String): ForgeResult<OAuthTokens> = token(
@@ -65,7 +66,7 @@ class GitLabAuthApi(
         httpClient.submitForm(
             url = "${forge.webUrl}/oauth/token",
             formParameters = parameters {
-                append("client_id", clientId)
+                append("client_id", clientId())
                 fields.forEach { (key, value) -> append(key, value) }
             },
         ) { accept(ContentType.Application.Json) }

@@ -43,7 +43,27 @@ class SignInViewModelTest {
         override fun withZone(zone: ZoneId?) = this
     }
 
-    private fun viewModel() = SignInViewModel(clients, accounts, { redirect }, clock)
+    /** What each address runs, as the servers would say; any other address is a Forgejo, as before GitLab. */
+    private val kinds = mutableMapOf<String, ForgeType?>()
+    private val probed = mutableListOf<String>()
+    private val probe = ForgeProbe { host ->
+        probed += host
+        if (host in kinds) kinds[host] else ForgeType.FORGEJO
+    }
+    private val hosts = FakeForgeHosts()
+    private val redirectPaths = mutableListOf<String>()
+
+    @org.junit.After
+    fun forgetServers() = fr.arthurbrugiere.forgeline.core.model.KnownForges.clear()
+
+    private fun viewModel() = SignInViewModel(
+        clients, accounts,
+        { path ->
+            redirectPaths += path
+            redirect
+        },
+        clock, probe, hosts,
+    )
 
     /** The browser's return, scripted: [params] answer the wait unless null, which never returns. */
     private class FakeRedirect : BrowserRedirect {
@@ -65,7 +85,7 @@ class SignInViewModelTest {
     @Test
     fun offers_the_device_flow_only_when_the_forge_supports_it() {
         assertThat(viewModel().state.value.deviceFlowAvailable).isTrue()
-        val noDeviceFlow = SignInViewModel(FakeForgeClients(auth = FakeForgeAuthApi(supportsDeviceFlow = false)), accounts, { redirect }, clock)
+        val noDeviceFlow = SignInViewModel(FakeForgeClients(auth = FakeForgeAuthApi(supportsDeviceFlow = false)), accounts, { redirect }, clock, probe, hosts)
         assertThat(noDeviceFlow.state.value.deviceFlowAvailable).isFalse()
     }
 
@@ -387,4 +407,132 @@ class SignInViewModelTest {
 
     private fun stateOf(viewModel: SignInViewModel): String =
         io.ktor.http.Url((viewModel.state.value.step as SignInStep.AwaitingBrowser).authorizationUrl).parameters["state"]!!
+
+    // Another server that turns out to be a GitLab
+
+    private val ownGitLab = ForgeInstance(ForgeType.GITLAB, "gitlab.example.org")
+    private val ownGitLabAuth = FakeForgeAuthApi(supportsDeviceFlow = false, forge = ownGitLab, supportsBrowserSignIn = true)
+        .apply {
+            users["glpat_own"] = ForgeUser("tanuki", null, null)
+            // What the browser sign-in's exchange hands back.
+            users["access"] = ForgeUser("tanuki", null, null)
+        }
+
+    private fun ownGitLabViewModel(): SignInViewModel {
+        kinds["gitlab.example.org"] = ForgeType.GITLAB
+        clients.put(ownGitLab, FakeForgeClients(auth = ownGitLabAuth))
+        return viewModel().also { it.selectForge(SignInForge.OTHER) }
+    }
+
+    @Test
+    fun another_server_says_what_it_runs_once_its_address_rests() = test {
+        val viewModel = ownGitLabViewModel()
+
+        viewModel.setHost("https://gitlab.example.org/")
+        assertThat(viewModel.state.value.otherType).isNull()
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertThat(state.otherType).isEqualTo(ForgeType.GITLAB)
+        assertThat(state.personalAccessTokenUrl).isEqualTo(ownGitLabAuth.personalAccessTokenUrl)
+        // Through the browser only once its application's ID is given.
+        assertThat(state.browserSignInAvailable).isFalse()
+        assertThat(probed).containsExactly("gitlab.example.org")
+    }
+
+    @Test
+    fun an_address_still_being_typed_is_not_asked_letter_by_letter() = test {
+        val viewModel = ownGitLabViewModel()
+
+        "gitlab.example.org".indices.forEach { viewModel.setHost("gitlab.example.org".take(it + 1)) }
+        advanceUntilIdle()
+
+        assertThat(probed).containsExactly("gitlab.example.org")
+    }
+
+    @Test
+    fun a_token_signs_in_to_a_self_hosted_gitlab_and_the_server_is_remembered_as_one() = test {
+        val viewModel = ownGitLabViewModel()
+        viewModel.setHost("gitlab.example.org")
+        advanceUntilIdle()
+
+        viewModel.signInWithToken("glpat_own")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.SignedIn)
+        assertThat(accounts.activeAccount.first()!!.forge).isEqualTo(ownGitLab)
+        // The rest of the app only carries the host: it must now resolve to a GitLab.
+        assertThat(ForgeInstance.of("gitlab.example.org")).isEqualTo(ownGitLab)
+        assertThat(hosts.remembered).containsKey(ownGitLab)
+    }
+
+    @Test
+    fun signing_in_before_the_address_rested_still_asks_the_server_first() = test {
+        // Regression guard: typed and submitted at once, the server would be taken for a Forgejo and its token refused.
+        val viewModel = ownGitLabViewModel()
+        viewModel.setHost("gitlab.example.org")
+
+        viewModel.signInWithToken("glpat_own")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.SignedIn)
+        assertThat(accounts.activeAccount.first()!!.forge.type).isEqualTo(ForgeType.GITLAB)
+    }
+
+    @Test
+    fun an_address_where_no_forge_answers_says_so_and_signs_nobody_in() = test {
+        kinds["www.example.org"] = null
+        val viewModel = viewModel().also { it.selectForge(SignInForge.OTHER) }
+        viewModel.setHost("www.example.org")
+        advanceUntilIdle()
+
+        viewModel.signInWithToken("anything")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.Failed(SignInError.NOT_A_FORGE))
+        assertThat(accounts.activeAccount.first()).isNull()
+        assertThat(hosts.remembered).isEmpty()
+    }
+
+    @Test
+    fun a_self_hosted_gitlab_signs_in_through_the_browser_with_its_own_application() = test {
+        val viewModel = ownGitLabViewModel()
+        viewModel.setHost("gitlab.example.org")
+        advanceUntilIdle()
+
+        viewModel.setOauthClientId("  app-id-123 ")
+        assertThat(viewModel.state.value.browserSignInAvailable).isTrue()
+        redirect.params = { mapOf("code" to "the-code", "state" to stateOf(viewModel)) }
+        viewModel.startBrowserSignIn()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.SignedIn)
+        // The application's ID is kept for the server: renewing the sign-in later needs it.
+        assertThat(hosts.oauthClientId("gitlab.example.org")).isEqualTo("app-id-123")
+        // GitLab's applications are registered with their own redirect path.
+        assertThat(redirectPaths).containsExactly("/oauth/gitlab")
+    }
+
+    @Test
+    fun codeberg_keeps_the_redirect_its_application_was_registered_with() = test {
+        val viewModel = codebergViewModel()
+        redirect.params = { mapOf("code" to "the-code", "state" to stateOf(viewModel)) }
+
+        viewModel.startBrowserSignIn()
+        advanceUntilIdle()
+
+        assertThat(redirectPaths).containsExactly("/oauth/codeberg")
+    }
+
+    @Test
+    fun another_server_that_is_a_forgejo_asks_for_no_application() = test {
+        val viewModel = viewModel().also { it.selectForge(SignInForge.OTHER) }
+        viewModel.setHost("git.example.org")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.otherType).isEqualTo(ForgeType.FORGEJO)
+        viewModel.setOauthClientId("ignored")
+        assertThat(viewModel.state.value.oauthClientId).isEmpty()
+        assertThat(viewModel.state.value.browserSignInAvailable).isFalse()
+    }
 }

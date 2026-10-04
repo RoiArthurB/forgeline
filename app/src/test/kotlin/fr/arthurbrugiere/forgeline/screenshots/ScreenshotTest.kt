@@ -218,6 +218,19 @@ class ScreenshotTest {
     }
 
     @Test
+    fun sign_in_own_gitlab_light() = snapshot("sign_in_own_gitlab_light", darkTheme = false) {
+        SignInScreen(
+            state = SignInUiState(
+                deviceFlowAvailable = false, personalAccessTokenUrl = "https://gitlab.example.org/-/user_settings/personal_access_tokens",
+                forge = fr.arthurbrugiere.forgeline.signin.SignInForge.OTHER, host = "gitlab.example.org", forgeName = "gitlab.example.org",
+                otherType = fr.arthurbrugiere.forgeline.core.model.ForgeType.GITLAB, oauthClientId = "a1b2c3d4e5f6", browserSignInAvailable = true,
+            ),
+            onStartDeviceFlow = {}, onContinueOnGitHub = { _, _ -> }, onSubmitToken = {}, onOpenUrl = {},
+            onCancel = {}, onDismissError = {}, onBack = {},
+        )
+    }
+
+    @Test
     fun sign_in_device_code_dark() = snapshot("sign_in_device_code_dark", darkTheme = true) {
         SignInScreen(
             state = SignInUiState(true, "", SignInStep.AwaitingAuthorization("WDJB-MJHT", "https://github.com/login/device")),

@@ -23,6 +23,10 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import dagger.Provides
 import fr.arthurbrugiere.forgeline.BuildConfig
 import fr.arthurbrugiere.forgeline.signin.BrowserRedirects
+import fr.arthurbrugiere.forgeline.signin.ForgeHosts
+import fr.arthurbrugiere.forgeline.signin.ForgeProbe
+import fr.arthurbrugiere.forgeline.signin.HttpForgeProbe
+import fr.arthurbrugiere.forgeline.signin.StoredForgeHosts
 import fr.arthurbrugiere.forgeline.signin.LoopbackRedirects
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoActionsApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoAuthApi
@@ -60,6 +64,7 @@ class DefaultForgeClients @Inject constructor(
     @GitLab private val gitlabHttp: HttpClient,
     @CodebergClientId private val codebergClientId: String,
     @GitLabClientId private val gitlabClientId: String,
+    private val hosts: ForgeHosts,
     @CodebergTrendingUrl private val codebergTrendingUrl: String,
     @GitLabTrendingUrl private val gitlabTrendingUrl: String,
     private val repos: RepoApi,
@@ -106,7 +111,8 @@ class DefaultForgeClients @Inject constructor(
         val actions = GitLabActionsApi(http)
         val trendingMeter = if (forge == ForgeInstance.GitLab) gitlabTrendingMeter else null
 
-        val auth = GitLabAuthApi(http, forge, clientId = if (forge == ForgeInstance.GitLab) gitlabClientId else "")
+        // gitlab.com's application is Forgeline's own; a self-hosted server's is the one its owner created there.
+        val auth = GitLabAuthApi(http, forge, clientId = { if (forge == ForgeInstance.GitLab) gitlabClientId else hosts.oauthClientId(forge.host) })
 
         val trending = gitlabTrendingUrl.takeIf { forge == ForgeInstance.GitLab && it.isNotBlank() }
             ?.let { ForgejoTrendingApi(http, forge, it) }
@@ -193,6 +199,9 @@ abstract class ForgeClientsModule {
     @Binds
     abstract fun bindBrowserRedirects(impl: LoopbackRedirects): BrowserRedirects
 
+    @Binds
+    abstract fun bindForgeHosts(impl: StoredForgeHosts): ForgeHosts
+
     companion object {
         @Provides
         @Singleton
@@ -203,6 +212,9 @@ abstract class ForgeClientsModule {
         @Singleton
         @GitLab
         fun provideGitLabHttpClient(): HttpClient = gitlabHttpClient(forgeEngine())
+
+        @Provides
+        fun provideForgeProbe(@Forgejo http: HttpClient): ForgeProbe = HttpForgeProbe(http)
 
         @Provides
         @CodebergClientId

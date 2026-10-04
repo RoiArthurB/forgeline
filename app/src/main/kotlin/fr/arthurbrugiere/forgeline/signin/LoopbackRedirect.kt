@@ -19,15 +19,22 @@ interface BrowserRedirect : Closeable {
 }
 
 fun interface BrowserRedirects {
-    fun open(): BrowserRedirect
+    /** Listens for the forge's redirect to [path], the one its OAuth application was registered with. */
+    fun open(path: String): BrowserRedirect
 }
 
 class LoopbackRedirects @Inject constructor() : BrowserRedirects {
-    override fun open(): BrowserRedirect = LoopbackRedirect(PATH)
+    override fun open(path: String): BrowserRedirect = LoopbackRedirect(path)
 
     companion object {
         /** Register the OAuth application with `http://127.0.0.1/oauth/codeberg`: Forgejo ignores the port of loopback redirects. */
         const val PATH = "/oauth/codeberg"
+
+        /** GitLab's applications are registered with `http://127.0.0.1/oauth/gitlab`: it ignores a loopback's port too. */
+        const val GITLAB_PATH = "/oauth/gitlab"
+
+        fun pathFor(type: fr.arthurbrugiere.forgeline.core.model.ForgeType): String =
+            if (type == fr.arthurbrugiere.forgeline.core.model.ForgeType.GITLAB) GITLAB_PATH else PATH
     }
 }
 

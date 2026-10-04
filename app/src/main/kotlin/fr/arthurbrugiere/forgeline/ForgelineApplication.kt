@@ -29,6 +29,9 @@ class ForgelineApplication : Application(), Configuration.Provider, SingletonIma
     lateinit var inboxSyncScheduler: InboxSyncScheduler
 
     @Inject
+    lateinit var forgeHosts: fr.arthurbrugiere.forgeline.signin.ForgeHosts
+
+    @Inject
     lateinit var trendingMeasureScheduler: TrendingMeasureScheduler
 
     // Lazy: it opens the database, which must not happen on the main thread at launch.
@@ -37,6 +40,9 @@ class ForgelineApplication : Application(), Configuration.Provider, SingletonIma
 
     override fun onCreate() {
         super.onCreate()
+        // Which self-hosted servers are GitLab's must be known before a link or a kept screen names one: a few bytes,
+        // read here rather than later with the accounts.
+        forgeHosts.load()
         // Off the main thread: reading settings and accounts must never delay the first frame.
         val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         inboxSyncScheduler.start(background)

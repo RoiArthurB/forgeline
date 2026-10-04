@@ -26,6 +26,8 @@ import org.junit.Test
 
 class DefaultForgeClientsTest {
     private val gitHubRepos = FakeRepoApi()
+    private val hosts = fr.arthurbrugiere.forgeline.signin.FakeForgeHosts()
+
     private fun clients(
         codebergTrendingUrl: String = "https://example.org/codeberg/trending.json",
         gitlabTrendingUrl: String = "https://example.org/gitlab/trending.json",
@@ -35,6 +37,7 @@ class DefaultForgeClientsTest {
         gitlabHttp = gitlabHttpClient(OkHttp.create()),
         codebergClientId = "codeberg-client",
         gitlabClientId = gitlabClientId,
+        hosts = hosts,
         codebergTrendingUrl = codebergTrendingUrl,
         gitlabTrendingUrl = gitlabTrendingUrl,
         repos = gitHubRepos, issues = FakeIssueApi(), users = FakeUserApi(), stars = FakeStarApi(), search = FakeSearchApi(),
@@ -113,5 +116,23 @@ class DefaultForgeClientsTest {
 
         assertThat(gitlab).isInstanceOf(GitLabActionsApi::class.java)
         assertThat(gitlab!!.supportsRerun).isTrue()
+    }
+
+    @org.junit.After
+    fun forgetServers() = fr.arthurbrugiere.forgeline.core.model.KnownForges.clear()
+
+    @Test
+    fun a_self_hosted_gitlab_signs_in_through_the_browser_with_the_application_given_for_it() {
+        val own = ForgeInstance(ForgeType.GITLAB, "gitlab.example.org")
+        val auth = clients.auth(own)
+        assertThat(auth.supportsBrowserSignIn).isFalse()
+
+        // Typed at sign-in, after the server's clients were built: it is asked for each time.
+        hosts.remember(own, "app-id-123")
+
+        assertThat(auth.supportsBrowserSignIn).isTrue()
+        assertThat(auth.authorizationUrl("http://127.0.0.1:1/oauth/gitlab", "s", "c")).contains("client_id=app-id-123")
+        // gitlab.com keeps Forgeline's own application.
+        assertThat(clients.auth(ForgeInstance.GitLab).authorizationUrl("http://127.0.0.1:1/oauth/gitlab", "s", "c")).contains("client_id=gitlab-client")
     }
 }

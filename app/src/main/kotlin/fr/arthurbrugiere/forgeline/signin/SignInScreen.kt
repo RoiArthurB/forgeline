@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSwitch
@@ -90,6 +91,7 @@ fun SignInRoute(
         state = state,
         onSelectForge = viewModel::selectForge,
         onHostChange = viewModel::setHost,
+        onClientIdChange = viewModel::setOauthClientId,
         onStartDeviceFlow = viewModel::startDeviceFlow,
         onStartBrowserSignIn = viewModel::startBrowserSignIn,
         onContinueOnGitHub = { code, uri ->
@@ -118,6 +120,7 @@ fun SignInScreen(
     modifier: Modifier = Modifier,
     onSelectForge: (SignInForge) -> Unit = {},
     onHostChange: (String) -> Unit = {},
+    onClientIdChange: (String) -> Unit = {},
     onStartBrowserSignIn: () -> Unit = {},
 ) {
     val colors = Soft.colors
@@ -168,6 +171,7 @@ fun SignInScreen(
                     error = (step as? SignInStep.Failed)?.error,
                     onSelectForge = onSelectForge,
                     onHostChange = onHostChange,
+                    onClientIdChange = onClientIdChange,
                     onStartDeviceFlow = onStartDeviceFlow,
                     onStartBrowserSignIn = onStartBrowserSignIn,
                     onSubmitToken = onSubmitToken,
@@ -185,6 +189,7 @@ private fun ChooseMethod(
     error: SignInError?,
     onSelectForge: (SignInForge) -> Unit,
     onHostChange: (String) -> Unit,
+    onClientIdChange: (String) -> Unit,
     onStartDeviceFlow: () -> Unit,
     onStartBrowserSignIn: () -> Unit,
     onSubmitToken: (String) -> Unit,
@@ -217,7 +222,27 @@ private fun ChooseMethod(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
             modifier = Modifier.fillMaxWidth(),
         )
-        Text(stringResource(R.string.sign_in_host_hint), style = Soft.type.secondary, color = colors.inkMuted)
+        // Once the server has said what it runs, the screen says it back, and asks for what that kind needs.
+        val kind = when (state.otherType) {
+            ForgeType.GITLAB -> stringResource(R.string.sign_in_kind_gitlab)
+            ForgeType.FORGEJO -> stringResource(R.string.sign_in_kind_forgejo)
+            else -> null
+        }
+        Text(
+            if (kind == null) stringResource(R.string.sign_in_host_hint) else stringResource(R.string.sign_in_host_is, kind),
+            style = Soft.type.secondary,
+            color = colors.inkMuted,
+        )
+        if (state.otherType == ForgeType.GITLAB) {
+            SoftTextField(
+                value = state.oauthClientId,
+                onValueChange = onClientIdChange,
+                placeholder = stringResource(R.string.sign_in_client_id),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Next),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(stringResource(R.string.sign_in_client_id_hint), style = Soft.type.secondary, color = colors.inkMuted)
+        }
     }
     if (error != null) {
         Text(stringResource(error.message, state.forgeName.ifBlank { state.host }), color = colors.accent, style = Soft.type.body)
@@ -240,9 +265,9 @@ private fun ChooseMethod(
     Text(stringResource(R.string.sign_in_token_title), style = Soft.type.section, color = colors.ink)
     Text(
         stringResource(
-            when (state.forge) {
-                SignInForge.GITHUB -> R.string.sign_in_token_body
-                SignInForge.GITLAB -> R.string.sign_in_token_body_gitlab
+            when {
+                state.forge == SignInForge.GITHUB -> R.string.sign_in_token_body
+                state.forge == SignInForge.GITLAB || state.otherType == ForgeType.GITLAB -> R.string.sign_in_token_body_gitlab
                 else -> R.string.sign_in_token_body_forgejo
             }
         ),

@@ -29,14 +29,14 @@ import kotlin.time.Duration.Companion.minutes
 
 enum class SignInError { NETWORK, INVALID_TOKEN, RATE_LIMITED, DENIED, EXPIRED, NOT_A_FORGE, UNKNOWN }
 
-/** Where to sign in: GitHub, GitLab, Codeberg, or another Forgejo server by its address. */
+/** Where to sign in: GitHub, GitLab, Codeberg, or another server by its address, be it a Forgejo or a GitLab. */
 enum class SignInForge {
     GITHUB,
     GITLAB,
     CODEBERG,
     OTHER;
 
-    /** Whose logo the choice shows; any other server runs Forgejo. */
+    /** Whose logo the choice shows; another server's kind isn't known before its address is. */
     val icon: ForgeInstance
         get() = when (this) {
             GITHUB -> ForgeInstance.GitHub
@@ -66,8 +66,12 @@ data class SignInUiState(
     val personalAccessTokenUrl: String?,
     val step: SignInStep = SignInStep.ChooseMethod,
     val forge: SignInForge = SignInForge.GITHUB,
-    /** The address typed for another Forgejo server. */
+    /** The address typed for another server. */
     val host: String = "",
+    /** What the server at [host] runs, once it answered: null while unknown, and when nothing known answers there. */
+    val otherType: ForgeType? = null,
+    /** The ID typed for the OAuth application of a self-hosted GitLab, which is what lets it sign in through the browser. */
+    val oauthClientId: String = "",
     val browserSignInAvailable: Boolean = false,
     /** The forge's name, for "Sign in with ...". */
     val forgeName: String = ForgeInstance.GitHub.displayName,
@@ -79,32 +83,68 @@ class SignInViewModel @Inject constructor(
     private val accounts: AccountRepository,
     private val redirects: BrowserRedirects,
     private val clock: Clock,
+    private val probe: ForgeProbe,
+    private val hosts: ForgeHosts,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(stateFor(SignInForge.GITHUB, ""))
     val state: StateFlow<SignInUiState> = _state.asStateFlow()
 
     private var job: Job? = null
+    private var probing: Job? = null
 
     fun selectForge(forge: SignInForge) {
         job?.cancel()
-        _state.value = stateFor(forge, _state.value.host)
+        _state.value = stateFor(forge, _state.value.host, _state.value.otherType, _state.value.oauthClientId)
     }
 
+    /** The address of another server. What it runs is asked once the typing pauses, so the screen can say what it needs. */
     fun setHost(host: String) {
-        _state.value = stateFor(SignInForge.OTHER, host)
+        _state.value = stateFor(SignInForge.OTHER, host, type = null, clientId = "")
+        probing?.cancel()
+        val address = normalizedHost(host) ?: return
+        probing = viewModelScope.launch {
+            delay(PROBE_AFTER_MILLIS)
+            val type = probe.typeOf(address) ?: return@launch
+            _state.update { state ->
+                if (state.forge == SignInForge.OTHER && normalizedHost(state.host) == address) {
+                    stateFor(SignInForge.OTHER, state.host, type, hosts.oauthClientId(address)).copy(step = state.step)
+                } else {
+                    state
+                }
+            }
+        }
+    }
+
+    /** The ID of the OAuth application created on a self-hosted GitLab: with one, signing in goes through the browser. */
+    fun setOauthClientId(id: String) {
+        _state.update { stateFor(it.forge, it.host, it.otherType, id).copy(step = it.step) }
+    }
+
+    /**
+     * Makes sure another server's kind is known before signing in to it: asked now if the typing didn't pause long
+     * enough. False when nothing known answers at the address.
+     */
+    private suspend fun otherServerKnown(): Boolean {
+        val state = _state.value
+        if (state.forge != SignInForge.OTHER || state.otherType != null) return true
+        val address = normalizedHost(state.host) ?: return false
+        probing?.cancel()
+        val type = probe.typeOf(address) ?: return false
+        _state.update { stateFor(SignInForge.OTHER, it.host, type, it.oauthClientId).copy(step = it.step) }
+        return true
     }
 
     fun signInWithToken(token: String) {
         val trimmed = token.trim()
-        val auth = auth()
-        if (trimmed.isEmpty() || auth == null) {
-            show(SignInStep.Failed(if (auth == null) SignInError.NOT_A_FORGE else SignInError.INVALID_TOKEN))
+        if (trimmed.isEmpty() || auth() == null) {
+            show(SignInStep.Failed(if (auth() == null) SignInError.NOT_A_FORGE else SignInError.INVALID_TOKEN))
             return
         }
         launchExclusive {
             show(SignInStep.Verifying)
-            completeSignIn(auth, trimmed)
+            if (!otherServerKnown()) return@launchExclusive show(SignInStep.Failed(SignInError.NOT_A_FORGE))
+            completeSignIn(auth() ?: return@launchExclusive show(SignInStep.Failed(SignInError.NOT_A_FORGE)), trimmed)
         }
     }
 
@@ -120,13 +160,15 @@ class SignInViewModel @Inject constructor(
     }
 
     /**
-     * "Sign in with Codeberg": opens the forge's approval page, which sends the browser back to a loopback address on
-     * this phone with a code, exchanged (with the PKCE verifier) for a token.
+     * "Sign in with Codeberg" or GitLab: opens the forge's approval page, which sends the browser back to a loopback
+     * address on this phone with a code, exchanged (with the PKCE verifier) for a token.
      */
     fun startBrowserSignIn() {
+        // A self-hosted server's application is the one just typed: its client must know it before it is asked anything.
+        rememberOtherServer()
         val auth = auth()?.takeIf { it.supportsBrowserSignIn } ?: return
         launchExclusive {
-            redirects.open().use { redirect ->
+            redirects.open(LoopbackRedirects.pathFor(auth.forge.type)).use { redirect ->
                 val pkce = Pkce.generate()
                 val expected = nonce()
                 show(SignInStep.AwaitingBrowser(auth.authorizationUrl(redirect.redirectUri, expected, pkce.challenge)))
@@ -162,23 +204,36 @@ class SignInViewModel @Inject constructor(
 
     fun dismissError() = show(SignInStep.ChooseMethod)
 
-    private fun forgeFor(choice: SignInForge, host: String): ForgeInstance? = when (choice) {
+    private fun forgeFor(choice: SignInForge, host: String, type: ForgeType? = null): ForgeInstance? = when (choice) {
         SignInForge.GITHUB -> ForgeInstance.GitHub
         SignInForge.GITLAB -> ForgeInstance.GitLab
         SignInForge.CODEBERG -> ForgeInstance.Codeberg
-        SignInForge.OTHER -> normalizedHost(host)?.let { ForgeInstance(ForgeType.FORGEJO, it) }
+        // Until the server says what it runs, it is taken for a Forgejo, as every other server was before GitLab.
+        SignInForge.OTHER -> normalizedHost(host)?.let { ForgeInstance(type ?: ForgeType.FORGEJO, it) }
     }
 
-    private fun auth(): ForgeAuthApi? = forgeFor(_state.value.forge, _state.value.host)?.let(clients::auth)
+    private fun auth(): ForgeAuthApi? = _state.value.let { forgeFor(it.forge, it.host, it.otherType) }?.let(clients::auth)
 
-    private fun stateFor(choice: SignInForge, host: String): SignInUiState {
-        val auth = forgeFor(choice, host)?.let(clients::auth)
+    /** Remembers what the other server runs and its application's ID, so the rest of the app takes the host for what it is. */
+    private fun rememberOtherServer() {
+        val state = _state.value
+        if (state.forge != SignInForge.OTHER) return
+        val forge = forgeFor(state.forge, state.host, state.otherType) ?: return
+        hosts.remember(forge, state.oauthClientId)
+    }
+
+    private fun stateFor(choice: SignInForge, host: String, type: ForgeType? = null, clientId: String = ""): SignInUiState {
+        val other = type.takeIf { choice == SignInForge.OTHER }
+        val auth = forgeFor(choice, host, other)?.let(clients::auth)
         return SignInUiState(
             deviceFlowAvailable = auth?.supportsDeviceFlow == true,
             personalAccessTokenUrl = auth?.personalAccessTokenUrl,
             forge = choice,
             host = host,
-            browserSignInAvailable = auth?.supportsBrowserSignIn == true,
+            otherType = other,
+            oauthClientId = if (other == ForgeType.GITLAB) clientId else "",
+            // A self-hosted GitLab signs in through the browser once its application's ID is typed.
+            browserSignInAvailable = if (other == ForgeType.GITLAB) clientId.isNotBlank() else auth?.supportsBrowserSignIn == true,
             forgeName = auth?.forge?.displayName ?: host,
         )
     }
@@ -211,6 +266,7 @@ class SignInViewModel @Inject constructor(
         when (val result = auth.fetchAuthenticatedUser(token)) {
             is ForgeResult.Failure -> fail(result.error)
             is ForgeResult.Success -> {
+                rememberOtherServer()
                 accounts.signIn(auth.forge, result.value, token, refreshToken, expiresAtMillis)
                 show(SignInStep.SignedIn)
             }
@@ -228,9 +284,9 @@ class SignInViewModel @Inject constructor(
                 ForgeError.Network -> SignInError.NETWORK
                 ForgeError.Unauthorized -> SignInError.INVALID_TOKEN
                 is ForgeError.RateLimited -> SignInError.RATE_LIMITED
-                // A server that isn't a Forgejo answers its API paths with a 404.
+                // A server that isn't a forge answers its API paths with a 404.
                 is ForgeError.Http -> if (error.status == 404 && _state.value.forge == SignInForge.OTHER) SignInError.NOT_A_FORGE else SignInError.UNKNOWN
-                // A server that isn't a Forgejo can also answer them with a web page.
+                // A server that isn't a forge can also answer them with a web page.
                 ForgeError.Unreadable -> if (_state.value.forge == SignInForge.OTHER) SignInError.NOT_A_FORGE else SignInError.UNKNOWN
                 ForgeError.Unsupported -> SignInError.UNKNOWN
             },
@@ -243,6 +299,9 @@ class SignInViewModel @Inject constructor(
 
     companion object {
         val BROWSER_TIMEOUT = 10.minutes
+
+        /** How long the address must rest before the server is asked what it runs. */
+        const val PROBE_AFTER_MILLIS = 600L
 
         /**
          * What the browser shows once the forge sent it back: the way home. The intent link brings Forgeline to the front

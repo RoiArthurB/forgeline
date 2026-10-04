@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
@@ -104,5 +105,60 @@ class SignInScreenTest {
         setContent()
 
         composeRule.onNodeWithText("private ones included", substring = true).assertIsDisplayed()
+    }
+
+    private fun setOther(state: SignInUiState) {
+        composeRule.setContent {
+            SignInScreen(
+                state = state,
+                onHostChange = { events += "host:$it" },
+                onClientIdChange = { events += "client:$it" },
+                onStartDeviceFlow = {}, onStartBrowserSignIn = { events += "browser" },
+                onContinueOnGitHub = { _, _ -> }, onSubmitToken = { events += "token:$it" }, onOpenUrl = {}, onCancel = {}, onDismissError = {}, onBack = {},
+            )
+        }
+    }
+
+    private val other = SignInUiState(
+        deviceFlowAvailable = false, personalAccessTokenUrl = null, forge = SignInForge.OTHER, host = "gitlab.example.org", forgeName = "gitlab.example.org",
+    )
+
+    @Test
+    fun another_server_is_any_forgejo_or_gitlab_until_it_says_which() {
+        setOther(other)
+
+        composeRule.onNodeWithText("Any Forgejo or GitLab server works with an access token. Forgeline finds out which it is.").assertIsDisplayed()
+        composeRule.onNodeWithText("Application ID (optional)").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_self_hosted_gitlab_is_named_and_offered_its_own_application() {
+        setOther(other.copy(otherType = fr.arthurbrugiere.forgeline.core.model.ForgeType.GITLAB))
+
+        composeRule.onNodeWithText("This is a GitLab server.").assertIsDisplayed()
+        // The token it asks for is GitLab's, not Forgejo's.
+        composeRule.onNodeWithText("Create a personal access token with the api and read_user scopes, then paste it here.").assertExists()
+        composeRule.onNodeWithText("Sign in with gitlab.example.org").assertDoesNotExist()
+
+        composeRule.onNodeWithText("Application ID (optional)").performTextInput("app-id-123")
+
+        assertThat(events).containsExactly("client:app-id-123")
+    }
+
+    @Test
+    fun with_its_application_a_self_hosted_gitlab_signs_in_through_the_browser() {
+        setOther(other.copy(otherType = fr.arthurbrugiere.forgeline.core.model.ForgeType.GITLAB, oauthClientId = "app-id-123", browserSignInAvailable = true))
+
+        composeRule.onNodeWithText("Sign in with gitlab.example.org").performScrollTo().performClick()
+
+        assertThat(events).containsExactly("browser")
+    }
+
+    @Test
+    fun a_self_hosted_forgejo_is_named_and_asked_for_nothing_more() {
+        setOther(other.copy(host = "git.example.org", forgeName = "git.example.org", otherType = fr.arthurbrugiere.forgeline.core.model.ForgeType.FORGEJO))
+
+        composeRule.onNodeWithText("This is a Forgejo server.").assertIsDisplayed()
+        composeRule.onNodeWithText("Application ID (optional)").assertDoesNotExist()
     }
 }

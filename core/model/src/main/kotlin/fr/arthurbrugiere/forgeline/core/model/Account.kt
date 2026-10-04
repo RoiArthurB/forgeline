@@ -34,13 +34,16 @@ data class ForgeInstance(val type: ForgeType, val host: String) {
         val Codeberg = ForgeInstance(ForgeType.FORGEJO, "codeberg.org")
         val GitLab = ForgeInstance(ForgeType.GITLAB, "gitlab.com")
 
-        /** The forge at [host]: GitHub for github.com, GitLab for gitlab.com, else a Forgejo instance (Codeberg or self-hosted). */
+        /**
+         * The forge at [host]: GitHub for github.com, GitLab for gitlab.com, and for any other host what
+         * [KnownForges] was told it runs, Forgejo otherwise (Codeberg, or a self-hosted server never signed in to).
+         */
         fun of(host: String): ForgeInstance {
             val lower = host.lowercase().removePrefix("www.")
             return when (lower) {
                 GitHub.host -> GitHub
                 GitLab.host -> GitLab
-                else -> ForgeInstance(ForgeType.FORGEJO, lower)
+                else -> ForgeInstance(KnownForges.typeOf(lower) ?: ForgeType.FORGEJO, lower)
             }
         }
     }
