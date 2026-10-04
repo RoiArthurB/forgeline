@@ -45,25 +45,18 @@ class GitLabIssueApi(
         ConversationAction.DELETE,
     )
 
+    /** Merge requests have no due date, and only issues are deleted from here. */
+    override val issueOnly: Set<ConversationAction> = setOf(ConversationAction.DUE_DATE, ConversationAction.DELETE)
+
     private fun projectPath(repo: RepoId): String = encodePath(repo.fullName)
 
+    /** GitLab numbers merge requests apart from issues: a reference that doesn't say which is an issue, here as everywhere. */
     private fun targetKind(ref: IssueRef): String =
         if (ref.isPullRequest == true) "merge_requests" else "issues"
 
     override suspend fun issue(token: String?, ref: IssueRef): ForgeResult<IssueDetails> = gitlabCall {
-        if (ref.isPullRequest == true) {
-            fetchMergeRequest(token, ref)
-        } else if (ref.isPullRequest == false) {
-            fetchIssue(token, ref)
-        } else {
-            // Ambiguous ref: try issue first, fall back to merge request if 404
-            val issueResult = fetchIssue(token, ref)
-            if (issueResult is ForgeResult.Failure && (issueResult.error as? ForgeError.Http)?.status == 404) {
-                fetchMergeRequest(token, ref)
-            } else {
-                issueResult
-            }
-        }
+        // No guessing: a merge request found where an issue was asked for would be read here and written to there.
+        if (ref.isPullRequest == true) fetchMergeRequest(token, ref) else fetchIssue(token, ref)
     }
 
     private suspend fun fetchIssue(token: String?, ref: IssueRef): ForgeResult<IssueDetails> = coroutineScope {
@@ -110,37 +103,62 @@ class GitLabIssueApi(
     }
 
     override suspend fun timeline(token: String?, ref: IssueRef, page: Int): ForgeResult<TimelinePage> = gitlabCall {
-        val kind = targetKind(ref)
-        val response = httpClient.gitlabApi(
-            ref.repo.forge, token, "projects", projectPath(ref.repo), kind, ref.number.toString(), "notes",
-            query = mapOf("sort" to "asc", "page" to page.toString(), "per_page" to "30"),
-        )
-        if (response.status != HttpStatusCode.OK) return@gitlabCall response.failure()
-
-        val notes = response.body<List<GitLabNoteJson>>()
-        val items = mutableListOf<TimelineItem>()
-        for (note in notes) {
-            if (!note.system) {
-                items += note.toComment()
-            } else {
-                val event = parseSystemNoteEvent(note.body)
-                if (event != null) {
-                    items += TimelineItem.Event(event, note.author?.toForgeUser(), null, gitlabInstant(note.createdAt) ?: Instant.EPOCH)
-                }
+        coroutineScope {
+            val kind = targetKind(ref)
+            // Closing, reopening and merging are kept apart from the notes: asked alongside, not after.
+            val stateEvents = async {
+                httpClient.gitlabApi(
+                    ref.repo.forge, token, "projects", projectPath(ref.repo), kind, ref.number.toString(), "resource_state_events",
+                    query = mapOf("per_page" to "100"),
+                )
             }
+            val response = httpClient.gitlabApi(
+                ref.repo.forge, token, "projects", projectPath(ref.repo), kind, ref.number.toString(), "notes",
+                query = mapOf("sort" to "asc", "page" to page.toString(), "per_page" to "$NOTES_PER_PAGE"),
+            )
+            if (response.status != HttpStatusCode.OK) {
+                stateEvents.cancel()
+                return@coroutineScope response.failure()
+            }
+            val notes = response.body<List<GitLabNoteJson>>().mapNotNull { it.toTimelineItem() }
+            val nextPage = response.nextPage()
+            // Each page takes the changes of its own stretch of time: the first from the start, the last to the end.
+            val from = if (page == 1) Instant.MIN else notes.firstOrNull()?.createdAt ?: Instant.MIN
+            val until = if (nextPage == null) Instant.MAX else notes.lastOrNull()?.createdAt ?: Instant.MIN
+            val events = stateEvents.await()
+            // The notes are the conversation: state changes that can't be had or read only leave it without them.
+            val changes = if (events.status == HttpStatusCode.OK) {
+                runCatching { events.body<List<GitLabStateEventJson>>() }.getOrDefault(emptyList())
+                    .mapNotNull { it.toTimelineItem() }.filter { it.createdAt >= from && it.createdAt <= until }
+            } else {
+                emptyList()
+            }
+            ForgeResult.Success(TimelinePage((notes + changes).sortedBy { it.createdAt ?: Instant.MIN }, nextPage, response.lastPage()))
         }
-        ForgeResult.Success(TimelinePage(items, response.nextPage()))
     }
 
-    private fun parseSystemNoteEvent(body: String): ConversationEvent? = when {
-        body.contains("closed", ignoreCase = true) -> null // State change handled elsewhere
-        body.contains("locked", ignoreCase = true) -> ConversationEvent.LOCKED
-        body.contains("unlocked", ignoreCase = true) -> ConversationEvent.UNLOCKED
-        body.contains("assigned", ignoreCase = true) -> ConversationEvent.ASSIGNED
-        body.contains("unassigned", ignoreCase = true) -> ConversationEvent.UNASSIGNED
-        body.contains("added milestone", ignoreCase = true) -> ConversationEvent.MILESTONED
-        body.contains("removed milestone", ignoreCase = true) -> ConversationEvent.DEMILESTONED
-        body.contains("due date", ignoreCase = true) -> ConversationEvent.DEADLINE_SET
+    private fun GitLabNoteJson.toTimelineItem(): TimelineItem? {
+        if (!system) return toComment()
+        val (event, subject) = systemNoteEvent(body) ?: return null
+        return TimelineItem.Event(event, author?.toForgeUser(), subject, gitlabInstant(createdAt) ?: Instant.EPOCH)
+    }
+
+    /**
+     * What a system note says happened, with whom or what it was about. GitLab writes them as sentences, in English
+     * whatever the reader's language (read on gitlab.com, 2026-10-04): "assigned to @alice", "unassigned @alice",
+     * "locked the discussion in this issue", "changed due date to March 14, 2031", "removed due date March 14, 2031",
+     * "added 1h of time spent at ...". The longer word is looked for first: "unlocked" holds "locked".
+     */
+    private fun systemNoteEvent(body: String): Pair<ConversationEvent, String?>? = when {
+        body.startsWith("unassigned ") -> ConversationEvent.UNASSIGNED to body.substringAfter('@', "").substringBefore(' ').ifEmpty { null }
+        body.startsWith("assigned to ") -> ConversationEvent.ASSIGNED to body.substringAfter('@', "").substringBefore(' ').ifEmpty { null }
+        body.startsWith("unlocked ") -> ConversationEvent.UNLOCKED to null
+        body.startsWith("locked ") -> ConversationEvent.LOCKED to null
+        body.startsWith("changed due date to ") -> ConversationEvent.DEADLINE_SET to body.removePrefix("changed due date to ")
+        body.startsWith("removed due date") -> ConversationEvent.DEADLINE_REMOVED to null
+        body.startsWith("added ") && " of time spent" in body -> ConversationEvent.TIME_ADDED to body.removePrefix("added ").substringBefore(" of time spent")
+        body.startsWith("changed milestone to ") -> ConversationEvent.MILESTONED to body.removePrefix("changed milestone to ").removePrefix("%")
+        body.startsWith("removed milestone") -> ConversationEvent.DEMILESTONED to null
         else -> null
     }
 
@@ -266,7 +284,8 @@ class GitLabIssueApi(
     }
 
     override suspend fun setDueDate(token: String, ref: IssueRef, date: LocalDate?): ForgeResult<Unit> = gitlabCall {
-        // Due date is only on issues in GitLab
+        // Only issues have one. The issue with a merge request's number is another conversation: never written to.
+        if (ref.isPullRequest == true) return@gitlabCall ForgeResult.Failure(ForgeError.Unsupported)
         val payload = buildJsonObject {
             put("due_date", date?.toString() ?: "")
         }
@@ -296,9 +315,14 @@ class GitLabIssueApi(
     }
 
     override suspend fun delete(token: String, ref: IssueRef): ForgeResult<Unit> = gitlabCall {
+        if (ref.isPullRequest == true) return@gitlabCall ForgeResult.Failure(ForgeError.Unsupported)
         httpClient.gitlabApi(
             ref.repo.forge, token, "projects", projectPath(ref.repo), "issues", ref.number.toString(),
             method = HttpMethod.Delete,
         ).toResult { }
+    }
+
+    private companion object {
+        const val NOTES_PER_PAGE = 30
     }
 }

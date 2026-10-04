@@ -21,6 +21,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.RunConclusion
 import fr.arthurbrugiere.forgeline.core.model.RunJob
 import fr.arthurbrugiere.forgeline.core.model.RunStatus
+import fr.arthurbrugiere.forgeline.core.model.StateChange
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
@@ -284,6 +285,24 @@ internal data class GitLabNoteJson(
         createdAt = gitlabInstant(createdAt) ?: Instant.EPOCH,
         reactions = reactions,
     )
+}
+
+/** A conversation closed, reopened or merged: `resource_state_events`, kept apart from its notes. */
+@Serializable
+internal data class GitLabStateEventJson(
+    val user: GitLabUserJson? = null,
+    val state: String,
+    @SerialName("created_at") val createdAt: String,
+) {
+    fun toTimelineItem(): TimelineItem.StateChanged? {
+        val change = when (state) {
+            "closed" -> StateChange.CLOSED
+            "reopened" -> StateChange.REOPENED
+            "merged" -> StateChange.MERGED
+            else -> return null
+        }
+        return TimelineItem.StateChanged(change, user?.toForgeUser(), null, gitlabInstant(createdAt) ?: return null)
+    }
 }
 
 @Serializable
@@ -557,13 +576,22 @@ internal data class GitLabEventJson(
     @SerialName("project_id") val projectId: Long? = null,
     @SerialName("action_name") val actionName: String,
     @SerialName("target_id") val targetId: Long? = null,
-    @SerialName("target_iid") val targetIid: Int? = null,
+    // A comment's is the note's own id, far past an Int; its conversation's number is in [note].
+    @SerialName("target_iid") val targetIid: Long? = null,
     @SerialName("target_type") val targetType: String? = null,
+    val note: GitLabEventNoteJson? = null,
     @SerialName("target_title") val targetTitle: String? = null,
     @SerialName("created_at") val createdAt: String,
     @SerialName("author_username") val authorUsername: String? = null,
     val author: GitLabUserJson? = null,
     @SerialName("push_data") val pushData: GitLabPushDataJson? = null,
+)
+
+/** The note of a "commented on" event: what it is on, and its number there. */
+@Serializable
+internal data class GitLabEventNoteJson(
+    @SerialName("noteable_type") val noteableType: String? = null,
+    @SerialName("noteable_iid") val noteableIid: Int? = null,
 )
 
 @Serializable

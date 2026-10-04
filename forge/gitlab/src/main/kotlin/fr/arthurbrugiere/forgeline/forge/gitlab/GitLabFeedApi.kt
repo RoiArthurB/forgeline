@@ -32,7 +32,8 @@ class GitLabFeedApi(
 
     override suspend fun receivedEvents(token: String?, login: String, page: Int, ifModifiedSince: String?): ForgeResult<FeedPage> = gitlabCall {
         val response = if (token != null) {
-            httpClient.gitlabApi(forge, token, "events", query = mapOf("per_page" to "$PAGE_SIZE", "page" to page.toString()))
+            // Everything in the reader's projects, not only what they did themselves (which is all `/events` gives alone).
+            httpClient.gitlabApi(forge, token, "events", query = mapOf("scope" to "all", "per_page" to "$PAGE_SIZE", "page" to page.toString()))
         } else {
             httpClient.gitlabApi(forge, null, "users", login, "events", query = mapOf("per_page" to "$PAGE_SIZE", "page" to page.toString()))
         }
@@ -70,38 +71,29 @@ class GitLabFeedApi(
         val pid = projectId ?: return null
         val repo = projectCache[pid] ?: return null
         val actUser = author?.toForgeUser() ?: ForgeUser(login = authorUsername ?: "user", name = null, avatarUrl = null)
-        val action = when {
-            actionName == "pushed to" || actionName == "pushed new" -> {
-                val branch = pushData?.ref ?: ""
-                FeedAction.Pushed(branch)
+        // An issue or merge request's own number fits an Int; anything larger is the id of something else.
+        val number = targetIid?.takeIf { it in 1..Int.MAX_VALUE }?.toInt()
+        val title = targetTitle.orEmpty()
+        val action = when (actionName) {
+            "pushed to", "pushed new" -> FeedAction.Pushed(pushData?.ref ?: "")
+            // GitLab says "opened" for a new one and for one reopened alike (read on gitlab.com, 2026-10-04).
+            "opened", "created", "reopened" -> when (targetType) {
+                "Issue", "WorkItem" -> number?.let { FeedAction.Issue(if (actionName == "reopened") IssueAction.REOPENED else IssueAction.OPENED, it, title) }
+                "MergeRequest" -> number?.let { FeedAction.PullRequest(if (actionName == "reopened") PullRequestAction.REOPENED else PullRequestAction.OPENED, it, targetTitle) }
+                else -> null
             }
-            actionName == "created" && targetType == "Issue" -> {
-                FeedAction.Issue(IssueAction.OPENED, targetIid ?: 0, targetTitle.orEmpty())
+            "closed" -> when (targetType) {
+                "Issue", "WorkItem" -> number?.let { FeedAction.Issue(IssueAction.CLOSED, it, title) }
+                "MergeRequest" -> number?.let { FeedAction.PullRequest(PullRequestAction.CLOSED, it, targetTitle) }
+                else -> null
             }
-            actionName == "closed" && targetType == "Issue" -> {
-                FeedAction.Issue(IssueAction.CLOSED, targetIid ?: 0, targetTitle.orEmpty())
-            }
-            actionName == "reopened" && targetType == "Issue" -> {
-                FeedAction.Issue(IssueAction.REOPENED, targetIid ?: 0, targetTitle.orEmpty())
-            }
-            actionName == "created" && targetType == "MergeRequest" -> {
-                FeedAction.PullRequest(PullRequestAction.OPENED, targetIid ?: 0, targetTitle)
-            }
-            actionName == "closed" && targetType == "MergeRequest" -> {
-                FeedAction.PullRequest(PullRequestAction.CLOSED, targetIid ?: 0, targetTitle)
-            }
-            actionName == "accepted" && targetType == "MergeRequest" -> {
-                FeedAction.PullRequest(PullRequestAction.MERGED, targetIid ?: 0, targetTitle)
-            }
-            actionName == "reopened" && targetType == "MergeRequest" -> {
-                FeedAction.PullRequest(PullRequestAction.REOPENED, targetIid ?: 0, targetTitle)
-            }
-            actionName == "commented on" -> {
-                val isPr = targetType == "MergeRequest" || targetType == "DiffNote"
-                FeedAction.Commented(targetIid ?: 0, targetTitle, isPullRequest = isPr)
-            }
-            actionName == "approved" && targetType == "MergeRequest" -> {
-                FeedAction.Reviewed(targetIid ?: 0, ReviewState.APPROVED)
+            "accepted" -> number?.takeIf { targetType == "MergeRequest" }?.let { FeedAction.PullRequest(PullRequestAction.MERGED, it, targetTitle) }
+            "approved" -> number?.takeIf { targetType == "MergeRequest" }?.let { FeedAction.Reviewed(it, ReviewState.APPROVED) }
+            // What was commented on is the note's to say: the event's own target is the note.
+            "commented on" -> when (note?.noteableType) {
+                "Issue", "WorkItem" -> note.noteableIid?.let { FeedAction.Commented(it, targetTitle, isPullRequest = false) }
+                "MergeRequest" -> note.noteableIid?.let { FeedAction.Commented(it, targetTitle, isPullRequest = true) }
+                else -> null
             }
             else -> null
         } ?: return null

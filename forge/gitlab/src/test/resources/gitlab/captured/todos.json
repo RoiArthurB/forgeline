@@ -1,0 +1,240 @@
+[
+ {
+  "id": 777015091,
+  "project": {
+   "id": 87209551,
+   "description": "Scratch project for Forgeline API tests. Safe to delete.",
+   "name": "forgeline-scratch",
+   "name_with_namespace": "Arthur Brugiere / forgeline-scratch",
+   "path": "forgeline-scratch",
+   "path_with_namespace": "RoiArthurB/forgeline-scratch",
+   "created_at": "2026-10-04T06:03:37.413Z"
+  },
+  "author": {
+   "id": 2371813,
+   "username": "RoiArthurB",
+   "name": "Arthur Brugiere",
+   "state": "active",
+   "locked": false,
+   "avatar_url": "https://gitlab.com/uploads/-/system/user/avatar/2371813/avatar.png?v=1791093573",
+   "web_url": "https://gitlab.com/RoiArthurB"
+  },
+  "action_name": "marked",
+  "target_type": "MergeRequest",
+  "target": {
+   "id": 542650417,
+   "iid": 1,
+   "project_id": 87209551,
+   "title": "Keep install flags on retry",
+   "description": "Closes #1",
+   "state": "opened",
+   "created_at": "2026-10-04T06:04:19.795Z",
+   "updated_at": "2026-10-04T06:04:21.916Z",
+   "merged_by": null,
+   "merge_user": null,
+   "merged_at": null,
+   "closed_by": null,
+   "closed_at": null,
+   "target_branch": "main",
+   "source_branch": "keep-flags",
+   "user_notes_count": 1,
+   "upvotes": 0,
+   "downvotes": 0,
+   "author": {
+    "id": 2371813,
+    "username": "RoiArthurB",
+    "name": "Arthur Brugiere",
+    "state": "active",
+    "locked": false,
+    "avatar_url": "https://gitlab.com/uploads/-/system/user/avatar/2371813/avatar.png?v=1791093573",
+    "web_url": "https://gitlab.com/RoiArthurB",
+    "bot": false
+   },
+   "assignees": [],
+   "assignee": null,
+   "reviewers": [],
+   "source_project_id": 87209551,
+   "target_project_id": 87209551,
+   "labels": [],
+   "draft": false,
+   "imported": false,
+   "imported_from": "none",
+   "work_in_progress": false,
+   "milestone": null,
+   "merge_when_pipeline_succeeds": false,
+   "merge_status": "can_be_merged",
+   "detailed_merge_status": "mergeable",
+   "merge_after": null,
+   "sha": "21ace5991b15405df8c93076345de80774625f5c",
+   "merge_commit_sha": null,
+   "squash_commit_sha": null,
+   "discussion_locked": null,
+   "should_remove_source_branch": null,
+   "force_remove_source_branch": true,
+   "prepared_at": "2026-10-04T06:04:21.055Z",
+   "reference": "!1",
+   "references": {
+    "short": "!1",
+    "relative": "!1",
+    "full": "RoiArthurB/forgeline-scratch!1"
+   },
+   "web_url": "https://gitlab.com/RoiArthurB/forgeline-scratch/-/merge_requests/1",
+   "time_stats": {
+    "time_estimate": 0,
+    "total_time_spent": 0,
+    "human_time_estimate": null,
+    "human_total_time_spent": null
+   },
+   "squash": false,
+   "squash_on_merge": false,
+   "task_completion_status": {
+    "count": 0,
+    "completed_count": 0
+   },
+   "has_conflicts": false,
+   "blocking_discussions_resolved": true,
+   "approvals_before_merge": null,
+   "changes_count": "1",
+   "diff_refs": {
+    "base_sha": "f7b6e06e35267907ab9a93af072b9880ca10982e",
+    "head_sha": "21ace5991b15405df8c93076345de80774625f5c",
+    "start_sha": "f7b6e06e35267907ab9a93af072b9880ca10982e"
+   },
+   "merge_error": null,
+   "user": {
+    "can_merge": false
+   }
+  },
+  "target_url": "https://gitlab.com/RoiArthurB/forgeline-scratch/-/merge_requests/1",
+  "body": "Keep install flags on retry",
+  "state": "pending",
+  "created_at": "2026-10-04T06:05:09.800Z",
+  "updated_at": "2026-10-04T06:05:09.800Z"
+ },
+ {
+  "id": 777014993,
+  "project": {
+   "id": 87209551,
+   "description": "Scratch project for Forgeline API tests. Safe to delete.",
+   "name": "forgeline-scratch",
+   "name_with_namespace": "Arthur Brugiere / forgeline-scratch",
+   "path": "forgeline-scratch",
+   "path_with_namespace": "RoiArthurB/forgeline-scratch",
+   "created_at": "2026-10-04T06:03:37.413Z"
+  },
+  "author": {
+   "id": 2371813,
+   "username": "RoiArthurB",
+   "name": "Arthur Brugiere",
+   "state": "active",
+   "locked": false,
+   "avatar_url": "https://gitlab.com/uploads/-/system/user/avatar/2371813/avatar.png?v=1791093573",
+   "web_url": "https://gitlab.com/RoiArthurB"
+  },
+  "action_name": "marked",
+  "target_type": "Issue",
+  "target": {
+   "id": 205362951,
+   "iid": 1,
+   "project_id": 87209551,
+   "title": "Heartbeat recovery escalates too early",
+   "description": "It pages after **one** missed beat.\n\n- [ ] reproduce\n- [ ] fix",
+   "state": "opened",
+   "created_at": "2026-10-04T06:03:40.240Z",
+   "updated_at": "2026-10-04T06:04:15.903Z",
+   "closed_at": null,
+   "closed_by": null,
+   "labels": [
+    "bug"
+   ],
+   "milestone": {
+    "id": 7640335,
+    "iid": 1,
+    "project_id": 87209551,
+    "title": "v1.0",
+    "description": null,
+    "state": "active",
+    "created_at": "2026-10-04T06:03:41.566Z",
+    "updated_at": "2026-10-04T06:03:41.566Z",
+    "due_date": null,
+    "start_date": null,
+    "expired": false,
+    "web_url": "https://gitlab.com/RoiArthurB/forgeline-scratch/-/milestones/1"
+   },
+   "assignees": [
+    {
+     "id": 2371813,
+     "username": "RoiArthurB",
+     "name": "Arthur Brugiere",
+     "state": "active",
+     "locked": false,
+     "avatar_url": "https://gitlab.com/uploads/-/system/user/avatar/2371813/avatar.png?v=1791093573",
+     "web_url": "https://gitlab.com/RoiArthurB"
+    }
+   ],
+   "author": {
+    "id": 2371813,
+    "username": "RoiArthurB",
+    "name": "Arthur Brugiere",
+    "state": "active",
+    "locked": false,
+    "avatar_url": "https://gitlab.com/uploads/-/system/user/avatar/2371813/avatar.png?v=1791093573",
+    "web_url": "https://gitlab.com/RoiArthurB"
+   },
+   "type": "ISSUE",
+   "assignee": {
+    "id": 2371813,
+    "username": "RoiArthurB",
+    "name": "Arthur Brugiere",
+    "state": "active",
+    "locked": false,
+    "avatar_url": "https://gitlab.com/uploads/-/system/user/avatar/2371813/avatar.png?v=1791093573",
+    "web_url": "https://gitlab.com/RoiArthurB"
+   },
+   "user_notes_count": 1,
+   "merge_requests_count": 1,
+   "upvotes": 1,
+   "downvotes": 0,
+   "start_date": null,
+   "due_date": "2031-03-14",
+   "confidential": false,
+   "discussion_locked": false,
+   "issue_type": "issue",
+   "web_url": "https://gitlab.com/RoiArthurB/forgeline-scratch/-/work_items/1",
+   "time_stats": {
+    "time_estimate": 0,
+    "total_time_spent": 3600,
+    "human_time_estimate": null,
+    "human_total_time_spent": "1h"
+   },
+   "task_completion_status": {
+    "count": 2,
+    "completed_count": 0
+   },
+   "blocking_issues_count": 0,
+   "has_tasks": false,
+   "_links": {
+    "self": "https://gitlab.com/api/v4/projects/87209551/issues/1",
+    "notes": "https://gitlab.com/api/v4/projects/87209551/issues/1/notes",
+    "award_emoji": "https://gitlab.com/api/v4/projects/87209551/issues/1/award_emoji",
+    "project": "https://gitlab.com/api/v4/projects/87209551",
+    "closed_as_duplicate_of": null
+   },
+   "references": {
+    "short": "#1",
+    "relative": "#1",
+    "full": "RoiArthurB/forgeline-scratch#1"
+   },
+   "severity": "UNKNOWN",
+   "moved_to_id": null,
+   "imported": false,
+   "imported_from": "none",
+   "service_desk_reply_to": null
+  },
+  "target_url": "https://gitlab.com/RoiArthurB/forgeline-scratch/-/work_items/1",
+  "body": "Heartbeat recovery escalates too early",
+  "state": "pending",
+  "created_at": "2026-10-04T06:04:16.628Z",
+  "updated_at": "2026-10-04T06:04:16.628Z"
+ }
+]

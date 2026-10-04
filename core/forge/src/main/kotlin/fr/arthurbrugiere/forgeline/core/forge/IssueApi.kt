@@ -48,6 +48,9 @@ interface IssueApi {
     /** What this forge's API can do to a conversation; the calls below answer Unsupported for the rest. */
     val actions: Set<ConversationAction> get() = emptySet()
 
+    /** Those of [actions] this forge only has for issues: a pull request isn't offered them. */
+    val issueOnly: Set<ConversationAction> get() = emptySet()
+
     /** The labels [repo]'s conversations can wear. */
     suspend fun labels(token: String, repo: RepoId): ForgeResult<List<Label>> = unsupported
 

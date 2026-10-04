@@ -122,5 +122,8 @@ internal fun HttpResponse.nextPage(): Int? =
     headers["X-Next-Page"]?.takeIf { it.isNotBlank() }?.toIntOrNull()
         ?: headers[HttpHeaders.Link]?.let { nextPageRegex.find(it)?.groupValues?.get(1)?.toIntOrNull() }
 
+/** The last page there is, which GitLab says with every paged answer (`X-Total-Pages`). */
+internal fun HttpResponse.lastPage(): Int? = headers["X-Total-Pages"]?.toIntOrNull()
+
 internal fun HttpResponse.totalCount(): Int? =
     headers["X-Total"]?.toIntOrNull() ?: headers["X-Total-Count"]?.toIntOrNull()

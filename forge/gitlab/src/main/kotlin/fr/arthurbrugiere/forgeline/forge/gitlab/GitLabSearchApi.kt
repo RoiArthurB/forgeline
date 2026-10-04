@@ -54,7 +54,7 @@ class GitLabSearchApi(
 
             val issueResults = if (issuesRes.status.isSuccess()) {
                 issuesRes.body<List<GitLabIssueJson>>().mapNotNull { issue ->
-                    val repoId = parseRepoFromIssueUrl(issue.webUrl)
+                    val repoId = parseRepoFromIssueUrl(issue.webUrl) ?: return@mapNotNull null
                     IssueSearchResult(repoId, issue.toSummary(repoId))
                 }
             } else {
@@ -63,7 +63,7 @@ class GitLabSearchApi(
 
             val mrResults = if (mrsRes.status.isSuccess()) {
                 mrsRes.body<List<GitLabMergeRequestJson>>().mapNotNull { mr ->
-                    val repoId = parseRepoFromIssueUrl(mr.webUrl)
+                    val repoId = parseRepoFromIssueUrl(mr.webUrl) ?: return@mapNotNull null
                     IssueSearchResult(repoId, mr.toSummary(repoId))
                 }
             } else {
@@ -88,14 +88,11 @@ class GitLabSearchApi(
         }
     }
 
-    private fun parseRepoFromIssueUrl(webUrl: String?): RepoId {
-        if (webUrl != null && webUrl.contains("/-/")) {
-            val path = webUrl.substringBefore("/-/").substringAfter("://").substringAfter('/')
-            val owner = if (path.contains('/')) path.substringBeforeLast('/') else path
-            val name = if (path.contains('/')) path.substringAfterLast('/') else path
-            return RepoId(owner, name, forge)
-        }
-        return RepoId("gitlab", "project", forge)
+    /** The project a result is in, from its page's address; null when that can't be read, and the result is left out. */
+    private fun parseRepoFromIssueUrl(webUrl: String?): RepoId? {
+        val path = webUrl?.takeIf { "/-/" in it }?.substringBefore("/-/")?.substringAfter("://")?.substringAfter('/', "") ?: return null
+        if ('/' !in path) return null
+        return RepoId(path.substringBeforeLast('/'), path.substringAfterLast('/'), forge)
     }
 
     private companion object {

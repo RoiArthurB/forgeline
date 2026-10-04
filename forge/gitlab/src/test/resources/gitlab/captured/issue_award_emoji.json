@@ -1,0 +1,20 @@
+[
+ {
+  "id": 58314944,
+  "name": "thumbsup",
+  "user": {
+   "id": 2371813,
+   "username": "RoiArthurB",
+   "name": "Arthur Brugiere",
+   "state": "active",
+   "locked": false,
+   "avatar_url": "https://gitlab.com/uploads/-/system/user/avatar/2371813/avatar.png?v=1791093573",
+   "web_url": "https://gitlab.com/RoiArthurB"
+  },
+  "created_at": "2026-10-04T06:04:14.562Z",
+  "updated_at": "2026-10-04T06:04:14.562Z",
+  "awardable_id": 205362951,
+  "awardable_type": "Issue",
+  "url": null
+ }
+]

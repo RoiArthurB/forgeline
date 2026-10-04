@@ -105,22 +105,19 @@ class GitLabStarApi(
 
     override suspend fun starredStatus(token: String, repos: List<RepoId>): ForgeResult<Map<RepoId, Boolean>> = gitlabCall {
         if (repos.isEmpty()) return@gitlabCall ForgeResult.Success(emptyMap())
-
-        val gate = Semaphore(CONCURRENCY)
-        val answers = coroutineScope {
-            repos.distinct().map { repo ->
-                async {
-                    gate.withPermit {
-                        val response = httpClient.gitlabApi(forge, token, "projects", query = mapOf("starred" to "true", "search" to repo.name))
-                        if (!response.status.isSuccess()) return@withPermit null
-                        val projects = response.body<List<GitLabProjectJson>>()
-                        val isStarred = projects.any { it.pathWithNamespace.equals(repo.fullName, ignoreCase = true) }
-                        repo to isStarred
-                    }
-                }
-            }.awaitAll().filterNotNull().toMap()
+        // One list of what the reader starred answers for every repository asked about, however many.
+        val starred = mutableSetOf<String>()
+        var page: Int? = 1
+        while (page != null && page <= MAX_PAGES) {
+            val response = httpClient.gitlabApi(
+                forge, token, "projects",
+                query = mapOf("starred" to "true", "simple" to "true", "per_page" to "100", "page" to page.toString()),
+            )
+            if (!response.status.isSuccess()) return@gitlabCall response.failure()
+            response.body<List<GitLabProjectJson>>().mapTo(starred) { it.pathWithNamespace.lowercase() }
+            page = response.nextPage()
         }
-        ForgeResult.Success(answers)
+        ForgeResult.Success(repos.distinct().associateWith { it.fullName.lowercase() in starred })
     }
 
     override suspend fun setStarred(token: String, repo: RepoId, starred: Boolean): ForgeResult<Unit> = gitlabCall {
@@ -134,6 +131,7 @@ class GitLabStarApi(
     }
 
     private companion object {
-        const val CONCURRENCY = 4
+        /** A thousand stars read at most: past that, a repository further down reads as not starred. */
+        const val MAX_PAGES = 10
     }
 }

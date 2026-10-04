@@ -21,6 +21,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 
 class GitLabNotificationsApi(
     private val httpClient: HttpClient,
@@ -28,6 +29,9 @@ class GitLabNotificationsApi(
 ) : NotificationsApi {
 
     override val supportsDone: Boolean = true
+
+    /** Where each todo last listed points: unsubscribing is from its conversation, which a todo's id doesn't say. */
+    private val targets = ConcurrentHashMap<String, IssueRef>()
 
     override suspend fun threads(token: String, ifModifiedSince: String?, maxPages: Int): ForgeResult<NotificationsSync> = gitlabCall {
         val first = page(token, 1)
@@ -45,6 +49,7 @@ class GitLabNotificationsApi(
         rest.firstOrNull { !it.status.isSuccess() }?.let { return@gitlabCall it.failure() }
         val todos = firstBatch + rest.flatMap { it.body<List<GitLabTodoJson>>() }
         val threads = todos.mapNotNull { it.toModel() }
+        threads.forEach { thread -> thread.subject?.let { targets[thread.id] = it } }
         ForgeResult.Success(NotificationsSync(threads, null, POLL_INTERVAL_SECONDS))
     }
 
@@ -53,14 +58,35 @@ class GitLabNotificationsApi(
         query = mapOf("state" to "pending", "per_page" to "$PAGE_SIZE", "page" to number.toString()),
     )
 
-    override suspend fun markRead(token: String, threadId: String): ForgeResult<Unit> = markDone(token, threadId)
+    /**
+     * A todo is pending or done, nothing in between: there is no "read" to tell GitLab about. Reading one leaves it
+     * where it is, so opening a thread never takes it off the reader's list: only done does.
+     */
+    override suspend fun markRead(token: String, threadId: String): ForgeResult<Unit> = ForgeResult.Success(Unit)
 
     override suspend fun markDone(token: String, threadId: String): ForgeResult<Unit> = gitlabCall {
         httpClient.gitlabApi(forge, token, "todos", threadId, "mark_as_done", method = HttpMethod.Post)
             .toResult { }
     }
 
-    override suspend fun unsubscribe(token: String, threadId: String): ForgeResult<Unit> = markDone(token, threadId)
+    /** Leaves the conversation the todo is about, then clears the todo. */
+    override suspend fun unsubscribe(token: String, threadId: String): ForgeResult<Unit> = gitlabCall {
+        // Not listed since the app started: looked up among the pending ones.
+        val target = targets[threadId] ?: run {
+            val listed = page(token, 1)
+            if (!listed.status.isSuccess()) return@gitlabCall listed.failure()
+            listed.body<List<GitLabTodoJson>>().firstOrNull { it.id.toString() == threadId }?.toModel()?.subject
+        }
+        if (target != null) {
+            val kind = if (target.isPullRequest == true) "merge_requests" else "issues"
+            val left = httpClient.gitlabApi(
+                forge, token, "projects", encodePath(target.repo.fullName), kind, target.number.toString(), "unsubscribe", method = HttpMethod.Post,
+            )
+            // 304: not subscribed to begin with, which is where this was going.
+            if (!left.status.isSuccess() && left.status != HttpStatusCode.NotModified) return@gitlabCall left.failure()
+        }
+        markDone(token, threadId)
+    }
 
     override suspend fun subjectStates(token: String, subjects: List<IssueRef>): ForgeResult<Map<IssueRef, SubjectState>> = gitlabCall {
         if (subjects.isEmpty()) return@gitlabCall ForgeResult.Success(emptyMap())
@@ -74,10 +100,11 @@ class GitLabNotificationsApi(
                         if (response.status != HttpStatusCode.OK) return@withPermit null
                         val state = if (ref.isPullRequest == true) {
                             val mr = response.body<GitLabMergeRequestJson>()
+                            // Where it ended first: one merged with "Draft:" still in its title is merged.
                             when {
-                                mr.isDraft -> SubjectState.DRAFT
                                 mr.state == "merged" -> SubjectState.MERGED
                                 mr.state == "closed" -> SubjectState.CLOSED
+                                mr.isDraft -> SubjectState.DRAFT
                                 mr.state == "opened" -> SubjectState.OPEN
                                 else -> null
                             }
@@ -123,9 +150,9 @@ class GitLabNotificationsApi(
 
         val subjectState = when (type) {
             SubjectType.PULL_REQUEST -> when {
-                target?.draft == true -> SubjectState.DRAFT
                 target?.state == "merged" -> SubjectState.MERGED
                 target?.state == "closed" -> SubjectState.CLOSED
+                target?.draft == true -> SubjectState.DRAFT
                 target?.state == "opened" -> SubjectState.OPEN
                 else -> null
             }

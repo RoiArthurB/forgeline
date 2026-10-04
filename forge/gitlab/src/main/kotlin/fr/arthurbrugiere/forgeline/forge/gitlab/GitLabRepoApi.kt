@@ -120,19 +120,19 @@ class GitLabRepoApi(
     }
 
     override suspend fun pullRequests(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = gitlabCall {
-        val params = mutableMapOf(
-            "state" to if (query.open) "opened" else "all",
-            "order_by" to "created_at",
-            "sort" to "desc",
-            "per_page" to "50",
-        )
-        if (query.text.isNotBlank()) params["search"] = query.text
-
-        httpClient.gitlabApi(id.forge, token, "projects", projectPath(id), "merge_requests", query = params)
-            .toResult {
-                val list = body<List<GitLabMergeRequestJson>>().map { it.toSummary(id) }
-                if (query.open) list else list.filter { it.state != IssueState.OPEN }
-            }
+        // GitLab lists one state at a time: those no longer open are the merged and the closed, asked together.
+        val states = if (query.open) listOf("opened") else listOf("merged", "closed")
+        val answers = coroutineScope {
+            states.map { state ->
+                async {
+                    val params = mutableMapOf("state" to state, "order_by" to "created_at", "sort" to "desc", "per_page" to "50")
+                    if (query.text.isNotBlank()) params["search"] = query.text
+                    httpClient.gitlabApi(id.forge, token, "projects", projectPath(id), "merge_requests", query = params)
+                }
+            }.map { it.await() }
+        }
+        answers.firstOrNull { it.status != HttpStatusCode.OK }?.let { return@gitlabCall it.failure() }
+        ForgeResult.Success(answers.flatMap { it.body<List<GitLabMergeRequestJson>>() }.map { it.toSummary(id) }.sortedByDescending { it.createdAt })
     }
 
     override suspend fun pinnedIssues(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> =
