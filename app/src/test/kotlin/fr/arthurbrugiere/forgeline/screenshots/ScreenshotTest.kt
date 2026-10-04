@@ -222,7 +222,7 @@ class ScreenshotTest {
         SignInScreen(
             state = SignInUiState(
                 deviceFlowAvailable = false, personalAccessTokenUrl = "https://gitlab.example.org/-/user_settings/personal_access_tokens",
-                forge = fr.arthurbrugiere.forgeline.signin.SignInForge.OTHER, host = "gitlab.example.org", forgeName = "gitlab.example.org",
+                forge = fr.arthurbrugiere.forgeline.signin.SignInForge.GITLAB, gitlabOwnServer = true, host = "gitlab.example.org", forgeName = "gitlab.example.org",
                 otherType = fr.arthurbrugiere.forgeline.core.model.ForgeType.GITLAB, oauthClientId = "a1b2c3d4e5f6", browserSignInAvailable = true,
             ),
             onStartDeviceFlow = {}, onContinueOnGitHub = { _, _ -> }, onSubmitToken = {}, onOpenUrl = {},

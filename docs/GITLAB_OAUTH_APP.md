@@ -4,7 +4,7 @@ Forgeline signs in to GitLab the way it does to Codeberg ([CODEBERG_OAUTH_APP.md
 
 A GitLab server only does this for an application registered on it. So there are two cases:
 
-- **gitlab.com:** one application, Forgeline's own, registered once by the project's owner. Its ID is in `gradle.properties` (`forgeline.gitlabClientId`). Until it is set, gitlab.com offers access tokens only.
+- **gitlab.com:** one application, Forgeline's own, registered by the project's owner on 2026-10-04. Its ID is in `gradle.properties` (`forgeline.gitlabClientId`); without it, gitlab.com offers access tokens only. GitLab accepts it as a public client: the token endpoint answers `invalid_grant`, not `invalid_client`, to a request without a secret (checked 2026-10-04). "Device authorization grant" is also enabled on it; the app doesn't use it, the browser flow needs no code to type.
 - **A self-hosted GitLab:** the application lives on that server, so whoever signs in creates it there (any user can, no administrator needed) and pastes its ID in the sign-in screen's "Application ID" field. Without one, an access token works.
 
 ## Registering the application
@@ -23,7 +23,7 @@ For gitlab.com, put the ID in `gradle.properties` and commit:
 forgeline.gitlabClientId=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-For a self-hosted server, paste it in the app: **Sign in → Other →** the server's address **→ Application ID**. The app keeps it with the server (it is needed again each time the sign-in is renewed).
+For a self-hosted server, paste it in the app: **Sign in → GitLab → Your own server →** the server's address **→ Application ID**. The app keeps it with the server (it is needed again each time the sign-in is renewed).
 
 ## Why the port isn't in the redirect URI
 
@@ -35,4 +35,4 @@ GitLab's access tokens last two hours and come with a refresh token; the app ren
 
 ## How another server is recognised
 
-"Other" takes an address and nothing else. The app asks it two things at once (`HttpForgeProbe`): `/api/v1/version`, which Forgejo and Gitea answer to anyone, and `/api/v4/version`, which GitLab refuses with a 401 in its API's own JSON. What the server runs is remembered with its host (`StoredForgeHosts`, a small preferences file read at launch), because most of the app carries only the host and would otherwise take it for a Forgejo.
+A server of one's own (under GitLab → "Your own server", or under Forgejo) is given by its address and nothing else. Whichever of the two it was typed under, the server says what it is. The app asks it two things at once (`HttpForgeProbe`): `/api/v1/version`, which Forgejo and Gitea answer to anyone, and `/api/v4/version`, which GitLab refuses with a 401 in its API's own JSON. What the server runs is remembered with its host (`StoredForgeHosts`, a small preferences file read at launch), because most of the app carries only the host and would otherwise take it for a Forgejo.

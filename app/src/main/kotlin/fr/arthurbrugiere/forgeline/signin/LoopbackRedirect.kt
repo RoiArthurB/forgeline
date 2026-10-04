@@ -47,6 +47,9 @@ class LoopbackRedirect(private val path: String) : BrowserRedirect {
 
     override val redirectUri: String = "http://127.0.0.1:${server.localPort}$path"
 
+    /** Whether the port is still held: false once the redirect came, or the wait was taken back. */
+    internal val isListening: Boolean get() = !server.isClosed
+
     override suspend fun await(page: String): Map<String, String> = suspendCancellableCoroutine { continuation ->
         // accept() blocks and ignores interrupts: cancelling closes the socket, which unblocks it.
         continuation.invokeOnCancellation { close() }

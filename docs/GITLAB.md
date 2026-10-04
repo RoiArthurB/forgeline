@@ -1,6 +1,6 @@
 # GitLab
 
-Forgeline supports `gitlab.com` and self-hosted GitLab servers ("Other" in sign-in finds out what a server runs; see [GITLAB_OAUTH_APP.md](GITLAB_OAUTH_APP.md)). Links to a self-hosted server open in the browser, as for a self-hosted Forgejo. Users can sign in, browse projects, triage issues and merge requests, review CI/CD pipelines and job logs, receive inbox notifications via GitLab Todos, view user/group activity feeds, and follow GitLab deep links.
+Forgeline supports `gitlab.com` and self-hosted GitLab servers (under GitLab, "Your own server" takes its address; see [GITLAB_OAUTH_APP.md](GITLAB_OAUTH_APP.md)). Links to a self-hosted server open in the browser, as for a self-hosted Forgejo. Users can sign in, browse projects, triage issues and merge requests, review CI/CD pipelines and job logs, receive inbox notifications via GitLab Todos, view user/group activity feeds, and follow GitLab deep links.
 
 ---
 

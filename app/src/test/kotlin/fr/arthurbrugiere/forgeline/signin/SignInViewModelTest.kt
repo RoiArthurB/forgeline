@@ -535,4 +535,96 @@ class SignInViewModelTest {
         assertThat(viewModel.state.value.oauthClientId).isEmpty()
         assertThat(viewModel.state.value.browserSignInAvailable).isFalse()
     }
+
+    // A GitLab of one's own, chosen under GitLab
+
+    private fun gitlabOwnViewModel(): SignInViewModel {
+        kinds["gitlab.example.org"] = ForgeType.GITLAB
+        clients.put(ForgeInstance.GitLab, FakeForgeClients(auth = gitlabAuth))
+        clients.put(ownGitLab, FakeForgeClients(auth = ownGitLabAuth))
+        return viewModel().also {
+            it.selectForge(SignInForge.GITLAB)
+            it.selectGitLabServer(own = true)
+        }
+    }
+
+    @Test
+    fun gitlab_is_gitlab_com_until_a_server_of_ones_own_is_chosen() = test {
+        clients.put(ForgeInstance.GitLab, FakeForgeClients(auth = gitlabAuth))
+        val viewModel = viewModel().also { it.selectForge(SignInForge.GITLAB) }
+
+        assertThat(viewModel.state.value.gitlabOwnServer).isFalse()
+        assertThat(viewModel.state.value.usesHost).isFalse()
+        assertThat(viewModel.state.value.forgeName).isEqualTo("GitLab")
+
+        viewModel.selectGitLabServer(own = true)
+
+        val state = viewModel.state.value
+        assertThat(state.forge).isEqualTo(SignInForge.GITLAB)
+        assertThat(state.usesHost).isTrue()
+        // No address yet: nothing to name, and nothing to sign in to through the browser.
+        assertThat(state.forgeName).isEmpty()
+        assertThat(state.browserSignInAvailable).isFalse()
+
+        viewModel.selectGitLabServer(own = false)
+
+        assertThat(viewModel.state.value.usesHost).isFalse()
+        assertThat(viewModel.state.value.browserSignInAvailable).isTrue()
+    }
+
+    @Test
+    fun a_gitlab_of_ones_own_signs_in_with_a_token_and_is_remembered() = test {
+        val viewModel = gitlabOwnViewModel()
+        viewModel.setHost("gitlab.example.org")
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.otherType).isEqualTo(ForgeType.GITLAB)
+        assertThat(viewModel.state.value.forge).isEqualTo(SignInForge.GITLAB)
+
+        viewModel.signInWithToken("glpat_own")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.SignedIn)
+        assertThat(accounts.activeAccount.first()!!.forge).isEqualTo(ownGitLab)
+        assertThat(ForgeInstance.of("gitlab.example.org")).isEqualTo(ownGitLab)
+    }
+
+    @Test
+    fun a_gitlab_of_ones_own_takes_its_application_before_the_server_has_answered() = test {
+        // Chosen under GitLab, it is one until it says otherwise: its application can be typed right away.
+        val viewModel = gitlabOwnViewModel()
+        viewModel.setHost("gitlab.example.org")
+
+        viewModel.setOauthClientId("app-id-123")
+
+        assertThat(viewModel.state.value.oauthClientId).isEqualTo("app-id-123")
+        assertThat(viewModel.state.value.browserSignInAvailable).isTrue()
+    }
+
+    @Test
+    fun an_address_under_gitlab_that_is_a_forgejo_signs_in_as_one() = test {
+        // Nobody is turned away for having picked the wrong tab: the server says what it is.
+        val forgejo = ForgeInstance(ForgeType.FORGEJO, "git.example.org")
+        clients.put(forgejo, FakeForgeClients(auth = FakeForgeAuthApi(supportsDeviceFlow = false, forge = forgejo).apply { users["tok"] = ForgeUser("alice", null, null) }))
+        val viewModel = gitlabOwnViewModel()
+        viewModel.setHost("git.example.org")
+        advanceUntilIdle()
+
+        viewModel.signInWithToken("tok")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.SignedIn)
+        assertThat(accounts.activeAccount.first()!!.forge).isEqualTo(forgejo)
+    }
+
+    @Test
+    fun changing_forge_drops_the_address_typed_for_another() = test {
+        val viewModel = gitlabOwnViewModel()
+        viewModel.setHost("gitlab.example.org")
+        advanceUntilIdle()
+
+        viewModel.selectForge(SignInForge.OTHER)
+
+        assertThat(viewModel.state.value.host).isEmpty()
+        assertThat(viewModel.state.value.otherType).isNull()
+    }
 }

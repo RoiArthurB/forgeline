@@ -8,7 +8,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.junit.Test
-import java.net.ConnectException
 import java.net.HttpURLConnection
 import java.net.URI
 
@@ -48,15 +47,18 @@ class LoopbackRedirectTest {
         }
     }
 
-    @Test(expected = ConnectException::class)
+    @Test
     fun cancelling_the_wait_stops_listening() = runBlocking<Unit> {
         val redirect = LoopbackRedirect("/oauth/codeberg")
         val waiting = async { redirect.await("ok") }
         // Let the wait begin before taking it back.
         yield()
+        assertThat(redirect.isListening).isTrue()
         waiting.cancel()
         waiting.join()
 
-        get(redirect.redirectUri)
+        // Asked of the socket itself. Regression: this used to connect to the port and expect a refusal, but a port
+        // just freed can be taken at once by another test's server, running alongside, and the connection then succeeds.
+        assertThat(redirect.isListening).isFalse()
     }
 }

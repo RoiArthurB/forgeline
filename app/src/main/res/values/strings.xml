@@ -123,9 +123,13 @@
     <string name="sign_in_forge_github">GitHub</string>
     <string name="sign_in_forge_gitlab">GitLab</string>
     <string name="sign_in_forge_codeberg">Codeberg</string>
-    <string name="sign_in_forge_other">Other</string>
+    <string name="sign_in_forge_other">Forgejo</string>
+    <string name="sign_in_gitlab_com">gitlab.com</string>
+    <string name="sign_in_gitlab_own">Your own server</string>
     <string name="sign_in_host">Server address, like git.example.org</string>
-    <string name="sign_in_host_hint">Any Forgejo or GitLab server works with an access token. Forgeline finds out which it is.</string>
+    <string name="sign_in_host_hint">Any Forgejo server works with an access token.</string>
+    <string name="sign_in_host_gitlab">Server address, like gitlab.example.org</string>
+    <string name="sign_in_host_hint_gitlab">Any GitLab server works with an access token.</string>
     <string name="sign_in_host_is">This is a %1$s server.</string>
     <string name="sign_in_kind_forgejo">Forgejo</string>
     <string name="sign_in_kind_gitlab">GitLab</string>

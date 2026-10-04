@@ -29,14 +29,17 @@ import kotlin.time.Duration.Companion.minutes
 
 enum class SignInError { NETWORK, INVALID_TOKEN, RATE_LIMITED, DENIED, EXPIRED, NOT_A_FORGE, UNKNOWN }
 
-/** Where to sign in: GitHub, GitLab, Codeberg, or another server by its address, be it a Forgejo or a GitLab. */
+/**
+ * Where to sign in: GitHub, GitLab (gitlab.com or a server of one's own), Codeberg, or a Forgejo server of one's own.
+ * A server of one's own is given by its address, and says itself what it runs.
+ */
 enum class SignInForge {
     GITHUB,
     GITLAB,
     CODEBERG,
     OTHER;
 
-    /** Whose logo the choice shows; another server's kind isn't known before its address is. */
+    /** Whose logo the choice shows. */
     val icon: ForgeInstance
         get() = when (this) {
             GITHUB -> ForgeInstance.GitHub
@@ -66,7 +69,9 @@ data class SignInUiState(
     val personalAccessTokenUrl: String?,
     val step: SignInStep = SignInStep.ChooseMethod,
     val forge: SignInForge = SignInForge.GITHUB,
-    /** The address typed for another server. */
+    /** Under GitLab: a server of one's own rather than gitlab.com. */
+    val gitlabOwnServer: Boolean = false,
+    /** The address typed for a server of one's own. */
     val host: String = "",
     /** What the server at [host] runs, once it answered: null while unknown, and when nothing known answers there. */
     val otherType: ForgeType? = null,
@@ -75,7 +80,10 @@ data class SignInUiState(
     val browserSignInAvailable: Boolean = false,
     /** The forge's name, for "Sign in with ...". */
     val forgeName: String = ForgeInstance.GitHub.displayName,
-)
+) {
+    /** Whether the server is given by its address: a Forgejo of one's own, or a GitLab of one's own. */
+    val usesHost: Boolean get() = forge == SignInForge.OTHER || (forge == SignInForge.GITLAB && gitlabOwnServer)
+}
 
 @HiltViewModel
 class SignInViewModel @Inject constructor(
@@ -95,20 +103,30 @@ class SignInViewModel @Inject constructor(
 
     fun selectForge(forge: SignInForge) {
         job?.cancel()
-        _state.value = stateFor(forge, _state.value.host, _state.value.otherType, _state.value.oauthClientId)
+        // The address typed under one choice doesn't follow to another: a GitLab's isn't a Forgejo's.
+        _state.value = stateFor(forge, host = "", own = false)
+        probing?.cancel()
     }
 
-    /** The address of another server. What it runs is asked once the typing pauses, so the screen can say what it needs. */
+    /** Under GitLab: gitlab.com, or a server of one's own, which then asks for its address. */
+    fun selectGitLabServer(own: Boolean) {
+        job?.cancel()
+        _state.value = stateFor(SignInForge.GITLAB, _state.value.host, own = own)
+        if (own) setHost(_state.value.host)
+    }
+
+    /** The address of one's own server. What it runs is asked once the typing pauses, so the screen can say what it needs. */
     fun setHost(host: String) {
-        _state.value = stateFor(SignInForge.OTHER, host, type = null, clientId = "")
+        val current = _state.value
+        _state.value = stateFor(current.forge, host, type = null, clientId = "", own = current.gitlabOwnServer)
         probing?.cancel()
         val address = normalizedHost(host) ?: return
         probing = viewModelScope.launch {
             delay(PROBE_AFTER_MILLIS)
             val type = probe.typeOf(address) ?: return@launch
             _state.update { state ->
-                if (state.forge == SignInForge.OTHER && normalizedHost(state.host) == address) {
-                    stateFor(SignInForge.OTHER, state.host, type, hosts.oauthClientId(address)).copy(step = state.step)
+                if (state.usesHost && normalizedHost(state.host) == address) {
+                    stateFor(state.forge, state.host, type, hosts.oauthClientId(address), state.gitlabOwnServer).copy(step = state.step)
                 } else {
                     state
                 }
@@ -118,7 +136,7 @@ class SignInViewModel @Inject constructor(
 
     /** The ID of the OAuth application created on a self-hosted GitLab: with one, signing in goes through the browser. */
     fun setOauthClientId(id: String) {
-        _state.update { stateFor(it.forge, it.host, it.otherType, id).copy(step = it.step) }
+        _state.update { stateFor(it.forge, it.host, it.otherType, id, it.gitlabOwnServer).copy(step = it.step) }
     }
 
     /**
@@ -127,11 +145,11 @@ class SignInViewModel @Inject constructor(
      */
     private suspend fun otherServerKnown(): Boolean {
         val state = _state.value
-        if (state.forge != SignInForge.OTHER || state.otherType != null) return true
+        if (!state.usesHost || state.otherType != null) return true
         val address = normalizedHost(state.host) ?: return false
         probing?.cancel()
         val type = probe.typeOf(address) ?: return false
-        _state.update { stateFor(SignInForge.OTHER, it.host, type, it.oauthClientId).copy(step = it.step) }
+        _state.update { stateFor(it.forge, it.host, type, it.oauthClientId.ifEmpty { hosts.oauthClientId(address) }, it.gitlabOwnServer).copy(step = it.step) }
         return true
     }
 
@@ -204,36 +222,42 @@ class SignInViewModel @Inject constructor(
 
     fun dismissError() = show(SignInStep.ChooseMethod)
 
-    private fun forgeFor(choice: SignInForge, host: String, type: ForgeType? = null): ForgeInstance? = when (choice) {
+    private fun forgeFor(choice: SignInForge, host: String, type: ForgeType? = null, own: Boolean = false): ForgeInstance? = when (choice) {
         SignInForge.GITHUB -> ForgeInstance.GitHub
-        SignInForge.GITLAB -> ForgeInstance.GitLab
+        // One's own GitLab is taken for one until it says otherwise: the address typed there may still be a Forgejo's.
+        SignInForge.GITLAB -> if (own) normalizedHost(host)?.let { ForgeInstance(type ?: ForgeType.GITLAB, it) } else ForgeInstance.GitLab
         SignInForge.CODEBERG -> ForgeInstance.Codeberg
-        // Until the server says what it runs, it is taken for a Forgejo, as every other server was before GitLab.
+        // Until the server says what it runs, it is taken for a Forgejo: that is what this choice is for.
         SignInForge.OTHER -> normalizedHost(host)?.let { ForgeInstance(type ?: ForgeType.FORGEJO, it) }
     }
 
-    private fun auth(): ForgeAuthApi? = _state.value.let { forgeFor(it.forge, it.host, it.otherType) }?.let(clients::auth)
+    private fun auth(): ForgeAuthApi? = _state.value.let { forgeFor(it.forge, it.host, it.otherType, it.gitlabOwnServer) }?.let(clients::auth)
 
     /** Remembers what the other server runs and its application's ID, so the rest of the app takes the host for what it is. */
     private fun rememberOtherServer() {
         val state = _state.value
-        if (state.forge != SignInForge.OTHER) return
-        val forge = forgeFor(state.forge, state.host, state.otherType) ?: return
+        if (!state.usesHost) return
+        val forge = forgeFor(state.forge, state.host, state.otherType, state.gitlabOwnServer) ?: return
         hosts.remember(forge, state.oauthClientId)
     }
 
-    private fun stateFor(choice: SignInForge, host: String, type: ForgeType? = null, clientId: String = ""): SignInUiState {
-        val other = type.takeIf { choice == SignInForge.OTHER }
-        val auth = forgeFor(choice, host, other)?.let(clients::auth)
+    private fun stateFor(choice: SignInForge, host: String, type: ForgeType? = null, clientId: String = "", own: Boolean = false): SignInUiState {
+        val ownGitLab = own && choice == SignInForge.GITLAB
+        val usesHost = choice == SignInForge.OTHER || ownGitLab
+        val other = type.takeIf { usesHost }
+        // What the server is taken for, for what the screen asks: what it said, else what the choice is for.
+        val kind = other ?: if (ownGitLab) ForgeType.GITLAB else null
+        val auth = forgeFor(choice, host, other, ownGitLab)?.let(clients::auth)
         return SignInUiState(
             deviceFlowAvailable = auth?.supportsDeviceFlow == true,
             personalAccessTokenUrl = auth?.personalAccessTokenUrl,
             forge = choice,
-            host = host,
+            gitlabOwnServer = ownGitLab,
+            host = if (usesHost) host else "",
             otherType = other,
-            oauthClientId = if (other == ForgeType.GITLAB) clientId else "",
+            oauthClientId = if (usesHost && kind == ForgeType.GITLAB) clientId else "",
             // A self-hosted GitLab signs in through the browser once its application's ID is typed.
-            browserSignInAvailable = if (other == ForgeType.GITLAB) clientId.isNotBlank() else auth?.supportsBrowserSignIn == true,
+            browserSignInAvailable = if (usesHost && kind == ForgeType.GITLAB) clientId.isNotBlank() else auth?.supportsBrowserSignIn == true,
             forgeName = auth?.forge?.displayName ?: host,
         )
     }
@@ -285,9 +309,9 @@ class SignInViewModel @Inject constructor(
                 ForgeError.Unauthorized -> SignInError.INVALID_TOKEN
                 is ForgeError.RateLimited -> SignInError.RATE_LIMITED
                 // A server that isn't a forge answers its API paths with a 404.
-                is ForgeError.Http -> if (error.status == 404 && _state.value.forge == SignInForge.OTHER) SignInError.NOT_A_FORGE else SignInError.UNKNOWN
+                is ForgeError.Http -> if (error.status == 404 && _state.value.usesHost) SignInError.NOT_A_FORGE else SignInError.UNKNOWN
                 // A server that isn't a forge can also answer them with a web page.
-                ForgeError.Unreadable -> if (_state.value.forge == SignInForge.OTHER) SignInError.NOT_A_FORGE else SignInError.UNKNOWN
+                ForgeError.Unreadable -> if (_state.value.usesHost) SignInError.NOT_A_FORGE else SignInError.UNKNOWN
                 ForgeError.Unsupported -> SignInError.UNKNOWN
             },
         ),

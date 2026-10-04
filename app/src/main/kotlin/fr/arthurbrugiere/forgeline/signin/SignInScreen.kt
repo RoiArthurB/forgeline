@@ -92,6 +92,7 @@ fun SignInRoute(
         onSelectForge = viewModel::selectForge,
         onHostChange = viewModel::setHost,
         onClientIdChange = viewModel::setOauthClientId,
+        onSelectGitLabServer = viewModel::selectGitLabServer,
         onStartDeviceFlow = viewModel::startDeviceFlow,
         onStartBrowserSignIn = viewModel::startBrowserSignIn,
         onContinueOnGitHub = { code, uri ->
@@ -121,6 +122,7 @@ fun SignInScreen(
     onSelectForge: (SignInForge) -> Unit = {},
     onHostChange: (String) -> Unit = {},
     onClientIdChange: (String) -> Unit = {},
+    onSelectGitLabServer: (Boolean) -> Unit = {},
     onStartBrowserSignIn: () -> Unit = {},
 ) {
     val colors = Soft.colors
@@ -172,6 +174,7 @@ fun SignInScreen(
                     onSelectForge = onSelectForge,
                     onHostChange = onHostChange,
                     onClientIdChange = onClientIdChange,
+                    onSelectGitLabServer = onSelectGitLabServer,
                     onStartDeviceFlow = onStartDeviceFlow,
                     onStartBrowserSignIn = onStartBrowserSignIn,
                     onSubmitToken = onSubmitToken,
@@ -190,6 +193,7 @@ private fun ChooseMethod(
     onSelectForge: (SignInForge) -> Unit,
     onHostChange: (String) -> Unit,
     onClientIdChange: (String) -> Unit,
+    onSelectGitLabServer: (Boolean) -> Unit,
     onStartDeviceFlow: () -> Unit,
     onStartBrowserSignIn: () -> Unit,
     onSubmitToken: (String) -> Unit,
@@ -211,14 +215,22 @@ private fun ChooseMethod(
         // Named as well: this is where the forge is chosen.
         leading = { index, color -> ForgeIcon(SignInForge.entries[index].icon, size = 16.dp, tint = color) },
     )
-    if (state.forge == SignInForge.OTHER) {
+    if (state.forge == SignInForge.GITLAB) {
+        // GitLab is gitlab.com for most, and a server of their own for the others: the same choice, one step further.
+        SoftSwitch(
+            options = listOf(stringResource(R.string.sign_in_gitlab_com), stringResource(R.string.sign_in_gitlab_own)),
+            selected = if (state.gitlabOwnServer) 1 else 0,
+            onSelect = { onSelectGitLabServer(it == 1) },
+        )
+    }
+    if (state.usesHost) {
         SoftTextField(
             value = state.host,
             onValueChange = {
                 onHostChange(it)
                 if (error != null) onDismissError()
             },
-            placeholder = stringResource(R.string.sign_in_host),
+            placeholder = stringResource(if (state.forge == SignInForge.GITLAB) R.string.sign_in_host_gitlab else R.string.sign_in_host),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
             modifier = Modifier.fillMaxWidth(),
         )
@@ -229,11 +241,16 @@ private fun ChooseMethod(
             else -> null
         }
         Text(
-            if (kind == null) stringResource(R.string.sign_in_host_hint) else stringResource(R.string.sign_in_host_is, kind),
+            when {
+                kind != null -> stringResource(R.string.sign_in_host_is, kind)
+                state.forge == SignInForge.GITLAB -> stringResource(R.string.sign_in_host_hint_gitlab)
+                else -> stringResource(R.string.sign_in_host_hint)
+            },
             style = Soft.type.secondary,
             color = colors.inkMuted,
         )
-        if (state.otherType == ForgeType.GITLAB) {
+        // Asked of a GitLab: one's own as soon as it is chosen, a server typed elsewhere once it says it is one.
+        if (state.otherType == ForgeType.GITLAB || (state.forge == SignInForge.GITLAB && state.otherType == null)) {
             SoftTextField(
                 value = state.oauthClientId,
                 onValueChange = onClientIdChange,
@@ -267,6 +284,7 @@ private fun ChooseMethod(
         stringResource(
             when {
                 state.forge == SignInForge.GITHUB -> R.string.sign_in_token_body
+                state.otherType == ForgeType.FORGEJO -> R.string.sign_in_token_body_forgejo
                 state.forge == SignInForge.GITLAB || state.otherType == ForgeType.GITLAB -> R.string.sign_in_token_body_gitlab
                 else -> R.string.sign_in_token_body_forgejo
             }

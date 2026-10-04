@@ -124,10 +124,61 @@ class SignInScreenTest {
     )
 
     @Test
-    fun another_server_is_any_forgejo_or_gitlab_until_it_says_which() {
-        setOther(other)
+    fun a_forgejo_of_ones_own_asks_for_its_address_and_nothing_else() {
+        setOther(other.copy(host = ""))
 
-        composeRule.onNodeWithText("Any Forgejo or GitLab server works with an access token. Forgeline finds out which it is.").assertIsDisplayed()
+        composeRule.onNodeWithText("Server address, like git.example.org").assertIsDisplayed()
+        composeRule.onNodeWithText("Any Forgejo server works with an access token.").assertIsDisplayed()
+        composeRule.onNodeWithText("Application ID (optional)").assertDoesNotExist()
+        // The choice between gitlab.com and one's own server belongs under GitLab.
+        composeRule.onNodeWithText("Your own server").assertDoesNotExist()
+    }
+
+    private val gitlab = SignInUiState(
+        deviceFlowAvailable = false, personalAccessTokenUrl = "https://gitlab.com/-/user_settings/personal_access_tokens",
+        forge = SignInForge.GITLAB, browserSignInAvailable = true, forgeName = "GitLab",
+    )
+
+    @Test
+    fun gitlab_is_gitlab_com_unless_one_says_it_is_a_server_of_ones_own() {
+        var chosen: Boolean? = null
+        composeRule.setContent {
+            SignInScreen(
+                state = gitlab, onSelectGitLabServer = { chosen = it },
+                onStartDeviceFlow = {}, onContinueOnGitHub = { _, _ -> }, onSubmitToken = {}, onOpenUrl = {}, onCancel = {}, onDismissError = {}, onBack = {},
+            )
+        }
+
+        // gitlab.com is chosen: no address is asked for, and it signs in through the browser.
+        composeRule.onNodeWithText("gitlab.com").assertIsDisplayed()
+        composeRule.onNodeWithText("Server address, like gitlab.example.org").assertDoesNotExist()
+        composeRule.onNodeWithText("Sign in with GitLab").assertExists()
+
+        composeRule.onNodeWithText("Your own server").performClick()
+
+        assertThat(chosen).isTrue()
+    }
+
+    @Test
+    fun a_gitlab_of_ones_own_asks_for_its_address_and_offers_its_application() {
+        setOther(gitlab.copy(gitlabOwnServer = true, browserSignInAvailable = false, forgeName = "", personalAccessTokenUrl = null))
+
+        composeRule.onNodeWithText("Connect to your server").assertIsDisplayed()
+        composeRule.onNodeWithText("Server address, like gitlab.example.org").assertIsDisplayed()
+        composeRule.onNodeWithText("Any GitLab server works with an access token.").assertIsDisplayed()
+        composeRule.onNodeWithText("Application ID (optional)").assertExists()
+        composeRule.onNodeWithText("Create a personal access token with the api and read_user scopes, then paste it here.").assertExists()
+
+        composeRule.onNodeWithText("Server address, like gitlab.example.org").performTextInput("gitlab.example.org")
+
+        assertThat(events).containsExactly("host:gitlab.example.org")
+    }
+
+    @Test
+    fun an_address_typed_under_gitlab_that_is_a_forgejo_is_said_so() {
+        setOther(gitlab.copy(gitlabOwnServer = true, host = "git.example.org", forgeName = "git.example.org", otherType = fr.arthurbrugiere.forgeline.core.model.ForgeType.FORGEJO, browserSignInAvailable = false))
+
+        composeRule.onNodeWithText("This is a Forgejo server.").assertIsDisplayed()
         composeRule.onNodeWithText("Application ID (optional)").assertDoesNotExist()
     }
 
