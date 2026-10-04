@@ -36,7 +36,9 @@ data class NotificationThread(
 
     /** The issue or pull request this thread is about, when it is about one. */
     val subject: IssueRef?
-        get() = number?.takeIf { type == SubjectType.ISSUE || type == SubjectType.PULL_REQUEST }?.let { IssueRef(repo, it) }
+        get() = number?.takeIf { type == SubjectType.ISSUE || type == SubjectType.PULL_REQUEST }?.let {
+            IssueRef(repo, it, isPullRequest = (type == SubjectType.PULL_REQUEST))
+        }
 
     /** GitHub's "participating": you're directly involved, not just watching. */
     val isParticipating: Boolean

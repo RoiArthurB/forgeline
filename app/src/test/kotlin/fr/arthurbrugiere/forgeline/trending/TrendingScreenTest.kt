@@ -229,13 +229,13 @@ class TrendingScreenTest {
     }
 
     @Test
-    fun a_gitlab_row_names_gitlab_and_has_no_star_button() {
+    fun a_gitlab_row_names_gitlab_and_has_star_button() {
         val tool = trendingRepo("group/sub/tool", forge = ForgeInstance.GitLab)
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null), TrendingItem(tool, null)), showForge = true))
 
         composeRule.onNodeWithText("GitLab").assertExists()
         composeRule.onNode(hasContentDescription("Star paperclipai/paperclip")).assertExists()
-        composeRule.onNode(hasContentDescription("Star group/sub/tool")).assertDoesNotExist()
+        composeRule.onNode(hasContentDescription("Star group/sub/tool")).assertExists()
     }
 
     @Test

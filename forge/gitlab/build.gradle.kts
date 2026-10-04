@@ -8,8 +8,11 @@ dependencies {
     api(projects.core.forge)
     api(libs.ktor.client.core)
     implementation(projects.forge.forgejo)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.kotlinx.serialization.json)
 
+    testImplementation(libs.truth)
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.kotlinx.coroutines.test)
 }

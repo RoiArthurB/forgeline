@@ -4,7 +4,26 @@ import java.time.Instant
 
 enum class Reaction { THUMBS_UP, THUMBS_DOWN, LAUGH, HOORAY, CONFUSED, HEART, ROCKET, EYES }
 
-data class IssueRef(val repo: RepoId, val number: Int)
+data class IssueRef(val repo: RepoId, val number: Int, val isPullRequest: Boolean? = null) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is IssueRef) return false
+        if (repo != other.repo || number != other.number) return false
+        if (repo.forge.type == ForgeType.GITLAB) {
+            return isPullRequest == other.isPullRequest
+        }
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = repo.hashCode()
+        result = 31 * result + number
+        if (repo.forge.type == ForgeType.GITLAB) {
+            result = 31 * result + (isPullRequest?.hashCode() ?: 0)
+        }
+        return result
+    }
+}
 
 data class PullRequestInfo(
     val isDraft: Boolean,

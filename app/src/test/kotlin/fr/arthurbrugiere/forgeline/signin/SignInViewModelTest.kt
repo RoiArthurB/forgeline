@@ -222,6 +222,38 @@ class SignInViewModelTest {
         assertThat(viewModel.state.value.step).isEqualTo(SignInStep.ChooseMethod)
     }
 
+    private val gitlabAuth = FakeForgeAuthApi(supportsDeviceFlow = false, forge = ForgeInstance.GitLab, supportsBrowserSignIn = true)
+        .apply { users["glpat_valid"] = ForgeUser("tanuki", "The Tanuki", null) }
+
+    private fun gitlabViewModel(): SignInViewModel {
+        clients.put(ForgeInstance.GitLab, FakeForgeClients(auth = gitlabAuth))
+        return viewModel().also { it.selectForge(SignInForge.GITLAB) }
+    }
+
+    @Test
+    fun gitlab_selection_updates_ui_state() {
+        val state = gitlabViewModel().state.value
+
+        assertThat(state.forge).isEqualTo(SignInForge.GITLAB)
+        assertThat(state.forgeName).isEqualTo("GitLab")
+        assertThat(state.browserSignInAvailable).isTrue()
+        assertThat(state.deviceFlowAvailable).isFalse()
+    }
+
+    @Test
+    fun gitlab_signs_in_with_token() = test {
+        val viewModel = gitlabViewModel()
+
+        viewModel.signInWithToken("glpat_valid")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.SignedIn)
+        val account = accounts.activeAccount.first()!!
+        assertThat(account.forge).isEqualTo(ForgeInstance.GitLab)
+        assertThat(account.user.login).isEqualTo("tanuki")
+        assertThat(accounts.token(account.id)).isEqualTo("glpat_valid")
+    }
+
     private val codebergAuth = FakeForgeAuthApi(supportsDeviceFlow = false, forge = ForgeInstance.Codeberg, supportsBrowserSignIn = true)
         .apply { users["access"] = ForgeUser("alice", null, null) }
 

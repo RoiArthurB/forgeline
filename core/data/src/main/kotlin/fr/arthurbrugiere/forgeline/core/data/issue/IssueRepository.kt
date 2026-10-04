@@ -158,7 +158,7 @@ class DefaultIssueRepository @Inject constructor(
 
     override suspend fun stored(ref: IssueRef): CachedConversation? {
         cached(ref)?.let { return it }
-        val entity = dao.get(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number) ?: return null
+        val entity = dao.get(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, ref.isPullRequest ?: false) ?: return null
         val stored = CachedConversation(entity.issue?.let(::decodeIssue), entity.firstPage?.let(::decodePage))
         if (stored.issue == null && stored.firstPage == null) return null
         // Something loaded meanwhile is newer than the disk.
@@ -166,7 +166,7 @@ class DefaultIssueRepository @Inject constructor(
     }
 
     override suspend fun prefetch(ref: IssueRef, activityAt: Instant): Boolean {
-        val saved = dao.get(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number)
+        val saved = dao.get(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, ref.isPullRequest ?: false)
         val complete = saved?.issue != null && saved.firstPage != null
         // Nothing kept at all is a conversation the forge couldn't serve: not asked again until it moves.
         val gone = saved != null && saved.issue == null && saved.firstPage == null
@@ -182,7 +182,7 @@ class DefaultIssueRepository @Inject constructor(
             if (error is ForgeError.Http && error.status in setOf(403, 404, 410)) {
                 // Whatever the timeline alongside answered, the conversation is gone: nothing kept, not asked again.
                 synchronized(cache) { cache.remove(ref) }
-                dao.upsert(ConversationEntity(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, null, null, clock.millis()))
+                dao.upsert(ConversationEntity(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, ref.isPullRequest ?: false, null, null, clock.millis()))
             }
         }
         return true
@@ -331,7 +331,7 @@ class DefaultIssueRepository @Inject constructor(
 
     private suspend fun drop(ref: IssueRef) {
         synchronized(cache) { cache.remove(ref) }
-        dao.delete(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number)
+        dao.delete(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, ref.isPullRequest ?: false)
     }
 
     override suspend fun forget(forge: ForgeInstance) {
@@ -344,7 +344,9 @@ class DefaultIssueRepository @Inject constructor(
         val updated = synchronized(cache) { change(cache[ref] ?: CachedConversation(null, null)).also { cache[ref] = it } }
         dao.upsert(
             ConversationEntity(
-                ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, updated.issue?.encode(), updated.firstPage?.encode(), clock.millis(),
+                ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number,
+                ref.isPullRequest ?: (updated.issue?.pullRequest != null),
+                updated.issue?.encode(), updated.firstPage?.encode(), clock.millis(),
             ),
         )
         dao.prune(STORED_CONVERSATIONS)

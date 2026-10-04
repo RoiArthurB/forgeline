@@ -114,13 +114,14 @@
     <string name="you_limited_action">Sign in to %1$s again</string>
     <string name="sign_in_github_access">GitHub will ask for access to your repositories, private ones included. Forgeline needs it to show them, and to comment, star and run workflows there.</string>
     <string name="you_signed_out_title">Connect an account</string>
-    <string name="you_signed_out_body">GitHub, Codeberg or your own Forgejo. Your inbox and feed need an account; Trending and browsing work without one.</string>
+    <string name="you_signed_out_body">GitHub, GitLab, Codeberg or your own Forgejo. Your inbox and feed need an account; Trending and browsing work without one.</string>
 
     <string name="sign_in_title">Sign in</string>
     <string name="sign_in_headline">Connect to %1$s</string>
     <string name="sign_in_headline_other">Connect to your server</string>
     <string name="sign_in_privacy">Forgeline talks to %1$s directly from your phone. Your token is encrypted on this device and only ever sent there.</string>
     <string name="sign_in_forge_github">GitHub</string>
+    <string name="sign_in_forge_gitlab">GitLab</string>
     <string name="sign_in_forge_codeberg">Codeberg</string>
     <string name="sign_in_forge_other">Other</string>
     <string name="sign_in_host">Server address, like git.example.org</string>
@@ -129,6 +130,7 @@
     <string name="sign_in_or">or</string>
     <string name="sign_in_token_title">Use a personal access token</string>
     <string name="sign_in_token_body">Create a classic token with the notifications, read:user, user:follow and repo scopes, then paste it here.</string>
+    <string name="sign_in_token_body_gitlab">Create a personal access token with the api and read_user scopes, then paste it here.</string>
     <string name="sign_in_token_body_forgejo">Create an access token that reaches all your repositories (public, private and limited), with read and write access to notifications, repositories, issues and your user, then paste it here.</string>
     <string name="sign_in_create_token">Create a token on %1$s</string>
     <string name="sign_in_token_label">Personal access token</string>

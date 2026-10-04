@@ -6,12 +6,15 @@ import org.junit.Test
 class WebUrlsTest {
     private val github = RepoId("alice", "tool", ForgeInstance.GitHub)
     private val codeberg = RepoId("alice", "tool", ForgeInstance.Codeberg)
+    private val gitlab = RepoId("alice", "tool", ForgeInstance.GitLab)
 
     @Test
-    fun pull_requests_are_pull_on_github_and_pulls_on_forgejo() {
+    fun pull_requests_are_pull_on_github_pulls_on_forgejo_and_merge_requests_on_gitlab() {
         assertThat(IssueRef(github, 7).webUrl(isPullRequest = true)).isEqualTo("https://github.com/alice/tool/pull/7")
         assertThat(IssueRef(codeberg, 7).webUrl(isPullRequest = true)).isEqualTo("https://codeberg.org/alice/tool/pulls/7")
         assertThat(IssueRef(codeberg, 7).webUrl(isPullRequest = false)).isEqualTo("https://codeberg.org/alice/tool/issues/7")
+        assertThat(IssueRef(gitlab, 7).webUrl(isPullRequest = true)).isEqualTo("https://gitlab.com/alice/tool/-/merge_requests/7")
+        assertThat(IssueRef(gitlab, 7).webUrl(isPullRequest = false)).isEqualTo("https://gitlab.com/alice/tool/-/issues/7")
     }
 
     @Test
@@ -21,6 +24,9 @@ class WebUrlsTest {
         // Forgejo's run pages count runs per repository, not by API id: a wrong run would be worse than the list.
         assertThat(codeberg.runUrl(7368141)).isEqualTo("https://codeberg.org/alice/tool/actions")
         assertThat(codeberg.jobUrl(1, 2)).isEqualTo("https://codeberg.org/alice/tool/actions")
+        // GitLab pipelines and jobs
+        assertThat(gitlab.runUrl(12345)).isEqualTo("https://gitlab.com/alice/tool/-/pipelines/12345")
+        assertThat(gitlab.jobUrl(12345, 67890)).isEqualTo("https://gitlab.com/alice/tool/-/jobs/67890")
     }
 
     @Test
@@ -29,5 +35,7 @@ class WebUrlsTest {
         assertThat(github.blobBaseUrl("main")).isEqualTo("https://github.com/alice/tool/blob/main/")
         assertThat(codeberg.rawBaseUrl("main")).isEqualTo("https://codeberg.org/alice/tool/raw/branch/main/")
         assertThat(codeberg.blobBaseUrl("main")).isEqualTo("https://codeberg.org/alice/tool/src/branch/main/")
+        assertThat(gitlab.rawBaseUrl("main")).isEqualTo("https://gitlab.com/alice/tool/-/raw/main/")
+        assertThat(gitlab.blobBaseUrl("main")).isEqualTo("https://gitlab.com/alice/tool/-/blob/main/")
     }
 }

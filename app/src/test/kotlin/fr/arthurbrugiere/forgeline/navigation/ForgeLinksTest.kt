@@ -67,11 +67,29 @@ class ForgeLinksTest {
 
     @Test
     fun other_hosts_and_non_web_links_stay_outside() {
-        assertThat(ForgeLinks.routeFor("https://gitlab.com/a/b")).isNull()
+        assertThat(ForgeLinks.routeFor("https://bitbucket.org/a/b")).isNull()
         assertThat(ForgeLinks.routeFor("https://raw.githubusercontent.com/a/b/main/x.png")).isNull()
         assertThat(ForgeLinks.routeFor("mailto:me@example.com")).isNull()
         assertThat(ForgeLinks.routeFor("#usage")).isNull()
         assertThat(ForgeLinks.routeFor("not a url")).isNull()
+    }
+
+    @Test
+    fun gitlab_links_open_in_app_on_gitlab() {
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/gitlab-org/gitlab")).isEqualTo(RepoRoute("gitlab.com", "gitlab-org", "gitlab"))
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/group/subgroup/project")).isEqualTo(RepoRoute("gitlab.com", "group/subgroup", "project"))
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/gitlab-org/gitlab/-/issues/42")).isEqualTo(IssueRoute("gitlab.com", "gitlab-org", "gitlab", 42, isPullRequest = false))
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/gitlab-org/gitlab/-/merge_requests/7")).isEqualTo(IssueRoute("gitlab.com", "gitlab-org", "gitlab", 7, isPullRequest = true))
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/gitlab-org/gitlab/-/pipelines/36539745")).isEqualTo(RunRoute("gitlab.com", "gitlab-org", "gitlab", 36539745))
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/gitlab-org/gitlab/-/releases/v1.0.0")).isEqualTo(ReleaseRoute("gitlab.com", "gitlab-org", "gitlab", "v1.0.0"))
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/alice")).isEqualTo(UserRoute("gitlab.com", "alice"))
+    }
+
+    @Test
+    fun gitlab_pages_that_are_reserved_stay_on_the_web() {
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/explore")).isNull()
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/search")).isNull()
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/dashboard")).isNull()
     }
 
     @Test

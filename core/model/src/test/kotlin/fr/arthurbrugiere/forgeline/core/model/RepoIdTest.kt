@@ -32,7 +32,7 @@ class RepoIdTest {
         assertThat(RepoId.fromKey(nested.key)).isEqualTo(nested)
         assertThat(nested.webUrl).isEqualTo("https://gitlab.com/group/subgroup/tool")
         assertThat(ForgeInstance.of("GitLab.com")).isEqualTo(ForgeInstance.GitLab)
-        assertThat(ForgeInstance.GitLab.isBrowsable).isFalse()
+        assertThat(ForgeInstance.GitLab.isBrowsable).isTrue()
         assertThat(ForgeInstance.Codeberg.isBrowsable).isTrue()
     }
 

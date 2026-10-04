@@ -17,6 +17,9 @@ import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoActionsApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoRepoApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoTrendingApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.forgejoHttpClient
+import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabActionsApi
+import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabRepoApi
+import fr.arthurbrugiere.forgeline.forge.gitlab.gitlabHttpClient
 import fr.arthurbrugiere.forgeline.forge.gitlab.trending.GitLabTrendingMeter
 import io.ktor.client.engine.okhttp.OkHttp
 import org.junit.Test
@@ -26,9 +29,12 @@ class DefaultForgeClientsTest {
     private fun clients(
         codebergTrendingUrl: String = "https://example.org/codeberg/trending.json",
         gitlabTrendingUrl: String = "https://example.org/gitlab/trending.json",
+        gitlabClientId: String = "gitlab-client",
     ) = DefaultForgeClients(
         forgejoHttp = forgejoHttpClient(OkHttp.create()),
+        gitlabHttp = gitlabHttpClient(OkHttp.create()),
         codebergClientId = "codeberg-client",
+        gitlabClientId = gitlabClientId,
         codebergTrendingUrl = codebergTrendingUrl,
         gitlabTrendingUrl = gitlabTrendingUrl,
         repos = gitHubRepos, issues = FakeIssueApi(), users = FakeUserApi(), stars = FakeStarApi(), search = FakeSearchApi(),
@@ -81,5 +87,31 @@ class DefaultForgeClientsTest {
         assertThat(clients.trending(ForgeInstance.GitLab)!!.forge).isEqualTo(ForgeInstance.GitLab)
         assertThat(clients.trendingMeter(ForgeInstance.GitLab)).isInstanceOf(GitLabTrendingMeter::class.java)
         assertThat(clients(gitlabTrendingUrl = "").trending(ForgeInstance.GitLab)).isNull()
+    }
+
+    @Test
+    fun each_gitlab_instance_gets_its_clients_once() {
+        val gitlab = clients.repos(ForgeInstance.GitLab)
+        val selfHosted = clients.repos(ForgeInstance(ForgeType.GITLAB, "gitlab.example.org"))
+
+        assertThat(gitlab).isInstanceOf(GitLabRepoApi::class.java)
+        assertThat(clients.repos(ForgeInstance.GitLab)).isSameInstanceAs(gitlab)
+        assertThat(selfHosted).isNotSameInstanceAs(gitlab)
+    }
+
+    @Test
+    fun gitlab_signs_in_through_the_browser_when_client_id_provided() {
+        assertThat(clients.auth(ForgeInstance.GitLab).supportsBrowserSignIn).isTrue()
+        assertThat(clients(gitlabClientId = "").auth(ForgeInstance.GitLab).supportsBrowserSignIn).isFalse()
+        assertThat(clients.auth(ForgeInstance(ForgeType.GITLAB, "gitlab.example.org")).supportsBrowserSignIn).isFalse()
+        assertThat(clients.auth(ForgeInstance.GitLab).forge).isEqualTo(ForgeInstance.GitLab)
+    }
+
+    @Test
+    fun gitlab_has_actions_with_rerun() {
+        val gitlab = clients.actions(ForgeInstance.GitLab)
+
+        assertThat(gitlab).isInstanceOf(GitLabActionsApi::class.java)
+        assertThat(gitlab!!.supportsRerun).isTrue()
     }
 }

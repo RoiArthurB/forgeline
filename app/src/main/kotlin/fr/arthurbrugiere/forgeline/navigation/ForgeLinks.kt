@@ -7,7 +7,7 @@ import java.net.URI
 
 /** Maps forge web URLs to in-app destinations; anything unrecognized stays on the web. */
 object ForgeLinks {
-    private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)
+    private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab)
 
     // First path segments that are the forge's own pages, not user or organization names.
     private val reserved = mapOf(
@@ -19,6 +19,10 @@ object ForgeLinks {
         ForgeType.FORGEJO to setOf(
             "-", "admin", "api", "assets", "attachments", "avatars", "captcha", "explore", "issues", "login", "milestones",
             "notifications", "org", "pulls", "repo", "user", "users", ".well-known",
+        ),
+        ForgeType.GITLAB to setOf(
+            "-", "admin", "api", "assets", "dashboard", "explore", "groups", "help", "jwt", "organizations", "profile",
+            "search", "settings", "snippets", "users", "v2",
         ),
     )
 
@@ -35,6 +39,40 @@ object ForgeLinks {
         val segments = uri.path.orEmpty().split('/').filter { it.isNotEmpty() }
         if (segments.isEmpty() || segments[0].lowercase() in reserved.getValue(forge.type)) return null
         if (segments.size == 1) return UserRoute(forge.host, segments[0])
+
+        if (forge.type == ForgeType.GITLAB) {
+            val dashIndex = segments.indexOf("-")
+            val (owner, name) = if (dashIndex > 1) {
+                segments.subList(0, dashIndex - 1).joinToString("/") to segments[dashIndex - 1].removeSuffix(".git")
+            } else if (dashIndex == -1 && segments.size >= 2) {
+                segments.dropLast(1).joinToString("/") to segments.last().removeSuffix(".git")
+            } else {
+                return null
+            }
+
+            if (dashIndex != -1 && dashIndex + 1 < segments.size) {
+                val subSegments = segments.subList(dashIndex + 1, segments.size)
+                val number = subSegments.getOrNull(1)?.toIntOrNull()
+                when (subSegments[0]) {
+                    "issues" -> if (number != null) return IssueRoute(forge.host, owner, name, number, isPullRequest = false)
+                    "merge_requests" -> if (number != null) return IssueRoute(forge.host, owner, name, number, isPullRequest = true)
+                    "pipelines" -> {
+                        val runId = subSegments.getOrNull(1)?.toLongOrNull()
+                        if (runId != null) return RunRoute(forge.host, owner, name, runId)
+                    }
+                    "releases" -> {
+                        val tag = if (subSegments.size > 2 && subSegments[1] == "tag") {
+                            subSegments.drop(2).joinToString("/")
+                        } else if (subSegments.size > 1) {
+                            subSegments.drop(1).joinToString("/")
+                        } else null
+                        if (tag != null) return ReleaseRoute(forge.host, owner, name, tag)
+                    }
+                }
+            }
+            return RepoRoute(forge.host, owner, name)
+        }
+
         val owner = segments[0]
         val name = segments[1].removeSuffix(".git")
         val number = segments.getOrNull(3)?.toIntOrNull()

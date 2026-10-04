@@ -29,9 +29,10 @@ import kotlin.time.Duration.Companion.minutes
 
 enum class SignInError { NETWORK, INVALID_TOKEN, RATE_LIMITED, DENIED, EXPIRED, NOT_A_FORGE, UNKNOWN }
 
-/** Where to sign in: GitHub, Codeberg, or another Forgejo server by its address. */
+/** Where to sign in: GitHub, GitLab, Codeberg, or another Forgejo server by its address. */
 enum class SignInForge {
     GITHUB,
+    GITLAB,
     CODEBERG,
     OTHER;
 
@@ -39,6 +40,7 @@ enum class SignInForge {
     val icon: ForgeInstance
         get() = when (this) {
             GITHUB -> ForgeInstance.GitHub
+            GITLAB -> ForgeInstance.GitLab
             CODEBERG -> ForgeInstance.Codeberg
             OTHER -> ForgeInstance(ForgeType.FORGEJO, "")
         }
@@ -162,6 +164,7 @@ class SignInViewModel @Inject constructor(
 
     private fun forgeFor(choice: SignInForge, host: String): ForgeInstance? = when (choice) {
         SignInForge.GITHUB -> ForgeInstance.GitHub
+        SignInForge.GITLAB -> ForgeInstance.GitLab
         SignInForge.CODEBERG -> ForgeInstance.Codeberg
         SignInForge.OTHER -> normalizedHost(host)?.let { ForgeInstance(ForgeType.FORGEJO, it) }
     }

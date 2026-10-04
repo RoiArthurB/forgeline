@@ -23,6 +23,9 @@ android {
         // Codeberg's OAuth application (public, like GitHub's): see docs/CODEBERG_OAUTH_APP.md.
         val codebergClientId = providers.gradleProperty("forgeline.codebergClientId").getOrElse("").trim()
         buildConfigField("String", "CODEBERG_CLIENT_ID", "\"$codebergClientId\"")
+        // GitLab's OAuth application (public, like Codeberg's): see docs/GITLAB.md.
+        val gitlabClientId = providers.gradleProperty("forgeline.gitlabClientId").getOrElse("").trim()
+        buildConfigField("String", "GITLAB_CLIENT_ID", "\"$gitlabClientId\"")
         // Codeberg has no trending page: a daily job publishes one. Empty leaves Codeberg out of Trending.
         val codebergTrendingUrl = providers.gradleProperty("forgeline.codebergTrendingUrl").getOrElse("").trim()
         buildConfigField("String", "CODEBERG_TRENDING_URL", "\"$codebergTrendingUrl\"")

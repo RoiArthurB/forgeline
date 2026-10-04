@@ -197,6 +197,7 @@ private fun ChooseMethod(
     SoftSwitch(
         options = listOf(
             stringResource(R.string.sign_in_forge_github),
+            stringResource(R.string.sign_in_forge_gitlab),
             stringResource(R.string.sign_in_forge_codeberg),
             stringResource(R.string.sign_in_forge_other),
         ),
@@ -238,7 +239,13 @@ private fun ChooseMethod(
     }
     Text(stringResource(R.string.sign_in_token_title), style = Soft.type.section, color = colors.ink)
     Text(
-        stringResource(if (state.forge == SignInForge.GITHUB) R.string.sign_in_token_body else R.string.sign_in_token_body_forgejo),
+        stringResource(
+            when (state.forge) {
+                SignInForge.GITHUB -> R.string.sign_in_token_body
+                SignInForge.GITLAB -> R.string.sign_in_token_body_gitlab
+                else -> R.string.sign_in_token_body_forgejo
+            }
+        ),
         style = Soft.type.body,
         color = colors.inkMuted,
     )

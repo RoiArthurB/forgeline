@@ -6,6 +6,7 @@ import androidx.room.Query
 import androidx.room.Upsert
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
@@ -25,12 +26,13 @@ import kotlinx.serialization.json.Json
 import java.time.Instant
 
 /** The last loaded state of a conversation: the issue or pull request and its first timeline page, as JSON. */
-@Entity(tableName = "conversations", primaryKeys = ["host", "owner", "name", "number"])
+@Entity(tableName = "conversations", primaryKeys = ["host", "owner", "name", "number", "isPullRequest"])
 data class ConversationEntity(
     val host: String,
     val owner: String,
     val name: String,
     val number: Int,
+    val isPullRequest: Boolean = false,
     val issue: String?,
     val firstPage: String?,
     /** When it was last loaded, by opening it or ahead of time. */
@@ -39,8 +41,8 @@ data class ConversationEntity(
 
 @Dao
 interface ConversationDao {
-    @Query("SELECT * FROM conversations WHERE host = :host AND owner = :owner AND name = :name AND number = :number")
-    suspend fun get(host: String, owner: String, name: String, number: Int): ConversationEntity?
+    @Query("SELECT * FROM conversations WHERE host = :host AND owner = :owner AND name = :name AND number = :number AND isPullRequest = :isPullRequest")
+    suspend fun get(host: String, owner: String, name: String, number: Int, isPullRequest: Boolean = false): ConversationEntity?
 
     @Upsert
     suspend fun upsert(entity: ConversationEntity)
@@ -48,8 +50,8 @@ interface ConversationDao {
     @Query("DELETE FROM conversations WHERE host = :host")
     suspend fun clear(host: String)
 
-    @Query("DELETE FROM conversations WHERE host = :host AND owner = :owner AND name = :name AND number = :number")
-    suspend fun delete(host: String, owner: String, name: String, number: Int)
+    @Query("DELETE FROM conversations WHERE host = :host AND owner = :owner AND name = :name AND number = :number AND isPullRequest = :isPullRequest")
+    suspend fun delete(host: String, owner: String, name: String, number: Int, isPullRequest: Boolean = false)
 
     /** Keeps the [keep] most recently viewed conversations. */
     @Query("DELETE FROM conversations WHERE viewedAtMillis < (SELECT MIN(viewedAtMillis) FROM (SELECT viewedAtMillis FROM conversations ORDER BY viewedAtMillis DESC LIMIT :keep))")
@@ -120,7 +122,7 @@ private data class StoredIssue(
     val dueEpochDay: Long? = null,
 ) {
     fun toModel() = IssueDetails(
-        ref = IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number),
+        ref = IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number, if (ForgeInstance.of(host).type == ForgeType.GITLAB) pull != null else null),
         title = title,
         body = body,
         state = state,
@@ -200,7 +202,7 @@ private sealed interface StoredItem {
         val at: Long,
     ) : StoredItem {
         override fun toModel() =
-            TimelineItem.CrossReferenced(IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number), title, isPullRequest, actor?.toModel(), Instant.ofEpochMilli(at))
+            TimelineItem.CrossReferenced(IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number, isPullRequest = isPullRequest), title, isPullRequest, actor?.toModel(), Instant.ofEpochMilli(at))
     }
 
     @Serializable

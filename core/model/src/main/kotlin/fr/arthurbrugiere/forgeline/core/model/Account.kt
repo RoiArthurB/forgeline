@@ -19,11 +19,8 @@ data class ForgeInstance(val type: ForgeType, val host: String) {
             else -> host
         }
 
-    /**
-     * Whether the app can sign in to the forge and open what's on it. gitlab.com isn't yet: it is only on Trending, and
-     * its repositories open in the browser.
-     */
-    val isBrowsable: Boolean get() = type != ForgeType.GITLAB
+    /** Whether the app can sign in to the forge and open what's on it. */
+    val isBrowsable: Boolean get() = true
 
     companion object {
         val GitHub = ForgeInstance(ForgeType.GITHUB, "github.com")

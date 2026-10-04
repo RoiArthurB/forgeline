@@ -26,15 +26,15 @@ In order of importance:
 
 1. **Fast, above everything else.** Cache-first: every screen renders from the local database instantly, then refreshes. The app opens in about a second. Speed is the reason the project exists, and it wins any trade-off.
 2. **Discovery-first.** Built around the timeline and the daily Trending browse, not a port of desktop GitHub's layout.
-3. **Multi-forge.** GitHub first; GitLab and Gitea/Forgejo, including self-hosted instances, are planned.
+3. **Multi-forge.** GitHub, GitLab, Codeberg and self-hosted Forgejo instances work side-by-side in one unified inbox, feed and search.
 4. **Free and private.** GPL-3.0, no backend, no analytics, no trackers. The app talks directly to the forge.
 
 ## Operating Context
 
 - A quick daily check-in: open, browse Trending and the Feed, dip into repositories, READMEs, issues and profiles, then close.
 - Triage between desk sessions: clear the Inbox with swipes. Background checks (hourly by default, or off) post phone notifications on separate channels, so people can mute CI without missing mentions.
-- github.com links can open in the app, but only after the user turns it on in Android's "Open by default" settings, because the app can't verify a domain it doesn't own.
-- Sign-in uses the one-tap GitHub device flow or a classic personal access token. Trending works without signing in.
+- github.com and gitlab.com links can open in the app, but only after the user turns it on in Android's "Open by default" settings, because the app can't verify a domain it doesn't own.
+- Sign-in uses the one-tap GitHub device flow, browser OAuth with PKCE (GitLab, Codeberg), or personal access tokens. Trending works without signing in.
 
 ## Capabilities and Constraints
 

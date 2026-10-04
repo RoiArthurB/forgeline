@@ -54,10 +54,12 @@ data class IssueRoute(
     val owner: String,
     val name: String,
     val number: Int,
+    /** Whether it is a pull request, where that is known: GitLab numbers merge requests apart from issues. */
+    val isPullRequest: Boolean? = null,
     val unread: Boolean = false,
     val lastReadAtMillis: Long? = null,
 ) : NavKey {
-    val issue: IssueRef get() = IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number)
+    val issue: IssueRef get() = IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number, isPullRequest)
 }
 
 /** The form that opens an issue in a repository. */
@@ -96,7 +98,7 @@ fun RepoId.releaseRoute(tag: String) = ReleaseRoute(forge.host, owner, name, tag
 
 fun RepoId.newIssueRoute() = NewIssueRoute(forge.host, owner, name)
 
-fun IssueRef.route() = IssueRoute(repo.forge.host, repo.owner, repo.name, number)
+fun IssueRef.route() = IssueRoute(repo.forge.host, repo.owner, repo.name, number, isPullRequest)
 
 /** The conversation of a thread, for a thread about one; an unread thread opens at what is new. */
 fun NotificationThread.route(): IssueRoute? = subject?.route()?.copy(unread = unread, lastReadAtMillis = lastReadAt?.toEpochMilli())
