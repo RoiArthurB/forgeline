@@ -28,15 +28,24 @@ fun forgeDispatcher(): Dispatcher = Dispatcher().apply {
 /**
  * The engine every forge client runs on. Connections are kept 5 minutes (OkHttp's default), so a TLS handshake to a
  * far forge (two round trips) is paid once per session, not per request.
+ *
+ * Every engine (each forge's client and the pictures') shares one dispatcher and one pool. Regression: each had its
+ * own, so pictures served by the forge's own host (Codeberg's and GitLab's avatars) opened a second connection beside
+ * the API's, a second handshake, and each engine kept threads of its own.
  */
 fun forgeEngine(): HttpClientEngine = OkHttp.create {
     config {
-        dispatcher(forgeDispatcher())
-        connectionPool(ConnectionPool(IDLE_CONNECTIONS, 5, TimeUnit.MINUTES))
+        dispatcher(sharedDispatcher)
+        connectionPool(sharedConnections)
     }
 }
 
-private const val IDLE_CONNECTIONS = 8
+private val sharedDispatcher by lazy { forgeDispatcher() }
+
+private val sharedConnections by lazy { ConnectionPool(IDLE_CONNECTIONS, 5, TimeUnit.MINUTES) }
+
+/** Idle connections kept across every forge and picture host. */
+private const val IDLE_CONNECTIONS = 16
 
 /**
  * Loads every picture (avatars, README images) through [engine]. Coil's own client was held to OkHttp's 5 requests
