@@ -10,6 +10,21 @@ class RepoIdTest {
     }
 
     @Test
+    fun names_differing_only_in_case_are_one_repository_in_a_set() {
+        val ids = listOf(
+            RepoId("Alice", "Tool"),
+            RepoId("alice", "tool"),
+            RepoId("ALICE", "TOOL"),
+            // Letters whose case folds unevenly still hash as they compare.
+            RepoId("straße", "ǅ"),
+            RepoId("STRAßE", "ǆ"),
+        )
+
+        assertThat(ids.toSet()).hasSize(2)
+        ids.forEach { a -> ids.filter { it == a }.forEach { b -> assertThat(b.hashCode()).isEqualTo(a.hashCode()) } }
+    }
+
+    @Test
     fun web_url_points_at_the_repository_forge() {
         assertThat(RepoId("alice", "tool", ForgeInstance.GitHub).webUrl).isEqualTo("https://github.com/alice/tool")
         assertThat(RepoId("alice", "tool", ForgeInstance.Codeberg).webUrl).isEqualTo("https://codeberg.org/alice/tool")

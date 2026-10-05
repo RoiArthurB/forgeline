@@ -28,7 +28,7 @@ interface ForgeHosts {
  * accounts' store is read later and off the main thread, after a link may already have been opened.
  */
 @Singleton
-class StoredForgeHosts @Inject constructor(@param:ApplicationContext context: Context) : ForgeHosts {
+class StoredForgeHosts @Inject constructor(@ApplicationContext context: Context) : ForgeHosts {
     private val preferences = context.getSharedPreferences("forge_hosts", Context.MODE_PRIVATE)
 
     override fun load() {
