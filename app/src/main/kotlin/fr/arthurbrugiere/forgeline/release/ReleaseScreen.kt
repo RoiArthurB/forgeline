@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.release
 
 import androidx.compose.foundation.background
+import fr.arthurbrugiere.forgeline.ui.rememberNow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -138,7 +139,7 @@ fun ReleaseScreen(
     onLinkClick: (String) -> Unit,
     onErrorShown: () -> Unit,
     modifier: Modifier = Modifier,
-    nowMillis: Long = System.currentTimeMillis(),
+    nowMillis: Long = rememberNow(state.release),
 ) {
     val colors = Soft.colors
     val release = state.release

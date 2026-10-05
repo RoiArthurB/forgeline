@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.settings
 
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
+import fr.arthurbrugiere.forgeline.ui.rememberNow
 import java.time.Instant
 import fr.arthurbrugiere.forgeline.ui.relative
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
@@ -157,7 +158,7 @@ fun SettingsScreen(
     onOpenSection: (SettingsSection) -> Unit = {},
     measuredAt: Map<String, Long> = emptyMap(),
     onTrendingMeasuredChange: (host: String, measured: Boolean) -> Unit = { _, _ -> },
-    nowMillis: Long = System.currentTimeMillis(),
+    nowMillis: Long = rememberNow(measuredAt),
 ) {
     val colors = Soft.colors
     val listState = rememberLazyListState()

@@ -9,6 +9,9 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -85,6 +88,24 @@ fun Message(text: String) {
         color = Soft.colors.inkMuted,
         modifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp),
     )
+}
+
+/**
+ * "Now", for the relative times rows show ("5m"): read again when the screen comes back to the front and when [keys]
+ * (what its rows show) change, never on a mere recomposition. Regression: screens read the clock in a default argument,
+ * so every recomposition (a refresh starting, a keystroke in a comment) handed every row a new time and redrew them all,
+ * Markdown included.
+ */
+@Composable
+fun rememberNow(vararg keys: Any?): Long {
+    val resumes = remember { mutableIntStateOf(0) }
+    // The first resume is the screen appearing: the time read below is already fresh.
+    val appeared = remember { booleanArrayOf(false) }
+    LifecycleResumeEffect(Unit) {
+        if (appeared[0]) resumes.intValue++ else appeared[0] = true
+        onPauseOrDispose {}
+    }
+    return remember(resumes.intValue, *keys) { System.currentTimeMillis() }
 }
 
 fun relative(instant: Instant, nowMillis: Long, abbreviated: Boolean = false): String =

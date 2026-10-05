@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.issue
 
 import androidx.compose.foundation.layout.Arrangement
+import fr.arthurbrugiere.forgeline.ui.rememberNow
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -147,7 +148,7 @@ fun IssueManageContent(
     actions: ManageActions,
     onDismiss: () -> Unit,
     startPage: ManagePage = ManagePage.MENU,
-    nowMillis: Long = System.currentTimeMillis(),
+    nowMillis: Long = rememberNow(state.issue),
 ) {
     var page by rememberSaveable { mutableStateOf(startPage) }
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {

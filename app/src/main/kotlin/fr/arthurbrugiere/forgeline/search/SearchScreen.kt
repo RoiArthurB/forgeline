@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.search
 
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
+import fr.arthurbrugiere.forgeline.ui.rememberNow
 import androidx.compose.foundation.layout.imePadding
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
@@ -122,7 +123,7 @@ fun SearchScreen(
     onOpenUser: (ForgeInstance, String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
-    nowMillis: Long = System.currentTimeMillis(),
+    nowMillis: Long = rememberNow(state.results),
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = remember { FocusRequester() }
