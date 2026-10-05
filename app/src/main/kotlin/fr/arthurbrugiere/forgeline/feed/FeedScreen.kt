@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.feed
 
 import fr.arthurbrugiere.forgeline.ui.openInCustomTab
+import fr.arthurbrugiere.forgeline.ui.rememberNow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.outlined.Campaign
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
@@ -118,7 +119,6 @@ import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
-import fr.arthurbrugiere.forgeline.core.model.FeedPreviews
 import fr.arthurbrugiere.forgeline.core.model.RepoPreview
 import fr.arthurbrugiere.forgeline.core.ui.format.compactCount
 import fr.arthurbrugiere.forgeline.core.ui.format.languageColor
@@ -206,7 +206,7 @@ fun FeedScreen(
     onOpenUrl: (String) -> Unit = {},
     onVisible: (List<FeedItem>) -> Unit = {},
     onReadThrough: (FeedItem) -> Unit = {},
-    nowMillis: Long = System.currentTimeMillis(),
+    nowMillis: Long = rememberNow(state.items),
     zone: ZoneId = ZoneId.systemDefault(),
 ) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
     val colors = Soft.colors
@@ -230,6 +230,9 @@ fun FeedScreen(
     }
     // Rows on screen ask for their previews (repo details, pull request titles), fetched once and cached.
     val itemsByKey = remember(state.items) { state.items.associateBy { it.key } }
+    // Still one chronological timeline, just marked by day so it reads in chapters. Grouped once per list, not at every
+    // recomposition (a refresh starting or ending, a preview arriving).
+    val days = remember(state.items, nowMillis, zone) { state.items.groupBy { it.createdAt.day(nowMillis, zone) } }
     LaunchedEffect(listState, itemsByKey) {
         snapshotFlow { listState.layoutInfo.visibleItemsInfo.mapNotNull { itemsByKey[it.key] } }
             .distinctUntilChanged()
@@ -282,13 +285,18 @@ fun FeedScreen(
                         SoftNotice(stringResource(R.string.feed_empty_title), stringResource(R.string.feed_empty_body))
                     }
                     else -> {
-                        // Still one chronological timeline, just marked by day so it reads in chapters.
-                        state.items.groupBy { it.createdAt.day(nowMillis, zone) }.forEach { (day, items) ->
+                        days.forEach { (day, items) ->
                             item(key = "day-$day", contentType = "day") { SoftSectionTitle(stringResource(day.label)) }
                             items(items, key = { it.key }, contentType = { it.action.kind }) { item ->
                                 Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem()) {
                                     if (item.key == state.leftOffBefore) LeftOffMark()
-                                    FeedRow(item, state.previews, nowMillis, onOpenRepo, onOpenIssue, onOpenUser, onOpenUrl)
+                                    // Each row gets only its own preview: one arriving redraws the rows it is for, not all of them.
+                                    FeedRow(
+                                        item,
+                                        repoPreview = item.previewRepo?.let { state.previews.repos[it] },
+                                        pullTitle = item.previewPull?.let { state.previews.pullTitles[it] },
+                                        nowMillis, onOpenRepo, onOpenIssue, onOpenUser, onOpenUrl,
+                                    )
                                 }
                             }
                         }
@@ -318,7 +326,8 @@ fun FeedScreen(
 @Composable
 private fun FeedRow(
     item: FeedItem,
-    previews: FeedPreviews,
+    repoPreview: RepoPreview?,
+    pullTitle: String?,
     nowMillis: Long,
     onOpenRepo: (RepoId) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
@@ -376,17 +385,17 @@ private fun FeedRow(
                 onTextLayout = { if (it.hasVisualOverflow) squeeze = nextFeedSqueeze(item.repo.fullName, squeeze) },
                 modifier = Modifier.padding(top = 2.dp),
             )
-            FeedObject(item, previews, Modifier.padding(top = 8.dp))
+            FeedObject(item, repoPreview, pullTitle, Modifier.padding(top = 8.dp))
         }
     }
 }
 
 /** The thing an event is about, drawn for its kind. */
 @Composable
-private fun FeedObject(item: FeedItem, previews: FeedPreviews, modifier: Modifier = Modifier) {
+private fun FeedObject(item: FeedItem, repoPreview: RepoPreview?, pullTitle: String?, modifier: Modifier = Modifier) {
     val colors = Soft.colors
     when (val a = item.action) {
-        FeedAction.Starred, FeedAction.MadePublic, is FeedAction.Forked -> RepoObject(item.repo, previews.repos[item.repo], null, modifier)
+        FeedAction.Starred, FeedAction.MadePublic, is FeedAction.Forked -> RepoObject(item.repo, repoPreview, null, modifier)
         is FeedAction.CreatedRepo -> RepoObject(item.repo, null, a.description, modifier)
         is FeedAction.Released -> Column(modifier) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -414,7 +423,7 @@ private fun FeedObject(item: FeedItem, previews: FeedPreviews, modifier: Modifie
                 PullRequestAction.MERGED -> StatePill(stringResource(R.string.feed_state_merged), Icons.AutoMirrored.Outlined.CallMerge, colors.fields[1], number = a.number)
                 PullRequestAction.CLOSED -> StatePill(stringResource(R.string.feed_state_closed), Icons.Outlined.Close, colors.fields[0], number = a.number)
             }
-            PullTitle(item, a.number, previews)
+            LateTitle(a.title ?: pullTitle)
         }
         is FeedAction.Reviewed -> Column(modifier) {
             when (a.state) {
@@ -422,12 +431,11 @@ private fun FeedObject(item: FeedItem, previews: FeedPreviews, modifier: Modifie
                 ReviewState.CHANGES_REQUESTED -> StatePill(stringResource(R.string.feed_state_changes), Icons.Outlined.RateReview, colors.fields[0], number = a.number)
                 else -> StatePill(stringResource(R.string.feed_state_reviewed), Icons.Outlined.RateReview, colors.surface, number = a.number)
             }
-            PullTitle(item, a.number, previews)
+            LateTitle(pullTitle)
         }
         is FeedAction.Commented -> Column(modifier) {
             StatePill(stringResource(R.string.feed_state_comment), Icons.Outlined.ChatBubbleOutline, colors.fields[1], number = a.number)
-            val title = a.title ?: previews.pullTitles[IssueRef(item.repo, a.number, a.isPullRequest)]
-            LateTitle(title)
+            LateTitle(a.title ?: pullTitle)
         }
         is FeedAction.Pushed -> StatePill(a.branch, Icons.Outlined.Commit, colors.surface, monospace = true, modifier = modifier)
         is FeedAction.Branch -> StatePill(a.name, if (a.isTag) Icons.Outlined.Sell else Icons.Outlined.AccountTree, colors.surface, monospace = true, modifier = modifier)
@@ -540,12 +548,10 @@ private fun ObjectTitle(title: String) {
     )
 }
 
-/** A pull request's title: carried by Forgejo's events, fetched after the Feed shows for GitHub's (only the number). */
-@Composable
-private fun PullTitle(item: FeedItem, number: Int, previews: FeedPreviews) =
-    LateTitle((item.action as? FeedAction.PullRequest)?.title ?: previews.pullTitles[IssueRef(item.repo, number, isPullRequest = true)])
-
-/** A title that may still be on its way: its placeholder bar until then, and a fade when it lands. */
+/**
+ * A title that may still be on its way (a pull request's: carried by Forgejo's events, fetched after the Feed shows for
+ * GitHub's, which give only the number): its placeholder bar until then, and a fade when it lands.
+ */
 @Composable
 private fun LateTitle(title: String?) {
     val startedEmpty = remember { title == null }
