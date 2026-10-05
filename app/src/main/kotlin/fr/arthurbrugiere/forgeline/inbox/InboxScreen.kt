@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.inbox
 
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
+import fr.arthurbrugiere.forgeline.ui.rememberNow
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalDensity
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
@@ -54,6 +55,8 @@ import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -255,7 +258,7 @@ fun InboxScreen(
     /** A repository's heading was swiped away: every thread listed under it is done. */
     onMarkAllDone: (List<NotificationThread>) -> Unit = {},
     onSelectAccount: (String?) -> Unit = {},
-    nowMillis: Long = System.currentTimeMillis(),
+    nowMillis: Long = rememberNow(state.groups),
 ) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
     val colors = Soft.colors
     val snackbar = remember { SnackbarHostState() }
@@ -296,6 +299,11 @@ fun InboxScreen(
     }
 
     val listState = rememberLazyListState()
+    // Everything else reads owner by owner, then repository by repository: grouped once per list, not each time the
+    // screen recomposes (a refresh starting or ending, an undo offered).
+    val owners = remember(state.groups) {
+        state.groups.filter { it.section != InboxSection.NEEDS_YOU }.associate { it.section to it.threads.byOwnerAndRepo() }
+    }
     Box(modifier.fillMaxSize().background(colors.ground)) {
         val pullState = rememberPullToRefreshState()
         PullToRefreshBox(
@@ -383,14 +391,11 @@ fun InboxScreen(
                         if (group.section == InboxSection.NEEDS_YOU) {
                             threadItems(group.threads, group.section, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe)
                         } else {
-                            // Everything else reads owner by owner, then repository by repository. An owner with a
-                            // single repository gets one combined heading; one with several heads them all.
-                            // By forge too: "acme" on GitHub and "acme" on Codeberg are different owners.
-                            group.threads.groupBy { it.repo.forge to it.repo.owner.lowercase() }.forEach { (forgeOwner, owned) ->
-                                val repos = owned.groupBy { it.repo }
+                            // An owner with a single repository gets one combined heading; one with several heads them all.
+                            owners.getValue(group.section).forEach { (forgeOwner, repos) ->
                                 if (repos.size > 1) {
                                     item(key = "owner-${forgeOwner.first.host}-${forgeOwner.second}", contentType = "owner") {
-                                        OwnerHeading(owned.first(), Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem())
+                                        OwnerHeading(repos.values.first().first(), Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem())
                                     }
                                 }
                                 repos.forEach { (repo, threads) ->
@@ -421,6 +426,10 @@ fun InboxScreen(
         }
     }
 }
+
+/** Threads by owner, then by repository, in list order. By forge too: "acme" on GitHub and on Codeberg are two owners. */
+private fun List<NotificationThread>.byOwnerAndRepo(): List<Pair<Pair<ForgeInstance, String>, Map<RepoId, List<NotificationThread>>>> =
+    groupBy { it.repo.forge to it.repo.owner.lowercase() }.map { (forgeOwner, owned) -> forgeOwner to owned.groupBy { it.repo } }
 
 private fun LazyListScope.threadItems(
     threads: List<NotificationThread>,
