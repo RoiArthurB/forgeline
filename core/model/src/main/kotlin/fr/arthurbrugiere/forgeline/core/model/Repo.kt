@@ -21,10 +21,11 @@ data class RepoId(val owner: String, val name: String, val forge: ForgeInstance 
             name.equals(other.name, ignoreCase = true)
     }
 
+    // Without a lowercased copy of each part: repository ids are hashed all the time (map lookups for every row drawn).
     override fun hashCode(): Int {
         var result = forge.hashCode()
-        result = 31 * result + owner.lowercase(java.util.Locale.ROOT).hashCode()
-        result = 31 * result + name.lowercase(java.util.Locale.ROOT).hashCode()
+        result = 31 * result + owner.caseInsensitiveHash()
+        result = 31 * result + name.caseInsensitiveHash()
         return result
     }
 
@@ -37,6 +38,13 @@ data class RepoId(val owner: String, val name: String, val forge: ForgeInstance 
             return RepoId(parts.subList(1, parts.size - 1).joinToString("/"), parts.last(), ForgeInstance.of(parts[0]))
         }
     }
+}
+
+/** A hash equal for strings [equals] with `ignoreCase = true` takes for equal: each char folded the way it compares them. */
+private fun String.caseInsensitiveHash(): Int {
+    var hash = 0
+    for (char in this) hash = 31 * hash + Character.toLowerCase(Character.toUpperCase(char)).code
+    return hash
 }
 
 enum class TrendingPeriod { DAILY, WEEKLY, MONTHLY }

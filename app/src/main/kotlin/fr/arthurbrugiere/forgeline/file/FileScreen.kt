@@ -119,7 +119,7 @@ fun FileScreen(
             backDescription = stringResource(R.string.navigate_up),
             actions = {
                 if (content is Loadable.Loaded && content.value is FileContent.Text) {
-                    IconButton(onClick = { onCopy((content.value as FileContent.Text).text) }) {
+                    IconButton(onClick = { onCopy(content.value.text) }) {
                         Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.file_copy), tint = colors.ink)
                     }
                 }
