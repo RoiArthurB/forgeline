@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.actions
 
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
+import fr.arthurbrugiere.forgeline.ui.rememberNow
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import fr.arthurbrugiere.forgeline.core.model.jobUrl
@@ -128,7 +129,7 @@ fun JobLogScreen(
     onSignIn: () -> Unit,
     onOpenInBrowser: () -> Unit,
     modifier: Modifier = Modifier,
-    nowMillis: Long = System.currentTimeMillis(),
+    nowMillis: Long = rememberNow(state.job),
 ) {
     val colors = Soft.colors
     val palette = if (colors.isDark) AnsiDark else AnsiLight

@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.actions
 
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
+import fr.arthurbrugiere.forgeline.ui.rememberNow
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import fr.arthurbrugiere.forgeline.session.signedInOn
@@ -137,7 +138,7 @@ fun RunScreen(
     onResultShown: () -> Unit,
     onErrorShown: () -> Unit,
     modifier: Modifier = Modifier,
-    nowMillis: Long = System.currentTimeMillis(),
+    nowMillis: Long = rememberNow(state.run, state.jobs),
 ) {
     val colors = Soft.colors
     val snackbar = remember { SnackbarHostState() }

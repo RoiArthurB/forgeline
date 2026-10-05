@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.repo
 
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
+import fr.arthurbrugiere.forgeline.ui.rememberNow
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
@@ -232,7 +233,7 @@ fun RepoScreen(
     onErrorShown: () -> Unit,
     onStarFailureShown: () -> Unit,
     modifier: Modifier = Modifier,
-    nowMillis: Long = System.currentTimeMillis(),
+    nowMillis: Long = rememberNow(state.issues, state.pulls, state.pinned, state.releases, state.runs),
 ) {
     val colors = Soft.colors
     val snackbar = remember { SnackbarHostState() }

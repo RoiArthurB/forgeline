@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.issue
 
 import fr.arthurbrugiere.forgeline.session.signedInOn
+import fr.arthurbrugiere.forgeline.ui.rememberNow
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
@@ -67,7 +68,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
-import androidx.compose.material.icons.outlined.Label
+import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.RateReview
 import androidx.compose.material.icons.outlined.Replay
@@ -254,7 +255,7 @@ fun IssueScreen(
     onErrorShown: () -> Unit,
     modifier: Modifier = Modifier,
     manage: ManageActions = ManageActions(),
-    nowMillis: Long = System.currentTimeMillis(),
+    nowMillis: Long = rememberNow(state.issue, state.items),
     /** Loads what is left of the conversation and asks, through the state, to be taken to its end. */
     onToEnd: () -> Unit = {},
     onScrolled: () -> Unit = {},
@@ -828,7 +829,7 @@ private fun TimelineEntry(
         is TimelineItem.Labeled -> {
             val who = item.actor?.login ?: "ghost"
             // The chip goes inside the line: next to a full-width EventLine it was squeezed to nothing.
-            EventLine(Icons.Outlined.Label, stringResource(if (item.added) R.string.issue_labeled_event else R.string.issue_unlabeled_event, who)) {
+            EventLine(Icons.AutoMirrored.Outlined.Label, stringResource(if (item.added) R.string.issue_labeled_event else R.string.issue_unlabeled_event, who)) {
                 LabelChip(item.label)
             }
         }

@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.trending
 
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
+import fr.arthurbrugiere.forgeline.ui.rememberNow
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
@@ -164,7 +165,7 @@ fun TrendingScreen(
     onStarFailureShown: () -> Unit,
     modifier: Modifier = Modifier,
     onReadThrough: (Int) -> Unit = {},
-    nowMillis: Long = System.currentTimeMillis(),
+    nowMillis: Long = rememberNow(state.updatedAtMillis, state.items),
     onSelectForge: (ForgeInstance?) -> Unit = {},
 ) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
     val snackbar = remember { SnackbarHostState() }
