@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import fr.arthurbrugiere.forgeline.di.ApplicationScope
+import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import javax.inject.Inject
 
 enum class InboxFilter { UNREAD, PARTICIPATING, ALL }
@@ -76,7 +76,7 @@ class InboxViewModel @Inject constructor(
     private val inbox: InboxRepository,
     settings: UserSettingsRepository,
     accounts: AccountRepository,
-    @param:ApplicationScope private val appScope: CoroutineScope,
+    @param:BackgroundScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     private val filter = savedState.getStateFlow(FILTER_KEY, InboxFilter.UNREAD)

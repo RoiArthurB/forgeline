@@ -10,10 +10,10 @@ import fr.arthurbrugiere.forgeline.di.forgeImageLoader
 import dagger.hilt.android.HiltAndroidApp
 import fr.arthurbrugiere.forgeline.core.data.account.AccountDataCleaner
 import fr.arthurbrugiere.forgeline.notifications.InboxSyncScheduler
+import fr.arthurbrugiere.forgeline.signin.ForgeHosts
 import fr.arthurbrugiere.forgeline.trending.TrendingMeasureScheduler
+import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -29,10 +29,15 @@ class ForgelineApplication : Application(), Configuration.Provider, SingletonIma
     lateinit var inboxSyncScheduler: InboxSyncScheduler
 
     @Inject
-    lateinit var forgeHosts: fr.arthurbrugiere.forgeline.signin.ForgeHosts
+    lateinit var forgeHosts: ForgeHosts
 
     @Inject
     lateinit var trendingMeasureScheduler: TrendingMeasureScheduler
+
+    /** Off the main thread: reading settings and accounts must never delay the first frame. */
+    @Inject
+    @field:BackgroundScope
+    lateinit var background: CoroutineScope
 
     // Lazy: it opens the database, which must not happen on the main thread at launch.
     @Inject
@@ -43,8 +48,6 @@ class ForgelineApplication : Application(), Configuration.Provider, SingletonIma
         // Which self-hosted servers are GitLab's must be known before a link or a kept screen names one: a few bytes,
         // read here rather than later with the accounts.
         forgeHosts.load()
-        // Off the main thread: reading settings and accounts must never delay the first frame.
-        val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         inboxSyncScheduler.start(background)
         trendingMeasureScheduler.start(background)
         // What a version that deleted nothing at sign-out left behind, or a sync that outlived a sign-out.
