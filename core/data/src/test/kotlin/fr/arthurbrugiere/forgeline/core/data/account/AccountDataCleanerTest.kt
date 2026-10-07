@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.core.data.account
 
+import fr.arthurbrugiere.forgeline.core.data.draft.issueDraftKey
+import fr.arthurbrugiere.forgeline.core.data.draft.commentDraftKey
+import fr.arthurbrugiere.forgeline.core.data.draft.Draft
+import fr.arthurbrugiere.forgeline.core.data.draft.InMemoryDraftStore
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
@@ -53,8 +57,9 @@ class AccountDataCleanerTest {
     private val clients = FakeForgeClients(issues = issueApi, users = userApi)
     private val conversations = DefaultIssueRepository(clients, accounts, database.conversationDao(), Clock.systemUTC())
     private val users = DefaultUserRepository(clients, accounts)
+    private val drafts = InMemoryDraftStore()
     private val cleaner = AccountDataCleaner(
-        accounts, database.inboxDao(), state.doneDao(), database.feedDao(), database.repoDao(), database.feedPreviewDao(), conversations, users,
+        accounts, database.inboxDao(), state.doneDao(), database.feedDao(), database.repoDao(), database.feedPreviewDao(), conversations, users, drafts,
     )
 
     private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)
@@ -155,5 +160,22 @@ class AccountDataCleanerTest {
 
         assertThat(database.inboxDao().observeAll().first()).isEmpty()
         assertThat(database.feedDao().observeAll().first()).isEmpty()
+    }
+
+    @Test
+    fun what_was_being_written_on_a_forge_goes_with_its_account_and_stays_elsewhere() = runTest {
+        forges.forEach { forge ->
+            drafts.write(commentDraftKey(issue(forge)), Draft(body = "Half a thought"))
+            drafts.write(issueDraftKey(issue(forge).repo), Draft("Not opened yet", "Still thinking"))
+        }
+        val account = accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
+        accounts.signOut(account.id)
+
+        cleaner.forget(account)
+
+        assertThat(drafts.peek(commentDraftKey(issue(ForgeInstance.GitHub)))).isNull()
+        assertThat(drafts.peek(issueDraftKey(issue(ForgeInstance.GitHub).repo))).isNull()
+        assertThat(drafts.peek(commentDraftKey(issue(ForgeInstance.Codeberg)))).isEqualTo(Draft(body = "Half a thought"))
+        assertThat(drafts.peek(issueDraftKey(issue(ForgeInstance.Codeberg).repo))).isEqualTo(Draft("Not opened yet", "Still thinking"))
     }
 }

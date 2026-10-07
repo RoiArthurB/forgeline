@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.data.di
 
+import fr.arthurbrugiere.forgeline.core.data.draft.DraftStore
+import fr.arthurbrugiere.forgeline.core.data.draft.DataStoreDraftStore
 import android.util.Log
 import kotlinx.coroutines.CoroutineExceptionHandler
 import android.content.Context
@@ -173,7 +175,26 @@ abstract class DataModule {
     }
 }
 
+/**
+ * Where what is being written is kept. On its own so that tests of the whole app can keep drafts in memory instead:
+ * the file is one per process, and a draft left by one test would be offered to the next.
+ */
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class DraftModule {
+    @Binds
+    abstract fun bindDraftStore(impl: DataStoreDraftStore): DraftStore
+
+    companion object {
+        @Provides
+        @Singleton
+        @DraftsDataStore
+        fun provideDraftsDataStore(@ApplicationContext context: Context): DataStore<Preferences> = context.draftsDataStore
+    }
+}
+
 // One instance per file per process, as DataStore requires: the delegates are process-wide,
 // unlike @Singleton, which is per Hilt component (tests create one per test).
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore("user_settings")
 private val Context.accountsDataStore: DataStore<Preferences> by preferencesDataStore("accounts")
+private val Context.draftsDataStore: DataStore<Preferences> by preferencesDataStore("drafts")

@@ -10,6 +10,10 @@ annotation class SettingsDataStore
 @Retention(AnnotationRetention.BINARY)
 annotation class AccountsDataStore
 
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class DraftsDataStore
+
 /** Where lists are built from what the database holds (mapping, sorting, merging): never the main thread. */
 @Qualifier
 @Retention(AnnotationRetention.BINARY)

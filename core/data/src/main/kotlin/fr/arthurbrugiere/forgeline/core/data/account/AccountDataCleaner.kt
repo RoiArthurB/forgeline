@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.account
 
+import fr.arthurbrugiere.forgeline.core.data.draft.DraftStore
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedDao
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewDao
 import fr.arthurbrugiere.forgeline.core.data.feed.STARRED_PREFIX
@@ -22,7 +23,7 @@ fun interface SignedOutData {
 /**
  * What goes when an account signs out: its own rows (notifications, Feed, starred activity), and what was kept from
  * its forge whoever asked (conversations, repositories, previews), since some of it was read with that account and
- * may be private. Anything still wanted from the forge is fetched again.
+ * may be private; and what was being written there, which was to be sent as that account. Anything still wanted from the forge is fetched again.
  */
 @Singleton
 class AccountDataCleaner @Inject constructor(
@@ -34,6 +35,7 @@ class AccountDataCleaner @Inject constructor(
     private val previews: FeedPreviewDao,
     private val conversations: IssueRepository,
     private val users: UserRepository,
+    private val drafts: DraftStore,
 ) : SignedOutData {
 
     override suspend fun forget(account: Account) {
@@ -44,6 +46,7 @@ class AccountDataCleaner @Inject constructor(
         previews.clear(host)
         conversations.forget(account.forge)
         users.forget(account.forge)
+        drafts.forget(account.forge)
     }
 
     /**

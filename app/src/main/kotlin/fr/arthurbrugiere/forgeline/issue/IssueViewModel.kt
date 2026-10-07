@@ -152,8 +152,9 @@ class IssueViewModel @AssistedInject constructor(
 
     private val _state = MutableStateFlow(
         repository.cached(ref).let { cached ->
-            // The draft outlives the app being stopped: a comment half written is not to be typed again.
-            IssueUiState(ref, cached?.issue, cached?.firstPage?.items.orEmpty(), cached?.firstPage?.nextPage, cached?.firstPage?.lastPage, draft = savedState[DRAFT_KEY] ?: "")
+            // The draft outlives the screen and the app being stopped: a comment half written is not to be typed again.
+            val draft = savedState.get<String>(DRAFT_KEY)?.takeIf { it.isNotEmpty() } ?: drafts.comment(ref)
+            IssueUiState(ref, cached?.issue, cached?.firstPage?.items.orEmpty(), cached?.firstPage?.nextPage, cached?.firstPage?.lastPage, draft = draft)
         },
     )
     val state: StateFlow<IssueUiState> = _state.asStateFlow()
@@ -182,6 +183,14 @@ class IssueViewModel @AssistedInject constructor(
         }
         checkPermissions()
         refresh()
+        // Written in an earlier launch: it comes back, unless the reader has started writing or rewriting meanwhile.
+        if (_state.value.draft.isEmpty()) {
+            viewModelScope.launch {
+                val kept = drafts.storedComment(ref)
+                if (kept.isEmpty()) return@launch
+                _state.update { if (it.draft.isEmpty() && it.editing == null) it.copy(draft = kept, draftPlaced = it.draftPlaced + 1) else it }
+            }
+        }
         // Changed from elsewhere in the app (its title and text, from the form that edits them): what is kept is read again.
         viewModelScope.launch {
             repository.changed.collect { changed ->
@@ -321,7 +330,10 @@ class IssueViewModel @AssistedInject constructor(
 
     fun draftChanged(text: String) {
         // A comment being rewritten is not the comment being written: only that one is kept for later.
-        if (_state.value.editing == null) savedState[DRAFT_KEY] = text
+        if (_state.value.editing == null) {
+            savedState[DRAFT_KEY] = text
+            drafts.keepComment(ref, text)
+        }
         _state.update { it.copy(draft = text, commentError = null) }
     }
 
@@ -430,6 +442,7 @@ class IssueViewModel @AssistedInject constructor(
                 is ForgeResult.Failure -> _state.update { it.copy(isCommenting = false, commentError = result.error) }
                 is ForgeResult.Success -> {
                     savedState[DRAFT_KEY] = ""
+                    drafts.keepComment(ref, "")
                     _state.update { state ->
                         // At the end of a conversation loaded whole; otherwise it shows once the rest is loaded.
                         val atEnd = state.nextPage == null
