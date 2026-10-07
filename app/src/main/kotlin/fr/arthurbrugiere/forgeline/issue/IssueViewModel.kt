@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.ui.PickedPicture
+import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -85,6 +87,11 @@ data class IssueUiState(
     val deleteError: ForgeError? = null,
     /** A reaction couldn't be given or taken back. */
     val reactionError: ForgeError? = null,
+    /** Who the forge's API lets put a picture in a comment. */
+    val attachments: AttachmentRule = AttachmentRule.NOBODY,
+    val isAttaching: Boolean = false,
+    /** A picture couldn't be attached: 413 for one too large, whoever found it so. */
+    val attachError: ForgeError? = null,
     /** Where the issue went once transferred: this screen gives way to it. */
     val movedTo: IssueRef? = null,
     /** The issue was deleted: there is nothing left to show. */
@@ -98,6 +105,14 @@ data class IssueUiState(
 
     /** The title and the description are their author's to change, and whoever can write to the repository's. */
     val canEditIssue: Boolean get() = issue != null && (wrote(issue.author) || (me != null && access >= RepoAccess.WRITE))
+
+    /** Whether the reader may put a picture in a comment here. */
+    val canAttach: Boolean
+        get() = when (attachments) {
+            AttachmentRule.NOBODY -> false
+            AttachmentRule.ANYONE -> me != null
+            AttachmentRule.AUTHOR_OR_WRITER -> issue != null && (wrote(issue.author) || (me != null && access >= RepoAccess.WRITE))
+        }
 
     private fun wrote(author: ForgeUser?): Boolean = me != null && author != null && author.login.equals(me, ignoreCase = true)
 
@@ -211,7 +226,7 @@ class IssueViewModel @AssistedInject constructor(
             // What the forge only does to issues is not offered on a pull request.
             val supported = repository.actions(ref.repo) - if (issue.pullRequest != null) repository.issueOnly(ref.repo) else emptySet()
             val me = repository.me(ref.repo.forge)
-            _state.update { it.copy(canChangeState = allowed, access = access, supported = supported, me = me) }
+            _state.update { it.copy(canChangeState = allowed, access = access, supported = supported, me = me, attachments = repository.attachments(ref.repo)) }
         }
     }
 
@@ -408,6 +423,33 @@ class IssueViewModel @AssistedInject constructor(
     }
 
     fun reactionErrorShown() = _state.update { it.copy(reactionError = null) }
+
+    /**
+     * Uploads the picture the reader chose, then writes what shows it at the end of the comment, on a line of its own.
+     * A null [picture] couldn't be read; one without bytes is larger than a forge takes.
+     */
+    fun attach(picture: PickedPicture?) {
+        if (_state.value.isAttaching) return
+        val bytes = picture?.bytes
+        if (picture == null || bytes == null) {
+            _state.update { it.copy(attachError = if (picture == null) ForgeError.Unreadable else ForgeError.Http(413, null)) }
+            return
+        }
+        _state.update { it.copy(isAttaching = true, attachError = null) }
+        viewModelScope.launch {
+            when (val result = repository.attach(ref, picture.name, picture.mimeType, bytes)) {
+                is ForgeResult.Failure -> _state.update { it.copy(isAttaching = false, attachError = result.error) }
+                is ForgeResult.Success -> {
+                    // Read now, not when the upload started: the reader may have gone on writing meanwhile.
+                    val written = _state.value.draft.trimEnd()
+                    draftChanged(if (written.isEmpty()) "${result.value}\n" else "$written\n\n${result.value}\n")
+                    _state.update { it.copy(isAttaching = false, draftPlaced = it.draftPlaced + 1) }
+                }
+            }
+        }
+    }
+
+    fun attachErrorShown() = _state.update { it.copy(attachError = null) }
 
     /** Sends the comment as rewritten. Its text stays in the reader's turn until the forge has taken it. */
     private fun sendEdit(id: Long, body: String) {

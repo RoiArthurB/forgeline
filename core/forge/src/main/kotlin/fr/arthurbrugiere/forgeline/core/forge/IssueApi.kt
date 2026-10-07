@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.forge
 
+import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
@@ -48,6 +49,15 @@ interface IssueApi {
      * [login]; takes it back when they had already given it. Answers the reactions it then has, everyone's.
      */
     suspend fun toggleReaction(token: String, login: String, ref: IssueRef, commentId: Long?, reaction: Reaction): ForgeResult<Map<Reaction, Int>> = unsupported
+
+    /** Who may put a picture in a comment through this forge's API. */
+    val attachments: AttachmentRule get() = AttachmentRule.NOBODY
+
+    /**
+     * Uploads the file [bytes], named [name] and of type [mimeType], for a comment of [ref], and answers the Markdown
+     * that shows it there.
+     */
+    suspend fun attach(token: String, ref: IssueRef, name: String, mimeType: String, bytes: ByteArray): ForgeResult<String> = unsupported
 
     /** Opens an issue in [repo], [body] being Markdown and possibly empty, and answers it as the forge kept it. */
     suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails>

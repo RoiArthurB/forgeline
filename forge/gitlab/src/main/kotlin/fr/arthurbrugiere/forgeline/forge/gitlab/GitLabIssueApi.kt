@@ -1,5 +1,13 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
+import io.ktor.client.request.setBody
+import io.ktor.client.request.header
+import io.ktor.http.HttpHeaders
+import io.ktor.http.Headers
+import io.ktor.client.request.post
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.MultiPartFormDataContent
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
@@ -231,6 +239,37 @@ class GitLabIssueApi(
             Reaction.ROCKET -> "rocket"
             Reaction.EYES -> "eyes"
         }
+
+    /** GitLab keeps uploads with the project, for whoever may comment there. */
+    override val attachments: AttachmentRule = AttachmentRule.ANYONE
+
+    /**
+     * GitLab answers Markdown of its own, with an address relative to the project ("/uploads/..."), which only GitLab
+     * reads. The whole address is written instead ([GitLabUploadJson.fullPath] on the forge's host): it shows here,
+     * there, and in a notification's e-mail.
+     */
+    override suspend fun attach(token: String, ref: IssueRef, name: String, mimeType: String, bytes: ByteArray): ForgeResult<String> = gitlabCall {
+        httpClient.post("${ref.repo.forge.webUrl}/api/v4/projects/${projectPath(ref.repo)}/uploads") {
+            header(HttpHeaders.Accept, "application/json")
+            header(HttpHeaders.Authorization, "Bearer $token")
+            setBody(
+                MultiPartFormDataContent(
+                    formData {
+                        append(
+                            "file", bytes,
+                            Headers.build {
+                                append(HttpHeaders.ContentType, mimeType)
+                                append(HttpHeaders.ContentDisposition, "filename=\"${name.replace("\"", "")}\"")
+                            },
+                        )
+                    },
+                ),
+            )
+        }.toResult {
+            val kept = body<GitLabUploadJson>()
+            "![${kept.alt.replace(Regex("""[\[\]\\]"""), "").ifBlank { "image" }}](${ref.repo.forge.webUrl}${kept.fullPath})"
+        }
+    }
 
     override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = gitlabCall {
         val payload = buildJsonObject {

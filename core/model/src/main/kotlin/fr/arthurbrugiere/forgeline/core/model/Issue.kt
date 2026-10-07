@@ -62,6 +62,18 @@ data class IssueDetails(
  */
 enum class RepoAccess { NONE, TRIAGE, WRITE, ADMIN }
 
+/** Who a forge's API lets put a picture in a comment. */
+enum class AttachmentRule {
+    /** The API takes no file (GitHub's own apps use a way of theirs). */
+    NOBODY,
+
+    /** Whoever opened the conversation, and whoever can write to its repository: the file is kept with the conversation. */
+    AUTHOR_OR_WRITER,
+
+    /** Whoever can comment: the file is kept with the repository. */
+    ANYONE,
+}
+
 /** What can be done to a conversation beyond commenting on it and closing it; a forge's API offers some of them. */
 enum class ConversationAction { LABELS, ASSIGNEES, MILESTONE, CLOSE_REASON, LOCK, PIN, TRANSFER, DELETE, DUE_DATE, TIME_TRACKING, DEPENDENCIES }
 

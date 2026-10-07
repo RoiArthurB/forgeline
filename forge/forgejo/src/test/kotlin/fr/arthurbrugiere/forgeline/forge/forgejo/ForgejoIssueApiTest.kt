@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import io.ktor.client.engine.mock.toByteArray
 import io.ktor.http.HttpHeaders
 import java.time.Instant
 import io.ktor.http.content.TextContent
@@ -777,5 +778,41 @@ class ForgejoIssueApiTest {
 
         assertThat(api.toggleReaction("tok", "me", pull, 9001, fr.arthurbrugiere.forgeline.core.model.Reaction.HEART))
             .isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "issue is locked")))
+    }
+
+    // The answer follows Forgejo's API description for an attachment; uploading was not tried on a real server.
+    private val attached = """{"id":12,"name":"screen shot.png","size":3,"uuid":"0a1b","browser_download_url":"https://codeberg.org/attachments/0a1b"}"""
+
+    @Test
+    fun a_picture_is_added_to_the_conversation_and_comes_back_as_markdown() = runTest {
+        val api = with(codeberg) { ForgejoIssueApi(client { json(attached, HttpStatusCode.Created) }, ForgeInstance.Codeberg) }
+
+        val markdown = api.attach("tok", pull, "screen shot.png", "image/png", byteArrayOf(1, 2, 3)).value()
+
+        assertThat(markdown).isEqualTo("![screen shot](https://codeberg.org/attachments/0a1b)")
+        val request = codeberg.requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Post)
+        assertThat(request.url.encodedPath).isEqualTo("/api/v1/repos/forgejo/forgejo/issues/14597/assets")
+        assertThat(request.url.parameters["name"]).isEqualTo("screen shot.png")
+        assertThat(request.headers[HttpHeaders.Authorization]).isEqualTo("token tok")
+        assertThat(request.body.contentType.toString()).startsWith("multipart/form-data")
+        val sent = String(request.body.toByteArray(), Charsets.ISO_8859_1)
+        assertThat(sent).contains("name=\"attachment\"")
+        assertThat(sent).contains("filename=\"screen shot.png\"")
+        assertThat(sent).contains("Content-Type: image/png")
+        assertThat(sent).contains(String(byteArrayOf(1, 2, 3), Charsets.ISO_8859_1))
+    }
+
+    @Test
+    fun the_conversation_s_author_and_the_repository_s_writers_may_attach_on_forgejo() {
+        assertThat(api.attachments).isEqualTo(fr.arthurbrugiere.forgeline.core.model.AttachmentRule.AUTHOR_OR_WRITER)
+    }
+
+    @Test
+    fun a_picture_forgejo_refuses_is_a_failure() = runTest {
+        val api = with(codeberg) { ForgejoIssueApi(client { json("""{"message":"file type not allowed"}""", HttpStatusCode.UnprocessableEntity) }, ForgeInstance.Codeberg) }
+
+        assertThat(api.attach("tok", pull, "a.exe", "application/octet-stream", ByteArray(1)))
+            .isEqualTo(ForgeResult.Failure(ForgeError.Http(422, "file type not allowed")))
     }
 }

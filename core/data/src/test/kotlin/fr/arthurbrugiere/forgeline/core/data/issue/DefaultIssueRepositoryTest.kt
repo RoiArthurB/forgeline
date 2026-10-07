@@ -773,4 +773,24 @@ class DefaultIssueRepositoryTest {
         assertThat(repository.toggleReaction(ref, 1, Reaction.EYES)).isEqualTo(ForgeResult.Failure(ForgeError.Network))
         assertThat(repository.cached(ref)?.firstPage?.items).containsExactly(comment(1, "Hi"))
     }
+
+    @Test
+    fun a_picture_is_uploaded_as_the_account_of_the_conversation_s_forge() = runTest {
+        assertThat(repository.attach(ref, "a.png", "image/png", byteArrayOf(1, 2, 3))).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(api.attached).isEmpty()
+        signIn()
+
+        val markdown = (repository.attach(ref, "a.png", "image/png", byteArrayOf(1, 2, 3)) as ForgeResult.Success).value
+
+        assertThat(markdown).isEqualTo("![a](https://files.example/1/a.png)")
+        assertThat(api.attached).containsExactly("octo/repo#7: a.png (image/png, 3 bytes)")
+        assertThat(api.tokens.last()).isEqualTo("tok")
+    }
+
+    @Test
+    fun who_may_attach_is_what_the_conversation_s_forge_says() = runTest {
+        api.attachments = fr.arthurbrugiere.forgeline.core.model.AttachmentRule.AUTHOR_OR_WRITER
+
+        assertThat(repository.attachments(ref.repo)).isEqualTo(fr.arthurbrugiere.forgeline.core.model.AttachmentRule.AUTHOR_OR_WRITER)
+    }
 }

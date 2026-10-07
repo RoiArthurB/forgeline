@@ -305,6 +305,10 @@ internal data class GitLabStateEventJson(
     }
 }
 
+/** A file uploaded to a project, as GitLab answered on 2026-10-07: [fullPath] is "/-/project/<id>/uploads/<hash>/<name>". */
+@Serializable
+internal data class GitLabUploadJson(val alt: String = "", @SerialName("full_path") val fullPath: String)
+
 @Serializable
 internal data class GitLabAwardEmojiJson(
     val id: Long,

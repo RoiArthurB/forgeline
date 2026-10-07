@@ -1,5 +1,13 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
+import fr.arthurbrugiere.forgeline.ui.readPicture
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.outlined.Image
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.layout.offset
@@ -224,6 +232,12 @@ fun IssueRoute(
             onOpenOnForge = { openUrl(ref.webUrl(viewModel.state.value.issue?.pullRequest != null)) },
         )
     }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        // Nothing chosen, nothing said. What was chosen is read off the main thread: it can be megabytes.
+        if (uri != null) scope.launch { viewModel.attach(withContext(Dispatchers.IO) { readPicture(context.contentResolver, uri) }) }
+    }
     val comments = remember(viewModel, onEditIssue) {
         CommentActions(
             onQuote = viewModel::quote,
@@ -233,6 +247,8 @@ fun IssueRoute(
             onDeleteErrorShown = viewModel::deleteErrorShown,
             onReact = viewModel::react,
             onReactionErrorShown = viewModel::reactionErrorShown,
+            onPickPicture = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            onAttachErrorShown = viewModel::attachErrorShown,
             // Said with its kind: GitLab numbers merge requests apart from issues.
             onEditIssue = { onEditIssue(IssueRef(ref.repo, ref.number, viewModel.state.value.issue?.pullRequest != null)) },
         )
@@ -274,6 +290,9 @@ class CommentActions(
     /** Gives a reaction to a comment, or to the conversation's own text (null), or takes it back. */
     val onReact: (Long?, Reaction) -> Unit = { _, _ -> },
     val onReactionErrorShown: () -> Unit = {},
+    /** Asks the reader for a picture to attach to the comment being written. */
+    val onPickPicture: () -> Unit = {},
+    val onAttachErrorShown: () -> Unit = {},
 )
 
 /** What one comment's menu offers; a null entry is not offered. [onReact] also makes the reactions shown tappable. */
@@ -332,6 +351,22 @@ fun IssueScreen(
         if (state.deleteError != null) {
             comments.onDeleteErrorShown()
             snackbar.showSnackbar(deleteFailed)
+        }
+    }
+    val attachFailed = state.attachError?.let { error ->
+        stringResource(
+            when {
+                error is ForgeError.Http && error.status == 413 -> R.string.issue_attach_too_large
+                error is ForgeError.Http && (error.status == 403 || error.status == 404) -> R.string.issue_attach_refused
+                error == ForgeError.Unreadable -> R.string.issue_attach_unreadable
+                else -> R.string.issue_attach_failed
+            },
+        )
+    }
+    LaunchedEffect(attachFailed) {
+        if (attachFailed != null) {
+            comments.onAttachErrorShown()
+            snackbar.showSnackbar(attachFailed)
         }
     }
     val reactionFailed = stringResource(R.string.issue_reaction_failed)
@@ -504,7 +539,7 @@ fun IssueScreen(
                         }
                         // Where the next comment will appear: the conversation ends with the reader's turn.
                         item(key = "composer") {
-                            Composer(state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit)
+                            Composer(state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture)
                         }
                     }
                 }
@@ -593,6 +628,7 @@ private fun Composer(
     onToggleOpen: () -> Unit,
     onSignIn: () -> Unit,
     onCancelEdit: () -> Unit = {},
+    onPickPicture: () -> Unit = {},
 ) {
     val colors = Soft.colors
     val forge = state.ref.repo.forge.displayName
@@ -659,6 +695,14 @@ private fun Composer(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             val issue = state.issue
+            if (state.canAttach) {
+                WritingAction(
+                    Icons.Outlined.Image,
+                    stringResource(if (state.isAttaching) R.string.issue_attaching else R.string.issue_attach),
+                    busy = state.isAttaching,
+                    onClick = onPickPicture,
+                )
+            }
             if (state.draft.isNotBlank()) PreviewToggle(showPreview) { previewing = !showPreview }
             if (isEditing) SoftTonalButton(stringResource(R.string.cancel), onCancelEdit, enabled = !state.isCommenting)
             // A merged pull request stays merged. Not offered beside a comment being rewritten: one thing at a time.
@@ -736,18 +780,31 @@ const val WRITING_PREVIEW_TAG = "writing-preview"
 /** Goes from writing to reading what was written, and back. */
 @Composable
 internal fun PreviewToggle(previewing: Boolean, onToggle: () -> Unit) {
+    WritingAction(
+        if (previewing) Icons.Outlined.Edit else Icons.Outlined.Visibility,
+        stringResource(if (previewing) R.string.write_preview_back else R.string.write_preview),
+        onClick = onToggle,
+    )
+}
+
+/** A quiet round action beside the one that sends: something done to what is being written. [busy] shows it at work. */
+@Composable
+internal fun WritingAction(icon: ImageVector, label: String, busy: Boolean = false, onClick: () -> Unit) {
     val colors = Soft.colors
-    val label = stringResource(if (previewing) R.string.write_preview_back else R.string.write_preview)
     Box(
         Modifier
             .size(48.dp)
             .clip(CircleShape)
             .background(colors.surface)
-            .softPressable(role = Role.Button, onClick = onToggle)
+            .softPressable(role = Role.Button) { if (!busy) onClick() }
             .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Icon(if (previewing) Icons.Outlined.Edit else Icons.Outlined.Visibility, contentDescription = null, tint = colors.ink, modifier = Modifier.size(22.dp))
+        if (busy) {
+            CircularProgressIndicator(Modifier.size(20.dp), color = colors.accent, trackColor = colors.ground, strokeWidth = 2.5.dp)
+        } else {
+            Icon(icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(22.dp))
+        }
     }
 }
 

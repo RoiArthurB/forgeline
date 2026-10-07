@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
+import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CompletableDeferred
@@ -109,6 +110,24 @@ class FakeIssueApi : IssueApi {
         val given = reacted.getOrPut(ref to commentId) { mutableListOf() }
         if (!given.remove(login to reaction)) given += login to reaction
         return ForgeResult.Success(given.groupingBy { it.second }.eachCount())
+    }
+
+    /** Who may attach here; anyone unless a test says otherwise. */
+    override var attachments: AttachmentRule = AttachmentRule.ANYONE
+
+    /** Files uploaded, as "octo/repo#7: name (type, 3 bytes)". */
+    val attached = mutableListOf<String>()
+
+    /** What uploading a file fails with. */
+    var attachFailure: ForgeError? = null
+
+    override suspend fun attach(token: String, ref: IssueRef, name: String, mimeType: String, bytes: ByteArray): ForgeResult<String> {
+        calls += "attach:${ref.label}"
+        gate?.await()
+        tokens += token
+        attachFailure?.let { return ForgeResult.Failure(it) }
+        attached += "${ref.label}: $name ($mimeType, ${bytes.size} bytes)"
+        return ForgeResult.Success("![${name.substringBeforeLast('.')}](https://files.example/${attached.size}/$name)")
     }
 
     /** Issues given a new title and text, as "octo/repo#7: title / body". */

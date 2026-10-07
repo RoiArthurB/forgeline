@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -73,6 +74,8 @@ class CommentActionsScreenTest {
                     onEditIssue = { events += "edit-issue" },
                     onReact = { comment, reaction -> events += "react:$comment:$reaction" },
                     onReactionErrorShown = { events += "reaction-error-shown" },
+                    onPickPicture = { events += "pick" },
+                    onAttachErrorShown = { events += "attach-error-shown" },
                 ),
             )
         }
@@ -421,5 +424,75 @@ class CommentActionsScreenTest {
 
         composeRule.waitUntil(5_000) { offered("Mine, corrected") }
         composeRule.onNodeWithText("Save").assertIsEnabled()
+    }
+
+    private val attaching = opened.copy(attachments = AttachmentRule.ANYONE)
+
+    @Test
+    fun a_picture_is_asked_for_from_the_reader_s_turn() {
+        setContent(attaching)
+        reach(hasContentDescription("Attach a picture"))
+
+        composeRule.onNode(hasContentDescription("Attach a picture")).performClick()
+
+        assertThat(events).containsExactly("pick")
+    }
+
+    @Test
+    fun where_the_reader_may_not_attach_it_is_not_offered() {
+        // GitHub's API takes no file; on Forgejo a conversation's files are its author's and the writers' to add.
+        setContent(opened)
+        reach(hasSetTextAction())
+        assertThat(composeRule.onAllNodes(hasContentDescription("Attach a picture")).fetchSemanticsNodes()).isEmpty()
+
+        shown.value = opened.copy(attachments = AttachmentRule.AUTHOR_OR_WRITER)
+        composeRule.waitForIdle()
+        assertThat(composeRule.onAllNodes(hasContentDescription("Attach a picture")).fetchSemanticsNodes()).isEmpty()
+
+        shown.value = opened.copy(attachments = AttachmentRule.AUTHOR_OR_WRITER, access = RepoAccess.WRITE)
+        composeRule.waitForIdle()
+        composeRule.onNode(hasContentDescription("Attach a picture")).assertIsDisplayed()
+    }
+
+    @Test
+    fun while_a_picture_uploads_it_says_so_and_another_is_not_asked_for() {
+        setContent(attaching.copy(isAttaching = true))
+        reach(hasContentDescription("Attaching the picture"))
+
+        composeRule.onNode(hasContentDescription("Attaching the picture")).performClick()
+
+        assertThat(events).isEmpty()
+    }
+
+    @Test
+    fun a_picture_that_wasn_t_attached_says_why() {
+        setContent(attaching.copy(attachError = ForgeError.Http(413, null)))
+        composeRule.waitUntil(5_000) { offered("That picture is too large: 10 MB at most.") }
+        assertThat(events).containsExactly("attach-error-shown")
+    }
+
+    @Test
+    fun each_reason_a_picture_wasn_t_attached_has_its_own_words() {
+        setContent(attaching.copy(attachError = ForgeError.Http(403, "no")))
+        composeRule.waitUntil(5_000) { offered("You can't attach a picture here.") }
+    }
+
+    @Test
+    fun a_picture_that_couldn_t_be_read_or_sent_is_said_so() {
+        setContent(attaching.copy(attachError = ForgeError.Unreadable))
+        composeRule.waitUntil(5_000) { offered("That picture couldn't be read.") }
+    }
+
+    @Test
+    fun a_picture_lost_to_the_network_can_be_tried_again() {
+        setContent(attaching.copy(attachError = ForgeError.Network))
+        composeRule.waitUntil(5_000) { offered("The picture wasn't attached. Try again.") }
+    }
+
+    @Test
+    fun the_actions_of_the_reader_s_turn_are_large_enough_to_tap() {
+        setContent(attaching.copy(draft = "Thanks", canChangeState = true))
+
+        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 }

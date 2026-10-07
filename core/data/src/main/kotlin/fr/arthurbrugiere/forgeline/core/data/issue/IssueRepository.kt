@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.issue
 
+import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.async
@@ -70,6 +71,12 @@ interface IssueRepository {
 
     /** Deletes the comment [commentId] of [ref], on the forge and from the conversation kept. */
     suspend fun deleteComment(ref: IssueRef, commentId: Long): ForgeResult<Unit>
+
+    /** Who may put a picture in a comment on [repo]'s forge. */
+    fun attachments(repo: RepoId): AttachmentRule
+
+    /** Uploads a file for a comment of [ref] as the account signed in, and answers the Markdown that shows it. */
+    suspend fun attach(ref: IssueRef, name: String, mimeType: String, bytes: ByteArray): ForgeResult<String>
 
     /**
      * Gives [reaction] to the comment [commentId] of [ref], or to its own text when null, or takes it back if the
@@ -257,6 +264,11 @@ class DefaultIssueRepository @Inject constructor(
                 }
             }
         }
+
+    override fun attachments(repo: RepoId): AttachmentRule = clients.issues(repo.forge).attachments
+
+    override suspend fun attach(ref: IssueRef, name: String, mimeType: String, bytes: ByteArray): ForgeResult<String> =
+        signedIn(ref.repo.forge) { attach(it, ref, name, mimeType, bytes) }
 
     override suspend fun toggleReaction(ref: IssueRef, commentId: Long?, reaction: Reaction): ForgeResult<Map<Reaction, Int>> {
         val account = accounts.accountOn(ref.repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)

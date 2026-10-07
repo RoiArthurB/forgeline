@@ -619,4 +619,13 @@ class GitHubIssueApiTest {
         assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "Resource not accessible")))
         assertThat(requests).hasSize(1)
     }
+
+    @Test
+    fun github_s_api_takes_no_picture_and_is_asked_for_none() = runTest {
+        val api = api { json("{}") }
+
+        assertThat(api.attachments).isEqualTo(fr.arthurbrugiere.forgeline.core.model.AttachmentRule.NOBODY)
+        assertThat(api.attach("tok", issue, "a.png", "image/png", ByteArray(1))).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+        assertThat(requests).isEmpty()
+    }
 }

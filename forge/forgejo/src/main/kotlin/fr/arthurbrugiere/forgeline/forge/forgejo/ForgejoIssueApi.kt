@@ -1,5 +1,16 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import io.ktor.client.request.parameter
+import io.ktor.http.takeFrom
+import io.ktor.http.appendPathSegments
+import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
+import io.ktor.client.request.setBody
+import io.ktor.client.request.header
+import io.ktor.http.HttpHeaders
+import io.ktor.http.Headers
+import io.ktor.client.request.post
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.http.isSuccess
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
@@ -147,6 +158,25 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             Reaction.ROCKET -> "rocket"
             Reaction.EYES -> "eyes"
         }
+
+    /** Forgejo keeps a comment's files with the conversation, which its author and the repository's writers may add to. */
+    override val attachments: AttachmentRule = AttachmentRule.AUTHOR_OR_WRITER
+
+    override suspend fun attach(token: String, ref: IssueRef, name: String, mimeType: String, bytes: ByteArray): ForgeResult<String> = forgejoCall {
+        httpClient.post {
+            url {
+                takeFrom("${forge.webUrl}/api/v1")
+                appendPathSegments("repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "assets")
+            }
+            parameter("name", name)
+            header(HttpHeaders.Accept, "application/json")
+            header(HttpHeaders.Authorization, "token $token")
+            setBody(MultiPartFormDataContent(formData { append("attachment", bytes, fileHeaders(name, mimeType)) }))
+        }.toResult {
+            val kept = body<AttachmentJson>()
+            "![${altText(kept.name ?: name)}](${kept.url})"
+        }
+    }
 
     override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = forgejoCall {
         httpClient.forgejoApi(
@@ -504,6 +534,17 @@ private data class PullJson(
 
 @Serializable
 private data class ReactionJson(val content: String, val user: UserJson? = null)
+
+@Serializable
+private data class AttachmentJson(val name: String? = null, @SerialName("browser_download_url") val url: String)
+
+private fun fileHeaders(name: String, mimeType: String) = Headers.build {
+    append(HttpHeaders.ContentType, mimeType)
+    append(HttpHeaders.ContentDisposition, "filename=\"${name.replace("\"", "")}\"")
+}
+
+/** A file's name as the text that stands for its picture: without what would end the Markdown early. */
+private fun altText(name: String): String = name.substringBeforeLast('.').replace(Regex("""[\[\]\\]"""), "").ifBlank { "image" }
 
 @Serializable
 private data class ReviewJson(val id: Long, val state: String)

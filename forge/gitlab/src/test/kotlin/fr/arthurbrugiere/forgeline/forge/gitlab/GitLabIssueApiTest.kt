@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import io.ktor.client.engine.mock.toByteArray
+import io.ktor.http.content.OutgoingContent
 import io.ktor.http.content.TextContent
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -263,5 +265,55 @@ class GitLabIssueApiTest {
         val result = api.toggleReaction("tok", "me", IssueRef(repo, 10), 555, Reaction.EYES)
 
         assertThat((result as ForgeResult.Failure).error).isInstanceOf(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http::class.java)
+    }
+
+    private suspend fun multipart(request: HttpRequestData): String = String(request.body.toByteArray(), Charsets.ISO_8859_1)
+
+    @Test
+    fun a_picture_is_uploaded_to_the_project_and_comes_back_as_markdown_with_its_whole_address() = runTest {
+        // The answer gitlab.com gave on 2026-10-07 for "dot one.png": the name tidied, an address relative to the project.
+        val api = api {
+            json(
+                """{"id":1397270798,"alt":"dot_one","url":"/uploads/8a8e0a17979bb00e7eba35cbfad366ee/dot_one.png",
+                    "full_path":"/-/project/87334283/uploads/8a8e0a17979bb00e7eba35cbfad366ee/dot_one.png",
+                    "markdown":"![dot_one](/uploads/8a8e0a17979bb00e7eba35cbfad366ee/dot_one.png)"}""",
+                HttpStatusCode.Created,
+            )
+        }
+
+        val markdown = api.attach("tok", IssueRef(repo, 10), "dot one.png", "image/png", byteArrayOf(1, 2, 3)).value()
+
+        // Not GitLab's own "/uploads/...": that only means something to GitLab.
+        assertThat(markdown).isEqualTo("![dot_one](https://gitlab.com/-/project/87334283/uploads/8a8e0a17979bb00e7eba35cbfad366ee/dot_one.png)")
+        val request = requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Post)
+        assertThat(request.url.toString()).isEqualTo("https://gitlab.com/api/v4/projects/gitlab-org%2Fgitlab/uploads")
+        assertThat(request.headers[HttpHeaders.Authorization]).isEqualTo("Bearer tok")
+        assertThat(request.body.contentType.toString()).startsWith("multipart/form-data")
+        val sent = multipart(request)
+        assertThat(sent).contains("name=\"file\"")
+        assertThat(sent).contains("filename=\"dot one.png\"")
+        assertThat(sent).contains("Content-Type: image/png")
+        assertThat(sent).contains(String(byteArrayOf(1, 2, 3), Charsets.ISO_8859_1))
+    }
+
+    @Test
+    fun anyone_who_comments_may_attach_on_gitlab() {
+        assertThat(api { json("{}") }.attachments).isEqualTo(fr.arthurbrugiere.forgeline.core.model.AttachmentRule.ANYONE)
+    }
+
+    @Test
+    fun a_picture_gitlab_refuses_is_a_failure() = runTest {
+        val result = api { json("""{"message":"413 Request Entity Too Large"}""", HttpStatusCode.PayloadTooLarge) }
+            .attach("tok", IssueRef(repo, 10), "big.png", "image/png", ByteArray(4))
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http(413, """{"message":"413 Request Entity Too Large"}""")))
+    }
+
+    @Test
+    fun a_name_that_would_break_the_markdown_is_tidied() = runTest {
+        val api = api { json("""{"alt":"a]b[c","full_path":"/-/project/1/uploads/h/a.png"}""", HttpStatusCode.Created) }
+
+        assertThat(api.attach("tok", IssueRef(repo, 10), "a]b[c.png", "image/png", ByteArray(1)).value()).isEqualTo("![abc](https://gitlab.com/-/project/1/uploads/h/a.png)")
     }
 }

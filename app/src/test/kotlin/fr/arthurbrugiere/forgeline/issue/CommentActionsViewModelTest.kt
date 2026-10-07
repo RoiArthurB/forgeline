@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.ui.PickedPicture
+import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import androidx.lifecycle.SavedStateHandle
 import com.google.common.truth.Truth.assertThat
@@ -382,5 +384,142 @@ class CommentActionsViewModelTest {
         viewModel.react(1, Reaction.HEART)
         advanceUntilIdle()
         assertThat(viewModel.comments.first().reactions).containsExactly(Reaction.HEART, 1)
+    }
+
+    private fun picture(size: Int = 3) = PickedPicture("shot.png", "image/png", ByteArray(size))
+
+    @Test
+    fun where_anyone_may_attach_that_is_whoever_is_signed_in() = test {
+        api.attachments = AttachmentRule.ANYONE
+        assertThat(opened().state.value.canAttach).isTrue()
+    }
+
+    @Test
+    fun signed_out_or_where_the_forge_takes_no_file_nothing_is_attached() = test {
+        api.attachments = AttachmentRule.ANYONE
+        assertThat(opened(signedIn = false).state.value.canAttach).isFalse()
+
+        api.attachments = AttachmentRule.NOBODY
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
+        assertThat(IssueViewModel(ref, repository, SavedStateHandle(), IssueDrafts()).also { advanceUntilIdle() }.state.value.canAttach).isFalse()
+    }
+
+    @Test
+    fun where_files_are_kept_with_the_conversation_its_author_and_the_repository_s_writers_attach() = test {
+        api.attachments = AttachmentRule.AUTHOR_OR_WRITER
+        // Someone else's conversation, in someone else's repository.
+        val viewModel = opened()
+        assertThat(viewModel.state.value.canAttach).isFalse()
+
+        api.access[ref.repo] = RepoAccess.WRITE
+        repository.forget(ForgeInstance.GitHub)
+        assertThat(IssueViewModel(ref, repository, SavedStateHandle(), IssueDrafts()).also { advanceUntilIdle() }.state.value.canAttach).isTrue()
+
+        api.access.clear()
+        repository.forget(ForgeInstance.GitHub)
+        api.issues[ref] = issueDetails(ref).copy(author = ForgeUser("me", null, null))
+        assertThat(IssueViewModel(ref, repository, SavedStateHandle(), IssueDrafts()).also { advanceUntilIdle() }.state.value.canAttach).isTrue()
+    }
+
+    @Test
+    fun an_attached_picture_is_written_at_the_end_of_the_comment_on_a_line_of_its_own() = test {
+        val viewModel = opened()
+        viewModel.draftChanged("Here it is:  ")
+
+        viewModel.attach(picture())
+        assertThat(viewModel.state.value.isAttaching).isTrue()
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertThat(api.attached).containsExactly("octo/repo#7: shot.png (image/png, 3 bytes)")
+        assertThat(state.draft).isEqualTo("Here it is:\n\n![shot](https://files.example/1/shot.png)\n")
+        assertThat(state.isAttaching).isFalse()
+        assertThat(state.draftPlaced).isEqualTo(1)
+        assertThat(state.attachError).isNull()
+    }
+
+    @Test
+    fun a_picture_attached_to_an_empty_comment_starts_it() = test {
+        val viewModel = opened()
+
+        viewModel.attach(picture())
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.draft).isEqualTo("![shot](https://files.example/1/shot.png)\n")
+        // Kept like anything written: leaving now loses neither the upload nor the comment.
+        assertThat(IssueViewModel(ref, repository, saved, IssueDrafts()).state.value.draft).isEqualTo("![shot](https://files.example/1/shot.png)\n")
+    }
+
+    @Test
+    fun what_is_typed_while_a_picture_uploads_is_kept_before_it() = test {
+        val viewModel = opened()
+        viewModel.draftChanged("See")
+
+        viewModel.attach(picture())
+        viewModel.draftChanged("See below")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.draft).isEqualTo("See below\n\n![shot](https://files.example/1/shot.png)\n")
+    }
+
+    @Test
+    fun one_picture_uploads_at_a_time() = test {
+        val viewModel = opened()
+
+        viewModel.attach(picture())
+        viewModel.attach(picture())
+        advanceUntilIdle()
+
+        assertThat(api.attached).hasSize(1)
+    }
+
+    @Test
+    fun a_picture_too_large_is_never_sent() = test {
+        val viewModel = opened()
+
+        viewModel.attach(PickedPicture("huge.png", "image/png", bytes = null))
+        advanceUntilIdle()
+
+        assertThat(api.calls.none { it.startsWith("attach:") }).isTrue()
+        assertThat(viewModel.state.value.attachError).isEqualTo(ForgeError.Http(413, null))
+        assertThat(viewModel.state.value.isAttaching).isFalse()
+    }
+
+    @Test
+    fun a_picture_that_could_not_be_read_is_said_so() = test {
+        val viewModel = opened()
+
+        viewModel.attach(null)
+
+        assertThat(viewModel.state.value.attachError).isEqualTo(ForgeError.Unreadable)
+        viewModel.attachErrorShown()
+        assertThat(viewModel.state.value.attachError).isNull()
+    }
+
+    @Test
+    fun a_picture_the_forge_refuses_leaves_the_comment_as_it_was() = test {
+        val viewModel = opened()
+        viewModel.draftChanged("Here it is:")
+        api.attachFailure = ForgeError.Http(403, "no")
+
+        viewModel.attach(picture())
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.draft).isEqualTo("Here it is:")
+        assertThat(viewModel.state.value.attachError).isEqualTo(ForgeError.Http(403, "no"))
+        assertThat(viewModel.state.value.isAttaching).isFalse()
+    }
+
+    @Test
+    fun a_picture_can_be_added_to_a_comment_being_rewritten_without_becoming_the_draft_kept() = test {
+        val viewModel = opened()
+        viewModel.draftChanged("Half a thought")
+        viewModel.startEditing(2)
+
+        viewModel.attach(picture())
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.draft).isEqualTo("Mine\n\n![shot](https://files.example/1/shot.png)\n")
+        assertThat(IssueViewModel(ref, repository, saved, IssueDrafts()).state.value.draft).isEqualTo("Half a thought")
     }
 }

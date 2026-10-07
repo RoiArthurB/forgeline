@@ -403,6 +403,12 @@
     <string name="reaction_heart">Heart</string>
     <string name="reaction_rocket">Rocket</string>
     <string name="reaction_eyes">Eyes</string>
+    <string name="issue_attach">Attach a picture</string>
+    <string name="issue_attaching">Attaching the picture</string>
+    <string name="issue_attach_too_large">That picture is too large: 10 MB at most.</string>
+    <string name="issue_attach_refused">You can\'t attach a picture here.</string>
+    <string name="issue_attach_unreadable">That picture couldn\'t be read.</string>
+    <string name="issue_attach_failed">The picture wasn\'t attached. Try again.</string>
     <string name="write_preview">Preview</string>
     <string name="write_preview_back">Back to writing</string>
     <string name="issue_edit">Edit title and description</string>
