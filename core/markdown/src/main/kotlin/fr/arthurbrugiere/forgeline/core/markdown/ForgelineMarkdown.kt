@@ -7,7 +7,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
-import com.mikepenz.markdown.coil3.Coil3ImageTransformerImpl
 import com.mikepenz.markdown.compose.components.markdownComponents
 import com.mikepenz.markdown.compose.elements.highlightedCodeBlock
 import com.mikepenz.markdown.compose.elements.highlightedCodeFence
@@ -72,7 +71,7 @@ fun ForgelineMarkdown(
                     style = SpanStyle(color = soft.accent, fontWeight = FontWeight.Medium, textDecoration = TextDecoration.Underline),
                 ),
             ),
-            imageTransformer = Coil3ImageTransformerImpl,
+            imageTransformer = ForgelineImageTransformer,
             components = markdownComponents(
                 codeBlock = highlightedCodeBlock,
                 codeFence = highlightedCodeFence,

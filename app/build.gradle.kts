@@ -71,6 +71,7 @@ dependencies {
     implementation(libs.ktor.client.okhttp)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.ktor3)
+    implementation(libs.coil.svg)
     implementation(libs.androidx.browser)
     implementation(libs.androidx.work.runtime)
 

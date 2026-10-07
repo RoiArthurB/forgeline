@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.di
 import android.content.Context
 import coil3.ImageLoader
 import coil3.network.ktor3.KtorNetworkFetcherFactory
+import coil3.svg.SvgDecoder
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
@@ -50,10 +51,16 @@ private const val IDLE_CONNECTIONS = 16
 /**
  * Loads every picture (avatars, README images) through [engine]. Coil's own client was held to OkHttp's 5 requests
  * per host, so a screen of avatars, all from one host, loaded in waves.
+ *
+ * SVG is decoded too: a README's badges are all SVG, and Android reads none on its own. Their size is in CSS pixels,
+ * drawn as as many dp, so a 20-pixel badge is as tall on a phone as on the forge's site.
  */
 fun forgeImageLoader(context: Context, engine: HttpClientEngine = forgeEngine()): ImageLoader {
     val client = lazy { HttpClient(engine) }
     return ImageLoader.Builder(context)
-        .components { add(KtorNetworkFetcherFactory(httpClient = { client.value })) }
+        .components {
+            add(KtorNetworkFetcherFactory(httpClient = { client.value }))
+            add(SvgDecoder.Factory(scaleToDensity = true))
+        }
         .build()
 }

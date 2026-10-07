@@ -48,4 +48,30 @@ class ForgelineMarkdownTest {
 
         assertThat(layouts.single().layoutInput.style.fontSize.value).isAtMost(headlineMedium)
     }
+
+    @OptIn(coil3.annotation.DelicateCoilApi::class)
+    @Test
+    fun pictures_that_do_not_load_leave_no_tall_gap() {
+        // Regression: a picture of unknown size held a 200dp square, so a README's row of badges that failed to load
+        // (GAMA's) left a screen and more of nothing between the title and the text.
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val failEverything = coil3.intercept.Interceptor { chain ->
+            coil3.request.ErrorResult(null, chain.request, IllegalStateException("no decoder"))
+        }
+        coil3.SingletonImageLoader.setUnsafe(coil3.ImageLoader.Builder(context).components { add(failEverything) }.build())
+        try {
+            val badges = (1..7).joinToString("\n") { "[![badge $it](https://badges.example/$it.svg)](https://example.com/$it)" }
+            composeRule.setContent {
+                ForgelineTheme() { ForgelineMarkdown(parseForgeMarkdown("# Title\n$badges\n\nBody"), onLinkClick = {}) }
+            }
+            composeRule.waitForIdle()
+
+            val title = composeRule.onNodeWithText("Title").fetchSemanticsNode().boundsInRoot
+            val body = composeRule.onNodeWithText("Body").fetchSemanticsNode().boundsInRoot
+            val gap = with(composeRule.density) { (body.top - title.bottom).toDp() }
+            assertThat(gap.value).isLessThan(120f)
+        } finally {
+            coil3.SingletonImageLoader.reset()
+        }
+    }
 }
