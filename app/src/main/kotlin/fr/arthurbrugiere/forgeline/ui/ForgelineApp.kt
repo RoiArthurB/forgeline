@@ -125,6 +125,7 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 session = session, onSignIn = signIn,
                 onNewIssue = { id -> navigator.navigate(id.newIssueRoute()) },
                 onMoved = { navigator.replaceCurrent(it.route()) },
+                onEditIssue = { navigator.navigate(it.repo.newIssueRoute().copy(edit = it.number, editIsPullRequest = it.isPullRequest)) },
             )
         }
         entry<NewIssueKey> { key ->

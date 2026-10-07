@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import io.ktor.http.content.TextContent
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
@@ -145,5 +146,49 @@ class GitLabIssueApiTest {
         assertThat(addResult).isInstanceOf(ForgeResult.Success::class.java)
         assertThat(requests.last().url.encodedPath).contains("/add_spent_time")
         assertThat(requests.last().url.parameters["duration"]).isEqualTo("1800s")
+    }
+
+    // What follows was tried on gitlab.com on 2026-10-07, on a scratch project: the addresses, the verbs and the
+    // answers' status are GitLab's own.
+
+    @Test
+    fun a_note_is_rewritten_where_it_was_written() = runTest {
+        // A note's address goes through its issue or its merge request: the same id under the other kind is not found.
+        val api = api { json("""{"id":3969166511,"body":"probe note, edited","created_at":"2026-10-07T09:43:36.405Z","system":false}""") }
+
+        api.editComment("tok", IssueRef(repo, 10, isPullRequest = true), 3969166511, "probe note, edited").value()
+
+        val request = requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Put)
+        assertThat(request.url.toString()).isEqualTo("https://gitlab.com/api/v4/projects/gitlab-org%2Fgitlab/merge_requests/10/notes/3969166511")
+        assertThat(request.headers[HttpHeaders.Authorization]).isEqualTo("Bearer tok")
+        assertThat((request.body as TextContent).text).isEqualTo("""{"body":"probe note, edited"}""")
+    }
+
+    @Test
+    fun a_note_is_deleted_where_it_was_written() = runTest {
+        api { respond("", HttpStatusCode.NoContent) }.deleteComment("tok", IssueRef(repo, 10, isPullRequest = false), 3969166511).value()
+
+        val request = requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Delete)
+        assertThat(request.url.toString()).isEqualTo("https://gitlab.com/api/v4/projects/gitlab-org%2Fgitlab/issues/10/notes/3969166511")
+    }
+
+    @Test
+    fun a_note_already_gone_is_a_failure() = runTest {
+        val result = api { json("""{"message":"404 Not found"}""", HttpStatusCode.NotFound) }.deleteComment("tok", IssueRef(repo, 10), 3969166511)
+
+        assertThat((result as ForgeResult.Failure).error).isInstanceOf(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http::class.java)
+    }
+
+    @Test
+    fun the_text_of_an_issue_is_sent_as_its_description() = runTest {
+        api { json("""{"iid":10,"title":"Probe issue, renamed","description":"","state":"opened","created_at":"2026-10-07T09:43:33.630Z"}""") }
+            .edit("tok", IssueRef(repo, 10), "Probe issue, renamed", "").value()
+
+        val request = requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Put)
+        assertThat(request.url.toString()).isEqualTo("https://gitlab.com/api/v4/projects/gitlab-org%2Fgitlab/issues/10")
+        assertThat((request.body as TextContent).text).isEqualTo("""{"title":"Probe issue, renamed","description":""}""")
     }
 }

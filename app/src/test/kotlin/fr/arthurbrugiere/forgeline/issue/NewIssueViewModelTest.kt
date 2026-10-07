@@ -159,4 +159,84 @@ class NewIssueViewModelTest {
 
         assertThat(viewModel().state.value.title).isEmpty()
     }
+
+    private val edited = fr.arthurbrugiere.forgeline.core.model.IssueRef(repo, 7)
+
+    /** The form opened on conversation #7, which was just read: "An issue" / "Body of #7". */
+    private suspend fun editing(): NewIssueViewModel {
+        api.issues[edited] = fr.arthurbrugiere.forgeline.core.testing.issueDetails(edited)
+        repository.issue(edited)
+        return NewIssueViewModel(repo, repository, drafts, edited)
+    }
+
+    @Test
+    fun editing_starts_from_the_title_and_text_as_last_read() = test {
+        val state = editing().state.value
+
+        assertThat(state.editing).isEqualTo(edited)
+        assertThat(state.title).isEqualTo("An issue")
+        assertThat(state.body).isEqualTo("Body of #7")
+        assertThat(state.isPullRequest).isFalse()
+        assertThat(state.canSend).isTrue()
+    }
+
+    @Test
+    fun editing_ignores_the_new_issue_being_written_and_leaves_it_alone() = test {
+        drafts.keep(repo, IssueDraft("Not opened yet", "Still thinking"))
+        val viewModel = editing()
+
+        viewModel.titleChanged("A better title")
+
+        assertThat(viewModel.state.value.title).isEqualTo("A better title")
+        assertThat(drafts[repo]).isEqualTo(IssueDraft("Not opened yet", "Still thinking"))
+    }
+
+    @Test
+    fun saving_changes_the_conversation_and_opens_no_issue() = test {
+        val viewModel = editing()
+        viewModel.titleChanged("  A better title ")
+        viewModel.bodyChanged("")
+
+        viewModel.send()
+        assertThat(viewModel.state.value.isSending).isTrue()
+        advanceUntilIdle()
+
+        assertThat(api.edited).containsExactly("octo/repo#7: A better title / ")
+        assertThat(api.opened).isEmpty()
+        // The form gives way to the conversation it changed.
+        assertThat(viewModel.state.value.created).isEqualTo(edited)
+        assertThat(repository.cached(edited)?.issue?.title).isEqualTo("A better title")
+    }
+
+    @Test
+    fun changes_the_forge_refuses_stay_written_and_say_why() = test {
+        val viewModel = editing()
+        viewModel.titleChanged("A better title")
+        api.editFailure = ForgeError.Http(403, "no")
+
+        viewModel.send()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.error).isEqualTo(ForgeError.Http(403, "no"))
+        assertThat(viewModel.state.value.title).isEqualTo("A better title")
+        assertThat(viewModel.state.value.created).isNull()
+    }
+
+    @Test
+    fun an_edited_conversation_still_needs_a_title() = test {
+        val viewModel = editing()
+
+        viewModel.titleChanged("  ")
+
+        assertThat(viewModel.state.value.canSend).isFalse()
+    }
+
+    @Test
+    fun a_pull_request_being_edited_is_said_to_be_one() = test {
+        api.issues[edited] = fr.arthurbrugiere.forgeline.core.testing.issueDetails(edited)
+            .copy(pullRequest = fr.arthurbrugiere.forgeline.core.model.PullRequestInfo(false, false, "main", "fix", 1, 1, 1, 1))
+        repository.issue(edited)
+
+        assertThat(NewIssueViewModel(repo, repository, drafts, edited).state.value.isPullRequest).isTrue()
+    }
 }

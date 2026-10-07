@@ -33,6 +33,15 @@ interface IssueApi {
     /** Adds a comment to the conversation, [body] being Markdown, and answers it as the forge kept it. */
     suspend fun comment(token: String, ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment>
 
+    /** Replaces the text of the comment [commentId] of [ref] with [body], Markdown. */
+    suspend fun editComment(token: String, ref: IssueRef, commentId: Long, body: String): ForgeResult<Unit> = unsupported
+
+    /** Deletes the comment [commentId] of [ref], for good. */
+    suspend fun deleteComment(token: String, ref: IssueRef, commentId: Long): ForgeResult<Unit> = unsupported
+
+    /** Changes the title and the description of [ref], [body] being Markdown and possibly empty. */
+    suspend fun edit(token: String, ref: IssueRef, title: String, body: String): ForgeResult<Unit> = unsupported
+
     /** Opens an issue in [repo], [body] being Markdown and possibly empty, and answers it as the forge kept it. */
     suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails>
 

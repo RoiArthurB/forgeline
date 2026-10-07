@@ -61,6 +61,21 @@ interface IssueRepository {
      */
     suspend fun comment(ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment>
 
+    /** The login of the account signed in on [forge], whose own words can be rewritten or taken back; null signed out. */
+    suspend fun me(forge: ForgeInstance): String?
+
+    /** Rewrites the comment [commentId] of [ref]. The conversation kept shows the new text where it holds the comment. */
+    suspend fun editComment(ref: IssueRef, commentId: Long, body: String): ForgeResult<Unit>
+
+    /** Deletes the comment [commentId] of [ref], on the forge and from the conversation kept. */
+    suspend fun deleteComment(ref: IssueRef, commentId: Long): ForgeResult<Unit>
+
+    /**
+     * Changes the title and the description of [ref]. The conversation kept changes with it, and the change is
+     * announced on [changed]: a list shows the title.
+     */
+    suspend fun edit(ref: IssueRef, title: String, body: String): ForgeResult<Unit>
+
     /**
      * Opens an issue in [repo] as the account signed in on its forge; Unauthorized without one. The new conversation is
      * kept, so it opens at once, and announced on [changed].
@@ -136,8 +151,8 @@ interface IssueRepository {
     suspend fun removeDependency(ref: IssueRef, on: IssueRef): ForgeResult<Unit>
 
     /**
-     * Every conversation opened, closed or reopened from this app, as it happens: a list of a repository's open
-     * issues or pull requests is out of date by one.
+     * Every conversation opened, closed, reopened or renamed from this app, as it happens: a list of a repository's
+     * open issues or pull requests is out of date by one.
      */
     val changed: Flow<IssueRef>
 
@@ -214,6 +229,42 @@ class DefaultIssueRepository @Inject constructor(
             }
         }
     }
+
+    override suspend fun me(forge: ForgeInstance): String? = accounts.accountOn(forge)?.user?.login
+
+    override suspend fun editComment(ref: IssueRef, commentId: Long, body: String): ForgeResult<Unit> =
+        signedIn(ref.repo.forge) { editComment(it, ref, commentId, body) }.also { result ->
+            if (result is ForgeResult.Success) {
+                keptPage(ref) { items -> items.map { if (it is TimelineItem.Comment && it.id == commentId) it.copy(body = body) else it } }
+            }
+        }
+
+    override suspend fun deleteComment(ref: IssueRef, commentId: Long): ForgeResult<Unit> =
+        signedIn(ref.repo.forge) { deleteComment(it, ref, commentId) }.also { result ->
+            if (result is ForgeResult.Success && cached(ref) != null) {
+                update(ref) { kept ->
+                    kept.copy(
+                        issue = kept.issue?.let { it.copy(comments = (it.comments - 1).coerceAtLeast(0)) },
+                        firstPage = kept.firstPage?.let { page -> page.copy(items = page.items.filterNot { it is TimelineItem.Comment && it.id == commentId }) },
+                    )
+                }
+            }
+        }
+
+    /** Changes the first page kept of [ref], when there is one: nothing kept, nothing to change. */
+    private suspend fun keptPage(ref: IssueRef, change: (List<TimelineItem>) -> List<TimelineItem>) {
+        if (cached(ref)?.firstPage == null) return
+        update(ref) { kept -> kept.copy(firstPage = kept.firstPage?.let { it.copy(items = change(it.items)) }) }
+    }
+
+    override suspend fun edit(ref: IssueRef, title: String, body: String): ForgeResult<Unit> =
+        signedIn(ref.repo.forge) { edit(it, ref, title, body) }.also { result ->
+            if (result is ForgeResult.Success) {
+                // Kept before it is announced: whoever hears of the change reads the new title here.
+                if (cached(ref)?.issue != null) update(ref) { kept -> kept.copy(issue = kept.issue?.copy(title = title, body = body.ifBlank { null })) }
+                changes.tryEmit(ref)
+            }
+        }
 
     private val changes = MutableSharedFlow<IssueRef>(extraBufferCapacity = 8)
 

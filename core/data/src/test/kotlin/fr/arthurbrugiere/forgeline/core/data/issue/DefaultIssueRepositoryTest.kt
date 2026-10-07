@@ -613,4 +613,112 @@ class DefaultIssueRepositoryTest {
         assertThat(relaunched.stored(ref)?.issue?.title).isEqualTo("Fix it")
         assertThat(relaunched.stored(known)?.issue?.title).isEqualTo("Fix it")
     }
+
+    private suspend fun keep(vararg items: TimelineItem, nextPage: Int? = null) {
+        api.issues[ref] = issueDetails(ref)
+        api.pages[ref to 1] = TimelinePage(items.toList(), nextPage)
+        repository.issue(ref)
+        repository.timeline(ref, 1)
+    }
+
+    @Test
+    fun whose_words_are_one_s_own_is_the_account_of_the_forge() = runTest {
+        assertThat(repository.me(ForgeInstance.GitHub)).isNull()
+        signIn()
+
+        assertThat(repository.me(ForgeInstance.GitHub)).isEqualTo("me")
+        // An account elsewhere says nothing of who writes here.
+        assertThat(repository.me(ForgeInstance.Codeberg)).isNull()
+    }
+
+    @Test
+    fun rewriting_and_deleting_a_comment_and_editing_an_issue_need_an_account_on_the_forge() = runTest {
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "codeberg-tok")
+
+        assertThat(repository.editComment(ref, 1, "New")).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(repository.deleteComment(ref, 1)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(repository.edit(ref, "Title", "Text")).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(api.commentChanges).isEmpty()
+    }
+
+    @Test
+    fun a_rewritten_comment_shows_its_new_text_in_the_conversation_kept() = runTest {
+        signIn()
+        keep(comment(1, "Hi"), comment(2, "Helo"))
+
+        assertThat(repository.editComment(ref, 2, "Hello")).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(api.commentChanges).containsExactly("edit ${ref.repo.fullName}#${ref.number} comment 2: Hello")
+        assertThat(api.tokens.last()).isEqualTo("tok")
+        assertThat(repository.cached(ref)?.firstPage?.items).containsExactly(comment(1, "Hi"), comment(2, "Hello")).inOrder()
+        val relaunched = DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock)
+        assertThat(relaunched.stored(ref)?.firstPage?.items).containsExactly(comment(1, "Hi"), comment(2, "Hello")).inOrder()
+    }
+
+    @Test
+    fun a_deleted_comment_leaves_the_conversation_kept_and_its_count() = runTest {
+        signIn()
+        keep(comment(1, "Hi"), comment(2, "Oops"))
+
+        assertThat(repository.deleteComment(ref, 2)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(api.commentChanges).containsExactly("delete ${ref.repo.fullName}#${ref.number} comment 2")
+        assertThat(repository.cached(ref)?.firstPage?.items).containsExactly(comment(1, "Hi"))
+        assertThat(repository.cached(ref)?.issue?.comments).isEqualTo(issueDetails(ref).comments - 1)
+    }
+
+    @Test
+    fun a_comment_the_forge_keeps_stays_in_the_conversation_kept() = runTest {
+        signIn()
+        keep(comment(1, "Hi"))
+        api.editFailure = ForgeError.Http(403, "not yours")
+
+        assertThat(repository.deleteComment(ref, 1)).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "not yours")))
+        assertThat(repository.editComment(ref, 1, "Mine")).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "not yours")))
+        assertThat(repository.cached(ref)?.firstPage?.items).containsExactly(comment(1, "Hi"))
+    }
+
+    @Test
+    fun rewriting_a_comment_of_a_conversation_not_kept_keeps_nothing() = runTest {
+        // An empty entry would read as a conversation the forge couldn't serve.
+        signIn()
+
+        repository.editComment(ref, 1, "Hello")
+        repository.deleteComment(ref, 1)
+
+        assertThat(repository.cached(ref)).isNull()
+    }
+
+    @Test
+    fun an_edited_issue_changes_in_the_conversation_kept_and_is_announced() = runTest {
+        signIn()
+        keep(comment(1, "Hi"))
+        val announced = mutableListOf<IssueRef>()
+        val listening = launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) { repository.changed.collect { announced += it } }
+
+        assertThat(repository.edit(ref, "A better title", "")).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(api.edited).containsExactly("${ref.repo.fullName}#${ref.number}: A better title / ")
+        val kept = repository.cached(ref)?.issue
+        assertThat(kept?.title).isEqualTo("A better title")
+        // A description emptied is no description, as the forge would answer it.
+        assertThat(kept?.body).isNull()
+        assertThat(announced).containsExactly(ref)
+        listening.cancel()
+    }
+
+    @Test
+    fun an_edit_the_forge_refuses_changes_nothing_and_announces_nothing() = runTest {
+        signIn()
+        keep()
+        api.editFailure = ForgeError.Network
+        val announced = mutableListOf<IssueRef>()
+        val listening = launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) { repository.changed.collect { announced += it } }
+
+        assertThat(repository.edit(ref, "A better title", "Text")).isEqualTo(ForgeResult.Failure(ForgeError.Network))
+
+        assertThat(repository.cached(ref)?.issue?.title).isEqualTo(issueDetails(ref).title)
+        assertThat(announced).isEmpty()
+        listening.cancel()
+    }
 }

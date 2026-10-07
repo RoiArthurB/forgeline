@@ -172,6 +172,33 @@ class GitLabIssueApi(
         ).toResult { body<GitLabNoteJson>().toComment() }
     }
 
+    override suspend fun editComment(token: String, ref: IssueRef, commentId: Long, body: String): ForgeResult<Unit> = gitlabCall {
+        httpClient.gitlabApi(
+            ref.repo.forge, token, "projects", projectPath(ref.repo), targetKind(ref), ref.number.toString(), "notes", commentId.toString(),
+            method = HttpMethod.Put,
+            body = buildJsonObject { put("body", body) },
+        ).toResult { }
+    }
+
+    override suspend fun deleteComment(token: String, ref: IssueRef, commentId: Long): ForgeResult<Unit> = gitlabCall {
+        httpClient.gitlabApi(
+            ref.repo.forge, token, "projects", projectPath(ref.repo), targetKind(ref), ref.number.toString(), "notes", commentId.toString(),
+            method = HttpMethod.Delete,
+        ).toResult { }
+    }
+
+    /** GitLab calls the text of an issue or a merge request its description. */
+    override suspend fun edit(token: String, ref: IssueRef, title: String, body: String): ForgeResult<Unit> = gitlabCall {
+        httpClient.gitlabApi(
+            ref.repo.forge, token, "projects", projectPath(ref.repo), targetKind(ref), ref.number.toString(),
+            method = HttpMethod.Put,
+            body = buildJsonObject {
+                put("title", title)
+                put("description", body)
+            },
+        ).toResult { }
+    }
+
     override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = gitlabCall {
         val payload = buildJsonObject {
             put("title", title)

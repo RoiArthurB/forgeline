@@ -62,10 +62,19 @@ data class IssueRoute(
     val issue: IssueRef get() = IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number, isPullRequest)
 }
 
-/** The form that opens an issue in a repository. */
+/** The form that opens an issue in a repository, or changes the title and text of conversation [edit] there. */
 @Serializable
-data class NewIssueRoute(val host: String, val owner: String, val name: String) : NavKey {
+data class NewIssueRoute(
+    val host: String,
+    val owner: String,
+    val name: String,
+    val edit: Int? = null,
+    /** Whether [edit] is a pull request, where that tells it from an issue of the same number (GitLab). */
+    val editIsPullRequest: Boolean? = null,
+) : NavKey {
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
+
+    val editing: IssueRef? get() = edit?.let { IssueRef(repo, it, editIsPullRequest) }
 }
 
 /** One release of a repository, by its tag. */

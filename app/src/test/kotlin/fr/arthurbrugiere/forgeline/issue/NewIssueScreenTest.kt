@@ -135,4 +135,42 @@ class NewIssueScreenTest {
 
         composeRule.assertEveryTargetIsAtLeast48dp()
     }
+
+    private val editing = empty.copy(title = "Crash on start", body = "Steps", editing = fr.arthurbrugiere.forgeline.core.model.IssueRef(empty.repo, 7))
+
+    @Test
+    fun editing_says_so_and_starts_from_what_is_there() {
+        setContent(editing)
+
+        composeRule.onNode(hasText("Edit issue") and isHeading()).assertIsDisplayed()
+        composeRule.onNodeWithText("Crash on start").assertIsDisplayed()
+        composeRule.onNodeWithText("Steps").assertIsDisplayed()
+        // Nothing is opened: the action saves.
+        composeRule.onNodeWithText("Save changes").assertIsEnabled().performClick()
+        assertThat(events).containsExactly("send")
+    }
+
+    @Test
+    fun a_pull_request_being_edited_is_named_as_one() {
+        setContent(editing.copy(isPullRequest = true))
+
+        composeRule.onNode(hasText("Edit pull request") and isHeading()).assertIsDisplayed()
+    }
+
+    @Test
+    fun changes_on_their_way_can_t_be_sent_again() {
+        setContent(editing.copy(isSending = true))
+
+        composeRule.onNodeWithText("Saving").assertIsNotEnabled()
+    }
+
+    @Test
+    fun changes_that_weren_t_saved_say_why_in_their_own_words() {
+        // Not "you can't open an issue here": none is being opened.
+        setContent(editing.copy(error = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http(403, "no")))
+        composeRule.onNodeWithText("You can't change this. Your sign-in may not allow it.").assertIsDisplayed()
+
+        shown.value = editing.copy(error = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Network)
+        composeRule.onNodeWithText("Not saved: check your connection and save again. Your changes are kept.").assertIsDisplayed()
+    }
 }

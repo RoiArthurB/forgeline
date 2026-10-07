@@ -668,4 +668,47 @@ class ForgejoIssueApiTest {
         // A forge that doesn't count leaves it unknown: pages are then asked one after the other.
         assertThat(api.timeline(null, pull, page = 1).value().lastPage).isNull()
     }
+
+    @Test
+    fun a_comment_is_rewritten_by_its_id() = runTest {
+        val api = with(codeberg) { ForgejoIssueApi(client { json(created) }, ForgeInstance.Codeberg) }
+
+        api.editComment("tok", pull, 9001, "Works for me on 16.1").value()
+
+        val request = codeberg.requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Patch)
+        assertThat(request.url.toString()).isEqualTo("https://codeberg.org/api/v1/repos/forgejo/forgejo/issues/comments/9001")
+        assertThat(request.headers[HttpHeaders.Authorization]).isEqualTo("token tok")
+        assertThat((request.body as TextContent).text).isEqualTo("""{"body":"Works for me on 16.1"}""")
+    }
+
+    @Test
+    fun a_comment_is_deleted_by_its_id() = runTest {
+        val api = with(codeberg) { ForgejoIssueApi(client { status(HttpStatusCode.NoContent) }, ForgeInstance.Codeberg) }
+
+        api.deleteComment("tok", pull, 9001).value()
+
+        val request = codeberg.requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Delete)
+        assertThat(request.url.toString()).isEqualTo("https://codeberg.org/api/v1/repos/forgejo/forgejo/issues/comments/9001")
+    }
+
+    @Test
+    fun a_comment_the_forge_will_not_let_go_is_a_failure() = runTest {
+        val api = with(codeberg) { ForgejoIssueApi(client { json("""{"message":"user should have permission to edit comment"}""", HttpStatusCode.Forbidden) }, ForgeInstance.Codeberg) }
+
+        assertThat(api.deleteComment("tok", pull, 9001)).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "user should have permission to edit comment")))
+    }
+
+    @Test
+    fun an_issue_or_a_pull_request_gets_a_new_title_and_text_in_one_call() = runTest {
+        val api = with(codeberg) { ForgejoIssueApi(client { json(opened, HttpStatusCode.Created) }, ForgeInstance.Codeberg) }
+
+        api.edit("tok", pull, "Crash when the list is empty", "").value()
+
+        val request = codeberg.requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Patch)
+        assertThat(request.url.toString()).isEqualTo("https://codeberg.org/api/v1/repos/forgejo/forgejo/issues/14597")
+        assertThat((request.body as TextContent).text).isEqualTo("""{"title":"Crash when the list is empty","body":""}""")
+    }
 }

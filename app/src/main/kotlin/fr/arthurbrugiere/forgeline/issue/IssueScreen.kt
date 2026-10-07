@@ -1,5 +1,15 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.TextRange
+import androidx.compose.material3.minimumInteractiveComponentSize
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.outlined.MoreHoriz
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.ui.rememberNow
 import fr.arthurbrugiere.forgeline.session.SessionState
@@ -169,6 +179,8 @@ fun IssueRoute(
     onNewIssue: (RepoId) -> Unit,
     /** The issue is now somewhere else: its conversation there takes this one's place. */
     onMoved: (IssueRef) -> Unit,
+    /** Opens the form that changes a conversation's title and description. */
+    onEditIssue: (IssueRef) -> Unit = {},
 ) {
     val ref = route.issue
     val viewModel = hiltViewModel<IssueViewModel, IssueViewModel.Factory>(key = "${ref.repo.key}${if (ref.isPullRequest == true) "!" else "#"}${ref.number}") { it.create(ref) }
@@ -210,8 +222,20 @@ fun IssueRoute(
             onOpenOnForge = { openUrl(ref.webUrl(viewModel.state.value.issue?.pullRequest != null)) },
         )
     }
+    val comments = remember(viewModel, onEditIssue) {
+        CommentActions(
+            onQuote = viewModel::quote,
+            onEdit = viewModel::startEditing,
+            onCancelEdit = viewModel::cancelEditing,
+            onDelete = viewModel::deleteComment,
+            onDeleteErrorShown = viewModel::deleteErrorShown,
+            // Said with its kind: GitLab numbers merge requests apart from issues.
+            onEditIssue = { onEditIssue(IssueRef(ref.repo, ref.number, viewModel.state.value.issue?.pullRequest != null)) },
+        )
+    }
     IssueScreen(
         state = state,
+        comments = comments,
         // Commenting takes an account on the conversation's own forge.
         canComment = signedIn,
         onDraftChange = viewModel::draftChanged,
@@ -234,6 +258,20 @@ fun IssueRoute(
     )
 }
 
+/** What can be asked of a comment, and of the conversation's own text, beyond reading it. */
+class CommentActions(
+    /** Starts a reply quoting the text given. */
+    val onQuote: (String) -> Unit = {},
+    val onEdit: (Long) -> Unit = {},
+    val onCancelEdit: () -> Unit = {},
+    val onDelete: (Long) -> Unit = {},
+    val onDeleteErrorShown: () -> Unit = {},
+    val onEditIssue: () -> Unit = {},
+)
+
+/** What one comment's menu offers; a null entry is not offered. */
+private class CommentMenu(val onQuote: (() -> Unit)?, val onEdit: (() -> Unit)?, val onDelete: (() -> Unit)?)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IssueScreen(
@@ -255,6 +293,7 @@ fun IssueScreen(
     onErrorShown: () -> Unit,
     modifier: Modifier = Modifier,
     manage: ManageActions = ManageActions(),
+    comments: CommentActions = CommentActions(),
     nowMillis: Long = rememberNow(state.issue, state.items),
     /** Loads what is left of the conversation and asks, through the state, to be taken to its end. */
     onToEnd: () -> Unit = {},
@@ -278,6 +317,34 @@ fun IssueScreen(
             onErrorShown()
         }
     }
+
+    val deleteFailed = stringResource(R.string.issue_comment_delete_failed)
+    LaunchedEffect(state.deleteError) {
+        if (state.deleteError != null) {
+            comments.onDeleteErrorShown()
+            snackbar.showSnackbar(deleteFailed)
+        }
+    }
+    // The comment the reader asked to delete, until they have said yes or no.
+    var deleting by rememberSaveable { mutableStateOf<Long?>(null) }
+    deleting?.let { id ->
+        AlertDialog(
+            onDismissRequest = { deleting = null },
+            title = { Text(stringResource(R.string.issue_comment_delete_title)) },
+            text = { Text(stringResource(R.string.issue_comment_delete_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    deleting = null
+                    comments.onDelete(id)
+                }) { Text(stringResource(R.string.issue_comment_delete)) }
+            },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.cancel)) } },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = Soft.colors.raised,
+        )
+    }
+    // A reply needs the reader's turn: signed in, and let in when the conversation is locked.
+    val canWrite = canComment && !(issue?.isLocked == true && state.access < RepoAccess.WRITE)
 
     val postedOutOfSight = stringResource(R.string.issue_comment_posted_out_of_sight)
     LaunchedEffect(state.commentPostedOutOfSight) {
@@ -389,10 +456,21 @@ fun IssueScreen(
                                 onOpenUser = onOpenUser,
                                 onLinkClick = onLinkClick,
                                 modifier = Modifier.padding(top = 12.dp),
+                                menu = CommentMenu(
+                                    onQuote = issue.body?.takeIf { canWrite }?.let { text -> { comments.onQuote(text) } },
+                                    onEdit = comments.onEditIssue.takeIf { state.canEditIssue },
+                                    onDelete = null,
+                                ),
                             )
                         }
                         itemsIndexed(state.items, key = { index, item -> item.key(index) }) { _, item ->
-                            TimelineEntry(item, context, nowMillis, onOpenUser, onOpenIssue, onLinkClick)
+                            TimelineEntry(item, context, nowMillis, onOpenUser, onOpenIssue, onLinkClick) { comment ->
+                                CommentMenu(
+                                    onQuote = if (canWrite) ({ comments.onQuote(comment.body) }) else null,
+                                    onEdit = if (canWrite && state.canEdit(comment)) ({ comments.onEdit(comment.id) }) else null,
+                                    onDelete = if (state.canDelete(comment)) ({ deleting = comment.id }) else null,
+                                )
+                            }
                         }
                         if (state.nextPage != null) {
                             item(key = "more") {
@@ -407,7 +485,7 @@ fun IssueScreen(
                         }
                         // Where the next comment will appear: the conversation ends with the reader's turn.
                         item(key = "composer") {
-                            Composer(state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn)
+                            Composer(state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit)
                         }
                     }
                 }
@@ -495,9 +573,11 @@ private fun Composer(
     onSend: () -> Unit,
     onToggleOpen: () -> Unit,
     onSignIn: () -> Unit,
+    onCancelEdit: () -> Unit = {},
 ) {
     val colors = Soft.colors
     val forge = state.ref.repo.forge.displayName
+    val isEditing = state.editing != null
     Column(
         Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -512,9 +592,22 @@ private fun Composer(
             Text(stringResource(R.string.issue_comment_locked), style = Soft.type.body, color = colors.inkMuted)
             return@Column
         }
+        if (isEditing) {
+            Text(stringResource(R.string.issue_comment_editing), style = Soft.type.secondary, color = colors.inkMuted, modifier = Modifier.semantics { heading() })
+        }
+        // The cursor is the field's own. Text put there by something other than typing (a quote, a comment to
+        // rewrite) leaves it at the end, where the reader goes on writing.
+        var field by remember { mutableStateOf(TextFieldValue(state.draft, TextRange(state.draft.length))) }
+        LaunchedEffect(state.draftPlaced) {
+            if (field.text != state.draft) field = TextFieldValue(state.draft, TextRange(state.draft.length))
+        }
         SoftTextField(
-            value = state.draft,
-            onValueChange = onDraftChange,
+            value = if (field.text == state.draft) field else field.copy(text = state.draft),
+            onValueChange = { written ->
+                val changed = written.text != state.draft
+                field = written
+                if (changed) onDraftChange(written.text)
+            },
             placeholder = stringResource(R.string.issue_comment_placeholder),
             error = state.commentError?.let { error ->
                 when {
@@ -539,8 +632,9 @@ private fun Composer(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             val issue = state.issue
-            // A merged pull request stays merged.
-            if (state.canChangeState && issue != null && issue.state != IssueState.MERGED) {
+            if (isEditing) SoftTonalButton(stringResource(R.string.cancel), onCancelEdit, enabled = !state.isCommenting)
+            // A merged pull request stays merged. Not offered beside a comment being rewritten: one thing at a time.
+            if (!isEditing && state.canChangeState && issue != null && issue.state != IssueState.MERGED) {
                 val isOpen = issue.state == IssueState.OPEN
                 val isPullRequest = issue.pullRequest != null
                 SoftTonalButton(
@@ -556,7 +650,13 @@ private fun Composer(
                 )
             }
             SoftButton(
-                stringResource(if (state.isCommenting) R.string.issue_comment_sending else R.string.issue_comment_send),
+                stringResource(
+                    when {
+                        isEditing -> if (state.isCommenting) R.string.issue_comment_saving else R.string.issue_comment_save
+                        state.isCommenting -> R.string.issue_comment_sending
+                        else -> R.string.issue_comment_send
+                    },
+                ),
                 onSend,
                 enabled = state.draft.isNotBlank() && !state.isCommenting,
             )
@@ -731,23 +831,55 @@ private fun Comment(
     onOpenUser: (String) -> Unit,
     onLinkClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    menu: CommentMenu? = null,
 ) {
     val colors = Soft.colors
     Column(modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.clip(SoftTokens.Pill).clickable(enabled = author != null) { author?.let { onOpenUser(it.login) } }.padding(end = 8.dp),
-        ) {
-            Avatar(author?.avatarUrl, author?.login ?: "?", size = 28.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
-            Text(author?.login ?: "ghost", style = Soft.type.control, color = colors.ink)
-            createdAt?.let { Text(relative(it, nowMillis), style = Soft.type.meta, color = colors.inkMuted) }
+        // The author takes the room their name needs; the menu sits at the end of the line whatever that is.
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .clip(SoftTokens.Pill)
+                    .clickable(enabled = author != null) { author?.let { onOpenUser(it.login) } }
+                    .padding(end = 8.dp),
+            ) {
+                Avatar(author?.avatarUrl, author?.login ?: "?", size = 28.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
+                Text(author?.login ?: "ghost", style = Soft.type.control, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                createdAt?.let { Text(relative(it, nowMillis), style = Soft.type.meta, color = colors.inkMuted, maxLines = 1) }
+            }
+            if (menu != null && (menu.onQuote != null || menu.onEdit != null || menu.onDelete != null)) CommentMenuButton(menu)
         }
         Column(Modifier.padding(start = TimelineGutter, top = 6.dp).widthIn(max = SoftTokens.MaxMeasure)) {
             Markdown(body, context, onLinkClick)
             if (reactions.isNotEmpty()) {
                 Reactions(reactions, Modifier.padding(top = 8.dp))
             }
+        }
+    }
+}
+
+/** The quiet "more" at the end of a comment's first line, and what it opens. */
+@Composable
+private fun CommentMenuButton(menu: CommentMenu) {
+    val colors = Soft.colors
+    var open by remember { mutableStateOf(false) }
+    // Its dots end where the comment's text does: the room around them is for the finger, not the eye.
+    Box(Modifier.offset(x = 12.dp)) {
+        // The avatar's height, so the comment's first line keeps its own; the touch target stays 48dp around it.
+        IconButton(onClick = { open = true }, modifier = Modifier.size(28.dp).minimumInteractiveComponentSize()) {
+            Icon(Icons.Outlined.MoreHoriz, contentDescription = stringResource(R.string.issue_comment_more), tint = colors.inkMuted)
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(20.dp), containerColor = colors.raised) {
+            @Composable
+            fun choice(label: Int, action: (() -> Unit)?) {
+                if (action != null) DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { open = false; action() })
+            }
+            choice(R.string.issue_comment_quote, menu.onQuote)
+            choice(R.string.issue_comment_edit, menu.onEdit)
+            choice(R.string.issue_comment_delete, menu.onDelete)
         }
     }
 }
@@ -792,11 +924,12 @@ private fun TimelineEntry(
     onOpenUser: (String) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
     onLinkClick: (String) -> Unit,
+    menuFor: (TimelineItem.Comment) -> CommentMenu? = { null },
 ) {
     val colors = Soft.colors
     val time = item.createdAt?.let { relative(it, nowMillis) }.orEmpty()
     when (item) {
-        is TimelineItem.Comment -> Comment(item.author, item.body, item.createdAt, item.reactions, context, nowMillis, onOpenUser, onLinkClick)
+        is TimelineItem.Comment -> Comment(item.author, item.body, item.createdAt, item.reactions, context, nowMillis, onOpenUser, onLinkClick, menu = menuFor(item))
         is TimelineItem.Review -> Column {
             val who = item.author?.login ?: "ghost"
             val (text, icon) = when (item.state) {

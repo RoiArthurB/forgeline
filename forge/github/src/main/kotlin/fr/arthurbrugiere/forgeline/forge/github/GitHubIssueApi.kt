@@ -89,6 +89,26 @@ class GitHubIssueApi(
         ).toResult { body<CommentJson>().toModel() }
     }
 
+    override suspend fun editComment(token: String, ref: IssueRef, commentId: Long, body: String): ForgeResult<Unit> = gitHubCall {
+        httpClient.gitHubApi(
+            apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", "comments", commentId.toString(),
+            method = HttpMethod.Patch, body = buildJsonObject { put("body", body) },
+        ).toResult { }
+    }
+
+    override suspend fun deleteComment(token: String, ref: IssueRef, commentId: Long): ForgeResult<Unit> = gitHubCall {
+        httpClient.gitHubApi(
+            apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", "comments", commentId.toString(),
+            method = HttpMethod.Delete,
+        ).toResult { }
+    }
+
+    /** A pull request is an issue to this endpoint: one call renames either. */
+    override suspend fun edit(token: String, ref: IssueRef, title: String, body: String): ForgeResult<Unit> = edit(token, ref) {
+        put("title", title)
+        put("body", body)
+    }
+
     override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = gitHubCall {
         httpClient.gitHubApi(
             apiBaseUrl, token, "repos", repo.owner, repo.name, "issues",

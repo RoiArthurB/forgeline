@@ -61,6 +61,8 @@ data class IssueUiState(
     val error: ForgeError? = null,
     /** The comment being written; kept while it is sent and when sending fails. */
     val draft: String = "",
+    /** Counts the times [draft] was put there by something other than typing: the cursor then goes after it. */
+    val draftPlaced: Int = 0,
     val isCommenting: Boolean = false,
     val commentError: ForgeError? = null,
     /** A comment was posted but more of the conversation is still to load, so it can't be shown in its place yet. */
@@ -74,11 +76,28 @@ data class IssueUiState(
     /** What the forge's API can do to a conversation; [actions] is what the reader may do of it here. */
     val supported: Set<ConversationAction> = emptySet(),
     val manage: ManageUiState = ManageUiState(),
+    /** The login the reader is signed in with on this conversation's forge; null signed out. */
+    val me: String? = null,
+    /** The comment being rewritten: [draft] holds its text, and sending replaces it instead of adding one. */
+    val editing: Long? = null,
+    /** A comment couldn't be deleted. */
+    val deleteError: ForgeError? = null,
     /** Where the issue went once transferred: this screen gives way to it. */
     val movedTo: IssueRef? = null,
     /** The issue was deleted: there is nothing left to show. */
     val deleted: Boolean = false,
 ) {
+    /** One's own words can be rewritten; nobody else's, whatever the forge would allow. */
+    fun canEdit(comment: TimelineItem.Comment): Boolean = wrote(comment.author)
+
+    /** One's own words can be taken back, and whoever can write to the repository may remove anyone's. */
+    fun canDelete(comment: TimelineItem.Comment): Boolean = wrote(comment.author) || (me != null && access >= RepoAccess.WRITE)
+
+    /** The title and the description are their author's to change, and whoever can write to the repository's. */
+    val canEditIssue: Boolean get() = issue != null && (wrote(issue.author) || (me != null && access >= RepoAccess.WRITE))
+
+    private fun wrote(author: ForgeUser?): Boolean = me != null && author != null && author.login.equals(me, ignoreCase = true)
+
     /** What the reader may do to this conversation: the forge can, their role allows it, and it applies. */
     val actions: Set<ConversationAction>
         get() {
@@ -140,6 +159,9 @@ class IssueViewModel @AssistedInject constructor(
     private val paging = Mutex()
     private var openedAtUnread = false
 
+    /** The comment being written when another one started being rewritten: it comes back afterwards. */
+    private var setAside = ""
+
     init {
         // Not seen this session: the copy kept on disk shows while the forge answers, unless the answer comes first.
         if (_state.value.issue == null) {
@@ -157,6 +179,12 @@ class IssueViewModel @AssistedInject constructor(
         }
         checkPermissions()
         refresh()
+        // Changed from elsewhere in the app (its title and text, from the form that edits them): what is kept is read again.
+        viewModelScope.launch {
+            repository.changed.collect { changed ->
+                if (changed == ref) repository.cached(ref)?.issue?.let { issue -> _state.update { it.copy(issue = issue) } }
+            }
+        }
     }
 
     /**
@@ -170,7 +198,8 @@ class IssueViewModel @AssistedInject constructor(
             val allowed = repository.canChangeState(ref, issue.author?.login)
             // What the forge only does to issues is not offered on a pull request.
             val supported = repository.actions(ref.repo) - if (issue.pullRequest != null) repository.issueOnly(ref.repo) else emptySet()
-            _state.update { it.copy(canChangeState = allowed, access = access, supported = supported) }
+            val me = repository.me(ref.repo.forge)
+            _state.update { it.copy(canChangeState = allowed, access = access, supported = supported, me = me) }
         }
     }
 
@@ -288,14 +317,84 @@ class IssueViewModel @AssistedInject constructor(
     fun errorShown() = _state.update { it.copy(error = null) }
 
     fun draftChanged(text: String) {
-        savedState[DRAFT_KEY] = text
+        // A comment being rewritten is not the comment being written: only that one is kept for later.
+        if (_state.value.editing == null) savedState[DRAFT_KEY] = text
         _state.update { it.copy(draft = text, commentError = null) }
+    }
+
+    /** Starts a reply to [text]: quoted at the end of the comment being written, which the list then goes to. */
+    fun quote(text: String) {
+        if (text.isBlank()) return
+        val quoted = text.trim().lines().joinToString("\n") { "> $it".trimEnd() }
+        val written = _state.value.draft.trimEnd()
+        draftChanged(if (written.isEmpty()) "$quoted\n\n" else "$written\n\n$quoted\n\n")
+        _state.update { it.copy(scrollTo = ScrollTarget.End, draftPlaced = it.draftPlaced + 1) }
+    }
+
+    /** Puts the comment [id] in the reader's turn to be rewritten; what was being written there waits. */
+    fun startEditing(id: Long) {
+        val state = _state.value
+        if (state.isCommenting) return
+        val comment = state.items.firstOrNull { it is TimelineItem.Comment && it.id == id } as? TimelineItem.Comment ?: return
+        if (state.editing == null) setAside = state.draft
+        _state.update { it.copy(editing = id, draft = comment.body, commentError = null, scrollTo = ScrollTarget.End, draftPlaced = it.draftPlaced + 1) }
+    }
+
+    /** Leaves the comment as it was, and gives back what was being written. */
+    fun cancelEditing() {
+        if (_state.value.editing == null || _state.value.isCommenting) return
+        _state.update { it.copy(editing = null, draft = setAside, commentError = null, draftPlaced = it.draftPlaced + 1) }
+        setAside = ""
+    }
+
+    /** Deletes the comment [id]. It stays in the list until the forge has let it go. */
+    fun deleteComment(id: Long) {
+        viewModelScope.launch {
+            when (val result = repository.deleteComment(ref, id)) {
+                is ForgeResult.Failure -> _state.update { it.copy(deleteError = result.error) }
+                is ForgeResult.Success -> {
+                    // Deleted while it was being rewritten: there is nothing left to rewrite.
+                    if (_state.value.editing == id) cancelEditing()
+                    _state.update { state ->
+                        state.copy(
+                            items = state.items.filterNot { it is TimelineItem.Comment && it.id == id },
+                            issue = state.issue?.let { it.copy(comments = (it.comments - 1).coerceAtLeast(0)) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun deleteErrorShown() = _state.update { it.copy(deleteError = null) }
+
+    /** Sends the comment as rewritten. Its text stays in the reader's turn until the forge has taken it. */
+    private fun sendEdit(id: Long, body: String) {
+        _state.update { it.copy(isCommenting = true, commentError = null) }
+        viewModelScope.launch {
+            when (val result = repository.editComment(ref, id, body)) {
+                is ForgeResult.Failure -> _state.update { it.copy(isCommenting = false, commentError = result.error) }
+                is ForgeResult.Success -> {
+                    _state.update { state ->
+                        state.copy(
+                            isCommenting = false,
+                            editing = null,
+                            draft = setAside,
+                            draftPlaced = state.draftPlaced + 1,
+                            items = state.items.map { if (it is TimelineItem.Comment && it.id == id) it.copy(body = body) else it },
+                        )
+                    }
+                    setAside = ""
+                }
+            }
+        }
     }
 
     /** Posts the draft. It stays until the forge has taken it, so a failure loses nothing. */
     fun sendComment() {
         val body = _state.value.draft.trim()
         if (body.isEmpty() || _state.value.isCommenting) return
+        _state.value.editing?.let { return sendEdit(it, body) }
         _state.update { it.copy(isCommenting = true, commentError = null) }
         viewModelScope.launch {
             when (val result = repository.comment(ref, body)) {
@@ -307,6 +406,7 @@ class IssueViewModel @AssistedInject constructor(
                         val atEnd = state.nextPage == null
                         state.copy(
                             draft = "",
+                            draftPlaced = state.draftPlaced + 1,
                             isCommenting = false,
                             items = if (atEnd) state.items + result.value else state.items,
                             issue = state.issue?.let { it.copy(comments = it.comments + 1) },

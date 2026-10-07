@@ -44,8 +44,12 @@ data class NewIssueUiState(
     val body: String = "",
     val isSending: Boolean = false,
     val error: ForgeError? = null,
-    /** The issue the forge opened, once it has: the form gives way to its conversation. */
+    /** The issue the forge opened, or the one it changed, once it has: the form gives way to its conversation. */
     val created: IssueRef? = null,
+    /** The conversation whose title and text are being changed; null when a new issue is being written. */
+    val editing: IssueRef? = null,
+    /** Whether [editing] is a pull request, which the form then says. */
+    val isPullRequest: Boolean = false,
 ) {
     /** An issue needs a title; its description can stay empty. */
     val canSend: Boolean get() = title.isNotBlank() && !isSending
@@ -56,14 +60,23 @@ class NewIssueViewModel @AssistedInject constructor(
     @Assisted private val repo: RepoId,
     private val repository: IssueRepository,
     private val drafts: IssueDrafts,
+    /** The conversation to change instead of opening one: the form starts from its title and text as last read. */
+    @Assisted private val editing: IssueRef? = null,
 ) : ViewModel() {
 
     @AssistedFactory
     interface Factory {
-        fun create(repo: RepoId): NewIssueViewModel
+        fun create(repo: RepoId, editing: IssueRef?): NewIssueViewModel
     }
 
-    private val _state = MutableStateFlow(drafts[repo].let { NewIssueUiState(repo, it.title, it.body) })
+    private val _state = MutableStateFlow(
+        if (editing == null) {
+            drafts[repo].let { NewIssueUiState(repo, it.title, it.body) }
+        } else {
+            val issue = repository.cached(editing)?.issue
+            NewIssueUiState(repo, issue?.title.orEmpty(), issue?.body.orEmpty(), editing = editing, isPullRequest = issue?.pullRequest != null)
+        },
+    )
     val state: StateFlow<NewIssueUiState> = _state.asStateFlow()
 
     fun titleChanged(text: String) = write { it.copy(title = text) }
@@ -72,7 +85,8 @@ class NewIssueViewModel @AssistedInject constructor(
 
     private fun write(change: (NewIssueUiState) -> NewIssueUiState) {
         val written = _state.updateAndGet { change(it).copy(error = null) }
-        drafts.keep(repo, IssueDraft(written.title, written.body))
+        // The draft kept is the issue not opened yet: changes to one that exists are not it.
+        if (editing == null) drafts.keep(repo, IssueDraft(written.title, written.body))
     }
 
     /** Opens the issue. What was written stays until the forge has taken it, so a failure loses nothing. */
@@ -80,6 +94,15 @@ class NewIssueViewModel @AssistedInject constructor(
         val state = _state.value
         if (!state.canSend) return
         _state.update { it.copy(isSending = true, error = null) }
+        if (editing != null) {
+            viewModelScope.launch {
+                when (val result = repository.edit(editing, state.title.trim(), state.body.trim())) {
+                    is ForgeResult.Failure -> _state.update { it.copy(isSending = false, error = result.error) }
+                    is ForgeResult.Success -> _state.update { it.copy(isSending = false, created = editing) }
+                }
+            }
+            return
+        }
         viewModelScope.launch {
             when (val result = repository.create(repo, state.title.trim(), state.body.trim())) {
                 is ForgeResult.Failure -> _state.update { it.copy(isSending = false, error = result.error) }

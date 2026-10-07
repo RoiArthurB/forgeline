@@ -48,9 +48,12 @@ import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 @Composable
 fun NewIssueRoute(route: NewIssueRoute, session: SessionState, onBack: () -> Unit, onSignIn: () -> Unit, onCreated: (IssueRef) -> Unit) {
     val repo = route.repo
-    val viewModel = hiltViewModel<NewIssueViewModel, NewIssueViewModel.Factory>(key = "new-issue:${repo.key}") { it.create(repo) }
+    val editing = route.editing
+    val key = if (editing == null) "new-issue:${repo.key}" else "edit-issue:${repo.key}${if (editing.isPullRequest == true) "!" else "#"}${editing.number}"
+    val viewModel = hiltViewModel<NewIssueViewModel, NewIssueViewModel.Factory>(key = key) { it.create(repo, editing) }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    LaunchedEffect(state.created) { state.created?.let(onCreated) }
+    // A new issue's conversation takes the form's place; an edited one is already under it.
+    LaunchedEffect(state.created) { state.created?.let { if (editing == null) onCreated(it) else onBack() } }
     NewIssueScreen(
         state = state,
         // Opening an issue takes an account on the repository's own forge.
@@ -90,7 +93,13 @@ fun NewIssueScreen(
             // The field an open conversation wears: that is what this becomes.
             SoftHeader(
                 tint = colors.fields[2],
-                title = stringResource(R.string.new_issue_title),
+                title = stringResource(
+                    when {
+                        state.editing == null -> R.string.new_issue_title
+                        state.isPullRequest -> R.string.edit_pull_title
+                        else -> R.string.edit_issue_title
+                    },
+                ),
                 onBack = onBack,
                 backDescription = stringResource(R.string.navigate_up),
             ) {
@@ -129,12 +138,13 @@ fun NewIssueScreen(
                     onValueChange = onBodyChange,
                     placeholder = stringResource(R.string.new_issue_body_placeholder),
                     error = state.error?.let { error ->
+                        val edits = state.editing != null
                         when {
-                            error == ForgeError.Unauthorized -> stringResource(R.string.new_issue_error_expired, forge)
+                            error == ForgeError.Unauthorized -> stringResource(if (edits) R.string.edit_issue_error_expired else R.string.new_issue_error_expired, forge)
                             // 410 is GitHub's answer when a repository's issues are switched off.
-                            error is ForgeError.Http && error.status in REFUSED -> stringResource(R.string.new_issue_error_refused)
-                            error == ForgeError.Network -> stringResource(R.string.new_issue_error_offline)
-                            else -> stringResource(R.string.new_issue_error)
+                            error is ForgeError.Http && error.status in REFUSED -> stringResource(if (edits) R.string.edit_issue_error_refused else R.string.new_issue_error_refused)
+                            error == ForgeError.Network -> stringResource(if (edits) R.string.edit_issue_error_offline else R.string.new_issue_error_offline)
+                            else -> stringResource(if (edits) R.string.edit_issue_error else R.string.new_issue_error)
                         }
                     },
                     singleLine = false,
@@ -144,7 +154,13 @@ fun NewIssueScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 SoftButton(
-                    stringResource(if (state.isSending) R.string.issue_comment_sending else R.string.new_issue_send),
+                    stringResource(
+                        when {
+                            state.editing != null -> if (state.isSending) R.string.issue_comment_saving else R.string.edit_issue_send
+                            state.isSending -> R.string.issue_comment_sending
+                            else -> R.string.new_issue_send
+                        },
+                    ),
                     onSend,
                     Modifier.align(Alignment.End),
                     enabled = state.canSend,

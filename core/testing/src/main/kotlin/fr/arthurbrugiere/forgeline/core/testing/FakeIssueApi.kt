@@ -72,6 +72,36 @@ class FakeIssueApi : IssueApi {
         return ForgeResult.Success(comment(1_000L + posted.size, body, login = "me"))
     }
 
+    /** Comments rewritten and deleted, as "edit octo/repo#7 comment 12: body" and "delete octo/repo#7 comment 12". */
+    val commentChanges = mutableListOf<String>()
+
+    /** What rewriting or deleting a comment, or editing an issue, fails with, apart from [failure], which is for reading. */
+    var editFailure: ForgeError? = null
+
+    private suspend fun change(token: String, call: String, what: String, apply: () -> Unit = {}): ForgeResult<Unit> {
+        calls += call
+        gate?.await()
+        tokens += token
+        editFailure?.let { return ForgeResult.Failure(it) }
+        commentChanges += what
+        apply()
+        return ForgeResult.Success(Unit)
+    }
+
+    override suspend fun editComment(token: String, ref: IssueRef, commentId: Long, body: String) =
+        change(token, "editComment:${ref.label}", "edit ${ref.label} comment $commentId: $body")
+
+    override suspend fun deleteComment(token: String, ref: IssueRef, commentId: Long) =
+        change(token, "deleteComment:${ref.label}", "delete ${ref.label} comment $commentId")
+
+    /** Issues given a new title and text, as "octo/repo#7: title / body". */
+    val edited = mutableListOf<String>()
+
+    override suspend fun edit(token: String, ref: IssueRef, title: String, body: String) = change(token, "edit:${ref.label}", "issue ${ref.label}") {
+        edited += "${ref.label}: $title / $body"
+        issues[ref]?.let { issues[ref] = it.copy(title = title, body = body.ifBlank { null }) }
+    }
+
     /** Issues opened, as "owner/name: title / body". */
     val opened = mutableListOf<String>()
 

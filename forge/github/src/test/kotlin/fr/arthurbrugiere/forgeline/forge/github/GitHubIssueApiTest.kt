@@ -515,4 +515,44 @@ class GitHubIssueApiTest {
 
         assertThat(acting.setPinned("tok", pr, pinned = true)).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "Could not resolve to an Issue with the number of 14187.")))
     }
+
+    @Test
+    fun a_comment_is_rewritten_by_its_id() = runTest {
+        // Comments are numbered across the repository: the conversation's number is not in the address.
+        api { json(created) }.editComment("tok", issue, 4242, "Thanks, fixed in **1.3**").value()
+
+        val request = requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Patch)
+        assertThat(request.url.toString()).isEqualTo("https://api.github.com/repos/paperclipai/paperclip/issues/comments/4242")
+        assertThat(request.headers[HttpHeaders.Authorization]).isEqualTo("Bearer tok")
+        assertThat((request.body as TextContent).text).isEqualTo("""{"body":"Thanks, fixed in **1.3**"}""")
+    }
+
+    @Test
+    fun a_comment_is_deleted_by_its_id() = runTest {
+        api { respond("", HttpStatusCode.NoContent) }.deleteComment("tok", issue, 4242).value()
+
+        val request = requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Delete)
+        assertThat(request.url.toString()).isEqualTo("https://api.github.com/repos/paperclipai/paperclip/issues/comments/4242")
+    }
+
+    @Test
+    fun rewriting_or_deleting_someone_elses_comment_is_a_failure() = runTest {
+        val refused = api { json("""{"message":"Must have admin rights to Repository."}""", status = HttpStatusCode.Forbidden) }
+
+        assertThat(refused.editComment("tok", issue, 4242, "Mine now")).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "Must have admin rights to Repository.")))
+        assertThat(refused.deleteComment("tok", issue, 4242)).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "Must have admin rights to Repository.")))
+    }
+
+    @Test
+    fun an_issue_or_a_pull_request_gets_a_new_title_and_text_in_one_call() = runTest {
+        api { json(opened) }.edit("tok", pr, "Crash when the list is empty", "").value()
+
+        val request = requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Patch)
+        assertThat(request.url.toString()).isEqualTo("https://api.github.com/repos/paperclipai/paperclip/issues/14187")
+        // An emptied description is sent empty: left out, the forge would keep the old one.
+        assertThat((request.body as TextContent).text).isEqualTo("""{"title":"Crash when the list is empty","body":""}""")
+    }
 }

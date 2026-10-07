@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.ui.soft
 
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.layout.onSizeChanged
@@ -404,34 +405,85 @@ fun SoftTextField(
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
             modifier = Modifier.fillMaxWidth(),
-            decorationBox = { field ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(if (singleLine) SoftTokens.Pill else RoundedCornerShape(24.dp))
-                        .background(background)
-                        .heightIn(min = 52.dp)
-                        .padding(start = if (leading != null) 16.dp else 20.dp, end = if (trailing != null) 4.dp else 20.dp)
-                        .padding(vertical = if (singleLine) 0.dp else 14.dp),
-                    verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top,
-                ) {
-                    if (leading != null) {
-                        leading()
-                        Spacer(Modifier.width(10.dp))
-                    }
-                    Box(Modifier.weight(1f)) {
-                        if (value.isEmpty()) {
-                            Text(placeholder, style = Soft.type.body.copy(fontSize = 16.sp), color = colors.inkMuted, maxLines = 1)
-                        }
-                        field()
-                    }
-                    trailing?.invoke()
-                }
-            },
+            decorationBox = { field -> SoftFieldBox(value.isEmpty(), placeholder, background, singleLine, leading, trailing, field) },
         )
         if (error != null) {
             Text(error, style = Soft.type.secondary, color = colors.accent, modifier = Modifier.padding(start = 20.dp, top = 6.dp))
         }
+    }
+}
+
+/**
+ * The same field for whoever places the cursor too: text put there by something other than typing (a quote, a comment
+ * to rewrite) can leave it after what was put.
+ */
+@Composable
+fun SoftTextField(
+    value: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    background: Color = Soft.colors.surface,
+    error: String? = null,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    singleLine: Boolean = true,
+    minLines: Int = 1,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+    readOnly: Boolean = false,
+) {
+    val colors = Soft.colors
+    Column(modifier) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = singleLine,
+            minLines = minLines,
+            maxLines = maxLines,
+            readOnly = readOnly,
+            textStyle = Soft.type.body.copy(fontSize = 16.sp, color = colors.ink),
+            cursorBrush = SolidColor(colors.accent),
+            keyboardOptions = keyboardOptions,
+            modifier = Modifier.fillMaxWidth(),
+            decorationBox = { field -> SoftFieldBox(value.text.isEmpty(), placeholder, background, singleLine, null, null, field) },
+        )
+        if (error != null) {
+            Text(error, style = Soft.type.secondary, color = colors.accent, modifier = Modifier.padding(start = 20.dp, top = 6.dp))
+        }
+    }
+}
+
+@Composable
+private fun SoftFieldBox(
+    isEmpty: Boolean,
+    placeholder: String,
+    background: Color,
+    singleLine: Boolean,
+    leading: (@Composable () -> Unit)?,
+    trailing: (@Composable () -> Unit)?,
+    field: @Composable () -> Unit,
+) {
+    val colors = Soft.colors
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(if (singleLine) SoftTokens.Pill else RoundedCornerShape(24.dp))
+            .background(background)
+            .heightIn(min = 52.dp)
+            .padding(start = if (leading != null) 16.dp else 20.dp, end = if (trailing != null) 4.dp else 20.dp)
+            .padding(vertical = if (singleLine) 0.dp else 14.dp),
+        verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top,
+    ) {
+        if (leading != null) {
+            leading()
+            Spacer(Modifier.width(10.dp))
+        }
+        Box(Modifier.weight(1f)) {
+            if (isEmpty) {
+                Text(placeholder, style = Soft.type.body.copy(fontSize = 16.sp), color = colors.inkMuted, maxLines = 1)
+            }
+            field()
+        }
+        trailing?.invoke()
     }
 }
 
