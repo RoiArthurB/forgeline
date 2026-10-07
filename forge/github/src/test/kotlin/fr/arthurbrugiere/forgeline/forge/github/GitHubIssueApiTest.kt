@@ -555,4 +555,68 @@ class GitHubIssueApiTest {
         // An emptied description is sent empty: left out, the forge would keep the old one.
         assertThat((request.body as TextContent).text).isEqualTo("""{"title":"Crash when the list is empty","body":""}""")
     }
+
+    // GitHub's documented answers: 201 for a reaction it made, 200 with the one that was already there.
+    private fun reacting(alreadyThere: Boolean) = api { request ->
+        when {
+            request.method == HttpMethod.Post -> json("""{"id":77,"content":"+1"}""", status = if (alreadyThere) HttpStatusCode.OK else HttpStatusCode.Created)
+            request.method == HttpMethod.Delete -> respond("", HttpStatusCode.NoContent)
+            else -> json("""{"id":4242,"body":"x","reactions":{"+1":${if (alreadyThere) 2 else 3},"heart":1,"laugh":0}}""")
+        }
+    }
+
+    @Test
+    fun a_reaction_not_given_yet_is_given_and_the_counts_read_again() = runTest {
+        val counts = reacting(alreadyThere = false).toggleReaction("tok", "me", issue, 4242, Reaction.THUMBS_UP).value()
+
+        assertThat(counts).containsExactly(Reaction.THUMBS_UP, 3, Reaction.HEART, 1)
+        assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly(
+            "POST /repos/paperclipai/paperclip/issues/comments/4242/reactions",
+            "GET /repos/paperclipai/paperclip/issues/comments/4242",
+        ).inOrder()
+        assertThat((requests.first().body as TextContent).text).isEqualTo("""{"content":"+1"}""")
+        assertThat(requests.first().headers[HttpHeaders.Authorization]).isEqualTo("Bearer tok")
+    }
+
+    @Test
+    fun a_reaction_already_given_is_taken_back_by_its_id() = runTest {
+        val counts = reacting(alreadyThere = true).toggleReaction("tok", "me", issue, 4242, Reaction.THUMBS_UP).value()
+
+        assertThat(counts).containsExactly(Reaction.THUMBS_UP, 2, Reaction.HEART, 1)
+        assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly(
+            "POST /repos/paperclipai/paperclip/issues/comments/4242/reactions",
+            "DELETE /repos/paperclipai/paperclip/issues/comments/4242/reactions/77",
+            "GET /repos/paperclipai/paperclip/issues/comments/4242",
+        ).inOrder()
+    }
+
+    @Test
+    fun a_reaction_to_the_conversation_itself_goes_to_the_issue() = runTest {
+        reacting(alreadyThere = true).toggleReaction("tok", "me", pr, null, Reaction.HOORAY).value()
+
+        assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly(
+            "POST /repos/paperclipai/paperclip/issues/14187/reactions",
+            "DELETE /repos/paperclipai/paperclip/issues/14187/reactions/77",
+            "GET /repos/paperclipai/paperclip/issues/14187",
+        ).inOrder()
+        assertThat((requests.first().body as TextContent).text).isEqualTo("""{"content":"hooray"}""")
+    }
+
+    @Test
+    fun every_reaction_has_the_name_github_gives_it() = runTest {
+        val api = reacting(alreadyThere = false)
+
+        Reaction.entries.forEach { api.toggleReaction("tok", "me", issue, 1, it) }
+
+        assertThat(requests.filter { it.method == HttpMethod.Post }.map { (it.body as TextContent).text.substringAfter(":\"").substringBefore('"') })
+            .containsExactly("+1", "-1", "laugh", "hooray", "confused", "heart", "rocket", "eyes").inOrder()
+    }
+
+    @Test
+    fun a_reaction_the_forge_refuses_is_a_failure_and_nothing_more_is_asked() = runTest {
+        val result = api { json("""{"message":"Resource not accessible"}""", status = HttpStatusCode.Forbidden) }.toggleReaction("tok", "me", issue, 4242, Reaction.EYES)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "Resource not accessible")))
+        assertThat(requests).hasSize(1)
+    }
 }

@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.issue
 
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.testing.Rendezvous
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
@@ -720,5 +721,56 @@ class DefaultIssueRepositoryTest {
         assertThat(repository.cached(ref)?.issue?.title).isEqualTo(issueDetails(ref).title)
         assertThat(announced).isEmpty()
         listening.cancel()
+    }
+
+    @Test
+    fun reacting_needs_an_account_on_the_conversation_s_forge() = runTest {
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "codeberg-tok")
+
+        assertThat(repository.toggleReaction(ref, 1, Reaction.HEART)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(api.calls).isEmpty()
+    }
+
+    @Test
+    fun a_reaction_is_given_as_the_account_signed_in_and_shows_on_the_comment_kept() = runTest {
+        signIn()
+        keep(comment(1, "Hi"), comment(2, "Hello"))
+        api.reacted[ref to 2L] = mutableListOf("alice" to Reaction.HEART)
+
+        val counts = (repository.toggleReaction(ref, 2, Reaction.HEART) as ForgeResult.Success).value
+
+        assertThat(counts).containsExactly(Reaction.HEART, 2)
+        assertThat(api.reacted[ref to 2L]).containsExactly("alice" to Reaction.HEART, "me" to Reaction.HEART)
+        assertThat(api.tokens.last()).isEqualTo("tok")
+        assertThat(repository.cached(ref)?.firstPage?.items).containsExactly(comment(1, "Hi"), comment(2, "Hello").copy(reactions = mapOf(Reaction.HEART to 2))).inOrder()
+    }
+
+    @Test
+    fun a_reaction_taken_back_leaves_the_conversation_kept() = runTest {
+        signIn()
+        keep()
+        repository.toggleReaction(ref, null, Reaction.ROCKET)
+        assertThat(repository.cached(ref)?.issue?.reactions).containsExactly(Reaction.ROCKET, 1)
+
+        repository.toggleReaction(ref, null, Reaction.ROCKET)
+
+        assertThat(repository.cached(ref)?.issue?.reactions).isEmpty()
+        val relaunched = DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock)
+        assertThat(relaunched.stored(ref)?.issue?.reactions).isEmpty()
+    }
+
+    @Test
+    fun a_refused_reaction_changes_nothing_kept_and_reacting_to_nothing_kept_keeps_nothing() = runTest {
+        signIn()
+        val other = IssueRef(ref.repo, 8)
+        repository.toggleReaction(other, 1, Reaction.EYES)
+        repository.toggleReaction(other, null, Reaction.EYES)
+        assertThat(repository.cached(other)).isNull()
+
+        keep(comment(1, "Hi"))
+        api.reactionFailure = ForgeError.Network
+
+        assertThat(repository.toggleReaction(ref, 1, Reaction.EYES)).isEqualTo(ForgeResult.Failure(ForgeError.Network))
+        assertThat(repository.cached(ref)?.firstPage?.items).containsExactly(comment(1, "Hi"))
     }
 }

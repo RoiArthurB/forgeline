@@ -109,6 +109,41 @@ class GitHubIssueApi(
         put("body", body)
     }
 
+    /**
+     * GitHub says whether the reaction was already there: 201 when it made it, 200 with the one it had. That one is
+     * then taken back by its id. The counts come from the comment or the issue read again: a list of reactions stops
+     * at a hundred, and a busy issue has more.
+     */
+    override suspend fun toggleReaction(token: String, login: String, ref: IssueRef, commentId: Long?, reaction: Reaction): ForgeResult<Map<Reaction, Int>> = gitHubCall {
+        val target = if (commentId == null) arrayOf("issues", ref.number.toString()) else arrayOf("issues", "comments", commentId.toString())
+        val given = httpClient.gitHubApi(
+            apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, *target, "reactions",
+            method = HttpMethod.Post, body = buildJsonObject { put("content", reaction.content) },
+        )
+        if (!given.status.isSuccess()) return@gitHubCall given.failure()
+        if (given.status.value == 200) {
+            val taken = httpClient.gitHubApi(
+                apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, *target, "reactions", given.body<ReactionJson>().id.toString(),
+                method = HttpMethod.Delete,
+            )
+            if (!taken.status.isSuccess()) return@gitHubCall taken.failure()
+        }
+        httpClient.gitHubApi(apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, *target)
+            .toResult { body<ReactedJson>().reactions?.toModel().orEmpty() }
+    }
+
+    private val Reaction.content: String
+        get() = when (this) {
+            Reaction.THUMBS_UP -> "+1"
+            Reaction.THUMBS_DOWN -> "-1"
+            Reaction.LAUGH -> "laugh"
+            Reaction.HOORAY -> "hooray"
+            Reaction.CONFUSED -> "confused"
+            Reaction.HEART -> "heart"
+            Reaction.ROCKET -> "rocket"
+            Reaction.EYES -> "eyes"
+        }
+
     override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = gitHubCall {
         httpClient.gitHubApi(
             apiBaseUrl, token, "repos", repo.owner, repo.name, "issues",
@@ -350,6 +385,14 @@ private data class MilestoneJson(val number: Long = 0, val title: String) {
 private data class LabelJson(val name: String, val color: String? = null) {
     fun toModel() = Label(name, color)
 }
+
+/** One reaction, as GitHub answers the one made or already there. */
+@Serializable
+private data class ReactionJson(val id: Long)
+
+/** The part of an issue or a comment that counts its reactions. */
+@Serializable
+private data class ReactedJson(val reactions: ReactionsJson? = null)
 
 @Serializable
 private data class ReactionsJson(

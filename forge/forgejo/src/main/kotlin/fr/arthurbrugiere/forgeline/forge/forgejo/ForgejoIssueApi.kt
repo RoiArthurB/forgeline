@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import io.ktor.http.isSuccess
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
@@ -112,6 +113,40 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         put("title", title)
         put("body", body)
     }
+
+    /**
+     * Forgejo lists who gave what: the reader's own is looked for there, then given or taken back by its name. The
+     * counts are that list's, with the change just made.
+     */
+    override suspend fun toggleReaction(token: String, login: String, ref: IssueRef, commentId: Long?, reaction: Reaction): ForgeResult<Map<Reaction, Int>> = forgejoCall {
+        val target = if (commentId == null) arrayOf("issues", ref.number.toString(), "reactions") else arrayOf("issues", "comments", commentId.toString(), "reactions")
+        val listed = get(token, ref, *target)
+        if (listed.status != HttpStatusCode.OK) return@forgejoCall listed.failure()
+        // No reactions answers null, not an empty list.
+        val given = listed.body<List<ReactionJson>?>().orEmpty()
+        val mine = given.any { reaction(it.content) == reaction && it.user?.login.equals(login, ignoreCase = true) }
+        val name = given.firstOrNull { reaction(it.content) == reaction }?.content ?: reaction.content
+        val changed = httpClient.forgejoApi(
+            forge, token, "repos", ref.repo.owner, ref.repo.name, *target,
+            method = if (mine) HttpMethod.Delete else HttpMethod.Post, body = buildJsonObject { put("content", name) },
+        )
+        if (!changed.status.isSuccess()) return@forgejoCall changed.failure()
+        val counts = given.mapNotNull { reaction(it.content) }.groupingBy { it }.eachCount()
+        val now = (counts[reaction] ?: 0) + if (mine) -1 else 1
+        ForgeResult.Success(if (now > 0) counts + (reaction to now) else counts - reaction)
+    }
+
+    private val Reaction.content: String
+        get() = when (this) {
+            Reaction.THUMBS_UP -> "+1"
+            Reaction.THUMBS_DOWN -> "-1"
+            Reaction.LAUGH -> "laugh"
+            Reaction.HOORAY -> "hooray"
+            Reaction.CONFUSED -> "confused"
+            Reaction.HEART -> "heart"
+            Reaction.ROCKET -> "rocket"
+            Reaction.EYES -> "eyes"
+        }
 
     override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = forgejoCall {
         httpClient.forgejoApi(
@@ -468,7 +503,7 @@ private data class PullJson(
 )
 
 @Serializable
-private data class ReactionJson(val content: String)
+private data class ReactionJson(val content: String, val user: UserJson? = null)
 
 @Serializable
 private data class ReviewJson(val id: Long, val state: String)

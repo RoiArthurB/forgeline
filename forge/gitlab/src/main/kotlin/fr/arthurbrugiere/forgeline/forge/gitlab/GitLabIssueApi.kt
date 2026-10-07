@@ -199,6 +199,39 @@ class GitLabIssueApi(
         ).toResult { }
     }
 
+    /**
+     * GitLab lists each award with who gave it and its id: the reader's own is looked for there, then taken back by
+     * that id, or given. Giving one twice is refused (404, "Name has already been taken"), so it is never tried blind.
+     */
+    override suspend fun toggleReaction(token: String, login: String, ref: IssueRef, commentId: Long?, reaction: Reaction): ForgeResult<Map<Reaction, Int>> = gitlabCall {
+        val target = listOfNotNull("projects", projectPath(ref.repo), targetKind(ref), ref.number.toString(), commentId?.let { "notes/$it" }, "award_emoji").toTypedArray()
+        val listed = httpClient.gitlabApi(ref.repo.forge, token, *target, query = mapOf("per_page" to "100"))
+        if (listed.status != HttpStatusCode.OK) return@gitlabCall listed.failure()
+        val given = listed.body<List<GitLabAwardEmojiJson>>()
+        val mine = given.firstOrNull { it.toReaction() == reaction && it.user?.username.equals(login, ignoreCase = true) }
+        val changed = if (mine != null) {
+            httpClient.gitlabApi(ref.repo.forge, token, *target, mine.id.toString(), method = HttpMethod.Delete)
+        } else {
+            httpClient.gitlabApi(ref.repo.forge, token, *target, method = HttpMethod.Post, body = buildJsonObject { put("name", reaction.awardName) })
+        }
+        if (changed.status.value !in 200..299) return@gitlabCall changed.failure()
+        val counts = parseReactions(given)
+        val now = (counts[reaction] ?: 0) + if (mine != null) -1 else 1
+        ForgeResult.Success(if (now > 0) counts + (reaction to now) else counts - reaction)
+    }
+
+    private val Reaction.awardName: String
+        get() = when (this) {
+            Reaction.THUMBS_UP -> "thumbsup"
+            Reaction.THUMBS_DOWN -> "thumbsdown"
+            Reaction.LAUGH -> "laughing"
+            Reaction.HOORAY -> "tada"
+            Reaction.CONFUSED -> "confused"
+            Reaction.HEART -> "heart"
+            Reaction.ROCKET -> "rocket"
+            Reaction.EYES -> "eyes"
+        }
+
     override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = gitlabCall {
         val payload = buildJsonObject {
             put("title", title)

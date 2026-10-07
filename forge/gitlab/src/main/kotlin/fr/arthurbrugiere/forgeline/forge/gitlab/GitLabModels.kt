@@ -314,7 +314,7 @@ internal data class GitLabAwardEmojiJson(
     fun toReaction(): Reaction? = when (name) {
         "thumbsup", "+1" -> Reaction.THUMBS_UP
         "thumbsdown", "-1" -> Reaction.THUMBS_DOWN
-        "laugh", "smile", "joy" -> Reaction.LAUGH
+        "laugh", "laughing", "smile", "joy" -> Reaction.LAUGH
         "tada", "hooray" -> Reaction.HOORAY
         "confused" -> Reaction.CONFUSED
         "heart" -> Reaction.HEART

@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.issue
 
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.async
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
@@ -69,6 +70,12 @@ interface IssueRepository {
 
     /** Deletes the comment [commentId] of [ref], on the forge and from the conversation kept. */
     suspend fun deleteComment(ref: IssueRef, commentId: Long): ForgeResult<Unit>
+
+    /**
+     * Gives [reaction] to the comment [commentId] of [ref], or to its own text when null, or takes it back if the
+     * account signed in had given it. Answers the reactions it then has, which the conversation kept shows too.
+     */
+    suspend fun toggleReaction(ref: IssueRef, commentId: Long?, reaction: Reaction): ForgeResult<Map<Reaction, Int>>
 
     /**
      * Changes the title and the description of [ref]. The conversation kept changes with it, and the change is
@@ -250,6 +257,19 @@ class DefaultIssueRepository @Inject constructor(
                 }
             }
         }
+
+    override suspend fun toggleReaction(ref: IssueRef, commentId: Long?, reaction: Reaction): ForgeResult<Map<Reaction, Int>> {
+        val account = accounts.accountOn(ref.repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        val token = accounts.token(account.id) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return clients.issues(ref.repo.forge).toggleReaction(token, account.user.login, ref, commentId, reaction).also { result ->
+            if (result !is ForgeResult.Success) return@also
+            if (commentId != null) {
+                keptPage(ref) { items -> items.map { if (it is TimelineItem.Comment && it.id == commentId) it.copy(reactions = result.value) else it } }
+            } else if (cached(ref)?.issue != null) {
+                update(ref) { kept -> kept.copy(issue = kept.issue?.copy(reactions = result.value)) }
+            }
+        }
+    }
 
     /** Changes the first page kept of [ref], when there is one: nothing kept, nothing to change. */
     private suspend fun keptPage(ref: IssueRef, change: (List<TimelineItem>) -> List<TimelineItem>) {

@@ -191,4 +191,77 @@ class GitLabIssueApiTest {
         assertThat(request.url.toString()).isEqualTo("https://gitlab.com/api/v4/projects/gitlab-org%2Fgitlab/issues/10")
         assertThat((request.body as TextContent).text).isEqualTo("""{"title":"Probe issue, renamed","description":""}""")
     }
+
+    // The list is the shape gitlab.com answered on 2026-10-07 (one award per person, with its id and who gave it),
+    // as are 201 for an award given and 204 for one taken back.
+    private fun award(id: Long, name: String, username: String) = """{"id":$id,"name":"$name","user":{"id":1,"username":"$username"},"awardable_type":"Note"}"""
+
+    private fun reacting(vararg awards: String) = api { request ->
+        when (request.method) {
+            HttpMethod.Get -> json(awards.joinToString(",", "[", "]"))
+            HttpMethod.Delete -> respond("", HttpStatusCode.NoContent)
+            else -> json(award(99, "thumbsup", "me"), HttpStatusCode.Created)
+        }
+    }
+
+    private fun sent() = requests.map { "${it.method.value} ${it.url.encodedPath}" }
+
+    @Test
+    fun an_award_not_given_yet_is_given_on_the_note() = runTest {
+        val api = reacting(award(1, "thumbsup", "alice"), award(2, "heart", "me"))
+
+        val counts = api.toggleReaction("tok", "me", IssueRef(repo, 10, isPullRequest = false), 555, Reaction.THUMBS_UP).value()
+
+        assertThat(counts).containsExactly(Reaction.THUMBS_UP, 2, Reaction.HEART, 1)
+        assertThat(sent()).containsExactly(
+            "GET /api/v4/projects/gitlab-org%2Fgitlab/issues/10/notes/555/award_emoji",
+            "POST /api/v4/projects/gitlab-org%2Fgitlab/issues/10/notes/555/award_emoji",
+        ).inOrder()
+        assertThat((requests.last().body as TextContent).text).isEqualTo("""{"name":"thumbsup"}""")
+    }
+
+    @Test
+    fun one_s_own_award_is_taken_back_by_its_id_never_given_twice() = runTest {
+        // Given twice, GitLab answers 404 "Award Emoji Name has already been taken": it is looked for first.
+        val api = reacting(award(1, "thumbsup", "alice"), award(58620369, "thumbsup", "Me"))
+
+        val counts = api.toggleReaction("tok", "me", IssueRef(repo, 10, isPullRequest = true), 555, Reaction.THUMBS_UP).value()
+
+        assertThat(counts).containsExactly(Reaction.THUMBS_UP, 1)
+        assertThat(sent()).containsExactly(
+            "GET /api/v4/projects/gitlab-org%2Fgitlab/merge_requests/10/notes/555/award_emoji",
+            "DELETE /api/v4/projects/gitlab-org%2Fgitlab/merge_requests/10/notes/555/award_emoji/58620369",
+        ).inOrder()
+    }
+
+    @Test
+    fun an_award_to_the_conversation_itself_goes_to_the_issue() = runTest {
+        val counts = reacting().toggleReaction("tok", "me", IssueRef(repo, 10), null, Reaction.HOORAY).value()
+
+        assertThat(counts).containsExactly(Reaction.HOORAY, 1)
+        assertThat(sent().last()).isEqualTo("POST /api/v4/projects/gitlab-org%2Fgitlab/issues/10/award_emoji")
+        assertThat((requests.last().body as TextContent).text).isEqualTo("""{"name":"tada"}""")
+    }
+
+    @Test
+    fun every_reaction_has_a_gitlab_name_that_reads_back_as_itself() = runTest {
+        // Regression guard: "laughing" is what GitLab calls the laugh, and it was not read back as one.
+        Reaction.entries.forEach { reaction ->
+            requests.clear()
+            val counts = reacting().toggleReaction("tok", "me", IssueRef(repo, 10), null, reaction).value()
+            val name = (requests.last().body as TextContent).text.substringAfter(":\"").substringBefore('"')
+
+            assertThat(counts).containsExactly(reaction, 1)
+            assertThat(GitLabAwardEmojiJson(1, name).toReaction()).isEqualTo(reaction)
+        }
+    }
+
+    @Test
+    fun an_award_the_forge_refuses_is_a_failure() = runTest {
+        val api = api { request -> if (request.method == HttpMethod.Get) json("[]") else json("""{"message":"403 Forbidden"}""", HttpStatusCode.Forbidden) }
+
+        val result = api.toggleReaction("tok", "me", IssueRef(repo, 10), 555, Reaction.EYES)
+
+        assertThat((result as ForgeResult.Failure).error).isInstanceOf(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http::class.java)
+    }
 }

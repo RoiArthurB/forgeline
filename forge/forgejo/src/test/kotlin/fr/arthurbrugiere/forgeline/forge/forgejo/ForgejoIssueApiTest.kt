@@ -711,4 +711,71 @@ class ForgejoIssueApiTest {
         assertThat(request.url.toString()).isEqualTo("https://codeberg.org/api/v1/repos/forgejo/forgejo/issues/14597")
         assertThat((request.body as TextContent).text).isEqualTo("""{"title":"Crash when the list is empty","body":""}""")
     }
+
+    // The list follows Forgejo's API description (each reaction with who gave it); "null" for none was read on
+    // Codeberg on 2026-09-29. Giving and taking back were not tried on a real server.
+    private fun reacting(listed: String) = with(codeberg) {
+        ForgejoIssueApi(client { if (it.method == HttpMethod.Get) json(listed) else json("""{"content":"+1"}""", HttpStatusCode.Created) }, ForgeInstance.Codeberg)
+    }
+
+    private fun sent() = codeberg.requests.map { "${it.method.value} ${it.url.encodedPath}" }
+
+    @Test
+    fun a_reaction_not_given_yet_is_given_and_counted_with_the_others() = runTest {
+        val listed = """[{"user":{"login":"alice"},"content":"+1"},{"user":{"login":"bob"},"content":"heart"}]"""
+
+        val counts = reacting(listed).toggleReaction("tok", "me", pull, 9001, fr.arthurbrugiere.forgeline.core.model.Reaction.THUMBS_UP).value()
+
+        assertThat(counts).containsExactly(fr.arthurbrugiere.forgeline.core.model.Reaction.THUMBS_UP, 2, fr.arthurbrugiere.forgeline.core.model.Reaction.HEART, 1)
+        assertThat(sent()).containsExactly(
+            "GET /api/v1/repos/forgejo/forgejo/issues/comments/9001/reactions",
+            "POST /api/v1/repos/forgejo/forgejo/issues/comments/9001/reactions",
+        ).inOrder()
+        assertThat((codeberg.requests.last().body as TextContent).text).isEqualTo("""{"content":"+1"}""")
+        assertThat(codeberg.requests.last().headers[HttpHeaders.Authorization]).isEqualTo("token tok")
+    }
+
+    @Test
+    fun one_s_own_reaction_is_taken_back_whatever_the_case_of_the_login() = runTest {
+        val listed = """[{"user":{"login":"Me"},"content":"+1"},{"user":{"login":"alice"},"content":"+1"},{"user":{"login":"Me"},"content":"rocket"}]"""
+
+        val counts = reacting(listed).toggleReaction("tok", "me", pull, 9001, fr.arthurbrugiere.forgeline.core.model.Reaction.ROCKET).value()
+
+        // The last rocket is gone: it is no longer counted at all.
+        assertThat(counts).containsExactly(fr.arthurbrugiere.forgeline.core.model.Reaction.THUMBS_UP, 2)
+        assertThat(codeberg.requests.last().method).isEqualTo(HttpMethod.Delete)
+        assertThat((codeberg.requests.last().body as TextContent).text).isEqualTo("""{"content":"rocket"}""")
+    }
+
+    @Test
+    fun the_first_reaction_of_a_conversation_is_given_where_the_forge_lists_none() = runTest {
+        val counts = reacting("null").toggleReaction("tok", "me", pull, null, fr.arthurbrugiere.forgeline.core.model.Reaction.EYES).value()
+
+        assertThat(counts).containsExactly(fr.arthurbrugiere.forgeline.core.model.Reaction.EYES, 1)
+        assertThat(sent()).containsExactly(
+            "GET /api/v1/repos/forgejo/forgejo/issues/14597/reactions",
+            "POST /api/v1/repos/forgejo/forgejo/issues/14597/reactions",
+        ).inOrder()
+    }
+
+    @Test
+    fun reactions_the_app_has_no_name_for_are_left_out_of_the_counts() = runTest {
+        // A server can allow its own (":gitea:"): they are neither counted nor mistaken for the one asked.
+        val listed = """[{"user":{"login":"me"},"content":"gitea"}]"""
+
+        val counts = reacting(listed).toggleReaction("tok", "me", pull, 9001, fr.arthurbrugiere.forgeline.core.model.Reaction.HEART).value()
+
+        assertThat(counts).containsExactly(fr.arthurbrugiere.forgeline.core.model.Reaction.HEART, 1)
+        assertThat(codeberg.requests.last().method).isEqualTo(HttpMethod.Post)
+    }
+
+    @Test
+    fun a_reaction_the_forge_refuses_is_a_failure() = runTest {
+        val api = with(codeberg) {
+            ForgejoIssueApi(client { if (it.method == HttpMethod.Get) json("null") else json("""{"message":"issue is locked"}""", HttpStatusCode.Forbidden) }, ForgeInstance.Codeberg)
+        }
+
+        assertThat(api.toggleReaction("tok", "me", pull, 9001, fr.arthurbrugiere.forgeline.core.model.Reaction.HEART))
+            .isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "issue is locked")))
+    }
 }

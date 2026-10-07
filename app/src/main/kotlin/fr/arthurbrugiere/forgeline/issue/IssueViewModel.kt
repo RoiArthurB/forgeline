@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -82,6 +83,8 @@ data class IssueUiState(
     val editing: Long? = null,
     /** A comment couldn't be deleted. */
     val deleteError: ForgeError? = null,
+    /** A reaction couldn't be given or taken back. */
+    val reactionError: ForgeError? = null,
     /** Where the issue went once transferred: this screen gives way to it. */
     val movedTo: IssueRef? = null,
     /** The issue was deleted: there is nothing left to show. */
@@ -367,6 +370,32 @@ class IssueViewModel @AssistedInject constructor(
     }
 
     fun deleteErrorShown() = _state.update { it.copy(deleteError = null) }
+
+    /** What is being reacted to, a comment or the conversation's own text (null): one change at a time on each. */
+    private val reacting = mutableSetOf<Long?>()
+
+    /**
+     * Gives [reaction] to the comment [commentId], or to the conversation's own text when null; takes it back when the
+     * reader had given it. The counts shown are the forge's, once it has answered.
+     */
+    fun react(commentId: Long?, reaction: Reaction) {
+        if (!reacting.add(commentId)) return
+        viewModelScope.launch {
+            when (val result = repository.toggleReaction(ref, commentId, reaction)) {
+                is ForgeResult.Failure -> _state.update { it.copy(reactionError = result.error) }
+                is ForgeResult.Success -> _state.update { state ->
+                    if (commentId == null) {
+                        state.copy(issue = state.issue?.copy(reactions = result.value))
+                    } else {
+                        state.copy(items = state.items.map { if (it is TimelineItem.Comment && it.id == commentId) it.copy(reactions = result.value) else it })
+                    }
+                }
+            }
+            reacting -= commentId
+        }
+    }
+
+    fun reactionErrorShown() = _state.update { it.copy(reactionError = null) }
 
     /** Sends the comment as rewritten. Its text stays in the reader's turn until the forge has taken it. */
     private fun sendEdit(id: Long, body: String) {

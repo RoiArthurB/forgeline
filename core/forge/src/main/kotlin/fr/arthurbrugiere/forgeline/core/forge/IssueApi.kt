@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.Milestone
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
@@ -41,6 +42,12 @@ interface IssueApi {
 
     /** Changes the title and the description of [ref], [body] being Markdown and possibly empty. */
     suspend fun edit(token: String, ref: IssueRef, title: String, body: String): ForgeResult<Unit> = unsupported
+
+    /**
+     * Gives [reaction] to the comment [commentId] of [ref], or to the conversation's own text when it is null, as
+     * [login]; takes it back when they had already given it. Answers the reactions it then has, everyone's.
+     */
+    suspend fun toggleReaction(token: String, login: String, ref: IssueRef, commentId: Long?, reaction: Reaction): ForgeResult<Map<Reaction, Int>> = unsupported
 
     /** Opens an issue in [repo], [body] being Markdown and possibly empty, and answers it as the forge kept it. */
     suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails>

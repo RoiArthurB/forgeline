@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
@@ -70,6 +71,8 @@ class CommentActionsScreenTest {
                     onDelete = { events += "delete:$it" },
                     onDeleteErrorShown = { events += "delete-error-shown" },
                     onEditIssue = { events += "edit-issue" },
+                    onReact = { comment, reaction -> events += "react:$comment:$reaction" },
+                    onReactionErrorShown = { events += "reaction-error-shown" },
                 ),
             )
         }
@@ -187,12 +190,13 @@ class CommentActionsScreenTest {
     fun a_locked_conversation_offers_no_quote_to_who_can_t_comment_but_still_lets_them_take_their_words_back() {
         setContent(opened.copy(issue = issueDetails(ref).copy(isLocked = true)))
 
-        // hubot's comment and the description have nothing to offer; the reader's own can still be deleted.
-        assertThat(composeRule.onAllNodesWithContentDescription("Comment options").fetchSemanticsNodes()).hasSize(1)
-        openMenu(0)
+        // The reader's own comment: no reply to start, no rewrite to write, but it can still be deleted.
+        openMenu(2)
         assertThat(offered("Quote reply")).isFalse()
         assertThat(offered("Edit")).isFalse()
         assertThat(offered("Delete")).isTrue()
+        // Reactions are not comments: a locked conversation still takes them.
+        composeRule.onNode(hasContentDescription("Heart")).assertIsDisplayed()
     }
 
     @Test
@@ -287,5 +291,67 @@ class CommentActionsScreenTest {
 
         composeRule.waitUntil(5_000) { offered("The comment wasn't deleted. Try again.") }
         assertThat(events).containsExactly("delete-error-shown")
+    }
+
+    @Test
+    fun every_reaction_is_offered_at_the_top_of_a_comment_s_menu() {
+        setContent()
+
+        openMenu(1)
+
+        listOf("Thumbs up", "Thumbs down", "Laugh", "Hooray", "Confused", "Heart", "Rocket", "Eyes").forEach {
+            composeRule.onNode(hasContentDescription(it)).assertIsDisplayed()
+        }
+        composeRule.onNode(hasContentDescription("Rocket")).performClick()
+        assertThat(events).containsExactly("react:1:ROCKET")
+        // Chosen, the menu is gone.
+        assertThat(offered("Quote reply")).isFalse()
+    }
+
+    @Test
+    fun a_reaction_from_the_description_s_menu_goes_to_the_conversation_itself() {
+        setContent()
+
+        openMenu(0)
+        composeRule.onNode(hasContentDescription("Heart")).performClick()
+
+        assertThat(events).containsExactly("react:null:HEART")
+    }
+
+    private val reacted = opened.copy(
+        items = listOf(comment(1, "Same here", login = "hubot").copy(reactions = mapOf(Reaction.THUMBS_UP to 4, Reaction.EYES to 1))),
+    )
+
+    @Test
+    fun a_reaction_already_there_is_joined_or_taken_back_with_a_tap_and_says_what_it_is() {
+        setContent(reacted)
+
+        // Read as what it is and how many, not as a picture and a digit.
+        composeRule.onNode(hasContentDescription("Thumbs up, 4")).assertIsDisplayed().performClick()
+
+        assertThat(events).containsExactly("react:1:THUMBS_UP")
+    }
+
+    @Test
+    fun reactions_that_can_be_tapped_are_large_enough_to_tap() {
+        setContent(reacted)
+
+        composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    @Test
+    fun signed_out_reactions_are_only_read() {
+        setContent(reacted.copy(me = null), canComment = false)
+
+        composeRule.onNodeWithText("👍 4").assertIsDisplayed()
+        assertThat(composeRule.onAllNodes(hasContentDescription("Thumbs up, 4")).fetchSemanticsNodes()).isEmpty()
+    }
+
+    @Test
+    fun a_reaction_that_wasn_t_saved_is_said_once() {
+        setContent(opened.copy(reactionError = ForgeError.Network))
+
+        composeRule.waitUntil(5_000) { offered("The reaction wasn't saved. Try again.") }
+        assertThat(events).containsExactly("reaction-error-shown")
     }
 }

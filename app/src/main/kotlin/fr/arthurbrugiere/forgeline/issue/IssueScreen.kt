@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.text.input.TextFieldValue
@@ -229,6 +230,8 @@ fun IssueRoute(
             onCancelEdit = viewModel::cancelEditing,
             onDelete = viewModel::deleteComment,
             onDeleteErrorShown = viewModel::deleteErrorShown,
+            onReact = viewModel::react,
+            onReactionErrorShown = viewModel::reactionErrorShown,
             // Said with its kind: GitLab numbers merge requests apart from issues.
             onEditIssue = { onEditIssue(IssueRef(ref.repo, ref.number, viewModel.state.value.issue?.pullRequest != null)) },
         )
@@ -267,10 +270,15 @@ class CommentActions(
     val onDelete: (Long) -> Unit = {},
     val onDeleteErrorShown: () -> Unit = {},
     val onEditIssue: () -> Unit = {},
+    /** Gives a reaction to a comment, or to the conversation's own text (null), or takes it back. */
+    val onReact: (Long?, Reaction) -> Unit = { _, _ -> },
+    val onReactionErrorShown: () -> Unit = {},
 )
 
-/** What one comment's menu offers; a null entry is not offered. */
-private class CommentMenu(val onQuote: (() -> Unit)?, val onEdit: (() -> Unit)?, val onDelete: (() -> Unit)?)
+/** What one comment's menu offers; a null entry is not offered. [onReact] also makes the reactions shown tappable. */
+private class CommentMenu(val onQuote: (() -> Unit)?, val onEdit: (() -> Unit)?, val onDelete: (() -> Unit)?, val onReact: ((Reaction) -> Unit)? = null) {
+    val isEmpty: Boolean get() = onQuote == null && onEdit == null && onDelete == null && onReact == null
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -323,6 +331,13 @@ fun IssueScreen(
         if (state.deleteError != null) {
             comments.onDeleteErrorShown()
             snackbar.showSnackbar(deleteFailed)
+        }
+    }
+    val reactionFailed = stringResource(R.string.issue_reaction_failed)
+    LaunchedEffect(state.reactionError) {
+        if (state.reactionError != null) {
+            comments.onReactionErrorShown()
+            snackbar.showSnackbar(reactionFailed)
         }
     }
     // The comment the reader asked to delete, until they have said yes or no.
@@ -460,6 +475,8 @@ fun IssueScreen(
                                     onQuote = issue.body?.takeIf { canWrite }?.let { text -> { comments.onQuote(text) } },
                                     onEdit = comments.onEditIssue.takeIf { state.canEditIssue },
                                     onDelete = null,
+                                    // Reacting takes an account, not the right to comment: a locked conversation still takes them.
+                                    onReact = if (canComment) ({ reaction -> comments.onReact(null, reaction) }) else null,
                                 ),
                             )
                         }
@@ -469,6 +486,7 @@ fun IssueScreen(
                                     onQuote = if (canWrite) ({ comments.onQuote(comment.body) }) else null,
                                     onEdit = if (canWrite && state.canEdit(comment)) ({ comments.onEdit(comment.id) }) else null,
                                     onDelete = if (state.canDelete(comment)) ({ deleting = comment.id }) else null,
+                                    onReact = if (canComment) ({ reaction -> comments.onReact(comment.id, reaction) }) else null,
                                 )
                             }
                         }
@@ -850,12 +868,13 @@ private fun Comment(
                 Text(author?.login ?: "ghost", style = Soft.type.control, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 createdAt?.let { Text(relative(it, nowMillis), style = Soft.type.meta, color = colors.inkMuted, maxLines = 1) }
             }
-            if (menu != null && (menu.onQuote != null || menu.onEdit != null || menu.onDelete != null)) CommentMenuButton(menu)
+            if (menu != null && !menu.isEmpty) CommentMenuButton(menu)
         }
         Column(Modifier.padding(start = TimelineGutter, top = 6.dp).widthIn(max = SoftTokens.MaxMeasure)) {
             Markdown(body, context, onLinkClick)
             if (reactions.isNotEmpty()) {
-                Reactions(reactions, Modifier.padding(top = 8.dp))
+                // Tappable, each brings its own room: no more is added above.
+                Reactions(reactions, Modifier.padding(top = if (menu?.onReact == null) 8.dp else 0.dp), onReact = menu?.onReact)
             }
         }
     }
@@ -873,6 +892,22 @@ private fun CommentMenuButton(menu: CommentMenu) {
             Icon(Icons.Outlined.MoreHoriz, contentDescription = stringResource(R.string.issue_comment_more), tint = colors.inkMuted)
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(20.dp), containerColor = colors.raised) {
+            // Reactions first, as two rows of four: the quickest answer there is.
+            menu.onReact?.let { onReact ->
+                FlowRow(Modifier.padding(horizontal = 8.dp), maxItemsInEachRow = 4) {
+                    Reaction.entries.forEach { reaction ->
+                        val name = stringResource(reaction.label)
+                        Box(
+                            Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .clickable(role = Role.Button) { open = false; onReact(reaction) }
+                                .semantics { contentDescription = name },
+                            contentAlignment = Alignment.Center,
+                        ) { Text(reaction.emoji, fontSize = 22.sp) }
+                    }
+                }
+            }
             @Composable
             fun choice(label: Int, action: (() -> Unit)?) {
                 if (action != null) DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { open = false; action() })
@@ -909,12 +944,43 @@ private fun Markdown(body: String, context: ReadmeContext, onLinkClick: (String)
     }
 }
 
+/**
+ * The reactions a text was given, each with its count. With [onReact], tapping one gives it too, or takes back the
+ * reader's own: each then has a finger's room around it.
+ */
 @Composable
-private fun Reactions(reactions: Map<Reaction, Int>, modifier: Modifier = Modifier) {
-    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        reactions.forEach { (reaction, count) -> SoftTag("${reaction.emoji} $count") }
+private fun Reactions(reactions: Map<Reaction, Int>, modifier: Modifier = Modifier, onReact: ((Reaction) -> Unit)? = null) {
+    val gap = if (onReact == null) 6.dp else 0.dp
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(gap), verticalArrangement = Arrangement.spacedBy(gap)) {
+        reactions.forEach { (reaction, count) ->
+            if (onReact == null) {
+                SoftTag("${reaction.emoji} $count")
+            } else {
+                val said = stringResource(R.string.issue_reaction_count, stringResource(reaction.label), count)
+                Box(
+                    Modifier
+                        .clip(SoftTokens.Pill)
+                        .clickable(role = Role.Button) { onReact(reaction) }
+                        .minimumInteractiveComponentSize()
+                        .clearAndSetSemantics { contentDescription = said },
+                    contentAlignment = Alignment.Center,
+                ) { SoftTag("${reaction.emoji} $count") }
+            }
+        }
     }
 }
+
+private val Reaction.label: Int
+    get() = when (this) {
+        Reaction.THUMBS_UP -> R.string.reaction_thumbs_up
+        Reaction.THUMBS_DOWN -> R.string.reaction_thumbs_down
+        Reaction.LAUGH -> R.string.reaction_laugh
+        Reaction.HOORAY -> R.string.reaction_hooray
+        Reaction.CONFUSED -> R.string.reaction_confused
+        Reaction.HEART -> R.string.reaction_heart
+        Reaction.ROCKET -> R.string.reaction_rocket
+        Reaction.EYES -> R.string.reaction_eyes
+    }
 
 @Composable
 private fun TimelineEntry(

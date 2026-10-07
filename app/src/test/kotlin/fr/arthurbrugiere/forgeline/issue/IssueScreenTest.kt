@@ -163,7 +163,8 @@ class IssueScreenTest {
 
     @Test
     fun reactions_are_shown_with_their_counts() {
-        setContent(IssueUiState(ref, issueDetails(ref).copy(reactions = mapOf(Reaction.THUMBS_UP to 3, Reaction.ROCKET to 1))))
+        // Read signed out. Signed in, each can be tapped and says what it is: see CommentActionsScreenTest.
+        setContent(IssueUiState(ref, issueDetails(ref).copy(reactions = mapOf(Reaction.THUMBS_UP to 3, Reaction.ROCKET to 1))), canComment = false)
 
         composeRule.onNodeWithText("👍 3").assertIsDisplayed()
         composeRule.onNodeWithText("🚀 1").assertIsDisplayed()

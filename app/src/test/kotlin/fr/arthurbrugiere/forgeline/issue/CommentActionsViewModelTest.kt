@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import androidx.lifecycle.SavedStateHandle
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
@@ -308,5 +309,78 @@ class CommentActionsViewModelTest {
         advanceUntilIdle()
 
         assertThat(viewModel.state.value.issue?.title).isEqualTo(issueDetails(ref).title)
+    }
+
+    @Test
+    fun a_reaction_shows_on_the_comment_with_everyone_s() = test {
+        val viewModel = opened()
+        api.reacted[ref to 1L] = mutableListOf("alice" to Reaction.THUMBS_UP)
+
+        viewModel.react(1, Reaction.THUMBS_UP)
+        // Nothing is shown before the forge has answered: the count is its own.
+        assertThat(viewModel.comments.first().reactions).isEmpty()
+        advanceUntilIdle()
+
+        assertThat(viewModel.comments.first().reactions).containsExactly(Reaction.THUMBS_UP, 2)
+        assertThat(viewModel.comments.last().reactions).isEmpty()
+    }
+
+    @Test
+    fun reacting_again_takes_the_reaction_back() = test {
+        val viewModel = opened()
+        viewModel.react(null, Reaction.HEART)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.issue?.reactions).containsExactly(Reaction.HEART, 1)
+
+        viewModel.react(null, Reaction.HEART)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.issue?.reactions).isEmpty()
+    }
+
+    @Test
+    fun a_reaction_tapped_twice_before_the_forge_answers_is_sent_once() = test {
+        // Sent twice, the second would take back what the first gave.
+        val viewModel = opened()
+
+        viewModel.react(1, Reaction.HEART)
+        viewModel.react(1, Reaction.HEART)
+        advanceUntilIdle()
+
+        assertThat(api.calls.count { it.startsWith("react:") }).isEqualTo(1)
+        assertThat(viewModel.comments.first().reactions).containsExactly(Reaction.HEART, 1)
+        // Once it has answered, the next tap goes through.
+        viewModel.react(1, Reaction.HEART)
+        advanceUntilIdle()
+        assertThat(viewModel.comments.first().reactions).isEmpty()
+    }
+
+    @Test
+    fun two_comments_can_be_reacted_to_at_once() = test {
+        val viewModel = opened()
+
+        viewModel.react(1, Reaction.HEART)
+        viewModel.react(2, Reaction.EYES)
+        advanceUntilIdle()
+
+        assertThat(viewModel.comments.map { it.reactions }).containsExactly(mapOf(Reaction.HEART to 1), mapOf(Reaction.EYES to 1)).inOrder()
+    }
+
+    @Test
+    fun a_reaction_the_forge_refuses_is_said_once_and_can_be_tried_again() = test {
+        val viewModel = opened()
+        api.reactionFailure = ForgeError.Network
+
+        viewModel.react(1, Reaction.HEART)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.reactionError).isEqualTo(ForgeError.Network)
+        assertThat(viewModel.comments.first().reactions).isEmpty()
+        viewModel.reactionErrorShown()
+        assertThat(viewModel.state.value.reactionError).isNull()
+        api.reactionFailure = null
+        viewModel.react(1, Reaction.HEART)
+        advanceUntilIdle()
+        assertThat(viewModel.comments.first().reactions).containsExactly(Reaction.HEART, 1)
     }
 }

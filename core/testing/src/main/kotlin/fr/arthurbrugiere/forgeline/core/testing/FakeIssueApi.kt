@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlinx.coroutines.CompletableDeferred
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -93,6 +94,22 @@ class FakeIssueApi : IssueApi {
 
     override suspend fun deleteComment(token: String, ref: IssueRef, commentId: Long) =
         change(token, "deleteComment:${ref.label}", "delete ${ref.label} comment $commentId")
+
+    /** Who gave what, by conversation and comment (null for the conversation's own text); others' are put here by tests. */
+    val reacted = mutableMapOf<Pair<IssueRef, Long?>, MutableList<Pair<String, Reaction>>>()
+
+    /** What giving or taking back a reaction fails with. */
+    var reactionFailure: ForgeError? = null
+
+    override suspend fun toggleReaction(token: String, login: String, ref: IssueRef, commentId: Long?, reaction: Reaction): ForgeResult<Map<Reaction, Int>> {
+        calls += "react:${ref.label}${commentId?.let { " comment $it" }.orEmpty()}"
+        gate?.await()
+        tokens += token
+        reactionFailure?.let { return ForgeResult.Failure(it) }
+        val given = reacted.getOrPut(ref to commentId) { mutableListOf() }
+        if (!given.remove(login to reaction)) given += login to reaction
+        return ForgeResult.Success(given.groupingBy { it.second }.eachCount())
+    }
 
     /** Issues given a new title and text, as "octo/repo#7: title / body". */
     val edited = mutableListOf<String>()
