@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -133,38 +136,42 @@ fun NewIssueScreen(
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Next),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                SoftTextField(
+                var previewing by rememberSaveable { mutableStateOf(false) }
+                val showPreview = previewing && state.body.isNotBlank()
+                if (showPreview) WritingPreview(state.body, state.repo)
+                if (showPreview) state.error?.let { error ->
+                    Text(
+                        issueErrorText(error, forge, edits = state.editing != null),
+                        style = Soft.type.secondary,
+                        color = colors.accent,
+                        modifier = Modifier.padding(start = 20.dp),
+                    )
+                }
+                if (!showPreview) SoftTextField(
                     value = state.body,
                     onValueChange = onBodyChange,
                     placeholder = stringResource(R.string.new_issue_body_placeholder),
-                    error = state.error?.let { error ->
-                        val edits = state.editing != null
-                        when {
-                            error == ForgeError.Unauthorized -> stringResource(if (edits) R.string.edit_issue_error_expired else R.string.new_issue_error_expired, forge)
-                            // 410 is GitHub's answer when a repository's issues are switched off.
-                            error is ForgeError.Http && error.status in REFUSED -> stringResource(if (edits) R.string.edit_issue_error_refused else R.string.new_issue_error_refused)
-                            error == ForgeError.Network -> stringResource(if (edits) R.string.edit_issue_error_offline else R.string.new_issue_error_offline)
-                            else -> stringResource(if (edits) R.string.edit_issue_error else R.string.new_issue_error)
-                        }
-                    },
+                    error = state.error?.let { issueErrorText(it, forge, edits = state.editing != null) },
                     singleLine = false,
                     minLines = 6,
                     readOnly = state.isSending,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                SoftButton(
-                    stringResource(
-                        when {
-                            state.editing != null -> if (state.isSending) R.string.issue_comment_saving else R.string.edit_issue_send
-                            state.isSending -> R.string.issue_comment_sending
-                            else -> R.string.new_issue_send
-                        },
-                    ),
-                    onSend,
-                    Modifier.align(Alignment.End),
-                    enabled = state.canSend,
-                )
+                Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (state.body.isNotBlank()) PreviewToggle(showPreview) { previewing = !showPreview }
+                    SoftButton(
+                        stringResource(
+                            when {
+                                state.editing != null -> if (state.isSending) R.string.issue_comment_saving else R.string.edit_issue_send
+                                state.isSending -> R.string.issue_comment_sending
+                                else -> R.string.new_issue_send
+                            },
+                        ),
+                        onSend,
+                        enabled = state.canSend,
+                    )
+                }
             }
             Spacer(Modifier.height(listBottomPadding()))
         }
@@ -172,4 +179,14 @@ fun NewIssueScreen(
     }
 }
 
+/** Why an issue wasn't opened, or its changes not saved ([edits]), in words that say what to do next. */
+@Composable
+private fun issueErrorText(error: ForgeError, forge: String, edits: Boolean): String = when {
+    error == ForgeError.Unauthorized -> stringResource(if (edits) R.string.edit_issue_error_expired else R.string.new_issue_error_expired, forge)
+    error is ForgeError.Http && error.status in REFUSED -> stringResource(if (edits) R.string.edit_issue_error_refused else R.string.new_issue_error_refused)
+    error == ForgeError.Network -> stringResource(if (edits) R.string.edit_issue_error_offline else R.string.new_issue_error_offline)
+    else -> stringResource(if (edits) R.string.edit_issue_error else R.string.new_issue_error)
+}
+
+// 410 is GitHub's answer when a repository's issues are switched off.
 private val REFUSED = setOf(403, 404, 410)

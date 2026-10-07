@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Spacer
@@ -619,7 +620,20 @@ private fun Composer(
         LaunchedEffect(state.draftPlaced) {
             if (field.text != state.draft) field = TextFieldValue(state.draft, TextRange(state.draft.length))
         }
-        SoftTextField(
+        // What is written, as it will read once sent. Nothing written, nothing to preview: the field is back.
+        var previewing by rememberSaveable { mutableStateOf(false) }
+        val showPreview = previewing && state.draft.isNotBlank()
+        if (showPreview) {
+            WritingPreview(state.draft, state.ref.repo)
+            state.commentError?.let { error ->
+                Text(
+                    commentErrorText(error, forge),
+                    style = Soft.type.secondary,
+                    color = colors.accent,
+                    modifier = Modifier.padding(start = 20.dp),
+                )
+            }
+        } else SoftTextField(
             value = if (field.text == state.draft) field else field.copy(text = state.draft),
             onValueChange = { written ->
                 val changed = written.text != state.draft
@@ -628,12 +642,7 @@ private fun Composer(
             },
             placeholder = stringResource(R.string.issue_comment_placeholder),
             error = state.commentError?.let { error ->
-                when {
-                    error == ForgeError.Unauthorized -> stringResource(R.string.issue_comment_error_expired, forge)
-                    error is ForgeError.Http && (error.status == 403 || error.status == 404) -> stringResource(R.string.issue_comment_error_refused)
-                    error == ForgeError.Network -> stringResource(R.string.issue_comment_error_offline)
-                    else -> stringResource(R.string.issue_comment_error)
-                }
+                commentErrorText(error, forge)
             },
             singleLine = false,
             minLines = 2,
@@ -650,6 +659,7 @@ private fun Composer(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             val issue = state.issue
+            if (state.draft.isNotBlank()) PreviewToggle(showPreview) { previewing = !showPreview }
             if (isEditing) SoftTonalButton(stringResource(R.string.cancel), onCancelEdit, enabled = !state.isCommenting)
             // A merged pull request stays merged. Not offered beside a comment being rewritten: one thing at a time.
             if (!isEditing && state.canChangeState && issue != null && issue.state != IssueState.MERGED) {
@@ -691,6 +701,53 @@ private fun Composer(
                 color = colors.accent,
             )
         }
+    }
+}
+
+/** Why a comment wasn't sent, in words that say what to do next. */
+@Composable
+private fun commentErrorText(error: ForgeError, forge: String): String = when {
+    error == ForgeError.Unauthorized -> stringResource(R.string.issue_comment_error_expired, forge)
+    error is ForgeError.Http && (error.status == 403 || error.status == 404) -> stringResource(R.string.issue_comment_error_refused)
+    error == ForgeError.Network -> stringResource(R.string.issue_comment_error_offline)
+    else -> stringResource(R.string.issue_comment_error)
+}
+
+/** Markdown being written, as it will read once the forge has it: on the field's own ground, in the field's place. */
+@Composable
+internal fun WritingPreview(text: String, repo: RepoId, modifier: Modifier = Modifier) {
+    // Links and pictures relative to the repository resolve as they will in the conversation.
+    val context = remember(repo) { ReadmeContext(rawBaseUrl = repo.rawBaseUrl("HEAD"), blobBaseUrl = repo.blobBaseUrl("HEAD")) }
+    Box(
+        modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(Soft.colors.surface)
+            .padding(horizontal = 20.dp, vertical = 14.dp)
+            .testTag(WRITING_PREVIEW_TAG),
+    ) {
+        // A preview is read, not followed: its links go nowhere.
+        Markdown(text, context, onLinkClick = {})
+    }
+}
+
+const val WRITING_PREVIEW_TAG = "writing-preview"
+
+/** Goes from writing to reading what was written, and back. */
+@Composable
+internal fun PreviewToggle(previewing: Boolean, onToggle: () -> Unit) {
+    val colors = Soft.colors
+    val label = stringResource(if (previewing) R.string.write_preview_back else R.string.write_preview)
+    Box(
+        Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(colors.surface)
+            .softPressable(role = Role.Button, onClick = onToggle)
+            .semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(if (previewing) Icons.Outlined.Edit else Icons.Outlined.Visibility, contentDescription = null, tint = colors.ink, modifier = Modifier.size(22.dp))
     }
 }
 
@@ -920,7 +977,7 @@ private fun CommentMenuButton(menu: CommentMenu) {
 }
 
 @Composable
-private fun Markdown(body: String, context: ReadmeContext, onLinkClick: (String) -> Unit) {
+internal fun Markdown(body: String, context: ReadmeContext, onLinkClick: (String) -> Unit) {
     val colors = Soft.colors
     val parsed = rememberReadmeState(body, context, colors.isDark)
     if (parsed == null) {

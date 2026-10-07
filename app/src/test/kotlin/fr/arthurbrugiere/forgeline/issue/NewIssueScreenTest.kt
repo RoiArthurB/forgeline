@@ -173,4 +173,48 @@ class NewIssueScreenTest {
         shown.value = editing.copy(error = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Network)
         composeRule.onNodeWithText("Not saved: check your connection and save again. Your changes are kept.").assertIsDisplayed()
     }
+
+    private fun previews() = composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(WRITING_PREVIEW_TAG)).fetchSemanticsNodes().size
+
+    @Test
+    fun the_description_can_be_read_as_it_will_look_and_the_title_stays_a_field() {
+        setContent(empty.copy(title = "Crash", body = "Steps:\n\n1. Open **it**"))
+
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Preview")).performClick()
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Open it", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        assertThat(previews()).isEqualTo(1)
+        // Only the description is Markdown: the title is still written.
+        assertThat(composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes()).hasSize(1)
+        composeRule.onNodeWithText("Open issue").assertIsEnabled()
+
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Back to writing")).performClick()
+
+        assertThat(previews()).isEqualTo(0)
+        assertThat(composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes()).hasSize(2)
+    }
+
+    @Test
+    fun an_issue_without_a_description_has_nothing_to_preview() {
+        setContent(empty.copy(title = "Crash"))
+
+        assertThat(composeRule.onAllNodes(androidx.compose.ui.test.hasContentDescription("Preview")).fetchSemanticsNodes()).isEmpty()
+    }
+
+    @Test
+    fun an_issue_refused_while_previewed_still_says_why() {
+        setContent(empty.copy(title = "Crash", body = "Steps"))
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Preview")).performClick()
+
+        shown.value = empty.copy(title = "Crash", body = "Steps", error = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Network)
+
+        composeRule.onNodeWithText("Not sent: check your connection and send again. Your issue is kept.").assertIsDisplayed()
+    }
+
+    @Test
+    fun every_action_of_the_form_is_large_enough_to_tap() {
+        setContent(empty.copy(title = "Crash", body = "Steps"))
+
+        composeRule.assertEveryTargetIsAtLeast48dp()
+    }
 }

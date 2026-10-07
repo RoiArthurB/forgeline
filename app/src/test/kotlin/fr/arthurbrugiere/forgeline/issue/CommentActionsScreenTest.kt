@@ -354,4 +354,72 @@ class CommentActionsScreenTest {
         composeRule.waitUntil(5_000) { offered("The reaction wasn't saved. Try again.") }
         assertThat(events).containsExactly("reaction-error-shown")
     }
+
+    private fun previewShown() = composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(WRITING_PREVIEW_TAG)).fetchSemanticsNodes().isNotEmpty()
+
+    private fun fieldShown() = composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty()
+
+    @Test
+    fun what_is_written_can_be_read_as_it_will_look_and_written_again() {
+        setContent(opened.copy(draft = "Fixed in **1.2**, for *good*"))
+        reach(hasContentDescription("Preview"))
+
+        composeRule.onNode(hasContentDescription("Preview")).performClick()
+
+        // Rendered: the marks are gone, the words stay; and the field gave its place.
+        composeRule.waitUntil(5_000) { offered("Fixed in 1.2, for good") }
+        assertThat(previewShown()).isTrue()
+        assertThat(fieldShown()).isFalse()
+        // It can be sent from there.
+        composeRule.onNodeWithText("Comment").assertIsEnabled()
+
+        composeRule.onNode(hasContentDescription("Back to writing")).performClick()
+
+        assertThat(fieldShown()).isTrue()
+        assertThat(previewShown()).isFalse()
+    }
+
+    @Test
+    fun there_is_nothing_to_preview_before_something_is_written() {
+        setContent()
+        reach(hasSetTextAction())
+
+        assertThat(composeRule.onAllNodes(hasContentDescription("Preview")).fetchSemanticsNodes()).isEmpty()
+    }
+
+    @Test
+    fun once_the_comment_is_sent_the_field_is_back_for_the_next_one() {
+        setContent(opened.copy(draft = "Thanks"))
+        reach(hasContentDescription("Preview"))
+        composeRule.onNode(hasContentDescription("Preview")).performClick()
+        assertThat(previewShown()).isTrue()
+
+        shown.value = opened.copy(draft = "", draftPlaced = 1)
+        composeRule.waitForIdle()
+
+        assertThat(fieldShown()).isTrue()
+        assertThat(previewShown()).isFalse()
+    }
+
+    @Test
+    fun a_comment_refused_while_previewed_still_says_why() {
+        setContent(opened.copy(draft = "Thanks"))
+        reach(hasContentDescription("Preview"))
+        composeRule.onNode(hasContentDescription("Preview")).performClick()
+
+        shown.value = opened.copy(draft = "Thanks", commentError = ForgeError.Network)
+
+        composeRule.waitUntil(5_000) { offered("Not sent: check your connection and send again. Your comment is kept.") }
+    }
+
+    @Test
+    fun a_rewrite_can_be_previewed_too() {
+        setContent(opened.copy(editing = 2, draft = "Mine, *corrected*"))
+        reach(hasContentDescription("Preview"))
+
+        composeRule.onNode(hasContentDescription("Preview")).performClick()
+
+        composeRule.waitUntil(5_000) { offered("Mine, corrected") }
+        composeRule.onNodeWithText("Save").assertIsEnabled()
+    }
 }

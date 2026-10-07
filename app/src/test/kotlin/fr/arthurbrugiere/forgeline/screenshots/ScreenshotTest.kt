@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.screenshots
 
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import fr.arthurbrugiere.forgeline.settings.SettingsSection
 import fr.arthurbrugiere.forgeline.core.testing.repoSummary
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
@@ -712,6 +714,26 @@ class ScreenshotTest {
     @Test
     fun issue_comment_rewrite_light() = snapshot("issue_comment_rewrite_light", darkTheme = false, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG) {
         IssueWithComposer({ it.copy(me = "hubot", editing = 1, draft = "Same here on 2026.10, it happens after every restart.", canChangeState = true) })
+    }
+
+    @Test
+    fun issue_comment_preview_dark() = snapshot(
+        "issue_comment_preview_dark", darkTheme = true, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG,
+        beforeCapture = {
+            composeRule.onNodeWithContentDescription("Preview").performClick()
+            composeRule.waitUntil(10_000) { composeRule.onAllNodes(hasText("not minutes", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+            composeRule.waitUntil(10_000) { composeRule.onAllNodes(hasTestTag(MARKDOWN_PENDING_TAG), useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
+        },
+    ) {
+        IssueWithComposer({ it.copy(draft = "Confirmed on **2026.10** too. The threshold in `heartbeat.yml` is read as seconds:\n\n- not beats\n- not minutes") })
+    }
+
+    @Test
+    fun issue_comment_menu_light() = snapshot(
+        "issue_comment_menu_light", darkTheme = false, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG, wholeScreen = true,
+        beforeCapture = { composeRule.onAllNodesWithContentDescription("Comment options")[1].performClick() },
+    ) {
+        IssueWithComposer({ it.copy(me = "hubot") })
     }
 
     @Test
