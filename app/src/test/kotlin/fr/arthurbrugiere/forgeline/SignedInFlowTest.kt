@@ -351,4 +351,32 @@ class SignedInFlowTest {
         reach(hasText("Comment"))
         composeRule.onNodeWithText("Comment").assertIsDisplayed()
     }
+
+    @Test
+    fun a_conversation_named_by_its_number_in_a_comment_opens_when_tapped() {
+        // Issue #11: "#14129" was plain text.
+        openIssuesSignedIn()
+        composeRule.onNodeWithText("Heartbeat recovery escalates too early").performClick()
+        waitFor("Mine happens after an update.")
+        reach(hasText("#14129"))
+
+        composeRule.onNodeWithText("#14129").performClick()
+
+        waitFor("Keep install flags on retry - #14129")
+    }
+
+    @Test
+    fun a_conversation_is_found_by_its_title_while_a_comment_is_written() {
+        // Issue #11: nothing helped find a number while typing.
+        openIssuesSignedIn()
+        composeRule.onNodeWithText("Heartbeat recovery escalates too early").performClick()
+        waitFor("Mine happens after an update.")
+        reach(hasSetTextAction())
+
+        composeRule.onNode(hasSetTextAction()).performTextInput("Fixed by #")
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasContentDescription("Pull request #14129, Keep install flags on retry")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNode(hasContentDescription("Pull request #14129, Keep install flags on retry")).performClick()
+
+        composeRule.onNode(hasSetTextAction()).assert(hasText("Fixed by #14129 "))
+    }
 }

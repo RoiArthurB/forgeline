@@ -105,7 +105,12 @@ object FakeForgeModule {
         val ref = IssueRef(RepoId("paperclipai", "paperclip"), 14127)
         issues[ref] = issueDetails(ref, "Heartbeat recovery escalates too early")
         pages[ref to 1] = TimelinePage(
-            listOf(comment(1, "I can reproduce this on every restart.", login = "hubot"), comment(2, "Mine happens after an update.", login = "octocat")),
+            listOf(
+                comment(1, "I can reproduce this on every restart.", login = "hubot"),
+                comment(2, "Mine happens after an update.", login = "octocat"),
+                // Names the pull request below by its number alone.
+                comment(3, "#14129", login = "hubot"),
+            ),
             null,
         )
         // A long one, in two pages, that the Inbox has a thread about.

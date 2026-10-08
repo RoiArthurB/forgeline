@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.discussion
 
+import fr.arthurbrugiere.forgeline.issue.referenceLinks
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -142,7 +143,7 @@ fun DiscussionScreen(
     val discussion = state.discussion
     val summary = state.summary
     val forge = state.repo.forge.displayName
-    val context = ReadmeContext(rawBaseUrl = state.repo.rawBaseUrl("HEAD"), blobBaseUrl = state.repo.blobBaseUrl("HEAD"))
+    val context = ReadmeContext(rawBaseUrl = state.repo.rawBaseUrl("HEAD"), blobBaseUrl = state.repo.blobBaseUrl("HEAD"), references = state.repo.referenceLinks())
     val snackbar = remember { SnackbarHostState() }
     // With the discussion on screen, a refresh that failed is only said; without it, it is the screen.
     SayOnce(stringResource(R.string.trending_refresh_failed).takeIf { state.error != null && discussion != null }, snackbar, onErrorShown)

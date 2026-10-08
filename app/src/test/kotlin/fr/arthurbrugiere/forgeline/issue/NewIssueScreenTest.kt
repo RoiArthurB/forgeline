@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.compose.ui.test.performTextInputSelection
+import androidx.compose.ui.test.hasContentDescription
+import fr.arthurbrugiere.forgeline.core.testing.issueSummary
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -45,9 +48,14 @@ class NewIssueScreenTest {
                 onSend = { events += "send" },
                 onSignIn = { events += "signin" },
                 onBack = { events += "back" },
+                suggestions = suggested.value,
+                onReferenceTyped = { typedReferences += it },
             )
         }
     }
+
+    private val typedReferences = mutableListOf<TypedReference?>()
+    private val suggested = mutableStateOf(emptyList<fr.arthurbrugiere.forgeline.core.model.IssueSummary>())
 
     @Test
     fun says_what_it_opens_and_where() {
@@ -216,5 +224,53 @@ class NewIssueScreenTest {
         setContent(empty.copy(title = "Crash", body = "Steps"))
 
         composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    // Issue #11: conversations named by number, found while typed.
+
+    @Test
+    fun a_reference_typed_in_the_description_says_which() {
+        setContent()
+
+        composeRule.onAllNodes(hasSetTextAction())[1].performTextInput("Like #12")
+
+        assertThat(events).containsExactly("body:Like #12")
+        assertThat(typedReferences).containsExactly(TypedReference(5, '#', "12"))
+    }
+
+    @Test
+    fun a_conversation_suggested_for_the_description_writes_its_number_when_picked() {
+        setContent(empty.copy(title = "Crash", body = "Like #hea"))
+        suggested.value = listOf(issueSummary(14127, "Heartbeat recovery escalates too early"))
+        composeRule.waitForIdle()
+
+        composeRule.onNode(hasContentDescription("Issue #14127, Heartbeat recovery escalates too early")).performClick()
+
+        assertThat(events).containsExactly("body:Like #14127 ")
+        assertThat(typedReferences.last()).isNull()
+    }
+
+    @Test
+    fun a_title_takes_no_reference() {
+        // A forge links none there.
+        setContent()
+
+        composeRule.onAllNodes(hasSetTextAction())[0].performTextInput("Like #12")
+
+        assertThat(typedReferences).isEmpty()
+    }
+
+    @Test
+    fun typing_in_the_middle_of_a_description_keeps_the_cursor_where_it_is() {
+        // Regression guard: the field now holds its own cursor, which a description coming back from the state must not move.
+        setContent(empty.copy(body = "Hello world"))
+        composeRule.onAllNodes(hasSetTextAction())[1].performTextInputSelection(androidx.compose.ui.text.TextRange(5))
+        composeRule.onAllNodes(hasSetTextAction())[1].performTextInput(",")
+        shown.value = shown.value.copy(body = "Hello, world")
+        composeRule.waitForIdle()
+
+        val selection = composeRule.onAllNodes(hasSetTextAction())[1].fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.TextSelectionRange]
+        assertThat(events).containsExactly("body:Hello, world")
+        assertThat(selection).isEqualTo(androidx.compose.ui.text.TextRange(6))
     }
 }

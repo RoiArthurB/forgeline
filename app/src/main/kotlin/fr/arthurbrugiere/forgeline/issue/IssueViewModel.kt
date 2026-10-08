@@ -161,12 +161,16 @@ class IssueViewModel @AssistedInject constructor(
     private val repository: IssueRepository,
     private val savedState: SavedStateHandle,
     private val drafts: IssueDrafts,
+    suggestions: ReferenceSuggestions = ReferenceSuggestions(),
 ) : ViewModel() {
 
     @AssistedFactory
     interface Factory {
         fun create(ref: IssueRef): IssueViewModel
     }
+
+    /** The conversations a reference being typed in the comment may mean. */
+    val references = ReferenceTyping(viewModelScope, suggestions, ref.repo)
 
     private val _state = MutableStateFlow(
         repository.cached(ref).let { cached ->

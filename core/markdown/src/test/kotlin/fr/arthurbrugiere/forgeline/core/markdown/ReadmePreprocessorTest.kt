@@ -141,4 +141,63 @@ class ReadmePreprocessorTest {
     fun standalone_line_breaks_become_paragraph_breaks() {
         assertThat(prepare("Intro\n\n<br/>\n\n# Title")).isEqualTo("Intro\n\n# Title")
     }
+
+    // Issue #11: a conversation named by its number was left as plain text.
+    private val github = ReferenceLinks(forgeUrl = "https://github.com", repo = "octo/repo", issuePath = "/issues/")
+    private val gitlab = ReferenceLinks(forgeUrl = "https://gitlab.com", repo = "group/sub/tool", issuePath = "/-/issues/", mergeRequestPath = "/-/merge_requests/")
+
+    private fun linked(text: String, references: ReferenceLinks? = github) =
+        ReadmePreprocessor.prepare(text, ReadmeContext("https://raw.example/", "https://blob.example/", references = references), darkTheme = false)
+
+    @Test
+    fun a_conversation_named_by_its_number_becomes_a_link_to_it() {
+        assertThat(linked("Like #1, see #204.")).isEqualTo("Like [#1](https://github.com/octo/repo/issues/1), see [#204](https://github.com/octo/repo/issues/204).")
+        assertThat(linked("#7 at the start\nand (#8) in brackets"))
+            .isEqualTo("[#7](https://github.com/octo/repo/issues/7) at the start\nand ([#8](https://github.com/octo/repo/issues/8)) in brackets")
+    }
+
+    @Test
+    fun a_conversation_of_another_repository_is_linked_there() {
+        assertThat(linked("Same as vercel/next.js#99839.")).isEqualTo("Same as [vercel/next.js#99839](https://github.com/vercel/next.js/issues/99839).")
+    }
+
+    @Test
+    fun where_merge_requests_are_numbered_apart_each_mark_leads_to_its_own() {
+        assertThat(linked("Fixes #7 with !7.", gitlab))
+            .isEqualTo("Fixes [#7](https://gitlab.com/group/sub/tool/-/issues/7) with [!7](https://gitlab.com/group/sub/tool/-/merge_requests/7).")
+        assertThat(linked("See other/tool!3", gitlab)).isEqualTo("See [other/tool!3](https://gitlab.com/other/tool/-/merge_requests/3)")
+        // Elsewhere an exclamation mark before a number is only that.
+        assertThat(linked("Wow!7 times")).isEqualTo("Wow!7 times")
+    }
+
+    @Test
+    fun what_only_looks_like_a_reference_is_left_alone() {
+        // A heading, a number with a leading zero, a word glued to it, an address's anchor, an entity.
+        for (text in listOf("# 12 steps", "Colour #000", "issue#12", "abc#12", "https://example.com/page#12", "#12abc", "#", "# ")) {
+            assertThat(linked(text)).isEqualTo(text)
+        }
+        // A `#` written as an entity was written not to be a reference: it reads as one, and leads nowhere.
+        assertThat(linked("&#35;12")).isEqualTo("#12")
+    }
+
+    @Test
+    fun a_reference_already_in_a_link_or_in_code_is_not_linked_again() {
+        assertThat(linked("[see #12](https://example.com/x)")).isEqualTo("[see #12](https://example.com/x)")
+        assertThat(linked("![shot #12](https://example.com/x.png)")).isEqualTo("![shot #12](https://example.com/x.png)")
+        assertThat(linked("<https://example.com/#12>")).isEqualTo("<https://example.com/#12>")
+        assertThat(linked("Run `fix #12` then #13")).isEqualTo("Run `fix #12` then [#13](https://github.com/octo/repo/issues/13)")
+        assertThat(linked("```\n#12\n```\n")).isEqualTo("```\n#12\n```\n")
+    }
+
+    @Test
+    fun a_readme_s_numbers_are_not_references() {
+        // Forges link them in conversations, not in files.
+        assertThat(linked("Step #1 of #2", references = null)).isEqualTo("Step #1 of #2")
+    }
+
+    @Test
+    fun a_reference_beside_html_and_links_is_still_linked() {
+        assertThat(linked("<b>Fixed</b> by #12, see [docs](guide.md)"))
+            .isEqualTo("**Fixed** by [#12](https://github.com/octo/repo/issues/12), see [docs](https://blob.example/guide.md)")
+    }
 }

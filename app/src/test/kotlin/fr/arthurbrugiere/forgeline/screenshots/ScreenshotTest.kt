@@ -680,7 +680,7 @@ class ScreenshotTest {
 
     /** A short conversation, so the comment box that closes it is on screen. */
     @Composable
-    private fun IssueWithComposer(state: (IssueUiState) -> IssueUiState, canComment: Boolean = true) {
+    private fun IssueWithComposer(state: (IssueUiState) -> IssueUiState, canComment: Boolean = true, suggestions: List<fr.arthurbrugiere.forgeline.core.model.IssueSummary> = emptyList()) {
         val ref = IssueRef(RepoId("paperclipai", "paperclip"), 14127)
         IssueScreen(
             state = state(
@@ -693,6 +693,18 @@ class ScreenshotTest {
             canComment = canComment, onDraftChange = {}, onSendComment = {}, onToggleOpen = {}, onSignIn = {}, onCommentNoticeShown = {},
             onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {},
             onLinkClick = {}, onErrorShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
+            suggestions = suggestions,
+        )
+    }
+
+    @Test
+    fun issue_reference_suggestions_light() = snapshot("issue_reference_suggestions_light", darkTheme = false, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG) {
+        IssueWithComposer(
+            { it.copy(items = listOf(comment(1, "Same here on 2026.9, like #14120.", login = "hubot")), draft = "Fixed by #inst") },
+            suggestions = listOf(
+                issueSummary(14129, "Keep install flags on retry", isPullRequest = true),
+                issueSummary(13990, "Installer ignores the proxy setting"),
+            ),
         )
     }
 

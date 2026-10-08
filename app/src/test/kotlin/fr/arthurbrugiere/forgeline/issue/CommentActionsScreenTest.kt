@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.core.testing.issueSummary
 import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +64,8 @@ class CommentActionsScreenTest {
         me = "me",
     )
     private val shown = mutableStateOf(opened)
+    private val typedReferences = mutableListOf<TypedReference?>()
+    private val suggested = mutableStateOf(emptyList<fr.arthurbrugiere.forgeline.core.model.IssueSummary>())
 
     private fun setContent(state: IssueUiState = opened, canComment: Boolean = true) {
         shown.value = state
@@ -72,7 +75,7 @@ class CommentActionsScreenTest {
                 canComment = canComment,
                 onDraftChange = { events += "draft:$it" }, onSendComment = { events += "send" }, onToggleOpen = { events += "toggle" }, onSignIn = {},
                 onCommentNoticeShown = {}, onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {},
-                onOpenInBrowser = {}, onLinkClick = {}, onErrorShown = {},
+                onOpenInBrowser = {}, onLinkClick = { events += "link:$it" }, onErrorShown = {},
                 nowMillis = Instant.parse("2026-09-26T09:00:00Z").toEpochMilli(),
                 comments = CommentActions(
                     onQuote = { events += "quote:$it" },
@@ -85,7 +88,9 @@ class CommentActionsScreenTest {
                     onReactionErrorShown = { events += "reaction-error-shown" },
                     onPickPicture = { events += "pick" },
                     onAttachErrorShown = { events += "attach-error-shown" },
+                    onReferenceTyped = { typedReferences += it },
                 ),
+                suggestions = suggested.value,
             )
         }
         composeRule.waitForIdle()
@@ -666,5 +671,96 @@ class CommentActionsScreenTest {
 
         composeRule.waitUntil(5_000) { offered("The comment wasn't deleted. Try again.") }
         assertThat(events).containsExactly("taken")
+    }
+
+    // Issue #11: conversations named by number.
+
+    @Test
+    fun a_conversation_named_by_its_number_in_a_comment_is_a_link_to_it() {
+        setContent(opened.copy(items = listOf(comment(1, "#12", login = "hubot"))))
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasTestTag(MARKDOWN_PENDING_TAG), useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
+
+        composeRule.onNodeWithText("#12").performClick()
+
+        assertThat(events).containsExactly("link:https://github.com/octo/repo/issues/12")
+    }
+
+    @Test
+    fun the_description_s_references_are_links_too() {
+        setContent(opened.copy(issue = issueDetails(ref, "Crash on start").copy(body = "#3"), items = emptyList()))
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasTestTag(MARKDOWN_PENDING_TAG), useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
+
+        composeRule.onNodeWithText("#3").performClick()
+
+        assertThat(events).containsExactly("link:https://github.com/octo/repo/issues/3")
+    }
+
+    @Test
+    fun typing_a_reference_says_which_and_leaving_it_says_none() {
+        setContent()
+        reach(hasSetTextAction())
+
+        composeRule.onNode(hasSetTextAction()).performTextInput("See #1")
+        shown.value = opened.copy(draft = "See #1")
+        composeRule.onNode(hasSetTextAction()).performTextInput(". ")
+
+        assertThat(typedReferences).containsExactly(TypedReference(4, '#', "1"), null).inOrder()
+    }
+
+    private val candidates = listOf(issueSummary(120, "Crash on start"), issueSummary(121, "Fix the crash", isPullRequest = true))
+
+    @Test
+    fun the_conversations_a_reference_may_mean_are_offered_under_the_field_and_picking_one_writes_its_number() {
+        setContent(opened.copy(draft = "See #cra"))
+        suggested.value = candidates
+        reach(hasContentDescription("Pull request #121, Fix the crash"))
+
+        composeRule.onNode(hasContentDescription("Issue #120, Crash on start")).assertIsDisplayed()
+        composeRule.onNode(hasContentDescription("Pull request #121, Fix the crash")).performClick()
+
+        assertThat(events).containsExactly("draft:See #121 ")
+        // Picked: there is nothing left being typed.
+        assertThat(typedReferences.last()).isNull()
+    }
+
+    @Test
+    fun nothing_is_offered_when_nothing_is_suggested_or_while_the_comment_is_previewed() {
+        setContent(opened.copy(draft = "See #cra"))
+        assertThat(composeRule.onAllNodes(hasTestTag(REFERENCE_SUGGESTIONS_TAG)).fetchSemanticsNodes()).isEmpty()
+
+        suggested.value = candidates
+        reach(hasContentDescription("Preview"))
+        composeRule.onNode(hasContentDescription("Preview")).performClick()
+        composeRule.waitForIdle()
+
+        assertThat(composeRule.onAllNodes(hasTestTag(REFERENCE_SUGGESTIONS_TAG)).fetchSemanticsNodes()).isEmpty()
+    }
+
+    @Test
+    fun a_reference_is_suggested_for_a_comment_being_rewritten_too() {
+        setContent(opened.copy(editing = 1, draft = "Same here #"))
+        suggested.value = candidates
+
+        composeRule.onNode(hasContentDescription("Issue #120, Crash on start")).performClick()
+
+        assertThat(events).containsExactly("draft:Same here #120 ")
+    }
+
+    @Test
+    fun suggestions_are_large_enough_to_tap() {
+        setContent(opened.copy(draft = "#"))
+        suggested.value = candidates
+
+        composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    @Test
+    fun a_preview_shows_references_as_they_will_read() {
+        setContent(opened.copy(draft = "Fixed by #12"))
+        reach(hasContentDescription("Preview"))
+
+        composeRule.onNode(hasContentDescription("Preview")).performClick()
+
+        composeRule.waitUntil(5_000) { offered("Fixed by #12") }
     }
 }

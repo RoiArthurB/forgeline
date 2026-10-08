@@ -11,6 +11,22 @@ data class ReadmeContext(
     val blobBaseUrl: String,
     /** Folder of the README inside the repo, ending with `/` (empty at the root). */
     val directory: String = "",
+    /** Set for a conversation's text, where a number alone names another conversation; null for files, which link none. */
+    val references: ReferenceLinks? = null,
+)
+
+/**
+ * Where a conversation named by its number lives: `#12` in [repo], `owner/name#12` in another repository of the same
+ * forge. With [mergeRequestPath] (GitLab, which numbers merge requests apart), `!12` names a merge request.
+ */
+data class ReferenceLinks(
+    /** The forge's site, without a trailing `/`. */
+    val forgeUrl: String,
+    /** The repository the text belongs to, as `owner/name`. */
+    val repo: String,
+    /** What stands between a repository's address and an issue's number: `/issues/`, or `/-/issues/` on GitLab. */
+    val issuePath: String,
+    val mergeRequestPath: String? = null,
 )
 
 /**
@@ -101,7 +117,8 @@ object ReadmePreprocessor {
     private val extraBlankLines = Regex("""\n{3,}""")
 
     private fun convertProse(text: String, context: ReadmeContext, darkTheme: Boolean): String {
-        if ('<' !in text && '[' !in text && '&' !in text) return text
+        val references = context.references?.takeIf { '#' in text || (it.mergeRequestPath != null && '!' in text) }
+        if ('<' !in text && '[' !in text && '&' !in text && references == null) return text
         var out = text
         if ('<' in out) {
             out = out.replace(comment, "")
@@ -127,8 +144,33 @@ object ReadmePreprocessor {
             out = out.replace(extraBlankLines, "\n\n")
             if (text.none { it == '\n' }) out = out.trim()
         }
+        // Before entities are decoded: a `#` written as one (`&#35;12`) was written not to be a reference.
+        if (references != null) out = linkReferences(out, references)
         if ('&' in out) out = out.replace(entity) { decodeTextEntity(it) }
         return rewriteMarkdownUrls(out, context)
+    }
+
+    // What already leads somewhere, or is an address: a reference inside is part of it.
+    private val linkedAlready = Regex("""!?\[(?:[^\]\\]|\\.)*]\([^)]*\)|\[[^\]]*]\[[^\]]*]|<[^>\s]+>|\b[a-zA-Z][a-zA-Z0-9+.-]*://\S+|(?m)^ {0,3}\[[^\]]+]:.*$""")
+
+    // `#12`, `owner/name#12` and `!12`: not glued to a word, an address or an entity, and no leading zero (`#000` is a colour).
+    private val reference = Regex("""(?<![\w/&#!.-])((?:[A-Za-z0-9][\w.-]*/)+[\w.-]+)?([#!])([1-9]\d{0,8})(?![\w])""")
+
+    /** Turns the conversations a text names by number into links to them, leaving alone what is a link already. */
+    private fun linkReferences(text: String, references: ReferenceLinks): String {
+        val out = StringBuilder()
+        var last = 0
+        for (kept in linkedAlready.findAll(text)) {
+            out.append(linkReferencesIn(text.substring(last, kept.range.first), references)).append(kept.value)
+            last = kept.range.last + 1
+        }
+        return out.append(linkReferencesIn(text.substring(last), references)).toString()
+    }
+
+    private fun linkReferencesIn(text: String, references: ReferenceLinks): String = text.replace(reference) { match ->
+        val (repo, mark, number) = match.destructured
+        val path = if (mark == "!") references.mergeRequestPath ?: return@replace match.value else references.issuePath
+        "[${match.value}](${references.forgeUrl}/${repo.ifEmpty { references.repo }}$path$number)"
     }
 
     private fun decodeTextEntity(match: MatchResult): String {

@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.ui.SayOnce
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -267,13 +268,16 @@ fun IssueRoute(
             onReactionErrorShown = viewModel::reactionErrorShown,
             onPickPicture = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
             onAttachErrorShown = viewModel::attachErrorShown,
+            onReferenceTyped = viewModel.references::typed,
             // Said with its kind: GitLab numbers merge requests apart from issues.
             onEditIssue = { onEditIssue(IssueRef(ref.repo, ref.number, viewModel.state.value.issue?.pullRequest != null)) },
         )
     }
+    val suggestions by viewModel.references.suggested.collectAsStateWithLifecycle()
     IssueScreen(
         state = state,
         comments = comments,
+        suggestions = suggestions,
         // Commenting takes an account on the conversation's own forge.
         canComment = signedIn,
         onDraftChange = viewModel::draftChanged,
@@ -311,6 +315,8 @@ class CommentActions(
     /** Asks the reader for a picture to attach to the comment being written. */
     val onPickPicture: () -> Unit = {},
     val onAttachErrorShown: () -> Unit = {},
+    /** Told the reference being typed at the cursor (`#12`, `#crash`), or null when there is none. */
+    val onReferenceTyped: (TypedReference?) -> Unit = {},
 )
 
 /** What one comment's menu offers; a null entry is not offered. [onReact] also makes the reactions shown tappable. */
@@ -341,6 +347,8 @@ fun IssueScreen(
     manage: ManageActions = ManageActions(),
     comments: CommentActions = CommentActions(),
     nowMillis: Long = rememberNow(state.issue, state.items),
+    /** The conversations the reference being typed may mean. */
+    suggestions: List<IssueSummary> = emptyList(),
     /** Loads what is left of the conversation and asks, through the state, to be taken to its end. */
     onToEnd: () -> Unit = {},
     onScrolled: () -> Unit = {},
@@ -354,6 +362,8 @@ fun IssueScreen(
     val context = ReadmeContext(
         rawBaseUrl = state.ref.repo.rawBaseUrl("HEAD"),
         blobBaseUrl = state.ref.repo.blobBaseUrl("HEAD"),
+        // A number alone names another conversation of the repository.
+        references = state.ref.repo.referenceLinks(),
     )
     val snackbar = remember { SnackbarHostState() }
     val refreshFailed = stringResource(R.string.trending_refresh_failed)
@@ -520,7 +530,7 @@ fun IssueScreen(
                         itemsIndexed(state.items, key = { index, item -> item.key(index) }) { _, item ->
                             // A comment being rewritten is rewritten where it stands: its words give way to the field.
                             val editor: (@Composable () -> Unit)? = if (item is TimelineItem.Comment && item.id == state.editing) {
-                                { Composer(state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture, inPlace = true) }
+                                { Composer(state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture, inPlace = true, suggestions = suggestions, onReferenceTyped = comments.onReferenceTyped) }
                             } else null
                             TimelineEntry(item, context, nowMillis, onOpenUser, onOpenIssue, onLinkClick, editor) { comment ->
                                 CommentMenu(
@@ -546,7 +556,10 @@ fun IssueScreen(
                         // It waits while a comment is rewritten further up: one thing is written at a time.
                         item(key = "composer") {
                             if (!state.isEditingInPlace) {
-                                Composer(state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture)
+                                Composer(
+                                    state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture,
+                                    suggestions = suggestions, onReferenceTyped = comments.onReferenceTyped,
+                                )
                             }
                         }
                     }
@@ -642,6 +655,8 @@ private fun Composer(
     onPickPicture: () -> Unit = {},
     /** Set where the comment being rewritten stands, which gives it its room; the keyboard comes up for it. */
     inPlace: Boolean = false,
+    suggestions: List<IssueSummary> = emptyList(),
+    onReferenceTyped: (TypedReference?) -> Unit = {},
 ) {
     val colors = Soft.colors
     val forge = state.ref.repo.forge.displayName
@@ -672,6 +687,7 @@ private fun Composer(
         LaunchedEffect(state.draftPlaced) {
             if (field.text != state.draft) field = TextFieldValue(state.draft, TextRange(state.draft.length))
         }
+        val marks = state.ref.repo.referenceMarks
         // What is written, as it will read once sent. Nothing written, nothing to preview: the field is back.
         var previewing by rememberSaveable { mutableStateOf(false) }
         val showPreview = previewing && state.draft.isNotBlank()
@@ -691,6 +707,7 @@ private fun Composer(
                 val changed = written.text != state.draft
                 field = written
                 if (changed) onDraftChange(written.text)
+                onReferenceTyped(written.typedReference(marks))
             },
             placeholder = stringResource(R.string.issue_comment_placeholder),
             error = state.commentError?.let { error ->
@@ -706,6 +723,15 @@ private fun Composer(
             background = if (inPlace) colors.raised else colors.surface,
             modifier = Modifier.fillMaxWidth().focusRequester(focus),
         )
+        // The conversations the reference being typed may mean, right under where it is typed.
+        if (!showPreview) {
+            ReferenceSuggestionList(suggestions) { picked ->
+                val typed = field.typedReference(marks) ?: return@ReferenceSuggestionList
+                field = field.withReference(typed, picked.number)
+                onDraftChange(field.text)
+                onReferenceTyped(null)
+            }
+        }
         // Side by side while they fit; at large text the comment's action goes under the other, still at the end.
         FlowRow(
             Modifier.fillMaxWidth(),
@@ -779,7 +805,7 @@ private fun commentErrorText(error: ForgeError, forge: String): String = when {
 @Composable
 internal fun WritingPreview(text: String, repo: RepoId, modifier: Modifier = Modifier) {
     // Links and pictures relative to the repository resolve as they will in the conversation.
-    val context = remember(repo) { ReadmeContext(rawBaseUrl = repo.rawBaseUrl("HEAD"), blobBaseUrl = repo.blobBaseUrl("HEAD")) }
+    val context = remember(repo) { ReadmeContext(rawBaseUrl = repo.rawBaseUrl("HEAD"), blobBaseUrl = repo.blobBaseUrl("HEAD"), references = repo.referenceLinks()) }
     Box(
         modifier
             .fillMaxWidth()
@@ -796,6 +822,46 @@ internal fun WritingPreview(text: String, repo: RepoId, modifier: Modifier = Mod
 const val WRITING_PREVIEW_TAG = "writing-preview"
 
 /** Goes from writing to reading what was written, and back. */
+/** The reference the cursor stands at the end of; none while text is selected. */
+internal fun TextFieldValue.typedReference(marks: String): TypedReference? =
+    if (selection.collapsed) typedReference(text, selection.end, marks) else null
+
+const val REFERENCE_SUGGESTIONS_TAG = "reference-suggestions"
+
+/**
+ * The conversations a reference being typed may mean, each by its number and title: tapping one writes its number.
+ * Nothing is shown when there is nothing to suggest.
+ */
+@Composable
+internal fun ReferenceSuggestionList(suggestions: List<IssueSummary>, onPick: (IssueSummary) -> Unit) {
+    if (suggestions.isEmpty()) return
+    val colors = Soft.colors
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(colors.surface).testTag(REFERENCE_SUGGESTIONS_TAG)) {
+        suggestions.forEach { suggestion ->
+            val mark = if (suggestion.isPullRequest) stringResource(R.string.reference_pull_request) else stringResource(R.string.reference_issue)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(role = Role.Button) { onPick(suggestion) }
+                    .heightIn(min = 48.dp)
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
+                    .semantics(mergeDescendants = true) { contentDescription = "$mark #${suggestion.number}, ${suggestion.title}" },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(
+                    if (suggestion.isPullRequest) Icons.AutoMirrored.Outlined.CallMerge else Icons.Outlined.Adjust,
+                    contentDescription = null,
+                    tint = colors.inkMuted,
+                    modifier = Modifier.size(18.dp),
+                )
+                Text("#${suggestion.number}", style = Soft.type.control, color = colors.ink, modifier = Modifier.clearAndSetSemantics { })
+                Text(suggestion.title, style = Soft.type.secondary, color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).clearAndSetSemantics { })
+            }
+        }
+    }
+}
+
 @Composable
 internal fun PreviewToggle(previewing: Boolean, onToggle: () -> Unit) {
     WritingAction(

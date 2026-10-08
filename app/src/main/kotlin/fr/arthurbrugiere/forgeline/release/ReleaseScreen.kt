@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.release
 
+import fr.arthurbrugiere.forgeline.issue.referenceLinks
 import androidx.compose.foundation.background
 import fr.arthurbrugiere.forgeline.ui.rememberNow
 import androidx.compose.foundation.clickable
@@ -153,7 +154,7 @@ fun ReleaseScreen(
         }
     }
     // Relative links in the notes resolve against the repository at this tag.
-    val context = ReadmeContext(rawBaseUrl = state.repo.rawBaseUrl(state.tag), blobBaseUrl = state.repo.blobBaseUrl(state.tag))
+    val context = ReadmeContext(rawBaseUrl = state.repo.rawBaseUrl(state.tag), blobBaseUrl = state.repo.blobBaseUrl(state.tag), references = state.repo.referenceLinks())
     val webUrl = release?.webUrl ?: "${state.repo.webUrl}/releases/tag/${state.tag}"
     val listState = rememberLazyListState()
     Box(modifier.fillMaxSize().background(colors.ground)) {

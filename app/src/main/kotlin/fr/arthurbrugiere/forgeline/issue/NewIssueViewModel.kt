@@ -80,12 +80,16 @@ class NewIssueViewModel @AssistedInject constructor(
     private val drafts: IssueDrafts,
     /** The conversation to change instead of opening one: the form starts from its title and text as last read. */
     @Assisted private val editing: IssueRef? = null,
+    suggestions: ReferenceSuggestions = ReferenceSuggestions(),
 ) : ViewModel() {
 
     @AssistedFactory
     interface Factory {
         fun create(repo: RepoId, editing: IssueRef?): NewIssueViewModel
     }
+
+    /** The conversations a reference being typed in the description may mean. */
+    val references = ReferenceTyping(viewModelScope, suggestions, repo)
 
     private val _state = MutableStateFlow(
         if (editing == null) {

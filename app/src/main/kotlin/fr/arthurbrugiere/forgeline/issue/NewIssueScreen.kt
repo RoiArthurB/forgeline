@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.compose.runtime.remember
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -57,8 +61,11 @@ fun NewIssueRoute(route: NewIssueRoute, session: SessionState, onBack: () -> Uni
     val state by viewModel.state.collectAsStateWithLifecycle()
     // A new issue's conversation takes the form's place; an edited one is already under it.
     LaunchedEffect(state.created) { state.created?.let { if (editing == null) onCreated(it) else onBack() } }
+    val suggestions by viewModel.references.suggested.collectAsStateWithLifecycle()
     NewIssueScreen(
         state = state,
+        suggestions = suggestions,
+        onReferenceTyped = viewModel.references::typed,
         // Opening an issue takes an account on the repository's own forge.
         signedIn = session.signedInOn(repo.forge),
         onTitleChange = viewModel::titleChanged,
@@ -83,6 +90,9 @@ fun NewIssueScreen(
     onSignIn: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** The conversations the reference being typed in the description may mean. */
+    suggestions: List<IssueSummary> = emptyList(),
+    onReferenceTyped: (TypedReference?) -> Unit = {},
 ) {
     val colors = Soft.colors
     val forge = state.repo.forge.displayName
@@ -147,9 +157,21 @@ fun NewIssueScreen(
                         modifier = Modifier.padding(start = 20.dp),
                     )
                 }
+                // The cursor is the field's own: it says where a reference is being typed, and goes after one picked.
+                val marks = state.repo.referenceMarks
+                var field by remember { mutableStateOf(TextFieldValue(state.body, TextRange(state.body.length))) }
+                // Text that came from elsewhere (a draft read from disk, an issue to edit) leaves the cursor at its end.
+                LaunchedEffect(state.body) {
+                    if (field.text != state.body) field = TextFieldValue(state.body, TextRange(state.body.length))
+                }
                 if (!showPreview) SoftTextField(
-                    value = state.body,
-                    onValueChange = onBodyChange,
+                    value = if (field.text == state.body) field else field.copy(text = state.body),
+                    onValueChange = { written ->
+                        val changed = written.text != state.body
+                        field = written
+                        if (changed) onBodyChange(written.text)
+                        onReferenceTyped(written.typedReference(marks))
+                    },
                     placeholder = stringResource(R.string.new_issue_body_placeholder),
                     error = state.error?.let { issueErrorText(it, forge, edits = state.editing != null) },
                     singleLine = false,
@@ -158,6 +180,14 @@ fun NewIssueScreen(
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                if (!showPreview) {
+                    ReferenceSuggestionList(suggestions) { picked ->
+                        val typed = field.typedReference(marks) ?: return@ReferenceSuggestionList
+                        field = field.withReference(typed, picked.number)
+                        onBodyChange(field.text)
+                        onReferenceTyped(null)
+                    }
+                }
                 Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (state.body.isNotBlank()) PreviewToggle(showPreview) { previewing = !showPreview }
                     SoftButton(
