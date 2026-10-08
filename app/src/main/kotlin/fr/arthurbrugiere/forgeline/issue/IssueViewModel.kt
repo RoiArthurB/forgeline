@@ -97,6 +97,9 @@ data class IssueUiState(
     /** The issue was deleted: there is nothing left to show. */
     val deleted: Boolean = false,
 ) {
+    /** The comment being rewritten is among those shown, so it is rewritten where it stands, not in the reader's turn. */
+    val isEditingInPlace: Boolean get() = editing != null && items.any { it is TimelineItem.Comment && it.id == editing }
+
     /** One's own words can be rewritten; nobody else's, whatever the forge would allow. */
     fun canEdit(comment: TimelineItem.Comment): Boolean = wrote(comment.author)
 
@@ -361,13 +364,15 @@ class IssueViewModel @AssistedInject constructor(
         _state.update { it.copy(scrollTo = ScrollTarget.End, draftPlaced = it.draftPlaced + 1) }
     }
 
-    /** Puts the comment [id] in the reader's turn to be rewritten; what was being written there waits. */
+    /** Opens the comment [id] to be rewritten, in its place; what was being written in the reader's turn waits. */
     fun startEditing(id: Long) {
         val state = _state.value
         if (state.isCommenting) return
         val comment = state.items.firstOrNull { it is TimelineItem.Comment && it.id == id } as? TimelineItem.Comment ?: return
         if (state.editing == null) setAside = state.draft
-        _state.update { it.copy(editing = id, draft = comment.body, commentError = null, scrollTo = ScrollTarget.End, draftPlaced = it.draftPlaced + 1) }
+        // It is rewritten where it stands, so that is where the list goes: the top of the comment, clear of the keyboard.
+        val at = ScrollTarget.Item(state.items.indexOf(comment))
+        _state.update { it.copy(editing = id, draft = comment.body, commentError = null, scrollTo = at, draftPlaced = it.draftPlaced + 1) }
     }
 
     /** Leaves the comment as it was, and gives back what was being written. */

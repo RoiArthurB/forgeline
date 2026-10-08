@@ -712,7 +712,7 @@ class ScreenshotTest {
     }
 
     @Test
-    fun issue_comment_rewrite_light() = snapshot("issue_comment_rewrite_light", darkTheme = false, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG) {
+    fun issue_comment_rewrite_light() = snapshot("issue_comment_rewrite_light", darkTheme = false, awaitText = "Rewriting your comment", awaitGoneTag = MARKDOWN_PENDING_TAG) {
         IssueWithComposer({ it.copy(me = "hubot", editing = 1, draft = "Same here on 2026.10, it happens after every restart.", canChangeState = true) })
     }
 

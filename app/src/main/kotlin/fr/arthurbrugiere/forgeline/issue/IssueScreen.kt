@@ -1,5 +1,21 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.material.icons.automirrored.outlined.Reply
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.round
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import fr.arthurbrugiere.forgeline.ui.readPicture
@@ -517,7 +533,11 @@ fun IssueScreen(
                             )
                         }
                         itemsIndexed(state.items, key = { index, item -> item.key(index) }) { _, item ->
-                            TimelineEntry(item, context, nowMillis, onOpenUser, onOpenIssue, onLinkClick) { comment ->
+                            // A comment being rewritten is rewritten where it stands: its words give way to the field.
+                            val editor: (@Composable () -> Unit)? = if (item is TimelineItem.Comment && item.id == state.editing) {
+                                { Composer(state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture, inPlace = true) }
+                            } else null
+                            TimelineEntry(item, context, nowMillis, onOpenUser, onOpenIssue, onLinkClick, editor) { comment ->
                                 CommentMenu(
                                     onQuote = if (canWrite) ({ comments.onQuote(comment.body) }) else null,
                                     onEdit = if (canWrite && state.canEdit(comment)) ({ comments.onEdit(comment.id) }) else null,
@@ -538,8 +558,11 @@ fun IssueScreen(
                             }
                         }
                         // Where the next comment will appear: the conversation ends with the reader's turn.
+                        // It waits while a comment is rewritten further up: one thing is written at a time.
                         item(key = "composer") {
-                            Composer(state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture)
+                            if (!state.isEditingInPlace) {
+                                Composer(state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture)
+                            }
                         }
                     }
                 }
@@ -580,6 +603,9 @@ fun IssueScreen(
     }
     }
 }
+
+/** Marks each comment, and the conversation's own text: what a long press, a double tap or a pull is made on. */
+const val COMMENT_TAG = "comment"
 
 /** Where the timeline starts in the list: after the header and the description. */
 private const val TIMELINE_START = 2
@@ -629,12 +655,17 @@ private fun Composer(
     onSignIn: () -> Unit,
     onCancelEdit: () -> Unit = {},
     onPickPicture: () -> Unit = {},
+    /** Set where the comment being rewritten stands, which gives it its room; the keyboard comes up for it. */
+    inPlace: Boolean = false,
 ) {
     val colors = Soft.colors
     val forge = state.ref.repo.forge.displayName
     val isEditing = state.editing != null
+    val focus = remember { FocusRequester() }
+    // Nothing to focus while the rewrite is previewed: the field is not there.
+    if (inPlace) LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     Column(
-        Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 24.dp),
+        if (inPlace) Modifier.fillMaxWidth() else Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (!canComment) {
@@ -686,7 +717,9 @@ private fun Composer(
             // Not to be changed while it is on its way.
             readOnly = state.isCommenting,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-            modifier = Modifier.fillMaxWidth(),
+            // On the rounded ground a rewrite sits on, the field is the lighter of the two.
+            background = if (inPlace) colors.raised else colors.surface,
+            modifier = Modifier.fillMaxWidth().focusRequester(focus),
         )
         // Side by side while they fit; at large text the comment's action goes under the other, still at the end.
         FlowRow(
@@ -964,34 +997,161 @@ private fun Comment(
     onLinkClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     menu: CommentMenu? = null,
+    /** What stands in for the comment's words while it is rewritten. */
+    editor: (@Composable () -> Unit)? = null,
 ) {
     val colors = Soft.colors
-    Column(modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp)) {
-        // The author takes the room their name needs; the menu sits at the end of the line whatever that is.
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier
-                    .weight(1f, fill = false)
-                    .clip(SoftTokens.Pill)
-                    .clickable(enabled = author != null) { author?.let { onOpenUser(it.login) } }
-                    .padding(end = 8.dp),
+    val haptics = LocalHapticFeedback.current
+    val offered = rememberUpdatedState(menu?.takeIf { !it.isEmpty && editor == null })
+    // Where the menu opens: under the finger after a long press, at its button otherwise.
+    var pressedAt by remember { mutableStateOf<IntOffset?>(null) }
+    // Where a double tap landed, while its thumbs up shows.
+    var thumbAt by remember { mutableStateOf<IntOffset?>(null) }
+    val gestures = if (offered.value == null) Modifier else Modifier.pointerInput(Unit) {
+        detectTapGestures(
+            onLongPress = { at ->
+                if (offered.value != null) {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    pressedAt = at.round()
+                }
+            },
+            onDoubleTap = { at ->
+                offered.value?.onReact?.let { react ->
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    thumbAt = at.round()
+                    react(Reaction.THUMBS_UP)
+                }
+            },
+        )
+    }
+    SwipeToReply(offered.value?.onQuote, modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
+        Box(Modifier.fillMaxWidth().testTag(COMMENT_TAG).then(gestures)) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    // A comment being rewritten stands out from those around it, on a ground of its own.
+                    .then(if (editor != null) Modifier.padding(horizontal = 8.dp, vertical = 4.dp).clip(RoundedCornerShape(24.dp)).background(colors.surface).padding(horizontal = 12.dp, vertical = 6.dp) else Modifier.padding(horizontal = 20.dp, vertical = 10.dp)),
             ) {
-                Avatar(author?.avatarUrl, author?.login ?: "?", size = 28.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
-                Text(author?.login ?: "ghost", style = Soft.type.control, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                createdAt?.let { Text(relative(it, nowMillis), style = Soft.type.meta, color = colors.inkMuted, maxLines = 1) }
+                // The author takes the room their name needs; the menu sits at the end of the line whatever that is.
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .clip(SoftTokens.Pill)
+                            .clickable(enabled = author != null) { author?.let { onOpenUser(it.login) } }
+                            .padding(end = 8.dp),
+                    ) {
+                        Avatar(author?.avatarUrl, author?.login ?: "?", size = 28.dp, placeholderColor = colors.raised.takeIf { editor != null } ?: colors.surface, placeholderContentColor = colors.inkMuted)
+                        Text(author?.login ?: "ghost", style = Soft.type.control, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                        createdAt?.let { Text(relative(it, nowMillis), style = Soft.type.meta, color = colors.inkMuted, maxLines = 1) }
+                    }
+                    offered.value?.let { CommentMenuButton(it) }
+                }
+                if (editor != null) {
+                    Box(Modifier.padding(top = 10.dp, bottom = 6.dp)) { editor() }
+                } else {
+                    Column(Modifier.padding(start = TimelineGutter, top = 6.dp).widthIn(max = SoftTokens.MaxMeasure)) {
+                        Markdown(body, context, onLinkClick)
+                        if (reactions.isNotEmpty()) {
+                            // Tappable, each brings its own room: no more is added above.
+                            Reactions(reactions, Modifier.padding(top = if (menu?.onReact == null) 8.dp else 0.dp), onReact = menu?.onReact)
+                        }
+                    }
+                }
             }
-            if (menu != null && !menu.isEmpty) CommentMenuButton(menu)
-        }
-        Column(Modifier.padding(start = TimelineGutter, top = 6.dp).widthIn(max = SoftTokens.MaxMeasure)) {
-            Markdown(body, context, onLinkClick)
-            if (reactions.isNotEmpty()) {
-                // Tappable, each brings its own room: no more is added above.
-                Reactions(reactions, Modifier.padding(top = if (menu?.onReact == null) 8.dp else 0.dp), onReact = menu?.onReact)
+            pressedAt?.let { at ->
+                Box(Modifier.offset { at }) { offered.value?.let { CommentDropdown(it, expanded = true) { pressedAt = null } } }
             }
+            thumbAt?.let { at -> ThumbsUpGiven(at) { thumbAt = null } }
         }
     }
+}
+
+/** How far a comment is pulled before letting go quotes it, and how far it follows the finger at most. */
+private val ReplyPull = 64.dp
+private val ReplyPullLimit = 96.dp
+
+/**
+ * Pulling a comment toward the end of the line and letting go starts a reply quoting it, as in a messaging app. A
+ * reply arrow comes in behind it, full once letting go will quote. Without [onReply] nothing moves.
+ */
+@Composable
+private fun SwipeToReply(onReply: (() -> Unit)?, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    if (onReply == null) {
+        Box(modifier) { content() }
+        return
+    }
+    val colors = Soft.colors
+    val haptics = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    val reply = rememberUpdatedState(onReply)
+    val pulled = remember { Animatable(0f) }
+    val toEnd = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1f else 1f
+    val threshold = with(LocalDensity.current) { ReplyPull.toPx() }
+    val limit = with(LocalDensity.current) { ReplyPullLimit.toPx() }
+    fun release(quote: Boolean) {
+        if (quote && pulled.value >= threshold) reply.value()
+        scope.launch { pulled.animateTo(0f) }
+    }
+    Box(
+        modifier.pointerInput(toEnd) {
+            detectHorizontalDragGestures(
+                onDragEnd = { release(quote = true) },
+                onDragCancel = { release(quote = false) },
+            ) { change, amount ->
+                val before = pulled.value
+                val after = (before + amount * toEnd).coerceIn(0f, limit)
+                if (after != before) {
+                    change.consume()
+                    if (before < threshold && after >= threshold) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    scope.launch { pulled.snapTo(after) }
+                }
+            }
+        },
+    ) {
+        Icon(
+            Icons.AutoMirrored.Outlined.Reply,
+            contentDescription = null,
+            tint = colors.accent,
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = 20.dp)
+                .size(24.dp)
+                .graphicsLayer {
+                    val progress = (pulled.value / threshold).coerceIn(0f, 1f)
+                    alpha = progress
+                    scaleX = 0.6f + 0.4f * progress
+                    scaleY = 0.6f + 0.4f * progress
+                },
+        )
+        Box(Modifier.graphicsLayer { translationX = pulled.value * toEnd }) { content() }
+    }
+}
+
+/** The thumbs up a double tap gave, where the finger was: it grows, then fades, on its way to the comment's tags. */
+@Composable
+private fun ThumbsUpGiven(at: IntOffset, onGone: () -> Unit) {
+    val shown = remember(at) { Animatable(0f) }
+    LaunchedEffect(at) {
+        shown.animateTo(1f, tween(450))
+        onGone()
+    }
+    val half = with(LocalDensity.current) { 24.dp.roundToPx() }
+    Box(
+        Modifier
+            .offset { at - IntOffset(half, half) }
+            .size(48.dp)
+            .graphicsLayer {
+                val grown = 0.6f + 0.8f * shown.value
+                scaleX = grown
+                scaleY = grown
+                alpha = 1f - shown.value * shown.value
+            }
+            .clearAndSetSemantics { },
+        contentAlignment = Alignment.Center,
+    ) { Text(Reaction.THUMBS_UP.emoji, fontSize = 28.sp) }
 }
 
 /** The quiet "more" at the end of a comment's first line, and what it opens. */
@@ -1005,31 +1165,37 @@ private fun CommentMenuButton(menu: CommentMenu) {
         IconButton(onClick = { open = true }, modifier = Modifier.size(28.dp).minimumInteractiveComponentSize()) {
             Icon(Icons.Outlined.MoreHoriz, contentDescription = stringResource(R.string.issue_comment_more), tint = colors.inkMuted)
         }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(20.dp), containerColor = colors.raised) {
-            // Reactions first, as two rows of four: the quickest answer there is.
-            menu.onReact?.let { onReact ->
-                FlowRow(Modifier.padding(horizontal = 8.dp), maxItemsInEachRow = 4) {
-                    Reaction.entries.forEach { reaction ->
-                        val name = stringResource(reaction.label)
-                        Box(
-                            Modifier
-                                .size(48.dp)
-                                .clip(CircleShape)
-                                .clickable(role = Role.Button) { open = false; onReact(reaction) }
-                                .semantics { contentDescription = name },
-                            contentAlignment = Alignment.Center,
-                        ) { Text(reaction.emoji, fontSize = 22.sp) }
-                    }
+        CommentDropdown(menu, open) { open = false }
+    }
+}
+
+/** What a comment's menu offers, from its button or from a long press on the comment. */
+@Composable
+private fun CommentDropdown(menu: CommentMenu, expanded: Boolean, onDismiss: () -> Unit) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, shape = RoundedCornerShape(20.dp), containerColor = Soft.colors.raised) {
+        // Reactions first, as two rows of four: the quickest answer there is.
+        menu.onReact?.let { onReact ->
+            FlowRow(Modifier.padding(horizontal = 8.dp), maxItemsInEachRow = 4) {
+                Reaction.entries.forEach { reaction ->
+                    val name = stringResource(reaction.label)
+                    Box(
+                        Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .clickable(role = Role.Button) { onDismiss(); onReact(reaction) }
+                            .semantics { contentDescription = name },
+                        contentAlignment = Alignment.Center,
+                    ) { Text(reaction.emoji, fontSize = 22.sp) }
                 }
             }
-            @Composable
-            fun choice(label: Int, action: (() -> Unit)?) {
-                if (action != null) DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { open = false; action() })
-            }
-            choice(R.string.issue_comment_quote, menu.onQuote)
-            choice(R.string.issue_comment_edit, menu.onEdit)
-            choice(R.string.issue_comment_delete, menu.onDelete)
         }
+        @Composable
+        fun choice(label: Int, action: (() -> Unit)?) {
+            if (action != null) DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { onDismiss(); action() })
+        }
+        choice(R.string.issue_comment_quote, menu.onQuote)
+        choice(R.string.issue_comment_edit, menu.onEdit)
+        choice(R.string.issue_comment_delete, menu.onDelete)
     }
 }
 
@@ -1104,12 +1270,13 @@ private fun TimelineEntry(
     onOpenUser: (String) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
     onLinkClick: (String) -> Unit,
+    editor: (@Composable () -> Unit)? = null,
     menuFor: (TimelineItem.Comment) -> CommentMenu? = { null },
 ) {
     val colors = Soft.colors
     val time = item.createdAt?.let { relative(it, nowMillis) }.orEmpty()
     when (item) {
-        is TimelineItem.Comment -> Comment(item.author, item.body, item.createdAt, item.reactions, context, nowMillis, onOpenUser, onLinkClick, menu = menuFor(item))
+        is TimelineItem.Comment -> Comment(item.author, item.body, item.createdAt, item.reactions, context, nowMillis, onOpenUser, onLinkClick, menu = menuFor(item), editor = editor)
         is TimelineItem.Review -> Column {
             val who = item.author?.login ?: "ghost"
             val (text, icon) = when (item.state) {

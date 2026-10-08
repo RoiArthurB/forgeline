@@ -19,6 +19,15 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.doubleClick
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.TextRange
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
@@ -494,5 +503,151 @@ class CommentActionsScreenTest {
         setContent(attaching.copy(draft = "Thanks", canChangeState = true))
 
         composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    private fun comments() = composeRule.onAllNodes(hasTestTag(COMMENT_TAG))
+
+    @Test
+    fun a_long_press_on_a_comment_opens_its_menu() {
+        setContent()
+
+        comments()[1].performTouchInput { longClick() }
+        composeRule.waitForIdle()
+
+        assertThat(offered("Quote reply")).isTrue()
+        composeRule.onNodeWithText("Quote reply").performClick()
+        assertThat(events).containsExactly("quote:Same here")
+    }
+
+    @Test
+    fun a_long_press_on_the_description_opens_its_menu_too() {
+        setContent(opened.copy(me = "octocat"))
+
+        comments()[0].performTouchInput { longClick() }
+        composeRule.waitForIdle()
+
+        assertThat(offered("Edit")).isTrue()
+    }
+
+    @Test
+    fun signed_out_a_long_press_a_double_tap_and_a_pull_do_nothing() {
+        setContent(canComment = false)
+
+        comments()[1].performTouchInput { longClick() }
+        comments()[1].performTouchInput { doubleClick() }
+        comments()[1].performTouchInput { swipeRight(startX = left + 20f, endX = right) }
+        composeRule.waitForIdle()
+
+        assertThat(offered("Quote reply")).isFalse()
+        assertThat(events).isEmpty()
+    }
+
+    @Test
+    fun a_double_tap_gives_a_comment_a_thumbs_up() {
+        setContent()
+
+        comments()[1].performTouchInput { doubleClick() }
+        composeRule.waitForIdle()
+
+        assertThat(events).containsExactly("react:1:THUMBS_UP")
+    }
+
+    @Test
+    fun a_double_tap_on_the_description_gives_the_conversation_a_thumbs_up() {
+        setContent()
+
+        comments()[0].performTouchInput { doubleClick() }
+        composeRule.waitForIdle()
+
+        assertThat(events).containsExactly("react:null:THUMBS_UP")
+    }
+
+    @Test
+    fun a_single_tap_on_a_comment_does_nothing() {
+        setContent()
+
+        comments()[1].performTouchInput { click() }
+        composeRule.mainClock.advanceTimeBy(1_000)
+
+        assertThat(events).isEmpty()
+        assertThat(offered("Quote reply")).isFalse()
+    }
+
+    @Test
+    fun pulling_a_comment_to_the_end_of_the_line_starts_a_reply_quoting_it() {
+        setContent()
+
+        comments()[1].performTouchInput { swipeRight(startX = left + 20f, endX = left + 20f + 120.dp.toPx()) }
+        composeRule.waitForIdle()
+
+        assertThat(events).containsExactly("quote:Same here")
+    }
+
+    @Test
+    fun a_short_pull_or_one_the_other_way_quotes_nothing() {
+        setContent()
+
+        comments()[1].performTouchInput { swipeRight(startX = left + 20f, endX = left + 20f + 40.dp.toPx()) }
+        comments()[1].performTouchInput { swipeLeft() }
+        composeRule.waitForIdle()
+
+        assertThat(events).isEmpty()
+    }
+
+    @Test
+    fun a_locked_conversation_can_t_be_replied_to_by_pulling_but_still_takes_a_thumbs_up() {
+        setContent(opened.copy(issue = issueDetails(ref, "Crash on start").copy(isLocked = true)))
+
+        comments()[1].performTouchInput { swipeRight(startX = left + 20f, endX = left + 20f + 120.dp.toPx()) }
+        comments()[1].performTouchInput { doubleClick() }
+        composeRule.waitForIdle()
+
+        assertThat(events).containsExactly("react:1:THUMBS_UP")
+    }
+
+    @Test
+    fun a_comment_is_rewritten_where_it_stands() {
+        // Regression: the comment's text went to the reader's turn, at the very end of the conversation, with nothing
+        // there to say which comment it was.
+        setContent(opened.copy(editing = 1, draft = "Same here"))
+
+        val field = composeRule.onNode(hasSetTextAction()).fetchSemanticsNode().boundsInRoot
+        val next = composeRule.onNodeWithText("Mine").fetchSemanticsNode().boundsInRoot
+        assertThat(field.bottom).isAtMost(next.top)
+        composeRule.onNodeWithText("Rewriting your comment").assertIsDisplayed()
+        // Its words show once, in the field; the reader's turn waits at the end.
+        assertThat(composeRule.onAllNodesWithText("Same here").fetchSemanticsNodes()).hasSize(1)
+        assertThat(composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes()).hasSize(1)
+        assertThat(offered("Comment")).isFalse()
+    }
+
+    @Test
+    fun the_field_of_a_comment_being_rewritten_has_the_keyboard() {
+        setContent(opened.copy(editing = 1, draft = "Same here"))
+
+        composeRule.onNode(hasSetTextAction()).assertIsFocused()
+    }
+
+    @Test
+    fun a_comment_being_rewritten_has_no_menu_and_can_t_be_pulled() {
+        setContent(opened.copy(editing = 1, draft = "Same here"))
+
+        // The description's and the other comment's.
+        assertThat(composeRule.onAllNodesWithContentDescription("Comment options").fetchSemanticsNodes()).hasSize(2)
+        comments()[1].performTouchInput { swipeRight(startX = left + 20f, endX = left + 20f + 120.dp.toPx()) }
+        composeRule.waitForIdle()
+        assertThat(events).isEmpty()
+    }
+
+    @Test
+    fun once_the_rewrite_is_over_the_reader_s_turn_is_back() {
+        setContent(opened.copy(editing = 1, draft = "Same here"))
+
+        shown.value = opened
+        composeRule.waitForIdle()
+
+        reach(hasText("Comment"))
+        composeRule.onNodeWithText("Comment").assertIsDisplayed()
+        assertThat(offered("Rewriting your comment")).isFalse()
     }
 }

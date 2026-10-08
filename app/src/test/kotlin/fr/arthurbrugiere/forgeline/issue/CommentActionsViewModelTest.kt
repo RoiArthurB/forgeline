@@ -150,7 +150,9 @@ class CommentActionsViewModelTest {
         val state = viewModel.state.value
         assertThat(state.editing).isEqualTo(2)
         assertThat(state.draft).isEqualTo("Mine")
-        assertThat(state.scrollTo).isEqualTo(ScrollTarget.End)
+        // Regression: the list went to its end, where the comment was rewritten far from where it stands.
+        assertThat(state.scrollTo).isEqualTo(ScrollTarget.Item(state.items.indexOfFirst { it is TimelineItem.Comment && it.id == 2L }))
+        assertThat(state.isEditingInPlace).isTrue()
         assertThat(state.draftPlaced).isEqualTo(1)
     }
 
