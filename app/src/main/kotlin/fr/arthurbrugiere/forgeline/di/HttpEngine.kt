@@ -1,8 +1,11 @@
+@file:OptIn(coil3.annotation.ExperimentalCoilApi::class)
+
 package fr.arthurbrugiere.forgeline.di
 
 import android.content.Context
 import coil3.ImageLoader
 import coil3.network.ktor3.KtorNetworkFetcherFactory
+import coil3.svg.Svg
 import coil3.svg.SvgDecoder
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
@@ -60,7 +63,31 @@ fun forgeImageLoader(context: Context, engine: HttpClientEngine = forgeEngine())
     return ImageLoader.Builder(context)
         .components {
             add(KtorNetworkFetcherFactory(httpClient = { client.value }))
-            add(SvgDecoder.Factory(scaleToDensity = true))
+            add(SvgDecoder.Factory(parser = SizedSvgParser, density = SvgDecoder.PLATFORM_DENSITY, useViewBoundsAsIntrinsicSize = false))
         }
         .build()
+}
+
+/**
+ * Gives every SVG the size a browser would draw it at, and a view box, before Coil scales it to the screen.
+ *
+ * Regression: Coil gave a drawing without a view box one as large as the density-scaled room, so the drawing kept
+ * one device pixel per CSS pixel in a corner of it: shields.io's badges came out small and far apart. And one given
+ * a height alone (CodeScene's) took its view box's size instead, taller than the badges beside it.
+ */
+internal val SizedSvgParser = Svg.Parser { source ->
+    Svg.Parser.DEFAULT.parse(source).apply {
+        val box = viewBox
+        val boxWidth = box?.let { it.right - it.left } ?: 0f
+        val boxHeight = box?.let { it.bottom - it.top } ?: 0f
+        when {
+            width > 0f && height > 0f -> if (box == null) viewBox = Svg.ViewBox(0f, 0f, width, height)
+            boxWidth > 0f && boxHeight > 0f -> {
+                // No width: the view box's, which lets the height be read (none is, as long as the width is missing).
+                width(boxWidth.toString())
+                // A height given alone sets the width by the view box's proportions, as it does in a browser.
+                if (height > 0f) width((height * boxWidth / boxHeight).toString()) else height(boxHeight.toString())
+            }
+        }
+    }
 }
