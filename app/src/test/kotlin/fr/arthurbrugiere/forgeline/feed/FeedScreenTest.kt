@@ -44,7 +44,12 @@ class FeedScreenTest {
         composeRule.setContent {
             val openRelease: ((fr.arthurbrugiere.forgeline.core.model.RepoId, String) -> Unit)? =
                 if (hasReleasePage) ({ repo, tag -> events += "release:${repo.fullName}@$tag" }) else null
-            androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalOpenRelease provides openRelease) {
+            val openDiscussion: ((fr.arthurbrugiere.forgeline.core.model.RepoId, Int) -> Unit)? =
+                if (hasReleasePage) ({ repo, number -> events += "discussion:${repo.fullName}#$number" }) else null
+            androidx.compose.runtime.CompositionLocalProvider(
+                fr.arthurbrugiere.forgeline.ui.LocalOpenRelease provides openRelease,
+                fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion provides openDiscussion,
+            ) {
             FeedScreen(
                 state = state.copy(previews = previews),
                 onRefresh = { events += "refresh" },
@@ -351,5 +356,17 @@ class FeedScreenTest {
         assertThat(nextFeedSqueeze("acme/rocket", 3)).isEqualTo(3)
         // A name with no owner at all can only take the line.
         assertThat(nextFeedSqueeze("rocket", 0)).isEqualTo(3)
+    }
+
+    @Test
+    fun in_the_app_shell_an_announcement_opens_its_discussion_s_page() {
+        // Regression: an announcement always left the app for the forge's site.
+        hasReleasePage = true
+        val announced = feedEvent("a", actor = "alextran", repo = "immich-app/immich", action = FeedAction.Announced(880, "Immich turns three"))
+        setContent(FeedUiState(items = feedItems(listOf(announced), FeedKind.defaults), syncedAtMillis = 1))
+
+        composeRule.onNodeWithText("Immich turns three", useUnmergedTree = true).performClick()
+
+        assertThat(events).containsExactly("discussion:immich-app/immich#880")
     }
 }

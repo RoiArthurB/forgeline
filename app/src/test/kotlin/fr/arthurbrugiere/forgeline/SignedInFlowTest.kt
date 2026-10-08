@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline
 
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -278,5 +279,76 @@ class SignedInFlowTest {
 
         waitFor("Flaky upload on slow links")
         waitFor("Bump the SDK")
+    }
+
+    /** Signs in to GitHub, then opens the repository the fake forge serves. */
+    private fun openRepoSignedIn() {
+        hiltRule.inject()
+        runBlocking { accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null), "tok") }
+        composeRule.onNode(hasContentDescription("Trending") and isSelectable()).performClick()
+        waitFor("paperclip")
+        composeRule.onNodeWithText("paperclip").performClick()
+        waitFor("Fork")
+    }
+
+    @Test
+    fun a_repository_is_watched_from_its_page() {
+        openRepoSignedIn()
+        waitFor("Watch")
+
+        composeRule.onNodeWithText("Watch").performClick()
+
+        waitFor("Watching")
+    }
+
+    @Test
+    fun a_fork_is_made_once_agreed_to_and_is_where_the_screen_goes() {
+        openRepoSignedIn()
+
+        composeRule.onNodeWithText("Fork").performClick()
+        waitFor("Fork paperclip?")
+        composeRule.onAllNodes(hasText("Fork"))[1].performClick()
+
+        // The fork's own page, in the reader's name; back returns to the repository it was made of.
+        waitFor("A fork to try things in")
+        composeRule.onNode(hasContentDescription("Navigate up")).performClick()
+        waitFor("About paperclipai/paperclip")
+    }
+
+    @Test
+    fun a_discussion_opens_from_its_repository_s_tab_and_back_returns_there() {
+        openRepoSignedIn()
+
+        composeRule.onNodeWithText("Discussions").performClick()
+        waitFor("How do I page through runs?")
+        composeRule.onNodeWithText("How do I page through runs?").performClick()
+
+        waitFor("How do I page through runs? - #412")
+        waitFor("The list stops at 30 runs.")
+        waitFor("Use the cursor the list gives back.")
+        composeRule.onNode(hasContentDescription("Navigate up")).performClick()
+        waitFor("Q&A · Answered")
+    }
+
+    @Test
+    fun one_s_own_comment_is_rewritten_where_it_stands_and_the_reader_s_turn_comes_back() {
+        openIssuesSignedIn()
+        composeRule.onNodeWithText("Heartbeat recovery escalates too early").performClick()
+        waitFor("Mine happens after an update.")
+
+        // The description's menu, hubot's, then the reader's own.
+        composeRule.onAllNodes(hasContentDescription("Comment options"))[2].performClick()
+        composeRule.onNodeWithText("Edit").performClick()
+        waitFor("Rewriting your comment")
+        // One field, holding the comment; the reader's turn waits at the end.
+        composeRule.onNode(hasSetTextAction()).assert(hasText("Mine happens after an update."))
+        composeRule.onNodeWithText("Comment").assertDoesNotExist()
+
+        composeRule.onNodeWithText("Cancel").performClick()
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Rewriting your comment")).fetchSemanticsNodes().isEmpty() }
+        waitFor("Mine happens after an update.")
+        reach(hasText("Comment"))
+        composeRule.onNodeWithText("Comment").assertIsDisplayed()
     }
 }

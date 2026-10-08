@@ -62,13 +62,21 @@ object FakeForgeModule {
 
     @Provides
     @Singleton
-    fun provideStarApi(): StarApi = FakeStarApi()
+    fun provideStarApi(): StarApi = FakeStarApi().apply { forkedTo = RepoId("octocat", "paperclip") }
 
     @Provides
     @Singleton
     fun provideRepoApi(): RepoApi = FakeRepoApi().apply {
         val paperclip = RepoId("paperclipai", "paperclip")
-        details[paperclip] = repoDetails("paperclipai/paperclip", defaultBranch = "master", stars = 85_955)
+        details[paperclip] = repoDetails("paperclipai/paperclip", defaultBranch = "master", stars = 85_955).copy(hasDiscussions = true, hasWiki = true)
+        // Where a fork of it lands.
+        details[RepoId("octocat", "paperclip")] = repoDetails("octocat/paperclip", defaultBranch = "master").copy(description = "A fork to try things in")
+        val asked = fr.arthurbrugiere.forgeline.core.testing.discussionSummary(412, "How do I page through runs?", comments = 1, isAnswered = true)
+        discussionPages[null] = fr.arthurbrugiere.forgeline.core.model.DiscussionPage(listOf(asked), next = null)
+        discussions[412] = fr.arthurbrugiere.forgeline.core.model.Discussion(
+            asked, "The list stops at 30 runs.",
+            listOf(fr.arthurbrugiere.forgeline.core.testing.discussionComment("c1", "Use the cursor the list gives back.", isAnswer = true)),
+        )
         readmes[paperclip] = Readme("README.md", "# Paperclip\n\nOpen-source orchestration for teams of AI agents.")
         issues = listOf(
             issueSummary(14127, "Heartbeat recovery escalates too early"),
@@ -96,7 +104,10 @@ object FakeForgeModule {
     fun provideIssueApi(): IssueApi = FakeIssueApi().apply {
         val ref = IssueRef(RepoId("paperclipai", "paperclip"), 14127)
         issues[ref] = issueDetails(ref, "Heartbeat recovery escalates too early")
-        pages[ref to 1] = TimelinePage(listOf(comment(1, "I can reproduce this on every restart.", login = "hubot")), null)
+        pages[ref to 1] = TimelinePage(
+            listOf(comment(1, "I can reproduce this on every restart.", login = "hubot"), comment(2, "Mine happens after an update.", login = "octocat")),
+            null,
+        )
         // A long one, in two pages, that the Inbox has a thread about.
         val long = IssueRef(ref.repo, 14129)
         issues[long] = issueDetails(long, "Keep install flags on retry")
