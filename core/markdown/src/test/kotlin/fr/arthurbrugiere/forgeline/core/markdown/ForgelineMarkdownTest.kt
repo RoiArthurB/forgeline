@@ -74,4 +74,71 @@ class ForgelineMarkdownTest {
             coil3.SingletonImageLoader.reset()
         }
     }
+
+    private fun withPictures(text: String, opened: MutableList<String>?) = composeRule.setContent {
+        ForgelineTheme() {
+            if (opened == null) {
+                ForgelineMarkdown(parseForgeMarkdown(text), onLinkClick = {})
+            } else {
+                androidx.compose.runtime.CompositionLocalProvider(LocalOpenPicture provides { url, description -> opened += "$url|$description" }) {
+                    ForgelineMarkdown(parseForgeMarkdown(text), onLinkClick = { opened += "link:$it" })
+                }
+            }
+        }
+    }
+
+    private fun pictures() = composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(MARKDOWN_PICTURE_TAG), useUnmergedTree = true)
+
+    @Test
+    fun a_picture_opens_larger_when_tapped() {
+        // Regression: a screenshot in a README could only be squinted at.
+        val opened = mutableListOf<String>()
+        withPictures("Before\n\n![The board](https://example.com/board.png)\n\nAfter", opened)
+        composeRule.waitForIdle()
+
+        pictures()[0].performClick()
+
+        // What it is said to show comes with it once it has loaded and stands on its own; not before.
+        assertThat(opened.single()).startsWith("https://example.com/board.png|")
+    }
+
+    @Test
+    fun a_picture_set_in_a_line_of_text_opens_too() {
+        val opened = mutableListOf<String>()
+        withPictures("See ![icon](https://example.com/icon.png) here", opened)
+        composeRule.waitForIdle()
+
+        pictures()[0].performClick()
+
+        // A picture in a line of text comes without what it is said to show.
+        assertThat(opened).containsExactly("https://example.com/icon.png|null")
+    }
+
+    @Test
+    fun a_picture_that_is_a_link_keeps_its_link() {
+        // A badge leads where its author sent it: it is not a picture to look at.
+        val opened = mutableListOf<String>()
+        withPictures("[![build](https://example.com/badge.svg)](https://example.com/ci)", opened)
+        composeRule.waitForIdle()
+
+        assertThat(pictures().fetchSemanticsNodes()).isEmpty()
+    }
+
+    @Test
+    fun where_nothing_can_show_a_picture_larger_it_is_only_looked_at() {
+        withPictures("![The board](https://example.com/board.png)", opened = null)
+        composeRule.waitForIdle()
+
+        assertThat(pictures().fetchSemanticsNodes()).isEmpty()
+    }
+
+    @Test
+    fun a_line_holding_a_badge_that_is_a_link_leaves_its_other_pictures_alone() {
+        // Which picture of a line was tapped can't be told: none opens, so the badge's link is never taken from it.
+        val opened = mutableListOf<String>()
+        withPictures("[![build](https://example.com/badge.svg)](https://example.com/ci) ![icon](https://example.com/icon.png)", opened)
+        composeRule.waitForIdle()
+
+        assertThat(pictures().fetchSemanticsNodes()).isEmpty()
+    }
 }

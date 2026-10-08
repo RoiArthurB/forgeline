@@ -1,5 +1,14 @@
 package fr.arthurbrugiere.forgeline.file
 
+import fr.arthurbrugiere.forgeline.ui.PICTURE_TAG
+import coil3.asImage
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.pinch
+import androidx.compose.ui.test.doubleClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
@@ -99,5 +108,76 @@ class FileScreenTest {
         composeRule.onNode(hasContentDescription("Copy file")).performClick()
 
         assertThat(events).containsExactly("copy:5")
+    }
+
+    @OptIn(coil3.annotation.DelicateCoilApi::class)
+    private fun withPictures(loads: Boolean, block: () -> Unit) {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val answer = coil3.intercept.Interceptor { chain ->
+            if (loads) {
+                coil3.request.SuccessResult(android.graphics.Bitmap.createBitmap(40, 30, android.graphics.Bitmap.Config.ARGB_8888).asImage(), chain.request, coil3.decode.DataSource.NETWORK)
+            } else {
+                coil3.request.ErrorResult(null, chain.request, IllegalStateException("404"))
+            }
+        }
+        coil3.SingletonImageLoader.setUnsafe(coil3.ImageLoader.Builder(context).components { add(answer) }.build())
+        try {
+            block()
+        } finally {
+            coil3.SingletonImageLoader.reset()
+        }
+    }
+
+    private val picture = state("docs/logo.png", Loadable.Loaded(FileContent.Picture("https://raw.example/docs/logo.png")))
+
+    private fun zoom() = composeRule.onNodeWithTag(PICTURE_TAG).fetchSemanticsNode().config[androidx.compose.ui.semantics.SemanticsProperties.StateDescription]
+
+    @Test
+    fun a_picture_is_shown_and_a_double_tap_brings_it_closer_then_back() = withPictures(loads = true) {
+        // Regression: a picture in the code only said "Binary file".
+        setContent(picture)
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithTag(PICTURE_TAG).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("Binary file").assertDoesNotExist()
+        assertThat(zoom()).isEqualTo("Shown at 100%")
+
+        composeRule.onNodeWithTag(PICTURE_TAG).performTouchInput { doubleClick() }
+        composeRule.waitForIdle()
+        assertThat(zoom()).isEqualTo("Shown at 250%")
+
+        composeRule.onNodeWithTag(PICTURE_TAG).performTouchInput { doubleClick() }
+        composeRule.waitForIdle()
+        assertThat(zoom()).isEqualTo("Shown at 100%")
+    }
+
+    @Test
+    fun two_fingers_bring_a_picture_closer_up_to_a_limit_and_never_smaller_than_whole() = withPictures(loads = true) {
+        setContent(picture)
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithTag(PICTURE_TAG).fetchSemanticsNodes().isNotEmpty() }
+
+        composeRule.onNodeWithTag(PICTURE_TAG).performTouchInput { pinch(center - Offset(20f, 0f), center - Offset(400f, 0f), center + Offset(20f, 0f), center + Offset(400f, 0f)) }
+        composeRule.waitForIdle()
+        assertThat(zoom()).isEqualTo("Shown at 600%")
+
+        composeRule.onNodeWithTag(PICTURE_TAG).performTouchInput { pinch(center - Offset(400f, 0f), center - Offset(5f, 0f), center + Offset(400f, 0f), center + Offset(5f, 0f)) }
+        composeRule.waitForIdle()
+        assertThat(zoom()).isEqualTo("Shown at 100%")
+    }
+
+    @Test
+    fun a_picture_names_the_file_to_screen_readers_and_is_not_offered_to_copy() = withPictures(loads = true) {
+        setContent(picture)
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasContentDescription("logo.png")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNode(hasContentDescription("Copy file contents")).assertDoesNotExist()
+    }
+
+    @Test
+    fun a_picture_that_can_t_be_loaded_says_so_and_offers_the_forge() = withPictures(loads = false) {
+        setContent(picture)
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithText("Couldn't load the picture").fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("Open on GitHub").performClick()
+
+        assertThat(events).containsExactly("browser:https://github.com/octo/repo/blob/main/docs/logo.png")
     }
 }

@@ -40,9 +40,9 @@ class FileViewModelTest {
 
     @Test
     fun binary_files_are_not_shown_as_text() = test {
-        repos.files["logo.png"] = ForgeResult.Success("PNG\u0000\u0001garbage")
+        repos.files["font.woff2"] = ForgeResult.Success("wOF2\u0000\u0001garbage")
 
-        val viewModel = viewModel("logo.png")
+        val viewModel = viewModel("font.woff2")
         advanceUntilIdle()
 
         assertThat(viewModel.state.value.content).isEqualTo(Loadable.Loaded(FileContent.Binary))
@@ -69,5 +69,30 @@ class FileViewModelTest {
         assertThat(viewModel.state.value.webUrl).isEqualTo("https://blob.example/octo/repo/main/docs/GUIDE.md")
         assertThat(viewModel.state.value.readmeContext.directory).isEqualTo("docs/")
         assertThat(viewModel.state.value.readmeContext.rawBaseUrl).isEqualTo("https://raw.example/octo/repo/main/")
+    }
+
+    @Test
+    fun a_picture_is_shown_from_where_its_bytes_are_served_without_being_read_as_text() = test {
+        // Regression: a picture was read as text, found to be binary, and only said to be so.
+        val viewModel = viewModel("docs/logo.PNG")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.content).isEqualTo(Loadable.Loaded(FileContent.Picture("https://raw.example/octo/repo/main/docs/logo.PNG")))
+        assertThat(repos.calls).isEmpty()
+    }
+
+    @Test
+    fun a_picture_s_address_takes_the_spaces_and_signs_of_its_path() = test {
+        val viewModel = viewModel("screen shots/vue d'ensemble #1.jpg")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.content)
+            .isEqualTo(Loadable.Loaded(FileContent.Picture("https://raw.example/octo/repo/main/screen%20shots/vue%20d%27ensemble%20%231.jpg")))
+    }
+
+    @Test
+    fun pictures_are_told_by_their_name() {
+        assertThat(listOf("a.png", "b.JPG", "c.jpeg", "d.gif", "e.webp", "f.svg", "g.ico", "h.avif", "i.bmp").all(::isPicture)).isTrue()
+        assertThat(listOf("png", "a.png.txt", "README.md", "Makefile", "x.pdf").none(::isPicture)).isTrue()
     }
 }

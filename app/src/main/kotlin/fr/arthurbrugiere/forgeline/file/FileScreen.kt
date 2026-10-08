@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.file
 
+import fr.arthurbrugiere.forgeline.ui.ZoomablePicture
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import android.content.ClipData
@@ -160,6 +161,13 @@ fun FileScreen(
                     )
                 }
                 is Loadable.Loaded -> when (val file = content.value) {
+                    is FileContent.Picture -> Box(Modifier.fillMaxSize().padding(bottom = listBottomPadding())) {
+                        ZoomablePicture(
+                            file.url, state.target.name,
+                            onOpenInBrowser = { onOpenInBrowser(state.webUrl) },
+                            browserLabel = stringResource(R.string.repo_open_on_forge, state.target.id.forge.displayName),
+                        )
+                    }
                     FileContent.Binary -> SoftNotice(
                         stringResource(R.string.file_binary_title),
                         stringResource(R.string.file_binary_body),

@@ -1,5 +1,18 @@
 package fr.arthurbrugiere.forgeline.core.markdown
 
+import org.intellij.markdown.ast.ASTNode
+import org.intellij.markdown.MarkdownElementTypes
+import com.mikepenz.markdown.utils.resolveImageLink
+import com.mikepenz.markdown.utils.resolveImageAlt
+import com.mikepenz.markdown.compose.elements.MarkdownInlineImage
+import com.mikepenz.markdown.compose.elements.MarkdownImage
+import com.mikepenz.markdown.compose.components.MarkdownComponentModel
+import com.mikepenz.markdown.compose.LocalReferenceLinkHandler
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.produceState
@@ -25,6 +38,57 @@ import androidx.compose.ui.text.style.TextDecoration
 import com.mikepenz.markdown.m3.markdownColor
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import androidx.compose.runtime.getValue
+
+/**
+ * Shows a picture of the text on its own, larger, given its address and what it is said to show. Null where nothing
+ * can (a preview, a test): pictures are then only looked at.
+ */
+val LocalOpenPicture = compositionLocalOf<((url: String, description: String?) -> Unit)?> { null }
+
+/** What a tap on a picture is said to do, to screen readers. */
+val LocalOpenPictureLabel = compositionLocalOf<String?> { null }
+
+/** Marks the pictures of a text that open larger when tapped. */
+const val MARKDOWN_PICTURE_TAG = "markdown-picture"
+
+private val linkTypes = setOf(MarkdownElementTypes.INLINE_LINK, MarkdownElementTypes.FULL_REFERENCE_LINK, MarkdownElementTypes.SHORT_REFERENCE_LINK)
+
+private fun ASTNode.isInLink(): Boolean = generateSequence(parent) { it.parent }.any { it.type in linkTypes }
+
+private fun ASTNode.pictures(): Sequence<ASTNode> =
+    if (type == MarkdownElementTypes.IMAGE) sequenceOf(this) else children.asSequence().flatMap { it.pictures() }
+
+/**
+ * A picture that opens larger when tapped. One set in a link (a badge, a logo leading to a site) keeps the link's
+ * tap: the link is what its author meant it for.
+ */
+@Composable
+private fun TappablePicture(url: String?, description: String?, picture: @Composable () -> Unit) {
+    val open = LocalOpenPicture.current
+    if (open == null || url == null) {
+        picture()
+    } else {
+        Box(Modifier.testTag(MARKDOWN_PICTURE_TAG).clickable(onClickLabel = LocalOpenPictureLabel.current, role = Role.Image) { open(url, description) }) { picture() }
+    }
+}
+
+/** A picture standing on its own: the model holds the text and the picture's own node. */
+@Composable
+private fun BlockPicture(model: MarkdownComponentModel) {
+    val handler = LocalReferenceLinkHandler.current
+    val url = remember(model.node, model.content) { if (model.node.isInLink()) null else model.node.resolveImageLink(model.content, handler) }
+    TappablePicture(url, remember(model.node, model.content) { model.node.resolveImageAlt(model.content) }) { MarkdownImage(model.content, model.node) }
+}
+
+/**
+ * A picture in a line of text: the model holds its address and the node of the whole line, not the picture's. Which
+ * of the line's pictures this one is can't be told, so it opens only when none of them is a link.
+ */
+@Composable
+private fun InlinePicture(model: MarkdownComponentModel) {
+    val free = remember(model.node) { !model.node.isInLink() && model.node.pictures().none { it.isInLink() } }
+    TappablePicture(model.content.takeIf { free }, description = null) { MarkdownInlineImage(model.content, model.node) }
+}
 
 /** Parses Markdown into a renderable state. Call off the main thread for large documents. */
 fun parseForgeMarkdown(markdown: String): State = parseMarkdown(markdown)
@@ -75,6 +139,8 @@ fun ForgelineMarkdown(
             components = markdownComponents(
                 codeBlock = highlightedCodeBlock,
                 codeFence = highlightedCodeFence,
+                image = { BlockPicture(it) },
+                inlineImage = { InlinePicture(it) },
             ),
         )
     }

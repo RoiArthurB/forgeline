@@ -26,8 +26,16 @@ data class FileTarget(val id: RepoId, val path: String, val ref: String) {
 sealed interface FileContent {
     data class Text(val text: String) : FileContent
 
+    /** A picture, at the address its bytes are served from. */
+    data class Picture(val url: String) : FileContent
+
     data object Binary : FileContent
 }
+
+private val pictureExtensions = setOf("png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "avif", "ico")
+
+/** Whether the file named [name] is a picture the app can show. */
+fun isPicture(name: String): Boolean = name.substringAfterLast('.', "").lowercase() in pictureExtensions
 
 data class FileUiState(
     val target: FileTarget,
@@ -68,6 +76,11 @@ class FileViewModel @AssistedInject constructor(
     fun retry() = load()
 
     private fun load() {
+        // Regression: a picture was read as text, found to be binary, and only said to be so.
+        if (isPicture(target.name)) {
+            _state.update { it.copy(content = Loadable.Loaded(FileContent.Picture(it.readmeContext.rawBaseUrl + encodedPath(target.path)))) }
+            return
+        }
         _state.update { it.copy(content = Loadable.Loading) }
         viewModelScope.launch {
             val content = when (val result = repos.fileText(target.id, target.path, target.ref)) {
@@ -80,3 +93,7 @@ class FileViewModel @AssistedInject constructor(
         }
     }
 }
+
+/** A path as an address takes it: each folder and the name encoded, the slashes between them kept. */
+private fun encodedPath(path: String): String =
+    path.split('/').joinToString("/") { java.net.URLEncoder.encode(it, "UTF-8").replace("+", "%20") }

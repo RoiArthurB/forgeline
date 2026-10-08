@@ -44,6 +44,13 @@ data class FileRoute(val host: String, val owner: String, val name: String, val 
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
 }
 
+/** A picture of a README, a comment or a release's notes, shown on its own. */
+@Serializable
+data class PictureRoute(val url: String, val description: String? = null) : NavKey {
+    /** The picture's name where it lives, without what its address asks for after it. */
+    val fileName: String get() = url.substringBefore('?').substringBefore('#').trimEnd('/').substringAfterLast('/')
+}
+
 /**
  * A conversation. Opened from a notification that is [unread], it starts at what is new since [lastReadAtMillis], or
  * at its latest entry when the forge doesn't say when it was last read.

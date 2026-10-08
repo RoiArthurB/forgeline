@@ -354,6 +354,12 @@
 
     <string name="file_too_large_title">Too large to preview</string>
     <string name="file_too_large_body">Open it in your browser to see it.</string>
+    <string name="open_in_browser">Open in the browser</string>
+    <string name="picture">Picture</string>
+    <string name="picture_view">View picture</string>
+    <string name="picture_zoom">Shown at %1$d%%</string>
+    <string name="picture_error_title">Couldn\'t load the picture</string>
+    <string name="picture_error_body">It may be private, too large, or of a kind the app can\'t show.</string>
     <string name="file_binary_title">Binary file</string>
     <string name="file_binary_body">This file can\'t be shown as text.</string>
     <string name="file_error_title">Couldn\'t open this file</string>
