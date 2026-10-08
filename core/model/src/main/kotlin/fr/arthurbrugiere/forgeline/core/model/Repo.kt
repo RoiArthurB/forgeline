@@ -101,9 +101,19 @@ data class Label(val name: String, val color: String?)
 enum class IssueState { OPEN, CLOSED, MERGED }
 
 /** Which of a repository's issues or pull requests to list: the open or the closed ones, and words they must hold. */
-data class IssueQuery(val open: Boolean = true, val text: String = "") {
+data class IssueQuery(
+    val open: Boolean = true,
+    val text: String = "",
+    /** Which page of the list, from 1: each holds up to [PAGE_SIZE] conversations. */
+    val page: Int = 1,
+) {
     /** What a list shows before anyone asks for anything else. */
-    val isDefault: Boolean get() = open && text.isBlank()
+    val isDefault: Boolean get() = open && text.isBlank() && page == 1
+
+    companion object {
+        /** How many conversations a forge is asked for at a time. A page that full may have another after it. */
+        const val PAGE_SIZE = 30
+    }
 }
 
 data class IssueSummary(

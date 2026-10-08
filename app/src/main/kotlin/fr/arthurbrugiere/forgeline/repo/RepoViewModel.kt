@@ -49,6 +49,15 @@ sealed interface Loadable<out T> {
     data class Failed(val error: ForgeError) : Loadable<Nothing>
 }
 
+/** Where a list of issues or pull requests stands beyond its first page. */
+data class ListPaging(
+    /** The page to ask for next; null once the forge has no more. */
+    val next: Int? = null,
+    val isLoading: Boolean = false,
+    /** The next page couldn't be loaded: it is then asked for by hand. */
+    val failed: Boolean = false,
+)
+
 data class CodeState(val path: String = "", val entries: Loadable<List<RepoFile>> = Loadable.Idle)
 
 data class RepoUiState(
@@ -74,6 +83,8 @@ data class RepoUiState(
     /** Which issues and pull requests are listed: the open ones unless asked otherwise. */
     val issueQuery: IssueQuery = IssueQuery(),
     val pullQuery: IssueQuery = IssueQuery(),
+    val issuePaging: ListPaging = ListPaging(),
+    val pullPaging: ListPaging = ListPaging(),
     /** The issues the repository pins above its list. */
     val pinned: List<IssueSummary> = emptyList(),
     val releases: Loadable<List<Release>> = Loadable.Idle,
@@ -299,9 +310,62 @@ class RepoViewModel @AssistedInject constructor(
         }
     }
 
+    /** Loads the next page of the list shown, and adds it under what is there. */
+    fun loadMore() {
+        val tab = local.value.tab
+        val query = query(tab) ?: return
+        val paging = paging(tab)
+        val page = paging.next ?: return
+        if (paging.isLoading) return
+        setPaging(tab) { it.copy(isLoading = true, failed = false) }
+        viewModelScope.launch {
+            val id = canonicalId()
+            val asked = query.copy(page = page)
+            val result = if (tab == RepoTab.ISSUES) repos.issues(id, asked) else repos.pullRequests(id, asked)
+            // A page that arrives after the reader asked for another list, or after this one was loaded again, is dropped.
+            if (query != query(tab) || paging(tab).next != page) return@launch
+            when (result) {
+                is ForgeResult.Failure -> setPaging(tab) { it.copy(isLoading = false, failed = true) }
+                is ForgeResult.Success -> {
+                    local.update { state ->
+                        // What moved down a page while the reader was reading is not listed twice.
+                        fun Loadable<List<IssueSummary>>.plus(more: List<IssueSummary>) =
+                            if (this is Loadable.Loaded) Loadable.Loaded((value + more).distinctBy { it.number }) else this
+                        if (tab == RepoTab.ISSUES) state.copy(issues = state.issues.plus(result.value)) else state.copy(pulls = state.pulls.plus(result.value))
+                    }
+                    setPaging(tab) { ListPaging(next = (page + 1).takeIf { result.value.size >= IssueQuery.PAGE_SIZE }) }
+                }
+            }
+        }
+    }
+
+    private fun paging(tab: RepoTab) = if (tab == RepoTab.ISSUES) local.value.issuePaging else local.value.pullPaging
+
+    private fun setPaging(tab: RepoTab, change: (ListPaging) -> ListPaging) = local.update {
+        when (tab) {
+            RepoTab.ISSUES -> it.copy(issuePaging = change(it.issuePaging))
+            RepoTab.PULLS -> it.copy(pullPaging = change(it.pullPaging))
+            else -> it
+        }
+    }
+
+    /** What the session remembers of the list [tab] is about to ask for; null when it wasn't asked, or can't be told yet. */
+    private fun remembered(tab: RepoTab): List<Any>? {
+        val details = state.value.details ?: return null
+        return when (tab) {
+            RepoTab.CODE -> repos.rememberedContents(details.id, local.value.code.path, local.value.ref ?: details.defaultBranch)
+            RepoTab.ISSUES -> repos.rememberedIssues(details.id, local.value.issueQuery)
+            RepoTab.PULLS -> repos.rememberedPullRequests(details.id, local.value.pullQuery)
+            RepoTab.RELEASES -> repos.rememberedReleases(details.id)
+            else -> null
+        }
+    }
+
     private fun loadTab(tab: RepoTab) {
         if (tab == RepoTab.README) return
-        setTab(tab, Loadable.Loading)
+        // What was listed last time shows at once, and is replaced when the forge answers.
+        val remembered = remembered(tab)
+        setTab(tab, remembered?.let { Loadable.Loaded(it) } ?: Loadable.Loading)
         val ref = local.value.ref
         val path = local.value.code.path
         val query = query(tab)
@@ -325,6 +389,8 @@ class RepoViewModel @AssistedInject constructor(
             if (tab == RepoTab.CODE && (local.value.ref != ref || local.value.code.path != path)) return@launch
             // So is a list that arrives after the reader asked for another.
             if (query != query(tab)) return@launch
+            // What was remembered stays when the forge can't be asked: an old list reads better than an error.
+            if (result is ForgeResult.Failure && remembered != null) return@launch
             setTab(tab, result.toLoadable())
         }
     }
@@ -336,10 +402,12 @@ class RepoViewModel @AssistedInject constructor(
 
     @Suppress("UNCHECKED_CAST")
     private fun setTab(tab: RepoTab, value: Loadable<Any>) = local.update { state ->
+        // A first page as full as a page gets may have another after it.
+        val paging = ListPaging(next = 2.takeIf { ((value as? Loadable.Loaded)?.value as? List<*>)?.size?.let { it >= IssueQuery.PAGE_SIZE } == true })
         when (tab) {
             RepoTab.CODE -> state.copy(code = state.code.copy(entries = value as Loadable<List<RepoFile>>))
-            RepoTab.ISSUES -> state.copy(issues = value as Loadable<List<IssueSummary>>)
-            RepoTab.PULLS -> state.copy(pulls = value as Loadable<List<IssueSummary>>)
+            RepoTab.ISSUES -> state.copy(issues = value as Loadable<List<IssueSummary>>, issuePaging = paging)
+            RepoTab.PULLS -> state.copy(pulls = value as Loadable<List<IssueSummary>>, pullPaging = paging)
             RepoTab.RELEASES -> state.copy(releases = value as Loadable<List<Release>>)
             RepoTab.ACTIONS -> state.copy(runs = value as Loadable<List<WorkflowRun>>)
             RepoTab.README -> state

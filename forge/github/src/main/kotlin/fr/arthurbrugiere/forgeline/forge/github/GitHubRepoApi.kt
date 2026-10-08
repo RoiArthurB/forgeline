@@ -103,7 +103,7 @@ class GitHubRepoApi(
     override suspend fun pullRequests(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = gitHubCall {
         // The pulls endpoint says which are drafts, but can't look for words: those go through search.
         if (query.text.isNotBlank()) return@gitHubCall search(token, id, query, isPullRequest = true)
-        get(token, "repos", id.owner, id.name, "pulls", query = mapOf("state" to if (query.open) "open" else "closed", "per_page" to "30"))
+        get(token, "repos", id.owner, id.name, "pulls", query = mapOf("state" to if (query.open) "open" else "closed", "per_page" to "${IssueQuery.PAGE_SIZE}", "page" to "${query.page}"))
             .toResult { body<List<IssueResponse>>().map { it.toModel(isPullRequest = true) } }
     }
 
@@ -113,7 +113,7 @@ class GitHubRepoApi(
             .filter { it.isNotEmpty() }.joinToString(" ")
         // Newest first; with words, GitHub's best match first.
         val order = if (words.isEmpty()) mapOf("sort" to "created", "order" to "desc") else emptyMap()
-        return get(token, "search", "issues", query = mapOf("q" to q) + order + ("per_page" to "30"))
+        return get(token, "search", "issues", query = mapOf("q" to q) + order + mapOf("per_page" to "${IssueQuery.PAGE_SIZE}", "page" to "${query.page}"))
             .toResult { body<SearchResponse>().items.map { it.toModel(isPullRequest) } }
     }
 

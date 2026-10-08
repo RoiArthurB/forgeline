@@ -15,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 
+@Suppress("UNCHECKED_CAST")
 class FakeRepoRepository : RepoRepository {
     val snapshot = MutableStateFlow(RepoSnapshot(null, null, null))
     var nextRefresh: RefreshResult = RefreshResult.Refreshed
@@ -45,6 +46,7 @@ class FakeRepoRepository : RepoRepository {
 
     override suspend fun contents(id: RepoId, path: String, ref: String): ForgeResult<List<RepoFile>> {
         calls += "contents:${id.fullName}:$path@$ref"
+        gate?.await()
         return directories[path] ?: ForgeResult.Success(emptyList())
     }
 
@@ -62,14 +64,25 @@ class FakeRepoRepository : RepoRepository {
     override suspend fun issues(id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> {
         calls += "issues:${id.fullName}${query.suffix}"
         gate?.await()
-        return answers[query] ?: issues
+        return answers[query] ?: issues.takeIf { query.page == 1 } ?: ForgeResult.Success(emptyList())
     }
 
     override suspend fun pullRequests(id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> {
         calls += "pulls:${id.fullName}${query.suffix}"
         gate?.await()
-        return answers[query] ?: pulls
+        return answers[query] ?: pulls.takeIf { query.page == 1 } ?: ForgeResult.Success(emptyList())
     }
+
+    /** What the session remembers of each list, by the call that would ask for it. */
+    val remembered = mutableMapOf<String, Any>()
+
+    override fun rememberedIssues(id: RepoId, query: IssueQuery) = remembered["issues${query.suffix}"] as List<IssueSummary>?
+
+    override fun rememberedPullRequests(id: RepoId, query: IssueQuery) = remembered["pulls${query.suffix}"] as List<IssueSummary>?
+
+    override fun rememberedReleases(id: RepoId) = remembered["releases"] as List<Release>?
+
+    override fun rememberedContents(id: RepoId, path: String, ref: String) = remembered["contents:$path@$ref"] as List<RepoFile>?
 
     var pinned: ForgeResult<List<IssueSummary>> = ForgeResult.Success(emptyList())
 

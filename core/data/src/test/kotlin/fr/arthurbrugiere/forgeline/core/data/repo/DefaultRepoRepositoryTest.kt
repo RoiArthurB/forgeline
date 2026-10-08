@@ -267,4 +267,52 @@ class DefaultRepoRepositoryTest {
         assertThat(repository.refresh(id)).isEqualTo(RefreshResult.Refreshed)
         assertThat(repository.observe(id).first().readme).isEqualTo(readme)
     }
+
+    @Test
+    fun lists_are_remembered_for_the_session_once_the_forge_has_answered() = runTest {
+        // Regression: a repository's tabs asked the forge behind a loading screen each time it was opened.
+        api.issues = listOf(issueSummary(1, "Bug"))
+        api.releases = listOf(release("v1"))
+        assertThat(repository.rememberedIssues(id)).isNull()
+
+        repository.issues(id)
+        repository.pullRequests(id)
+        repository.releases(id)
+        repository.contents(id, "", "main")
+
+        assertThat(repository.rememberedIssues(id)).containsExactly(issueSummary(1, "Bug"))
+        assertThat(repository.rememberedPullRequests(id)).isEmpty()
+        assertThat(repository.rememberedReleases(id)).hasSize(1)
+        assertThat(repository.rememberedContents(id, "", "main")).isEmpty()
+        // Each list is its own: the closed ones, another folder or another branch were never asked.
+        assertThat(repository.rememberedIssues(id, IssueQuery(open = false))).isNull()
+        assertThat(repository.rememberedContents(id, "docs", "main")).isNull()
+        assertThat(repository.rememberedContents(id, "", "dev")).isNull()
+        assertThat(repository.rememberedIssues(RepoId("octo", "other"))).isNull()
+    }
+
+    @Test
+    fun a_list_that_failed_is_not_remembered_and_leaves_what_was() = runTest {
+        api.issues = listOf(issueSummary(1, "Bug"))
+        repository.issues(id)
+        api.failure = ForgeError.Network
+
+        repository.issues(id)
+        repository.pullRequests(id)
+
+        assertThat(repository.rememberedIssues(id)).containsExactly(issueSummary(1, "Bug"))
+        assertThat(repository.rememberedPullRequests(id)).isNull()
+    }
+
+    @Test
+    fun what_one_account_listed_is_not_shown_to_another() = runTest {
+        val account = accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "one")
+        api.issues = listOf(issueSummary(1, "Private bug"))
+        repository.issues(id)
+
+        accounts.signOut(account.id)
+        repository.releases(id)
+
+        assertThat(repository.rememberedIssues(id)).isNull()
+    }
 }

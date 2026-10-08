@@ -631,4 +631,180 @@ class RepoViewModelTest {
 
         assertThat(stars.forks).containsExactly(RepoId("octo", "renamed"))
     }
+
+    private fun page(from: Int, size: Int = IssueQuery.PAGE_SIZE) = (from until from + size).map { issueSummary(it, "Issue $it") }
+
+    @Test
+    fun a_full_first_page_has_another_after_it_and_a_short_one_ends_the_list() = test {
+        cache()
+        repos.issues = ForgeResult.Success(page(1))
+        repos.pulls = ForgeResult.Success(page(1, size = 4))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.selectTab(RepoTab.ISSUES)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.issuePaging).isEqualTo(ListPaging(next = 2))
+
+        viewModel.selectTab(RepoTab.PULLS)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.pullPaging).isEqualTo(ListPaging())
+    }
+
+    @Test
+    fun the_next_page_is_added_under_the_list_until_a_page_comes_short() = test {
+        // Regression: the lists stopped at their first page.
+        cache()
+        repos.issues = ForgeResult.Success(page(1))
+        repos.answers[IssueQuery(page = 2)] = ForgeResult.Success(page(31))
+        repos.answers[IssueQuery(page = 3)] = ForgeResult.Success(page(61, size = 5))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.selectTab(RepoTab.ISSUES)
+        advanceUntilIdle()
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+        assertThat((viewModel.state.value.issues as Loadable.Loaded).value.map { it.number }).isEqualTo((1..60).toList())
+        assertThat(viewModel.state.value.issuePaging).isEqualTo(ListPaging(next = 3))
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+        assertThat((viewModel.state.value.issues as Loadable.Loaded).value).hasSize(65)
+        assertThat(viewModel.state.value.issuePaging.next).isNull()
+
+        // Nothing is left to ask for.
+        viewModel.loadMore()
+        advanceUntilIdle()
+        assertThat(repos.calls.count { it.startsWith("issues:") }).isEqualTo(3)
+    }
+
+    @Test
+    fun a_page_is_asked_for_once_however_often_the_end_is_reached() = test {
+        cache()
+        repos.issues = ForgeResult.Success(page(1))
+        repos.answers[IssueQuery(page = 2)] = ForgeResult.Success(page(31, size = 3))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.selectTab(RepoTab.ISSUES)
+        advanceUntilIdle()
+
+        viewModel.loadMore()
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        assertThat(repos.calls.count { it.endsWith("page 2") }).isEqualTo(1)
+    }
+
+    @Test
+    fun an_issue_that_moved_down_a_page_meanwhile_is_not_listed_twice() = test {
+        cache()
+        repos.issues = ForgeResult.Success(page(1))
+        repos.answers[IssueQuery(page = 2)] = ForgeResult.Success(listOf(issueSummary(30, "Issue 30"), issueSummary(31, "Issue 31")))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.selectTab(RepoTab.ISSUES)
+        advanceUntilIdle()
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        assertThat((viewModel.state.value.issues as Loadable.Loaded).value.map { it.number }).isEqualTo((1..31).toList())
+    }
+
+    @Test
+    fun a_page_that_couldn_t_be_loaded_says_so_and_can_be_asked_for_again() = test {
+        cache()
+        repos.issues = ForgeResult.Success(page(1))
+        repos.answers[IssueQuery(page = 2)] = ForgeResult.Failure(ForgeError.Network)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.selectTab(RepoTab.ISSUES)
+        advanceUntilIdle()
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.issuePaging).isEqualTo(ListPaging(next = 2, failed = true))
+        assertThat((viewModel.state.value.issues as Loadable.Loaded).value).hasSize(30)
+
+        repos.answers[IssueQuery(page = 2)] = ForgeResult.Success(page(31, size = 2))
+        viewModel.loadMore()
+        advanceUntilIdle()
+        assertThat((viewModel.state.value.issues as Loadable.Loaded).value).hasSize(32)
+        assertThat(viewModel.state.value.issuePaging).isEqualTo(ListPaging())
+    }
+
+    @Test
+    fun the_closed_ones_and_a_search_are_paged_too_and_a_page_for_a_list_left_behind_is_dropped() = test {
+        cache()
+        repos.answers[IssueQuery(open = false)] = ForgeResult.Success(page(100))
+        repos.answers[IssueQuery(open = false, page = 2)] = ForgeResult.Success(page(130, size = 2))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.selectTab(RepoTab.ISSUES)
+        viewModel.showOpen(false)
+        advanceUntilIdle()
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+        assertThat((viewModel.state.value.issues as Loadable.Loaded).value).hasSize(32)
+        assertThat(repos.calls).contains("issues:octo/repo closed page 2")
+
+        // Back to the open ones while a page of the closed ones is on its way.
+        repos.answers[IssueQuery(open = false)] = ForgeResult.Success(page(100))
+        viewModel.showOpen(false)
+        viewModel.showOpen(true)
+        advanceUntilIdle()
+        assertThat((viewModel.state.value.issues as Loadable.Loaded).value).isEmpty()
+        assertThat(viewModel.state.value.issuePaging).isEqualTo(ListPaging())
+    }
+
+    @Test
+    fun what_the_session_remembers_of_a_tab_shows_at_once_then_gives_way_to_the_forge_s_answer() = test {
+        // Regression: every tab opened on a loading screen, however recently the repository had been read.
+        cache()
+        repos.remembered["issues"] = listOf(issueSummary(1, "Old"))
+        repos.issues = ForgeResult.Success(listOf(issueSummary(2, "New"), issueSummary(1, "Old")))
+        repos.gate = kotlinx.coroutines.CompletableDeferred()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.selectTab(RepoTab.ISSUES)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.issues).isEqualTo(Loadable.Loaded(listOf(issueSummary(1, "Old"))))
+
+        repos.gate!!.complete(Unit)
+        advanceUntilIdle()
+        assertThat((viewModel.state.value.issues as Loadable.Loaded).value.map { it.number }).containsExactly(2, 1).inOrder()
+    }
+
+    @Test
+    fun what_is_remembered_stays_when_the_forge_can_t_be_asked() = test {
+        cache()
+        repos.remembered["releases"] = listOf(fr.arthurbrugiere.forgeline.core.model.Release("v1", null, "Notes", null, false, null))
+        repos.releases = ForgeResult.Failure(ForgeError.Network)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.selectTab(RepoTab.RELEASES)
+        advanceUntilIdle()
+
+        assertThat((viewModel.state.value.releases as Loadable.Loaded).value).hasSize(1)
+    }
+
+    @Test
+    fun a_folder_read_before_shows_at_once_on_the_branch_it_was_read_on() = test {
+        cache()
+        val file = fr.arthurbrugiere.forgeline.core.model.RepoFile("docs/a.md", "a.md", fr.arthurbrugiere.forgeline.core.model.RepoFileType.FILE, 1)
+        repos.remembered["contents:docs@master"] = listOf(file)
+        repos.gate = kotlinx.coroutines.CompletableDeferred()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.selectTab(RepoTab.CODE)
+
+        viewModel.openDirectory("docs")
+        runCurrent()
+
+        assertThat(viewModel.state.value.code.entries).isEqualTo(Loadable.Loaded(listOf(file)))
+    }
 }

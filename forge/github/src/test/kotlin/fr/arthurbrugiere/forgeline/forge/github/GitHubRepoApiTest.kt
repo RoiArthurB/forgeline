@@ -411,4 +411,19 @@ class GitHubRepoApiTest {
 
         assertThat(release.reactions).containsExactly(Reaction.THUMBS_UP, 4, Reaction.HOORAY, 2, Reaction.ROCKET, 1)
     }
+
+    @Test
+    fun a_further_page_of_issues_and_of_pull_requests_is_asked_for_by_its_number() = runTest {
+        // Regression: the lists stopped at their first 30, with no way to the rest.
+        api { json(fixture("search_issues.json")) }.issues(null, paperclip, IssueQuery(page = 3))
+        assertThat(requests.last().url.parameters["page"]).isEqualTo("3")
+        assertThat(requests.last().url.parameters["per_page"]).isEqualTo("30")
+
+        api { json("[]") }.pullRequests(null, paperclip, IssueQuery(open = false, page = 2))
+        assertThat(requests.last().url.encodedPath).isEqualTo("/repos/paperclipai/paperclip/pulls")
+        assertThat(requests.last().url.parameters["page"]).isEqualTo("2")
+
+        api { json(fixture("search_issues.json")) }.issues(null, paperclip)
+        assertThat(requests.last().url.parameters["page"]).isEqualTo("1")
+    }
 }

@@ -73,13 +73,13 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
     override suspend fun pullRequests(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = forgejoCall {
         // The pulls endpoint can't look for words: those go through the issue list, which lists pull requests too.
         if (query.text.isNotBlank()) return@forgejoCall list(token, id, "pulls", query)
-        get(token, id, "pulls", query = mapOf("state" to query.state, "sort" to "newest", "limit" to "30"))
+        get(token, id, "pulls", query = mapOf("state" to query.state, "sort" to "newest", "limit" to "${IssueQuery.PAGE_SIZE}", "page" to "${query.page}"))
             .toResult { body<List<IssueJson>>().map { it.toSummary() } }
     }
 
     private suspend fun list(token: String?, id: RepoId, type: String, query: IssueQuery): ForgeResult<List<IssueSummary>> {
         val words = query.text.trim()
-        val parameters = mapOf("state" to query.state, "type" to type, "limit" to "30") + if (words.isEmpty()) emptyMap() else mapOf("q" to words)
+        val parameters = mapOf("state" to query.state, "type" to type, "limit" to "${IssueQuery.PAGE_SIZE}", "page" to "${query.page}") + if (words.isEmpty()) emptyMap() else mapOf("q" to words)
         return get(token, id, "issues", query = parameters).toResult { body<List<IssueJson>>().map { it.toSummary() } }
     }
 

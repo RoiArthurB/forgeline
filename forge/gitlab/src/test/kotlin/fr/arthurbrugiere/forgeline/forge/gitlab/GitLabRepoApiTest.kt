@@ -150,4 +150,17 @@ class GitLabRepoApiTest {
         assertThat(prs[0].isPullRequest).isTrue()
         assertThat(prs[0].isDraft).isTrue()
     }
+
+    @Test
+    fun a_further_page_of_issues_and_of_merge_requests_is_asked_for_by_its_number() = runTest {
+        // Regression: the lists stopped at their first page, with no way to the rest.
+        api { json("[]") }.issues(null, repo, IssueQuery(page = 3))
+        assertThat(requests.last().url.parameters["page"]).isEqualTo("3")
+        assertThat(requests.last().url.parameters["per_page"]).isEqualTo("30")
+
+        requests.clear()
+        api { json("[]") }.pullRequests(null, repo, IssueQuery(open = false, page = 2))
+        // The merged and the closed are asked apart, each at the same page.
+        assertThat(requests.map { it.url.parameters["page"] }).containsExactly("2", "2")
+    }
 }

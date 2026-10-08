@@ -107,4 +107,4 @@ fun issueSummary(number: Int, title: String, isPullRequest: Boolean = false, sta
 )
 
 /** How a list call other than the default one is told apart in a fake's calls: " closed", " \"words\"". */
-val IssueQuery.suffix: String get() = (if (open) "" else " closed") + (if (text.isBlank()) "" else " \"${text.trim()}\"")
+val IssueQuery.suffix: String get() = (if (open) "" else " closed") + (if (text.isBlank()) "" else " \"${text.trim()}\"") + (if (page == 1) "" else " page $page")

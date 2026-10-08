@@ -264,4 +264,16 @@ class ForgejoRepoApiTest {
             "/api/v1/repos/forgejo/forgejo/releases/tags/v16.0.5", "/api/v1/repos/forgejo/forgejo/releases/tags/v16.0/forgejo",
         ).inOrder()
     }
+
+    @Test
+    fun a_further_page_of_issues_and_of_pull_requests_is_asked_for_by_its_number() = runTest {
+        // Regression: the lists stopped at their first 30, with no way to the rest.
+        with(codeberg) { api { json(fixture("issues.json")) } }.issues(null, forgejo, IssueQuery(page = 3))
+        assertThat(asked.parameters["page"]).isEqualTo("3")
+        assertThat(asked.parameters["limit"]).isEqualTo("30")
+
+        with(codeberg) { api { json(fixture("pulls.json")) } }.pullRequests(null, forgejo, IssueQuery(open = false, page = 2))
+        assertThat(asked.encodedPath).isEqualTo("/api/v1/repos/forgejo/forgejo/pulls")
+        assertThat(asked.parameters["page"]).isEqualTo("2")
+    }
 }

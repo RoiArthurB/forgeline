@@ -185,6 +185,7 @@ fun RepoRoute(
         state = state,
         signedIn = signedIn,
         onToggleWatch = viewModel::toggleWatch,
+        onLoadMore = viewModel::loadMore,
         onFork = viewModel::fork,
         onWatchFailureShown = viewModel::watchFailureShown,
         onForkErrorShown = viewModel::forkErrorShown,
@@ -250,6 +251,8 @@ fun RepoScreen(
     onStarFailureShown: () -> Unit,
     modifier: Modifier = Modifier,
     onToggleWatch: () -> Unit = {},
+    /** Asks for the next page of the issues or pull requests listed. */
+    onLoadMore: () -> Unit = {},
     /** Copies the repository to the reader's account, once they have said yes. */
     onFork: () -> Unit = {},
     onWatchFailureShown: () -> Unit = {},
@@ -427,12 +430,14 @@ fun RepoScreen(
                                 }
                                 loadable(state.issues, state.issueQuery.emptyMessage(R.string.repo_no_issues, R.string.repo_no_closed_issues), onRetryTab) { issues ->
                                     items(issues, key = { "issue-${it.number}" }) { IssueSummaryRow(it, nowMillis, { number -> onOpenIssue(number, it.isPullRequest) }) }
+                                    more(state.issuePaging, onLoadMore)
                                 }
                             }
                             RepoTab.PULLS -> {
                                 item(key = "pulls-find") { ListControls(state.pullQuery, stringResource(R.string.repo_search_pulls), onShowOpen, onSearch, onNewIssue = null) }
                                 loadable(state.pulls, state.pullQuery.emptyMessage(R.string.repo_no_pulls, R.string.repo_no_closed_pulls), onRetryTab) { pulls ->
                                     items(pulls, key = { "pull-${it.number}" }) { IssueSummaryRow(it, nowMillis, { number -> onOpenIssue(number, it.isPullRequest) }) }
+                                    more(state.pullPaging, onLoadMore)
                                 }
                             }
                             RepoTab.RELEASES -> loadable(state.releases, R.string.repo_no_releases, onRetryTab) { releases ->
@@ -533,6 +538,25 @@ private fun ListTitle(text: String) {
 
 /** An archived repository is read-only, and an owner can switch issues off. */
 private val RepoDetails.takesIssues: Boolean get() = hasIssues && !isArchived
+
+/**
+ * The end of a list that has more: reaching it asks for the next page, by itself. A page that couldn't be loaded is
+ * asked for by hand instead, so a forge that is down isn't asked again and again.
+ */
+private fun LazyListScope.more(paging: ListPaging, onLoadMore: () -> Unit) {
+    val next = paging.next ?: return
+    item(key = "more") {
+        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+            if (paging.failed) {
+                SoftTonalButton(stringResource(R.string.issue_load_more), onLoadMore)
+            } else {
+                LaunchedEffect(next) { onLoadMore() }
+                val loading = stringResource(R.string.repo_loading_more)
+                CircularProgressIndicator(Modifier.semantics { contentDescription = loading }, color = Soft.colors.accent, trackColor = Soft.colors.surface)
+            }
+        }
+    }
+}
 
 @Composable
 private fun RepoHeader(

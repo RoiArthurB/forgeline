@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
@@ -585,5 +587,50 @@ class RepoScreenTest {
         setContent(loaded.copy(watching = true))
 
         composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    private fun withMore(paging: ListPaging) {
+        val shown = androidx.compose.runtime.mutableStateOf(loaded.copy(tab = RepoTab.ISSUES, issues = someIssues, issuePaging = paging))
+        composeRule.setContent {
+            RepoScreen(
+                state = shown.value, signedIn = true, onBack = {}, onRefresh = {}, onSelectTab = {}, onRetryTab = {}, onToggleStar = {},
+                onOpenDirectory = {}, onOpenParentDirectory = {}, onOpenFile = {}, onOpenIssue = { _, _ -> }, onNewIssue = {}, onOpenUser = {},
+                onLinkClick = {}, onOpenRun = {}, onOpenInBrowser = {}, onLoadRefs = {}, onSelectRef = {}, onRunWorkflow = {},
+                onWorkflowStartShown = {}, onErrorShown = {}, onStarFailureShown = {}, nowMillis = 0,
+                onLoadMore = { events += "more" },
+            )
+        }
+        composeRule.waitForIdle()
+    }
+
+    @Test
+    fun reaching_the_end_of_a_list_that_has_more_asks_for_the_next_page_once() {
+        withMore(ListPaging(next = 2))
+
+        composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasContentDescription("Loading more"))
+        composeRule.waitForIdle()
+
+        assertThat(events).containsExactly("more")
+    }
+
+    @Test
+    fun a_list_that_has_no_more_ends_with_its_last_row() {
+        withMore(ListPaging())
+
+        composeRule.onNode(hasContentDescription("Loading more")).assertDoesNotExist()
+        assertThat(events).isEmpty()
+    }
+
+    @Test
+    fun a_page_that_couldn_t_be_loaded_is_asked_for_by_hand() {
+        withMore(ListPaging(next = 2, failed = true))
+
+        composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("Load more"))
+        composeRule.waitForIdle()
+        // A forge that is down isn't asked again by the list itself.
+        assertThat(events).isEmpty()
+
+        composeRule.onNodeWithText("Load more").performClick()
+        assertThat(events).containsExactly("more")
     }
 }

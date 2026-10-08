@@ -64,6 +64,16 @@ interface RepoRepository {
 
     suspend fun workflowRuns(id: RepoId): ForgeResult<List<WorkflowRun>>
 
+    // What each list answered last this session, to show at once while the forge is asked again; null when it wasn't asked.
+
+    fun rememberedIssues(id: RepoId, query: IssueQuery = IssueQuery()): List<IssueSummary>? = null
+
+    fun rememberedPullRequests(id: RepoId, query: IssueQuery = IssueQuery()): List<IssueSummary>? = null
+
+    fun rememberedReleases(id: RepoId): List<Release>? = null
+
+    fun rememberedContents(id: RepoId, path: String, ref: String): List<RepoFile>? = null
+
     fun rawBaseUrl(id: RepoId, ref: String): String
 
     fun blobBaseUrl(id: RepoId, ref: String): String
@@ -112,22 +122,56 @@ class DefaultRepoRepository @Inject constructor(
 
     override suspend fun refs(id: RepoId) = clients.repos(id.forge).refs(accounts.tokenOn(id.forge), id)
 
-    override suspend fun contents(id: RepoId, path: String, ref: String) = clients.repos(id.forge).contents(accounts.tokenOn(id.forge), id, path, ref)
+    /**
+     * The lists last answered, the ones read longest ago leaving first. Regression: a repository's tabs asked the
+     * forge and showed a loading screen each time the repository was opened, however recently it had been.
+     */
+    private val lists = object : LinkedHashMap<String, List<*>>(REMEMBERED_LISTS, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<*>>?) = size > REMEMBERED_LISTS
+    }
+
+    private fun <T> ForgeResult<List<T>>.remember(key: String) = also { if (it is ForgeResult.Success) synchronized(lists) { lists[key] = it.value } }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun <T> remembered(key: String): List<T>? = synchronized(lists) { lists[key] } as List<T>?
+
+    // An account sees what another doesn't (private repositories, drafts): what is remembered is one account's.
+    private fun listKeyNow(id: RepoId, what: String) = "${lastToken[id.forge]?.hashCode()}|${id.cacheKey()}|$what"
+
+    /** The token last used on each forge: what was remembered under another is not shown. */
+    private val lastToken = ConcurrentHashMap<fr.arthurbrugiere.forgeline.core.model.ForgeInstance, String>()
+
+    private suspend fun token(id: RepoId): String? = accounts.tokenOn(id.forge).also { if (it == null) lastToken.remove(id.forge) else lastToken[id.forge] = it }
+
+    private val IssueQuery.key get() = "$open|${text.trim()}|$page"
+
+    override suspend fun contents(id: RepoId, path: String, ref: String) =
+        clients.repos(id.forge).contents(token(id), id, path, ref).remember(listKeyNow(id, "contents|$ref|$path"))
+
+    override fun rememberedContents(id: RepoId, path: String, ref: String): List<RepoFile>? = remembered(listKeyNow(id, "contents|$ref|$path"))
+
+    override fun rememberedIssues(id: RepoId, query: IssueQuery): List<IssueSummary>? = remembered(listKeyNow(id, "issues|${query.key}"))
+
+    override fun rememberedPullRequests(id: RepoId, query: IssueQuery): List<IssueSummary>? = remembered(listKeyNow(id, "pulls|${query.key}"))
+
+    override fun rememberedReleases(id: RepoId): List<Release>? = remembered(listKeyNow(id, "releases"))
 
     override suspend fun fileText(id: RepoId, path: String, ref: String) = clients.repos(id.forge).fileText(accounts.tokenOn(id.forge), id, path, ref)
 
-    override suspend fun issues(id: RepoId, query: IssueQuery) = clients.repos(id.forge).issues(accounts.tokenOn(id.forge), id, query)
+    override suspend fun issues(id: RepoId, query: IssueQuery) =
+        clients.repos(id.forge).issues(token(id), id, query).remember(listKeyNow(id, "issues|${query.key}"))
 
-    override suspend fun pullRequests(id: RepoId, query: IssueQuery) = clients.repos(id.forge).pullRequests(accounts.tokenOn(id.forge), id, query)
+    override suspend fun pullRequests(id: RepoId, query: IssueQuery) =
+        clients.repos(id.forge).pullRequests(token(id), id, query).remember(listKeyNow(id, "pulls|${query.key}"))
 
     override suspend fun pinnedIssues(id: RepoId) = clients.repos(id.forge).pinnedIssues(accounts.tokenOn(id.forge), id)
 
     /** Releases seen this session, by repository then tag: opening one from its list asks the forge nothing. */
     private val seenReleases = ConcurrentHashMap<Pair<RepoId, String>, Release>()
 
-    override suspend fun releases(id: RepoId) = clients.repos(id.forge).releases(accounts.tokenOn(id.forge), id).also { result ->
+    override suspend fun releases(id: RepoId) = clients.repos(id.forge).releases(token(id), id).also { result ->
         if (result is ForgeResult.Success) result.value.forEach { seenReleases[id to it.tag] = it }
-    }
+    }.remember(listKeyNow(id, "releases"))
 
     override fun cachedRelease(id: RepoId, tag: String): Release? = seenReleases[id to tag]
 
@@ -149,5 +193,8 @@ class DefaultRepoRepository @Inject constructor(
 
         /** Repositories kept on disk, README included: the ones opened last. Regression: the cache only grew. */
         const val STORED_REPOS = 200
+
+        /** Lists kept in memory for the session: a few repositories' tabs and folders. */
+        const val REMEMBERED_LISTS = 96
     }
 }

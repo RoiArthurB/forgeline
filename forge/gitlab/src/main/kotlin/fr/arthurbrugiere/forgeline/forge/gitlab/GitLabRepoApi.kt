@@ -111,7 +111,8 @@ class GitLabRepoApi(
             "state" to if (query.open) "opened" else "closed",
             "order_by" to "created_at",
             "sort" to "desc",
-            "per_page" to "50",
+            "per_page" to "${IssueQuery.PAGE_SIZE}",
+            "page" to "${query.page}",
         )
         if (query.text.isNotBlank()) params["search"] = query.text
 
@@ -125,7 +126,7 @@ class GitLabRepoApi(
         val answers = coroutineScope {
             states.map { state ->
                 async {
-                    val params = mutableMapOf("state" to state, "order_by" to "created_at", "sort" to "desc", "per_page" to "50")
+                    val params = mutableMapOf("state" to state, "order_by" to "created_at", "sort" to "desc", "per_page" to "${IssueQuery.PAGE_SIZE}", "page" to "${query.page}")
                     if (query.text.isNotBlank()) params["search"] = query.text
                     httpClient.gitlabApi(id.forge, token, "projects", projectPath(id), "merge_requests", query = params)
                 }
