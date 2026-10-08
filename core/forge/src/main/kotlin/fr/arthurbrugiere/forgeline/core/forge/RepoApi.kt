@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.forge
 
+import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
+import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
@@ -42,6 +44,12 @@ interface RepoApi {
     suspend fun release(token: String?, id: RepoId, tag: String): ForgeResult<Release>
 
     suspend fun workflowRuns(token: String?, id: RepoId): ForgeResult<List<WorkflowRun>>
+
+    /** A page of the repository's discussions, most recently active first; [after] is what the page before gave as next. */
+    suspend fun discussions(token: String?, id: RepoId, after: String? = null): ForgeResult<DiscussionPage> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** The discussion [number] with its first comments and their replies; 404 when there is none. */
+    suspend fun discussion(token: String?, id: RepoId, number: Int): ForgeResult<Discussion> = ForgeResult.Failure(ForgeError.Unsupported)
 
     /** Where raw file bytes live, ending with `/`: README images resolve against it. */
     fun rawBaseUrl(id: RepoId, ref: String): String

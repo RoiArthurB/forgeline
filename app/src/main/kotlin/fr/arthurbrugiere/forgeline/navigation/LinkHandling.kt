@@ -18,11 +18,14 @@ fun openForgeLink(
     openUrl: (String) -> Unit,
     onOpenRun: ((RepoId, Long) -> Unit)? = null,
     onOpenRelease: ((RepoId, String) -> Unit)? = null,
+    /** Null outside the app shell: a discussion then opens on its forge. */
+    onOpenDiscussion: ((RepoId, Int) -> Unit)? = null,
 ) {
     when (val target = ForgeLinks.routeFor(url)) {
         is RepoRoute -> onOpenRepo(target.repo)
         is IssueRoute -> onOpenIssue(target.issue)
         is ReleaseRoute -> if (onOpenRelease != null) onOpenRelease(target.repo, target.tag) else onOpenRepo(target.repo)
+        is DiscussionRoute -> if (onOpenDiscussion != null) onOpenDiscussion(target.repo, target.number) else openUrl(url)
         is RunRoute -> if (onOpenRun != null) onOpenRun(target.repo, target.runId) else onOpenRepo(target.repo)
         is UserRoute -> if (target.forge == here) onOpenUser(target.login) else openUrl(url)
         // In-page anchors stay put.

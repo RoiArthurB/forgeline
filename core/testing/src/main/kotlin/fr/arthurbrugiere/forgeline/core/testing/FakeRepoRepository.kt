@@ -73,6 +73,25 @@ class FakeRepoRepository : RepoRepository {
         return answers[query] ?: pulls.takeIf { query.page == 1 } ?: ForgeResult.Success(emptyList())
     }
 
+    /** The pages of discussions, by what asks for each (null for the first); a failure for those not given. */
+    val discussionPages = mutableMapOf<String?, ForgeResult<fr.arthurbrugiere.forgeline.core.model.DiscussionPage>>()
+    val discussions = mutableMapOf<Int, ForgeResult<fr.arthurbrugiere.forgeline.core.model.Discussion>>()
+    val seenDiscussions = mutableMapOf<Int, fr.arthurbrugiere.forgeline.core.model.DiscussionSummary>()
+
+    override suspend fun discussions(id: RepoId, after: String?): ForgeResult<fr.arthurbrugiere.forgeline.core.model.DiscussionPage> {
+        calls += "discussions:${id.fullName}${after?.let { " after $it" }.orEmpty()}"
+        gate?.await()
+        return discussionPages[after] ?: ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http(404, "Not Found"))
+    }
+
+    override suspend fun discussion(id: RepoId, number: Int): ForgeResult<fr.arthurbrugiere.forgeline.core.model.Discussion> {
+        calls += "discussion:${id.fullName}#$number"
+        gate?.await()
+        return discussions[number] ?: ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http(404, "Not Found"))
+    }
+
+    override fun rememberedDiscussion(id: RepoId, number: Int) = seenDiscussions[number]
+
     /** What the session remembers of each list, by the call that would ask for it. */
     val remembered = mutableMapOf<String, Any>()
 

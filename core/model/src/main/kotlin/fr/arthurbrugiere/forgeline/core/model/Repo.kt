@@ -84,6 +84,10 @@ data class RepoDetails(
     val hasActions: Boolean = true,
     /** Whether the repository takes issues; its owner can switch them off. */
     val hasIssues: Boolean = true,
+    /** Whether the repository holds discussions the app can read. */
+    val hasDiscussions: Boolean = false,
+    /** Whether the repository has a wiki switched on. */
+    val hasWiki: Boolean = false,
 )
 
 data class Readme(val path: String, val markdown: String)

@@ -315,4 +315,37 @@ class DefaultRepoRepositoryTest {
 
         assertThat(repository.rememberedIssues(id)).isNull()
     }
+
+    @Test
+    fun whether_a_repository_holds_discussions_and_a_wiki_is_kept_with_it() = runTest {
+        api.details[id] = repoDetails("octo/repo").copy(hasDiscussions = true, hasWiki = true)
+
+        repository.refresh(id)
+
+        assertThat(repository.observe(id).first().details?.hasDiscussions).isTrue()
+        assertThat(repository.observe(id).first().details?.hasWiki).isTrue()
+    }
+
+    @Test
+    fun what_a_list_said_of_a_discussion_is_remembered_to_head_its_page() = runTest {
+        val listed = fr.arthurbrugiere.forgeline.core.testing.discussionSummary(7, "How do I page?")
+        api.discussionPages[null] = fr.arthurbrugiere.forgeline.core.model.DiscussionPage(listOf(listed), next = "c1")
+        assertThat(repository.rememberedDiscussion(id, 7)).isNull()
+
+        val page = (repository.discussions(id) as ForgeResult.Success).value
+
+        assertThat(page.next).isEqualTo("c1")
+        assertThat(repository.rememberedDiscussion(id, 7)).isEqualTo(listed)
+        assertThat(repository.rememberedDiscussion(id, 8)).isNull()
+    }
+
+    @Test
+    fun a_discussion_read_is_remembered_as_it_was_read() = runTest {
+        val read = fr.arthurbrugiere.forgeline.core.testing.discussionSummary(7, "How do I page?", comments = 3)
+        api.discussions[7] = fr.arthurbrugiere.forgeline.core.model.Discussion(read, "Body", emptyList())
+
+        repository.discussion(id, 7)
+
+        assertThat(repository.rememberedDiscussion(id, 7)).isEqualTo(read)
+    }
 }

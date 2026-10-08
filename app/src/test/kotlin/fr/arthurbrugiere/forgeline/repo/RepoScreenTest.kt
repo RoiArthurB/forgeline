@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import fr.arthurbrugiere.forgeline.core.testing.discussionSummary
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.onAllNodesWithText
@@ -93,6 +94,7 @@ class RepoScreenTest {
                 onErrorShown = {},
                 onStarFailureShown = {},
                 onToggleWatch = { events += "watch" },
+                onOpenDiscussion = { events += "discussion:$it" },
                 onFork = { events += "fork" },
                 onWatchFailureShown = { events += "watch-failure-shown" },
                 onForkErrorShown = { events += "fork-error-shown" },
@@ -632,5 +634,54 @@ class RepoScreenTest {
 
         composeRule.onNodeWithText("Load more").performClick()
         assertThat(events).containsExactly("more")
+    }
+
+    private val withDiscussions = loaded.copy(details = loaded.details!!.copy(hasDiscussions = true), tab = RepoTab.DISCUSSIONS)
+
+    @Test
+    fun the_discussions_tab_is_offered_only_where_there_are_some() {
+        setContent(loaded)
+        composeRule.onNodeWithText("Discussions").assertDoesNotExist()
+    }
+
+    @Test
+    fun discussions_say_where_they_were_filed_whether_they_were_answered_and_open() {
+        setContent(
+            withDiscussions.copy(
+                discussions = Loadable.Loaded(
+                    listOf(
+                        discussionSummary(7, "How do I page?", category = "Q&A", comments = 3, isAnswered = true),
+                        discussionSummary(8, "Version 3 is out", category = "Announcements", comments = 1, isAnswered = null),
+                    ),
+                ),
+            ),
+        )
+
+        composeRule.onNodeWithText("Discussions").assertIsDisplayed()
+        composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("Version 3 is out"))
+        composeRule.onNodeWithText("Q&A · Answered · alice", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("3 comments", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("1 comment", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("How do I page?").performClick()
+
+        assertThat(events).containsExactly("discussion:7")
+    }
+
+    @Test
+    fun a_repository_without_discussions_yet_says_so() {
+        setContent(withDiscussions.copy(discussions = Loadable.Loaded(emptyList())))
+
+        composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("No discussions yet."))
+        composeRule.onNodeWithText("No discussions yet.").assertIsDisplayed()
+    }
+
+    @Test
+    fun signed_out_the_discussions_say_they_need_an_account_and_offer_the_forge() {
+        setContent(withDiscussions.copy(discussions = Loadable.Failed(ForgeError.Unauthorized)), signedIn = false)
+
+        composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("Sign in to read discussions"))
+        composeRule.onNodeWithText("Open on GitHub").performClick()
+
+        assertThat(events).containsExactly("browser:https://github.com/octo/repo/discussions")
     }
 }

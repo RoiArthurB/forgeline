@@ -78,6 +78,8 @@ object ForgeLinks {
         val name = segments[1].removeSuffix(".git")
         val number = segments.getOrNull(3)?.toIntOrNull()
         if (number != null && segments[2] in setOf("issues", "pull", "pulls")) return IssueRoute(forge.host, owner, name, number)
+        // Only GitHub has discussions.
+        if (number != null && segments[2] == "discussions" && forge.type == ForgeType.GITHUB) return DiscussionRoute(forge.host, owner, name, number)
         // A release's page, on both forges: /owner/name/releases/tag/<tag>, where the tag may hold slashes.
         if (segments.size > 4 && segments[2] == "releases" && segments[3] == "tag") {
             return ReleaseRoute(forge.host, owner, name, segments.drop(4).joinToString("/"))

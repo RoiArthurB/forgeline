@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.core.data.repo
 
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
+import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
+import fr.arthurbrugiere.forgeline.core.model.Discussion
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.async
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
@@ -63,6 +67,13 @@ interface RepoRepository {
     suspend fun release(id: RepoId, tag: String): ForgeResult<Release>
 
     suspend fun workflowRuns(id: RepoId): ForgeResult<List<WorkflowRun>>
+
+    suspend fun discussions(id: RepoId, after: String? = null): ForgeResult<DiscussionPage> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    suspend fun discussion(id: RepoId, number: Int): ForgeResult<Discussion> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** What a discussion's list said of it this session, to head its page while it loads. */
+    fun rememberedDiscussion(id: RepoId, number: Int): DiscussionSummary? = null
 
     // What each list answered last this session, to show at once while the forge is asked again; null when it wasn't asked.
 
@@ -182,6 +193,18 @@ class DefaultRepoRepository @Inject constructor(
         }
 
     override suspend fun workflowRuns(id: RepoId) = clients.repos(id.forge).workflowRuns(accounts.tokenOn(id.forge), id)
+
+    private val seenDiscussions = ConcurrentHashMap<Pair<RepoId, Int>, DiscussionSummary>()
+
+    override suspend fun discussions(id: RepoId, after: String?) = clients.repos(id.forge).discussions(accounts.tokenOn(id.forge), id, after).also { result ->
+        if (result is ForgeResult.Success) result.value.items.forEach { seenDiscussions[id to it.number] = it }
+    }
+
+    override suspend fun discussion(id: RepoId, number: Int) = clients.repos(id.forge).discussion(accounts.tokenOn(id.forge), id, number).also { result ->
+        if (result is ForgeResult.Success) seenDiscussions[id to number] = result.value.summary
+    }
+
+    override fun rememberedDiscussion(id: RepoId, number: Int): DiscussionSummary? = seenDiscussions[id to number]
 
     override fun rawBaseUrl(id: RepoId, ref: String) = clients.repos(id.forge).rawBaseUrl(id, ref)
 

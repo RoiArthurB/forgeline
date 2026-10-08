@@ -221,6 +221,28 @@
     <string name="repo_tab_code">Code</string>
     <string name="repo_tab_issues">Issues</string>
     <string name="repo_tab_pulls">Pull requests</string>
+    <string name="repo_tab_discussions">Discussions</string>
+    <string name="repo_no_discussions">No discussions yet.</string>
+    <string name="repo_discussion_answered">Answered</string>
+    <plurals name="repo_discussion_comments">
+        <item quantity="one">%1$d comment</item>
+        <item quantity="other">%1$d comments</item>
+    </plurals>
+    <string name="repo_discussions_sign_in_title">Sign in to read discussions</string>
+    <string name="repo_discussions_sign_in_body">%1$s only shows discussions to an account in the app. They are open to all on its site.</string>
+    <string name="discussion_error_title">Couldn\'t load the discussion</string>
+    <string name="discussion_missing_body">It may have been deleted, or moved to an issue.</string>
+    <string name="discussion_opened">%1$s started this %2$s</string>
+    <string name="discussion_answer">Answer</string>
+    <string name="discussion_upvotes">▲ %1$d</string>
+    <plurals name="discussion_upvotes">
+        <item quantity="one">%1$d upvote</item>
+        <item quantity="other">%1$d upvotes</item>
+    </plurals>
+    <string name="discussion_no_text">No description.</string>
+    <string name="discussion_no_comments">No comments yet.</string>
+    <string name="discussion_partial">Only the first comments and replies are shown here.</string>
+    <string name="discussion_read_only">Reading only for now: comment on %1$s.</string>
     <string name="repo_tab_releases">Releases</string>
     <string name="repo_tab_actions">Actions</string>
     <string name="repo_open_on_forge">Open on %1$s</string>

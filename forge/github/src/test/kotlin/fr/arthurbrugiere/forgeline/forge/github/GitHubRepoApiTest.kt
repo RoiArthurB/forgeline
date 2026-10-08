@@ -426,4 +426,87 @@ class GitHubRepoApiTest {
         api { json(fixture("search_issues.json")) }.issues(null, paperclip)
         assertThat(requests.last().url.parameters["page"]).isEqualTo("1")
     }
+
+    // The shapes GitHub's GraphQL API answered on 2026-10-08 (vercel/next.js), shortened.
+    private val discussionList = """{"data":{"repository":{"discussions":{"pageInfo":{"hasNextPage":true,"endCursor":"Y3Vyc29y"},"nodes":[
+        {"number":99839,"title":"Turbopack Error","createdAt":"2026-10-08T02:05:19Z","upvoteCount":1,"isAnswered":null,"category":{"name":"Turbopack Error Report"},"author":{"login":"Shaffan23","avatarUrl":"https://avatars.example/1"},"comments":{"totalCount":0}},
+        {"number":99836,"title":"App Router PDF downloads","createdAt":"2026-10-07T22:12:26Z","upvoteCount":4,"isAnswered":false,"category":{"name":"Help"},"author":null,"comments":{"totalCount":12}}]}}}}"""
+
+    private val oneDiscussion = """{"data":{"repository":{"discussion":{"number":7,"title":"How do I page?","body":"I can't find it.","createdAt":"2026-10-01T10:00:00Z","upvoteCount":3,"isAnswered":true,
+        "category":{"name":"Q&A"},"author":{"login":"alice","avatarUrl":null},"comments":{"totalCount":2,"nodes":[
+        {"id":"c1","body":"Use the cursor.","createdAt":"2026-10-01T11:00:00Z","upvoteCount":5,"isAnswer":true,"author":{"login":"bob","avatarUrl":null},
+         "replies":{"totalCount":40,"nodes":[{"id":"r1","body":"Thanks!","createdAt":"2026-10-01T12:00:00Z","upvoteCount":0,"isAnswer":false,"author":{"login":"alice","avatarUrl":null}}]}},
+        {"id":"c2","body":"Same question.","createdAt":"2026-10-02T11:00:00Z","upvoteCount":0,"isAnswer":false,"author":null,"replies":{"totalCount":0,"nodes":[]}}]}}}}}"""
+
+    private fun body() = (requests.last().body as io.ktor.http.content.TextContent).text
+
+    @Test
+    fun discussions_are_listed_with_what_asks_for_the_next_page() = runTest {
+        val page = api { json(discussionList) }.discussions("tok", paperclip).value()
+
+        assertThat(page.next).isEqualTo("Y3Vyc29y")
+        assertThat(page.items.map { it.number }).containsExactly(99839, 99836).inOrder()
+        val first = page.items[0]
+        assertThat(first.category).isEqualTo("Turbopack Error Report")
+        assertThat(first.author?.login).isEqualTo("Shaffan23")
+        // A category that takes no answer says nothing of one.
+        assertThat(first.isAnswered).isNull()
+        assertThat(page.items[1].isAnswered).isFalse()
+        assertThat(page.items[1].comments).isEqualTo(12)
+        assertThat(page.items[1].author).isNull()
+        assertThat(requests.single().url.encodedPath).isEqualTo("/graphql")
+        assertThat(body()).contains("\"owner\":\"paperclipai\"")
+        assertThat(body()).doesNotContain("\"after\"")
+    }
+
+    @Test
+    fun the_next_page_of_discussions_is_asked_for_after_the_last_one_and_the_last_page_has_none() = runTest {
+        val last = """{"data":{"repository":{"discussions":{"pageInfo":{"hasNextPage":false,"endCursor":"end"},"nodes":[]}}}}"""
+
+        val page = api { json(last) }.discussions("tok", paperclip, after = "Y3Vyc29y").value()
+
+        assertThat(body()).contains("\"after\":\"Y3Vyc29y\"")
+        assertThat(page.next).isNull()
+        assertThat(page.items).isEmpty()
+    }
+
+    @Test
+    fun a_discussion_comes_with_its_comments_their_replies_and_its_answer() = runTest {
+        val discussion = api { json(oneDiscussion) }.discussion("tok", paperclip, 7).value()
+
+        assertThat(discussion.summary.title).isEqualTo("How do I page?")
+        assertThat(discussion.summary.isAnswered).isTrue()
+        assertThat(discussion.body).isEqualTo("I can't find it.")
+        assertThat(discussion.comments.map { it.id }).containsExactly("c1", "c2").inOrder()
+        assertThat(discussion.comments[0].isAnswer).isTrue()
+        assertThat(discussion.comments[0].replies.single().body).isEqualTo("Thanks!")
+        assertThat(discussion.comments[1].author).isNull()
+        // Forty replies, one read: the rest is on the forge's site.
+        assertThat(discussion.comments[0].replyCount).isEqualTo(40)
+        assertThat(discussion.isPartial).isTrue()
+        assertThat(body()).contains("\"number\":7")
+    }
+
+    @Test
+    fun a_discussion_that_is_not_there_is_not_found() = runTest {
+        // GitHub answers 200 holding nothing, with the reason beside it.
+        val gone = """{"data":{"repository":{"discussion":null}},"errors":[{"type":"NOT_FOUND","message":"Could not resolve to a Discussion with the number of 9."}]}"""
+
+        assertThat(api { json(gone) }.discussion("tok", paperclip, 9)).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "Not Found")))
+    }
+
+    @Test
+    fun signed_out_discussions_are_not_asked_for() = runTest {
+        // GraphQL answers nobody signed out.
+        assertThat(api { json(discussionList) }.discussions(null, paperclip)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(api { json(oneDiscussion) }.discussion(null, paperclip, 7)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(requests).isEmpty()
+    }
+
+    @Test
+    fun a_revoked_token_fails_discussions_as_unauthorized() = runTest {
+        val result = api { respond("""{"message":"Bad credentials"}""", HttpStatusCode.Unauthorized) }.discussions("tok", paperclip)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+    }
 }

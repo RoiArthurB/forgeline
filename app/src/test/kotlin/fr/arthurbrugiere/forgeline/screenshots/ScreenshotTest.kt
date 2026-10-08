@@ -1300,4 +1300,28 @@ class ScreenshotTest {
             section = section,
         )
     }
+
+    @Test
+    fun discussion_light() = snapshot("discussion_light", darkTheme = false, awaitText = "Use the cursor", awaitGoneTag = MARKDOWN_PENDING_TAG) {
+        val repo = RepoId("paperclipai", "paperclip")
+        val summary = fr.arthurbrugiere.forgeline.core.testing.discussionSummary(412, "How do I page through runs?", category = "Q&A", comments = 2, isAnswered = true, upvotes = 3)
+        fr.arthurbrugiere.forgeline.discussion.DiscussionScreen(
+            state = fr.arthurbrugiere.forgeline.discussion.DiscussionUiState(
+                repo, 412, summary,
+                fr.arthurbrugiere.forgeline.core.model.Discussion(
+                    summary, "The list stops at **30 runs** and I can't find how to get the rest.",
+                    listOf(
+                        fr.arthurbrugiere.forgeline.core.testing.discussionComment(
+                            "c1", "Use the cursor the list gives back as `next`.", login = "hubot", isAnswer = true, upvotes = 5,
+                            replies = listOf(fr.arthurbrugiere.forgeline.core.testing.discussionComment("r1", "Thanks, that was it.", login = "alice")),
+                        ),
+                        fr.arthurbrugiere.forgeline.core.testing.discussionComment("c2", "Same question here.", login = "carol"),
+                    ),
+                ),
+                isLoading = false,
+            ),
+            signedIn = true, onBack = {}, onRefresh = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {}, onLinkClick = {}, onSignIn = {}, onErrorShown = {},
+            nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
+        )
+    }
 }

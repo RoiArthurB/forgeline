@@ -80,6 +80,15 @@ class FakeRepoApi : RepoApi {
 
     override suspend fun workflowRuns(token: String?, id: RepoId) = answer("runs:${id.fullName}", token) { runs }
 
+    /** The pages of discussions, by what asks for each (null for the first). */
+    val discussionPages = mutableMapOf<String?, fr.arthurbrugiere.forgeline.core.model.DiscussionPage>()
+    val discussions = mutableMapOf<Int, fr.arthurbrugiere.forgeline.core.model.Discussion>()
+
+    override suspend fun discussions(token: String?, id: RepoId, after: String?) =
+        answer("discussions:${id.fullName}${after?.let { " after $it" }.orEmpty()}", token) { discussionPages[after] }
+
+    override suspend fun discussion(token: String?, id: RepoId, number: Int) = answer("discussion:${id.fullName}#$number", token) { discussions[number] }
+
     override fun rawBaseUrl(id: RepoId, ref: String) = "https://raw.example/${id.fullName}/$ref/"
 
     override fun blobBaseUrl(id: RepoId, ref: String) = "https://blob.example/${id.fullName}/$ref/"
@@ -108,3 +117,13 @@ fun issueSummary(number: Int, title: String, isPullRequest: Boolean = false, sta
 
 /** How a list call other than the default one is told apart in a fake's calls: " closed", " \"words\"". */
 val IssueQuery.suffix: String get() = (if (open) "" else " closed") + (if (text.isBlank()) "" else " \"${text.trim()}\"") + (if (page == 1) "" else " page $page")
+
+fun discussionSummary(number: Int, title: String, category: String? = "Q&A", comments: Int = 0, isAnswered: Boolean? = false, upvotes: Int = 0) =
+    fr.arthurbrugiere.forgeline.core.model.DiscussionSummary(
+        number, title, fr.arthurbrugiere.forgeline.core.model.ForgeUser("alice", null, null), java.time.Instant.parse("2026-09-26T08:00:00Z"), category, comments, upvotes, isAnswered,
+    )
+
+fun discussionComment(id: String, body: String, login: String = "bob", isAnswer: Boolean = false, upvotes: Int = 0, replies: List<fr.arthurbrugiere.forgeline.core.model.DiscussionComment> = emptyList()) =
+    fr.arthurbrugiere.forgeline.core.model.DiscussionComment(
+        id, fr.arthurbrugiere.forgeline.core.model.ForgeUser(login, null, null), body, java.time.Instant.parse("2026-09-26T09:00:00Z"), upvotes, isAnswer, replies,
+    )

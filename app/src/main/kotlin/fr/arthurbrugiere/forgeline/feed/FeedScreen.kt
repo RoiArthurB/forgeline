@@ -338,11 +338,12 @@ private fun FeedRow(
     val colors = Soft.colors
     val actor = item.actors.first()
     val openRelease = LocalOpenRelease.current
+    val openDiscussion = fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion.current
     Row(
         modifier
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 2.dp)
-            .softPressable { item.open(onOpenRepo, onOpenIssue, onOpenUser, onOpenUrl, openRelease) }
+            .softPressable { item.open(onOpenRepo, onOpenIssue, onOpenUser, onOpenUrl, openRelease, openDiscussion) }
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top,
     ) {
@@ -588,12 +589,13 @@ private fun FeedItem.open(
     onOpenUser: (ForgeInstance, String) -> Unit,
     onOpenUrl: (String) -> Unit,
     onOpenRelease: ((RepoId, String) -> Unit)?,
+    onOpenDiscussion: ((RepoId, Int) -> Unit)? = null,
 ) {
     when (val action = action) {
         // What was released, not only where: outside the app shell there is no release page, so its repository.
         is FeedAction.Released -> if (onOpenRelease != null) onOpenRelease(repo, action.tag) else onOpenRepo(repo)
-        // No discussion screen in the app: an announcement opens on its forge.
-        is FeedAction.Announced -> onOpenUrl("${repo.webUrl}/discussions/${action.number}")
+        // Outside the app shell there is no discussion page: an announcement then opens on its forge.
+        is FeedAction.Announced -> if (onOpenDiscussion != null) onOpenDiscussion(repo, action.number) else onOpenUrl("${repo.webUrl}/discussions/${action.number}")
         // Each says its kind: on GitLab a merge request and an issue can share a number.
         is FeedAction.Issue -> onOpenIssue(IssueRef(repo, action.number, isPullRequest = false))
         is FeedAction.PullRequest -> onOpenIssue(IssueRef(repo, action.number, isPullRequest = true))

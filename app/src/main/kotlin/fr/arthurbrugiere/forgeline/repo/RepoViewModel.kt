@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.assisted.Assisted
@@ -37,7 +38,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-enum class RepoTab { README, CODE, ISSUES, PULLS, RELEASES, ACTIONS }
+enum class RepoTab { README, CODE, ISSUES, PULLS, DISCUSSIONS, RELEASES, ACTIONS }
 
 sealed interface Loadable<out T> {
     data object Idle : Loadable<Nothing>
@@ -87,6 +88,8 @@ data class RepoUiState(
     val pullPaging: ListPaging = ListPaging(),
     /** The issues the repository pins above its list. */
     val pinned: List<IssueSummary> = emptyList(),
+    val discussions: Loadable<List<DiscussionSummary>> = Loadable.Idle,
+    val discussionPaging: ListPaging = ListPaging(),
     val releases: Loadable<List<Release>> = Loadable.Idle,
     val runs: Loadable<List<WorkflowRun>> = Loadable.Idle,
     /** The branch or tag browsed; null for the default branch. */
@@ -98,7 +101,15 @@ data class RepoUiState(
     val workflowStarted: Boolean = false,
 ) {
     /** The tabs this repository fills: Actions unless its CI is switched off (Forgejo repositories can). */
-    val tabs: List<RepoTab> get() = RepoTab.entries.filter { it != RepoTab.ACTIONS || details?.hasActions != false }
+    val tabs: List<RepoTab>
+        get() = RepoTab.entries.filter {
+            when (it) {
+                RepoTab.ACTIONS -> details?.hasActions != false
+                // Only where the repository holds some: most don't.
+                RepoTab.DISCUSSIONS -> details?.hasDiscussions == true
+                else -> true
+            }
+        }
 
     /** What the README and Code tabs show: [ref], else the default branch once known. */
     val browsedRef: String? get() = ref ?: details?.defaultBranch
@@ -313,6 +324,7 @@ class RepoViewModel @AssistedInject constructor(
     /** Loads the next page of the list shown, and adds it under what is there. */
     fun loadMore() {
         val tab = local.value.tab
+        if (tab == RepoTab.DISCUSSIONS) return loadMoreDiscussions()
         val query = query(tab) ?: return
         val paging = paging(tab)
         val page = paging.next ?: return
@@ -334,6 +346,33 @@ class RepoViewModel @AssistedInject constructor(
                         if (tab == RepoTab.ISSUES) state.copy(issues = state.issues.plus(result.value)) else state.copy(pulls = state.pulls.plus(result.value))
                     }
                     setPaging(tab) { ListPaging(next = (page + 1).takeIf { result.value.size >= IssueQuery.PAGE_SIZE }) }
+                }
+            }
+        }
+    }
+
+    /** What asks GitHub for the discussions after those listed; null at the list's end. */
+    private var discussionsAfter: String? = null
+
+    private fun loadMoreDiscussions() {
+        val after = discussionsAfter ?: return
+        if (local.value.discussionPaging.isLoading) return
+        local.update { it.copy(discussionPaging = it.discussionPaging.copy(isLoading = true, failed = false)) }
+        viewModelScope.launch {
+            val result = repos.discussions(canonicalId(), after)
+            // A page that arrives after the list was loaded again is dropped.
+            if (discussionsAfter != after) return@launch
+            when (result) {
+                is ForgeResult.Failure -> local.update { it.copy(discussionPaging = it.discussionPaging.copy(isLoading = false, failed = true)) }
+                is ForgeResult.Success -> {
+                    discussionsAfter = result.value.next
+                    local.update { state ->
+                        val listed = (state.discussions as? Loadable.Loaded)?.value.orEmpty()
+                        state.copy(
+                            discussions = Loadable.Loaded((listed + result.value.items).distinctBy { it.number }),
+                            discussionPaging = ListPaging(next = result.value.next?.let { (state.discussionPaging.next ?: 2) + 1 }),
+                        )
+                    }
                 }
             }
         }
@@ -381,6 +420,10 @@ class RepoViewModel @AssistedInject constructor(
                     repos.issues(id, query ?: IssueQuery())
                 }
                 RepoTab.PULLS -> repos.pullRequests(id, query ?: IssueQuery())
+                RepoTab.DISCUSSIONS -> when (val page = repos.discussions(id)) {
+                    is ForgeResult.Failure -> page
+                    is ForgeResult.Success -> ForgeResult.Success(page.value.items).also { discussionsAfter = page.value.next }
+                }
                 RepoTab.RELEASES -> repos.releases(id)
                 RepoTab.ACTIONS -> repos.workflowRuns(id)
                 RepoTab.README -> return@launch
@@ -408,6 +451,11 @@ class RepoViewModel @AssistedInject constructor(
             RepoTab.CODE -> state.copy(code = state.code.copy(entries = value as Loadable<List<RepoFile>>))
             RepoTab.ISSUES -> state.copy(issues = value as Loadable<List<IssueSummary>>, issuePaging = paging)
             RepoTab.PULLS -> state.copy(pulls = value as Loadable<List<IssueSummary>>, pullPaging = paging)
+            // Discussions are paged by what the forge gave as next, not by how full the page is.
+            RepoTab.DISCUSSIONS -> state.copy(
+                discussions = value as Loadable<List<DiscussionSummary>>,
+                discussionPaging = ListPaging(next = 2.takeIf { value is Loadable.Loaded<*> && discussionsAfter != null }),
+            )
             RepoTab.RELEASES -> state.copy(releases = value as Loadable<List<Release>>)
             RepoTab.ACTIONS -> state.copy(runs = value as Loadable<List<WorkflowRun>>)
             RepoTab.README -> state
@@ -419,6 +467,7 @@ class RepoViewModel @AssistedInject constructor(
         RepoTab.CODE -> state.code.entries
         RepoTab.ISSUES -> state.issues
         RepoTab.PULLS -> state.pulls
+        RepoTab.DISCUSSIONS -> state.discussions
         RepoTab.RELEASES -> state.releases
         RepoTab.ACTIONS -> state.runs
     }

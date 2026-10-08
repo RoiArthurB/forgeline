@@ -213,6 +213,7 @@ fun IssueRoute(
     val viewModel = hiltViewModel<IssueViewModel, IssueViewModel.Factory>(key = "${ref.repo.key}${if (ref.isPullRequest == true) "!" else "#"}${ref.number}") { it.create(ref) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
+    val openDiscussion = fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion.current
     val openRelease = fr.arthurbrugiere.forgeline.ui.LocalOpenRelease.current
     val signedIn = session.signedInOn(ref.repo.forge)
     // Who may close the conversation depends on who is signed in: signing in from here is asked about on the way back.
@@ -290,7 +291,7 @@ fun IssueRoute(
         onOpenRepo = onOpenRepo,
         onOpenUser = onOpenUser,
         onOpenInBrowser = openUrl,
-        onLinkClick = { url -> openForgeLink(url, ref.repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease) },
+        onLinkClick = { url -> openForgeLink(url, ref.repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion) },
         onErrorShown = viewModel::errorShown,
     )
 }

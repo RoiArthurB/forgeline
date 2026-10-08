@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.ui
 
+import fr.arthurbrugiere.forgeline.navigation.DiscussionRoute
 import fr.arthurbrugiere.forgeline.R
 import androidx.compose.ui.res.stringResource
 import fr.arthurbrugiere.forgeline.navigation.PictureRoute
@@ -91,6 +92,7 @@ fun ForgelineApp(
         CompositionLocalProvider(
             LocalOpenSearch provides { navigator.navigate(SearchKey) },
             LocalOpenRelease provides { repo, tag -> navigator.navigate(repo.releaseRoute(tag)) },
+            LocalOpenDiscussion provides { repo, number -> navigator.navigate(DiscussionRoute(repo.forge.host, repo.owner, repo.name, number)) },
             LocalOpenPicture provides { url, description -> navigator.navigate(PictureRoute(url, description)) },
             LocalOpenPictureLabel provides stringResource(R.string.picture_view),
         ) {
@@ -123,6 +125,11 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
             FeedDestination(session, onSignIn = signIn, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser, onBrowseTrending = browseTrending)
         }
         entry<TrendingRoute> { TrendingDestination(session, onSignIn = signIn, onOpenRepo = openRepo) }
+        entry<DiscussionRoute> { key ->
+            fr.arthurbrugiere.forgeline.discussion.DiscussionRoute(
+                key, session, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.repo.forge, it) }, onSignIn = signIn,
+            )
+        }
         entry<PictureRoute> { key -> PictureScreen(key, onBack = navigator::goBack, onOpenInBrowser = rememberCustomTabOpener()) }
         entry<FileKey> { key ->
             FileDestination(key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.repo.forge, it) })

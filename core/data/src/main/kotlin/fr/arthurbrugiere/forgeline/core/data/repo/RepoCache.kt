@@ -66,6 +66,8 @@ private data class StoredDetails(
     val pushedAtEpochSeconds: Long?,
     val hasActions: Boolean = true,
     val hasIssues: Boolean = true,
+    val hasDiscussions: Boolean = false,
+    val hasWiki: Boolean = false,
 )
 
 private val json = Json { ignoreUnknownKeys = true }
@@ -75,14 +77,14 @@ internal fun RepoId.cacheKey(): String = "${forge.host}/$fullName".lowercase()
 internal fun RepoDetails.encode(): String = json.encodeToString(
     StoredDetails(
         id.forge.type, id.forge.host, id.owner, id.name, description, homepage, topics, stars, forks, watchers, language, license,
-        defaultBranch, ownerAvatarUrl, isFork, isArchived, pushedAt?.epochSecond, hasActions, hasIssues,
+        defaultBranch, ownerAvatarUrl, isFork, isArchived, pushedAt?.epochSecond, hasActions, hasIssues, hasDiscussions, hasWiki,
     ),
 )
 
 internal fun RepoCacheEntity.decodeDetails(): RepoDetails = json.decodeFromString<StoredDetails>(details).run {
     RepoDetails(
         RepoId(owner, name, ForgeInstance(forgeType, host)), description, homepage, topics, stars, forks, watchers, language, license,
-        defaultBranch, ownerAvatarUrl, isFork, isArchived, pushedAtEpochSeconds?.let(Instant::ofEpochSecond), hasActions, hasIssues,
+        defaultBranch, ownerAvatarUrl, isFork, isArchived, pushedAtEpochSeconds?.let(Instant::ofEpochSecond), hasActions, hasIssues, hasDiscussions, hasWiki,
     )
 }
 

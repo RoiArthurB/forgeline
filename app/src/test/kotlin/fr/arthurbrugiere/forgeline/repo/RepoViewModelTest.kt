@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import fr.arthurbrugiere.forgeline.core.testing.discussionSummary
+import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoSnapshot
 import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
@@ -806,5 +808,85 @@ class RepoViewModelTest {
         runCurrent()
 
         assertThat(viewModel.state.value.code.entries).isEqualTo(Loadable.Loaded(listOf(file)))
+    }
+
+    private val withDiscussions = details.copy(hasDiscussions = true)
+
+    @Test
+    fun the_discussions_tab_shows_only_where_the_repository_holds_some() {
+        assertThat(RepoUiState(requested, details = details).tabs).doesNotContain(RepoTab.DISCUSSIONS)
+        assertThat(RepoUiState(requested, details = withDiscussions).tabs).contains(RepoTab.DISCUSSIONS)
+        assertThat(RepoUiState(requested).tabs).doesNotContain(RepoTab.DISCUSSIONS)
+    }
+
+    @Test
+    fun discussions_are_listed_and_the_next_page_is_asked_for_after_the_last() = test {
+        cache(repo = withDiscussions)
+        repos.discussionPages[null] = ForgeResult.Success(DiscussionPage(listOf(discussionSummary(2, "Second"), discussionSummary(1, "First")), next = "c1"))
+        repos.discussionPages["c1"] = ForgeResult.Success(DiscussionPage(listOf(discussionSummary(1, "First"), discussionSummary(0, "Zeroth")), next = null))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.selectTab(RepoTab.DISCUSSIONS)
+        advanceUntilIdle()
+        assertThat((viewModel.state.value.discussions as Loadable.Loaded).value.map { it.number }).containsExactly(2, 1).inOrder()
+        assertThat(viewModel.state.value.discussionPaging.next).isNotNull()
+
+        viewModel.loadMore()
+        viewModel.loadMore()
+        advanceUntilIdle()
+        // One that moved down a page meanwhile is not listed twice.
+        assertThat((viewModel.state.value.discussions as Loadable.Loaded).value.map { it.number }).containsExactly(2, 1, 0).inOrder()
+        assertThat(viewModel.state.value.discussionPaging).isEqualTo(ListPaging())
+        assertThat(repos.calls.filter { it.startsWith("discussions:") }).containsExactly("discussions:octo/repo", "discussions:octo/repo after c1").inOrder()
+    }
+
+    @Test
+    fun a_single_page_of_discussions_has_nothing_after_it() = test {
+        cache(repo = withDiscussions)
+        repos.discussionPages[null] = ForgeResult.Success(DiscussionPage(listOf(discussionSummary(1, "First")), next = null))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.selectTab(RepoTab.DISCUSSIONS)
+        advanceUntilIdle()
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.discussionPaging).isEqualTo(ListPaging())
+        assertThat(repos.calls.count { it.startsWith("discussions:") }).isEqualTo(1)
+    }
+
+    @Test
+    fun a_page_of_discussions_that_couldn_t_be_loaded_can_be_asked_for_again() = test {
+        cache(repo = withDiscussions)
+        repos.discussionPages[null] = ForgeResult.Success(DiscussionPage(listOf(discussionSummary(1, "First")), next = "c1"))
+        repos.discussionPages["c1"] = ForgeResult.Failure(ForgeError.Network)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.selectTab(RepoTab.DISCUSSIONS)
+        advanceUntilIdle()
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.discussionPaging.failed).isTrue()
+
+        repos.discussionPages["c1"] = ForgeResult.Success(DiscussionPage(listOf(discussionSummary(0, "Zeroth")), next = null))
+        viewModel.loadMore()
+        advanceUntilIdle()
+        assertThat((viewModel.state.value.discussions as Loadable.Loaded).value).hasSize(2)
+    }
+
+    @Test
+    fun signed_out_the_discussions_say_they_need_an_account() = test {
+        cache(repo = withDiscussions)
+        repos.discussionPages[null] = ForgeResult.Failure(ForgeError.Unauthorized)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.selectTab(RepoTab.DISCUSSIONS)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.discussions).isEqualTo(Loadable.Failed(ForgeError.Unauthorized))
     }
 }

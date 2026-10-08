@@ -186,4 +186,30 @@ class ForgeLinksTest {
         assertThat(ForgeLinks.routeFor("https://gitlab.com/RoiArthurB/forgeline-scratch/-/work_items/1"))
             .isEqualTo(IssueRoute("gitlab.com", "RoiArthurB", "forgeline-scratch", 1, isPullRequest = false))
     }
+
+    @Test
+    fun a_discussion_s_url_opens_it_on_github_only() {
+        // Regression: a discussion's link opened its repository.
+        assertThat(ForgeLinks.routeFor("https://github.com/vercel/next.js/discussions/99839#discussioncomment-1"))
+            .isEqualTo(DiscussionRoute("github.com", "vercel", "next.js", 99839))
+        assertThat(ForgeLinks.routeFor("https://github.com/vercel/next.js/discussions")).isEqualTo(RepoRoute("github.com", "vercel", "next.js"))
+        assertThat(ForgeLinks.routeFor("https://github.com/vercel/next.js/discussions/categories/help")).isEqualTo(RepoRoute("github.com", "vercel", "next.js"))
+        // Forgejo has none: whatever is at that address is its repository's.
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/forgejo/discussions/3")).isEqualTo(RepoRoute("codeberg.org", "forgejo", "forgejo"))
+    }
+
+    @Test
+    fun a_discussion_s_link_opens_in_the_app_where_it_can_and_on_its_forge_otherwise() {
+        val events = mutableListOf<String>()
+        val url = "https://github.com/vercel/next.js/discussions/7"
+        fun open(inApp: Boolean) = openForgeLink(
+            url, ForgeInstance.GitHub, onOpenRepo = { events += "repo" }, onOpenIssue = { events += "issue" }, onOpenUser = { events += "user" },
+            openUrl = { events += "browser:$it" }, onOpenDiscussion = if (inApp) ({ repo, number -> events += "discussion:${repo.fullName}#$number" }) else null,
+        )
+
+        open(inApp = true)
+        open(inApp = false)
+
+        assertThat(events).containsExactly("discussion:vercel/next.js#7", "browser:$url").inOrder()
+    }
 }

@@ -1,5 +1,11 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import io.ktor.http.isSuccess
+import kotlinx.serialization.json.JsonObjectBuilder
+import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
+import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
+import fr.arthurbrugiere.forgeline.core.model.DiscussionComment
+import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
@@ -139,6 +145,44 @@ class GitHubRepoApi(
         }
     }
 
+    /** Discussions are in GitHub's GraphQL API only, which answers nobody signed out. */
+    private suspend fun <T> discussionsQuery(token: String?, id: RepoId, query: String, more: JsonObjectBuilder.() -> Unit, read: (DiscussionsRepository) -> T?): ForgeResult<T> {
+        if (token == null) return ForgeResult.Failure(ForgeError.Unauthorized)
+        return gitHubCall {
+            val response = httpClient.post("$apiBaseUrl/graphql") {
+                bearerAuth(token)
+                header("X-GitHub-Api-Version", GitHubAuthApi.API_VERSION)
+                contentType(ContentType.Application.Json)
+                setBody(
+                    buildJsonObject {
+                        put("query", query)
+                        putJsonObject("variables") {
+                            put("owner", id.owner)
+                            put("name", id.name)
+                            more()
+                        }
+                    },
+                )
+            }
+            if (!response.status.isSuccess()) return@gitHubCall response.toResult { error("unreachable") }
+            // What isn't there comes back as a 200 holding nothing, with the reason beside it.
+            val value = response.body<DiscussionsAnswer>().data?.repository?.let(read)
+            if (value == null) ForgeResult.Failure(ForgeError.Http(404, "Not Found")) else ForgeResult.Success(value)
+        }
+    }
+
+    override suspend fun discussions(token: String?, id: RepoId, after: String?): ForgeResult<DiscussionPage> =
+        discussionsQuery(token, id, DISCUSSIONS_QUERY, { after?.let { put("after", it) } }) { repository ->
+            repository.discussions?.let { list -> DiscussionPage(list.nodes.map { it.toSummary() }, list.pageInfo.endCursor.takeIf { list.pageInfo.hasNextPage }) }
+        }
+
+    override suspend fun discussion(token: String?, id: RepoId, number: Int): ForgeResult<Discussion> =
+        discussionsQuery(token, id, DISCUSSION_QUERY, { put("number", number) }) { repository ->
+            repository.discussion?.let { json ->
+                Discussion(json.toSummary(), json.body.orEmpty(), json.comments.nodes.map { comment -> comment.toModel(comment.replies?.nodes.orEmpty().map { it.toModel() }) })
+            }
+        }
+
     override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = gitHubCall {
         get(token, "repos", id.owner, id.name, "releases", query = mapOf("per_page" to "30"))
             .toResult { body<List<ReleaseResponse>>().filterNot { it.draft }.map { it.toModel(id) }.withLatest() }
@@ -192,6 +236,8 @@ private data class RepoResponse(
     val archived: Boolean = false,
     @SerialName("pushed_at") val pushedAt: String? = null,
     @SerialName("has_issues") val hasIssues: Boolean = true,
+    @SerialName("has_discussions") val hasDiscussions: Boolean = false,
+    @SerialName("has_wiki") val hasWiki: Boolean = false,
 ) {
     fun toModel() = RepoDetails(
         id = RepoId(owner.login, name, ForgeInstance.GitHub),
@@ -210,6 +256,8 @@ private data class RepoResponse(
         isArchived = archived,
         pushedAt = pushedAt?.let(Instant::parse),
         hasIssues = hasIssues,
+        hasDiscussions = hasDiscussions,
+        hasWiki = hasWiki,
     )
 }
 
@@ -277,6 +325,79 @@ private data class MergedResponse(@SerialName("merged_at") val mergedAt: String?
 
 @Serializable
 private data class SearchResponse(val items: List<IssueResponse>)
+
+private const val DISCUSSION_FIELDS = "number title createdAt upvoteCount isAnswered category { name } author { login avatarUrl }"
+private const val DISCUSSION_COMMENT_FIELDS = "id body createdAt upvoteCount isAnswer author { login avatarUrl }"
+
+/** How many comments of a discussion are read, and how many replies to each: the forge's site has the rest. */
+internal const val DISCUSSION_COMMENTS = 50
+internal const val DISCUSSION_REPLIES = 30
+
+private const val DISCUSSIONS_QUERY = "query(\$owner: String!, \$name: String!, \$after: String) { repository(owner: \$owner, name: \$name) { " +
+    "discussions(first: 30, after: \$after, orderBy: {field: UPDATED_AT, direction: DESC}) { pageInfo { hasNextPage endCursor } " +
+    "nodes { $DISCUSSION_FIELDS comments { totalCount } } } } }"
+
+private const val DISCUSSION_QUERY = "query(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { " +
+    "discussion(number: \$number) { $DISCUSSION_FIELDS body comments(first: $DISCUSSION_COMMENTS) { totalCount nodes { $DISCUSSION_COMMENT_FIELDS " +
+    "replies(first: $DISCUSSION_REPLIES) { totalCount nodes { $DISCUSSION_COMMENT_FIELDS } } } } } } }"
+
+@Serializable
+private data class DiscussionsAnswer(val data: DiscussionsData? = null)
+
+@Serializable
+private data class DiscussionsData(val repository: DiscussionsRepository? = null)
+
+@Serializable
+private data class DiscussionsRepository(val discussions: DiscussionList? = null, val discussion: DiscussionJson? = null)
+
+@Serializable
+private data class DiscussionList(val pageInfo: DiscussionPageInfo = DiscussionPageInfo(), val nodes: List<DiscussionJson> = emptyList())
+
+@Serializable
+private data class DiscussionPageInfo(val hasNextPage: Boolean = false, val endCursor: String? = null)
+
+@Serializable
+private data class DiscussionAuthorJson(val login: String, val avatarUrl: String? = null)
+
+@Serializable
+private data class DiscussionCategoryJson(val name: String? = null)
+
+@Serializable
+private data class DiscussionCommentsJson(val totalCount: Int = 0, val nodes: List<DiscussionCommentJson> = emptyList())
+
+@Serializable
+private data class DiscussionJson(
+    val number: Int,
+    val title: String,
+    val body: String? = null,
+    val createdAt: String? = null,
+    val upvoteCount: Int = 0,
+    // Null where the category takes no answer.
+    val isAnswered: Boolean? = null,
+    val category: DiscussionCategoryJson? = null,
+    val author: DiscussionAuthorJson? = null,
+    val comments: DiscussionCommentsJson = DiscussionCommentsJson(),
+) {
+    fun toSummary() = DiscussionSummary(
+        number, title, author?.let { ForgeUser(it.login, null, it.avatarUrl) }, createdAt?.let(Instant::parse), category?.name, comments.totalCount, upvoteCount, isAnswered,
+    )
+}
+
+@Serializable
+private data class DiscussionCommentJson(
+    val id: String,
+    val body: String = "",
+    val createdAt: String? = null,
+    val upvoteCount: Int = 0,
+    val isAnswer: Boolean = false,
+    val author: DiscussionAuthorJson? = null,
+    val replies: DiscussionCommentsJson? = null,
+) {
+    fun toModel(replies: List<DiscussionComment> = emptyList()) = DiscussionComment(
+        id, author?.let { ForgeUser(it.login, null, it.avatarUrl) }, body, createdAt?.let(Instant::parse), upvoteCount, isAnswer, replies,
+        replyCount = this.replies?.totalCount ?: replies.size,
+    )
+}
 
 private const val PINNED_QUERY = "query(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { pinnedIssues(first: 3) { nodes { issue { " +
     "number title state createdAt author { login avatarUrl } comments { totalCount } labels(first: 10) { nodes { name color } } } } } } }"

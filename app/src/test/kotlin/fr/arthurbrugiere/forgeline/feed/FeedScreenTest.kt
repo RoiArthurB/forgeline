@@ -276,7 +276,7 @@ class FeedScreenTest {
         composeRule.onNodeWithText("Announcement", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Immich turns three", useUnmergedTree = true).performClick()
 
-        // Forgeline has no discussion screen: the announcement opens on the forge.
+        // Outside the app shell there is no discussion page: the announcement opens on the forge.
         assertThat(events).containsExactly("url:https://github.com/immich-app/immich/discussions/880")
     }
 

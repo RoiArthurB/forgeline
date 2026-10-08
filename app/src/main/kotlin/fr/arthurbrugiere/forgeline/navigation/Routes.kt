@@ -44,6 +44,12 @@ data class FileRoute(val host: String, val owner: String, val name: String, val 
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
 }
 
+/** One discussion of a repository, by its number. */
+@Serializable
+data class DiscussionRoute(val host: String, val owner: String, val name: String, val number: Int) : NavKey {
+    val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
+}
+
 /** A picture of a README, a comment or a release's notes, shown on its own. */
 @Serializable
 data class PictureRoute(val url: String, val description: String? = null) : NavKey {

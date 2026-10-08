@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material.icons.outlined.Forum
+import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.automirrored.outlined.CallSplit
@@ -160,6 +163,7 @@ fun RepoRoute(
     val viewModel = hiltViewModel<RepoViewModel, RepoViewModel.Factory>(key = id.key) { it.create(id) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
+    val openDiscussion = fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion.current
     val openRelease = LocalOpenRelease.current
     val signedIn = session.signedInOn(id.forge)
     var dispatching by rememberSaveable { mutableStateOf(false) }
@@ -185,6 +189,7 @@ fun RepoRoute(
         state = state,
         signedIn = signedIn,
         onToggleWatch = viewModel::toggleWatch,
+        onOpenDiscussion = { number -> state.details?.let { openDiscussion?.invoke(it.id, number) ?: openUrl("${it.id.webUrl}/discussions/$number") } },
         onLoadMore = viewModel::loadMore,
         onFork = viewModel::fork,
         onWatchFailureShown = viewModel::watchFailureShown,
@@ -206,7 +211,7 @@ fun RepoRoute(
         onOpenRelease = { tag -> state.details?.let { openRelease?.invoke(it.id, tag) } },
         onOpenRun = { runId -> state.details?.let { onOpenRun(it.id, runId) } },
         onOpenUser = onOpenUser,
-        onLinkClick = { url -> openForgeLink(url, id.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRun, openRelease) },
+        onLinkClick = { url -> openForgeLink(url, id.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRun, openRelease, openDiscussion) },
         onOpenInBrowser = openUrl,
         onLoadRefs = viewModel::loadRefs,
         onRunWorkflow = if (signedIn) ({ dispatching = true }) else null,
@@ -251,6 +256,7 @@ fun RepoScreen(
     onStarFailureShown: () -> Unit,
     modifier: Modifier = Modifier,
     onToggleWatch: () -> Unit = {},
+    onOpenDiscussion: (Int) -> Unit = {},
     /** Asks for the next page of the issues or pull requests listed. */
     onLoadMore: () -> Unit = {},
     /** Copies the repository to the reader's account, once they have said yes. */
@@ -440,6 +446,22 @@ fun RepoScreen(
                                     more(state.pullPaging, onLoadMore)
                                 }
                             }
+                            RepoTab.DISCUSSIONS -> if ((state.discussions as? Loadable.Failed)?.error == ForgeError.Unauthorized) {
+                                // GitHub only answers an account about discussions.
+                                item(key = "discussions-sign-in") {
+                                    SoftNotice(
+                                        stringResource(R.string.repo_discussions_sign_in_title),
+                                        stringResource(R.string.repo_discussions_sign_in_body, id.forge.displayName),
+                                        action = stringResource(R.string.repo_open_on_forge, id.forge.displayName),
+                                        onAction = { onOpenInBrowser("${id.webUrl}/discussions") },
+                                    )
+                                }
+                            } else {
+                                loadable(state.discussions, R.string.repo_no_discussions, onRetryTab) { discussions ->
+                                    items(discussions, key = { "discussion-${it.number}" }) { DiscussionRow(it, nowMillis) { onOpenDiscussion(it.number) } }
+                                    more(state.discussionPaging, onLoadMore)
+                                }
+                            }
                             RepoTab.RELEASES -> loadable(state.releases, R.string.repo_no_releases, onRetryTab) { releases ->
                                 items(releases, key = { "release-${it.tag}" }) { ReleaseRow(it, nowMillis, onClick = { onOpenRelease(it.tag) }) }
                             }
@@ -538,6 +560,33 @@ private fun ListTitle(text: String) {
 
 /** An archived repository is read-only, and an owner can switch issues off. */
 private val RepoDetails.takesIssues: Boolean get() = hasIssues && !isArchived
+
+/** One discussion in its repository's list: what it asks or says, where it was filed, and whether it was answered. */
+@Composable
+private fun DiscussionRow(discussion: DiscussionSummary, nowMillis: Long, onOpen: () -> Unit) {
+    val colors = Soft.colors
+    val answered = discussion.isAnswered == true
+    Row(
+        Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).softPressable(onClick = onOpen).padding(12.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Box(Modifier.size(36.dp).background(if (answered) colors.fields[2] else colors.surface, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(if (answered) Icons.Outlined.CheckCircleOutline else Icons.Outlined.Forum, contentDescription = null, tint = colors.ink, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(discussion.title, style = Soft.type.name, color = colors.ink)
+            val facts = listOfNotNull(
+                discussion.category,
+                stringResource(R.string.repo_discussion_answered).takeIf { answered },
+                discussion.author?.login,
+                discussion.createdAt?.let { relative(it, nowMillis) },
+                pluralStringResource(R.plurals.repo_discussion_comments, discussion.comments, discussion.comments).takeIf { discussion.comments > 0 },
+            )
+            Text(facts.joinToString(" · "), style = Soft.type.meta, color = colors.inkMuted)
+        }
+    }
+}
 
 /**
  * The end of a list that has more: reaching it asks for the next page, by itself. A page that couldn't be loaded is
@@ -825,6 +874,7 @@ private val RepoTab.label: Int
         RepoTab.CODE -> R.string.repo_tab_code
         RepoTab.ISSUES -> R.string.repo_tab_issues
         RepoTab.PULLS -> R.string.repo_tab_pulls
+        RepoTab.DISCUSSIONS -> R.string.repo_tab_discussions
         RepoTab.RELEASES -> R.string.repo_tab_releases
         RepoTab.ACTIONS -> R.string.repo_tab_actions
     }

@@ -87,6 +87,7 @@ fun FileRoute(
     ) { it.create(target) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
+    val openDiscussion = fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion.current
     val openRelease = fr.arthurbrugiere.forgeline.ui.LocalOpenRelease.current
     val clipboard = LocalClipboard.current
     val scope = rememberCoroutineScope()
@@ -95,7 +96,7 @@ fun FileRoute(
         onBack = onBack,
         onRetry = viewModel::retry,
         onOpenInBrowser = openUrl,
-        onLinkClick = { url -> openForgeLink(url, target.id.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease) },
+        onLinkClick = { url -> openForgeLink(url, target.id.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion) },
         onCopy = { text -> scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(target.name, text))) } },
     )
 }
