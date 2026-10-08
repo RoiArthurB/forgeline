@@ -276,4 +276,14 @@ class ForgejoRepoApiTest {
         assertThat(asked.encodedPath).isEqualTo("/api/v1/repos/forgejo/forgejo/pulls")
         assertThat(asked.parameters["page"]).isEqualTo("2")
     }
+
+    @Test
+    fun a_repository_says_whether_it_has_a_wiki_and_never_holds_discussions() = runTest {
+        val without = with(codeberg) { api { json(fixture("repo.json")) } }.repo(null, forgejo).value()
+        assertThat(without.hasWiki).isFalse()
+
+        val with = with(codeberg) { api { json(fixture("repo.json").replace("\"has_wiki\":false", "\"has_wiki\":true")) } }.repo(null, forgejo).value()
+        assertThat(with.hasWiki).isTrue()
+        assertThat(with.hasDiscussions).isFalse()
+    }
 }

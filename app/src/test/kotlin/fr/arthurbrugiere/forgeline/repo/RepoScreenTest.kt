@@ -684,4 +684,27 @@ class RepoScreenTest {
 
         assertThat(events).containsExactly("browser:https://github.com/octo/repo/discussions")
     }
+
+    @Test
+    fun a_repository_with_a_wiki_offers_it_and_opens_it_on_its_forge() {
+        setContent(loaded.copy(details = loaded.details!!.copy(hasWiki = true)), signedIn = false)
+
+        composeRule.onNodeWithText("Wiki").performClick()
+
+        assertThat(events).containsExactly("browser:https://github.com/octo/repo/wiki")
+    }
+
+    @Test
+    fun a_repository_without_a_wiki_does_not_offer_one() {
+        setContent(loaded)
+
+        composeRule.onNodeWithText("Wiki").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_wiki_is_where_each_forge_keeps_it() {
+        assertThat(RepoId("octo", "repo").wikiUrl).isEqualTo("https://github.com/octo/repo/wiki")
+        assertThat(RepoId("forgejo", "forgejo", ForgeInstance.Codeberg).wikiUrl).isEqualTo("https://codeberg.org/forgejo/forgejo/wiki")
+        assertThat(RepoId("gitlab-org", "gitlab", ForgeInstance.GitLab).wikiUrl).isEqualTo("https://gitlab.com/gitlab-org/gitlab/-/wikis")
+    }
 }

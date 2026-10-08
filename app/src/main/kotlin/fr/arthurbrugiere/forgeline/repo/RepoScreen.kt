@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.Forum
 import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
@@ -364,7 +366,7 @@ fun RepoScreen(
                         },
                     ) {
                         if (details != null) {
-                            RepoHeader(details, state.starred, signedIn, onToggleStar, onLinkClick, onOpenUser, state.watching, onToggleWatch, state.isForking, onFork = { forking = true })
+                            RepoHeader(details, state.starred, signedIn, onToggleStar, onLinkClick, onOpenUser, state.watching, onToggleWatch, state.isForking, onFork = { forking = true }, onOpenWiki = { onOpenInBrowser(details.id.wikiUrl) })
                         } else {
                             Text(id.name, style = Soft.type.title, color = colors.ink)
                         }
@@ -558,6 +560,9 @@ private fun ListTitle(text: String) {
     )
 }
 
+/** Where a repository's wiki is on its forge's site. */
+internal val RepoId.wikiUrl: String get() = if (forge.type == ForgeType.GITLAB) "$webUrl/-/wikis" else "$webUrl/wiki"
+
 /** An archived repository is read-only, and an owner can switch issues off. */
 private val RepoDetails.takesIssues: Boolean get() = hasIssues && !isArchived
 
@@ -619,6 +624,7 @@ private fun RepoHeader(
     onToggleWatch: () -> Unit = {},
     isForking: Boolean = false,
     onFork: () -> Unit = {},
+    onOpenWiki: () -> Unit = {},
 ) {
     val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -693,6 +699,10 @@ private fun RepoHeader(
                     on = watching,
                     onToggle = onToggleWatch,
                 )
+            }
+            // The app has no wiki pages of its own yet: where a repository has a wiki, it opens on its forge.
+            if (details.hasWiki) {
+                HeaderAction(icon = Icons.AutoMirrored.Outlined.MenuBook, label = stringResource(R.string.repo_wiki), onClick = onOpenWiki)
             }
             if (signedIn) {
                 HeaderAction(

@@ -45,6 +45,7 @@ internal data class RepoJson(
     @SerialName("updated_at") val updatedAt: String? = null,
     @SerialName("has_actions") val hasActions: Boolean = false,
     @SerialName("has_issues") val hasIssues: Boolean = true,
+    @SerialName("has_wiki") val hasWiki: Boolean = false,
     /** How many releases the repository has; null on servers too old to say. */
     @SerialName("release_counter") val releaseCounter: Int? = null,
 ) {
@@ -68,6 +69,7 @@ internal data class RepoJson(
         pushedAt = instant(updatedAt),
         hasActions = hasActions,
         hasIssues = hasIssues,
+        hasWiki = hasWiki,
     )
 
     fun toSummary(forge: ForgeInstance) = RepoSummary(

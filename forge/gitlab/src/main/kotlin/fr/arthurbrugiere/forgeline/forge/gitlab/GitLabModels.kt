@@ -50,6 +50,7 @@ internal data class GitLabProjectJson(
     @SerialName("tag_list") val tagList: List<String> = emptyList(),
     @SerialName("jobs_enabled") val jobsEnabled: Boolean? = true,
     @SerialName("issues_enabled") val issuesEnabled: Boolean? = true,
+    @SerialName("wiki_enabled") val wikiEnabled: Boolean? = false,
     @SerialName("merge_requests_enabled") val mergeRequestsEnabled: Boolean? = true,
     val license: GitLabLicenseJson? = null,
     val permissions: GitLabPermissionsJson? = null,
@@ -78,6 +79,7 @@ internal data class GitLabProjectJson(
             pushedAt = gitlabInstant(lastActivityAt),
             hasActions = jobsEnabled ?: true,
             hasIssues = issuesEnabled ?: true,
+            hasWiki = wikiEnabled ?: false,
         )
     }
 

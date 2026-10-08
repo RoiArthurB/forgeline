@@ -249,6 +249,7 @@
     <string name="repo_star">Star</string>
     <string name="repo_starred">Starred</string>
     <string name="repo_loading_more">Loading more</string>
+    <string name="repo_wiki">Wiki</string>
     <string name="repo_watch">Watch</string>
     <string name="repo_watching">Watching</string>
     <string name="repo_watch_failed">Couldn\'t change what you watch. Try again.</string>

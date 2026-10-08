@@ -509,4 +509,16 @@ class GitHubRepoApiTest {
 
         assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
     }
+
+    @Test
+    fun a_repository_says_whether_it_holds_discussions_and_a_wiki() = runTest {
+        val plain = api { json(fixture("repo.json")) }.repo(null, paperclip).value()
+        assertThat(plain.hasDiscussions).isTrue()
+        assertThat(plain.hasWiki).isFalse()
+
+        val other = api { json(fixture("repo.json").replace("\"has_wiki\":false", "\"has_wiki\":true").replace("\"has_discussions\":true", "\"has_discussions\":false")) }
+            .repo(null, paperclip).value()
+        assertThat(other.hasDiscussions).isFalse()
+        assertThat(other.hasWiki).isTrue()
+    }
 }

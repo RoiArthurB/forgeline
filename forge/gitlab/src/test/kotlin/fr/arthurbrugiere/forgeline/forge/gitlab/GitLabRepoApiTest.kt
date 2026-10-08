@@ -163,4 +163,14 @@ class GitLabRepoApiTest {
         // The merged and the closed are asked apart, each at the same page.
         assertThat(requests.map { it.url.parameters["page"] }).containsExactly("2", "2")
     }
+
+    @Test
+    fun a_project_says_whether_its_wiki_is_switched_on() = runTest {
+        fun project(wiki: String) = """{"id":1,"name":"gitlab","path":"gitlab","path_with_namespace":"gitlab-org/gitlab","web_url":"https://gitlab.com/gitlab-org/gitlab"$wiki}"""
+
+        assertThat(api { json(project(""","wiki_enabled":true""")) }.repo(null, repo).value().hasWiki).isTrue()
+        assertThat(api { json(project(""","wiki_enabled":false""")) }.repo(null, repo).value().hasWiki).isFalse()
+        // Not said: not offered.
+        assertThat(api { json(project("")) }.repo(null, repo).value().hasWiki).isFalse()
+    }
 }
