@@ -60,6 +60,13 @@ data class RepoUiState(
     val error: ForgeError? = null,
     val starred: Boolean? = null,
     val starFailed: Boolean = false,
+    /** Whether the account is told of everything here; null when unknown, and nothing is offered then. */
+    val watching: Boolean? = null,
+    val watchFailed: Boolean = false,
+    val isForking: Boolean = false,
+    /** Where the fork just made is, to go there once. */
+    val forkedTo: RepoId? = null,
+    val forkError: ForgeError? = null,
     val tab: RepoTab = RepoTab.README,
     val code: CodeState = CodeState(),
     val issues: Loadable<List<IssueSummary>> = Loadable.Idle,
@@ -118,6 +125,11 @@ class RepoViewModel @AssistedInject constructor(
         viewModelScope.launch {
             combine(canonicalIds(), accounts.activeAccount.map { it?.id }.distinctUntilChanged()) { id, account -> id to account }
                 .collect { (id, account) ->
+                    // Asked side by side: neither waits for the other.
+                    viewModelScope.launch {
+                        val watching = if (account == null) null else stars.isWatching(id)
+                        local.update { it.copy(watching = watching) }
+                    }
                     val starred = if (account == null) null else stars.starredStatus(listOf(id))[id]
                     local.update { it.copy(starred = starred) }
                 }
@@ -224,6 +236,37 @@ class RepoViewModel @AssistedInject constructor(
             }
         }
     }
+
+    fun toggleWatch() {
+        val target = !(local.value.watching ?: return)
+        local.update { it.copy(watching = target) }
+        viewModelScope.launch {
+            if (stars.setWatching(canonicalId(), target) is ForgeResult.Failure) {
+                local.update { it.copy(watching = !target, watchFailed = true) }
+            }
+        }
+    }
+
+    /** Copies the repository to the reader's account; the copy is then where the screen goes. */
+    fun fork() {
+        if (local.value.isForking) return
+        local.update { it.copy(isForking = true, forkError = null) }
+        viewModelScope.launch {
+            val result = stars.fork(canonicalId())
+            local.update {
+                when (result) {
+                    is ForgeResult.Success -> it.copy(isForking = false, forkedTo = result.value)
+                    is ForgeResult.Failure -> it.copy(isForking = false, forkError = result.error)
+                }
+            }
+        }
+    }
+
+    fun forkOpened() = local.update { it.copy(forkedTo = null) }
+
+    fun forkErrorShown() = local.update { it.copy(forkError = null) }
+
+    fun watchFailureShown() = local.update { it.copy(watchFailed = false) }
 
     /** Says so, then lists the runs again once the forge has queued the new one. */
     fun workflowStarted() {

@@ -59,4 +59,38 @@ class DefaultStarRepositoryTest {
         assertThat(status.keys).doesNotContain(cb)
         assertThat(codeberg.tokensSeen).isEmpty()
     }
+
+    @Test
+    fun signed_out_nothing_is_watched_or_forked_and_nothing_is_called() = runTest {
+        assertThat(repository.isWatching(repo)).isNull()
+        assertThat(repository.setWatching(repo, true)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(repository.fork(repo)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(api.tokensSeen).isEmpty()
+    }
+
+    @Test
+    fun watching_is_read_and_set_with_the_account_s_token() = runTest {
+        signIn()
+
+        assertThat(repository.isWatching(repo)).isFalse()
+        assertThat(repository.setWatching(repo, true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(repository.isWatching(repo)).isTrue()
+        assertThat(api.tokensSeen.distinct()).containsExactly("ghp_token")
+    }
+
+    @Test
+    fun a_forge_that_can_t_say_what_is_watched_leaves_it_unknown() = runTest {
+        signIn()
+        api.failure = ForgeError.Unsupported
+
+        assertThat(repository.isWatching(repo)).isNull()
+    }
+
+    @Test
+    fun a_fork_says_where_it_is() = runTest {
+        signIn()
+        api.forkedTo = RepoId("octocat", "paperclip")
+
+        assertThat(repository.fork(repo)).isEqualTo(ForgeResult.Success(RepoId("octocat", "paperclip")))
+    }
 }

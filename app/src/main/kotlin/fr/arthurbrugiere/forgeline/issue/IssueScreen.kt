@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.ui.SayOnce
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -362,13 +363,7 @@ fun IssueScreen(
         }
     }
 
-    val deleteFailed = stringResource(R.string.issue_comment_delete_failed)
-    LaunchedEffect(state.deleteError) {
-        if (state.deleteError != null) {
-            comments.onDeleteErrorShown()
-            snackbar.showSnackbar(deleteFailed)
-        }
-    }
+    SayOnce(stringResource(R.string.issue_comment_delete_failed).takeIf { state.deleteError != null }, snackbar, comments.onDeleteErrorShown)
     val attachFailed = state.attachError?.let { error ->
         stringResource(
             when {
@@ -379,19 +374,8 @@ fun IssueScreen(
             },
         )
     }
-    LaunchedEffect(attachFailed) {
-        if (attachFailed != null) {
-            comments.onAttachErrorShown()
-            snackbar.showSnackbar(attachFailed)
-        }
-    }
-    val reactionFailed = stringResource(R.string.issue_reaction_failed)
-    LaunchedEffect(state.reactionError) {
-        if (state.reactionError != null) {
-            comments.onReactionErrorShown()
-            snackbar.showSnackbar(reactionFailed)
-        }
-    }
+    SayOnce(attachFailed, snackbar, comments.onAttachErrorShown)
+    SayOnce(stringResource(R.string.issue_reaction_failed).takeIf { state.reactionError != null }, snackbar, comments.onReactionErrorShown)
     // The comment the reader asked to delete, until they have said yes or no.
     var deleting by rememberSaveable { mutableStateOf<Long?>(null) }
     deleting?.let { id ->

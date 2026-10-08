@@ -145,4 +145,36 @@ class GitLabUserApiTest {
         assertThat(requests[1].method).isEqualTo(HttpMethod.Post)
         assertThat(requests[1].url.encodedPath).contains("/unstar")
     }
+
+    @Test
+    fun a_project_is_watched_only_when_it_notifies_of_everything() = runTest {
+        assertThat(starApi { json("""{"level":"watch"}""") }.isWatching("token", repo).value()).isTrue()
+        // What the account does everywhere, or less, is not watching this project.
+        assertThat(starApi { json("""{"level":"global"}""") }.isWatching("token", repo).value()).isFalse()
+        assertThat(starApi { json("""{"level":"participating"}""") }.isWatching("token", repo).value()).isFalse()
+
+        assertThat(requests.last().url.encodedPath).endsWith("/notification_settings")
+    }
+
+    @Test
+    fun watching_sets_the_level_and_no_longer_watching_gives_it_back_to_the_account_s_setting() = runTest {
+        val api = starApi { json("""{"level":"watch"}""") }
+
+        assertThat(api.setWatching("token", repo, true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.setWatching("token", repo, false)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(requests.map { it.method }.distinct()).containsExactly(HttpMethod.Put)
+        assertThat(requests.map { (it.body as io.ktor.http.content.TextContent).text })
+            .containsExactly("""{"level":"watch"}""", """{"level":"global"}""").inOrder()
+    }
+
+    @Test
+    fun a_fork_says_where_the_copy_is_even_in_a_subgroup() = runTest {
+        val fork = starApi { json("""{"id":9,"name":"tool","path":"tool","path_with_namespace":"me/sub/tool","web_url":"https://gitlab.com/me/sub/tool"}""") }
+            .fork("token", repo).value()
+
+        assertThat(fork).isEqualTo(RepoId("me/sub", "tool", repo.forge))
+        assertThat(requests.single().method).isEqualTo(HttpMethod.Post)
+        assertThat(requests.single().url.encodedPath).endsWith("/fork")
+    }
 }

@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.onNodeWithContentDescription
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -87,6 +90,10 @@ class RepoScreenTest {
                 onWorkflowStartShown = { events += "started-shown" },
                 onErrorShown = {},
                 onStarFailureShown = {},
+                onToggleWatch = { events += "watch" },
+                onFork = { events += "fork" },
+                onWatchFailureShown = { events += "watch-failure-shown" },
+                onForkErrorShown = { events += "fork-error-shown" },
                 nowMillis = 0,
             )
         }
@@ -481,5 +488,102 @@ class RepoScreenTest {
         composeRule.onNodeWithText("Launch fails on cold start").performClick()
 
         assertThat(openedAsPullRequest).containsExactly(false)
+    }
+
+    @Test
+    fun a_repository_can_be_watched_and_no_longer_watched() {
+        setContent(loaded.copy(watching = false))
+        composeRule.onNodeWithText("Watch", useUnmergedTree = true).onParent().assertIsOff()
+        composeRule.onNodeWithText("Watch").performClick()
+
+        assertThat(events).containsExactly("watch")
+    }
+
+    @Test
+    fun a_watched_repository_says_so() {
+        setContent(loaded.copy(watching = true))
+
+        composeRule.onNodeWithText("Watching", useUnmergedTree = true).onParent().assertIsOn()
+    }
+
+    @Test
+    fun watching_is_not_offered_signed_out_or_before_the_forge_has_said() {
+        setContent(loaded.copy(watching = null))
+        composeRule.onNodeWithText("Watch").assertDoesNotExist()
+        composeRule.onNodeWithText("Watching").assertDoesNotExist()
+    }
+
+    @Test
+    fun signed_out_only_the_star_is_offered() {
+        setContent(loaded.copy(watching = false), signedIn = false)
+
+        composeRule.onNodeWithText("Star").assertIsDisplayed()
+        composeRule.onNodeWithText("Watch").assertDoesNotExist()
+        composeRule.onNodeWithText("Fork").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_fork_is_asked_about_first() {
+        setContent(loaded)
+
+        composeRule.onNodeWithText("Fork").performClick()
+        composeRule.onNodeWithText("Fork repo?").assertIsDisplayed()
+        composeRule.onNodeWithText("A copy of this repository will be made in your GitHub account.").assertIsDisplayed()
+        assertThat(events).isEmpty()
+
+        composeRule.onAllNodesWithText("Fork")[1].performClick()
+        assertThat(events).containsExactly("fork")
+        composeRule.onNodeWithText("Fork repo?").assertDoesNotExist()
+    }
+
+    @Test
+    fun saying_no_forks_nothing() {
+        setContent(loaded)
+
+        composeRule.onNodeWithText("Fork").performClick()
+        composeRule.onNodeWithText("Cancel").performClick()
+
+        assertThat(events).isEmpty()
+        composeRule.onNodeWithText("Fork repo?").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_fork_on_its_way_says_so_and_can_t_be_asked_again() {
+        setContent(loaded.copy(isForking = true))
+
+        composeRule.onNodeWithText("Forking").assertIsNotEnabled()
+    }
+
+    @Test
+    fun each_reason_a_fork_wasn_t_made_has_its_own_words() {
+        val shown = androidx.compose.runtime.mutableStateOf(loaded)
+        composeRule.setContent {
+            RepoScreen(
+                state = shown.value, signedIn = true, onBack = {}, onRefresh = {}, onSelectTab = {}, onRetryTab = {}, onToggleStar = {},
+                onOpenDirectory = {}, onOpenParentDirectory = {}, onOpenFile = {}, onOpenIssue = { _, _ -> }, onNewIssue = {}, onOpenUser = {},
+                onLinkClick = {}, onOpenRun = {}, onOpenInBrowser = {}, onLoadRefs = {}, onSelectRef = {}, onRunWorkflow = {},
+                onWorkflowStartShown = {}, onErrorShown = {}, onStarFailureShown = {}, nowMillis = 0,
+                onForkErrorShown = { events += "fork-error-shown"; shown.value = shown.value.copy(forkError = null) },
+            )
+        }
+        shown.value = loaded.copy(forkError = ForgeError.Http(409, null))
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithText("Not forked: your account already has a repository by that name.").fetchSemanticsNodes().isNotEmpty() }
+
+        assertThat(events).containsExactly("fork-error-shown")
+    }
+
+    @Test
+    fun a_watch_that_failed_is_said_once() {
+        setContent(loaded.copy(watching = false, watchFailed = true))
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithText("Couldn't change what you watch. Try again.").fetchSemanticsNodes().isNotEmpty() }
+        assertThat(events).containsExactly("watch-failure-shown")
+    }
+
+    @Test
+    fun the_header_s_actions_are_large_enough_to_tap_even_at_large_text() {
+        setContent(loaded.copy(watching = true))
+
+        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 }

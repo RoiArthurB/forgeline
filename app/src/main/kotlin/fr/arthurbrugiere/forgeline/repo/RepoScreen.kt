@@ -1,5 +1,10 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material.icons.automirrored.outlined.CallSplit
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.filled.Visibility
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import fr.arthurbrugiere.forgeline.ui.rememberNow
 import androidx.compose.foundation.selection.toggleable
@@ -132,6 +137,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
+import fr.arthurbrugiere.forgeline.ui.SayOnce
 import fr.arthurbrugiere.forgeline.ui.LocalOpenRelease
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import androidx.compose.runtime.getValue
@@ -169,9 +175,19 @@ fun RepoRoute(
             },
         )
     }
+    LaunchedEffect(state.forkedTo) {
+        state.forkedTo?.let { fork ->
+            viewModel.forkOpened()
+            onOpenRepo(fork)
+        }
+    }
     RepoScreen(
         state = state,
         signedIn = signedIn,
+        onToggleWatch = viewModel::toggleWatch,
+        onFork = viewModel::fork,
+        onWatchFailureShown = viewModel::watchFailureShown,
+        onForkErrorShown = viewModel::forkErrorShown,
         onBack = onBack,
         onRefresh = viewModel::refresh,
         onSelectTab = viewModel::selectTab,
@@ -233,6 +249,11 @@ fun RepoScreen(
     onErrorShown: () -> Unit,
     onStarFailureShown: () -> Unit,
     modifier: Modifier = Modifier,
+    onToggleWatch: () -> Unit = {},
+    /** Copies the repository to the reader's account, once they have said yes. */
+    onFork: () -> Unit = {},
+    onWatchFailureShown: () -> Unit = {},
+    onForkErrorShown: () -> Unit = {},
     nowMillis: Long = rememberNow(state.issues, state.pulls, state.pinned, state.releases, state.runs),
 ) {
     val colors = Soft.colors
@@ -258,6 +279,38 @@ fun RepoScreen(
             snackbar.showSnackbar(starFailed)
             onStarFailureShown()
         }
+    }
+    SayOnce(stringResource(R.string.repo_watch_failed).takeIf { state.watchFailed }, snackbar, onWatchFailureShown)
+    val forkFailed = state.forkError?.let { error ->
+        stringResource(
+            when {
+                error == ForgeError.Network -> R.string.repo_fork_offline
+                // Forgejo refuses a second fork, and no forge copies a repository onto itself.
+                error is ForgeError.Http && (error.status == 409 || error.status == 422) -> R.string.repo_fork_exists
+                error is ForgeError.Http && (error.status == 403 || error.status == 404) -> R.string.repo_fork_refused
+                else -> R.string.repo_fork_failed
+            },
+        )
+    }
+    SayOnce(forkFailed, snackbar, onForkErrorShown)
+    // A fork makes a repository in the reader's name: asked about first.
+    var forking by rememberSaveable { mutableStateOf(false) }
+    if (forking) {
+        val forge = (details?.id ?: state.requested).forge.displayName
+        AlertDialog(
+            onDismissRequest = { forking = false },
+            title = { Text(stringResource(R.string.repo_fork_title, (details?.id ?: state.requested).name)) },
+            text = { Text(stringResource(R.string.repo_fork_body, forge)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    forking = false
+                    onFork()
+                }) { Text(stringResource(R.string.repo_fork_action)) }
+            },
+            dismissButton = { TextButton(onClick = { forking = false }) { Text(stringResource(R.string.cancel)) } },
+            shape = RoundedCornerShape(28.dp),
+            containerColor = colors.raised,
+        )
     }
 
     val id = details?.id ?: state.requested
@@ -302,7 +355,7 @@ fun RepoScreen(
                         },
                     ) {
                         if (details != null) {
-                            RepoHeader(details, state.starred, signedIn, onToggleStar, onLinkClick, onOpenUser)
+                            RepoHeader(details, state.starred, signedIn, onToggleStar, onLinkClick, onOpenUser, state.watching, onToggleWatch, state.isForking, onFork = { forking = true })
                         } else {
                             Text(id.name, style = Soft.type.title, color = colors.ink)
                         }
@@ -489,6 +542,10 @@ private fun RepoHeader(
     onToggleStar: () -> Unit,
     onLinkClick: (String) -> Unit,
     onOpenUser: (String) -> Unit,
+    watching: Boolean? = null,
+    onToggleWatch: () -> Unit = {},
+    isForking: Boolean = false,
+    onFork: () -> Unit = {},
 ) {
     val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -545,30 +602,76 @@ private fun RepoHeader(
             }
         }
         val isStarred = starred == true && signedIn
-        Box(
-            Modifier
-                .padding(top = 4.dp)
-                .clip(SoftTokens.Pill)
-                .background(if (isStarred) colors.ground else colors.thumb)
-                // A toggle, so screen readers hear "on" or "off" as well as the label.
-                .toggleable(value = isStarred, role = Role.Switch, onValueChange = { onToggleStar() })
-                .heightIn(min = 48.dp)
-                .padding(horizontal = 20.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(
-                    if (isStarred) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                    contentDescription = null,
-                    tint = if (isStarred) colors.accent else colors.onThumb,
-                    modifier = Modifier.size(18.dp),
-                )
-                Text(
-                    stringResource(if (isStarred) R.string.repo_starred else R.string.repo_star),
-                    style = Soft.type.control,
-                    color = if (isStarred) colors.ink else colors.onThumb,
+        // Side by side while they fit; at large text or on a narrow screen they go one under another.
+        FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            HeaderAction(
+                icon = if (isStarred) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                label = stringResource(if (isStarred) R.string.repo_starred else R.string.repo_star),
+                // The one thing asked of a passer-by stands out until it is done.
+                prominent = !isStarred,
+                on = isStarred,
+                onToggle = onToggleStar,
+            )
+            // Watching and forking are an account's: nothing is offered before the forge has said where it stands.
+            if (signedIn && watching != null) {
+                HeaderAction(
+                    icon = if (watching) Icons.Filled.Visibility else Icons.Outlined.Visibility,
+                    label = stringResource(if (watching) R.string.repo_watching else R.string.repo_watch),
+                    on = watching,
+                    onToggle = onToggleWatch,
                 )
             }
+            if (signedIn) {
+                HeaderAction(
+                    icon = Icons.AutoMirrored.Outlined.CallSplit,
+                    label = stringResource(if (isForking) R.string.repo_forking else R.string.repo_fork_action),
+                    enabled = !isForking,
+                    onClick = onFork,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One of the header's actions, as a pill. With [onToggle] it is a switch, so screen readers hear "on" or "off" as well
+ * as the label; with [onClick] a button.
+ */
+@Composable
+private fun HeaderAction(
+    icon: ImageVector,
+    label: String,
+    prominent: Boolean = false,
+    on: Boolean = false,
+    enabled: Boolean = true,
+    onToggle: (() -> Unit)? = null,
+    onClick: () -> Unit = {},
+) {
+    val colors = Soft.colors
+    Box(
+        Modifier
+            .clip(SoftTokens.Pill)
+            .background(if (prominent) colors.thumb else colors.ground)
+            .then(
+                if (onToggle != null) Modifier.toggleable(value = on, role = Role.Switch, onValueChange = { onToggle() })
+                else Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+            )
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 20.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = when {
+                    prominent -> colors.onThumb
+                    on -> colors.accent
+                    else -> colors.ink.copy(alpha = if (enabled) 1f else 0.5f)
+                },
+                modifier = Modifier.size(18.dp),
+            )
+            Text(label, style = Soft.type.control, color = if (prominent) colors.onThumb else colors.ink.copy(alpha = if (enabled) 1f else 0.5f))
         }
     }
 }

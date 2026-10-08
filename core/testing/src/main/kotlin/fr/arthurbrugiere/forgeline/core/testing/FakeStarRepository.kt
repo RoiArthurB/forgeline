@@ -26,4 +26,29 @@ class FakeStarRepository : StarRepository {
         if (starred) this.starred += repo else this.starred -= repo
         return ForgeResult.Success(Unit)
     }
+
+    val watched = mutableSetOf<RepoId>()
+
+    /** Null where the forge can't say whether a repository is watched. */
+    var watchKnown = true
+
+    /** Where a fork lands; null refuses it. */
+    var forkedTo: RepoId? = null
+    var forkFailure: ForgeError = ForgeError.Http(403, null)
+    val forks = mutableListOf<RepoId>()
+
+    override suspend fun isWatching(repo: RepoId): Boolean? = if (signedIn && watchKnown) repo in watched else null
+
+    override suspend fun setWatching(repo: RepoId, watching: Boolean): ForgeResult<Unit> {
+        gate?.await()
+        setFailure?.let { return ForgeResult.Failure(it) }
+        if (watching) watched += repo else watched -= repo
+        return ForgeResult.Success(Unit)
+    }
+
+    override suspend fun fork(repo: RepoId): ForgeResult<RepoId> {
+        gate?.await()
+        forks += repo
+        return forkedTo?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(forkFailure)
+    }
 }

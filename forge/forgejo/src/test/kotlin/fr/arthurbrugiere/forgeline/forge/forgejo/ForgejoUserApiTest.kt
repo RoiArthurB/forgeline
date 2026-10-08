@@ -149,4 +149,50 @@ class ForgejoUserApiTest {
             .starred(null, "alice")
         assertThat(anonymous).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
     }
+
+    private val forgejoRepo = RepoId("forgejo", "forgejo", ForgeInstance.Codeberg)
+
+    @Test
+    fun a_repository_is_watched_when_its_subscription_says_so_and_not_when_there_is_none() = runTest {
+        val watched = with(codeberg) { ForgejoStarApi(client { json("""{"subscribed":true,"ignored":false}""") }, ForgeInstance.Codeberg) }
+            .isWatching("t", forgejoRepo)
+        assertThat(watched).isEqualTo(ForgeResult.Success(true))
+        assertThat(codeberg.requests.last().url.encodedPath).isEqualTo("/api/v1/repos/forgejo/forgejo/subscription")
+
+        // Forgejo answers 404 when the account doesn't watch the repository.
+        val unwatched = with(codeberg) { ForgejoStarApi(client { status(HttpStatusCode.NotFound) }, ForgeInstance.Codeberg) }
+            .isWatching("t", forgejoRepo)
+        assertThat(unwatched).isEqualTo(ForgeResult.Success(false))
+    }
+
+    @Test
+    fun watching_puts_and_no_longer_watching_deletes() = runTest {
+        val api = with(codeberg) { ForgejoStarApi(client { json("""{"subscribed":true}""") }, ForgeInstance.Codeberg) }
+
+        assertThat(api.setWatching("t", forgejoRepo, watching = true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.setWatching("t", forgejoRepo, watching = false)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(codeberg.requests.map { it.method to it.url.encodedPath }).containsExactly(
+            HttpMethod.Put to "/api/v1/repos/forgejo/forgejo/subscription",
+            HttpMethod.Delete to "/api/v1/repos/forgejo/forgejo/subscription",
+        ).inOrder()
+    }
+
+    @Test
+    fun a_fork_says_where_the_copy_is_on_the_same_forge() = runTest {
+        val fork = with(codeberg) { ForgejoStarApi(client { json("""{"name":"forgejo","owner":{"login":"me"}}""") }, ForgeInstance.Codeberg) }
+            .fork("t", forgejoRepo)
+
+        assertThat(fork).isEqualTo(ForgeResult.Success(RepoId("me", "forgejo", ForgeInstance.Codeberg)))
+        assertThat(codeberg.requests.single().method).isEqualTo(HttpMethod.Post)
+        assertThat(codeberg.requests.single().url.encodedPath).isEqualTo("/api/v1/repos/forgejo/forgejo/forks")
+    }
+
+    @Test
+    fun a_fork_the_account_already_has_is_refused() = runTest {
+        // Forgejo answers 409 to a second fork.
+        val fork = with(codeberg) { ForgejoStarApi(client { status(HttpStatusCode.Conflict) }, ForgeInstance.Codeberg) }.fork("t", forgejoRepo)
+
+        assertThat(fork).isEqualTo(ForgeResult.Failure(ForgeError.Http(409, null)))
+    }
 }

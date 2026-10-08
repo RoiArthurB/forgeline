@@ -15,6 +15,14 @@ interface StarRepository {
     suspend fun starredStatus(repos: List<RepoId>): Map<RepoId, Boolean>
 
     suspend fun setStarred(repo: RepoId, starred: Boolean): ForgeResult<Unit>
+
+    /** Whether the account on [repo]'s forge watches it; null when unknown (signed out, lookup failed, no such thing there). */
+    suspend fun isWatching(repo: RepoId): Boolean?
+
+    suspend fun setWatching(repo: RepoId, watching: Boolean): ForgeResult<Unit>
+
+    /** Copies [repo] to the account's own space and says where the copy is. */
+    suspend fun fork(repo: RepoId): ForgeResult<RepoId>
 }
 
 class DefaultStarRepository @Inject constructor(
@@ -38,6 +46,21 @@ class DefaultStarRepository @Inject constructor(
     override suspend fun setStarred(repo: RepoId, starred: Boolean): ForgeResult<Unit> {
         val token = accounts.tokenOn(repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
         return clients.stars(repo.forge).setStarred(token, repo, starred)
+    }
+
+    override suspend fun isWatching(repo: RepoId): Boolean? {
+        val token = accounts.tokenOn(repo.forge) ?: return null
+        return (clients.stars(repo.forge).isWatching(token, repo) as? ForgeResult.Success)?.value
+    }
+
+    override suspend fun setWatching(repo: RepoId, watching: Boolean): ForgeResult<Unit> {
+        val token = accounts.tokenOn(repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return clients.stars(repo.forge).setWatching(token, repo, watching)
+    }
+
+    override suspend fun fork(repo: RepoId): ForgeResult<RepoId> {
+        val token = accounts.tokenOn(repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return clients.stars(repo.forge).fork(token, repo)
     }
 
 }

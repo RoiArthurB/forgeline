@@ -9,6 +9,9 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
 import io.ktor.client.HttpClient
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.buildJsonObject
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -130,8 +133,35 @@ class GitLabStarApi(
         }
     }
 
+    /**
+     * GitLab has no watch of its own: a project is watched by setting what it notifies of to "watch". Anything else
+     * (the account's general setting, "participating", "mention") is not watching.
+     */
+    override suspend fun isWatching(token: String, repo: RepoId): ForgeResult<Boolean> = gitlabCall {
+        httpClient.gitlabApi(repo.forge, token, "projects", encodePath(repo.fullName), "notification_settings")
+            .toResult { body<GitLabNotificationLevelJson>().level == WATCH }
+    }
+
+    /** No longer watching goes back to the account's general setting, as if the project had never been set. */
+    override suspend fun setWatching(token: String, repo: RepoId, watching: Boolean): ForgeResult<Unit> = gitlabCall {
+        httpClient.gitlabApi(
+            repo.forge, token, "projects", encodePath(repo.fullName), "notification_settings",
+            method = HttpMethod.Put, body = buildJsonObject { put("level", if (watching) WATCH else "global") },
+        ).toResult { }
+    }
+
+    override suspend fun fork(token: String, repo: RepoId): ForgeResult<RepoId> = gitlabCall {
+        httpClient.gitlabApi(repo.forge, token, "projects", encodePath(repo.fullName), "fork", method = HttpMethod.Post)
+            .toResult { body<GitLabProjectJson>().pathWithNamespace.let { path -> RepoId(path.substringBeforeLast('/'), path.substringAfterLast('/'), repo.forge) } }
+    }
+
     private companion object {
+        const val WATCH = "watch"
+
         /** A thousand stars read at most: past that, a repository further down reads as not starred. */
         const val MAX_PAGES = 10
     }
 }
+
+@Serializable
+private data class GitLabNotificationLevelJson(val level: String = "")

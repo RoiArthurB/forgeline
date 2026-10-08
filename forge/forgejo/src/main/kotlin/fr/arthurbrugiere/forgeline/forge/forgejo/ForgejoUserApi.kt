@@ -12,6 +12,7 @@ import fr.arthurbrugiere.forgeline.core.model.SearchPage
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import io.ktor.client.HttpClient
+import kotlinx.serialization.json.buildJsonObject
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -105,6 +106,22 @@ class ForgejoStarApi(private val httpClient: HttpClient, private val forge: Forg
             .toResult { }
     }
 
+    /** Forgejo answers 404 for a repository the account doesn't watch: that is a no, not a failure. */
+    override suspend fun isWatching(token: String, repo: RepoId): ForgeResult<Boolean> = forgejoCall {
+        val response = httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "subscription")
+        if (response.status == HttpStatusCode.NotFound) ForgeResult.Success(false) else response.toResult { body<ForgejoSubscriptionJson>().subscribed }
+    }
+
+    override suspend fun setWatching(token: String, repo: RepoId, watching: Boolean): ForgeResult<Unit> = forgejoCall {
+        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "subscription", method = if (watching) HttpMethod.Put else HttpMethod.Delete)
+            .toResult { }
+    }
+
+    override suspend fun fork(token: String, repo: RepoId): ForgeResult<RepoId> = forgejoCall {
+        val response = httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "forks", method = HttpMethod.Post, body = buildJsonObject { })
+        response.toResult { body<ForgejoForkJson>().let { RepoId(it.owner.login, it.name, forge) } }
+    }
+
     private companion object {
         const val CONCURRENCY = 4
     }
@@ -158,3 +175,12 @@ private data class ProfileJson(
     @SerialName("following_count") val following: Int = 0,
     val created: String? = null,
 )
+
+@Serializable
+private data class ForgejoSubscriptionJson(val subscribed: Boolean = false)
+
+@Serializable
+private data class ForgejoForkJson(val name: String, val owner: ForgejoForkOwnerJson)
+
+@Serializable
+private data class ForgejoForkOwnerJson(val login: String)

@@ -513,4 +513,122 @@ class RepoViewModelTest {
         assertThat(RepoUiState(codeberg, details = details).tabs).contains(RepoTab.ACTIONS)
         assertThat(RepoUiState(codeberg, details = details.copy(hasActions = false)).tabs).doesNotContain(RepoTab.ACTIONS)
     }
+
+    private suspend fun signIn() = accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "t")
+
+    @Test
+    fun signed_in_what_is_watched_loads_and_toggles() = test {
+        signIn()
+        cache()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.watching).isFalse()
+
+        viewModel.toggleWatch()
+        runCurrent()
+
+        assertThat(viewModel.state.value.watching).isTrue()
+        advanceUntilIdle()
+        assertThat(stars.watched).containsExactly(requested)
+
+        viewModel.toggleWatch()
+        advanceUntilIdle()
+        assertThat(stars.watched).isEmpty()
+        assertThat(viewModel.state.value.watching).isFalse()
+    }
+
+    @Test
+    fun signed_out_or_where_the_forge_can_t_say_watching_is_unknown_and_toggling_does_nothing() = test {
+        cache()
+        val signedOut = viewModel()
+        advanceUntilIdle()
+        assertThat(signedOut.state.value.watching).isNull()
+
+        signIn()
+        stars.watchKnown = false
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.toggleWatch()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.watching).isNull()
+        assertThat(stars.watched).isEmpty()
+    }
+
+    @Test
+    fun a_watch_that_fails_goes_back_and_says_so_once() = test {
+        signIn()
+        cache()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        stars.setFailure = ForgeError.Network
+
+        viewModel.toggleWatch()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.watching).isFalse()
+        assertThat(viewModel.state.value.watchFailed).isTrue()
+        viewModel.watchFailureShown()
+        runCurrent()
+        assertThat(viewModel.state.value.watchFailed).isFalse()
+    }
+
+    @Test
+    fun a_fork_says_it_is_being_made_then_where_it_is() = test {
+        signIn()
+        cache()
+        stars.forkedTo = RepoId("me", "repo")
+        stars.gate = kotlinx.coroutines.CompletableDeferred()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.fork()
+        // A second tap while the first is on its way asks for nothing more.
+        viewModel.fork()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.isForking).isTrue()
+
+        stars.gate!!.complete(Unit)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.isForking).isFalse()
+        assertThat(viewModel.state.value.forkedTo).isEqualTo(RepoId("me", "repo"))
+        assertThat(stars.forks).containsExactly(requested)
+        viewModel.forkOpened()
+        runCurrent()
+        assertThat(viewModel.state.value.forkedTo).isNull()
+    }
+
+    @Test
+    fun a_fork_that_is_refused_says_why_once() = test {
+        signIn()
+        cache()
+        stars.forkFailure = ForgeError.Http(409, null)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.fork()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.isForking).isFalse()
+        assertThat(viewModel.state.value.forkError).isEqualTo(ForgeError.Http(409, null))
+        viewModel.forkErrorShown()
+        runCurrent()
+        assertThat(viewModel.state.value.forkError).isNull()
+    }
+
+    @Test
+    fun a_fork_is_made_of_the_repository_s_current_name() = test {
+        // The repository was renamed since the link to it was written: the forge is asked under its new name.
+        signIn()
+        cache(repo = repoDetails("octo/renamed"))
+        stars.forkedTo = RepoId("me", "renamed")
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.fork()
+        advanceUntilIdle()
+
+        assertThat(stars.forks).containsExactly(RepoId("octo", "renamed"))
+    }
 }

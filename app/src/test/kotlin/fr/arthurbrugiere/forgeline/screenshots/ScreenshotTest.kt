@@ -483,7 +483,7 @@ class ScreenshotTest {
         // Code blocks are highlighted off the main thread: wait until the code carries its colors.
         beforeCapture = { awaitHighlighted("npx paperclip init") },
     ) {
-        RepoPreview(repoState)
+        RepoPreview(repoState.copy(watching = true))
     }
 
     @Test

@@ -226,6 +226,17 @@
     <string name="repo_open_on_forge">Open on %1$s</string>
     <string name="repo_star">Star</string>
     <string name="repo_starred">Starred</string>
+    <string name="repo_watch">Watch</string>
+    <string name="repo_watching">Watching</string>
+    <string name="repo_watch_failed">Couldn\'t change what you watch. Try again.</string>
+    <string name="repo_fork_action">Fork</string>
+    <string name="repo_forking">Forking</string>
+    <string name="repo_fork_title">Fork %1$s?</string>
+    <string name="repo_fork_body">A copy of this repository will be made in your %1$s account.</string>
+    <string name="repo_fork_failed">Couldn\'t fork the repository. Try again.</string>
+    <string name="repo_fork_offline">Not forked: check your connection and try again.</string>
+    <string name="repo_fork_exists">Not forked: your account already has a repository by that name.</string>
+    <string name="repo_fork_refused">Not forked: this repository can\'t be forked with your account.</string>
     <string name="repo_watchers">%1$s watching</string>
     <string name="repo_archived">Archived</string>
     <string name="repo_fork">Fork</string>

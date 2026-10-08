@@ -7,6 +7,8 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.delete
+import io.ktor.client.request.get
+import io.ktor.http.HttpStatusCode
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.put
@@ -34,6 +36,31 @@ class GitHubStarApi(
             httpClient.delete(url) { authenticated(token) }
         }
         response.toResult { }
+    }
+
+    /** GitHub answers 404 for a repository the account has no subscription to: that is a no, not a failure. */
+    override suspend fun isWatching(token: String, repo: RepoId): ForgeResult<Boolean> = gitHubCall {
+        val response = httpClient.get("$apiBaseUrl/repos/${repo.owner}/${repo.name}/subscription") { authenticated(token) }
+        if (response.status == HttpStatusCode.NotFound) ForgeResult.Success(false) else response.toResult { body<SubscriptionJson>().subscribed }
+    }
+
+    override suspend fun setWatching(token: String, repo: RepoId, watching: Boolean): ForgeResult<Unit> = gitHubCall {
+        val url = "$apiBaseUrl/repos/${repo.owner}/${repo.name}/subscription"
+        val response = if (watching) {
+            httpClient.put(url) {
+                authenticated(token)
+                contentType(ContentType.Application.Json)
+                setBody(SubscriptionJson(subscribed = true))
+            }
+        } else {
+            httpClient.delete(url) { authenticated(token) }
+        }
+        response.toResult { }
+    }
+
+    override suspend fun fork(token: String, repo: RepoId): ForgeResult<RepoId> = gitHubCall {
+        httpClient.post("$apiBaseUrl/repos/${repo.owner}/${repo.name}/forks") { authenticated(token) }
+            .toResult { body<ForkJson>().let { RepoId(it.owner.login, it.name, repo.forge) } }
     }
 
     override suspend fun starredStatus(token: String, repos: List<RepoId>): ForgeResult<Map<RepoId, Boolean>> {
@@ -66,6 +93,15 @@ class GitHubStarApi(
         return GraphQlRequest(query = "query StarredStatus($params) { $fields }", variables = variables)
     }
 }
+
+@Serializable
+private data class SubscriptionJson(val subscribed: Boolean = false)
+
+@Serializable
+private data class ForkJson(val name: String, val owner: ForkOwnerJson)
+
+@Serializable
+private data class ForkOwnerJson(val login: String)
 
 @Serializable
 private data class GraphQlRequest(val query: String, val variables: Map<String, String>)

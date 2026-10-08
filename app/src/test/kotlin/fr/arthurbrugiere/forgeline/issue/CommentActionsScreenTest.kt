@@ -650,4 +650,21 @@ class CommentActionsScreenTest {
         composeRule.onNodeWithText("Comment").assertIsDisplayed()
         assertThat(offered("Rewriting your comment")).isFalse()
     }
+
+    @Test
+    fun what_went_wrong_is_still_said_once_it_has_been_taken() {
+        // Regression: taking the error cleared it, which ended the effect saying it: the words went as they came.
+        composeRule.setContent {
+            IssueScreen(
+                state = shown.value, canComment = true, onDraftChange = {}, onSendComment = {}, onToggleOpen = {}, onSignIn = {},
+                onCommentNoticeShown = {}, onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {},
+                onOpenInBrowser = {}, onLinkClick = {}, onErrorShown = {}, nowMillis = 0,
+                comments = CommentActions(onDeleteErrorShown = { events += "taken"; shown.value = shown.value.copy(deleteError = null) }),
+            )
+        }
+        shown.value = opened.copy(deleteError = ForgeError.Network)
+
+        composeRule.waitUntil(5_000) { offered("The comment wasn't deleted. Try again.") }
+        assertThat(events).containsExactly("taken")
+    }
 }
