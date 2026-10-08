@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.ui.SayOnce
 import androidx.compose.animation.core.Animatable
@@ -273,7 +274,7 @@ fun IssueRoute(
             onEditIssue = { onEditIssue(IssueRef(ref.repo, ref.number, viewModel.state.value.issue?.pullRequest != null)) },
         )
     }
-    val suggestions by viewModel.references.suggested.collectAsStateWithLifecycle()
+    val suggestions by viewModel.references.offer.collectAsStateWithLifecycle()
     IssueScreen(
         state = state,
         comments = comments,
@@ -347,8 +348,8 @@ fun IssueScreen(
     manage: ManageActions = ManageActions(),
     comments: CommentActions = CommentActions(),
     nowMillis: Long = rememberNow(state.issue, state.items),
-    /** The conversations the reference being typed may mean. */
-    suggestions: List<IssueSummary> = emptyList(),
+    /** The conversations the reference being typed may mean, and whether the forge is still being asked. */
+    suggestions: ReferenceOffer = ReferenceOffer(),
     /** Loads what is left of the conversation and asks, through the state, to be taken to its end. */
     onToEnd: () -> Unit = {},
     onScrolled: () -> Unit = {},
@@ -655,7 +656,7 @@ private fun Composer(
     onPickPicture: () -> Unit = {},
     /** Set where the comment being rewritten stands, which gives it its room; the keyboard comes up for it. */
     inPlace: Boolean = false,
-    suggestions: List<IssueSummary> = emptyList(),
+    suggestions: ReferenceOffer = ReferenceOffer(),
     onReferenceTyped: (TypedReference?) -> Unit = {},
 ) {
     val colors = Soft.colors
@@ -665,7 +666,8 @@ private fun Composer(
     // Nothing to focus while the rewrite is previewed: the field is not there.
     if (inPlace) LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     Column(
-        if (inPlace) Modifier.fillMaxWidth() else Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 24.dp),
+        (if (inPlace) Modifier.fillMaxWidth() else Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 24.dp))
+            .staysAboveKeyboard(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (!canComment) {
@@ -833,11 +835,23 @@ const val REFERENCE_SUGGESTIONS_TAG = "reference-suggestions"
  * Nothing is shown when there is nothing to suggest.
  */
 @Composable
-internal fun ReferenceSuggestionList(suggestions: List<IssueSummary>, onPick: (IssueSummary) -> Unit) {
-    if (suggestions.isEmpty()) return
+internal fun ReferenceSuggestionList(offer: ReferenceOffer, onPick: (IssueSummary) -> Unit) {
+    if (offer.suggestions.isEmpty() && !offer.isLoading) return
     val colors = Soft.colors
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(colors.surface).testTag(REFERENCE_SUGGESTIONS_TAG)) {
-        suggestions.forEach { suggestion ->
+        // There from the first letter: a far forge takes its time, and says so here meanwhile.
+        if (offer.isLoading) {
+            val looking = stringResource(R.string.reference_looking)
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 20.dp, vertical = 8.dp).semantics(mergeDescendants = true) { contentDescription = looking },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                CircularProgressIndicator(Modifier.size(18.dp), color = colors.accent, trackColor = colors.track, strokeWidth = 2.dp)
+                Text(looking, style = Soft.type.secondary, color = colors.inkMuted, modifier = Modifier.clearAndSetSemantics { })
+            }
+        }
+        offer.suggestions.forEach { suggestion ->
             val mark = if (suggestion.isPullRequest) stringResource(R.string.reference_pull_request) else stringResource(R.string.reference_issue)
             Row(
                 Modifier

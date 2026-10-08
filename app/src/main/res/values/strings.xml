@@ -221,6 +221,7 @@
     <string name="repo_tab_code">Code</string>
     <string name="repo_tab_issues">Issues</string>
     <string name="repo_tab_pulls">Pull requests</string>
+    <string name="reference_looking">Looking for conversations</string>
     <string name="reference_issue">Issue</string>
     <string name="reference_pull_request">Pull request</string>
     <string name="repo_tab_discussions">Discussions</string>

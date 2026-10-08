@@ -65,7 +65,7 @@ class CommentActionsScreenTest {
     )
     private val shown = mutableStateOf(opened)
     private val typedReferences = mutableListOf<TypedReference?>()
-    private val suggested = mutableStateOf(emptyList<fr.arthurbrugiere.forgeline.core.model.IssueSummary>())
+    private val suggested = mutableStateOf(ReferenceOffer())
 
     private fun setContent(state: IssueUiState = opened, canComment: Boolean = true) {
         shown.value = state
@@ -712,7 +712,7 @@ class CommentActionsScreenTest {
     @Test
     fun the_conversations_a_reference_may_mean_are_offered_under_the_field_and_picking_one_writes_its_number() {
         setContent(opened.copy(draft = "See #cra"))
-        suggested.value = candidates
+        suggested.value = ReferenceOffer(candidates)
         reach(hasContentDescription("Pull request #121, Fix the crash"))
 
         composeRule.onNode(hasContentDescription("Issue #120, Crash on start")).assertIsDisplayed()
@@ -728,7 +728,7 @@ class CommentActionsScreenTest {
         setContent(opened.copy(draft = "See #cra"))
         assertThat(composeRule.onAllNodes(hasTestTag(REFERENCE_SUGGESTIONS_TAG)).fetchSemanticsNodes()).isEmpty()
 
-        suggested.value = candidates
+        suggested.value = ReferenceOffer(candidates)
         reach(hasContentDescription("Preview"))
         composeRule.onNode(hasContentDescription("Preview")).performClick()
         composeRule.waitForIdle()
@@ -739,7 +739,7 @@ class CommentActionsScreenTest {
     @Test
     fun a_reference_is_suggested_for_a_comment_being_rewritten_too() {
         setContent(opened.copy(editing = 1, draft = "Same here #"))
-        suggested.value = candidates
+        suggested.value = ReferenceOffer(candidates)
 
         composeRule.onNode(hasContentDescription("Issue #120, Crash on start")).performClick()
 
@@ -749,7 +749,7 @@ class CommentActionsScreenTest {
     @Test
     fun suggestions_are_large_enough_to_tap() {
         setContent(opened.copy(draft = "#"))
-        suggested.value = candidates
+        suggested.value = ReferenceOffer(candidates)
 
         composeRule.assertEveryTargetIsAtLeast48dp()
     }
@@ -762,5 +762,38 @@ class CommentActionsScreenTest {
         composeRule.onNode(hasContentDescription("Preview")).performClick()
 
         composeRule.waitUntil(5_000) { offered("Fixed by #12") }
+    }
+
+    @Test
+    fun while_the_forge_is_asked_the_list_is_there_and_says_so() {
+        // Regression: nothing showed under the field until a far forge had answered.
+        setContent(opened.copy(draft = "See #"))
+        suggested.value = ReferenceOffer(isLoading = true)
+        reach(hasContentDescription("Looking for conversations"))
+
+        composeRule.onNode(hasContentDescription("Looking for conversations")).assertIsDisplayed()
+    }
+
+    @Test
+    fun what_is_known_is_offered_while_more_is_looked_for() {
+        setContent(opened.copy(draft = "See #cra"))
+        suggested.value = ReferenceOffer(candidates, isLoading = true)
+        reach(hasContentDescription("Pull request #121, Fix the crash"))
+
+        composeRule.onNode(hasContentDescription("Looking for conversations")).assertExists()
+        composeRule.onNode(hasContentDescription("Issue #120, Crash on start")).performClick()
+        assertThat(events).containsExactly("draft:See #120 ")
+    }
+
+    @Test
+    fun once_the_forge_found_nothing_the_list_goes() {
+        setContent(opened.copy(draft = "See #zzz"))
+        suggested.value = ReferenceOffer(isLoading = true)
+        composeRule.waitForIdle()
+
+        suggested.value = ReferenceOffer()
+        composeRule.waitForIdle()
+
+        assertThat(composeRule.onAllNodes(hasTestTag(REFERENCE_SUGGESTIONS_TAG)).fetchSemanticsNodes()).isEmpty()
     }
 }

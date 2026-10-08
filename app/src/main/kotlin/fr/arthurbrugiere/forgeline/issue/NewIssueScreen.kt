@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
 import androidx.compose.runtime.remember
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
@@ -61,7 +62,7 @@ fun NewIssueRoute(route: NewIssueRoute, session: SessionState, onBack: () -> Uni
     val state by viewModel.state.collectAsStateWithLifecycle()
     // A new issue's conversation takes the form's place; an edited one is already under it.
     LaunchedEffect(state.created) { state.created?.let { if (editing == null) onCreated(it) else onBack() } }
-    val suggestions by viewModel.references.suggested.collectAsStateWithLifecycle()
+    val suggestions by viewModel.references.offer.collectAsStateWithLifecycle()
     NewIssueScreen(
         state = state,
         suggestions = suggestions,
@@ -91,7 +92,7 @@ fun NewIssueScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     /** The conversations the reference being typed in the description may mean. */
-    suggestions: List<IssueSummary> = emptyList(),
+    suggestions: ReferenceOffer = ReferenceOffer(),
     onReferenceTyped: (TypedReference?) -> Unit = {},
 ) {
     val colors = Soft.colors
@@ -157,6 +158,8 @@ fun NewIssueScreen(
                         modifier = Modifier.padding(start = 20.dp),
                     )
                 }
+                // The description, what is suggested under it and the action: kept in sight together above the keyboard.
+                Column(Modifier.fillMaxWidth().staysAboveKeyboard(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // The cursor is the field's own: it says where a reference is being typed, and goes after one picked.
                 val marks = state.repo.referenceMarks
                 var field by remember { mutableStateOf(TextFieldValue(state.body, TextRange(state.body.length))) }
@@ -201,6 +204,7 @@ fun NewIssueScreen(
                         onSend,
                         enabled = state.canSend,
                     )
+                }
                 }
             }
             Spacer(Modifier.height(listBottomPadding()))

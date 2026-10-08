@@ -55,7 +55,7 @@ class NewIssueScreenTest {
     }
 
     private val typedReferences = mutableListOf<TypedReference?>()
-    private val suggested = mutableStateOf(emptyList<fr.arthurbrugiere.forgeline.core.model.IssueSummary>())
+    private val suggested = mutableStateOf(ReferenceOffer())
 
     @Test
     fun says_what_it_opens_and_where() {
@@ -241,7 +241,7 @@ class NewIssueScreenTest {
     @Test
     fun a_conversation_suggested_for_the_description_writes_its_number_when_picked() {
         setContent(empty.copy(title = "Crash", body = "Like #hea"))
-        suggested.value = listOf(issueSummary(14127, "Heartbeat recovery escalates too early"))
+        suggested.value = ReferenceOffer(listOf(issueSummary(14127, "Heartbeat recovery escalates too early")))
         composeRule.waitForIdle()
 
         composeRule.onNode(hasContentDescription("Issue #14127, Heartbeat recovery escalates too early")).performClick()

@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.testing.issueSummary
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
@@ -24,6 +25,12 @@ class ReferencesTest {
     private val gitlab = RepoId("group", "tool", ForgeInstance.GitLab)
 
     private fun typed(text: String, marks: String = "#") = typedReference(text, text.length, marks)
+
+    /** Lets what was launched in the test's background scope finish: `advanceUntilIdle` does not run it. */
+    private fun kotlinx.coroutines.test.TestScope.settle() {
+        advanceTimeBy(5_000)
+        runCurrent()
+    }
 
     @Test
     fun a_mark_at_the_start_of_a_word_starts_a_reference() {
@@ -131,7 +138,8 @@ class ReferencesTest {
     fun words_are_looked_for_on_the_forge() = runTest {
         suggestions.suggest(repo, TypedReference(0, '#', "crash "))
 
-        assertThat(asked).containsExactly("issues:crash", "pulls:crash")
+        // After the recent ones, listed once: those that match show while the search runs.
+        assertThat(asked).containsExactly("issues", "pulls", "issues:crash", "pulls:crash")
     }
 
     @Test
@@ -156,42 +164,111 @@ class ReferencesTest {
     }
 
     @Test
-    fun the_forge_is_asked_once_the_writing_pauses_and_only_for_what_is_still_typed() = runTest {
+    fun the_recent_conversations_are_listed_once_then_narrowed_without_asking_again() = runTest {
+        suggestions.suggest(repo, TypedReference(0, '#', ""))
+        asked.clear()
+
+        assertThat(suggestions.asksForge(repo, TypedReference(0, '#', "12"))).isFalse()
+        assertThat(suggestions.known(repo, TypedReference(0, '#', "12")).map { it.number }).containsExactly(121, 120, 12).inOrder()
+        assertThat(suggestions.suggest(repo, TypedReference(0, '#', "7")).map { it.number }).containsExactly(7)
+        assertThat(asked).isEmpty()
+    }
+
+    @Test
+    fun a_title_shows_the_recent_ones_it_matches_while_the_forge_is_searched() = runTest {
+        suggestions.suggest(repo, TypedReference(0, '#', ""))
+
+        assertThat(suggestions.asksForge(repo, TypedReference(0, '#', "crash"))).isTrue()
+        assertThat(suggestions.known(repo, TypedReference(0, '#', "CRASH")).map { it.number }).containsExactly(121, 120).inOrder()
+    }
+
+    @Test
+    fun before_anything_was_listed_nothing_is_known_and_the_forge_is_asked() {
+        assertThat(suggestions.asksForge(repo, TypedReference(0, '#', ""))).isTrue()
+        assertThat(suggestions.known(repo, TypedReference(0, '#', ""))).isEmpty()
+    }
+
+    @Test
+    fun a_list_that_couldn_t_be_loaded_is_asked_for_again_the_next_time() = runTest {
+        issues = ForgeResult.Failure(ForgeError.Network)
+        pulls = ForgeResult.Failure(ForgeError.Network)
+        assertThat(suggestions.suggest(repo, TypedReference(0, '#', ""))).isEmpty()
+
+        issues = ForgeResult.Success(listOf(issueSummary(1, "Back")))
+        assertThat(suggestions.asksForge(repo, TypedReference(0, '#', ""))).isTrue()
+        assertThat(suggestions.suggest(repo, TypedReference(0, '#', "")).map { it.number }).containsExactly(1)
+    }
+
+    @Test
+    fun the_offer_shows_at_once_that_the_forge_is_asked_then_what_it_answered() = runTest {
+        // Regression: nothing showed until the forge had answered, which takes seconds from a far one.
         val typing = ReferenceTyping(backgroundScope, suggestions, repo)
+
+        typing.typed(TypedReference(0, '#', ""))
+
+        assertThat(typing.offer.value).isEqualTo(ReferenceOffer(isLoading = true))
+        settle()
+        assertThat(typing.offer.value.isLoading).isFalse()
+        assertThat(typing.offer.value.suggestions.map { it.number }).containsExactly(121, 120, 12, 7, 3).inOrder()
+    }
+
+    @Test
+    fun once_the_recent_ones_are_listed_a_number_narrows_them_at_once_without_a_wait() = runTest {
+        val typing = ReferenceTyping(backgroundScope, suggestions, repo)
+        typing.typed(TypedReference(0, '#', ""))
+        settle()
+        asked.clear()
+
+        typing.typed(TypedReference(0, '#', "12"))
+
+        assertThat(typing.offer.value).isEqualTo(ReferenceOffer(typing.offer.value.suggestions, isLoading = false))
+        assertThat(typing.offer.value.suggestions.map { it.number }).containsExactly(121, 120, 12).inOrder()
+        assertThat(asked).isEmpty()
+    }
+
+    @Test
+    fun a_title_shows_what_is_known_with_the_sign_and_is_searched_once_the_writing_pauses() = runTest {
+        val typing = ReferenceTyping(backgroundScope, suggestions, repo)
+        typing.typed(TypedReference(0, '#', ""))
+        settle()
+        asked.clear()
 
         typing.typed(TypedReference(0, '#', "c"))
         advanceTimeBy(100)
         typing.typed(TypedReference(0, '#', "cr"))
+        assertThat(typing.offer.value.isLoading).isTrue()
+        assertThat(typing.offer.value.suggestions.map { it.number }).containsExactly(121, 120).inOrder()
         advanceTimeBy(ReferenceTyping.PAUSE_MILLIS + 1)
 
+        // Only what is still typed was searched for.
         assertThat(asked).containsExactly("issues:cr", "pulls:cr")
-        assertThat(typing.suggested.value).isNotEmpty()
+        assertThat(typing.offer.value.isLoading).isFalse()
     }
 
     @Test
-    fun the_same_reference_told_again_asks_nothing_more_and_none_clears_what_was_suggested() = runTest {
+    fun the_same_reference_told_again_asks_nothing_more_and_none_clears_the_offer() = runTest {
         val typing = ReferenceTyping(backgroundScope, suggestions, repo)
         typing.typed(TypedReference(0, '#', ""))
-        advanceTimeBy(ReferenceTyping.PAUSE_MILLIS + 1)
+        settle()
 
         // The cursor moved without the reference changing.
         typing.typed(TypedReference(0, '#', ""))
-        advanceTimeBy(ReferenceTyping.PAUSE_MILLIS + 1)
+        settle()
         assertThat(asked).hasSize(2)
 
         typing.typed(null)
-        assertThat(typing.suggested.value).isEmpty()
+        assertThat(typing.offer.value).isEqualTo(ReferenceOffer())
     }
 
     @Test
-    fun a_reference_given_up_before_the_pause_asks_nothing() = runTest {
+    fun a_reference_given_up_while_the_forge_is_asked_leaves_nothing_offered() = runTest {
         val typing = ReferenceTyping(backgroundScope, suggestions, repo)
 
         typing.typed(TypedReference(0, '#', "c"))
         typing.typed(null)
-        advanceUntilIdle()
+        settle()
 
         assertThat(asked).isEmpty()
-        assertThat(typing.suggested.value).isEmpty()
+        assertThat(typing.offer.value).isEqualTo(ReferenceOffer())
     }
 }

@@ -72,7 +72,8 @@ fun TextFieldValue.withReference(typed: TypedReference, number: Int): TextFieldV
 
 /**
  * Finds the conversations a reference being typed may mean: the repository's recent open ones for a mark alone or a
- * number, and those the forge finds for words.
+ * number, and those the forge finds for words. The recent ones are asked for once and kept, so a number narrows them
+ * without waiting, and a title shows those it matches while the forge is searched.
  */
 class ReferenceSuggestions(private val list: suspend (RepoId, pullRequests: Boolean, IssueQuery) -> ForgeResult<List<IssueSummary>>) {
     @Inject
@@ -81,23 +82,43 @@ class ReferenceSuggestions(private val list: suspend (RepoId, pullRequests: Bool
     /** Suggests nothing: for tests of what has nothing to do with references. */
     constructor() : this({ _, _, _ -> ForgeResult.Success(emptyList()) })
 
-    private suspend fun both(repo: RepoId, mark: Char, query: IssueQuery): List<IssueSummary> = coroutineScope {
+    /** The recent open conversations each mark names, by repository, once the forge has listed them. */
+    private val recent = java.util.concurrent.ConcurrentHashMap<Pair<RepoId, Char>, List<IssueSummary>>()
+
+    /** What the forge listed, or null when nothing could be asked: an empty answer is an answer. */
+    private suspend fun both(repo: RepoId, mark: Char, query: IssueQuery): List<IssueSummary>? = coroutineScope {
         // Where merge requests are numbered apart, each mark names its own kind; elsewhere `#` names either.
         val apart = repo.forge.type.numbersMergeRequestsApart
         val issues = if (!apart || mark == '#') async { list(repo, false, query) } else null
         val pulls = if (!apart || mark == '!') async { list(repo, true, query) } else null
-        listOfNotNull(issues?.await(), pulls?.await()).flatMap { (it as? ForgeResult.Success)?.value.orEmpty() }
+        val answers = listOfNotNull(issues?.await(), pulls?.await()).filterIsInstance<ForgeResult.Success<List<IssueSummary>>>()
+        if (answers.isEmpty()) null else answers.flatMap { it.value }
     }
 
-    /** At most [LIMIT] conversations, the most recent first. What can't be loaded suggests nothing rather than failing. */
+    private fun List<IssueSummary>.best() = distinctBy { it.isPullRequest to it.number }.sortedByDescending { it.number }.take(LIMIT)
+
+    private fun List<IssueSummary>.matching(words: String) = when {
+        words.isEmpty() -> this
+        words.all(Char::isDigit) -> filter { it.number.toString().startsWith(words) }
+        else -> filter { it.title.contains(words, ignoreCase = true) }
+    }
+
+    /** Whether [typed] takes a word from the forge: its recent conversations weren't listed yet, or a title is looked for. */
+    fun asksForge(repo: RepoId, typed: TypedReference): Boolean {
+        val words = typed.words.trim()
+        return recent[repo to typed.mark] == null || !(words.isEmpty() || words.all(Char::isDigit))
+    }
+
+    /** What can be suggested for [typed] without asking: those of the recent conversations it matches. Empty before they were listed. */
+    fun known(repo: RepoId, typed: TypedReference): List<IssueSummary> = recent[repo to typed.mark].orEmpty().matching(typed.words.trim()).best()
+
+    /** At most [LIMIT] conversations, the most recent first. What can't be loaded suggests what is known rather than failing. */
     suspend fun suggest(repo: RepoId, typed: TypedReference): List<IssueSummary> {
         val words = typed.words.trim()
-        val found = when {
-            words.isEmpty() -> both(repo, typed.mark, IssueQuery())
-            words.all(Char::isDigit) -> both(repo, typed.mark, IssueQuery()).filter { it.number.toString().startsWith(words) }
-            else -> both(repo, typed.mark, IssueQuery(text = words))
-        }
-        return found.distinctBy { it.isPullRequest to it.number }.sortedByDescending { it.number }.take(LIMIT)
+        val listed = recent[repo to typed.mark] ?: both(repo, typed.mark, IssueQuery())?.also { recent[repo to typed.mark] = it }.orEmpty()
+        if (words.isEmpty() || words.all(Char::isDigit)) return listed.matching(words).best()
+        // A title: what the forge finds, and the recent ones that match while it is one letter behind.
+        return (both(repo, typed.mark, IssueQuery(text = words)).orEmpty() + listed.matching(words)).best()
     }
 
     companion object {
@@ -105,13 +126,17 @@ class ReferenceSuggestions(private val list: suspend (RepoId, pullRequests: Bool
     }
 }
 
+/** What is offered for the reference being typed, and whether more is on its way. */
+data class ReferenceOffer(val suggestions: List<IssueSummary> = emptyList(), val isLoading: Boolean = false)
+
 /**
- * What a writing screen keeps of the reference being typed: the conversations it may mean, asked for once the writing
- * pauses, and dropped when the answer comes for something no longer typed.
+ * What a writing screen keeps of the reference being typed. What is known shows at once, with a sign that the forge
+ * is being asked when it is; a title is looked for once the writing pauses, and an answer for something no longer
+ * typed is dropped.
  */
 class ReferenceTyping(private val scope: CoroutineScope, private val suggestions: ReferenceSuggestions, private val repo: RepoId) {
-    private val _suggested = MutableStateFlow<List<IssueSummary>>(emptyList())
-    val suggested: StateFlow<List<IssueSummary>> = _suggested.asStateFlow()
+    private val _offer = MutableStateFlow(ReferenceOffer())
+    val offer: StateFlow<ReferenceOffer> = _offer.asStateFlow()
 
     private var asking: Job? = null
     private var typed: TypedReference? = null
@@ -122,17 +147,22 @@ class ReferenceTyping(private val scope: CoroutineScope, private val suggestions
         typed = reference
         asking?.cancel()
         if (reference == null) {
-            _suggested.value = emptyList()
+            _offer.value = ReferenceOffer()
             return
         }
+        val asks = suggestions.asksForge(repo, reference)
+        // Regression: nothing showed until the forge had answered, which is seconds from a far one.
+        _offer.value = ReferenceOffer(suggestions.known(repo, reference), isLoading = asks)
+        if (!asks) return
         asking = scope.launch {
-            delay(PAUSE_MILLIS)
-            _suggested.value = suggestions.suggest(repo, reference)
+            // A title is searched for, and a search per letter would be many: the recent ones are simply listed, once.
+            if (reference.words.isNotBlank()) delay(PAUSE_MILLIS)
+            _offer.value = ReferenceOffer(suggestions.suggest(repo, reference))
         }
     }
 
     companion object {
-        /** How long the writing must pause before the forge is asked: a search per letter would be many. */
+        /** How long the writing must pause before the forge is searched. */
         const val PAUSE_MILLIS = 250L
     }
 }
