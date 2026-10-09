@@ -1,0 +1,20 @@
+Forgeline amène vos forges logicielles sur votre téléphone sous la forme d’un fil : une boîte de réception pour ce qui vous attend, un fil de ce que font les personnes que vous suivez, et une page de tendances pour la découverte du jour. L’application s’ouvre en une seconde environ et affiche tout nativement : vous n’êtes jamais renvoyé vers une page web mobile.
+
+<b>Plusieurs forges à la fois</b>
+GitHub, GitLab (gitlab.com ou votre propre serveur), Codeberg et tout serveur Forgejo auto-hébergé partagent une même boîte de réception, un même fil, une même page de tendances et une même recherche. Plusieurs comptes peuvent être connectés ensemble, dépôts privés compris.
+
+<b>Ce qu’elle fait</b>
+• Réception : d’abord ce qui vous attend (relectures demandées, mentions, assignations), puis tout le reste par dépôt. Balayez pour marquer comme lu ou terminé. Des vérifications en arrière-plan envoient des notifications, et un widget d’écran d’accueil liste ce qui n’est pas lu.
+• Votre travail : les relectures qu’on vous demande, vos pull requests ouvertes et ce qui vous est assigné, tous comptes confondus.
+• Fil : ce que font les personnes que vous suivez et les dépôts que vous surveillez, dans l’ordre, regroupé par jour.
+• Tendances : aujourd’hui, cette semaine ou ce mois-ci, sans se connecter.
+• Dépôts : README, navigateur de code avec coloration syntaxique, tickets, pull requests, versions, discussions et exécutions de CI avec leurs journaux. Étoilez, surveillez et forkez.
+• Conversations : lisez, commentez, modifiez, réagissez, joignez des images, fermez et rouvrez, triez avec les labels, les personnes assignées et les jalons.
+• Recherchez sur toutes vos forges, partagez ou copiez le lien de n’importe quoi, et ouvrez les liens des forges dans l’application.
+
+<b>Principes</b>
+• Rapide : chaque écran s’affiche d’abord depuis le téléphone, puis s’actualise.
+• Privée : aucun serveur intermédiaire, aucune statistique, aucun traqueur. L’application parle directement à votre forge, et vos jetons sont chiffrés sur votre appareil.
+• Logiciel libre, sous licence GPL-3.0.
+
+Disponible en français et en anglais.

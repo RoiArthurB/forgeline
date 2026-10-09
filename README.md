@@ -17,6 +17,11 @@ Forgeline brings your forges to your phone as a timeline: an **Inbox** for what 
 - **CI / CD and Actions:** GitHub Actions and GitLab CI/CD pipelines with their jobs and failed steps, job logs with colors and folded sections, live steps while a job runs, re-run and cancel, and starting a workflow by hand with its inputs.
 - **Conversations and profiles:** issue, pull request and merge request timelines with reviews, merges and reactions, kept on your phone so they reopen instantly, and user and organization/group profiles. You can open an issue, comment on a conversation, close or reopen it, star and follow from the app. With a role in the repository you can also triage (labels, assignees, milestone), lock, pin, transfer, duplicate and delete, as far as each forge's API allows.
 - **Search:** repositories, issues and pull requests/merge requests, and people, with each forge's query syntax. There is no code search, by design.
+- **Your work:** under the You tab, the reviews asked of you, your open pull requests and what is assigned to you, across every account.
+- **Share and copy:** every repository, conversation, release, discussion, file and profile has a share button; a long press copies its link.
+- **On the home screen:** a widget lists what is unread in your Inbox, each line one tap from its conversation.
+- **In English and French**, following the phone's language, or the app's own on Android 13 and later.
+- **Self-hosted servers' links:** a link to a server you are signed in to opens in the app wherever it is tapped inside it. Android only lets an app claim the domains it names when it is built, so from another app, share the page to Forgeline ("Open in Forgeline"), or paste its address in the search field.
 - **github.com, gitlab.com and codeberg.org links open in the app.** Android doesn't send them to Forgeline automatically, because the app can't verify a domain it doesn't own. To turn it on, go to *Settings → Apps → Forgeline → Open by default → Add links* and select the forge domains.
 
 Release notes for each version are in [docs/release-notes](docs/release-notes).
@@ -40,7 +45,7 @@ echo "sdk.dir=$HOME/Android/Sdk" > local.properties
 ./gradlew testDebugUnitTest    # JVM tests (unit, Robolectric, screenshots)
 ```
 
-Sign in works out of the box with a personal access token. To enable the one-tap "Sign in with GitHub" device flow, see [docs/GITHUB_OAUTH_APP.md](docs/GITHUB_OAUTH_APP.md). Releases are covered in [docs/RELEASING.md](docs/RELEASING.md).
+Sign in works out of the box with a personal access token. To enable the one-tap "Sign in with GitHub" device flow, see [docs/GITHUB_OAUTH_APP.md](docs/GITHUB_OAUTH_APP.md). Releases are covered in [docs/RELEASING.md](docs/RELEASING.md), and what stands between Forgeline and F-Droid or Google Play in [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md).
 
 ## License
 

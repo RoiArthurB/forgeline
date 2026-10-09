@@ -1,0 +1,20 @@
+Forgeline brings your code forges to your phone as a timeline: an Inbox for what needs you, a Feed of what the people you follow are doing, and a Trending page for the daily discovery ritual. It opens in about a second and renders everything natively, so you are never bounced to a mobile web page.
+
+<b>Several forges at once</b>
+GitHub, GitLab (gitlab.com or your own server), Codeberg and any self-hosted Forgejo server share one Inbox, one Feed, one Trending page and one search. Several accounts can be signed in together, private repositories included.
+
+<b>What it does</b>
+• Inbox: what needs you first (review requests, mentions, assignments), then everything else by repository. Swipe to mark read or done. Background checks post notifications, and a home screen widget lists what is unread.
+• Your work: the reviews asked of you, your open pull requests and what is assigned to you, across every account.
+• Feed: what the people you follow and the repositories you watch are doing, in order, grouped by day.
+• Trending: today, this week or this month, without signing in.
+• Repositories: README, code browser with syntax highlighting, issues, pull requests, releases, discussions and CI runs with their logs. Star, watch and fork.
+• Conversations: read, comment, edit, react, attach pictures, close and reopen, triage with labels, assignees and milestones.
+• Search across your forges, share or copy the link of anything, and open forge links in the app.
+
+<b>Principles</b>
+• Fast: every screen renders from the phone first, then refreshes.
+• Private: no backend, no analytics, no trackers. The app talks directly to your forge, and your tokens are encrypted on your device.
+• Free software, under the GPL-3.0.
+
+Available in English and French.

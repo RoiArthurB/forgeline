@@ -1,0 +1,1 @@
+A fast, native client for GitHub, GitLab, Codeberg and Forgejo
