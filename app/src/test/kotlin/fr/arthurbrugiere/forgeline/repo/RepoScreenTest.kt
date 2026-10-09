@@ -716,4 +716,14 @@ class RepoScreenTest {
         assertThat(RepoId("forgejo", "forgejo", ForgeInstance.Codeberg).wikiUrl).isEqualTo("https://codeberg.org/forgejo/forgejo/wiki")
         assertThat(RepoId("gitlab-org", "gitlab", ForgeInstance.GitLab).wikiUrl).isEqualTo("https://gitlab.com/gitlab-org/gitlab/-/wikis")
     }
+
+    @Test
+    fun a_repository_on_another_forge_is_shared_by_its_address_there() {
+        val gitlab = RepoId("group/sub", "tool", fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitLab)
+        setContent(loaded.copy(requested = gitlab, details = loaded.details!!.copy(id = gitlab)))
+
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Share link")).performClick()
+
+        assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()).isEqualTo("https://gitlab.com/group/sub/tool" to "group/sub/tool")
+    }
 }

@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import com.google.common.truth.Truth.assertWithMessage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -49,5 +51,23 @@ class ForgejoSignedInLiveTest {
 
         assertWithMessage("inbox: $threads").that(threads).isInstanceOf(ForgeResult.Success::class.java)
         System.err.println("CODEBERG inbox read in ${System.currentTimeMillis() - started} ms")
+    }
+
+    @Test
+    fun the_signed_in_person_s_work_reads() = runBlocking {
+        assumeTrue("CODEBERG_LIVE_TOKEN not set", token.isNotBlank())
+        val me = ForgejoAuthApi(http, ForgeInstance.Codeberg).fetchAuthenticatedUser(token).value()
+        val search = ForgejoSearchApi(http, ForgeInstance.Codeberg)
+
+        for (kind in WorkKind.entries) {
+            val started = System.currentTimeMillis()
+            val found = search.work(token, me.login, kind)
+            assertWithMessage("$kind: ${(found as? ForgeResult.Failure)?.error}").that(found).isInstanceOf(ForgeResult.Success::class.java)
+            System.err.println("CODEBERG work $kind: ${found.value().size} in ${System.currentTimeMillis() - started} ms")
+            // Whatever shows is open, on Codeberg, and a pull request where only those are asked for.
+            assertWithMessage("$kind open").that(found.value().all { it.issue.state == IssueState.OPEN }).isTrue()
+            assertWithMessage("$kind forge").that(found.value().all { it.repo.forge == ForgeInstance.Codeberg }).isTrue()
+            if (kind != WorkKind.ASSIGNED) assertWithMessage("$kind pull requests").that(found.value().all { it.issue.isPullRequest }).isTrue()
+        }
     }
 }

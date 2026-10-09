@@ -94,4 +94,20 @@ class UserScreenTest {
         composeRule.assertEveryTargetIsAtLeast48dp()
         composeRule.onNode(hasText("The Octocat") and isHeading()).assertIsDisplayed()
     }
+
+    @Test
+    fun a_profile_is_shared_by_its_address_on_its_own_forge() {
+        setContent(base)
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Share link")).performClick()
+        com.google.common.truth.Truth.assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()).isEqualTo("https://github.com/octocat" to "octocat")
+    }
+
+    @Test
+    fun a_profile_on_a_self_hosted_server_is_shared_by_its_address_there() {
+        setContent(base.copy(forge = fr.arthurbrugiere.forgeline.core.model.ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.FORGEJO, "git.example.org")))
+
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Share link")).performClick()
+
+        com.google.common.truth.Truth.assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()?.first).isEqualTo("https://git.example.org/octocat")
+    }
 }

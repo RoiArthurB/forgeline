@@ -189,4 +189,13 @@ class DiscussionScreenTest {
 
         composeRule.assertEveryTargetIsAtLeast48dp()
     }
+
+    @Test
+    fun a_discussion_is_shared_by_its_address_under_what_it_asks() {
+        setContent(loaded)
+
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Share link")).performClick()
+
+        com.google.common.truth.Truth.assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()).isEqualTo("https://github.com/octo/repo/discussions/7" to "How do I page?")
+    }
 }

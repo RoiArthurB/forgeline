@@ -65,4 +65,18 @@ class NotificationDeepLinkTest {
             composeRule.onNode(hasText("Keep install flags on retry - #14129")).assertIsDisplayed()
         }
     }
+
+    @Test
+    fun a_page_shared_to_forgeline_from_another_app_opens_its_conversation() {
+        // What a browser shares: the page's title, then its address.
+        val intent = Intent(Intent.ACTION_SEND).setType("text/plain")
+            .putExtra(Intent.EXTRA_TEXT, "Heartbeat recovery · Issue #14127\nhttps://github.com/paperclipai/paperclip/issues/14127")
+            .setClass(ApplicationProvider.getApplicationContext(), MainActivity::class.java)
+
+        ActivityScenario.launch<MainActivity>(intent).use {
+            composeRule.waitUntil(5_000) {
+                composeRule.onAllNodes(hasText("Heartbeat recovery escalates too early", substring = true)).fetchSemanticsNodes().isNotEmpty()
+            }
+        }
+    }
 }

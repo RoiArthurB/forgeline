@@ -180,4 +180,13 @@ class FileScreenTest {
 
         assertThat(events).containsExactly("browser:https://github.com/octo/repo/blob/main/docs/logo.png")
     }
+
+    @Test
+    fun a_file_is_shared_by_its_page_under_its_name() {
+        setContent(state("src/Main.kt", Loadable.Loaded(FileContent.Text("fun main() {}"))))
+
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Share link")).performClick()
+
+        com.google.common.truth.Truth.assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()).isEqualTo("https://github.com/octo/repo/blob/main/src/Main.kt" to "Main.kt")
+    }
 }

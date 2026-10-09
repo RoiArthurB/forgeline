@@ -678,4 +678,29 @@ class IssueScreenTest {
 
         composeRule.onNodeWithText("Crash on start - #7").assertIsDisplayed()
     }
+
+    @Test
+    fun a_conversation_is_shared_by_the_address_its_own_forge_gives_it() {
+        val codeberg = IssueRef(RepoId("alice", "tool", fr.arthurbrugiere.forgeline.core.model.ForgeInstance.Codeberg), 7)
+        val pr = issueDetails(codeberg, "Fix it").copy(pullRequest = PullRequestInfo(false, false, "main", "fix/it", 12, 3, 2, 1))
+        setContent(IssueUiState(codeberg, pr))
+
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Share link")).performClick()
+
+        assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()?.first).isEqualTo("https://codeberg.org/alice/tool/pulls/7")
+    }
+
+    @Test
+    fun a_gitlab_merge_request_and_issue_of_one_number_are_shared_apart() {
+        val gitlab = IssueRef(RepoId("group/sub", "tool", fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitLab), 7)
+        val mr = issueDetails(gitlab, "Fix it").copy(pullRequest = PullRequestInfo(false, false, "main", "fix/it", 12, 3, 2, 1))
+        setContent(IssueUiState(gitlab, mr))
+
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Share link")).performClick()
+        assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()?.first).isEqualTo("https://gitlab.com/group/sub/tool/-/merge_requests/7")
+
+        shown.value = IssueUiState(gitlab, issueDetails(gitlab, "Crash"))
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Share link")).performClick()
+        assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()?.first).isEqualTo("https://gitlab.com/group/sub/tool/-/issues/7")
+    }
 }

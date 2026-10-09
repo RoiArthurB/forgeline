@@ -16,3 +16,25 @@ dependencies {
     testImplementation(libs.ktor.client.mock)
     testImplementation(libs.kotlinx.coroutines.test)
 }
+
+// Signed-in checks against the real gitlab.com, run nightly by .github/workflows/live.yml. They only read, need
+// GITLAB_LIVE_TOKEN and are skipped without it.
+testing {
+    suites {
+        register<JvmTestSuite>("liveTest") {
+            useJUnit(libs.versions.junit)
+            dependencies {
+                implementation(project())
+                implementation(libs.truth)
+                implementation(libs.ktor.client.okhttp)
+                implementation(libs.kotlinx.coroutines.core)
+            }
+            targets.all {
+                testTask.configure {
+                    environment("GITLAB_LIVE_TOKEN", providers.environmentVariable("GITLAB_LIVE_TOKEN").getOrElse(""))
+                    outputs.upToDateWhen { false }
+                }
+            }
+        }
+    }
+}

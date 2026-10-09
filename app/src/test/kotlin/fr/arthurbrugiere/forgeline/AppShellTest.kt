@@ -265,4 +265,16 @@ class AppShellTest {
         composeRule.onNode(hasContentDescription("Navigate up")).performClick()
         composeRule.onNodeWithText("September").assertIsDisplayed()
     }
+
+    @Test
+    fun an_address_pasted_in_search_opens_what_it_names_and_back_returns_to_search() {
+        composeRule.onNode(hasContentDescription("Search")).performClick()
+        composeRule.onNode(hasSetTextAction()).performTextInput("https://github.com/paperclipai/paperclip/issues/14127")
+
+        composeRule.onNodeWithText("Open this link").performClick()
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Body of #14127")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNode(hasContentDescription("Navigate up")).performClick()
+        composeRule.onNodeWithText("Open this link").assertIsDisplayed()
+    }
 }

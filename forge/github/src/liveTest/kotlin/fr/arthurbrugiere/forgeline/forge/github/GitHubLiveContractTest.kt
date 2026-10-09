@@ -156,4 +156,19 @@ class GitHubLiveContractTest {
         System.err.println("STARRED ${(activity as ForgeResult.Success).value.size} events in $took ms")
         activity.value.sortedByDescending { it.createdAt }.take(8).forEach { System.err.println("STARRED ${it.createdAt} ${it.repo.fullName} ${it.action} by ${it.actor.login}") }
     }
+
+    @Test
+    fun the_signed_in_person_s_work_still_reads() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        val me = (GitHubAuthApi(client, clientId = "").fetchAuthenticatedUser(pat) as ForgeResult.Success).value
+
+        for (kind in fr.arthurbrugiere.forgeline.core.model.WorkKind.entries) {
+            val found = GitHubSearchApi(client).work(pat, me.login, kind)
+            // GitHub refuses a search it can't read (422), so a success says the qualifiers still mean something.
+            assertWithMessage("$kind: $found").that(found).isInstanceOf(ForgeResult.Success::class.java)
+            val items = (found as ForgeResult.Success).value
+            assertWithMessage("$kind open").that(items.all { it.issue.state == IssueState.OPEN }).isTrue()
+            if (kind != fr.arthurbrugiere.forgeline.core.model.WorkKind.ASSIGNED) assertWithMessage("$kind pull requests").that(items.all { it.issue.isPullRequest }).isTrue()
+        }
+    }
 }

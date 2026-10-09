@@ -169,4 +169,25 @@ class InboxWidgetTest {
 
         assertThat(shadowOf(manager).getViewFor(id).text(R.id.widget_empty)).isEqualTo("Sign in to see your notifications")
     }
+
+    @Test
+    fun a_row_on_each_forge_leads_back_to_the_conversation_it_names() {
+        val lab = ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.GITLAB, "lab.example.org")
+        fr.arthurbrugiere.forgeline.core.model.KnownForges.remember(lab)
+        try {
+            fun opened(forge: ForgeInstance, owner: String, pull: Boolean) =
+                fr.arthurbrugiere.forgeline.navigation.linkRoute(openThread((if (pull) review else crash).let { it.copy(repo = it.repo.copy(owner = owner, forge = forge)) }).dataString!!)
+
+            assertThat(opened(ForgeInstance.Codeberg, "alice", pull = true)).isEqualTo(fr.arthurbrugiere.forgeline.navigation.IssueRoute("codeberg.org", "alice", "notes", 7))
+            // GitLab numbers merge requests apart from issues: the row says which it is.
+            assertThat(opened(ForgeInstance.GitLab, "group/sub", pull = true))
+                .isEqualTo(fr.arthurbrugiere.forgeline.navigation.IssueRoute("gitlab.com", "group/sub", "notes", 7, isPullRequest = true))
+            assertThat(opened(ForgeInstance.GitLab, "group/sub", pull = false))
+                .isEqualTo(fr.arthurbrugiere.forgeline.navigation.IssueRoute("gitlab.com", "group/sub", "tools", 42, isPullRequest = false))
+            // A self-hosted server signed in to: its rows open in the app too.
+            assertThat(opened(lab, "team", pull = true)).isEqualTo(fr.arthurbrugiere.forgeline.navigation.IssueRoute("lab.example.org", "team", "notes", 7, isPullRequest = true))
+        } finally {
+            fr.arthurbrugiere.forgeline.core.model.KnownForges.clear()
+        }
+    }
 }

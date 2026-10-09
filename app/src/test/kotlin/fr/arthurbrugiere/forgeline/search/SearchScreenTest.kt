@@ -245,4 +245,13 @@ class SearchScreenTest {
 
         assertThat(events).containsExactly("submit")
     }
+
+    @Test
+    fun a_gitlab_address_is_read_as_gitlab_writes_them() {
+        setContent(SearchUiState("https://gitlab.com/gitlab-org/gitlab-runner/-/merge_requests/100"))
+
+        composeRule.onNodeWithText("Open this link").performClick()
+
+        assertThat(events).containsExactly("link:" + fr.arthurbrugiere.forgeline.navigation.IssueRoute("gitlab.com", "gitlab-org", "gitlab-runner", 100, isPullRequest = true))
+    }
 }
