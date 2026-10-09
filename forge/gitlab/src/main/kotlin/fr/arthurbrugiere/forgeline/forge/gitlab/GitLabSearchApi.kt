@@ -8,6 +8,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.SearchPage
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
+import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.isSuccess
@@ -90,6 +91,36 @@ class GitLabSearchApi(
         }
     }
 
+    // Narrowed to one person, listing merge requests answers at once, where listing them all times out (see [issues]).
+    override suspend fun work(token: String, login: String, kind: WorkKind): ForgeResult<List<IssueSearchResult>> = gitlabCall {
+        when (kind) {
+            WorkKind.REVIEW_REQUESTED -> mergeRequests(token, mapOf("scope" to "all", "reviewer_username" to login))
+            WorkKind.OWN_PULL_REQUESTS -> mergeRequests(token, mapOf("scope" to "created_by_me"))
+            WorkKind.ASSIGNED -> coroutineScope {
+                val issues = async {
+                    val response = httpClient.gitlabApi(forge, token, "issues", query = OPEN + ("scope" to "assigned_to_me"))
+                    response.toResult {
+                        body<List<GitLabIssueJson>>().mapNotNull { issue ->
+                            parseRepoFromIssueUrl(issue.webUrl)?.let { IssueSearchResult(it, issue.toSummary(it)) }
+                        }
+                    }
+                }
+                val mergeRequests = async { mergeRequests(token, mapOf("scope" to "assigned_to_me")) }
+                val found = listOf(issues.await(), mergeRequests.await())
+                // One of the two failing leaves what the other found; both failing is a failure.
+                val lists = found.filterIsInstance<ForgeResult.Success<List<IssueSearchResult>>>()
+                if (lists.isEmpty()) found.first() else ForgeResult.Success(lists.flatMap { it.value }.sortedByDescending { it.issue.createdAt })
+            }
+        }
+    }
+
+    private suspend fun mergeRequests(token: String, mine: Map<String, String>): ForgeResult<List<IssueSearchResult>> =
+        httpClient.gitlabApi(forge, token, "merge_requests", query = OPEN + mine).toResult {
+            body<List<GitLabMergeRequestJson>>().mapNotNull { mr ->
+                parseRepoFromIssueUrl(mr.webUrl)?.let { IssueSearchResult(it, mr.toSummary(it)) }
+            }
+        }
+
     /** The project a result is in, from its page's address; null when that can't be read, and the result is left out. */
     private fun parseRepoFromIssueUrl(webUrl: String?): RepoId? {
         val path = webUrl?.takeIf { "/-/" in it }?.substringBefore("/-/")?.substringAfter("://")?.substringAfter('/', "") ?: return null
@@ -100,5 +131,6 @@ class GitLabSearchApi(
     private companion object {
         const val PAGE_SIZE = 30
         const val HALF_PAGE_SIZE = 15
+        val OPEN = mapOf("state" to "opened", "order_by" to "updated_at", "per_page" to "$PAGE_SIZE")
     }
 }

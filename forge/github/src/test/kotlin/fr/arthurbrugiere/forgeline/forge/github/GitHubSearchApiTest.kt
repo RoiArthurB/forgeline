@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -101,5 +102,40 @@ class GitHubSearchApiTest {
         }.users(null, "x")
 
         assertThat((result as ForgeResult.Failure).error).isInstanceOf(ForgeError.RateLimited::class.java)
+    }
+
+    @Test
+    fun each_kind_of_work_asks_for_what_is_open_and_the_signed_in_person_s() = runTest {
+        val api = api { json(fixture("issues")) }
+
+        val found = api.work("tok", "octocat", WorkKind.REVIEW_REQUESTED).value()
+        api.work("tok", "octocat", WorkKind.OWN_PULL_REQUESTS)
+        api.work("tok", "octocat", WorkKind.ASSIGNED)
+
+        // Each one with its repository, as a search finds them.
+        assertThat(found.map { it.repo }.distinct()).containsExactly(RepoId("paperclipai", "paperclip"))
+        assertThat(requests.map { it.url.parameters["q"] }).containsExactly(
+            "is:open is:pr review-requested:@me archived:false",
+            "is:open is:pr author:@me archived:false",
+            "is:open assignee:@me archived:false",
+        ).inOrder()
+        // Most recently touched first, with the account's token.
+        assertThat(requests.map { it.url.parameters["sort"] }.toSet()).containsExactly("updated")
+        assertThat(requests.map { it.url.encodedPath }.toSet()).containsExactly("/search/issues")
+        assertThat(requests.map { it.headers["Authorization"] }.toSet()).containsExactly("Bearer tok")
+    }
+
+    @Test
+    fun work_that_cannot_be_read_is_a_failure() = runTest {
+        val result = api { json("{}", status = HttpStatusCode.Unauthorized) }.work("tok", "octocat", WorkKind.ASSIGNED)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+    }
+
+    @Test
+    fun an_ordinary_search_asks_for_no_order() = runTest {
+        api { json(fixture("issues")) }.issues("tok", "heartbeat")
+
+        assertThat(requests.single().url.parameters.contains("sort")).isFalse()
     }
 }

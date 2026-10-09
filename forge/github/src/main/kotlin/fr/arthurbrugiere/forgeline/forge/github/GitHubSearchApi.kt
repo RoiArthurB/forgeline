@@ -12,6 +12,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.SearchPage
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
+import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.statement.HttpResponse
@@ -42,8 +43,23 @@ class GitHubSearchApi(
         }
     }
 
-    private suspend fun search(token: String?, what: String, query: String, page: Int): HttpResponse =
-        httpClient.gitHubApi(apiBaseUrl, token, "search", what, query = mapOf("q" to query, "per_page" to "30", "page" to page.toString()))
+    // "@me" is whoever the token signs in. Archived repositories are left out: nothing can be done there.
+    override suspend fun work(token: String, login: String, kind: WorkKind): ForgeResult<List<IssueSearchResult>> = gitHubCall {
+        val mine = when (kind) {
+            WorkKind.REVIEW_REQUESTED -> "is:pr review-requested:@me"
+            WorkKind.OWN_PULL_REQUESTS -> "is:pr author:@me"
+            WorkKind.ASSIGNED -> "assignee:@me"
+        }
+        search(token, "issues", "is:open $mine archived:false", page = 1, sort = "updated").toResult {
+            body<SearchJson<SearchIssueJson>>().items.mapNotNull { it.toModel() }
+        }
+    }
+
+    private suspend fun search(token: String?, what: String, query: String, page: Int, sort: String? = null): HttpResponse =
+        httpClient.gitHubApi(
+            apiBaseUrl, token, "search", what,
+            query = mapOf("q" to query, "per_page" to "30", "page" to page.toString()) + listOfNotNull(sort?.let { "sort" to it }),
+        )
 }
 
 @Serializable

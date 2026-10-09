@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.forge.forgejo
 
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.SearchApi
+import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import fr.arthurbrugiere.forgeline.core.forge.StarApi
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -153,6 +154,20 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
         response.toResult {
             val items = body<SearchJson<UserJson>>().data.map { it.toSummary(forge) }
             SearchPage(items, totalCount() ?: items.size, nextPage())
+        }
+    }
+
+    override suspend fun work(token: String, login: String, kind: WorkKind): ForgeResult<List<IssueSearchResult>> = forgejoCall {
+        val mine = when (kind) {
+            WorkKind.REVIEW_REQUESTED -> mapOf("review_requested" to "true", "type" to "pulls")
+            WorkKind.OWN_PULL_REQUESTS -> mapOf("created" to "true", "type" to "pulls")
+            WorkKind.ASSIGNED -> mapOf("assigned" to "true")
+        }
+        val response = httpClient.forgejoApi(forge, token, "repos", "issues", "search", query = mapOf("state" to "open", "limit" to "$PAGE_SIZE") + mine)
+        response.toResult {
+            body<List<IssueJson>>().mapNotNull { issue ->
+                issue.repository?.let { IssueSearchResult(RepoId(it.owner, it.name, forge), issue.toSummary()) }
+            }
         }
     }
 

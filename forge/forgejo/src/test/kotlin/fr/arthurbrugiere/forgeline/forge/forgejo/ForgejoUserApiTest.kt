@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -194,5 +195,35 @@ class ForgejoUserApiTest {
         val fork = with(codeberg) { ForgejoStarApi(client { status(HttpStatusCode.Conflict) }, ForgeInstance.Codeberg) }.fork("t", forgejoRepo)
 
         assertThat(fork).isEqualTo(ForgeResult.Failure(ForgeError.Http(409, null)))
+    }
+
+    @Test
+    fun each_kind_of_work_asks_the_search_for_what_is_open_and_the_signed_in_person_s() = runTest {
+        val issue = """[{"number":3,"title":"Crash","state":"open","created_at":"2026-09-29T15:09:06+02:00","repository":{"owner":"alice","name":"tool"}}]"""
+        val api = with(codeberg) { ForgejoSearchApi(client { json(issue) }, ForgeInstance.Codeberg) }
+
+        val found = api.work("t", "alice", WorkKind.REVIEW_REQUESTED).value()
+        api.work("t", "alice", WorkKind.OWN_PULL_REQUESTS)
+        api.work("t", "alice", WorkKind.ASSIGNED)
+
+        assertThat(found.single().repo).isEqualTo(RepoId("alice", "tool", ForgeInstance.Codeberg))
+        val asked = codeberg.requests.map { it.url.parameters }
+        assertThat(codeberg.requests.map { it.url.encodedPath }.toSet()).containsExactly("/api/v1/repos/issues/search")
+        assertThat(asked.map { it["state"] }.toSet()).containsExactly("open")
+        assertThat(asked.map { Triple(it["review_requested"], it["created"], it["assigned"]) }).containsExactly(
+            Triple("true", null, null),
+            Triple(null, "true", null),
+            Triple(null, null, "true"),
+        ).inOrder()
+        // Reviews and one's own are pull requests; what is assigned may be either.
+        assertThat(asked.map { it["type"] }).containsExactly("pulls", "pulls", null).inOrder()
+        assertThat(codeberg.requests.map { it.headers["Authorization"] }.toSet()).containsExactly("token t")
+    }
+
+    @Test
+    fun work_the_server_refuses_is_a_failure() = runTest {
+        val api = with(codeberg) { ForgejoSearchApi(client { status(HttpStatusCode.InternalServerError) }, ForgeInstance.Codeberg) }
+
+        assertThat(api.work("t", "alice", WorkKind.ASSIGNED)).isInstanceOf(ForgeResult.Failure::class.java)
     }
 }

@@ -380,6 +380,16 @@
 
     <string name="file_too_large_title">Too large to preview</string>
     <string name="file_too_large_body">Open it in your browser to see it.</string>
+    <string name="work_title">Your work</string>
+    <string name="work_summary">Reviews asked of you, your pull requests, what is assigned to you</string>
+    <string name="work_reviews">Waiting for your review</string>
+    <string name="work_own">Your open pull requests</string>
+    <string name="work_assigned">Assigned to you</string>
+    <string name="work_loading">Loading your work</string>
+    <string name="work_empty_title">Nothing waits on you</string>
+    <string name="work_empty_body">No review is asked of you, none of your pull requests is open, and nothing is assigned to you.</string>
+    <string name="work_error_title">Couldn\'t load your work</string>
+    <string name="work_failed">%1$s couldn\'t be asked: what waits on you there is missing. Pull down to try again.</string>
     <string name="link_share">Share link</string>
     <string name="link_copy">Copy link</string>
     <string name="link_copied">Link copied</string>

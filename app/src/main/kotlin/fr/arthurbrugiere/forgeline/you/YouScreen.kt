@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.you
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.outlined.PersonAdd
+import androidx.compose.material.icons.outlined.Checklist
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -52,6 +53,7 @@ fun YouScreen(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     onOpenProfile: (Account) -> Unit = {},
+    onOpenWork: () -> Unit = {},
 ) {
     val colors = Soft.colors
     Column(
@@ -115,6 +117,8 @@ fun YouScreen(
             }
         }
         Spacer(Modifier.padding(top = 8.dp))
+        // One's own work first: it is what the tab is opened for once the accounts are set.
+        if (session is SessionState.SignedIn) NavigationRow(Icons.Outlined.Checklist, stringResource(R.string.work_title), onOpenWork, summary = stringResource(R.string.work_summary))
         if (session is SessionState.SignedIn) NavigationRow(Icons.Outlined.PersonAdd, stringResource(R.string.settings_add_account), onSignIn)
         NavigationRow(Icons.Outlined.Settings, stringResource(R.string.settings_title), onOpenSettings)
     }

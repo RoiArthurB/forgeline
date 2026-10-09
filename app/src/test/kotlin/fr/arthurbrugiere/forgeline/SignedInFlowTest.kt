@@ -75,6 +75,27 @@ class SignedInFlowTest {
     }
 
     @Test
+    fun one_s_own_work_opens_from_the_you_tab_and_leads_to_its_conversations() {
+        hiltRule.inject()
+        runBlocking { accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null), "tok") }
+        composeRule.onNode(hasContentDescription("You") and isSelectable()).performClick()
+        waitFor("Your work")
+
+        composeRule.onNodeWithText("Your work").performClick()
+
+        waitFor("Waiting for your review")
+        composeRule.onNodeWithText("Retry uploads on slow links").assertIsDisplayed()
+        composeRule.onNodeWithText("Assigned to you").assertIsDisplayed()
+        // Nothing of one's own is open: that heading is left out.
+        composeRule.onNodeWithText("Your open pull requests").assertDoesNotExist()
+        composeRule.onNodeWithText("Heartbeat recovery escalates too early").performClick()
+        waitFor("Body of #14127")
+        // Back returns to the work, not to the You tab.
+        composeRule.onNode(hasContentDescription("Navigate up")).performClick()
+        waitFor("Waiting for your review")
+    }
+
+    @Test
     fun a_comment_written_under_a_conversation_joins_it_and_empties_the_box() {
         openIssuesSignedIn()
         composeRule.onNodeWithText("Heartbeat recovery escalates too early").performClick()

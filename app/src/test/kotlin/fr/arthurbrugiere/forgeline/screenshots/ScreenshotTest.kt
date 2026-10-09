@@ -1337,4 +1337,27 @@ class ScreenshotTest {
             nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
         )
     }
+
+    @Test
+    fun work_light() = snapshot("work_light", darkTheme = false, awaitText = "Assigned to you") {
+        val tools = RepoId("octo", "tools")
+        val notes = RepoId("alice", "notes", ForgeInstance.Codeberg)
+        fun found(repo: RepoId, number: Int, title: String, pull: Boolean = true) =
+            fr.arthurbrugiere.forgeline.core.model.IssueSearchResult(repo, fr.arthurbrugiere.forgeline.core.testing.issueSummary(number, title, isPullRequest = pull))
+        fr.arthurbrugiere.forgeline.work.WorkScreen(
+            state = fr.arthurbrugiere.forgeline.work.WorkUiState(
+                fr.arthurbrugiere.forgeline.core.data.work.Work(
+                    mapOf(
+                        fr.arthurbrugiere.forgeline.core.model.WorkKind.REVIEW_REQUESTED to listOf(found(tools, 88, "Retry uploads on slow links")),
+                        fr.arthurbrugiere.forgeline.core.model.WorkKind.OWN_PULL_REQUESTS to listOf(found(notes, 12, "Add a dark theme"), found(tools, 91, "Bump the SDK")),
+                        fr.arthurbrugiere.forgeline.core.model.WorkKind.ASSIGNED to listOf(found(notes, 9, "Crash on start", pull = false)),
+                    ),
+                    forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg),
+                ),
+                isLoading = false,
+            ),
+            onBack = {}, onRefresh = {}, onOpenIssue = {}, onErrorShown = {},
+            nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
+        )
+    }
 }

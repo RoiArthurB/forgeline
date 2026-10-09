@@ -149,6 +149,13 @@ object FakeForgeModule {
     fun provideSearchApi(): SearchApi = FakeSearchApi().apply {
         repositories = listOf(repoSummary("paperclipai/paperclip", stars = 85_955, description = "Open-source orchestration for teams of AI agents"))
         users = listOf(UserSummary("octocat", null, isOrganization = false))
+        // What waits on whoever signs in: a review asked of them, and the issue the fake forge serves.
+        work[fr.arthurbrugiere.forgeline.core.model.WorkKind.REVIEW_REQUESTED] = listOf(
+            fr.arthurbrugiere.forgeline.core.model.IssueSearchResult(RepoId("octo", "tools"), issueSummary(88, "Retry uploads on slow links", isPullRequest = true)),
+        )
+        work[fr.arthurbrugiere.forgeline.core.model.WorkKind.ASSIGNED] = listOf(
+            fr.arthurbrugiere.forgeline.core.model.IssueSearchResult(RepoId("paperclipai", "paperclip"), issueSummary(14127, "Heartbeat recovery escalates too early")),
+        )
     }
 
     @Provides

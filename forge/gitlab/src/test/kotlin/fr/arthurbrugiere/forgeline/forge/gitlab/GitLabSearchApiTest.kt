@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -108,5 +109,55 @@ class GitLabSearchApiTest {
         assertThat(results.items).hasSize(1)
         assertThat(results.items[0].login).isEqualTo("tanuki")
         assertThat(results.items[0].avatarUrl).isEqualTo("https://gitlab.com/avatar.png")
+    }
+
+    private val mergeRequest = """[{"id":20,"iid":2,"project_id":1,"title":"MR fix","state":"opened","created_at":"2026-10-01T12:00:00Z","web_url":"https://gitlab.com/group/sub/project-a/-/merge_requests/2"}]"""
+    private val assignedIssue = """[{"id":10,"iid":1,"project_id":1,"title":"Issue bug","state":"opened","created_at":"2026-10-02T10:00:00Z","web_url":"https://gitlab.com/group/project-a/-/issues/1"}]"""
+
+    @Test
+    fun reviews_asked_of_someone_are_the_open_merge_requests_naming_them_reviewer() = runTest {
+        val found = api { json(mergeRequest) }.work("tok", "tanuki", WorkKind.REVIEW_REQUESTED).value()
+
+        assertThat(found.single().repo.fullName).isEqualTo("group/sub/project-a")
+        assertThat(found.single().issue.isPullRequest).isTrue()
+        val url = requests.single().url
+        assertThat(url.encodedPath).isEqualTo("/api/v4/merge_requests")
+        assertThat(url.parameters["reviewer_username"]).isEqualTo("tanuki")
+        assertThat(url.parameters["scope"]).isEqualTo("all")
+        assertThat(url.parameters["state"]).isEqualTo("opened")
+        assertThat(url.parameters["order_by"]).isEqualTo("updated_at")
+    }
+
+    @Test
+    fun one_s_own_merge_requests_are_those_one_opened() = runTest {
+        api { json(mergeRequest) }.work("tok", "tanuki", WorkKind.OWN_PULL_REQUESTS).value()
+
+        val url = requests.single().url
+        assertThat(url.encodedPath).isEqualTo("/api/v4/merge_requests")
+        assertThat(url.parameters["scope"]).isEqualTo("created_by_me")
+        assertThat(url.parameters["state"]).isEqualTo("opened")
+    }
+
+    @Test
+    fun what_is_assigned_is_both_issues_and_merge_requests_newest_first() = runTest {
+        val found = api { json(if (it.url.encodedPath.endsWith("/issues")) assignedIssue else mergeRequest) }.work("tok", "tanuki", WorkKind.ASSIGNED).value()
+
+        assertThat(found.map { it.issue.title }).containsExactly("Issue bug", "MR fix").inOrder()
+        assertThat(requests.map { it.url.encodedPath }).containsExactly("/api/v4/issues", "/api/v4/merge_requests")
+        assertThat(requests.map { it.url.parameters["scope"] }.toSet()).containsExactly("assigned_to_me")
+    }
+
+    @Test
+    fun one_of_the_two_assigned_lists_failing_leaves_the_other() = runTest {
+        val api = api { if (it.url.encodedPath.endsWith("/issues")) json("{}", HttpStatusCode.InternalServerError) else json(mergeRequest) }
+
+        assertThat(api.work("tok", "tanuki", WorkKind.ASSIGNED).value().map { it.issue.title }).containsExactly("MR fix")
+    }
+
+    @Test
+    fun both_assigned_lists_failing_is_a_failure() = runTest {
+        val result = api { json("{}", HttpStatusCode.InternalServerError) }.work("tok", "tanuki", WorkKind.ASSIGNED)
+
+        assertThat(result).isInstanceOf(ForgeResult.Failure::class.java)
     }
 }
