@@ -26,6 +26,12 @@ fun RepoId.jobUrl(runId: Long, jobId: Long): String = when (forge.type) {
     ForgeType.FORGEJO -> runUrl(runId)
 }
 
+/** A release's page, by its tag: GitLab keeps it under `/-/releases`, the others under `/releases/tag`. */
+fun RepoId.releaseUrl(tag: String): String = when (forge.type) {
+    ForgeType.GITLAB -> "$webUrl/-/releases/$tag"
+    ForgeType.GITHUB, ForgeType.FORGEJO -> "$webUrl/releases/tag/$tag"
+}
+
 /** Where raw files at [ref] live, ending with `/`. */
 fun RepoId.rawBaseUrl(ref: String): String = when (forge.type) {
     ForgeType.GITHUB -> "https://raw.githubusercontent.com/$fullName/$ref/"

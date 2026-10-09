@@ -38,4 +38,11 @@ class WebUrlsTest {
         assertThat(gitlab.rawBaseUrl("main")).isEqualTo("https://gitlab.com/alice/tool/-/raw/main/")
         assertThat(gitlab.blobBaseUrl("main")).isEqualTo("https://gitlab.com/alice/tool/-/blob/main/")
     }
+
+    @Test
+    fun a_release_s_page_is_under_releases_tag_except_on_gitlab() {
+        assertThat(github.releaseUrl("v1.0")).isEqualTo("https://github.com/alice/tool/releases/tag/v1.0")
+        assertThat(codeberg.releaseUrl("v1.0")).isEqualTo("https://codeberg.org/alice/tool/releases/tag/v1.0")
+        assertThat(gitlab.releaseUrl("v1.0")).isEqualTo("https://gitlab.com/alice/tool/-/releases/v1.0")
+    }
 }

@@ -232,4 +232,23 @@ class ReleaseScreenTest {
 
         composeRule.assertEveryTargetIsAtLeast48dp()
     }
+
+    @Test
+    fun a_release_still_loading_is_shared_by_the_address_its_forge_gives_releases() {
+        // Regression: GitLab's releases were sent to /releases/tag/, which is GitHub's and Forgejo's address, not its own.
+        setContent(ReleaseUiState(RepoId("group", "tool", ForgeInstance.GitLab), "v2.0.0"))
+
+        composeRule.onNodeWithContentDescription("Share link").performClick()
+
+        assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()?.first).isEqualTo("https://gitlab.com/group/tool/-/releases/v2.0.0")
+    }
+
+    @Test
+    fun a_codeberg_release_still_loading_is_shared_by_its_tag_s_page() {
+        setContent(ReleaseUiState(RepoId("alice", "tool", ForgeInstance.Codeberg), "v2.0.0"))
+
+        composeRule.onNodeWithContentDescription("Share link").performClick()
+
+        assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()?.first).isEqualTo("https://codeberg.org/alice/tool/releases/tag/v2.0.0")
+    }
 }
