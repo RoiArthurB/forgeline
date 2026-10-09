@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.work
 
+import kotlinx.coroutines.launch
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -110,5 +111,69 @@ class WorkRepositoryTest {
         codeberg.failure = ForgeError.Network
 
         assertThat(repository.load()).isEqualTo(ForgeResult.Failure(ForgeError.Network))
+    }
+
+    @Test
+    fun a_slow_forge_does_not_hold_back_the_others_work() = runTest {
+        signInToGitHub()
+        signInToCodeberg()
+        gitHub.work[WorkKind.ASSIGNED] = listOf(found("octo/a", 1, pull = false))
+        codeberg.work[WorkKind.ASSIGNED] = listOf(found("alice/b", 7, ForgeInstance.Codeberg, pull = false))
+        codeberg.workGate = kotlinx.coroutines.CompletableDeferred()
+        val seen = mutableListOf<Work>()
+
+        val reading = launch { repository.stream().collect { seen += (it as ForgeResult.Success).value } }
+        testScheduler.runCurrent()
+
+        // GitHub's is there, and Codeberg is said to be on its way rather than to have nothing.
+        assertThat(seen.single().sections[WorkKind.ASSIGNED]).containsExactly(found("octo/a", 1, pull = false))
+        assertThat(seen.single().pending).containsExactly(ForgeInstance.Codeberg)
+        assertThat(seen.single().forges).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg)
+
+        codeberg.workGate!!.complete(Unit)
+        reading.join()
+
+        assertThat(seen).hasSize(2)
+        assertThat(seen.last().pending).isEmpty()
+        assertThat(seen.last().sections[WorkKind.ASSIGNED]!!.map { it.repo.fullName }).containsExactly("octo/a", "alice/b").inOrder()
+    }
+
+    @Test
+    fun the_order_is_the_accounts_whichever_forge_answers_first() = runTest {
+        signInToGitHub()
+        signInToCodeberg()
+        gitHub.work[WorkKind.ASSIGNED] = listOf(found("octo/a", 1, pull = false))
+        codeberg.work[WorkKind.ASSIGNED] = listOf(found("alice/b", 7, ForgeInstance.Codeberg, pull = false))
+        // This time GitHub is the slow one.
+        gitHub.workGate = kotlinx.coroutines.CompletableDeferred()
+        val seen = mutableListOf<Work>()
+
+        val reading = launch { repository.stream().collect { seen += (it as ForgeResult.Success).value } }
+        testScheduler.runCurrent()
+        assertThat(seen.single().pending).containsExactly(ForgeInstance.GitHub)
+        gitHub.workGate!!.complete(Unit)
+        reading.join()
+
+        assertThat(seen.last().sections[WorkKind.ASSIGNED]!!.map { it.repo.fullName }).containsExactly("octo/a", "alice/b").inOrder()
+    }
+
+    @Test
+    fun a_forge_that_failed_first_is_not_called_a_failure_while_another_may_still_answer() = runTest {
+        signInToGitHub()
+        signInToCodeberg()
+        gitHub.failure = ForgeError.Network
+        codeberg.work[WorkKind.ASSIGNED] = listOf(found("alice/b", 7, ForgeInstance.Codeberg, pull = false))
+        codeberg.workGate = kotlinx.coroutines.CompletableDeferred()
+        val seen = mutableListOf<ForgeResult<Work>>()
+
+        val reading = launch { repository.stream().collect { seen += it } }
+        testScheduler.runCurrent()
+        assertThat(seen).isEmpty()
+        codeberg.workGate!!.complete(Unit)
+        reading.join()
+
+        val work = (seen.single() as ForgeResult.Success).value
+        assertThat(work.failed).containsExactly(ForgeInstance.GitHub)
+        assertThat(work.sections[WorkKind.ASSIGNED]).hasSize(1)
     }
 }

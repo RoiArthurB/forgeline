@@ -375,6 +375,7 @@
     <string name="work_empty_title">Rien ne vous attend</string>
     <string name="work_empty_body">Aucune relecture ne vous est demandée, aucune de vos pull requests n’est ouverte, et rien ne vous est assigné.</string>
     <string name="work_error_title">Impossible de charger votre travail</string>
+    <string name="work_pending">%1$s n’a pas encore répondu…</string>
     <string name="work_failed">%1$s n’a pas pu être interrogé : ce qui vous y attend manque. Tirez vers le bas pour réessayer.</string>
     <string name="share_open_label">Ouvrir dans Forgeline</string>
     <string name="share_open_unknown">Forgeline ne peut pas ouvrir ceci : ce n’est pas une page d’une forge à laquelle vous êtes connecté.</string>

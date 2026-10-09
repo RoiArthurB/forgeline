@@ -152,4 +152,40 @@ class WorkScreenTest {
 
         assertThat(events).containsExactly("back")
     }
+
+    @Test
+    fun a_gitlab_merge_request_and_issue_open_as_what_they_are() {
+        val lab = RepoId("group/sub", "tool", ForgeInstance.GitLab)
+        val mr = IssueSearchResult(lab, issueSummary(7, "Merge the fix", isPullRequest = true))
+        val issue = IssueSearchResult(lab, issueSummary(7, "The same number, an issue"))
+        setContent(WorkUiState(work(reviews = listOf(mr), mine = emptyList(), todo = listOf(issue), forges = listOf(ForgeInstance.GitLab)), isLoading = false))
+
+        composeRule.onNodeWithText("Merge the fix").performClick()
+        composeRule.onNodeWithText("The same number, an issue").performClick()
+
+        assertThat(opened).containsExactly(IssueRef(lab, 7, true), IssueRef(lab, 7, false)).inOrder()
+    }
+
+    @Test
+    fun with_one_forge_alone_rows_do_not_repeat_its_name() {
+        setContent(WorkUiState(work(todo = emptyList(), forges = listOf(ForgeInstance.GitHub)), isLoading = false))
+
+        composeRule.onAllNodes(hasText("GitHub", substring = true)).fetchSemanticsNodes().let { assertThat(it).isEmpty() }
+    }
+
+    @Test
+    fun a_forge_still_to_answer_is_named_under_what_the_others_said() {
+        setContent(WorkUiState(work(todo = emptyList()).copy(pending = listOf(ForgeInstance.Codeberg)), isLoading = true))
+
+        composeRule.onNodeWithText("Fix the upload").assertIsDisplayed()
+        composeRule.onNodeWithText("Still asking Codeberg…").assertIsDisplayed()
+    }
+
+    @Test
+    fun nothing_yet_from_the_first_forges_is_not_called_nothing_while_one_is_still_asked() {
+        setContent(WorkUiState(work(emptyList(), emptyList(), emptyList()).copy(pending = listOf(ForgeInstance.Codeberg)), isLoading = true))
+
+        composeRule.onNodeWithText("Still asking Codeberg…").assertIsDisplayed()
+        composeRule.onNodeWithText("Nothing waits on you").assertDoesNotExist()
+    }
 }

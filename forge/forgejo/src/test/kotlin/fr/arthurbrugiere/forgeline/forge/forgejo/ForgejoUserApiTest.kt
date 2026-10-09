@@ -210,6 +210,8 @@ class ForgejoUserApiTest {
         val asked = codeberg.requests.map { it.url.parameters }
         assertThat(codeberg.requests.map { it.url.encodedPath }.toSet()).containsExactly("/api/v1/repos/issues/search")
         assertThat(asked.map { it["state"] }.toSet()).containsExactly("open")
+        // Most recently touched first, as on the other forges: Forgejo's own order is by creation.
+        assertThat(asked.map { it["sort"] }.toSet()).containsExactly("recentupdate")
         assertThat(asked.map { Triple(it["review_requested"], it["created"], it["assigned"]) }).containsExactly(
             Triple("true", null, null),
             Triple(null, "true", null),
@@ -225,5 +227,17 @@ class ForgejoUserApiTest {
         val api = with(codeberg) { ForgejoSearchApi(client { status(HttpStatusCode.InternalServerError) }, ForgeInstance.Codeberg) }
 
         assertThat(api.work("t", "alice", WorkKind.ASSIGNED)).isInstanceOf(ForgeResult.Failure::class.java)
+    }
+
+    @Test
+    fun work_is_given_the_time_codeberg_takes_to_search_every_repository() = runTest {
+        // Regression: Codeberg answers these in 7 to 11 s, and the 10 s every call is given made them fail as "offline".
+        val api = with(codeberg) { ForgejoSearchApi(client { json("[]") }, ForgeInstance.Codeberg) }
+
+        api.work("t", "alice", WorkKind.REVIEW_REQUESTED)
+        api.issues("t", "crash")
+
+        val patience = codeberg.requests.map { it.getCapabilityOrNull(io.ktor.client.plugins.HttpTimeoutCapability)?.socketTimeoutMillis }
+        assertThat(patience).containsExactly(30_000L, null).inOrder()
     }
 }

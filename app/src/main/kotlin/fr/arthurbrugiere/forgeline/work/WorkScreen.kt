@@ -118,7 +118,7 @@ fun WorkScreen(
                     }
                     work == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.work_loading), rows = 4) }
                     else -> {
-                        if (work.isEmpty && work.failed.isEmpty()) {
+                        if (work.isEmpty && work.failed.isEmpty() && work.pending.isEmpty()) {
                             item(key = "empty") { SoftNotice(stringResource(R.string.work_empty_title), stringResource(R.string.work_empty_body)) }
                         }
                         WorkKind.entries.forEach { kind ->
@@ -134,6 +134,17 @@ fun WorkScreen(
                                     repo = item.repo,
                                     // Which forge, once work comes from more than one.
                                     forge = item.repo.forge.takeIf { work.forges.size > 1 },
+                                )
+                            }
+                        }
+                        // A forge still to answer is named: its work isn't missing, only on its way.
+                        if (work.pending.isNotEmpty()) {
+                            item(key = "pending") {
+                                Text(
+                                    stringResource(R.string.work_pending, work.pending.joinToString { it.displayName }),
+                                    style = Soft.type.secondary,
+                                    color = colors.inkMuted,
+                                    modifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp),
                                 )
                             }
                         }

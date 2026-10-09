@@ -92,4 +92,42 @@ class WorkViewModelTest {
 
         assertThat(viewModel.state.value.work!!.sections[WorkKind.ASSIGNED]).containsExactly(review)
     }
+
+    @Test
+    fun each_forge_s_work_shows_as_it_comes_in_and_loading_ends_with_the_last() = test {
+        val codeberg = FakeSearchApi().apply { workGate = kotlinx.coroutines.CompletableDeferred() }
+        val clients = FakeForgeClients(search = api).also { it.put(ForgeInstance.Codeberg, FakeForgeClients(search = codeberg)) }
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("alice", null, null), "tok-cb")
+        api.work[WorkKind.REVIEW_REQUESTED] = listOf(review)
+
+        val viewModel = WorkViewModel(WorkRepository(clients, accounts))
+        testScheduler.runCurrent()
+
+        assertThat(viewModel.state.value.work!!.sections[WorkKind.REVIEW_REQUESTED]).containsExactly(review)
+        assertThat(viewModel.state.value.work!!.pending).containsExactly(ForgeInstance.Codeberg)
+        assertThat(viewModel.state.value.isLoading).isTrue()
+
+        codeberg.workGate!!.complete(Unit)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.work!!.pending).isEmpty()
+        assertThat(viewModel.state.value.isLoading).isFalse()
+    }
+
+    @Test
+    fun a_new_refresh_drops_the_one_still_under_way() = test {
+        api.workGate = kotlinx.coroutines.CompletableDeferred()
+        val viewModel = WorkViewModel(repository)
+        testScheduler.runCurrent()
+        val first = api.calls.size
+
+        api.workGate = null
+        api.work[WorkKind.ASSIGNED] = listOf(review)
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertThat(api.calls.size).isEqualTo(first * 2)
+        assertThat(viewModel.state.value.work!!.sections[WorkKind.ASSIGNED]).containsExactly(review)
+        assertThat(viewModel.state.value.isLoading).isFalse()
+    }
 }

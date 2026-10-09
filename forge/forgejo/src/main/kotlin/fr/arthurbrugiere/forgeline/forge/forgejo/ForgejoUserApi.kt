@@ -157,13 +157,14 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
         }
     }
 
+    // Forgejo lists the newest first unless told otherwise: asked for the most recently touched, as the other forges give.
     override suspend fun work(token: String, login: String, kind: WorkKind): ForgeResult<List<IssueSearchResult>> = forgejoCall {
         val mine = when (kind) {
             WorkKind.REVIEW_REQUESTED -> mapOf("review_requested" to "true", "type" to "pulls")
             WorkKind.OWN_PULL_REQUESTS -> mapOf("created" to "true", "type" to "pulls")
             WorkKind.ASSIGNED -> mapOf("assigned" to "true")
         }
-        val response = httpClient.forgejoApi(forge, token, "repos", "issues", "search", query = mapOf("state" to "open", "limit" to "$PAGE_SIZE") + mine)
+        val response = httpClient.forgejoApi(forge, token, "repos", "issues", "search", query = mapOf("state" to "open", "limit" to "$PAGE_SIZE", "sort" to "recentupdate") + mine, patienceMillis = WORK_PATIENCE_MILLIS)
         response.toResult {
             body<List<IssueJson>>().mapNotNull { issue ->
                 issue.repository?.let { IssueSearchResult(RepoId(it.owner, it.name, forge), issue.toSummary()) }
@@ -175,6 +176,10 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
 
     private companion object {
         const val PAGE_SIZE = 30
+
+        // Codeberg takes 7 to 11 s to search across every repository for one person's (measured 2026-10-09), which
+        // is past the 10 s any other call is given.
+        const val WORK_PATIENCE_MILLIS = 30_000L
     }
 }
 

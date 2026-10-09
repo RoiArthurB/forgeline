@@ -7,6 +7,7 @@ import fr.arthurbrugiere.forgeline.core.data.work.Work
 import fr.arthurbrugiere.forgeline.core.data.work.WorkRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,17 +30,25 @@ class WorkViewModel @Inject constructor(private val repository: WorkRepository) 
         refresh()
     }
 
-    /** Asks every forge again. What was read stays on screen meanwhile, and when no forge can be asked. */
+    private var reading: Job? = null
+
+    /**
+     * Asks every forge again. What was read stays on screen until a forge answers, each forge's work shows as it comes
+     * in, and what was read is kept when no forge can be asked.
+     */
     fun refresh() {
+        reading?.cancel()
         _state.update { it.copy(isLoading = true, error = null) }
-        viewModelScope.launch {
-            val result = repository.load()
-            _state.update {
-                when (result) {
-                    is ForgeResult.Success -> it.copy(work = result.value, isLoading = false)
-                    is ForgeResult.Failure -> it.copy(isLoading = false, error = result.error)
+        reading = viewModelScope.launch {
+            repository.stream().collect { result ->
+                _state.update {
+                    when (result) {
+                        is ForgeResult.Success -> it.copy(work = result.value)
+                        is ForgeResult.Failure -> it.copy(error = result.error)
+                    }
                 }
             }
+            _state.update { it.copy(isLoading = false) }
         }
     }
 

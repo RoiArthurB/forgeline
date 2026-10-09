@@ -389,6 +389,7 @@
     <string name="work_empty_title">Nothing waits on you</string>
     <string name="work_empty_body">No review is asked of you, none of your pull requests is open, and nothing is assigned to you.</string>
     <string name="work_error_title">Couldn\'t load your work</string>
+    <string name="work_pending">Still asking %1$s…</string>
     <string name="work_failed">%1$s couldn\'t be asked: what waits on you there is missing. Pull down to try again.</string>
     <string name="share_open_label">Open in Forgeline</string>
     <string name="share_open_unknown">Forgeline can\'t open this: it isn\'t a page of a forge you are signed in to.</string>

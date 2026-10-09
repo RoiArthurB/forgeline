@@ -10,7 +10,13 @@ import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.last
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 /**
@@ -21,9 +27,13 @@ data class Work(
     val sections: Map<WorkKind, List<IssueSearchResult>>,
     val forges: List<ForgeInstance>,
     val failed: List<ForgeInstance> = emptyList(),
+    /** The forges still to answer: what is here is only the others' so far. */
+    val pending: List<ForgeInstance> = emptyList(),
 ) {
     val isEmpty: Boolean get() = sections.values.all { it.isEmpty() }
 }
+
+private typealias Answer = Triple<ForgeInstance, WorkKind, ForgeResult<List<IssueSearchResult>>>
 
 /**
  * One's own work across every account signed in: each forge is asked for each kind at once. A forge that fails is
@@ -33,27 +43,51 @@ class WorkRepository @Inject constructor(
     private val clients: ForgeClients,
     private val accounts: AccountRepository,
 ) {
-    suspend fun load(): ForgeResult<Work> {
+    /**
+     * The work as it comes in: each account's forge adds its own when it has answered for every kind, so a slow forge
+     * (Codeberg takes ten seconds) doesn't hold back the others. The last one has nothing [Work.pending].
+     */
+    fun stream(): Flow<ForgeResult<Work>> = channelFlow {
         val signedIn = accounts.accounts.first()
-        if (signedIn.isEmpty()) return ForgeResult.Success(Work(emptyMap(), emptyList()))
-        val answers = coroutineScope {
-            signedIn.flatMap { account ->
-                WorkKind.entries.map { kind ->
-                    async {
-                        val token = accounts.token(account.id)
-                        val result = if (token == null) ForgeResult.Failure(ForgeError.Unauthorized) else clients.search(account.forge).work(token, account.user.login, kind)
-                        Triple(account.forge, kind, result)
+        if (signedIn.isEmpty()) return@channelFlow send(ForgeResult.Success(Work(emptyMap(), emptyList())))
+        val answered = mutableMapOf<String, List<Answer>>()
+        val lock = Mutex()
+        signedIn.forEach { account ->
+            launch {
+                val answers = coroutineScope {
+                    WorkKind.entries.map { kind ->
+                        async {
+                            val token = accounts.token(account.id)
+                            val result = if (token == null) ForgeResult.Failure(ForgeError.Unauthorized) else clients.search(account.forge).work(token, account.user.login, kind)
+                            Answer(account.forge, kind, result)
+                        }
+                    }.awaitAll()
+                }
+                lock.withLock {
+                    answered[account.id] = answers
+                    // In the accounts' order, whichever answered first: the list doesn't reshuffle as forges come in.
+                    val known = signedIn.mapNotNull { answered[it.id] }.flatten()
+                    val pending = signedIn.filter { it.id !in answered }.map { it.forge }.distinct()
+                    val failures = known.filter { it.third is ForgeResult.Failure }
+                    when {
+                        failures.size < known.size -> send(ForgeResult.Success(work(signedIn.map { it.forge }.distinct(), known, pending)))
+                        // Nothing but failures: said only once nobody is left to say otherwise.
+                        pending.isEmpty() -> send(failures.first().third as ForgeResult.Failure)
                     }
                 }
-            }.awaitAll()
+            }
         }
-        val failures = answers.filter { it.third is ForgeResult.Failure }
-        if (failures.size == answers.size) return failures.first().third as ForgeResult.Failure
+    }
+
+    /** The work once every forge has answered. */
+    suspend fun load(): ForgeResult<Work> = stream().last()
+
+    private fun work(forges: List<ForgeInstance>, answers: List<Answer>, pending: List<ForgeInstance>): Work {
         val sections = WorkKind.entries.associateWith { kind ->
             // Each account's list keeps its order; they are interleaved, every account's latest first.
             interleave(answers.filter { it.second == kind }.mapNotNull { (it.third as? ForgeResult.Success)?.value }).distinct()
         }
-        return ForgeResult.Success(Work(sections, signedIn.map { it.forge }.distinct(), failures.map { it.first }.distinct()))
+        return Work(sections, forges, answers.filter { it.third is ForgeResult.Failure }.map { it.first }.distinct(), pending)
     }
 
     private fun <T> interleave(lists: List<List<T>>): List<T> = buildList {
