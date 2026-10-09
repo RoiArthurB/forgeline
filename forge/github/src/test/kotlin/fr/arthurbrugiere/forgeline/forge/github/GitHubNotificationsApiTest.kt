@@ -188,8 +188,11 @@ class GitHubNotificationsApiTest {
         val sync = api { request ->
             val page = request.url.parameters["page"]
             if (page == "1") return@api json(fixture, mapOf("Link" to link))
-            most = maxOf(most, inFlight.incrementAndGet())
-            if (most >= 2) bothAsked.complete(Unit)
+            // The two pages arrive on two threads: counted one at a time, or the higher count could be overwritten.
+            synchronized(inFlight) {
+                most = maxOf(most, inFlight.incrementAndGet())
+                if (most >= 2) bothAsked.complete(Unit)
+            }
             // Each later page answers only once the other is asked too: one after another would never end.
             withTimeout(5_000) { bothAsked.await() }
             inFlight.decrementAndGet()

@@ -116,7 +116,8 @@ class ForgejoIssueApiTest {
     fun a_pull_requests_details_are_asked_alongside_the_issue_not_after() = runTest {
         // Regression: the details waited for the issue to say it's a pull request, a round trip each to a far forge.
         val bothAsked = CompletableDeferred<Unit>()
-        val asked = mutableSetOf<String>()
+        // The two requests arrive on two threads: a set that takes both at once, so each adds itself, then sees the other.
+        val asked = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
         val issues = with(codeberg) {
             ForgejoIssueApi(
                 client {

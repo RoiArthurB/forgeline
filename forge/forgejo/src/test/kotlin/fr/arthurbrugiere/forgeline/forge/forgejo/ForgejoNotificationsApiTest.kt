@@ -143,8 +143,11 @@ class ForgejoNotificationsApiTest {
                         request.url.encodedPath.endsWith("/issues/search") -> json("[]")
                         page == "1" -> json(fixture("notifications.json"), headers = mapOf("X-Total-Count" to "120"))
                         else -> {
-                            later += page.orEmpty()
-                            if (later.size == 2) bothAsked.complete(Unit)
+                            // The two pages arrive on two threads: counted one at a time, or both could see one alone.
+                            synchronized(later) {
+                                later += page.orEmpty()
+                                if (later.size == 2) bothAsked.complete(Unit)
+                            }
                             withTimeout(5_000) { bothAsked.await() }
                             json("[]")
                         }
