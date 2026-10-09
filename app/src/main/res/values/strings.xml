@@ -655,6 +655,12 @@
     <string name="credits_icons">Forge logos: Simple Icons (simpleicons.org), dedicated to the public domain under CC0 1.0. The logos remain their owners\' trademarks.</string>
     <string name="credits_libraries_intro">Built with these open source libraries</string>
 
+    <string name="widget_inbox_description">What you haven\'t read yet, one tap from each conversation</string>
+    <string name="widget_signed_out">Sign in to see your notifications</string>
+    <plurals name="widget_unread">
+        <item quantity="one">%d unread</item>
+        <item quantity="other">%d unread</item>
+    </plurals>
     <plurals name="feed_actors_many">
         <item quantity="one">%1$s and %2$d other</item>
         <item quantity="other">%1$s and %2$d others</item>

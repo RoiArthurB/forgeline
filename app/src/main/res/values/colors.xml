@@ -1,3 +1,9 @@
 <resources>
     <color name="ember">#FF9C4221</color>
+
+    <!-- The home screen widget can't read the app's Compose palette: these are its ground, inks and ember. -->
+    <color name="widget_ground">#FFFAFAFB</color>
+    <color name="widget_ink">#FF1E1B2E</color>
+    <color name="widget_ink_muted">#FF5A566B</color>
+    <color name="widget_accent">#FFB83A17</color>
 </resources>

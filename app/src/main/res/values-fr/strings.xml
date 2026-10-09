@@ -633,6 +633,13 @@
     <string name="credits_fonts">Polices : Gabarito (© The Gabarito Project Authors) et Lexend (© The Lexend Project Authors), toutes deux sous licence SIL Open Font License 1.1.</string>
     <string name="credits_icons">Logos des forges : Simple Icons (simpleicons.org), versés au domaine public sous CC0 1.0. Les logos restent des marques de leurs propriétaires.</string>
     <string name="credits_libraries_intro">Réalisé avec ces bibliothèques libres</string>
+    <string name="widget_inbox_description">Ce que vous n’avez pas encore lu, à un geste de chaque conversation</string>
+    <string name="widget_signed_out">Connectez-vous pour voir vos notifications</string>
+    <plurals name="widget_unread">
+        <item quantity="one">%d non lue</item>
+        <item quantity="many">%d non lues</item>
+        <item quantity="other">%d non lues</item>
+    </plurals>
     <plurals name="feed_actors_many">
         <item quantity="one">%1$s et %2$d autre</item>
         <item quantity="many">%1$s et %2$d autres</item>

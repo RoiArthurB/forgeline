@@ -11,6 +11,7 @@ import dagger.hilt.android.HiltAndroidApp
 import fr.arthurbrugiere.forgeline.core.data.account.AccountDataCleaner
 import fr.arthurbrugiere.forgeline.notifications.InboxSyncScheduler
 import fr.arthurbrugiere.forgeline.signin.ForgeHosts
+import fr.arthurbrugiere.forgeline.widget.InboxWidgetUpdater
 import fr.arthurbrugiere.forgeline.trending.TrendingMeasureScheduler
 import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +33,9 @@ class ForgelineApplication : Application(), Configuration.Provider, SingletonIma
     lateinit var forgeHosts: ForgeHosts
 
     @Inject
+    lateinit var inboxWidget: InboxWidgetUpdater
+
+    @Inject
     lateinit var trendingMeasureScheduler: TrendingMeasureScheduler
 
     /** Off the main thread: reading settings and accounts must never delay the first frame. */
@@ -50,6 +54,8 @@ class ForgelineApplication : Application(), Configuration.Provider, SingletonIma
         forgeHosts.load()
         inboxSyncScheduler.start(background)
         trendingMeasureScheduler.start(background)
+        // The home screen widgets follow the inbox from the moment the process is up: a background check counts.
+        background.launch { inboxWidget.refresh() }
         // What a version that deleted nothing at sign-out left behind, or a sync that outlived a sign-out.
         background.launch { accountDataCleaner.get().sweep() }
     }
