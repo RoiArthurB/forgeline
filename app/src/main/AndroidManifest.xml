@@ -44,6 +44,13 @@
                 <data android:host="codeberg.org" />
                 <data android:host="gitlab.com" />
             </intent-filter>
+            <!-- Android only lets an app claim the hosts it names here, so a self-hosted server's links can't open
+                 in-app by themselves: sharing a page to Forgeline opens it instead, whatever its host. -->
+            <intent-filter android:label="@string/share_open_label">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <!-- WorkManager initializes on demand (see ForgelineApplication) so it never slows down launch. -->

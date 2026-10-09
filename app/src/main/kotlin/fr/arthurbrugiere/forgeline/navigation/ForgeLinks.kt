@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.navigation
 import androidx.navigation3.runtime.NavKey
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import fr.arthurbrugiere.forgeline.core.model.KnownForges
 import java.net.URI
 
 /** Maps forge web URLs to in-app destinations; anything unrecognized stays on the web. */
@@ -26,11 +27,20 @@ object ForgeLinks {
         ),
     )
 
-    /** The forge a URL's host belongs to, among those Forgeline opens links for. */
+    /**
+     * The forge a URL's host belongs to, among those Forgeline opens links for: the three it knows by name, and each
+     * self-hosted server signed in to, since only signing in tells what a server runs.
+     */
     fun forgeOf(host: String?): ForgeInstance? {
         val lower = host?.lowercase()?.removePrefix("www.") ?: return null
-        return forges.firstOrNull { it.host == lower }
+        return forges.firstOrNull { it.host == lower } ?: KnownForges.all().firstOrNull { it.host == lower }
     }
+
+    /** The first web address in [text]: what another app shares is often a title, then the page's address. */
+    fun addressIn(text: String?): String? =
+        text?.let { ADDRESS.find(it) }?.value?.trimEnd('.', ',', ';', ':', '!', '?', ')', ']', '>', '"', '\'')
+
+    private val ADDRESS = Regex("""https?://[^\s<>"]+""", RegexOption.IGNORE_CASE)
 
     fun routeFor(url: String): NavKey? {
         val uri = runCatching { URI(url) }.getOrNull() ?: return null

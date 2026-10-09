@@ -34,4 +34,19 @@ class KnownForgesTest {
         assertThat(ForgeInstance.of("gitlab.com")).isEqualTo(ForgeInstance.GitLab)
         assertThat(ForgeInstance.of("github.com")).isEqualTo(ForgeInstance.GitHub)
     }
+
+    @Test
+    fun every_server_remembered_is_listed_as_what_it_runs() {
+        KnownForges.remember(ForgeInstance(ForgeType.GITLAB, "Lab.Example.org"))
+        KnownForges.remember(ForgeInstance(ForgeType.FORGEJO, "git.example.org"))
+        // Known without being told: not a self-hosted server.
+        KnownForges.remember(ForgeInstance.GitHub)
+
+        assertThat(KnownForges.all()).containsExactly(ForgeInstance(ForgeType.GITLAB, "lab.example.org"), ForgeInstance(ForgeType.FORGEJO, "git.example.org"))
+    }
+
+    @Test
+    fun nothing_remembered_lists_nothing() {
+        assertThat(KnownForges.all()).isEmpty()
+    }
 }

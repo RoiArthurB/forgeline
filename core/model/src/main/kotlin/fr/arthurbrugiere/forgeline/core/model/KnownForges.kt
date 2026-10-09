@@ -17,6 +17,9 @@ object KnownForges {
 
     fun typeOf(host: String): ForgeType? = types[host.lowercase()]
 
+    /** Every self-hosted server remembered. */
+    fun all(): List<ForgeInstance> = types.map { (host, type) -> ForgeInstance(type, host) }
+
     /** For tests: what one remembered must not reach the next. */
     fun clear() = types.clear()
 }

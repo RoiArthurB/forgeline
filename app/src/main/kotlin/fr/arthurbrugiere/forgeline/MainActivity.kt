@@ -13,6 +13,8 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.navigation3.runtime.NavKey
 import fr.arthurbrugiere.forgeline.navigation.linkRoute
+import fr.arthurbrugiere.forgeline.navigation.ForgeLinks
+import android.widget.Toast
 import fr.arthurbrugiere.forgeline.notifications.EXTRA_LAST_READ_AT
 import fr.arthurbrugiere.forgeline.notifications.EXTRA_UNREAD
 import fr.arthurbrugiere.forgeline.ui.openInCustomTab
@@ -72,10 +74,20 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openLink(intent: Intent) {
+        if (intent.action == Intent.ACTION_SEND) return openShared(intent.getStringExtra(Intent.EXTRA_TEXT))
         val url = intent.dataString ?: return
         val lastReadAt = intent.getLongExtra(EXTRA_LAST_READ_AT, -1).takeIf { it >= 0 }
         val route = linkRoute(url, intent.getBooleanExtra(EXTRA_UNREAD, false), lastReadAt)
         // A github.com page Forgeline can't show (settings, orgs...): hand it to the browser.
         if (route == null) openInCustomTab(this, url) else link = route
+    }
+
+    /**
+     * A page shared to Forgeline from another app opens here when it is on a forge Forgeline knows. Anything else is
+     * said to be out of reach rather than sent back to the browser it most likely came from.
+     */
+    private fun openShared(text: String?) {
+        val route = ForgeLinks.addressIn(text)?.let(::linkRoute)
+        if (route == null) Toast.makeText(this, R.string.share_open_unknown, Toast.LENGTH_LONG).show() else link = route
     }
 }

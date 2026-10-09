@@ -92,4 +92,48 @@ class DeepLinkTest {
         assertThat(handlers("https://gitlab.com/gitlab-org/gitlab-runner/-/merge_requests/100")).contains(context.packageName)
         assertThat(handlers("https://gitlab.com/gitlab-org/gitlab-runner/-/work_items/100")).contains(context.packageName)
     }
+
+    private fun share(text: String?) = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
+
+    @Test
+    fun text_shared_from_another_app_can_be_sent_to_forgeline() {
+        val targets = context.packageManager.queryIntentActivities(share("https://git.example.org/alice/tool"), 0).map { it.activityInfo.packageName }
+
+        assertThat(targets).contains(context.packageName)
+    }
+
+    @Test
+    fun a_shared_page_of_a_self_hosted_server_signed_in_to_opens_in_the_app() {
+        fr.arthurbrugiere.forgeline.core.model.KnownForges.remember(
+            fr.arthurbrugiere.forgeline.core.model.ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.FORGEJO, "git.example.org"),
+        )
+        try {
+            ActivityScenario.launch<MainActivity>(share("alice/tool: a tool\nhttps://git.example.org/alice/tool").setClass(context, MainActivity::class.java)).use { scenario ->
+                scenario.onActivity { activity ->
+                    // Opened here: nothing is handed to a browser, and nothing is said to be out of reach.
+                    assertThat(shadowOf(activity).nextStartedActivity).isNull()
+                    assertThat(org.robolectric.shadows.ShadowToast.getLatestToast()).isNull()
+                }
+            }
+        } finally {
+            fr.arthurbrugiere.forgeline.core.model.KnownForges.clear()
+        }
+    }
+
+    @Test
+    fun a_shared_page_forgeline_cannot_show_is_said_so_and_not_sent_back_to_a_browser() {
+        ActivityScenario.launch<MainActivity>(share("https://example.com/article").setClass(context, MainActivity::class.java)).use { scenario ->
+            scenario.onActivity { activity ->
+                assertThat(shadowOf(activity).nextStartedActivity).isNull()
+                assertThat(org.robolectric.shadows.ShadowToast.getTextOfLatestToast()).contains("can't open this")
+            }
+        }
+    }
+
+    @Test
+    fun shared_text_without_an_address_is_said_to_be_out_of_reach() {
+        ActivityScenario.launch<MainActivity>(share("no address here").setClass(context, MainActivity::class.java)).use { scenario ->
+            scenario.onActivity { assertThat(org.robolectric.shadows.ShadowToast.getTextOfLatestToast()).contains("can't open this") }
+        }
+    }
 }

@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.navigation
 
+import fr.arthurbrugiere.forgeline.core.model.KnownForges
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import org.junit.Test
@@ -211,5 +213,56 @@ class ForgeLinksTest {
         open(inApp = false)
 
         assertThat(events).containsExactly("discussion:vercel/next.js#7", "browser:$url").inOrder()
+    }
+
+    @org.junit.After
+    fun forgetServers() = KnownForges.clear()
+
+    @Test
+    fun a_self_hosted_server_signed_in_to_opens_its_links_in_app_as_what_it_runs() {
+        KnownForges.remember(ForgeInstance(ForgeType.FORGEJO, "git.example.org"))
+        KnownForges.remember(ForgeInstance(ForgeType.GITLAB, "lab.example.org"))
+
+        assertThat(ForgeLinks.routeFor("https://git.example.org/alice/tool/pulls/3")).isEqualTo(IssueRoute("git.example.org", "alice", "tool", 3))
+        assertThat(ForgeLinks.routeFor("https://GIT.example.org/alice/tool")).isEqualTo(RepoRoute("git.example.org", "alice", "tool"))
+        assertThat(ForgeLinks.routeFor("https://git.example.org/alice/tool/releases/tag/v1.0")).isEqualTo(ReleaseRoute("git.example.org", "alice", "tool", "v1.0"))
+        // A GitLab's addresses are read as GitLab's: groups in groups, and merge requests numbered apart.
+        assertThat(ForgeLinks.routeFor("https://lab.example.org/group/sub/tool/-/merge_requests/8"))
+            .isEqualTo(IssueRoute("lab.example.org", "group/sub", "tool", 8, isPullRequest = true))
+        assertThat(ForgeLinks.forgeOf("lab.example.org")).isEqualTo(ForgeInstance(ForgeType.GITLAB, "lab.example.org"))
+    }
+
+    @Test
+    fun a_server_never_signed_in_to_stays_on_the_web() {
+        KnownForges.remember(ForgeInstance(ForgeType.FORGEJO, "git.example.org"))
+
+        // What it runs is unknown, so its addresses can't be read.
+        assertThat(ForgeLinks.routeFor("https://other.example.org/alice/tool")).isNull()
+        assertThat(ForgeLinks.forgeOf("example.org")).isNull()
+    }
+
+    @Test
+    fun a_self_hosted_server_s_own_pages_stay_on_the_web() {
+        KnownForges.remember(ForgeInstance(ForgeType.FORGEJO, "git.example.org"))
+
+        assertThat(ForgeLinks.routeFor("https://git.example.org/explore/repos")).isNull()
+        assertThat(ForgeLinks.routeFor("https://git.example.org/user/settings")).isNull()
+    }
+
+    @Test
+    fun the_address_is_found_in_what_another_app_shares() {
+        assertThat(ForgeLinks.addressIn("https://github.com/square/okhttp")).isEqualTo("https://github.com/square/okhttp")
+        // Browsers share the page's title, then its address.
+        assertThat(ForgeLinks.addressIn("square/okhttp: an HTTP client\nhttps://github.com/square/okhttp/issues/42")).isEqualTo("https://github.com/square/okhttp/issues/42")
+        // Written in a sentence, what closes the sentence isn't the address's.
+        assertThat(ForgeLinks.addressIn("See (https://codeberg.org/forgejo/forgejo).")).isEqualTo("https://codeberg.org/forgejo/forgejo")
+        assertThat(ForgeLinks.addressIn("first https://a.example/x then https://b.example/y")).isEqualTo("https://a.example/x")
+    }
+
+    @Test
+    fun text_without_an_address_shares_none() {
+        assertThat(ForgeLinks.addressIn(null)).isNull()
+        assertThat(ForgeLinks.addressIn("")).isNull()
+        assertThat(ForgeLinks.addressIn("just words, and github.com/square/okhttp without its scheme")).isNull()
     }
 }

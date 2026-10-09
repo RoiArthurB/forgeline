@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.search
 
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.assertCountEquals
@@ -52,6 +53,7 @@ class SearchScreenTest {
                 onOpenUser = { forge, login -> events += "user:${forge.host}/$login" },
                 onBack = { events += "back" },
                 nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+                onOpenLink = { events += "link:$it" },
             )
         }
     }
@@ -212,5 +214,35 @@ class SearchScreenTest {
         setContent(SearchUiState(forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg), onlyForge = ForgeInstance.Codeberg))
 
         composeRule.onNodeWithText("Find anything on Codeberg").assertIsDisplayed()
+    }
+
+    @Test
+    fun an_address_of_a_known_forge_is_offered_to_open_instead_of_searched() {
+        setContent(SearchUiState(" https://codeberg.org/forgejo/forgejo/issues/14601 "))
+
+        composeRule.onNodeWithText("Open this link").performClick()
+
+        assertThat(events).containsExactly("link:" + fr.arthurbrugiere.forgeline.navigation.IssueRoute("codeberg.org", "forgejo", "forgejo", 14601))
+        // The address stands for itself: the hint about what to search for is gone.
+        composeRule.onNode(hasText("Find anything", substring = true)).assertDoesNotExist()
+    }
+
+    @Test
+    fun the_keyboard_s_search_key_opens_an_address_rather_than_searching_for_it() {
+        setContent(SearchUiState("https://github.com/square/okhttp"))
+
+        composeRule.onNode(hasSetTextAction()).performImeAction()
+
+        assertThat(events).containsExactly("link:" + fr.arthurbrugiere.forgeline.navigation.RepoRoute("github.com", "square", "okhttp"))
+    }
+
+    @Test
+    fun words_and_addresses_forgeline_cannot_show_are_searched_as_usual() {
+        setContent(SearchUiState("https://example.com/article"))
+
+        composeRule.onNodeWithText("Open this link").assertDoesNotExist()
+        composeRule.onNode(hasSetTextAction()).performImeAction()
+
+        assertThat(events).containsExactly("submit")
     }
 }

@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.search
 
+import androidx.navigation3.runtime.NavKey
+import fr.arthurbrugiere.forgeline.navigation.ForgeLinks
+import fr.arthurbrugiere.forgeline.you.NavigationRow
+import androidx.compose.material.icons.outlined.Link
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import fr.arthurbrugiere.forgeline.ui.rememberNow
 import androidx.compose.foundation.layout.imePadding
@@ -90,6 +94,7 @@ fun SearchRoute(
     onOpenIssue: (IssueRef) -> Unit,
     onOpenUser: (ForgeInstance, String) -> Unit,
     onBack: () -> Unit,
+    onOpenLink: (NavKey) -> Unit = {},
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -105,6 +110,7 @@ fun SearchRoute(
         onOpenIssue = onOpenIssue,
         onOpenUser = onOpenUser,
         onBack = onBack,
+        onOpenLink = onOpenLink,
     )
 }
 
@@ -124,7 +130,11 @@ fun SearchScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     nowMillis: Long = rememberNow(state.results),
+    /** Opens what an address typed or pasted in the field names. */
+    onOpenLink: (NavKey) -> Unit = {},
 ) {
+    // An address of a forge Forgeline knows is somewhere to go, not words to look for.
+    val link = remember(state.query) { ForgeLinks.routeFor(state.query.trim()) }
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = remember { FocusRequester() }
     // A fresh search starts with the keyboard up; coming back to results doesn't.
@@ -172,7 +182,7 @@ fun SearchScreen(
                             onQueryChange = onQueryChange,
                             onSubmit = {
                                 keyboard?.hide()
-                                onSubmit()
+                                if (link != null) onOpenLink(link) else onSubmit()
                             },
                             onClear = {
                                 onQueryChange("")
@@ -189,7 +199,14 @@ fun SearchScreen(
                     }
                 }
             }
+            if (link != null) {
+                item(key = "link") {
+                    NavigationRow(Icons.Outlined.Link, stringResource(R.string.search_open_link), { onOpenLink(link) }, summary = state.query.trim())
+                }
+            }
             when {
+                // The address stands for itself: nothing more to explain under it.
+                !results.submitted && link != null -> Unit
                 !results.submitted -> item(key = "intro") {
                     val target = state.searchTarget()
                     SoftNotice(
