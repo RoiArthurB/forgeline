@@ -1,5 +1,5 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <string name="app_name">Forgeline</string>
+    <string name="app_name" translatable="false">Forgeline</string>
 
     <string name="tab_inbox">Inbox</string>
     <string name="tab_feed">Feed</string>
@@ -120,19 +120,19 @@
     <string name="sign_in_headline">Connect to %1$s</string>
     <string name="sign_in_headline_other">Connect to your server</string>
     <string name="sign_in_privacy">Forgeline talks to %1$s directly from your phone. Your token is encrypted on this device and only ever sent there.</string>
-    <string name="sign_in_forge_github">GitHub</string>
-    <string name="sign_in_forge_gitlab">GitLab</string>
-    <string name="sign_in_forge_codeberg">Codeberg</string>
-    <string name="sign_in_forge_other">Forgejo</string>
-    <string name="sign_in_gitlab_com">gitlab.com</string>
+    <string name="sign_in_forge_github" translatable="false">GitHub</string>
+    <string name="sign_in_forge_gitlab" translatable="false">GitLab</string>
+    <string name="sign_in_forge_codeberg" translatable="false">Codeberg</string>
+    <string name="sign_in_forge_other" translatable="false">Forgejo</string>
+    <string name="sign_in_gitlab_com" translatable="false">gitlab.com</string>
     <string name="sign_in_gitlab_own">Your own server</string>
     <string name="sign_in_host">Server address, like git.example.org</string>
     <string name="sign_in_host_hint">Any Forgejo server works with an access token.</string>
     <string name="sign_in_host_gitlab">Server address, like gitlab.example.org</string>
     <string name="sign_in_host_hint_gitlab">Any GitLab server works with an access token.</string>
     <string name="sign_in_host_is">This is a %1$s server.</string>
-    <string name="sign_in_kind_forgejo">Forgejo</string>
-    <string name="sign_in_kind_gitlab">GitLab</string>
+    <string name="sign_in_kind_forgejo" translatable="false">Forgejo</string>
+    <string name="sign_in_kind_gitlab" translatable="false">GitLab</string>
     <string name="sign_in_client_id">Application ID (optional)</string>
     <string name="sign_in_client_id_hint">To sign in through the browser instead of a token, create an application on your server (Preferences, then Applications): redirect URI http://127.0.0.1/oauth/gitlab, not confidential, scopes api and read_user. Then paste its Application ID here.</string>
     <string name="sign_in_with_forge">Sign in with %1$s</string>
@@ -217,7 +217,7 @@
     <string name="you_ended_action">Sign in to %1$s again</string>
     <string name="error_unsupported">This forge doesn\'t offer this.</string>
 
-    <string name="repo_tab_readme">README</string>
+    <string name="repo_tab_readme" translatable="false">README</string>
     <string name="repo_tab_code">Code</string>
     <string name="repo_tab_issues">Issues</string>
     <string name="repo_tab_pulls">Pull requests</string>
@@ -252,7 +252,7 @@
     <string name="repo_star">Star</string>
     <string name="repo_starred">Starred</string>
     <string name="repo_loading_more">Loading more</string>
-    <string name="repo_wiki">Wiki</string>
+    <string name="repo_wiki" translatable="false">Wiki</string>
     <string name="repo_watch">Watch</string>
     <string name="repo_watching">Watching</string>
     <string name="repo_watch_failed">Couldn\'t change what you watch. Try again.</string>
@@ -376,7 +376,7 @@
     <string name="repo_issue_meta" tools:ignore="PluralsCandidate">#%1$d opened %2$s by %3$s</string>
     <string name="repo_draft">Draft</string>
     <string name="repo_prerelease">Pre-release</string>
-    <string name="repo_run_meta">%1$s · %2$s · #%3$d</string>
+    <string name="repo_run_meta" translatable="false">%1$s · %2$s · #%3$d</string>
 
     <string name="file_too_large_title">Too large to preview</string>
     <string name="file_too_large_body">Open it in your browser to see it.</string>
@@ -413,8 +413,8 @@
     <string name="issue_state_merged">Merged</string>
     <string name="issue_state_draft">Draft</string>
     <string name="issue_opened_by">%1$s opened this %2$s</string>
-    <string name="issue_pr_branches">%1$s ← %2$s</string>
-    <string name="issue_pr_stats">+%1$d −%2$d · %3$s · %4$s</string>
+    <string name="issue_pr_branches" translatable="false">%1$s ← %2$s</string>
+    <string name="issue_pr_stats" translatable="false">+%1$d −%2$d · %3$s · %4$s</string>
     <string name="issue_no_description">No description provided.</string>
     <string name="issue_closed_event">%1$s closed this %2$s</string>
     <string name="issue_closed_completed_event">%1$s closed this as completed %2$s</string>
@@ -455,7 +455,7 @@
     <string name="issue_comment_save">Save</string>
     <string name="issue_comment_saving">Saving</string>
     <string name="issue_reaction_failed">The reaction wasn\'t saved. Try again.</string>
-    <string name="issue_reaction_count">%1$s, %2$d</string>
+    <string name="issue_reaction_count" translatable="false">%1$s, %2$d</string>
     <string name="reaction_thumbs_up">Thumbs up</string>
     <string name="reaction_thumbs_down">Thumbs down</string>
     <string name="reaction_laugh">Laugh</string>
