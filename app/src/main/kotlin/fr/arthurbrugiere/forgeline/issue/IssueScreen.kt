@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
 import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.ui.SayOnce
@@ -489,6 +490,7 @@ fun IssueScreen(
                                     Icon(Icons.Outlined.Tune, contentDescription = stringResource(R.string.manage_title), tint = colors.ink)
                                 }
                             }
+                            ShareLinkButton(webUrl, issue?.title ?: "${state.ref.repo.fullName}#${state.ref.number}")
                             IconButton(onClick = { onOpenInBrowser(webUrl) }) {
                                 Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.ref.repo.forge.displayName), tint = colors.ink)
                             }

@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.hasSetTextAction
@@ -83,6 +84,25 @@ class IssueScreenTest {
 
     private fun waitFor(text: String) =
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+
+    @Test
+    fun shares_the_address_of_the_conversation_under_its_title() {
+        setContent(IssueUiState(ref, issueDetails(ref, "Crash on start")))
+
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Share link")).performClick()
+
+        assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()).isEqualTo("https://github.com/octo/repo/issues/7" to "Crash on start")
+    }
+
+    @Test
+    fun a_long_press_on_share_copies_the_address_of_a_pull_request() {
+        val pr = issueDetails(ref, "Fix it").copy(pullRequest = PullRequestInfo(false, false, "main", "fix/it", 12, 3, 2, 1))
+        setContent(IssueUiState(ref, pr))
+
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Share link")).performTouchInput { longClick() }
+
+        assertThat(fr.arthurbrugiere.forgeline.ui.copiedText()).isEqualTo("https://github.com/octo/repo/pull/7")
+    }
 
     @Test
     fun shows_the_issue_and_its_comments() {

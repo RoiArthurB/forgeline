@@ -76,6 +76,15 @@ class ReleaseScreenTest {
     private fun reach(text: String) = composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(text, substring = true))
 
     @Test
+    fun shares_the_address_of_the_release() {
+        setContent(shown())
+
+        composeRule.onNodeWithContentDescription("Share link").performClick()
+
+        assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()).isEqualTo("https://github.com/octo/tools/releases/tag/v2.0.0" to "octo/tools v2.0.0")
+    }
+
+    @Test
     fun says_what_the_release_is_and_where_it_stands() {
         setContent(shown())
 

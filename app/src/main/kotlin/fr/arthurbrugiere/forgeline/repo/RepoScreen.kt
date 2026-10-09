@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.CheckCircleOutline
@@ -356,6 +357,7 @@ fun RepoScreen(
                         onBack = onBack,
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
+                            ShareLinkButton(id.webUrl, id.fullName)
                             IconButton(onClick = { onOpenInBrowser(id.webUrl) }) {
                                 Icon(
                                     Icons.AutoMirrored.Outlined.OpenInNew,

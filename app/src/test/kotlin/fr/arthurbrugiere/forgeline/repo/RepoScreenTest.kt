@@ -104,6 +104,15 @@ class RepoScreenTest {
     }
 
     @Test
+    fun shares_the_address_of_the_repository() {
+        setContent(loaded)
+
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Share link")).performClick()
+
+        assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()).isEqualTo("https://github.com/octo/repo" to "octo/repo")
+    }
+
+    @Test
     fun shows_the_repo_header() {
         setContent(loaded)
 

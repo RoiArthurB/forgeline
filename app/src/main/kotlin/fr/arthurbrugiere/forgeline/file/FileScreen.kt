@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.file
 
+import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
 import fr.arthurbrugiere.forgeline.ui.ZoomablePicture
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
@@ -125,6 +126,7 @@ fun FileScreen(
                         Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.file_copy), tint = colors.ink)
                     }
                 }
+                ShareLinkButton(state.webUrl, state.target.name)
                 IconButton(onClick = { onOpenInBrowser(state.webUrl) }) {
                     Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.target.id.forge.displayName), tint = colors.ink)
                 }

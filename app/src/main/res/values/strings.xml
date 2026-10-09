@@ -380,6 +380,10 @@
 
     <string name="file_too_large_title">Too large to preview</string>
     <string name="file_too_large_body">Open it in your browser to see it.</string>
+    <string name="link_share">Share link</string>
+    <string name="link_copy">Copy link</string>
+    <string name="link_copied">Link copied</string>
+    <string name="link_clip_label">Link</string>
     <string name="open_in_browser">Open in the browser</string>
     <string name="picture">Picture</string>
     <string name="picture_view">View picture</string>

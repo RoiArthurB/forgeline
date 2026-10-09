@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.user
 
+import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
@@ -143,6 +144,7 @@ fun UserScreen(
                     onBack = onBack,
                     backDescription = stringResource(R.string.navigate_up),
                     actions = {
+                        ShareLinkButton("${state.forge.webUrl}/${state.login}", state.login)
                         IconButton(onClick = { onOpenUrl("${state.forge.webUrl}/${state.login}") }) {
                             Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.forge.displayName), tint = colors.ink)
                         }

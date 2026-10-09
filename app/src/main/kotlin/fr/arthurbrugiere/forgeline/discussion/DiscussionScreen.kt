@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.discussion
 
+import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
 import fr.arthurbrugiere.forgeline.issue.referenceLinks
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -177,6 +178,7 @@ fun DiscussionScreen(
                         onBack = onBack,
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
+                            ShareLinkButton(state.webUrl, (state.discussion?.summary ?: state.summary)?.title ?: "${state.repo.fullName}#${state.number}")
                             IconButton(onClick = { onOpenInBrowser(state.webUrl) }) {
                                 Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, forge), tint = colors.ink)
                             }

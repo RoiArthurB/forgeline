@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.release
 
+import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
 import fr.arthurbrugiere.forgeline.issue.referenceLinks
 import androidx.compose.foundation.background
 import fr.arthurbrugiere.forgeline.ui.rememberNow
@@ -186,6 +187,7 @@ fun ReleaseScreen(
                         onBack = onBack,
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
+                            ShareLinkButton(webUrl, "${state.repo.fullName} ${state.tag}")
                             IconButton(onClick = { onOpenInBrowser(webUrl) }) {
                                 Icon(
                                     Icons.AutoMirrored.Outlined.OpenInNew,
