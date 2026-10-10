@@ -18,7 +18,8 @@ dependencies {
 }
 
 // Signed-in checks against the real gitlab.com, run nightly by .github/workflows/live.yml. They only read, need
-// GITLAB_LIVE_TOKEN and are skipped without it.
+// GITLAB_LIVE_TOKEN and are skipped without it. The one that writes (GitLabWriteLiveTest) also needs
+// GITLAB_LIVE_WRITES=1, which no workflow sets: it is run by hand, on a scratch project of its own.
 testing {
     suites {
         register<JvmTestSuite>("liveTest") {
@@ -27,11 +28,13 @@ testing {
                 implementation(project())
                 implementation(libs.truth)
                 implementation(libs.ktor.client.okhttp)
+                implementation(libs.kotlinx.serialization.json)
                 implementation(libs.kotlinx.coroutines.core)
             }
             targets.all {
                 testTask.configure {
                     environment("GITLAB_LIVE_TOKEN", providers.environmentVariable("GITLAB_LIVE_TOKEN").getOrElse(""))
+                    environment("GITLAB_LIVE_WRITES", providers.environmentVariable("GITLAB_LIVE_WRITES").getOrElse(""))
                     outputs.upToDateWhen { false }
                 }
             }
