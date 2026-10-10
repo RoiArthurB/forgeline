@@ -31,7 +31,6 @@ import fr.arthurbrugiere.forgeline.navigation.CreditsRoute as CreditsKey
 import fr.arthurbrugiere.forgeline.navigation.FeedRoute
 import fr.arthurbrugiere.forgeline.navigation.InboxRoute
 import fr.arthurbrugiere.forgeline.navigation.SettingsRoute
-import fr.arthurbrugiere.forgeline.navigation.WorkRoute
 import fr.arthurbrugiere.forgeline.navigation.SettingsSectionRoute
 import fr.arthurbrugiere.forgeline.navigation.SearchRoute as SearchKey
 import fr.arthurbrugiere.forgeline.search.SearchRoute as SearchDestination
@@ -121,6 +120,7 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 session = session,
                 onSignIn = signIn,
                 onBrowseTrending = browseTrending,
+                onOpenIssue = openIssue,
                 onOpenThread = { thread ->
                     // An unread thread opens where the reader left it, not at the title.
                     thread.route()?.let(navigator::navigate) ?: openRepo(thread.repo)
@@ -193,11 +193,9 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 session,
                 onSignIn = signIn,
                 onOpenSettings = { navigator.navigate(SettingsRoute) },
-                onOpenWork = { navigator.navigate(WorkRoute) },
                 onOpenProfile = { account -> openUser(account.forge, account.user.login) },
             )
         }
-        entry<WorkRoute> { fr.arthurbrugiere.forgeline.work.WorkRoute(onBack = navigator::goBack, onOpenIssue = openIssue) }
         entry<SettingsRoute> {
             SettingsDestination(
                 session = session,

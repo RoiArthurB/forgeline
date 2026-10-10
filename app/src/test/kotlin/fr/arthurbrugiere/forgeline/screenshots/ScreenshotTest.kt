@@ -1361,13 +1361,16 @@ class ScreenshotTest {
     }
 
     @Test
-    fun work_light() = snapshot("work_light", darkTheme = false, awaitText = "Assigned to you") {
+    fun inbox_yours_light() = snapshot("inbox_yours_light", darkTheme = false, awaitText = "Assigned to you") {
         val tools = RepoId("octo", "tools")
         val notes = RepoId("alice", "notes", ForgeInstance.Codeberg)
         fun found(repo: RepoId, number: Int, title: String, pull: Boolean = true) =
             fr.arthurbrugiere.forgeline.core.model.IssueSearchResult(repo, fr.arthurbrugiere.forgeline.core.testing.issueSummary(number, title, isPullRequest = pull))
-        fr.arthurbrugiere.forgeline.work.WorkScreen(
-            state = fr.arthurbrugiere.forgeline.work.WorkUiState(
+        InboxScreen(
+            state = InboxUiState(filter = InboxFilter.YOURS, syncedAtMillis = 1),
+            onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
+            onErrorShown = {}, onActionFailureShown = {},
+            work = fr.arthurbrugiere.forgeline.work.WorkUiState(
                 fr.arthurbrugiere.forgeline.core.data.work.Work(
                     mapOf(
                         fr.arthurbrugiere.forgeline.core.model.WorkKind.REVIEW_REQUESTED to listOf(found(tools, 88, "Retry uploads on slow links")),
@@ -1378,7 +1381,6 @@ class ScreenshotTest {
                 ),
                 isLoading = false,
             ),
-            onBack = {}, onRefresh = {}, onOpenIssue = {}, onErrorShown = {},
             nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
         )
     }

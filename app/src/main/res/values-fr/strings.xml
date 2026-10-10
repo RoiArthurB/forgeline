@@ -14,6 +14,7 @@
     <string name="inbox_filter_unread">Non lues</string>
     <string name="inbox_filter_participating">Vous participez</string>
     <string name="inbox_filter_all">Toutes</string>
+    <string name="inbox_filter_yours">À vous</string>
     <string name="inbox_caught_up_title">Vous êtes à jour</string>
     <string name="inbox_caught_up_body">Les nouvelles notifications apparaîtront ici.</string>
     <string name="inbox_empty_title">Rien ici</string>
@@ -386,8 +387,6 @@
     <string name="repo_prerelease">Préversion</string>
     <string name="file_too_large_title">Trop volumineux pour un aperçu</string>
     <string name="file_too_large_body">Ouvrez-le dans votre navigateur pour le voir.</string>
-    <string name="work_title">Votre travail</string>
-    <string name="work_summary">Les relectures qu’on vous demande, vos pull requests, ce qui vous est assigné</string>
     <string name="work_reviews">En attente de votre relecture</string>
     <string name="work_own">Vos pull requests ouvertes</string>
     <string name="work_assigned">Assigné à vous</string>

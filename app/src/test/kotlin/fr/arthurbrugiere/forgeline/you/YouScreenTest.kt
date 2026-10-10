@@ -35,19 +35,10 @@ class YouScreenTest {
     }
 
     @Test
-    fun signed_in_offers_one_s_own_work() {
+    fun one_s_own_work_is_in_the_inbox_not_here() {
+        // It had a row here, leading to a page that read as a second inbox.
         val account = Account("id", ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null))
-        var work = false
-        composeRule.setContent { YouScreen(SessionState.SignedIn(account), onSignIn = {}, onOpenSettings = {}, onOpenWork = { work = true }) }
-
-        composeRule.onNodeWithText("Your work").performClick()
-
-        assertThat(work).isTrue()
-    }
-
-    @Test
-    fun signed_out_there_is_no_work_to_offer() {
-        composeRule.setContent { YouScreen(SessionState.SignedOut, onSignIn = {}, onOpenSettings = {}) }
+        composeRule.setContent { YouScreen(SessionState.SignedIn(account), onSignIn = {}, onOpenSettings = {}) }
 
         composeRule.onNodeWithText("Your work").assertDoesNotExist()
     }

@@ -30,7 +30,11 @@ import kotlinx.coroutines.delay
 import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import javax.inject.Inject
 
-enum class InboxFilter { UNREAD, PARTICIPATING, ALL }
+/**
+ * What the Inbox lists. The first three are notifications; [YOURS] is what is the reader's to deal with whether or not
+ * anything was said about it lately: the reviews asked of them, their open pull requests, what is assigned to them.
+ */
+enum class InboxFilter { UNREAD, PARTICIPATING, ALL, YOURS }
 
 /**
  * The Inbox's two sections: what's waiting on you first, newest first; then everything else by owner (user or
@@ -326,6 +330,8 @@ class InboxViewModel @Inject constructor(
         InboxFilter.UNREAD -> thread.unread
         InboxFilter.PARTICIPATING -> thread.isParticipating
         InboxFilter.ALL -> true
+        // Not notifications: listed from the forges' searches, by the screen.
+        InboxFilter.YOURS -> false
     }
 
     // Threads arrive newest first, so grouping keeps that order: an owner's (or repo's) first thread is its newest,

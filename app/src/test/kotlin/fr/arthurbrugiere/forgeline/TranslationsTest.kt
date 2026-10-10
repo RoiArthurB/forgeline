@@ -109,7 +109,6 @@ class TranslationsTest {
         composeRule.setContent { ForgelineTheme { YouScreen(SessionState.SignedIn(account), onSignIn = {}, onOpenSettings = {}) } }
 
         composeRule.onNodeWithText("Vous").assertIsDisplayed()
-        composeRule.onNodeWithText("Votre travail").assertIsDisplayed()
         composeRule.onNodeWithText("Réglages").assertIsDisplayed()
         composeRule.onNodeWithText("Settings").assertDoesNotExist()
     }

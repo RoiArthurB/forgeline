@@ -18,6 +18,9 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import fr.arthurbrugiere.forgeline.core.testing.issueSummary
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
+import fr.arthurbrugiere.forgeline.inbox.InboxFilter
+import fr.arthurbrugiere.forgeline.inbox.InboxScreen
+import fr.arthurbrugiere.forgeline.inbox.InboxUiState
 import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 import org.junit.Rule
 import org.junit.Test
@@ -49,12 +52,17 @@ class WorkScreenTest {
 
     private fun setContent(state: WorkUiState) = composeRule.setContent {
         ForgelineTheme {
-            WorkScreen(
-                state,
-                onBack = { events += "back" },
-                onRefresh = { events += "refresh" },
+            // The work is what the Inbox lists under "Yours".
+            InboxScreen(
+                state = InboxUiState(filter = InboxFilter.YOURS, syncedAtMillis = 1),
+                onSelectFilter = { events += "filter:$it" },
+                onRefresh = { events += "refresh-inbox" },
+                onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
+                onErrorShown = {}, onActionFailureShown = {},
+                work = state,
+                onRefreshWork = { events += "refresh" },
                 onOpenIssue = { opened += it },
-                onErrorShown = { events += "error-shown" },
+                onWorkErrorShown = { events += "error-shown" },
                 nowMillis = Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
             )
         }
@@ -64,7 +72,7 @@ class WorkScreenTest {
     fun the_work_is_set_under_what_it_is_reviews_first() {
         setContent(WorkUiState(work(), isLoading = false))
 
-        composeRule.onNode(hasText("Your work") and isHeading()).assertIsDisplayed()
+        composeRule.onNode(hasText("Inbox") and isHeading()).assertIsDisplayed()
         val reviews = composeRule.onNode(hasText("Waiting for your review") and isHeading()).assertIsDisplayed().fetchSemanticsNode().positionInRoot.y
         val mine = composeRule.onNode(hasText("Your open pull requests") and isHeading()).assertIsDisplayed().fetchSemanticsNode().positionInRoot.y
         val todo = composeRule.onNode(hasText("Assigned to you") and isHeading()).assertIsDisplayed().fetchSemanticsNode().positionInRoot.y
@@ -144,13 +152,29 @@ class WorkScreenTest {
     }
 
     @Test
-    fun back_leaves_and_every_target_is_large_enough() {
+    fun the_other_filters_are_a_tap_away_and_every_target_is_large_enough() {
         setContent(WorkUiState(work(), isLoading = false))
 
         composeRule.assertEveryTargetIsAtLeast48dp()
-        composeRule.onNode(hasContentDescription("Navigate up")).performClick()
+        composeRule.onNodeWithText("Unread").performClick()
 
-        assertThat(events).containsExactly("back")
+        assertThat(events).containsExactly("filter:UNREAD")
+    }
+
+    @Test
+    fun before_the_forges_were_asked_it_says_loading_not_nothing() {
+        composeRule.setContent {
+            ForgelineTheme {
+                InboxScreen(
+                    state = InboxUiState(filter = InboxFilter.YOURS, syncedAtMillis = 1),
+                    onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
+                    onErrorShown = {}, onActionFailureShown = {},
+                )
+            }
+        }
+
+        composeRule.onNode(hasContentDescription("Loading your work")).assertExists()
+        composeRule.onNodeWithText("You're all caught up").assertDoesNotExist()
     }
 
     @Test

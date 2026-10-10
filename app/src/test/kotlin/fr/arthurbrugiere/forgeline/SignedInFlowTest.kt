@@ -75,13 +75,12 @@ class SignedInFlowTest {
     }
 
     @Test
-    fun one_s_own_work_opens_from_the_you_tab_and_leads_to_its_conversations() {
+    fun one_s_own_work_is_a_filter_of_the_inbox_and_leads_to_its_conversations() {
         hiltRule.inject()
         runBlocking { accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null), "tok") }
-        composeRule.onNode(hasContentDescription("You") and isSelectable()).performClick()
-        waitFor("Your work")
+        waitFor("Yours")
 
-        composeRule.onNodeWithText("Your work").performClick()
+        composeRule.onNodeWithText("Yours").performClick()
 
         waitFor("Waiting for your review")
         composeRule.onNodeWithText("Retry uploads on slow links").assertIsDisplayed()
@@ -90,7 +89,7 @@ class SignedInFlowTest {
         composeRule.onNodeWithText("Your open pull requests").assertDoesNotExist()
         composeRule.onNodeWithText("Heartbeat recovery escalates too early").performClick()
         waitFor("Body of #14127")
-        // Back returns to the work, not to the You tab.
+        // Back returns to the work, still under its filter.
         composeRule.onNode(hasContentDescription("Navigate up")).performClick()
         waitFor("Waiting for your review")
     }

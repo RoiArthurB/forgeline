@@ -17,6 +17,7 @@
     <string name="inbox_filter_unread">Unread</string>
     <string name="inbox_filter_participating">Participating</string>
     <string name="inbox_filter_all">All</string>
+    <string name="inbox_filter_yours">Yours</string>
     <string name="inbox_caught_up_title">You\'re all caught up</string>
     <string name="inbox_caught_up_body">New notifications will show up here.</string>
     <string name="inbox_empty_title">Nothing here</string>
@@ -397,8 +398,6 @@
 
     <string name="file_too_large_title">Too large to preview</string>
     <string name="file_too_large_body">Open it in your browser to see it.</string>
-    <string name="work_title">Your work</string>
-    <string name="work_summary">Reviews asked of you, your pull requests, what is assigned to you</string>
     <string name="work_reviews">Waiting for your review</string>
     <string name="work_own">Your open pull requests</string>
     <string name="work_assigned">Assigned to you</string>

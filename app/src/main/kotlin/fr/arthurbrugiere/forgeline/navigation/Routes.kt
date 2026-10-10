@@ -19,10 +19,6 @@ data object TrendingRoute : NavKey
 @Serializable
 data object YouRoute : NavKey
 
-/** What waits on the people signed in: reviews asked of them, their pull requests, what is assigned to them. */
-@Serializable
-data object WorkRoute : NavKey
-
 @Serializable
 data object SettingsRoute : NavKey
 

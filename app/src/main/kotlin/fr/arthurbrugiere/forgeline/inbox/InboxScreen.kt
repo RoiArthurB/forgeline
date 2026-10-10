@@ -78,7 +78,11 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
+import fr.arthurbrugiere.forgeline.work.WorkUiState
+import fr.arthurbrugiere.forgeline.work.WorkViewModel
+import fr.arthurbrugiere.forgeline.work.workItems
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import androidx.compose.material.icons.outlined.Block
@@ -169,6 +173,7 @@ fun InboxRoute(
     onSignIn: () -> Unit,
     onOpenThread: (NotificationThread) -> Unit,
     onBrowseTrending: () -> Unit = {},
+    onOpenIssue: (IssueRef) -> Unit = {},
 ) {
     if (session !is SessionState.SignedIn) {
         InboxSignedOut(session, onSignIn, onBrowseTrending)
@@ -183,8 +188,15 @@ fun InboxRoute(
         viewModel.shown()
         onPauseOrDispose {}
     }
+    // Asked of the forges only once "Yours" is looked at: it costs each of them three searches.
+    val work = if (state.filter == InboxFilter.YOURS) hiltViewModel<WorkViewModel>(key = "work-${session.account.id}") else null
+    val workState = work?.state?.collectAsStateWithLifecycle()?.value
     InboxScreen(
         state = state,
+        work = workState,
+        onRefreshWork = { work?.refresh() },
+        onWorkErrorShown = { work?.errorShown() },
+        onOpenIssue = onOpenIssue,
         notificationPrompt = notifications.prompt.takeIf { state.backgroundChecks },
         onAllowNotifications = notifications.onAllow,
         onSelectFilter = viewModel::selectFilter,
@@ -238,7 +250,8 @@ private fun InboxHeader(filter: InboxFilter?, onSelectFilter: (InboxFilter) -> U
     // Beside the short title while it fits; at very large fonts it drops under the title so "Inbox" never breaks.
     val pickerInRow = LocalDensity.current.fontScale <= 1.3f
     SoftHeader(
-        tint = colors.fields[filter?.ordinal ?: 0],
+        // One tint per filter; "Yours" shares All's.
+        tint = colors.fields[(filter?.ordinal ?: 0).coerceAtMost(colors.fields.lastIndex)],
         title = stringResource(R.string.tab_inbox),
         actions = {
             if (pickerInRow) accountPicker?.invoke()
@@ -288,6 +301,11 @@ fun InboxScreen(
     onSelectAll: () -> Unit = {},
     onClearSelection: () -> Unit = {},
     onActOnSelected: (InboxAction) -> Unit = {},
+    /** What is listed under [InboxFilter.YOURS]; null until that filter is looked at. */
+    work: WorkUiState? = null,
+    onRefreshWork: () -> Unit = {},
+    onWorkErrorShown: () -> Unit = {},
+    onOpenIssue: (IssueRef) -> Unit = {},
     nowMillis: Long = rememberNow(state.groups),
 ) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
     val colors = Soft.colors
@@ -295,6 +313,14 @@ fun InboxScreen(
     val refreshFailed = stringResource(R.string.trending_refresh_failed)
     val actionFailed = stringResource(R.string.inbox_action_failed)
     val hasThreads = state.groups.isNotEmpty()
+    val yours = state.filter == InboxFilter.YOURS
+    val workRefreshFailed = yours && work?.error != null && work.work != null
+    LaunchedEffect(workRefreshFailed) {
+        if (workRefreshFailed) {
+            snackbar.showSnackbar(refreshFailed)
+            onWorkErrorShown()
+        }
+    }
     LaunchedEffect(state.error, hasThreads) {
         if (state.error != null && hasThreads) {
             snackbar.showSnackbar(refreshFailed)
@@ -347,14 +373,16 @@ fun InboxScreen(
     }
     Box(modifier.fillMaxSize().background(colors.ground)) {
         val pullState = rememberPullToRefreshState()
+        // Under "Yours" pulling asks the forges for the work again, not for the notifications.
+        val refreshing = if (yours) work?.isLoading == true && work.work != null else state.isRefreshing
         PullToRefreshBox(
-            isRefreshing = state.isRefreshing,
-            onRefresh = onRefresh,
+            isRefreshing = refreshing,
+            onRefresh = if (yours) onRefreshWork else onRefresh,
             state = pullState,
             indicator = {
                 PullToRefreshDefaults.Indicator(
                     state = pullState,
-                    isRefreshing = state.isRefreshing,
+                    isRefreshing = refreshing,
                     modifier = Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.statusBars),
                     containerColor = colors.raised,
                     color = colors.accent,
@@ -407,6 +435,7 @@ fun InboxScreen(
                     }
                 }
                 when {
+                    yours -> workItems(work ?: WorkUiState(), nowMillis, onRefreshWork, onOpenIssue)
                     !hasThreads && state.error != null -> item(key = "error") {
                         SoftNotice(
                             stringResource(R.string.inbox_error_title),
@@ -905,6 +934,7 @@ private val InboxFilter.label: Int
         InboxFilter.UNREAD -> R.string.inbox_filter_unread
         InboxFilter.PARTICIPATING -> R.string.inbox_filter_participating
         InboxFilter.ALL -> R.string.inbox_filter_all
+        InboxFilter.YOURS -> R.string.inbox_filter_yours
     }
 
 /**
