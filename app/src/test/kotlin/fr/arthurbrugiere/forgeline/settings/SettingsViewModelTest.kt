@@ -45,4 +45,13 @@ class SettingsViewModelTest {
             ),
         )
     }
+
+    @Test
+    fun a_simple_choice_changes_only_itself() = runTest {
+        repository.setAmoledBlack(true)
+
+        viewModel.change { it.copy(swipeToReply = false) }
+
+        assertThat(repository.settings.value).isEqualTo(fr.arthurbrugiere.forgeline.core.model.UserSettings(amoledBlack = true, swipeToReply = false))
+    }
 }

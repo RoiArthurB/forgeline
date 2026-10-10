@@ -20,10 +20,27 @@ class DataStoreUserSettingsRepository @Inject constructor(
     @param:SettingsDataStore private val dataStore: DataStore<Preferences>,
 ) : UserSettingsRepository {
 
-    override val settings: Flow<UserSettings> = dataStore.data
-        .map { prefs ->
-            val defaults = UserSettings()
-            UserSettings(
+    override val settings: Flow<UserSettings> = dataStore.data.map { it.toSettings() }.distinctUntilChanged()
+
+    /** A name stored by an older or newer version that no longer means anything reads as the default. */
+    private inline fun <reified T : Enum<T>> Preferences.choice(key: Preferences.Key<String>, default: T): T =
+        this[key]?.let { stored -> enumValues<T>().firstOrNull { it.name == stored } } ?: default
+
+    private fun Preferences.toSettings(): UserSettings {
+        val prefs = this
+        val defaults = UserSettings()
+        return UserSettings(
+                startTab = choice(START_TAB, defaults.startTab),
+                trendingPeriod = choice(TRENDING_PERIOD, defaults.trendingPeriod),
+                inboxSwipeRight = choice(SWIPE_RIGHT, defaults.inboxSwipeRight),
+                inboxSwipeLeft = choice(SWIPE_LEFT, defaults.inboxSwipeLeft),
+                undoDelay = choice(UNDO_DELAY, defaults.undoDelay),
+                shareTap = choice(SHARE_TAP, defaults.shareTap),
+                loadConversationsAhead = prefs[LOAD_AHEAD] ?: defaults.loadConversationsAhead,
+                doubleTapReaction = prefs[DOUBLE_TAP] ?: defaults.doubleTapReaction,
+                swipeToReply = prefs[SWIPE_REPLY] ?: defaults.swipeToReply,
+                openAtUnread = prefs[OPEN_AT_UNREAD] ?: defaults.openAtUnread,
+                readingMarks = prefs[READING_MARKS] ?: defaults.readingMarks,
                 themeMode = prefs[THEME_MODE]
                     ?.let { stored -> ThemeMode.entries.firstOrNull { it.name == stored } }
                     ?: defaults.themeMode,
@@ -40,9 +57,29 @@ class DataStoreUserSettingsRepository @Inject constructor(
                         else -> kind.shownByDefault
                     }
                 },
-            )
+        )
+    }
+
+    override suspend fun update(change: (UserSettings) -> UserSettings) {
+        dataStore.edit { prefs ->
+            val wanted = change(prefs.toSettings())
+            prefs[THEME_MODE] = wanted.themeMode.name
+            prefs[AMOLED_BLACK] = wanted.amoledBlack
+            prefs[SEPARATE_INBOX] = wanted.separateInboxPerForge
+            prefs[INBOX_CHECK] = wanted.inboxCheckInterval.name
+            prefs[START_TAB] = wanted.startTab.name
+            prefs[TRENDING_PERIOD] = wanted.trendingPeriod.name
+            prefs[SWIPE_RIGHT] = wanted.inboxSwipeRight.name
+            prefs[SWIPE_LEFT] = wanted.inboxSwipeLeft.name
+            prefs[UNDO_DELAY] = wanted.undoDelay.name
+            prefs[SHARE_TAP] = wanted.shareTap.name
+            prefs[LOAD_AHEAD] = wanted.loadConversationsAhead
+            prefs[DOUBLE_TAP] = wanted.doubleTapReaction
+            prefs[SWIPE_REPLY] = wanted.swipeToReply
+            prefs[OPEN_AT_UNREAD] = wanted.openAtUnread
+            prefs[READING_MARKS] = wanted.readingMarks
         }
-        .distinctUntilChanged()
+    }
 
     override suspend fun setThemeMode(mode: ThemeMode) {
         dataStore.edit { it[THEME_MODE] = mode.name }
@@ -83,5 +120,16 @@ class DataStoreUserSettingsRepository @Inject constructor(
         val INBOX_CHECK = stringPreferencesKey("inbox_check_interval")
         val FEED_SHOWN = stringSetPreferencesKey("feed_kinds_shown")
         val FEED_HIDDEN = stringSetPreferencesKey("feed_kinds_hidden")
+        val START_TAB = stringPreferencesKey("start_tab")
+        val TRENDING_PERIOD = stringPreferencesKey("trending_period")
+        val SWIPE_RIGHT = stringPreferencesKey("inbox_swipe_right")
+        val SWIPE_LEFT = stringPreferencesKey("inbox_swipe_left")
+        val UNDO_DELAY = stringPreferencesKey("undo_delay")
+        val SHARE_TAP = stringPreferencesKey("share_tap")
+        val LOAD_AHEAD = booleanPreferencesKey("load_conversations_ahead")
+        val DOUBLE_TAP = booleanPreferencesKey("double_tap_reaction")
+        val SWIPE_REPLY = booleanPreferencesKey("swipe_to_reply")
+        val OPEN_AT_UNREAD = booleanPreferencesKey("open_at_unread")
+        val READING_MARKS = booleanPreferencesKey("reading_marks")
     }
 }

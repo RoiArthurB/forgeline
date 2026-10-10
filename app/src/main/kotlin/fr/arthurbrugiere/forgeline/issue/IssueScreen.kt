@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
 import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
@@ -223,7 +224,8 @@ fun IssueRoute(
     LaunchedEffect(signedIn) { viewModel.checkPermissions() }
     LaunchedEffect(state.movedTo) { state.movedTo?.let(onMoved) }
     LaunchedEffect(state.deleted) { if (state.deleted) onBack() }
-    LaunchedEffect(viewModel) { if (route.unread) viewModel.openAtUnread(route.lastReadAtMillis?.let(Instant::ofEpochMilli)) }
+    val atUnread = LocalUserSettings.current.openAtUnread
+    LaunchedEffect(viewModel) { if (route.unread && atUnread) viewModel.openAtUnread(route.lastReadAtMillis?.let(Instant::ofEpochMilli)) }
     val manage = remember(viewModel, openUrl) {
         ManageActions(
             onOpened = viewModel::manageOpened,
@@ -1074,7 +1076,9 @@ private fun Comment(
     var pressedAt by remember { mutableStateOf<IntOffset?>(null) }
     // Where a double tap landed, while its thumbs up shows.
     var thumbAt by remember { mutableStateOf<IntOffset?>(null) }
-    val gestures = if (offered.value == null) Modifier else Modifier.pointerInput(Unit) {
+    val doubleTap = LocalUserSettings.current.doubleTapReaction
+    val swipeToReply = LocalUserSettings.current.swipeToReply
+    val gestures = if (offered.value == null) Modifier else Modifier.pointerInput(doubleTap) {
         detectTapGestures(
             onLongPress = { at ->
                 if (offered.value != null) {
@@ -1082,7 +1086,8 @@ private fun Comment(
                     pressedAt = at.round()
                 }
             },
-            onDoubleTap = { at ->
+            // Without the double tap, a single tap isn't held back waiting for a second one.
+            onDoubleTap = if (!doubleTap) null else { at ->
                 offered.value?.onReact?.let { react ->
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     thumbAt = at.round()
@@ -1091,7 +1096,7 @@ private fun Comment(
             },
         )
     }
-    SwipeToReply(offered.value?.onQuote, modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
+    SwipeToReply(offered.value?.onQuote?.takeIf { swipeToReply }, modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().testTag(COMMENT_TAG).then(gestures)) {
             Column(
                 Modifier

@@ -67,9 +67,13 @@ class CommentActionsScreenTest {
     private val typedReferences = mutableListOf<TypedReference?>()
     private val suggested = mutableStateOf(ReferenceOffer())
 
+    /** What Settings holds for the test; every default unless it says otherwise. */
+    private var userSettings = fr.arthurbrugiere.forgeline.core.model.UserSettings()
+
     private fun setContent(state: IssueUiState = opened, canComment: Boolean = true) {
         shown.value = state
         composeRule.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalUserSettings provides userSettings) {
             IssueScreen(
                 state = shown.value,
                 canComment = canComment,
@@ -92,6 +96,7 @@ class CommentActionsScreenTest {
                 ),
                 suggestions = suggested.value,
             )
+        }
         }
         composeRule.waitForIdle()
     }
@@ -795,5 +800,35 @@ class CommentActionsScreenTest {
         composeRule.waitForIdle()
 
         assertThat(composeRule.onAllNodes(hasTestTag(REFERENCE_SUGGESTIONS_TAG)).fetchSemanticsNodes()).isEmpty()
+    }
+
+    @Test
+    fun with_the_double_tap_switched_off_it_reacts_to_nothing() {
+        userSettings = userSettings.copy(doubleTapReaction = false)
+        setContent()
+
+        comments()[1].performTouchInput { doubleClick() }
+        composeRule.waitForIdle()
+
+        assertThat(events).isEmpty()
+        // The other gestures stay.
+        comments()[1].performTouchInput { swipeRight(startX = left + 20f, endX = left + 20f + 120.dp.toPx()) }
+        composeRule.waitForIdle()
+        assertThat(events).containsExactly("quote:Same here")
+    }
+
+    @Test
+    fun with_swipe_to_reply_switched_off_a_pull_quotes_nothing() {
+        userSettings = userSettings.copy(swipeToReply = false)
+        setContent()
+
+        comments()[1].performTouchInput { swipeRight(startX = left + 20f, endX = left + 20f + 120.dp.toPx()) }
+        composeRule.waitForIdle()
+        assertThat(events).isEmpty()
+
+        // The menu still quotes, and a double tap still reacts.
+        comments()[1].performTouchInput { doubleClick() }
+        composeRule.waitForIdle()
+        assertThat(events).containsExactly("react:1:THUMBS_UP")
     }
 }

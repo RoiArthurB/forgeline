@@ -91,4 +91,87 @@ class DataStoreUserSettingsRepositoryTest {
 
         assertThat(kinds).isEqualTo(FeedKind.defaults - FeedKind.STARS + FeedKind.COMMENTS)
     }
+
+    private val changed = UserSettings(
+        themeMode = ThemeMode.DARK,
+        amoledBlack = true,
+        inboxCheckInterval = InboxCheckInterval.HOUR_6,
+        separateInboxPerForge = true,
+        startTab = fr.arthurbrugiere.forgeline.core.model.StartTab.FEED,
+        trendingPeriod = fr.arthurbrugiere.forgeline.core.model.TrendingPeriod.MONTHLY,
+        inboxSwipeRight = fr.arthurbrugiere.forgeline.core.model.SwipeAction.DONE,
+        inboxSwipeLeft = fr.arthurbrugiere.forgeline.core.model.SwipeAction.NONE,
+        undoDelay = fr.arthurbrugiere.forgeline.core.model.UndoDelay.SEC_10,
+        loadConversationsAhead = false,
+        doubleTapReaction = false,
+        swipeToReply = false,
+        shareTap = fr.arthurbrugiere.forgeline.core.model.ShareTap.COPY,
+        openAtUnread = false,
+        readingMarks = false,
+    )
+
+    @Test
+    fun every_simple_choice_is_kept_and_read_back_by_a_new_repository() = runTest {
+        val store = dataStore()
+
+        DataStoreUserSettingsRepository(store).update { changed }
+
+        assertThat(DataStoreUserSettingsRepository(store).settings.first()).isEqualTo(changed)
+    }
+
+    @Test
+    fun no_choice_shares_its_default_with_what_the_test_changes() {
+        // Guards the test above: a field left at its default there would prove nothing.
+        val defaults = UserSettings()
+        assertThat(changed.startTab).isNotEqualTo(defaults.startTab)
+        assertThat(changed.trendingPeriod).isNotEqualTo(defaults.trendingPeriod)
+        assertThat(changed.inboxSwipeRight).isNotEqualTo(defaults.inboxSwipeRight)
+        assertThat(changed.inboxSwipeLeft).isNotEqualTo(defaults.inboxSwipeLeft)
+        assertThat(changed.undoDelay).isNotEqualTo(defaults.undoDelay)
+        assertThat(changed.loadConversationsAhead).isNotEqualTo(defaults.loadConversationsAhead)
+        assertThat(changed.doubleTapReaction).isNotEqualTo(defaults.doubleTapReaction)
+        assertThat(changed.swipeToReply).isNotEqualTo(defaults.swipeToReply)
+        assertThat(changed.shareTap).isNotEqualTo(defaults.shareTap)
+        assertThat(changed.openAtUnread).isNotEqualTo(defaults.openAtUnread)
+        assertThat(changed.readingMarks).isNotEqualTo(defaults.readingMarks)
+    }
+
+    @Test
+    fun changing_one_choice_leaves_the_others_and_the_feed_s_kinds_alone() = runTest {
+        val repository = DataStoreUserSettingsRepository(dataStore())
+        repository.setFeedKindShown(FeedKind.entries.first { !it.shownByDefault }, true)
+        repository.setTrendingMeasured("git.example.org", true)
+        val before = repository.settings.first()
+
+        repository.update { it.copy(swipeToReply = false) }
+
+        assertThat(repository.settings.first()).isEqualTo(before.copy(swipeToReply = false))
+    }
+
+    @Test
+    fun the_defaults_are_how_forgeline_behaved_before_the_choices_existed() {
+        val defaults = UserSettings()
+
+        assertThat(defaults.startTab).isEqualTo(fr.arthurbrugiere.forgeline.core.model.StartTab.AUTOMATIC)
+        assertThat(defaults.trendingPeriod).isEqualTo(fr.arthurbrugiere.forgeline.core.model.TrendingPeriod.DAILY)
+        assertThat(defaults.inboxSwipeRight).isEqualTo(fr.arthurbrugiere.forgeline.core.model.SwipeAction.MARK_READ)
+        assertThat(defaults.inboxSwipeLeft).isEqualTo(fr.arthurbrugiere.forgeline.core.model.SwipeAction.DONE)
+        assertThat(defaults.undoDelay.millis).isEqualTo(5_000)
+        assertThat(defaults.shareTap).isEqualTo(fr.arthurbrugiere.forgeline.core.model.ShareTap.SHARE)
+        assertThat(listOf(defaults.loadConversationsAhead, defaults.doubleTapReaction, defaults.swipeToReply, defaults.openAtUnread, defaults.readingMarks)).doesNotContain(false)
+    }
+
+    @Test
+    fun a_choice_stored_under_a_name_this_version_does_not_know_reads_as_the_default() = runTest {
+        val store = dataStore()
+        store.edit {
+            it[stringPreferencesKey("start_tab")] = "DASHBOARD"
+            it[stringPreferencesKey("undo_delay")] = "SEC_60"
+        }
+
+        val settings = DataStoreUserSettingsRepository(store).settings.first()
+
+        assertThat(settings.startTab).isEqualTo(fr.arthurbrugiere.forgeline.core.model.StartTab.AUTOMATIC)
+        assertThat(settings.undoDelay).isEqualTo(fr.arthurbrugiere.forgeline.core.model.UndoDelay.SEC_5)
+    }
 }

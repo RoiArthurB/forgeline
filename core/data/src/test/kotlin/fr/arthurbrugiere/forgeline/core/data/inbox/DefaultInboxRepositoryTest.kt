@@ -70,7 +70,8 @@ class DefaultInboxRepositoryTest {
     private val conversations = DefaultIssueRepository(FakeForgeClients(issues = issueApi), accounts, database.conversationDao(), clock)
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val computation = RecordingDispatcher()
-    private val repository = DefaultInboxRepository(database.inboxDao(), state.doneDao(), clients, accounts, conversations, clock, background, computation)
+    private val userSettings = fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository()
+    private val repository = DefaultInboxRepository(database.inboxDao(), state.doneDao(), clients, accounts, conversations, clock, background, computation, userSettings)
 
     private val me = Account.idFor(ForgeInstance.GitHub, "me")
 
@@ -540,7 +541,7 @@ class DefaultInboxRepositoryTest {
             override suspend fun issue(token: String?, ref: IssueRef) = together.arrive("#${ref.number}").let { issueApi.issue(token, ref) }
         }
         val ahead = DefaultIssueRepository(FakeForgeClients(issues = meeting), accounts, database.conversationDao(), clock)
-        val inbox = DefaultInboxRepository(database.inboxDao(), state.doneDao(), clients, accounts, ahead, clock, background, computation)
+        val inbox = DefaultInboxRepository(database.inboxDao(), state.doneDao(), clients, accounts, ahead, clock, background, computation, userSettings)
 
         realTime { inbox.sync(force = true, waitForFollowUps = true) }
 
@@ -564,5 +565,20 @@ class DefaultInboxRepositoryTest {
 
         val states = repository.observe().first().threads.associate { it.id to it.state }
         assertThat(states).containsExactly("10", SubjectState.MERGED, "11", SubjectState.OPEN)
+    }
+
+    @Test
+    fun with_loading_ahead_switched_off_a_sync_reads_no_conversation() = runTest {
+        userSettings.update { it.copy(loadConversationsAhead = false) }
+        signIn()
+        api.threads = listOf(notificationThread("1", reason = NotificationReason.REVIEW_REQUESTED, type = SubjectType.PULL_REQUEST))
+        val pull = IssueRef(RepoId("acme", "rocket"), 1)
+        issueApi.issues[pull] = issueDetails(pull)
+
+        repository.sync(force = true, waitForFollowUps = true)
+
+        // The thread is in, and nothing was asked about its conversation.
+        assertThat(repository.observe().first().threads.map { it.id }).containsExactly("1")
+        assertThat(issueApi.calls.filter { it.startsWith("issue:") || it.startsWith("timeline:") }).isEmpty()
     }
 }

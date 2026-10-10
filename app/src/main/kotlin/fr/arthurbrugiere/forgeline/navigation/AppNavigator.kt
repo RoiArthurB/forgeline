@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.navigation
 
+import fr.arthurbrugiere.forgeline.core.model.StartTab
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
@@ -13,7 +14,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
  * One back stack per top-level tab. The home tab always sits underneath the current tab, so
  * Back walks the current tab's history, then returns to the home tab, then leaves the app.
  *
- * Home is the Inbox for someone signed in and Trending for someone signed in nowhere (the inbox is only a sign-in wall
+ * Home is the tab chosen in Settings. Left to Forgeline, it is the Inbox for someone signed in and Trending for someone signed in nowhere (the inbox is only a sign-in wall
  * then, and Trending works signed out). It is decided once, when the session first resolves, and never again: signing
  * in later doesn't move the visitor.
  */
@@ -32,9 +33,15 @@ class AppNavigator(
     val settled: Boolean get() = settledState.value
 
     /** Picks the home tab once the session is known. A link already opened on the way in keeps its place. */
-    fun settle(signedIn: Boolean) {
+    fun settle(signedIn: Boolean, startTab: StartTab = StartTab.AUTOMATIC) {
         if (settled) return
-        homeState.value = if (signedIn) SIGNED_IN_HOME else SIGNED_OUT_HOME
+        homeState.value = when (startTab) {
+            StartTab.AUTOMATIC -> if (signedIn) SIGNED_IN_HOME else SIGNED_OUT_HOME
+            StartTab.INBOX -> TopLevelDestination.INBOX
+            StartTab.FEED -> TopLevelDestination.FEED
+            StartTab.TRENDING -> TopLevelDestination.TRENDING
+            StartTab.YOU -> TopLevelDestination.YOU
+        }
         if (currentTab == SIGNED_IN_HOME && stacks.getValue(currentTab).size == 1) currentTabState.value = home
         settledState.value = true
     }

@@ -333,4 +333,52 @@ class InboxViewModelTest {
         assertThat(inbox.actions).containsExactly("done:10")
         assertThat(viewModel.state.value.groups.flatMap { g -> g.threads.map { it.id } }).contains("11")
     }
+
+    @Test
+    fun with_no_time_to_undo_an_action_reaches_the_forge_at_once_and_offers_no_way_back() = test {
+        settings.update { it.copy(undoDelay = fr.arthurbrugiere.forgeline.core.model.UndoDelay.OFF) }
+        inbox.set(mention, watching)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.markDone(mention)
+        runCurrent()
+
+        assertThat(inbox.actions).containsExactly("done:1")
+        assertThat(viewModel.state.value.undo).isNull()
+        assertThat(viewModel.state.value.groups.flatMap { it.threads }.map { it.id }).containsExactly("2")
+    }
+
+    @Test
+    fun the_time_to_undo_is_the_one_chosen_in_settings() = test {
+        settings.update { it.copy(undoDelay = fr.arthurbrugiere.forgeline.core.model.UndoDelay.SEC_10) }
+        inbox.set(mention)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.markDone(mention)
+        advanceTimeBy(InboxViewModel.UNDO_MILLIS + 1)
+        runCurrent()
+        // Past the usual five seconds, it still waits and can still be taken back.
+        assertThat(inbox.actions).isEmpty()
+        assertThat(viewModel.state.value.undo).isNotNull()
+
+        advanceTimeBy(5_000)
+        runCurrent()
+        assertThat(inbox.actions).containsExactly("done:1")
+    }
+
+    @Test
+    fun a_shorter_time_to_undo_sends_sooner() = test {
+        settings.update { it.copy(undoDelay = fr.arthurbrugiere.forgeline.core.model.UndoDelay.SEC_3) }
+        inbox.set(mention)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.markDone(mention)
+        advanceTimeBy(3_001)
+        runCurrent()
+
+        assertThat(inbox.actions).containsExactly("done:1")
+    }
 }

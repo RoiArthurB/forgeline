@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.openInCustomTab
 import fr.arthurbrugiere.forgeline.ui.rememberNow
 import androidx.compose.ui.platform.LocalContext
@@ -210,6 +211,7 @@ fun FeedScreen(
     zone: ZoneId = ZoneId.systemDefault(),
 ) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
     val colors = Soft.colors
+    val marks = LocalUserSettings.current.readingMarks
     val snackbar = remember { SnackbarHostState() }
     val refreshFailed = stringResource(R.string.trending_refresh_failed)
     val hasItems = state.items.isNotEmpty()
@@ -289,7 +291,7 @@ fun FeedScreen(
                             item(key = "day-$day", contentType = "day") { SoftSectionTitle(stringResource(day.label)) }
                             items(items, key = { it.key }, contentType = { it.action.kind }) { item ->
                                 Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem()) {
-                                    if (item.key == state.leftOffBefore) LeftOffMark()
+                                    if (marks && item.key == state.leftOffBefore) LeftOffMark()
                                     // Each row gets only its own preview: one arriving redraws the rows it is for, not all of them.
                                     FeedRow(
                                         item,

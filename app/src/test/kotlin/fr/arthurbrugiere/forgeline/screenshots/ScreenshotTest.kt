@@ -211,6 +211,16 @@ class ScreenshotTest {
     }
 
     @Test
+    fun settings_gestures_light() = snapshot("settings_gestures_light", darkTheme = false) {
+        SettingsPreview(section = SettingsSection.GESTURES)
+    }
+
+    @Test
+    fun settings_reading_dark() = snapshot("settings_reading_dark", darkTheme = true) {
+        SettingsPreview(UserSettings(readingMarks = false), section = SettingsSection.READING)
+    }
+
+    @Test
     fun sign_in_light() = snapshot("sign_in_light", darkTheme = false) {
         SignInScreen(
             state = SignInUiState(true, "https://github.com/settings/tokens/new"),

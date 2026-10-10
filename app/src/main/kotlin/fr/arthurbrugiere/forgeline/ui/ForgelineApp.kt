@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.ui
 
+import fr.arthurbrugiere.forgeline.core.model.StartTab
 import fr.arthurbrugiere.forgeline.navigation.DiscussionRoute
 import fr.arthurbrugiere.forgeline.R
 import androidx.compose.ui.res.stringResource
@@ -76,6 +77,8 @@ fun ForgelineApp(
     link: NavKey? = null,
     onLinkOpened: () -> Unit = {},
     navigator: AppNavigator = rememberAppNavigator(),
+    /** The tab chosen to open on; null while the settings are still being read. */
+    startTab: StartTab? = StartTab.AUTOMATIC,
 ) {
     LaunchedEffect(link) {
         if (link != null) {
@@ -85,7 +88,9 @@ fun ForgelineApp(
     }
     if (!navigator.settled) {
         // Which tab to open on depends on whether anyone is signed in, so wait for the session rather than flash the wrong one.
-        LaunchedEffect(session) { if (session !is SessionState.Loading) navigator.settle(signedIn = session is SessionState.SignedIn) }
+        LaunchedEffect(session, startTab) {
+            if (session !is SessionState.Loading && startTab != null) navigator.settle(signedIn = session is SessionState.SignedIn, startTab = startTab)
+        }
         Box(Modifier.fillMaxSize().background(Soft.colors.ground))
         return
     }

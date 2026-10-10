@@ -31,6 +31,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { repository.setTrendingMeasured(host, measured) }
     }
 
+    /** Changes one of the simple choices: [change] answers the settings as wanted. */
+    fun change(change: (UserSettings) -> UserSettings) {
+        viewModelScope.launch { repository.update(change) }
+    }
+
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { repository.setThemeMode(mode) }
     }

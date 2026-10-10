@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.trending
 
+import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import fr.arthurbrugiere.forgeline.ui.rememberNow
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
@@ -207,7 +208,8 @@ fun TrendingScreen(
             }
         }
 
-        val resumeAt = state.resumeAt?.takeIf { it in 0 until state.items.lastIndex }
+        // Where the last visit stopped, unless Settings says not to mark it.
+        val resumeAt = state.resumeAt?.takeIf { it in 0 until state.items.lastIndex && LocalUserSettings.current.readingMarks }
         val rankByKey = remember(state.items) { state.items.withIndex().associate { (index, item) -> item.repo.id.fullName to index.toLong() } }
         ReportReading(listState, resetKey = state.period, positionOf = { rankByKey[it] }, onRead = { key -> rankByKey[key]?.let { onReadThrough(it.toInt()) } })
         // Once the mark is on screen or above it, the way back to it has done its job.

@@ -40,8 +40,12 @@ class FeedScreenTest {
     /** Whether the feed sits in the app shell, which has a page for a release. */
     private var hasReleasePage = false
 
+    /** What Settings holds for the test; every default unless it says otherwise. */
+    private var userSettings = fr.arthurbrugiere.forgeline.core.model.UserSettings()
+
     private fun setContent(state: FeedUiState, previews: FeedPreviews = FeedPreviews()) {
         composeRule.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalUserSettings provides userSettings) {
             val openRelease: ((fr.arthurbrugiere.forgeline.core.model.RepoId, String) -> Unit)? =
                 if (hasReleasePage) ({ repo, tag -> events += "release:${repo.fullName}@$tag" }) else null
             val openDiscussion: ((fr.arthurbrugiere.forgeline.core.model.RepoId, Int) -> Unit)? =
@@ -66,6 +70,7 @@ class FeedScreenTest {
                 zone = java.time.ZoneOffset.UTC,
             )
             }
+        }
         }
     }
 
@@ -368,5 +373,17 @@ class FeedScreenTest {
         composeRule.onNodeWithText("Immich turns three", useUnmergedTree = true).performClick()
 
         assertThat(events).containsExactly("discussion:immich-app/immich#880")
+    }
+
+    @Test
+    fun with_the_marks_switched_off_the_feed_shows_no_mark() {
+        userSettings = userSettings.copy(readingMarks = false)
+        setContent(
+            state(feedEvent("2", repo = "octo/new", createdAt = "2026-09-27T09:30:00Z"), feedEvent("1", repo = "octo/read"))
+                .copy(leftOffBefore = "1"),
+        )
+
+        composeRule.onNodeWithText("Where you left off").assertDoesNotExist()
+        composeRule.onNodeWithText("octo/\u2060read").assertIsDisplayed()
     }
 }

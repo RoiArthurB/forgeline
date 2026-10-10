@@ -46,8 +46,12 @@ class InboxScreenTest {
     private val review = notificationThread("43", repo = "acme/rocket", title = "Add retry", reason = NotificationReason.REVIEW_REQUESTED)
     private val release = notificationThread("9", repo = "octo/tools", title = "v2.0.0", reason = NotificationReason.SUBSCRIBED, number = null)
 
+    /** What Settings holds for the test; every default unless it says otherwise. */
+    private var userSettings = fr.arthurbrugiere.forgeline.core.model.UserSettings()
+
     private fun setContent(state: InboxUiState, prompt: NotificationPrompt? = null) {
         composeRule.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalUserSettings provides userSettings) {
             InboxScreen(
                 state = state,
                 onSelectFilter = { events += "filter:$it" },
@@ -64,6 +68,7 @@ class InboxScreenTest {
                 onMarkAllDone = { threads -> events += "all-done:" + threads.joinToString(",") { it.id } },
                 nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
             )
+        }
         }
     }
 
@@ -401,5 +406,56 @@ class InboxScreenTest {
 
         composeRule.onNodeWithText("Marked 2 as done").assertIsDisplayed()
         composeRule.onNodeWithText("Undo").assertIsDisplayed()
+    }
+
+    @Test
+    fun the_two_swipes_can_be_swapped_in_settings() {
+        userSettings = userSettings.copy(inboxSwipeRight = fr.arthurbrugiere.forgeline.core.model.SwipeAction.DONE, inboxSwipeLeft = fr.arthurbrugiere.forgeline.core.model.SwipeAction.MARK_READ)
+        setContent(grouped)
+
+        composeRule.onNodeWithText("Launch fails on cold start").performTouchInput { swipeRight() }
+        composeRule.onNodeWithText("Add retry").performTouchInput { swipeLeft() }
+        composeRule.waitForIdle()
+
+        assertThat(events).containsExactly("done:42", "read:43").inOrder()
+    }
+
+    @Test
+    fun a_swipe_set_to_nothing_does_nothing() {
+        userSettings = userSettings.copy(inboxSwipeRight = fr.arthurbrugiere.forgeline.core.model.SwipeAction.NONE, inboxSwipeLeft = fr.arthurbrugiere.forgeline.core.model.SwipeAction.NONE)
+        setContent(grouped)
+
+        composeRule.onNodeWithText("Launch fails on cold start").performTouchInput { swipeRight() }
+        composeRule.onNodeWithText("Add retry").performTouchInput { swipeLeft() }
+        composeRule.waitForIdle()
+
+        assertThat(events).isEmpty()
+        composeRule.onNodeWithText("Add retry").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_repository_is_swiped_away_toward_the_side_that_means_done() {
+        userSettings = userSettings.copy(inboxSwipeRight = fr.arthurbrugiere.forgeline.core.model.SwipeAction.DONE, inboxSwipeLeft = fr.arthurbrugiere.forgeline.core.model.SwipeAction.MARK_READ)
+        setContent(watched)
+
+        composeRule.onNodeWithText("tools", substring = true).performTouchInput { swipeLeft() }
+        composeRule.waitForIdle()
+        assertThat(events).isEmpty()
+
+        composeRule.onNodeWithText("tools", substring = true).performTouchInput { swipeRight() }
+        composeRule.waitForIdle()
+        assertThat(events).containsExactly("all-done:50,51")
+    }
+
+    @Test
+    fun with_no_swipe_meaning_done_a_repository_is_not_swiped_away() {
+        userSettings = userSettings.copy(inboxSwipeLeft = fr.arthurbrugiere.forgeline.core.model.SwipeAction.NONE)
+        setContent(watched)
+
+        composeRule.onNodeWithText("tools", substring = true).performTouchInput { swipeLeft() }
+        composeRule.onNodeWithText("tools", substring = true).performTouchInput { swipeRight() }
+        composeRule.waitForIdle()
+
+        assertThat(events).isEmpty()
     }
 }

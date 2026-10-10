@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline
 
+import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
+import androidx.compose.runtime.CompositionLocalProvider
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
@@ -58,12 +60,16 @@ class MainActivity : ComponentActivity() {
                 amoledBlack = settings.amoledBlack,
             ) {
                 val session by sessionViewModel.session.collectAsStateWithLifecycle()
-                ForgelineApp(
-                    session = session,
-                    onSignOut = sessionViewModel::signOut,
-                    link = link,
-                    onLinkOpened = { link = null },
-                )
+                CompositionLocalProvider(LocalUserSettings provides settings) {
+                    ForgelineApp(
+                        session = session,
+                        onSignOut = sessionViewModel::signOut,
+                        link = link,
+                        onLinkOpened = { link = null },
+                        // Not known until the settings are read: the app waits rather than open on the wrong tab.
+                        startTab = (uiState as? MainUiState.Ready)?.settings?.startTab,
+                    )
+                }
             }
         }
     }

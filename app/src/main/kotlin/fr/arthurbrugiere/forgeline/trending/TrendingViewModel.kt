@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.trending
 
+import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
 import kotlinx.coroutines.flow.first
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.lifecycle.SavedStateHandle
@@ -58,8 +59,11 @@ class TrendingViewModel @Inject constructor(
     private val trending: TrendingRepository,
     private val stars: StarRepository,
     accounts: AccountRepository,
+    settings: UserSettingsRepository,
 ) : ViewModel() {
 
+    // Asked before the flow below is made: making it writes its first value into the saved state.
+    private val periodKept = savedState.contains(PERIOD_KEY)
     private val period = savedState.getStateFlow(PERIOD_KEY, TrendingPeriod.DAILY)
     private val snapshot = period.flatMapLatest { trending.observe(it) }
     private val starred = MutableStateFlow<Map<RepoId, Boolean>>(emptyMap())
@@ -98,6 +102,8 @@ class TrendingViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            // Opens on the period chosen in Settings, unless one was picked here before (kept across process death).
+            if (!periodKept) savedState[PERIOD_KEY] = settings.settings.first().trendingPeriod
             period.collect { period -> refresh(period, force = false) }
         }
         viewModelScope.launch {

@@ -50,6 +50,11 @@ class SettingsScreenTest {
 
     private var openedSection: SettingsSection? = null
 
+    /** The settings as the last simple choice left them; null while none was made. */
+    private var changed: UserSettings? = null
+    private var language: AppLanguageChoice? = null
+    private val languages = mutableListOf<String?>()
+
     private fun setContent(
         settings: UserSettings = UserSettings(),
         session: SessionState = SessionState.SignedOut,
@@ -71,6 +76,9 @@ class SettingsScreenTest {
                 onBack = { backPressed = true },
                 section = section,
                 onOpenSection = { openedSection = it },
+                onChange = { change -> changed = change(changed ?: settings) },
+                language = language,
+                onLanguageChange = { languages += it },
             )
         }
     }
@@ -263,6 +271,144 @@ class SettingsScreenTest {
     fun with_only_github_there_is_nothing_to_measure() {
         setContent(session = SessionState.SignedIn(Account("id", ForgeInstance.GitHub, ForgeUser("me", null, null))), section = SettingsSection.TRENDING)
 
-        composeRule.onNodeWithText("Nothing to choose yet").assertIsDisplayed()
+        composeRule.onNodeWithText("Nothing to measure yet").assertIsDisplayed()
+    }
+
+    private fun reach(text: String) = composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(text))
+
+    private fun choose(row: String, current: String, wanted: String) {
+        reach(row)
+        composeRule.onNodeWithText(current).performClick()
+        composeRule.onNodeWithText(wanted).performClick()
+    }
+
+    @Test
+    fun the_main_list_offers_gestures_and_reading() {
+        setContent()
+
+        reach("Gestures")
+        composeRule.onNodeWithText("Swipes, double tap and the share button").assertIsDisplayed()
+        composeRule.onNodeWithText("Gestures").performClick()
+        assertThat(openedSection).isEqualTo(SettingsSection.GESTURES)
+        reach("Reading")
+        composeRule.onNodeWithText("Reading").performClick()
+        assertThat(openedSection).isEqualTo(SettingsSection.READING)
+    }
+
+    @Test
+    fun untouched_every_choice_shows_how_forgeline_behaves_by_itself() {
+        setContent(section = SettingsSection.GESTURES)
+
+        composeRule.onNodeWithText("Swipe an Inbox thread right").assertIsDisplayed()
+        composeRule.onNodeWithText("Mark as read").assertIsDisplayed()
+        composeRule.onNodeWithText("Done").assertIsDisplayed()
+        reach("Share button")
+        composeRule.onNodeWithText("A tap shares, a long press copies the link").assertIsDisplayed()
+    }
+
+    @Test
+    fun each_inbox_swipe_is_chosen_from_a_dialog() {
+        setContent(section = SettingsSection.GESTURES)
+
+        choose("Swipe an Inbox thread right", current = "Mark as read", wanted = "Nothing")
+        assertThat(changed).isEqualTo(UserSettings(inboxSwipeRight = fr.arthurbrugiere.forgeline.core.model.SwipeAction.NONE))
+    }
+
+    @Test
+    fun the_left_swipe_is_its_own_choice() {
+        setContent(section = SettingsSection.GESTURES)
+
+        choose("Swipe an Inbox thread left", current = "Done", wanted = "Nothing")
+        assertThat(changed).isEqualTo(UserSettings(inboxSwipeLeft = fr.arthurbrugiere.forgeline.core.model.SwipeAction.NONE))
+    }
+
+    @Test
+    fun comment_gestures_switch_off_one_by_one() {
+        setContent(section = SettingsSection.GESTURES)
+
+        reach("Double tap to react")
+        composeRule.onNodeWithText("Double tap to react").performClick()
+        assertThat(changed).isEqualTo(UserSettings(doubleTapReaction = false))
+        reach("Swipe to reply")
+        composeRule.onNodeWithText("Swipe to reply").performClick()
+        assertThat(changed).isEqualTo(UserSettings(doubleTapReaction = false, swipeToReply = false))
+    }
+
+    @Test
+    fun the_share_button_can_copy_on_a_tap() {
+        setContent(section = SettingsSection.GESTURES)
+
+        choose("Share button", current = "A tap shares, a long press copies the link", wanted = "A tap copies the link, a long press shares")
+        assertThat(changed).isEqualTo(UserSettings(shareTap = fr.arthurbrugiere.forgeline.core.model.ShareTap.COPY))
+    }
+
+    @Test
+    fun reading_choices_switch_off() {
+        setContent(section = SettingsSection.READING)
+
+        composeRule.onNodeWithText("Open at what is new").performClick()
+        composeRule.onNodeWithText("Mark where you left off").performClick()
+
+        assertThat(changed).isEqualTo(UserSettings(openAtUnread = false, readingMarks = false))
+    }
+
+    @Test
+    fun a_choice_switched_off_shows_as_off() {
+        setContent(UserSettings(openAtUnread = false), section = SettingsSection.READING)
+
+        composeRule.onNode(hasText("Open at what is new", substring = true) and androidx.compose.ui.test.isToggleable()).assertIsOff()
+        composeRule.onNode(hasText("Mark where you left off", substring = true) and androidx.compose.ui.test.isToggleable()).assertIsOn()
+    }
+
+    @Test
+    fun the_tab_the_app_opens_on_is_chosen_under_appearance() {
+        setContent(section = SettingsSection.APPEARANCE)
+
+        choose("Open the app on", current = "Inbox when signed in, Trending otherwise", wanted = "Feed")
+        assertThat(changed).isEqualTo(UserSettings(startTab = fr.arthurbrugiere.forgeline.core.model.StartTab.FEED))
+    }
+
+    @Test
+    fun the_inbox_page_holds_the_time_to_undo_and_loading_ahead() {
+        setContent(section = SettingsSection.INBOX)
+
+        choose("Time to undo an Inbox action", current = "5 seconds", wanted = "None: send at once")
+        reach("Load conversations ahead")
+        composeRule.onNodeWithText("Load conversations ahead").performClick()
+
+        assertThat(changed).isEqualTo(UserSettings(undoDelay = fr.arthurbrugiere.forgeline.core.model.UndoDelay.OFF, loadConversationsAhead = false))
+    }
+
+    @Test
+    fun trending_s_first_period_is_chosen_whoever_is_signed_in() {
+        setContent(section = SettingsSection.TRENDING)
+
+        choose("Open Trending on", current = "Today", wanted = "This month")
+        assertThat(changed).isEqualTo(UserSettings(trendingPeriod = fr.arthurbrugiere.forgeline.core.model.TrendingPeriod.MONTHLY))
+    }
+
+    @Test
+    fun where_android_lets_an_app_have_its_own_language_it_is_chosen_here() {
+        language = AppLanguageChoice(null)
+        setContent(section = SettingsSection.APPEARANCE)
+
+        choose("Language", current = "The phone's language", wanted = "Français")
+        assertThat(languages).containsExactly("fr")
+    }
+
+    @Test
+    fun the_language_chosen_shows_and_can_be_handed_back_to_the_phone() {
+        language = AppLanguageChoice("fr")
+        setContent(section = SettingsSection.APPEARANCE)
+
+        choose("Language", current = "Français", wanted = "The phone's language")
+        assertThat(languages).containsExactly(null)
+    }
+
+    @Test
+    fun where_android_does_not_no_language_is_offered() {
+        setContent(section = SettingsSection.APPEARANCE)
+
+        composeRule.onNodeWithText("Language").assertDoesNotExist()
     }
 }

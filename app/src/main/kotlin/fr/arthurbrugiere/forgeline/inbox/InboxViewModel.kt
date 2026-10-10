@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import fr.arthurbrugiere.forgeline.core.model.UndoDelay
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -99,6 +100,9 @@ class InboxViewModel @Inject constructor(
     private val undo = MutableStateFlow<PendingUndo?>(null)
     private var serial = 0L
 
+    /** How long an action can be taken back, as chosen in Settings. */
+    private val undoDelay = settings.settings.map { it.undoDelay }.stateIn(viewModelScope, SharingStarted.Eagerly, UndoDelay.SEC_5)
+
     val state: StateFlow<InboxUiState> = combine(
         combine(inbox.observe(), pending) { snapshot, pending -> snapshot to pending },
         filter,
@@ -178,12 +182,19 @@ class InboxViewModel @Inject constructor(
     }
 
     /**
-     * Shows [action] as done right away but holds it for [UNDO_MILLIS], so an accidental swipe can be taken back
+     * Shows [action] as done right away but holds it for the delay chosen in Settings ([UNDO_MILLIS] untouched), so an accidental swipe can be taken back
      * (the forge has no way to undo "done"). Several actions can wait at once; Undo offers the latest.
      */
     private fun hold(threads: List<NotificationThread>, action: InboxAction) {
         val keys = threads.map { it.key }.distinct()
         if (keys.isEmpty()) return
+        val wait = undoDelay.value.millis
+        if (wait == 0L) {
+            // Nothing to take back: each one goes to the forge now, shown as done until the forge has answered.
+            pending.update { it + keys.associateWith { action } }
+            keys.forEach { key -> timers.remove(key)?.cancel(); send(key, action) }
+            return
+        }
         val next = PendingUndo(keys.first(), action, ++serial, keys.drop(1))
         pending.update { it + keys.associateWith { action } }
         undo.value = next
@@ -191,7 +202,7 @@ class InboxViewModel @Inject constructor(
         keys.forEach { key ->
             timers.remove(key)?.cancel()
             timers[key] = viewModelScope.launch {
-                delay(UNDO_MILLIS)
+                delay(wait)
                 timers.remove(key)
                 undo.update { if (it == next) null else it }
                 send(key, action)

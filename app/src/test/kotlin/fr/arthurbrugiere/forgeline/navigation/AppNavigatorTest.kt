@@ -171,4 +171,41 @@ class AppNavigatorTest {
 
         assertThat(navigator.backStackOf(TopLevelDestination.YOU)).containsExactly(YouRoute, SettingsRoute).inOrder()
     }
+
+    @Test
+    fun a_start_tab_chosen_in_settings_is_where_the_app_opens_and_where_back_returns() {
+        val navigator = navigator(settled = false)
+
+        navigator.settle(signedIn = true, startTab = fr.arthurbrugiere.forgeline.core.model.StartTab.FEED)
+
+        assertThat(navigator.currentTab).isEqualTo(TopLevelDestination.FEED)
+        assertThat(navigator.home).isEqualTo(TopLevelDestination.FEED)
+        navigator.selectTab(TopLevelDestination.INBOX)
+        navigator.goBack()
+        assertThat(navigator.currentTab).isEqualTo(TopLevelDestination.FEED)
+    }
+
+    @Test
+    fun every_start_tab_names_its_own_tab_signed_in_or_not() {
+        val wanted = mapOf(
+            fr.arthurbrugiere.forgeline.core.model.StartTab.INBOX to TopLevelDestination.INBOX,
+            fr.arthurbrugiere.forgeline.core.model.StartTab.FEED to TopLevelDestination.FEED,
+            fr.arthurbrugiere.forgeline.core.model.StartTab.TRENDING to TopLevelDestination.TRENDING,
+            fr.arthurbrugiere.forgeline.core.model.StartTab.YOU to TopLevelDestination.YOU,
+        )
+        for ((choice, tab) in wanted) for (signedIn in listOf(true, false)) {
+            val navigator = navigator(settled = false)
+            navigator.settle(signedIn, choice)
+            assertThat(navigator.currentTab).isEqualTo(tab)
+        }
+    }
+
+    @Test
+    fun left_to_forgeline_the_start_tab_follows_whether_someone_is_signed_in() {
+        val signedIn = navigator(settled = false).also { it.settle(signedIn = true, startTab = fr.arthurbrugiere.forgeline.core.model.StartTab.AUTOMATIC) }
+        val signedOut = navigator(settled = false).also { it.settle(signedIn = false, startTab = fr.arthurbrugiere.forgeline.core.model.StartTab.AUTOMATIC) }
+
+        assertThat(signedIn.currentTab).isEqualTo(TopLevelDestination.INBOX)
+        assertThat(signedOut.currentTab).isEqualTo(TopLevelDestination.TRENDING)
+    }
 }

@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import fr.arthurbrugiere.forgeline.core.model.SwipeAction
+import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import fr.arthurbrugiere.forgeline.ui.rememberNow
 import androidx.compose.ui.semantics.stateDescription
@@ -475,15 +477,18 @@ private fun OwnerHeading(thread: NotificationThread, modifier: Modifier = Modifi
 private fun RepoHeading(thread: NotificationThread, showOwner: Boolean, onMarkAllDone: () -> Unit, modifier: Modifier = Modifier) {
     val colors = Soft.colors
     val markAllDone = stringResource(R.string.inbox_mark_all_done)
+    val swipes = LocalUserSettings.current
     // Not saved, like a thread's: a heading brought back by Undo starts settled.
     val threshold = SwipeToDismissBoxDefaults.positionalThreshold
     val swipe = remember { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, threshold) }
     SwipeToDismissBox(
         state = swipe,
         modifier = modifier.padding(start = 8.dp, end = 8.dp, top = if (showOwner) 10.dp else 6.dp),
-        enableDismissFromStartToEnd = false,
-        backgroundContent = { SwipeBackground(swipe.dismissDirection) },
-        onDismiss = { direction -> if (direction == SwipeToDismissBoxValue.EndToStart) onMarkAllDone() },
+        // A repository is swiped away toward the side that means "done" for a thread, if one does.
+        enableDismissFromStartToEnd = swipes.inboxSwipeRight == SwipeAction.DONE,
+        enableDismissFromEndToStart = swipes.inboxSwipeLeft == SwipeAction.DONE,
+        backgroundContent = { SwipeBackground(swipe.dismissDirection, SwipeAction.DONE) },
+        onDismiss = { direction -> if (direction != SwipeToDismissBoxValue.Settled) onMarkAllDone() },
     ) {
         Row(
             Modifier
@@ -606,20 +611,24 @@ private fun ThreadRow(
     val doneLabel = stringResource(R.string.inbox_mark_done)
     val unsubscribeLabel = stringResource(R.string.inbox_unsubscribe)
     val animations = animationsEnabled()
+    val toEnd = LocalUserSettings.current.inboxSwipeRight
+    val toStart = LocalUserSettings.current.inboxSwipeLeft
     SwipeToDismissBox(
         state = swipe,
         modifier = modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-        enableDismissFromStartToEnd = thread.unread,
-        backgroundContent = { SwipeBackground(swipe.dismissDirection) },
+        // Each side does what Settings says; a side with nothing to do here doesn't move.
+        enableDismissFromStartToEnd = toEnd.appliesTo(thread),
+        enableDismissFromEndToStart = toStart.appliesTo(thread),
+        backgroundContent = { SwipeBackground(swipe.dismissDirection, if (swipe.dismissDirection == SwipeToDismissBoxValue.StartToEnd) toEnd else toStart) },
         onDismiss = { direction ->
-            when (direction) {
-                SwipeToDismissBoxValue.StartToEnd -> {
+            when (if (direction == SwipeToDismissBoxValue.StartToEnd) toEnd else toStart) {
+                SwipeAction.MARK_READ -> {
                     onMarkRead(thread)
                     // The row stays (just read), so bring it back into place.
                     scope.launch { swipe.reset() }
                 }
-                SwipeToDismissBoxValue.EndToStart -> onMarkDone(thread)
-                SwipeToDismissBoxValue.Settled -> Unit
+                SwipeAction.DONE -> onMarkDone(thread)
+                SwipeAction.NONE -> Unit
             }
         },
     ) {
@@ -741,14 +750,26 @@ private fun ThreadRow(
 /** Undo on the ink snackbar: ember where it reads (light), the light theme's deeper ember on the pale dark-theme bar. */
 internal fun snackbarAction(colors: SoftColors): Color = if (colors.isDark) SoftLight.accent else colors.thumb
 
-/** What a swipe does, shown on a soft tint under the row: mint to mark read, ember for done. */
+/** Whether swiping [thread] to do this has anything to do: one already read isn't marked read again. */
+private fun SwipeAction.appliesTo(thread: NotificationThread): Boolean = when (this) {
+    SwipeAction.MARK_READ -> thread.unread
+    SwipeAction.DONE -> true
+    SwipeAction.NONE -> false
+}
+
+/** What a swipe does, shown on a soft tint under the row, on the side the row leaves: mint to mark read, ember for done. */
 @Composable
-private fun SwipeBackground(direction: SwipeToDismissBoxValue) {
+private fun SwipeBackground(direction: SwipeToDismissBoxValue, action: SwipeAction) {
     val colors = Soft.colors
-    val (icon, alignment, tint) = when (direction) {
-        SwipeToDismissBoxValue.StartToEnd -> Triple(Icons.Outlined.MarkEmailRead, Alignment.CenterStart, colors.fields[2])
-        SwipeToDismissBoxValue.EndToStart -> Triple(Icons.Outlined.Done, Alignment.CenterEnd, colors.fields[0])
+    val alignment = when (direction) {
+        SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+        SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
         SwipeToDismissBoxValue.Settled -> return
+    }
+    val (icon, tint) = when (action) {
+        SwipeAction.MARK_READ -> Icons.Outlined.MarkEmailRead to colors.fields[2]
+        SwipeAction.DONE -> Icons.Outlined.Done to colors.fields[0]
+        SwipeAction.NONE -> return
     }
     Box(
         Modifier.fillMaxSize().clip(SoftTokens.RowCorner).background(tint).padding(horizontal = 24.dp),

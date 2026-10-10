@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.ui
 
+import fr.arthurbrugiere.forgeline.core.model.ShareTap
+import fr.arthurbrugiere.forgeline.core.model.UserSettings
+import androidx.compose.runtime.CompositionLocalProvider
 import android.app.Application
 import android.content.ClipboardManager
 import android.content.Intent
@@ -40,8 +43,23 @@ class ShareLinkTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private fun setContent(title: String? = "octo/tools") = composeRule.setContent {
-        ForgelineTheme { ShareLinkButton("https://github.com/octo/tools", title) }
+    private fun setContent(title: String? = "octo/tools", settings: UserSettings = UserSettings()) = composeRule.setContent {
+        CompositionLocalProvider(LocalUserSettings provides settings) {
+            ForgelineTheme { ShareLinkButton("https://github.com/octo/tools", title) }
+        }
+    }
+
+    @Test
+    fun settings_can_swap_them_a_tap_copies_and_a_long_press_shares() {
+        setContent(settings = UserSettings(shareTap = ShareTap.COPY))
+
+        // The button then says what a tap does.
+        composeRule.onNode(hasContentDescription("Copy link")).performClick()
+        assertThat(copiedText()).isEqualTo("https://github.com/octo/tools")
+        assertThat(sharedLink()).isNull()
+
+        composeRule.onNode(hasContentDescription("Copy link")).performTouchInput { longClick() }
+        assertThat(sharedLink()).isEqualTo("https://github.com/octo/tools" to "octo/tools")
     }
 
     @Test

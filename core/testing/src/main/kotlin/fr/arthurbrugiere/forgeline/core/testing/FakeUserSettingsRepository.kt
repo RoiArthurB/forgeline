@@ -14,6 +14,8 @@ class FakeUserSettingsRepository(initial: UserSettings = UserSettings()) : UserS
 
     override val settings: StateFlow<UserSettings> = state
 
+    override suspend fun update(change: (UserSettings) -> UserSettings) = state.update(change)
+
     override suspend fun setThemeMode(mode: ThemeMode) = state.update { it.copy(themeMode = mode) }
 
 

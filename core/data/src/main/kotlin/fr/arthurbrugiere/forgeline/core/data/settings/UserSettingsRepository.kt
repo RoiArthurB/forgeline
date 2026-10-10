@@ -19,6 +19,12 @@ interface UserSettingsRepository {
 
     suspend fun setSeparateInboxPerForge(enabled: Boolean)
 
+    /**
+     * Changes the simple choices (everything but the Feed's kinds and the measured forges, which have their own
+     * calls): [change] is given the settings as stored and answers them as wanted.
+     */
+    suspend fun update(change: (UserSettings) -> UserSettings)
+
     /** Whether the phone measures [host]'s Trending itself. */
     suspend fun setTrendingMeasured(host: String, measured: Boolean)
 }

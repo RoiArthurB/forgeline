@@ -39,8 +39,12 @@ class TrendingScreenTest {
     private val events = mutableListOf<String>()
     private val paperclip = trendingRepo("paperclipai/paperclip", stars = 85_955, periodStars = 2_109)
 
+    /** What Settings holds for the test; every default unless it says otherwise. */
+    private var userSettings = fr.arthurbrugiere.forgeline.core.model.UserSettings()
+
     private fun setContent(state: TrendingUiState) {
         composeRule.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalUserSettings provides userSettings) {
             TrendingScreen(
                 state = state,
                 onPeriodChange = { events += "period:$it" },
@@ -51,6 +55,7 @@ class TrendingScreenTest {
                 onStarFailureShown = { events += "starFailureShown" },
                 nowMillis = 10 * 60_000L,
             )
+        }
         }
     }
 
@@ -310,5 +315,15 @@ class TrendingScreenTest {
 
         composeRule.onNodeWithText("None of your forges", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("GitHub returned", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun with_the_marks_switched_off_trending_shows_no_mark_and_no_way_back_to_one() {
+        userSettings = userSettings.copy(readingMarks = false)
+        val repos = (1..30).map { TrendingItem(trendingRepo("owner/repo$it"), null) }
+        setContent(TrendingUiState(items = repos, resumeAt = 1))
+
+        composeRule.onNodeWithText("Where you left off").assertDoesNotExist()
+        composeRule.onNodeWithText("Continue where you left off").assertDoesNotExist()
     }
 }

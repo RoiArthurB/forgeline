@@ -31,13 +31,14 @@ class TrendingViewModelTest {
     private val trending = FakeTrendingRepository()
     private val stars = FakeStarRepository()
     private val accounts = FakeAccountRepository()
+    private val settings = fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository()
     private val paperclip = trendingRepo("paperclipai/paperclip")
     private val hindsight = trendingRepo("vectorize-io/hindsight")
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
     private fun TestScope.viewModel(savedState: SavedStateHandle = SavedStateHandle()): TrendingViewModel =
-        TrendingViewModel(savedState, trending, stars, accounts).also { it.state.launchIn(backgroundScope) }
+        TrendingViewModel(savedState, trending, stars, accounts, settings).also { it.state.launchIn(backgroundScope) }
 
     private suspend fun signIn() = accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "t")
 
@@ -243,5 +244,31 @@ class TrendingViewModelTest {
         viewModel.selectForge(null)
         advanceUntilIdle()
         assertThat(viewModel.state.value.items.map { it.repo }).containsExactly(paperclip, zig, hindsight).inOrder()
+    }
+
+    @Test
+    fun trending_opens_on_the_period_chosen_in_settings() = test {
+        settings.update { it.copy(trendingPeriod = TrendingPeriod.WEEKLY) }
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.period).isEqualTo(TrendingPeriod.WEEKLY)
+    }
+
+    @Test
+    fun a_period_picked_on_the_page_is_kept_over_the_one_in_settings() = test {
+        settings.update { it.copy(trendingPeriod = TrendingPeriod.WEEKLY) }
+        val savedState = SavedStateHandle()
+        val first = viewModel(savedState)
+        advanceUntilIdle()
+        first.selectPeriod(TrendingPeriod.MONTHLY)
+        advanceUntilIdle()
+
+        // The page comes back (process death, rotation): where it was, not where Settings would start it.
+        val again = viewModel(savedState)
+        advanceUntilIdle()
+
+        assertThat(again.state.value.period).isEqualTo(TrendingPeriod.MONTHLY)
     }
 }

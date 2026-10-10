@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.inbox
 
+import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
@@ -85,6 +86,7 @@ class DefaultInboxRepository @Inject constructor(
     private val clock: Clock,
     @param:BackgroundScope private val scope: CoroutineScope,
     @param:Computation private val computation: CoroutineDispatcher,
+    private val settings: UserSettingsRepository,
 ) : InboxRepository {
 
     /** One lock per account: two syncs of one account never overlap, and accounts never wait for each other. */
@@ -160,10 +162,12 @@ class DefaultInboxRepository @Inject constructor(
     /** Every account's subject states and conversations ahead, all at once, a few conversations at a time. */
     private suspend fun followUp(synced: List<Account>) = followUpLock.withLock {
         val permits = Semaphore(PREFETCH_CONCURRENCY)
+        // Loading ahead can be switched off in Settings: it costs requests and data for conversations never opened.
+        val ahead = settings.settings.first().loadConversationsAhead
         coroutineScope {
             synced.forEach { account ->
                 launch { refreshStates(account) }
-                launch { prefetchConversations(account, permits) }
+                if (ahead) launch { prefetchConversations(account, permits) }
             }
         }
     }

@@ -1,5 +1,13 @@
 package fr.arthurbrugiere.forgeline.settings
 
+import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
+import fr.arthurbrugiere.forgeline.core.model.ShareTap
+import fr.arthurbrugiere.forgeline.core.model.SwipeAction
+import fr.arthurbrugiere.forgeline.core.model.UndoDelay
+import fr.arthurbrugiere.forgeline.core.model.StartTab
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.TouchApp
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import fr.arthurbrugiere.forgeline.ui.rememberNow
 import java.time.Instant
@@ -98,6 +106,8 @@ enum class SettingsSection(@StringRes val title: Int, val icon: ImageVector) {
     INBOX(R.string.settings_section_notifications, Icons.Outlined.Notifications),
     FEED(R.string.settings_section_feed, Icons.Outlined.DynamicFeed),
     TRENDING(R.string.settings_section_trending, Icons.AutoMirrored.Outlined.TrendingUp),
+    GESTURES(R.string.settings_section_gestures, Icons.Outlined.TouchApp),
+    READING(R.string.settings_section_reading, Icons.AutoMirrored.Outlined.MenuBook),
     ABOUT(R.string.settings_section_about, Icons.Outlined.Info),
 }
 
@@ -115,6 +125,7 @@ fun SettingsRoute(
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val measuredAt by viewModel.measuredAt.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
     SettingsScreen(
         session = session,
         onSignIn = onSignIn,
@@ -126,6 +137,10 @@ fun SettingsRoute(
         onInboxCheckIntervalChange = viewModel::setInboxCheckInterval,
         onFeedKindChange = viewModel::setFeedKindShown,
         onSeparateInboxChange = viewModel::setSeparateInboxPerForge,
+        onChange = viewModel::change,
+        // Android keeps the app's language itself: read here, and null where it can't be chosen (before Android 13).
+        language = context.takeIf { AppLanguage.canBeChosen }?.let { AppLanguageChoice(AppLanguage.chosen(it)) },
+        onLanguageChange = { AppLanguage.choose(context, it) },
         onOpenCredits = onOpenCredits,
         onOpenSourceCode = { uriHandler.openUri(SOURCE_CODE_URL) },
         onBack = onBack,
@@ -159,6 +174,11 @@ fun SettingsScreen(
     measuredAt: Map<String, Long> = emptyMap(),
     onTrendingMeasuredChange: (host: String, measured: Boolean) -> Unit = { _, _ -> },
     nowMillis: Long = rememberNow(measuredAt),
+    /** Changes one of the simple choices: it is given the settings and answers them as wanted. */
+    onChange: ((UserSettings) -> UserSettings) -> Unit = {},
+    /** The app's own language; null where Android doesn't let an app have one. */
+    language: AppLanguageChoice? = null,
+    onLanguageChange: (String?) -> Unit = {},
 ) {
     val colors = Soft.colors
     val listState = rememberLazyListState()
@@ -214,7 +234,107 @@ fun SettingsScreen(
                     onCheckedChange = onAmoledBlackChange,
                 )
             }
+            if (section == SettingsSection.APPEARANCE) item {
+                ChoiceItem(
+                    title = stringResource(R.string.settings_start_tab),
+                    options = StartTab.entries.map { stringResource(it.label) },
+                    selected = settings.startTab.ordinal,
+                    onSelect = { picked -> onChange { it.copy(startTab = StartTab.entries[picked]) } },
+                )
+            }
+            if (section == SettingsSection.APPEARANCE && language != null) item {
+                ChoiceItem(
+                    title = stringResource(R.string.settings_language),
+                    options = listOf(stringResource(R.string.settings_language_system)) + AppLanguage.tags.map(AppLanguage::name),
+                    selected = AppLanguage.tags.indexOf(language.tag) + 1,
+                    onSelect = { picked -> onLanguageChange(AppLanguage.tags.getOrNull(picked - 1)) },
+                )
+            }
             if (section == SettingsSection.INBOX) item { InboxCheckItem(settings.inboxCheckInterval, onInboxCheckIntervalChange) }
+            if (section == SettingsSection.INBOX) item {
+                ChoiceItem(
+                    title = stringResource(R.string.settings_undo_delay),
+                    options = UndoDelay.entries.map { stringResource(it.label) },
+                    selected = settings.undoDelay.ordinal,
+                    onSelect = { picked -> onChange { it.copy(undoDelay = UndoDelay.entries[picked]) } },
+                )
+            }
+            if (section == SettingsSection.INBOX) item {
+                SwitchItem(
+                    title = stringResource(R.string.settings_load_ahead),
+                    summary = stringResource(R.string.settings_load_ahead_summary),
+                    checked = settings.loadConversationsAhead,
+                    onCheckedChange = { on -> onChange { it.copy(loadConversationsAhead = on) } },
+                )
+            }
+            if (section == SettingsSection.GESTURES) {
+                item {
+                    ChoiceItem(
+                        title = stringResource(R.string.settings_swipe_right),
+                        options = SwipeAction.entries.map { stringResource(it.label) },
+                        selected = settings.inboxSwipeRight.ordinal,
+                        onSelect = { picked -> onChange { it.copy(inboxSwipeRight = SwipeAction.entries[picked]) } },
+                    )
+                }
+                item {
+                    ChoiceItem(
+                        title = stringResource(R.string.settings_swipe_left),
+                        options = SwipeAction.entries.map { stringResource(it.label) },
+                        selected = settings.inboxSwipeLeft.ordinal,
+                        onSelect = { picked -> onChange { it.copy(inboxSwipeLeft = SwipeAction.entries[picked]) } },
+                    )
+                }
+                item {
+                    SwitchItem(
+                        title = stringResource(R.string.settings_double_tap),
+                        summary = stringResource(R.string.settings_double_tap_summary),
+                        checked = settings.doubleTapReaction,
+                        onCheckedChange = { on -> onChange { it.copy(doubleTapReaction = on) } },
+                    )
+                }
+                item {
+                    SwitchItem(
+                        title = stringResource(R.string.settings_swipe_reply),
+                        summary = stringResource(R.string.settings_swipe_reply_summary),
+                        checked = settings.swipeToReply,
+                        onCheckedChange = { on -> onChange { it.copy(swipeToReply = on) } },
+                    )
+                }
+                item {
+                    ChoiceItem(
+                        title = stringResource(R.string.settings_share_tap),
+                        options = ShareTap.entries.map { stringResource(it.label) },
+                        selected = settings.shareTap.ordinal,
+                        onSelect = { picked -> onChange { it.copy(shareTap = ShareTap.entries[picked]) } },
+                    )
+                }
+            }
+            if (section == SettingsSection.READING) {
+                item {
+                    SwitchItem(
+                        title = stringResource(R.string.settings_open_at_unread),
+                        summary = stringResource(R.string.settings_open_at_unread_summary),
+                        checked = settings.openAtUnread,
+                        onCheckedChange = { on -> onChange { it.copy(openAtUnread = on) } },
+                    )
+                }
+                item {
+                    SwitchItem(
+                        title = stringResource(R.string.settings_reading_marks),
+                        summary = stringResource(R.string.settings_reading_marks_summary),
+                        checked = settings.readingMarks,
+                        onCheckedChange = { on -> onChange { it.copy(readingMarks = on) } },
+                    )
+                }
+            }
+            if (section == SettingsSection.TRENDING) item {
+                ChoiceItem(
+                    title = stringResource(R.string.settings_trending_period),
+                    options = TrendingPeriod.entries.map { stringResource(it.settingLabel) },
+                    selected = settings.trendingPeriod.ordinal,
+                    onSelect = { picked -> onChange { it.copy(trendingPeriod = TrendingPeriod.entries[picked]) } },
+                )
+            }
             // Only meaningful with several accounts: one list, or one tab per account.
             if (section == SettingsSection.INBOX && (session as? SessionState.SignedIn)?.accounts.orEmpty().size > 1) {
                 item {
@@ -285,8 +405,50 @@ private fun SettingsSection.summary(session: SessionState, settings: UserSetting
     SettingsSection.TRENDING -> settings.measuredTrending.takeIf { it.isNotEmpty() }
         ?.let { stringResource(R.string.settings_trending_summary_measured, it.sorted().joinToString()) }
         ?: stringResource(R.string.settings_trending_summary)
+    SettingsSection.GESTURES -> stringResource(R.string.settings_gestures_summary)
+    SettingsSection.READING -> stringResource(R.string.settings_reading_summary)
     SettingsSection.ABOUT -> stringResource(R.string.settings_version_summary, versionName)
 }
+
+/** The app's own language as Android keeps it: [tag] is null when it follows the phone's. */
+data class AppLanguageChoice(val tag: String?)
+
+private val StartTab.label: Int
+    get() = when (this) {
+        StartTab.AUTOMATIC -> R.string.settings_start_tab_automatic
+        StartTab.INBOX -> R.string.tab_inbox
+        StartTab.FEED -> R.string.tab_feed
+        StartTab.TRENDING -> R.string.tab_trending
+        StartTab.YOU -> R.string.tab_you
+    }
+
+private val UndoDelay.label: Int
+    get() = when (this) {
+        UndoDelay.OFF -> R.string.undo_off
+        UndoDelay.SEC_3 -> R.string.undo_3s
+        UndoDelay.SEC_5 -> R.string.undo_5s
+        UndoDelay.SEC_10 -> R.string.undo_10s
+    }
+
+private val SwipeAction.label: Int
+    get() = when (this) {
+        SwipeAction.MARK_READ -> R.string.inbox_mark_read
+        SwipeAction.DONE -> R.string.inbox_mark_done
+        SwipeAction.NONE -> R.string.swipe_nothing
+    }
+
+private val ShareTap.label: Int
+    get() = when (this) {
+        ShareTap.SHARE -> R.string.share_tap_shares
+        ShareTap.COPY -> R.string.share_tap_copies
+    }
+
+private val TrendingPeriod.settingLabel: Int
+    get() = when (this) {
+        TrendingPeriod.DAILY -> R.string.trending_period_daily
+        TrendingPeriod.WEEKLY -> R.string.trending_period_weekly
+        TrendingPeriod.MONTHLY -> R.string.trending_period_monthly
+    }
 
 private val SettingModifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
 
@@ -369,28 +531,39 @@ private fun AccountItem(account: Account, onSignOut: (Account) -> Unit) {
 
 @Composable
 private fun InboxCheckItem(current: InboxCheckInterval, onChange: (InboxCheckInterval) -> Unit) {
+    ChoiceItem(
+        title = stringResource(R.string.settings_inbox_check),
+        options = InboxCheckInterval.entries.map { stringResource(it.label) },
+        selected = current.ordinal,
+        onSelect = { onChange(InboxCheckInterval.entries[it]) },
+    )
+}
+
+/** A setting that is one among a few: its row says which, and opens the list to pick another. */
+@Composable
+private fun ChoiceItem(title: String, options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     var choosing by rememberSaveable { mutableStateOf(false) }
-    SettingRow(stringResource(R.string.settings_inbox_check), stringResource(current.label), onClick = { choosing = true })
+    SettingRow(title, options.getOrNull(selected), onClick = { choosing = true })
     if (choosing) {
         AlertDialog(
             onDismissRequest = { choosing = false },
-            title = { Text(stringResource(R.string.settings_inbox_check)) },
+            title = { Text(title) },
             text = {
                 Column(Modifier.selectableGroup()) {
-                    InboxCheckInterval.entries.forEach { interval ->
+                    options.forEachIndexed { index, option ->
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(SoftTokens.RowCorner)
-                                .selectable(selected = interval == current, role = Role.RadioButton) {
+                                .selectable(selected = index == selected, role = Role.RadioButton) {
                                     choosing = false
-                                    onChange(interval)
+                                    onSelect(index)
                                 }
                                 .padding(vertical = 8.dp),
                         ) {
-                            RadioButton(selected = interval == current, onClick = null)
-                            Text(stringResource(interval.label), style = Soft.type.body, modifier = Modifier.padding(start = 16.dp))
+                            RadioButton(selected = index == selected, onClick = null)
+                            Text(option, style = Soft.type.body, modifier = Modifier.padding(start = 16.dp))
                         }
                     }
                 }

@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.ui
 
+import fr.arthurbrugiere.forgeline.core.model.ShareTap
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -36,7 +37,10 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 fun ShareLinkButton(url: String, title: String?, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val haptics = LocalHapticFeedback.current
-    val copy = stringResource(R.string.link_copy)
+    // Settings can swap the two: copying on a tap, sharing on a long press.
+    val copies = LocalUserSettings.current.shareTap == ShareTap.COPY
+    val share = { shareLink(context, url, title) }
+    val copy = { copyLink(context, url) }
     Box(
         modifier
             .minimumInteractiveComponentSize()
@@ -44,16 +48,16 @@ fun ShareLinkButton(url: String, title: String?, modifier: Modifier = Modifier) 
             .clip(CircleShape)
             .combinedClickable(
                 role = Role.Button,
-                onLongClickLabel = copy,
+                onLongClickLabel = stringResource(if (copies) R.string.link_share else R.string.link_copy),
                 onLongClick = {
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    copyLink(context, url)
+                    if (copies) share() else copy()
                 },
-                onClick = { shareLink(context, url, title) },
+                onClick = { if (copies) copy() else share() },
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(Icons.Outlined.Share, contentDescription = stringResource(R.string.link_share), tint = Soft.colors.ink)
+        Icon(Icons.Outlined.Share, contentDescription = stringResource(if (copies) R.string.link_copy else R.string.link_share), tint = Soft.colors.ink)
     }
 }
 
