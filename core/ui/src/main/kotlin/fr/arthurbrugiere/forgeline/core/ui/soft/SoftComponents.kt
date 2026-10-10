@@ -16,6 +16,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -116,7 +117,13 @@ fun animationsEnabled(): Boolean {
  * A clickable row with the soft pressed surface: a palette tint behind it while pressed or focused, not a ripple,
  * and a slight squish (2%) that springs back on release.
  */
-fun Modifier.softPressable(role: Role? = null, onClick: () -> Unit): Modifier = composed {
+fun Modifier.softPressable(
+    role: Role? = null,
+    /** What a long press does and how a screen reader names it, where the row has one (selecting it, say). */
+    onLongClick: (() -> Unit)? = null,
+    onLongClickLabel: String? = null,
+    onClick: () -> Unit,
+): Modifier = composed {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val focused by interaction.collectIsFocusedAsState()
@@ -128,7 +135,10 @@ fun Modifier.softPressable(role: Role? = null, onClick: () -> Unit): Modifier = 
     graphicsLayer { scaleX = squish; scaleY = squish }
         .clip(SoftTokens.RowCorner)
         .background(if (pressed || focused) Soft.colors.surface else Color.Transparent)
-        .clickable(interactionSource = interaction, indication = null, role = role, onClick = onClick)
+        .combinedClickable(
+            interactionSource = interaction, indication = null, role = role,
+            onLongClick = onLongClick, onLongClickLabel = onLongClickLabel, onClick = onClick,
+        )
 }
 
 /**

@@ -46,6 +46,21 @@
         <item quantity="one">Marked %d as done</item>
         <item quantity="other">Marked %d as done</item>
     </plurals>
+    <string name="inbox_select">Select</string>
+    <string name="inbox_select_all">Select all</string>
+    <string name="inbox_selection_cancel">Cancel selection</string>
+    <plurals name="inbox_selected">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <plurals name="inbox_undo_read_many">
+        <item quantity="one">Marked %d as read</item>
+        <item quantity="other">Marked %d as read</item>
+    </plurals>
+    <plurals name="inbox_undo_unread_many">
+        <item quantity="one">Marked %d as unread</item>
+        <item quantity="other">Marked %d as unread</item>
+    </plurals>
     <string name="inbox_mark_all_done">Mark all as done</string>
     <string name="inbox_undo_unsubscribed">Unsubscribed</string>
     <string name="inbox_permission_title">Get notified about new activity</string>

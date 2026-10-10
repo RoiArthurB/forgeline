@@ -91,7 +91,13 @@ data class InboxUiState(
     val selectedAccountId: String? = null,
     /** Rows say which forge they're from only when more than one forge is signed in. */
     val showForge: Boolean = false,
-)
+    /** The threads picked to be acted on together, by [NotificationThread.key]; empty when none is being picked. */
+    val selected: Set<String> = emptySet(),
+) {
+    val threads: List<NotificationThread> get() = groups.flatMap { it.threads }
+
+    val selectedThreads: List<NotificationThread> get() = if (selected.isEmpty()) emptyList() else threads.filter { it.key in selected }
+}
 
 @HiltViewModel
 class InboxViewModel @Inject constructor(
@@ -132,19 +138,23 @@ class InboxViewModel @Inject constructor(
      */
     private val placed = mutableMapOf<Pair<InboxFilter, String?>, Pair<StableOrder<Pair<ForgeInstance, String>>, StableOrder<RepoId>>>()
     private val refreshes = MutableStateFlow(0)
+    private val selected = MutableStateFlow<Set<String>>(emptySet())
 
     val state: StateFlow<InboxUiState> = combine(
         combine(inbox.observe(), pending, refreshes) { snapshot, pending, _ -> snapshot to pending },
         filter,
         status,
         combine(settings.settings.map { it.inboxCheckInterval != InboxCheckInterval.OFF }, split) { checks, split -> checks to split },
-        undo,
-    ) { (snapshot, pending), filter, status, (backgroundChecks, split), undo ->
+        combine(undo, selected) { undo, selected -> undo to selected },
+    ) { (snapshot, pending), filter, status, (backgroundChecks, split), (undo, selected) ->
+        val groups = snapshot.threads.applying(pending)
+            .filter { filter.matches(it) && (split.selected == null || it.accountId == split.selected) }
+            .bySection(placed.getOrPut(filter to split.selected) { StableOrder<Pair<ForgeInstance, String>>() to StableOrder() })
         InboxUiState(
             filter = filter,
-            groups = snapshot.threads.applying(pending)
-                .filter { filter.matches(it) && (split.selected == null || it.accountId == split.selected) }
-                .bySection(placed.getOrPut(filter to split.selected) { StableOrder<Pair<ForgeInstance, String>>() to StableOrder() }),
+            groups = groups,
+            // Only what is listed can be picked: a thread that left the list (done elsewhere, another filter) is let go.
+            selected = if (selected.isEmpty()) selected else groups.flatMapTo(HashSet()) { group -> group.threads.map { it.key } }.intersect(selected),
             accountTabs = split.tabs,
             selectedAccountId = split.selected,
             showForge = split.showForge,
@@ -162,6 +172,7 @@ class InboxViewModel @Inject constructor(
     }
 
     fun selectFilter(filter: InboxFilter) {
+        clearSelection()
         savedState[FILTER_KEY] = filter
     }
 
@@ -200,6 +211,31 @@ class InboxViewModel @Inject constructor(
     fun markAllDone(threads: List<NotificationThread>) = hold(threads, InboxAction.DONE)
 
     fun unsubscribe(thread: NotificationThread) = hold(listOf(thread), InboxAction.UNSUBSCRIBE)
+
+    /** Picks [thread], or lets it go: the first one picked starts the selection, the last one let go ends it. */
+    fun toggleSelected(thread: NotificationThread) = selected.update { if (thread.key in it) it - thread.key else it + thread.key }
+
+    /** Picks every thread listed, under the filter and account shown. */
+    fun selectAll() {
+        selected.value = state.value.threads.mapTo(HashSet()) { it.key }
+    }
+
+    fun clearSelection() {
+        selected.value = emptySet()
+    }
+
+    /** Does [action] to every thread picked, in one go with one Undo, and ends the selection. */
+    fun actOnSelected(action: InboxAction) {
+        val picked = state.value.selectedThreads.filter {
+            when (action) {
+                InboxAction.READ -> it.unread
+                InboxAction.UNREAD -> !it.unread
+                InboxAction.DONE, InboxAction.UNSUBSCRIBE -> true
+            }
+        }
+        clearSelection()
+        hold(picked, action)
+    }
 
     /** Takes back [undo]'s action before it reaches the forge: the thread comes back as it was. */
     fun undo(undo: PendingUndo) {

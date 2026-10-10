@@ -1061,6 +1061,18 @@ class ScreenshotTest {
     }
 
     @Test
+    fun inbox_selection_light() = snapshot("inbox_selection_light", darkTheme = false) {
+        InboxScreen(
+            state = InboxUiState(
+                filter = InboxFilter.ALL, groups = inboxSections, syncedAtMillis = 1,
+                selected = inboxSections.flatMap { it.threads }.filter { it.id in setOf("44", "7") }.mapTo(HashSet()) { it.key },
+            ),
+            onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
+            onErrorShown = {}, onActionFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
     fun inbox_several_accounts_light() = snapshot("inbox_several_accounts_light", darkTheme = false) { InboxAccountsPreview() }
 
     @Test

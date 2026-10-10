@@ -310,6 +310,86 @@ class InboxViewModelTest {
     }
 
     @Test
+    fun picked_threads_are_done_together_with_one_undo() = test {
+        inbox.set(mention, watching, read)
+        val viewModel = viewModel()
+        viewModel.selectFilter(InboxFilter.ALL)
+        advanceUntilIdle()
+
+        viewModel.toggleSelected(mention)
+        viewModel.toggleSelected(read)
+        runCurrent()
+        assertThat(viewModel.state.value.selected).containsExactly(mention.key, read.key)
+
+        viewModel.actOnSelected(InboxAction.DONE)
+        runCurrent()
+        assertThat(viewModel.state.value.selected).isEmpty()
+        assertThat(viewModel.state.value.threads.map { it.id }).containsExactly("2")
+        assertThat(viewModel.state.value.undo?.keys).containsExactly(mention.key, read.key)
+
+        viewModel.undo(viewModel.state.value.undo!!)
+        runCurrent()
+        assertThat(viewModel.state.value.threads.map { it.id }).containsExactly("1", "2", "3")
+        advanceUntilIdle()
+        assertThat(inbox.actions).isEmpty()
+    }
+
+    @Test
+    fun picked_threads_are_marked_read_or_unread_only_where_it_changes_something() = test {
+        inbox.set(mention, watching, read)
+        val viewModel = viewModel()
+        viewModel.selectFilter(InboxFilter.ALL)
+        advanceUntilIdle()
+
+        viewModel.selectAll()
+        runCurrent()
+        assertThat(viewModel.state.value.selected).hasSize(3)
+        viewModel.actOnSelected(InboxAction.READ)
+        advanceUntilIdle()
+        assertThat(inbox.actions).containsExactly("read:1", "read:2")
+
+        viewModel.selectAll()
+        runCurrent()
+        viewModel.actOnSelected(InboxAction.UNREAD)
+        advanceUntilIdle()
+        assertThat(inbox.actions).containsExactly("read:1", "read:2", "unread:1", "unread:2", "unread:3")
+    }
+
+    @Test
+    fun picking_a_thread_twice_lets_it_go_and_another_filter_ends_the_selection() = test {
+        inbox.set(mention, watching)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.toggleSelected(mention)
+        viewModel.toggleSelected(mention)
+        runCurrent()
+        assertThat(viewModel.state.value.selected).isEmpty()
+
+        viewModel.toggleSelected(watching)
+        viewModel.selectFilter(InboxFilter.PARTICIPATING)
+        runCurrent()
+        assertThat(viewModel.state.value.selected).isEmpty()
+    }
+
+    @Test
+    fun a_picked_thread_that_leaves_the_list_is_let_go() = test {
+        inbox.set(mention, watching)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.toggleSelected(mention)
+        viewModel.toggleSelected(watching)
+        runCurrent()
+
+        // Done on the forge's site meanwhile.
+        inbox.set(watching)
+        runCurrent()
+
+        assertThat(viewModel.state.value.selected).containsExactly(watching.key)
+        assertThat(viewModel.state.value.selectedThreads.map { it.id }).containsExactly("2")
+    }
+
+    @Test
     fun failures_are_reported_once_sent() = test {
         inbox.set(mention)
         inbox.actionFailure = ForgeError.Network

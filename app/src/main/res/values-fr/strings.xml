@@ -44,6 +44,24 @@
         <item quantity="many">%d marquées comme terminées</item>
         <item quantity="other">%d marquées comme terminées</item>
     </plurals>
+    <string name="inbox_select">Sélectionner</string>
+    <string name="inbox_select_all">Tout sélectionner</string>
+    <string name="inbox_selection_cancel">Annuler la sélection</string>
+    <plurals name="inbox_selected">
+        <item quantity="one">%d sélectionnée</item>
+        <item quantity="many">%d sélectionnées</item>
+        <item quantity="other">%d sélectionnées</item>
+    </plurals>
+    <plurals name="inbox_undo_read_many">
+        <item quantity="one">%d marquée comme lue</item>
+        <item quantity="many">%d marquées comme lues</item>
+        <item quantity="other">%d marquées comme lues</item>
+    </plurals>
+    <plurals name="inbox_undo_unread_many">
+        <item quantity="one">%d marquée comme non lue</item>
+        <item quantity="many">%d marquées comme non lues</item>
+        <item quantity="other">%d marquées comme non lues</item>
+    </plurals>
     <string name="inbox_mark_all_done">Tout marquer comme terminé</string>
     <string name="inbox_undo_unsubscribed">Désabonné</string>
     <string name="inbox_permission_title">Être prévenu des nouveautés</string>
@@ -640,8 +658,8 @@
     <string name="undo_10s">10 secondes</string>
     <string name="settings_load_ahead">Charger les conversations à l’avance</string>
     <string name="settings_load_ahead_summary">Chaque vérification de la réception charge aussi ce qui vous attend, pour l’ouvrir aussitôt. Désactivé, cela économise des données et des requêtes.</string>
-    <string name="settings_read_elsewhere">Suivre ce qui est traité sur le site de la forge</string>
-    <string name="settings_read_elsewhere_summary">Une conversation lue ou marquée comme traitée sur le site de GitHub, Codeberg ou GitLab quitte aussi la réception ici. Les forges ne disent pas lequel des deux s’est produit : les deux comptent comme traité. Désactivé, ces conversations restent dans Tout, comme lues.</string>
+    <string name="settings_read_elsewhere">Suivre ce qui est fait sur le site de la forge</string>
+    <string name="settings_read_elsewhere_summary">Une conversation lue ou marquée comme terminée sur le site de GitHub, Codeberg ou GitLab quitte aussi la réception ici. Les forges ne disent pas lequel des deux s’est produit : les deux comptent comme terminé. Désactivé, ces conversations restent dans Tout, comme lues.</string>
     <string name="settings_swipe_right">Balayer une notification vers la droite</string>
     <string name="settings_swipe_left">Balayer une notification vers la gauche</string>
     <string name="settings_swipe_read_or_unread">Marquer comme lue, ou de nouveau non lue</string>

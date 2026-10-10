@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
 import com.google.common.truth.Truth.assertThat
@@ -66,6 +67,10 @@ class InboxScreenTest {
                 notificationPrompt = prompt,
                 onAllowNotifications = { events += "allow" },
                 onUndo = { events += "undo:${it.key.substringAfter('|')}:${it.action}" },
+                onToggleSelected = { events += "pick:${it.id}" },
+                onSelectAll = { events += "pick-all" },
+                onClearSelection = { events += "pick-none" },
+                onActOnSelected = { events += "selected:$it" },
                 onMarkAllDone = { threads -> events += "all-done:" + threads.joinToString(",") { it.id } },
                 nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
             )
@@ -229,6 +234,68 @@ class InboxScreenTest {
         setContent(grouped.copy(undo = PendingUndo("|44", InboxAction.UNREAD, serial = 1)))
 
         composeRule.onNodeWithText("Marked as unread").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_long_press_picks_a_thread() {
+        setContent(grouped)
+
+        composeRule.onNodeWithText("Add retry").performTouchInput { longClick() }
+
+        assertThat(events).containsExactly("pick:43")
+        // Nothing picked yet as far as the screen was told: no bar.
+        composeRule.onNodeWithContentDescription("Cancel selection").assertDoesNotExist()
+    }
+
+    @Test
+    fun while_picking_a_tap_picks_instead_of_opening_and_nothing_swipes() {
+        setContent(grouped.copy(selected = setOf(mention.key)))
+
+        composeRule.onNodeWithText("Add retry").performClick()
+        composeRule.onNodeWithText("Add retry").performTouchInput { swipeLeft() }
+        composeRule.onNodeWithText("Launch fails on cold start").performTouchInput { swipeRight() }
+        composeRule.waitForIdle()
+
+        assertThat(events).containsExactly("pick:43")
+        // The one-thread menus step aside.
+        composeRule.onAllNodes(hasContentDescription("More actions")).assertCountEquals(0)
+    }
+
+    @Test
+    fun the_selection_bar_counts_and_acts_on_what_is_picked() {
+        setContent(grouped.copy(selected = setOf(mention.key, review.key)))
+
+        composeRule.onNodeWithText("2 selected").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Mark as read").performClick()
+        composeRule.onNodeWithContentDescription("Done").performClick()
+        composeRule.onNodeWithContentDescription("Select all").performClick()
+        composeRule.onNodeWithContentDescription("Cancel selection").performClick()
+
+        assertThat(events).containsExactly("selected:READ", "selected:DONE", "pick-all", "pick-none").inOrder()
+    }
+
+    @Test
+    fun picked_threads_all_read_are_offered_unread() {
+        setContent(InboxUiState(filter = InboxFilter.ALL, groups = listOf(SectionGroup(InboxSection.NEEDS_YOU, listOf(readThread))), syncedAtMillis = 1, selected = setOf(readThread.key)))
+
+        composeRule.onNodeWithContentDescription("Mark as unread").performClick()
+
+        assertThat(events).containsExactly("selected:UNREAD")
+    }
+
+    @Test
+    fun a_screen_reader_hears_which_threads_are_picked() {
+        setContent(grouped.copy(selected = setOf(mention.key)))
+
+        composeRule.onNode(hasText("Launch fails on cold start") and androidx.compose.ui.test.isSelected()).assertExists()
+        composeRule.onNode(hasText("Add retry") and androidx.compose.ui.test.isNotSelected()).assertExists()
+    }
+
+    @Test
+    fun undo_says_how_many_threads_were_marked_read() {
+        setContent(grouped.copy(undo = PendingUndo("|42", InboxAction.READ, serial = 1, others = listOf("|43"))))
+
+        composeRule.onNodeWithText("Marked 2 as read").assertIsDisplayed()
     }
 
     @Test

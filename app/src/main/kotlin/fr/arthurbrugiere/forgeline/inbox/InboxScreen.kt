@@ -83,6 +83,16 @@ import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.SelectAll
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.selected
 import androidx.compose.material.icons.outlined.Close
 import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import fr.arthurbrugiere.forgeline.session.SessionState
@@ -190,6 +200,10 @@ fun InboxRoute(
         onMarkAllDone = viewModel::markAllDone,
         onUnsubscribe = viewModel::unsubscribe,
         onUndo = viewModel::undo,
+        onToggleSelected = viewModel::toggleSelected,
+        onSelectAll = viewModel::selectAll,
+        onClearSelection = viewModel::clearSelection,
+        onActOnSelected = viewModel::actOnSelected,
         onErrorShown = viewModel::errorShown,
         onActionFailureShown = viewModel::actionFailureShown,
     )
@@ -269,6 +283,11 @@ fun InboxScreen(
     onMarkAllDone: (List<NotificationThread>) -> Unit = {},
     onSelectAccount: (String?) -> Unit = {},
     onMarkUnread: (NotificationThread) -> Unit = {},
+    /** A long press picks a thread; from then on a tap picks or lets go, and the bar at the bottom acts on them all. */
+    onToggleSelected: (NotificationThread) -> Unit = {},
+    onSelectAll: () -> Unit = {},
+    onClearSelection: () -> Unit = {},
+    onActOnSelected: (InboxAction) -> Unit = {},
     nowMillis: Long = rememberNow(state.groups),
 ) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
     val colors = Soft.colors
@@ -294,9 +313,15 @@ fun InboxScreen(
     val resources = LocalResources.current
     LaunchedEffect(state.undo) {
         val undo = state.undo ?: return@LaunchedEffect
-        // A repository swiped away says how many threads went with it.
-        val message = if (undo.action == InboxAction.DONE && undo.others.isNotEmpty()) {
-            resources.getQuantityString(R.plurals.inbox_undo_done_many, undo.keys.size, undo.keys.size)
+        // A repository swiped away, or a selection, says how many threads went with it.
+        val many = when (undo.action) {
+            InboxAction.DONE -> R.plurals.inbox_undo_done_many
+            InboxAction.READ -> R.plurals.inbox_undo_read_many
+            InboxAction.UNREAD -> R.plurals.inbox_undo_unread_many
+            InboxAction.UNSUBSCRIBE -> null
+        }
+        val message = if (many != null && undo.others.isNotEmpty()) {
+            resources.getQuantityString(many, undo.keys.size, undo.keys.size)
         } else {
             undoMessages.getValue(undo.action)
         }
@@ -310,6 +335,10 @@ fun InboxScreen(
         }
     }
 
+    val selecting = state.selected.isNotEmpty()
+    // Back lets the selection go before it leaves the Inbox.
+    BackHandler(selecting) { onClearSelection() }
+    val picking = Picking(state.selected, onToggleSelected)
     val listState = rememberLazyListState()
     // Everything else reads owner by owner, then repository by repository: grouped once per list, not each time the
     // screen recomposes (a refresh starting or ending, an undo offered).
@@ -336,7 +365,8 @@ fun InboxScreen(
             LazyColumn(
                 state = listState,
                 horizontalAlignment = Alignment.CenterHorizontally,
-                contentPadding = PaddingValues(bottom = listBottomPadding()),
+                // Room for the selection bar, so the last threads can still be reached under it.
+                contentPadding = PaddingValues(bottom = listBottomPadding() + if (selecting) 64.dp else 0.dp),
                 modifier = Modifier.fillMaxSize().sideSafeArea(),
             ) {
                 item(key = "header", contentType = "header") {
@@ -401,7 +431,7 @@ fun InboxScreen(
                             SectionHeading(group.section, group.threads.count { it.unread }, Modifier.animateItem())
                         }
                         if (group.section == InboxSection.NEEDS_YOU) {
-                            threadItems(group.threads, group.section, nowMillis, onOpen, onMarkRead, onMarkUnread, onMarkDone, onUnsubscribe)
+                            threadItems(group.threads, group.section, nowMillis, picking, onOpen, onMarkRead, onMarkUnread, onMarkDone, onUnsubscribe)
                         } else {
                             // An owner with a single repository gets one combined heading; one with several heads them all.
                             owners.getValue(group.section).forEach { (forgeOwner, repos) ->
@@ -417,7 +447,7 @@ fun InboxScreen(
                                             Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem(),
                                         )
                                     }
-                                    threadItems(threads, group.section, nowMillis, onOpen, onMarkRead, onMarkUnread, onMarkDone, onUnsubscribe)
+                                    threadItems(threads, group.section, nowMillis, picking, onOpen, onMarkRead, onMarkUnread, onMarkDone, onUnsubscribe)
                                 }
                             }
                         }
@@ -427,6 +457,15 @@ fun InboxScreen(
         }
         val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
         SoftStatusBarScrim(scrolled)
+        if (selecting) {
+            SelectionBar(
+                threads = state.selectedThreads,
+                onSelectAll = onSelectAll,
+                onClear = onClearSelection,
+                onAct = onActOnSelected,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(start = 12.dp, end = 12.dp, bottom = LocalBottomBarSpace.current + 8.dp),
+            )
+        }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current)) { data ->
             Snackbar(
                 data,
@@ -439,6 +478,59 @@ fun InboxScreen(
     }
 }
 
+/** The threads picked so far, and how a row picks itself or lets itself go. */
+private class Picking(val selected: Set<String>, val onToggle: (NotificationThread) -> Unit)
+
+/**
+ * What can be done to the threads picked, all at once: on the ink bar the Undo snackbar uses, in its place. Read and
+ * unread share a button: read while any of them is unread, unread once they are all read.
+ */
+@Composable
+private fun SelectionBar(
+    threads: List<NotificationThread>,
+    onSelectAll: () -> Unit,
+    onClear: () -> Unit,
+    onAct: (InboxAction) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = Soft.colors
+    val anyUnread = threads.any { it.unread }
+    Row(
+        modifier
+            .widthIn(max = SoftTokens.MaxReadingWidth)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(colors.ink)
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onClear) {
+            Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.inbox_selection_cancel), tint = colors.ground)
+        }
+        Text(
+            pluralStringResource(R.plurals.inbox_selected, threads.size, threads.size),
+            style = Soft.type.control,
+            color = colors.ground,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f).padding(horizontal = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
+        )
+        IconButton(onClick = onSelectAll) {
+            Icon(Icons.Outlined.SelectAll, contentDescription = stringResource(R.string.inbox_select_all), tint = colors.ground)
+        }
+        IconButton(onClick = { onAct(if (anyUnread) InboxAction.READ else InboxAction.UNREAD) }) {
+            Icon(
+                if (anyUnread) Icons.Outlined.MarkEmailRead else Icons.Outlined.MarkEmailUnread,
+                contentDescription = stringResource(if (anyUnread) R.string.inbox_mark_read else R.string.inbox_mark_unread),
+                tint = colors.ground,
+            )
+        }
+        IconButton(onClick = { onAct(InboxAction.DONE) }) {
+            Icon(Icons.Outlined.Done, contentDescription = stringResource(R.string.inbox_mark_done), tint = colors.ground)
+        }
+    }
+}
+
 /** Threads by owner, then by repository, in list order. By forge too: "acme" on GitHub and on Codeberg are two owners. */
 private fun List<NotificationThread>.byOwnerAndRepo(): List<Pair<Pair<ForgeInstance, String>, Map<RepoId, List<NotificationThread>>>> =
     groupBy { it.repo.forge to it.repo.owner.lowercase() }.map { (forgeOwner, owned) -> forgeOwner to owned.groupBy { it.repo } }
@@ -447,6 +539,7 @@ private fun LazyListScope.threadItems(
     threads: List<NotificationThread>,
     section: InboxSection,
     nowMillis: Long,
+    picking: Picking,
     onOpen: (NotificationThread) -> Unit,
     onMarkRead: (NotificationThread) -> Unit,
     onMarkUnread: (NotificationThread) -> Unit,
@@ -456,7 +549,7 @@ private fun LazyListScope.threadItems(
     // Keyed by account and id: two forges can use the same thread id, and duplicate keys crash the list.
     items(threads, key = { "thread-${it.key}" }, contentType = { "thread" }) { thread ->
         ThreadRow(
-            thread, section, nowMillis, onOpen, onMarkRead, onMarkUnread, onMarkDone, onUnsubscribe,
+            thread, section, nowMillis, picking, onOpen, onMarkRead, onMarkUnread, onMarkDone, onUnsubscribe,
             Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem(),
         )
     }
@@ -605,6 +698,7 @@ private fun ThreadRow(
     thread: NotificationThread,
     section: InboxSection,
     nowMillis: Long,
+    picking: Picking,
     onOpen: (NotificationThread) -> Unit,
     onMarkRead: (NotificationThread) -> Unit,
     onMarkUnread: (NotificationThread) -> Unit,
@@ -612,6 +706,10 @@ private fun ThreadRow(
     onUnsubscribe: (NotificationThread) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val selecting = picking.selected.isNotEmpty()
+    val picked = thread.key in picking.selected
+    val selectLabel = stringResource(R.string.inbox_select)
+    val haptics = LocalHapticFeedback.current
     val unreadState = stringResource(R.string.inbox_unread_state)
     val colors = Soft.colors
     // Not saved: a thread brought back by Undo keeps its list key, so a saved swipe state would come back dismissed
@@ -633,8 +731,9 @@ private fun ThreadRow(
         state = swipe,
         modifier = modifier.padding(horizontal = 8.dp, vertical = 2.dp),
         // Each side does what Settings says. The read swipe always has something to do: read threads go back to unread.
-        enableDismissFromStartToEnd = toEnd != SwipeAction.NONE,
-        enableDismissFromEndToStart = toStart != SwipeAction.NONE,
+        // While threads are being picked nothing swipes: the bar acts on them all.
+        enableDismissFromStartToEnd = toEnd != SwipeAction.NONE && !selecting,
+        enableDismissFromEndToStart = toStart != SwipeAction.NONE && !selecting,
         backgroundContent = {
             SwipeBackground(swipe.dismissDirection, if (swipe.dismissDirection == SwipeToDismissBoxValue.StartToEnd) toEnd else toStart, thread.unread)
         },
@@ -661,12 +760,19 @@ private fun ThreadRow(
             Modifier
                 .fillMaxWidth()
                 .clip(SoftTokens.RowCorner)
-                .background(colors.ground)
-                .softPressable { onOpen(thread) }
+                .background(if (picked) colors.surface else colors.ground)
+                .softPressable(
+                    onLongClick = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        picking.onToggle(thread)
+                    },
+                    onLongClickLabel = selectLabel,
+                ) { if (selecting) picking.onToggle(thread) else onOpen(thread) }
                 // Swipes are invisible to screen readers: the same actions as accessibility actions.
                 .semantics {
                     // The dot and the bolder title are visual only: say it.
                     if (thread.unread) stateDescription = unreadState
+                    if (selecting) selected = picked
                     customActions = buildList {
                         add(CustomAccessibilityAction(toggleReadLabel) { toggleRead(); true })
                         add(CustomAccessibilityAction(doneLabel) { onMarkDone(thread); true })
@@ -678,8 +784,10 @@ private fun ThreadRow(
         ) {
             // The unread dot, in its own gutter so read and unread titles stay aligned; it pops away when read.
             Box(Modifier.width(20.dp).padding(top = 9.dp), contentAlignment = Alignment.TopCenter) {
+                // Picked: a tick takes the dot's place.
+                if (picked) Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = colors.thumb, modifier = Modifier.size(16.dp).offset(y = (-4).dp))
                 androidx.compose.animation.AnimatedVisibility(
-                    thread.unread,
+                    thread.unread && !picked,
                     enter = if (animations) scaleIn(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)) + fadeIn() else EnterTransition.None,
                     exit = if (animations) scaleOut(tween(180)) + fadeOut(tween(180)) else ExitTransition.None,
                 ) {
@@ -744,7 +852,8 @@ private fun ThreadRow(
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }
-            Box {
+            // The menu acts on one thread: it steps aside, keeping its room, while several are being picked.
+            if (selecting) Spacer(Modifier.size(48.dp)) else Box {
                 IconButton(onClick = { menuOpen = true }) {
                     Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.inbox_more), tint = colors.inkMuted)
                 }
