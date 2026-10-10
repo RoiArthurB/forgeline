@@ -15,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
+import kotlinx.coroutines.CancellationException
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.statement.bodyAsText
@@ -30,8 +31,25 @@ class GitLabRepoApi(
     private fun projectPath(id: RepoId): String = encodePath(id.fullName)
 
     override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = gitlabCall {
-        httpClient.gitlabApi(id.forge, token, "projects", projectPath(id))
-            .toResult { body<GitLabProjectJson>().toDetails(id.forge) }
+        coroutineScope {
+            // Asked alongside: a project says how many issues are open, not how many merge requests.
+            val openPulls = async { openMergeRequests(token, id) }
+            httpClient.gitlabApi(id.forge, token, "projects", projectPath(id))
+                .toResult { body<GitLabProjectJson>().toDetails(id.forge) }
+                .let { result -> if (result is ForgeResult.Success) ForgeResult.Success(result.value.copy(openPulls = openPulls.await())) else result }
+        }
+    }
+
+    /** How many merge requests are open, from the total GitLab sends with a one-item page; null when it can't be told. */
+    private suspend fun openMergeRequests(token: String?, id: RepoId): Int? = try {
+        httpClient.gitlabApi(
+            id.forge, token, "projects", projectPath(id), "merge_requests", query = mapOf("state" to "opened", "per_page" to "1"),
+        ).takeIf { it.status == HttpStatusCode.OK }?.totalCount()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        // A count is a nicety: the repository opens without it.
+        null
     }
 
     override suspend fun readme(token: String?, id: RepoId, ref: String?): ForgeResult<Readme?> = gitlabCall {

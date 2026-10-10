@@ -140,6 +140,26 @@ class RepoScreenTest {
     }
 
     @Test
+    fun the_issues_and_pull_requests_tabs_say_how_many_are_open() {
+        setContent(loaded.copy(details = loaded.details!!.copy(openIssues = 12, openPulls = 1_536)))
+
+        composeRule.onNodeWithText("Issues 12").performClick()
+        // Large numbers are shortened, as the stars are.
+        composeRule.onNodeWithText("Pull requests 1.5k").assertExists()
+
+        assertThat(events).containsExactly("tab:ISSUES")
+    }
+
+    @Test
+    fun a_tab_names_no_number_the_forge_did_not_give() {
+        setContent(loaded.copy(details = loaded.details!!.copy(openIssues = 0, openPulls = null)))
+
+        // None open is a number; not known is not.
+        composeRule.onNodeWithText("Issues 0").assertIsDisplayed()
+        composeRule.onNodeWithText("Pull requests").assertExists()
+    }
+
+    @Test
     fun tabs_report_their_selection() {
         setContent(loaded)
 

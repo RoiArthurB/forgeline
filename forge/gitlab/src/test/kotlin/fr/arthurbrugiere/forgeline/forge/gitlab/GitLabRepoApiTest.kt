@@ -48,18 +48,44 @@ class GitLabRepoApiTest {
                 "tag_list": [],
                 "jobs_enabled": true,
                 "issues_enabled": true,
-                "merge_requests_enabled": true
+                "merge_requests_enabled": true,
+                "open_issues_count": 4821
             }
         """.trimIndent()
 
-        val details = api { json(json) }.repo(null, repo).value()
+        val details = api { request ->
+            if (request.url.encodedPath.endsWith("/merge_requests")) {
+                respond("[{}]", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType to listOf("application/json"), "X-Total" to listOf("1432")))
+            } else {
+                json(json)
+            }
+        }.repo(null, repo).value()
+        // The project counts its open issues; the merge requests are counted from the total of a one-item page.
+        assertThat(details.openIssues).isEqualTo(4821)
+        assertThat(details.openPulls).isEqualTo(1432)
+        val counted = requests.single { it.url.encodedPath.endsWith("/merge_requests") }
+        assertThat(counted.url.parameters["state"]).isEqualTo("opened")
+        assertThat(counted.url.parameters["per_page"]).isEqualTo("1")
         assertThat(details.id).isEqualTo(repo)
         assertThat(details.description).isEqualTo("GitLab CE and EE codebase")
         assertThat(details.defaultBranch).isEqualTo("master")
         assertThat(details.stars).isEqualTo(25000)
         assertThat(details.forks).isEqualTo(6000)
         assertThat(details.topics).containsExactly("devops", "git")
-        assertThat(requests.single().url.toString()).contains("gitlab-org%2Fgitlab")
+        assertThat(requests.first { !it.url.encodedPath.endsWith("/merge_requests") }.url.toString()).contains("gitlab-org%2Fgitlab")
+    }
+
+    @Test
+    fun a_project_opens_without_a_count_when_its_merge_requests_cannot_be_counted() = runTest {
+        val project = """{"id":1,"name":"gitlab","path":"gitlab","path_with_namespace":"gitlab-org/gitlab","web_url":"https://gitlab.com/gitlab-org/gitlab"}"""
+
+        val details = api { request ->
+            if (request.url.encodedPath.endsWith("/merge_requests")) json("{}", HttpStatusCode.Forbidden) else json(project)
+        }.repo(null, repo).value()
+
+        assertThat(details.id).isEqualTo(repo)
+        assertThat(details.openPulls).isNull()
+        assertThat(details.openIssues).isNull()
     }
 
     @Test

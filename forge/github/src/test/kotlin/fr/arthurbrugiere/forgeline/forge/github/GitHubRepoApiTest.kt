@@ -73,6 +73,63 @@ class GitHubRepoApiTest {
     }
 
     @Test
+    fun open_pull_requests_are_counted_from_their_list_and_taken_off_the_issues() = runTest {
+        // GitHub's open_issues_count (5735 here) holds the pull requests too: its own tabs show them apart.
+        val api = api { request ->
+            if (request.url.encodedPath.endsWith("/pulls")) {
+                respond(
+                    "[{}]", HttpStatusCode.OK,
+                    headersOf(
+                        HttpHeaders.ContentType to listOf("application/json"),
+                        HttpHeaders.Link to listOf("<https://api.github.com/repositories/1/pulls?state=open&per_page=1&page=2>; rel=\"next\", <https://api.github.com/repositories/1/pulls?state=open&per_page=1&page=2101>; rel=\"last\""),
+                    ),
+                )
+            } else {
+                json(fixture("repo.json"))
+            }
+        }
+
+        val repo = api.repo("ghp_token", paperclip).value()
+
+        assertThat(repo.openPulls).isEqualTo(2101)
+        assertThat(repo.openIssues).isEqualTo(5735 - 2101)
+        val pulls = requests.single { it.url.encodedPath.endsWith("/pulls") }
+        assertThat(pulls.url.parameters["state"]).isEqualTo("open")
+        assertThat(pulls.url.parameters["per_page"]).isEqualTo("1")
+    }
+
+    @Test
+    fun a_single_page_of_pull_requests_is_counted_by_what_it_holds() = runTest {
+        val none = api { request -> if (request.url.encodedPath.endsWith("/pulls")) json("[]") else json(fixture("repo.json")) }.repo("t", paperclip).value()
+        val one = api { request -> if (request.url.encodedPath.endsWith("/pulls")) json("[{}]") else json(fixture("repo.json")) }.repo("t", paperclip).value()
+
+        assertThat(none.openPulls to none.openIssues).isEqualTo(0 to 5735)
+        assertThat(one.openPulls to one.openIssues).isEqualTo(1 to 5734)
+    }
+
+    @Test
+    fun a_repository_opens_without_counts_when_its_pull_requests_cannot_be_listed() = runTest {
+        val api = api { request -> if (request.url.encodedPath.endsWith("/pulls")) json("{}", HttpStatusCode.InternalServerError) else json(fixture("repo.json")) }
+
+        val repo = api.repo("ghp_token", paperclip).value()
+
+        assertThat(repo.id).isEqualTo(paperclip)
+        // No guess: the one number GitHub gave holds both.
+        assertThat(repo.openPulls).isNull()
+        assertThat(repo.openIssues).isNull()
+    }
+
+    @Test
+    fun signed_out_the_count_is_not_asked_for() = runTest {
+        // Sixty requests an hour without an account: not one of them goes to a number on a tab.
+        val repo = api { json(fixture("repo.json")) }.repo(null, paperclip).value()
+
+        assertThat(requests.map { it.url.encodedPath }).containsExactly("/repos/paperclipai/paperclip")
+        assertThat(repo.openPulls).isNull()
+        assertThat(repo.openIssues).isNull()
+    }
+
+    @Test
     fun anonymous_calls_send_no_credentials_and_signed_in_calls_do() = runTest {
         val api = api { json(fixture("repo.json")) }
 

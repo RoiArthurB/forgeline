@@ -48,6 +48,9 @@ internal data class RepoJson(
     @SerialName("has_wiki") val hasWiki: Boolean = false,
     /** How many releases the repository has; null on servers too old to say. */
     @SerialName("release_counter") val releaseCounter: Int? = null,
+    /** Open issues, pull requests apart: Forgejo counts the two separately. */
+    @SerialName("open_issues_count") val openIssues: Int? = null,
+    @SerialName("open_pr_counter") val openPulls: Int? = null,
 ) {
     fun id(forge: ForgeInstance) = RepoId(owner.login, name, forge)
 
@@ -70,6 +73,8 @@ internal data class RepoJson(
         hasActions = hasActions,
         hasIssues = hasIssues,
         hasWiki = hasWiki,
+        openIssues = openIssues,
+        openPulls = openPulls,
     )
 
     fun toSummary(forge: ForgeInstance) = RepoSummary(

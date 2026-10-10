@@ -88,6 +88,10 @@ data class RepoDetails(
     val hasDiscussions: Boolean = false,
     /** Whether the repository has a wiki switched on. */
     val hasWiki: Boolean = false,
+    /** How many issues are open, pull requests not counted; null where the forge didn't say. */
+    val openIssues: Int? = null,
+    /** How many pull requests are open; null where the forge didn't say. */
+    val openPulls: Int? = null,
 )
 
 data class Readme(val path: String, val markdown: String)

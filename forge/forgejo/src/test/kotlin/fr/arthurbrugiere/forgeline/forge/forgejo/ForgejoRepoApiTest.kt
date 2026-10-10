@@ -44,6 +44,9 @@ class ForgejoRepoApiTest {
         assertThat(repo.pushedAt).isEqualTo(Instant.parse("2026-09-29T14:34:10Z"))
         assertThat(repo.hasActions).isTrue()
         assertThat(repo.hasIssues).isTrue()
+        // Forgejo counts the two apart, in the repository itself: no other request.
+        assertThat(repo.openIssues).isEqualTo(1536)
+        assertThat(repo.openPulls).isEqualTo(151)
         assertThat(codeberg.requests.single().url.toString()).isEqualTo("https://codeberg.org/api/v1/repos/forgejo/forgejo")
     }
 

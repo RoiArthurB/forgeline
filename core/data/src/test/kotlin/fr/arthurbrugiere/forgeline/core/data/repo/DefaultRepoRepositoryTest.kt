@@ -317,6 +317,16 @@ class DefaultRepoRepositoryTest {
     }
 
     @Test
+    fun how_many_issues_and_pull_requests_are_open_is_kept_with_a_repository() = runTest {
+        api.details[id] = repoDetails("octo/repo").copy(openIssues = 12, openPulls = 3)
+
+        repository.refresh(id)
+
+        assertThat(repository.observe(id).first().details?.openIssues).isEqualTo(12)
+        assertThat(repository.observe(id).first().details?.openPulls).isEqualTo(3)
+    }
+
+    @Test
     fun whether_a_repository_holds_discussions_and_a_wiki_is_kept_with_it() = runTest {
         api.details[id] = repoDetails("octo/repo").copy(hasDiscussions = true, hasWiki = true)
 

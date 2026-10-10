@@ -389,7 +389,15 @@ fun RepoScreen(
                     else -> {
                         stickyHeader(key = "tabs") {
                             SoftChipTabs(
-                                options = state.tabs.map { stringResource(it.label) },
+                                // Issues and pull requests say how many are open, as every forge's own page does.
+                                options = state.tabs.map { tab ->
+                                    val open = when (tab) {
+                                        RepoTab.ISSUES -> details.openIssues
+                                        RepoTab.PULLS -> details.openPulls
+                                        else -> null
+                                    }
+                                    stringResource(tab.label) + (open?.let { " ${compactCount(it)}" } ?: "")
+                                },
                                 selected = state.tabs.indexOf(state.tab).coerceAtLeast(0),
                                 onSelect = { onSelectTab(state.tabs[it]) },
                             )

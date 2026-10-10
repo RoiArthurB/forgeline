@@ -38,6 +38,10 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RunConclusion
 import fr.arthurbrugiere.forgeline.core.model.RunStatus
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.JsonElement
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.statement.HttpResponse
@@ -53,7 +57,23 @@ class GitHubRepoApi(
 ) : RepoApi {
 
     override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = gitHubCall {
-        get(token, "repos", id.owner, id.name).toResult { body<RepoResponse>().toModel() }
+        coroutineScope {
+            // Asked alongside: GitHub counts open issues and pull requests as one number, and only says how many of
+            // them are pull requests through their list. Signed out, that request is saved: there are sixty an hour.
+            val openPulls = async { if (token == null) null else openPulls(token, id) }
+            get(token, "repos", id.owner, id.name).toResult { body<RepoResponse>().toModel(openPulls.await()) }
+        }
+    }
+
+    /** How many pull requests are open, from the last page of a list of one per page; null when it can't be told. */
+    private suspend fun openPulls(token: String, id: RepoId): Int? = try {
+        val response = get(token, "repos", id.owner, id.name, "pulls", query = mapOf("state" to "open", "per_page" to "1"))
+        if (response.status != HttpStatusCode.OK) null else response.lastPage() ?: response.body<List<JsonElement>>().size
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        // A count is a nicety: the repository opens without it.
+        null
     }
 
     override suspend fun readme(token: String?, id: RepoId, ref: String?): ForgeResult<Readme?> = gitHubCall {
@@ -238,8 +258,10 @@ private data class RepoResponse(
     @SerialName("has_issues") val hasIssues: Boolean = true,
     @SerialName("has_discussions") val hasDiscussions: Boolean = false,
     @SerialName("has_wiki") val hasWiki: Boolean = false,
+    /** Issues and pull requests together: on GitHub a pull request is an issue. */
+    @SerialName("open_issues_count") val openIssuesAndPulls: Int? = null,
 ) {
-    fun toModel() = RepoDetails(
+    fun toModel(openPulls: Int? = null) = RepoDetails(
         id = RepoId(owner.login, name, ForgeInstance.GitHub),
         description = description,
         homepage = homepage?.ifBlank { null },
@@ -258,6 +280,8 @@ private data class RepoResponse(
         hasIssues = hasIssues,
         hasDiscussions = hasDiscussions,
         hasWiki = hasWiki,
+        openIssues = if (openPulls != null && openIssuesAndPulls != null) (openIssuesAndPulls - openPulls).coerceAtLeast(0) else null,
+        openPulls = openPulls,
     )
 }
 
