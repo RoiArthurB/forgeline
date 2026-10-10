@@ -218,6 +218,32 @@ class InboxScreenTest {
     }
 
     @Test
+    fun one_read_swipe_toggles_once_though_the_thread_changes_under_it() {
+        // Regression: the swipe marked the thread, the thread changed, and the swipe (still on its way back) marked
+        // what it had become: read, unread, read, for as long as it took to settle, which each turn pushed back.
+        var thread by androidx.compose.runtime.mutableStateOf(readThread)
+        composeRule.setContent {
+            InboxScreen(
+                state = InboxUiState(filter = InboxFilter.ALL, groups = listOf(SectionGroup(InboxSection.NEEDS_YOU, listOf(thread))), syncedAtMillis = 1),
+                onSelectFilter = {}, onRefresh = {}, onOpen = {},
+                onMarkRead = { events += "read:${it.id}"; thread = thread.copy(unread = false) },
+                onMarkUnread = { events += "unread:${it.id}"; thread = thread.copy(unread = true) },
+                onMarkDone = {}, onUnsubscribe = {}, onErrorShown = {}, onActionFailureShown = {},
+                nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+            )
+        }
+
+        composeRule.onNodeWithText("Docs typo").performTouchInput { swipeRight() }
+        composeRule.waitForIdle()
+        assertThat(events).containsExactly("unread:44")
+
+        // And the next swipe is a new one.
+        composeRule.onNodeWithText("Docs typo").performTouchInput { swipeRight() }
+        composeRule.waitForIdle()
+        assertThat(events).containsExactly("unread:44", "read:44").inOrder()
+    }
+
+    @Test
     fun the_menu_marks_a_read_thread_unread_and_an_unread_one_read() {
         setContent(InboxUiState(filter = InboxFilter.ALL, groups = listOf(SectionGroup(InboxSection.NEEDS_YOU, listOf(readThread, mention))), syncedAtMillis = 1))
 

@@ -756,6 +756,8 @@ private fun ThreadRow(
     val animations = animationsEnabled()
     val toEnd = LocalUserSettings.current.inboxSwipeRight
     val toStart = LocalUserSettings.current.inboxSwipeLeft
+    // Whether a read swipe is on its way back into place. Not read by the composition: nothing is drawn from it.
+    val returning = remember { mutableStateOf(false) }
     SwipeToDismissBox(
         state = swipe,
         modifier = modifier.padding(horizontal = 8.dp, vertical = 2.dp),
@@ -768,10 +770,19 @@ private fun ThreadRow(
         },
         onDismiss = { direction ->
             when (if (direction == SwipeToDismissBoxValue.StartToEnd) toEnd else toStart) {
-                SwipeAction.MARK_READ -> {
+                // One swipe, one turn. The row stays, so it is brought back into place, and until it is there the swipe
+                // still counts as made: asked again meanwhile (the thread just changed under it), it would mark the
+                // thread back, and that one back again, each turn cutting short the return of the one before.
+                SwipeAction.MARK_READ -> if (!returning.value) {
+                    returning.value = true
                     toggleRead()
-                    // The row stays (read, or unread again), so bring it back into place.
-                    scope.launch { swipe.reset() }
+                    scope.launch {
+                        try {
+                            swipe.reset()
+                        } finally {
+                            returning.value = false
+                        }
+                    }
                 }
                 SwipeAction.DONE -> onMarkDone(thread)
                 SwipeAction.NONE -> Unit
