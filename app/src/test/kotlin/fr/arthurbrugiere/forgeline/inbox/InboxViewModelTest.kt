@@ -85,6 +85,87 @@ class InboxViewModelTest {
         assertThat(others.threads.map { it.id }).containsExactly("4", "7", "6", "5").inOrder()
     }
 
+    private fun watched(id: String, repo: String, updatedAt: String) =
+        notificationThread(id, repo = repo, reason = NotificationReason.SUBSCRIBED, updatedAt = updatedAt)
+
+    private fun InboxViewModel.others() = state.value.groups.single { it.section == InboxSection.OTHERS }.threads.map { it.id }
+
+    @Test
+    fun a_repository_stays_where_it_is_when_its_newest_thread_is_done() = test {
+        // Regression: repositories were ordered by their newest thread each time the list changed. Marking that thread
+        // done sent the repository down the list while the next swipe was on its way.
+        inbox.set(
+            watched("1", "acme/rocket", "2026-09-27T09:50:00Z"),
+            watched("2", "octo/tools", "2026-09-27T09:40:00Z"),
+            watched("3", "acme/rocket", "2026-09-27T09:00:00Z"),
+            watched("4", "zed/editor", "2026-09-27T08:00:00Z"),
+        )
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.others()).containsExactly("1", "3", "2", "4").inOrder()
+
+        viewModel.markDone(inbox.snapshot.value.threads.first { it.id == "1" })
+        advanceUntilIdle()
+
+        // acme/rocket's newest is now older than octo/tools': it stays first all the same, here and once sent.
+        assertThat(viewModel.others()).containsExactly("3", "2", "4").inOrder()
+        assertThat(inbox.actions).containsExactly("done:1")
+    }
+
+    @Test
+    fun an_undone_thread_brings_its_repository_back_to_its_place() = test {
+        inbox.set(
+            watched("1", "acme/rocket", "2026-09-27T09:50:00Z"),
+            watched("2", "octo/tools", "2026-09-27T09:40:00Z"),
+            watched("4", "zed/editor", "2026-09-27T08:00:00Z"),
+        )
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.markDone(inbox.snapshot.value.threads.first { it.id == "2" })
+        runCurrent()
+        assertThat(viewModel.others()).containsExactly("1", "4").inOrder()
+        viewModel.undo(viewModel.state.value.undo!!)
+        runCurrent()
+
+        assertThat(viewModel.others()).containsExactly("1", "2", "4").inOrder()
+    }
+
+    @Test
+    fun a_repository_with_news_takes_its_natural_place_among_those_that_stay() = test {
+        inbox.set(watched("1", "acme/rocket", "2026-09-27T09:50:00Z"), watched("4", "zed/editor", "2026-09-27T08:00:00Z"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        inbox.set(
+            watched("1", "acme/rocket", "2026-09-27T09:50:00Z"),
+            watched("5", "octo/tools", "2026-09-27T09:00:00Z"),
+            watched("4", "zed/editor", "2026-09-27T08:00:00Z"),
+        )
+        advanceUntilIdle()
+
+        assertThat(viewModel.others()).containsExactly("1", "5", "4").inOrder()
+    }
+
+    @Test
+    fun refreshing_draws_the_list_up_afresh() = test {
+        inbox.set(
+            watched("1", "acme/rocket", "2026-09-27T09:50:00Z"),
+            watched("2", "octo/tools", "2026-09-27T09:40:00Z"),
+            watched("3", "acme/rocket", "2026-09-27T09:00:00Z"),
+        )
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.markDone(inbox.snapshot.value.threads.first { it.id == "1" })
+        advanceUntilIdle()
+        assertThat(viewModel.others()).containsExactly("3", "2").inOrder()
+
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        assertThat(viewModel.others()).containsExactly("2", "3").inOrder()
+    }
+
     @Test
     fun participating_and_all_filters() = test {
         inbox.set(watching, mention, read)

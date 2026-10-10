@@ -13,7 +13,9 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.model.Account
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +37,26 @@ enum class InboxFilter { UNREAD, PARTICIPATING, ALL }
  * organisation), then repository, each ordered by its newest activity, threads newest first.
  */
 enum class InboxSection { NEEDS_YOU, OTHERS }
+
+/**
+ * Keeps things in the order they were first seen in. What is new takes its natural place among them; what leaves
+ * and comes back (an Undo) finds its place again.
+ */
+internal class StableOrder<K> {
+    private val known = mutableListOf<K>()
+
+    /** [natural] as it would be ordered from scratch, rearranged so that nothing already placed moves. */
+    fun arrange(natural: List<K>): List<K> {
+        natural.forEachIndexed { index, key ->
+            if (key in known) return@forEachIndexed
+            // Before the first one already placed that it would naturally come before.
+            val next = natural.subList(index + 1, natural.size).firstOrNull { it in known }
+            if (next == null) known += key else known.add(known.indexOf(next), key)
+        }
+        val present = natural.toSet()
+        return known.filter { it in present }
+    }
+}
 
 data class SectionGroup(val section: InboxSection, val threads: List<NotificationThread>)
 
@@ -103,8 +125,16 @@ class InboxViewModel @Inject constructor(
     /** How long an action can be taken back, as chosen in Settings. */
     private val undoDelay = settings.settings.map { it.undoDelay }.stateIn(viewModelScope, SharingStarted.Eagerly, UndoDelay.SEC_5)
 
+    /**
+     * Where each owner and repository stands under Everything else, per list (a filter, an account). Regression:
+     * they were ordered by their newest thread each time, so marking that thread done sent its repository down the
+     * list, under the finger. They now stay put until the list is refreshed.
+     */
+    private val placed = mutableMapOf<Pair<InboxFilter, String?>, Pair<StableOrder<Pair<ForgeInstance, String>>, StableOrder<RepoId>>>()
+    private val refreshes = MutableStateFlow(0)
+
     val state: StateFlow<InboxUiState> = combine(
-        combine(inbox.observe(), pending) { snapshot, pending -> snapshot to pending },
+        combine(inbox.observe(), pending, refreshes) { snapshot, pending, _ -> snapshot to pending },
         filter,
         status,
         combine(settings.settings.map { it.inboxCheckInterval != InboxCheckInterval.OFF }, split) { checks, split -> checks to split },
@@ -114,7 +144,7 @@ class InboxViewModel @Inject constructor(
             filter = filter,
             groups = snapshot.threads.applying(pending)
                 .filter { filter.matches(it) && (split.selected == null || it.accountId == split.selected) }
-                .bySection(),
+                .bySection(placed.getOrPut(filter to split.selected) { StableOrder<Pair<ForgeInstance, String>>() to StableOrder() }),
             accountTabs = split.tabs,
             selectedAccountId = split.selected,
             showForge = split.showForge,
@@ -140,7 +170,12 @@ class InboxViewModel @Inject constructor(
         savedState[ACCOUNT_KEY] = accountId
     }
 
-    fun refresh() = sync(force = true)
+    fun refresh() {
+        // Asked for: the list is drawn up afresh, newest activity first.
+        placed.clear()
+        refreshes.update { it + 1 }
+        sync(force = true)
+    }
 
     /**
      * The Inbox is on screen again: what was read or done somewhere else since is asked for, quietly, and no more
@@ -253,15 +288,22 @@ class InboxViewModel @Inject constructor(
     }
 
     // Threads arrive newest first, so grouping keeps that order: an owner's (or repo's) first thread is its newest,
-    // and it places the whole group. Owners are compared case-insensitively, as the forge does.
-    private fun List<NotificationThread>.bySection(): List<SectionGroup> =
+    // and it places the whole group, the first time. Owners are compared case-insensitively, as the forge does.
+    private fun List<NotificationThread>.bySection(
+        placed: Pair<StableOrder<Pair<ForgeInstance, String>>, StableOrder<RepoId>>,
+    ): List<SectionGroup> =
         groupBy { if (it.needsYou) InboxSection.NEEDS_YOU else InboxSection.OTHERS }
             .toSortedMap()
             .map { (section, threads) ->
                 SectionGroup(
                     section,
                     if (section == InboxSection.OTHERS) {
-                        threads.groupBy { it.repo.forge to it.repo.owner.lowercase() }.values.flatMap { owned -> owned.groupBy { it.repo }.values.flatten() }
+                        val owners = threads.groupBy { it.repo.forge to it.repo.owner.lowercase() }
+                        val repos = threads.groupBy { it.repo }
+                        val repoOrder = placed.second.arrange(repos.keys.toList())
+                        placed.first.arrange(owners.keys.toList()).flatMap { owner ->
+                            repoOrder.filter { it.forge to it.owner.lowercase() == owner }.flatMap(repos::getValue)
+                        }
                     } else {
                         threads
                     },
