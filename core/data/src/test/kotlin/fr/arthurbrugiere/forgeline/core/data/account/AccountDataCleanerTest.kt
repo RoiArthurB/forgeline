@@ -59,7 +59,7 @@ class AccountDataCleanerTest {
     private val users = DefaultUserRepository(clients, accounts)
     private val drafts = InMemoryDraftStore()
     private val cleaner = AccountDataCleaner(
-        accounts, database.inboxDao(), state.doneDao(), state.keptUnreadDao(), database.feedDao(), database.repoDao(), database.feedPreviewDao(), conversations, users, drafts,
+        accounts, database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), database.feedDao(), database.repoDao(), database.feedPreviewDao(), conversations, users, drafts,
     )
 
     private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)

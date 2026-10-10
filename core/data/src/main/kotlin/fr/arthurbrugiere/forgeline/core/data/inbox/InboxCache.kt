@@ -81,6 +81,13 @@ data class DoneEntity(val accountId: String, val threadId: String, val updatedAt
 @Entity(tableName = "inbox_kept_unread", primaryKeys = ["accountId", "threadId"])
 data class KeptUnreadEntity(val accountId: String, val threadId: String)
 
+/**
+ * An account whose Inbox has followed the forge's site at least once. Until then, the threads kept as read can't be
+ * told from the done ones an earlier version let back in, so the first such sync takes them all as dealt with.
+ */
+@Entity(tableName = "inbox_baseline")
+data class BaselineEntity(@PrimaryKey val accountId: String)
+
 @Entity(tableName = "inbox_sync")
 data class InboxSyncEntity(
     @PrimaryKey val accountId: String,
@@ -177,6 +184,20 @@ interface DoneDao {
 
     /** Deletes what was done by accounts other than [accountIds]: those that signed out. */
     @Query("DELETE FROM inbox_done WHERE accountId NOT IN (:accountIds)")
+    suspend fun keepOnly(accountIds: List<String>)
+}
+
+/** Kept in the reader's own database, like [DoneDao]'s: a rebuilt cache must not start an account over. */
+@Dao
+interface BaselineDao {
+    @Query("SELECT COUNT(*) FROM inbox_baseline WHERE accountId = :accountId")
+    suspend fun count(accountId: String): Int
+
+    @Upsert
+    suspend fun upsert(entity: BaselineEntity)
+
+    /** Deletes the mark of accounts other than [accountIds]: those that signed out. */
+    @Query("DELETE FROM inbox_baseline WHERE accountId NOT IN (:accountIds)")
     suspend fun keepOnly(accountIds: List<String>)
 }
 

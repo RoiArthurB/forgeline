@@ -8,6 +8,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
+import fr.arthurbrugiere.forgeline.core.data.inbox.BaselineDao
+import fr.arthurbrugiere.forgeline.core.data.inbox.BaselineEntity
 import fr.arthurbrugiere.forgeline.core.data.inbox.DoneDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.DoneEntity
 import fr.arthurbrugiere.forgeline.core.data.inbox.KeptUnreadDao
@@ -23,11 +25,11 @@ import fr.arthurbrugiere.forgeline.core.data.trending.TrendingMeasurementEntity
  * every change to its schema needs a migration.
  */
 @Database(
-    entities = [ReadingMarkEntity::class, DoneEntity::class, TrendingMeasurementEntity::class, KeptUnreadEntity::class],
-    version = 2,
+    entities = [ReadingMarkEntity::class, DoneEntity::class, TrendingMeasurementEntity::class, KeptUnreadEntity::class, BaselineEntity::class],
+    version = 3,
     exportSchema = true,
-    // 2: the threads kept unread, a table of their own.
-    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    // 2: the threads kept unread, a table of their own. 3: the accounts whose Inbox has followed the forge's site.
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
 )
 abstract class UserStateDatabase : RoomDatabase() {
     abstract fun readingMarkDao(): ReadingMarkDao
@@ -35,6 +37,8 @@ abstract class UserStateDatabase : RoomDatabase() {
     abstract fun doneDao(): DoneDao
 
     abstract fun keptUnreadDao(): KeptUnreadDao
+
+    abstract fun baselineDao(): BaselineDao
 
     abstract fun trendingMeasurementDao(): TrendingMeasurementDao
 }

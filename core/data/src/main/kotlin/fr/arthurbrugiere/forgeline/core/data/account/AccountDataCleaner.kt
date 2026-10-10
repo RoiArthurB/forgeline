@@ -4,6 +4,7 @@ import fr.arthurbrugiere.forgeline.core.data.draft.DraftStore
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedDao
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewDao
 import fr.arthurbrugiere.forgeline.core.data.feed.STARRED_PREFIX
+import fr.arthurbrugiere.forgeline.core.data.inbox.BaselineDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.DoneDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.KeptUnreadDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxDao
@@ -32,6 +33,7 @@ class AccountDataCleaner @Inject constructor(
     private val inbox: InboxDao,
     private val done: DoneDao,
     private val keptUnread: KeptUnreadDao,
+    private val baselines: BaselineDao,
     private val feed: FeedDao,
     private val repos: RepoDao,
     private val previews: FeedPreviewDao,
@@ -60,6 +62,7 @@ class AccountDataCleaner @Inject constructor(
         inbox.keepOnly(ids)
         done.keepOnly(ids)
         keptUnread.keepOnly(ids)
+        baselines.keepOnly(ids)
         feed.keepOnly(ids + ids.map { STARRED_PREFIX + it })
     }
 }

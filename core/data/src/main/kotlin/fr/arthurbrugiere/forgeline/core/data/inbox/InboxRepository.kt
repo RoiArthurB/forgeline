@@ -90,6 +90,7 @@ class DefaultInboxRepository @Inject constructor(
     private val dao: InboxDao,
     private val doneDao: DoneDao,
     private val keptUnreadDao: KeptUnreadDao,
+    private val baselineDao: BaselineDao,
     private val clients: ForgeClients,
     private val accounts: AccountRepository,
     private val conversations: IssueRepository,
@@ -241,6 +242,14 @@ class DefaultInboxRepository @Inject constructor(
                     val kept = keptUnreadDao.of(account.id).toSet()
                     keptUnreadDao.prune(account.id, listed.filter { !it.unread && it.id in kept }.map { it.id })
                     listed.map { if (it.id in kept) it.copy(unread = true) else it }
+                }?.let { listed ->
+                    // Done here, and nothing happened on it since: done still, though the forge goes on calling it
+                    // unread (one that takes a thread away without marking it read). Its date, not its flag, is news.
+                    val doneAt = doneDao.of(account.id).associate { it.threadId to it.updatedAtMillis }
+                    listed.map { thread ->
+                        val done = doneAt[thread.id]
+                        if (thread.unread && done != null && thread.updatedAt.toEpochMilli() <= done) thread.copy(unread = false) else thread
+                    }
                 }
                 if (threads != null) {
                     val before = dao.all(account.id).associateBy { it.id }
@@ -248,9 +257,13 @@ class DefaultInboxRepository @Inject constructor(
                     if (settings.settings.first().readElsewhereIsDone) {
                         // The forge doesn't tell a thread read on its site from one marked done there (GitHub lists
                         // both as read): either way it was dealt with, so it leaves the Inbox like one done here.
+                        // The first time for an account, that goes for every thread kept as read: the versions that
+                        // didn't follow the forge's site let the done ones back in among them.
+                        val followed = baselineDao.count(account.id) > 0
                         val done = doneDao.of(account.id).mapTo(HashSet()) { it.threadId }
-                        threads.filter { !it.unread && it.id !in done && before[it.id]?.unread != false && !handledHere.containsKey(it.key) }
-                            .forEach { doneDao.upsert(DoneEntity(account.id, it.id, clock.millis())) }
+                        threads.filter { !it.unread && it.id !in done && (!followed || before[it.id]?.unread != false) && !handledHere.containsKey(it.key) }
+                            .forEach { doneDao.upsert(DoneEntity(account.id, it.id, it.updatedAt.toEpochMilli())) }
+                        if (!followed) baselineDao.upsert(BaselineEntity(account.id))
                     }
                     // Done is remembered while the thread stays listed and read: unread again, it is back for good.
                     doneDao.prune(account.id, threads.filterNot { it.unread }.map { it.id })

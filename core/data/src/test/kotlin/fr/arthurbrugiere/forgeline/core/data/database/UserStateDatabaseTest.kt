@@ -76,6 +76,8 @@ class UserStateDatabaseTest {
         assertThat(state.doneDao().observe().first().single().threadId).isEqualTo("7")
         state.keptUnreadDao().upsert(fr.arthurbrugiere.forgeline.core.data.inbox.KeptUnreadEntity("github:github.com:me", "8"))
         assertThat(state.keptUnreadDao().of("github:github.com:me")).containsExactly("8")
+        // And the table the version after added.
+        assertThat(state.baselineDao().count("github:github.com:me")).isEqualTo(0)
         state.close()
     }
 

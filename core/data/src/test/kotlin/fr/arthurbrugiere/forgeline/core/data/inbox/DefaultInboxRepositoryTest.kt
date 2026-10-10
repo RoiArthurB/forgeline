@@ -71,7 +71,7 @@ class DefaultInboxRepositoryTest {
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val computation = RecordingDispatcher()
     private val userSettings = fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository()
-    private val repository = DefaultInboxRepository(database.inboxDao(), state.doneDao(), state.keptUnreadDao(), clients, accounts, conversations, clock, background, computation, userSettings)
+    private val repository = DefaultInboxRepository(database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), clients, accounts, conversations, clock, background, computation, userSettings)
 
     private val me = Account.idFor(ForgeInstance.GitHub, "me")
 
@@ -234,6 +234,43 @@ class DefaultInboxRepositoryTest {
         repository.sync(force = true, waitForFollowUps = true)
 
         assertThat(repository.observe().first().threads.map { it.id }).containsExactly("2")
+    }
+
+    @Test
+    fun threads_left_read_by_an_earlier_version_leave_the_inbox_once() = runTest {
+        // Regression: before threads done on the forge's site were followed, GitHub's list brought every done thread
+        // back as a read one, and they were kept as such. Updating the app left them all there: nothing told them
+        // from threads read here. The first sync that follows the forge's site takes what is read as dealt with.
+        signIn()
+        database.inboxDao().insert(listOf(notificationThread("1", unread = false).toEntity(me), notificationThread("2").toEntity(me)))
+        api.threads = listOf(notificationThread("1", unread = false), notificationThread("2"))
+
+        repository.sync(force = true, waitForFollowUps = true)
+        assertThat(repository.observe().first().threads.map { it.id }).containsExactly("2")
+
+        // Once: from then on a thread read here stays.
+        repository.markRead(me, "2")
+        api.threads = listOf(notificationThread("1", unread = false), notificationThread("2", unread = false))
+        repository.sync(force = true, waitForFollowUps = true)
+        assertThat(repository.observe().first().threads.map { it.id }).containsExactly("2")
+    }
+
+    @Test
+    fun a_thread_done_here_stays_done_while_the_forge_still_calls_it_unread() = runTest {
+        // A forge that takes a thread away without marking it read goes on listing it unread: that is not news.
+        signIn()
+        api.threads = listOf(notificationThread("1"), notificationThread("2"))
+        repository.sync(force = true, waitForFollowUps = true)
+
+        repository.markDone(me, "1")
+        now = now.plusSeconds(120)
+        repository.sync(force = true, waitForFollowUps = true)
+        assertThat(repository.observe().first().threads.map { it.id }).containsExactly("2")
+
+        // Something new on it is news.
+        api.threads = listOf(notificationThread("1", updatedAt = "2026-09-27T11:00:00Z"), notificationThread("2"))
+        repository.sync(force = true, waitForFollowUps = true)
+        assertThat(repository.observe().first().threads.map { it.id to it.unread }).containsExactly("1" to true, "2" to true)
     }
 
     @Test
@@ -707,7 +744,7 @@ class DefaultInboxRepositoryTest {
             override suspend fun issue(token: String?, ref: IssueRef) = together.arrive("#${ref.number}").let { issueApi.issue(token, ref) }
         }
         val ahead = DefaultIssueRepository(FakeForgeClients(issues = meeting), accounts, database.conversationDao(), clock)
-        val inbox = DefaultInboxRepository(database.inboxDao(), state.doneDao(), state.keptUnreadDao(), clients, accounts, ahead, clock, background, computation, userSettings)
+        val inbox = DefaultInboxRepository(database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), clients, accounts, ahead, clock, background, computation, userSettings)
 
         realTime { inbox.sync(force = true, waitForFollowUps = true) }
 

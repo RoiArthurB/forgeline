@@ -25,6 +25,7 @@ import fr.arthurbrugiere.forgeline.core.data.database.CACHE_DATABASE
 import fr.arthurbrugiere.forgeline.core.data.database.ForgelineDatabase
 import fr.arthurbrugiere.forgeline.core.data.database.UserStateDatabase
 import fr.arthurbrugiere.forgeline.core.data.database.userStateDatabase
+import fr.arthurbrugiere.forgeline.core.data.inbox.BaselineDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.DoneDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.KeptUnreadDao
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingMeasurementDao
@@ -141,6 +142,9 @@ abstract class DataModule {
 
         @Provides
         fun provideDoneDao(database: UserStateDatabase): DoneDao = database.doneDao()
+
+        @Provides
+        fun provideBaselineDao(database: UserStateDatabase): BaselineDao = database.baselineDao()
 
         @Provides
         fun provideKeptUnreadDao(database: UserStateDatabase): KeptUnreadDao = database.keptUnreadDao()
