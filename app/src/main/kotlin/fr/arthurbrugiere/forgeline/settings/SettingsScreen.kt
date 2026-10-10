@@ -267,6 +267,14 @@ fun SettingsScreen(
                     onCheckedChange = { on -> onChange { it.copy(loadConversationsAhead = on) } },
                 )
             }
+            if (section == SettingsSection.INBOX) item {
+                SwitchItem(
+                    title = stringResource(R.string.settings_read_elsewhere),
+                    summary = stringResource(R.string.settings_read_elsewhere_summary),
+                    checked = settings.readElsewhereIsDone,
+                    onCheckedChange = { on -> onChange { it.copy(readElsewhereIsDone = on) } },
+                )
+            }
             if (section == SettingsSection.GESTURES) {
                 item {
                     ChoiceItem(

@@ -131,20 +131,132 @@ class DefaultInboxRepositoryTest {
     }
 
     @Test
-    fun syncs_are_conditional_and_respect_the_poll_interval() = runTest {
+    fun background_checks_are_conditional_and_respect_the_poll_interval() = runTest {
         signIn()
         api.threads = listOf(notificationThread("1"))
         repository.sync(force = true, waitForFollowUps = true)
 
         now = now.plusSeconds(30)
-        assertThat(repository.sync(waitForFollowUps = true)).isEqualTo(SyncResult.NotModified)
+        assertThat(repository.sync(waitForFollowUps = true, onlyIfNew = true)).isEqualTo(SyncResult.NotModified)
         assertThat(api.calls.filter { it == "threads" }).containsExactly("threads")
 
         now = now.plusSeconds(60)
         api.notModified = true
-        assertThat(repository.sync(waitForFollowUps = true)).isEqualTo(SyncResult.NotModified)
+        assertThat(repository.sync(waitForFollowUps = true, onlyIfNew = true)).isEqualTo(SyncResult.NotModified)
         assertThat(api.ifModifiedSince.last()).isEqualTo("modified-1")
         assertThat(repository.observe().first().threads).hasSize(1)
+    }
+
+    @Test
+    fun the_inbox_on_screen_asks_for_the_list_not_only_for_what_is_new() = runTest {
+        // Regression: opening the Inbox asked GitHub "anything new since?", which a thread read or done on
+        // github.com doesn't change. It stayed unread here until something else happened.
+        signIn()
+        api.threads = listOf(notificationThread("1"))
+        repository.sync(force = true, waitForFollowUps = true)
+
+        now = now.plusSeconds(90)
+        api.threads = emptyList()
+        repository.sync(waitForFollowUps = true)
+
+        assertThat(api.ifModifiedSince.last()).isNull()
+        assertThat(repository.observe().first().threads).isEmpty()
+    }
+
+    @Test
+    fun a_thread_read_on_the_forges_site_leaves_the_inbox() = runTest {
+        // Regression: GitHub lists a thread marked done on github.com among the read ones, so it stayed in All and
+        // had to be marked done a second time here.
+        signIn()
+        api.threads = listOf(notificationThread("1"), notificationThread("2"))
+        repository.sync(force = true, waitForFollowUps = true)
+
+        api.threads = listOf(notificationThread("1", unread = false), notificationThread("2"))
+        repository.sync(force = true, waitForFollowUps = true)
+        assertThat(repository.observe().first().threads.map { it.id }).containsExactly("2")
+
+        // It stays away for as long as it is listed read, and is back with new activity.
+        repository.sync(force = true, waitForFollowUps = true)
+        assertThat(repository.observe().first().threads.map { it.id }).containsExactly("2")
+        api.threads = listOf(notificationThread("1", updatedAt = "2026-09-27T11:00:00Z"), notificationThread("2"))
+        repository.sync(force = true, waitForFollowUps = true)
+        assertThat(repository.observe().first().threads.map { it.id }).containsExactly("1", "2")
+    }
+
+    @Test
+    fun threads_already_read_when_signing_in_start_out_of_the_inbox() = runTest {
+        signIn()
+        api.threads = listOf(notificationThread("1", unread = false), notificationThread("2"))
+
+        repository.sync(force = true, waitForFollowUps = true)
+
+        assertThat(repository.observe().first().threads.map { it.id }).containsExactly("2")
+    }
+
+    @Test
+    fun a_thread_read_here_stays_in_the_inbox() = runTest {
+        signIn()
+        api.threads = listOf(notificationThread("1"))
+        repository.sync(force = true, waitForFollowUps = true)
+
+        repository.markRead(me, "1")
+        api.threads = listOf(notificationThread("1", unread = false))
+        repository.sync(force = true, waitForFollowUps = true)
+        repository.sync(force = true, waitForFollowUps = true)
+
+        assertThat(repository.observe().first().threads.map { it.id to it.unread }).containsExactly("1" to false)
+    }
+
+    @Test
+    fun with_following_the_forges_site_switched_off_threads_read_there_stay_as_read() = runTest {
+        userSettings.update { it.copy(readElsewhereIsDone = false) }
+        signIn()
+        api.threads = listOf(notificationThread("1"))
+        repository.sync(force = true, waitForFollowUps = true)
+
+        api.threads = listOf(notificationThread("1", unread = false))
+        repository.sync(force = true, waitForFollowUps = true)
+
+        assertThat(repository.observe().first().threads.map { it.id to it.unread }).containsExactly("1" to false)
+    }
+
+    @Test
+    fun a_thread_done_here_stays_done_though_github_lists_it_again_as_read() = runTest {
+        // Regression: GitHub's list of read threads includes the ones marked done. Done here, a thread was back in
+        // All at the next refresh. Whatever the setting: this one was done here, not guessed.
+        userSettings.update { it.copy(readElsewhereIsDone = false) }
+        signIn()
+        api.threads = listOf(notificationThread("1"), notificationThread("2"))
+        repository.sync(force = true, waitForFollowUps = true)
+
+        repository.markDone(me, "1")
+        api.threads = listOf(notificationThread("1", unread = false), notificationThread("2"))
+        repository.sync(force = true, waitForFollowUps = true)
+
+        assertThat(repository.observe().first().threads.map { it.id }).containsExactly("2")
+    }
+
+    @Test
+    fun a_list_asked_before_a_thread_was_read_does_not_bring_it_back_unread() = runTest {
+        // The Inbox opens, its sync is on its way, and a thread is opened before the answer: the answer still
+        // calls it unread. Stored as such, the next sync would have taken it for read somewhere else, and hidden it.
+        signIn()
+        api.threads = listOf(notificationThread("1"))
+        repository.sync(force = true, waitForFollowUps = true)
+
+        api.gate = CompletableDeferred()
+        val syncing = async(Dispatchers.Default) { repository.sync(force = true, waitForFollowUps = true) }
+        realTime { while (api.calls.count { it == "threads" } < 2) kotlinx.coroutines.yield() }
+        now = now.plusSeconds(1)
+        repository.markRead(me, "1")
+        api.gate!!.complete(Unit)
+        realTime { syncing.await() }
+        assertThat(repository.observe().first().threads.map { it.id to it.unread }).containsExactly("1" to false)
+
+        api.gate = null
+        api.threads = listOf(notificationThread("1", unread = false))
+        repository.sync(force = true, waitForFollowUps = true)
+        assertThat(repository.observe().first().threads.map { it.id to it.unread }).containsExactly("1" to false)
     }
 
     @Test
@@ -436,6 +548,7 @@ class DefaultInboxRepositoryTest {
         assertThat(repository.observe().first().threads.map { it.id }).containsExactly("7")
 
         // Back for good: only read later, it stays listed.
+        repository.markRead(me, "7")
         codeberg.threads = listOf(notificationThread("7", repo = "forgejo/forgejo", updatedAt = "2026-09-27T11:00:00Z", unread = false))
         repository.sync(force = true, waitForFollowUps = true)
         assertThat(repository.observe().first().threads.map { it.id }).containsExactly("7")

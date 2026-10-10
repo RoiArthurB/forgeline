@@ -103,6 +103,7 @@ class DataStoreUserSettingsRepositoryTest {
         inboxSwipeLeft = fr.arthurbrugiere.forgeline.core.model.SwipeAction.NONE,
         undoDelay = fr.arthurbrugiere.forgeline.core.model.UndoDelay.SEC_10,
         loadConversationsAhead = false,
+        readElsewhereIsDone = false,
         doubleTapReaction = false,
         swipeToReply = false,
         shareTap = fr.arthurbrugiere.forgeline.core.model.ShareTap.COPY,
@@ -129,6 +130,7 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(changed.inboxSwipeLeft).isNotEqualTo(defaults.inboxSwipeLeft)
         assertThat(changed.undoDelay).isNotEqualTo(defaults.undoDelay)
         assertThat(changed.loadConversationsAhead).isNotEqualTo(defaults.loadConversationsAhead)
+        assertThat(changed.readElsewhereIsDone).isNotEqualTo(defaults.readElsewhereIsDone)
         assertThat(changed.doubleTapReaction).isNotEqualTo(defaults.doubleTapReaction)
         assertThat(changed.swipeToReply).isNotEqualTo(defaults.swipeToReply)
         assertThat(changed.shareTap).isNotEqualTo(defaults.shareTap)
@@ -158,7 +160,7 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(defaults.inboxSwipeLeft).isEqualTo(fr.arthurbrugiere.forgeline.core.model.SwipeAction.DONE)
         assertThat(defaults.undoDelay.millis).isEqualTo(5_000)
         assertThat(defaults.shareTap).isEqualTo(fr.arthurbrugiere.forgeline.core.model.ShareTap.SHARE)
-        assertThat(listOf(defaults.loadConversationsAhead, defaults.doubleTapReaction, defaults.swipeToReply, defaults.openAtUnread, defaults.readingMarks)).doesNotContain(false)
+        assertThat(listOf(defaults.loadConversationsAhead, defaults.readElsewhereIsDone, defaults.doubleTapReaction, defaults.swipeToReply, defaults.openAtUnread, defaults.readingMarks)).doesNotContain(false)
     }
 
     @Test

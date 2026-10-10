@@ -73,6 +73,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -166,6 +167,11 @@ fun InboxRoute(
     val viewModel = hiltViewModel<InboxViewModel>(key = session.account.id)
     val state by viewModel.state.collectAsStateWithLifecycle()
     val notifications = rememberNotificationPrompt()
+    // Coming back to the app is when the forge's own site may have been used in between.
+    LifecycleResumeEffect(viewModel) {
+        viewModel.shown()
+        onPauseOrDispose {}
+    }
     InboxScreen(
         state = state,
         notificationPrompt = notifications.prompt.takeIf { state.backgroundChecks },

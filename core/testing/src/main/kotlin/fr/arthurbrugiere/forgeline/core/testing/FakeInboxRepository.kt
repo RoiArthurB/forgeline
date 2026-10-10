@@ -27,9 +27,13 @@ class FakeInboxRepository : InboxRepository {
     /** Whether each sync waited for its follow-ups, as a background check does. */
     val waitedForFollowUps = mutableListOf<Boolean>()
 
-    override suspend fun sync(force: Boolean, waitForFollowUps: Boolean): SyncResult {
+    /** Whether each sync settled for "nothing new", as a background check does. */
+    val onlyIfNew = mutableListOf<Boolean>()
+
+    override suspend fun sync(force: Boolean, waitForFollowUps: Boolean, onlyIfNew: Boolean): SyncResult {
         syncs += force
         waitedForFollowUps += waitForFollowUps
+        this.onlyIfNew += onlyIfNew
         return nextSync
     }
 

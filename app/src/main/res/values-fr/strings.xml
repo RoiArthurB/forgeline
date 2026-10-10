@@ -638,6 +638,8 @@
     <string name="undo_10s">10 secondes</string>
     <string name="settings_load_ahead">Charger les conversations à l’avance</string>
     <string name="settings_load_ahead_summary">Chaque vérification de la réception charge aussi ce qui vous attend, pour l’ouvrir aussitôt. Désactivé, cela économise des données et des requêtes.</string>
+    <string name="settings_read_elsewhere">Suivre ce qui est traité sur le site de la forge</string>
+    <string name="settings_read_elsewhere_summary">Une conversation lue ou marquée comme traitée sur le site de GitHub, Codeberg ou GitLab quitte aussi la réception ici. Les forges ne disent pas lequel des deux s’est produit : les deux comptent comme traité. Désactivé, ces conversations restent dans Tout, comme lues.</string>
     <string name="settings_swipe_right">Balayer une notification vers la droite</string>
     <string name="settings_swipe_left">Balayer une notification vers la gauche</string>
     <string name="swipe_nothing">Rien</string>

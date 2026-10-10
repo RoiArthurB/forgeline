@@ -41,14 +41,22 @@ class GitHubNotificationsApi(
 ) : NotificationsApi {
 
     /**
-     * The first page (conditional: a 304 there means nothing changed at all), then every other page at once: the first
-     * announces the last, and waiting for each page's "next" would cost a round trip per page.
+     * The first page (conditional: a 304 there means no thread has new activity), then every other page at once: the
+     * first announces the last, and waiting for each page's "next" would cost a round trip per page.
+     *
+     * GitHub's 304 only speaks of new activity (checked 2026-10-10: Last-Modified is the newest thread's date): a
+     * thread read or marked done on github.com changes nothing to it. So [ifModifiedSince] also counts the checks
+     * answered 304 in a row, and every [FULL_EVERY]th asks for the list whatever happened.
      */
     override suspend fun threads(token: String, ifModifiedSince: String?, maxPages: Int): ForgeResult<NotificationsSync> = gitHubCall {
-        val first = page(token, 1, ifModifiedSince)
-        val lastModified = first.headers[HttpHeaders.LastModified] ?: ifModifiedSince
+        val since = ifModifiedSince?.substringBefore(CHECKS)
+        val checks = ifModifiedSince?.substringAfter(CHECKS, "0")?.toIntOrNull() ?: 0
+        val first = page(token, 1, since.takeIf { checks + 1 < FULL_EVERY })
         val pollInterval = first.headers["X-Poll-Interval"]?.toIntOrNull()
-        if (first.status == HttpStatusCode.NotModified) return@gitHubCall ForgeResult.Success(NotificationsSync(null, lastModified, pollInterval))
+        if (first.status == HttpStatusCode.NotModified) {
+            return@gitHubCall ForgeResult.Success(NotificationsSync(null, "$since$CHECKS${checks + 1}", pollInterval))
+        }
+        val lastModified = first.headers[HttpHeaders.LastModified] ?: since
         if (first.status != HttpStatusCode.OK) return@gitHubCall first.failure()
         val last = minOf(first.lastPage() ?: first.nextPage() ?: 1, maxPages)
         val rest = coroutineScope { (2..last).map { number -> async { page(token, number, null) } }.awaitAll() }
@@ -146,6 +154,12 @@ class GitHubNotificationsApi(
 
     private companion object {
         const val STATES_PER_REQUEST = 100
+
+        /** Follows the date in the marker kept between checks: how many were answered "not modified" since the last list. */
+        const val CHECKS = ";checks="
+
+        /** One check in this many lists the threads even with no new activity, as Forgejo's does. */
+        const val FULL_EVERY = 4
     }
 }
 

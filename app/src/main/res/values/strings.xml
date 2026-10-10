@@ -658,6 +658,8 @@
     <string name="undo_10s">10 seconds</string>
     <string name="settings_load_ahead">Load conversations ahead</string>
     <string name="settings_load_ahead_summary">Each Inbox check also loads what waits on you, so it opens at once. Off saves data and requests.</string>
+    <string name="settings_read_elsewhere">Follow what was done on the forge’s site</string>
+    <string name="settings_read_elsewhere_summary">A thread read or marked done on GitHub, Codeberg or GitLab’s own site leaves the Inbox here too. Forges don’t say which of the two happened, so both count as done. Off, those threads stay in All as read.</string>
     <string name="settings_swipe_right">Swipe an Inbox thread right</string>
     <string name="settings_swipe_left">Swipe an Inbox thread left</string>
     <string name="swipe_nothing">Nothing</string>

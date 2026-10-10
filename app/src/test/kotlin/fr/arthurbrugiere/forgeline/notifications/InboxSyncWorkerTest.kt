@@ -49,6 +49,8 @@ class InboxSyncWorkerTest {
         assertThat(inbox.syncs).containsExactly(false)
         // The work ends with the process free to die: the conversations loaded ahead must be in by then.
         assertThat(inbox.waitedForFollowUps).containsExactly(true)
+        // In the background, "nothing new" is answer enough: it costs the forge and the battery next to nothing.
+        assertThat(inbox.onlyIfNew).containsExactly(true)
         assertThat(shown.single().map { it.id }).containsExactly("42")
     }
 

@@ -380,6 +380,16 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun the_inbox_page_lets_threads_read_on_the_forges_site_stay() {
+        setContent(section = SettingsSection.INBOX)
+
+        reach("Follow what was done on the forge’s site")
+        composeRule.onNodeWithText("Follow what was done on the forge’s site").performClick()
+
+        assertThat(changed).isEqualTo(UserSettings(readElsewhereIsDone = false))
+    }
+
+    @Test
     fun trending_s_first_period_is_chosen_whoever_is_signed_in() {
         setContent(section = SettingsSection.TRENDING)
 

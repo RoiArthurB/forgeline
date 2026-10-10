@@ -142,6 +142,14 @@ class InboxViewModel @Inject constructor(
 
     fun refresh() = sync(force = true)
 
+    /**
+     * The Inbox is on screen again: what was read or done somewhere else since is asked for, quietly, and no more
+     * often than the forge allows.
+     */
+    fun shown() {
+        viewModelScope.launch { inbox.sync(force = false) }
+    }
+
     fun opened(thread: NotificationThread) {
         if (thread.unread) viewModelScope.launch { inbox.markRead(thread.accountId, thread.id) }
     }

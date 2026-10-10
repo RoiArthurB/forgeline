@@ -91,8 +91,31 @@ class GitHubNotificationsApiTest {
         val result = api { respond("", HttpStatusCode.NotModified, headersOf("X-Poll-Interval", "60")) }
             .threads("tok", ifModifiedSince = "Sat, 27 Sep 2026 09:30:00 GMT")
 
-        assertThat(result).isEqualTo(ForgeResult.Success(NotificationsSync(null, "Sat, 27 Sep 2026 09:30:00 GMT", 60)))
+        // The marker counts the checks answered "not modified" since the last list.
+        assertThat(result).isEqualTo(ForgeResult.Success(NotificationsSync(null, "Sat, 27 Sep 2026 09:30:00 GMT;checks=1", 60)))
         assertThat(requests.single().headers[HttpHeaders.IfModifiedSince]).isEqualTo("Sat, 27 Sep 2026 09:30:00 GMT")
+    }
+
+    @Test
+    fun one_check_in_four_lists_the_threads_even_with_nothing_new() = runTest {
+        // Regression: GitHub answers "not modified" as long as no thread has new activity (its Last-Modified is the
+        // newest thread's date, checked 2026-10-10). Threads read or marked done on github.com stayed unread here.
+        val api = api { request ->
+            if (request.headers[HttpHeaders.IfModifiedSince] != null) {
+                respond("", HttpStatusCode.NotModified)
+            } else {
+                json("[]", mapOf(HttpHeaders.LastModified to "Sat, 27 Sep 2026 09:30:00 GMT"))
+            }
+        }
+        var marker: String? = "Sat, 27 Sep 2026 09:30:00 GMT"
+
+        val listed = (1..4).map { api.threads("tok", marker).value().also { marker = it.lastModified }.threads != null }
+
+        assertThat(listed).containsExactly(false, false, false, true).inOrder()
+        // The date alone goes to GitHub, never the count.
+        assertThat(requests.mapNotNull { it.headers[HttpHeaders.IfModifiedSince] }.distinct()).containsExactly("Sat, 27 Sep 2026 09:30:00 GMT")
+        // And the count starts again.
+        assertThat(marker).isEqualTo("Sat, 27 Sep 2026 09:30:00 GMT")
     }
 
     @Test

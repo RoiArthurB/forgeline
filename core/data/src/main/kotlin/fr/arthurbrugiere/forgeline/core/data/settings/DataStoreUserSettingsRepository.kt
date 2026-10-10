@@ -37,6 +37,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
                 undoDelay = choice(UNDO_DELAY, defaults.undoDelay),
                 shareTap = choice(SHARE_TAP, defaults.shareTap),
                 loadConversationsAhead = prefs[LOAD_AHEAD] ?: defaults.loadConversationsAhead,
+                readElsewhereIsDone = prefs[READ_ELSEWHERE] ?: defaults.readElsewhereIsDone,
                 doubleTapReaction = prefs[DOUBLE_TAP] ?: defaults.doubleTapReaction,
                 swipeToReply = prefs[SWIPE_REPLY] ?: defaults.swipeToReply,
                 openAtUnread = prefs[OPEN_AT_UNREAD] ?: defaults.openAtUnread,
@@ -74,6 +75,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
             prefs[UNDO_DELAY] = wanted.undoDelay.name
             prefs[SHARE_TAP] = wanted.shareTap.name
             prefs[LOAD_AHEAD] = wanted.loadConversationsAhead
+            prefs[READ_ELSEWHERE] = wanted.readElsewhereIsDone
             prefs[DOUBLE_TAP] = wanted.doubleTapReaction
             prefs[SWIPE_REPLY] = wanted.swipeToReply
             prefs[OPEN_AT_UNREAD] = wanted.openAtUnread
@@ -127,6 +129,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
         val UNDO_DELAY = stringPreferencesKey("undo_delay")
         val SHARE_TAP = stringPreferencesKey("share_tap")
         val LOAD_AHEAD = booleanPreferencesKey("load_conversations_ahead")
+        val READ_ELSEWHERE = booleanPreferencesKey("read_elsewhere_is_done")
         val DOUBLE_TAP = booleanPreferencesKey("double_tap_reaction")
         val SWIPE_REPLY = booleanPreferencesKey("swipe_to_reply")
         val OPEN_AT_UNREAD = booleanPreferencesKey("open_at_unread")

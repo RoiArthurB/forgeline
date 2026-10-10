@@ -66,8 +66,9 @@ data class SubjectStateEntity(
 )
 
 /**
- * A thread marked done on a forge that can't mark it done (Forgejo): hidden while it stays read, and shown
- * again once new activity makes it unread, which is how GitHub's done behaves. [updatedAtMillis] is when it was done
+ * A thread marked done, here or (as far as can be told) on the forge's site: hidden while it stays read, and shown
+ * again once new activity makes it unread, which is how GitHub's done behaves. Forgejo has no done at all, and GitHub
+ * lists the threads done among the read ones without saying which they are. [updatedAtMillis] is when it was done
  * and decides nothing: the forge moves a thread's date when it is marked read.
  */
 @Entity(tableName = "inbox_done", primaryKeys = ["accountId", "threadId"])
@@ -156,6 +157,9 @@ interface InboxDao {
 interface DoneDao {
     @Query("SELECT * FROM inbox_done")
     fun observe(): Flow<List<DoneEntity>>
+
+    @Query("SELECT * FROM inbox_done WHERE accountId = :accountId")
+    suspend fun of(accountId: String): List<DoneEntity>
 
     @Upsert
     suspend fun upsert(entity: DoneEntity)

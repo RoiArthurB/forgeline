@@ -57,6 +57,20 @@ class InboxViewModelTest {
     }
 
     @Test
+    fun coming_back_to_the_inbox_asks_the_forge_again_without_the_refresh_spinner() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.shown()
+        assertThat(viewModel.state.value.isRefreshing).isFalse()
+        advanceUntilIdle()
+
+        // Not forced: the forge's poll interval still holds. Not "only if new" either: reads don't count as new.
+        assertThat(inbox.syncs).containsExactly(false, false)
+        assertThat(inbox.onlyIfNew).containsExactly(false, false)
+    }
+
+    @Test
     fun everything_else_is_ordered_by_owner_then_repository() = test {
         val rocketNew = notificationThread("4", repo = "acme/rocket", reason = NotificationReason.SUBSCRIBED, updatedAt = "2026-09-27T09:50:00Z")
         val tools = notificationThread("5", repo = "octo/tools", reason = NotificationReason.SUBSCRIBED, updatedAt = "2026-09-27T09:40:00Z")

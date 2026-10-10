@@ -41,6 +41,11 @@ data class UserSettings(
     val undoDelay: UndoDelay = UndoDelay.SEC_5,
     /** Whether each Inbox check also loads the conversations waiting on you, so they open at once. */
     val loadConversationsAhead: Boolean = true,
+    /**
+     * A thread read on the forge's own site leaves the Inbox, as one marked done there does: forges don't say which of
+     * the two happened.
+     */
+    val readElsewhereIsDone: Boolean = true,
     /** A double tap on a comment gives it a thumbs up. */
     val doubleTapReaction: Boolean = true,
     /** Pulling a comment aside starts a reply quoting it. */
