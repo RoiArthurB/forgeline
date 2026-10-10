@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.forge.FeedApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeAuthApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
+import fr.arthurbrugiere.forgeline.core.forge.PullRequestApi
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
 import fr.arthurbrugiere.forgeline.core.forge.SearchApi
@@ -21,6 +22,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 class FakeForgeClients(
     val repos: RepoApi = FakeRepoApi(),
     val issues: IssueApi = FakeIssueApi(),
+    val pulls: PullRequestApi = FakePullRequestApi(),
     val users: UserApi = FakeUserApi(),
     val stars: StarApi = FakeStarApi(),
     val search: SearchApi = FakeSearchApi(),
@@ -52,6 +54,8 @@ class FakeForgeClients(
     override fun repos(forge: ForgeInstance) = ask("repos", forge) { repos }
 
     override fun issues(forge: ForgeInstance) = ask("issues", forge) { issues }
+
+    override fun pulls(forge: ForgeInstance) = ask("pulls", forge) { pulls }
 
     override fun users(forge: ForgeInstance) = ask("users", forge) { users }
 

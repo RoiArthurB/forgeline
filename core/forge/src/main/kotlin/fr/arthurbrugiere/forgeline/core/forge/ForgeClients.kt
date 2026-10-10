@@ -11,6 +11,9 @@ interface ForgeClients {
 
     fun issues(forge: ForgeInstance): IssueApi
 
+    /** Pull requests beyond their conversation (files, commits, checks, reviewing, merging), and a repository's history. */
+    fun pulls(forge: ForgeInstance): PullRequestApi
+
     fun users(forge: ForgeInstance): UserApi
 
     fun stars(forge: ForgeInstance): StarApi

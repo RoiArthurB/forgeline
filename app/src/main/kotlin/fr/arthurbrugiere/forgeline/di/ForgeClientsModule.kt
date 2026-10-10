@@ -8,6 +8,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
+import fr.arthurbrugiere.forgeline.core.forge.PullRequestApi
 import fr.arthurbrugiere.forgeline.core.forge.FeedApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeAuthApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
@@ -29,6 +30,7 @@ import fr.arthurbrugiere.forgeline.signin.HttpForgeProbe
 import fr.arthurbrugiere.forgeline.signin.StoredForgeHosts
 import fr.arthurbrugiere.forgeline.signin.LoopbackRedirects
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoActionsApi
+import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoPullRequestApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoAuthApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoFeedApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoIssueApi
@@ -40,6 +42,7 @@ import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoTrendingApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoUserApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.forgejoHttpClient
 import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabActionsApi
+import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabPullRequestApi
 import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabAuthApi
 import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabFeedApi
 import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabIssueApi
@@ -69,6 +72,7 @@ class DefaultForgeClients @Inject constructor(
     @GitLabTrendingUrl private val gitlabTrendingUrl: String,
     private val repos: RepoApi,
     private val issues: IssueApi,
+    private val pulls: PullRequestApi,
     private val users: UserApi,
     private val stars: StarApi,
     private val search: SearchApi,
@@ -83,6 +87,7 @@ class DefaultForgeClients @Inject constructor(
     private inner class ForgejoClients(http: HttpClient, forge: ForgeInstance) {
         val repos = ForgejoRepoApi(http, forge)
         val issues = ForgejoIssueApi(http, forge)
+        val pulls = ForgejoPullRequestApi(http, forge)
         val users = ForgejoUserApi(http, forge)
         val stars = ForgejoStarApi(http, forge)
         val search = ForgejoSearchApi(http, forge)
@@ -103,6 +108,7 @@ class DefaultForgeClients @Inject constructor(
     private inner class GitLabClients(http: HttpClient, forge: ForgeInstance) {
         val repos = GitLabRepoApi(http, forge)
         val issues = GitLabIssueApi(http, forge)
+        val pulls = GitLabPullRequestApi(http, forge)
         val users = GitLabUserApi(http, forge)
         val stars = GitLabStarApi(http, forge)
         val search = GitLabSearchApi(http, forge)
@@ -138,6 +144,8 @@ class DefaultForgeClients @Inject constructor(
     override fun repos(forge: ForgeInstance) = pick(forge, repos, { repos }, { repos })
 
     override fun issues(forge: ForgeInstance) = pick(forge, issues, { issues }, { issues })
+
+    override fun pulls(forge: ForgeInstance): PullRequestApi = pick(forge, pulls, { pulls }, { pulls })
 
     override fun users(forge: ForgeInstance) = pick(forge, users, { users }, { users })
 
