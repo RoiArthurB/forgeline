@@ -747,4 +747,86 @@
         <item quantity="one">%d comment</item>
         <item quantity="other">%d comments</item>
     </plurals>
+    <string name="changes_title">Files changed</string>
+    <string name="changes_loading">Loading the change</string>
+    <string name="changes_error_title">Couldn\'t load the change</string>
+    <string name="changes_empty_title">No file changed</string>
+    <string name="changes_empty_body">This change touches no file.</string>
+    <string name="changes_more_failed">Couldn\'t load more</string>
+    <string name="changes_summary" translatable="false">%1$s · +%2$d −%3$d</string>
+    <string name="changes_summary_more">%1$s · more below</string>
+    <string name="changes_not_shown">Not shown: a file that isn\'t text, or a change too large for the forge to send.</string>
+    <string name="changes_file_shown">Shown</string>
+    <string name="changes_file_folded">Folded</string>
+    <string name="changes_file_added">Added</string>
+    <string name="changes_file_removed">Removed</string>
+    <string name="changes_file_renamed">Moved from %1$s</string>
+    <string name="changes_counts_spoken">%1$d lines added, %2$d removed</string>
+    <string name="changes_line_added">Line %1$d, added: %2$s</string>
+    <string name="changes_line_removed">Line %1$d, removed: %2$s</string>
+    <string name="changes_line_same">Line %1$d: %2$s</string>
+    <string name="changes_remark_on_line">Remark on this line</string>
+    <string name="changes_remark_pending">Your remark, sent with the review</string>
+    <string name="changes_remark_remove">Remove this remark</string>
+    <string name="changes_remark_title">%1$s, line %2$d</string>
+    <string name="changes_remark_body">What do you want to say about this line?</string>
+    <string name="changes_remark_add">Add to the review</string>
+    <string name="review_title">Review</string>
+    <string name="review_body">What the review says (optional)</string>
+    <string name="review_failed">The forge refused the review: %1$s</string>
+    <string name="review_send">Send review</string>
+    <string name="review_sending">Sending…</string>
+    <string name="review_comment">Comment</string>
+    <string name="review_approve">Approve</string>
+    <string name="review_request_changes">Request changes</string>
+    <string name="review_sent">Review sent</string>
+    <string name="review_start">Review</string>
+    <string name="commits_title">Commits</string>
+    <string name="history_title">History</string>
+    <string name="commits_error_title">Couldn\'t load the commits</string>
+    <string name="commits_loading">Loading commits</string>
+    <string name="commits_empty_title">No commit</string>
+    <string name="commits_empty_body">Nothing was committed here.</string>
+    <string name="check_passed">Passed</string>
+    <string name="check_failed">Failed</string>
+    <string name="check_running">Running</string>
+    <string name="check_skipped">Skipped</string>
+    <string name="merge_start">Merge</string>
+    <string name="merge_title">Merge pull request</string>
+    <string name="merge_blocked_draft">A draft isn\'t merged: mark it ready on the forge first.</string>
+    <string name="merge_blocked">The forge says this can\'t be merged as it is: conflicts, failing checks or missing approvals.</string>
+    <string name="merge_checking">The forge is still working out whether this can be merged. You can try.</string>
+    <string name="merge_failed">The forge refused the merge: %1$s</string>
+    <string name="merge_confirm">Merge</string>
+    <string name="merge_merging">Merging…</string>
+    <string name="merge_method_merge">Merge commit</string>
+    <string name="merge_method_merge_summary">Every commit is kept, joined by a merge commit</string>
+    <string name="merge_method_squash">Squash and merge</string>
+    <string name="merge_method_squash_summary">The commits become one</string>
+    <string name="merge_method_rebase">Rebase and merge</string>
+    <string name="merge_method_rebase_summary">The commits are replayed on the base branch, without a merge commit</string>
+    <plurals name="review_remarks">
+        <item quantity="one">%d remark on a line goes with it</item>
+        <item quantity="other">%d remarks on lines go with it</item>
+    </plurals>
+    <plurals name="review_finish">
+        <item quantity="one">Finish review (%d remark)</item>
+        <item quantity="other">Finish review (%d remarks)</item>
+    </plurals>
+    <plurals name="pull_files_changed">
+        <item quantity="one">%d file changed</item>
+        <item quantity="other">%d files changed</item>
+    </plurals>
+    <plurals name="checks_failed">
+        <item quantity="one">%1$d of %2$d check failed</item>
+        <item quantity="other">%1$d of %2$d checks failed</item>
+    </plurals>
+    <plurals name="checks_running">
+        <item quantity="one">%1$d of %2$d check still running</item>
+        <item quantity="other">%1$d of %2$d checks still running</item>
+    </plurals>
+    <plurals name="checks_passed">
+        <item quantity="one">%d check passed</item>
+        <item quantity="other">%d checks passed</item>
+    </plurals>
 </resources>

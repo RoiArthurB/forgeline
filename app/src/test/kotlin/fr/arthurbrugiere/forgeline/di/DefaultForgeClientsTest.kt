@@ -26,6 +26,7 @@ import org.junit.Test
 
 class DefaultForgeClientsTest {
     private val gitHubRepos = FakeRepoApi()
+    private val gitHubPulls = fr.arthurbrugiere.forgeline.core.testing.FakePullRequestApi()
     private val hosts = fr.arthurbrugiere.forgeline.signin.FakeForgeHosts()
 
     private fun clients(
@@ -40,7 +41,7 @@ class DefaultForgeClientsTest {
         hosts = hosts,
         codebergTrendingUrl = codebergTrendingUrl,
         gitlabTrendingUrl = gitlabTrendingUrl,
-        repos = gitHubRepos, issues = FakeIssueApi(), users = FakeUserApi(), stars = FakeStarApi(), search = FakeSearchApi(),
+        repos = gitHubRepos, issues = FakeIssueApi(), pulls = gitHubPulls, users = FakeUserApi(), stars = FakeStarApi(), search = FakeSearchApi(),
         feed = FakeFeedApi(), notifications = FakeNotificationsApi(), auth = FakeForgeAuthApi(), actions = FakeActionsApi(),
         trending = FakeTrendingApi(),
     )
@@ -59,6 +60,16 @@ class DefaultForgeClientsTest {
         assertThat(codeberg).isInstanceOf(ForgejoRepoApi::class.java)
         assertThat(clients.repos(ForgeInstance.Codeberg)).isSameInstanceAs(codeberg)
         assertThat(selfHosted).isNotSameInstanceAs(codeberg)
+    }
+
+    @Test
+    fun each_forge_reads_pull_requests_its_own_way() {
+        assertThat(clients.pulls(ForgeInstance.GitHub)).isSameInstanceAs(gitHubPulls)
+        assertThat(clients.pulls(ForgeInstance.Codeberg)).isInstanceOf(fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoPullRequestApi::class.java)
+        assertThat(clients.pulls(ForgeInstance.GitLab)).isInstanceOf(fr.arthurbrugiere.forgeline.forge.gitlab.GitLabPullRequestApi::class.java)
+        // Forgejo's API has no blame; the app only offers it where it can be asked.
+        assertThat(clients.pulls(ForgeInstance.Codeberg).supportsBlame).isFalse()
+        assertThat(clients.pulls(ForgeInstance.GitLab).supportsBlame).isTrue()
     }
 
     @Test

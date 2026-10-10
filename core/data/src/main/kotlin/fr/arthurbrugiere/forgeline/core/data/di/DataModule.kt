@@ -44,6 +44,8 @@ import fr.arthurbrugiere.forgeline.core.data.issue.ConversationDao
 import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkDao
 import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
 import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
+import fr.arthurbrugiere.forgeline.core.data.pull.DefaultPullRequestRepository
+import fr.arthurbrugiere.forgeline.core.data.pull.PullRequestRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.DefaultRepoRepository
 import fr.arthurbrugiere.forgeline.core.data.user.DefaultUserRepository
 import fr.arthurbrugiere.forgeline.core.data.user.UserRepository
@@ -101,6 +103,9 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindIssueRepository(impl: DefaultIssueRepository): IssueRepository
+
+    @Binds
+    abstract fun bindPullRequestRepository(impl: DefaultPullRequestRepository): PullRequestRepository
 
     @Binds
     abstract fun bindUserRepository(impl: DefaultUserRepository): UserRepository

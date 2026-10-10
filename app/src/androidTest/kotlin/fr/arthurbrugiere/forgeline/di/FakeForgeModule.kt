@@ -93,6 +93,10 @@ object FakeForgeModule {
 
     @Provides
     @Singleton
+    fun providePullRequestApi(): fr.arthurbrugiere.forgeline.core.forge.PullRequestApi = fr.arthurbrugiere.forgeline.core.testing.FakePullRequestApi()
+
+    @Provides
+    @Singleton
     fun provideIssueApi(): IssueApi = FakeIssueApi().apply {
         val ref = IssueRef(RepoId("paperclipai", "paperclip"), 14127)
         issues[ref] = issueDetails(ref, "Heartbeat recovery escalates too early")

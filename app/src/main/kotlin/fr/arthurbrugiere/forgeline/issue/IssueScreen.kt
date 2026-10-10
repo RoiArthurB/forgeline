@@ -194,6 +194,10 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
+import fr.arthurbrugiere.forgeline.pull.PullActions
+import fr.arthurbrugiere.forgeline.pull.PullRequestPanel
+import fr.arthurbrugiere.forgeline.pull.PullRequestUiState
+import fr.arthurbrugiere.forgeline.pull.PullRequestViewModel
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import androidx.compose.runtime.getValue
 
@@ -212,6 +216,11 @@ fun IssueRoute(
     onMoved: (IssueRef) -> Unit,
     /** Opens the form that changes a conversation's title and description. */
     onEditIssue: (IssueRef) -> Unit = {},
+    /** Opens what a pull request changes, file by file. */
+    onOpenChanges: (IssueRef) -> Unit = {},
+    onOpenCommits: (IssueRef) -> Unit = {},
+    /** Opens a CI run of the repository, by its id. */
+    onOpenRun: (RepoId, Long) -> Unit = { _, _ -> },
 ) {
     val ref = route.issue
     val viewModel = hiltViewModel<IssueViewModel, IssueViewModel.Factory>(key = "${ref.repo.key}${if (ref.isPullRequest == true) "!" else "#"}${ref.number}") { it.create(ref) }
@@ -278,8 +287,32 @@ fun IssueRoute(
         )
     }
     val suggestions by viewModel.references.offer.collectAsStateWithLifecycle()
+    // A pull request has more behind it than its conversation: asked for once it is known to be one.
+    val pullRef = IssueRef(ref.repo, ref.number, isPullRequest = true)
+    val pull = if (state.issue?.pullRequest != null) {
+        hiltViewModel<PullRequestViewModel, PullRequestViewModel.Factory>(key = "pull-${ref.repo.key}-${ref.number}") { it.create(pullRef) }
+    } else {
+        null
+    }
+    val pullState = pull?.state?.collectAsStateWithLifecycle()?.value
+    // Merged or reviewed from here: the conversation is read again, to show it.
+    LaunchedEffect(pullState?.done) { if (pullState?.done != null) viewModel.refresh() }
+    val pullActions = remember(pull, openUrl) {
+        PullActions(
+            onOpenChanges = { onOpenChanges(pullRef) },
+            onOpenCommits = { onOpenCommits(pullRef) },
+            onOpenRun = { runId -> onOpenRun(ref.repo, runId) },
+            onOpenUrl = openUrl,
+            onMerge = { pull?.merge(it) },
+            onMergeErrorShown = { pull?.mergeErrorShown() },
+            onReview = { verdict, body -> pull?.submitReview(verdict, body) },
+            onReviewErrorShown = { pull?.reviewErrorShown() },
+        )
+    }
     IssueScreen(
         state = state,
+        pull = pullState,
+        pullActions = pullActions,
         comments = comments,
         suggestions = suggestions,
         // Commenting takes an account on the conversation's own forge.
@@ -356,6 +389,9 @@ fun IssueScreen(
     /** Loads what is left of the conversation and asks, through the state, to be taken to its end. */
     onToEnd: () -> Unit = {},
     onScrolled: () -> Unit = {},
+    /** What stands behind a pull request, beside its conversation; null for an issue and until it is known. */
+    pull: PullRequestUiState? = null,
+    pullActions: PullActions = PullActions(),
 ) {
     val issue = state.issue
     var managing by rememberSaveable { mutableStateOf(false) }
@@ -498,7 +534,7 @@ fun IssueScreen(
                             }
                         },
                     ) {
-                        Header(state.ref, issue, nowMillis, onOpenRepo, onOpenUser)
+                        Header(state.ref, issue, nowMillis, onOpenRepo, onOpenUser, pull, pullActions)
                     }
                 }
                 when {
@@ -922,7 +958,15 @@ private val IssueDetails.tintIndex: Int
     }
 
 @Composable
-private fun Header(ref: IssueRef, issue: IssueDetails?, nowMillis: Long, onOpenRepo: (RepoId) -> Unit, onOpenUser: (String) -> Unit) {
+private fun Header(
+    ref: IssueRef,
+    issue: IssueDetails?,
+    nowMillis: Long,
+    onOpenRepo: (RepoId) -> Unit,
+    onOpenUser: (String) -> Unit,
+    pull: PullRequestUiState? = null,
+    pullActions: PullActions = PullActions(),
+) {
     val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // The repository it belongs to, one tap away.
@@ -1000,6 +1044,7 @@ private fun Header(ref: IssueRef, issue: IssueDetails?, nowMillis: Long, onOpenR
                     color = colors.inkMuted,
                 )
             }
+            if (pull != null) PullRequestPanel(issue, pull, pullActions)
         }
         if (issue.labels.isNotEmpty()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -739,4 +739,91 @@
         <item quantity="many">%d commentaires</item>
         <item quantity="other">%d commentaires</item>
     </plurals>
+    <string name="changes_title">Fichiers modifiés</string>
+    <string name="changes_loading">Chargement des modifications</string>
+    <string name="changes_error_title">Impossible de charger les modifications</string>
+    <string name="changes_empty_title">Aucun fichier modifié</string>
+    <string name="changes_empty_body">Cette modification ne touche aucun fichier.</string>
+    <string name="changes_more_failed">Impossible de charger la suite</string>
+    <string name="changes_summary_more">%1$s · la suite plus bas</string>
+    <string name="changes_not_shown">Non affiché : un fichier qui n’est pas du texte, ou une modification trop grande pour que la forge l’envoie.</string>
+    <string name="changes_file_shown">Affiché</string>
+    <string name="changes_file_folded">Replié</string>
+    <string name="changes_file_added">Ajouté</string>
+    <string name="changes_file_removed">Supprimé</string>
+    <string name="changes_file_renamed">Déplacé depuis %1$s</string>
+    <string name="changes_counts_spoken">%1$d lignes ajoutées, %2$d supprimées</string>
+    <string name="changes_line_added">Ligne %1$d, ajoutée : %2$s</string>
+    <string name="changes_line_removed">Ligne %1$d, supprimée : %2$s</string>
+    <string name="changes_line_same">Ligne %1$d : %2$s</string>
+    <string name="changes_remark_on_line">Faire une remarque sur cette ligne</string>
+    <string name="changes_remark_pending">Votre remarque, envoyée avec la relecture</string>
+    <string name="changes_remark_remove">Retirer cette remarque</string>
+    <string name="changes_remark_title">%1$s, ligne %2$d</string>
+    <string name="changes_remark_body">Que voulez-vous dire de cette ligne ?</string>
+    <string name="changes_remark_add">Ajouter à la relecture</string>
+    <string name="review_title">Relecture</string>
+    <string name="review_body">Ce que dit la relecture (facultatif)</string>
+    <string name="review_failed">La forge a refusé la relecture : %1$s</string>
+    <string name="review_send">Envoyer la relecture</string>
+    <string name="review_sending">Envoi…</string>
+    <string name="review_comment">Commenter</string>
+    <string name="review_approve">Approuver</string>
+    <string name="review_request_changes">Demander des modifications</string>
+    <string name="review_sent">Relecture envoyée</string>
+    <string name="review_start">Relire</string>
+    <string name="commits_title">Commits</string>
+    <string name="history_title">Historique</string>
+    <string name="commits_error_title">Impossible de charger les commits</string>
+    <string name="commits_loading">Chargement des commits</string>
+    <string name="commits_empty_title">Aucun commit</string>
+    <string name="commits_empty_body">Rien n’a été commité ici.</string>
+    <string name="check_passed">Réussie</string>
+    <string name="check_failed">Échouée</string>
+    <string name="check_running">En cours</string>
+    <string name="check_skipped">Ignorée</string>
+    <string name="merge_start">Fusionner</string>
+    <string name="merge_title">Fusionner la pull request</string>
+    <string name="merge_blocked_draft">Un brouillon ne se fusionne pas : marquez-le comme prêt sur la forge d’abord.</string>
+    <string name="merge_blocked">La forge dit que ceci ne peut pas être fusionné en l’état : conflits, vérifications en échec ou approbations manquantes.</string>
+    <string name="merge_checking">La forge cherche encore si ceci peut être fusionné. Vous pouvez essayer.</string>
+    <string name="merge_failed">La forge a refusé la fusion : %1$s</string>
+    <string name="merge_confirm">Fusionner</string>
+    <string name="merge_merging">Fusion…</string>
+    <string name="merge_method_merge">Commit de fusion</string>
+    <string name="merge_method_merge_summary">Chaque commit est gardé, réunis par un commit de fusion</string>
+    <string name="merge_method_squash">Écraser et fusionner</string>
+    <string name="merge_method_squash_summary">Les commits n’en font plus qu’un</string>
+    <string name="merge_method_rebase">Rebaser et fusionner</string>
+    <string name="merge_method_rebase_summary">Les commits sont rejoués sur la branche de base, sans commit de fusion</string>
+    <plurals name="review_remarks">
+        <item quantity="one">%d remarque sur une ligne part avec</item>
+        <item quantity="many">%d remarques sur des lignes partent avec</item>
+        <item quantity="other">%d remarques sur des lignes partent avec</item>
+    </plurals>
+    <plurals name="review_finish">
+        <item quantity="one">Terminer la relecture (%d remarque)</item>
+        <item quantity="many">Terminer la relecture (%d remarques)</item>
+        <item quantity="other">Terminer la relecture (%d remarques)</item>
+    </plurals>
+    <plurals name="pull_files_changed">
+        <item quantity="one">%d fichier modifié</item>
+        <item quantity="many">%d fichiers modifiés</item>
+        <item quantity="other">%d fichiers modifiés</item>
+    </plurals>
+    <plurals name="checks_failed">
+        <item quantity="one">%1$d vérification sur %2$d en échec</item>
+        <item quantity="many">%1$d vérifications sur %2$d en échec</item>
+        <item quantity="other">%1$d vérifications sur %2$d en échec</item>
+    </plurals>
+    <plurals name="checks_running">
+        <item quantity="one">%1$d vérification sur %2$d encore en cours</item>
+        <item quantity="many">%1$d vérifications sur %2$d encore en cours</item>
+        <item quantity="other">%1$d vérifications sur %2$d encore en cours</item>
+    </plurals>
+    <plurals name="checks_passed">
+        <item quantity="one">%d vérification réussie</item>
+        <item quantity="many">%d vérifications réussies</item>
+        <item quantity="other">%d vérifications réussies</item>
+    </plurals>
 </resources>

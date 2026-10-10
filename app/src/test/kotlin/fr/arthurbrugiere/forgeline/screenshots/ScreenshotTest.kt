@@ -1384,4 +1384,71 @@ class ScreenshotTest {
             nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
         )
     }
+
+    private val changedFiles = listOf(
+        fr.arthurbrugiere.forgeline.core.testing.changedFile(
+            "src/main/kotlin/Upload.kt",
+            "@@ -12,6 +12,8 @@ class Upload(private val client: Client) {\n     fun send(file: File): Result {\n         val tries = 1\n-        return client.put(file)\n+        return retry(times = 3) {\n+            client.put(file) // a slow link drops the first try more often than not\n+        }\n     }\n }",
+        ),
+        fr.arthurbrugiere.forgeline.core.testing.changedFile("docs/retry.md", "@@ -0,0 +1,2 @@\n+# Retries\n+Uploads are tried three times.", fr.arthurbrugiere.forgeline.core.model.FileChange.ADDED),
+        fr.arthurbrugiere.forgeline.core.testing.changedFile("assets/logo.png", null),
+    ).map { fr.arthurbrugiere.forgeline.pull.FileDiff(it, it.patch?.let { patch -> fr.arthurbrugiere.forgeline.core.model.parsePatch(patch) }.orEmpty()) }
+
+    @Composable
+    private fun ChangesPreview() {
+        fr.arthurbrugiere.forgeline.pull.ChangesScreen(
+            state = fr.arthurbrugiere.forgeline.pull.ChangesUiState(
+                fr.arthurbrugiere.forgeline.pull.ChangesTarget.Pull(IssueRef(RepoId("octo", "tools"), 88, isPullRequest = true)),
+                files = changedFiles, isLoading = false, canReview = true,
+                comments = listOf(fr.arthurbrugiere.forgeline.core.model.LineComment("src/main/kotlin/Upload.kt", oldLine = null, newLine = 14, body = "Why three?")),
+            ),
+            onBack = {}, onRefresh = {}, onLoadMore = {}, onErrorShown = {}, onToggle = {},
+            nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
+    fun changes_light() = snapshot("changes_light", darkTheme = false) { ChangesPreview() }
+
+    @Test
+    fun changes_dark() = snapshot("changes_dark", darkTheme = true) { ChangesPreview() }
+
+    @Test
+    fun issue_pull_request_light() = snapshot("issue_pull_request_light", darkTheme = false, awaitText = "Body of #88", awaitGoneTag = MARKDOWN_PENDING_TAG) {
+        val ref = IssueRef(RepoId("octo", "tools"), 88, isPullRequest = true)
+        IssueScreen(
+            state = IssueUiState(
+                ref = ref,
+                issue = issueDetails(ref, "Retry uploads on slow links")
+                    .copy(pullRequest = fr.arthurbrugiere.forgeline.core.model.PullRequestInfo(false, false, "main", "retry-uploads", 5, 1, 3, 2)),
+            ),
+            pull = fr.arthurbrugiere.forgeline.pull.PullRequestUiState(
+                checks = listOf(
+                    fr.arthurbrugiere.forgeline.core.model.Check("build", fr.arthurbrugiere.forgeline.core.model.CheckState.SUCCESS, null, null),
+                    fr.arthurbrugiere.forgeline.core.model.Check("lint", fr.arthurbrugiere.forgeline.core.model.CheckState.FAILURE, null, null),
+                ),
+                mergeInfo = fr.arthurbrugiere.forgeline.core.model.MergeInfo(true, true, listOf(fr.arthurbrugiere.forgeline.core.model.MergeMethod.MERGE)),
+                signedIn = true,
+            ),
+            canComment = true, onDraftChange = {}, onSendComment = {}, onToggleOpen = {}, onSignIn = {}, onCommentNoticeShown = {},
+            onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {},
+            onLinkClick = {}, onErrorShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
+    fun commits_light() = snapshot("commits_light", darkTheme = false) {
+        fr.arthurbrugiere.forgeline.pull.CommitsScreen(
+            fr.arthurbrugiere.forgeline.pull.CommitsUiState(
+                fr.arthurbrugiere.forgeline.pull.CommitsTarget.History(RepoId("octo", "tools"), ref = "main", path = "src/main/kotlin/Upload.kt"),
+                commits = listOf(
+                    fr.arthurbrugiere.forgeline.core.testing.commit("1a2b3c4d5e", "Retry uploads on slow links\n\nThree times."),
+                    fr.arthurbrugiere.forgeline.core.testing.commit("9f8e7d6c5b", "Fix a typo in the upload error", author = "hubot", date = "2026-09-20T08:00:00Z"),
+                ),
+                isLoading = false,
+            ),
+            onBack = {}, onRefresh = {}, onLoadMore = {}, onErrorShown = {}, onOpenCommit = {},
+            nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
+        )
+    }
 }

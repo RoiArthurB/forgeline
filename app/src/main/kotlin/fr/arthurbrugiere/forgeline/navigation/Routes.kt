@@ -96,6 +96,37 @@ data class ReleaseRoute(val host: String, val owner: String, val name: String, v
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
 }
 
+/**
+ * What a change holds, file by file: a pull request's (by its [number]) or one commit's (by its [sha]).
+ */
+@Serializable
+data class ChangesRoute(val host: String, val owner: String, val name: String, val number: Int? = null, val sha: String? = null) : NavKey {
+    val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
+
+    val target: fr.arthurbrugiere.forgeline.pull.ChangesTarget
+        get() = if (number != null) {
+            fr.arthurbrugiere.forgeline.pull.ChangesTarget.Pull(IssueRef(repo, number, isPullRequest = true))
+        } else {
+            fr.arthurbrugiere.forgeline.pull.ChangesTarget.OfCommit(repo, sha.orEmpty())
+        }
+}
+
+/**
+ * A list of commits: a pull request's (by its [number]), or a repository's history from [ref] (its default branch
+ * when null), of the one file at [path] when there is one.
+ */
+@Serializable
+data class CommitsRoute(val host: String, val owner: String, val name: String, val number: Int? = null, val ref: String? = null, val path: String? = null) : NavKey {
+    val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
+
+    val target: fr.arthurbrugiere.forgeline.pull.CommitsTarget
+        get() = if (number != null) {
+            fr.arthurbrugiere.forgeline.pull.CommitsTarget.Pull(IssueRef(repo, number, isPullRequest = true))
+        } else {
+            fr.arthurbrugiere.forgeline.pull.CommitsTarget.History(repo, ref, path)
+        }
+}
+
 @Serializable
 data class RunRoute(val host: String, val owner: String, val name: String, val runId: Long) : NavKey {
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
@@ -119,6 +150,14 @@ fun RepoId.route() = RepoRoute(forge.host, owner, name)
 fun RepoId.releaseRoute(tag: String) = ReleaseRoute(forge.host, owner, name, tag)
 
 fun RepoId.newIssueRoute() = NewIssueRoute(forge.host, owner, name)
+
+fun IssueRef.changesRoute() = ChangesRoute(repo.forge.host, repo.owner, repo.name, number = number)
+
+fun IssueRef.commitsRoute() = CommitsRoute(repo.forge.host, repo.owner, repo.name, number = number)
+
+fun RepoId.commitRoute(sha: String) = ChangesRoute(forge.host, owner, name, sha = sha)
+
+fun RepoId.historyRoute(ref: String?, path: String? = null) = CommitsRoute(forge.host, owner, name, ref = ref, path = path)
 
 fun IssueRef.route() = IssueRoute(repo.forge.host, repo.owner, repo.name, number, isPullRequest)
 

@@ -48,6 +48,9 @@ import fr.arthurbrugiere.forgeline.navigation.IssueRoute as IssueKey
 import fr.arthurbrugiere.forgeline.navigation.NewIssueRoute as NewIssueKey
 import fr.arthurbrugiere.forgeline.issue.NewIssueRoute as NewIssueDestination
 import fr.arthurbrugiere.forgeline.navigation.newIssueRoute
+import fr.arthurbrugiere.forgeline.navigation.changesRoute
+import fr.arthurbrugiere.forgeline.navigation.commitsRoute
+import fr.arthurbrugiere.forgeline.navigation.commitRoute
 import fr.arthurbrugiere.forgeline.navigation.ReleaseRoute as ReleaseKey
 import fr.arthurbrugiere.forgeline.release.ReleaseRoute as ReleaseDestination
 import fr.arthurbrugiere.forgeline.navigation.releaseRoute
@@ -147,7 +150,14 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 onNewIssue = { id -> navigator.navigate(id.newIssueRoute()) },
                 onMoved = { navigator.replaceCurrent(it.route()) },
                 onEditIssue = { navigator.navigate(it.repo.newIssueRoute().copy(edit = it.number, editIsPullRequest = it.isPullRequest)) },
+                onOpenChanges = { navigator.navigate(it.changesRoute()) },
+                onOpenCommits = { navigator.navigate(it.commitsRoute()) },
+                onOpenRun = { id, runId -> navigator.navigate(RunKey(id.forge.host, id.owner, id.name, runId)) },
             )
+        }
+        entry<fr.arthurbrugiere.forgeline.navigation.ChangesRoute> { key -> fr.arthurbrugiere.forgeline.pull.ChangesRoute(key, onBack = navigator::goBack) }
+        entry<fr.arthurbrugiere.forgeline.navigation.CommitsRoute> { key ->
+            fr.arthurbrugiere.forgeline.pull.CommitsRoute(key, onBack = navigator::goBack, onOpenCommit = { sha -> navigator.navigate(key.repo.commitRoute(sha)) })
         }
         entry<NewIssueKey> { key ->
             NewIssueDestination(
