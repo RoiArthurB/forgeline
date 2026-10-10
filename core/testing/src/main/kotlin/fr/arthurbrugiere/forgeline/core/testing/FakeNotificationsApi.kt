@@ -43,6 +43,8 @@ class FakeNotificationsApi(override val supportsDone: Boolean = true) : Notifica
 
     override suspend fun markRead(token: String, threadId: String) = action("read:$threadId")
 
+    override suspend fun markUnread(token: String, threadId: String) = action("unread:$threadId")
+
     override suspend fun markDone(token: String, threadId: String) = action("done:$threadId")
 
     override suspend fun unsubscribe(token: String, threadId: String) = action("unsubscribe:$threadId")

@@ -286,6 +286,30 @@ class InboxViewModelTest {
     }
 
     @Test
+    fun a_thread_marked_unread_is_back_under_unread_and_can_be_taken_back() = test {
+        inbox.set(read)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.groups).isEmpty()
+
+        viewModel.markUnread(read)
+        runCurrent()
+        assertThat(viewModel.state.value.groups.single().threads.single().unread).isTrue()
+        assertThat(viewModel.state.value.undo?.action).isEqualTo(InboxAction.UNREAD)
+        assertThat(inbox.actions).isEmpty()
+
+        advanceUntilIdle()
+        assertThat(inbox.actions).containsExactly("unread:3")
+        assertThat(viewModel.state.value.groups.single().threads.single().unread).isTrue()
+
+        viewModel.markUnread(read)
+        runCurrent()
+        viewModel.undo(viewModel.state.value.undo!!)
+        advanceUntilIdle()
+        assertThat(inbox.actions).containsExactly("unread:3")
+    }
+
+    @Test
     fun failures_are_reported_once_sent() = test {
         inbox.set(mention)
         inbox.actionFailure = ForgeError.Network

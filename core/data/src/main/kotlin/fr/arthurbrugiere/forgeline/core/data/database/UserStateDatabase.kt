@@ -3,12 +3,15 @@ package fr.arthurbrugiere.forgeline.core.data.database
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteException
+import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import fr.arthurbrugiere.forgeline.core.data.inbox.DoneDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.DoneEntity
+import fr.arthurbrugiere.forgeline.core.data.inbox.KeptUnreadDao
+import fr.arthurbrugiere.forgeline.core.data.inbox.KeptUnreadEntity
 import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkDao
 import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkEntity
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingMeasurementDao
@@ -20,14 +23,18 @@ import fr.arthurbrugiere.forgeline.core.data.trending.TrendingMeasurementEntity
  * every change to its schema needs a migration.
  */
 @Database(
-    entities = [ReadingMarkEntity::class, DoneEntity::class, TrendingMeasurementEntity::class],
-    version = 1,
+    entities = [ReadingMarkEntity::class, DoneEntity::class, TrendingMeasurementEntity::class, KeptUnreadEntity::class],
+    version = 2,
     exportSchema = true,
+    // 2: the threads kept unread, a table of their own.
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
 )
 abstract class UserStateDatabase : RoomDatabase() {
     abstract fun readingMarkDao(): ReadingMarkDao
 
     abstract fun doneDao(): DoneDao
+
+    abstract fun keptUnreadDao(): KeptUnreadDao
 
     abstract fun trendingMeasurementDao(): TrendingMeasurementDao
 }

@@ -97,6 +97,14 @@ class GitHubNotificationsApiTest {
     }
 
     @Test
+    fun marking_unread_asks_github_nothing_since_it_has_no_such_call() = runTest {
+        // GitHub's API marks a thread read or done, never unread: the Inbox keeps it unread by itself.
+        assertThat(api { json("{}") }.markUnread("tok", "1")).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(requests).isEmpty()
+    }
+
+    @Test
     fun one_check_in_four_lists_the_threads_even_with_nothing_new() = runTest {
         // Regression: GitHub answers "not modified" as long as no thread has new activity (its Last-Modified is the
         // newest thread's date, checked 2026-10-10). Threads read or marked done on github.com stayed unread here.

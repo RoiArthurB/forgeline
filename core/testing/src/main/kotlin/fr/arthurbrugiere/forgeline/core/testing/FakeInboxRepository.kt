@@ -50,6 +50,9 @@ class FakeInboxRepository : InboxRepository {
     override suspend fun markRead(accountId: String, threadId: String) =
         act("read", threadId) { list -> list.map { if (it.isThread(accountId, threadId)) it.copy(unread = false) else it } }
 
+    override suspend fun markUnread(accountId: String, threadId: String) =
+        act("unread", threadId) { list -> list.map { if (it.isThread(accountId, threadId)) it.copy(unread = true) else it } }
+
     override suspend fun markDone(accountId: String, threadId: String) =
         act("done", threadId) { list -> list.filterNot { it.isThread(accountId, threadId) } }
 

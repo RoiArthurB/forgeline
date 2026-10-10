@@ -61,7 +61,7 @@ internal class StableOrder<K> {
 data class SectionGroup(val section: InboxSection, val threads: List<NotificationThread>)
 
 /** What a swipe or the menu did to a thread; it waits [InboxViewModel.UNDO_MILLIS] before reaching the forge. */
-enum class InboxAction { READ, DONE, UNSUBSCRIBE }
+enum class InboxAction { READ, UNREAD, DONE, UNSUBSCRIBE }
 
 /** The latest action that can still be undone. [serial] tells two identical actions apart. */
 /**
@@ -191,6 +191,9 @@ class InboxViewModel @Inject constructor(
 
     fun markRead(thread: NotificationThread) = hold(listOf(thread), InboxAction.READ)
 
+    /** Back among the unread ones: for later, or read by mistake. */
+    fun markUnread(thread: NotificationThread) = hold(listOf(thread), InboxAction.UNREAD)
+
     fun markDone(thread: NotificationThread) = hold(listOf(thread), InboxAction.DONE)
 
     /** Marks [threads] done in one go: a repository's, swiped away by its heading. */
@@ -260,6 +263,7 @@ class InboxViewModel @Inject constructor(
         appScope.launch {
             val result = when (action) {
                 InboxAction.READ -> inbox.markRead(accountId, threadId)
+                InboxAction.UNREAD -> inbox.markUnread(accountId, threadId)
                 InboxAction.DONE -> inbox.markDone(accountId, threadId)
                 InboxAction.UNSUBSCRIBE -> inbox.unsubscribe(accountId, threadId)
             }
@@ -277,6 +281,7 @@ class InboxViewModel @Inject constructor(
             when (pending[thread.key]) {
                 null -> thread
                 InboxAction.READ -> thread.copy(unread = false)
+                InboxAction.UNREAD -> thread.copy(unread = true)
                 InboxAction.DONE, InboxAction.UNSUBSCRIBE -> null
             }
         }

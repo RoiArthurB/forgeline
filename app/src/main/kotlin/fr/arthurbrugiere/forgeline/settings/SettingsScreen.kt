@@ -440,7 +440,7 @@ private val UndoDelay.label: Int
 
 private val SwipeAction.label: Int
     get() = when (this) {
-        SwipeAction.MARK_READ -> R.string.inbox_mark_read
+        SwipeAction.MARK_READ -> R.string.settings_swipe_read_or_unread
         SwipeAction.DONE -> R.string.inbox_mark_done
         SwipeAction.NONE -> R.string.swipe_nothing
     }

@@ -22,6 +22,7 @@
     <string name="inbox_error_scope">Votre jeton ne peut pas lire les notifications. Déconnectez-vous, puis reconnectez-vous avec un jeton qui a la portée notifications.</string>
     <string name="inbox_action_failed">La notification n’a pas pu être mise à jour. Réessayez.</string>
     <string name="inbox_mark_read">Marquer comme lue</string>
+    <string name="inbox_mark_unread">Marquer comme non lue</string>
     <string name="inbox_mark_done">Terminé</string>
     <string name="inbox_unsubscribe">Se désabonner</string>
     <string name="inbox_more">Plus d’actions</string>
@@ -36,6 +37,7 @@
     <string name="inbox_kind_other">Notification</string>
     <string name="inbox_undo">Annuler</string>
     <string name="inbox_undo_read">Marquée comme lue</string>
+    <string name="inbox_undo_unread">Marquée comme non lue</string>
     <string name="inbox_undo_done">Marquée comme terminée</string>
     <plurals name="inbox_undo_done_many">
         <item quantity="one">%d marquée comme terminée</item>
@@ -642,6 +644,7 @@
     <string name="settings_read_elsewhere_summary">Une conversation lue ou marquée comme traitée sur le site de GitHub, Codeberg ou GitLab quitte aussi la réception ici. Les forges ne disent pas lequel des deux s’est produit : les deux comptent comme traité. Désactivé, ces conversations restent dans Tout, comme lues.</string>
     <string name="settings_swipe_right">Balayer une notification vers la droite</string>
     <string name="settings_swipe_left">Balayer une notification vers la gauche</string>
+    <string name="settings_swipe_read_or_unread">Marquer comme lue, ou de nouveau non lue</string>
     <string name="swipe_nothing">Rien</string>
     <string name="settings_double_tap">Double appui pour réagir</string>
     <string name="settings_double_tap_summary">Un double appui sur un commentaire lui donne un pouce levé</string>

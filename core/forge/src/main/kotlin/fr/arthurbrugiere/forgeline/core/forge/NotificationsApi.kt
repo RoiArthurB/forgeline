@@ -19,6 +19,12 @@ interface NotificationsApi {
     suspend fun markRead(token: String, threadId: String): ForgeResult<Unit>
 
     /**
+     * Marks a read thread unread again, where the forge can (Forgejo). Elsewhere (GitHub has no such call, and a
+     * GitLab todo is never read) this does nothing, and the Inbox remembers it by itself.
+     */
+    suspend fun markUnread(token: String, threadId: String): ForgeResult<Unit> = ForgeResult.Success(Unit)
+
+    /**
      * Whether [markDone] removes the thread on the forge. When it can't (Forgejo), done only marks it read and the Inbox
      * hides the thread itself until it has new activity.
      */

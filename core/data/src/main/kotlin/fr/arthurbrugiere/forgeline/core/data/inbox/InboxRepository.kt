@@ -67,6 +67,12 @@ interface InboxRepository {
     // Threads are identified by their account and id: two forges can use the same thread id.
     suspend fun markRead(accountId: String, threadId: String): ForgeResult<Unit>
 
+    /**
+     * Back among the unread ones, after it was read. It stays unread here until it is read or done here, whatever
+     * the forge can be told.
+     */
+    suspend fun markUnread(accountId: String, threadId: String): ForgeResult<Unit>
+
     suspend fun markDone(accountId: String, threadId: String): ForgeResult<Unit>
 
     suspend fun unsubscribe(accountId: String, threadId: String): ForgeResult<Unit>
@@ -83,6 +89,7 @@ interface InboxRepository {
 class DefaultInboxRepository @Inject constructor(
     private val dao: InboxDao,
     private val doneDao: DoneDao,
+    private val keptUnreadDao: KeptUnreadDao,
     private val clients: ForgeClients,
     private val accounts: AccountRepository,
     private val conversations: IssueRepository,
@@ -229,6 +236,11 @@ class DefaultInboxRepository @Inject constructor(
                         // Unread again since: new activity.
                         else -> thread.also { handledHere.remove(thread.key) }
                     }
+                }?.let { listed ->
+                    // Marked unread here: unread for as long as the forge, which mostly can't be told, lists it read.
+                    val kept = keptUnreadDao.of(account.id).toSet()
+                    keptUnreadDao.prune(account.id, listed.filter { !it.unread && it.id in kept }.map { it.id })
+                    listed.map { if (it.id in kept) it.copy(unread = true) else it }
                 }
                 if (threads != null) {
                     val before = dao.all(account.id).associateBy { it.id }
@@ -269,9 +281,23 @@ class DefaultInboxRepository @Inject constructor(
     override suspend fun markRead(accountId: String, threadId: String): ForgeResult<Unit> {
         val (account, token) = session(accountId) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
         dao.setUnread(account.id, threadId, false)
+        keptUnreadDao.delete(account.id, threadId)
         handledHere["${account.id}|$threadId"] = clock.millis()
         return clients.notifications(account.forge).markRead(token, threadId)
             .also { if (it is ForgeResult.Failure) dao.setUnread(account.id, threadId, true) }
+    }
+
+    override suspend fun markUnread(accountId: String, threadId: String): ForgeResult<Unit> {
+        val (account, token) = session(accountId) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        dao.setUnread(account.id, threadId, true)
+        keptUnreadDao.upsert(KeptUnreadEntity(account.id, threadId))
+        handledHere.remove("${account.id}|$threadId")
+        return clients.notifications(account.forge).markUnread(token, threadId).also {
+            if (it is ForgeResult.Failure) {
+                dao.setUnread(account.id, threadId, false)
+                keptUnreadDao.delete(account.id, threadId)
+            }
+        }
     }
 
     override suspend fun markDone(accountId: String, threadId: String): ForgeResult<Unit> {
@@ -286,6 +312,7 @@ class DefaultInboxRepository @Inject constructor(
             if (api.supportsDone && removed != null) dao.insert(listOf(removed))
             return result
         }
+        keptUnreadDao.delete(account.id, threadId)
         if (removed != null) {
             if (!api.supportsDone) dao.setUnread(account.id, threadId, false)
             // Remembered on every forge: GitHub goes on listing a done thread among the read ones, and nothing in

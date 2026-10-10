@@ -25,6 +25,7 @@
     <string name="inbox_error_scope">Your token can\'t read notifications. Sign out and sign in again with a token that has the notifications scope.</string>
     <string name="inbox_action_failed">Couldn\'t update the notification. Try again.</string>
     <string name="inbox_mark_read">Mark as read</string>
+    <string name="inbox_mark_unread">Mark as unread</string>
     <string name="inbox_mark_done">Done</string>
     <string name="inbox_unsubscribe">Unsubscribe</string>
     <string name="inbox_more">More actions</string>
@@ -39,6 +40,7 @@
     <string name="inbox_kind_other">Notification</string>
     <string name="inbox_undo">Undo</string>
     <string name="inbox_undo_read">Marked as read</string>
+    <string name="inbox_undo_unread">Marked as unread</string>
     <string name="inbox_undo_done">Marked as done</string>
     <plurals name="inbox_undo_done_many">
         <item quantity="one">Marked %d as done</item>
@@ -662,6 +664,7 @@
     <string name="settings_read_elsewhere_summary">A thread read or marked done on GitHub, Codeberg or GitLab’s own site leaves the Inbox here too. Forges don’t say which of the two happened, so both count as done. Off, those threads stay in All as read.</string>
     <string name="settings_swipe_right">Swipe an Inbox thread right</string>
     <string name="settings_swipe_left">Swipe an Inbox thread left</string>
+    <string name="settings_swipe_read_or_unread">Mark as read, or unread again</string>
     <string name="swipe_nothing">Nothing</string>
     <string name="settings_double_tap">Double tap to react</string>
     <string name="settings_double_tap_summary">A double tap on a comment gives it a thumbs up</string>

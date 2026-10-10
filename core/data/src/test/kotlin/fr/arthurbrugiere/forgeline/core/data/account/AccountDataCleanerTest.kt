@@ -59,7 +59,7 @@ class AccountDataCleanerTest {
     private val users = DefaultUserRepository(clients, accounts)
     private val drafts = InMemoryDraftStore()
     private val cleaner = AccountDataCleaner(
-        accounts, database.inboxDao(), state.doneDao(), database.feedDao(), database.repoDao(), database.feedPreviewDao(), conversations, users, drafts,
+        accounts, database.inboxDao(), state.doneDao(), state.keptUnreadDao(), database.feedDao(), database.repoDao(), database.feedPreviewDao(), conversations, users, drafts,
     )
 
     private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)
@@ -78,6 +78,7 @@ class AccountDataCleanerTest {
         database.inboxDao().insert(listOf(NotificationEntity(account.id, "1", host, "acme", "secret", "Private plans", "ISSUE", 7, "MENTION", true, 1_000, null)))
         database.inboxDao().upsertSync(InboxSyncEntity(account.id, null, 60, 1_000, 1_000))
         state.doneDao().upsert(DoneEntity(account.id, "1", 500))
+        state.keptUnreadDao().upsert(fr.arthurbrugiere.forgeline.core.data.inbox.KeptUnreadEntity(account.id, "2"))
         database.inboxDao().upsertStates(listOf(SubjectStateEntity(host, "acme", "secret", 7, "OPEN", 1_000, 1_000)))
         listOf(account.id, STARRED_PREFIX + account.id).forEach { key ->
             database.feedDao().insert(listOf(FeedEventEntity(key, "e1", "alice", null, host, "acme", "secret", 1_000, "starred", null, null, null, false)))
@@ -112,6 +113,7 @@ class AccountDataCleanerTest {
         assertThat(database.inboxDao().all(codeberg.id)).isEmpty()
         assertThat(database.inboxDao().sync(codeberg.id)).isNull()
         assertThat(state.doneDao().observe().first().map { it.accountId }).doesNotContain(codeberg.id)
+        assertThat(state.keptUnreadDao().of(codeberg.id)).isEmpty()
         assertThat(database.inboxDao().states().map { it.host }).doesNotContain("codeberg.org")
         assertThat(database.feedDao().observeAll().first().map { it.accountId }).containsNoneOf(codeberg.id, STARRED_PREFIX + codeberg.id)
         assertThat(database.feedDao().sync(codeberg.id)).isNull()

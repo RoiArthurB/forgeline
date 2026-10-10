@@ -300,7 +300,7 @@ class SettingsScreenTest {
         setContent(section = SettingsSection.GESTURES)
 
         composeRule.onNodeWithText("Swipe an Inbox thread right").assertIsDisplayed()
-        composeRule.onNodeWithText("Mark as read").assertIsDisplayed()
+        composeRule.onNodeWithText("Mark as read, or unread again").assertIsDisplayed()
         composeRule.onNodeWithText("Done").assertIsDisplayed()
         reach("Share button")
         composeRule.onNodeWithText("A tap shares, a long press copies the link").assertIsDisplayed()
@@ -310,7 +310,7 @@ class SettingsScreenTest {
     fun each_inbox_swipe_is_chosen_from_a_dialog() {
         setContent(section = SettingsSection.GESTURES)
 
-        choose("Swipe an Inbox thread right", current = "Mark as read", wanted = "Nothing")
+        choose("Swipe an Inbox thread right", current = "Mark as read, or unread again", wanted = "Nothing")
         assertThat(changed).isEqualTo(UserSettings(inboxSwipeRight = fr.arthurbrugiere.forgeline.core.model.SwipeAction.NONE))
     }
 

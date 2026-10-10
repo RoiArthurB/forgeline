@@ -98,6 +98,16 @@ class ForgejoNotificationsApiTest {
     }
 
     @Test
+    fun a_thread_can_be_marked_unread_again() = runTest {
+        assertThat(api.markUnread("t", "901")).isEqualTo(ForgeResult.Success(Unit))
+
+        val request = codeberg.requests.single()
+        assertThat(request.method).isEqualTo(HttpMethod.Patch)
+        assertThat(request.url.encodedPath).isEqualTo("/api/v1/notifications/threads/901")
+        assertThat(request.url.parameters["to-status"]).isEqualTo("unread")
+    }
+
+    @Test
     fun done_is_read_since_forgejo_has_no_done() = runTest {
         assertThat(api.supportsDone).isFalse()
 

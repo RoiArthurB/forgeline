@@ -71,7 +71,7 @@ class DefaultInboxRepositoryTest {
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val computation = RecordingDispatcher()
     private val userSettings = fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository()
-    private val repository = DefaultInboxRepository(database.inboxDao(), state.doneDao(), clients, accounts, conversations, clock, background, computation, userSettings)
+    private val repository = DefaultInboxRepository(database.inboxDao(), state.doneDao(), state.keptUnreadDao(), clients, accounts, conversations, clock, background, computation, userSettings)
 
     private val me = Account.idFor(ForgeInstance.GitHub, "me")
 
@@ -234,6 +234,59 @@ class DefaultInboxRepositoryTest {
         repository.sync(force = true, waitForFollowUps = true)
 
         assertThat(repository.observe().first().threads.map { it.id }).containsExactly("2")
+    }
+
+    @Test
+    fun a_thread_marked_unread_stays_unread_though_the_forge_still_lists_it_read() = runTest {
+        // GitHub has no "mark as unread": the Inbox remembers it, sync after sync.
+        signIn()
+        api.threads = listOf(notificationThread("1"))
+        repository.sync(force = true, waitForFollowUps = true)
+        repository.markRead(me, "1")
+        api.threads = listOf(notificationThread("1", unread = false))
+        repository.sync(force = true, waitForFollowUps = true)
+
+        repository.markUnread(me, "1")
+        assertThat(repository.observe().first().threads.map { it.id to it.unread }).containsExactly("1" to true)
+        assertThat(api.calls).contains("unread:1")
+        repository.sync(force = true, waitForFollowUps = true)
+        repository.sync(force = true, waitForFollowUps = true)
+        assertThat(repository.observe().first().threads.map { it.id to it.unread }).containsExactly("1" to true)
+
+        // Until it is read here again: then it is read for good, and stays in the Inbox.
+        repository.markRead(me, "1")
+        repository.sync(force = true, waitForFollowUps = true)
+        repository.sync(force = true, waitForFollowUps = true)
+        assertThat(repository.observe().first().threads.map { it.id to it.unread }).containsExactly("1" to false)
+    }
+
+    @Test
+    fun a_thread_marked_unread_then_done_is_gone() = runTest {
+        signIn()
+        api.threads = listOf(notificationThread("1", unread = false))
+        userSettings.update { it.copy(readElsewhereIsDone = false) }
+        repository.sync(force = true, waitForFollowUps = true)
+        repository.markUnread(me, "1")
+
+        repository.markDone(me, "1")
+        repository.sync(force = true, waitForFollowUps = true)
+
+        assertThat(repository.observe().first().threads).isEmpty()
+    }
+
+    @Test
+    fun marking_unread_is_taken_back_when_the_forge_refuses() = runTest {
+        signIn()
+        api.threads = listOf(notificationThread("1", unread = false))
+        userSettings.update { it.copy(readElsewhereIsDone = false) }
+        repository.sync(force = true, waitForFollowUps = true)
+
+        api.failure = ForgeError.Network
+        assertThat(repository.markUnread(me, "1")).isEqualTo(ForgeResult.Failure(ForgeError.Network))
+        api.failure = null
+        repository.sync(force = true, waitForFollowUps = true)
+
+        assertThat(repository.observe().first().threads.map { it.id to it.unread }).containsExactly("1" to false)
     }
 
     @Test
@@ -654,7 +707,7 @@ class DefaultInboxRepositoryTest {
             override suspend fun issue(token: String?, ref: IssueRef) = together.arrive("#${ref.number}").let { issueApi.issue(token, ref) }
         }
         val ahead = DefaultIssueRepository(FakeForgeClients(issues = meeting), accounts, database.conversationDao(), clock)
-        val inbox = DefaultInboxRepository(database.inboxDao(), state.doneDao(), clients, accounts, ahead, clock, background, computation, userSettings)
+        val inbox = DefaultInboxRepository(database.inboxDao(), state.doneDao(), state.keptUnreadDao(), clients, accounts, ahead, clock, background, computation, userSettings)
 
         realTime { inbox.sync(force = true, waitForFollowUps = true) }
 

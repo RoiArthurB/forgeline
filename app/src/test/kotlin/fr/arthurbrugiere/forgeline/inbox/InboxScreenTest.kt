@@ -58,6 +58,7 @@ class InboxScreenTest {
                 onRefresh = { events += "refresh" },
                 onOpen = { events += "open:${it.id}" },
                 onMarkRead = { events += "read:${it.id}" },
+                onMarkUnread = { events += "unread:${it.id}" },
                 onMarkDone = { events += "done:${it.id}" },
                 onUnsubscribe = { events += "unsubscribe:${it.id}" },
                 onErrorShown = {},
@@ -194,6 +195,40 @@ class InboxScreenTest {
         composeRule.waitForIdle()
 
         assertThat(events).containsExactly("read:42", "done:43").inOrder()
+    }
+
+    private val readThread = notificationThread("44", repo = "acme/rocket", title = "Docs typo", reason = NotificationReason.MENTION, unread = false)
+
+    @Test
+    fun the_read_swipe_marks_a_read_thread_unread_again() {
+        // The read swipe had nothing to do on a thread already read, which is every thread but a few under All.
+        setContent(InboxUiState(filter = InboxFilter.ALL, groups = listOf(SectionGroup(InboxSection.NEEDS_YOU, listOf(readThread))), syncedAtMillis = 1))
+
+        composeRule.onNodeWithText("Docs typo").performTouchInput { swipeRight() }
+        composeRule.waitForIdle()
+
+        assertThat(events).containsExactly("unread:44")
+        // The row stays, back in place.
+        composeRule.onNodeWithText("Docs typo").assertIsDisplayed()
+    }
+
+    @Test
+    fun the_menu_marks_a_read_thread_unread_and_an_unread_one_read() {
+        setContent(InboxUiState(filter = InboxFilter.ALL, groups = listOf(SectionGroup(InboxSection.NEEDS_YOU, listOf(readThread, mention))), syncedAtMillis = 1))
+
+        composeRule.onAllNodes(hasContentDescription("More actions")).onFirst().performClick()
+        composeRule.onNodeWithText("Mark as unread").performClick()
+        composeRule.onAllNodes(hasContentDescription("More actions"))[1].performClick()
+        composeRule.onNodeWithText("Mark as read").performClick()
+
+        assertThat(events).containsExactly("unread:44", "read:42").inOrder()
+    }
+
+    @Test
+    fun marking_unread_offers_undo() {
+        setContent(grouped.copy(undo = PendingUndo("|44", InboxAction.UNREAD, serial = 1)))
+
+        composeRule.onNodeWithText("Marked as unread").assertIsDisplayed()
     }
 
     @Test

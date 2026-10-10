@@ -56,6 +56,30 @@ class UserStateDatabaseTest {
     }
 
     @Test
+    fun the_first_version_is_brought_up_to_date_with_what_it_held() = runTest {
+        // This database is never rebuilt: a version that can't be migrated to would lose what the reader did.
+        val schema = org.json.JSONObject(java.io.File(SCHEMAS, "1.json").readText()).getJSONObject("database")
+        android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath(USER_STATE_DATABASE).apply { parentFile!!.mkdirs() }, null).use { old ->
+            val tables = schema.getJSONArray("entities")
+            for (i in 0 until tables.length()) {
+                val table = tables.getJSONObject(i)
+                old.execSQL(table.getString("createSql").replace("\${TABLE_NAME}", table.getString("tableName")))
+            }
+            val setup = schema.getJSONArray("setupQueries")
+            for (i in 0 until setup.length()) old.execSQL(setup.getString(i))
+            old.execSQL("INSERT INTO inbox_done (accountId, threadId, updatedAtMillis) VALUES ('github:github.com:me', '7', 3000)")
+            old.version = 1
+        }
+
+        val state = userStateDatabase(context) { allowMainThreadQueries() }
+
+        assertThat(state.doneDao().observe().first().single().threadId).isEqualTo("7")
+        state.keptUnreadDao().upsert(fr.arthurbrugiere.forgeline.core.data.inbox.KeptUnreadEntity("github:github.com:me", "8"))
+        assertThat(state.keptUnreadDao().of("github:github.com:me")).containsExactly("8")
+        state.close()
+    }
+
+    @Test
     fun a_fresh_install_starts_empty() = runTest {
         val state = userStateDatabase(context) { allowMainThreadQueries() }
 
@@ -81,5 +105,10 @@ class UserStateDatabaseTest {
         assertThat(state.readingMarkDao().get("feed")?.itemKey).isEqualTo("e100")
         assertThat(state.doneDao().observe().first()).isEmpty()
         state.close()
+    }
+
+    private companion object {
+        /** Room's exported schemas, one file per version, next to the module's sources. */
+        const val SCHEMAS = "schemas/fr.arthurbrugiere.forgeline.core.data.database.UserStateDatabase"
     }
 }

@@ -65,13 +65,17 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
         query = mapOf("all" to "true", "limit" to "$PAGE_SIZE", "page" to number.toString()),
     )
 
-    override suspend fun markRead(token: String, threadId: String): ForgeResult<Unit> = forgejoCall {
+    override suspend fun markRead(token: String, threadId: String): ForgeResult<Unit> = mark(token, threadId, "read")
+
+    override suspend fun markUnread(token: String, threadId: String): ForgeResult<Unit> = mark(token, threadId, "unread")
+
+    private suspend fun mark(token: String, threadId: String, status: String): ForgeResult<Unit> = forgejoCall {
         try {
-            httpClient.forgejoApi(forge, token, "notifications", "threads", threadId, method = HttpMethod.Patch, query = mapOf("to-status" to "read"))
+            httpClient.forgejoApi(forge, token, "notifications", "threads", threadId, method = HttpMethod.Patch, query = mapOf("to-status" to status))
                 .toResult { }
         } catch (e: IOException) {
             // Forgejo answers 205 with the thread as a body, which HTTP forbids and OkHttp refuses to read. The answer
-            // is thrown away, but it was a yes: the thread is read.
+            // is thrown away, but it was a yes: the thread is marked.
             if (e.isResetContentWithBody()) ForgeResult.Success(Unit) else throw e
         }
     }

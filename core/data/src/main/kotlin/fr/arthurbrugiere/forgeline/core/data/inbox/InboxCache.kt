@@ -74,6 +74,13 @@ data class SubjectStateEntity(
 @Entity(tableName = "inbox_done", primaryKeys = ["accountId", "threadId"])
 data class DoneEntity(val accountId: String, val threadId: String, val updatedAtMillis: Long)
 
+/**
+ * A thread marked unread here, after it was read. Few forges can be told (GitHub can only mark one read), so the
+ * Inbox remembers: the thread shows unread for as long as the forge lists it read, until it is read or done here.
+ */
+@Entity(tableName = "inbox_kept_unread", primaryKeys = ["accountId", "threadId"])
+data class KeptUnreadEntity(val accountId: String, val threadId: String)
+
 @Entity(tableName = "inbox_sync")
 data class InboxSyncEntity(
     @PrimaryKey val accountId: String,
@@ -170,6 +177,27 @@ interface DoneDao {
 
     /** Deletes what was done by accounts other than [accountIds]: those that signed out. */
     @Query("DELETE FROM inbox_done WHERE accountId NOT IN (:accountIds)")
+    suspend fun keepOnly(accountIds: List<String>)
+}
+
+/** Kept in the reader's own database, like [DoneDao]'s. */
+@Dao
+interface KeptUnreadDao {
+    @Query("SELECT threadId FROM inbox_kept_unread WHERE accountId = :accountId")
+    suspend fun of(accountId: String): List<String>
+
+    @Upsert
+    suspend fun upsert(entity: KeptUnreadEntity)
+
+    @Query("DELETE FROM inbox_kept_unread WHERE accountId = :accountId AND threadId = :threadId")
+    suspend fun delete(accountId: String, threadId: String)
+
+    /** Forgets the threads the forge calls unread itself, or no longer lists. */
+    @Query("DELETE FROM inbox_kept_unread WHERE accountId = :accountId AND threadId NOT IN (:threadIds)")
+    suspend fun prune(accountId: String, threadIds: List<String>)
+
+    /** Deletes what accounts other than [accountIds] kept unread: those that signed out. */
+    @Query("DELETE FROM inbox_kept_unread WHERE accountId NOT IN (:accountIds)")
     suspend fun keepOnly(accountIds: List<String>)
 }
 

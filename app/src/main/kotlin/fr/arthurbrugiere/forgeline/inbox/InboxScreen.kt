@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.Done
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.MarkEmailRead
+import androidx.compose.material.icons.outlined.MarkEmailUnread
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NewReleases
 import androidx.compose.material.icons.outlined.Notifications
@@ -184,6 +185,7 @@ fun InboxRoute(
             onOpenThread(thread)
         },
         onMarkRead = viewModel::markRead,
+        onMarkUnread = viewModel::markUnread,
         onMarkDone = viewModel::markDone,
         onMarkAllDone = viewModel::markAllDone,
         onUnsubscribe = viewModel::unsubscribe,
@@ -266,6 +268,7 @@ fun InboxScreen(
     /** A repository's heading was swiped away: every thread listed under it is done. */
     onMarkAllDone: (List<NotificationThread>) -> Unit = {},
     onSelectAccount: (String?) -> Unit = {},
+    onMarkUnread: (NotificationThread) -> Unit = {},
     nowMillis: Long = rememberNow(state.groups),
 ) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
     val colors = Soft.colors
@@ -283,6 +286,7 @@ fun InboxScreen(
     // clears [undo] when time is up, which ends this effect and takes the snackbar away with it.
     val undoMessages = mapOf(
         InboxAction.READ to stringResource(R.string.inbox_undo_read),
+        InboxAction.UNREAD to stringResource(R.string.inbox_undo_unread),
         InboxAction.DONE to stringResource(R.string.inbox_undo_done),
         InboxAction.UNSUBSCRIBE to stringResource(R.string.inbox_undo_unsubscribed),
     )
@@ -397,7 +401,7 @@ fun InboxScreen(
                             SectionHeading(group.section, group.threads.count { it.unread }, Modifier.animateItem())
                         }
                         if (group.section == InboxSection.NEEDS_YOU) {
-                            threadItems(group.threads, group.section, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe)
+                            threadItems(group.threads, group.section, nowMillis, onOpen, onMarkRead, onMarkUnread, onMarkDone, onUnsubscribe)
                         } else {
                             // An owner with a single repository gets one combined heading; one with several heads them all.
                             owners.getValue(group.section).forEach { (forgeOwner, repos) ->
@@ -413,7 +417,7 @@ fun InboxScreen(
                                             Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem(),
                                         )
                                     }
-                                    threadItems(threads, group.section, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe)
+                                    threadItems(threads, group.section, nowMillis, onOpen, onMarkRead, onMarkUnread, onMarkDone, onUnsubscribe)
                                 }
                             }
                         }
@@ -445,13 +449,14 @@ private fun LazyListScope.threadItems(
     nowMillis: Long,
     onOpen: (NotificationThread) -> Unit,
     onMarkRead: (NotificationThread) -> Unit,
+    onMarkUnread: (NotificationThread) -> Unit,
     onMarkDone: (NotificationThread) -> Unit,
     onUnsubscribe: (NotificationThread) -> Unit,
 ) {
     // Keyed by account and id: two forges can use the same thread id, and duplicate keys crash the list.
     items(threads, key = { "thread-${it.key}" }, contentType = { "thread" }) { thread ->
         ThreadRow(
-            thread, section, nowMillis, onOpen, onMarkRead, onMarkDone, onUnsubscribe,
+            thread, section, nowMillis, onOpen, onMarkRead, onMarkUnread, onMarkDone, onUnsubscribe,
             Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem(),
         )
     }
@@ -602,6 +607,7 @@ private fun ThreadRow(
     nowMillis: Long,
     onOpen: (NotificationThread) -> Unit,
     onMarkRead: (NotificationThread) -> Unit,
+    onMarkUnread: (NotificationThread) -> Unit,
     onMarkDone: (NotificationThread) -> Unit,
     onUnsubscribe: (NotificationThread) -> Unit,
     modifier: Modifier = Modifier,
@@ -614,6 +620,10 @@ private fun ThreadRow(
     val swipe = remember { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, threshold) }
     val scope = rememberCoroutineScope()
     val markReadLabel = stringResource(R.string.inbox_mark_read)
+    val markUnreadLabel = stringResource(R.string.inbox_mark_unread)
+    // The same swipe, menu entry and action for both: what it does depends on where the thread stands.
+    val toggleRead = { if (thread.unread) onMarkRead(thread) else onMarkUnread(thread) }
+    val toggleReadLabel = if (thread.unread) markReadLabel else markUnreadLabel
     val doneLabel = stringResource(R.string.inbox_mark_done)
     val unsubscribeLabel = stringResource(R.string.inbox_unsubscribe)
     val animations = animationsEnabled()
@@ -622,15 +632,17 @@ private fun ThreadRow(
     SwipeToDismissBox(
         state = swipe,
         modifier = modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-        // Each side does what Settings says; a side with nothing to do here doesn't move.
-        enableDismissFromStartToEnd = toEnd.appliesTo(thread),
-        enableDismissFromEndToStart = toStart.appliesTo(thread),
-        backgroundContent = { SwipeBackground(swipe.dismissDirection, if (swipe.dismissDirection == SwipeToDismissBoxValue.StartToEnd) toEnd else toStart) },
+        // Each side does what Settings says. The read swipe always has something to do: read threads go back to unread.
+        enableDismissFromStartToEnd = toEnd != SwipeAction.NONE,
+        enableDismissFromEndToStart = toStart != SwipeAction.NONE,
+        backgroundContent = {
+            SwipeBackground(swipe.dismissDirection, if (swipe.dismissDirection == SwipeToDismissBoxValue.StartToEnd) toEnd else toStart, thread.unread)
+        },
         onDismiss = { direction ->
             when (if (direction == SwipeToDismissBoxValue.StartToEnd) toEnd else toStart) {
                 SwipeAction.MARK_READ -> {
-                    onMarkRead(thread)
-                    // The row stays (just read), so bring it back into place.
+                    toggleRead()
+                    // The row stays (read, or unread again), so bring it back into place.
                     scope.launch { swipe.reset() }
                 }
                 SwipeAction.DONE -> onMarkDone(thread)
@@ -656,7 +668,7 @@ private fun ThreadRow(
                     // The dot and the bolder title are visual only: say it.
                     if (thread.unread) stateDescription = unreadState
                     customActions = buildList {
-                        if (thread.unread) add(CustomAccessibilityAction(markReadLabel) { onMarkRead(thread); true })
+                        add(CustomAccessibilityAction(toggleReadLabel) { toggleRead(); true })
                         add(CustomAccessibilityAction(doneLabel) { onMarkDone(thread); true })
                         add(CustomAccessibilityAction(unsubscribeLabel) { onUnsubscribe(thread); true })
                     }
@@ -742,9 +754,7 @@ private fun ThreadRow(
                     shape = RoundedCornerShape(20.dp),
                     containerColor = colors.raised,
                 ) {
-                    if (thread.unread) {
-                        DropdownMenuItem(text = { Text(markReadLabel) }, onClick = { menuOpen = false; onMarkRead(thread) })
-                    }
+                    DropdownMenuItem(text = { Text(toggleReadLabel) }, onClick = { menuOpen = false; toggleRead() })
                     DropdownMenuItem(text = { Text(doneLabel) }, onClick = { menuOpen = false; onMarkDone(thread) })
                     DropdownMenuItem(text = { Text(unsubscribeLabel) }, onClick = { menuOpen = false; onUnsubscribe(thread) })
                 }
@@ -756,16 +766,12 @@ private fun ThreadRow(
 /** Undo on the ink snackbar: ember where it reads (light), the light theme's deeper ember on the pale dark-theme bar. */
 internal fun snackbarAction(colors: SoftColors): Color = if (colors.isDark) SoftLight.accent else colors.thumb
 
-/** Whether swiping [thread] to do this has anything to do: one already read isn't marked read again. */
-private fun SwipeAction.appliesTo(thread: NotificationThread): Boolean = when (this) {
-    SwipeAction.MARK_READ -> thread.unread
-    SwipeAction.DONE -> true
-    SwipeAction.NONE -> false
-}
-
-/** What a swipe does, shown on a soft tint under the row, on the side the row leaves: mint to mark read, ember for done. */
+/**
+ * What a swipe does, shown on a soft tint under the row, on the side the row leaves: mint to mark read (or unread
+ * again, for a thread already read), ember for done.
+ */
 @Composable
-private fun SwipeBackground(direction: SwipeToDismissBoxValue, action: SwipeAction) {
+private fun SwipeBackground(direction: SwipeToDismissBoxValue, action: SwipeAction, unread: Boolean = true) {
     val colors = Soft.colors
     val alignment = when (direction) {
         SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
@@ -773,7 +779,7 @@ private fun SwipeBackground(direction: SwipeToDismissBoxValue, action: SwipeActi
         SwipeToDismissBoxValue.Settled -> return
     }
     val (icon, tint) = when (action) {
-        SwipeAction.MARK_READ -> Icons.Outlined.MarkEmailRead to colors.fields[2]
+        SwipeAction.MARK_READ -> (if (unread) Icons.Outlined.MarkEmailRead else Icons.Outlined.MarkEmailUnread) to colors.fields[2]
         SwipeAction.DONE -> Icons.Outlined.Done to colors.fields[0]
         SwipeAction.NONE -> return
     }
