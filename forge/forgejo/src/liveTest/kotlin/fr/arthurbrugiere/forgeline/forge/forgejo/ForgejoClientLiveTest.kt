@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -60,5 +61,31 @@ class ForgejoClientLiveTest {
         assertThat(api.job(null, website, finished.id, job.id).value().name).isEqualTo(job.name)
         assertThat(api.jobLog(null, website, job.id).value().entries).isNotEmpty()
         assertThat(api.workflows(null, website).value()).isNotEmpty()
+    }
+
+    @Test
+    fun a_pull_request_s_files_commits_and_checks_and_a_history_read() = runBlocking<Unit> {
+        val pulls = ForgejoPullRequestApi(http, ForgeInstance.Codeberg)
+        val open = ForgejoRepoApi(http, ForgeInstance.Codeberg).pullRequests(null, forgejo, fr.arthurbrugiere.forgeline.core.model.IssueQuery()).value()
+        val ref = fr.arthurbrugiere.forgeline.core.model.IssueRef(forgejo, open.first().number, isPullRequest = true)
+
+        // The whole diff, read file by file: Forgejo's own list of files has no changes in it.
+        val files = pulls.files(null, ref).value()
+        assertWithMessage("files of #${ref.number}").that(files.files).isNotEmpty()
+        val patched = files.files.firstOrNull { it.patch != null }
+        if (patched != null) {
+            assertWithMessage("hunks of ${patched.path}").that(fr.arthurbrugiere.forgeline.core.model.parsePatch(patched.patch!!)).isNotEmpty()
+            assertWithMessage("counts of ${patched.path}").that(patched.additions + patched.deletions).isGreaterThan(0)
+        }
+        assertWithMessage("commits").that(pulls.commits(null, ref).value()).isNotEmpty()
+        val checks = pulls.checks(null, ref).value()
+
+        val history = pulls.history(null, forgejo, ref = null, path = "go.mod").value()
+        assertWithMessage("history of go.mod").that(history.commits).isNotEmpty()
+        assertWithMessage("a long history has a next page").that(history.nextPage).isEqualTo(2)
+        val commit = pulls.commit(null, forgejo, history.commits.first().sha).value()
+        // A commit in go.mod's history changed go.mod.
+        assertWithMessage("files of ${commit.commit.shortSha}").that(commit.files.map { it.path }).contains("go.mod")
+        System.err.println("CODEBERG #${ref.number}: ${files.files.size} files, ${checks.size} checks")
     }
 }

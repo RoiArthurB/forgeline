@@ -171,4 +171,43 @@ class GitHubLiveContractTest {
             if (kind != fr.arthurbrugiere.forgeline.core.model.WorkKind.ASSIGNED) assertWithMessage("$kind pull requests").that(items.all { it.issue.isPullRequest }).isTrue()
         }
     }
+
+    private fun <T> ForgeResult<T>.read(what: String): T {
+        assertWithMessage("$what: $this").that(this).isInstanceOf(ForgeResult.Success::class.java)
+        return (this as ForgeResult.Success).value
+    }
+
+    /** Anonymous, on a public repository: a handful of requests out of the sixty an hour GitHub allows without an account. */
+    @Test
+    fun a_pull_request_s_files_commits_and_checks_and_a_history_still_match() = runBlocking {
+        val repo = RepoId("octocat", "Hello-World")
+        val token = pat.ifBlank { null }
+        val pulls = GitHubPullRequestApi(client)
+        val open = GitHubRepoApi(client).pullRequests(token, repo, fr.arthurbrugiere.forgeline.core.model.IssueQuery()).read("pull requests")
+        assumeTrue("no open pull request to read", open.isNotEmpty())
+        val ref = fr.arthurbrugiere.forgeline.core.model.IssueRef(repo, open.first().number, isPullRequest = true)
+
+        val files = pulls.files(token, ref).read("files")
+        assertWithMessage("files of #${ref.number}").that(files.files).isNotEmpty()
+        // A text file's change reads into numbered lines.
+        val patched = files.files.firstOrNull { it.patch != null }
+        if (patched != null) assertWithMessage("hunks of ${patched.path}").that(fr.arthurbrugiere.forgeline.core.model.parsePatch(patched.patch!!)).isNotEmpty()
+        assertWithMessage("commits").that(pulls.commits(token, ref).read("commits")).isNotEmpty()
+        pulls.checks(token, ref).read("checks")
+
+        val history = pulls.history(token, repo, ref = null, path = null).read("history")
+        assertWithMessage("history").that(history.commits).isNotEmpty()
+        val commit = pulls.commit(token, repo, history.commits.first().sha).read("commit")
+        assertThat(commit.commit.sha).isEqualTo(history.commits.first().sha)
+        System.err.println("GITHUB #${ref.number}: ${files.files.size} files, history of ${history.commits.size}, next page ${history.nextPage}")
+    }
+
+    @Test
+    fun blame_still_reads_signed_in() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        val blame = GitHubPullRequestApi(client).blame(pat, RepoId("octocat", "Hello-World"), "master", "README").read("blame")
+
+        assertWithMessage("blame").that(blame).isNotEmpty()
+        assertThat(blame.first().startLine).isEqualTo(1)
+    }
 }
