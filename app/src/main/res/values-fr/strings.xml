@@ -788,7 +788,7 @@
     <string name="merge_blocked">La forge dit que ceci ne peut pas être fusionné en l’état : conflits, vérifications en échec ou approbations manquantes.</string>
     <string name="merge_checking">La forge cherche encore si ceci peut être fusionné. Vous pouvez essayer.</string>
     <string name="merge_failed">La forge a refusé la fusion : %1$s</string>
-    <string name="merge_confirm">Fusionner</string>
+    <string name="merge_confirm">Confirmer la fusion</string>
     <string name="merge_merging">Fusion…</string>
     <string name="merge_method_merge">Commit de fusion</string>
     <string name="merge_method_merge_summary">Chaque commit est gardé, réunis par un commit de fusion</string>
@@ -826,4 +826,28 @@
         <item quantity="many">%d vérifications réussies</item>
         <item quantity="other">%d vérifications réussies</item>
     </plurals>
+    <string name="history_open">Historique</string>
+    <string name="blame_open">Blame</string>
+    <string name="blame_title">Blame</string>
+    <string name="blame_loading">Chargement de qui a modifié quoi</string>
+    <string name="blame_error_title">Impossible de charger le blame</string>
+    <string name="blame_signed_out_title">Connectez-vous pour voir qui a modifié quoi</string>
+    <string name="blame_signed_out_body">GitHub ne dit qu’aux personnes connectées quel commit a modifié chaque ligne en dernier.</string>
+    <string name="new_pull_title">Nouvelle pull request</string>
+    <string name="new_pull_loading">Chargement des branches</string>
+    <string name="new_pull_branches_failed">Impossible de charger les branches</string>
+    <string name="new_pull_one_branch_title">Rien d’où ouvrir une pull request</string>
+    <string name="new_pull_one_branch_body">Ce dépôt n’a qu’une branche. Poussez d’abord la modification sur une autre branche ; une pull request depuis un fork s’ouvre sur la forge.</string>
+    <string name="new_pull_into">Vers</string>
+    <string name="new_pull_from">Depuis</string>
+    <string name="new_pull_base">Branche qui reçoit la modification</string>
+    <string name="new_pull_head">Branche qui contient la modification</string>
+    <string name="new_pull_pick_branch">Choisir une branche</string>
+    <string name="new_pull_same_branch">Une pull request va d’une branche vers une autre.</string>
+    <string name="new_pull_body_hint">Ce qui change, et pourquoi (facultatif)</string>
+    <string name="new_pull_draft">Ouvrir en brouillon</string>
+    <string name="new_pull_draft_summary">Pas encore prête à être fusionnée</string>
+    <string name="new_pull_failed">La forge a refusé la pull request : %1$s</string>
+    <string name="new_pull_send">Ouvrir la pull request</string>
+    <string name="new_pull_sending">Ouverture…</string>
 </resources>

@@ -80,6 +80,8 @@ class RepoScreenTest {
                     openedAsPullRequest += isPullRequest
                 },
                 onNewIssue = { events += "new-issue" },
+                onNewPullRequest = { events += "new-pull" },
+                onOpenHistory = { events += "history" },
                 onShowOpen = { events += "open:$it" },
                 onSearch = { events += "search:$it" },
                 onOpenRelease = { events += "release:$it" },
@@ -353,6 +355,31 @@ class RepoScreenTest {
         composeRule.onNodeWithText("Parent folder").performClick()
 
         assertThat(events).containsExactly("dir:src/app", "file:src/Main.kt", "up").inOrder()
+    }
+
+    @Test
+    fun the_code_tab_leads_to_the_history_of_what_it_shows() {
+        setContent(loaded.copy(tab = RepoTab.CODE, code = CodeState("src", Loadable.Loaded(emptyList()))))
+
+        composeRule.onNodeWithText("History").performClick()
+
+        assertThat(events).containsExactly("history")
+    }
+
+    @Test
+    fun a_history_is_of_code_not_of_a_readme() {
+        setContent(loaded)
+
+        composeRule.onNodeWithText("History").assertDoesNotExist()
+    }
+
+    @Test
+    fun the_pull_requests_tab_offers_to_open_one() {
+        setContent(loaded.copy(tab = RepoTab.PULLS, pulls = Loadable.Loaded(emptyList())))
+
+        composeRule.onNodeWithText("New pull request").performClick()
+
+        assertThat(events).containsExactly("new-pull")
     }
 
     @Test

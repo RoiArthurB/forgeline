@@ -101,7 +101,25 @@ object FakeForgeModule {
 
     @Provides
     @Singleton
-    fun providePullRequestApi(): fr.arthurbrugiere.forgeline.core.forge.PullRequestApi = fr.arthurbrugiere.forgeline.core.testing.FakePullRequestApi()
+    fun provideFakePullRequestApi() = fr.arthurbrugiere.forgeline.core.testing.FakePullRequestApi().apply {
+        // What stands behind the pull request the fake forge asks a review for (octo/tools#88).
+        files = listOf(
+            listOf(
+                fr.arthurbrugiere.forgeline.core.testing.changedFile("src/Upload.kt", "@@ -1,2 +1,2 @@ fun upload()\n val tries = 1\n-send(file)\n+retry { send(file) }"),
+                fr.arthurbrugiere.forgeline.core.testing.changedFile("docs/retry.md", "@@ -0,0 +1 @@\n+Retries three times.", fr.arthurbrugiere.forgeline.core.model.FileChange.ADDED),
+            ),
+        )
+        commits = listOf(fr.arthurbrugiere.forgeline.core.testing.commit("1a2b3c4d5e", "Retry the upload"), fr.arthurbrugiere.forgeline.core.testing.commit("9f8e7d6c5b", "Say so in the docs"))
+        commitDetails["9f8e7d6c5b"] = fr.arthurbrugiere.forgeline.core.model.CommitDetails(commits[1], files[0].drop(1))
+        checks = listOf(
+            fr.arthurbrugiere.forgeline.core.model.Check("build", fr.arthurbrugiere.forgeline.core.model.CheckState.SUCCESS, null, null),
+            fr.arthurbrugiere.forgeline.core.model.Check("lint", fr.arthurbrugiere.forgeline.core.model.CheckState.FAILURE, "2 warnings", "https://ci.example/lint"),
+        )
+    }
+
+    /** The same object as the tests are given, to look at what was sent. */
+    @Provides
+    fun providePullRequestApi(fake: fr.arthurbrugiere.forgeline.core.testing.FakePullRequestApi): fr.arthurbrugiere.forgeline.core.forge.PullRequestApi = fake
 
     @Provides
     @Singleton
@@ -118,6 +136,9 @@ object FakeForgeModule {
             null,
         )
         // A long one, in two pages, that the Inbox has a thread about.
+        val pull = IssueRef(RepoId("octo", "tools"), 88, isPullRequest = true)
+        issues[pull] = issueDetails(pull, "Retry uploads on slow links")
+            .copy(pullRequest = fr.arthurbrugiere.forgeline.core.model.PullRequestInfo(false, false, "main", "retry-uploads", 2, 1, 2, 2))
         val long = IssueRef(ref.repo, 14129)
         issues[long] = issueDetails(long, "Keep install flags on retry")
         val start = java.time.Instant.parse("2026-09-26T09:00:00Z")

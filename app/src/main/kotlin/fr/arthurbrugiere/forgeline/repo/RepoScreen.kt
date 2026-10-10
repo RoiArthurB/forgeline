@@ -161,6 +161,10 @@ fun RepoRoute(
     onOpenRun: (RepoId, Long) -> Unit,
     onOpenUser: (String) -> Unit,
     onSignIn: () -> Unit,
+    /** Opens the history of the repository from a ref, of the folder at [path] when the Code tab is in one. */
+    onOpenHistory: (RepoId, ref: String, path: String?) -> Unit = { _, _, _ -> },
+    /** Opens the form for a new pull request in a repository. */
+    onNewPullRequest: (RepoId) -> Unit = {},
 ) {
     val id = route.repo
     val viewModel = hiltViewModel<RepoViewModel, RepoViewModel.Factory>(key = id.key) { it.create(id) }
@@ -209,6 +213,8 @@ fun RepoRoute(
         onOpenIssue = { number, isPullRequest -> state.details?.let { onOpenIssue(IssueRef(it.id, number, isPullRequest)) } },
         // Opening an issue needs an account on the repository's forge, like starring it.
         onNewIssue = { if (signedIn) state.details?.let { onNewIssue(it.id) } else onSignIn() },
+        onNewPullRequest = { if (signedIn) state.details?.let { onNewPullRequest(it.id) } else onSignIn() },
+        onOpenHistory = { state.details?.let { details -> onOpenHistory(details.id, state.browsedRef ?: details.defaultBranch, state.code.path.ifEmpty { null }) } },
         onShowOpen = viewModel::showOpen,
         onSearch = viewModel::search,
         onOpenRelease = { tag -> state.details?.let { openRelease?.invoke(it.id, tag) } },
@@ -258,6 +264,10 @@ fun RepoScreen(
     onErrorShown: () -> Unit,
     onStarFailureShown: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens the history of what the Code tab shows: the ref browsed, and the folder it is in. */
+    onOpenHistory: () -> Unit = {},
+    /** Opens the form for a new pull request; null where none can be opened. */
+    onNewPullRequest: (() -> Unit)? = null,
     onToggleWatch: () -> Unit = {},
     onOpenDiscussion: (Int) -> Unit = {},
     /** Asks for the next page of the issues or pull requests listed. */
@@ -411,6 +421,13 @@ fun RepoScreen(
                                 })
                             }
                         }
+                        if (state.tab == RepoTab.CODE) {
+                            item(key = "history") {
+                                Row(RowModifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
+                                    SoftTonalButton(stringResource(R.string.history_open), onClick = onOpenHistory)
+                                }
+                            }
+                        }
                         when (state.tab) {
                             RepoTab.README -> when (val refReadme = state.refReadme) {
                                 // Another ref's README loads on demand; the default branch's comes from the cache.
@@ -452,7 +469,12 @@ fun RepoScreen(
                                 }
                             }
                             RepoTab.PULLS -> {
-                                item(key = "pulls-find") { ListControls(state.pullQuery, stringResource(R.string.repo_search_pulls), onShowOpen, onSearch, onNewIssue = null) }
+                                item(key = "pulls-find") {
+                                    ListControls(
+                                        state.pullQuery, stringResource(R.string.repo_search_pulls), onShowOpen, onSearch,
+                                        onNewIssue = onNewPullRequest, newLabel = stringResource(R.string.new_pull_title),
+                                    )
+                                }
                                 loadable(state.pulls, state.pullQuery.emptyMessage(R.string.repo_no_pulls, R.string.repo_no_closed_pulls), onRetryTab) { pulls ->
                                     items(pulls, key = { "pull-${it.number}" }) { IssueSummaryRow(it, nowMillis, { number -> onOpenIssue(number, it.isPullRequest) }) }
                                     more(state.pullPaging, onLoadMore)
@@ -527,18 +549,25 @@ private fun IssueQuery.emptyMessage(noneOpen: Int, noneClosed: Int): Int = when 
  * there is one, and a field to look for words among them.
  */
 @Composable
-private fun ListControls(query: IssueQuery, searchHint: String, onShowOpen: (Boolean) -> Unit, onSearch: (String) -> Unit, onNewIssue: (() -> Unit)?) {
+private fun ListControls(
+    query: IssueQuery,
+    searchHint: String,
+    onShowOpen: (Boolean) -> Unit,
+    onSearch: (String) -> Unit,
+    onNewIssue: (() -> Unit)?,
+    newLabel: String = stringResource(R.string.new_issue_title),
+) {
     val colors = Soft.colors
     Column(RowModifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         val options = listOf(stringResource(R.string.repo_list_open), stringResource(R.string.repo_list_closed))
         // Side by side, the switch's words shrink at large text: there, the action goes under it.
         if (onNewIssue != null && LocalDensity.current.fontScale > 1.3f) {
             SoftSwitch(options, selected = if (query.open) 0 else 1, onSelect = { onShowOpen(it == 0) })
-            SoftTonalButton(stringResource(R.string.new_issue_title), onClick = onNewIssue)
+            SoftTonalButton(newLabel, onClick = onNewIssue)
         } else {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 SoftSwitch(options, selected = if (query.open) 0 else 1, onSelect = { onShowOpen(it == 0) }, modifier = Modifier.weight(1f))
-                if (onNewIssue != null) SoftTonalButton(stringResource(R.string.new_issue_title), onClick = onNewIssue)
+                if (onNewIssue != null) SoftTonalButton(newLabel, onClick = onNewIssue)
             }
         }
         SoftTextField(

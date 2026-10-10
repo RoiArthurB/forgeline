@@ -112,7 +112,7 @@ class PullRequestPanelTest {
         // The repository's own choice is the one picked; rebasing isn't allowed here, so it isn't offered.
         composeRule.onNodeWithText("Rebase and merge").assertDoesNotExist()
         composeRule.onNodeWithText("Merge commit").performClick()
-        composeRule.onAllNodes(androidx.compose.ui.test.hasText("Merge") and androidx.compose.ui.test.hasClickAction())[1].performClick()
+        composeRule.onNodeWithText("Confirm merge").performClick()
 
         assertThat(events).containsExactly("merge:MERGE")
     }
@@ -137,7 +137,7 @@ class PullRequestPanelTest {
         composeRule.onNodeWithText("Merge").performClick()
 
         composeRule.onNodeWithText("can't be merged as it is", substring = true).assertIsDisplayed()
-        composeRule.onAllNodes(androidx.compose.ui.test.hasText("Merge") and androidx.compose.ui.test.hasClickAction())[1].assertIsNotEnabled()
+        composeRule.onNodeWithText("Confirm merge").assertIsNotEnabled()
     }
 
     @Test
@@ -147,7 +147,7 @@ class PullRequestPanelTest {
         composeRule.onNodeWithText("Merge").performClick()
 
         composeRule.onNodeWithText("still working out", substring = true).assertIsDisplayed()
-        composeRule.onAllNodes(androidx.compose.ui.test.hasText("Merge") and androidx.compose.ui.test.hasClickAction())[1].assertIsEnabled()
+        composeRule.onNodeWithText("Confirm merge").assertIsEnabled()
     }
 
     @Test

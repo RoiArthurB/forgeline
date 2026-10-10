@@ -6,6 +6,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import fr.arthurbrugiere.forgeline.core.data.pull.PullRequestRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.markdown.CodeHighlighter
@@ -43,12 +44,15 @@ data class FileUiState(
     val webUrl: String,
     /** Resolves relative paths when the file is Markdown. */
     val readmeContext: ReadmeContext,
+    /** Whether the forge can say which commit last changed each line: Forgejo's API can't. */
+    val canBlame: Boolean = false,
 )
 
 @HiltViewModel(assistedFactory = FileViewModel.Factory::class)
 class FileViewModel @AssistedInject constructor(
     @Assisted private val target: FileTarget,
     private val repos: RepoRepository,
+    pulls: PullRequestRepository,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -60,6 +64,7 @@ class FileViewModel @AssistedInject constructor(
         FileUiState(
             target = target,
             webUrl = repos.blobBaseUrl(target.id, target.ref) + target.path,
+            canBlame = pulls.supportsBlame(target.id.forge),
             readmeContext = ReadmeContext(
                 rawBaseUrl = repos.rawBaseUrl(target.id, target.ref),
                 blobBaseUrl = repos.blobBaseUrl(target.id, target.ref),

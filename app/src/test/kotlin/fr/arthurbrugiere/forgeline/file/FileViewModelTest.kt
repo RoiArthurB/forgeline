@@ -22,10 +22,16 @@ class FileViewModelTest {
 
     private val id = RepoId("octo", "repo")
     private val repos = FakeRepoRepository()
+    private val pulls = fr.arthurbrugiere.forgeline.core.data.pull.DefaultPullRequestRepository(
+        fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients().apply {
+            put(fr.arthurbrugiere.forgeline.core.model.ForgeInstance.Codeberg, fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients(pulls = fr.arthurbrugiere.forgeline.core.testing.FakePullRequestApi(supportsBlame = false)))
+        },
+        fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository(),
+    )
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
-    private fun viewModel(path: String) = FileViewModel(FileTarget(id, path, "main"), repos)
+    private fun viewModel(path: String) = FileViewModel(FileTarget(id, path, "main"), repos, pulls)
 
     @Test
     fun loads_text_files() = test {
@@ -94,5 +100,14 @@ class FileViewModelTest {
     fun pictures_are_told_by_their_name() {
         assertThat(listOf("a.png", "b.JPG", "c.jpeg", "d.gif", "e.webp", "f.svg", "g.ico", "h.avif", "i.bmp").all(::isPicture)).isTrue()
         assertThat(listOf("png", "a.png.txt", "README.md", "Makefile", "x.pdf").none(::isPicture)).isTrue()
+    }
+
+    @Test
+    fun blame_is_offered_where_the_forge_can_tell_it() {
+        // Forgejo's API has no blame (see issue #15): the file's page doesn't offer what it can't show.
+        val onCodeberg = FileViewModel(FileTarget(RepoId("forgejo", "forgejo", fr.arthurbrugiere.forgeline.core.model.ForgeInstance.Codeberg), "go.mod", "forgejo"), repos, pulls)
+
+        assertThat(viewModel("src/Main.kt").state.value.canBlame).isTrue()
+        assertThat(onCodeberg.state.value.canBlame).isFalse()
     }
 }

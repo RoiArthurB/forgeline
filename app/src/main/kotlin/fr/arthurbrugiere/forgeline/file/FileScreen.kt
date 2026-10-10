@@ -26,6 +26,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.Arrangement
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -81,6 +85,10 @@ fun FileRoute(
     onOpenRepo: (RepoId) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
     onOpenUser: (String) -> Unit,
+    /** Opens the commits that changed the file, newest first. */
+    onOpenHistory: (FileTarget) -> Unit = {},
+    /** Opens the file with, beside each run of lines, the commit that last changed it. */
+    onOpenBlame: (FileTarget) -> Unit = {},
 ) {
     val target = FileTarget(route.repo, route.path, route.ref)
     val viewModel = hiltViewModel<FileViewModel, FileViewModel.Factory>(
@@ -99,10 +107,12 @@ fun FileRoute(
         onOpenInBrowser = openUrl,
         onLinkClick = { url -> openForgeLink(url, target.id.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion) },
         onCopy = { text -> scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(target.name, text))) } },
+        onOpenHistory = { onOpenHistory(target) },
+        onOpenBlame = { onOpenBlame(target) },
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun FileScreen(
     state: FileUiState,
@@ -112,6 +122,8 @@ fun FileScreen(
     onLinkClick: (String) -> Unit,
     onCopy: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onOpenHistory: () -> Unit = {},
+    onOpenBlame: () -> Unit = {},
 ) {
     val colors = Soft.colors
     val content = state.content
@@ -141,6 +153,13 @@ fun FileScreen(
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+                // Where the file comes from: who changed it, and for text, who last left each line.
+                FlowRow(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SoftTonalButton(stringResource(R.string.history_open), onClick = onOpenHistory)
+                    if (state.canBlame && content is Loadable.Loaded && content.value is FileContent.Text) {
+                        SoftTonalButton(stringResource(R.string.blame_open), onClick = onOpenBlame)
+                    }
+                }
             }
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {

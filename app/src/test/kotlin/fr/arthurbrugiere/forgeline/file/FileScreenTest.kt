@@ -52,8 +52,36 @@ class FileScreenTest {
                 onOpenInBrowser = { events += "browser:$it" },
                 onLinkClick = { events += "link:$it" },
                 onCopy = { events += "copy:${it.length}" },
+                onOpenHistory = { events += "history" },
+                onOpenBlame = { events += "blame" },
             )
         }
+    }
+
+    @Test
+    fun a_file_leads_to_its_history_and_where_the_forge_can_tell_to_its_blame() {
+        setContent(state("src/Main.kt", Loadable.Loaded(FileContent.Text("fun main() {}\n"))).copy(canBlame = true))
+
+        composeRule.onNodeWithText("History").performClick()
+        composeRule.onNodeWithText("Blame").performClick()
+
+        assertThat(events).containsExactly("history", "blame").inOrder()
+    }
+
+    @Test
+    fun blame_is_not_offered_where_the_forge_has_none_nor_for_a_file_that_is_not_text() {
+        // Forgejo's API serves no blame: the button would lead to nothing.
+        setContent(state("src/Main.kt", Loadable.Loaded(FileContent.Text("fun main() {}\n"))))
+        composeRule.onNodeWithText("History").assertExists()
+        composeRule.onNodeWithText("Blame").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_file_that_is_not_text_has_a_history_and_no_blame() {
+        setContent(state("logo.bin", Loadable.Loaded(FileContent.Binary)).copy(canBlame = true))
+
+        composeRule.onNodeWithText("History").assertExists()
+        composeRule.onNodeWithText("Blame").assertDoesNotExist()
     }
 
     @Test

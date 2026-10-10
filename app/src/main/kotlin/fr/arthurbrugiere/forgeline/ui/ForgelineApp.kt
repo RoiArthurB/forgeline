@@ -51,6 +51,7 @@ import fr.arthurbrugiere.forgeline.navigation.newIssueRoute
 import fr.arthurbrugiere.forgeline.navigation.changesRoute
 import fr.arthurbrugiere.forgeline.navigation.commitsRoute
 import fr.arthurbrugiere.forgeline.navigation.commitRoute
+import fr.arthurbrugiere.forgeline.navigation.historyRoute
 import fr.arthurbrugiere.forgeline.navigation.ReleaseRoute as ReleaseKey
 import fr.arthurbrugiere.forgeline.release.ReleaseRoute as ReleaseDestination
 import fr.arthurbrugiere.forgeline.navigation.releaseRoute
@@ -141,7 +142,11 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
         }
         entry<PictureRoute> { key -> PictureScreen(key, onBack = navigator::goBack, onOpenInBrowser = rememberCustomTabOpener()) }
         entry<FileKey> { key ->
-            FileDestination(key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.repo.forge, it) })
+            FileDestination(
+                key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.repo.forge, it) },
+                onOpenHistory = { file -> navigator.navigate(file.id.historyRoute(file.ref, file.path)) },
+                onOpenBlame = { file -> navigator.navigate(fr.arthurbrugiere.forgeline.navigation.BlameRoute(file.id.forge.host, file.id.owner, file.id.name, file.path, file.ref)) },
+            )
         }
         entry<IssueKey> { key ->
             IssueDestination(
@@ -154,6 +159,12 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 onOpenCommits = { navigator.navigate(it.commitsRoute()) },
                 onOpenRun = { id, runId -> navigator.navigate(RunKey(id.forge.host, id.owner, id.name, runId)) },
             )
+        }
+        entry<fr.arthurbrugiere.forgeline.navigation.BlameRoute> { key ->
+            fr.arthurbrugiere.forgeline.pull.BlameRoute(key, onBack = navigator::goBack, onOpenCommit = { sha -> navigator.navigate(key.repo.commitRoute(sha)) }, onSignIn = signIn)
+        }
+        entry<fr.arthurbrugiere.forgeline.navigation.NewPullRequestRoute> { key ->
+            fr.arthurbrugiere.forgeline.pull.NewPullRequestRoute(key, onBack = navigator::goBack, onCreated = { navigator.replaceCurrent(it.route()) })
         }
         entry<fr.arthurbrugiere.forgeline.navigation.ChangesRoute> { key -> fr.arthurbrugiere.forgeline.pull.ChangesRoute(key, onBack = navigator::goBack) }
         entry<fr.arthurbrugiere.forgeline.navigation.CommitsRoute> { key ->
@@ -196,6 +207,8 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 onOpenRun = { id, runId -> navigator.navigate(RunKey(id.forge.host, id.owner, id.name, runId)) },
                 onOpenUser = { openUser(key.repo.forge, it) },
                 onSignIn = signIn,
+                onOpenHistory = { id, ref, path -> navigator.navigate(id.historyRoute(ref, path)) },
+                onNewPullRequest = { id -> navigator.navigate(fr.arthurbrugiere.forgeline.navigation.NewPullRequestRoute(id.forge.host, id.owner, id.name)) },
             )
         }
         entry<YouRoute> {

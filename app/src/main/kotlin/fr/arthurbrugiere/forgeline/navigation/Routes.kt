@@ -127,6 +127,18 @@ data class CommitsRoute(val host: String, val owner: String, val name: String, v
         }
 }
 
+/** A file with, beside each run of lines, the commit that last changed it. */
+@Serializable
+data class BlameRoute(val host: String, val owner: String, val name: String, val path: String, val ref: String) : NavKey {
+    val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
+}
+
+/** The form that opens a pull request in a repository. */
+@Serializable
+data class NewPullRequestRoute(val host: String, val owner: String, val name: String) : NavKey {
+    val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
+}
+
 @Serializable
 data class RunRoute(val host: String, val owner: String, val name: String, val runId: Long) : NavKey {
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))

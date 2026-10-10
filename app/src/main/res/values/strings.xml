@@ -797,7 +797,7 @@
     <string name="merge_blocked">The forge says this can\'t be merged as it is: conflicts, failing checks or missing approvals.</string>
     <string name="merge_checking">The forge is still working out whether this can be merged. You can try.</string>
     <string name="merge_failed">The forge refused the merge: %1$s</string>
-    <string name="merge_confirm">Merge</string>
+    <string name="merge_confirm">Confirm merge</string>
     <string name="merge_merging">Merging…</string>
     <string name="merge_method_merge">Merge commit</string>
     <string name="merge_method_merge_summary">Every commit is kept, joined by a merge commit</string>
@@ -829,4 +829,28 @@
         <item quantity="one">%d check passed</item>
         <item quantity="other">%d checks passed</item>
     </plurals>
+    <string name="history_open">History</string>
+    <string name="blame_open">Blame</string>
+    <string name="blame_title">Blame</string>
+    <string name="blame_loading">Loading who changed what</string>
+    <string name="blame_error_title">Couldn\'t load the blame</string>
+    <string name="blame_signed_out_title">Sign in to see who changed what</string>
+    <string name="blame_signed_out_body">GitHub only tells signed-in people which commit last changed each line.</string>
+    <string name="new_pull_title">New pull request</string>
+    <string name="new_pull_loading">Loading the branches</string>
+    <string name="new_pull_branches_failed">Couldn\'t load the branches</string>
+    <string name="new_pull_one_branch_title">Nothing to open a pull request from</string>
+    <string name="new_pull_one_branch_body">This repository has a single branch. Push the change to another branch first; a pull request from a fork is opened on the forge.</string>
+    <string name="new_pull_into">Into</string>
+    <string name="new_pull_from">From</string>
+    <string name="new_pull_base">Branch the change goes into</string>
+    <string name="new_pull_head">Branch that holds the change</string>
+    <string name="new_pull_pick_branch">Pick a branch</string>
+    <string name="new_pull_same_branch">A pull request goes from one branch into another.</string>
+    <string name="new_pull_body_hint">What changes, and why (optional)</string>
+    <string name="new_pull_draft">Open as a draft</string>
+    <string name="new_pull_draft_summary">Not ready to be merged yet</string>
+    <string name="new_pull_failed">The forge refused the pull request: %1$s</string>
+    <string name="new_pull_send">Open pull request</string>
+    <string name="new_pull_sending">Opening…</string>
 </resources>
