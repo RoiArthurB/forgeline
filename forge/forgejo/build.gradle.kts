@@ -31,6 +31,8 @@ testing {
             targets.all {
                 testTask.configure {
                     environment("CODEBERG_LIVE_TOKEN", providers.environmentVariable("CODEBERG_LIVE_TOKEN").getOrElse(""))
+                    // Set by hand, on one's own machine: CI never writes to this forge.
+                    environment("CODEBERG_LIVE_WRITES", providers.environmentVariable("CODEBERG_LIVE_WRITES").getOrElse(""))
                     outputs.upToDateWhen { false }
                 }
             }

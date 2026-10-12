@@ -26,10 +26,13 @@ testing {
                 implementation(libs.truth)
                 implementation(libs.ktor.client.okhttp)
                 implementation(libs.kotlinx.coroutines.core)
+                implementation(libs.kotlinx.serialization.json)
             }
             targets.all {
                 testTask.configure {
                     environment("LIVE_TEST_PAT", providers.environmentVariable("LIVE_TEST_PAT").getOrElse(""))
+                    // Set by hand, on one's own machine: CI never writes to this forge.
+                    environment("GITHUB_LIVE_WRITES", providers.environmentVariable("GITHUB_LIVE_WRITES").getOrElse(""))
                     outputs.upToDateWhen { false }
                 }
             }

@@ -69,10 +69,11 @@ class GitHubRepoSettingsApi(
 
     override suspend fun delete(token: String, repo: RepoId): ForgeResult<RepoDeletion> = gitHubCall {
         val response = httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, method = HttpMethod.Delete)
-        // GitHub says which scope a refused call wanted: deleting has its own, which older sign-ins weren't given.
+        // Deleting has a scope of its own, which older sign-ins weren't given. GitHub doesn't say which scope a refused
+        // deletion wanted (its X-Accepted-OAuth-Scopes comes empty, seen 2026-10-12), only which ones the token has;
+        // a token that lists none (a fine-grained one) is refused for another reason.
         val scopes = response.headers["X-OAuth-Scopes"]?.split(',')?.map { it.trim() }
-        val wanted = response.headers["X-Accepted-OAuth-Scopes"]?.split(',')?.map { it.trim() }.orEmpty()
-        if (response.status == HttpStatusCode.Forbidden && scopes != null && DELETE_SCOPE in wanted && DELETE_SCOPE !in scopes) {
+        if (response.status == HttpStatusCode.Forbidden && scopes != null && DELETE_SCOPE !in scopes) {
             return@gitHubCall ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unauthorized)
         }
         response.toResult { RepoDeletion.DELETED }

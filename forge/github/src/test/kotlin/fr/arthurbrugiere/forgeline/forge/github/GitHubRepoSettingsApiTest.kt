@@ -183,13 +183,16 @@ class GitHubRepoSettingsApiTest {
 
     @Test
     fun a_sign_in_without_the_permission_to_delete_is_told_apart_from_a_refusal() = runTest {
-        fun MockRequestHandleScope.forbidden(scopes: String) = respond(
+        // As api.github.com answered a token without the scope on 2026-10-12: it lists the token's scopes, and none it wanted.
+        fun MockRequestHandleScope.forbidden(scopes: String?) = respond(
             """{"message":"Must have admin rights to Repository."}""", HttpStatusCode.Forbidden,
-            headersOf(HttpHeaders.ContentType to listOf("application/json"), "X-OAuth-Scopes" to listOf(scopes), "X-Accepted-OAuth-Scopes" to listOf("delete_repo")),
+            headersOf(*listOfNotNull(HttpHeaders.ContentType to listOf("application/json"), scopes?.let { "X-OAuth-Scopes" to listOf(it) }, "X-Accepted-OAuth-Scopes" to listOf("")).toTypedArray()),
         )
 
         // Signed in before deleting was asked for: signing in again gives it.
-        assertThat(api { forbidden("notifications, read:user, repo, user:follow") }.delete("tok", repo)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(api { forbidden("gist, read:org, repo, workflow") }.delete("tok", repo)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        // A fine-grained token lists no scopes: signing in again wouldn't change what it may do.
+        assertThat(api { forbidden(null) }.delete("tok", repo)).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "Must have admin rights to Repository.")))
         // Allowed to delete, and still refused: not one's repository to delete.
         assertThat(api { forbidden("delete_repo, repo") }.delete("tok", repo))
             .isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "Must have admin rights to Repository.")))
