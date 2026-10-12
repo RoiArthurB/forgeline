@@ -791,6 +791,10 @@
     <string name="check_failed">Failed</string>
     <string name="check_running">Running</string>
     <string name="check_skipped">Skipped</string>
+    <string name="check_loading">Loading the report</string>
+    <string name="check_error_title">Couldn\'t load the report</string>
+    <string name="check_no_report">This check left no report here.</string>
+    <string name="check_open_details">Open on %1$s</string>
     <string name="merge_start">Merge</string>
     <string name="merge_title">Merge pull request</string>
     <string name="merge_blocked_draft">A draft isn\'t merged: mark it ready on the forge first.</string>

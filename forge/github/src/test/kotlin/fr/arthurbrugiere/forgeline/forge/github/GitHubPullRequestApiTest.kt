@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Check
+import fr.arthurbrugiere.forgeline.core.model.CheckReport
 import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
@@ -102,7 +103,7 @@ class GitHubPullRequestApiTest {
                         {"name":"build","status":"completed","conclusion":"success","html_url":"https://github.com/octo/tools/actions/runs/777/job/1","output":{"title":"Built"}},
                         {"name":"test","status":"in_progress","conclusion":null,"html_url":"https://github.com/octo/tools/actions/runs/777/job/2"},
                         {"name":"lint","status":"completed","conclusion":"failure","html_url":"https://github.com/octo/tools/actions/runs/778/job/3"},
-                        {"name":"deploy","status":"completed","conclusion":"skipped","details_url":"https://ci.example/9"}
+                        {"id":4242,"name":"deploy","status":"completed","conclusion":"skipped","details_url":"https://ci.example/9"}
                     ]}""",
                 )
                 else -> json("""{"state":"pending","statuses":[{"context":"coverage/total","state":"pending","description":"Waiting","target_url":"https://cov.example/1"}]}""")
@@ -113,11 +114,48 @@ class GitHubPullRequestApiTest {
             Check("build", CheckState.SUCCESS, "Built", "https://github.com/octo/tools/actions/runs/777/job/1", runId = 777),
             Check("test", CheckState.PENDING, null, "https://github.com/octo/tools/actions/runs/777/job/2", runId = 777),
             Check("lint", CheckState.FAILURE, null, "https://github.com/octo/tools/actions/runs/778/job/3", runId = 778),
-            // Another service's check has a page, not a run the app can show.
-            Check("deploy", CheckState.SKIPPED, null, "https://ci.example/9"),
+            // Another service's check is no run the app can show: it has a report, by its id, and a page.
+            Check("deploy", CheckState.SKIPPED, null, "https://ci.example/9", checkId = 4242),
             Check("coverage/total", CheckState.PENDING, "Waiting", "https://cov.example/1"),
         ).inOrder()
         assertThat(requests.map { it.path }).contains("/repos/octo/tools/commits/abc123/status")
+    }
+
+    @Test
+    fun a_check_s_report_is_what_it_wrote_and_where_it_keeps_more() = runTest {
+        val report = api {
+            json(
+                """{"id":4242,"name":"Code Health Review (main)","status":"completed","conclusion":"failure","completed_at":"2026-10-09T04:03:42Z",
+                    "html_url":"https://github.com/octo/tools/runs/4242","details_url":"https://health.example/results/7",
+                    "app":{"slug":"code-health","name":"Code Health"},
+                    "output":{"title":"PR Check","summary":"## Quality Gate Failed\n\n","text":"* Complex Method **Zip.kt**","annotations_count":0}}""",
+            )
+        }.checkReport("tok", repo, 4242).value()
+
+        assertThat(report).isEqualTo(
+            CheckReport(
+                name = "Code Health Review (main)", state = CheckState.FAILURE, app = "Code Health", title = "PR Check",
+                summary = "## Quality Gate Failed", text = "* Complex Method **Zip.kt**", completedAt = Instant.parse("2026-10-09T04:03:42Z"),
+                detailsUrl = "https://health.example/results/7", url = "https://github.com/octo/tools/runs/4242",
+            ),
+        )
+        assertThat(requests.single().path).isEqualTo("/repos/octo/tools/check-runs/4242")
+    }
+
+    @Test
+    fun a_check_that_wrote_nothing_and_is_still_running_reports_just_that() = runTest {
+        val report = api {
+            json("""{"id":7,"name":"scan","status":"in_progress","conclusion":null,"html_url":"https://github.com/octo/tools/runs/7","details_url":"https://github.com/octo/tools/runs/7","output":{"title":null,"summary":null,"text":null}}""")
+        }.checkReport(null, repo, 7).value()
+
+        assertThat(report).isEqualTo(CheckReport("scan", CheckState.PENDING, null, null, null, null, null, detailsUrl = null, url = "https://github.com/octo/tools/runs/7"))
+    }
+
+    @Test
+    fun a_check_that_is_gone_fails() = runTest {
+        val result = api { json("""{"message":"Not Found"}""", HttpStatusCode.NotFound) }.checkReport(null, repo, 7)
+
+        assertThat(result).isInstanceOf(ForgeResult.Failure::class.java)
     }
 
     @Test

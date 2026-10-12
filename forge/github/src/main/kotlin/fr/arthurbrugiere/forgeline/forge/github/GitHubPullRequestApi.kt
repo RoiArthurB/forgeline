@@ -7,6 +7,7 @@ import fr.arthurbrugiere.forgeline.core.model.BlameRange
 import fr.arthurbrugiere.forgeline.core.model.ChangedFile
 import fr.arthurbrugiere.forgeline.core.model.ChangedFiles
 import fr.arthurbrugiere.forgeline.core.model.Check
+import fr.arthurbrugiere.forgeline.core.model.CheckReport
 import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.CommitDetails
@@ -77,6 +78,10 @@ class GitHubPullRequestApi(
             val reported = statuses.await().takeIf { it.status == HttpStatusCode.OK }?.body<PrCombinedStatusJson>()?.statuses.orEmpty()
             ForgeResult.Success(runsResponse.body<PrCheckRunsJson>().checkRuns.map { it.toModel() } + reported.map { it.toModel() })
         }
+    }
+
+    override suspend fun checkReport(token: String?, repo: RepoId, checkId: Long): ForgeResult<CheckReport> = gitHubCall {
+        repo(token, repo, "check-runs", checkId.toString()).toResult { body<PrCheckRunJson>().toReport() }
     }
 
     override suspend fun mergeInfo(token: String, ref: IssueRef): ForgeResult<MergeInfo> = gitHubCall {
@@ -271,7 +276,10 @@ private data class PrCheckRunsJson(@SerialName("check_runs") val checkRuns: List
 private val actionsRun = Regex("""/actions/runs/(\d+)""")
 
 @Serializable
-private data class PrCheckOutputJson(val title: String? = null)
+private data class PrCheckOutputJson(val title: String? = null, val summary: String? = null, val text: String? = null)
+
+@Serializable
+private data class PrCheckAppJson(val name: String? = null)
 
 @Serializable
 private data class PrCheckRunJson(
@@ -281,19 +289,39 @@ private data class PrCheckRunJson(
     @SerialName("html_url") val htmlUrl: String? = null,
     @SerialName("details_url") val detailsUrl: String? = null,
     val output: PrCheckOutputJson? = null,
+    val id: Long? = null,
+    val app: PrCheckAppJson? = null,
+    @SerialName("completed_at") val completedAt: String? = null,
 ) {
-    fun toModel() = Check(
-        name = name,
-        state = when {
+    private val state
+        get() = when {
             status != "completed" -> CheckState.PENDING
             conclusion == "success" -> CheckState.SUCCESS
             conclusion == "skipped" || conclusion == "neutral" -> CheckState.SKIPPED
             else -> CheckState.FAILURE
-        },
+        }
+
+    fun toModel() = Check(
+        name = name,
+        state = state,
         description = output?.title,
         url = htmlUrl ?: detailsUrl,
         // An Actions job says which run it is part of in its address: the app shows that run itself.
         runId = (htmlUrl ?: detailsUrl)?.let { actionsRun.find(it)?.groupValues?.get(1)?.toLongOrNull() },
+        checkId = id,
+    )
+
+    fun toReport() = CheckReport(
+        name = name,
+        state = state,
+        app = app?.name,
+        title = output?.title,
+        summary = output?.summary?.trim()?.ifEmpty { null },
+        text = output?.text?.trim()?.ifEmpty { null },
+        completedAt = completedAt?.let { runCatching { Instant.parse(it) }.getOrNull() },
+        // The service's own page is where the forge's page for the check would only send on to.
+        detailsUrl = detailsUrl?.takeIf { it != htmlUrl },
+        url = htmlUrl,
     )
 }
 

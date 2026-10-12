@@ -43,6 +43,11 @@ class PullRequestPanelTest {
         Check("lint", CheckState.FAILURE, null, "https://github.com/octo/tools/actions/runs/778/job/3", runId = 778),
         Check("coverage", CheckState.PENDING, "Waiting", "https://cov.example/1"),
     )
+    private val reported = listOf(
+        Check("health", CheckState.FAILURE, "PR Check", "https://github.com/octo/tools/runs/4242", checkId = 4242),
+        // A job of a run has an id of its own too: the run is what opens.
+        Check("unit", CheckState.SUCCESS, null, "https://github.com/octo/tools/actions/runs/777/job/9", runId = 777, checkId = 9),
+    )
     private val mergeable = MergeInfo(mergeable = true, canMerge = true, methods = listOf(MergeMethod.SQUASH, MergeMethod.MERGE))
 
     private fun setContent(state: PullRequestUiState, issue: fr.arthurbrugiere.forgeline.core.model.IssueDetails = open) = composeRule.setContent {
@@ -54,6 +59,7 @@ class PullRequestPanelTest {
                     onOpenChanges = { events += "changes" },
                     onOpenCommits = { events += "commits" },
                     onOpenRun = { events += "run:$it" },
+                    onOpenCheck = { id, name -> events += "check:$id:$name" },
                     onOpenUrl = { events += "url:$it" },
                     onMerge = { events += "merge:$it" },
                     onReview = { verdict, body -> events += "review:$verdict:$body" },
@@ -89,6 +95,19 @@ class PullRequestPanelTest {
         composeRule.onNodeWithText("lint").performClick()
 
         assertThat(events).containsExactly("url:https://cov.example/1", "run:778").inOrder()
+    }
+
+    @Test
+    fun a_check_that_left_a_report_opens_it_in_the_app_not_in_the_browser() {
+        setContent(PullRequestUiState(checks = reported))
+
+        composeRule.onNodeWithText("1 of 2 checks failed").performClick()
+        composeRule.onNodeWithText("health").performClick()
+        // The sheet closed on the way: it is opened again for the other one.
+        composeRule.onNodeWithText("1 of 2 checks failed").performClick()
+        composeRule.onNodeWithText("unit").performClick()
+
+        assertThat(events).containsExactly("check:4242:health", "run:777").inOrder()
     }
 
     @Test

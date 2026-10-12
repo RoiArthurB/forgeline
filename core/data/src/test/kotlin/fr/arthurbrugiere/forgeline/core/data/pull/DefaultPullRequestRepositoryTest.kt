@@ -3,6 +3,8 @@ package fr.arthurbrugiere.forgeline.core.data.pull
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.CheckReport
+import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -42,6 +44,16 @@ class DefaultPullRequestRepositoryTest {
         assertThat(second.files.single().path).isEqualTo("c.go")
         assertThat(gitHub.calls).containsExactly("files:octo/tools#88:1")
         assertThat(gitLab.calls).containsExactly("files:group/app#7:2")
+    }
+
+    @Test
+    fun a_check_s_report_is_read_signed_out_and_only_where_the_forge_keeps_one() = runTest {
+        val report = CheckReport("health", CheckState.FAILURE, "Code Health", null, "Gate failed", null, null, null, null)
+        gitHub.checkReports[4242] = report
+
+        assertThat(repository.checkReport(tools, 4242)).isEqualTo(ForgeResult.Success(report))
+        assertThat(repository.checkReport(tools, 1)).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "Not Found")))
+        assertThat(gitHub.calls).containsExactly("checkReport:octo/tools:4242", "checkReport:octo/tools:1").inOrder()
     }
 
     @Test

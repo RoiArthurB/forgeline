@@ -76,6 +76,8 @@ class PullActions(
     val onOpenCommits: () -> Unit = {},
     /** Opens the run a check is part of, in the app. */
     val onOpenRun: (Long) -> Unit = {},
+    /** Opens what a check reported, in the app: its id on the forge, and its name. */
+    val onOpenCheck: (Long, String) -> Unit = { _, _ -> },
     val onOpenUrl: (String) -> Unit = {},
     val onMerge: (MergeMethod) -> Unit = {},
     val onMergeErrorShown: () -> Unit = {},
@@ -100,7 +102,7 @@ fun PullRequestPanel(issue: IssueDetails, state: PullRequestUiState, actions: Pu
         merging = false
     }
     val checks = state.checks.orEmpty()
-    if (showChecks) ChecksSheet(checks, actions.onOpenRun, actions.onOpenUrl, onDismiss = { showChecks = false })
+    if (showChecks) ChecksSheet(checks, actions.onOpenRun, actions.onOpenCheck, actions.onOpenUrl, onDismiss = { showChecks = false })
     if (reviewing) {
         ReviewSheet(state.verdicts, remarks = 0, isSending = state.isSending, error = state.reviewError, onSubmit = actions.onReview) {
             reviewing = false
@@ -187,10 +189,10 @@ internal val CheckState.label: Int
         CheckState.SKIPPED -> R.string.check_skipped
     }
 
-/** Each check with where it stands; one opens its run in the app when it has one, its own page otherwise. */
+/** Each check with where it stands; one opens its run or its report in the app when it has one, its own page otherwise. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ChecksSheet(checks: List<Check>, onOpenRun: (Long) -> Unit, onOpenUrl: (String) -> Unit, onDismiss: () -> Unit) {
+private fun ChecksSheet(checks: List<Check>, onOpenRun: (Long) -> Unit, onOpenCheck: (Long, String) -> Unit, onOpenUrl: (String) -> Unit, onDismiss: () -> Unit) {
     val colors = Soft.colors
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -202,7 +204,9 @@ private fun ChecksSheet(checks: List<Check>, onOpenRun: (Long) -> Unit, onOpenUr
             Text(checksSummary(checks), style = Soft.type.name, color = colors.ink, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp).semantics { heading() })
             // What failed first: it is what someone opens this for.
             checks.sortedBy { it.state.ordinal.let { order -> if (it.state == CheckState.FAILURE) -1 else order } }.forEach { check ->
-                val open: (() -> Unit)? = check.runId?.let { id -> { onDismiss(); onOpenRun(id) } } ?: check.url?.let { url -> { onOpenUrl(url) } }
+                val open: (() -> Unit)? = check.runId?.let { id -> { onDismiss(); onOpenRun(id) } }
+                    ?: check.checkId?.let { id -> { onDismiss(); onOpenCheck(id, check.name) } }
+                    ?: check.url?.let { url -> { onOpenUrl(url) } }
                 Row(
                     Modifier
                         .fillMaxWidth()

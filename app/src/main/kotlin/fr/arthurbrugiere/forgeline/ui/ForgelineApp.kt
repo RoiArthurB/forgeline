@@ -50,6 +50,7 @@ import fr.arthurbrugiere.forgeline.issue.NewIssueRoute as NewIssueDestination
 import fr.arthurbrugiere.forgeline.navigation.newIssueRoute
 import fr.arthurbrugiere.forgeline.navigation.changesRoute
 import fr.arthurbrugiere.forgeline.navigation.commitsRoute
+import fr.arthurbrugiere.forgeline.navigation.checkRoute
 import fr.arthurbrugiere.forgeline.navigation.commitRoute
 import fr.arthurbrugiere.forgeline.navigation.historyRoute
 import fr.arthurbrugiere.forgeline.navigation.ReleaseRoute as ReleaseKey
@@ -158,7 +159,11 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 onOpenChanges = { navigator.navigate(it.changesRoute()) },
                 onOpenCommits = { navigator.navigate(it.commitsRoute()) },
                 onOpenRun = { id, runId -> navigator.navigate(RunKey(id.forge.host, id.owner, id.name, runId)) },
+                onOpenCheck = { id, checkId, name -> navigator.navigate(id.checkRoute(checkId, name)) },
             )
+        }
+        entry<fr.arthurbrugiere.forgeline.navigation.CheckRoute> { key ->
+            fr.arthurbrugiere.forgeline.pull.CheckRoute(key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.repo.forge, it) })
         }
         entry<fr.arthurbrugiere.forgeline.navigation.BlameRoute> { key ->
             fr.arthurbrugiere.forgeline.pull.BlameRoute(key, onBack = navigator::goBack, onOpenCommit = { sha -> navigator.navigate(key.repo.commitRoute(sha)) }, onSignIn = signIn)

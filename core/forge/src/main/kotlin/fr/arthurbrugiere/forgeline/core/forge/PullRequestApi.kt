@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.core.forge
 import fr.arthurbrugiere.forgeline.core.model.BlameRange
 import fr.arthurbrugiere.forgeline.core.model.ChangedFiles
 import fr.arthurbrugiere.forgeline.core.model.Check
+import fr.arthurbrugiere.forgeline.core.model.CheckReport
 import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
@@ -27,6 +28,9 @@ interface PullRequestApi {
 
     /** What ran on [ref]'s latest commit; empty when nothing did. */
     suspend fun checks(token: String?, ref: IssueRef): ForgeResult<List<Check>>
+
+    /** What the check [checkId] of [repo] reported ([Check.checkId]): only GitHub keeps such reports. */
+    suspend fun checkReport(token: String?, repo: RepoId, checkId: Long): ForgeResult<CheckReport> = ForgeResult.Failure(ForgeError.Unsupported)
 
     /** Whether [ref] can be merged, by the signed-in user, and how. */
     suspend fun mergeInfo(token: String, ref: IssueRef): ForgeResult<MergeInfo>

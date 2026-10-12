@@ -7,6 +7,7 @@ import fr.arthurbrugiere.forgeline.core.model.BlameRange
 import fr.arthurbrugiere.forgeline.core.model.ChangedFile
 import fr.arthurbrugiere.forgeline.core.model.ChangedFiles
 import fr.arthurbrugiere.forgeline.core.model.Check
+import fr.arthurbrugiere.forgeline.core.model.CheckReport
 import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
@@ -38,6 +39,7 @@ class FakePullRequestApi(
     var files: List<List<ChangedFile>> = emptyList()
     var commits: List<Commit> = emptyList()
     var checks: List<Check> = emptyList()
+    val checkReports = mutableMapOf<Long, CheckReport>()
     var mergeInfo = MergeInfo(mergeable = true, canMerge = true, methods = listOf(MergeMethod.MERGE, MergeMethod.SQUASH))
 
     /** Each entry is a page. */
@@ -68,6 +70,12 @@ class FakePullRequestApi(
     override suspend fun commits(token: String?, ref: IssueRef) = read("commits:${ref.name()}") { commits }
 
     override suspend fun checks(token: String?, ref: IssueRef) = read("checks:${ref.name()}") { checks }
+
+    override suspend fun checkReport(token: String?, repo: RepoId, checkId: Long): ForgeResult<CheckReport> {
+        calls += "checkReport:${repo.fullName}:$checkId"
+        failure?.let { return ForgeResult.Failure(it) }
+        return checkReports[checkId]?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Http(404, "Not Found"))
+    }
 
     override suspend fun mergeInfo(token: String, ref: IssueRef) = read("mergeInfo:${ref.name()}") { mergeInfo }
 

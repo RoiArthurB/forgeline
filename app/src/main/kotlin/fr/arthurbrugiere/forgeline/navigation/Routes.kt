@@ -144,6 +144,12 @@ data class RunRoute(val host: String, val owner: String, val name: String, val r
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
 }
 
+/** What one check of a pull request reported; [checkName] is shown while it loads. */
+@Serializable
+data class CheckRoute(val host: String, val owner: String, val name: String, val checkId: Long, val checkName: String) : NavKey {
+    val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
+}
+
 @Serializable
 data class JobLogRoute(val host: String, val owner: String, val name: String, val runId: Long, val jobId: Long, val jobName: String) : NavKey {
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
@@ -170,6 +176,8 @@ fun IssueRef.commitsRoute() = CommitsRoute(repo.forge.host, repo.owner, repo.nam
 fun RepoId.commitRoute(sha: String) = ChangesRoute(forge.host, owner, name, sha = sha)
 
 fun RepoId.historyRoute(ref: String?, path: String? = null) = CommitsRoute(forge.host, owner, name, ref = ref, path = path)
+
+fun RepoId.checkRoute(checkId: Long, checkName: String) = CheckRoute(forge.host, owner, name, checkId, checkName)
 
 fun IssueRef.route() = IssueRoute(repo.forge.host, repo.owner, repo.name, number, isPullRequest)
 

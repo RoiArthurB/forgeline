@@ -156,9 +156,26 @@ enum class CheckState { PENDING, SUCCESS, FAILURE, SKIPPED }
 
 /**
  * Something a forge ran on a pull request's latest commit: a CI job, a status another service reported. [runId]
- * is the run it belongs to, when the app can show it; [url] its page otherwise.
+ * is the run it belongs to, when the app can show it; [checkId] names the report it left on the forge, when it left
+ * one there ([CheckReport]); [url] is its page otherwise.
  */
-data class Check(val name: String, val state: CheckState, val description: String?, val url: String?, val runId: Long? = null)
+data class Check(val name: String, val state: CheckState, val description: String?, val url: String?, val runId: Long? = null, val checkId: Long? = null)
+
+/**
+ * What a check wrote on the forge about what it found: [summary] and [text] are Markdown, either may be missing.
+ * [app] is the service that ran it; [detailsUrl] its own page there, [url] the check's page on the forge.
+ */
+data class CheckReport(
+    val name: String,
+    val state: CheckState,
+    val app: String?,
+    val title: String?,
+    val summary: String?,
+    val text: String?,
+    val completedAt: Instant?,
+    val detailsUrl: String?,
+    val url: String?,
+)
 
 /** Where a set of checks stands as a whole: failed if one did, still running if one is, passed otherwise; null with none. */
 fun List<Check>.overall(): CheckState? = when {

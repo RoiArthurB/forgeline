@@ -193,7 +193,10 @@ class GitHubLiveContractTest {
         val patched = files.files.firstOrNull { it.patch != null }
         if (patched != null) assertWithMessage("hunks of ${patched.path}").that(fr.arthurbrugiere.forgeline.core.model.parsePatch(patched.patch!!)).isNotEmpty()
         assertWithMessage("commits").that(pulls.commits(token, ref).read("commits")).isNotEmpty()
-        pulls.checks(token, ref).read("checks")
+        // A check keeps its report under its id, when one ran here.
+        pulls.checks(token, ref).read("checks").firstNotNullOfOrNull { it.checkId }?.let { id ->
+            assertWithMessage("report of check $id").that(pulls.checkReport(token, repo, id).read("check report").name).isNotEmpty()
+        }
 
         val history = pulls.history(token, repo, ref = null, path = null).read("history")
         assertWithMessage("history").that(history.commits).isNotEmpty()

@@ -221,6 +221,8 @@ fun IssueRoute(
     onOpenCommits: (IssueRef) -> Unit = {},
     /** Opens a CI run of the repository, by its id. */
     onOpenRun: (RepoId, Long) -> Unit = { _, _ -> },
+    /** Opens what a check of the repository reported, by its id; its name shows meanwhile. */
+    onOpenCheck: (RepoId, Long, String) -> Unit = { _, _, _ -> },
 ) {
     val ref = route.issue
     val viewModel = hiltViewModel<IssueViewModel, IssueViewModel.Factory>(key = "${ref.repo.key}${if (ref.isPullRequest == true) "!" else "#"}${ref.number}") { it.create(ref) }
@@ -302,6 +304,7 @@ fun IssueRoute(
             onOpenChanges = { onOpenChanges(pullRef) },
             onOpenCommits = { onOpenCommits(pullRef) },
             onOpenRun = { runId -> onOpenRun(ref.repo, runId) },
+            onOpenCheck = { checkId, name -> onOpenCheck(ref.repo, checkId, name) },
             onOpenUrl = openUrl,
             onMerge = { pull?.merge(it) },
             onMergeErrorShown = { pull?.mergeErrorShown() },

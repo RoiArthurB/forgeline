@@ -113,7 +113,12 @@ object FakeForgeModule {
         commitDetails["9f8e7d6c5b"] = fr.arthurbrugiere.forgeline.core.model.CommitDetails(commits[1], files[0].drop(1))
         checks = listOf(
             fr.arthurbrugiere.forgeline.core.model.Check("build", fr.arthurbrugiere.forgeline.core.model.CheckState.SUCCESS, null, null),
-            fr.arthurbrugiere.forgeline.core.model.Check("lint", fr.arthurbrugiere.forgeline.core.model.CheckState.FAILURE, "2 warnings", "https://ci.example/lint"),
+            fr.arthurbrugiere.forgeline.core.model.Check("lint", fr.arthurbrugiere.forgeline.core.model.CheckState.FAILURE, "2 warnings", "https://github.com/octo/tools/runs/4242", checkId = 4242),
+        )
+        checkReports[4242] = fr.arthurbrugiere.forgeline.core.model.CheckReport(
+            name = "lint", state = fr.arthurbrugiere.forgeline.core.model.CheckState.FAILURE, app = "Lint Bot", title = "2 warnings",
+            summary = "Two lines are longer than they may be.", text = null, completedAt = null,
+            detailsUrl = "https://ci.example/lint", url = "https://github.com/octo/tools/runs/4242",
         )
     }
 

@@ -951,6 +951,41 @@ class ScreenshotTest {
         )
     }
 
+    private val shownCheck = fr.arthurbrugiere.forgeline.core.model.CheckReport(
+        name = "Code Health Review (main)",
+        state = fr.arthurbrugiere.forgeline.core.model.CheckState.FAILURE,
+        app = "Code Health",
+        title = "PR Check",
+        summary = "## Quality Gate Failed\n\n**Gates Failed**\n\n- New code is healthy `(4 new files below 9.00)`\n- Enforce critical rules `(7 files with Bumpy Road Ahead)`\n\n**Gates Passed**\n\n- 1 Quality Gate Passed",
+        text = "### Declining Code Health\n\n* Complex Conditional **CameraHelper.java**: keyPressed\n* Complex Method **ZipBuilder.java**: zip",
+        completedAt = java.time.Instant.parse("2026-09-22T10:00:00Z"),
+        detailsUrl = "https://health.example/results/7",
+        url = "https://github.com/paperclipai/paperclip/runs/4242",
+    )
+
+    @Composable
+    private fun CheckPreview(report: fr.arthurbrugiere.forgeline.core.model.CheckReport? = shownCheck, error: fr.arthurbrugiere.forgeline.core.forge.ForgeError? = null) {
+        fr.arthurbrugiere.forgeline.pull.CheckScreen(
+            state = fr.arthurbrugiere.forgeline.pull.CheckUiState(RepoId("paperclipai", "paperclip"), 4242, "Code Health Review (main)", report, error = error),
+            onBack = {}, onRefresh = {}, onOpenUrl = {}, onLinkClick = {}, onErrorShown = {},
+            nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
+    fun check_light() = snapshot("check_light", darkTheme = false, awaitText = "Declining Code Health") { CheckPreview() }
+
+    @Test
+    fun check_dark() = snapshot("check_dark", darkTheme = true, awaitText = "Declining Code Health") { CheckPreview() }
+
+    @Test
+    fun check_without_a_report_light() = snapshot("check_without_a_report_light", darkTheme = false) {
+        CheckPreview(shownCheck.copy(state = fr.arthurbrugiere.forgeline.core.model.CheckState.SUCCESS, title = null, summary = null, text = null, detailsUrl = null))
+    }
+
+    @Test
+    fun check_error_light() = snapshot("check_error_light", darkTheme = false) { CheckPreview(report = null, error = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Network) }
+
     @Test
     fun release_light() = snapshot("release_light", darkTheme = false, awaitText = "Heartbeat recovery waits") { ReleasePreview() }
 

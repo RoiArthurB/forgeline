@@ -100,6 +100,24 @@ class PullRequestFlowTest {
     }
 
     @Test
+    fun a_check_another_service_ran_opens_on_its_report_without_leaving_the_app() {
+        openPullRequest()
+        waitFor("1 of 2 checks failed")
+
+        composeRule.onNodeWithText("1 of 2 checks failed").performClick()
+        waitFor("2 warnings")
+        composeRule.onNodeWithText("lint").performClick()
+
+        waitFor("Two lines are longer than they may be.")
+        composeRule.onNodeWithText("Lint Bot").assertIsDisplayed()
+        composeRule.onNodeWithText("Open on Lint Bot").assertIsDisplayed()
+        assertThat(pulls.calls).contains("checkReport:octo/tools:4242")
+        // Back is the conversation, its sheet put away.
+        composeRule.onNode(hasContentDescription("Navigate up")).performClick()
+        waitFor("2 files changed")
+    }
+
+    @Test
     fun a_pull_request_s_commits_each_open_on_what_they_changed() {
         openPullRequest()
 

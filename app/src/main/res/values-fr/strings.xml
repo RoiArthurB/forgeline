@@ -782,6 +782,10 @@
     <string name="check_failed">Échouée</string>
     <string name="check_running">En cours</string>
     <string name="check_skipped">Ignorée</string>
+    <string name="check_loading">Chargement du rapport</string>
+    <string name="check_error_title">Impossible de charger le rapport</string>
+    <string name="check_no_report">Cette vérification n’a laissé aucun rapport ici.</string>
+    <string name="check_open_details">Ouvrir sur %1$s</string>
     <string name="merge_start">Fusionner</string>
     <string name="merge_title">Fusionner la pull request</string>
     <string name="merge_blocked_draft">Un brouillon ne se fusionne pas : marquez-le comme prêt sur la forge d’abord.</string>
