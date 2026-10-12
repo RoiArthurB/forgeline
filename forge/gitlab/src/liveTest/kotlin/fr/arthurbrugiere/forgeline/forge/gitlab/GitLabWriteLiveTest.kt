@@ -29,6 +29,10 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assume.assumeTrue
+import fr.arthurbrugiere.forgeline.core.model.RepoSwitch
+import fr.arthurbrugiere.forgeline.core.model.MergeStyle
+import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
+import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 /**
@@ -118,6 +122,52 @@ class GitLabWriteLiveTest {
             val timeline = GitLabIssueApi(http, ForgeInstance.GitLab).timeline(token, ref, 1).value("timeline")
             System.err.println("GITLAB timeline holds ${timeline.items.size} entries")
             assertWithMessage("timeline").that(timeline.items.size).isAtLeast(2)
+        } finally {
+            val deleted = http.delete("$api/projects/$id") { header("Authorization", "Bearer $token") }
+            System.err.println("GITLAB scratch project deleted: ${deleted.status}")
+        }
+    }
+
+    /** In a scratch project of its own, created here and deleted at the end: each setting is changed, and read back as changed. */
+    @Test
+    fun a_project_s_settings_are_changed() = runBlocking<Unit> {
+        assumeTrue("GITLAB_LIVE_TOKEN not set", token.isNotBlank())
+        assumeTrue("GITLAB_LIVE_WRITES not set", System.getenv("GITLAB_LIVE_WRITES") == "1")
+        val project = send(
+            "projects",
+            buildJsonObject {
+                put("name", "forgeline-scratch-settings-${System.currentTimeMillis()}")
+                put("visibility", "private")
+                put("initialize_with_readme", true)
+                put("description", "Scratch project for Forgeline API tests. Safe to delete.")
+            },
+        ).body<JsonObject>()
+        val id = project.getValue("id").jsonPrimitive.content
+        val (owner, path) = project.getValue("path_with_namespace").jsonPrimitive.content.split('/', limit = 2)
+        val repo = RepoId(owner, path, ForgeInstance.GitLab)
+        val settings = GitLabRepoSettingsApi(http, ForgeInstance.GitLab)
+        try {
+            val read = settings.settings(token, repo).value("settings")
+            System.err.println("GITLAB settings: $read")
+            assertWithMessage("no website").that(read.hasWebsite).isFalse()
+            assertWithMessage("switches").that(read.switches.keys).containsAtLeast(RepoSwitch.ISSUES, RepoSwitch.PULL_REQUESTS, RepoSwitch.WIKI, RepoSwitch.CI, RepoSwitch.SQUASH_MERGE)
+            assertWithMessage("merge style").that(read.mergeStyle).isEqualTo(MergeStyle.MERGE_COMMIT)
+
+            suspend fun change(change: RepoSettingsChange) = settings.change(token, repo, change).value("$change")
+            assertThat(change(RepoSettingsChange.Description("Changed by a test")).description).isEqualTo("Changed by a test")
+            assertThat(change(RepoSettingsChange.Topics(listOf("scratch", "forgeline"))).topics).containsExactly("scratch", "forgeline")
+            assertThat(change(RepoSettingsChange.Switch(RepoSwitch.WIKI, false)).switches[RepoSwitch.WIKI]).isFalse()
+            val wikiOn = change(RepoSettingsChange.Switch(RepoSwitch.WIKI, true))
+            assertThat(wikiOn.switches[RepoSwitch.WIKI]).isTrue()
+            assertThat(wikiOn.membersOnly).doesNotContain(RepoSwitch.WIKI)
+            assertThat(change(RepoSettingsChange.Switch(RepoSwitch.SQUASH_MERGE, false)).switches[RepoSwitch.SQUASH_MERGE]).isFalse()
+            assertThat(change(RepoSettingsChange.Switch(RepoSwitch.DELETE_BRANCH_ON_MERGE, false)).switches[RepoSwitch.DELETE_BRANCH_ON_MERGE]).isFalse()
+            assertThat(change(RepoSettingsChange.Switch(RepoSwitch.REQUIRE_RESOLVED_THREADS, true)).switches[RepoSwitch.REQUIRE_RESOLVED_THREADS]).isTrue()
+            assertThat(change(RepoSettingsChange.Style(MergeStyle.FAST_FORWARD)).mergeStyle).isEqualTo(MergeStyle.FAST_FORWARD)
+            // Read again from scratch: it all held.
+            val after = settings.settings(token, repo).value("settings after")
+            assertThat(after.description).isEqualTo("Changed by a test")
+            assertThat(after.mergeStyle).isEqualTo(MergeStyle.FAST_FORWARD)
         } finally {
             val deleted = http.delete("$api/projects/$id") { header("Authorization", "Bearer $token") }
             System.err.println("GITLAB scratch project deleted: ${deleted.status}")

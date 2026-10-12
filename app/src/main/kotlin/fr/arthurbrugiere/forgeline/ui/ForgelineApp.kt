@@ -52,6 +52,7 @@ import fr.arthurbrugiere.forgeline.navigation.changesRoute
 import fr.arthurbrugiere.forgeline.navigation.commitsRoute
 import fr.arthurbrugiere.forgeline.navigation.checkRoute
 import fr.arthurbrugiere.forgeline.navigation.commitRoute
+import fr.arthurbrugiere.forgeline.navigation.settingsRoute
 import fr.arthurbrugiere.forgeline.navigation.historyRoute
 import fr.arthurbrugiere.forgeline.navigation.ReleaseRoute as ReleaseKey
 import fr.arthurbrugiere.forgeline.release.ReleaseRoute as ReleaseDestination
@@ -214,7 +215,11 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 onSignIn = signIn,
                 onOpenHistory = { id, ref, path -> navigator.navigate(id.historyRoute(ref, path)) },
                 onNewPullRequest = { id -> navigator.navigate(fr.arthurbrugiere.forgeline.navigation.NewPullRequestRoute(id.forge.host, id.owner, id.name)) },
+                onOpenSettings = { id -> navigator.navigate(id.settingsRoute()) },
             )
+        }
+        entry<fr.arthurbrugiere.forgeline.navigation.RepoSettingsRoute> { key ->
+            fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsRoute(key, onBack = navigator::goBack)
         }
         entry<YouRoute> {
             YouScreen(

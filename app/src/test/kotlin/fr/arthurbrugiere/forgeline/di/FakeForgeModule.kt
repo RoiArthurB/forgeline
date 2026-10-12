@@ -122,6 +122,14 @@ object FakeForgeModule {
         )
     }
 
+    @Provides
+    @Singleton
+    fun provideFakeRepoSettingsApi() = fr.arthurbrugiere.forgeline.core.testing.FakeRepoSettingsApi()
+
+    /** The same object as the tests are given, to look at what was changed. */
+    @Provides
+    fun provideRepoSettingsApi(fake: fr.arthurbrugiere.forgeline.core.testing.FakeRepoSettingsApi): fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi = fake
+
     /** The same object as the tests are given, to look at what was sent. */
     @Provides
     fun providePullRequestApi(fake: fr.arthurbrugiere.forgeline.core.testing.FakePullRequestApi): fr.arthurbrugiere.forgeline.core.forge.PullRequestApi = fake

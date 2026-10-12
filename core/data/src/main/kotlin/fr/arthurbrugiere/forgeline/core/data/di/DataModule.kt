@@ -105,6 +105,9 @@ abstract class DataModule {
     abstract fun bindIssueRepository(impl: DefaultIssueRepository): IssueRepository
 
     @Binds
+    abstract fun bindRepoSettingsRepository(impl: fr.arthurbrugiere.forgeline.core.data.repo.DefaultRepoSettingsRepository): fr.arthurbrugiere.forgeline.core.data.repo.RepoSettingsRepository
+
+    @Binds
     abstract fun bindPullRequestRepository(impl: DefaultPullRequestRepository): PullRequestRepository
 
     @Binds

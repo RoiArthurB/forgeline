@@ -44,6 +44,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.Star
@@ -165,6 +166,8 @@ fun RepoRoute(
     onOpenHistory: (RepoId, ref: String, path: String?) -> Unit = { _, _, _ -> },
     /** Opens the form for a new pull request in a repository. */
     onNewPullRequest: (RepoId) -> Unit = {},
+    /** Opens what the repository's owner sets on it. */
+    onOpenSettings: (RepoId) -> Unit = {},
 ) {
     val id = route.repo
     val viewModel = hiltViewModel<RepoViewModel, RepoViewModel.Factory>(key = id.key) { it.create(id) }
@@ -214,6 +217,7 @@ fun RepoRoute(
         // Opening an issue needs an account on the repository's forge, like starring it.
         onNewIssue = { if (signedIn) state.details?.let { onNewIssue(it.id) } else onSignIn() },
         onNewPullRequest = { if (signedIn) state.details?.let { onNewPullRequest(it.id) } else onSignIn() },
+        onOpenSettings = { state.details?.let { onOpenSettings(it.id) } },
         onOpenHistory = { state.details?.let { details -> onOpenHistory(details.id, state.browsedRef ?: details.defaultBranch, state.code.path.ifEmpty { null }) } },
         onShowOpen = viewModel::showOpen,
         onSearch = viewModel::search,
@@ -266,6 +270,8 @@ fun RepoScreen(
     modifier: Modifier = Modifier,
     /** Opens the history of what the Code tab shows: the ref browsed, and the folder it is in. */
     onOpenHistory: () -> Unit = {},
+    /** Opens the repository's settings; only offered to who administers it. */
+    onOpenSettings: () -> Unit = {},
     /** Opens the form for a new pull request; null where none can be opened. */
     onNewPullRequest: (() -> Unit)? = null,
     onToggleWatch: () -> Unit = {},
@@ -367,6 +373,11 @@ fun RepoScreen(
                         onBack = onBack,
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
+                            if (state.canAdminister && details != null) {
+                                IconButton(onClick = onOpenSettings) {
+                                    Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.repo_settings_title), tint = colors.ink)
+                                }
+                            }
                             ShareLinkButton(id.webUrl, id.fullName)
                             IconButton(onClick = { onOpenInBrowser(id.webUrl) }) {
                                 Icon(

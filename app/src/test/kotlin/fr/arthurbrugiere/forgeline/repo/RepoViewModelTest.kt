@@ -28,6 +28,7 @@ import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
 import fr.arthurbrugiere.forgeline.core.testing.issueSummary
 import fr.arthurbrugiere.forgeline.core.testing.repoDetails
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -60,6 +61,36 @@ class RepoViewModelTest {
 
     private fun cache(readme: Readme? = Readme("README.md", "# Hi"), repo: fr.arthurbrugiere.forgeline.core.model.RepoDetails = details) {
         repos.snapshot.value = RepoSnapshot(repo, readme, 1_000)
+    }
+
+    @Test
+    fun only_who_administers_the_repository_is_offered_its_settings() = test {
+        cache()
+        issueApi.access[requested] = fr.arthurbrugiere.forgeline.core.model.RepoAccess.WRITE
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        // Signed out, nobody is asked.
+        assertThat(viewModel.state.value.canAdminister).isFalse()
+        assertThat(issueApi.calls).doesNotContain("access:octo/repo")
+
+        accounts.signIn(fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitHub, fr.arthurbrugiere.forgeline.core.model.ForgeUser("writer", null, null), "tok")
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.canAdminister).isFalse()
+        assertThat(issueApi.calls).contains("access:octo/repo")
+    }
+
+    @Test
+    fun an_administrator_is_offered_the_settings_until_they_sign_out() = test {
+        cache()
+        issueApi.access[requested] = fr.arthurbrugiere.forgeline.core.model.RepoAccess.ADMIN
+        accounts.signIn(fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitHub, fr.arthurbrugiere.forgeline.core.model.ForgeUser("owner", null, null), "tok")
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.canAdminister).isTrue()
+
+        for (account in accounts.accounts.first()) accounts.signOut(account.id)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.canAdminister).isFalse()
     }
 
     @Test

@@ -23,6 +23,7 @@ import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.Release
 import fr.arthurbrugiere.forgeline.core.model.RepoDetails
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -97,6 +98,8 @@ data class RepoUiState(
     val refs: Loadable<GitRefs> = Loadable.Idle,
     /** The README at [ref]; only the default branch's README is cached. */
     val refReadme: Loadable<Readme?> = Loadable.Idle,
+    /** Whether the signed-in account administers the repository: its settings are then one tap away. */
+    val canAdminister: Boolean = false,
     /** A workflow was just started by hand, to say so once. */
     val workflowStarted: Boolean = false,
 ) {
@@ -121,7 +124,7 @@ class RepoViewModel @AssistedInject constructor(
     private val repos: RepoRepository,
     private val stars: StarRepository,
     accounts: AccountRepository,
-    conversations: IssueRepository,
+    private val conversations: IssueRepository,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -151,6 +154,10 @@ class RepoViewModel @AssistedInject constructor(
                     viewModelScope.launch {
                         val watching = if (account == null) null else stars.isWatching(id)
                         local.update { it.copy(watching = watching) }
+                    }
+                    viewModelScope.launch {
+                        val administers = account != null && conversations.access(id) == RepoAccess.ADMIN
+                        local.update { it.copy(canAdminister = administers) }
                     }
                     val starred = if (account == null) null else stars.starredStatus(listOf(id))[id]
                     local.update { it.copy(starred = starred) }

@@ -1,0 +1,79 @@
+package fr.arthurbrugiere.forgeline.core.model
+
+/** Something a repository's owner switches on or off: a feature it has, or a rule for merging into it. */
+enum class RepoSwitch(val merging: Boolean = false) {
+    ISSUES,
+    PULL_REQUESTS,
+    WIKI,
+    DISCUSSIONS,
+    PROJECTS,
+    CI,
+    RELEASES,
+    PACKAGES,
+    TEMPLATE,
+    MERGE_COMMIT(merging = true),
+    SQUASH_MERGE(merging = true),
+    REBASE_MERGE(merging = true),
+    FAST_FORWARD_MERGE(merging = true),
+    AUTO_MERGE(merging = true),
+    DELETE_BRANCH_ON_MERGE(merging = true),
+    REQUIRE_PIPELINE(merging = true),
+    REQUIRE_RESOLVED_THREADS(merging = true),
+}
+
+/** The one way a GitLab project merges: a merge commit, one only once rebased, or no merge commit at all. */
+enum class MergeStyle { MERGE_COMMIT, SEMI_LINEAR, FAST_FORWARD }
+
+/**
+ * What a repository's owner has set, as far as its forge's API tells and lets change. A forge without a setting
+ * leaves it out: no [website] field ([hasWebsite] false), a switch missing from [switches], a null [mergeStyle]
+ * (GitLab alone merges one way) or [defaultMerge] (Forgejo alone proposes one).
+ */
+data class RepoSettings(
+    val description: String,
+    val website: String = "",
+    val hasWebsite: Boolean = true,
+    val topics: List<String> = emptyList(),
+    val defaultBranch: String,
+    val switches: Map<RepoSwitch, Boolean> = emptyMap(),
+    /** Switched on for the project's members only (GitLab): shown as on, and said. */
+    val membersOnly: Set<RepoSwitch> = emptySet(),
+    val mergeStyle: MergeStyle? = null,
+    val defaultMerge: MergeMethod? = null,
+)
+
+/** One thing to change in a repository's settings. */
+sealed interface RepoSettingsChange {
+    data class Description(val text: String) : RepoSettingsChange
+
+    data class Website(val url: String) : RepoSettingsChange
+
+    data class Topics(val topics: List<String>) : RepoSettingsChange
+
+    data class DefaultBranch(val branch: String) : RepoSettingsChange
+
+    data class Switch(val switch: RepoSwitch, val on: Boolean) : RepoSettingsChange
+
+    data class Style(val style: MergeStyle) : RepoSettingsChange
+
+    data class DefaultMerge(val method: MergeMethod) : RepoSettingsChange
+}
+
+/** These settings once [change] is made: what is shown while the forge is told. */
+fun RepoSettings.with(change: RepoSettingsChange): RepoSettings = when (change) {
+    is RepoSettingsChange.Description -> copy(description = change.text)
+    is RepoSettingsChange.Website -> copy(website = change.url)
+    is RepoSettingsChange.Topics -> copy(topics = change.topics)
+    is RepoSettingsChange.DefaultBranch -> copy(defaultBranch = change.branch)
+    // Switched by hand, it is on for everyone.
+    is RepoSettingsChange.Switch -> copy(switches = switches + (change.switch to change.on), membersOnly = membersOnly - change.switch)
+    is RepoSettingsChange.Style -> copy(mergeStyle = change.style)
+    is RepoSettingsChange.DefaultMerge -> copy(defaultMerge = change.method)
+}
+
+/**
+ * A topic as forges take them: lowercase, letters, digits and hyphens, not starting with a hyphen; null when nothing
+ * is left of [text].
+ */
+fun normalizeTopic(text: String): String? =
+    text.trim().lowercase().replace(Regex("[\\s_]+"), "-").replace(Regex("[^a-z0-9-]"), "").trimStart('-').take(50).ifEmpty { null }

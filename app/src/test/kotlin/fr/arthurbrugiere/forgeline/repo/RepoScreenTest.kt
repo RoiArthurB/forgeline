@@ -82,6 +82,7 @@ class RepoScreenTest {
                 onNewIssue = { events += "new-issue" },
                 onNewPullRequest = { events += "new-pull" },
                 onOpenHistory = { events += "history" },
+                onOpenSettings = { events += "settings" },
                 onShowOpen = { events += "open:$it" },
                 onSearch = { events += "search:$it" },
                 onOpenRelease = { events += "release:$it" },
@@ -103,6 +104,22 @@ class RepoScreenTest {
                 nowMillis = 0,
             )
         }
+    }
+
+    @Test
+    fun who_administers_the_repository_has_its_settings_a_tap_away() {
+        setContent(loaded.copy(canAdminister = true))
+
+        composeRule.onNodeWithContentDescription("Repository settings").performClick()
+
+        assertThat(events).containsExactly("settings")
+    }
+
+    @Test
+    fun the_settings_are_offered_to_no_one_else() {
+        setContent(loaded)
+
+        composeRule.onNodeWithContentDescription("Repository settings").assertDoesNotExist()
     }
 
     @Test

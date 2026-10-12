@@ -23,6 +23,20 @@ class ForgejoSignedInLiveTest {
 
     private fun <T> ForgeResult<T>.value(): T = (this as? ForgeResult.Success)?.value ?: error("$this")
 
+    /** Read only: nothing is changed on Codeberg from here. */
+    @Test
+    fun a_repository_s_settings_read() = runBlocking {
+        assumeTrue("CODEBERG_LIVE_TOKEN not set", token.isNotBlank())
+        val forge = fr.arthurbrugiere.forgeline.core.model.ForgeInstance.Codeberg
+        val settings = ForgejoRepoSettingsApi(http, forge).settings(token, fr.arthurbrugiere.forgeline.core.model.RepoId("forgejo", "forgejo", forge)).value()
+
+        check(settings.defaultBranch.isNotEmpty()) { "default branch: $settings" }
+        check(settings.switches[fr.arthurbrugiere.forgeline.core.model.RepoSwitch.ISSUES] == true) { "issues: $settings" }
+        check(settings.switches[fr.arthurbrugiere.forgeline.core.model.RepoSwitch.PULL_REQUESTS] == true) { "pull requests: $settings" }
+        check(fr.arthurbrugiere.forgeline.core.model.RepoSwitch.MERGE_COMMIT in settings.switches) { "merging: $settings" }
+        System.err.println("CODEBERG settings: $settings")
+    }
+
     @Test
     fun the_feed_and_the_starred_repositories_read() = runBlocking {
         assumeTrue("CODEBERG_LIVE_TOKEN not set", token.isNotBlank())

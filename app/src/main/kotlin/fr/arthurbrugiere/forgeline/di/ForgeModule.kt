@@ -69,6 +69,11 @@ object ForgeModule {
 
     @Provides
     @Singleton
+    fun provideRepoSettingsApi(httpClient: HttpClient): fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi =
+        fr.arthurbrugiere.forgeline.forge.github.GitHubRepoSettingsApi(httpClient)
+
+    @Provides
+    @Singleton
     fun providePullRequestApi(httpClient: HttpClient): PullRequestApi = GitHubPullRequestApi(httpClient)
 
     @Provides

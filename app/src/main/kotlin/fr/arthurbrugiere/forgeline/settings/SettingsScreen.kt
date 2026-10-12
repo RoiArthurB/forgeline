@@ -458,11 +458,11 @@ private val TrendingPeriod.settingLabel: Int
         TrendingPeriod.MONTHLY -> R.string.trending_period_monthly
     }
 
-private val SettingModifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
+internal val SettingModifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
 
 /** One setting: its name, its current value underneath, and optionally something on the right. */
 @Composable
-private fun SettingRow(
+internal fun SettingRow(
     title: String,
     summary: String?,
     modifier: Modifier = Modifier,
@@ -549,7 +549,7 @@ private fun InboxCheckItem(current: InboxCheckInterval, onChange: (InboxCheckInt
 
 /** A setting that is one among a few: its row says which, and opens the list to pick another. */
 @Composable
-private fun ChoiceItem(title: String, options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+internal fun ChoiceItem(title: String, options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     var choosing by rememberSaveable { mutableStateOf(false) }
     SettingRow(title, options.getOrNull(selected), onClick = { choosing = true })
     if (choosing) {
@@ -655,9 +655,9 @@ private val InboxCheckInterval.label: Int
 
 /** A setting that switches on and off; the whole row toggles it. */
 @Composable
-private fun SwitchItem(
+internal fun SwitchItem(
     title: String,
-    summary: String,
+    summary: String?,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     leading: (@Composable () -> Unit)? = null,

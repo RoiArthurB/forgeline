@@ -205,6 +205,18 @@ class GitHubLiveContractTest {
         System.err.println("GITHUB #${ref.number}: ${files.files.size} files, history of ${history.commits.size}, next page ${history.nextPage}")
     }
 
+    /** Read only: nothing is changed on GitHub from here. Someone who doesn't administer the repository isn't told how it merges. */
+    @Test
+    fun a_repository_s_settings_still_read_signed_in() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        val settings = GitHubRepoSettingsApi(client).settings(pat, RepoId("octocat", "Hello-World")).read("settings")
+
+        assertThat(settings.defaultBranch).isEqualTo("master")
+        assertWithMessage("switches: ${settings.switches}").that(settings.switches.keys)
+            .containsAtLeast(fr.arthurbrugiere.forgeline.core.model.RepoSwitch.ISSUES, fr.arthurbrugiere.forgeline.core.model.RepoSwitch.WIKI)
+        System.err.println("GITHUB settings: $settings")
+    }
+
     @Test
     fun blame_still_reads_signed_in() = runBlocking {
         assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())

@@ -23,6 +23,7 @@ class FakeForgeClients(
     val repos: RepoApi = FakeRepoApi(),
     val issues: IssueApi = FakeIssueApi(),
     val pulls: PullRequestApi = FakePullRequestApi(),
+    val repoSettings: fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi = FakeRepoSettingsApi(),
     val users: UserApi = FakeUserApi(),
     val stars: StarApi = FakeStarApi(),
     val search: SearchApi = FakeSearchApi(),
@@ -56,6 +57,8 @@ class FakeForgeClients(
     override fun issues(forge: ForgeInstance) = ask("issues", forge) { issues }
 
     override fun pulls(forge: ForgeInstance) = ask("pulls", forge) { pulls }
+
+    override fun repoSettings(forge: ForgeInstance) = ask("repoSettings", forge) { repoSettings }
 
     override fun users(forge: ForgeInstance) = ask("users", forge) { users }
 

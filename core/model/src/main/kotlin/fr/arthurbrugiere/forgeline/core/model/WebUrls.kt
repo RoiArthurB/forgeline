@@ -45,3 +45,10 @@ fun RepoId.blobBaseUrl(ref: String): String = when (forge.type) {
     ForgeType.GITLAB -> "$webUrl/-/blob/$ref/"
     ForgeType.FORGEJO -> "$webUrl/src/branch/$ref/"
 }
+
+/** The page of the forge's website where the repository's owner sets everything about it. */
+val RepoId.settingsUrl: String
+    get() = when (forge.type) {
+        ForgeType.GITLAB -> "$webUrl/edit"
+        else -> "$webUrl/settings"
+    }

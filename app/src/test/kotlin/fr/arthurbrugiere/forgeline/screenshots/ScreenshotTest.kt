@@ -951,6 +951,68 @@ class ScreenshotTest {
         )
     }
 
+    private val shownSettings = fr.arthurbrugiere.forgeline.core.model.RepoSettings(
+        description = "Open-source orchestration for zero-human companies",
+        website = "https://paperclip.ing",
+        topics = listOf("agents", "orchestration", "typescript"),
+        defaultBranch = "master",
+        switches = linkedMapOf(
+            fr.arthurbrugiere.forgeline.core.model.RepoSwitch.ISSUES to true,
+            fr.arthurbrugiere.forgeline.core.model.RepoSwitch.WIKI to false,
+            fr.arthurbrugiere.forgeline.core.model.RepoSwitch.DISCUSSIONS to true,
+            fr.arthurbrugiere.forgeline.core.model.RepoSwitch.PROJECTS to false,
+            fr.arthurbrugiere.forgeline.core.model.RepoSwitch.MERGE_COMMIT to false,
+            fr.arthurbrugiere.forgeline.core.model.RepoSwitch.SQUASH_MERGE to true,
+            fr.arthurbrugiere.forgeline.core.model.RepoSwitch.DELETE_BRANCH_ON_MERGE to true,
+        ),
+    )
+
+    @Composable
+    private fun RepoSettingsPreview(
+        settings: fr.arthurbrugiere.forgeline.core.model.RepoSettings? = shownSettings,
+        repo: RepoId = RepoId("paperclipai", "paperclip"),
+        error: fr.arthurbrugiere.forgeline.core.forge.ForgeError? = null,
+    ) {
+        fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsScreen(
+            state = fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsUiState(repo, settings, error = error),
+            onBack = {}, onRefresh = {}, onChange = {}, onLoadBranches = {}, onOpenUrl = {}, onRefusalShown = {}, onErrorShown = {},
+        )
+    }
+
+    @Test
+    fun repo_settings_light() = snapshot("repo_settings_light", darkTheme = false) { RepoSettingsPreview() }
+
+    @Test
+    fun repo_settings_dark() = snapshot("repo_settings_dark", darkTheme = true) { RepoSettingsPreview() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun repo_settings_font_2_0_light() = snapshot("repo_settings_font_2_0_light", darkTheme = false) { RepoSettingsPreview() }
+
+    @Test
+    fun repo_settings_gitlab_light() = snapshot("repo_settings_gitlab_light", darkTheme = false) {
+        RepoSettingsPreview(
+            fr.arthurbrugiere.forgeline.core.model.RepoSettings(
+                description = "", hasWebsite = false, defaultBranch = "main",
+                switches = linkedMapOf(
+                    fr.arthurbrugiere.forgeline.core.model.RepoSwitch.ISSUES to true,
+                    fr.arthurbrugiere.forgeline.core.model.RepoSwitch.PULL_REQUESTS to true,
+                    fr.arthurbrugiere.forgeline.core.model.RepoSwitch.CI to true,
+                    fr.arthurbrugiere.forgeline.core.model.RepoSwitch.SQUASH_MERGE to true,
+                    fr.arthurbrugiere.forgeline.core.model.RepoSwitch.REQUIRE_PIPELINE to false,
+                ),
+                membersOnly = setOf(fr.arthurbrugiere.forgeline.core.model.RepoSwitch.CI),
+                mergeStyle = fr.arthurbrugiere.forgeline.core.model.MergeStyle.SEMI_LINEAR,
+            ),
+            RepoId("gitlab-org", "gitlab-runner", ForgeInstance.GitLab),
+        )
+    }
+
+    @Test
+    fun repo_settings_error_light() = snapshot("repo_settings_error_light", darkTheme = false) {
+        RepoSettingsPreview(settings = null, error = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Network)
+    }
+
     private val shownCheck = fr.arthurbrugiere.forgeline.core.model.CheckReport(
         name = "Code Health Review (main)",
         state = fr.arthurbrugiere.forgeline.core.model.CheckState.FAILURE,

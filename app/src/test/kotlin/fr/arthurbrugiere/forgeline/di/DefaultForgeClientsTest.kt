@@ -27,6 +27,7 @@ import org.junit.Test
 class DefaultForgeClientsTest {
     private val gitHubRepos = FakeRepoApi()
     private val gitHubPulls = fr.arthurbrugiere.forgeline.core.testing.FakePullRequestApi()
+    private val gitHubSettings = fr.arthurbrugiere.forgeline.core.testing.FakeRepoSettingsApi()
     private val hosts = fr.arthurbrugiere.forgeline.signin.FakeForgeHosts()
 
     private fun clients(
@@ -41,7 +42,7 @@ class DefaultForgeClientsTest {
         hosts = hosts,
         codebergTrendingUrl = codebergTrendingUrl,
         gitlabTrendingUrl = gitlabTrendingUrl,
-        repos = gitHubRepos, issues = FakeIssueApi(), pulls = gitHubPulls, users = FakeUserApi(), stars = FakeStarApi(), search = FakeSearchApi(),
+        repos = gitHubRepos, issues = FakeIssueApi(), pulls = gitHubPulls, repoSettings = gitHubSettings, users = FakeUserApi(), stars = FakeStarApi(), search = FakeSearchApi(),
         feed = FakeFeedApi(), notifications = FakeNotificationsApi(), auth = FakeForgeAuthApi(), actions = FakeActionsApi(),
         trending = FakeTrendingApi(),
     )
@@ -65,6 +66,9 @@ class DefaultForgeClientsTest {
     @Test
     fun each_forge_reads_pull_requests_its_own_way() {
         assertThat(clients.pulls(ForgeInstance.GitHub)).isSameInstanceAs(gitHubPulls)
+        assertThat(clients.repoSettings(ForgeInstance.GitHub)).isSameInstanceAs(gitHubSettings)
+        assertThat(clients.repoSettings(ForgeInstance.Codeberg)).isInstanceOf(fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoRepoSettingsApi::class.java)
+        assertThat(clients.repoSettings(ForgeInstance.GitLab)).isInstanceOf(fr.arthurbrugiere.forgeline.forge.gitlab.GitLabRepoSettingsApi::class.java)
         assertThat(clients.pulls(ForgeInstance.Codeberg)).isInstanceOf(fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoPullRequestApi::class.java)
         assertThat(clients.pulls(ForgeInstance.GitLab)).isInstanceOf(fr.arthurbrugiere.forgeline.forge.gitlab.GitLabPullRequestApi::class.java)
         // Forgejo's API has no blame; the app only offers it where it can be asked.
