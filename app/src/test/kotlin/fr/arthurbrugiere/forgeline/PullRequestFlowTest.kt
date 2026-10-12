@@ -49,10 +49,10 @@ class PullRequestFlowTest {
     fun signOut() = runBlocking { accounts.accounts.first().forEach { accounts.signOut(it.id) } }
 
     private fun waitFor(text: String) =
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
 
     private fun waitForDescription(text: String) =
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasContentDescription(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasContentDescription(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
 
     /** Signs in, then opens the pull request a review is asked for, from the Inbox's own-work filter. */
     private fun openPullRequest() {
@@ -86,7 +86,7 @@ class PullRequestFlowTest {
         composeRule.onNodeWithText("Request changes").performClick()
         composeRule.onNodeWithText("Send review").performClick()
         composeRule.waitForIdle()
-        composeRule.waitUntil(5_000) { pulls.reviews.isNotEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { pulls.reviews.isNotEmpty() }
 
         assertThat(pulls.reviews.single()).isEqualTo(
             FakePullRequestApi.SentReview(
@@ -143,10 +143,10 @@ class PullRequestFlowTest {
         composeRule.onNodeWithText("Squash and merge").performClick()
         composeRule.onNodeWithText("Confirm merge").performClick()
         composeRule.waitForIdle()
-        composeRule.waitUntil(5_000) { pulls.calls.any { it.startsWith("merge:") } }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { pulls.calls.any { it.startsWith("merge:") } }
 
         assertThat(pulls.calls).contains("merge:octo/tools#88:${MergeMethod.SQUASH}")
         // The sheet closes on what it did.
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Merge pull request")).fetchSemanticsNodes().isEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Merge pull request")).fetchSemanticsNodes().isEmpty() }
     }
 }

@@ -93,6 +93,10 @@ object FakeForgeModule {
 
     @Provides
     @Singleton
+    fun provideRepoSettingsApi(): fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi = fr.arthurbrugiere.forgeline.core.testing.FakeRepoSettingsApi()
+
+    @Provides
+    @Singleton
     fun providePullRequestApi(): fr.arthurbrugiere.forgeline.core.forge.PullRequestApi = fr.arthurbrugiere.forgeline.core.testing.FakePullRequestApi()
 
     @Provides

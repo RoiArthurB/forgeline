@@ -53,7 +53,7 @@ class SignedInFlowTest {
     fun signOut() = runBlocking { accounts.accounts.first().forEach { accounts.signOut(it.id) } }
 
     private fun waitFor(text: String) =
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
 
     /** Signs in to GitHub, then goes to the Issues tab of the repository the fake forge serves. */
     private fun openIssuesSignedIn() {
@@ -106,7 +106,7 @@ class SignedInFlowTest {
         composeRule.onNodeWithText("Comment").performClick()
 
         // Posted: it is the last word of the conversation, and the box is ready for the next one.
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Add a comment")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Add a comment")).fetchSemanticsNodes().isNotEmpty() }
         waitFor("Fixed in 2026.10, thanks.")
         composeRule.onNodeWithText("I can reproduce this on every restart.", substring = true).assertExists()
         composeRule.onNodeWithText("Comment").assertIsNotEnabled()
@@ -120,18 +120,18 @@ class SignedInFlowTest {
         waitFor("I can reproduce this on every restart.")
         composeRule.onNodeWithText("Open").assertIsDisplayed()
 
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Close issue")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Close issue")).fetchSemanticsNodes().isNotEmpty() }
         reach(hasText("Close issue"))
         composeRule.onNodeWithText("Close issue").performClick()
 
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Reopen issue")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Reopen issue")).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Closed"))
         composeRule.onNodeWithText("Closed").assertIsDisplayed()
 
         reach(hasText("Reopen issue"))
         composeRule.onNodeWithText("Reopen issue").performClick()
 
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Close issue")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Close issue")).fetchSemanticsNodes().isNotEmpty() }
     }
 
     private fun openManage() {
@@ -153,7 +153,7 @@ class SignedInFlowTest {
         composeRule.onNodeWithText("Save").performClick()
 
         // The sheet closed, and the header wears the label.
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Save")).fetchSemanticsNodes().isEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Save")).fetchSemanticsNodes().isEmpty() }
         waitFor("enhancement")
         composeRule.onNodeWithText("Delete issue").assertDoesNotExist()
     }
@@ -182,7 +182,7 @@ class SignedInFlowTest {
         composeRule.onNodeWithText("Delete issue").performClick()
         composeRule.onNodeWithText("Delete for good").performClick()
 
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("New issue")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("New issue")).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("I can reproduce this on every restart.", substring = true).assertDoesNotExist()
     }
 
@@ -209,7 +209,7 @@ class SignedInFlowTest {
         composeRule.onNode(hasSetTextAction() and hasText("Minutes")).performTextInput("30")
         composeRule.onNodeWithText("Add time").performClick()
         // The sheet closed on the change.
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Add time")).fetchSemanticsNodes().isEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Add time")).fetchSemanticsNodes().isEmpty() }
 
         composeRule.onNode(hasContentDescription("Manage")).performClick()
         waitFor("Time tracker")
@@ -227,7 +227,7 @@ class SignedInFlowTest {
         waitFor("This doesn't depend on anything yet.")
         composeRule.onNode(hasSetTextAction() and hasText("Issue number, like 12")).performTextInput("#13990")
         composeRule.onNodeWithText("Add dependency").performClick()
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Add dependency")).fetchSemanticsNodes().isEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Add dependency")).fetchSemanticsNodes().isEmpty() }
 
         composeRule.onNode(hasContentDescription("Manage")).performClick()
         waitFor("Dependencies")
@@ -275,7 +275,7 @@ class SignedInFlowTest {
         composeRule.onNodeWithText("Keep install flags on retry - #14129").assertIsDisplayed()
 
         composeRule.onNodeWithContentDescription("Go to the latest").performClick()
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Add a comment")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Add a comment")).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNodeWithText("Remark 40 on the retry.").assertIsDisplayed()
     }
 
@@ -290,7 +290,7 @@ class SignedInFlowTest {
         composeRule.onNodeWithText("octo/\u2060tools").performTouchInput { swipeLeft() }
 
         // Both of its threads, and only they.
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Flaky upload on slow links")).fetchSemanticsNodes().isEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Flaky upload on slow links")).fetchSemanticsNodes().isEmpty() }
         composeRule.onNodeWithText("Bump the SDK").assertDoesNotExist()
         composeRule.onNodeWithText("Marked 2 as done").assertIsDisplayed()
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Keep install flags on retry"))
@@ -366,7 +366,7 @@ class SignedInFlowTest {
 
         composeRule.onNodeWithText("Cancel").performClick()
 
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Rewriting your comment")).fetchSemanticsNodes().isEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Rewriting your comment")).fetchSemanticsNodes().isEmpty() }
         waitFor("Mine happens after an update.")
         reach(hasText("Comment"))
         composeRule.onNodeWithText("Comment").assertIsDisplayed()
@@ -394,7 +394,7 @@ class SignedInFlowTest {
         reach(hasSetTextAction())
 
         composeRule.onNode(hasSetTextAction()).performTextInput("Fixed by #")
-        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasContentDescription("Pull request #14129, Keep install flags on retry")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasContentDescription("Pull request #14129, Keep install flags on retry")).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNode(hasContentDescription("Pull request #14129, Keep install flags on retry")).performClick()
 
         composeRule.onNode(hasSetTextAction()).assert(hasText("Fixed by #14129 "))
