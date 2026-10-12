@@ -94,3 +94,38 @@ fun RepoSettings.with(change: RepoSettingsChange): RepoSettings = when (change) 
  */
 fun normalizeTopic(text: String): String? =
     text.trim().lowercase().replace(Regex("[\\s_]+"), "-").replace(Regex("[^a-z0-9-]"), "").trimStart('-').take(50).ifEmpty { null }
+
+/** What a repository's website is built from: what a workflow uploads, or a folder of a branch as it is. */
+sealed interface PagesBuild {
+    data object Workflow : PagesBuild
+
+    /** [folder] is `/` or `/docs`: GitHub publishes no other. */
+    data class Branch(val branch: String, val folder: String = "/") : PagesBuild
+}
+
+/**
+ * The website a forge serves from a repository. [published] says whether there is one; [canPublish] whether it is
+ * switched on and off from here (GitHub) or by what the repository's CI does (GitLab). A null [httpsEnforced] or
+ * [customDomain] is a setting the forge's API doesn't have, and a null [build] a site that has no source to pick.
+ */
+data class PagesSite(
+    val published: Boolean,
+    val url: String? = null,
+    val canPublish: Boolean = false,
+    val build: PagesBuild? = null,
+    val httpsEnforced: Boolean? = null,
+    val customDomain: String? = null,
+)
+
+/** One thing to change about a repository's website. */
+sealed interface PagesChange {
+    /** Publishes it from [build], or builds it from there from now on. */
+    data class Publish(val build: PagesBuild) : PagesChange
+
+    data class Https(val enforced: Boolean) : PagesChange
+
+    /** Serves it at [domain]; at its forge's own address again when empty. */
+    data class Domain(val domain: String) : PagesChange
+
+    data object Unpublish : PagesChange
+}

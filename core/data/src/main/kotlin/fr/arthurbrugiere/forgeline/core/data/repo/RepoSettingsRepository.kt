@@ -5,6 +5,8 @@ import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.PagesChange
+import fr.arthurbrugiere.forgeline.core.model.PagesSite
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSettings
@@ -24,6 +26,11 @@ interface RepoSettingsRepository {
 
     /** Deletes [repo]: gone, or kept a while by its forge before it is. */
     suspend fun delete(repo: RepoId): ForgeResult<RepoDeletion>
+
+    /** The website served from [repo]; null where its forge sets nothing about one. */
+    suspend fun pages(repo: RepoId): ForgeResult<PagesSite?>
+
+    suspend fun changePages(repo: RepoId, change: PagesChange): ForgeResult<PagesSite>
 }
 
 @Singleton
@@ -57,5 +64,15 @@ class DefaultRepoSettingsRepository @Inject constructor(
     override suspend fun delete(repo: RepoId): ForgeResult<RepoDeletion> {
         val token = accounts.tokenOn(repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
         return clients.repoSettings(repo.forge).delete(token, repo)
+    }
+
+    override suspend fun pages(repo: RepoId): ForgeResult<PagesSite?> {
+        val token = accounts.tokenOn(repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return clients.repoSettings(repo.forge).pages(token, repo)
+    }
+
+    override suspend fun changePages(repo: RepoId, change: PagesChange): ForgeResult<PagesSite> {
+        val token = accounts.tokenOn(repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return clients.repoSettings(repo.forge).changePages(token, repo, change)
     }
 }

@@ -2,6 +2,10 @@ package fr.arthurbrugiere.forgeline.forge.github
 
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi
+import fr.arthurbrugiere.forgeline.core.model.PagesBuild
+import fr.arthurbrugiere.forgeline.core.model.PagesChange
+import fr.arthurbrugiere.forgeline.core.model.PagesSite
+import io.ktor.http.isSuccess
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSettings
@@ -72,6 +76,56 @@ class GitHubRepoSettingsApi(
             return@gitHubCall ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unauthorized)
         }
         response.toResult { RepoDeletion.DELETED }
+    }
+
+    /** GitHub answers 404 for a repository that publishes nothing: that is a site switched off, not a failure. */
+    override suspend fun pages(token: String, repo: RepoId): ForgeResult<PagesSite?> = gitHubCall {
+        val response = httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, "pages")
+        if (response.status == HttpStatusCode.NotFound) ForgeResult.Success(PagesSite(published = false, canPublish = true)) else response.toResult { body<JsonObject>().toSite() }
+    }
+
+    override suspend fun changePages(token: String, repo: RepoId, change: PagesChange): ForgeResult<PagesSite> = gitHubCall {
+        suspend fun send(method: HttpMethod, body: JsonObject? = null) = httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, "pages", method = method, body = body)
+        val response = when (change) {
+            is PagesChange.Publish -> {
+                val current = send(HttpMethod.Get)
+                val body = buildJsonObject {
+                    when (val build = change.build) {
+                        PagesBuild.Workflow -> put("build_type", "workflow")
+                        is PagesBuild.Branch -> {
+                            put("build_type", "legacy")
+                            put("source", buildJsonObject {
+                                put("branch", build.branch)
+                                put("path", build.folder)
+                            })
+                        }
+                    }
+                }
+                // A site is created once, then changed.
+                send(if (current.status == HttpStatusCode.NotFound) HttpMethod.Post else HttpMethod.Put, body)
+            }
+            is PagesChange.Https -> send(HttpMethod.Put, buildJsonObject { put("https_enforced", change.enforced) })
+            is PagesChange.Domain -> send(HttpMethod.Put, buildJsonObject { put("cname", change.domain.ifBlank { null }) })
+            PagesChange.Unpublish -> send(HttpMethod.Delete)
+        }
+        if (!response.status.isSuccess()) return@gitHubCall response.failure()
+        // Changes answer nothing: the site is read as it now is.
+        when (val site = pages(token, repo)) {
+            is ForgeResult.Success -> ForgeResult.Success(site.value ?: PagesSite(published = false, canPublish = true))
+            is ForgeResult.Failure -> site
+        }
+    }
+
+    private fun JsonObject.toSite(): PagesSite {
+        val source = this["source"] as? JsonObject
+        return PagesSite(
+            published = true,
+            url = text("html_url").ifEmpty { null },
+            canPublish = true,
+            build = if (text("build_type") == "workflow") PagesBuild.Workflow else source?.let { PagesBuild.Branch(it.text("branch"), it.text("path").ifEmpty { "/" }) },
+            httpsEnforced = (this["https_enforced"] as? JsonPrimitive)?.booleanOrNull ?: false,
+            customDomain = text("cname"),
+        )
     }
 
     private fun JsonObject.toSettings(): RepoSettings {

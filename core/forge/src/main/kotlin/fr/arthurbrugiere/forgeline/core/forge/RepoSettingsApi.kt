@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.forge
 
+import fr.arthurbrugiere.forgeline.core.model.PagesChange
+import fr.arthurbrugiere.forgeline.core.model.PagesSite
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSettings
@@ -20,4 +22,10 @@ interface RepoSettingsApi {
      * (GitHub asks for a permission of its own), which signing in again gives.
      */
     suspend fun delete(token: String, repo: RepoId): ForgeResult<RepoDeletion>
+
+    /** The website served from [repo]; null where the forge sets nothing about one through its API (Forgejo). */
+    suspend fun pages(token: String, repo: RepoId): ForgeResult<PagesSite?> = ForgeResult.Success(null)
+
+    /** Makes [change] to [repo]'s website, and answers the site as the forge then has it. */
+    suspend fun changePages(token: String, repo: RepoId, change: PagesChange): ForgeResult<PagesSite> = ForgeResult.Failure(ForgeError.Unsupported)
 }

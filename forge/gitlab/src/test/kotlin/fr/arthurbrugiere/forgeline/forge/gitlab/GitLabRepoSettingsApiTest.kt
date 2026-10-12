@@ -22,6 +22,9 @@ import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
+import fr.arthurbrugiere.forgeline.core.model.PagesBuild
+import fr.arthurbrugiere.forgeline.core.model.PagesChange
+import fr.arthurbrugiere.forgeline.core.model.PagesSite
 import org.junit.Test
 
 /** Answers are cut down from gitlab.com's for a project its reader owns, read on 2026-10-12. */
@@ -190,5 +193,44 @@ class GitLabRepoSettingsApiTest {
         assertThat(unknown).isInstanceOf(ForgeResult.Failure::class.java)
         // What couldn't be read isn't asked to be deleted.
         assertThat(requests.last().method).isEqualTo(HttpMethod.Get)
+    }
+
+    // gitlab.com's answers for a project that publishes nothing yet, read on 2026-10-12, and for one that does.
+    private val idleJson = """{"url":"https://app-be7c9b.gitlab.io","deployments":[],"is_unique_domain_enabled":true,"force_https":true,"pages_primary_domain":null}"""
+    private val liveJson = """{"url":"https://app-be7c9b.gitlab.io","deployments":[{"created_at":"2026-10-01T10:00:00Z","url":"https://app-be7c9b.gitlab.io","path_prefix":""}],"force_https":false}"""
+
+    @Test
+    fun a_project_s_site_is_published_once_its_ci_deployed_one() = runTest {
+        val idle = api { json(idleJson) }.pages("tok", repo).value()
+        val live = api { json(liveJson) }.pages("tok", repo).value()
+        val none = api { json("""{"message":"404 Not Found"}""", HttpStatusCode.NotFound) }.pages("tok", repo).value()
+
+        // Nothing switches it on from here: a job of the project's CI does.
+        assertThat(idle).isEqualTo(PagesSite(published = false, url = "https://app-be7c9b.gitlab.io", httpsEnforced = true))
+        assertThat(live).isEqualTo(PagesSite(published = true, url = "https://app-be7c9b.gitlab.io", httpsEnforced = false))
+        assertThat(none).isNull()
+        assertThat(requests.last().url.encodedPath).isEqualTo("$base/pages")
+    }
+
+    @Test
+    fun https_is_patched_and_unpublishing_deletes_then_reads_again() = runTest {
+        val api = api { if (it.method == HttpMethod.Delete) respond("", HttpStatusCode.NoContent) else json(idleJson) }
+
+        assertThat(api.changePages("tok", repo, PagesChange.Https(true)).value().httpsEnforced).isTrue()
+        assertThat(requests.single().method).isEqualTo(HttpMethod.Patch)
+        assertThat(requests.single().sent).isEqualTo("""{"pages_https_only":true}""")
+
+        requests.clear()
+        assertThat(api.changePages("tok", repo, PagesChange.Unpublish).value().published).isFalse()
+        assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly("DELETE $base/pages", "GET $base/pages").inOrder()
+    }
+
+    @Test
+    fun what_gitlab_s_api_does_not_set_about_a_site_is_asked_of_no_one() = runTest {
+        val api = api()
+
+        assertThat(api.changePages("tok", repo, PagesChange.Publish(PagesBuild.Workflow))).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+        assertThat(api.changePages("tok", repo, PagesChange.Domain("a.example"))).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+        assertThat(requests).isEmpty()
     }
 }

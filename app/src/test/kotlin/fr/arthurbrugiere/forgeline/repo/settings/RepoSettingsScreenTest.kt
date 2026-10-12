@@ -32,6 +32,9 @@ import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 import org.junit.Rule
 import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
+import fr.arthurbrugiere.forgeline.core.model.PagesBuild
+import fr.arthurbrugiere.forgeline.core.model.PagesChange
+import fr.arthurbrugiere.forgeline.core.model.PagesSite
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -45,6 +48,8 @@ class RepoSettingsScreenTest {
 
     private val events = mutableListOf<String>()
     private val changes = mutableListOf<RepoSettingsChange>()
+    private val pages = mutableListOf<PagesChange>()
+    private val live = PagesSite(published = true, url = "https://octo.example/tools/", canPublish = true, build = PagesBuild.Workflow, httpsEnforced = false, customDomain = "")
     private val tools = RepoId("octo", "tools")
     private val gitHub = RepoSettings(
         description = "Tools for octocats", website = "", topics = listOf("kotlin", "tools"), defaultBranch = "main",
@@ -69,6 +74,7 @@ class RepoSettingsScreenTest {
                     onChange = { changes += it },
                     onLoadBranches = { events += "branches" },
                     onOpenUrl = { events += "url:$it" },
+                    onChangePages = { pages += it },
                     onRename = { events += "rename:$it" },
                     onDelete = { events += "delete" },
                     onRenamed = { events += "renamed:${it.fullName}" },
@@ -335,6 +341,98 @@ class RepoSettingsScreenTest {
 
         composeRule.waitForIdle()
         assertThat(events).containsExactly("renamed:octo/kit")
+    }
+
+    @Test
+    fun a_repository_that_publishes_nothing_is_offered_to_from_a_workflow_or_a_branch() {
+        setContent(shown().copy(pages = PagesSite(published = false, canPublish = true), branches = Loadable.Loaded(listOf("main", "gh-pages"))))
+
+        reach("Publish a website")
+        composeRule.onNodeWithText("Not published").assertIsDisplayed()
+        composeRule.onNodeWithText("Publish a website").performClick()
+        // A workflow unless said otherwise; a branch asks which, and which folder of it.
+        composeRule.onNodeWithText("A branch").performClick()
+        composeRule.onNodeWithText("gh-pages").performClick()
+        composeRule.onNodeWithText("/docs").performClick()
+        composeRule.onAllNodes(hasText("Publish a website"))[1].performClick()
+
+        assertThat(events).contains("branches")
+        assertThat(pages).containsExactly(PagesChange.Publish(PagesBuild.Branch("gh-pages", "/docs")))
+    }
+
+    @Test
+    fun a_published_site_says_where_it_is_and_what_can_be_set_of_it() {
+        setContent(shown().copy(pages = live))
+
+        reach("Unpublish")
+        composeRule.onNodeWithText("https://octo.example/tools/").performClick()
+        composeRule.onNodeWithText("GitHub Actions").assertIsDisplayed()
+        switch("Enforce HTTPS").assertIsOff()
+        switch("Enforce HTTPS").performClick()
+
+        assertThat(events).containsExactly("url:https://octo.example/tools/")
+        assertThat(pages).containsExactly(PagesChange.Https(true))
+    }
+
+    @Test
+    fun the_site_s_source_and_domain_are_changed_from_their_sheets() {
+        setContent(shown().copy(pages = live.copy(build = PagesBuild.Branch("main", "/"))))
+
+        reach("Unpublish")
+        composeRule.onNodeWithText("main, /").performClick()
+        // Nothing to save while it is what the site is built from already.
+        composeRule.onNodeWithText("Save").assertIsNotEnabled()
+        composeRule.onNodeWithText("GitHub Actions").performClick()
+        composeRule.onNodeWithText("Save").performClick()
+
+        assertThat(pages).containsExactly(PagesChange.Publish(PagesBuild.Workflow))
+    }
+
+    @Test
+    fun a_custom_domain_is_written_in_a_sheet() {
+        setContent(shown().copy(pages = live))
+
+        reach("Unpublish")
+        composeRule.onNodeWithText("Custom domain").performClick()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("tools.example")
+        composeRule.onNodeWithText("Save").performClick()
+
+        assertThat(pages).containsExactly(PagesChange.Domain("tools.example"))
+    }
+
+    @Test
+    fun unpublishing_asks_first() {
+        setContent(shown().copy(pages = live))
+
+        reach("Unpublish")
+        composeRule.onNodeWithText("Unpublish").performClick()
+        composeRule.onNodeWithText("Unpublish the website?").assertIsDisplayed()
+        assertThat(pages).isEmpty()
+        composeRule.onAllNodes(hasText("Unpublish"))[1].performClick()
+
+        assertThat(pages).containsExactly(PagesChange.Unpublish)
+    }
+
+    @Test
+    fun a_gitlab_site_shows_once_published_with_only_what_its_api_sets() {
+        val project = RepoId("group", "app", ForgeInstance.GitLab)
+        setContent(shown(gitLab, project).copy(pages = PagesSite(published = true, url = "https://app.gitlab.io", httpsEnforced = true)))
+
+        reach("Unpublish")
+        composeRule.onNodeWithText("https://app.gitlab.io").assertIsDisplayed()
+        switch("Enforce HTTPS").assertIsOn()
+        composeRule.onNodeWithText("Built from").assertDoesNotExist()
+        composeRule.onNodeWithText("Custom domain").assertDoesNotExist()
+    }
+
+    @Test
+    fun no_website_is_offered_where_nothing_can_be_set_of_one() {
+        // GitLab before its CI published one, then a forge without the setting.
+        setContent(shown(gitLab, RepoId("group", "app", ForgeInstance.GitLab)).copy(pages = PagesSite(published = false, url = "https://app.gitlab.io", httpsEnforced = true)))
+
+        reach("More settings on GitLab")
+        composeRule.onNodeWithText("Pages").assertDoesNotExist()
+        composeRule.onNodeWithText("Publish a website").assertDoesNotExist()
     }
 
     /** On a screen tall enough to hold them all: a row cut by the edge of a shorter one measures as less than it is. */

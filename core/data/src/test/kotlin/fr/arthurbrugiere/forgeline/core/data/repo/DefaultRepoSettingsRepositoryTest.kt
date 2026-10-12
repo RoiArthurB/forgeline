@@ -14,6 +14,9 @@ import fr.arthurbrugiere.forgeline.core.testing.FakeRepoRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeRepoSettingsApi
 import kotlinx.coroutines.test.runTest
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
+import fr.arthurbrugiere.forgeline.core.model.PagesBuild
+import fr.arthurbrugiere.forgeline.core.model.PagesChange
+import fr.arthurbrugiere.forgeline.core.model.PagesSite
 import org.junit.Test
 
 class DefaultRepoSettingsRepositoryTest {
@@ -80,5 +83,18 @@ class DefaultRepoSettingsRepositoryTest {
         assertThat(repository.rename(tools, "kit")).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
         assertThat(gitLab.deleted).containsExactly(app)
         assertThat(gitHub.calls).isEmpty()
+    }
+
+    @Test
+    fun a_website_is_read_and_changed_on_its_forge_with_an_account_there() = runTest {
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
+
+        assertThat(repository.pages(tools)).isEqualTo(ForgeResult.Success(PagesSite(published = false, canPublish = true)))
+        val published = repository.changePages(tools, PagesChange.Publish(PagesBuild.Workflow))
+        assertThat((published as ForgeResult.Success).value.published).isTrue()
+        assertThat(repository.pages(app)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(repository.changePages(app, PagesChange.Unpublish)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(gitHub.calls).containsExactly("pages:octo/tools", "changePages:octo/tools").inOrder()
+        assertThat(gitLab.calls).isEmpty()
     }
 }

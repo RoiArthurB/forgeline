@@ -21,6 +21,9 @@ import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
+import fr.arthurbrugiere.forgeline.core.model.PagesBuild
+import fr.arthurbrugiere.forgeline.core.model.PagesChange
+import fr.arthurbrugiere.forgeline.core.model.PagesSite
 import org.junit.Test
 
 /** Answers are cut down from api.github.com's for a repository its reader administers, read on 2026-10-12 (REST, version 2022-11-28). */
@@ -195,5 +198,84 @@ class GitHubRepoSettingsApiTest {
     @Test
     fun deleting_is_among_what_a_sign_in_asks_for() {
         assertThat(GitHubAuthApi.SCOPES).containsExactly("notifications", "read:user", "user:follow", "repo", "delete_repo").inOrder()
+    }
+
+    // Cut down from api.github.com's for a repository that publishes with a workflow, read on 2026-10-12.
+    private val pagesJson = """{"url":"https://api.github.com/repos/octo/tools/pages","status":null,"cname":null,"html_url":"http://octo.example/tools/",
+        "build_type":"workflow","source":{"branch":"main","path":"/"},"public":true,"https_enforced":false}"""
+
+    private val HttpRequestData.call get() = "${method.value} $path"
+
+    @Test
+    fun a_published_site_says_where_it_is_and_what_it_is_built_from() = runTest {
+        val workflow = api { json(pagesJson) }.pages("tok", repo).value()
+        val branch = api { json("""{"cname":"tools.example","html_url":"https://tools.example/","build_type":"legacy","source":{"branch":"gh-pages","path":"/docs"},"https_enforced":true}""") }
+            .pages("tok", repo).value()
+
+        assertThat(workflow).isEqualTo(PagesSite(published = true, url = "http://octo.example/tools/", canPublish = true, build = PagesBuild.Workflow, httpsEnforced = false, customDomain = ""))
+        assertThat(branch).isEqualTo(
+            PagesSite(published = true, url = "https://tools.example/", canPublish = true, build = PagesBuild.Branch("gh-pages", "/docs"), httpsEnforced = true, customDomain = "tools.example"),
+        )
+        assertThat(requests.last().call).isEqualTo("GET /repos/octo/tools/pages")
+    }
+
+    @Test
+    fun a_repository_that_publishes_nothing_can_be_made_to() = runTest {
+        val site = api { json("""{"message":"Not Found"}""", HttpStatusCode.NotFound) }.pages("tok", repo).value()
+
+        assertThat(site).isEqualTo(PagesSite(published = false, canPublish = true))
+    }
+
+    @Test
+    fun a_site_is_created_once_then_changed() = runTest {
+        var exists = false
+        val api = api {
+            when {
+                it.method == HttpMethod.Post -> { exists = true; json(pagesJson, HttpStatusCode.Created) }
+                it.method == HttpMethod.Put -> respond("", HttpStatusCode.NoContent)
+                exists -> json(pagesJson)
+                else -> json("""{"message":"Not Found"}""", HttpStatusCode.NotFound)
+            }
+        }
+
+        val published = api.changePages("tok", repo, PagesChange.Publish(PagesBuild.Workflow)).value()
+        assertThat(published.published).isTrue()
+        assertThat(requests.map { it.call }).containsExactly("GET /repos/octo/tools/pages", "POST /repos/octo/tools/pages", "GET /repos/octo/tools/pages").inOrder()
+        assertThat(requests[1].sent).isEqualTo("""{"build_type":"workflow"}""")
+
+        requests.clear()
+        api.changePages("tok", repo, PagesChange.Publish(PagesBuild.Branch("gh-pages", "/docs"))).value()
+        assertThat(requests.map { it.call }).containsExactly("GET /repos/octo/tools/pages", "PUT /repos/octo/tools/pages", "GET /repos/octo/tools/pages").inOrder()
+        assertThat(requests[1].sent).isEqualTo("""{"build_type":"legacy","source":{"branch":"gh-pages","path":"/docs"}}""")
+    }
+
+    @Test
+    fun https_and_the_domain_are_put_and_an_empty_domain_takes_it_away() = runTest {
+        val api = api { if (it.method == HttpMethod.Put) respond("", HttpStatusCode.NoContent) else json(pagesJson) }
+
+        api.changePages("tok", repo, PagesChange.Https(true)).value()
+        api.changePages("tok", repo, PagesChange.Domain("tools.example")).value()
+        api.changePages("tok", repo, PagesChange.Domain(" ")).value()
+
+        assertThat(requests.filter { it.method == HttpMethod.Put }.map { it.sent })
+            .containsExactly("""{"https_enforced":true}""", """{"cname":"tools.example"}""", """{"cname":null}""").inOrder()
+    }
+
+    @Test
+    fun an_unpublished_site_is_read_as_gone() = runTest {
+        val site = api { if (it.method == HttpMethod.Delete) respond("", HttpStatusCode.NoContent) else json("""{"message":"Not Found"}""", HttpStatusCode.NotFound) }
+            .changePages("tok", repo, PagesChange.Unpublish).value()
+
+        assertThat(site).isEqualTo(PagesSite(published = false, canPublish = true))
+        assertThat(requests.map { it.call }).containsExactly("DELETE /repos/octo/tools/pages", "GET /repos/octo/tools/pages").inOrder()
+    }
+
+    @Test
+    fun a_refused_change_to_the_site_fails() = runTest {
+        // No certificate yet for the domain: HTTPS can't be enforced.
+        val result = api { if (it.method == HttpMethod.Put) json("""{"message":"The certificate does not exist yet"}""", HttpStatusCode.NotFound) else json(pagesJson) }
+            .changePages("tok", repo, PagesChange.Https(true))
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "The certificate does not exist yet")))
     }
 }

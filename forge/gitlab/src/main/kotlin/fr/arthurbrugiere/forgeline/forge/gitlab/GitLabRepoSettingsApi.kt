@@ -5,6 +5,9 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.MergeStyle
+import fr.arthurbrugiere.forgeline.core.model.PagesChange
+import fr.arthurbrugiere.forgeline.core.model.PagesSite
+import io.ktor.http.HttpStatusCode
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSettings
@@ -92,6 +95,35 @@ class GitLabRepoSettingsApi(private val httpClient: HttpClient, private val forg
         val scheduled = kept.status.isSuccess() && kept.body<JsonObject>().textOrNull("marked_for_deletion_on") != null
         ForgeResult.Success(if (scheduled) RepoDeletion.SCHEDULED else RepoDeletion.DELETED)
     }
+
+    /**
+     * A project's website is published by a job of its CI, not switched on: only what is said of a published one can
+     * be set. A project without the feature answers 404, which is no site to set anything about.
+     */
+    override suspend fun pages(token: String, repo: RepoId): ForgeResult<PagesSite?> = gitlabCall {
+        val response = httpClient.gitlabApi(forge, token, "projects", encodePath(repo.fullName), "pages")
+        if (response.status == HttpStatusCode.NotFound) ForgeResult.Success(null) else response.toResult { body<JsonObject>().toSite() }
+    }
+
+    override suspend fun changePages(token: String, repo: RepoId, change: PagesChange): ForgeResult<PagesSite> = gitlabCall {
+        suspend fun send(method: HttpMethod, body: JsonObject? = null) =
+            httpClient.gitlabApi(forge, token, "projects", encodePath(repo.fullName), "pages", method = method, body = body)
+        when (change) {
+            is PagesChange.Https -> send(HttpMethod.Patch, buildJsonObject { put("pages_https_only", change.enforced) }).toResult { body<JsonObject>().toSite() }
+            PagesChange.Unpublish -> {
+                val removed = send(HttpMethod.Delete)
+                if (!removed.status.isSuccess()) return@gitlabCall removed.failure()
+                send(HttpMethod.Get).toResult { body<JsonObject>().toSite() }
+            }
+            else -> unsupported
+        }
+    }
+
+    private fun JsonObject.toSite() = PagesSite(
+        published = (this["deployments"] as? JsonArray)?.isNotEmpty() == true,
+        url = textOrNull("url"),
+        httpsEnforced = (this["force_https"] as? JsonPrimitive)?.booleanOrNull,
+    )
 
     private fun JsonObject.toSettings(): RepoSettings {
         val levels = LEVELS.mapNotNull { (switch, field) -> textOrNull(field)?.let { switch to it } }

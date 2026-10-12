@@ -51,6 +51,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.PagesBuild
+import fr.arthurbrugiere.forgeline.core.model.PagesChange
+import fr.arthurbrugiere.forgeline.core.model.PagesSite
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
@@ -123,6 +126,7 @@ fun RepoSettingsRoute(
         onBack = onBack,
         onRefresh = viewModel::refresh,
         onChange = viewModel::change,
+        onChangePages = viewModel::changePages,
         onRename = viewModel::rename,
         onDelete = viewModel::delete,
         onRenamed = onRenamed,
@@ -135,10 +139,10 @@ fun RepoSettingsRoute(
 }
 
 /** What is being edited in a sheet. */
-private enum class Editing { DESCRIPTION, WEBSITE, TOPICS, BRANCH, RENAME, DELETE }
+private enum class Editing { DESCRIPTION, WEBSITE, TOPICS, BRANCH, RENAME, DELETE, PAGES_SOURCE, PAGES_DOMAIN }
 
 /** What is asked to be confirmed in a dialog. */
-private enum class Confirming { VISIBILITY, ARCHIVE }
+private enum class Confirming { VISIBILITY, ARCHIVE, UNPUBLISH }
 
 /**
  * What a repository's owner sets on it: what it says about itself, what it has switched on, how it merges. A switch
@@ -155,6 +159,7 @@ fun RepoSettingsScreen(
     onChange: (RepoSettingsChange) -> Unit,
     onLoadBranches: () -> Unit,
     onOpenUrl: (String) -> Unit,
+    onChangePages: (PagesChange) -> Unit = {},
     onRename: (String) -> Unit = {},
     onDelete: () -> Unit = {},
     onRenamed: (RepoId) -> Unit = {},
@@ -226,6 +231,22 @@ fun RepoSettingsScreen(
                 stringResource(R.string.repo_settings_rename), state.repo.name, singleLine = true,
                 saving = state.working, refusal = refusal, onSave = onRename, onDismiss = dismiss,
             )
+            Editing.PAGES_SOURCE -> PagesSourceSheet(
+                state.pages, settings.defaultBranch, state.branches, state.working, refusal,
+                onSave = {
+                    closing = true
+                    onChangePages(PagesChange.Publish(it))
+                },
+                onDismiss = dismiss,
+            )
+            Editing.PAGES_DOMAIN -> TextSheet(
+                stringResource(R.string.repo_pages_domain), state.pages?.customDomain.orEmpty(), singleLine = true, saving = state.working, refusal = refusal,
+                onSave = {
+                    closing = true
+                    onChangePages(PagesChange.Domain(it))
+                },
+                onDismiss = dismiss,
+            )
             Editing.DELETE -> DeleteSheet(
                 state.repo, state.working,
                 // GitHub wants a permission of its own to delete, which a sign-in older than it wasn't given.
@@ -239,6 +260,20 @@ fun RepoSettingsScreen(
                 confirming = null
                 onChange(RepoSettingsChange.Visibility(it))
             }
+            Confirming.UNPUBLISH -> AlertDialog(
+                onDismissRequest = { confirming = null },
+                title = { Text(stringResource(R.string.repo_pages_unpublish_title)) },
+                text = { Text(stringResource(R.string.repo_pages_unpublish_body)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        confirming = null
+                        onChangePages(PagesChange.Unpublish)
+                    }) { Text(stringResource(R.string.repo_pages_unpublish)) }
+                },
+                dismissButton = { TextButton(onClick = { confirming = null }) { Text(stringResource(R.string.cancel)) } },
+                shape = RoundedCornerShape(28.dp),
+                containerColor = colors.raised,
+            )
             Confirming.ARCHIVE -> ArchiveDialog(settings.archived, onDismiss = { confirming = null }) {
                 confirming = null
                 onChange(RepoSettingsChange.Archived(!settings.archived))
@@ -354,6 +389,32 @@ fun RepoSettingsScreen(
                                             MergeMethod.entries.map { stringResource(it.label) },
                                             method.ordinal,
                                         ) { onChange(RepoSettingsChange.DefaultMerge(MergeMethod.entries[it])) }
+                                    }
+                                }
+                            }
+                        }
+                        val site = state.pages
+                        // A site its forge publishes by itself has nothing to set until it is there.
+                        if (site != null && (site.published || site.canPublish)) {
+                            item(key = "pages") {
+                                Column {
+                                    SoftSectionTitle(stringResource(R.string.repo_pages))
+                                    val openSource = {
+                                        onLoadBranches()
+                                        editing = Editing.PAGES_SOURCE
+                                    }
+                                    if (!site.published) {
+                                        SettingRow(stringResource(R.string.repo_pages_publish), stringResource(R.string.repo_pages_not_published), onClick = openSource)
+                                    } else {
+                                        site.url?.let { url -> SettingRow(stringResource(R.string.repo_pages_address), url, onClick = { onOpenUrl(url) }) }
+                                        site.build?.let { build -> SettingRow(stringResource(R.string.repo_pages_source), build.label(), onClick = openSource) }
+                                        site.httpsEnforced?.let { enforced ->
+                                            SwitchItem(stringResource(R.string.repo_pages_https), null, enforced, onCheckedChange = { onChangePages(PagesChange.Https(it)) })
+                                        }
+                                        site.customDomain?.let { domain ->
+                                            SettingRow(stringResource(R.string.repo_pages_domain), domain.ifBlank { none }, onClick = { editing = Editing.PAGES_DOMAIN })
+                                        }
+                                        SettingRow(stringResource(R.string.repo_pages_unpublish), stringResource(R.string.repo_pages_unpublish_summary), onClick = { confirming = Confirming.UNPUBLISH })
                                     }
                                 }
                             }
@@ -611,5 +672,65 @@ private fun DeleteSheet(repo: RepoId, working: Boolean, refusal: String?, onDele
         Text(stringResource(R.string.repo_settings_delete_body, repo.fullName), style = Soft.type.secondary, color = Soft.colors.ink)
         SoftTextField(typed, { typed = it }, placeholder = repo.fullName, error = refusal)
         SoftButton(stringResource(R.string.repo_settings_delete_confirm), onClick = onDelete, enabled = !working && typed.trim() == repo.fullName)
+    }
+}
+
+/** "GitHub Actions", or the branch and the folder a site is made of: "main, /docs". */
+@Composable
+private fun PagesBuild.label(): String = when (this) {
+    PagesBuild.Workflow -> stringResource(R.string.repo_pages_source_workflow)
+    is PagesBuild.Branch -> stringResource(R.string.repo_pages_source_branch_value, branch, folder)
+}
+
+/** What the site is built from: what a workflow uploads, or a folder of a branch. Publishes a site that isn't yet. */
+@Composable
+private fun PagesSourceSheet(
+    site: PagesSite?,
+    defaultBranch: String,
+    branches: Loadable<List<String>>,
+    working: Boolean,
+    refusal: String?,
+    onSave: (PagesBuild) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val current = site?.build
+    val from = current as? PagesBuild.Branch
+    var workflow by rememberSaveable { mutableStateOf(current == null || current == PagesBuild.Workflow) }
+    var branch by rememberSaveable { mutableStateOf(from?.branch ?: defaultBranch) }
+    var folder by rememberSaveable { mutableStateOf(from?.folder ?: "/") }
+    val picked = if (workflow) PagesBuild.Workflow else PagesBuild.Branch(branch, folder)
+    Sheet(stringResource(R.string.repo_pages_source), onDismiss) {
+        Column(Modifier.selectableGroup()) {
+            Option(stringResource(R.string.repo_pages_source_workflow), stringResource(R.string.repo_pages_source_workflow_summary), workflow) { workflow = true }
+            Option(stringResource(R.string.repo_pages_source_branch), stringResource(R.string.repo_pages_source_branch_summary), !workflow) { workflow = false }
+        }
+        if (!workflow) {
+            // The branches once read; the default one meanwhile, and whichever the site is on already.
+            val offered = ((branches as? Loadable.Loaded)?.value.orEmpty() + branch + defaultBranch).filter { it.isNotEmpty() }.distinct()
+            Text(stringResource(R.string.repo_pages_branch), style = Soft.type.label, color = Soft.colors.inkMuted)
+            Column(Modifier.selectableGroup()) { offered.forEach { name -> Option(name, null, name == branch) { branch = name } } }
+            Text(stringResource(R.string.repo_pages_folder), style = Soft.type.label, color = Soft.colors.inkMuted)
+            Column(Modifier.selectableGroup()) { listOf("/", "/docs").forEach { path -> Option(path, null, path == folder) { folder = path } } }
+        }
+        refusal?.let { Text(it, style = Soft.type.secondary, color = Soft.colors.accent) }
+        SoftButton(
+            stringResource(if (site?.published == true) R.string.manage_save else R.string.repo_pages_publish),
+            onClick = { onSave(picked) },
+            enabled = !working && (site?.published != true || picked != current),
+        )
+    }
+}
+
+@Composable
+private fun Option(title: String, summary: String?, selected: Boolean, onSelect: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clip(SoftTokens.RowCorner).selectable(selected = selected, role = Role.RadioButton, onClick = onSelect).heightIn(min = 48.dp).padding(vertical = 6.dp),
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        Column(Modifier.padding(start = 16.dp)) {
+            Text(title, style = Soft.type.body, color = Soft.colors.ink)
+            summary?.let { Text(it, style = Soft.type.secondary, color = Soft.colors.inkMuted) }
+        }
     }
 }

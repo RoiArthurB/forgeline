@@ -10,6 +10,8 @@ import fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoSettingsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.PagesChange
+import fr.arthurbrugiere.forgeline.core.model.PagesSite
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSettings
@@ -34,7 +36,9 @@ data class RepoSettingsUiState(
     val refused: ForgeError? = null,
     /** Counts the changes the forge took, so that what asked for one can close on it. */
     val saved: Int = 0,
-    /** A rename or the deletion is on its way. */
+    /** The repository's website, where its forge sets something about one; read beside the settings. */
+    val pages: PagesSite? = null,
+    /** A rename, the deletion or a change to the website is on its way. */
     val working: Boolean = false,
     /** Where the repository now is, once renamed: its page is opened there. */
     val renamedTo: RepoId? = null,
@@ -70,6 +74,23 @@ class RepoSettingsViewModel @AssistedInject constructor(
             when (val result = repository.settings(repo)) {
                 is ForgeResult.Success -> _state.update { it.copy(settings = result.value, isRefreshing = false) }
                 is ForgeResult.Failure -> _state.update { it.copy(isRefreshing = false, error = result.error) }
+            }
+        }
+        // Beside the settings, and without holding them back: a site that can't be read is one nothing is offered for.
+        viewModelScope.launch {
+            val pages = (repository.pages(repo) as? ForgeResult.Success)?.value
+            _state.update { it.copy(pages = pages ?: it.pages) }
+        }
+    }
+
+    /** Changes the repository's website; what the forge refuses is said, and the site stays as it was. */
+    fun changePages(change: PagesChange) {
+        if (busy() || _state.value.pages == null) return
+        _state.update { it.copy(working = true, refused = null) }
+        viewModelScope.launch {
+            when (val result = repository.changePages(repo, change)) {
+                is ForgeResult.Success -> _state.update { it.copy(working = false, pages = result.value, saved = it.saved + 1) }
+                is ForgeResult.Failure -> _state.update { it.copy(working = false, refused = result.error) }
             }
         }
     }

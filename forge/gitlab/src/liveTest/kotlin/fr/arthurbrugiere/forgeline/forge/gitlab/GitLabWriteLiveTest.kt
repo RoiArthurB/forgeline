@@ -169,6 +169,15 @@ class GitLabWriteLiveTest {
             assertThat(after.description).isEqualTo("Changed by a test")
             assertThat(after.mergeStyle).isEqualTo(MergeStyle.FAST_FORWARD)
 
+            // Its website: none until its CI publishes one, and what is said of it can be set already.
+            val site = settings.pages(token, repo).value("pages")
+            System.err.println("GITLAB pages: $site")
+            assertWithMessage("pages").that(site).isNotNull()
+            assertWithMessage("published").that(site!!.published).isFalse()
+            val https = settings.changePages(token, repo, fr.arthurbrugiere.forgeline.core.model.PagesChange.Https(false))
+            System.err.println("GITLAB pages https off: $https")
+            assertThat((https as ForgeResult.Success).value.httpsEnforced).isFalse()
+
             // What can't be taken back lightly, on this project alone: archived and back, renamed, then deleted.
             assertThat(change(RepoSettingsChange.Archived(true)).archived).isTrue()
             assertThat(change(RepoSettingsChange.Archived(false)).archived).isFalse()

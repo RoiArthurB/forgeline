@@ -23,6 +23,9 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
+import fr.arthurbrugiere.forgeline.core.model.PagesBuild
+import fr.arthurbrugiere.forgeline.core.model.PagesChange
+import fr.arthurbrugiere.forgeline.core.model.PagesSite
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -215,5 +218,49 @@ class RepoSettingsViewModelTest {
         advanceUntilIdle()
         assertThat(viewModel.state.value.renamedTo).isNull()
         assertThat(viewModel.state.value.refused).isEqualTo(ForgeError.Unauthorized)
+    }
+
+    @Test
+    fun the_website_is_read_beside_the_settings_and_changed_on_its_own() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.pages).isEqualTo(PagesSite(published = false, canPublish = true))
+
+        viewModel.changePages(PagesChange.Publish(PagesBuild.Branch("main", "/docs")))
+        assertThat(viewModel.state.value.working).isTrue()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.pages!!.published).isTrue()
+        assertThat(viewModel.state.value.pages!!.build).isEqualTo(PagesBuild.Branch("main", "/docs"))
+        assertThat(viewModel.state.value.working).isFalse()
+        assertThat(viewModel.state.value.saved).isEqualTo(1)
+    }
+
+    @Test
+    fun a_refused_change_to_the_website_leaves_it_as_it_was() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        api.writeFailure = ForgeError.Http(404, "The certificate does not exist yet")
+
+        viewModel.changePages(PagesChange.Https(true))
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.pages).isEqualTo(PagesSite(published = false, canPublish = true))
+        assertThat(viewModel.state.value.refused).isEqualTo(ForgeError.Http(404, "The certificate does not exist yet"))
+    }
+
+    @Test
+    fun a_forge_that_sets_nothing_about_a_website_is_asked_for_no_change() = test {
+        api.pages = null
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.changePages(PagesChange.Unpublish)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.pages).isNull()
+        assertThat(api.pagesChanges).isEmpty()
+        // The settings themselves are read all the same.
+        assertThat(viewModel.state.value.settings).isNotNull()
     }
 }

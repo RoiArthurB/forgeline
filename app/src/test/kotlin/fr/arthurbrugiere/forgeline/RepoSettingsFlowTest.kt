@@ -145,4 +145,25 @@ class RepoSettingsFlowTest {
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasContentDescription("Navigate up")).fetchSemanticsNodes().isEmpty() }
         composeRule.onNode(hasContentDescription("Trending") and isSelectable()).assertIsSelected()
     }
+
+    @Test
+    fun a_website_is_published_from_the_settings() {
+        hiltRule.inject()
+        runBlocking { accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null), "tok") }
+        openRepository()
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasContentDescription("Repository settings")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNode(hasContentDescription("Repository settings")).performClick()
+        waitFor("Tools for octocats")
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Publish a website"))
+        composeRule.onNodeWithText("Publish a website").performClick()
+        waitFor("A workflow builds the site")
+        composeRule.onAllNodes(hasText("Publish a website"))[1].performClick()
+        composeRule.waitForIdle()
+
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { settings.pagesChanges.isNotEmpty() }
+        // The sheet closes on it, and the section says where the site now is.
+        waitFor("https://paperclipai.example/paperclip/")
+        assertThat(settings.pagesChanges).containsExactly(fr.arthurbrugiere.forgeline.core.model.PagesChange.Publish(fr.arthurbrugiere.forgeline.core.model.PagesBuild.Workflow))
+    }
 }

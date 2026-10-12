@@ -215,6 +215,10 @@ class GitHubLiveContractTest {
         assertWithMessage("switches: ${settings.switches}").that(settings.switches.keys)
             .containsAtLeast(fr.arthurbrugiere.forgeline.core.model.RepoSwitch.ISSUES, fr.arthurbrugiere.forgeline.core.model.RepoSwitch.WIKI)
         System.err.println("GITHUB settings: $settings")
+        // Someone else's repository: GitHub says its website is none of the reader's business, or that there is none.
+        val pages = GitHubRepoSettingsApi(client).pages(pat, RepoId("octocat", "Hello-World"))
+        System.err.println("GITHUB pages: $pages")
+        assertWithMessage("pages: $pages").that(pages).isNotEqualTo(ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unreadable))
     }
 
     @Test

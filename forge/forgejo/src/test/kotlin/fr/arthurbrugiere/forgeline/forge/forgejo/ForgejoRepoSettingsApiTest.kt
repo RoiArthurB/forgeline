@@ -17,6 +17,7 @@ import io.ktor.http.content.TextContent
 import kotlinx.coroutines.test.runTest
 import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
+import fr.arthurbrugiere.forgeline.core.model.PagesChange
 import org.junit.Test
 
 /** Fields are those of Codeberg's API description (`Repository`, `EditRepoOption`), read on 2026-10-12. */
@@ -166,5 +167,15 @@ class ForgejoRepoSettingsApiTest {
         assertThat(codeberg.requests.single().url.encodedPath).isEqualTo(base)
 
         assertThat(api { with(codeberg) { status(HttpStatusCode.Forbidden) } }.delete("tok", repo)).isInstanceOf(ForgeResult.Failure::class.java)
+    }
+
+    @Test
+    fun forgejo_sets_nothing_about_a_website() = runTest {
+        val api = api()
+
+        // Codeberg Pages serves a branch or a repository named for it: there is no setting to read or change.
+        assertThat(api.pages("tok", repo)).isEqualTo(ForgeResult.Success(null))
+        assertThat(api.changePages("tok", repo, PagesChange.Unpublish)).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+        assertThat(codeberg.requests).isEmpty()
     }
 }

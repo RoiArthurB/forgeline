@@ -59,4 +59,29 @@ class FakeRepoSettingsApi(
         deleted += repo
         return ForgeResult.Success(deletion)
     }
+
+    /** The repository's website; null for a forge that sets nothing about one. */
+    var pages: fr.arthurbrugiere.forgeline.core.model.PagesSite? = fr.arthurbrugiere.forgeline.core.model.PagesSite(published = false, canPublish = true)
+    val pagesChanges = mutableListOf<fr.arthurbrugiere.forgeline.core.model.PagesChange>()
+
+    override suspend fun pages(token: String, repo: RepoId): ForgeResult<fr.arthurbrugiere.forgeline.core.model.PagesSite?> {
+        calls += "pages:${repo.fullName}"
+        return failure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(pages)
+    }
+
+    override suspend fun changePages(token: String, repo: RepoId, change: fr.arthurbrugiere.forgeline.core.model.PagesChange): ForgeResult<fr.arthurbrugiere.forgeline.core.model.PagesSite> {
+        calls += "changePages:${repo.fullName}"
+        pagesChanges += change
+        writeFailure?.let { return ForgeResult.Failure(it) }
+        val before = pages ?: return ForgeResult.Failure(ForgeError.Unsupported)
+        val after = when (change) {
+            is fr.arthurbrugiere.forgeline.core.model.PagesChange.Publish ->
+                before.copy(published = true, build = change.build, url = before.url ?: "https://${repo.owner}.example/${repo.name}/", httpsEnforced = before.httpsEnforced ?: false, customDomain = before.customDomain ?: "")
+            is fr.arthurbrugiere.forgeline.core.model.PagesChange.Https -> before.copy(httpsEnforced = change.enforced)
+            is fr.arthurbrugiere.forgeline.core.model.PagesChange.Domain -> before.copy(customDomain = change.domain)
+            fr.arthurbrugiere.forgeline.core.model.PagesChange.Unpublish -> fr.arthurbrugiere.forgeline.core.model.PagesSite(published = false, canPublish = before.canPublish)
+        }
+        pages = after
+        return ForgeResult.Success(after)
+    }
 }

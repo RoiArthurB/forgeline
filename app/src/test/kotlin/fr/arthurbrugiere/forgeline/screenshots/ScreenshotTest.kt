@@ -1035,6 +1035,42 @@ class ScreenshotTest {
     }
 
     @Test
+    fun repo_settings_pages_light() = snapshot(
+        "repo_settings_pages_light", darkTheme = false,
+        beforeCapture = { composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("Danger zone")) },
+    ) {
+        fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsScreen(
+            state = fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsUiState(
+                RepoId("paperclipai", "paperclip"), shownSettings,
+                pages = fr.arthurbrugiere.forgeline.core.model.PagesSite(
+                    published = true, url = "https://paperclip.ing/", canPublish = true,
+                    build = fr.arthurbrugiere.forgeline.core.model.PagesBuild.Branch("master", "/docs"), httpsEnforced = true, customDomain = "paperclip.ing",
+                ),
+            ),
+            onBack = {}, onRefresh = {}, onChange = {}, onLoadBranches = {}, onOpenUrl = {}, onRefusalShown = {}, onErrorShown = {},
+        )
+    }
+
+    @Test
+    fun repo_settings_pages_source_light() = snapshot(
+        "repo_settings_pages_source_light", darkTheme = false, wholeScreen = true,
+        beforeCapture = {
+            composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("Danger zone"))
+            composeRule.onNodeWithText("Publish a website").performClick()
+            composeRule.onNodeWithText("A branch").performClick()
+        },
+    ) {
+        fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsScreen(
+            state = fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsUiState(
+                RepoId("paperclipai", "paperclip"), shownSettings,
+                pages = fr.arthurbrugiere.forgeline.core.model.PagesSite(published = false, canPublish = true),
+                branches = fr.arthurbrugiere.forgeline.repo.Loadable.Loaded(listOf("master", "gh-pages")),
+            ),
+            onBack = {}, onRefresh = {}, onChange = {}, onLoadBranches = {}, onOpenUrl = {}, onRefusalShown = {}, onErrorShown = {},
+        )
+    }
+
+    @Test
     fun repo_settings_deleted_light() = snapshot("repo_settings_deleted_light", darkTheme = false) {
         fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsScreen(
             state = fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsUiState(RepoId("paperclipai", "paperclip"), shownSettings, deleted = fr.arthurbrugiere.forgeline.core.model.RepoDeletion.SCHEDULED),
