@@ -5,10 +5,12 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSettings
 import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.RepoSwitch
+import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
@@ -48,10 +50,21 @@ class ForgejoRepoSettingsApi(private val httpClient: HttpClient, private val for
                 is RepoSettingsChange.DefaultBranch -> put("default_branch", change.branch)
                 is RepoSettingsChange.Switch -> put(SWITCHES[change.switch] ?: return@forgejoCall unsupported, change.on)
                 is RepoSettingsChange.DefaultMerge -> put("default_merge_style", STYLES.getValue(change.method))
+                is RepoSettingsChange.Visibility -> put("private", change.visibility != RepoVisibility.PUBLIC)
+                is RepoSettingsChange.Archived -> put("archived", change.archived)
                 else -> return@forgejoCall unsupported
             }
         }
         httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, method = HttpMethod.Patch, body = body).toResult { body<JsonObject>().toSettings() }
+    }
+
+    override suspend fun rename(token: String, repo: RepoId, name: String): ForgeResult<RepoId> = forgejoCall {
+        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, method = HttpMethod.Patch, body = buildJsonObject { put("name", name) })
+            .toResult { body<JsonObject>().text("full_name").split('/', limit = 2).let { (owner, renamed) -> RepoId(owner, renamed, repo.forge) } }
+    }
+
+    override suspend fun delete(token: String, repo: RepoId): ForgeResult<RepoDeletion> = forgejoCall {
+        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, method = HttpMethod.Delete).toResult { RepoDeletion.DELETED }
     }
 
     private fun JsonObject.toSettings(): RepoSettings {
@@ -63,6 +76,8 @@ class ForgejoRepoSettingsApi(private val httpClient: HttpClient, private val for
             defaultBranch = text("default_branch"),
             switches = SWITCHES.mapNotNull { (switch, field) -> (this[field] as? JsonPrimitive)?.booleanOrNull?.let { switch to it } }.toMap(),
             defaultMerge = STYLES.entries.firstOrNull { it.value == style }?.key,
+            visibility = if ((this["private"] as? JsonPrimitive)?.booleanOrNull == true) RepoVisibility.PRIVATE else RepoVisibility.PUBLIC,
+            archived = (this["archived"] as? JsonPrimitive)?.booleanOrNull == true,
         )
     }
 

@@ -19,6 +19,8 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
+import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import org.junit.Test
 
 /** Answers are cut down from api.github.com's for a repository its reader administers, read on 2026-10-12 (REST, version 2022-11-28). */
@@ -129,5 +131,69 @@ class GitHubRepoSettingsApiTest {
 
         assertThat(result).isInstanceOf(ForgeResult.Failure::class.java)
         assertThat(topics).isInstanceOf(ForgeResult.Failure::class.java)
+    }
+
+    @Test
+    fun who_sees_it_is_public_or_private_and_internal_only_where_it_already_is() = runTest {
+        val public = api().settings("tok", repo).value()
+        val internal = api { json("""{"visibility":"internal","private":true,"archived":true,"default_branch":"main"}""") }.settings("tok", repo).value()
+        // An older server says only whether it is private.
+        val private = api { json("""{"private":true,"default_branch":"main"}""") }.settings("tok", repo).value()
+
+        assertThat(public.visibility).isEqualTo(RepoVisibility.PUBLIC)
+        assertThat(public.visibilities).containsExactly(RepoVisibility.PUBLIC, RepoVisibility.PRIVATE).inOrder()
+        assertThat(public.archived).isFalse()
+        assertThat(internal.visibility).isEqualTo(RepoVisibility.INTERNAL)
+        assertThat(internal.visibilities).containsExactly(RepoVisibility.PUBLIC, RepoVisibility.INTERNAL, RepoVisibility.PRIVATE).inOrder()
+        assertThat(internal.archived).isTrue()
+        assertThat(private.visibility).isEqualTo(RepoVisibility.PRIVATE)
+    }
+
+    @Test
+    fun visibility_and_archiving_patch_their_field() = runTest {
+        val api = api()
+
+        api.change("tok", repo, RepoSettingsChange.Visibility(RepoVisibility.PRIVATE)).value()
+        api.change("tok", repo, RepoSettingsChange.Archived(true)).value()
+
+        assertThat(requests.map { it.sent }).containsExactly("""{"visibility":"private"}""", """{"archived":true}""").inOrder()
+        assertThat(requests.all { it.method == HttpMethod.Patch && it.path == "/repos/octo/tools" }).isTrue()
+    }
+
+    @Test
+    fun a_renamed_repository_is_where_github_says_it_now_is() = runTest {
+        val renamed = api { json("""{"name":"kit","full_name":"octo/kit"}""") }.rename("tok", repo, "kit").value()
+
+        assertThat(renamed).isEqualTo(RepoId("octo", "kit"))
+        assertThat(requests.single().method).isEqualTo(HttpMethod.Patch)
+        assertThat(requests.single().sent).isEqualTo("""{"name":"kit"}""")
+    }
+
+    @Test
+    fun a_repository_is_deleted_for_good() = runTest {
+        val deleted = api { respond("", HttpStatusCode.NoContent) }.delete("tok", repo).value()
+
+        assertThat(deleted).isEqualTo(RepoDeletion.DELETED)
+        assertThat(requests.single().method).isEqualTo(HttpMethod.Delete)
+        assertThat(requests.single().path).isEqualTo("/repos/octo/tools")
+    }
+
+    @Test
+    fun a_sign_in_without_the_permission_to_delete_is_told_apart_from_a_refusal() = runTest {
+        fun MockRequestHandleScope.forbidden(scopes: String) = respond(
+            """{"message":"Must have admin rights to Repository."}""", HttpStatusCode.Forbidden,
+            headersOf(HttpHeaders.ContentType to listOf("application/json"), "X-OAuth-Scopes" to listOf(scopes), "X-Accepted-OAuth-Scopes" to listOf("delete_repo")),
+        )
+
+        // Signed in before deleting was asked for: signing in again gives it.
+        assertThat(api { forbidden("notifications, read:user, repo, user:follow") }.delete("tok", repo)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        // Allowed to delete, and still refused: not one's repository to delete.
+        assertThat(api { forbidden("delete_repo, repo") }.delete("tok", repo))
+            .isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "Must have admin rights to Repository.")))
+    }
+
+    @Test
+    fun deleting_is_among_what_a_sign_in_asks_for() {
+        assertThat(GitHubAuthApi.SCOPES).containsExactly("notifications", "read:user", "user:follow", "repo", "delete_repo").inOrder()
     }
 }

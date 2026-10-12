@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoSettingsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSettings
 import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
@@ -33,6 +34,12 @@ data class RepoSettingsUiState(
     val refused: ForgeError? = null,
     /** Counts the changes the forge took, so that what asked for one can close on it. */
     val saved: Int = 0,
+    /** A rename or the deletion is on its way. */
+    val working: Boolean = false,
+    /** Where the repository now is, once renamed: its page is opened there. */
+    val renamedTo: RepoId? = null,
+    /** What became of the repository once its deletion was asked for: there is nothing left to set. */
+    val deleted: RepoDeletion? = null,
     /** The branches the default one is picked among, read when asked for. */
     val branches: Loadable<List<String>> = Loadable.Idle,
 )
@@ -70,7 +77,7 @@ class RepoSettingsViewModel @AssistedInject constructor(
     /** Shows [change] at once and tells the forge; what it refuses is taken back. One change at a time. */
     fun change(change: RepoSettingsChange) {
         val before = _state.value.settings ?: return
-        if (_state.value.saving != null || before.with(change) == before) return
+        if (busy() || before.with(change) == before) return
         _state.update { it.copy(settings = before.with(change), saving = change, refused = null) }
         viewModelScope.launch {
             when (val result = repository.change(repo, change)) {
@@ -79,6 +86,30 @@ class RepoSettingsViewModel @AssistedInject constructor(
             }
         }
     }
+
+    fun rename(name: String) {
+        if (busy() || name.isBlank() || name == repo.name) return
+        _state.update { it.copy(working = true, refused = null) }
+        viewModelScope.launch {
+            when (val result = repository.rename(repo, name.trim())) {
+                is ForgeResult.Success -> _state.update { it.copy(working = false, renamedTo = result.value) }
+                is ForgeResult.Failure -> _state.update { it.copy(working = false, refused = result.error) }
+            }
+        }
+    }
+
+    fun delete() {
+        if (busy()) return
+        _state.update { it.copy(working = true, refused = null) }
+        viewModelScope.launch {
+            when (val result = repository.delete(repo)) {
+                is ForgeResult.Success -> _state.update { it.copy(working = false, deleted = result.value) }
+                is ForgeResult.Failure -> _state.update { it.copy(working = false, refused = result.error) }
+            }
+        }
+    }
+
+    private fun busy() = _state.value.run { working || saving != null || deleted != null }
 
     fun loadBranches() {
         if (_state.value.branches is Loadable.Loaded || _state.value.branches == Loadable.Loading) return

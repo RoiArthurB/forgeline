@@ -30,6 +30,8 @@ import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 import org.junit.Rule
+import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -67,6 +69,10 @@ class RepoSettingsScreenTest {
                     onChange = { changes += it },
                     onLoadBranches = { events += "branches" },
                     onOpenUrl = { events += "url:$it" },
+                    onRename = { events += "rename:$it" },
+                    onDelete = { events += "delete" },
+                    onRenamed = { events += "renamed:${it.fullName}" },
+                    onDeleted = { events += "deleted" },
                     onRefusalShown = { events += "refusal-shown" },
                     onErrorShown = { events += "error-shown" },
                 )
@@ -95,7 +101,6 @@ class RepoSettingsScreenTest {
         reach("Delete the branch once merged")
         switch("Allow merge commits").assertIsOn()
         switch("Allow squash merging").assertIsOff()
-        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 
     @Test
@@ -186,9 +191,9 @@ class RepoSettingsScreenTest {
     fun the_rest_is_on_the_forge_s_website() {
         setContent(shown())
 
+        composeRule.onNodeWithContentDescription("Open on GitHub").performClick()
         reach("More settings on GitHub")
         composeRule.onNodeWithText("More settings on GitHub").performClick()
-        composeRule.onNodeWithContentDescription("Open on GitHub").performClick()
 
         assertThat(events).containsExactly("url:https://github.com/octo/tools/settings", "url:https://github.com/octo/tools/settings").inOrder()
     }
@@ -201,5 +206,145 @@ class RepoSettingsScreenTest {
         composeRule.onNodeWithText("Retry").performClick()
 
         assertThat(events).containsExactly("refresh")
+    }
+
+    @Test
+    fun who_sees_it_changes_only_once_picked_and_confirmed() {
+        setContent(shown(gitLab.copy(visibility = RepoVisibility.PRIVATE, visibilities = RepoVisibility.entries), RepoId("group", "app", ForgeInstance.GitLab)))
+
+        reach("Danger zone")
+        reach("Delete this repository")
+        composeRule.onNodeWithText("Visibility").performClick()
+        // Nothing to confirm until another is picked.
+        composeRule.onNodeWithText("Change visibility").assertIsNotEnabled()
+        composeRule.onNodeWithText("Internal").performClick()
+        assertThat(changes).isEmpty()
+        composeRule.onNodeWithText("Change visibility").performClick()
+
+        assertThat(changes).containsExactly(RepoSettingsChange.Visibility(RepoVisibility.INTERNAL))
+    }
+
+    @Test
+    fun a_forge_without_internal_repositories_does_not_offer_them() {
+        setContent(shown())
+
+        reach("Delete this repository")
+        composeRule.onNodeWithText("Visibility").performClick()
+
+        composeRule.onNodeWithText("Private").assertIsDisplayed()
+        composeRule.onNodeWithText("Internal").assertDoesNotExist()
+    }
+
+    @Test
+    fun archiving_asks_first_and_can_be_let_go() {
+        setContent(shown())
+
+        reach("Delete this repository")
+        composeRule.onNodeWithText("Archive").performClick()
+        composeRule.onNodeWithText("Archive this repository?").assertIsDisplayed()
+        composeRule.onNodeWithText("Cancel").performClick()
+        assertThat(changes).isEmpty()
+        composeRule.onNodeWithText("Archive").performClick()
+        composeRule.onAllNodes(hasText("Archive"))[1].performClick()
+
+        assertThat(changes).containsExactly(RepoSettingsChange.Archived(true))
+    }
+
+    @Test
+    fun an_archived_repository_says_so_and_offers_to_unarchive() {
+        setContent(shown(gitHub.copy(archived = true)))
+
+        reach("Delete this repository")
+        composeRule.onNodeWithText("Archived: it is read-only").assertIsDisplayed()
+        composeRule.onNodeWithText("Unarchive").performClick()
+        composeRule.onAllNodes(hasText("Unarchive"))[1].performClick()
+
+        assertThat(changes).containsExactly(RepoSettingsChange.Archived(false))
+    }
+
+    @Test
+    fun renaming_is_written_in_a_sheet() {
+        setContent(shown())
+
+        reach("Delete this repository")
+        composeRule.onNodeWithText("Rename").performClick()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("kit")
+        composeRule.onNodeWithText("Save").performClick()
+
+        assertThat(events).containsExactly("rename:kit")
+    }
+
+    @Test
+    fun deleting_wants_the_full_name_written_out() {
+        setContent(shown())
+
+        reach("Delete this repository")
+        composeRule.onNodeWithText("Delete this repository").performClick()
+        composeRule.onNodeWithText("Delete for good").assertIsNotEnabled()
+        composeRule.onNode(hasSetTextAction()).performTextInput("tools")
+        composeRule.onNodeWithText("Delete for good").assertIsNotEnabled()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("octo/tools")
+        composeRule.onNodeWithText("Delete for good").performClick()
+
+        assertThat(events).containsExactly("delete")
+    }
+
+    @Test
+    fun a_sign_in_that_may_not_delete_is_told_to_sign_in_again() {
+        setContent(shown().copy(refused = ForgeError.Unauthorized))
+
+        // Said at the foot of the screen while no sheet is open: the row is brought clear of it.
+        reach("More settings on GitHub")
+        composeRule.onNodeWithText("Delete this repository").performClick()
+
+        composeRule.onNode(hasText("Sign in to GitHub again", substring = true)).assertIsDisplayed()
+    }
+
+    @Test
+    fun what_the_forge_says_of_a_refusal_is_repeated() {
+        setContent(shown().copy(refused = ForgeError.Http(422, "name already exists on this account")))
+
+        reach("More settings on GitHub")
+        composeRule.onNodeWithText("Rename").performClick()
+
+        composeRule.onNode(hasText("name already exists on this account", substring = true)).assertIsDisplayed()
+    }
+
+    @Test
+    fun a_deleted_repository_leaves_only_the_word_of_it() {
+        setContent(shown().copy(deleted = RepoDeletion.DELETED))
+
+        composeRule.onNodeWithText("octo/tools is deleted").assertIsDisplayed()
+        composeRule.onNodeWithText("Description").assertDoesNotExist()
+        composeRule.onNodeWithText("Done").performClick()
+
+        assertThat(events).containsExactly("deleted")
+    }
+
+    @Test
+    fun a_repository_its_forge_keeps_a_while_says_it_can_still_be_restored() {
+        setContent(shown(gitLab, RepoId("group", "app", ForgeInstance.GitLab)).copy(deleted = RepoDeletion.SCHEDULED))
+
+        composeRule.onNodeWithText("group/app will be deleted").assertIsDisplayed()
+        composeRule.onNode(hasText("it can be restored", substring = true)).assertIsDisplayed()
+    }
+
+    @Test
+    fun a_renamed_repository_is_opened_where_it_now_is() {
+        setContent(shown().copy(renamedTo = RepoId("octo", "kit")))
+
+        composeRule.waitForIdle()
+        assertThat(events).containsExactly("renamed:octo/kit")
+    }
+
+    /** On a screen tall enough to hold them all: a row cut by the edge of a shorter one measures as less than it is. */
+    @Test
+    @Config(qualifiers = "w411dp-h2400dp-xhdpi")
+    fun every_row_is_a_target_of_48dp_at_least() {
+        setContent(shown())
+
+        composeRule.onNodeWithText("Delete this repository").assertIsDisplayed()
+        composeRule.onNodeWithText("More settings on GitHub").assertIsDisplayed()
+        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 }

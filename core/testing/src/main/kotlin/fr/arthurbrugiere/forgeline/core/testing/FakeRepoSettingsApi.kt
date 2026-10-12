@@ -40,4 +40,23 @@ class FakeRepoSettingsApi(
         settings = settings.with(change)
         return ForgeResult.Success(settings)
     }
+
+    /** What deleting answers with. */
+    var deletion = fr.arthurbrugiere.forgeline.core.model.RepoDeletion.DELETED
+    val renamed = mutableListOf<String>()
+    val deleted = mutableListOf<RepoId>()
+
+    override suspend fun rename(token: String, repo: RepoId, name: String): ForgeResult<RepoId> {
+        calls += "rename:${repo.fullName}:$name"
+        writeFailure?.let { return ForgeResult.Failure(it) }
+        renamed += name
+        return ForgeResult.Success(RepoId(repo.owner, name, repo.forge))
+    }
+
+    override suspend fun delete(token: String, repo: RepoId): ForgeResult<fr.arthurbrugiere.forgeline.core.model.RepoDeletion> {
+        calls += "delete:${repo.fullName}"
+        writeFailure?.let { return ForgeResult.Failure(it) }
+        deleted += repo
+        return ForgeResult.Success(deletion)
+    }
 }

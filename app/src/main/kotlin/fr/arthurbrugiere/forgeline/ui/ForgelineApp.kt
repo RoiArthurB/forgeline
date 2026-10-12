@@ -219,7 +219,19 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
             )
         }
         entry<fr.arthurbrugiere.forgeline.navigation.RepoSettingsRoute> { key ->
-            fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsRoute(key, onBack = navigator::goBack)
+            fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsRoute(
+                key, onBack = navigator::goBack,
+                // Back from the settings is the repository's page: it is the one to stand under the new name.
+                onRenamed = { renamed ->
+                    navigator.goBack()
+                    navigator.replaceCurrent(renamed.route())
+                },
+                // Neither the settings nor the page of what is gone stay behind.
+                onDeleted = {
+                    navigator.goBack()
+                    navigator.goBack()
+                },
+            )
         }
         entry<YouRoute> {
             YouScreen(

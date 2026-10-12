@@ -45,4 +45,12 @@ class RepoSettingsTest {
             RepoSwitch.RELEASES, RepoSwitch.PACKAGES, RepoSwitch.TEMPLATE,
         )
     }
+
+    @Test
+    fun who_sees_it_and_whether_it_is_archived_show_at_once_too() {
+        assertThat(settings.with(RepoSettingsChange.Visibility(RepoVisibility.PRIVATE)).visibility).isEqualTo(RepoVisibility.PRIVATE)
+        assertThat(settings.with(RepoSettingsChange.Archived(true)).archived).isTrue()
+        // A forge offers public or private unless it says otherwise.
+        assertThat(settings.visibilities).containsExactly(RepoVisibility.PUBLIC, RepoVisibility.PRIVATE).inOrder()
+    }
 }

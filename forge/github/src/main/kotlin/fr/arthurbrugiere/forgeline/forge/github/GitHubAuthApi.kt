@@ -92,7 +92,7 @@ class GitHubAuthApi(
          * `repo`, not `public_repo`: private repositories are read and acted on too (conversations, comments, stars,
          * workflows). GitHub has no narrower scope that reads a private repository.
          */
-        val SCOPES = listOf("notifications", "read:user", "user:follow", "repo")
+        val SCOPES = listOf("notifications", "read:user", "user:follow", "repo", "delete_repo")
     }
 }
 

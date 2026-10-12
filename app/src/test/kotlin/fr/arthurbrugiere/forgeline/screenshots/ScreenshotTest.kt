@@ -1009,6 +1009,40 @@ class ScreenshotTest {
     }
 
     @Test
+    fun repo_settings_danger_light() = snapshot(
+        "repo_settings_danger_light", darkTheme = false,
+        beforeCapture = { composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("More settings on GitHub")) },
+    ) { RepoSettingsPreview() }
+
+    @Test
+    fun repo_settings_danger_dark() = snapshot(
+        "repo_settings_danger_dark", darkTheme = true,
+        beforeCapture = { composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("More settings on GitHub")) },
+    ) { RepoSettingsPreview() }
+
+    @Test
+    fun repo_settings_delete_refused_light() = snapshot(
+        "repo_settings_delete_refused_light", darkTheme = false, wholeScreen = true,
+        beforeCapture = {
+            composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("Delete this repository"))
+            composeRule.onNodeWithText("Delete this repository").performClick()
+        },
+    ) {
+        fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsScreen(
+            state = fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsUiState(RepoId("paperclipai", "paperclip"), shownSettings, refused = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unauthorized),
+            onBack = {}, onRefresh = {}, onChange = {}, onLoadBranches = {}, onOpenUrl = {}, onRefusalShown = {}, onErrorShown = {},
+        )
+    }
+
+    @Test
+    fun repo_settings_deleted_light() = snapshot("repo_settings_deleted_light", darkTheme = false) {
+        fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsScreen(
+            state = fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsUiState(RepoId("paperclipai", "paperclip"), shownSettings, deleted = fr.arthurbrugiere.forgeline.core.model.RepoDeletion.SCHEDULED),
+            onBack = {}, onRefresh = {}, onChange = {}, onLoadBranches = {}, onOpenUrl = {}, onRefusalShown = {}, onErrorShown = {},
+        )
+    }
+
+    @Test
     fun repo_settings_error_light() = snapshot("repo_settings_error_light", darkTheme = false) {
         RepoSettingsPreview(settings = null, error = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Network)
     }

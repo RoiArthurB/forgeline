@@ -24,6 +24,12 @@ enum class RepoSwitch(val merging: Boolean = false) {
 /** The one way a GitLab project merges: a merge commit, one only once rebased, or no merge commit at all. */
 enum class MergeStyle { MERGE_COMMIT, SEMI_LINEAR, FAST_FORWARD }
 
+/** Who can see a repository: everyone, everyone signed in on its server or in its enterprise, or its members. */
+enum class RepoVisibility { PUBLIC, INTERNAL, PRIVATE }
+
+/** What became of a repository asked to be deleted: gone, or kept a while by its forge before it is (gitlab.com). */
+enum class RepoDeletion { DELETED, SCHEDULED }
+
 /**
  * What a repository's owner has set, as far as its forge's API tells and lets change. A forge without a setting
  * leaves it out: no [website] field ([hasWebsite] false), a switch missing from [switches], a null [mergeStyle]
@@ -40,6 +46,11 @@ data class RepoSettings(
     val membersOnly: Set<RepoSwitch> = emptySet(),
     val mergeStyle: MergeStyle? = null,
     val defaultMerge: MergeMethod? = null,
+    val visibility: RepoVisibility = RepoVisibility.PUBLIC,
+    /** What [visibility] can be here, the most open first. */
+    val visibilities: List<RepoVisibility> = listOf(RepoVisibility.PUBLIC, RepoVisibility.PRIVATE),
+    /** Kept to be read, and no longer written to. */
+    val archived: Boolean = false,
 )
 
 /** One thing to change in a repository's settings. */
@@ -57,6 +68,10 @@ sealed interface RepoSettingsChange {
     data class Style(val style: MergeStyle) : RepoSettingsChange
 
     data class DefaultMerge(val method: MergeMethod) : RepoSettingsChange
+
+    data class Visibility(val visibility: RepoVisibility) : RepoSettingsChange
+
+    data class Archived(val archived: Boolean) : RepoSettingsChange
 }
 
 /** These settings once [change] is made: what is shown while the forge is told. */
@@ -69,6 +84,8 @@ fun RepoSettings.with(change: RepoSettingsChange): RepoSettings = when (change) 
     is RepoSettingsChange.Switch -> copy(switches = switches + (change.switch to change.on), membersOnly = membersOnly - change.switch)
     is RepoSettingsChange.Style -> copy(mergeStyle = change.style)
     is RepoSettingsChange.DefaultMerge -> copy(defaultMerge = change.method)
+    is RepoSettingsChange.Visibility -> copy(visibility = change.visibility)
+    is RepoSettingsChange.Archived -> copy(archived = change.archived)
 }
 
 /**

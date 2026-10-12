@@ -168,6 +168,18 @@ class GitLabWriteLiveTest {
             val after = settings.settings(token, repo).value("settings after")
             assertThat(after.description).isEqualTo("Changed by a test")
             assertThat(after.mergeStyle).isEqualTo(MergeStyle.FAST_FORWARD)
+
+            // What can't be taken back lightly, on this project alone: archived and back, renamed, then deleted.
+            assertThat(change(RepoSettingsChange.Archived(true)).archived).isTrue()
+            assertThat(change(RepoSettingsChange.Archived(false)).archived).isFalse()
+            assertThat(after.visibility).isEqualTo(fr.arthurbrugiere.forgeline.core.model.RepoVisibility.PRIVATE)
+            val renamed = settings.rename(token, repo, "$path-renamed").value("rename")
+            assertThat(renamed).isEqualTo(RepoId(owner, "$path-renamed", ForgeInstance.GitLab))
+            assertThat(settings.settings(token, renamed).value("settings once renamed").description).isEqualTo("Changed by a test")
+            val deletion = settings.delete(token, renamed).value("delete")
+            System.err.println("GITLAB deletion: $deletion")
+            // gitlab.com keeps a deleted project a while before it is gone.
+            assertThat(deletion).isEqualTo(fr.arthurbrugiere.forgeline.core.model.RepoDeletion.SCHEDULED)
         } finally {
             val deleted = http.delete("$api/projects/$id") { header("Authorization", "Bearer $token") }
             System.err.println("GITLAB scratch project deleted: ${deleted.status}")

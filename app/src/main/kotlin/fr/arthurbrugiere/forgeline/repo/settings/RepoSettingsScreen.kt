@@ -45,6 +45,16 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.TextButton
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
+import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
+import fr.arthurbrugiere.forgeline.settings.SettingModifier
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -97,7 +107,14 @@ import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 
 @Composable
-fun RepoSettingsRoute(route: RepoSettingsRoute, onBack: () -> Unit) {
+fun RepoSettingsRoute(
+    route: RepoSettingsRoute,
+    onBack: () -> Unit,
+    /** The repository has another name: its page is to be opened there instead. */
+    onRenamed: (RepoId) -> Unit,
+    /** The repository is deleted, and that was read: nothing of it is left to show. */
+    onDeleted: () -> Unit,
+) {
     val repo = route.repo
     val viewModel = hiltViewModel<RepoSettingsViewModel, RepoSettingsViewModel.Factory>(key = "settings:${repo.key}") { it.create(repo) }
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -106,6 +123,10 @@ fun RepoSettingsRoute(route: RepoSettingsRoute, onBack: () -> Unit) {
         onBack = onBack,
         onRefresh = viewModel::refresh,
         onChange = viewModel::change,
+        onRename = viewModel::rename,
+        onDelete = viewModel::delete,
+        onRenamed = onRenamed,
+        onDeleted = onDeleted,
         onLoadBranches = viewModel::loadBranches,
         onOpenUrl = rememberCustomTabOpener(),
         onRefusalShown = viewModel::refusalShown,
@@ -114,12 +135,16 @@ fun RepoSettingsRoute(route: RepoSettingsRoute, onBack: () -> Unit) {
 }
 
 /** What is being edited in a sheet. */
-private enum class Editing { DESCRIPTION, WEBSITE, TOPICS, BRANCH }
+private enum class Editing { DESCRIPTION, WEBSITE, TOPICS, BRANCH, RENAME, DELETE }
+
+/** What is asked to be confirmed in a dialog. */
+private enum class Confirming { VISIBILITY, ARCHIVE }
 
 /**
  * What a repository's owner sets on it: what it says about itself, what it has switched on, how it merges. A switch
  * or a choice is the forge's as soon as it is made here; words are written in a sheet and saved from it. What the
- * forge's API doesn't reach is one tap away on its website.
+ * forge's API doesn't reach is one tap away on its website. What can't be taken back lightly (who sees it, archiving,
+ * its name, deleting it) stands apart at the end, and each asks before it happens.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,6 +155,10 @@ fun RepoSettingsScreen(
     onChange: (RepoSettingsChange) -> Unit,
     onLoadBranches: () -> Unit,
     onOpenUrl: (String) -> Unit,
+    onRename: (String) -> Unit = {},
+    onDelete: () -> Unit = {},
+    onRenamed: (RepoId) -> Unit = {},
+    onDeleted: () -> Unit = {},
     onRefusalShown: () -> Unit,
     onErrorShown: () -> Unit,
     modifier: Modifier = Modifier,
@@ -158,7 +187,12 @@ fun RepoSettingsScreen(
         }
     }
     // A sheet says itself what the forge refused of it; a switch has only the screen to say so.
-    val refusal = state.refused?.let { stringResource(R.string.repo_settings_refused, stringResource(it.message)) }
+    val refusal = state.refused?.let { error ->
+        // The forge's own words when it gave some: they say what to put right.
+        stringResource(R.string.repo_settings_refused, (error as? ForgeError.Http)?.message ?: stringResource(error.message))
+    }
+    var confirming by rememberSaveable { mutableStateOf<Confirming?>(null) }
+    LaunchedEffect(state.renamedTo) { state.renamedTo?.let(onRenamed) }
     LaunchedEffect(refusal, editing) {
         if (refusal != null && editing == null) {
             snackbar.showSnackbar(refusal)
@@ -188,6 +222,27 @@ fun RepoSettingsScreen(
                     onChange(RepoSettingsChange.DefaultBranch(it))
                 },
             )
+            Editing.RENAME -> TextSheet(
+                stringResource(R.string.repo_settings_rename), state.repo.name, singleLine = true,
+                saving = state.working, refusal = refusal, onSave = onRename, onDismiss = dismiss,
+            )
+            Editing.DELETE -> DeleteSheet(
+                state.repo, state.working,
+                // GitHub wants a permission of its own to delete, which a sign-in older than it wasn't given.
+                refusal = if (state.refused == ForgeError.Unauthorized) stringResource(R.string.repo_settings_delete_sign_in, forgeName) else refusal,
+                onDelete = onDelete, onDismiss = dismiss,
+            )
+            null -> Unit
+        }
+        when (confirming) {
+            Confirming.VISIBILITY -> VisibilityDialog(settings.visibility, settings.visibilities, onDismiss = { confirming = null }) {
+                confirming = null
+                onChange(RepoSettingsChange.Visibility(it))
+            }
+            Confirming.ARCHIVE -> ArchiveDialog(settings.archived, onDismiss = { confirming = null }) {
+                confirming = null
+                onChange(RepoSettingsChange.Archived(!settings.archived))
+            }
             null -> Unit
         }
     }
@@ -235,6 +290,15 @@ fun RepoSettingsScreen(
                     }
                 }
                 when {
+                    state.deleted != null -> item(key = "deleted") {
+                        val scheduled = state.deleted == RepoDeletion.SCHEDULED
+                        SoftNotice(
+                            stringResource(if (scheduled) R.string.repo_settings_deleted_scheduled_title else R.string.repo_settings_deleted_title, state.repo.fullName),
+                            stringResource(if (scheduled) R.string.repo_settings_deleted_scheduled_body else R.string.repo_settings_deleted_body, forgeName),
+                            action = stringResource(R.string.repo_settings_deleted_done),
+                            onAction = onDeleted,
+                        )
+                    }
                     settings == null && state.error != null -> item(key = "error") {
                         SoftNotice(
                             stringResource(R.string.repo_settings_error_title),
@@ -292,6 +356,23 @@ fun RepoSettingsScreen(
                                         ) { onChange(RepoSettingsChange.DefaultMerge(MergeMethod.entries[it])) }
                                     }
                                 }
+                            }
+                        }
+                        item(key = "danger") {
+                            Column(SettingModifier.padding(top = 20.dp).clip(RoundedCornerShape(28.dp)).background(colors.fields[0]).padding(vertical = 8.dp)) {
+                                Text(
+                                    stringResource(R.string.repo_settings_danger),
+                                    style = Soft.type.label, color = colors.ink,
+                                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp).semantics { heading() },
+                                )
+                                SettingRow(stringResource(R.string.repo_settings_visibility), stringResource(settings.visibility.label), onClick = { confirming = Confirming.VISIBILITY })
+                                SettingRow(
+                                    stringResource(if (settings.archived) R.string.repo_settings_unarchive else R.string.repo_settings_archive),
+                                    stringResource(if (settings.archived) R.string.repo_settings_archived_summary else R.string.repo_settings_archive_summary),
+                                    onClick = { confirming = Confirming.ARCHIVE },
+                                )
+                                SettingRow(stringResource(R.string.repo_settings_rename), state.repo.name, onClick = { editing = Editing.RENAME })
+                                SettingRow(stringResource(R.string.repo_settings_delete), stringResource(R.string.repo_settings_delete_summary), onClick = { editing = Editing.DELETE })
                             }
                         }
                         item(key = "more") {
@@ -456,5 +537,79 @@ private fun BranchSheet(current: String, branches: Loadable<List<String>>, onSel
             }
             else -> SoftLoadingRows(stringResource(R.string.repo_settings_branches_loading), rows = 3, leadingDot = false)
         }
+    }
+}
+
+internal val RepoVisibility.label: Int
+    get() = when (this) {
+        RepoVisibility.PUBLIC -> R.string.repo_visibility_public
+        RepoVisibility.INTERNAL -> R.string.repo_visibility_internal
+        RepoVisibility.PRIVATE -> R.string.repo_visibility_private
+    }
+
+private val RepoVisibility.summary: Int
+    get() = when (this) {
+        RepoVisibility.PUBLIC -> R.string.repo_visibility_public_summary
+        RepoVisibility.INTERNAL -> R.string.repo_visibility_internal_summary
+        RepoVisibility.PRIVATE -> R.string.repo_visibility_private_summary
+    }
+
+/** Who may see the repository, picked among what its forge offers; nothing changes before it is confirmed. */
+@Composable
+private fun VisibilityDialog(current: RepoVisibility, offered: List<RepoVisibility>, onDismiss: () -> Unit, onConfirm: (RepoVisibility) -> Unit) {
+    var picked by rememberSaveable { mutableStateOf(current) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.repo_settings_visibility)) },
+        text = {
+            Column(Modifier.selectableGroup()) {
+                offered.forEach { option ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(SoftTokens.RowCorner)
+                            .selectable(selected = option == picked, role = Role.RadioButton) { picked = option }
+                            .heightIn(min = 48.dp)
+                            .padding(vertical = 8.dp),
+                    ) {
+                        RadioButton(selected = option == picked, onClick = null)
+                        Column(Modifier.padding(start = 16.dp)) {
+                            Text(stringResource(option.label), style = Soft.type.body)
+                            Text(stringResource(option.summary), style = Soft.type.secondary, color = Soft.colors.inkMuted)
+                        }
+                    }
+                }
+                Text(stringResource(R.string.repo_settings_visibility_warning), style = Soft.type.secondary, modifier = Modifier.padding(top = 12.dp))
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(picked) }, enabled = picked != current) { Text(stringResource(R.string.repo_settings_visibility_confirm)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = Soft.colors.raised,
+    )
+}
+
+@Composable
+private fun ArchiveDialog(archived: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(if (archived) R.string.repo_settings_unarchive_title else R.string.repo_settings_archive_title)) },
+        text = { Text(stringResource(if (archived) R.string.repo_settings_unarchive_body else R.string.repo_settings_archive_body)) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(if (archived) R.string.repo_settings_unarchive else R.string.repo_settings_archive)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+        shape = RoundedCornerShape(28.dp),
+        containerColor = Soft.colors.raised,
+    )
+}
+
+/** Deleting asks for the repository's full name, written out: a tap alone can't do it. */
+@Composable
+private fun DeleteSheet(repo: RepoId, working: Boolean, refusal: String?, onDelete: () -> Unit, onDismiss: () -> Unit) {
+    var typed by rememberSaveable { mutableStateOf("") }
+    Sheet(stringResource(R.string.repo_settings_delete), onDismiss) {
+        Text(stringResource(R.string.repo_settings_delete_body, repo.fullName), style = Soft.type.secondary, color = Soft.colors.ink)
+        SoftTextField(typed, { typed = it }, placeholder = repo.fullName, error = refusal)
+        SoftButton(stringResource(R.string.repo_settings_delete_confirm), onClick = onDelete, enabled = !working && typed.trim() == repo.fullName)
     }
 }

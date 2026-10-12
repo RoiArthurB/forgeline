@@ -13,6 +13,7 @@ import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import fr.arthurbrugiere.forgeline.core.testing.FakeRepoRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeRepoSettingsApi
 import kotlinx.coroutines.test.runTest
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import org.junit.Test
 
 class DefaultRepoSettingsRepositoryTest {
@@ -58,5 +59,26 @@ class DefaultRepoSettingsRepositoryTest {
 
         assertThat(repository.change(tools, RepoSettingsChange.Description("x"))).isEqualTo(ForgeResult.Failure(ForgeError.Http(422, "Validation Failed")))
         assertThat(repos.refreshes).isEmpty()
+    }
+
+    @Test
+    fun a_renamed_repository_is_read_under_its_new_name() = runTest {
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
+
+        assertThat(repository.rename(tools, "kit")).isEqualTo(ForgeResult.Success(RepoId("octo", "kit")))
+        assertThat(gitHub.calls).containsExactly("rename:octo/tools:kit")
+        assertThat(repos.refreshes).containsExactly(true)
+    }
+
+    @Test
+    fun deleting_goes_to_the_repository_s_forge_and_needs_an_account_there() = runTest {
+        accounts.signIn(ForgeInstance.GitLab, ForgeUser("me", null, null), "tok")
+        gitLab.deletion = RepoDeletion.SCHEDULED
+
+        assertThat(repository.delete(app)).isEqualTo(ForgeResult.Success(RepoDeletion.SCHEDULED))
+        assertThat(repository.delete(tools)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(repository.rename(tools, "kit")).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(gitLab.deleted).containsExactly(app)
+        assertThat(gitHub.calls).isEmpty()
     }
 }

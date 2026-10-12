@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -151,5 +152,68 @@ class RepoSettingsViewModelTest {
         advanceUntilIdle()
 
         assertThat(viewModel.state.value.branches).isEqualTo(Loadable.Loaded(listOf("main")))
+    }
+
+    @Test
+    fun a_renamed_repository_says_where_it_now_is() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.rename(" kit ")
+        assertThat(viewModel.state.value.working).isTrue()
+        advanceUntilIdle()
+
+        assertThat(api.renamed).containsExactly("kit")
+        assertThat(viewModel.state.value.renamedTo).isEqualTo(RepoId("octo", "kit"))
+        assertThat(viewModel.state.value.working).isFalse()
+    }
+
+    @Test
+    fun the_same_name_or_none_renames_nothing() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.rename("tools")
+        viewModel.rename("  ")
+        advanceUntilIdle()
+
+        assertThat(api.renamed).isEmpty()
+    }
+
+    @Test
+    fun a_deleted_repository_says_what_became_of_it_and_takes_nothing_more() = test {
+        api.deletion = RepoDeletion.SCHEDULED
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.delete()
+        viewModel.delete()
+        advanceUntilIdle()
+        viewModel.change(RepoSettingsChange.Switch(RepoSwitch.WIKI, true))
+        viewModel.rename("kit")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.deleted).isEqualTo(RepoDeletion.SCHEDULED)
+        assertThat(api.deleted).containsExactly(tools)
+        assertThat(api.changes).isEmpty()
+        assertThat(api.renamed).isEmpty()
+    }
+
+    @Test
+    fun a_refused_deletion_or_rename_is_said_and_nothing_is_gone() = test {
+        api.writeFailure = ForgeError.Unauthorized
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.delete()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.deleted).isNull()
+        assertThat(viewModel.state.value.refused).isEqualTo(ForgeError.Unauthorized)
+
+        viewModel.rename("kit")
+        assertThat(viewModel.state.value.refused).isNull()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.renamedTo).isNull()
+        assertThat(viewModel.state.value.refused).isEqualTo(ForgeError.Unauthorized)
     }
 }

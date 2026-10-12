@@ -20,6 +20,8 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
+import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import org.junit.Test
 
 /** Answers are cut down from gitlab.com's for a project its reader owns, read on 2026-10-12. */
@@ -118,5 +120,75 @@ class GitLabRepoSettingsApiTest {
         val result = api { json("""{"message":"403 Forbidden"}""", HttpStatusCode.Forbidden) }.change("tok", repo, RepoSettingsChange.Description("x"))
 
         assertThat(result).isInstanceOf(ForgeResult.Failure::class.java)
+    }
+
+    @Test
+    fun a_project_is_public_internal_or_private_and_says_whether_it_is_archived() = runTest {
+        val settings = api().settings("tok", repo).value()
+
+        assertThat(settings.visibility).isEqualTo(RepoVisibility.PRIVATE)
+        assertThat(settings.visibilities).containsExactly(RepoVisibility.PUBLIC, RepoVisibility.INTERNAL, RepoVisibility.PRIVATE).inOrder()
+        assertThat(settings.archived).isFalse()
+    }
+
+    @Test
+    fun visibility_is_put_and_archiving_is_a_call_of_its_own() = runTest {
+        val api = api()
+
+        api.change("tok", repo, RepoSettingsChange.Visibility(RepoVisibility.INTERNAL)).value()
+        api.change("tok", repo, RepoSettingsChange.Archived(true)).value()
+        api.change("tok", repo, RepoSettingsChange.Archived(false)).value()
+
+        assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly("PUT $base", "POST $base/archive", "POST $base/unarchive").inOrder()
+        assertThat(requests.first().sent).isEqualTo("""{"visibility":"internal"}""")
+    }
+
+    @Test
+    fun a_renamed_project_takes_the_name_as_its_path_too() = runTest {
+        val renamed = api { json("""{"id":1,"name":"kit","path":"kit","path_with_namespace":"group/sub/kit"}""") }.rename("tok", repo, "kit").value()
+
+        assertThat(renamed).isEqualTo(RepoId("group/sub", "kit", ForgeInstance.GitLab))
+        assertThat(requests.single().method).isEqualTo(HttpMethod.Put)
+        assertThat(requests.single().sent).isEqualTo("""{"name":"kit","path":"kit"}""")
+    }
+
+    @Test
+    fun a_project_gitlab_keeps_a_while_is_scheduled_for_deletion() = runTest {
+        // gitlab.com, read on 2026-10-12: the project stays, under another path, marked with the day it was deleted.
+        val deletion = api {
+            when {
+                it.method == HttpMethod.Delete -> json("""{"message":"202 Accepted"}""", HttpStatusCode.Accepted)
+                it.url.encodedPath.endsWith("/87459020") -> json("""{"id":87459020,"path":"app-deletion_scheduled-87459020","marked_for_deletion_on":"2026-10-10"}""")
+                else -> json(projectJson)
+            }
+        }.delete("tok", repo).value()
+
+        assertThat(deletion).isEqualTo(RepoDeletion.SCHEDULED)
+        assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" })
+            .containsExactly("GET $base", "DELETE /api/v4/projects/87459020", "GET /api/v4/projects/87459020").inOrder()
+    }
+
+    @Test
+    fun a_project_that_is_no_longer_there_is_deleted() = runTest {
+        val deletion = api {
+            when {
+                it.method == HttpMethod.Delete -> json("""{"message":"202 Accepted"}""", HttpStatusCode.Accepted)
+                it.url.encodedPath.endsWith("/87459020") -> json("""{"message":"404 Project Not Found"}""", HttpStatusCode.NotFound)
+                else -> json(projectJson)
+            }
+        }.delete("tok", repo).value()
+
+        assertThat(deletion).isEqualTo(RepoDeletion.DELETED)
+    }
+
+    @Test
+    fun a_refused_deletion_fails() = runTest {
+        val refused = api { if (it.method == HttpMethod.Delete) json("""{"message":"403 Forbidden"}""", HttpStatusCode.Forbidden) else json(projectJson) }.delete("tok", repo)
+        val unknown = api { json("""{"message":"404 Project Not Found"}""", HttpStatusCode.NotFound) }.delete("tok", repo)
+
+        assertThat(refused).isInstanceOf(ForgeResult.Failure::class.java)
+        assertThat(unknown).isInstanceOf(ForgeResult.Failure::class.java)
+        // What couldn't be read isn't asked to be deleted.
+        assertThat(requests.last().method).isEqualTo(HttpMethod.Get)
     }
 }

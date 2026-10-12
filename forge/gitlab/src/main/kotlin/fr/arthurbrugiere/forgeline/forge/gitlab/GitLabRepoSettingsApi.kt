@@ -5,13 +5,16 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.MergeStyle
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSettings
 import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.RepoSwitch
+import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
+import io.ktor.http.isSuccess
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -32,12 +35,18 @@ class GitLabRepoSettingsApi(private val httpClient: HttpClient, private val forg
     }
 
     override suspend fun change(token: String, repo: RepoId, change: RepoSettingsChange): ForgeResult<RepoSettings> = gitlabCall {
+        // Archiving is a call of its own, which answers the project like the others.
+        if (change is RepoSettingsChange.Archived) {
+            return@gitlabCall httpClient.gitlabApi(forge, token, "projects", encodePath(repo.fullName), if (change.archived) "archive" else "unarchive", method = HttpMethod.Post)
+                .toResult { body<JsonObject>().toSettings() }
+        }
         val body = buildJsonObject {
             when (change) {
                 is RepoSettingsChange.Description -> put("description", change.text)
                 is RepoSettingsChange.Topics -> put("topics", JsonArray(change.topics.map(::JsonPrimitive)))
                 is RepoSettingsChange.DefaultBranch -> put("default_branch", change.branch)
                 is RepoSettingsChange.Style -> put("merge_method", STYLES.getValue(change.style))
+                is RepoSettingsChange.Visibility -> put("visibility", change.visibility.name.lowercase())
                 is RepoSettingsChange.Switch -> {
                     val level = LEVELS[change.switch]
                     val flag = FLAGS[change.switch]
@@ -55,6 +64,35 @@ class GitLabRepoSettingsApi(private val httpClient: HttpClient, private val forg
         httpClient.gitlabApi(forge, token, "projects", encodePath(repo.fullName), method = HttpMethod.Put, body = body).toResult { body<JsonObject>().toSettings() }
     }
 
+    /** A project has a name to read and a path to be found at: both become [name], so that its address says what it is called. */
+    override suspend fun rename(token: String, repo: RepoId, name: String): ForgeResult<RepoId> = gitlabCall {
+        httpClient.gitlabApi(
+            forge, token, "projects", encodePath(repo.fullName), method = HttpMethod.Put,
+            body = buildJsonObject {
+                put("name", name)
+                put("path", name)
+            },
+        ).toResult {
+            val path = body<JsonObject>().textOrNull("path_with_namespace").orEmpty()
+            RepoId(path.substringBeforeLast('/'), path.substringAfterLast('/'), repo.forge)
+        }
+    }
+
+    /**
+     * gitlab.com keeps a deleted project a while before it is gone, under another path: it is asked for again by its
+     * id, read beforehand, to tell which happened.
+     */
+    override suspend fun delete(token: String, repo: RepoId): ForgeResult<RepoDeletion> = gitlabCall {
+        val project = httpClient.gitlabApi(forge, token, "projects", encodePath(repo.fullName))
+        if (!project.status.isSuccess()) return@gitlabCall project.failure()
+        val id = project.body<JsonObject>().textOrNull("id") ?: return@gitlabCall ForgeResult.Failure(ForgeError.Unreadable)
+        val deleted = httpClient.gitlabApi(forge, token, "projects", id, method = HttpMethod.Delete)
+        if (!deleted.status.isSuccess()) return@gitlabCall deleted.failure()
+        val kept = httpClient.gitlabApi(forge, token, "projects", id)
+        val scheduled = kept.status.isSuccess() && kept.body<JsonObject>().textOrNull("marked_for_deletion_on") != null
+        ForgeResult.Success(if (scheduled) RepoDeletion.SCHEDULED else RepoDeletion.DELETED)
+    }
+
     private fun JsonObject.toSettings(): RepoSettings {
         val levels = LEVELS.mapNotNull { (switch, field) -> textOrNull(field)?.let { switch to it } }
         val flags = FLAGS.mapNotNull { (switch, field) -> (this[field] as? JsonPrimitive)?.booleanOrNull?.let { switch to it } }
@@ -68,6 +106,9 @@ class GitLabRepoSettingsApi(private val httpClient: HttpClient, private val forg
             switches = (levels.map { (switch, level) -> switch to (level != DISABLED) } + listOfNotNull(squash) + flags).toMap(),
             membersOnly = levels.filter { (_, level) -> level == "private" }.map { it.first }.toSet(),
             mergeStyle = STYLES.entries.firstOrNull { it.value == style }?.key,
+            visibility = RepoVisibility.entries.firstOrNull { it.name.lowercase() == textOrNull("visibility") } ?: RepoVisibility.PRIVATE,
+            visibilities = RepoVisibility.entries,
+            archived = (this["archived"] as? JsonPrimitive)?.booleanOrNull == true,
         )
     }
 

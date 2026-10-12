@@ -2,10 +2,12 @@ package fr.arthurbrugiere.forgeline.forge.github
 
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSettings
 import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.RepoSwitch
+import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
@@ -48,13 +50,41 @@ class GitHubRepoSettingsApi(
                 is RepoSettingsChange.Website -> put("homepage", change.url)
                 is RepoSettingsChange.DefaultBranch -> put("default_branch", change.branch)
                 is RepoSettingsChange.Switch -> put(SWITCHES[change.switch] ?: return@gitHubCall unsupported, change.on)
+                is RepoSettingsChange.Visibility -> put("visibility", change.visibility.name.lowercase())
+                is RepoSettingsChange.Archived -> put("archived", change.archived)
                 else -> return@gitHubCall unsupported
             }
         }
         httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, method = HttpMethod.Patch, body = body).toResult { body<JsonObject>().toSettings() }
     }
 
-    private fun JsonObject.toSettings() = RepoSettings(
+    override suspend fun rename(token: String, repo: RepoId, name: String): ForgeResult<RepoId> = gitHubCall {
+        httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, method = HttpMethod.Patch, body = buildJsonObject { put("name", name) })
+            .toResult { body<JsonObject>().text("full_name").split('/', limit = 2).let { (owner, renamed) -> RepoId(owner, renamed, repo.forge) } }
+    }
+
+    override suspend fun delete(token: String, repo: RepoId): ForgeResult<RepoDeletion> = gitHubCall {
+        val response = httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, method = HttpMethod.Delete)
+        // GitHub says which scope a refused call wanted: deleting has its own, which older sign-ins weren't given.
+        val scopes = response.headers["X-OAuth-Scopes"]?.split(',')?.map { it.trim() }
+        val wanted = response.headers["X-Accepted-OAuth-Scopes"]?.split(',')?.map { it.trim() }.orEmpty()
+        if (response.status == HttpStatusCode.Forbidden && scopes != null && DELETE_SCOPE in wanted && DELETE_SCOPE !in scopes) {
+            return@gitHubCall ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unauthorized)
+        }
+        response.toResult { RepoDeletion.DELETED }
+    }
+
+    private fun JsonObject.toSettings(): RepoSettings {
+        val visibility = RepoVisibility.entries.firstOrNull { it.name.lowercase() == text("visibility") }
+            ?: if ((this["private"] as? JsonPrimitive)?.booleanOrNull == true) RepoVisibility.PRIVATE else RepoVisibility.PUBLIC
+        return toSettings(visibility)
+    }
+
+    private fun JsonObject.toSettings(visibility: RepoVisibility) = RepoSettings(
+        visibility = visibility,
+        // Internal exists only inside an enterprise: it is offered where it is already what the repository is.
+        visibilities = RepoVisibility.entries.filter { it != RepoVisibility.INTERNAL || visibility == RepoVisibility.INTERNAL },
+        archived = (this["archived"] as? JsonPrimitive)?.booleanOrNull == true,
         description = text("description"),
         website = text("homepage"),
         topics = (this["topics"] as? JsonArray)?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty(),
@@ -66,6 +96,8 @@ class GitHubRepoSettingsApi(
 
     private companion object {
         val unsupported = ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unsupported)
+
+        const val DELETE_SCOPE = "delete_repo"
 
         /** In the order they are shown. */
         val SWITCHES = linkedMapOf(

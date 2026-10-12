@@ -15,6 +15,8 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import kotlinx.coroutines.test.runTest
+import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import org.junit.Test
 
 /** Fields are those of Codeberg's API description (`Repository`, `EditRepoOption`), read on 2026-10-12. */
@@ -122,5 +124,47 @@ class ForgejoRepoSettingsApiTest {
 
         assertThat(result).isInstanceOf(ForgeResult.Failure::class.java)
         assertThat(topics).isInstanceOf(ForgeResult.Failure::class.java)
+    }
+
+    @Test
+    fun a_repository_is_public_or_private_and_says_whether_it_is_archived() = runTest {
+        val public = api().settings("tok", repo).value()
+        val hidden = api { with(codeberg) { json("""{"private":true,"archived":true,"default_branch":"main"}""") } }.settings("tok", repo).value()
+
+        assertThat(public.visibility).isEqualTo(RepoVisibility.PUBLIC)
+        assertThat(public.visibilities).containsExactly(RepoVisibility.PUBLIC, RepoVisibility.PRIVATE).inOrder()
+        assertThat(public.archived).isFalse()
+        assertThat(hidden.visibility).isEqualTo(RepoVisibility.PRIVATE)
+        assertThat(hidden.archived).isTrue()
+    }
+
+    @Test
+    fun visibility_and_archiving_patch_their_field() = runTest {
+        val api = api()
+
+        api.change("tok", repo, RepoSettingsChange.Visibility(RepoVisibility.PRIVATE)).value()
+        api.change("tok", repo, RepoSettingsChange.Visibility(RepoVisibility.PUBLIC)).value()
+        api.change("tok", repo, RepoSettingsChange.Archived(true)).value()
+
+        assertThat(codeberg.requests.map { it.sent }).containsExactly("""{"private":true}""", """{"private":false}""", """{"archived":true}""").inOrder()
+    }
+
+    @Test
+    fun a_renamed_repository_is_where_forgejo_says_it_now_is() = runTest {
+        val renamed = api { with(codeberg) { json("""{"name":"kit","full_name":"forgejo/kit"}""") } }.rename("tok", repo, "kit").value()
+
+        assertThat(renamed).isEqualTo(RepoId("forgejo", "kit", ForgeInstance.Codeberg))
+        assertThat(codeberg.requests.single().method).isEqualTo(HttpMethod.Patch)
+        assertThat(codeberg.requests.single().sent).isEqualTo("""{"name":"kit"}""")
+    }
+
+    @Test
+    fun a_repository_is_deleted_for_good_or_the_refusal_said() = runTest {
+        val deleted = api { with(codeberg) { status(HttpStatusCode.NoContent) } }.delete("tok", repo).value()
+        assertThat(deleted).isEqualTo(RepoDeletion.DELETED)
+        assertThat(codeberg.requests.single().method).isEqualTo(HttpMethod.Delete)
+        assertThat(codeberg.requests.single().url.encodedPath).isEqualTo(base)
+
+        assertThat(api { with(codeberg) { status(HttpStatusCode.Forbidden) } }.delete("tok", repo)).isInstanceOf(ForgeResult.Failure::class.java)
     }
 }

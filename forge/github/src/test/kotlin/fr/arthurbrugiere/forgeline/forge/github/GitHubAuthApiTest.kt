@@ -74,7 +74,7 @@ class GitHubAuthApiTest {
         val form = request.form()
         assertThat(form["client_id"]).isEqualTo("client-123")
         // Forms encode spaces as "+".
-        assertThat(form["scope"]!!.split(" ", "+")).containsExactly("notifications", "read:user", "user:follow", "repo")
+        assertThat(form["scope"]!!.split(" ", "+")).containsExactly("notifications", "read:user", "user:follow", "repo", "delete_repo")
     }
 
     @Test
@@ -173,7 +173,7 @@ class GitHubAuthApiTest {
         val url = api { error("no call expected") }.personalAccessTokenUrl
 
         assertThat(url).startsWith("https://github.com/settings/tokens/new?")
-        assertThat(url).contains("scopes=notifications,read:user,user:follow,repo")
+        assertThat(url).contains("scopes=notifications,read:user,user:follow,repo,delete_repo")
         assertThat(url).contains("description=Forgeline")
     }
 
