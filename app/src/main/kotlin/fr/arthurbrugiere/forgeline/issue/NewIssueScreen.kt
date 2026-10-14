@@ -141,7 +141,8 @@ fun NewIssueScreen(
                 SoftTextField(
                     value = state.title,
                     onValueChange = onTitleChange,
-                    placeholder = stringResource(R.string.new_issue_title_placeholder),
+                    label = stringResource(R.string.new_issue_title_placeholder),
+                    placeholder = "",
                     // Not to be changed while it is on its way.
                     readOnly = state.isSending,
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Next),
@@ -175,6 +176,7 @@ fun NewIssueScreen(
                         if (changed) onBodyChange(written.text)
                         onReferenceTyped(written.typedReference(marks))
                     },
+                    label = stringResource(R.string.new_issue_body_label),
                     placeholder = stringResource(R.string.new_issue_body_placeholder),
                     error = state.error?.let { issueErrorText(it, forge, edits = state.editing != null) },
                     singleLine = false,

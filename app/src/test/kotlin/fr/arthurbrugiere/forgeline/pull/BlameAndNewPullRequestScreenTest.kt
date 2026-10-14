@@ -19,6 +19,8 @@ import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
 import fr.arthurbrugiere.forgeline.file.FileTarget
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import org.junit.Rule
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasSetTextAction
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -112,7 +114,7 @@ class BlameAndNewPullRequestScreenTest {
         composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Branch that holds the change")).performScrollTo().performClick()
         composeRule.onNodeWithText("fix/slow-uploads").performClick()
         composeRule.onNodeWithText("Open as a draft").performScrollTo().performClick()
-        composeRule.onNodeWithText("Title").performScrollTo().performTextInput("R")
+        composeRule.onNode(hasContentDescription("Title") and hasSetTextAction()).performScrollTo().performTextInput("R")
 
         assertThat(events).containsExactly("head:fix/slow-uploads", "draft:true", "title:R").inOrder()
     }

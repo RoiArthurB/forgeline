@@ -136,6 +136,8 @@ class RepoSettingsFlowTest {
         composeRule.onNodeWithText("Rename").performClick()
         waitFor("Save")
         composeRule.onNode(hasSetTextAction()).performTextReplacement("clip")
+        // Save only turns on once the new name is in: a tap before that (seen once in a full run) does nothing.
+        composeRule.waitForIdle()
         composeRule.onNodeWithText("Save").performClick()
         composeRule.waitForIdle()
 

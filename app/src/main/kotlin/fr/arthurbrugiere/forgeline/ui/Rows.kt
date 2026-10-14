@@ -158,7 +158,7 @@ fun IssueSummaryRow(
             }
             Text(issue.title, style = Soft.type.body, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
-                stringResource(R.string.repo_issue_meta, issue.number, relative(issue.createdAt, nowMillis), issue.author?.login ?: "ghost"),
+                stringResource(R.string.repo_issue_meta, issue.number, relativeInSentence(issue.createdAt, nowMillis), issue.author?.login ?: stringResource(R.string.deleted_account)),
                 style = Soft.type.meta,
                 color = colors.inkMuted,
                 modifier = Modifier.padding(top = 2.dp),

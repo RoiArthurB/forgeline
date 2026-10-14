@@ -534,4 +534,3 @@ Inverted: `ink` background, `ground` text, 16dp corners; it sits above the navig
 ## Unresolved
 
 - **Dynamic colour stays off,** by decision (see Don'ts); listed so it is not mistaken for a gap.
-- **Actions log copy is still GitHub-specific** (`log_live`, `log_publishing`, `log_sign_in_body` name GitHub), though the app spans several forges.

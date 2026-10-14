@@ -134,6 +134,7 @@ fun DispatchContent(
                 SoftTextField(
                     value = state.ref,
                     onValueChange = onRefChange,
+                    // Its heading above already names it: the placeholder says it again for whoever can't see that.
                     placeholder = stringResource(R.string.dispatch_ref),
                     leading = { Icon(Icons.AutoMirrored.Outlined.CallSplit, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp)) },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -214,14 +215,14 @@ private fun WorkflowRow(workflow: Workflow, startable: Boolean?, onClick: () -> 
 
 /** A labelled field: the name, then what the workflow says about it, then the control. */
 @Composable
-private fun Field(label: String, description: String?, required: Boolean = false, control: @Composable () -> Unit) {
+private fun Field(label: String, description: String?, required: Boolean = false, code: Boolean = false, control: @Composable () -> Unit) {
     val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(label, style = Soft.type.control, color = colors.ink)
             if (required) SoftTag(stringResource(R.string.dispatch_required))
         }
-        description?.let { Text(it, style = Soft.type.secondary, color = colors.inkMuted) }
+        description?.let { Text(it, style = if (code) Soft.type.meta.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace) else Soft.type.secondary, color = colors.inkMuted) }
         control()
     }
 }
@@ -229,7 +230,8 @@ private fun Field(label: String, description: String?, required: Boolean = false
 @Composable
 private fun InputField(input: DispatchInput, value: String, onChange: (String) -> Unit) {
     val colors = Soft.colors
-    Field(input.name, input.description, input.required) {
+    // Named by what it is for, as the forge's own form does; the workflow's own name for it stays beside, for whoever wrote it.
+    Field(input.description ?: input.name, input.name.takeIf { input.description != null }, input.required, code = true) {
         when (input.type) {
             DispatchInputType.BOOLEAN -> SoftSwitch(
                 options = listOf(stringResource(R.string.dispatch_no), stringResource(R.string.dispatch_yes)),

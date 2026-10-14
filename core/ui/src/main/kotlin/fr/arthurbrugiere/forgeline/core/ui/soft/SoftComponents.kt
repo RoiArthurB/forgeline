@@ -446,9 +446,13 @@ fun SoftTextField(
     minLines: Int = 1,
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     readOnly: Boolean = false,
+    label: String? = null,
 ) {
     val colors = Soft.colors
     Column(modifier) {
+        if (label != null) {
+            Text(label, style = Soft.type.label, color = colors.ink, modifier = Modifier.padding(bottom = 6.dp).clearAndSetSemantics {})
+        }
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
@@ -459,7 +463,7 @@ fun SoftTextField(
             textStyle = Soft.type.body.copy(fontSize = 16.sp, color = colors.ink),
             cursorBrush = SolidColor(colors.accent),
             keyboardOptions = keyboardOptions,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier),
             decorationBox = { field -> SoftFieldBox(value.text.isEmpty(), placeholder, background, singleLine, null, null, field) },
         )
         if (error != null) {

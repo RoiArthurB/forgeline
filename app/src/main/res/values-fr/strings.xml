@@ -335,8 +335,8 @@
     <string name="run_jobs_unlisted_title">Les tâches ne sont pas listées ici</string>
     <string name="run_jobs_unlisted_body">Le Forgejo de ce serveur ne liste pas encore les tâches d’une exécution par son API. Elles sont sur la page de l’exécution.</string>
     <string name="log_loading">Chargement du journal</string>
-    <string name="log_live">En cours. GitHub publie le journal quand la tâche se termine ; d’ici là, ses étapes se mettent à jour ici.</string>
-    <string name="log_publishing">GitHub publie le journal</string>
+    <string name="log_live">En cours. %1$s publie le journal quand la tâche se termine ; d’ici là, ses étapes se mettent à jour ici.</string>
+    <string name="log_publishing">%1$s publie le journal</string>
     <string name="inbox_state_open_pull">Pull request ouverte</string>
     <string name="inbox_state_draft_pull">Pull request en brouillon</string>
     <string name="inbox_state_merged_pull">Pull request fusionnée</string>
@@ -366,7 +366,7 @@
     <string name="dispatch_events_only">%1$s · ne s’exécute que sur des événements</string>
     <string name="log_failed">Impossible de charger le journal</string>
     <string name="log_sign_in_title">Connectez-vous pour lire les journaux</string>
-    <string name="log_sign_in_body">GitHub ne montre les journaux des tâches qu’aux personnes connectées, même sur les dépôts publics.</string>
+    <string name="log_sign_in_body">%1$s ne montre les journaux des tâches qu’aux personnes connectées, même sur les dépôts publics.</string>
     <string name="log_empty_title">Rien dans le journal</string>
     <string name="log_empty_body">Cette tâche n’a encore rien écrit.</string>
     <string name="repo_ref_switch">Vous parcourez %1$s. Changer de branche ou d’étiquette</string>
@@ -539,6 +539,12 @@
     <string name="manage_group_details">Détails</string>
     <string name="manage_group_state">État</string>
     <string name="manage_group_more">Plus</string>
+    <string name="deleted_account">Un compte supprimé</string>
+    <string name="new_issue_body_label">Description</string>
+    <string name="manage_dependency_label">Numéro du ticket</string>
+    <string name="inbox_selection_read">Lu</string>
+    <string name="inbox_selection_unread">Non lu</string>
+    <string name="inbox_selection_done">Terminé</string>
     <string name="manage_none">Aucun</string>
     <string name="manage_labels">Labels</string>
     <string name="manage_assignees">Personnes assignées</string>

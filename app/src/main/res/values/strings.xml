@@ -345,8 +345,8 @@
     <string name="run_jobs_unlisted_title">Jobs aren\'t listed here</string>
     <string name="run_jobs_unlisted_body">This server\'s Forgejo doesn\'t list a run\'s jobs through its API yet. They\'re on the run\'s page.</string>
     <string name="log_loading">Loading the log</string>
-    <string name="log_live">Running now. GitHub publishes the log when the job finishes; until then its steps update here.</string>
-    <string name="log_publishing">GitHub is publishing the log</string>
+    <string name="log_live">Running now. %1$s publishes the log when the job finishes; until then its steps update here.</string>
+    <string name="log_publishing">%1$s is publishing the log</string>
     <string name="inbox_state_open_pull">Open pull request</string>
     <string name="inbox_state_draft_pull">Draft pull request</string>
     <string name="inbox_state_merged_pull">Merged pull request</string>
@@ -376,7 +376,7 @@
     <string name="dispatch_events_only">%1$s · runs on events only</string>
     <string name="log_failed">Couldn\'t load the log</string>
     <string name="log_sign_in_title">Sign in to read logs</string>
-    <string name="log_sign_in_body">GitHub only shows job logs to signed-in people, even on public repositories.</string>
+    <string name="log_sign_in_body">%1$s only shows job logs to signed-in people, even on public repositories.</string>
     <string name="log_empty_title">Nothing logged</string>
     <string name="log_empty_body">This job hasn\'t written anything yet.</string>
     <string name="repo_ref_switch">Browsing %1$s. Switch branch or tag</string>
@@ -557,6 +557,13 @@
     <string name="manage_group_details">Details</string>
     <string name="manage_group_state">State</string>
     <string name="manage_group_more">More</string>
+    <string name="deleted_account">A deleted account</string>
+    <string name="new_issue_body_label">Description</string>
+    <string name="manage_dependency_label">Issue number</string>
+    <string name="inbox_selection_read">Read</string>
+    <string name="inbox_selection_unread">Unread</string>
+    <string name="inbox_selection_done">Done</string>
+    <string name="manage_dependency_example" translatable="false">12</string>
     <string name="manage_none">None</string>
     <string name="manage_labels">Labels</string>
     <string name="manage_assignees">Assignees</string>

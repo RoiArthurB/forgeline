@@ -116,6 +116,15 @@ fun relative(instant: Instant, nowMillis: Long, abbreviated: Boolean = false): S
         if (abbreviated) DateUtils.FORMAT_ABBREV_RELATIVE else 0,
     ).toString()
 
+/**
+ * [relative] where it falls inside a sentence ("opened yesterday"): a one-word day name the platform capitalises on
+ * its own ("Yesterday") is set in lower case; numbers and dates are left as they are.
+ */
+fun relativeInSentence(instant: Instant, nowMillis: Long): String {
+    val said = relative(instant, nowMillis)
+    return if (said.none { it.isDigit() || it.isWhitespace() }) said.replaceFirstChar { it.lowercase() } else said
+}
+
 val ForgeError.message: Int
     get() = when (this) {
         ForgeError.Network -> R.string.trending_error_offline

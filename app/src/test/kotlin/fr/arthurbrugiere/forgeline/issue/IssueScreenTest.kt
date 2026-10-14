@@ -484,24 +484,24 @@ class IssueScreenTest {
     @Test
     fun the_header_offers_to_manage_an_issue_to_whoever_is_signed_in() {
         setContent(opened)
-        composeRule.onNodeWithContentDescription("Manage").assertIsDisplayed()
+        composeRule.onNodeWithText("Manage").assertIsDisplayed()
     }
 
     @Test
     fun signed_out_there_is_nothing_to_manage() {
         setContent(opened, canComment = false)
 
-        composeRule.onNodeWithContentDescription("Manage").assertDoesNotExist()
+        composeRule.onNodeWithText("Manage").assertDoesNotExist()
     }
 
     @Test
     fun a_pull_request_is_only_managed_by_whoever_has_a_role_in_its_repository() {
         val pull = issueDetails(ref, "Fix it").copy(pullRequest = PullRequestInfo(false, false, "main", "fix/it", 12, 3, 2, 1))
         setContent(opened.copy(issue = pull))
-        composeRule.onNodeWithContentDescription("Manage").assertDoesNotExist()
+        composeRule.onNodeWithText("Manage").assertDoesNotExist()
 
         shown.value = opened.copy(issue = pull, access = RepoAccess.TRIAGE, supported = setOf(ConversationAction.LABELS))
-        composeRule.onNodeWithContentDescription("Manage").assertIsDisplayed()
+        composeRule.onNodeWithText("Manage").assertIsDisplayed()
     }
 
     @Test
@@ -702,5 +702,13 @@ class IssueScreenTest {
         shown.value = IssueUiState(gitlab, issueDetails(gitlab, "Crash"))
         composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Share link")).performClick()
         assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()?.first).isEqualTo("https://gitlab.com/group/sub/tool/-/issues/7")
+    }
+
+    @Test
+    fun an_author_the_forge_no_longer_knows_is_said_to_be_a_deleted_account() {
+        setContent(IssueUiState(ref, issueDetails(ref, "Orphaned").copy(author = null)))
+
+        // Regression: it read "ghost", GitHub's own login for such accounts, untranslated and unexplained.
+        composeRule.onNode(androidx.compose.ui.test.hasText("A deleted account opened this", substring = true)).assertIsDisplayed()
     }
 }

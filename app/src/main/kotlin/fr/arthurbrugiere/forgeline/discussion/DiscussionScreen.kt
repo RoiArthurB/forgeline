@@ -200,7 +200,7 @@ fun DiscussionScreen(
                                     if (summary.isAnswered == true) SoftTag(stringResource(R.string.repo_discussion_answered), background = colors.ground)
                                     if (summary.upvotes > 0) Upvotes(summary.upvotes, background = true)
                                 }
-                                val who = summary.author?.login ?: "ghost"
+                                val who = summary.author?.login ?: stringResource(R.string.deleted_account)
                                 summary.createdAt?.let {
                                     Text(stringResource(R.string.discussion_opened, who, relative(it, nowMillis)), style = Soft.type.secondary, color = colors.inkMuted)
                                 }
@@ -324,7 +324,7 @@ private fun Entry(
                     .padding(end = 8.dp),
             ) {
                 Avatar(author?.avatarUrl, author?.login ?: "?", size = if (isReply) 24.dp else 28.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
-                Text(author?.login ?: "ghost", style = Soft.type.control, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                Text(author?.login ?: stringResource(R.string.deleted_account), style = Soft.type.control, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 createdAt?.let { Text(relative(it, nowMillis), style = Soft.type.meta, color = colors.inkMuted, maxLines = 1) }
             }
             if (isAnswer) SoftTag(stringResource(R.string.discussion_answer), background = colors.fields[2])

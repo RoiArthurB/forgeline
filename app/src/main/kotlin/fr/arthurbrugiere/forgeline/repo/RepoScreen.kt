@@ -49,7 +49,7 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material.icons.outlined.NewReleases
+import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.SubdirectoryArrowLeft
 import androidx.compose.material3.CircularProgressIndicator
@@ -860,7 +860,7 @@ private fun LazyListScope.code(
 private fun ReleaseRow(release: Release, nowMillis: Long, onClick: () -> Unit) {
     val colors = Soft.colors
     Row(RowModifier.softPressable(onClick = onClick).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        RowIcon(Icons.Outlined.NewReleases, if (release.isPrerelease) colors.surface else colors.fields[0])
+        RowIcon(Icons.Outlined.Sell, if (release.isPrerelease) colors.surface else colors.fields[0])
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(release.name ?: release.tag, style = Soft.type.body, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)

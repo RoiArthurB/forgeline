@@ -123,9 +123,9 @@ fun NewPullRequestScreen(
                     if (state.head != null && state.head == state.base) {
                         Text(stringResource(R.string.new_pull_same_branch), style = Soft.type.secondary, color = colors.accent)
                     }
-                    SoftTextField(value = state.title, onValueChange = onTitleChange, placeholder = stringResource(R.string.new_issue_title_placeholder))
+                    SoftTextField(value = state.title, onValueChange = onTitleChange, placeholder = "", label = stringResource(R.string.new_issue_title_placeholder))
                     SoftTextField(
-                        value = state.body, onValueChange = onBodyChange, placeholder = stringResource(R.string.new_pull_body_hint),
+                        value = state.body, onValueChange = onBodyChange, placeholder = stringResource(R.string.new_pull_body_hint), label = stringResource(R.string.new_issue_body_label),
                         singleLine = false, minLines = 5, maxLines = 14,
                     )
                     SoftCheckRow(stringResource(R.string.new_pull_draft), state.draft, onDraftChange, summary = stringResource(R.string.new_pull_draft_summary))

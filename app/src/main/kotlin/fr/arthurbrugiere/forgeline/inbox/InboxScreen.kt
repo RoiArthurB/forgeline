@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.clickable
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.core.model.SwipeAction
 import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
@@ -37,7 +41,7 @@ import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.outlined.MarkEmailRead
 import androidx.compose.material.icons.outlined.MarkEmailUnread
 import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.NewReleases
+import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PlayCircleOutline
 import androidx.compose.material3.DropdownMenu
@@ -532,16 +536,32 @@ private fun SelectionBar(
         IconButton(onClick = onSelectAll) {
             Icon(Icons.Outlined.SelectAll, contentDescription = stringResource(R.string.inbox_select_all), tint = colors.ground)
         }
-        IconButton(onClick = { onAct(if (anyUnread) InboxAction.READ else InboxAction.UNREAD) }) {
-            Icon(
-                if (anyUnread) Icons.Outlined.MarkEmailRead else Icons.Outlined.MarkEmailUnread,
-                contentDescription = stringResource(if (anyUnread) R.string.inbox_mark_read else R.string.inbox_mark_unread),
-                tint = colors.ground,
-            )
-        }
-        IconButton(onClick = { onAct(InboxAction.DONE) }) {
-            Icon(Icons.Outlined.Done, contentDescription = stringResource(R.string.inbox_mark_done), tint = colors.ground)
-        }
+        // What the picked threads become, said in words: a glyph alone had to be learned.
+        BarAction(
+            if (anyUnread) Icons.Outlined.MarkEmailRead else Icons.Outlined.MarkEmailUnread,
+            stringResource(if (anyUnread) R.string.inbox_selection_read else R.string.inbox_selection_unread),
+            stringResource(if (anyUnread) R.string.inbox_mark_read else R.string.inbox_mark_unread),
+        ) { onAct(if (anyUnread) InboxAction.READ else InboxAction.UNREAD) }
+        BarAction(Icons.Outlined.Done, stringResource(R.string.inbox_selection_done), stringResource(R.string.inbox_mark_done)) { onAct(InboxAction.DONE) }
+    }
+}
+
+/** An action of the selection bar: its glyph and its word on the ink bar, named in full for a screen reader. */
+@Composable
+private fun BarAction(icon: ImageVector, label: String, description: String, onClick: () -> Unit) {
+    val colors = Soft.colors
+    Row(
+        Modifier
+            .clip(SoftTokens.Pill)
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics(mergeDescendants = true) { contentDescription = description }
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = colors.ground, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = Soft.type.control, color = colors.ground, maxLines = 1)
     }
 }
 
@@ -958,7 +978,7 @@ private val SubjectType.icon: ImageVector
     get() = when (this) {
         SubjectType.ISSUE -> Icons.Outlined.Adjust
         SubjectType.PULL_REQUEST -> Icons.AutoMirrored.Outlined.CallMerge
-        SubjectType.RELEASE -> Icons.Outlined.NewReleases
+        SubjectType.RELEASE -> Icons.Outlined.Sell
         SubjectType.DISCUSSION -> Icons.Outlined.Forum
         SubjectType.CHECK_SUITE -> Icons.Outlined.PlayCircleOutline
         SubjectType.COMMIT, SubjectType.OTHER -> Icons.Outlined.Notifications

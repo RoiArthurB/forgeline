@@ -515,12 +515,12 @@ private fun TimePage(state: IssueUiState, actions: ManageActions, nowMillis: Lon
             Text(stringResource(R.string.manage_time_add_title), style = Soft.type.label, color = colors.inkMuted, modifier = Modifier.padding(top = 8.dp).semantics { heading() })
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 SoftTextField(
-                    hours, { hours = it.filter(Char::isDigit).take(3) }, stringResource(R.string.manage_time_hours),
-                    Modifier.weight(1f), readOnly = working, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    hours, { hours = it.filter(Char::isDigit).take(3) }, "0",
+                    Modifier.weight(1f), readOnly = working, label = stringResource(R.string.manage_time_hours), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
                 SoftTextField(
-                    minutes, { minutes = it.filter(Char::isDigit).take(3) }, stringResource(R.string.manage_time_minutes),
-                    Modifier.weight(1f), readOnly = working, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    minutes, { minutes = it.filter(Char::isDigit).take(3) }, "0",
+                    Modifier.weight(1f), readOnly = working, label = stringResource(R.string.manage_time_minutes), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 )
             }
             val seconds = (hours.toLongOrNull() ?: 0) * 3_600 + (minutes.toLongOrNull() ?: 0) * 60
@@ -567,8 +567,8 @@ private fun DependenciesPage(state: IssueUiState, actions: ManageActions, onBack
             }
             Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SoftTextField(
-                    written, { written = it }, stringResource(R.string.manage_dependency_placeholder),
-                    Modifier.fillMaxWidth(), readOnly = working,
+                    written, { written = it }, stringResource(R.string.manage_dependency_example),
+                    Modifier.fillMaxWidth(), readOnly = working, label = stringResource(R.string.manage_dependency_label),
                 )
                 SoftButton(
                     stringResource(R.string.manage_dependency_add), { actions.onAddDependency(written) }, Modifier.align(Alignment.End),
@@ -589,7 +589,8 @@ private fun TransferPage(state: IssueUiState, actions: ManageActions, onBack: ()
         SoftTextField(
             value = destination,
             onValueChange = { destination = it },
-            placeholder = stringResource(R.string.manage_transfer_placeholder),
+            label = stringResource(R.string.manage_transfer_placeholder),
+            placeholder = "",
             readOnly = state.manage.isWorking,
             modifier = Modifier.fillMaxWidth(),
         )

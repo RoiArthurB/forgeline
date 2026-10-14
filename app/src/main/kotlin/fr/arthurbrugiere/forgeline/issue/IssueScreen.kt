@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import fr.arthurbrugiere.forgeline.ui.relativeInSentence
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
@@ -517,8 +520,19 @@ fun IssueScreen(
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
                             if (state.canManage(signedIn = canComment)) {
-                                IconButton(onClick = { managing = true }) {
-                                    Icon(Icons.Outlined.Tune, contentDescription = stringResource(R.string.manage_title), tint = colors.ink)
+                                // Named, not a glyph to learn: what the issue's owner reaches for most.
+                                Row(
+                                    Modifier
+                                        .clip(SoftTokens.Pill)
+                                        .background(colors.ground)
+                                        .clickable(role = Role.Button, onClick = { managing = true })
+                                        .heightIn(min = 40.dp)
+                                        .padding(start = 10.dp, end = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(Icons.Outlined.Tune, contentDescription = null, tint = colors.ink, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(stringResource(R.string.manage_title), style = Soft.type.control, color = colors.ink, maxLines = 1)
                                 }
                             }
                             ShareLinkButton(webUrl, issue?.title ?: "${state.ref.repo.fullName}#${state.ref.number}")
@@ -1004,7 +1018,7 @@ private fun Header(
             StateTag(issue)
             if (issue.isLocked) HeaderTag(Icons.Outlined.Lock, stringResource(R.string.issue_locked))
             Text(
-                stringResource(R.string.issue_opened_by, issue.author?.login ?: "ghost", relative(issue.createdAt, nowMillis)),
+                stringResource(R.string.issue_opened_by, issue.author?.login ?: stringResource(R.string.deleted_account), relativeInSentence(issue.createdAt, nowMillis)),
                 style = Soft.type.secondary,
                 color = colors.inkMuted,
                 // Not a pill: over two lines its round ends cut into the first and last letters.
@@ -1154,7 +1168,7 @@ private fun Comment(
                             .padding(end = 8.dp),
                     ) {
                         Avatar(author?.avatarUrl, author?.login ?: "?", size = 28.dp, placeholderColor = colors.raised.takeIf { editor != null } ?: colors.surface, placeholderContentColor = colors.inkMuted)
-                        Text(author?.login ?: "ghost", style = Soft.type.control, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                        Text(author?.login ?: stringResource(R.string.deleted_account), style = Soft.type.control, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                         createdAt?.let { Text(relative(it, nowMillis), style = Soft.type.meta, color = colors.inkMuted, maxLines = 1) }
                     }
                     offered.value?.let { CommentMenuButton(it) }
@@ -1388,7 +1402,7 @@ private fun TimelineEntry(
     when (item) {
         is TimelineItem.Comment -> Comment(item.author, item.body, item.createdAt, item.reactions, context, nowMillis, onOpenUser, onLinkClick, menu = menuFor(item), editor = editor)
         is TimelineItem.Review -> Column {
-            val who = item.author?.login ?: "ghost"
+            val who = item.author?.login ?: stringResource(R.string.deleted_account)
             val (text, icon) = when (item.state) {
                 ReviewState.APPROVED -> stringResource(R.string.issue_review_approved, who) to Icons.Outlined.Check
                 ReviewState.CHANGES_REQUESTED -> stringResource(R.string.issue_review_changes, who) to Icons.Outlined.RateReview
@@ -1399,7 +1413,7 @@ private fun TimelineEntry(
             item.body?.let { Comment(item.author, it, null, emptyMap(), context, nowMillis, onOpenUser, onLinkClick) }
         }
         is TimelineItem.StateChanged -> {
-            val who = item.actor?.login ?: "ghost"
+            val who = item.actor?.login ?: stringResource(R.string.deleted_account)
             val text = when (item.change) {
                 StateChange.MERGED -> stringResource(R.string.issue_merged_event, who, time)
                 StateChange.REOPENED -> stringResource(R.string.issue_reopened_event, who, time)
@@ -1417,20 +1431,20 @@ private fun TimelineEntry(
             EventLine(icon, text, badge = badge)
         }
         is TimelineItem.Labeled -> {
-            val who = item.actor?.login ?: "ghost"
+            val who = item.actor?.login ?: stringResource(R.string.deleted_account)
             // The chip goes inside the line: next to a full-width EventLine it was squeezed to nothing.
             EventLine(Icons.AutoMirrored.Outlined.Label, stringResource(if (item.added) R.string.issue_labeled_event else R.string.issue_unlabeled_event, who)) {
                 LabelChip(item.label)
             }
         }
-        is TimelineItem.Renamed -> EventLine(Icons.Outlined.Edit, stringResource(R.string.issue_renamed_event, item.actor?.login ?: "ghost", item.from, item.to))
+        is TimelineItem.Renamed -> EventLine(Icons.Outlined.Edit, stringResource(R.string.issue_renamed_event, item.actor?.login ?: stringResource(R.string.deleted_account), item.from, item.to))
         is TimelineItem.CrossReferenced -> EventLine(
             Icons.Outlined.Link,
-            stringResource(R.string.issue_referenced_event, item.actor?.login ?: "ghost", item.source.number, item.sourceTitle),
+            stringResource(R.string.issue_referenced_event, item.actor?.login ?: stringResource(R.string.deleted_account), item.source.number, item.sourceTitle),
             onClick = { onOpenIssue(item.source) },
         )
         is TimelineItem.Event -> {
-            val who = item.actor?.login ?: "ghost"
+            val who = item.actor?.login ?: stringResource(R.string.deleted_account)
             val subject = item.subject.orEmpty()
             val (icon, text) = when (item.event) {
                 ConversationEvent.LOCKED -> Icons.Outlined.Lock to stringResource(R.string.issue_locked_event, who, time)

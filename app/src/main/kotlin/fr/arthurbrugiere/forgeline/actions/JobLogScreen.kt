@@ -200,7 +200,7 @@ fun JobLogScreen(
                 state.isRunning && job != null -> {
                     item(key = "live") {
                         Text(
-                            stringResource(R.string.log_live),
+                            stringResource(R.string.log_live, state.repo.forge.displayName),
                             style = Soft.type.secondary,
                             color = colors.inkMuted,
                             modifier = LineModifier.padding(horizontal = 20.dp, vertical = 12.dp),
@@ -209,12 +209,12 @@ fun JobLogScreen(
                     items(job.steps, key = { "step-${it.number}" }) { StepRow(it, nowMillis) }
                 }
                 log is Loadable.Failed && state.isLive -> item(key = "publishing") {
-                    SoftLoadingRows(stringResource(R.string.log_publishing), rows = 6, leadingDot = false)
+                    SoftLoadingRows(stringResource(R.string.log_publishing, state.repo.forge.displayName), rows = 6, leadingDot = false)
                 }
                 log == Loadable.Idle || log == Loadable.Loading -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.log_loading), rows = 6, leadingDot = false) }
                 log is Loadable.Failed -> item(key = "failed") {
                     if (log.error == ForgeError.Unauthorized) {
-                        SoftNotice(stringResource(R.string.log_sign_in_title), stringResource(R.string.log_sign_in_body), action = stringResource(R.string.sign_in), onAction = onSignIn)
+                        SoftNotice(stringResource(R.string.log_sign_in_title), stringResource(R.string.log_sign_in_body, state.repo.forge.displayName), action = stringResource(R.string.sign_in), onAction = onSignIn)
                     } else {
                         SoftNotice(stringResource(R.string.log_failed), stringResource(log.error.message), action = stringResource(R.string.retry), onAction = onRetry)
                     }

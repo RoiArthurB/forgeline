@@ -142,7 +142,7 @@ class SignedInFlowTest {
         composeRule.onNodeWithText("Heartbeat recovery escalates too early").performClick()
         waitFor("I can reproduce this on every restart.")
         // What the reader may do is asked once the conversation is known: the full menu follows.
-        composeRule.onNode(hasContentDescription("Manage")).performClick()
+        composeRule.onNodeWithText("Manage").performClick()
         waitFor("Delete issue")
     }
 
@@ -169,7 +169,7 @@ class SignedInFlowTest {
 
         composeRule.onNodeWithText("Transfer issue").performClick()
         // The comment box is still there under the sheet: the destination is the field that asks for a repository.
-        composeRule.onNode(hasSetTextAction() and hasText("Repository name")).performTextInput("docs")
+        composeRule.onNode(hasSetTextAction() and hasContentDescription("Repository name")).performTextInput("docs")
         composeRule.onNodeWithText("Transfer").performClick()
 
         waitFor("paperclipai/docs")
@@ -209,13 +209,13 @@ class SignedInFlowTest {
 
         composeRule.onNodeWithText("Time tracker").performClick()
         waitFor("No time recorded yet.")
-        composeRule.onNode(hasSetTextAction() and hasText("Hours")).performTextInput("1")
-        composeRule.onNode(hasSetTextAction() and hasText("Minutes")).performTextInput("30")
+        composeRule.onNode(hasSetTextAction() and hasContentDescription("Hours")).performTextInput("1")
+        composeRule.onNode(hasSetTextAction() and hasContentDescription("Minutes")).performTextInput("30")
         composeRule.onNodeWithText("Add time").performClick()
         // The sheet closed on the change.
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Add time")).fetchSemanticsNodes().isEmpty() }
 
-        composeRule.onNode(hasContentDescription("Manage")).performClick()
+        composeRule.onNodeWithText("Manage").performClick()
         waitFor("Time tracker")
         composeRule.onNodeWithText("Time tracker").performClick()
 
@@ -229,11 +229,11 @@ class SignedInFlowTest {
 
         composeRule.onNodeWithText("Dependencies").performClick()
         waitFor("This doesn't depend on anything yet.")
-        composeRule.onNode(hasSetTextAction() and hasText("Issue number, like 12")).performTextInput("#13990")
+        composeRule.onNode(hasSetTextAction() and hasContentDescription("Issue number")).performTextInput("#13990")
         composeRule.onNodeWithText("Add dependency").performClick()
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Add dependency")).fetchSemanticsNodes().isEmpty() }
 
-        composeRule.onNode(hasContentDescription("Manage")).performClick()
+        composeRule.onNodeWithText("Manage").performClick()
         waitFor("Dependencies")
         composeRule.onNodeWithText("Dependencies").performClick()
 
