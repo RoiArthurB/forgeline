@@ -1021,29 +1021,31 @@ private fun Header(
             )
         }
         issue.pullRequest?.let { pr ->
-            Column(
-                Modifier.clip(RoundedCornerShape(16.dp)).background(colors.ground).padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Text(
-                    stringResource(R.string.issue_pr_branches, pr.baseRef, pr.headRef),
-                    style = Soft.type.meta.copy(fontFamily = FontFamily.Monospace),
-                    color = colors.ink,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    stringResource(
-                        R.string.issue_pr_stats,
-                        pr.additions,
-                        pr.deletions,
-                        pluralStringResource(R.plurals.issue_pr_files, pr.changedFiles, pr.changedFiles),
-                        pluralStringResource(R.plurals.issue_pr_commits, pr.commits, pr.commits),
-                    ),
-                    style = Soft.type.meta,
-                    color = colors.inkMuted,
-                )
-            }
+            // Where it goes and how much it changes, in one unboxed line; the files and commits it counts are the panel's pills.
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(fontFamily = FontFamily.Monospace, color = colors.ink)) { append(stringResource(R.string.issue_pr_branches, pr.baseRef, pr.headRef)) }
+                    append("  ")
+                    append(
+                        if (pull != null) {
+                            stringResource(R.string.issue_pr_changes, pr.additions, pr.deletions)
+                        } else {
+                            // No panel to count them (the forge can't show its change): said here instead.
+                            stringResource(
+                                R.string.issue_pr_stats,
+                                pr.additions,
+                                pr.deletions,
+                                pluralStringResource(R.plurals.issue_pr_files, pr.changedFiles, pr.changedFiles),
+                                pluralStringResource(R.plurals.issue_pr_commits, pr.commits, pr.commits),
+                            )
+                        },
+                    )
+                },
+                style = Soft.type.meta,
+                color = colors.inkMuted,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
             if (pull != null) PullRequestPanel(issue, pull, pullActions)
         }
         if (issue.labels.isNotEmpty()) {

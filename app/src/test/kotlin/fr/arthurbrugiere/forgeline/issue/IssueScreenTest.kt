@@ -122,8 +122,8 @@ class IssueScreenTest {
         setContent(IssueUiState(ref, pr))
 
         composeRule.onNodeWithText("Merged").assertIsDisplayed()
-        composeRule.onNodeWithText("main ← fix/it").assertIsDisplayed()
-        composeRule.onNodeWithText("+12 −3 · 2 files · 1 commit").assertIsDisplayed()
+        // One unboxed line: where it went, then how much it changed; with no panel to count them, files and commits too.
+        composeRule.onNodeWithText("main ← fix/it  +12 −3 · 2 files · 1 commit").assertIsDisplayed()
     }
 
     @Test

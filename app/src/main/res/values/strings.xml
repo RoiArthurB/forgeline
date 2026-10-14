@@ -432,6 +432,7 @@
     <string name="issue_state_draft">Draft</string>
     <string name="issue_opened_by">%1$s opened this %2$s</string>
     <string name="issue_pr_branches" translatable="false">%1$s ← %2$s</string>
+    <string name="issue_pr_changes" translatable="false">+%1$d −%2$d</string>
     <string name="issue_pr_stats" translatable="false">+%1$d −%2$d · %3$s · %4$s</string>
     <string name="issue_no_description">No description provided.</string>
     <string name="issue_closed_event">%1$s closed this %2$s</string>

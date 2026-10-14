@@ -68,6 +68,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDangerButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.ui.message
 
@@ -117,14 +118,17 @@ fun PullRequestPanel(issue: IssueDetails, state: PullRequestUiState, actions: Pu
             actions.onMergeErrorShown()
         }
     }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        PanelRow(Icons.AutoMirrored.Outlined.InsertDriveFile, pluralStringResource(R.plurals.pull_files_changed, pr.changedFiles, pr.changedFiles), onClick = actions.onOpenChanges)
-        PanelRow(Icons.Outlined.Commit, pluralStringResource(R.plurals.issue_pr_commits, pr.commits, pr.commits), onClick = actions.onOpenCommits)
-        checks.overall()?.let { overall ->
-            PanelRow(overall.icon, checksSummary(checks), tint = overall.tint(Soft.colors), onClick = { showChecks = true })
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // What stands behind the numbers, one pill each: they wrap rather than stack as rows.
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            PanelPill(Icons.AutoMirrored.Outlined.InsertDriveFile, pluralStringResource(R.plurals.pull_files_changed, pr.changedFiles, pr.changedFiles), onClick = actions.onOpenChanges)
+            PanelPill(Icons.Outlined.Commit, pluralStringResource(R.plurals.issue_pr_commits, pr.commits, pr.commits), onClick = actions.onOpenCommits)
+            checks.overall()?.let { overall ->
+                PanelPill(overall.icon, checksSummary(checks), tint = overall.tint(Soft.colors), onClick = { showChecks = true })
+            }
         }
         if (state.signedIn && issue.state == IssueState.OPEN) {
-            FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SoftTonalButton(stringResource(R.string.review_start), onClick = { reviewing = true })
                 if (mergeInfo?.canMerge == true) {
                     // Ember says "this is the way forward": not while a check failed or is still running.
@@ -142,25 +146,24 @@ fun PullRequestPanel(issue: IssueDetails, state: PullRequestUiState, actions: Pu
 /** Where a pull request's checks stand when merging it isn't the plain next step. */
 private val UNSETTLED = setOf(CheckState.FAILURE, CheckState.PENDING)
 
+/** A pill on the field for what a number stands for: its glyph on a round badge (tinted where it has a state), and its count. */
 @Composable
-private fun PanelRow(icon: ImageVector, label: String, onClick: () -> Unit, tint: Color = Soft.colors.surface) {
+private fun PanelPill(icon: ImageVector, label: String, onClick: () -> Unit, tint: Color = Soft.colors.surface) {
     val colors = Soft.colors
     Row(
         Modifier
-            .fillMaxWidth()
-            .clip(SoftTokens.RowCorner)
+            .clip(SoftTokens.Pill)
             .background(colors.ground)
-            .clickable(role = Role.Button, onClick = onClick)
+            .softPressable(role = Role.Button, onClick = onClick)
             .heightIn(min = 48.dp)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(start = 8.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(28.dp).background(tint, CircleShape), contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(16.dp))
         }
-        Spacer(Modifier.width(12.dp))
-        Text(label, style = Soft.type.control, color = colors.ink, modifier = Modifier.weight(1f))
-        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(label, style = Soft.type.control, color = colors.ink)
     }
 }
 

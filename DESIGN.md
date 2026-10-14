@@ -432,6 +432,8 @@ The Feed tells what happened by leading every event with its object, so an open 
 
 ### Conversation (issue and pull request)
 - **Comments are unboxed turns:** a 28dp avatar, author in Control and the relative time in Meta on one pill-clipped line (tapping opens the profile), then the Markdown body in a 40dp gutter, held to 580dp, with reactions as tags below. No bubble, no card, no divider between turns.
+
+A pull request's header says where it goes and how much it changes in one unboxed meta line (`main ← head` in monospace, then `+n −n`), then one wrapping row of pills on `ground`, each a round badge and a count: files changed, commits, and where the checks stand, its badge on that state's tint. Review and Merge follow. No panel, no stacked rows.
 - **Timeline events are small badges in the avatar column:** a 28dp round badge (merged cool, reopened fresh, closed warm, approved review fresh, everything else `surface`) followed by one muted Secondary line; commits use the code face for the short SHA; a labelled event carries the label pill inline; cross-references are pressable.
 
 ### Code and Markdown
