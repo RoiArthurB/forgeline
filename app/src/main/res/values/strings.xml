@@ -885,6 +885,14 @@
     <string name="repo_settings_delete_field">Write %1$s</string>
     <string name="repo_settings_delete_needs_sign_in">This sign-in to %1$s was made before Forgeline asked for the permission to delete repositories. Sign in again to give it, then come back here.</string>
     <string name="merge_anyway">Merge anyway</string>
+    <string name="repo_settings_switched_on">%1$s switched on</string>
+    <string name="repo_settings_switched_off">%1$s switched off</string>
+    <string name="repo_settings_set_to">%1$s set to %2$s</string>
+    <string name="repo_settings_saved">%1$s saved</string>
+    <string name="repo_settings_archived_done">Archived</string>
+    <string name="repo_settings_unarchived_done">Unarchived</string>
+    <string name="repo_pages_unpublished">Website unpublished</string>
+    <string name="repo_settings_topics_more">%1$s +%2$d</string>
     <string name="check_loading">Loading the report</string>
     <string name="check_error_title">Couldn\'t load the report</string>
     <string name="check_no_report">This check left no report here.</string>

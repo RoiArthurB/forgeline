@@ -295,4 +295,74 @@ class RepoSettingsViewModelTest {
 
         assertThat(viewModel.state.value.mayDelete).isTrue()
     }
+
+    @Test
+    fun a_switch_the_forge_took_is_said_with_the_change_that_takes_it_back() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.change(RepoSettingsChange.Switch(RepoSwitch.ISSUES, false))
+        advanceUntilIdle()
+        val applied = viewModel.state.value.applied!!
+        assertThat(applied.change).isEqualTo(RepoSettingsChange.Switch(RepoSwitch.ISSUES, false))
+        assertThat(applied.undo).isEqualTo(RepoSettingsChange.Switch(RepoSwitch.ISSUES, true))
+
+        viewModel.undo()
+        advanceUntilIdle()
+
+        assertThat(api.changes).containsExactly(RepoSettingsChange.Switch(RepoSwitch.ISSUES, false), RepoSettingsChange.Switch(RepoSwitch.ISSUES, true)).inOrder()
+        assertThat(viewModel.state.value.settings!!.switches[RepoSwitch.ISSUES]).isTrue()
+        // The way back is said too, with no way back from it.
+        assertThat(viewModel.state.value.applied!!.undo).isNull()
+    }
+
+    @Test
+    fun a_choice_is_taken_back_to_what_it_was_and_words_have_no_way_back() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.change(RepoSettingsChange.DefaultBranch("dev"))
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.applied!!.undo).isEqualTo(RepoSettingsChange.DefaultBranch("main"))
+
+        viewModel.change(RepoSettingsChange.Description("Faster"))
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.applied!!.change).isEqualTo(RepoSettingsChange.Description("Faster"))
+        assertThat(viewModel.state.value.applied!!.undo).isNull()
+        viewModel.appliedShown()
+        assertThat(viewModel.state.value.applied).isNull()
+    }
+
+    @Test
+    fun https_on_the_site_can_be_taken_back_and_publishing_cannot() = test {
+        api.pages = PagesSite(published = true, url = "https://octo.example/tools/", canPublish = true, build = PagesBuild.Workflow, httpsEnforced = false, customDomain = "")
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.changePages(PagesChange.Https(true))
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.applied!!.pagesUndo).isEqualTo(PagesChange.Https(false))
+        viewModel.undo()
+        advanceUntilIdle()
+        assertThat(api.pagesChanges).containsExactly(PagesChange.Https(true), PagesChange.Https(false)).inOrder()
+
+        viewModel.changePages(PagesChange.Publish(PagesBuild.Branch("main", "/")))
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.applied!!.pagesUndo).isNull()
+    }
+
+    @Test
+    fun a_refused_change_is_not_said_as_taken() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        api.writeFailure = ForgeError.Network
+
+        viewModel.change(RepoSettingsChange.Switch(RepoSwitch.WIKI, true))
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.applied).isNull()
+        viewModel.undo()
+        advanceUntilIdle()
+        assertThat(api.changes).hasSize(1)
+    }
 }

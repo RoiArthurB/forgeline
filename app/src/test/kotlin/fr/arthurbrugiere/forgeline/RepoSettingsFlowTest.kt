@@ -23,8 +23,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Rule
-import androidx.compose.ui.test.hasScrollAction
-import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.assertIsSelected
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -69,10 +67,14 @@ class RepoSettingsFlowTest {
 
         composeRule.onNode(hasContentDescription("Repository settings")).performClick()
         waitFor("Tools for octocats")
+        composeRule.onNodeWithText("Features").performClick()
         composeRule.onNode(hasText("Wiki") and isToggleable()).performClick()
         composeRule.waitForIdle()
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { settings.changes.size == 1 }
+        // Said, with the way back.
+        waitFor("Wiki switched on")
         // Regression: the switch's change landing closed whatever sheet had been opened meanwhile.
+        composeRule.onNodeWithText("About").performClick()
         composeRule.onNodeWithText("Description").performClick()
         waitFor("Save")
         composeRule.onNode(hasSetTextAction()).performTextReplacement("Faster tools")
@@ -105,7 +107,7 @@ class RepoSettingsFlowTest {
         composeRule.onNode(hasContentDescription("Repository settings")).performClick()
         waitFor("Tools for octocats")
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Delete this repository"))
+        composeRule.onNodeWithText("Danger zone").performClick()
         composeRule.onNodeWithText("Delete this repository").performClick()
         waitFor("Delete for good")
         composeRule.onNode(hasSetTextAction()).performTextReplacement("paperclipai/paperclip")
@@ -130,7 +132,7 @@ class RepoSettingsFlowTest {
         composeRule.onNode(hasContentDescription("Repository settings")).performClick()
         waitFor("Tools for octocats")
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Delete this repository"))
+        composeRule.onNodeWithText("Danger zone").performClick()
         composeRule.onNodeWithText("Rename").performClick()
         waitFor("Save")
         composeRule.onNode(hasSetTextAction()).performTextReplacement("clip")
@@ -155,7 +157,7 @@ class RepoSettingsFlowTest {
         composeRule.onNode(hasContentDescription("Repository settings")).performClick()
         waitFor("Tools for octocats")
 
-        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Publish a website"))
+        composeRule.onNodeWithText("Pages").performClick()
         composeRule.onNodeWithText("Publish a website").performClick()
         waitFor("A workflow builds the site")
         composeRule.onAllNodes(hasText("Publish a website"))[1].performClick()

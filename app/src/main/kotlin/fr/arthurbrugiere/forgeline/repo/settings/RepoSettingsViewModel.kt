@@ -24,6 +24,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/**
+ * A change the forge just took, to say once. [undo] (or [pagesUndo]) is the change that takes it back, where that is
+ * one tap to make again: a switch, a choice. Words and what was confirmed first have none.
+ */
+data class Applied(
+    val id: Int,
+    val change: RepoSettingsChange? = null,
+    val pages: PagesChange? = null,
+    val undo: RepoSettingsChange? = null,
+    val pagesUndo: PagesChange? = null,
+)
+
 data class RepoSettingsUiState(
     val repo: RepoId,
     val settings: RepoSettings? = null,
@@ -36,6 +48,8 @@ data class RepoSettingsUiState(
     val refused: ForgeError? = null,
     /** Counts the changes the forge took, so that what asked for one can close on it. */
     val saved: Int = 0,
+    /** The last change the forge took, until it has been said. */
+    val applied: Applied? = null,
     /** The repository's website, where its forge sets something about one; read beside the settings. */
     val pages: PagesSite? = null,
     /** Whether this sign-in may delete repositories: asked when deleting is, and null until the forge has said. */
@@ -86,29 +100,54 @@ class RepoSettingsViewModel @AssistedInject constructor(
     }
 
     /** Changes the repository's website; what the forge refuses is said, and the site stays as it was. */
-    fun changePages(change: PagesChange) {
-        if (busy() || _state.value.pages == null) return
-        _state.update { it.copy(working = true, refused = null) }
+    fun changePages(change: PagesChange, undoable: Boolean = true) {
+        val before = _state.value.pages ?: return
+        if (busy()) return
+        _state.update { it.copy(working = true, refused = null, applied = null) }
         viewModelScope.launch {
             when (val result = repository.changePages(repo, change)) {
-                is ForgeResult.Success -> _state.update { it.copy(working = false, pages = result.value, saved = it.saved + 1) }
+                is ForgeResult.Success -> _state.update {
+                    // Only HTTPS is a switch: publishing, a domain and unpublishing are written or confirmed first.
+                    val back = (change as? PagesChange.Https)?.let { before.httpsEnforced?.let(PagesChange::Https) }?.takeIf { undoable }
+                    it.copy(working = false, pages = result.value, saved = it.saved + 1, applied = Applied(++serial, pages = change, pagesUndo = back))
+                }
                 is ForgeResult.Failure -> _state.update { it.copy(working = false, refused = result.error) }
             }
         }
     }
 
-    /** Shows [change] at once and tells the forge; what it refuses is taken back. One change at a time. */
-    fun change(change: RepoSettingsChange) {
+    /**
+     * Shows [change] at once and tells the forge; what it refuses is taken back. One change at a time. What it takes is
+     * said once ([RepoSettingsUiState.applied]), with the way back when [undoable] and there is one.
+     */
+    fun change(change: RepoSettingsChange, undoable: Boolean = true) {
         val before = _state.value.settings ?: return
         if (busy() || before.with(change) == before) return
-        _state.update { it.copy(settings = before.with(change), saving = change, refused = null) }
+        _state.update { it.copy(settings = before.with(change), saving = change, refused = null, applied = null) }
         viewModelScope.launch {
             when (val result = repository.change(repo, change)) {
-                is ForgeResult.Success -> _state.update { it.copy(settings = result.value, saving = null, saved = it.saved + 1) }
+                is ForgeResult.Success -> _state.update {
+                    it.copy(
+                        settings = result.value, saving = null, saved = it.saved + 1,
+                        applied = Applied(++serial, change = change, undo = if (undoable) before.undoOf(change) else null),
+                    )
+                }
                 is ForgeResult.Failure -> _state.update { it.copy(settings = before, saving = null, refused = result.error) }
             }
         }
     }
+
+    /** Takes the last change back, as a change of its own: said in turn, with no way back from the way back. */
+    fun undo() {
+        val applied = _state.value.applied ?: return
+        _state.update { it.copy(applied = null) }
+        applied.undo?.let { change(it, undoable = false) }
+        applied.pagesUndo?.let { changePages(it, undoable = false) }
+    }
+
+    fun appliedShown() = _state.update { it.copy(applied = null) }
+
+    private var serial = 0
 
     fun rename(name: String) {
         if (busy() || name.isBlank() || name == repo.name) return
@@ -158,4 +197,14 @@ class RepoSettingsViewModel @AssistedInject constructor(
     fun refusalShown() = _state.update { it.copy(refused = null) }
 
     fun errorShown() = _state.update { it.copy(error = null) }
+}
+
+/** The change that puts these settings back as they were before [change], where that is one tap to make again. */
+internal fun RepoSettings.undoOf(change: RepoSettingsChange): RepoSettingsChange? = when (change) {
+    is RepoSettingsChange.Switch -> switches[change.switch]?.let { RepoSettingsChange.Switch(change.switch, it) }
+    is RepoSettingsChange.Style -> mergeStyle?.let { RepoSettingsChange.Style(it) }
+    is RepoSettingsChange.DefaultMerge -> defaultMerge?.let { RepoSettingsChange.DefaultMerge(it) }
+    is RepoSettingsChange.DefaultBranch -> RepoSettingsChange.DefaultBranch(defaultBranch)
+    // Written out, or asked about first: no way back offered.
+    else -> null
 }

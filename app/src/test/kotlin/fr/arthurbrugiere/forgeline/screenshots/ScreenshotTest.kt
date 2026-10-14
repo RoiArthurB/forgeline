@@ -18,6 +18,7 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onRoot
@@ -989,6 +990,45 @@ class ScreenshotTest {
     @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
     fun repo_settings_font_2_0_light() = snapshot("repo_settings_font_2_0_light", darkTheme = false) { RepoSettingsPreview() }
 
+    // A chip off the edge of the strip at large text is scrolled to first, as a thumb would.
+    private fun settingsTab(name: String): () -> Unit = { composeRule.onNodeWithText(name).performScrollTo().performClick() }
+
+    @Test
+    fun repo_settings_features_light() = snapshot("repo_settings_features_light", darkTheme = false, beforeCapture = settingsTab("Features")) { RepoSettingsPreview() }
+
+    @Test
+    fun repo_settings_merging_dark() = snapshot("repo_settings_merging_dark", darkTheme = true, beforeCapture = settingsTab("Merging")) { RepoSettingsPreview() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun repo_settings_danger_font_2_0_light() = snapshot("repo_settings_danger_font_2_0_light", darkTheme = false, beforeCapture = settingsTab("Danger zone")) { RepoSettingsPreview() }
+
+    @Test
+    fun repo_settings_undo_light() = snapshot("repo_settings_undo_light", darkTheme = false, beforeCapture = settingsTab("Features"), awaitText = "Wiki switched on") {
+        fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsScreen(
+            state = fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsUiState(
+                RepoId("paperclipai", "paperclip"), shownSettings,
+                applied = fr.arthurbrugiere.forgeline.repo.settings.Applied(
+                    1,
+                    change = fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange.Switch(fr.arthurbrugiere.forgeline.core.model.RepoSwitch.WIKI, true),
+                    undo = fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange.Switch(fr.arthurbrugiere.forgeline.core.model.RepoSwitch.WIKI, false),
+                ),
+            ),
+            onBack = {}, onRefresh = {}, onChange = {}, onLoadBranches = {}, onOpenUrl = {}, onRefusalShown = {}, onErrorShown = {},
+        )
+    }
+
+    @Test
+    fun repo_settings_forgejo_merging_light() = snapshot("repo_settings_forgejo_merging_light", darkTheme = false, beforeCapture = settingsTab("Merging")) {
+        RepoSettingsPreview(
+            shownSettings.copy(
+                defaultMerge = fr.arthurbrugiere.forgeline.core.model.MergeMethod.SQUASH,
+                switches = shownSettings.switches + (fr.arthurbrugiere.forgeline.core.model.RepoSwitch.FAST_FORWARD_MERGE to true),
+            ),
+            RepoId("forgejo", "forgejo", ForgeInstance.Codeberg),
+        )
+    }
+
     @Test
     fun repo_settings_gitlab_light() = snapshot("repo_settings_gitlab_light", darkTheme = false) {
         RepoSettingsPreview(
@@ -1011,20 +1051,20 @@ class ScreenshotTest {
     @Test
     fun repo_settings_danger_light() = snapshot(
         "repo_settings_danger_light", darkTheme = false,
-        beforeCapture = { composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("More settings on GitHub")) },
+        beforeCapture = { composeRule.onNodeWithText("Danger zone").performClick() },
     ) { RepoSettingsPreview() }
 
     @Test
     fun repo_settings_danger_dark() = snapshot(
         "repo_settings_danger_dark", darkTheme = true,
-        beforeCapture = { composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("More settings on GitHub")) },
+        beforeCapture = { composeRule.onNodeWithText("Danger zone").performClick() },
     ) { RepoSettingsPreview() }
 
     @Test
     fun repo_settings_delete_refused_light() = snapshot(
         "repo_settings_delete_refused_light", darkTheme = false, wholeScreen = true,
         beforeCapture = {
-            composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("Delete this repository"))
+            composeRule.onNodeWithText("Danger zone").performClick()
             composeRule.onNodeWithText("Delete this repository").performClick()
         },
     ) {
@@ -1037,7 +1077,7 @@ class ScreenshotTest {
     @Test
     fun repo_settings_pages_light() = snapshot(
         "repo_settings_pages_light", darkTheme = false,
-        beforeCapture = { composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("Danger zone")) },
+        beforeCapture = { composeRule.onNodeWithText("Pages").performClick() },
     ) {
         fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsScreen(
             state = fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsUiState(
@@ -1055,7 +1095,7 @@ class ScreenshotTest {
     fun repo_settings_pages_source_light() = snapshot(
         "repo_settings_pages_source_light", darkTheme = false, wholeScreen = true,
         beforeCapture = {
-            composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("Danger zone"))
+            composeRule.onNodeWithText("Pages").performClick()
             composeRule.onNodeWithText("Publish a website").performClick()
             composeRule.onNodeWithText("A branch").performClick()
         },
@@ -1079,7 +1119,9 @@ class ScreenshotTest {
     }
 
     private fun openRow(text: String): () -> Unit = {
-        composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("More settings on GitHub"))
+        settingsTab("Danger zone")()
+        // At large text the last of the danger zone is below the fold.
+        composeRule.onNode(androidx.compose.ui.test.hasScrollToIndexAction()).performScrollToNode(hasText(text))
         composeRule.onNodeWithText(text).performClick()
     }
 

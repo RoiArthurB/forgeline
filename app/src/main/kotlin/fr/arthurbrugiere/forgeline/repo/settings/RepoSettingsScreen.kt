@@ -20,9 +20,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -53,15 +53,21 @@ import fr.arthurbrugiere.forgeline.core.model.PagesSite
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
-import fr.arthurbrugiere.forgeline.settings.SettingModifier
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.key
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarResult
+import kotlinx.coroutines.withTimeoutOrNull
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDangerButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -91,7 +97,6 @@ import androidx.compose.ui.semantics.contentDescription
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSectionTitle
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
@@ -99,7 +104,6 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.navigation.RepoSettingsRoute
 import fr.arthurbrugiere.forgeline.repo.Loadable
-import fr.arthurbrugiere.forgeline.settings.ChoiceItem
 import fr.arthurbrugiere.forgeline.settings.SettingRow
 import fr.arthurbrugiere.forgeline.settings.SwitchItem
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
@@ -126,8 +130,10 @@ fun RepoSettingsRoute(
         state = state,
         onBack = onBack,
         onRefresh = viewModel::refresh,
-        onChange = viewModel::change,
-        onChangePages = viewModel::changePages,
+        onChange = { viewModel.change(it) },
+        onChangePages = { viewModel.changePages(it) },
+        onUndo = viewModel::undo,
+        onAppliedShown = viewModel::appliedShown,
         onRename = viewModel::rename,
         onDelete = viewModel::delete,
         onCheckDelete = viewModel::checkDelete,
@@ -142,7 +148,19 @@ fun RepoSettingsRoute(
 }
 
 /** What is being edited in a sheet. */
-private enum class Editing { DESCRIPTION, WEBSITE, TOPICS, BRANCH, RENAME, DELETE, PAGES_SOURCE, PAGES_DOMAIN }
+private enum class Editing { DESCRIPTION, WEBSITE, TOPICS, BRANCH, RENAME, DELETE, PAGES_SOURCE, PAGES_DOMAIN, MERGE_STYLE, DEFAULT_MERGE }
+
+/**
+ * The groups the settings are read in, one at a time under the header. What can't be taken back comes last, and is
+ * never the one that opens first.
+ */
+internal enum class SettingsTab(val label: Int) {
+    ABOUT(R.string.repo_settings_about),
+    FEATURES(R.string.repo_settings_features),
+    MERGING(R.string.repo_settings_merging),
+    PAGES(R.string.repo_pages),
+    DANGER(R.string.repo_settings_danger),
+}
 
 /** What is asked to be confirmed in a dialog. */
 private enum class Confirming { VISIBILITY, ARCHIVE, UNPUBLISH }
@@ -163,6 +181,9 @@ fun RepoSettingsScreen(
     onLoadBranches: () -> Unit,
     onOpenUrl: (String) -> Unit,
     onChangePages: (PagesChange) -> Unit = {},
+    /** Takes the change just said back. */
+    onUndo: () -> Unit = {},
+    onAppliedShown: () -> Unit = {},
     onRename: (String) -> Unit = {},
     onDelete: () -> Unit = {},
     /** Asks whether this sign-in may delete at all, as the sheet for it opens. */
@@ -253,6 +274,18 @@ fun RepoSettingsScreen(
                 },
                 onDismiss = dismiss,
             )
+            Editing.MERGE_STYLE -> settings.mergeStyle?.let { current ->
+                ChoiceSheet(stringResource(R.string.repo_settings_merge_style), MergeStyle.entries.map { stringResource(it.label) }, current.ordinal, onDismiss = dismiss) {
+                    editing = null
+                    onChange(RepoSettingsChange.Style(MergeStyle.entries[it]))
+                }
+            }
+            Editing.DEFAULT_MERGE -> settings.defaultMerge?.let { current ->
+                ChoiceSheet(stringResource(R.string.repo_settings_default_merge), MergeMethod.entries.map { stringResource(it.label) }, current.ordinal, onDismiss = dismiss) {
+                    editing = null
+                    onChange(RepoSettingsChange.DefaultMerge(MergeMethod.entries[it]))
+                }
+            }
             Editing.DELETE -> DeleteSheet(
                 state.repo, state.working, state.mayDelete,
                 // Signed in again since the sheet opened and still refused: said in the forge's place.
@@ -301,7 +334,40 @@ fun RepoSettingsScreen(
     }
 
     val none = stringResource(R.string.manage_none)
-    val listState = rememberLazyListState()
+    val forgeType = state.repo.forge.type
+    val site = state.pages
+    // A site its forge publishes by itself has nothing to set until it is there.
+    val hasPages = site != null && (site.published || site.canPublish)
+    val tabs = settings?.let {
+        buildList {
+            add(SettingsTab.ABOUT)
+            if (it.switches.keys.any { switch -> !switch.merging }) add(SettingsTab.FEATURES)
+            if (it.switches.keys.any { switch -> switch.merging } || it.mergeStyle != null || it.defaultMerge != null) add(SettingsTab.MERGING)
+            if (hasPages) add(SettingsTab.PAGES)
+            add(SettingsTab.DANGER)
+        }
+    }.orEmpty()
+    var picked by rememberSaveable { mutableStateOf(SettingsTab.ABOUT) }
+    val tab = picked.takeIf { it in tabs } ?: SettingsTab.ABOUT
+    // Each group keeps where it was read to, the way back from another.
+    val listStates = remember { mutableMapOf<SettingsTab, LazyListState>() }
+    val listState = listStates.getOrPut(tab) { LazyListState() }
+
+    // What the forge took is said once; a switch or a choice can be taken back for a few seconds.
+    val appliedText = state.applied?.let { appliedText(it, settings, forgeType) }
+    val undoLabel = stringResource(R.string.inbox_undo)
+    LaunchedEffect(state.applied?.id) {
+        val applied = state.applied ?: return@LaunchedEffect
+        if (appliedText == null) return@LaunchedEffect onAppliedShown()
+        if (applied.undo != null || applied.pagesUndo != null) {
+            val result = withTimeoutOrNull(UNDO_MILLIS) { snackbar.showSnackbar(appliedText, actionLabel = undoLabel, duration = SnackbarDuration.Indefinite) }
+            if (result == SnackbarResult.ActionPerformed) onUndo() else onAppliedShown()
+        } else {
+            snackbar.showSnackbar(appliedText)
+            onAppliedShown()
+        }
+    }
+
     Box(modifier.fillMaxSize().background(colors.ground)) {
         val pullState = rememberPullToRefreshState()
         PullToRefreshBox(
@@ -319,163 +385,208 @@ fun RepoSettingsScreen(
             },
             modifier = Modifier.fillMaxSize(),
         ) {
-            LazyColumn(
-                state = listState,
-                horizontalAlignment = Alignment.CenterHorizontally,
-                contentPadding = PaddingValues(bottom = listBottomPadding()),
-                modifier = Modifier.fillMaxSize().sideSafeArea(),
-            ) {
-                item(key = "header") {
-                    SoftHeader(
-                        tint = colors.surface,
-                        onBack = onBack,
-                        backDescription = stringResource(R.string.navigate_up),
-                        actions = {
-                            IconButton(onClick = { onOpenUrl(state.repo.settingsUrl) }) {
-                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, forgeName), tint = colors.ink)
+            key(tab) {
+                LazyColumn(
+                    state = listState,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    contentPadding = PaddingValues(bottom = listBottomPadding()),
+                    modifier = Modifier.fillMaxSize().sideSafeArea(),
+                ) {
+                    item(key = "header") {
+                        // The repository's own warm field: these are its settings, and the page under it is its page.
+                        SoftHeader(
+                            tint = colors.fields[0],
+                            onBack = onBack,
+                            backDescription = stringResource(R.string.navigate_up),
+                            actions = {
+                                IconButton(onClick = { onOpenUrl(state.repo.settingsUrl) }) {
+                                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, forgeName), tint = colors.ink)
+                                }
+                            },
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(state.repo.fullName, style = Soft.type.secondary, color = colors.inkMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(stringResource(R.string.settings_title), style = Soft.type.detailTitle, color = colors.ink, modifier = Modifier.semantics { heading() })
                             }
-                        },
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(state.repo.fullName, style = Soft.type.secondary, color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(stringResource(R.string.repo_settings_title), style = Soft.type.title, color = colors.ink, modifier = Modifier.semantics { heading() })
                         }
                     }
-                }
-                when {
-                    state.deleted != null -> item(key = "deleted") {
-                        val scheduled = state.deleted == RepoDeletion.SCHEDULED
-                        SoftNotice(
-                            stringResource(if (scheduled) R.string.repo_settings_deleted_scheduled_title else R.string.repo_settings_deleted_title, state.repo.fullName),
-                            stringResource(if (scheduled) R.string.repo_settings_deleted_scheduled_body else R.string.repo_settings_deleted_body, forgeName),
-                            action = stringResource(R.string.repo_settings_deleted_done),
-                            onAction = onDeleted,
-                        )
-                    }
-                    settings == null && state.error != null -> item(key = "error") {
-                        SoftNotice(
-                            stringResource(R.string.repo_settings_error_title),
-                            stringResource(state.error.message),
-                            action = stringResource(R.string.retry),
-                            onAction = onRefresh,
-                        )
-                    }
-                    settings == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.repo_settings_loading), rows = 6, leadingDot = false) }
-                    else -> {
-                        item(key = "about") {
-                            Column {
-                                SoftSectionTitle(stringResource(R.string.repo_settings_about))
-                                SettingRow(stringResource(R.string.repo_settings_description), settings.description.ifBlank { none }, onClick = { editing = Editing.DESCRIPTION })
-                                if (settings.hasWebsite) {
-                                    SettingRow(stringResource(R.string.repo_settings_website), settings.website.ifBlank { none }, onClick = { editing = Editing.WEBSITE })
-                                }
-                                SettingRow(stringResource(R.string.repo_settings_topics), settings.topics.joinToString(", ").ifEmpty { none }, onClick = { editing = Editing.TOPICS })
-                                SettingRow(
-                                    stringResource(R.string.repo_settings_default_branch), settings.defaultBranch.ifEmpty { none },
-                                    onClick = {
-                                        onLoadBranches()
-                                        editing = Editing.BRANCH
-                                    },
+                    when {
+                        state.deleted != null -> item(key = "deleted") {
+                            val scheduled = state.deleted == RepoDeletion.SCHEDULED
+                            SoftNotice(
+                                stringResource(if (scheduled) R.string.repo_settings_deleted_scheduled_title else R.string.repo_settings_deleted_title, state.repo.fullName),
+                                stringResource(if (scheduled) R.string.repo_settings_deleted_scheduled_body else R.string.repo_settings_deleted_body, forgeName),
+                                action = stringResource(R.string.repo_settings_deleted_done),
+                                onAction = onDeleted,
+                            )
+                        }
+                        settings == null && state.error != null -> item(key = "error") {
+                            SoftNotice(
+                                stringResource(R.string.repo_settings_error_title),
+                                stringResource(state.error.message),
+                                action = stringResource(R.string.retry),
+                                onAction = onRefresh,
+                            )
+                        }
+                        settings == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.repo_settings_loading), rows = 6, leadingDot = false) }
+                        else -> {
+                            item(key = "tabs") {
+                                SoftChipTabs(
+                                    options = tabs.map { stringResource(it.label) },
+                                    selected = tabs.indexOf(tab),
+                                    onSelect = { picked = tabs[it] },
+                                    modifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                                 )
                             }
-                        }
-                        val features = settings.switches.filterKeys { !it.merging }
-                        if (features.isNotEmpty()) {
-                            item(key = "features") {
-                                Column {
-                                    SoftSectionTitle(stringResource(R.string.repo_settings_features))
-                                    features.forEach { (switch, on) -> SwitchRow(switch, on, settings, state.repo.forge.type, onChange) }
-                                }
-                            }
-                        }
-                        val merging = settings.switches.filterKeys { it.merging }
-                        if (merging.isNotEmpty() || settings.mergeStyle != null || settings.defaultMerge != null) {
-                            item(key = "merging") {
-                                Column {
-                                    SoftSectionTitle(stringResource(R.string.repo_settings_merging))
-                                    settings.mergeStyle?.let { style ->
-                                        ChoiceItem(
-                                            stringResource(R.string.repo_settings_merge_style),
-                                            MergeStyle.entries.map { stringResource(it.label) },
-                                            style.ordinal,
-                                        ) { onChange(RepoSettingsChange.Style(MergeStyle.entries[it])) }
-                                    }
-                                    merging.forEach { (switch, on) -> SwitchRow(switch, on, settings, state.repo.forge.type, onChange) }
-                                    settings.defaultMerge?.let { method ->
-                                        ChoiceItem(
-                                            stringResource(R.string.repo_settings_default_merge),
-                                            MergeMethod.entries.map { stringResource(it.label) },
-                                            method.ordinal,
-                                        ) { onChange(RepoSettingsChange.DefaultMerge(MergeMethod.entries[it])) }
-                                    }
-                                }
-                            }
-                        }
-                        val site = state.pages
-                        // A site its forge publishes by itself has nothing to set until it is there.
-                        if (site != null && (site.published || site.canPublish)) {
-                            item(key = "pages") {
-                                Column {
-                                    SoftSectionTitle(stringResource(R.string.repo_pages))
-                                    val openSource = {
-                                        onLoadBranches()
-                                        editing = Editing.PAGES_SOURCE
-                                    }
-                                    if (!site.published) {
-                                        SettingRow(stringResource(R.string.repo_pages_publish), stringResource(R.string.repo_pages_not_published), onClick = openSource)
-                                    } else {
-                                        site.url?.let { url -> SettingRow(stringResource(R.string.repo_pages_address), url, onClick = { onOpenUrl(url) }) }
-                                        site.build?.let { build -> SettingRow(stringResource(R.string.repo_pages_source), build.label(), onClick = openSource) }
-                                        site.httpsEnforced?.let { enforced ->
-                                            SwitchItem(stringResource(R.string.repo_pages_https), null, enforced, onCheckedChange = { onChangePages(PagesChange.Https(it)) })
+                            when (tab) {
+                                SettingsTab.ABOUT -> item(key = "about") {
+                                    Column {
+                                        EditRow(stringResource(R.string.repo_settings_description), settings.description.ifBlank { none }) { editing = Editing.DESCRIPTION }
+                                        if (settings.hasWebsite) {
+                                            EditRow(stringResource(R.string.repo_settings_website), settings.website.ifBlank { none }) { editing = Editing.WEBSITE }
                                         }
-                                        site.customDomain?.let { domain ->
-                                            SettingRow(stringResource(R.string.repo_pages_domain), domain.ifBlank { none }, onClick = { editing = Editing.PAGES_DOMAIN })
+                                        EditRow(stringResource(R.string.repo_settings_topics), topicsSummary(settings.topics) ?: none) { editing = Editing.TOPICS }
+                                        EditRow(stringResource(R.string.repo_settings_default_branch), settings.defaultBranch.ifEmpty { none }) {
+                                            onLoadBranches()
+                                            editing = Editing.BRANCH
                                         }
-                                        SettingRow(stringResource(R.string.repo_pages_unpublish), stringResource(R.string.repo_pages_unpublish_summary), onClick = { confirming = Confirming.UNPUBLISH })
+                                        // Where to look when the app doesn't have the setting.
+                                        Spacer(Modifier.size(12.dp))
+                                        LeaveRow(stringResource(R.string.repo_settings_more, forgeName), stringResource(R.string.repo_settings_more_summary)) { onOpenUrl(state.repo.settingsUrl) }
                                     }
                                 }
-                            }
-                        }
-                        item(key = "danger") {
-                            Column(SettingModifier.padding(top = 20.dp).clip(RoundedCornerShape(28.dp)).background(colors.fields[0]).padding(vertical = 8.dp)) {
-                                Text(
-                                    stringResource(R.string.repo_settings_danger),
-                                    style = Soft.type.label, color = colors.ink,
-                                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp).semantics { heading() },
-                                )
-                                SettingRow(stringResource(R.string.repo_settings_visibility), stringResource(settings.visibility.label), onClick = { confirming = Confirming.VISIBILITY })
-                                SettingRow(
-                                    stringResource(if (settings.archived) R.string.repo_settings_unarchive else R.string.repo_settings_archive),
-                                    stringResource(if (settings.archived) R.string.repo_settings_archived_summary else R.string.repo_settings_archive_summary),
-                                    onClick = { confirming = Confirming.ARCHIVE },
-                                )
-                                SettingRow(stringResource(R.string.repo_settings_rename), state.repo.name, onClick = { editing = Editing.RENAME })
-                                SettingRow(stringResource(R.string.repo_settings_delete), stringResource(R.string.repo_settings_delete_summary), onClick = {
-                                    onCheckDelete()
-                                    editing = Editing.DELETE
-                                })
-                            }
-                        }
-                        item(key = "more") {
-                            Column {
-                                Spacer(Modifier.size(12.dp))
-                                SettingRow(
-                                    stringResource(R.string.repo_settings_more, forgeName),
-                                    stringResource(R.string.repo_settings_more_summary),
-                                    onClick = { onOpenUrl(state.repo.settingsUrl) },
-                                    trailing = { Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp)) },
-                                )
+                                SettingsTab.FEATURES -> item(key = "features") {
+                                    Column {
+                                        settings.switches.filterKeys { !it.merging }.forEach { (switch, on) -> SwitchRow(switch, on, settings, forgeType, onChange) }
+                                    }
+                                }
+                                SettingsTab.MERGING -> item(key = "merging") {
+                                    Column {
+                                        settings.mergeStyle?.let { style ->
+                                            EditRow(stringResource(R.string.repo_settings_merge_style), stringResource(style.label)) { editing = Editing.MERGE_STYLE }
+                                        }
+                                        settings.switches.filterKeys { it.merging }.forEach { (switch, on) -> SwitchRow(switch, on, settings, forgeType, onChange) }
+                                        settings.defaultMerge?.let { method ->
+                                            EditRow(stringResource(R.string.repo_settings_default_merge), stringResource(method.label)) { editing = Editing.DEFAULT_MERGE }
+                                        }
+                                    }
+                                }
+                                SettingsTab.PAGES -> item(key = "pages") {
+                                    Column {
+                                        val openSource = {
+                                            onLoadBranches()
+                                            editing = Editing.PAGES_SOURCE
+                                        }
+                                        if (site == null || !site.published) {
+                                            EditRow(stringResource(R.string.repo_pages_publish), stringResource(R.string.repo_pages_not_published), onClick = openSource)
+                                        } else {
+                                            site.url?.let { url -> LeaveRow(stringResource(R.string.repo_pages_address), url) { onOpenUrl(url) } }
+                                            site.build?.let { build -> EditRow(stringResource(R.string.repo_pages_source), build.label(), onClick = openSource) }
+                                            site.httpsEnforced?.let { enforced ->
+                                                SwitchItem(stringResource(R.string.repo_pages_https), null, enforced, onCheckedChange = { onChangePages(PagesChange.Https(it)) })
+                                            }
+                                            site.customDomain?.let { domain ->
+                                                EditRow(stringResource(R.string.repo_pages_domain), domain.ifBlank { none }) { editing = Editing.PAGES_DOMAIN }
+                                            }
+                                            // Asks first, from its own sheet: no glyph promises more than that.
+                                            SettingRow(stringResource(R.string.repo_pages_unpublish), stringResource(R.string.repo_pages_unpublish_summary), onClick = { confirming = Confirming.UNPUBLISH })
+                                        }
+                                    }
+                                }
+                                SettingsTab.DANGER -> item(key = "danger") {
+                                    Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
+                                        // Each asks before it happens; none of them is one more tap through.
+                                        SettingRow(stringResource(R.string.repo_settings_visibility), stringResource(settings.visibility.label), onClick = { confirming = Confirming.VISIBILITY })
+                                        SettingRow(
+                                            stringResource(if (settings.archived) R.string.repo_settings_unarchive else R.string.repo_settings_archive),
+                                            stringResource(if (settings.archived) R.string.repo_settings_archived_summary else R.string.repo_settings_archive_summary),
+                                            onClick = { confirming = Confirming.ARCHIVE },
+                                        )
+                                        SettingRow(stringResource(R.string.repo_settings_rename), state.repo.name, onClick = { editing = Editing.RENAME })
+                                        // Deleting stands apart, below the rest, on the ink pill of what can't be taken back.
+                                        Column(
+                                            Modifier.padding(start = 20.dp, end = 20.dp, top = 28.dp),
+                                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                                        ) {
+                                            Text(stringResource(R.string.repo_settings_delete_summary), style = Soft.type.secondary, color = colors.inkMuted)
+                                            SoftDangerButton(
+                                                stringResource(R.string.repo_settings_delete),
+                                                onClick = {
+                                                    onCheckDelete()
+                                                    editing = Editing.DELETE
+                                                },
+                                                modifier = Modifier.fillMaxWidth(),
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
         }
-        val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+        val scrolled by remember(listState) { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
         SoftStatusBarScrim(scrolled)
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current)) { data ->
-            Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground)
+            Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground, actionColor = colors.thumb)
+        }
+    }
+}
+
+/** How long a change can be taken back from the snackbar that says it, as long as the Inbox's. */
+private const val UNDO_MILLIS = 5_000L
+
+/** A row that opens an editor for what it shows: the chevron says so. */
+@Composable
+private fun EditRow(title: String, summary: String, onClick: () -> Unit) {
+    SettingRow(title, summary, onClick = onClick, trailing = { Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = Soft.colors.inkMuted, modifier = Modifier.size(18.dp)) })
+}
+
+/** A row that leaves the app for the forge's website or the repository's site: the open-in-new glyph says so. */
+@Composable
+private fun LeaveRow(title: String, summary: String, onClick: () -> Unit) {
+    SettingRow(title, summary, onClick = onClick, trailing = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, tint = Soft.colors.inkMuted, modifier = Modifier.size(18.dp)) })
+}
+
+/** "kotlin, tools, android +2": three topics and how many more. */
+@Composable
+private fun topicsSummary(topics: List<String>): String? = when {
+    topics.isEmpty() -> null
+    topics.size <= 3 -> topics.joinToString(", ")
+    else -> stringResource(R.string.repo_settings_topics_more, topics.take(3).joinToString(", "), topics.size - 3)
+}
+
+/** What the forge just took, in a few words: "Wiki switched off", "How it merges set to Fast-forward". */
+@Composable
+private fun appliedText(applied: Applied, settings: RepoSettings?, forge: ForgeType): String? {
+    applied.pages?.let { change ->
+        return when (change) {
+            is PagesChange.Https -> stringResource(if (change.enforced) R.string.repo_settings_switched_on else R.string.repo_settings_switched_off, stringResource(R.string.repo_pages_https))
+            is PagesChange.Publish -> stringResource(R.string.repo_settings_saved, stringResource(R.string.repo_pages_source))
+            is PagesChange.Domain -> stringResource(R.string.repo_settings_saved, stringResource(R.string.repo_pages_domain))
+            PagesChange.Unpublish -> stringResource(R.string.repo_pages_unpublished)
+        }
+    }
+    return when (val change = applied.change ?: return null) {
+        is RepoSettingsChange.Switch -> stringResource(if (change.on) R.string.repo_settings_switched_on else R.string.repo_settings_switched_off, stringResource(change.switch.label(forge)))
+        is RepoSettingsChange.Style -> stringResource(R.string.repo_settings_set_to, stringResource(R.string.repo_settings_merge_style), stringResource(change.style.label))
+        is RepoSettingsChange.DefaultMerge -> stringResource(R.string.repo_settings_set_to, stringResource(R.string.repo_settings_default_merge), stringResource(change.method.label))
+        is RepoSettingsChange.DefaultBranch -> stringResource(R.string.repo_settings_set_to, stringResource(R.string.repo_settings_default_branch), change.branch)
+        is RepoSettingsChange.Description -> stringResource(R.string.repo_settings_saved, stringResource(R.string.repo_settings_description))
+        is RepoSettingsChange.Website -> stringResource(R.string.repo_settings_saved, stringResource(R.string.repo_settings_website))
+        is RepoSettingsChange.Topics -> stringResource(R.string.repo_settings_saved, stringResource(R.string.repo_settings_topics))
+        is RepoSettingsChange.Visibility -> stringResource(R.string.repo_settings_set_to, stringResource(R.string.repo_settings_visibility), stringResource(change.visibility.label))
+        is RepoSettingsChange.Archived -> stringResource(if (change.archived) R.string.repo_settings_archived_done else R.string.repo_settings_unarchived_done)
+    }.takeIf { settings != null }
+}
+
+/** One choice among a few, picked in a sheet: picking it makes it. */
+@Composable
+private fun ChoiceSheet(title: String, options: List<String>, selected: Int, onDismiss: () -> Unit, onSelect: (Int) -> Unit) {
+    Sheet(title, onDismiss) {
+        Column(Modifier.selectableGroup()) {
+            options.forEachIndexed { index, option -> SoftChoiceRow(option, index == selected, { onSelect(index) }) }
         }
     }
 }

@@ -485,6 +485,9 @@ What asks before something happens rises from the foot of the screen, where the 
 
 A choice among a few inside a sheet is a `SoftChoiceRow`: a ring that fills in `accent` for the one picked, its name in Control type and a Meta line about it, 48dp tall, announced as a radio button. Where a pull request's checks failed or are still running, Merge is tonal on its panel, the merge sheet repeats where the checks stand on that state's tint, and against a failure its way on reads "Merge anyway" on the ink pill.
 
+### Repository Settings
+Headed by the repository's own warm field, "owner/name" in Secondary over a Detail Title, "Settings". Chip tabs under the field hold its groups, About, Features, Merging, Pages and Danger zone, each shown only where the forge has something in it; About opens first and Danger zone is always last. Nothing is boxed: a group is a plain column of settings rows. A row's ending says what a tap does: a switch toggles, a chevron opens an editor in a sheet, an open-in-new glyph leaves the app, and no glyph means it asks first in a confirmation sheet. Deleting stands below the other dangers as a full-width Final action. A choice among a few is a sheet of `SoftChoiceRow`s, never a dialog. A switch or a choice applies at once and its snackbar says so with Undo for 5 seconds, as the Inbox does; words saved from a sheet are said without Undo.
+
 ### Snackbar
 Inverted: `ink` background, `ground` text, 16dp corners; it sits above the navigation bar space. Its action (Undo, Material's default `inversePrimary`) is `thumb` on the dark bar of the light theme and the light theme's `accent` on the pale bar of the dark themes, tested to 4.5:1.
 

@@ -874,6 +874,14 @@
     <string name="repo_settings_delete_field">Écrivez %1$s</string>
     <string name="repo_settings_delete_needs_sign_in">Cette connexion à %1$s date d’avant que Forgeline demande la permission de supprimer des dépôts. Reconnectez-vous pour la donner, puis revenez ici.</string>
     <string name="merge_anyway">Fusionner quand même</string>
+    <string name="repo_settings_switched_on">%1$s activé</string>
+    <string name="repo_settings_switched_off">%1$s désactivé</string>
+    <string name="repo_settings_set_to">%1$s : %2$s</string>
+    <string name="repo_settings_saved">%1$s enregistré</string>
+    <string name="repo_settings_archived_done">Archivé</string>
+    <string name="repo_settings_unarchived_done">Désarchivé</string>
+    <string name="repo_pages_unpublished">Site dépublié</string>
+    <string name="repo_settings_topics_more">%1$s +%2$d</string>
     <string name="check_loading">Chargement du rapport</string>
     <string name="check_error_title">Impossible de charger le rapport</string>
     <string name="check_no_report">Cette vérification n’a laissé aucun rapport ici.</string>
