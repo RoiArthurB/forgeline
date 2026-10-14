@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -51,6 +52,22 @@ class RepoSettingsFlowTest {
     private fun waitFor(text: String) =
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
 
+    /**
+     * Presses [text] once it is enabled. Save only turns on once what was typed is in: a tap before that, which a busy
+     * full run made happen, does nothing, and the test then waited for a change that was never asked for.
+     */
+    private fun pressWhenEnabled(text: String) {
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText(text) and isEnabled()).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNode(hasText(text) and isEnabled()).performClick()
+    }
+
+    /**
+     * The settings are gone once their tabs are: the screen's title only says "Settings", so waiting on "Repository
+     * settings" text passed at once and the next tap could land on the screen that was leaving.
+     */
+    private fun waitForSettingsToClose() =
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Danger zone")).fetchSemanticsNodes().isEmpty() }
+
     private fun openRepository() {
         composeRule.onNode(hasContentDescription("Trending") and isSelectable()).performClick()
         waitFor("paperclip")
@@ -78,7 +95,7 @@ class RepoSettingsFlowTest {
         composeRule.onNodeWithText("Description").performClick()
         waitFor("Save")
         composeRule.onNode(hasSetTextAction()).performTextReplacement("Faster tools")
-        composeRule.onNodeWithText("Save").performClick()
+        pressWhenEnabled("Save")
 
         // The sheet closes on what it saved, and the row says it.
         composeRule.waitForIdle()
@@ -118,7 +135,7 @@ class RepoSettingsFlowTest {
         composeRule.onNodeWithText("Done").performClick()
 
         // Back where the repository was opened from.
-        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Repository settings")).fetchSemanticsNodes().isEmpty() }
+        waitForSettingsToClose()
         composeRule.onNode(hasContentDescription("Trending") and isSelectable()).assertIsSelected()
         composeRule.onNode(hasContentDescription("Navigate up")).assertDoesNotExist()
     }
@@ -132,18 +149,19 @@ class RepoSettingsFlowTest {
         composeRule.onNode(hasContentDescription("Repository settings")).performClick()
         waitFor("Tools for octocats")
 
+        // The forge takes its time to answer, as it does on a phone: nothing below may run ahead of it.
+        settings.renameDelayMillis = 1_500
         composeRule.onNodeWithText("Danger zone").performClick()
         composeRule.onNodeWithText("Rename").performClick()
         waitFor("Save")
         composeRule.onNode(hasSetTextAction()).performTextReplacement("clip")
-        // Save only turns on once the new name is in: a tap before that (seen once in a full run) does nothing.
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText("Save").performClick()
+        pressWhenEnabled("Save")
         composeRule.waitForIdle()
 
-        composeRule.waitUntil(FLOW_WAIT_MILLIS) { settings.renamed == listOf("clip") }
         // The settings are left for the page, asked for where the repository now is.
-        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Repository settings")).fetchSemanticsNodes().isEmpty() }
+        waitForSettingsToClose()
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("clip")).fetchSemanticsNodes().isNotEmpty() }
+        assertThat(settings.renamed).containsExactly("clip")
         // One step back from the page is where the repository was opened from: the old page isn't under it.
         composeRule.onNode(hasContentDescription("Navigate up")).performClick()
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasContentDescription("Navigate up")).fetchSemanticsNodes().isEmpty() }

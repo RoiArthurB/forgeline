@@ -28,6 +28,9 @@ class FakeRepoSettingsApi(
     /** When set, every change fails with it and nothing changes. */
     var writeFailure: ForgeError? = null
 
+    /** How long a rename takes to be answered, as a real forge's does: what waits for it must wait for its answer. */
+    var renameDelayMillis: Long = 0
+
     override suspend fun settings(token: String, repo: RepoId): ForgeResult<RepoSettings> {
         calls += "settings:${repo.fullName}"
         return failure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(settings)
@@ -56,6 +59,7 @@ class FakeRepoSettingsApi(
 
     override suspend fun rename(token: String, repo: RepoId, name: String): ForgeResult<RepoId> {
         calls += "rename:${repo.fullName}:$name"
+        if (renameDelayMillis > 0) kotlinx.coroutines.delay(renameDelayMillis)
         writeFailure?.let { return ForgeResult.Failure(it) }
         renamed += name
         return ForgeResult.Success(RepoId(repo.owner, name, repo.forge))
