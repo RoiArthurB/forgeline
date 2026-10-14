@@ -67,6 +67,13 @@ class GitHubRepoSettingsApi(
             .toResult { body<JsonObject>().text("full_name").split('/', limit = 2).let { (owner, renamed) -> RepoId(owner, renamed, repo.forge) } }
     }
 
+    /** GitHub lists a classic or OAuth token's scopes with every answer; a fine-grained token lists none, and isn't judged here. */
+    override suspend fun mayDelete(token: String): ForgeResult<Boolean> = gitHubCall {
+        httpClient.gitHubApi(apiBaseUrl, token, "user").toResult {
+            headers["X-OAuth-Scopes"]?.split(',')?.map { it.trim() }?.let { DELETE_SCOPE in it } ?: true
+        }
+    }
+
     override suspend fun delete(token: String, repo: RepoId): ForgeResult<RepoDeletion> = gitHubCall {
         val response = httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, method = HttpMethod.Delete)
         // Deleting has a scope of its own, which older sign-ins weren't given. GitHub doesn't say which scope a refused

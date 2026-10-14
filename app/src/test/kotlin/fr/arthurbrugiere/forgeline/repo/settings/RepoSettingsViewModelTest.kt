@@ -263,4 +263,36 @@ class RepoSettingsViewModelTest {
         // The settings themselves are read all the same.
         assertThat(viewModel.state.value.settings).isNotNull()
     }
+
+    @Test
+    fun whether_the_sign_in_may_delete_is_asked_when_deleting_is_and_again_each_time() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.mayDelete).isNull()
+        assertThat(api.calls).doesNotContain("mayDelete")
+
+        api.mayDelete = false
+        viewModel.checkDelete()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.mayDelete).isFalse()
+
+        // Signed in again meanwhile: the answer is not kept from the time before.
+        api.mayDelete = true
+        viewModel.checkDelete()
+        assertThat(viewModel.state.value.mayDelete).isNull()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.mayDelete).isTrue()
+    }
+
+    @Test
+    fun a_forge_that_cannot_say_whether_the_sign_in_may_delete_is_not_taken_for_a_no() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        api.failure = ForgeError.Network
+
+        viewModel.checkDelete()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.mayDelete).isTrue()
+    }
 }

@@ -6,8 +6,6 @@ import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.outlined.Forum
 import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.automirrored.outlined.CallSplit
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.filled.Visibility
@@ -134,6 +132,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.sp
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
@@ -325,19 +324,16 @@ fun RepoScreen(
     var forking by rememberSaveable { mutableStateOf(false) }
     if (forking) {
         val forge = (details?.id ?: state.requested).forge.displayName
-        AlertDialog(
-            onDismissRequest = { forking = false },
-            title = { Text(stringResource(R.string.repo_fork_title, (details?.id ?: state.requested).name)) },
-            text = { Text(stringResource(R.string.repo_fork_body, forge)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    forking = false
-                    onFork()
-                }) { Text(stringResource(R.string.repo_fork_action)) }
+        SoftConfirmSheet(
+            title = stringResource(R.string.repo_fork_title, (details?.id ?: state.requested).name),
+            body = stringResource(R.string.repo_fork_body, forge),
+            confirm = stringResource(R.string.repo_fork_action),
+            cancel = stringResource(R.string.cancel),
+            onConfirm = {
+                forking = false
+                onFork()
             },
-            dismissButton = { TextButton(onClick = { forking = false }) { Text(stringResource(R.string.cancel)) } },
-            shape = RoundedCornerShape(28.dp),
-            containerColor = colors.raised,
+            onDismiss = { forking = false },
         )
     }
 

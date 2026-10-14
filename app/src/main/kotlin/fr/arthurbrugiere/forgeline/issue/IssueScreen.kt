@@ -36,10 +36,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.TextRange
 import androidx.compose.material3.minimumInteractiveComponentSize
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.outlined.MoreHoriz
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.ui.rememberNow
@@ -184,6 +182,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
@@ -433,19 +432,17 @@ fun IssueScreen(
     // The comment the reader asked to delete, until they have said yes or no.
     var deleting by rememberSaveable { mutableStateOf<Long?>(null) }
     deleting?.let { id ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text(stringResource(R.string.issue_comment_delete_title)) },
-            text = { Text(stringResource(R.string.issue_comment_delete_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    deleting = null
-                    comments.onDelete(id)
-                }) { Text(stringResource(R.string.issue_comment_delete)) }
+        SoftConfirmSheet(
+            title = stringResource(R.string.issue_comment_delete_title),
+            body = stringResource(R.string.issue_comment_delete_body),
+            confirm = stringResource(R.string.issue_comment_delete),
+            cancel = stringResource(R.string.cancel),
+            danger = true,
+            onConfirm = {
+                deleting = null
+                comments.onDelete(id)
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.cancel)) } },
-            shape = RoundedCornerShape(28.dp),
-            containerColor = Soft.colors.raised,
+            onDismiss = { deleting = null },
         )
     }
     // A reply needs the reader's turn: signed in, and let in when the conversation is locked.

@@ -60,6 +60,9 @@ class SoftTest {
             assertReadable("$theme stopped-here pill", c.ink, c.fields[0])
             assertReadable("$theme filled button", c.onThumb, c.thumb)
             assertReadable("$theme snackbar", c.ground, c.ink)
+            assertReadable("$theme final-action button", c.ground, c.ink)
+            assertReadable("$theme quiet button that can't be pressed", c.inkMuted, c.surface)
+            assertReadable("$theme picked choice ring on the ground", c.accent, c.ground)
             assertReadable("$theme text on a pressed surface", c.ink, c.surface)
             // A focused row keeps this surface on screen, so its ember rank and figures must stay readable on it.
             assertReadable("$theme accent on a pressed surface", c.accent, c.surface)

@@ -281,4 +281,19 @@ class GitHubRepoSettingsApiTest {
 
         assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "The certificate does not exist yet")))
     }
+
+    @Test
+    fun whether_a_sign_in_may_delete_is_read_from_the_scopes_github_lists() = runTest {
+        fun MockRequestHandleScope.user(scopes: String?) = respond(
+            """{"login":"octocat"}""", HttpStatusCode.OK,
+            headersOf(*listOfNotNull(HttpHeaders.ContentType to listOf("application/json"), scopes?.let { "X-OAuth-Scopes" to listOf(it) }).toTypedArray()),
+        )
+
+        assertThat(api { user("gist, read:org, repo, workflow") }.mayDelete("tok")).isEqualTo(ForgeResult.Success(false))
+        assertThat(api { user("delete_repo, notifications, read:user, repo, user:follow") }.mayDelete("tok")).isEqualTo(ForgeResult.Success(true))
+        // A fine-grained token lists none: it isn't judged before the deletion itself.
+        assertThat(api { user(null) }.mayDelete("tok")).isEqualTo(ForgeResult.Success(true))
+        assertThat(requests.last().path).isEqualTo("/user")
+        assertThat(api { json("""{"message":"Bad credentials"}""", HttpStatusCode.Unauthorized) }.mayDelete("tok")).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+    }
 }

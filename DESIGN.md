@@ -177,6 +177,13 @@ components:
     rounded: "{rounded.pill}"
     padding: "0 24dp"
     height: "48dp"
+  button-final:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.ground}"
+    typography: "{typography.control}"
+    rounded: "{rounded.pill}"
+    padding: "0 24dp"
+    height: "48dp"
   button-tonal:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
@@ -437,6 +444,7 @@ The Feed tells what happened by leading every event with its object, so an open 
 ### Buttons
 - **Filled (`SoftButton`):** full pill, `thumb` fill, `on-thumb` Control text, 24dp horizontal padding, 48dp minimum height. The one primary action: Retry, Sign in, Follow, Allow notifications.
 - **Tonal (`SoftTonalButton`):** full pill, `surface` fill, `ink` Control text, 20dp padding, 48dp. Secondary actions: Cancel, Sign out, Read the licence, retry inside a list. On a field, the same pill in `ground` (Following).
+- **Final action (`SoftDangerButton`):** full pill, `ink` fill, `ground` Control text, 24dp padding, 48dp. For what can't be taken back: deleting a repository, an issue or a comment, unpublishing a site, changing who sees a repository, merging against a failed check ("Merge anyway"). Ember says "this is the way forward"; ink says "this is final". Never beside a filled ember button, always beside a tonal Cancel.
 - **Link:** Label type in `accent`, pill-clipped, 48dp tall (the resume link with a 16dp down arrow; the token link on sign-in).
 - **Icon:** Material icon buttons with 48dp targets; icons in `ink` in headers, `accent` / `ink-muted` for the star toggle. A repository's Star is exposed as a toggle (on/off), not a plain button.
 
@@ -471,6 +479,11 @@ No illustration and no box: a Name-style title (a heading), 6dp, a Body line in 
 
 ### Loading
 Skeleton rows (`SoftLoadingRows`, five by default) of pill bars and an optional circle in `surface`, shaped like real rows. No shimmer. Lists loading more show an ember spinner on a `surface` track.
+
+### Confirmation Sheet (`SoftConfirmSheet`) and Choice Rows (`SoftChoiceRow`)
+What asks before something happens rises from the foot of the screen, where the thumb is: a Name-type title (a heading), a muted Body line saying what it does, anything to pick or write first, then a tonal Cancel beside the way on, right-aligned and wrapping at large type. The way on is the filled ember button for what can be undone (archive, fork, sign out) and the ink Final action for what can't. A confirmation is never a centred dialog with two text buttons of equal weight. A field to fill in carries its name in Label type above it and starts empty; what must be written is never a placeholder. A sign-in that may not do the thing is told so in the sheet before anything is written, with the way to sign in again as its way on.
+
+A choice among a few inside a sheet is a `SoftChoiceRow`: a ring that fills in `accent` for the one picked, its name in Control type and a Meta line about it, 48dp tall, announced as a radio button. Where a pull request's checks failed or are still running, Merge is tonal on its panel, the merge sheet repeats where the checks stand on that state's tint, and against a failure its way on reads "Merge anyway" on the ink pill.
 
 ### Snackbar
 Inverted: `ink` background, `ground` text, 16dp corners; it sits above the navigation bar space. Its action (Undo, Material's default `inversePrimary`) is `thumb` on the dark bar of the light theme and the light theme's `accent` on the pale bar of the dark themes, tested to 4.5:1.

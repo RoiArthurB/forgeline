@@ -86,6 +86,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.clip
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
@@ -518,21 +519,16 @@ private fun AccountItem(account: Account, onSignOut: (Account) -> Unit) {
         trailing = { SoftTonalButton(stringResource(R.string.sign_out), onClick = { confirming = true }) },
     )
     if (confirming) {
-        AlertDialog(
-            onDismissRequest = { confirming = false },
-            title = { Text(stringResource(R.string.sign_out_confirm_title, login)) },
-            text = { Text(stringResource(R.string.sign_out_confirm_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirming = false
-                    onSignOut(account)
-                }) { Text(stringResource(R.string.sign_out)) }
+        SoftConfirmSheet(
+            title = stringResource(R.string.sign_out_confirm_title, login),
+            body = stringResource(R.string.sign_out_confirm_body),
+            confirm = stringResource(R.string.sign_out),
+            cancel = stringResource(R.string.cancel),
+            onConfirm = {
+                confirming = false
+                onSignOut(account)
             },
-            dismissButton = {
-                TextButton(onClick = { confirming = false }) { Text(stringResource(R.string.cancel)) }
-            },
-            shape = RoundedCornerShape(28.dp),
-            containerColor = colors.raised,
+            onDismiss = { confirming = false },
         )
     }
 }

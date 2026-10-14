@@ -23,6 +23,12 @@ interface RepoSettingsApi {
      */
     suspend fun delete(token: String, repo: RepoId): ForgeResult<RepoDeletion>
 
+    /**
+     * Whether this sign-in may delete repositories at all, known before anyone is asked to confirm: false only where
+     * the forge says the sign-in lacks the permission (GitHub's own scope for it); true where it has it or can't say.
+     */
+    suspend fun mayDelete(token: String): ForgeResult<Boolean> = ForgeResult.Success(true)
+
     /** The website served from [repo]; null where the forge sets nothing about one through its API (Forgejo). */
     suspend fun pages(token: String, repo: RepoId): ForgeResult<PagesSite?> = ForgeResult.Success(null)
 

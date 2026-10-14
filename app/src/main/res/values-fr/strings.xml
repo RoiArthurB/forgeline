@@ -846,7 +846,7 @@
     <string name="repo_settings_rename">Renommer</string>
     <string name="repo_settings_delete">Supprimer ce dépôt</string>
     <string name="repo_settings_delete_summary">Son code, ses tickets et son historique, définitivement</string>
-    <string name="repo_settings_delete_body">Ceci supprime %1$s avec son code, ses tickets, ses pull requests, ses versions et son historique. Impossible à annuler d’ici. Écrivez son nom complet pour confirmer.</string>
+    <string name="repo_settings_delete_body">Ceci supprime %1$s avec son code, ses tickets, ses pull requests, ses versions et son historique. Impossible à annuler d’ici.</string>
     <string name="repo_settings_delete_confirm">Supprimer définitivement</string>
     <string name="repo_settings_delete_sign_in">Cette connexion n’est pas autorisée à supprimer des dépôts. Reconnectez-vous à %1$s depuis l’onglet Vous, puis supprimez.</string>
     <string name="repo_settings_deleted_title">%1$s est supprimé</string>
@@ -872,6 +872,9 @@
     <string name="repo_pages_unpublish_summary">Mettre le site hors ligne</string>
     <string name="repo_pages_unpublish_title">Dépublier le site web ?</string>
     <string name="repo_pages_unpublish_body">Son adresse ne répond plus. Le dépôt et ce dont le site est construit sont conservés.</string>
+    <string name="repo_settings_delete_field">Écrivez %1$s</string>
+    <string name="repo_settings_delete_needs_sign_in">Cette connexion à %1$s date d’avant que Forgeline demande la permission de supprimer des dépôts. Reconnectez-vous pour la donner, puis revenez ici.</string>
+    <string name="merge_anyway">Fusionner quand même</string>
     <string name="check_loading">Chargement du rapport</string>
     <string name="check_error_title">Impossible de charger le rapport</string>
     <string name="check_no_report">Cette vérification n’a laissé aucun rapport ici.</string>

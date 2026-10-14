@@ -1070,6 +1070,43 @@ class ScreenshotTest {
         )
     }
 
+    @Composable
+    private fun RepoSettingsSheetPreview(mayDelete: Boolean? = true) {
+        fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsScreen(
+            state = fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsUiState(RepoId("paperclipai", "paperclip"), shownSettings, mayDelete = mayDelete),
+            onBack = {}, onRefresh = {}, onChange = {}, onLoadBranches = {}, onOpenUrl = {}, onRefusalShown = {}, onErrorShown = {},
+        )
+    }
+
+    private fun openRow(text: String): () -> Unit = {
+        composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("More settings on GitHub"))
+        composeRule.onNodeWithText(text).performClick()
+    }
+
+    @Test
+    fun repo_settings_delete_light() = snapshot("repo_settings_delete_light", darkTheme = false, wholeScreen = true, beforeCapture = openRow("Delete this repository")) { RepoSettingsSheetPreview() }
+
+    @Test
+    fun repo_settings_delete_dark() = snapshot("repo_settings_delete_dark", darkTheme = true, wholeScreen = true, beforeCapture = openRow("Delete this repository")) { RepoSettingsSheetPreview() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun repo_settings_delete_font_2_0_light() =
+        snapshot("repo_settings_delete_font_2_0_light", darkTheme = false, wholeScreen = true, beforeCapture = openRow("Delete this repository")) { RepoSettingsSheetPreview() }
+
+    @Test
+    fun repo_settings_delete_sign_in_light() =
+        snapshot("repo_settings_delete_sign_in_light", darkTheme = false, wholeScreen = true, beforeCapture = openRow("Delete this repository")) { RepoSettingsSheetPreview(mayDelete = false) }
+
+    @Test
+    fun repo_settings_visibility_light() = snapshot("repo_settings_visibility_light", darkTheme = false, wholeScreen = true, beforeCapture = {
+        openRow("Visibility")()
+        composeRule.onNodeWithText("Private").performClick()
+    }) { RepoSettingsSheetPreview() }
+
+    @Test
+    fun repo_settings_archive_dark() = snapshot("repo_settings_archive_dark", darkTheme = true, wholeScreen = true, beforeCapture = openRow("Archive")) { RepoSettingsSheetPreview() }
+
     @Test
     fun repo_settings_deleted_light() = snapshot("repo_settings_deleted_light", darkTheme = false) {
         fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsScreen(
@@ -1601,6 +1638,50 @@ class ScreenshotTest {
             onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {},
             onLinkClick = {}, onErrorShown = {}, nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
         )
+    }
+
+    @Composable
+    private fun PullPanelPreview(vararg states: fr.arthurbrugiere.forgeline.core.model.CheckState) {
+        val ref = IssueRef(RepoId("octo", "tools"), 88, isPullRequest = true)
+        val issue = issueDetails(ref, "Retry uploads on slow links")
+            .copy(pullRequest = fr.arthurbrugiere.forgeline.core.model.PullRequestInfo(false, false, "main", "retry-uploads", 5, 1, 3, 2))
+        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize().background(fr.arthurbrugiere.forgeline.core.ui.soft.Soft.colors.ground).padding(androidx.compose.ui.unit.Dp(20f))) {
+            fr.arthurbrugiere.forgeline.pull.PullRequestPanel(
+                issue,
+                fr.arthurbrugiere.forgeline.pull.PullRequestUiState(
+                    checks = states.mapIndexed { index, state -> fr.arthurbrugiere.forgeline.core.model.Check("check $index", state, null, null) },
+                    mergeInfo = fr.arthurbrugiere.forgeline.core.model.MergeInfo(
+                        true, true, listOf(fr.arthurbrugiere.forgeline.core.model.MergeMethod.SQUASH, fr.arthurbrugiere.forgeline.core.model.MergeMethod.MERGE),
+                    ),
+                    signedIn = true,
+                    verdicts = fr.arthurbrugiere.forgeline.core.model.ReviewVerdict.entries.toSet(),
+                ),
+                fr.arthurbrugiere.forgeline.pull.PullActions(),
+            )
+        }
+    }
+
+    private val openMerge = { composeRule.onNodeWithText("Merge").performClick() }
+
+    @Test
+    fun merge_failed_checks_light() = snapshot("merge_failed_checks_light", darkTheme = false, wholeScreen = true, beforeCapture = { openMerge() }) {
+        PullPanelPreview(fr.arthurbrugiere.forgeline.core.model.CheckState.SUCCESS, fr.arthurbrugiere.forgeline.core.model.CheckState.FAILURE)
+    }
+
+    @Test
+    fun merge_failed_checks_dark() = snapshot("merge_failed_checks_dark", darkTheme = true, wholeScreen = true, beforeCapture = { openMerge() }) {
+        PullPanelPreview(fr.arthurbrugiere.forgeline.core.model.CheckState.SUCCESS, fr.arthurbrugiere.forgeline.core.model.CheckState.FAILURE)
+    }
+
+    @Test
+    fun merge_checks_passed_light() = snapshot("merge_checks_passed_light", darkTheme = false, wholeScreen = true, beforeCapture = { openMerge() }) {
+        PullPanelPreview(fr.arthurbrugiere.forgeline.core.model.CheckState.SUCCESS, fr.arthurbrugiere.forgeline.core.model.CheckState.SUCCESS)
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun merge_failed_checks_font_2_0_light() = snapshot("merge_failed_checks_font_2_0_light", darkTheme = false, wholeScreen = true, beforeCapture = { openMerge() }) {
+        PullPanelPreview(fr.arthurbrugiere.forgeline.core.model.CheckState.SUCCESS, fr.arthurbrugiere.forgeline.core.model.CheckState.FAILURE)
     }
 
     @Test

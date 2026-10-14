@@ -97,4 +97,18 @@ class DefaultRepoSettingsRepositoryTest {
         assertThat(gitHub.calls).containsExactly("pages:octo/tools", "changePages:octo/tools").inOrder()
         assertThat(gitLab.calls).isEmpty()
     }
+
+    @Test
+    fun whether_deleting_is_allowed_is_the_forge_s_word_and_not_knowing_is_not_a_no() = runTest {
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
+        // Signed in nowhere else: nothing can be deleted there.
+        assertThat(repository.mayDelete(app)).isFalse()
+
+        gitHub.mayDelete = false
+        assertThat(repository.mayDelete(tools)).isFalse()
+        gitHub.mayDelete = true
+        assertThat(repository.mayDelete(tools)).isTrue()
+        gitHub.failure = ForgeError.Network
+        assertThat(repository.mayDelete(tools)).isTrue()
+    }
 }

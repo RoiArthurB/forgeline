@@ -66,6 +66,7 @@ import fr.arthurbrugiere.forgeline.core.model.overall
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDangerButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.ui.message
@@ -111,7 +112,7 @@ fun PullRequestPanel(issue: IssueDetails, state: PullRequestUiState, actions: Pu
     }
     val mergeInfo = state.mergeInfo
     if (merging && mergeInfo != null) {
-        MergeSheet(mergeInfo, pr.isDraft, state.isMerging, state.mergeError, actions.onMerge) {
+        MergeSheet(mergeInfo, pr.isDraft, state.isMerging, state.mergeError, checks, actions.onMerge) {
             merging = false
             actions.onMergeErrorShown()
         }
@@ -125,11 +126,21 @@ fun PullRequestPanel(issue: IssueDetails, state: PullRequestUiState, actions: Pu
         if (state.signedIn && issue.state == IssueState.OPEN) {
             FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SoftTonalButton(stringResource(R.string.review_start), onClick = { reviewing = true })
-                if (mergeInfo?.canMerge == true) SoftButton(stringResource(R.string.merge_start), onClick = { merging = true })
+                if (mergeInfo?.canMerge == true) {
+                    // Ember says "this is the way forward": not while a check failed or is still running.
+                    if (checks.overall() in UNSETTLED) {
+                        SoftTonalButton(stringResource(R.string.merge_start), onClick = { merging = true })
+                    } else {
+                        SoftButton(stringResource(R.string.merge_start), onClick = { merging = true })
+                    }
+                }
             }
         }
     }
 }
+
+/** Where a pull request's checks stand when merging it isn't the plain next step. */
+private val UNSETTLED = setOf(CheckState.FAILURE, CheckState.PENDING)
 
 @Composable
 private fun PanelRow(icon: ImageVector, label: String, onClick: () -> Unit, tint: Color = Soft.colors.surface) {
@@ -241,7 +252,15 @@ private fun ChecksSheet(checks: List<Check>, onOpenRun: (Long) -> Unit, onOpenCh
 /** How to merge, among the ways the repository allows, and what stands in the way when the forge says something does. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MergeSheet(info: MergeInfo, isDraft: Boolean, isMerging: Boolean, error: ForgeError?, onMerge: (MergeMethod) -> Unit, onDismiss: () -> Unit) {
+private fun MergeSheet(
+    info: MergeInfo,
+    isDraft: Boolean,
+    isMerging: Boolean,
+    error: ForgeError?,
+    checks: List<Check>,
+    onMerge: (MergeMethod) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val colors = Soft.colors
     var method by rememberSaveable { mutableStateOf(info.methods.firstOrNull() ?: MergeMethod.MERGE) }
     ModalBottomSheet(
@@ -257,6 +276,18 @@ private fun MergeSheet(info: MergeInfo, isDraft: Boolean, isMerging: Boolean, er
                 info.mergeable == false -> R.string.merge_blocked
                 info.mergeable == null -> R.string.merge_checking
                 else -> null
+            }
+            // Where the checks stand is said again here, where the merge is decided: it was a screen away.
+            val standing = checks.overall()
+            if (standing in UNSETTLED) {
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(standing!!.tint(colors)).padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(standing.icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(checksSummary(checks), style = Soft.type.secondary, color = colors.ink)
+                }
             }
             if (blocked != null) {
                 Text(
@@ -299,12 +330,20 @@ private fun MergeSheet(info: MergeInfo, isDraft: Boolean, isMerging: Boolean, er
                 )
             }
             // What the forge is unsure of can still be tried: it answers no if it is no. What it refuses is not offered.
-            SoftButton(
-                stringResource(if (isMerging) R.string.merge_merging else R.string.merge_confirm),
-                onClick = { onMerge(method) },
-                enabled = !isMerging && !isDraft && info.mergeable != false && info.methods.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth(),
-            )
+            val enabled = !isMerging && !isDraft && info.mergeable != false && info.methods.isNotEmpty()
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                SoftTonalButton(stringResource(R.string.cancel), onDismiss)
+                // Against a failed check, merging is said for what it is, on the ink pill of what can't be taken back.
+                if (standing == CheckState.FAILURE) {
+                    SoftDangerButton(stringResource(if (isMerging) R.string.merge_merging else R.string.merge_anyway), onClick = { onMerge(method) }, enabled = enabled)
+                } else {
+                    SoftButton(stringResource(if (isMerging) R.string.merge_merging else R.string.merge_confirm), onClick = { onMerge(method) }, enabled = enabled)
+                }
+            }
         }
     }
 }

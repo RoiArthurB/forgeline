@@ -220,7 +220,7 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
         }
         entry<fr.arthurbrugiere.forgeline.navigation.RepoSettingsRoute> { key ->
             fr.arthurbrugiere.forgeline.repo.settings.RepoSettingsRoute(
-                key, onBack = navigator::goBack,
+                key, onBack = navigator::goBack, onSignIn = signIn,
                 // Back from the settings is the repository's page: it is the one to stand under the new name.
                 onRenamed = { renamed ->
                     navigator.goBack()

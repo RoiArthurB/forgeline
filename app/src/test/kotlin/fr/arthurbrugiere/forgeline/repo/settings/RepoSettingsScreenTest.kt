@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -77,6 +78,8 @@ class RepoSettingsScreenTest {
                     onChangePages = { pages += it },
                     onRename = { events += "rename:$it" },
                     onDelete = { events += "delete" },
+                    onCheckDelete = { events += "check-delete" },
+                    onSignIn = { events += "sign-in" },
                     onRenamed = { events += "renamed:${it.fullName}" },
                     onDeleted = { events += "deleted" },
                     onRefusalShown = { events += "refusal-shown" },
@@ -292,7 +295,7 @@ class RepoSettingsScreenTest {
         composeRule.onNode(hasSetTextAction()).performTextReplacement("octo/tools")
         composeRule.onNodeWithText("Delete for good").performClick()
 
-        assertThat(events).containsExactly("delete")
+        assertThat(events).containsExactly("check-delete", "delete").inOrder()
     }
 
     @Test
@@ -433,6 +436,65 @@ class RepoSettingsScreenTest {
         reach("More settings on GitLab")
         composeRule.onNodeWithText("Pages").assertDoesNotExist()
         composeRule.onNodeWithText("Publish a website").assertDoesNotExist()
+    }
+
+    @Test
+    fun the_name_to_write_stays_in_sight_above_a_field_that_starts_empty() {
+        setContent(shown().copy(mayDelete = true))
+
+        reach("Delete this repository")
+        composeRule.onNodeWithText("Delete this repository").performClick()
+
+        // Regression: the name was the field's placeholder, and looked already written beside a button that stayed off.
+        composeRule.onNodeWithText("Write octo/tools").assertIsDisplayed()
+        composeRule.onNode(hasSetTextAction()).assertTextEquals("")
+        assertThat(events).contains("check-delete")
+    }
+
+    @Test
+    fun deleting_can_be_walked_away_from() {
+        setContent(shown().copy(mayDelete = true))
+
+        reach("Delete this repository")
+        composeRule.onNodeWithText("Delete this repository").performClick()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("octo/tools")
+        composeRule.onNodeWithText("Cancel").performClick()
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Delete for good")).fetchSemanticsNodes().isEmpty() }
+        assertThat(events).doesNotContain("delete")
+    }
+
+    @Test
+    fun a_sign_in_that_may_not_delete_is_told_before_anything_is_written() {
+        setContent(shown().copy(mayDelete = false))
+
+        reach("Delete this repository")
+        composeRule.onNodeWithText("Delete this repository").performClick()
+
+        // No field to fill in for nothing: what is missing, and the way to get it.
+        composeRule.onNode(hasText("made before Forgeline asked for the permission to delete", substring = true)).assertIsDisplayed()
+        composeRule.onNode(hasSetTextAction()).assertDoesNotExist()
+        composeRule.onNodeWithText("Delete for good").assertDoesNotExist()
+        composeRule.onNodeWithText("Sign in to GitHub again").performClick()
+
+        assertThat(events).containsExactly("check-delete", "refusal-shown", "sign-in").inOrder()
+    }
+
+    @Test
+    fun unpublishing_and_changing_who_sees_it_can_each_be_walked_away_from() {
+        setContent(shown().copy(pages = live))
+
+        reach("Delete this repository")
+        composeRule.onNodeWithText("Unpublish").performClick()
+        composeRule.onNodeWithText("Cancel").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Unpublish the website?")).fetchSemanticsNodes().isEmpty() }
+        composeRule.onNodeWithText("Visibility").performClick()
+        composeRule.onNodeWithText("Private").performClick()
+        composeRule.onNodeWithText("Cancel").performClick()
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Change visibility")).fetchSemanticsNodes().isEmpty() }
+
+        assertThat(pages).isEmpty()
+        assertThat(changes).isEmpty()
     }
 
     /** On a screen tall enough to hold them all: a row cut by the edge of a shorter one measures as less than it is. */

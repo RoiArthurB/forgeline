@@ -38,6 +38,8 @@ data class RepoSettingsUiState(
     val saved: Int = 0,
     /** The repository's website, where its forge sets something about one; read beside the settings. */
     val pages: PagesSite? = null,
+    /** Whether this sign-in may delete repositories: asked when deleting is, and null until the forge has said. */
+    val mayDelete: Boolean? = null,
     /** A rename, the deletion or a change to the website is on its way. */
     val working: Boolean = false,
     /** Where the repository now is, once renamed: its page is opened there. */
@@ -116,6 +118,15 @@ class RepoSettingsViewModel @AssistedInject constructor(
                 is ForgeResult.Success -> _state.update { it.copy(working = false, renamedTo = result.value) }
                 is ForgeResult.Failure -> _state.update { it.copy(working = false, refused = result.error) }
             }
+        }
+    }
+
+    /** Asks the forge whether this sign-in may delete at all, so that nobody writes a name out to be refused after. */
+    fun checkDelete() {
+        _state.update { it.copy(mayDelete = null) }
+        viewModelScope.launch {
+            val allowed = repository.mayDelete(repo)
+            _state.update { it.copy(mayDelete = allowed) }
         }
     }
 

@@ -855,7 +855,7 @@
     <string name="repo_settings_rename">Rename</string>
     <string name="repo_settings_delete">Delete this repository</string>
     <string name="repo_settings_delete_summary">Its code, issues and history, for good</string>
-    <string name="repo_settings_delete_body">This deletes %1$s with its code, issues, pull requests, releases and history. It can\'t be undone from here. Write its full name to confirm.</string>
+    <string name="repo_settings_delete_body">This deletes %1$s with its code, issues, pull requests, releases and history. It can\'t be undone from here.</string>
     <string name="repo_settings_delete_confirm">Delete for good</string>
     <string name="repo_settings_delete_sign_in">This sign-in isn\'t allowed to delete repositories. Sign in to %1$s again from the You tab, then delete.</string>
     <string name="repo_settings_deleted_title">%1$s is deleted</string>
@@ -881,6 +881,9 @@
     <string name="repo_pages_unpublish_summary">Take the website down</string>
     <string name="repo_pages_unpublish_title">Unpublish the website?</string>
     <string name="repo_pages_unpublish_body">Its address stops answering. The repository and what the site is built from are kept.</string>
+    <string name="repo_settings_delete_field">Write %1$s</string>
+    <string name="repo_settings_delete_needs_sign_in">This sign-in to %1$s was made before Forgeline asked for the permission to delete repositories. Sign in again to give it, then come back here.</string>
+    <string name="merge_anyway">Merge anyway</string>
     <string name="check_loading">Loading the report</string>
     <string name="check_error_title">Couldn\'t load the report</string>
     <string name="check_no_report">This check left no report here.</string>

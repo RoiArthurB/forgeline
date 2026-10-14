@@ -24,6 +24,8 @@ import fr.arthurbrugiere.forgeline.core.testing.issueDetails
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
 import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 import org.junit.Rule
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.assertCountEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -68,7 +70,8 @@ class PullRequestPanelTest {
         }
     }
 
-    private val signedIn = PullRequestUiState(checks = checks, mergeInfo = mergeable, signedIn = true, verdicts = ReviewVerdict.entries.toSet())
+    private val signedIn = PullRequestUiState(checks = listOf(checks[0]), mergeInfo = mergeable, signedIn = true, verdicts = ReviewVerdict.entries.toSet())
+    private val failing = signedIn.copy(checks = checks)
 
     @Test
     fun the_files_and_the_commits_behind_the_numbers_are_a_tap_away() {
@@ -189,5 +192,49 @@ class PullRequestPanelTest {
         composeRule.onNodeWithText("2 files changed").assertIsDisplayed()
         composeRule.onNodeWithText("Review").assertDoesNotExist()
         composeRule.onNodeWithText("Merge").assertDoesNotExist()
+    }
+
+    @Test
+    fun merging_against_a_failed_check_is_said_where_it_is_decided_and_named_for_what_it_is() {
+        setContent(failing)
+
+        composeRule.onNodeWithText("Merge").performClick()
+        // Where the checks stand is repeated in the sheet, and the way on no longer reads as the plain next step.
+        composeRule.onAllNodes(hasText("1 of 3 checks failed"))[1].assertIsDisplayed()
+        composeRule.onNodeWithText("Confirm merge").assertDoesNotExist()
+        composeRule.onNodeWithText("Merge anyway").performClick()
+
+        assertThat(events).containsExactly("merge:SQUASH")
+    }
+
+    @Test
+    fun checks_still_running_are_said_in_the_merge_sheet_without_calling_it_a_merge_against_them() {
+        setContent(signedIn.copy(checks = listOf(checks[0], checks[2])))
+
+        composeRule.onNodeWithText("Merge").performClick()
+
+        composeRule.onAllNodes(hasText("1 of 2 checks still running"))[1].assertIsDisplayed()
+        composeRule.onNodeWithText("Confirm merge").assertIsDisplayed()
+        composeRule.onNodeWithText("Merge anyway").assertDoesNotExist()
+    }
+
+    @Test
+    fun the_merge_sheet_has_a_way_out_beside_the_way_on() {
+        setContent(signedIn)
+
+        composeRule.onNodeWithText("Merge").performClick()
+        composeRule.onNodeWithText("Cancel").performClick()
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Merge pull request")).fetchSemanticsNodes().isEmpty() }
+        assertThat(events).isEmpty()
+    }
+
+    @Test
+    fun checks_that_all_passed_say_nothing_more_in_the_merge_sheet() {
+        setContent(signedIn)
+
+        composeRule.onNodeWithText("Merge").performClick()
+
+        composeRule.onAllNodes(hasText("1 check passed")).assertCountEquals(1)
     }
 }

@@ -141,7 +141,9 @@ class PullRequestFlowTest {
         composeRule.onNodeWithText("Merge").performClick()
         waitFor("Merge pull request")
         composeRule.onNodeWithText("Squash and merge").performClick()
-        composeRule.onNodeWithText("Confirm merge").performClick()
+        // One of its two checks failed: the sheet says so again, and names the merge for what it is.
+        composeRule.onNodeWithText("Confirm merge").assertDoesNotExist()
+        composeRule.onNodeWithText("Merge anyway").performClick()
         composeRule.waitForIdle()
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { pulls.calls.any { it.startsWith("merge:") } }
 

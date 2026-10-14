@@ -24,6 +24,9 @@ interface RepoSettingsRepository {
     /** Gives [repo] another name, and answers where it now is. */
     suspend fun rename(repo: RepoId, name: String): ForgeResult<RepoId>
 
+    /** Whether the sign-in on [repo]'s forge may delete repositories; true when the forge can't say. */
+    suspend fun mayDelete(repo: RepoId): Boolean
+
     /** Deletes [repo]: gone, or kept a while by its forge before it is. */
     suspend fun delete(repo: RepoId): ForgeResult<RepoDeletion>
 
@@ -59,6 +62,12 @@ class DefaultRepoSettingsRepository @Inject constructor(
             // Read under its new name before its page opens there.
             if (it is ForgeResult.Success) repos.refresh(it.value, force = true)
         }
+    }
+
+    override suspend fun mayDelete(repo: RepoId): Boolean {
+        val token = accounts.tokenOn(repo.forge) ?: return false
+        // Not knowing isn't a no: the deletion itself says so if it is one.
+        return (clients.repoSettings(repo.forge).mayDelete(token) as? ForgeResult.Success)?.value ?: true
     }
 
     override suspend fun delete(repo: RepoId): ForgeResult<RepoDeletion> {

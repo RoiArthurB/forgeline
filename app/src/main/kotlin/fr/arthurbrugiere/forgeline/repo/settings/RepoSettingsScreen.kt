@@ -45,10 +45,6 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.TextButton
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.PagesBuild
@@ -89,6 +85,9 @@ import fr.arthurbrugiere.forgeline.core.model.normalizeTopic
 import fr.arthurbrugiere.forgeline.core.model.settingsUrl
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceRow
+import androidx.compose.ui.semantics.contentDescription
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
@@ -117,6 +116,8 @@ fun RepoSettingsRoute(
     onRenamed: (RepoId) -> Unit,
     /** The repository is deleted, and that was read: nothing of it is left to show. */
     onDeleted: () -> Unit,
+    /** Opens signing in, for a sign-in that must be made again before it may delete. */
+    onSignIn: () -> Unit,
 ) {
     val repo = route.repo
     val viewModel = hiltViewModel<RepoSettingsViewModel, RepoSettingsViewModel.Factory>(key = "settings:${repo.key}") { it.create(repo) }
@@ -129,6 +130,8 @@ fun RepoSettingsRoute(
         onChangePages = viewModel::changePages,
         onRename = viewModel::rename,
         onDelete = viewModel::delete,
+        onCheckDelete = viewModel::checkDelete,
+        onSignIn = onSignIn,
         onRenamed = onRenamed,
         onDeleted = onDeleted,
         onLoadBranches = viewModel::loadBranches,
@@ -162,6 +165,9 @@ fun RepoSettingsScreen(
     onChangePages: (PagesChange) -> Unit = {},
     onRename: (String) -> Unit = {},
     onDelete: () -> Unit = {},
+    /** Asks whether this sign-in may delete at all, as the sheet for it opens. */
+    onCheckDelete: () -> Unit = {},
+    onSignIn: () -> Unit = {},
     onRenamed: (RepoId) -> Unit = {},
     onDeleted: () -> Unit = {},
     onRefusalShown: () -> Unit,
@@ -248,36 +254,48 @@ fun RepoSettingsScreen(
                 onDismiss = dismiss,
             )
             Editing.DELETE -> DeleteSheet(
-                state.repo, state.working,
-                // GitHub wants a permission of its own to delete, which a sign-in older than it wasn't given.
+                state.repo, state.working, state.mayDelete,
+                // Signed in again since the sheet opened and still refused: said in the forge's place.
                 refusal = if (state.refused == ForgeError.Unauthorized) stringResource(R.string.repo_settings_delete_sign_in, forgeName) else refusal,
-                onDelete = onDelete, onDismiss = dismiss,
+                onDelete = onDelete,
+                onSignIn = {
+                    dismiss()
+                    onSignIn()
+                },
+                onDismiss = dismiss,
             )
             null -> Unit
         }
         when (confirming) {
-            Confirming.VISIBILITY -> VisibilityDialog(settings.visibility, settings.visibilities, onDismiss = { confirming = null }) {
+            Confirming.VISIBILITY -> VisibilitySheet(settings.visibility, settings.visibilities, onDismiss = { confirming = null }) {
                 confirming = null
                 onChange(RepoSettingsChange.Visibility(it))
             }
-            Confirming.UNPUBLISH -> AlertDialog(
-                onDismissRequest = { confirming = null },
-                title = { Text(stringResource(R.string.repo_pages_unpublish_title)) },
-                text = { Text(stringResource(R.string.repo_pages_unpublish_body)) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        confirming = null
-                        onChangePages(PagesChange.Unpublish)
-                    }) { Text(stringResource(R.string.repo_pages_unpublish)) }
+            // The website goes down for whoever follows a link to it: the ink pill.
+            Confirming.UNPUBLISH -> SoftConfirmSheet(
+                title = stringResource(R.string.repo_pages_unpublish_title),
+                body = stringResource(R.string.repo_pages_unpublish_body),
+                confirm = stringResource(R.string.repo_pages_unpublish),
+                cancel = stringResource(R.string.cancel),
+                danger = true,
+                onConfirm = {
+                    confirming = null
+                    onChangePages(PagesChange.Unpublish)
                 },
-                dismissButton = { TextButton(onClick = { confirming = null }) { Text(stringResource(R.string.cancel)) } },
-                shape = RoundedCornerShape(28.dp),
-                containerColor = colors.raised,
+                onDismiss = { confirming = null },
             )
-            Confirming.ARCHIVE -> ArchiveDialog(settings.archived, onDismiss = { confirming = null }) {
-                confirming = null
-                onChange(RepoSettingsChange.Archived(!settings.archived))
-            }
+            // Archiving is undone by unarchiving: asked about, and no more than that.
+            Confirming.ARCHIVE -> SoftConfirmSheet(
+                title = stringResource(if (settings.archived) R.string.repo_settings_unarchive_title else R.string.repo_settings_archive_title),
+                body = stringResource(if (settings.archived) R.string.repo_settings_unarchive_body else R.string.repo_settings_archive_body),
+                confirm = stringResource(if (settings.archived) R.string.repo_settings_unarchive else R.string.repo_settings_archive),
+                cancel = stringResource(R.string.cancel),
+                onConfirm = {
+                    confirming = null
+                    onChange(RepoSettingsChange.Archived(!settings.archived))
+                },
+                onDismiss = { confirming = null },
+            )
             null -> Unit
         }
     }
@@ -433,7 +451,10 @@ fun RepoSettingsScreen(
                                     onClick = { confirming = Confirming.ARCHIVE },
                                 )
                                 SettingRow(stringResource(R.string.repo_settings_rename), state.repo.name, onClick = { editing = Editing.RENAME })
-                                SettingRow(stringResource(R.string.repo_settings_delete), stringResource(R.string.repo_settings_delete_summary), onClick = { editing = Editing.DELETE })
+                                SettingRow(stringResource(R.string.repo_settings_delete), stringResource(R.string.repo_settings_delete_summary), onClick = {
+                                    onCheckDelete()
+                                    editing = Editing.DELETE
+                                })
                             }
                         }
                         item(key = "more") {
@@ -617,61 +638,60 @@ private val RepoVisibility.summary: Int
 
 /** Who may see the repository, picked among what its forge offers; nothing changes before it is confirmed. */
 @Composable
-private fun VisibilityDialog(current: RepoVisibility, offered: List<RepoVisibility>, onDismiss: () -> Unit, onConfirm: (RepoVisibility) -> Unit) {
+private fun VisibilitySheet(current: RepoVisibility, offered: List<RepoVisibility>, onDismiss: () -> Unit, onConfirm: (RepoVisibility) -> Unit) {
     var picked by rememberSaveable { mutableStateOf(current) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.repo_settings_visibility)) },
-        text = {
-            Column(Modifier.selectableGroup()) {
-                offered.forEach { option ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(SoftTokens.RowCorner)
-                            .selectable(selected = option == picked, role = Role.RadioButton) { picked = option }
-                            .heightIn(min = 48.dp)
-                            .padding(vertical = 8.dp),
-                    ) {
-                        RadioButton(selected = option == picked, onClick = null)
-                        Column(Modifier.padding(start = 16.dp)) {
-                            Text(stringResource(option.label), style = Soft.type.body)
-                            Text(stringResource(option.summary), style = Soft.type.secondary, color = Soft.colors.inkMuted)
-                        }
-                    }
-                }
-                Text(stringResource(R.string.repo_settings_visibility_warning), style = Soft.type.secondary, modifier = Modifier.padding(top = 12.dp))
-            }
-        },
-        confirmButton = { TextButton(onClick = { onConfirm(picked) }, enabled = picked != current) { Text(stringResource(R.string.repo_settings_visibility_confirm)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-        shape = RoundedCornerShape(28.dp),
-        containerColor = Soft.colors.raised,
-    )
+    SoftConfirmSheet(
+        title = stringResource(R.string.repo_settings_visibility),
+        body = stringResource(R.string.repo_settings_visibility_warning),
+        confirm = stringResource(R.string.repo_settings_visibility_confirm),
+        cancel = stringResource(R.string.cancel),
+        // Opening it to everyone shows its whole history, and closing it can cost its forks and stars.
+        danger = true,
+        confirmEnabled = picked != current,
+        onConfirm = { onConfirm(picked) },
+        onDismiss = onDismiss,
+    ) {
+        Column(Modifier.selectableGroup()) {
+            offered.forEach { option -> SoftChoiceRow(stringResource(option.label), option == picked, { picked = option }, summary = stringResource(option.summary)) }
+        }
+    }
 }
 
+/**
+ * Deleting asks for the repository's full name, written out in a field that starts empty: a tap alone can't do it.
+ * A sign-in that may not delete is told so before anything is written, with the way to make it again.
+ */
 @Composable
-private fun ArchiveDialog(archived: Boolean, onDismiss: () -> Unit, onConfirm: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(if (archived) R.string.repo_settings_unarchive_title else R.string.repo_settings_archive_title)) },
-        text = { Text(stringResource(if (archived) R.string.repo_settings_unarchive_body else R.string.repo_settings_archive_body)) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(stringResource(if (archived) R.string.repo_settings_unarchive else R.string.repo_settings_archive)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-        shape = RoundedCornerShape(28.dp),
-        containerColor = Soft.colors.raised,
-    )
-}
-
-/** Deleting asks for the repository's full name, written out: a tap alone can't do it. */
-@Composable
-private fun DeleteSheet(repo: RepoId, working: Boolean, refusal: String?, onDelete: () -> Unit, onDismiss: () -> Unit) {
+private fun DeleteSheet(repo: RepoId, working: Boolean, mayDelete: Boolean?, refusal: String?, onDelete: () -> Unit, onSignIn: () -> Unit, onDismiss: () -> Unit) {
+    val forgeName = repo.forge.displayName
+    if (mayDelete == false) {
+        SoftConfirmSheet(
+            title = stringResource(R.string.repo_settings_delete),
+            body = stringResource(R.string.repo_settings_delete_needs_sign_in, forgeName),
+            confirm = stringResource(R.string.you_limited_action, forgeName),
+            cancel = stringResource(R.string.cancel),
+            onConfirm = onSignIn,
+            onDismiss = onDismiss,
+        )
+        return
+    }
     var typed by rememberSaveable { mutableStateOf("") }
-    Sheet(stringResource(R.string.repo_settings_delete), onDismiss) {
-        Text(stringResource(R.string.repo_settings_delete_body, repo.fullName), style = Soft.type.secondary, color = Soft.colors.ink)
-        SoftTextField(typed, { typed = it }, placeholder = repo.fullName, error = refusal)
-        SoftButton(stringResource(R.string.repo_settings_delete_confirm), onClick = onDelete, enabled = !working && typed.trim() == repo.fullName)
+    SoftConfirmSheet(
+        title = stringResource(R.string.repo_settings_delete),
+        body = stringResource(R.string.repo_settings_delete_body, repo.fullName),
+        confirm = stringResource(if (working) R.string.manage_deleting else R.string.repo_settings_delete_confirm),
+        cancel = stringResource(R.string.cancel),
+        danger = true,
+        confirmEnabled = !working && typed.trim() == repo.fullName,
+        onConfirm = onDelete,
+        onDismiss = onDismiss,
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // The name to write stays in sight above the field, which starts empty: a placeholder would look typed.
+            val fieldName = stringResource(R.string.repo_settings_delete_field, repo.fullName)
+            Text(fieldName, style = Soft.type.label, color = Soft.colors.ink)
+            SoftTextField(typed, { typed = it }, placeholder = "", error = refusal, modifier = Modifier.semantics { contentDescription = fieldName })
+        }
     }
 }
 
@@ -701,16 +721,16 @@ private fun PagesSourceSheet(
     val picked = if (workflow) PagesBuild.Workflow else PagesBuild.Branch(branch, folder)
     Sheet(stringResource(R.string.repo_pages_source), onDismiss) {
         Column(Modifier.selectableGroup()) {
-            Option(stringResource(R.string.repo_pages_source_workflow), stringResource(R.string.repo_pages_source_workflow_summary), workflow) { workflow = true }
-            Option(stringResource(R.string.repo_pages_source_branch), stringResource(R.string.repo_pages_source_branch_summary), !workflow) { workflow = false }
+            SoftChoiceRow(stringResource(R.string.repo_pages_source_workflow), workflow, { workflow = true }, summary = stringResource(R.string.repo_pages_source_workflow_summary))
+            SoftChoiceRow(stringResource(R.string.repo_pages_source_branch), !workflow, { workflow = false }, summary = stringResource(R.string.repo_pages_source_branch_summary))
         }
         if (!workflow) {
             // The branches once read; the default one meanwhile, and whichever the site is on already.
             val offered = ((branches as? Loadable.Loaded)?.value.orEmpty() + branch + defaultBranch).filter { it.isNotEmpty() }.distinct()
             Text(stringResource(R.string.repo_pages_branch), style = Soft.type.label, color = Soft.colors.inkMuted)
-            Column(Modifier.selectableGroup()) { offered.forEach { name -> Option(name, null, name == branch) { branch = name } } }
+            Column(Modifier.selectableGroup()) { offered.forEach { name -> SoftChoiceRow(name, name == branch, { branch = name }) } }
             Text(stringResource(R.string.repo_pages_folder), style = Soft.type.label, color = Soft.colors.inkMuted)
-            Column(Modifier.selectableGroup()) { listOf("/", "/docs").forEach { path -> Option(path, null, path == folder) { folder = path } } }
+            Column(Modifier.selectableGroup()) { listOf("/", "/docs").forEach { path -> SoftChoiceRow(path, path == folder, { folder = path }) } }
         }
         refusal?.let { Text(it, style = Soft.type.secondary, color = Soft.colors.accent) }
         SoftButton(
@@ -718,19 +738,5 @@ private fun PagesSourceSheet(
             onClick = { onSave(picked) },
             enabled = !working && (site?.published != true || picked != current),
         )
-    }
-}
-
-@Composable
-private fun Option(title: String, summary: String?, selected: Boolean, onSelect: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().clip(SoftTokens.RowCorner).selectable(selected = selected, role = Role.RadioButton, onClick = onSelect).heightIn(min = 48.dp).padding(vertical = 6.dp),
-    ) {
-        RadioButton(selected = selected, onClick = null)
-        Column(Modifier.padding(start = 16.dp)) {
-            Text(title, style = Soft.type.body, color = Soft.colors.ink)
-            summary?.let { Text(it, style = Soft.type.secondary, color = Soft.colors.inkMuted) }
-        }
     }
 }

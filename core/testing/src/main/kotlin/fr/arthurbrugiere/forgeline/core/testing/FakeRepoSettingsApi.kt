@@ -41,6 +41,14 @@ class FakeRepoSettingsApi(
         return ForgeResult.Success(settings)
     }
 
+    /** Whether the sign-in may delete repositories at all. */
+    var mayDelete = true
+
+    override suspend fun mayDelete(token: String): ForgeResult<Boolean> {
+        calls += "mayDelete"
+        return failure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(mayDelete)
+    }
+
     /** What deleting answers with. */
     var deletion = fr.arthurbrugiere.forgeline.core.model.RepoDeletion.DELETED
     val renamed = mutableListOf<String>()

@@ -72,6 +72,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.Milestone
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDangerButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
@@ -576,7 +577,7 @@ private fun DeletePage(state: IssueUiState, actions: ManageActions, onBack: () -
         Text(stringResource(R.string.manage_delete_body), style = Soft.type.body, color = Soft.colors.inkMuted)
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SoftTonalButton(stringResource(R.string.manage_cancel), onBack, enabled = !state.manage.isWorking)
-            SoftButton(
+            SoftDangerButton(
                 stringResource(if (state.manage.isWorking) R.string.manage_deleting else R.string.manage_delete_confirm),
                 actions.onDelete,
                 enabled = !state.manage.isWorking,
