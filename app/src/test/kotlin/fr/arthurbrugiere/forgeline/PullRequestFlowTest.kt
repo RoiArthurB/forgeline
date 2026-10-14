@@ -4,6 +4,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isSelectable
+import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -57,7 +59,12 @@ class PullRequestFlowTest {
     /** Signs in, then opens the pull request a review is asked for, from the Inbox's own-work filter. */
     private fun openPullRequest() {
         hiltRule.inject()
+        // Regression: on a slow runner the app had settled on its signed-out start tab before the sign-in landed, and
+        // the Inbox the test waited for never opened (2026-10-12 and 14). Signed in after it settles, as it was there.
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasContentDescription("Trending") and isSelected()).fetchSemanticsNodes().isNotEmpty() }
         runBlocking { accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null), "tok") }
+        // The start tab is chosen once, at launch: the Inbox is opened by hand, as someone signing in later would.
+        composeRule.onNode(hasContentDescription("Inbox") and isSelectable()).performClick()
         waitFor("Yours")
         composeRule.onNodeWithText("Yours").performClick()
         waitFor("Retry uploads on slow links")

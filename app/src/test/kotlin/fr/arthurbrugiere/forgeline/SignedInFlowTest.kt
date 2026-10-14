@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelectable
+import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -77,7 +78,10 @@ class SignedInFlowTest {
     @Test
     fun one_s_own_work_is_a_filter_of_the_inbox_and_leads_to_its_conversations() {
         hiltRule.inject()
+        // Signed in once the app has settled on its signed-out start tab, as a slow runner had it (see PullRequestFlowTest).
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasContentDescription("Trending") and isSelected()).fetchSemanticsNodes().isNotEmpty() }
         runBlocking { accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null), "tok") }
+        composeRule.onNode(hasContentDescription("Inbox") and isSelectable()).performClick()
         waitFor("Yours")
 
         composeRule.onNodeWithText("Yours").performClick()

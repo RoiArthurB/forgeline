@@ -18,6 +18,7 @@ import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Before
 import org.junit.Rule
+import androidx.compose.ui.test.hasSetTextAction
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -101,7 +102,8 @@ class AppSmokeTest {
         awaitTabs()
         tab("Inbox").performClick()
         composeRule.onNodeWithText("Sign in").performClick()
-        composeRule.onNodeWithText("Personal access token").performTextInput("ghp_emulator")
+        // The field is named by its label, which stays above it once something is written.
+        composeRule.onNode(hasContentDescription("Personal access token") and hasSetTextAction()).performTextInput("ghp_emulator")
         composeRule.onNodeWithText("Sign in with token").performClick()
 
         composeRule.waitUntil(10_000) {
