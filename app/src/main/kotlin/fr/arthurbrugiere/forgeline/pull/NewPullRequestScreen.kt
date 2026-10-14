@@ -1,37 +1,27 @@
 package fr.arthurbrugiere.forgeline.pull
 
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftCheckRow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.CheckBox
-import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -138,27 +128,7 @@ fun NewPullRequestScreen(
                         value = state.body, onValueChange = onBodyChange, placeholder = stringResource(R.string.new_pull_body_hint),
                         singleLine = false, minLines = 5, maxLines = 14,
                     )
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(SoftTokens.RowCorner)
-                            .toggleable(value = state.draft, role = Role.Checkbox, onValueChange = onDraftChange)
-                            .heightIn(min = 48.dp)
-                            .padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            if (state.draft) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
-                            contentDescription = null,
-                            tint = if (state.draft) colors.accent else colors.inkMuted,
-                            modifier = Modifier.size(22.dp),
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text(stringResource(R.string.new_pull_draft), style = Soft.type.control, color = colors.ink)
-                            Text(stringResource(R.string.new_pull_draft_summary), style = Soft.type.meta, color = colors.inkMuted)
-                        }
-                    }
+                    SoftCheckRow(stringResource(R.string.new_pull_draft), state.draft, onDraftChange, summary = stringResource(R.string.new_pull_draft_summary))
                     state.error?.let { error ->
                         Text(
                             stringResource(R.string.new_pull_failed, (error as? ForgeError.Http)?.message ?: stringResource(error.message)),

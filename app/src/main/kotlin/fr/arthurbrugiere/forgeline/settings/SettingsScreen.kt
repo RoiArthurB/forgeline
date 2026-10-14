@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.settings
 
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftCheckRow
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSheet
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceSheet
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import fr.arthurbrugiere.forgeline.core.model.ShareTap
 import fr.arthurbrugiere.forgeline.core.model.SwipeAction
@@ -33,18 +36,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material3.RadioButton
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -60,9 +58,6 @@ import fr.arthurbrugiere.forgeline.BuildConfig
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
-import androidx.compose.material3.Checkbox
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import fr.arthurbrugiere.forgeline.core.model.Account
@@ -72,20 +67,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.draw.clip
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
@@ -548,37 +536,7 @@ private fun InboxCheckItem(current: InboxCheckInterval, onChange: (InboxCheckInt
 internal fun ChoiceItem(title: String, options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
     var choosing by rememberSaveable { mutableStateOf(false) }
     SettingRow(title, options.getOrNull(selected), onClick = { choosing = true })
-    if (choosing) {
-        AlertDialog(
-            onDismissRequest = { choosing = false },
-            title = { Text(title) },
-            text = {
-                Column(Modifier.selectableGroup()) {
-                    options.forEachIndexed { index, option ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(SoftTokens.RowCorner)
-                                .selectable(selected = index == selected, role = Role.RadioButton) {
-                                    choosing = false
-                                    onSelect(index)
-                                }
-                                .padding(vertical = 8.dp),
-                        ) {
-                            RadioButton(selected = index == selected, onClick = null)
-                            Text(option, style = Soft.type.body, modifier = Modifier.padding(start = 16.dp))
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { choosing = false }) { Text(stringResource(R.string.cancel)) }
-            },
-            shape = RoundedCornerShape(28.dp),
-            containerColor = Soft.colors.raised,
-        )
-    }
+    if (choosing) SoftChoiceSheet(title, options, selected, onSelect = onSelect, onDismiss = { choosing = false })
 }
 
 @Composable
@@ -590,33 +548,11 @@ private fun FeedKindsItem(shown: Set<FeedKind>, onChange: (FeedKind, Boolean) ->
         onClick = { choosing = true },
     )
     if (choosing) {
-        AlertDialog(
-            onDismissRequest = { choosing = false },
-            title = { Text(stringResource(R.string.settings_feed_kinds)) },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    FeedKind.entries.forEach { kind ->
-                        val checked = kind in shown
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(SoftTokens.RowCorner)
-                                .toggleable(value = checked, role = Role.Checkbox) { onChange(kind, it) }
-                                .padding(vertical = 8.dp),
-                        ) {
-                            Checkbox(checked = checked, onCheckedChange = null)
-                            Text(stringResource(kind.label), style = Soft.type.body, modifier = Modifier.padding(start = 16.dp))
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { choosing = false }) { Text(stringResource(R.string.done)) }
-            },
-            shape = RoundedCornerShape(28.dp),
-            containerColor = Soft.colors.raised,
-        )
+        SoftSheet(stringResource(R.string.settings_feed_kinds), onDismiss = { choosing = false }) {
+            Column {
+                FeedKind.entries.forEach { kind -> SoftCheckRow(stringResource(kind.label), kind in shown, { onChange(kind, it) }) }
+            }
+        }
     }
 }
 

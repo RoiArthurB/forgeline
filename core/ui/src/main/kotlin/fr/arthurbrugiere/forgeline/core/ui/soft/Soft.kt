@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.core.ui.soft
 
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
@@ -119,12 +120,18 @@ val LocalSoftColors = staticCompositionLocalOf { SoftLight }
 val LocalSoftType = staticCompositionLocalOf { SoftType() }
 
 /**
- * Enters the Soft world: its colors, plus ink as the content color so ripples and untinted icons from the
- * remaining Material pieces take the palette instead of the old (or dynamic) Material scheme.
+ * Enters the Soft world: its colors, ink as the content color so untinted icons from the remaining Material pieces
+ * take the palette, and the soft veil as what a press looks like on anything clickable that doesn't say otherwise.
  */
 @Composable
 fun SoftTheme(colors: SoftColors, content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalSoftColors provides colors, LocalContentColor provides colors.ink, content = content)
+    // Pressing answers with the soft veil, not a ripple: rows, pills and buttons alike.
+    CompositionLocalProvider(
+        LocalSoftColors provides colors,
+        LocalContentColor provides colors.ink,
+        LocalIndication provides SoftIndication(colors.track),
+        content = content,
+    )
 }
 
 object Soft {

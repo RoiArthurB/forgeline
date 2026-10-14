@@ -212,6 +212,18 @@ class ScreenshotTest {
     }
 
     @Test
+    fun settings_start_choice_light() = snapshot(
+        "settings_start_choice_light", darkTheme = false, wholeScreen = true,
+        beforeCapture = { composeRule.onNodeWithText("Open the app on").performClick() },
+    ) { SettingsPreview(section = SettingsSection.APPEARANCE) }
+
+    @Test
+    fun settings_feed_kinds_dark() = snapshot(
+        "settings_feed_kinds_dark", darkTheme = true, wholeScreen = true,
+        beforeCapture = { composeRule.onNodeWithText("Feed activity").performClick() },
+    ) { SettingsPreview(section = SettingsSection.FEED) }
+
+    @Test
     fun settings_gestures_light() = snapshot("settings_gestures_light", darkTheme = false) {
         SettingsPreview(section = SettingsSection.GESTURES)
     }

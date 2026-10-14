@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.repo.settings
 
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceSheet
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSheet
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,8 +17,6 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -23,11 +24,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Check
@@ -36,15 +34,11 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Snackbar
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.selection.selectableGroup
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.PagesBuild
@@ -275,16 +269,16 @@ fun RepoSettingsScreen(
                 onDismiss = dismiss,
             )
             Editing.MERGE_STYLE -> settings.mergeStyle?.let { current ->
-                ChoiceSheet(stringResource(R.string.repo_settings_merge_style), MergeStyle.entries.map { stringResource(it.label) }, current.ordinal, onDismiss = dismiss) {
-                    editing = null
-                    onChange(RepoSettingsChange.Style(MergeStyle.entries[it]))
-                }
+                SoftChoiceSheet(
+                    stringResource(R.string.repo_settings_merge_style), MergeStyle.entries.map { stringResource(it.label) }, current.ordinal,
+                    onSelect = { onChange(RepoSettingsChange.Style(MergeStyle.entries[it])) }, onDismiss = dismiss,
+                )
             }
             Editing.DEFAULT_MERGE -> settings.defaultMerge?.let { current ->
-                ChoiceSheet(stringResource(R.string.repo_settings_default_merge), MergeMethod.entries.map { stringResource(it.label) }, current.ordinal, onDismiss = dismiss) {
-                    editing = null
-                    onChange(RepoSettingsChange.DefaultMerge(MergeMethod.entries[it]))
-                }
+                SoftChoiceSheet(
+                    stringResource(R.string.repo_settings_default_merge), MergeMethod.entries.map { stringResource(it.label) }, current.ordinal,
+                    onSelect = { onChange(RepoSettingsChange.DefaultMerge(MergeMethod.entries[it])) }, onDismiss = dismiss,
+                )
             }
             Editing.DELETE -> DeleteSheet(
                 state.repo, state.working, state.mayDelete,
@@ -528,9 +522,7 @@ fun RepoSettingsScreen(
         }
         val scrolled by remember(listState) { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
         SoftStatusBarScrim(scrolled)
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current)) { data ->
-            Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground, actionColor = colors.thumb)
-        }
+        SoftSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current))
     }
 }
 
@@ -581,15 +573,6 @@ private fun appliedText(applied: Applied, settings: RepoSettings?, forge: ForgeT
     }.takeIf { settings != null }
 }
 
-/** One choice among a few, picked in a sheet: picking it makes it. */
-@Composable
-private fun ChoiceSheet(title: String, options: List<String>, selected: Int, onDismiss: () -> Unit, onSelect: (Int) -> Unit) {
-    Sheet(title, onDismiss) {
-        Column(Modifier.selectableGroup()) {
-            options.forEachIndexed { index, option -> SoftChoiceRow(option, index == selected, { onSelect(index) }) }
-        }
-    }
-}
 
 @Composable
 private fun SwitchRow(switch: RepoSwitch, on: Boolean, settings: RepoSettings, forge: ForgeType, onChange: (RepoSettingsChange) -> Unit) {
@@ -636,31 +619,12 @@ private val MergeMethod.label: Int
         MergeMethod.REBASE -> R.string.merge_method_rebase
     }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun Sheet(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
-    val colors = Soft.colors
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = colors.ground,
-        contentColor = colors.ink,
-    ) {
-        Column(
-            Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).navigationBarsPadding().imePadding().padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(title, style = Soft.type.name, color = colors.ink, modifier = Modifier.semantics { heading() })
-            content()
-        }
-    }
-}
 
 /** Words to write and save; what the forge refuses of them is said here, and they stay to be put right. */
 @Composable
 private fun TextSheet(title: String, current: String, singleLine: Boolean, saving: Boolean, refusal: String?, onSave: (String) -> Unit, onDismiss: () -> Unit) {
     var text by rememberSaveable { mutableStateOf(current) }
-    Sheet(title, onDismiss) {
+    SoftSheet(title, onDismiss) {
         SoftTextField(text, { text = it }, placeholder = title, error = refusal, singleLine = singleLine, minLines = if (singleLine) 1 else 3, maxLines = if (singleLine) 1 else 8)
         SoftButton(stringResource(R.string.manage_save), onClick = { onSave(text.trim()) }, enabled = !saving && text.trim() != current)
     }
@@ -676,7 +640,7 @@ private fun TopicsSheet(current: List<String>, saving: Boolean, refusal: String?
         normalizeTopic(text)?.let { if (it !in topics) topics = topics + it }
         text = ""
     }
-    Sheet(stringResource(R.string.repo_settings_topics), onDismiss) {
+    SoftSheet(stringResource(R.string.repo_settings_topics), onDismiss) {
         if (topics.isNotEmpty()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 topics.forEach { topic ->
@@ -711,7 +675,7 @@ private fun TopicsSheet(current: List<String>, saving: Boolean, refusal: String?
 @Composable
 private fun BranchSheet(current: String, branches: Loadable<List<String>>, onSelect: (String) -> Unit, onRetry: () -> Unit, onDismiss: () -> Unit) {
     val colors = Soft.colors
-    Sheet(stringResource(R.string.repo_settings_default_branch), onDismiss) {
+    SoftSheet(stringResource(R.string.repo_settings_default_branch), onDismiss) {
         when (branches) {
             is Loadable.Failed -> SoftNotice(stringResource(R.string.repo_settings_branches_error), stringResource(branches.error.message), action = stringResource(R.string.retry), onAction = onRetry)
             is Loadable.Loaded -> Column {
@@ -830,7 +794,7 @@ private fun PagesSourceSheet(
     var branch by rememberSaveable { mutableStateOf(from?.branch ?: defaultBranch) }
     var folder by rememberSaveable { mutableStateOf(from?.folder ?: "/") }
     val picked = if (workflow) PagesBuild.Workflow else PagesBuild.Branch(branch, folder)
-    Sheet(stringResource(R.string.repo_pages_source), onDismiss) {
+    SoftSheet(stringResource(R.string.repo_pages_source), onDismiss) {
         Column(Modifier.selectableGroup()) {
             SoftChoiceRow(stringResource(R.string.repo_pages_source_workflow), workflow, { workflow = true }, summary = stringResource(R.string.repo_pages_source_workflow_summary))
             SoftChoiceRow(stringResource(R.string.repo_pages_source_branch), !workflow, { workflow = false }, summary = stringResource(R.string.repo_pages_source_branch_summary))

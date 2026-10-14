@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.pull
 
+import androidx.compose.foundation.selection.selectableGroup
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceRow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -26,8 +27,6 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Commit
-import androidx.compose.material.icons.outlined.RadioButtonChecked
-import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -300,29 +299,9 @@ private fun MergeSheet(
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.fields[0]).padding(14.dp),
                 )
             }
-            Column {
+            Column(Modifier.selectableGroup()) {
                 info.methods.forEach { option ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(SoftTokens.RowCorner)
-                            .selectable(selected = method == option, role = Role.RadioButton, onClick = { method = option })
-                            .heightIn(min = 48.dp)
-                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            if (method == option) Icons.Outlined.RadioButtonChecked else Icons.Outlined.RadioButtonUnchecked,
-                            contentDescription = null,
-                            tint = if (method == option) colors.accent else colors.inkMuted,
-                            modifier = Modifier.size(22.dp),
-                        )
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text(stringResource(option.label), style = Soft.type.control, color = colors.ink)
-                            Text(stringResource(option.summary), style = Soft.type.meta, color = colors.inkMuted)
-                        }
-                    }
+                    SoftChoiceRow(stringResource(option.label), method == option, { method = option }, summary = stringResource(option.summary))
                 }
             }
             if (error != null) {

@@ -27,6 +27,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 /**
@@ -127,3 +136,81 @@ fun SoftConfirmSheet(
         }
     }
 }
+
+/** A checkbox among others in a sheet or a list: a box that fills in ember when on, its name, and a line about it. */
+@Composable
+fun SoftCheckRow(title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier, summary: String? = null) {
+    val colors = Soft.colors
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clip(SoftTokens.RowCorner)
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onCheckedChange)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            if (checked) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
+            contentDescription = null,
+            tint = if (checked) colors.accent else colors.inkMuted,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(title, style = Soft.type.control, color = colors.ink)
+            summary?.let { Text(it, style = Soft.type.meta, color = colors.inkMuted) }
+        }
+    }
+}
+
+/** A sheet from the foot of the screen: its title as a heading, then what it holds, scrolling when it is long. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SoftSheet(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
+    val colors = Soft.colors
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = colors.ground,
+        contentColor = colors.ink,
+    ) {
+        Column(
+            Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).navigationBarsPadding().imePadding().padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(title, style = Soft.type.name, color = colors.ink, modifier = Modifier.semantics { heading() })
+            content()
+        }
+    }
+}
+
+/** One choice among a few, picked in a sheet: picking it makes it, and the sheet closes on it. */
+@Composable
+fun SoftChoiceSheet(title: String, options: List<String>, selected: Int, onSelect: (Int) -> Unit, onDismiss: () -> Unit) {
+    SoftSheet(title, onDismiss) {
+        Column(Modifier.selectableGroup()) {
+            options.forEachIndexed { index, option ->
+                SoftChoiceRow(option, index == selected, {
+                    onDismiss()
+                    onSelect(index)
+                })
+            }
+        }
+    }
+}
+
+/**
+ * The snackbar every screen raises: inverted, `ink` with `ground` text and 16dp corners, its action (Undo) in
+ * [softSnackbarAction].
+ */
+@Composable
+fun SoftSnackbarHost(state: SnackbarHostState, modifier: Modifier = Modifier) {
+    val colors = Soft.colors
+    SnackbarHost(state, modifier) { data ->
+        Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground, actionColor = softSnackbarAction(colors))
+    }
+}
+
+/** A snackbar's action on its ink bar: ember where it reads (light), the light theme's deeper ember on the pale dark-theme bar. */
+fun softSnackbarAction(colors: SoftColors): Color = if (colors.isDark) SoftLight.accent else colors.thumb

@@ -12,7 +12,7 @@ class SnackbarContrastTest {
     @Test
     fun undo_reads_on_the_ink_snackbar_in_every_theme() {
         listOf("light" to SoftLight, "dark" to SoftDark, "amoled" to SoftDark.amoled()).forEach { (name, colors) ->
-            val ratio = contrastRatio(snackbarAction(colors), colors.ink)
+            val ratio = contrastRatio(fr.arthurbrugiere.forgeline.core.ui.soft.softSnackbarAction(colors), colors.ink)
             assertWithMessage("Undo on the $name snackbar: %s:1".format("%.2f".format(ratio))).that(ratio).isAtLeast(4.5f)
         }
     }

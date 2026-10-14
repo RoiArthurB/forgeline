@@ -404,7 +404,7 @@ Material 3 composables (Icon, IconButton, Snackbar, PullToRefresh, AlertDialog, 
 - **Swipe (Inbox):** the row slides off a 20dp tint with an ink icon: fresh to mark read, warm for done. Every swipe or menu action shows at once but waits 5 seconds before reaching the forge, with Undo on the snackbar; leaving the Inbox sends what is waiting.
 - **Entry (Trending):** after a section change, the first eight rows rise 16dp and fade in from 35% opacity, staggered 35ms, on the soft spring.
 
-**The Soft Press Rule.** Pressed or focused rows get a 20dp soft surface in `surface`, never a ripple. Every text colour on it is tested to 4.5:1.
+**The Soft Press Rule.** Pressed or focused rows get a 20dp soft surface in `surface`, never a ripple. Every text colour on it is tested to 4.5:1. Everything else that can be pressed (buttons, pills, choice and check rows, links) answers with the soft veil: `track` washed over it while pressed or focused, set once as the theme's default indication (`SoftIndication`), so no clickable falls back to Material's ripple. Material's own icon buttons keep their standard press.
 
 ### Inbox (needs you first)
 The Inbox is triage: what's waiting on you first, newest first, then the rest by repository.
@@ -485,13 +485,15 @@ Skeleton rows (`SoftLoadingRows`, five by default) of pill bars and an optional 
 ### Confirmation Sheet (`SoftConfirmSheet`) and Choice Rows (`SoftChoiceRow`)
 What asks before something happens rises from the foot of the screen, where the thumb is: a Name-type title (a heading), a muted Body line saying what it does, anything to pick or write first, then a tonal Cancel beside the way on, right-aligned and wrapping at large type. The way on is the filled ember button for what can be undone (archive, fork, sign out) and the ink Final action for what can't. A confirmation is never a centred dialog with two text buttons of equal weight. A field to fill in carries its name in Label type above it and starts empty; what must be written is never a placeholder. A sign-in that may not do the thing is told so in the sheet before anything is written, with the way to sign in again as its way on.
 
+A sheet is a `SoftSheet` (a Name-type heading, then what it holds, scrolling when long). A choice among a few that applies when picked, like a setting, is a `SoftChoiceSheet`: picking closes it. Several to tick are `SoftCheckRow`s, a box that fills in `accent`, announced as a checkbox. None of these is a centred dialog.
+
 A choice among a few inside a sheet is a `SoftChoiceRow`: a ring that fills in `accent` for the one picked, its name in Control type and a Meta line about it, 48dp tall, announced as a radio button. Where a pull request's checks failed or are still running, Merge is tonal on its panel, the merge sheet repeats where the checks stand on that state's tint, and against a failure its way on reads "Merge anyway" on the ink pill.
 
 ### Repository Settings
 Headed by the repository's own warm field, "owner/name" in Secondary over a Detail Title, "Settings". Chip tabs under the field hold its groups, About, Features, Merging, Pages and Danger zone, each shown only where the forge has something in it; About opens first and Danger zone is always last. Nothing is boxed: a group is a plain column of settings rows. A row's ending says what a tap does: a switch toggles, a chevron opens an editor in a sheet, an open-in-new glyph leaves the app, and no glyph means it asks first in a confirmation sheet. Deleting stands below the other dangers as a full-width Final action. A choice among a few is a sheet of `SoftChoiceRow`s, never a dialog. A switch or a choice applies at once and its snackbar says so with Undo for 5 seconds, as the Inbox does; words saved from a sheet are said without Undo.
 
-### Snackbar
-Inverted: `ink` background, `ground` text, 16dp corners; it sits above the navigation bar space. Its action (Undo, Material's default `inversePrimary`) is `thumb` on the dark bar of the light theme and the light theme's `accent` on the pale bar of the dark themes, tested to 4.5:1.
+### Snackbar (`SoftSnackbarHost`)
+Inverted: `ink` background, `ground` text, 16dp corners; it sits above the navigation bar space. Its action (Undo, `softSnackbarAction`) is `thumb` on the dark bar of the light theme and the light theme's `accent` on the pale bar of the dark themes, tested to 4.5:1.
 
 **The One Spring Rule.** Things that move use one soft spring, lively but never bouncy (damping 0.8-0.85, medium-low stiffness; medium for the press squish); colour changes crossfade over 400ms (300ms for a title going read), content arriving late fades in over 220ms, and list rows enter, leave and reorder with Compose's item animations. All of it is skipped when the system animator scale is 0 (Remove animations).
 
@@ -523,7 +525,7 @@ Inverted: `ink` background, `ground` text, 16dp corners; it sits above the navig
 - **Don't** let it feel corporate.
 - **Don't** scatter ember as backgrounds, borders or decoration.
 - **Don't** add a third weight of Gabarito or Lexend, or another family.
-- **Don't** give rows a ripple.
+- **Don't** give rows, buttons or pills a ripple; a press is the soft surface or the soft veil.
 - **Don't** mark selection in the open with anything other than the ember thumb (a menu's ember check is the one exception).
 - **Don't** bring back dynamic colour (Material You); the palette is Soft's alone.
 - **Don't** stack a second strip of chips under a header's switch, or show a forge by its logo alone in a mixed list.

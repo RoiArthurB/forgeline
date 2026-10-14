@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.core.model.SwipeAction
 import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.FlowRow
 import fr.arthurbrugiere.forgeline.core.ui.format.forgeInlineContent
 import fr.arthurbrugiere.forgeline.core.ui.format.appendForge
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -45,7 +45,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.ui.platform.LocalResources
@@ -105,8 +104,6 @@ import fr.arthurbrugiere.forgeline.ui.relative
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
@@ -115,7 +112,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.Snackbar
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.derivedStateOf
@@ -153,9 +149,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.ui.graphics.Color
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLight
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftPill
 import fr.arthurbrugiere.forgeline.core.ui.soft.animationsEnabled
 import fr.arthurbrugiere.forgeline.feed.unbreakable
@@ -495,15 +488,7 @@ fun InboxScreen(
                 modifier = Modifier.align(Alignment.BottomCenter).padding(start = 12.dp, end = 12.dp, bottom = LocalBottomBarSpace.current + 8.dp),
             )
         }
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current)) { data ->
-            Snackbar(
-                data,
-                shape = RoundedCornerShape(16.dp),
-                containerColor = colors.ink,
-                contentColor = colors.ground,
-                actionColor = snackbarAction(colors),
-            )
-        }
+        SoftSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current))
     }
 }
 
@@ -911,9 +896,6 @@ private fun ThreadRow(
         }
     }
 }
-
-/** Undo on the ink snackbar: ember where it reads (light), the light theme's deeper ember on the pale dark-theme bar. */
-internal fun snackbarAction(colors: SoftColors): Color = if (colors.isDark) SoftLight.accent else colors.thumb
 
 /**
  * What a swipe does, shown on a soft tint under the row, on the side the row leaves: mint to mark read (or unread
