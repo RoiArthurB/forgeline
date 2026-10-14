@@ -9,6 +9,10 @@ import androidx.compose.ui.test.performTextInput
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import org.junit.Rule
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.assertTextEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -58,7 +62,7 @@ class SignInScreenTest {
     fun submits_the_typed_token() {
         setContent()
 
-        composeRule.onNodeWithText("Personal access token").performTextInput("ghp_abc")
+        composeRule.onNode(hasContentDescription("Personal access token") and hasSetTextAction()).performTextInput("ghp_abc")
         composeRule.onNodeWithText("Sign in with token").performClick()
 
         assertThat(events).containsExactly("token:ghp_abc")
@@ -95,7 +99,7 @@ class SignInScreenTest {
     fun editing_the_token_clears_the_error() {
         setContent(SignInStep.Failed(SignInError.INVALID_TOKEN))
 
-        composeRule.onNodeWithText("Personal access token").performTextInput("x")
+        composeRule.onNode(hasContentDescription("Personal access token") and hasSetTextAction()).performTextInput("x")
 
         assertThat(events).containsExactly("dismiss")
     }
@@ -127,9 +131,10 @@ class SignInScreenTest {
     fun a_forgejo_of_ones_own_asks_for_its_address_and_nothing_else() {
         setOther(other.copy(host = ""))
 
-        composeRule.onNodeWithText("Server address, like git.example.org").assertIsDisplayed()
+        composeRule.onNode(hasContentDescription("Server address") and hasSetTextAction()).assertIsDisplayed()
+        composeRule.onNodeWithText("git.example.org").assertIsDisplayed()
         composeRule.onNodeWithText("Any Forgejo server works with an access token.").assertIsDisplayed()
-        composeRule.onNodeWithText("Application ID (optional)").assertDoesNotExist()
+        composeRule.onNode(hasContentDescription("Application ID (optional)")).assertDoesNotExist()
         // The choice between gitlab.com and one's own server belongs under GitLab.
         composeRule.onNodeWithText("Your own server").assertDoesNotExist()
     }
@@ -151,7 +156,7 @@ class SignInScreenTest {
 
         // gitlab.com is chosen: no address is asked for, and it signs in through the browser.
         composeRule.onNodeWithText("gitlab.com").assertIsDisplayed()
-        composeRule.onNodeWithText("Server address, like gitlab.example.org").assertDoesNotExist()
+        composeRule.onNodeWithText("gitlab.example.org").assertDoesNotExist()
         composeRule.onNodeWithText("Sign in with GitLab").assertExists()
 
         composeRule.onNodeWithText("Your own server").performClick()
@@ -164,12 +169,13 @@ class SignInScreenTest {
         setOther(gitlab.copy(gitlabOwnServer = true, browserSignInAvailable = false, forgeName = "", personalAccessTokenUrl = null))
 
         composeRule.onNodeWithText("Connect to your server").assertIsDisplayed()
-        composeRule.onNodeWithText("Server address, like gitlab.example.org").assertIsDisplayed()
+        composeRule.onNode(hasContentDescription("Server address") and hasSetTextAction()).assertIsDisplayed()
+        composeRule.onNodeWithText("gitlab.example.org").assertIsDisplayed()
         composeRule.onNodeWithText("Any GitLab server works with an access token.").assertIsDisplayed()
-        composeRule.onNodeWithText("Application ID (optional)").assertExists()
+        composeRule.onNode(hasContentDescription("Application ID (optional)")).assertExists()
         composeRule.onNodeWithText("Create a personal access token with the api and read_user scopes, then paste it here.").assertExists()
 
-        composeRule.onNodeWithText("Server address, like gitlab.example.org").performTextInput("gitlab.example.org")
+        composeRule.onNode(hasContentDescription("Server address") and hasSetTextAction()).performTextInput("gitlab.example.org")
 
         assertThat(events).containsExactly("host:gitlab.example.org")
     }
@@ -179,7 +185,7 @@ class SignInScreenTest {
         setOther(gitlab.copy(gitlabOwnServer = true, host = "git.example.org", forgeName = "git.example.org", otherType = fr.arthurbrugiere.forgeline.core.model.ForgeType.FORGEJO, browserSignInAvailable = false))
 
         composeRule.onNodeWithText("This is a Forgejo server.").assertIsDisplayed()
-        composeRule.onNodeWithText("Application ID (optional)").assertDoesNotExist()
+        composeRule.onNode(hasContentDescription("Application ID (optional)")).assertDoesNotExist()
     }
 
     @Test
@@ -191,7 +197,7 @@ class SignInScreenTest {
         composeRule.onNodeWithText("Create a personal access token with the api and read_user scopes, then paste it here.").assertExists()
         composeRule.onNodeWithText("Sign in with gitlab.example.org").assertDoesNotExist()
 
-        composeRule.onNodeWithText("Application ID (optional)").performTextInput("app-id-123")
+        composeRule.onNode(hasContentDescription("Application ID (optional)") and hasSetTextAction()).performTextInput("app-id-123")
 
         assertThat(events).containsExactly("client:app-id-123")
     }
@@ -210,6 +216,28 @@ class SignInScreenTest {
         setOther(other.copy(host = "git.example.org", forgeName = "git.example.org", otherType = fr.arthurbrugiere.forgeline.core.model.ForgeType.FORGEJO))
 
         composeRule.onNodeWithText("This is a Forgejo server.").assertIsDisplayed()
-        composeRule.onNodeWithText("Application ID (optional)").assertDoesNotExist()
+        composeRule.onNode(hasContentDescription("Application ID (optional)")).assertDoesNotExist()
+    }
+
+    @Test
+    fun what_github_will_ask_for_is_said_beside_the_button_that_asks_it_delete_included() {
+        setContent()
+
+        composeRule.onNode(hasText("and for permission to delete them", substring = true)).assertIsDisplayed()
+        composeRule.onNode(hasText("deletes a repository only when you ask", substring = true)).assertIsDisplayed()
+        // The token's scopes say which one is only for deleting.
+        composeRule.onNode(hasText("plus delete_repo to delete repositories from Forgeline", substring = true)).assertIsDisplayed()
+    }
+
+    @Test
+    fun a_filled_field_still_says_what_it_is() {
+        setContent()
+
+        // Regression: the field's name was its placeholder, and went once something was written. The label above it stays
+        // (the screenshots show it); a screen reader hears it as the field's name, with what is written.
+        val token = composeRule.onNode(hasContentDescription("Personal access token") and hasSetTextAction())
+        token.performTextInput("ghp_abc")
+        // The token is masked as it is written, and the field keeps its name.
+        token.assertIsDisplayed().assertTextEquals("•••••••")
     }
 }

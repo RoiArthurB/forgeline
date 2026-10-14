@@ -378,9 +378,10 @@ fun SoftChipTabs(
 }
 
 /**
- * The one text field: a soft filled pill with its label as the placeholder, an optional leading glyph and trailing
- * action, and an error line under it. No outline, like the rest of the world. With [singleLine] off it grows with
- * what is written, from [minLines] to [maxLines], on a rounded field instead of a pill.
+ * The one text field: a soft filled pill with an optional leading glyph and trailing action, and an error line under
+ * it. No outline, like the rest of the world. With [singleLine] off it grows with what is written, from [minLines] to
+ * [maxLines], on a rounded field instead of a pill. A [label] names it above, and stays once something is written,
+ * which the [placeholder] doesn't: with a label, the placeholder is an example of what to write.
  */
 @Composable
 fun SoftTextField(
@@ -399,9 +400,13 @@ fun SoftTextField(
     minLines: Int = 1,
     maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
     readOnly: Boolean = false,
+    label: String? = null,
 ) {
     val colors = Soft.colors
     Column(modifier) {
+        if (label != null) {
+            Text(label, style = Soft.type.label, color = colors.ink, modifier = Modifier.padding(bottom = 6.dp).clearAndSetSemantics {})
+        }
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
@@ -414,7 +419,8 @@ fun SoftTextField(
             visualTransformation = visualTransformation,
             keyboardOptions = keyboardOptions,
             keyboardActions = keyboardActions,
-            modifier = Modifier.fillMaxWidth(),
+            // The label is the field's name for a screen reader, said with what is written.
+            modifier = Modifier.fillMaxWidth().then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier),
             decorationBox = { field -> SoftFieldBox(value.isEmpty(), placeholder, background, singleLine, leading, trailing, field) },
         )
         if (error != null) {

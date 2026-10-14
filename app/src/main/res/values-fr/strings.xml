@@ -10,7 +10,7 @@
     <string name="cancel">Annuler</string>
     <string name="done">Terminé</string>
     <string name="inbox_signed_out_title">Vos notifications, au même endroit</string>
-    <string name="inbox_signed_out_body">Connectez-vous à GitHub, Codeberg ou votre propre Forgejo pour lire et traiter ce qui vous attend.</string>
+    <string name="inbox_signed_out_body">Connectez-vous à GitHub, GitLab, Codeberg ou votre propre Forgejo pour lire et traiter ce qui vous attend.</string>
     <string name="inbox_filter_unread">Non lues</string>
     <string name="inbox_filter_participating">Vous participez</string>
     <string name="inbox_filter_all">Toutes</string>
@@ -87,7 +87,7 @@
     <string name="reason_security_alert">Alerte de sécurité</string>
     <string name="reason_other">Mise à jour</string>
     <string name="feed_signed_out_title">Suivez celles et ceux que vous suivez</string>
-    <string name="feed_signed_out_body">Connectez-vous à GitHub, Codeberg ou votre propre Forgejo pour voir ce qu’ils étoilent, forkent et publient.</string>
+    <string name="feed_signed_out_body">Connectez-vous à GitHub, GitLab, Codeberg ou votre propre Forgejo pour voir ce qu’ils étoilent, forkent et publient.</string>
     <string name="browse_trending">Parcourir les tendances</string>
     <string name="feed_empty_title">C’est calme pour l’instant</string>
     <string name="feed_empty_body">L’activité des personnes que vous suivez et des dépôts que vous surveillez apparaît ici.</string>
@@ -131,7 +131,7 @@
     <string name="you_limited_title">Les dépôts privés sont hors de portée</string>
     <string name="you_limited_body">Cette connexion à %1$s ne couvre que les dépôts publics. Reconnectez-vous pour ouvrir vos dépôts privés, et pour y commenter, étoiler et lancer des workflows.</string>
     <string name="you_limited_action">Se reconnecter à %1$s</string>
-    <string name="sign_in_github_access">GitHub demandera l’accès à vos dépôts, privés compris. Forgeline en a besoin pour les afficher, et pour y commenter, étoiler et lancer des workflows.</string>
+    <string name="sign_in_github_access">GitHub demandera l’accès à vos dépôts, privés compris, et la permission de les supprimer. Forgeline s’en sert pour les afficher et pour y commenter, étoiler et lancer des workflows ; il ne supprime un dépôt que si vous le demandez, depuis les paramètres de ce dépôt.</string>
     <string name="you_signed_out_title">Connecter un compte</string>
     <string name="you_signed_out_body">GitHub, GitLab, Codeberg ou votre propre Forgejo. La boîte de réception et le fil demandent un compte ; les tendances et la navigation fonctionnent sans.</string>
     <string name="sign_in_title">Se connecter</string>
@@ -139,9 +139,8 @@
     <string name="sign_in_headline_other">Se connecter à votre serveur</string>
     <string name="sign_in_privacy">Forgeline parle à %1$s directement depuis votre téléphone. Votre jeton est chiffré sur cet appareil et n’est envoyé que là-bas.</string>
     <string name="sign_in_gitlab_own">Votre propre serveur</string>
-    <string name="sign_in_host">Adresse du serveur, comme git.example.org</string>
+    <string name="sign_in_host">Adresse du serveur</string>
     <string name="sign_in_host_hint">Tout serveur Forgejo fonctionne avec un jeton d’accès.</string>
-    <string name="sign_in_host_gitlab">Adresse du serveur, comme gitlab.example.org</string>
     <string name="sign_in_host_hint_gitlab">Tout serveur GitLab fonctionne avec un jeton d’accès.</string>
     <string name="sign_in_host_is">C’est un serveur %1$s.</string>
     <string name="sign_in_client_id">ID de l’application (facultatif)</string>
@@ -149,7 +148,7 @@
     <string name="sign_in_with_forge">Se connecter avec %1$s</string>
     <string name="sign_in_or">ou</string>
     <string name="sign_in_token_title">Utiliser un jeton d’accès personnel</string>
-    <string name="sign_in_token_body">Créez un jeton classique avec les portées notifications, read:user, user:follow, repo et delete_repo, puis collez-le ici.</string>
+    <string name="sign_in_token_body">Créez un jeton classique avec les portées notifications, read:user, user:follow et repo, plus delete_repo pour supprimer des dépôts depuis Forgeline, puis collez-le ici.</string>
     <string name="sign_in_token_body_gitlab">Créez un jeton d’accès personnel avec les portées api et read_user, puis collez-le ici.</string>
     <string name="sign_in_token_body_forgejo">Créez un jeton d’accès qui atteint tous vos dépôts (publics, privés et limités), avec un accès en lecture et en écriture aux notifications, aux dépôts, aux tickets et à votre utilisateur, puis collez-le ici.</string>
     <string name="sign_in_create_token">Créer un jeton sur %1$s</string>
@@ -606,7 +605,7 @@
     <string name="search_organization">Organisation</string>
     <string name="settings_title">Réglages</string>
     <string name="settings_section_account">Comptes</string>
-    <string name="settings_signed_out_summary">Connecter un compte GitHub, Codeberg ou Forgejo</string>
+    <string name="settings_signed_out_summary">Connecter un compte GitHub, GitLab, Codeberg ou Forgejo</string>
     <string name="sign_out_confirm_title">Se déconnecter de @%1$s ?</string>
     <string name="sign_out_confirm_body">Votre jeton sera supprimé de cet appareil.</string>
     <string name="settings_section_appearance">Apparence</string>

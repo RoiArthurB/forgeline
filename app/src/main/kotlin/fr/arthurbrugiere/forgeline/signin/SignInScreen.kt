@@ -144,17 +144,13 @@ fun SignInScreen(
             onBack = onBack,
             backDescription = stringResource(R.string.navigate_up),
         ) {
-            // GitHub's own screen asks for "full control of private repositories": say why before it does.
-            Column(Modifier.widthIn(max = SoftTokens.MaxMeasure), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    stringResource(R.string.sign_in_privacy, forgeName.ifBlank { stringResource(R.string.sign_in_forge_other) }),
-                    style = Soft.type.body,
-                    color = colors.inkMuted,
-                )
-                if (state.forge == SignInForge.GITHUB) {
-                    Text(stringResource(R.string.sign_in_github_access), style = Soft.type.body, color = colors.inkMuted)
-                }
-            }
+            // The field says one thing: where a sign-in goes. What the forge will ask is said where it is asked for.
+            Text(
+                stringResource(R.string.sign_in_privacy, forgeName.ifBlank { stringResource(R.string.sign_in_forge_other) }),
+                style = Soft.type.body,
+                color = colors.inkMuted,
+                modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure),
+            )
         }
         Column(
             Modifier.widthIn(max = SoftTokens.MaxMeasure).fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp),
@@ -230,7 +226,8 @@ private fun ChooseMethod(
                 onHostChange(it)
                 if (error != null) onDismissError()
             },
-            placeholder = stringResource(if (state.forge == SignInForge.GITLAB) R.string.sign_in_host_gitlab else R.string.sign_in_host),
+            label = stringResource(R.string.sign_in_host),
+            placeholder = stringResource(if (state.forge == SignInForge.GITLAB) R.string.sign_in_host_example_gitlab else R.string.sign_in_host_example),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
             modifier = Modifier.fillMaxWidth(),
         )
@@ -254,7 +251,8 @@ private fun ChooseMethod(
             SoftTextField(
                 value = state.oauthClientId,
                 onValueChange = onClientIdChange,
-                placeholder = stringResource(R.string.sign_in_client_id),
+                label = stringResource(R.string.sign_in_client_id),
+                placeholder = "",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -271,6 +269,10 @@ private fun ChooseMethod(
             if (state.deviceFlowAvailable) onStartDeviceFlow else onStartBrowserSignIn,
             Modifier.fillMaxWidth(),
         )
+        // GitHub's own screen asks for "full control of private repositories" and to delete them: said why, before it does.
+        if (state.forge == SignInForge.GITHUB) {
+            Text(stringResource(R.string.sign_in_github_access), style = Soft.type.secondary, color = colors.inkMuted)
+        }
         Text(
             stringResource(R.string.sign_in_or),
             style = Soft.type.label,
@@ -310,7 +312,8 @@ private fun ChooseMethod(
             token = it
             if (error != null) onDismissError()
         },
-        placeholder = stringResource(R.string.sign_in_token_label),
+        label = stringResource(R.string.sign_in_token_label),
+        placeholder = "",
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
         keyboardActions = KeyboardActions(onDone = { onSubmitToken(token) }),
