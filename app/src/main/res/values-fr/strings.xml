@@ -536,6 +536,9 @@
     <string name="manage_on_forge">Sur le site de %1$s : son API ne sait pas le faire</string>
     <string name="manage_title">Gérer</string>
     <string name="manage_back">Retour à Gérer</string>
+    <string name="manage_group_details">Détails</string>
+    <string name="manage_group_state">État</string>
+    <string name="manage_group_more">Plus</string>
     <string name="manage_none">Aucun</string>
     <string name="manage_labels">Labels</string>
     <string name="manage_assignees">Personnes assignées</string>

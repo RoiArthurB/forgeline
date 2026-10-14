@@ -143,6 +143,31 @@ class IssueManageSheetTest {
         composeRule.onNodeWithText("Delete issue").assertExists()
     }
 
+    @Test
+    fun what_can_be_done_is_read_in_three_groups_ending_with_what_can_t_be_undone() {
+        setContent()
+
+        // Each group is a heading, in reading order: Details, State, then More, where deleting is last.
+        val headings: List<String> = composeRule.onAllNodes(isHeading()).fetchSemanticsNodes().map { node ->
+            node.config.getOrElseNullable(androidx.compose.ui.semantics.SemanticsProperties.Text) { null }?.joinToString().orEmpty()
+        }
+        assertThat(headings).containsAtLeast("Manage", "Details", "State", "More").inOrder()
+        val top = { text: String -> composeRule.onNodeWithText(text).fetchSemanticsNode().boundsInRoot.top }
+        assertThat(top("Labels")).isLessThan(top("State"))
+        assertThat(top("State")).isLessThan(top("Close as not planned"))
+        assertThat(top("Pin issue")).isLessThan(top("More"))
+        assertThat(top("Transfer issue")).isLessThan(top("Delete issue"))
+    }
+
+    @Test
+    fun a_group_with_nothing_the_reader_may_do_is_left_out() {
+        // A reader who may only triage: labels and closing, nothing under More but duplicating.
+        setContent(owned.copy(access = RepoAccess.TRIAGE))
+
+        composeRule.onNodeWithText("Details").assertExists()
+        composeRule.onNodeWithText("Delete issue").assertDoesNotExist()
+    }
+
     private val onCodeberg = IssueRef(RepoId("octo", "repo", ForgeInstance.Codeberg), 7)
     private val forgejo = owned.copy(
         ref = onCodeberg,

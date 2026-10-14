@@ -67,6 +67,8 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalDensity
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
@@ -182,6 +184,11 @@ fun IssueManageContent(
     }
 }
 
+/**
+ * What can be done to a conversation, in three groups read top to bottom: what it carries (labels, people, dates,
+ * time, what it depends on), where it stands (closed why, locked, pinned), and the rest, ending with what can't be
+ * undone. A group the forge or the reader's role leaves empty isn't shown.
+ */
 @Composable
 private fun Menu(state: IssueUiState, actions: ManageActions, onOpen: (ManagePage) -> Unit, onDismiss: () -> Unit) {
     val issue = state.issue ?: return
@@ -189,82 +196,106 @@ private fun Menu(state: IssueUiState, actions: ManageActions, onOpen: (ManagePag
     val enabled = !state.manage.isWorking
     val none = stringResource(R.string.manage_none)
     PageTitle(stringResource(R.string.manage_title), onBack = null)
-    if (ConversationAction.LABELS in can) {
-        MenuRow(Icons.AutoMirrored.Outlined.Label, stringResource(R.string.manage_labels), issue.labels.joinToString(", ") { it.name }.ifEmpty { none }, enabled) {
-            actions.onLoadLabels()
-            onOpen(ManagePage.LABELS)
+
+    val details = buildList<@Composable () -> Unit> {
+        if (ConversationAction.LABELS in can) add {
+            MenuRow(Icons.AutoMirrored.Outlined.Label, stringResource(R.string.manage_labels), issue.labels.joinToString(", ") { it.name }.ifEmpty { none }, enabled) {
+                actions.onLoadLabels()
+                onOpen(ManagePage.LABELS)
+            }
+        }
+        if (ConversationAction.ASSIGNEES in can) add {
+            MenuRow(Icons.Outlined.PersonOutline, stringResource(R.string.manage_assignees), issue.assignees.joinToString(", ") { it.login }.ifEmpty { none }, enabled) {
+                actions.onLoadAssignable()
+                onOpen(ManagePage.ASSIGNEES)
+            }
+        }
+        if (ConversationAction.MILESTONE in can) add {
+            MenuRow(Icons.Outlined.Flag, stringResource(R.string.manage_milestone), issue.milestone?.title ?: none, enabled) {
+                actions.onLoadMilestones()
+                onOpen(ManagePage.MILESTONE)
+            }
+        }
+        if (ConversationAction.DUE_DATE in can) add {
+            MenuRow(Icons.Outlined.Event, stringResource(R.string.manage_due_date), issue.dueDate?.let { formatDay(it) } ?: none, enabled) { onOpen(ManagePage.DUE_DATE) }
+        }
+        if (ConversationAction.TIME_TRACKING in can) add {
+            MenuRow(Icons.Outlined.Timer, stringResource(R.string.manage_time), null, enabled) {
+                actions.onLoadTracking()
+                onOpen(ManagePage.TIME)
+            }
+        }
+        if (ConversationAction.DEPENDENCIES in can) add {
+            MenuRow(Icons.Outlined.AccountTree, stringResource(R.string.manage_dependencies), null, enabled) {
+                actions.onLoadDependencies()
+                onOpen(ManagePage.DEPENDENCIES)
+            }
         }
     }
-    if (ConversationAction.ASSIGNEES in can) {
-        MenuRow(Icons.Outlined.PersonOutline, stringResource(R.string.manage_assignees), issue.assignees.joinToString(", ") { it.login }.ifEmpty { none }, enabled) {
-            actions.onLoadAssignable()
-            onOpen(ManagePage.ASSIGNEES)
+    val standing = buildList<@Composable () -> Unit> {
+        if (ConversationAction.CLOSE_REASON in can) {
+            add { MenuRow(Icons.Outlined.Block, stringResource(R.string.manage_close_not_planned), null, enabled) { actions.onClose(CloseReason.NOT_PLANNED) } }
+            add { MenuRow(Icons.Outlined.Difference, stringResource(R.string.manage_close_duplicate), null, enabled) { actions.onClose(CloseReason.DUPLICATE) } }
+        }
+        if (ConversationAction.LOCK in can) add {
+            MenuRow(
+                if (issue.isLocked) Icons.Outlined.LockOpen else Icons.Outlined.Lock,
+                stringResource(if (issue.isLocked) R.string.manage_unlock else R.string.manage_lock),
+                null, enabled, onClick = actions.onToggleLocked,
+            )
+        }
+        // A forge whose API can't lock still locks on its site: whoever may is sent there.
+        if (ConversationAction.LOCK !in state.supported && state.access >= RepoAccess.WRITE) add {
+            MenuRow(
+                if (issue.isLocked) Icons.Outlined.LockOpen else Icons.Outlined.Lock,
+                stringResource(if (issue.isLocked) R.string.manage_unlock else R.string.manage_lock),
+                stringResource(R.string.manage_on_forge, state.ref.repo.forge.displayName),
+                enabled,
+            ) {
+                actions.onOpenOnForge()
+                onDismiss()
+            }
+        }
+        if (ConversationAction.PIN in can) add {
+            // Not to be pressed until the forge has said whether it is pinned.
+            MenuRow(
+                Icons.Outlined.PushPin,
+                stringResource(if (state.manage.pinned == true) R.string.manage_unpin else R.string.manage_pin),
+                null, enabled && state.manage.pinned != null, onClick = actions.onTogglePinned,
+            )
         }
     }
-    if (ConversationAction.MILESTONE in can) {
-        MenuRow(Icons.Outlined.Flag, stringResource(R.string.manage_milestone), issue.milestone?.title ?: none, enabled) {
-            actions.onLoadMilestones()
-            onOpen(ManagePage.MILESTONE)
+    val more = buildList<@Composable () -> Unit> {
+        if (issue.pullRequest == null) add {
+            MenuRow(Icons.Outlined.ContentCopy, stringResource(R.string.manage_duplicate), null, enabled) {
+                actions.onDuplicate()
+                onDismiss()
+            }
+        }
+        if (ConversationAction.TRANSFER in can) add {
+            MenuRow(Icons.Outlined.SwapHoriz, stringResource(R.string.manage_transfer), null, enabled) { onOpen(ManagePage.TRANSFER) }
+        }
+        // Last, and in ink like the rest: what makes it final is its own page, which says so and asks.
+        if (ConversationAction.DELETE in can) add {
+            MenuRow(Icons.Outlined.DeleteOutline, stringResource(R.string.manage_delete), null, enabled) { onOpen(ManagePage.DELETE) }
         }
     }
-    if (ConversationAction.DUE_DATE in can) {
-        MenuRow(Icons.Outlined.Event, stringResource(R.string.manage_due_date), issue.dueDate?.let { formatDay(it) } ?: none, enabled) { onOpen(ManagePage.DUE_DATE) }
-    }
-    if (ConversationAction.TIME_TRACKING in can) {
-        MenuRow(Icons.Outlined.Timer, stringResource(R.string.manage_time), null, enabled) {
-            actions.onLoadTracking()
-            onOpen(ManagePage.TIME)
-        }
-    }
-    if (ConversationAction.DEPENDENCIES in can) {
-        MenuRow(Icons.Outlined.AccountTree, stringResource(R.string.manage_dependencies), null, enabled) {
-            actions.onLoadDependencies()
-            onOpen(ManagePage.DEPENDENCIES)
-        }
-    }
-    if (ConversationAction.CLOSE_REASON in can) {
-        MenuRow(Icons.Outlined.Block, stringResource(R.string.manage_close_not_planned), null, enabled) { actions.onClose(CloseReason.NOT_PLANNED) }
-        MenuRow(Icons.Outlined.Difference, stringResource(R.string.manage_close_duplicate), null, enabled) { actions.onClose(CloseReason.DUPLICATE) }
-    }
-    if (ConversationAction.LOCK in can) {
-        MenuRow(
-            if (issue.isLocked) Icons.Outlined.LockOpen else Icons.Outlined.Lock,
-            stringResource(if (issue.isLocked) R.string.manage_unlock else R.string.manage_lock),
-            null, enabled, onClick = actions.onToggleLocked,
-        )
-    }
-    // A forge whose API can't lock still locks on its site: whoever may is sent there.
-    if (ConversationAction.LOCK !in state.supported && state.access >= RepoAccess.WRITE) {
-        MenuRow(
-            if (issue.isLocked) Icons.Outlined.LockOpen else Icons.Outlined.Lock,
-            stringResource(if (issue.isLocked) R.string.manage_unlock else R.string.manage_lock),
-            stringResource(R.string.manage_on_forge, state.ref.repo.forge.displayName),
-            enabled,
-        ) {
-            actions.onOpenOnForge()
-            onDismiss()
-        }
-    }
-    if (ConversationAction.PIN in can) {
-        // Not to be pressed until the forge has said whether it is pinned.
-        MenuRow(
-            Icons.Outlined.PushPin,
-            stringResource(if (state.manage.pinned == true) R.string.manage_unpin else R.string.manage_pin),
-            null, enabled && state.manage.pinned != null, onClick = actions.onTogglePinned,
-        )
-    }
-    if (issue.pullRequest == null) {
-        MenuRow(Icons.Outlined.ContentCopy, stringResource(R.string.manage_duplicate), null, enabled) {
-            actions.onDuplicate()
-            onDismiss()
-        }
-    }
-    if (ConversationAction.TRANSFER in can) {
-        MenuRow(Icons.Outlined.SwapHoriz, stringResource(R.string.manage_transfer), null, enabled) { onOpen(ManagePage.TRANSFER) }
-    }
-    if (ConversationAction.DELETE in can) {
-        MenuRow(Icons.Outlined.DeleteOutline, stringResource(R.string.manage_delete), null, enabled, tint = Soft.colors.accent) { onOpen(ManagePage.DELETE) }
-    }
+    MenuGroup(stringResource(R.string.manage_group_details), details)
+    MenuGroup(stringResource(R.string.manage_group_state), standing)
+    MenuGroup(stringResource(R.string.manage_group_more), more)
+}
+
+/** A titled group of the menu, left out when nothing in it can be done here. */
+@Composable
+private fun MenuGroup(title: String, rows: List<@Composable () -> Unit>) {
+    if (rows.isEmpty()) return
+    Text(
+        title,
+        style = Soft.type.label,
+        color = Soft.colors.inkMuted,
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 2.dp).semantics { heading() },
+    )
+    rows.forEach { it() }
 }
 
 @Composable
@@ -291,7 +322,9 @@ private fun MenuRow(icon: ImageVector, label: String, value: String?, enabled: B
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = if (enabled) tint else colors.inkMuted, modifier = Modifier.size(22.dp))
+        // Grows with the text beside it, so a large font doesn't leave it small, up to what a row can carry.
+        val glyph = with(LocalDensity.current) { 22.sp.toDp() }.coerceAtMost(34.dp)
+        Icon(icon, contentDescription = null, tint = if (enabled) tint else colors.inkMuted, modifier = Modifier.size(glyph))
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(label, style = Soft.type.body, color = if (enabled) tint else colors.inkMuted)

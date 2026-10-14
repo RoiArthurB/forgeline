@@ -554,6 +554,9 @@
     <string name="manage_on_forge">On %1$s\'s site: its API can\'t do this</string>
     <string name="manage_title">Manage</string>
     <string name="manage_back">Back to Manage</string>
+    <string name="manage_group_details">Details</string>
+    <string name="manage_group_state">State</string>
+    <string name="manage_group_more">More</string>
     <string name="manage_none">None</string>
     <string name="manage_labels">Labels</string>
     <string name="manage_assignees">Assignees</string>
