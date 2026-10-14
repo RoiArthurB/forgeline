@@ -233,7 +233,7 @@ private fun CodeFile(text: String, fileName: String) {
     }
     val lines = highlighted ?: remember(text) { CodeHighlighter.lines(AnnotatedString(text)) }
     val gutter = (lines.size.toString().length * 9 + 20).dp
-    val code = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 20.sp)
+    val code = Soft.type.code
     LazyColumn(
         Modifier.fillMaxSize().testTag(if (highlighted != null) CODE_HIGHLIGHTED_TAG else CODE_PLAIN_TAG),
         contentPadding = PaddingValues(top = 12.dp, bottom = listBottomPadding()),

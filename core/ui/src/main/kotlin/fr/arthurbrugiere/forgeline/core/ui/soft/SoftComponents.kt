@@ -414,7 +414,7 @@ fun SoftTextField(
             minLines = minLines,
             maxLines = maxLines,
             readOnly = readOnly,
-            textStyle = Soft.type.body.copy(fontSize = 16.sp, color = colors.ink),
+            textStyle = Soft.type.lead.copy(color = colors.ink),
             cursorBrush = SolidColor(colors.accent),
             visualTransformation = visualTransformation,
             keyboardOptions = keyboardOptions,
@@ -460,7 +460,7 @@ fun SoftTextField(
             minLines = minLines,
             maxLines = maxLines,
             readOnly = readOnly,
-            textStyle = Soft.type.body.copy(fontSize = 16.sp, color = colors.ink),
+            textStyle = Soft.type.lead.copy(color = colors.ink),
             cursorBrush = SolidColor(colors.accent),
             keyboardOptions = keyboardOptions,
             modifier = Modifier.fillMaxWidth().then(if (label != null) Modifier.semantics { contentDescription = label } else Modifier),
@@ -499,7 +499,7 @@ private fun SoftFieldBox(
         }
         Box(Modifier.weight(1f)) {
             if (isEmpty) {
-                Text(placeholder, style = Soft.type.body.copy(fontSize = 16.sp), color = colors.inkMuted, maxLines = 1)
+                Text(placeholder, style = Soft.type.lead, color = colors.inkMuted, maxLines = 1)
             }
             field()
         }
@@ -641,7 +641,7 @@ fun SoftPill(label: String, icon: ImageVector, tint: Color, modifier: Modifier =
 fun SoftTag(text: String, modifier: Modifier = Modifier, background: Color = Soft.colors.surface, content: Color = Soft.colors.ink) {
     Text(
         text,
-        style = Soft.type.label.copy(fontSize = 12.sp, lineHeight = 16.sp),
+        style = Soft.type.tag,
         color = content,
         maxLines = 1,
         modifier = modifier.clip(SoftTokens.Pill).background(background).padding(horizontal = 10.dp, vertical = 4.dp),

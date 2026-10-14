@@ -207,7 +207,7 @@ private fun Header(
                 if (profile.isOrganization) SoftTag(stringResource(R.string.user_organization), background = colors.ground)
             }
         }
-        profile.bio?.let { Text(it, style = Soft.type.body.copy(fontSize = 16.sp), color = colors.ink, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure)) }
+        profile.bio?.let { Text(it, style = Soft.type.lead, color = colors.ink, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure)) }
         profile.company?.let { Detail(Icons.Outlined.Business, it) }
         profile.location?.let { Detail(Icons.Outlined.LocationOn, it) }
         profile.website?.let { site ->

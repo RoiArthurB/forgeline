@@ -870,11 +870,7 @@ private fun ThreadRow(
                 }
                 Text(
                     thread.title,
-                    style = Soft.type.body.copy(
-                        fontSize = 16.sp,
-                        lineHeight = 22.sp,
-                        fontWeight = if (thread.unread) FontWeight.Medium else FontWeight.Normal,
-                    ),
+                    style = Soft.type.rowTitle.copy(fontWeight = if (thread.unread) FontWeight.Medium else FontWeight.Normal),
                     color = titleColor,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,

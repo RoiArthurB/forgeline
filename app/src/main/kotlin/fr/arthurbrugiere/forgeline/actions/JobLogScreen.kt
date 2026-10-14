@@ -266,7 +266,6 @@ private fun StepRow(step: RunStep, nowMillis: Long) {
     }
 }
 
-private val LogText = androidx.compose.ui.text.TextStyle(fontFamily = FontFamily.Monospace, fontSize = 12.sp, lineHeight = 18.sp)
 
 private val LineModifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()
 
@@ -288,7 +287,7 @@ private fun GroupHeader(row: LogRow.Header, onClick: () -> Unit) {
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(6.dp))
-        Text(row.title, style = LogText.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium), color = colors.ink, maxLines = 2, modifier = Modifier.weight(1f))
+        Text(row.title, style = Soft.type.codeDense.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium), color = colors.ink, maxLines = 2, modifier = Modifier.weight(1f))
         if (!row.open) Text(row.lines.toString(), style = Soft.type.meta, color = colors.inkMuted)
     }
 }
@@ -307,7 +306,7 @@ private fun LogLine(row: LogRow.Line, palette: AnsiPalette) {
     }
     Text(
         text,
-        style = LogText,
+        style = Soft.type.codeDense,
         color = tint,
         modifier = LineModifier
             .padding(horizontal = 8.dp)

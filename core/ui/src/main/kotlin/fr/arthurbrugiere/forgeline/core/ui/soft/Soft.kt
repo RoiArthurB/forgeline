@@ -114,6 +114,18 @@ data class SoftType(
     val secondary: TextStyle = TextStyle(fontFamily = Lexend, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
     val meta: TextStyle = TextStyle(fontFamily = Lexend, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 18.sp, fontFeatureSettings = "tnum"),
     val label: TextStyle = TextStyle(fontFamily = Lexend, fontWeight = FontWeight.Medium, fontSize = 13.sp, lineHeight = 18.sp),
+    /** What a subject says of itself under its name in a header (a repository's description, a bio), and what is written in a field. */
+    val lead: TextStyle = body.copy(fontSize = 16.sp, lineHeight = 24.sp),
+    /** The title line of a list row read at a glance (a thread in the Inbox, what an event is about in the Feed). */
+    val rowTitle: TextStyle = TextStyle(fontFamily = Lexend, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 22.sp),
+    /** Tags, labels and reactions. */
+    val tag: TextStyle = TextStyle(fontFamily = Lexend, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
+    /** A file's code, and code in Markdown. */
+    val code: TextStyle = TextStyle(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 20.sp),
+    /** Code read many lines at a time: a change's lines, a blame, a job's log. */
+    val codeDense: TextStyle = code.copy(fontSize = 12.sp, lineHeight = 18.sp),
+    /** Line numbers and hunk headers beside dense code: tabular, muted by whoever sets them. */
+    val gutter: TextStyle = code.copy(fontSize = 11.sp, lineHeight = 18.sp, fontFeatureSettings = "tnum"),
 )
 
 val LocalSoftColors = staticCompositionLocalOf { SoftLight }

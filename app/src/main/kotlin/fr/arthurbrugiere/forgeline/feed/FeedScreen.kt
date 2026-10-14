@@ -536,7 +536,7 @@ private fun StatePill(
 private fun ObjectTitle(title: String) {
     Text(
         title,
-        style = Soft.type.body.copy(fontSize = 16.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium),
+        style = Soft.type.rowTitle.copy(fontWeight = FontWeight.Medium),
         color = Soft.colors.ink,
         maxLines = 3,
         overflow = TextOverflow.Ellipsis,

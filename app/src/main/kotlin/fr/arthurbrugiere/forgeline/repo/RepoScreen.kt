@@ -672,7 +672,7 @@ private fun RepoHeader(
         }
         Text(details.id.name, style = Soft.type.detailTitle, color = colors.ink, modifier = Modifier.semantics { heading() })
         details.description?.let {
-            Text(it, style = Soft.type.body.copy(fontSize = 16.sp), color = colors.ink, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure))
+            Text(it, style = Soft.type.lead, color = colors.ink, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure))
         }
         details.homepage?.let { url ->
             Row(

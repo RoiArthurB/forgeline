@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.ui
 
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -65,7 +66,10 @@ fun ReportReading(listState: LazyListState, resetKey: Any?, positionOf: (key: An
     }
 }
 
-/** Where the last visit's reading stopped: a quiet hairline with its name, nothing to press. */
+/**
+ * Where the last visit's reading stopped: the Stopped-here marker, a warm pill with an ember dot and its name, set
+ * between the rows. Nothing to press, and no line across: nothing in the world is ruled.
+ */
 @Composable
 fun LeftOffMark(modifier: Modifier = Modifier) {
     val colors = Soft.colors
@@ -73,10 +77,13 @@ fun LeftOffMark(modifier: Modifier = Modifier) {
         modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(6.dp).background(colors.thumb, CircleShape))
-        Spacer(Modifier.width(8.dp))
-        Text(stringResource(R.string.reading_left_off), style = Soft.type.label, color = colors.inkMuted)
-        Spacer(Modifier.width(10.dp))
-        Box(Modifier.weight(1f).height(1.dp).background(colors.inkMuted.copy(alpha = 0.25f)))
+        Row(
+            Modifier.clip(SoftTokens.Pill).background(colors.fields[0]).padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(6.dp).background(colors.thumb, CircleShape))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.reading_left_off), style = Soft.type.label, color = colors.ink)
+        }
     }
 }

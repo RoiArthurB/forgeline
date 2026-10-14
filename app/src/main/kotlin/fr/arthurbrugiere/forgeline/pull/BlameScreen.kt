@@ -120,14 +120,14 @@ fun BlameScreen(
                         Row(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(vertical = 1.dp)) {
                             Text(
                                 "${block.startLine + offset}",
-                                style = Soft.type.meta.copy(fontFamily = FontFamily.Monospace, fontSize = 10.sp, lineHeight = 18.sp),
+                                style = Soft.type.gutter,
                                 color = colors.inkMuted,
                                 textAlign = TextAlign.End,
                                 modifier = Modifier.width(40.dp),
                             )
                             Text(
                                 line,
-                                style = Soft.type.meta.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp, lineHeight = 18.sp),
+                                style = Soft.type.codeDense,
                                 color = colors.ink,
                                 modifier = Modifier.weight(1f).padding(start = 10.dp, end = 8.dp),
                             )

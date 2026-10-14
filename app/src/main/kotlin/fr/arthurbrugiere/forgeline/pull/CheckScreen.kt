@@ -207,7 +207,7 @@ private fun Header(state: CheckUiState, nowMillis: Long) {
     val report = state.report
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(report?.app ?: state.repo.fullName, style = Soft.type.secondary, color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(report?.name ?: state.name, style = Soft.type.title, color = colors.ink, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
+        Text(report?.name ?: state.name, style = Soft.type.hero, color = colors.ink, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
         if (report == null) return@Column
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(28.dp).background(colors.ground, CircleShape), contentAlignment = Alignment.Center) {

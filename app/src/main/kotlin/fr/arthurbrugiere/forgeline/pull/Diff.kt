@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -79,7 +80,7 @@ internal fun LazyListScope.fileDiffItems(
             item(key = "file-$index-hunk-$hunkIndex", contentType = "hunk") {
                 Text(
                     hunk.header,
-                    style = Soft.type.meta.copy(fontFamily = FontFamily.Monospace, fontSize = 11.sp),
+                    style = Soft.type.gutter,
                     color = Soft.colors.inkMuted,
                     maxLines = 1,
                     modifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().background(Soft.colors.surface).padding(horizontal = 12.dp, vertical = 4.dp),
@@ -119,7 +120,7 @@ private fun FileHeading(diff: FileDiff, expanded: Boolean, onToggle: () -> Unit)
         Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(file.path, style = Soft.type.control.copy(fontFamily = FontFamily.Monospace, fontSize = 13.sp), color = colors.ink)
+            Text(file.path, style = Soft.type.code.copy(fontWeight = FontWeight.Medium), color = colors.ink)
             val note = when (file.change) {
                 FileChange.ADDED -> stringResource(R.string.changes_file_added)
                 FileChange.REMOVED -> stringResource(R.string.changes_file_removed)
@@ -142,7 +143,7 @@ private fun FileHeading(diff: FileDiff, expanded: Boolean, onToggle: () -> Unit)
 @Composable
 private fun LineRow(line: DiffLine, onClick: (() -> Unit)?) {
     val colors = Soft.colors
-    val number = Soft.type.meta.copy(fontFamily = FontFamily.Monospace, fontSize = 10.sp, lineHeight = 18.sp)
+    val number = Soft.type.gutter
     val spoken = stringResource(
         when (line.kind) {
             DiffLineKind.ADDED -> R.string.changes_line_added
@@ -175,7 +176,7 @@ private fun LineRow(line: DiffLine, onClick: (() -> Unit)?) {
                 DiffLineKind.REMOVED -> "−"
                 DiffLineKind.CONTEXT -> ""
             },
-            style = number.copy(fontSize = 12.sp),
+            style = Soft.type.codeDense,
             color = colors.ink,
             textAlign = TextAlign.Center,
             modifier = Modifier.width(18.dp),
@@ -183,7 +184,7 @@ private fun LineRow(line: DiffLine, onClick: (() -> Unit)?) {
         // Wrapped, not scrolled sideways: on a phone a long line is read by going down, not by losing the others.
         Text(
             line.text,
-            style = Soft.type.meta.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp, lineHeight = 18.sp),
+            style = Soft.type.codeDense,
             color = colors.ink,
             modifier = Modifier.weight(1f).padding(end = 8.dp),
         )
