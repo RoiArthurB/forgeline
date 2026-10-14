@@ -16,6 +16,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
+import fr.arthurbrugiere.forgeline.ui.assertTextFits
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = PHONE)
@@ -117,5 +119,28 @@ class YouScreenTest {
         composeRule.setContent { YouScreen(SessionState.SignedIn(account), onSignIn = {}, onOpenSettings = {}) }
 
         composeRule.onNodeWithText("ended", substring = true).assertDoesNotExist()
+    }
+
+    /** On a screen tall enough to hold it all: a target cut by the edge of a shorter one measures as less than it is. */
+    @Test
+    @Config(qualifiers = "w411dp-h2400dp-xhdpi")
+    fun every_target_is_48dp_at_least() {
+        val gitHub = Account("github:github.com:octocat", ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null))
+        val codeberg = Account("forgejo:codeberg.org:alice", ForgeInstance.Codeberg, ForgeUser("alice", "Alice", null))
+        composeRule.setContent { YouScreen(SessionState.SignedIn(gitHub, listOf(gitHub, codeberg)), onSignIn = {}, onOpenSettings = {}, onOpenProfile = {}) }
+        composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    /** Regression: at twice the text size the forge's name beside the handle was cut to "GitH". */
+    @Test
+    // Text is measured for real only with native graphics; the default fakes a width of a pixel a letter.
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun at_large_text_the_handle_and_the_forge_are_both_whole() {
+        val account = Account("id", ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null))
+        composeRule.setContent { YouScreen(SessionState.SignedIn(account), onSignIn = {}, onOpenSettings = {}) }
+
+        composeRule.assertTextFits("@octocat")
+        composeRule.assertTextFits("GitHub")
     }
 }

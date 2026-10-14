@@ -33,6 +33,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.Instant
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = PHONE)
@@ -223,5 +224,14 @@ class ChangesScreenTest {
         composeRule.waitForIdle()
 
         assertThat(events).contains("more")
+    }
+
+    /** On a screen tall enough to hold it all: a target cut by the edge of a shorter one measures as less than it is. */
+    @Test
+    @Config(qualifiers = "w411dp-h2400dp-xhdpi")
+    fun every_target_is_48dp_at_least() {
+        // As a reviewer: every line of the change is then something to press.
+        setContent(loaded(upload, diff("docs/retry.md", "@@ -0,0 +1 @@\n+Retries three times.", FileChange.ADDED)).copy(canReview = true))
+        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 }

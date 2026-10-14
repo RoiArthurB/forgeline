@@ -255,7 +255,15 @@ fun SoftSwitch(
                     contentAlignment = Alignment.Center,
                 ) {
                     val color = if (isSelected) colors.onThumb else colors.inkMuted
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
+                    // At large font scales a logo beside the name takes the room the name needs: it goes above it instead.
+                    val stacked = leading != null && LocalDensity.current.fontScale >= 1.5f
+                    @Composable fun label(content: @Composable () -> Unit) =
+                        if (stacked) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) { content() }
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) { content() }
+                        }
+                    label {
                         leading?.invoke(index, color)
                         // Shrinks a word that can't wrap (at very large font scales) instead of cutting it off, down to 12dp on screen.
                         Text(
@@ -267,7 +275,6 @@ fun SoftSwitch(
                             softWrap = ' ' in option,
                             maxLines = if (' ' in option) Int.MAX_VALUE else 1,
                             autoSize = TextAutoSize.StepBased(minFontSize = (12f / LocalDensity.current.fontScale).sp, maxFontSize = Soft.type.control.fontSize),
-                            modifier = Modifier.weight(1f, fill = false),
                         )
                     }
                 }
@@ -643,7 +650,10 @@ fun SoftTag(text: String, modifier: Modifier = Modifier, background: Color = Sof
         text,
         style = Soft.type.tag,
         color = content,
+        // One line, cut short at its end: a branch's name allowed to wrap broke after its first "/" and lost the rest.
         maxLines = 1,
+        softWrap = false,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
         modifier = modifier.clip(SoftTokens.Pill).background(background).padding(horizontal = 10.dp, vertical = 4.dp),
     )
 }

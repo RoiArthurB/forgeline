@@ -30,6 +30,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import fr.arthurbrugiere.forgeline.PHONE
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = PHONE)
@@ -55,6 +56,9 @@ class SettingsScreenTest {
     private var language: AppLanguageChoice? = null
     private val languages = mutableListOf<String?>()
 
+    /** The page shown when a test moves between them; [setContent]'s own section wins when it is given. */
+    private val shownSection = androidx.compose.runtime.mutableStateOf<SettingsSection?>(null)
+
     private fun setContent(
         settings: UserSettings = UserSettings(),
         session: SessionState = SessionState.SignedOut,
@@ -74,7 +78,7 @@ class SettingsScreenTest {
                 onFeedKindChange = { kind, shown -> feedChanges += kind to shown },
                 onOpenSourceCode = { sourceCodeOpened = true },
                 onBack = { backPressed = true },
-                section = section,
+                section = section ?: shownSection.value,
                 onOpenSection = { openedSection = it },
                 onChange = { change -> changed = change(changed ?: settings) },
                 language = language,
@@ -420,5 +424,19 @@ class SettingsScreenTest {
         setContent(section = SettingsSection.APPEARANCE)
 
         composeRule.onNodeWithText("Language").assertDoesNotExist()
+    }
+
+    /** On a screen tall enough to hold it all: a target cut by the edge of a shorter one measures as less than it is. */
+    @Test
+    @Config(qualifiers = "w411dp-h2400dp-xhdpi")
+    fun every_target_is_48dp_at_least_on_every_page() {
+        val github = Account(Account.idFor(ForgeInstance.GitHub, "octocat"), ForgeInstance.GitHub, ForgeUser("octocat", null, null))
+        setContent(session = SessionState.SignedIn(github))
+        composeRule.assertEveryTargetIsAtLeast48dp()
+        for (page in SettingsSection.entries) {
+            shownSection.value = page
+            composeRule.waitForIdle()
+            composeRule.assertEveryTargetIsAtLeast48dp()
+        }
     }
 }

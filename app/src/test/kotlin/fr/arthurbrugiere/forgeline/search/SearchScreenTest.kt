@@ -30,6 +30,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = PHONE)
@@ -253,5 +254,13 @@ class SearchScreenTest {
         composeRule.onNodeWithText("Open this link").performClick()
 
         assertThat(events).containsExactly("link:" + fr.arthurbrugiere.forgeline.navigation.IssueRoute("gitlab.com", "gitlab-org", "gitlab-runner", 100, isPullRequest = true))
+    }
+
+    /** On a screen tall enough to hold it all: a target cut by the edge of a shorter one measures as less than it is. */
+    @Test
+    @Config(qualifiers = "w411dp-h2400dp-xhdpi")
+    fun every_target_is_48dp_at_least() {
+        setContent(loaded(SearchResult.Repository(repoSummary("acme/rocket")), SearchResult.Repository(repoSummary("octo/tools")), total = 40, more = true))
+        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 }

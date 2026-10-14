@@ -32,6 +32,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.unit.dp
 
 /** The shared Soft pieces every screen builds from, checked once here rather than on each screen. */
 @RunWith(RobolectricTestRunner::class)
@@ -102,5 +104,25 @@ class SoftPiecesTest {
 
         composeRule.onNodeWithText("Marked as done").assertIsDisplayed()
         composeRule.onNodeWithText("Undo").assertIsDisplayed()
+    }
+
+    /** Regression: a branch's name wrapped after its first "/", and the rest of it was cut off out of sight. */
+    @Test
+    // Text is measured for real only with native graphics; the default fakes a width of a pixel a letter.
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun a_tag_too_long_for_its_room_keeps_to_one_line_and_says_it_is_cut() {
+        composeRule.setContent {
+            ForgelineTheme {
+                androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.width(120.dp)) {
+                    fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag("fix/blocked-inbox-reason-and-action")
+                }
+            }
+        }
+
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        composeRule.onNodeWithText("fix/blocked-inbox-reason-and-action").fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action?.invoke(layouts)
+        assertThat(layouts.single().lineCount).isEqualTo(1)
+        assertThat(layouts.single().isLineEllipsized(0)).isTrue()
     }
 }

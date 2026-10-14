@@ -21,6 +21,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.Instant
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = PHONE)
@@ -149,5 +150,13 @@ class RunScreenTest {
         composeRule.onNodeWithText("Open on git.example.org").performClick()
 
         assertThat(events).contains("browser")
+    }
+
+    /** On a screen tall enough to hold it all: a target cut by the edge of a shorter one measures as less than it is. */
+    @Test
+    @Config(qualifiers = "w411dp-h2400dp-xhdpi")
+    fun every_target_is_48dp_at_least() {
+        setContent(failedRun)
+        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 }

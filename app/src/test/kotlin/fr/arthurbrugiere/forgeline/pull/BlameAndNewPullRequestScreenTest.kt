@@ -26,6 +26,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.Instant
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = PHONE)
@@ -153,5 +154,28 @@ class BlameAndNewPullRequestScreenTest {
         composeRule.onNodeWithText("Retry").performClick()
 
         assertThat(events).containsExactly("retry")
+    }
+
+    /** On a screen tall enough to hold it all: a target cut by the edge of a shorter one measures as less than it is. */
+    @Test
+    @Config(qualifiers = "w411dp-h2400dp-xhdpi")
+    fun every_target_of_a_blame_is_48dp_at_least() {
+        blame(
+            Loadable.Loaded(
+                listOf(
+                    BlameBlock(commit("1a2b3c4d5e", "Start the project"), 1, listOf("package x", "")),
+                    BlameBlock(commit("9f8e7d6c5b", "Add main", author = "hubot"), 3, listOf("fun main() {}")),
+                ),
+            ),
+        )
+        composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    /** On a screen tall enough to hold it all: a target cut by the edge of a shorter one measures as less than it is. */
+    @Test
+    @Config(qualifiers = "w411dp-h2400dp-xhdpi")
+    fun every_target_of_a_new_pull_request_is_48dp_at_least() {
+        form(NewPullRequestUiState(tools, branches, base = "main", head = "release", title = "Release 2"))
+        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 }

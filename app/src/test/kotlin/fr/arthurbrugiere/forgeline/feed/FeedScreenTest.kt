@@ -27,6 +27,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.Instant
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = PHONE)
@@ -385,5 +386,20 @@ class FeedScreenTest {
 
         composeRule.onNodeWithText("Where you left off").assertDoesNotExist()
         composeRule.onNodeWithText("octo/\u2060read").assertIsDisplayed()
+    }
+
+    /** On a screen tall enough to hold it all: a target cut by the edge of a shorter one measures as less than it is. */
+    @Test
+    @Config(qualifiers = "w411dp-h2400dp-xhdpi")
+    fun every_target_is_48dp_at_least() {
+        hasReleasePage = true
+        setContent(
+            state(
+                feedEvent("7", actor = "bob", repo = "octo/new", createdAt = "2026-09-27T09:30:00Z"),
+                feedEvent("6", actor = "alice", repo = "octo/tools", action = FeedAction.Released("v2.0.0", "Tools 2.0", prerelease = false)),
+                hasMore = true,
+            ),
+        )
+        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 }

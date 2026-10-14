@@ -136,6 +136,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import fr.arthurbrugiere.forgeline.pull.BlameScreen
+import fr.arthurbrugiere.forgeline.pull.BlameBlock
+import fr.arthurbrugiere.forgeline.core.testing.commit
+import com.mikepenz.aboutlibraries.util.withJson
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -207,6 +211,10 @@ class ScreenshotTest {
     fun settings_light() = snapshot("settings_light", darkTheme = false) { SettingsPreview() }
 
     @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun settings_font_2_0_light() = snapshot("settings_font_2_0_light", darkTheme = false) { SettingsPreview() }
+
+    @Test
     fun settings_dark_amoled() = snapshot("settings_dark_amoled", darkTheme = true, amoledBlack = true) {
         SettingsPreview(UserSettings(themeMode = ThemeMode.DARK, amoledBlack = true), section = SettingsSection.APPEARANCE)
     }
@@ -234,7 +242,14 @@ class ScreenshotTest {
     }
 
     @Test
-    fun sign_in_light() = snapshot("sign_in_light", darkTheme = false) {
+    fun sign_in_light() = snapshot("sign_in_light", darkTheme = false) { SignInShot() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun sign_in_font_2_0_light() = snapshot("sign_in_font_2_0_light", darkTheme = false) { SignInShot() }
+
+    @Composable
+    private fun SignInShot() {
         SignInScreen(
             state = SignInUiState(true, "https://github.com/settings/tokens/new"),
             onStartDeviceFlow = {}, onContinueOnGitHub = { _, _ -> }, onSubmitToken = {}, onOpenUrl = {},
@@ -266,6 +281,12 @@ class ScreenshotTest {
 
     @Test
     fun you_signed_in_light() = snapshot("you_signed_in_light", darkTheme = false) {
+        YouScreen(SessionState.SignedIn(octocat), onSignIn = {}, onOpenSettings = {})
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun you_signed_in_font_2_0_light() = snapshot("you_signed_in_font_2_0_light", darkTheme = false) {
         YouScreen(SessionState.SignedIn(octocat), onSignIn = {}, onOpenSettings = {})
     }
 
@@ -536,7 +557,17 @@ class ScreenshotTest {
     private val runStart = java.time.Instant.parse("2026-09-29T07:57:44Z")
 
     @Test
-    fun run_failed_light() = snapshot("run_failed_light", darkTheme = false) {
+    fun run_failed_light() = snapshot("run_failed_light", darkTheme = false) { RunFailedShot() }
+
+    @Test
+    fun run_failed_dark() = snapshot("run_failed_dark", darkTheme = true) { RunFailedShot() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun run_failed_font_2_0_light() = snapshot("run_failed_font_2_0_light", darkTheme = false) { RunFailedShot() }
+
+    @Composable
+    private fun RunFailedShot() {
         RunScreen(
             state = RunUiState(
                 repo = RepoId("paperclipai", "paperclip"),
@@ -559,7 +590,17 @@ class ScreenshotTest {
     }
 
     @Test
-    fun dispatch_form_light() = snapshot("dispatch_form_light", darkTheme = false) {
+    fun dispatch_form_light() = snapshot("dispatch_form_light", darkTheme = false) { DispatchFormShot() }
+
+    @Test
+    fun dispatch_form_dark() = snapshot("dispatch_form_dark", darkTheme = true) { DispatchFormShot() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun dispatch_form_font_2_0_light() = snapshot("dispatch_form_font_2_0_light", darkTheme = false) { DispatchFormShot() }
+
+    @Composable
+    private fun DispatchFormShot() {
         androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.background(fr.arthurbrugiere.forgeline.core.ui.soft.Soft.colors.ground)) {
             DispatchContent(
                 state = DispatchUiState(
@@ -580,7 +621,17 @@ class ScreenshotTest {
     }
 
     @Test
-    fun job_log_dark() = snapshot("job_log_dark", darkTheme = true) {
+    fun job_log_dark() = snapshot("job_log_dark", darkTheme = true) { JobLogShot() }
+
+    @Test
+    fun job_log_light() = snapshot("job_log_light", darkTheme = false) { JobLogShot() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun job_log_font_2_0_light() = snapshot("job_log_font_2_0_light", darkTheme = false) { JobLogShot() }
+
+    @Composable
+    private fun JobLogShot() {
         JobLogScreen(
             state = JobLogUiState(
                 repo = RepoId("paperclipai", "paperclip"),
@@ -626,7 +677,17 @@ class ScreenshotTest {
     }
 
     @Test
-    fun file_code_dark() = snapshot("file_code_dark", darkTheme = true, awaitTag = CODE_HIGHLIGHTED_TAG) {
+    fun file_code_dark() = snapshot("file_code_dark", darkTheme = true, awaitTag = CODE_HIGHLIGHTED_TAG) { FileCodeShot() }
+
+    @Test
+    fun file_code_light() = snapshot("file_code_light", darkTheme = false, awaitTag = CODE_HIGHLIGHTED_TAG) { FileCodeShot() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun file_code_font_2_0_light() = snapshot("file_code_font_2_0_light", darkTheme = false, awaitTag = CODE_HIGHLIGHTED_TAG) { FileCodeShot() }
+
+    @Composable
+    private fun FileCodeShot() {
         FileScreen(
             state = FileUiState(
                 target = FileTarget(RepoId("octo", "repo"), "src/Main.kt", "main"),
@@ -919,7 +980,14 @@ class ScreenshotTest {
     fun new_issue_empty_light() = snapshot("new_issue_empty_light", darkTheme = false) { NewIssue({ it }) }
 
     @Test
-    fun new_issue_written_dark() = snapshot("new_issue_written_dark", darkTheme = true) {
+    fun new_issue_written_dark() = snapshot("new_issue_written_dark", darkTheme = true) { NewIssueWrittenShot() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun new_issue_written_font_2_0_light() = snapshot("new_issue_written_font_2_0_light", darkTheme = false) { NewIssueWrittenShot() }
+
+    @Composable
+    private fun NewIssueWrittenShot() {
         NewIssue({
             it.copy(
                 title = "Heartbeat recovery escalates too early",
@@ -1199,6 +1267,10 @@ class ScreenshotTest {
     fun check_light() = snapshot("check_light", darkTheme = false, awaitText = "Declining Code Health") { CheckPreview() }
 
     @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun check_font_2_0_light() = snapshot("check_font_2_0_light", darkTheme = false, awaitText = "Declining Code Health") { CheckPreview() }
+
+    @Test
     fun check_dark() = snapshot("check_dark", darkTheme = true, awaitText = "Declining Code Health") { CheckPreview() }
 
     @Test
@@ -1241,7 +1313,14 @@ class ScreenshotTest {
     }
 
     @Test
-    fun user_dark() = snapshot("user_dark", darkTheme = true) {
+    fun user_dark() = snapshot("user_dark", darkTheme = true) { UserShot() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun user_font_2_0_light() = snapshot("user_font_2_0_light", darkTheme = false) { UserShot() }
+
+    @Composable
+    private fun UserShot() {
         UserScreen(
             state = UserUiState(
                 login = "octocat",
@@ -1508,7 +1587,14 @@ class ScreenshotTest {
     }
 
     @Test
-    fun search_issues_dark() = snapshot("search_issues_dark", darkTheme = true) {
+    fun search_issues_dark() = snapshot("search_issues_dark", darkTheme = true) { SearchIssuesShot() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun search_issues_font_2_0_light() = snapshot("search_issues_font_2_0_light", darkTheme = false) { SearchIssuesShot() }
+
+    @Composable
+    private fun SearchIssuesShot() {
         SearchScreen(
             state = SearchUiState(
                 query = "heartbeat",
@@ -1595,7 +1681,17 @@ class ScreenshotTest {
     }
 
     @Test
-    fun discussion_light() = snapshot("discussion_light", darkTheme = false, awaitText = "Use the cursor", awaitGoneTag = MARKDOWN_PENDING_TAG) {
+    fun discussion_light() = snapshot("discussion_light", darkTheme = false, awaitText = "Use the cursor", awaitGoneTag = MARKDOWN_PENDING_TAG) { DiscussionShot() }
+
+    @Test
+    fun discussion_dark() = snapshot("discussion_dark", darkTheme = true, awaitText = "Use the cursor", awaitGoneTag = MARKDOWN_PENDING_TAG) { DiscussionShot() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun discussion_font_2_0_light() = snapshot("discussion_font_2_0_light", darkTheme = false, awaitText = "Use the cursor", awaitGoneTag = MARKDOWN_PENDING_TAG) { DiscussionShot() }
+
+    @Composable
+    private fun DiscussionShot() {
         val repo = RepoId("paperclipai", "paperclip")
         val summary = fr.arthurbrugiere.forgeline.core.testing.discussionSummary(412, "How do I page through runs?", category = "Q&A", comments = 2, isAnswered = true, upvotes = 3)
         fr.arthurbrugiere.forgeline.discussion.DiscussionScreen(
@@ -1669,6 +1765,10 @@ class ScreenshotTest {
     fun changes_light() = snapshot("changes_light", darkTheme = false) { ChangesPreview() }
 
     @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun changes_font_2_0_light() = snapshot("changes_font_2_0_light", darkTheme = false) { ChangesPreview() }
+
+    @Test
     fun changes_dark() = snapshot("changes_dark", darkTheme = true) { ChangesPreview() }
 
     @Test
@@ -1739,7 +1839,17 @@ class ScreenshotTest {
     }
 
     @Test
-    fun commits_light() = snapshot("commits_light", darkTheme = false) {
+    fun commits_light() = snapshot("commits_light", darkTheme = false) { CommitsShot() }
+
+    @Test
+    fun commits_dark() = snapshot("commits_dark", darkTheme = true) { CommitsShot() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun commits_font_2_0_light() = snapshot("commits_font_2_0_light", darkTheme = false) { CommitsShot() }
+
+    @Composable
+    private fun CommitsShot() {
         fr.arthurbrugiere.forgeline.pull.CommitsScreen(
             fr.arthurbrugiere.forgeline.pull.CommitsUiState(
                 fr.arthurbrugiere.forgeline.pull.CommitsTarget.History(RepoId("octo", "tools"), ref = "main", path = "src/main/kotlin/Upload.kt"),
@@ -1751,6 +1861,108 @@ class ScreenshotTest {
             ),
             onBack = {}, onRefresh = {}, onLoadMore = {}, onErrorShown = {}, onOpenCommit = {},
             nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
+        )
+    }
+
+    @Test
+    fun blame_light() = snapshot("blame_light", darkTheme = false) { BlameShot() }
+
+    @Test
+    fun blame_dark() = snapshot("blame_dark", darkTheme = true) { BlameShot() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun blame_font_2_0_light() = snapshot("blame_font_2_0_light", darkTheme = false) { BlameShot() }
+
+    @Composable
+    private fun BlameShot() {
+        val start = java.time.Instant.parse("2026-09-26T10:00:00Z")
+        BlameScreen(
+            fr.arthurbrugiere.forgeline.pull.BlameUiState(
+                FileTarget(RepoId("octo", "tools"), "src/main/kotlin/Upload.kt", "main"),
+                Loadable.Loaded(
+                    listOf(
+                        BlameBlock(commit("1a2b3c4d5e", "Start the project", date = "2026-03-02T09:00:00Z"), 1, listOf("package octo.tools", "", "import java.io.File")),
+                        BlameBlock(
+                            commit("9f8e7d6c5b", "Retry an upload a slow link dropped", author = "hubot", date = "2026-09-26T08:00:00Z"),
+                            4,
+                            listOf("class Upload(private val client: Client) {", "    fun send(file: File): Result {", "        val tries = 3", "        return retry(times = tries) { client.put(file) }", "    }"),
+                        ),
+                        BlameBlock(commit("1a2b3c4d5e", "Start the project", date = "2026-03-02T09:00:00Z"), 9, listOf("}")),
+                    ),
+                ),
+            ),
+            onBack = {}, onRetry = {}, onOpenCommit = {}, onSignIn = {},
+            nowMillis = start.toEpochMilli(),
+        )
+    }
+
+    @Test
+    fun new_pull_request_light() = snapshot("new_pull_request_light", darkTheme = false) { NewPullRequestShot() }
+
+    @Test
+    fun new_pull_request_dark() = snapshot("new_pull_request_dark", darkTheme = true) { NewPullRequestShot() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun new_pull_request_font_2_0_light() = snapshot("new_pull_request_font_2_0_light", darkTheme = false) { NewPullRequestShot() }
+
+    @Composable
+    private fun NewPullRequestShot() {
+        fr.arthurbrugiere.forgeline.pull.NewPullRequestScreen(
+            fr.arthurbrugiere.forgeline.pull.NewPullRequestUiState(
+                RepoId("octo", "tools"),
+                Loadable.Loaded(listOf("main", "fix/slow-uploads", "release")),
+                base = "main",
+                head = "fix/slow-uploads",
+                title = "Retry uploads a slow link dropped",
+                body = "A slow link drops the first try more often than not: an upload is now tried three times before it fails.",
+            ),
+            onBack = {}, onRetry = {}, onBaseChange = {}, onHeadChange = {}, onTitleChange = {}, onBodyChange = {}, onDraftChange = {}, onSend = {},
+        )
+    }
+
+    @Test
+    fun credits_light() = snapshot("credits_light", darkTheme = false) { CreditsShot() }
+
+    @Test
+    fun credits_dark() = snapshot("credits_dark", darkTheme = true) { CreditsShot() }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun credits_font_2_0_light() = snapshot("credits_font_2_0_light", darkTheme = false) { CreditsShot() }
+
+    @Composable
+    private fun CreditsShot() {
+        val libraries = com.mikepenz.aboutlibraries.Libs.Builder().withJson(
+            """
+            {
+              "libraries": [
+                {"uniqueId": "androidx.compose.ui:ui", "artifactVersion": "1.10.0", "name": "Compose UI", "developers": [{"name": "The Android Open Source Project"}], "licenses": ["Apache-2.0"]},
+                {"uniqueId": "com.squareup.okhttp3:okhttp", "artifactVersion": "5.1.0", "name": "OkHttp", "developers": [{"name": "Square, Inc."}], "licenses": ["Apache-2.0"]},
+                {"uniqueId": "io.ktor:ktor-client-core", "artifactVersion": "3.2.0", "name": "Ktor", "developers": [{"name": "JetBrains"}], "licenses": ["Apache-2.0"]}
+              ],
+              "licenses": {
+                "Apache-2.0": {"name": "Apache License 2.0", "url": "https://www.apache.org/licenses/LICENSE-2.0", "hash": "Apache-2.0"}
+              }
+            }
+            """.trimIndent().toByteArray(),
+        ).build()
+        fr.arthurbrugiere.forgeline.credits.CreditsScreen(libraries = libraries, onOpenLicense = {}, onBack = {})
+    }
+
+    @Test
+    fun picture_light() = snapshot("picture_light", darkTheme = false, awaitText = "Couldn't load the picture") { PictureShot() }
+
+    @Test
+    fun picture_dark() = snapshot("picture_dark", darkTheme = true, awaitText = "Couldn't load the picture") { PictureShot() }
+
+    /** The picture comes off the network, which a capture has none of: what is drawn is what is said when it can't be loaded. */
+    @Composable
+    private fun PictureShot() {
+        fr.arthurbrugiere.forgeline.ui.PictureScreen(
+            fr.arthurbrugiere.forgeline.navigation.PictureRoute("https://example.com/shots/board.png?raw=true", "The board, with three cards"),
+            onBack = {}, onOpenInBrowser = {},
         )
     }
 }

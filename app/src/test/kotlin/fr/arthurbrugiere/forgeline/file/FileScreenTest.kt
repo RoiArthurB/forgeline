@@ -27,6 +27,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = PHONE)
@@ -216,5 +217,13 @@ class FileScreenTest {
         composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Share link")).performClick()
 
         com.google.common.truth.Truth.assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()).isEqualTo("https://github.com/octo/repo/blob/main/src/Main.kt" to "Main.kt")
+    }
+
+    /** On a screen tall enough to hold it all: a target cut by the edge of a shorter one measures as less than it is. */
+    @Test
+    @Config(qualifiers = "w411dp-h2400dp-xhdpi")
+    fun every_target_is_48dp_at_least() {
+        setContent(state("src/Main.kt", Loadable.Loaded(FileContent.Text("fun main() {\n    println(1)\n}\n"))).copy(canBlame = true))
+        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 }

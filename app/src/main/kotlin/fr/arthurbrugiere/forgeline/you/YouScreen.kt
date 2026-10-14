@@ -148,7 +148,8 @@ private fun AccountHeader(account: Account, compact: Boolean, onClick: () -> Uni
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // The forge goes under the handle when both don't fit on one line (large text): neither is cut.
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
                 Text("@${account.user.login}", style = Soft.type.secondary, color = colors.inkMuted)
                 ForgeMark(account.forge, style = Soft.type.secondary, color = colors.inkMuted)
             }

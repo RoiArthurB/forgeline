@@ -17,6 +17,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
+import fr.arthurbrugiere.forgeline.ui.assertTextFits
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = PHONE)
@@ -239,5 +241,24 @@ class SignInScreenTest {
         token.performTextInput("ghp_abc")
         // The token is masked as it is written, and the field keeps its name.
         token.assertIsDisplayed().assertTextEquals("•••••••")
+    }
+
+    /** On a screen tall enough to hold it all: a target cut by the edge of a shorter one measures as less than it is. */
+    @Test
+    @Config(qualifiers = "w411dp-h2400dp-xhdpi")
+    fun every_target_is_48dp_at_least() {
+        setContent()
+        composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    /** Regression: at twice the text size the forges' names were cut beside their logos ("Codebe"). */
+    @Test
+    // Text is measured for real only with native graphics; the default fakes a width of a pixel a letter.
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun at_large_text_every_forge_is_named_whole() {
+        setContent()
+
+        for (forge in listOf("GitHub", "GitLab", "Codeberg", "Forgejo")) composeRule.assertTextFits(forge)
     }
 }
