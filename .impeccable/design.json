@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-30T11:46:38+00:00",
+  "generatedAt": "2026-10-15T04:09:08+00:00",
   "title": "Design System: Forgeline",
   "extensions": {
     "colorMeta": {
@@ -434,6 +434,14 @@
         "displayName": "Body",
         "purpose": "Descriptions, issue titles, comment and Notice bodies; measure capped at 580dp."
       },
+      "lead": {
+        "displayName": "Lead",
+        "purpose": "What a subject says of itself under its name in a header (a repository's description, a bio), and what is typed into a text field."
+      },
+      "row-title": {
+        "displayName": "Row Title",
+        "purpose": "The line of a list row read at a glance: an Inbox thread's title (500 unread), what a Feed event is about (500)."
+      },
       "secondary": {
         "displayName": "Secondary",
         "purpose": "Owner above a name, @login, repository line in a detail header, timeline events."
@@ -448,11 +456,19 @@
       },
       "tag": {
         "displayName": "Tag",
-        "purpose": "Label type at 12sp/16sp: Draft, Pre-release, reactions, unread counts."
+        "purpose": "Lexend 500 at 12sp/16sp: Draft, Pre-release, reactions, unread counts, a run's branch. One line, ellipsised."
       },
       "code": {
         "displayName": "Code",
         "purpose": "System monospace for code, SHAs, branch names and the device code only."
+      },
+      "code-dense": {
+        "displayName": "Code Dense",
+        "purpose": "Code read many lines at a time: a pull request's changed lines, a blame, a job's log."
+      },
+      "gutter": {
+        "displayName": "Gutter",
+        "purpose": "Tabular line numbers and hunk headers beside dense code, in muted ink."
       }
     },
     "shadows": [
@@ -584,6 +600,14 @@
       "css": ".ds-btn-tonal { min-height: 48px; padding: 0 20px; border: none; border-radius: 999px; background: #F0EFF3; color: #1E1B2E; font-family: Gabarito, 'Nunito', system-ui, sans-serif; font-weight: 500; font-size: 15px; line-height: 20px; cursor: pointer; } .ds-btn-tonal:hover { filter: brightness(0.97); } .ds-btn-tonal:focus-visible { outline: 2px solid #1E1B2E; outline-offset: 2px; }"
     },
     {
+      "name": "Final Action Button",
+      "kind": "button",
+      "refersTo": "button-final",
+      "description": "The ink pill for what can't be taken back (Delete, Merge anyway), always beside a tonal Cancel. Browser approximation of the Compose SoftDangerButton; dp and sp rendered as px.",
+      "html": "<button class=\"ds-btn-final\">Delete repository</button>",
+      "css": ".ds-btn-final { min-height: 48px; padding: 0 24px; border: none; border-radius: 999px; background: #1E1B2E; color: #FAFAFB; font-family: Gabarito, 'Nunito', system-ui, sans-serif; font-weight: 500; font-size: 15px; line-height: 20px; cursor: pointer; } .ds-btn-final:hover { background: #2E2A42; } .ds-btn-final:active { background: #3A3552; } .ds-btn-final:focus-visible { outline: 2px solid #B83A17; outline-offset: 2px; }"
+    },
+    {
       "name": "Resume Link",
       "kind": "button",
       "refersTo": "link-resume",
@@ -595,9 +619,9 @@
       "name": "Stopped-here Marker",
       "kind": "chip",
       "refersTo": "marker-stopped-here",
-      "description": "Peach pill with an ember dot, left under the row where the last browse stopped. Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
-      "html": "<span class=\"ds-marker\"><span class=\"ds-marker-dot\"></span>You stopped here</span>",
-      "css": ".ds-marker { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: #FFE6DC; color: #1E1B2E; font-family: Lexend, system-ui, sans-serif; font-weight: 500; font-size: 13px; line-height: 18px; } .ds-marker-dot { width: 8px; height: 8px; border-radius: 50%; background: #FF6B3D; }"
+      "description": "Warm pill with a small ember dot, set between the rows where the last browse stopped (Trending, the Feed). Browser approximation of the Jetpack Compose component for the live panel; dp and sp rendered as px.",
+      "html": "<span class=\"ds-marker\"><span class=\"ds-marker-dot\"></span>Where you left off</span>",
+      "css": ".ds-marker { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: #FFE6DC; color: #1E1B2E; font-family: Lexend, system-ui, sans-serif; font-weight: 500; font-size: 13px; line-height: 18px; } .ds-marker-dot { width: 6px; height: 6px; border-radius: 50%; background: #FF6B3D; }"
     },
     {
       "name": "Issue Row",
@@ -646,6 +670,14 @@
       "description": "The one text field: a filled pill, no outline, label as placeholder, ember cursor and error line. Browser approximation of the Compose SoftTextField.",
       "html": "<label class=\"ds-tf\"><input placeholder=\"Personal access token\" type=\"password\"></label>",
       "css": ".ds-tf { display: flex; align-items: center; height: 52px; padding: 0 20px; border-radius: 999px; background: #F0EFF3; max-width: 420px; } .ds-tf input { flex: 1; border: none; background: transparent; font: 400 16px/24px Lexend, sans-serif; color: #1E1B2E; caret-color: #B83A17; outline: none; } .ds-tf input::placeholder { color: #5A566B; } .ds-tf:focus-within { box-shadow: 0 0 0 3px rgba(184,58,23,.35); }"
+    },
+    {
+      "name": "Tag",
+      "kind": "chip",
+      "refersTo": "tag",
+      "description": "A small pill on the soft surface: Draft, Pre-release, reactions, a run's branch. One line; ellipsised rather than cut. Browser approximation of the Compose SoftTag.",
+      "html": "<span class=\"ds-tag\">fix/very-long-branch-name-for-the-tag</span>",
+      "css": ".ds-tag { display: inline-block; max-width: 160px; padding: 4px 10px; border-radius: 999px; background: #F0EFF3; color: #1E1B2E; font: 500 12px/16px Lexend, system-ui, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }"
     }
   ],
   "narrative": {
@@ -684,7 +716,12 @@
       },
       {
         "name": "The Tabular Figures Rule",
-        "body": "Every number meant to be compared down a list (ranks, gains, stats) is set with `tnum`, so columns line up without a grid.",
+        "body": "Every number meant to be compared down a list (ranks, gains, stats, line numbers) is set with `tnum`, so columns line up without a grid.",
+        "section": "typography"
+      },
+      {
+        "name": "The Named Style Rule",
+        "body": "Every text takes one of the styles above from `Soft.type`, changing at most its weight (within the Two Weights Rule) or its colour. A size set by hand in a screen is drift; a new need gets a new named style here and in `SoftType`.",
         "section": "typography"
       },
       {
@@ -704,12 +741,12 @@
       },
       {
         "name": "The Soft Press Rule",
-        "body": "Pressed or focused rows get a 20dp soft surface in `surface`, never a ripple. Every text colour on it is tested to 4.5:1.",
+        "body": "Pressed or focused rows get a 20dp soft surface in `surface`, never a ripple. Every text colour on it is tested to 4.5:1. Everything else that can be pressed (buttons, pills, choice and check rows, links) answers with the soft veil: `track` washed over it while pressed or focused, set once as the theme's default indication (`SoftIndication`), so no clickable falls back to Material's ripple. Material's own icon buttons keep their standard press.",
         "section": "components"
       },
       {
         "name": "The Name the Forge Rule",
-        "body": "Wherever a list mixes forges, the forge's name (GitHub, Codeberg, or a self-hosted server's host) is written beside its logo. The logo is then silent for screen readers, and inside running text it is joined to its name (word joiner, no-break space) so a wrap never separates them. A logo alone, with its name as its description, is only for places that do not mix forges.",
+        "body": "Wherever a list mixes forges, the forge's name (GitHub, Codeberg, or a self-hosted server's host) is written beside its logo. The logo is then silent for screen readers, and inside running text it is joined to its name (word joiner, no-break space) so a wrap never separates them. A logo alone, with its name as its description, is only for places that do not mix forges. Where the name sits beside a handle (You), it moves under the handle when both don't fit, rather than being cut.",
         "section": "components"
       },
       {
@@ -744,7 +781,7 @@
       "**Don't** let it feel corporate.",
       "**Don't** scatter ember as backgrounds, borders or decoration.",
       "**Don't** add a third weight of Gabarito or Lexend, or another family.",
-      "**Don't** give rows a ripple.",
+      "**Don't** give rows, buttons or pills a ripple; a press is the soft surface or the soft veil.",
       "**Don't** mark selection in the open with anything other than the ember thumb (a menu's ember check is the one exception).",
       "**Don't** bring back dynamic colour (Material You); the palette is Soft's alone.",
       "**Don't** stack a second strip of chips under a header's switch, or show a forge by its logo alone in a mixed list.",

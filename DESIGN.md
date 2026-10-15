@@ -73,6 +73,16 @@ typography:
     fontSize: "15sp"
     fontWeight: 400
     lineHeight: "24sp"
+  lead:
+    fontFamily: "Lexend, sans-serif"
+    fontSize: "16sp"
+    fontWeight: 400
+    lineHeight: "24sp"
+  row-title:
+    fontFamily: "Lexend, sans-serif"
+    fontSize: "16sp"
+    fontWeight: 400
+    lineHeight: "22sp"
   secondary:
     fontFamily: "Lexend, sans-serif"
     fontSize: "14sp"
@@ -99,6 +109,17 @@ typography:
     fontSize: "13sp"
     fontWeight: 400
     lineHeight: "20sp"
+  code-dense:
+    fontFamily: "monospace"
+    fontSize: "12sp"
+    fontWeight: 400
+    lineHeight: "18sp"
+  gutter:
+    fontFamily: "monospace"
+    fontSize: "11sp"
+    fontWeight: 400
+    lineHeight: "18sp"
+    fontFeature: "tnum"
 rounded:
   snackbar: "16dp"
   row: "20dp"
@@ -200,7 +221,7 @@ components:
   search-field:
     backgroundColor: "{colors.ground}"
     textColor: "{colors.ink}"
-    typography: "{typography.body}"
+    typography: "{typography.lead}"
     rounded: "{rounded.pill}"
     padding: "0 4dp 0 16dp"
     height: "52dp"
@@ -316,23 +337,29 @@ A cool, near-white (or violet-black) ground with plum-navy ink, lifted by soft p
 ### Hierarchy
 - **Title** (Gabarito 700, 34sp/38sp, -0.01em): the title of a top-level screen in its header field ("Trending", "Inbox"). Marked as a heading.
 - **Detail Title** (Gabarito 700, 30sp/34sp, -0.01em): one step under Title, for a detail screen whose subject is a name: a repository's name, a plain screen title set under the back row (Settings, Credits, Sign-in). Marked as a heading.
-- **Hero** (Gabarito 700, 26sp/31sp, -0.01em): the subject of a detail screen when it is a sentence or a handle: an issue's title and number, a profile's name or `@login`, a job's name. Marked as a heading.
+- **Hero** (Gabarito 700, 26sp/31sp, -0.01em): the subject of a detail screen when it is a sentence or a handle: an issue's title and number, a profile's name or `@login`, a job's, check's or release's name. Marked as a heading.
 - **Name** (Gabarito 700, 21sp/25sp): repository names in Trending rows, a detail header's small title (file name), a signed-in account's name, Notice titles.
 - **Section** (Gabarito 500, 17sp/22sp): section titles inside a list (Settings groups, Feed days), the Inbox's "Needs you" and "Everything else", the notification prompt title.
 - **Figure** (Gabarito 700, 16sp/20sp, tabular): ranks and "+gained" counts, in ember.
 - **Control** (Gabarito 500, 15sp/20sp): switch and tab labels, button text, the selected navigation label, comment author names; at body size (15sp/24sp) for `owner/name` in shared repository rows. A single-word switch label shrinks instead of wrapping when it cannot fit at very large font scales, never below 12dp on screen; labels with a space wrap.
+- **Lead** (Lexend 400, 16sp/24sp): what a subject says of itself under its name in a header (a repository's description, a profile's bio), held to 580dp; and what is typed into a text field, its placeholder included.
+- **Row Title** (Lexend 400, 16sp/22sp): the line of a list row read at a glance: an Inbox thread's title (500 unread, 400 read) and what a Feed event is about (500).
 - **Body** (Lexend 400, 15sp/24sp): descriptions, issue titles in rows, comment and Notice bodies, setting titles. Measure capped at 580dp (about 65-75 characters).
 - **Secondary** (Lexend 400, 14sp/20sp): owner above a name, `@login`, a detail header's repository line, timeline event lines.
 - **Meta** (Lexend 400, 13sp/18sp, tabular): language, stars, forks, issue numbers and relative times.
 - **Label** (Lexend 500, 13sp/18sp): the resume link, the Stopped-here marker, an issue's state tag, forge labels; at 12sp/16sp (**Tag**) for tags and reactions; at meta size for the navigation labels (bar and rail).
-- **Code** (monospace 400, 13sp/20sp): the file viewer and Markdown code, with a muted line-number gutter.
+- **Code** (monospace 400, 13sp/20sp): the file viewer and Markdown code, with a muted line-number gutter; a changed file's path at 500.
+- **Code Dense** (monospace 400, 12sp/18sp): code read many lines at a time: a pull request's changed lines, a blame, a job's log (its step titles at 500).
+- **Gutter** (monospace 400, 11sp/18sp, tabular): line numbers and hunk headers beside dense code, in muted ink.
 
 Material's scale (`SoftTypography`) is filled from the same faces for leftover pieces and Markdown headings: display, headline and title roles in Gabarito (titleMedium and titleSmall at 500, the rest 700), body and label roles in Lexend.
 
 ### Named Rules
 **The Two Weights Rule.** Gabarito ships in exactly two weights, Medium 500 for controls and Bold 700 for everything else it sets; Lexend in Regular 400 and Medium 500. No other weights, no other families, no condensed faces.
 
-**The Tabular Figures Rule.** Every number meant to be compared down a list (ranks, gains, stats) is set with `tnum`, so columns line up without a grid.
+**The Tabular Figures Rule.** Every number meant to be compared down a list (ranks, gains, stats, line numbers) is set with `tnum`, so columns line up without a grid.
+
+**The Named Style Rule.** Every text takes one of the styles above from `Soft.type`, changing at most its weight (within the Two Weights Rule) or its colour. A size set by hand in a screen is drift; a new need gets a new named style here and in `SoftType`.
 
 ## Layout
 
@@ -379,8 +406,8 @@ Material 3 composables (Icon, IconButton, Snackbar, PullToRefresh, AlertDialog, 
 ### Period Switch (`SoftSwitch`, signature)
 - **Style:** a full-width pill track (`track` over the field, 4dp inset) with equal segments and one ember thumb with the Ember Glow.
 - **Labels:** Control type, `ink-muted` unselected, `on-thumb` selected, centred.
-- **Size:** at least 48dp tall; grows to the tallest label at large font scales so no word is cut; a single-word label shrinks (12dp floor on screen) rather than wrapping mid-word.
-- **Behaviour:** the thumb springs to the chosen segment (damping 0.8, medium-low stiffness). Exposed as a selectable group of tabs. Used for Trending's period, the Inbox filter, the search scope and the theme setting.
+- **Size:** at least 48dp tall; grows to the tallest label at large font scales so no word is cut; a single-word label shrinks (12dp floor on screen) rather than wrapping mid-word. A segment with a leading mark (sign-in's forge logos) sets the mark beside its label, and above it from 1.5x font scale, so the name keeps the segment's whole width.
+- **Behaviour:** the thumb springs to the chosen segment (damping 0.8, medium-low stiffness). Exposed as a selectable group of tabs. Used for Trending's period, the Inbox filter, the search scope, the theme setting, the forge to sign in to, a repository's open or closed issues, branches or tags, and a yes-or-no input when running a workflow.
 
 **The Ember Thumb Rule.** Selection among options in the open is the springing ember thumb. Don't show it with underlines, outlines, checkmarks or tinted text alone; only inside a menu (the choice pill's) does the chosen option carry an ember check.
 
@@ -410,7 +437,7 @@ Material 3 composables (Icon, IconButton, Snackbar, PullToRefresh, AlertDialog, 
 The Inbox is triage: what's waiting on you first, newest first, then the rest by repository.
 - **Sections:** "Needs you" (review requested, mentioned, team mentioned, assigned, security alert) then "Everything else", as pinned Section titles with the unread count as a tag (warm for Needs you, `surface` otherwise) that ticks up or down as it changes.
 - **Owners and repositories (Everything else):** grouped by owner (user or organisation, case-insensitive), then repository, each ordered by its newest activity; threads newest first, naming only their number. An owner with several repositories gets a heading (its 24dp avatar, initial on `surface` until it loads, and its login in Control ink), and each repository under it is its name in Control ink, lined up with its threads' content (36dp). An owner with one repository gets a single heading: avatar, `owner/` muted and the name. In Needs you, each row names its repository instead, after an 18dp owner avatar.
-- **Row:** a 20dp gutter holding the 8dp ember unread dot (it pops in and shrinks away; screen readers hear "Unread"), then a line with a pill and `owner/name #N` (or `#N` under a repository heading) in Meta muted, the title in Lexend 16/22 (500 ink unread, 400 muted read, easing between them over 300ms), and a Meta line: the reason (Everything else only) and the abbreviated time. The overflow menu stays on the right.
+- **Row:** a 20dp gutter holding the 8dp ember unread dot (it pops in and shrinks away; screen readers hear "Unread"), then a line with a pill and `owner/name #N` (or `#N` under a repository heading) in Meta muted, the title in Row Title (500 ink unread, 400 muted read, easing between them over 300ms), and a Meta line: the reason (Everything else only) and the abbreviated time. The overflow menu stays on the right.
 - **The pill says why, or what:** in Needs you it names the reason on warm ("Review requested", "Mentioned"); in Everything else it names the kind on `surface` ("Issue", "Release", "Checks"). Both lead with the kind's glyph.
 
 ### Round Badges
@@ -425,7 +452,7 @@ The Feed tells what happened by leading every event with its object, so an open 
 - **The line:** a 40dp avatar, then one Secondary line: the actor (or "alice and 2 others") and named repositories in ink 500, the verb muted, then " · GitHub" where forges mix and " · 15 min. ago" (abbreviated, never split by a wrap: each "·" is glued to what precedes it with a no-break space).
 - **The object, below the line, drawn for its kind:**
   - Starred, forked, made public, created: a **repository preview**, a 20dp-corner `surface` panel (held to 580dp) with `owner/` muted and the name in Gabarito 18/22 Bold, the description in Secondary ink (3 lines), then a linguist-colored 9dp dot, the language and "12.4k stars" in Meta muted.
-  - Issues, pull requests, reviews and comments: a **state pill** (15dp ink glyph + Label on a field tint: Open/Reopened fresh, Merged cool, Closed warm, Approved fresh, Changes requested warm, Comment cool, Reviewed `surface`) with "#N" muted beside it, then the title in Lexend 16/22 Medium ink (3 lines).
+  - Issues, pull requests, reviews and comments: a **state pill** (15dp ink glyph + Label on a field tint: Open/Reopened fresh, Merged cool, Closed warm, Approved fresh, Changes requested warm, Comment cool, Reviewed `surface`) with "#N" muted beside it, then the title in Row Title at 500, ink (3 lines).
   - Releases: the tag as a warm pill (plus a Pre-release tag), then the release name as the title. Pushes, branches and tags: the ref as a `surface` pill in the code face. Members added: the line alone.
 - **Filled progressively:** events don't carry repository details or pull request titles, so rows on screen ask for them; they are fetched once, cached a day (kept a week), and fill in as they arrive: the panel grows and the new text fades in over 220ms. Cached details scrolling into view show at once. Until a title arrives, a 14dp `surface` pill bar holds its place so the row keeps its shape; a repository preview shows its name alone.
 - The whole row is one `softPressable` target opening what it's about; the avatar opens the actor.
@@ -439,6 +466,7 @@ A pull request's header says where it goes and how much it changes in one unboxe
 ### Code and Markdown
 - **Markdown** (READMEs, Markdown files, comments): ink text, headings on the Material headline/title scale, links in readable ember at Lexend 500 underlined; code blocks and inline code on `surface`, set in the code face and syntax-highlighted.
 - **File viewer:** code in the code face, a right-aligned muted line-number gutter, highlighted off the main thread (plain text shows first).
+- **Changes, blame and logs:** Code Dense lines beside a muted Gutter of line numbers and hunk headers.
 - **Syntax colours:** Forgeline's own light and dark token sets (keyword ember, strings green, literals blue, metadata violet, comments muted ink), each readable at 4.5:1 on every ground; `CodeContrastTest` holds them to it.
 - **Actions logs:** ANSI colours from Forgeline's own light and dark palettes (`AnsiLight`, `AnsiDark`); the light set holds 4.5:1 on the log's ground and on the error band (the warm field).
 - **Slugs:** `owner/name` in running text carries a word joiner after the slash, so a repository name never breaks across lines.
@@ -452,17 +480,17 @@ A pull request's header says where it goes and how much it changes in one unboxe
 
 ### Tags and Labels
 - **Pill (`SoftPill`):** a 15dp ink glyph and Label type on a tint, 8dp/12dp horizontal padding: the Feed's state pills and the Inbox's reason and kind pills.
-- **Tag (`SoftTag`):** Tag type on a pill, 10dp/4dp padding, `surface` by default: Draft, Pre-release, reactions, the Inbox unread count (on warm).
+- **Tag (`SoftTag`):** Tag type on a pill, 10dp/4dp padding, `surface` by default: Draft, Pre-release, reactions, the Inbox unread count (on warm), a run's branch. A tag stays on one line and ends in "…" when it can't fit; it never breaks into a stub.
 - **State tag:** an issue's state on a `ground` pill inside the field, with a 16dp ink icon and Label text.
 - **Forge labels:** pills in the forge's own colour, as the forge shows it, in Label type, with whichever of black or white text contrasts more (`readableOn`); `SoftTest` holds GitHub's default label colours to 4.5:1.
 
 ### Forge Marks (`ForgeIcon`, `ForgeMark`, `appendForge`)
 A forge is its monochrome logo (Simple Icons) in the surrounding text colour, 14dp in lines, 16-18dp in pills.
 
-**The Name the Forge Rule.** Wherever a list mixes forges, the forge's name (GitHub, Codeberg, or a self-hosted server's host) is written beside its logo. The logo is then silent for screen readers, and inside running text it is joined to its name (word joiner, no-break space) so a wrap never separates them. A logo alone, with its name as its description, is only for places that do not mix forges.
+**The Name the Forge Rule.** Wherever a list mixes forges, the forge's name (GitHub, Codeberg, or a self-hosted server's host) is written beside its logo. The logo is then silent for screen readers, and inside running text it is joined to its name (word joiner, no-break space) so a wrap never separates them. A logo alone, with its name as its description, is only for places that do not mix forges. Where the name sits beside a handle (You), it moves under the handle when both don't fit, rather than being cut.
 
 ### Text Fields (`SoftTextField`)
-The one text field: a filled pill, 52dp tall, no outline, Body text at 16sp with an ember cursor, its label as the muted placeholder, an optional leading glyph and trailing action, and an ember Secondary error line under it. `surface` on the ground (the sign-in token); `ground` inside a field (search, with a search glyph and a clear button).
+The one text field: a filled pill, 52dp tall, no outline, Lead text with an ember cursor, its label as the muted placeholder, an optional leading glyph and trailing action, and an ember Secondary error line under it. `surface` on the ground (the sign-in token); `ground` inside a field (search, with a search glyph and a clear button).
 
 ### Navigation (`SoftNavigation`)
 - **Phones:** a floating pill bar on `raised`, 64dp tall with 6dp inner padding, Floating Lift shadow, four equal-width tabs. Every tab shows its label under its icon in Label type at meta size, following the font scale up to 1.15x and then holding (four labels share the bar; each is still named in full for screen readers). The selected tab sits on an ember pill (52dp, `on-thumb` filled icon and label; the pill crossfades in over 180ms); the others are muted outlined icons and labels. Exposed as tabs.
@@ -474,7 +502,7 @@ The one text field: a filled pill, 52dp tall, no outline, Body text at 16sp with
 Unboxed rows with a Body title and muted Secondary summary; a toggle row switches as a whole, with a Material switch restyled from Soft (ember track and `on-thumb` thumb when on, `surface` track and muted thumb when off, no outline in either state). Groups are headed by Section titles.
 
 ### Stopped-here Marker
-A small pill in `field-today` with an 8dp ember dot and Label text in ink, inset under the rank column, left where the last browse stopped.
+Where the last browse stopped, in Trending and the Feed: a small warm pill (`field-today`, 12dp/6dp padding) holding a 6dp ember dot, an 8dp gap and "Where you left off" in Label ink, set between the rows from the 20dp gutter. Nothing to press, and no line across the list.
 
 ### Notices (empty and error, `SoftNotice`)
 No illustration and no box: a Name-style title (a heading), 6dp, a Body line in muted ink, 20dp gap, then one filled pill button and optionally a tonal one beside it (12dp apart, wrapping), in the reading column with 20dp/32dp padding. Signed-out walls name every forge and pair Sign in with "Browse Trending". A plain empty list may be just a muted Body line.
@@ -534,3 +562,4 @@ Inverted: `ink` background, `ground` text, 16dp corners; it sits above the navig
 ## Unresolved
 
 - **Dynamic colour stays off,** by decision (see Don'ts); listed so it is not mistaken for a gap.
+- **Two sizes are still set by hand** (the Named Style Rule): the name in the Feed's repository preview (Gabarito 18/22 Bold) and the emoji in a comment's reaction menu (22sp) and in the double-tap burst (28sp). Left for the next polish pass.
