@@ -117,7 +117,7 @@ import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -536,7 +536,7 @@ fun IssueScreen(
                                 }
                             }
                             ShareLinkButton(webUrl, issue?.title ?: "${state.ref.repo.fullName}#${state.ref.number}")
-                            IconButton(onClick = { onOpenInBrowser(webUrl) }) {
+                            SoftIconButton(onClick = { onOpenInBrowser(webUrl) }) {
                                 Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.ref.repo.forge.displayName), tint = colors.ink)
                             }
                         },
@@ -1286,7 +1286,7 @@ private fun CommentMenuButton(menu: CommentMenu) {
     // Its dots end where the comment's text does: the room around them is for the finger, not the eye.
     Box(Modifier.offset(x = 12.dp)) {
         // The avatar's height, so the comment's first line keeps its own; the touch target stays 48dp around it.
-        IconButton(onClick = { open = true }, modifier = Modifier.size(28.dp).minimumInteractiveComponentSize()) {
+        SoftIconButton(onClick = { open = true }, modifier = Modifier.size(28.dp).minimumInteractiveComponentSize()) {
             Icon(Icons.Outlined.MoreHoriz, contentDescription = stringResource(R.string.issue_comment_more), tint = colors.inkMuted)
         }
         CommentDropdown(menu, open) { open = false }

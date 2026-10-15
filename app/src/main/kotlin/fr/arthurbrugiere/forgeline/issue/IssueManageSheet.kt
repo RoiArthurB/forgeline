@@ -47,7 +47,7 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -302,7 +302,7 @@ private fun MenuGroup(title: String, rows: List<@Composable () -> Unit>) {
 private fun PageTitle(title: String, onBack: (() -> Unit)?) {
     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(start = if (onBack != null) 4.dp else 20.dp, end = 20.dp), verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) {
-            IconButton(onClick = onBack) {
+            SoftIconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.manage_back), tint = Soft.colors.ink)
             }
         }
@@ -560,7 +560,7 @@ private fun DependenciesPage(state: IssueUiState, actions: ManageActions, onBack
                             color = colors.inkMuted,
                         )
                     }
-                    IconButton(onClick = { actions.onRemoveDependency(linked.ref) }, enabled = !working) {
+                    SoftIconButton(onClick = { actions.onRemoveDependency(linked.ref) }, enabled = !working) {
                         Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.manage_dependency_remove, name), tint = colors.inkMuted)
                     }
                 }

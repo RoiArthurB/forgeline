@@ -23,7 +23,7 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.foundation.layout.FlowRow
@@ -134,12 +134,12 @@ fun FileScreen(
             backDescription = stringResource(R.string.navigate_up),
             actions = {
                 if (content is Loadable.Loaded && content.value is FileContent.Text) {
-                    IconButton(onClick = { onCopy(content.value.text) }) {
+                    SoftIconButton(onClick = { onCopy(content.value.text) }) {
                         Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.file_copy), tint = colors.ink)
                     }
                 }
                 ShareLinkButton(state.webUrl, state.target.name)
-                IconButton(onClick = { onOpenInBrowser(state.webUrl) }) {
+                SoftIconButton(onClick = { onOpenInBrowser(state.webUrl) }) {
                     Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.target.id.forge.displayName), tint = colors.ink)
                 }
             },

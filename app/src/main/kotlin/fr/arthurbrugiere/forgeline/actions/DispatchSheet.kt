@@ -27,7 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -124,7 +124,7 @@ fun DispatchContent(
             return@Column
         }
         Row(Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onSelect(null) }) {
+            SoftIconButton(onClick = { onSelect(null) }) {
                 Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.dispatch_back), tint = colors.ink)
             }
             Text(selected.name, style = Soft.type.name, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)

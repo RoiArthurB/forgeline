@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -31,7 +31,7 @@ fun PictureScreen(route: PictureRoute, onBack: () -> Unit, onOpenInBrowser: (Str
             onBack = onBack,
             backDescription = stringResource(R.string.navigate_up),
             actions = {
-                IconButton(onClick = { onOpenInBrowser(route.url) }) {
+                SoftIconButton(onClick = { onOpenInBrowser(route.url) }) {
                     Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = inBrowser, tint = colors.ink)
                 }
             },

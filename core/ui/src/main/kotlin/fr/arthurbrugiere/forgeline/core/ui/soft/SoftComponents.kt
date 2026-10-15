@@ -15,6 +15,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
@@ -41,19 +42,21 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
@@ -176,7 +179,7 @@ fun SoftHeader(
             // its title (if any) set large in the field like every other hero.
             Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (onBack != null) {
-                    IconButton(onClick = onBack) {
+                    SoftIconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = backDescription, tint = colors.ink)
                     }
                     Spacer(Modifier.weight(1f))
@@ -574,6 +577,48 @@ fun SoftTonalButton(label: String, onClick: () -> Unit, modifier: Modifier = Mod
         Text(label, style = Soft.type.control, color = if (enabled) colors.ink else colors.inkMuted)
     }
 }
+
+/**
+ * An icon to press: a 40dp circle in a 48dp target that takes the soft veil while pressed or focused, as everything
+ * else pressable does. Material's icon buttons draw their own ripple whatever the theme says. Not [enabled], it fades
+ * and can't be pressed.
+ */
+@Composable
+fun SoftIconButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, content: @Composable () -> Unit) {
+    Box(
+        modifier
+            .softIconTarget(enabled)
+            .clickable(enabled = enabled, role = Role.Button, interactionSource = null, indication = LocalIndication.current, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { content() }
+}
+
+/** A [SoftIconButton] that is on or off, like a star: announced as checked or not. */
+@Composable
+fun SoftIconToggleButton(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier
+            .softIconTarget(enabled)
+            .toggleable(
+                value = checked,
+                enabled = enabled,
+                role = Role.Checkbox,
+                interactionSource = null,
+                indication = LocalIndication.current,
+                onValueChange = onCheckedChange,
+            ),
+        contentAlignment = Alignment.Center,
+    ) { content() }
+}
+
+private fun Modifier.softIconTarget(enabled: Boolean) =
+    minimumInteractiveComponentSize().size(40.dp).clip(CircleShape).alpha(if (enabled) 1f else 0.38f)
 
 /** Soft placeholder shapes while a list loads for the first time; announced once as [description]. */
 @Composable

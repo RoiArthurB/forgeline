@@ -359,7 +359,7 @@ Material's scale (`SoftTypography`) is filled from the same faces for leftover p
 
 **The Tabular Figures Rule.** Every number meant to be compared down a list (ranks, gains, stats, line numbers) is set with `tnum`, so columns line up without a grid.
 
-**The Named Style Rule.** Every text takes one of the styles above from `Soft.type`, changing at most its weight (within the Two Weights Rule) or its colour. A size set by hand in a screen is drift; a new need gets a new named style here and in `SoftType`.
+**The Named Style Rule.** Every text takes one of the styles above from `Soft.type`, changing at most its weight (within the Two Weights Rule) or its colour. A size set by hand in a screen is drift; a new need gets a new named style here and in `SoftType`. `DesignSystemTest` holds every screen to it; the reaction emoji in a comment's menu and its double-tap burst are the one exception, as pictures rather than text.
 
 ## Layout
 
@@ -394,7 +394,7 @@ Round and soft throughout. The header field has 28dp rounded bottom corners and 
 
 ## Components
 
-Material 3 composables (Icon, IconButton, Snackbar, PullToRefresh, AlertDialog, DropdownMenu, Switch, text fields) remain as the base, restyled from Soft through `ForgelineTheme`; the distinctive pieces are the Soft components in `core/ui/.../soft/SoftComponents.kt` and the shared rows in `app/.../ui/`.
+Material 3 composables (Icon, Snackbar, PullToRefresh, DropdownMenu, Switch, bottom sheets) remain as the base, restyled from Soft through `ForgelineTheme`; the distinctive pieces are the Soft components in `core/ui/.../soft/SoftComponents.kt` and the shared rows in `app/.../ui/`.
 
 ### Header Field (`SoftHeader`)
 - **Character:** the one place colour arrives at scale, heading every screen.
@@ -431,7 +431,7 @@ Material 3 composables (Icon, IconButton, Snackbar, PullToRefresh, AlertDialog, 
 - **Swipe (Inbox):** the row slides off a 20dp tint with an ink icon: fresh to mark read, warm for done. Every swipe or menu action shows at once but waits 5 seconds before reaching the forge, with Undo on the snackbar; leaving the Inbox sends what is waiting.
 - **Entry (Trending):** after a section change, the first eight rows rise 16dp and fade in from 35% opacity, staggered 35ms, on the soft spring.
 
-**The Soft Press Rule.** Pressed or focused rows get a 20dp soft surface in `surface`, never a ripple. Every text colour on it is tested to 4.5:1. Everything else that can be pressed (buttons, pills, choice and check rows, links) answers with the soft veil: `track` washed over it while pressed or focused, set once as the theme's default indication (`SoftIndication`), so no clickable falls back to Material's ripple. Material's own icon buttons keep their standard press.
+**The Soft Press Rule.** Pressed or focused rows get a 20dp soft surface in `surface`, never a ripple. Every text colour on it is tested to 4.5:1. Everything else that can be pressed (buttons, pills, choice and check rows, links, icons) answers with the soft veil: `track` washed over it while pressed or focused, set once as the theme's default indication (`SoftIndication`), so no clickable falls back to Material's ripple. Icons are pressed through `SoftIconButton` and `SoftIconToggleButton` (a 40dp circle in a 48dp target), never Material's icon buttons, which draw their own ripple; on the ink selection bar the veil is the ground's colour at 14%. `DesignSystemTest` holds every screen to it.
 
 ### Inbox (needs you first)
 The Inbox is triage: what's waiting on you first, newest first, then the rest by repository.
@@ -451,7 +451,7 @@ The Feed tells what happened by leading every event with its object, so an open 
 - **Day chapters:** events stay one chronological timeline under Section titles: Today, Yesterday, This week, Earlier (the device's local date).
 - **The line:** a 40dp avatar, then one Secondary line: the actor (or "alice and 2 others") and named repositories in ink 500, the verb muted, then " · GitHub" where forges mix and " · 15 min. ago" (abbreviated, never split by a wrap: each "·" is glued to what precedes it with a no-break space).
 - **The object, below the line, drawn for its kind:**
-  - Starred, forked, made public, created: a **repository preview**, a 20dp-corner `surface` panel (held to 580dp) with `owner/` muted and the name in Gabarito 18/22 Bold, the description in Secondary ink (3 lines), then a linguist-colored 9dp dot, the language and "12.4k stars" in Meta muted.
+  - Starred, forked, made public, created: a **repository preview**, a 20dp-corner `surface` panel (held to 580dp) with `owner/` muted and the name in Section at 700, the description in Secondary ink (3 lines), then a linguist-colored 9dp dot, the language and "12.4k stars" in Meta muted.
   - Issues, pull requests, reviews and comments: a **state pill** (15dp ink glyph + Label on a field tint: Open/Reopened fresh, Merged cool, Closed warm, Approved fresh, Changes requested warm, Comment cool, Reviewed `surface`) with "#N" muted beside it, then the title in Row Title at 500, ink (3 lines).
   - Releases: the tag as a warm pill (plus a Pre-release tag), then the release name as the title. Pushes, branches and tags: the ref as a `surface` pill in the code face. Members added: the line alone.
 - **Filled progressively:** events don't carry repository details or pull request titles, so rows on screen ask for them; they are fetched once, cached a day (kept a week), and fill in as they arrive: the panel grows and the new text fades in over 220ms. Cached details scrolling into view show at once. Until a title arrives, a 14dp `surface` pill bar holds its place so the row keeps its shape; a repository preview shows its name alone.
@@ -476,7 +476,7 @@ A pull request's header says where it goes and how much it changes in one unboxe
 - **Tonal (`SoftTonalButton`):** full pill, `surface` fill, `ink` Control text, 20dp padding, 48dp. Secondary actions: Cancel, Sign out, Read the licence, retry inside a list. On a field, the same pill in `ground` (Following).
 - **Final action (`SoftDangerButton`):** full pill, `ink` fill, `ground` Control text, 24dp padding, 48dp. For what can't be taken back: deleting a repository, an issue or a comment, unpublishing a site, changing who sees a repository, merging against a failed check ("Merge anyway"). Ember says "this is the way forward"; ink says "this is final". Never beside a filled ember button, always beside a tonal Cancel.
 - **Link:** Label type in `accent`, pill-clipped, 48dp tall (the resume link with a 16dp down arrow; the token link on sign-in).
-- **Icon:** Material icon buttons with 48dp targets; icons in `ink` in headers, `accent` / `ink-muted` for the star toggle. A repository's Star is exposed as a toggle (on/off), not a plain button.
+- **Icon (`SoftIconButton`):** a 40dp circle in a 48dp target, pressed with the soft veil; icons in `ink` in headers, `accent` / `ink-muted` for the star toggle (`SoftIconToggleButton`). Not enabled, it fades to 38%. A repository's Star is exposed as a toggle (on/off), not a plain button.
 
 ### Tags and Labels
 - **Pill (`SoftPill`):** a 15dp ink glyph and Label type on a tint, 8dp/12dp horizontal padding: the Feed's state pills and the Inbox's reason and kind pills.
@@ -562,4 +562,3 @@ Inverted: `ink` background, `ground` text, 16dp corners; it sits above the navig
 ## Unresolved
 
 - **Dynamic colour stays off,** by decision (see Don'ts); listed so it is not mistaken for a gap.
-- **Two sizes are still set by hand** (the Named Style Rule): the name in the Feed's repository preview (Gabarito 18/22 Bold) and the emoji in a comment's reaction menu (22sp) and in the double-tap burst (28sp). Left for the next polish pass.

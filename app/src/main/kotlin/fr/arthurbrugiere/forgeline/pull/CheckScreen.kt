@@ -25,7 +25,7 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -154,7 +154,7 @@ fun CheckScreen(
                         onBack = onBack,
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
-                            IconButton(onClick = { onOpenUrl(webUrl) }) {
+                            SoftIconButton(onClick = { onOpenUrl(webUrl) }) {
                                 Icon(
                                     Icons.AutoMirrored.Outlined.OpenInNew,
                                     contentDescription = stringResource(R.string.repo_open_on_forge, state.repo.forge.displayName),

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-15T04:09:08+00:00",
+  "generatedAt": "2026-10-15T04:52:05+00:00",
   "title": "Design System: Forgeline",
   "extensions": {
     "colorMeta": {
@@ -721,7 +721,7 @@
       },
       {
         "name": "The Named Style Rule",
-        "body": "Every text takes one of the styles above from `Soft.type`, changing at most its weight (within the Two Weights Rule) or its colour. A size set by hand in a screen is drift; a new need gets a new named style here and in `SoftType`.",
+        "body": "Every text takes one of the styles above from `Soft.type`, changing at most its weight (within the Two Weights Rule) or its colour. A size set by hand in a screen is drift; a new need gets a new named style here and in `SoftType`. `DesignSystemTest` holds every screen to it; the reaction emoji in a comment's menu and its double-tap burst are the one exception, as pictures rather than text.",
         "section": "typography"
       },
       {
@@ -741,7 +741,7 @@
       },
       {
         "name": "The Soft Press Rule",
-        "body": "Pressed or focused rows get a 20dp soft surface in `surface`, never a ripple. Every text colour on it is tested to 4.5:1. Everything else that can be pressed (buttons, pills, choice and check rows, links) answers with the soft veil: `track` washed over it while pressed or focused, set once as the theme's default indication (`SoftIndication`), so no clickable falls back to Material's ripple. Material's own icon buttons keep their standard press.",
+        "body": "Pressed or focused rows get a 20dp soft surface in `surface`, never a ripple. Every text colour on it is tested to 4.5:1. Everything else that can be pressed (buttons, pills, choice and check rows, links, icons) answers with the soft veil: `track` washed over it while pressed or focused, set once as the theme's default indication (`SoftIndication`), so no clickable falls back to Material's ripple. Icons are pressed through `SoftIconButton` and `SoftIconToggleButton` (a 40dp circle in a 48dp target), never Material's icon buttons, which draw their own ripple; on the ink selection bar the veil is the ground's colour at 14%. `DesignSystemTest` holds every screen to it.",
         "section": "components"
       },
       {

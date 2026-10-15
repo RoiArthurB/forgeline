@@ -89,7 +89,7 @@ import androidx.compose.material.icons.outlined.Commit
 import androidx.compose.material.icons.outlined.RateReview
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.derivedStateOf
@@ -114,7 +114,6 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.sp
 import fr.arthurbrugiere.forgeline.core.model.RepoPreview
 import fr.arthurbrugiere.forgeline.core.ui.format.compactCount
 import fr.arthurbrugiere.forgeline.core.ui.format.languageColor
@@ -180,7 +179,7 @@ private fun FeedHeader() {
         title = stringResource(R.string.tab_feed),
         actions = {
             if (openSearch != null) {
-                IconButton(onClick = openSearch) {
+                SoftIconButton(onClick = openSearch) {
                     Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = colors.ink)
                 }
             }
@@ -461,7 +460,7 @@ private fun RepoObject(repo: RepoId, preview: RepoPreview?, description: String?
                 withStyle(SpanStyle(color = colors.inkMuted)) { append("${repo.owner}/\u2060") }
                 append(repo.name)
             },
-            style = Soft.type.name.copy(fontSize = 18.sp, lineHeight = 22.sp),
+            style = Soft.type.section.copy(fontWeight = FontWeight.Bold),
             color = colors.ink,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,

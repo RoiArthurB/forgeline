@@ -1,6 +1,20 @@
 package fr.arthurbrugiere.forgeline.ui
 
 import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performTouchInput
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -124,5 +138,42 @@ class SoftPiecesTest {
             .config[androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult].action?.invoke(layouts)
         assertThat(layouts.single().lineCount).isEqualTo(1)
         assertThat(layouts.single().isLineEllipsized(0)).isTrue()
+    }
+
+    /** The colour of the icon button [description] near its edge, off the glyph: what a press washes over. */
+    private fun edgeOf(description: String): Int {
+        val image = composeRule.onNodeWithContentDescription(description).captureToImage().asAndroidBitmap()
+        return image.getPixel(image.width / 2, image.height / 2 - (image.height * 0.38f).toInt())
+    }
+
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun an_icon_button_is_pressed_with_the_soft_veil_and_cannot_be_when_off() {
+        val presses = mutableListOf<String>()
+        var ground = 0
+        var veiled = 0
+        composeRule.setContent {
+            ForgelineTheme {
+                val colors = Soft.colors
+                ground = colors.ground.toArgb()
+                veiled = colors.track.compositeOver(colors.ground).toArgb()
+                androidx.compose.foundation.layout.Row(androidx.compose.ui.Modifier.background(colors.ground)) {
+                    SoftIconButton(onClick = { presses += "search" }) { Icon(Icons.Outlined.Search, contentDescription = "Search") }
+                    SoftIconButton(onClick = { presses += "off" }, enabled = false) { Icon(Icons.Outlined.Close, contentDescription = "Off") }
+                }
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("Search").assert(hasRole(Role.Button))
+        composeRule.assertEveryTargetIsAtLeast48dp()
+        assertThat(edgeOf("Search")).isEqualTo(ground)
+        composeRule.onNodeWithContentDescription("Search").performTouchInput { down(center) }
+        composeRule.waitForIdle()
+        // The veil, as on a row or a pill: not a ripple's spreading circle.
+        assertThat(edgeOf("Search")).isEqualTo(veiled)
+        composeRule.onNodeWithContentDescription("Search").performTouchInput { up() }
+
+        composeRule.onNodeWithContentDescription("Off").assertIsNotEnabled().performClick()
+        assertThat(presses).containsExactly("search")
     }
 }

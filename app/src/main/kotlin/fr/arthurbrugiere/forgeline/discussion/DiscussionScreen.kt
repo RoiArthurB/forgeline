@@ -26,7 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -176,7 +176,7 @@ fun DiscussionScreen(
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
                             ShareLinkButton(state.webUrl, (state.discussion?.summary ?: state.summary)?.title ?: "${state.repo.fullName}#${state.number}")
-                            IconButton(onClick = { onOpenInBrowser(state.webUrl) }) {
+                            SoftIconButton(onClick = { onOpenInBrowser(state.webUrl) }) {
                                 Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, forge), tint = colors.ink)
                             }
                         },

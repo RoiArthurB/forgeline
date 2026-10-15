@@ -40,6 +40,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.comment
 import fr.arthurbrugiere.forgeline.core.testing.issueDetails
 import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
+import fr.arthurbrugiere.forgeline.ui.assertTextFits
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -328,6 +329,18 @@ class CommentActionsScreenTest {
         assertThat(events).containsExactly("react:1:ROCKET")
         // Chosen, the menu is gone.
         assertThat(offered("Quote reply")).isFalse()
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun at_large_text_every_reaction_in_the_menu_is_drawn_whole() {
+        // They grow with the text, as the reactions under a comment do, inside circles that don't: at 2x they still fit.
+        setContent()
+
+        openMenu(1)
+
+        Reaction.entries.forEach { composeRule.assertTextFits(it.emoji, oneLine = true) }
     }
 
     @Test

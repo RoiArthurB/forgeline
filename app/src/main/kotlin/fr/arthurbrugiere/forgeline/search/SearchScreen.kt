@@ -29,7 +29,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -288,7 +288,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, onSubmit
         leading = { Icon(Icons.Outlined.Search, contentDescription = null, tint = colors.inkMuted) },
         trailing = {
             if (query.isNotEmpty()) {
-                IconButton(onClick = onClear) {
+                SoftIconButton(onClick = onClear) {
                     Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.search_clear), tint = colors.inkMuted)
                 }
             } else {

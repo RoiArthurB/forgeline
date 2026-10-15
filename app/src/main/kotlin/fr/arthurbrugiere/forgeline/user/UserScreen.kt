@@ -26,7 +26,7 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -138,7 +138,7 @@ fun UserScreen(
                     backDescription = stringResource(R.string.navigate_up),
                     actions = {
                         ShareLinkButton("${state.forge.webUrl}/${state.login}", state.login)
-                        IconButton(onClick = { onOpenUrl("${state.forge.webUrl}/${state.login}") }) {
+                        SoftIconButton(onClick = { onOpenUrl("${state.forge.webUrl}/${state.login}") }) {
                             Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.forge.displayName), tint = colors.ink)
                         }
                     },

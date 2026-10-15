@@ -55,7 +55,7 @@ import androidx.compose.material.icons.outlined.SubdirectoryArrowLeft
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -356,12 +356,12 @@ fun RepoScreen(
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
                             if (state.canAdminister && details != null) {
-                                IconButton(onClick = onOpenSettings) {
+                                SoftIconButton(onClick = onOpenSettings) {
                                     Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.repo_settings_title), tint = colors.ink)
                                 }
                             }
                             ShareLinkButton(id.webUrl, id.fullName)
-                            IconButton(onClick = { onOpenInBrowser(id.webUrl) }) {
+                            SoftIconButton(onClick = { onOpenInBrowser(id.webUrl) }) {
                                 Icon(
                                     Icons.AutoMirrored.Outlined.OpenInNew,
                                     contentDescription = stringResource(R.string.repo_open_on_forge, id.forge.displayName),
@@ -568,7 +568,7 @@ private fun ListControls(
             leading = { Icon(Icons.Outlined.Search, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(20.dp)) },
             trailing = {
                 if (query.text.isNotEmpty()) {
-                    IconButton(onClick = { onSearch("") }) {
+                    SoftIconButton(onClick = { onSearch("") }) {
                         Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.search_clear), tint = colors.inkMuted)
                     }
                 }

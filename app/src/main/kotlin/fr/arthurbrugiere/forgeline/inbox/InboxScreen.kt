@@ -21,6 +21,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -48,7 +49,8 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIndication
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.ui.platform.LocalResources
@@ -253,7 +255,7 @@ private fun InboxHeader(filter: InboxFilter?, onSelectFilter: (InboxFilter) -> U
         actions = {
             if (pickerInRow) accountPicker?.invoke()
             if (openSearch != null) {
-                IconButton(onClick = openSearch) {
+                SoftIconButton(onClick = openSearch) {
                     Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = colors.ink)
                 }
             }
@@ -513,36 +515,39 @@ private fun SelectionBar(
 ) {
     val colors = Soft.colors
     val anyUnread = threads.any { it.unread }
-    Row(
-        modifier
-            .widthIn(max = SoftTokens.MaxReadingWidth)
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(colors.ink)
-            .padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = onClear) {
-            Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.inbox_selection_cancel), tint = colors.ground)
+    // On ink, the usual veil (ink over the ground) wouldn't show: here a press washes the ground's colour over it.
+    CompositionLocalProvider(LocalIndication provides SoftIndication(colors.ground.copy(alpha = 0.14f))) {
+        Row(
+            modifier
+                .widthIn(max = SoftTokens.MaxReadingWidth)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(24.dp))
+                .background(colors.ink)
+                .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SoftIconButton(onClick = onClear) {
+                Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.inbox_selection_cancel), tint = colors.ground)
+            }
+            Text(
+                pluralStringResource(R.plurals.inbox_selected, threads.size, threads.size),
+                style = Soft.type.control,
+                color = colors.ground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).padding(horizontal = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
+            )
+            SoftIconButton(onClick = onSelectAll) {
+                Icon(Icons.Outlined.SelectAll, contentDescription = stringResource(R.string.inbox_select_all), tint = colors.ground)
+            }
+            // What the picked threads become, said in words: a glyph alone had to be learned.
+            BarAction(
+                if (anyUnread) Icons.Outlined.MarkEmailRead else Icons.Outlined.MarkEmailUnread,
+                stringResource(if (anyUnread) R.string.inbox_selection_read else R.string.inbox_selection_unread),
+                stringResource(if (anyUnread) R.string.inbox_mark_read else R.string.inbox_mark_unread),
+            ) { onAct(if (anyUnread) InboxAction.READ else InboxAction.UNREAD) }
+            BarAction(Icons.Outlined.Done, stringResource(R.string.inbox_selection_done), stringResource(R.string.inbox_mark_done)) { onAct(InboxAction.DONE) }
         }
-        Text(
-            pluralStringResource(R.plurals.inbox_selected, threads.size, threads.size),
-            style = Soft.type.control,
-            color = colors.ground,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f).padding(horizontal = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
-        )
-        IconButton(onClick = onSelectAll) {
-            Icon(Icons.Outlined.SelectAll, contentDescription = stringResource(R.string.inbox_select_all), tint = colors.ground)
-        }
-        // What the picked threads become, said in words: a glyph alone had to be learned.
-        BarAction(
-            if (anyUnread) Icons.Outlined.MarkEmailRead else Icons.Outlined.MarkEmailUnread,
-            stringResource(if (anyUnread) R.string.inbox_selection_read else R.string.inbox_selection_unread),
-            stringResource(if (anyUnread) R.string.inbox_mark_read else R.string.inbox_mark_unread),
-        ) { onAct(if (anyUnread) InboxAction.READ else InboxAction.UNREAD) }
-        BarAction(Icons.Outlined.Done, stringResource(R.string.inbox_selection_done), stringResource(R.string.inbox_mark_done)) { onAct(InboxAction.DONE) }
     }
 }
 
@@ -895,7 +900,7 @@ private fun ThreadRow(
             }
             // The menu acts on one thread: it steps aside, keeping its room, while several are being picked.
             if (selecting) Spacer(Modifier.size(48.dp)) else Box {
-                IconButton(onClick = { menuOpen = true }) {
+                SoftIconButton(onClick = { menuOpen = true }) {
                     Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.inbox_more), tint = colors.inkMuted)
                 }
                 DropdownMenu(

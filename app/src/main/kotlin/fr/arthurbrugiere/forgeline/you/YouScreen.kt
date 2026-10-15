@@ -23,7 +23,7 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -69,7 +69,7 @@ fun YouScreen(
             title = stringResource(R.string.tab_you),
             actions = {
                 if (openSearch != null) {
-                    IconButton(onClick = openSearch) {
+                    SoftIconButton(onClick = openSearch) {
                         Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = colors.ink)
                     }
                 }

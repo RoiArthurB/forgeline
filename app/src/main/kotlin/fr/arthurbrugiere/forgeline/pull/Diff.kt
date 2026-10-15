@@ -20,7 +20,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -203,7 +203,7 @@ private fun PendingRemark(remark: LineComment, onRemove: () -> Unit) {
             Text(stringResource(R.string.changes_remark_pending), style = Soft.type.meta, color = colors.inkMuted)
             Text(remark.body, style = Soft.type.secondary, color = colors.ink)
         }
-        IconButton(onClick = onRemove) {
+        SoftIconButton(onClick = onRemove) {
             Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.changes_remark_remove), tint = colors.inkMuted)
         }
     }

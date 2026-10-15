@@ -50,8 +50,8 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconToggleButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconToggleButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -239,7 +239,7 @@ fun TrendingScreen(
                             title = stringResource(R.string.tab_trending),
                             actions = {
                                 if (openSearch != null) {
-                                    IconButton(onClick = openSearch) {
+                                    SoftIconButton(onClick = openSearch) {
                                         Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = colors.ink)
                                     }
                                 }
@@ -541,7 +541,7 @@ private fun MetaText(text: String) {
 private fun StarToggle(starred: Boolean, fullName: String, onToggle: () -> Unit) {
     val colors = Soft.colors
     val label = stringResource(if (starred) R.string.trending_unstar else R.string.trending_star, fullName)
-    IconToggleButton(
+    SoftIconToggleButton(
         checked = starred,
         onCheckedChange = { onToggle() },
         modifier = Modifier.semantics { contentDescription = label },

@@ -38,7 +38,7 @@ import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -187,7 +187,7 @@ fun ReleaseScreen(
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
                             ShareLinkButton(webUrl, "${state.repo.fullName} ${state.tag}")
-                            IconButton(onClick = { onOpenInBrowser(webUrl) }) {
+                            SoftIconButton(onClick = { onOpenInBrowser(webUrl) }) {
                                 Icon(
                                     Icons.AutoMirrored.Outlined.OpenInNew,
                                     contentDescription = stringResource(R.string.repo_open_on_forge, state.repo.forge.displayName),

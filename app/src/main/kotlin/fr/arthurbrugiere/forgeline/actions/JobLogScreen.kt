@@ -34,7 +34,7 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -157,7 +157,7 @@ fun JobLogScreen(
                     onBack = onBack,
                     backDescription = stringResource(R.string.navigate_up),
                     actions = {
-                        IconButton(onClick = onOpenInBrowser) {
+                        SoftIconButton(onClick = onOpenInBrowser) {
                             Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.repo.forge.displayName), tint = colors.ink)
                         }
                     },
