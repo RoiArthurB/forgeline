@@ -37,6 +37,16 @@ class StoredForgeHostsTest {
     }
 
     @Test
+    fun the_launch_reads_nothing_until_a_server_is_asked_about() {
+        hosts().load()
+        // Kept after the launch, and still found: the launch didn't read the file.
+        ApplicationProvider.getApplicationContext<android.content.Context>().getSharedPreferences("forge_hosts", 0)
+            .edit().putString("gitlab.example.org", "GITLAB|").commit()
+
+        assertThat(ForgeInstance.of("gitlab.example.org")).isEqualTo(ownGitLab)
+    }
+
+    @Test
     fun signing_in_again_with_a_token_keeps_the_application_given_before() {
         val hosts = hosts()
         hosts.remember(ownGitLab, "app-id-123")

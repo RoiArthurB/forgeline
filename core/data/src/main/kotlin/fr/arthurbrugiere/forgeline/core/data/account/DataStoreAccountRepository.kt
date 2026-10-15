@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import dagger.Lazy
 import fr.arthurbrugiere.forgeline.core.data.di.AccountsDataStore
 import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import fr.arthurbrugiere.forgeline.core.model.Account
@@ -38,8 +39,10 @@ fun interface TokenRefresher {
     suspend fun refresh(forge: ForgeInstance, refreshToken: String): ForgeResult<OAuthTokens>
 }
 
-class ForgeTokenRefresher @Inject constructor(private val clients: ForgeClients) : TokenRefresher {
-    override suspend fun refresh(forge: ForgeInstance, refreshToken: String) = clients.auth(forge).refresh(refreshToken)
+// Lazy: the accounts are read at launch, and the forges' clients (their HTTP clients with them) aren't needed until a
+// token runs out.
+class ForgeTokenRefresher @Inject constructor(private val clients: Lazy<ForgeClients>) : TokenRefresher {
+    override suspend fun refresh(forge: ForgeInstance, refreshToken: String) = clients.get().auth(forge).refresh(refreshToken)
 }
 
 @Singleton

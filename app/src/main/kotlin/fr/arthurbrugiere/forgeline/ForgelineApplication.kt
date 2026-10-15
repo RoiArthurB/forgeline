@@ -9,6 +9,7 @@ import dagger.Lazy
 import fr.arthurbrugiere.forgeline.di.forgeImageLoader
 import dagger.hilt.android.HiltAndroidApp
 import fr.arthurbrugiere.forgeline.core.data.account.AccountDataCleaner
+import fr.arthurbrugiere.forgeline.core.model.KnownForges
 import fr.arthurbrugiere.forgeline.notifications.InboxSyncScheduler
 import fr.arthurbrugiere.forgeline.signin.ForgeHosts
 import fr.arthurbrugiere.forgeline.widget.InboxWidgetUpdater
@@ -49,9 +50,10 @@ class ForgelineApplication : Application(), Configuration.Provider, SingletonIma
 
     override fun onCreate() {
         super.onCreate()
-        // Which self-hosted servers are GitLab's must be known before a link or a kept screen names one: a few bytes,
-        // read here rather than later with the accounts.
+        // Which self-hosted servers are GitLab's must be known before a link or a kept screen names one. Read in the
+        // background from here; whatever asks sooner reads it then.
         forgeHosts.load()
+        background.launch { KnownForges.readKept() }
         inboxSyncScheduler.start(background)
         trendingMeasureScheduler.start(background)
         // The home screen widgets follow the inbox from the moment the process is up: a background check counts.

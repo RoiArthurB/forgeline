@@ -14,7 +14,7 @@ import javax.inject.Singleton
  * feeds [KnownForges], which is how a host alone is told from a Forgejo.
  */
 interface ForgeHosts {
-    /** Tells [KnownForges] every server remembered. Called at launch, before anything is opened. */
+    /** Tells [KnownForges] where the servers remembered are kept, reading nothing yet. Called at launch. */
     fun load()
 
     fun remember(instance: ForgeInstance, oauthClientId: String? = null)
@@ -24,17 +24,18 @@ interface ForgeHosts {
 }
 
 /**
- * Kept in a small preferences file rather than with the accounts: it is read whole and at once at launch, where the
- * accounts' store is read later and off the main thread, after a link may already have been opened.
+ * Kept in a small preferences file rather than with the accounts: it is read whole and at once, by the first to ask
+ * about a self-hosted server, where the accounts' store is read in a flow that a link opened at launch can't wait for.
  */
 @Singleton
 class StoredForgeHosts @Inject constructor(@ApplicationContext context: Context) : ForgeHosts {
-    private val preferences = context.getSharedPreferences("forge_hosts", Context.MODE_PRIVATE)
+    // Opened on first use: opening it touches the disk, and this is built on the main thread at launch.
+    private val preferences by lazy { context.getSharedPreferences("forge_hosts", Context.MODE_PRIVATE) }
 
-    override fun load() {
-        preferences.all.forEach { (host, value) ->
-            val type = ForgeType.entries.firstOrNull { it.name == (value as? String)?.substringBefore('|') } ?: return@forEach
-            KnownForges.remember(ForgeInstance(type, host))
+    override fun load() = KnownForges.readFrom {
+        preferences.all.mapNotNull { (host, value) ->
+            val type = ForgeType.entries.firstOrNull { it.name == (value as? String)?.substringBefore('|') } ?: return@mapNotNull null
+            ForgeInstance(type, host)
         }
     }
 
