@@ -46,6 +46,11 @@ data class SoftColors(
     val accentSoft: Color,
     /** Meaning tints, warm, cool and fresh: closed or failed, merged or running, open or passed. */
     val fields: List<Color>,
+    /**
+     * The same three meanings as text and marks on the page, where a tint would make a box: closed (red), merged
+     * (violet), open (green). Readable on the ground, a pressed row and a floating surface.
+     */
+    val fieldInks: List<Color>,
     /** The header band every screen starts with. */
     val band: Color,
     val isDark: Boolean,
@@ -65,6 +70,7 @@ val SoftLight = SoftColors(
     hairline = Color(0xFFDCDADF),
     accentSoft = Color(0xFFFCE9C0),
     fields = listOf(Color(0xFFFCE6DE), Color(0xFFE7E4F6), Color(0xFFDDF0E4)),
+    fieldInks = listOf(Color(0xFFB42318), Color(0xFF6639BA), Color(0xFF17692E)),
     band = Color(0xFF16181A),
     isDark = false,
 )
@@ -82,6 +88,7 @@ val SoftDark = SoftColors(
     hairline = Color(0xFF2A2A30),
     accentSoft = Color(0xFF3A2C12),
     fields = listOf(Color(0xFF3A221C), Color(0xFF25233A), Color(0xFF18291F)),
+    fieldInks = listOf(Color(0xFFFF8A75), Color(0xFFB79CF0), Color(0xFF5FD38A)),
     // A step lighter than the page, so the band still reads as the top of the screen.
     band = Color(0xFF24242A),
     isDark = true,
@@ -157,6 +164,8 @@ data class SoftType(
     val detailTitle: TextStyle = geist(24f, 29f, FontWeight.SemiBold, tracking = -0.02f),
     /** Who or what a detail screen is about when that is a sentence: an issue's title, a person's name, a job. */
     val hero: TextStyle = geist(22f, 27f, FontWeight.SemiBold, tracking = -0.02f),
+    /** A release's version in the Feed, the row's headline. */
+    val version: TextStyle = geist(20f, 24f, FontWeight.SemiBold, tracking = -0.02f),
     /** A section's title over its rows (Needs you, a settings group, a Feed day). */
     val section: TextStyle = geist(14f, 18f, FontWeight.SemiBold),
     /** A repository's name in a list, an account's name, a Notice's title. */

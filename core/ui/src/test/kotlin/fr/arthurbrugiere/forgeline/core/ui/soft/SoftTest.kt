@@ -93,6 +93,17 @@ class SoftTest {
     }
 
     @Test
+    fun state_inks_are_readable_wherever_a_row_can_be() {
+        palettes.forEach { (theme, c) ->
+            listOf("closed", "merged", "open").zip(c.fieldInks).forEach { (meaning, ink) ->
+                assertReadable("$theme $meaning on the ground", ink, c.ground)
+                assertReadable("$theme $meaning on a pressed row", ink, c.surface)
+                assertReadable("$theme $meaning on a floating surface", ink, c.raised)
+            }
+        }
+    }
+
+    @Test
     fun markers_buttons_and_snackbars_are_readable() {
         palettes.forEach { (theme, c) ->
             assertReadable("$theme stopped-here marker", c.ink, c.accentSoft)
