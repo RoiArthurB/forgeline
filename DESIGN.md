@@ -1,108 +1,125 @@
 ---
 name: Forgeline
-description: A fast, discovery-first Android client for code forges, set in Friendly Type, a soft, readable world with one vivid ember accent.
+description: A fast, discovery-first Android client for code forges, set in Ink Compact, an ink band over a quick hairline-ruled list with one marigold accent.
 colors:
-  ground: "#FAFAFB"
-  ink: "#1E1B2E"
-  ink-muted: "#5A566B"
-  accent: "#B83A17"
-  thumb: "#FF6B3D"
-  on-thumb: "#1E1B2E"
-  track: "#1E1B2E0F"
-  surface: "#F0EFF3"
+  ground: "#F5F4F6"
+  ink: "#16181A"
+  ink-muted: "#606065"
+  accent: "#8F5600"
+  thumb: "#F5A524"
+  on-thumb: "#16181A"
+  track: "#16181A0F"
+  surface: "#E8E7EB"
   raised: "#FFFFFF"
-  field-today: "#FFE6DC"
-  field-week: "#ECE6FF"
-  field-month: "#DDF3EA"
-  ground-dark: "#15131C"
-  ink-dark: "#F1EEF6"
-  ink-muted-dark: "#A7A2B8"
-  accent-dark: "#FF8A5C"
-  on-thumb-dark: "#1A1216"
-  track-dark: "#FFFFFF12"
-  surface-dark: "#221F2C"
-  raised-dark: "#282533"
-  field-today-dark: "#2B1E1F"
-  field-week-dark: "#221F33"
-  field-month-dark: "#1A2724"
+  hairline: "#DCDADF"
+  accent-soft: "#FCE9C0"
+  field-warm: "#FCE6DE"
+  field-cool: "#E7E4F6"
+  field-fresh: "#DDF0E4"
+  band: "#16181A"
+  ground-dark: "#111113"
+  ink-dark: "#EDEDF0"
+  ink-muted-dark: "#9C9BA3"
+  accent-dark: "#FFC062"
+  track-dark: "#FFFFFF14"
+  surface-dark: "#1F1F24"
+  raised-dark: "#1D1D21"
+  hairline-dark: "#2A2A30"
+  accent-soft-dark: "#3A2C12"
+  field-warm-dark: "#3A221C"
+  field-cool-dark: "#25233A"
+  field-fresh-dark: "#18291F"
+  band-dark: "#24242A"
   ground-amoled: "#000000"
-  surface-amoled: "#16141D"
-  raised-amoled: "#1C1925"
+  surface-amoled: "#141417"
+  raised-amoled: "#17171A"
+  hairline-amoled: "#232327"
+  band-amoled: "#17171A"
+  band-black: "#000000"
+  band-white: "#FFFFFF"
+  band-white-dark: "#EDEDF0"
+  on-dark-band-muted: "#A6A5AB"
+  on-dark-band-surface: "#303037"
+  on-dark-band-hairline: "#34343B"
+  on-light-band-muted: "#5E5D63"
+  on-light-band-surface: "#DDDCE1"
+  on-light-band-hairline: "#D3D1D7"
 typography:
   title:
-    fontFamily: "Gabarito, sans-serif"
-    fontSize: "34sp"
-    fontWeight: 700
-    lineHeight: "38sp"
-    letterSpacing: "-0.01em"
+    fontFamily: "Geist, sans-serif"
+    fontSize: "28sp"
+    fontWeight: 600
+    lineHeight: "32sp"
+    letterSpacing: "-0.03em"
   detail-title:
-    fontFamily: "Gabarito, sans-serif"
-    fontSize: "30sp"
-    fontWeight: 700
-    lineHeight: "34sp"
-    letterSpacing: "-0.01em"
+    fontFamily: "Geist, sans-serif"
+    fontSize: "24sp"
+    fontWeight: 600
+    lineHeight: "29sp"
+    letterSpacing: "-0.02em"
   hero:
-    fontFamily: "Gabarito, sans-serif"
-    fontSize: "26sp"
-    fontWeight: 700
-    lineHeight: "31sp"
-    letterSpacing: "-0.01em"
+    fontFamily: "Geist, sans-serif"
+    fontSize: "22sp"
+    fontWeight: 600
+    lineHeight: "27sp"
+    letterSpacing: "-0.02em"
   name:
-    fontFamily: "Gabarito, sans-serif"
-    fontSize: "21sp"
-    fontWeight: 700
-    lineHeight: "25sp"
+    fontFamily: "Geist, sans-serif"
+    fontSize: "16sp"
+    fontWeight: 600
+    lineHeight: "21sp"
+    letterSpacing: "-0.005em"
   section:
-    fontFamily: "Gabarito, sans-serif"
-    fontSize: "17sp"
-    fontWeight: 500
-    lineHeight: "22sp"
-  figure:
-    fontFamily: "Gabarito, sans-serif"
-    fontSize: "16sp"
-    fontWeight: 700
-    lineHeight: "20sp"
-    fontFeature: "tnum"
-  control:
-    fontFamily: "Gabarito, sans-serif"
-    fontSize: "15sp"
-    fontWeight: 500
-    lineHeight: "20sp"
-  body:
-    fontFamily: "Lexend, sans-serif"
-    fontSize: "15sp"
-    fontWeight: 400
-    lineHeight: "24sp"
-  lead:
-    fontFamily: "Lexend, sans-serif"
-    fontSize: "16sp"
-    fontWeight: 400
-    lineHeight: "24sp"
-  row-title:
-    fontFamily: "Lexend, sans-serif"
-    fontSize: "16sp"
-    fontWeight: 400
-    lineHeight: "22sp"
-  secondary:
-    fontFamily: "Lexend, sans-serif"
+    fontFamily: "Geist, sans-serif"
     fontSize: "14sp"
-    fontWeight: 400
+    fontWeight: 600
+    lineHeight: "18sp"
+  control:
+    fontFamily: "Geist, sans-serif"
+    fontSize: "14sp"
+    fontWeight: 600
     lineHeight: "20sp"
-  meta:
-    fontFamily: "Lexend, sans-serif"
+  figure:
+    fontFamily: "Geist, sans-serif"
     fontSize: "13sp"
-    fontWeight: 400
+    fontWeight: 600
     lineHeight: "18sp"
     fontFeature: "tnum"
+  body:
+    fontFamily: "Geist, sans-serif"
+    fontSize: "15sp"
+    fontWeight: 400
+    lineHeight: "22sp"
+  lead:
+    fontFamily: "Geist, sans-serif"
+    fontSize: "15sp"
+    fontWeight: 400
+    lineHeight: "22sp"
+  row-title:
+    fontFamily: "Geist, sans-serif"
+    fontSize: "15sp"
+    fontWeight: 400
+    lineHeight: "20sp"
+  secondary:
+    fontFamily: "Geist, sans-serif"
+    fontSize: "13.5sp"
+    fontWeight: 400
+    lineHeight: "19sp"
   label:
-    fontFamily: "Lexend, sans-serif"
-    fontSize: "13sp"
-    fontWeight: 500
-    lineHeight: "18sp"
-  tag:
-    fontFamily: "Lexend, sans-serif"
+    fontFamily: "Geist, sans-serif"
+    fontSize: "12.5sp"
+    fontWeight: 600
+    lineHeight: "17sp"
+  meta:
+    fontFamily: "Geist, sans-serif"
     fontSize: "12sp"
-    fontWeight: 500
+    fontWeight: 400
+    lineHeight: "16sp"
+    fontFeature: "tnum"
+  tag:
+    fontFamily: "Geist, sans-serif"
+    fontSize: "11.5sp"
+    fontWeight: 600
     lineHeight: "16sp"
   code:
     fontFamily: "monospace"
@@ -121,444 +138,407 @@ typography:
     lineHeight: "18sp"
     fontFeature: "tnum"
 rounded:
-  snackbar: "16dp"
-  row: "20dp"
-  thumb: "24dp"
-  field: "28dp"
-  pill: "50%"
-spacing:
+  row: "0dp"
   xs: "4dp"
-  sm: "8dp"
-  md: "12dp"
-  lg: "16dp"
-  gutter: "20dp"
-  xl: "24dp"
-  notice: "32dp"
+  tag: "5dp"
+  control: "6dp"
+  tile: "8dp"
+  lg: "10dp"
+  sheet: "12dp"
+  round: "50%"
+spacing:
+  hair: "2dp"
+  xs: "4dp"
+  sm: "6dp"
+  md: "8dp"
+  row-v: "10dp"
+  gap: "12dp"
+  gutter: "16dp"
+  band-edge: "18dp"
+  conversation: "20dp"
+  notice: "28dp"
+  row-text: "60dp"
 components:
-  header-field:
-    backgroundColor: "{colors.field-today}"
-    textColor: "{colors.ink}"
+  band-header:
+    backgroundColor: "{colors.band}"
+    textColor: "{colors.ink-dark}"
     typography: "{typography.title}"
-    rounded: "{rounded.field}"
-    padding: "16dp 8dp 20dp 20dp"
-  header-field-detail:
-    backgroundColor: "{colors.field-week}"
+    rounded: "{rounded.row}"
+    padding: "4dp 8dp 0 18dp"
+  band-header-detail:
+    backgroundColor: "{colors.band}"
+    textColor: "{colors.ink-dark}"
+    typography: "{typography.detail-title}"
+    rounded: "{rounded.row}"
+    padding: "4dp 8dp 14dp 4dp"
+  tab:
+    textColor: "{colors.on-dark-band-muted}"
+    typography: "{typography.control}"
+    padding: "10dp 10dp"
+    height: "48dp"
+  tab-selected:
+    textColor: "{colors.ink-dark}"
+    typography: "{typography.control}"
+    padding: "10dp 10dp"
+    height: "48dp"
+  tab-underline:
+    backgroundColor: "{colors.thumb}"
+    height: "3dp"
+  nav-bar:
+    backgroundColor: "{colors.ground}"
+    textColor: "{colors.ink-muted}"
+    typography: "{typography.meta}"
+    height: "56dp"
+  nav-item-selected:
     textColor: "{colors.ink}"
-    typography: "{typography.hero}"
-    rounded: "{rounded.field}"
-    padding: "4dp 8dp 20dp 4dp"
-  switch-track:
-    backgroundColor: "{colors.track}"
-    textColor: "{colors.ink-muted}"
-    typography: "{typography.control}"
-    rounded: "{rounded.field}"
-    padding: "4dp"
-    height: "48dp"
-  switch-thumb:
+    typography: "{typography.meta}"
+    height: "56dp"
+  nav-indicator:
     backgroundColor: "{colors.thumb}"
-    textColor: "{colors.on-thumb}"
-    typography: "{typography.control}"
-    rounded: "{rounded.thumb}"
-  chip-tab:
-    backgroundColor: "{colors.track}"
+    height: "3dp"
+  nav-rail:
+    backgroundColor: "{colors.ground}"
     textColor: "{colors.ink-muted}"
-    typography: "{typography.control}"
-    rounded: "{rounded.thumb}"
-    padding: "0 18dp"
-    height: "48dp"
-  chip-tab-selected:
-    backgroundColor: "{colors.thumb}"
-    textColor: "{colors.on-thumb}"
-    typography: "{typography.control}"
-    rounded: "{rounded.thumb}"
-    padding: "0 18dp"
-    height: "48dp"
+    typography: "{typography.meta}"
+    width: "80dp"
   row:
     textColor: "{colors.ink}"
     rounded: "{rounded.row}"
-    padding: "14dp 4dp 4dp 12dp"
+    padding: "10dp 16dp"
   row-pressed:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
     rounded: "{rounded.row}"
-  row-badge:
-    backgroundColor: "{colors.field-today}"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.pill}"
-    size: "36dp"
-  event-badge:
+  tile:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
-    rounded: "{rounded.pill}"
+    rounded: "{rounded.tile}"
+    size: "32dp"
+  tile-needs-you:
+    backgroundColor: "{colors.accent-soft}"
+    textColor: "{colors.accent}"
+    rounded: "{rounded.tile}"
+    size: "32dp"
+  unread-dot:
+    backgroundColor: "{colors.thumb}"
+    rounded: "{rounded.round}"
+    size: "7dp"
+  comment-avatar:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink-muted}"
+    rounded: "{rounded.tile}"
     size: "28dp"
   button-filled:
     backgroundColor: "{colors.thumb}"
     textColor: "{colors.on-thumb}"
     typography: "{typography.control}"
-    rounded: "{rounded.pill}"
-    padding: "0 24dp"
-    height: "48dp"
-  button-final:
-    backgroundColor: "{colors.ink}"
-    textColor: "{colors.ground}"
+    rounded: "{rounded.control}"
+    padding: "0 16dp"
+    height: "40dp"
+  button-filled-disabled:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink-muted}"
     typography: "{typography.control}"
-    rounded: "{rounded.pill}"
-    padding: "0 24dp"
-    height: "48dp"
+    rounded: "{rounded.control}"
+    height: "40dp"
   button-tonal:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
     typography: "{typography.control}"
-    rounded: "{rounded.pill}"
-    padding: "0 20dp"
+    rounded: "{rounded.control}"
+    padding: "0 14dp"
+    height: "40dp"
+  button-final:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.ground}"
+    typography: "{typography.control}"
+    rounded: "{rounded.control}"
+    padding: "0 16dp"
+    height: "40dp"
+  button-icon:
+    textColor: "{colors.ink}"
+    rounded: "{rounded.tile}"
+    size: "40dp"
+  send-tile:
+    backgroundColor: "{colors.thumb}"
+    textColor: "{colors.on-thumb}"
+    rounded: "{rounded.tile}"
+    size: "40dp"
+  send-tile-quiet:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.ink-muted}"
+    rounded: "{rounded.tile}"
+    size: "40dp"
+  check-on:
+    backgroundColor: "{colors.thumb}"
+    textColor: "{colors.on-thumb}"
+    rounded: "{rounded.control}"
+    size: "22dp"
+  check-off:
+    textColor: "{colors.ink-muted}"
+    rounded: "{rounded.control}"
+    size: "22dp"
+  text-field:
+    backgroundColor: "{colors.raised}"
+    textColor: "{colors.ink}"
+    typography: "{typography.lead}"
+    rounded: "{rounded.control}"
+    padding: "0 14dp"
+    height: "48dp"
+  choice-pill:
+    textColor: "{colors.ink}"
+    typography: "{typography.control}"
+    rounded: "{rounded.control}"
+    padding: "0 4dp 0 8dp"
     height: "48dp"
   tag:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
     typography: "{typography.tag}"
-    rounded: "{rounded.pill}"
-    padding: "4dp 10dp"
-  search-field:
-    backgroundColor: "{colors.ground}"
+    rounded: "{rounded.tag}"
+    padding: "2dp 7dp"
+  state-pill:
+    backgroundColor: "{colors.field-fresh}"
     textColor: "{colors.ink}"
-    typography: "{typography.lead}"
-    rounded: "{rounded.pill}"
-    padding: "0 4dp 0 16dp"
-    height: "52dp"
-  nav-bar:
-    backgroundColor: "{colors.raised}"
-    textColor: "{colors.ink-muted}"
-    rounded: "{rounded.pill}"
-    padding: "6dp"
-    height: "64dp"
-  nav-item-selected:
-    backgroundColor: "{colors.thumb}"
-    textColor: "{colors.on-thumb}"
     typography: "{typography.label}"
-    rounded: "{rounded.pill}"
-    padding: "5dp 2dp"
-    height: "52dp"
-  nav-rail:
-    backgroundColor: "{colors.raised}"
-    textColor: "{colors.ink-muted}"
-    rounded: "{rounded.thumb}"
-    padding: "12dp 6dp"
-    width: "88dp"
-  choice-pill:
-    backgroundColor: "{colors.track}"
-    textColor: "{colors.ink}"
-    typography: "{typography.control}"
-    rounded: "{rounded.pill}"
-    padding: "0 10dp 0 14dp"
-    height: "48dp"
-  link-resume:
+    rounded: "{rounded.tag}"
+    padding: "3dp 8dp 3dp 6dp"
+  gain-figure:
+    backgroundColor: "{colors.accent-soft}"
     textColor: "{colors.accent}"
-    typography: "{typography.label}"
-    rounded: "{rounded.pill}"
-    padding: "0 12dp"
-    height: "48dp"
-  marker-stopped-here:
-    backgroundColor: "{colors.field-today}"
-    textColor: "{colors.ink}"
-    typography: "{typography.label}"
-    rounded: "{rounded.pill}"
-    padding: "6dp 12dp"
-  code-block:
+    typography: "{typography.figure}"
+    rounded: "{rounded.tag}"
+    padding: "0 5dp"
+  repo-panel:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.ink}"
-    typography: "{typography.code}"
+    rounded: "{rounded.tile}"
+    padding: "10dp 12dp"
+  left-off-mark:
+    backgroundColor: "{colors.field-warm}"
+    textColor: "{colors.ink}"
+    typography: "{typography.label}"
+    rounded: "{rounded.control}"
+    padding: "6dp 12dp"
+  selection-bar:
+    backgroundColor: "{colors.ink}"
+    textColor: "{colors.ground}"
+    typography: "{typography.control}"
+    rounded: "{rounded.tile}"
+    padding: "0 4dp"
   snackbar:
     backgroundColor: "{colors.ink}"
     textColor: "{colors.ground}"
-    rounded: "{rounded.snackbar}"
+    rounded: "{rounded.tile}"
+  menu:
+    backgroundColor: "{colors.raised}"
+    textColor: "{colors.ink}"
+    typography: "{typography.control}"
+    rounded: "{rounded.tile}"
 ---
 
 # Design System: Forgeline
 
 ## Overview
 
-**Creative North Star: "Friendly Type"**
+**Creative North Star: "Ink Compact"**
 
-Forgeline is mostly text, so the world is built to be pleasant to read. A warm, rounded display face (Gabarito) carries names, titles and figures, a very legible text face (Lexend) carries every line of reading, and both sit on soft surfaces with one vivid ember accent. The owner's word for the result is comfy: soft, friendly, modern, and vivid enough to feel alive, never heavy or corporate.
+Every screen starts on an ink band that carries its name and its one axis; below it runs a fast, hairline-ruled list in which every item opens with a big icon tile. One typeface (Geist) sets everything, one marigold accent marks what matters, and corners stay small. The world exists to be quick to read and quick to clear: the Inbox shows what needs you by its marigold tiles and dots, Trending fits about seven repositories to a screen, and an issue is answered with a send arrow rather than a big button.
 
-Hierarchy comes from type, space and tone, never from lines or boxes. Colour arrives at scale once per surface, as a soft tint that owns the header field and says something about the screen: warm, cool or fresh, keyed to the section (Trending's period, the Inbox filter) or to the thing being read (an issue's state). Ember then marks only momentum and selection. Density is comfortable: one reading column, generous row rhythm, descriptions held to a readable measure. Motion is soft and springy, a little lively and never bouncy, and it disappears entirely under the system Remove animations setting.
+Density is compact on purpose: 32dp tiles, 10dp row padding, one-pixel rules instead of air. Hierarchy comes from weight (Geist Regular against SemiBold), the band against the page, and the tile at the head of each row. Colour at scale is only the band; marigold is a fill for a handful of marks, and warm, cool and fresh tints survive only as meaning on small things (a tile's state, a Feed state tag, a swipe). Motion is one soft spring and disappears entirely under the system Remove animations setting.
 
-Native Android behaviour stays native: system Back, edge-to-edge insets, 48dp touch targets, and sp type that follows the font scale (rows grow and wrap at 1.3x and 2.0x; nothing is cut). Confirmed rejections: brutalist or boxy layouts, split-flap or departure-board and other literal metaphors borrowed from other domains, harsh aggressive contrast, condensed signage display faces, and a corporate feel.
+Native Android stays native: system Back, edge-to-edge insets, 48dp touch targets, sp type that follows the font scale (rows grow and wrap at 1.3x and 2.0x; nothing is cut). Confirmed rejections: brutalist or boxy layouts, literal metaphors borrowed from other domains (departure boards, split-flap), condensed signage type, Material 3's rounded pills and tinted-background selection, and big text pills for small actions.
 
-Scope: the world covers the whole app. It lives in `core/ui/.../soft/Soft.kt` (`SoftColors`, `SoftType`, `SoftTheme`, `amoled()`) and `SoftComponents.kt` (`SoftTokens` and the shared pieces), and every screen (each headed by `SoftHeader` on a tinted field), the floating navigation bar and the rail are built from it. `ForgelineTheme` fills Material's colour roles, type scale and shapes from Soft, so the Material pieces still in use (dialogs, switches, text fields, menus, snackbars, pull-to-refresh, progress indicators) take the palette. The Material You (dynamic colour) setting is gone; the only appearance choices are System, Light or Dark, plus AMOLED black.
+Scope: the whole app. The world lives in `core/ui/.../soft/Soft.kt` (`SoftColors`, `SoftType`, `onBand()`, `withHeader()`, `amoled()`) and `SoftComponents.kt` (`SoftTokens` and the shared pieces). `ForgelineTheme` fills Material's colour roles, type scale (`SoftTypography`, all Geist) and shapes (`SoftShapes`, 4-12dp) from it, so the Material pieces still in use (menus, sheets, snackbars, pull-to-refresh, progress) take the palette. Appearance settings are Theme (System, Light, Dark), Header (Ink, True black, White) and Pure black.
 
 **Key Characteristics:**
-- Gabarito 500/700 for display, names and figures; Lexend 400/500 for all reading text.
-- One soft tinted header field per screen, 28dp rounded bottom corners, tint warm, cool or fresh by meaning.
-- One ember accent for momentum (ranks, gains, starred, resume, links) and one ember fill for selection (the switch thumb, the selected tab, the selected nav item).
-- Nothing boxed: no dividers, no card outlines, no stacked cards; comments are unboxed turns.
-- Pill controls, round soft badges, and a 20dp soft surface for pressed or focused rows.
-- A floating pill navigation bar on phones and a soft rail on wide windows, both on `raised`.
-- Tabular figures wherever numbers line up.
-- Every text/background pair at least 4.5:1, enforced by `SoftTest`.
+- An ink band heads every screen; everything on it is drawn in the band's own palette (`onBand()`).
+- Geist in two weights only, 400 and 600; system monospace for code.
+- One marigold fill: the selected tab's underline, the navigation bar's selected bar, unread dots, the send tile, the primary button, the check.
+- Selection is a bold label over a 3dp marigold underline, never a tinted chip.
+- Things are 8dp tiles; people's faces are round, except comment authors' 28dp rounded squares.
+- Rows run edge to edge between one-pixel hairlines that start at the text edge (60dp).
+- Small corners: 5dp tags, 6dp controls, 8dp tiles, 12dp at most.
+- Every text/background pair at least 4.5:1 in every theme and header style, enforced by `SoftTest`.
 
 ## Colors
 
-A cool, near-white (or violet-black) ground with plum-navy ink, lifted by soft pastel tints and one hot ember.
+A cool near-white (or near-black) page under a near-black ink band, with one marigold for marks and a deep amber that reads as text.
 
 ### Primary
-- **Ember Thumb** (`thumb`): the saturated ember of selection and commitment. It fills the switch thumb, the selected chip tab, the selected navigation item, filled buttons, the checked Material switch track, and the dot on the Stopped-here marker. Identical in all themes; text and icons on it are `on-thumb` (plum-navy in light, near-black in dark).
-- **Readable Ember** (`accent` / `accent-dark`): ember tuned per theme to read as text. Light uses a deep burnt ember so it holds 4.5:1 on the ground, the pressed surface and the raised surface; dark uses a bright coral ember. It marks momentum and links only: rank numbers, "+gained" figures, the filled star, the "Resume at #n" link, README and comment links (Lexend 500, underlined), the sign-in token link, text cursors, spinners and progress bars, and the cross on a failed run.
+- **Marigold** (`thumb`): the one accent fill, identical in every theme. It fills the 3dp underline under the chosen tab, the 3dp bar over the selected navigation tab (and on the rail's edge), the unread dot, the send tile, the filled button, the on state of the check, a picked Inbox thread's tile, and the Undo action on the light theme's snackbar. Text and icons on it are `on-thumb` ink. On the light page it is about 1.9:1, so it never carries meaning alone: a bold label, a filled icon or a bold title always says the same thing.
+- **Deep Amber / Light Amber** (`accent` / `accent-dark`): marigold tuned to read as text, 4.5:1 or better on the page, tiles and tints. It sets the Inbox's "Mentioned" and "Review requested" reasons, a needs-you tile's glyph, Trending's "+gained" figure, links in Markdown (underlined), the text cursor, error lines, the chosen ring in a choice row, the check in a menu, spinners.
+- **Marigold Tint** (`accent-soft` / `accent-soft-dark`): marigold's soft tint, behind a tile that needs you, the "Needs you" count and the "+gained" figure.
 
 ### Secondary
-- **Field Tints** (`field-today` warm, `field-week` cool, `field-month` fresh, with `-dark` variants): peach, lilac and mint in light; ember-, violet- and green-tinged near-blacks in dark. The token names come from Trending's periods; across the app they are used by meaning:
-  - **Tabs:** Inbox warm, and its filter switch retints it (Unread warm, Participating cool, All fresh); Feed cool; Trending by period (today warm, week cool, month fresh); You fresh.
-  - **Detail screens:** repository warm; file cool; issue or pull request by state (fresh open, cool merged, warm closed); profile cool; search cool; settings, credits fresh; sign-in warm.
-  - **Small marks:** the same three tints back round badges by kind (below), the Stopped-here marker, the Inbox's "Needs you" pills and count (warm: for you), and the swipe backgrounds under an Inbox row (fresh to mark read, warm for done).
+- **Meaning Tints** (`field-warm`, `field-cool`, `field-fresh`, with `-dark` variants): peach, lilac and mint in light; ember-, violet- and green-tinged near-blacks in dark. Used by meaning only, on small things: an issue or pull request tile (fresh open, cool merged, warm closed; quiet `surface` for drafts and what was closed in shared rows), Feed state tags (fresh open, approved; cool merged, comment, announcement; warm closed, changes requested, release tag), the swipe under an Inbox row (fresh to mark read, warm for done), timeline event badges, and the warm "Where you left off" mark.
 
 ### Neutral
-- **Soft White / Violet Black** (`ground` / `ground-dark`, `ground-amoled`): the page. AMOLED swaps the ground to true black, the surface to `surface-amoled` and the raised colour to `raised-amoled`. Ground also fills pills that sit on a field: the search field, an issue's state tag, the Following button, profile avatar placeholders.
-- **Plum-Navy Ink / Lavender White** (`ink` / `ink-dark`): all primary text, titles, names and descriptions, icons in headers and badges; also the snackbar background (with ground as its text). Handed to Material as the content colour, so its icons and ripples take the palette.
-- **Muted Ink** (`ink-muted` / `ink-muted-dark`): owners and `owner/` prefixes, relative times, meta stats, timeline event lines, unselected switch labels and navigation icons, placeholders, the unstarred star.
-- **Soft Surface** (`surface` / `surface-dark`): the pressed or focused row, loading shapes, avatar placeholders, unselected chip tabs, tonal buttons, tags and reactions, neutral badges (files, drafts, plain events), and code blocks and inline code in Markdown.
-- **Raised** (`raised` / `raised-dark` / `raised-amoled`): floating things lifted off the ground by a soft shadow: the navigation bar and rail, menus and dialogs (Material's container roles).
-- **Track** (`track` / `track-dark`): a 6-7% ink or white veil laid over the field for the switch's track, so it follows whichever tint sits beneath.
+- **Ink Band** (`band`, `band-dark`, `band-amoled`; `band-black`, `band-white`, `band-white-dark` by the Header setting): the band at the top of every screen and the status bar's scrim once the header scrolls away. Light: ink over the light body. Dark: a lifted charcoal a step lighter than the page, so it still reads as the top. AMOLED: a near-black band on true black.
+- **Band Palette** (`on-dark-band-*`, `on-light-band-*`): what `onBand()` hands to everything on the band: light ink, a muted ink, a tag surface and a hairline tuned to read on the band itself; a dark band gets light ink whichever theme the page is in, a white band dark ink.
+- **Page** (`ground` / `ground-dark` / `ground-amoled`): the body, the navigation bar and rail, sheets.
+- **Ink** (`ink` / `ink-dark`): titles, names, descriptions, icons; also the selection bar, the final-action button and the snackbar.
+- **Muted Ink** (`ink-muted` / `ink-muted-dark`): source lines, times, meta, read titles, unselected tabs and navigation, placeholders. Dark enough to read on a tile, a tint and a pressed row, not only on the page.
+- **Tile Surface** (`surface` / `surface-dark` / `surface-amoled`): icon tiles, a pressed row, tags, tonal buttons, loading shapes, code, the Feed's repository panel.
+- **Raised** (`raised` / `raised-dark` / `raised-amoled`): text fields, menus and the floating jump buttons.
+- **Hairline** (`hairline` / `hairline-dark` / `hairline-amoled`): the one-pixel rule between rows, beside the rail, above the navigation bar, and under a band that melts into the page.
+- **Veil** (`track` / `track-dark`): a 6-8% ink or white wash over anything pressed or focused.
 
 ### Named Rules
-**The Field Tint Rule.** Colour at scale lives in the header field tint, one tint per surface, keyed to the section. Ember elsewhere is a mark (rank, gain, starred, resume, thumb), never a background wash, border or scattered decoration.
+**The One Marigold Rule.** Marigold is a fill for marks (underline, bar, dot, send tile, primary button, check), never a background wash, a border or decoration; as text it is always deep amber. Since it is 1.9:1 on the light page, every marigold mark is doubled by weight, a filled icon or text.
 
-**The Readable Everywhere Rule.** Every text/background pair the world draws holds at least 4.5:1 in light, dark and AMOLED, on the ground, on every field tint, on the track over each tint, and on the pressed surface. `SoftTest` enforces it; a new pair gets a new assertion.
+**The Readable Everywhere Rule.** Every text/background pair holds at least 4.5:1 in light, dark and AMOLED, on the page, the tile surface, every meaning tint, the marigold tint and a pressed row, and in every header style (Ink, True black, White) on the band. The chosen tab's underline holds at least 3:1 on every dark band. `SoftTest` enforces it; a new pair gets a new assertion.
 
-**The Tint Means Something Rule.** Warm, cool and fresh are chosen by meaning, never for variety. On marks the code states it outright: on issues and pull requests, in their headers, rows and Feed state pills alike, fresh is open, cool merged, warm closed; in the Feed warm also marks releases, fresh an approving review, warm a review asking for changes. Headers follow the table above; a new screen takes the tint of its nearest kin in it.
+**The Band Rule.** The band ends where the page begins without a line, unless the two sit under 1.12:1 apart (`bandNeedsRule`: White in light, True black on AMOLED): then a hairline in the page's colour says where it ends. Status bar icons follow the band (`bandIsDark`); navigation bar icons follow the page.
 
 ## Typography
 
-**Display Font:** Gabarito (bundled; fallback sans-serif)
-**Body Font:** Lexend (bundled; fallback sans-serif)
-**Code Font:** the system monospace, for code, commit SHAs, branch names and the sign-in device code only
+**Display and Body Font:** Geist v1.7.2 (bundled, OFL; Latin and Cyrillic; other scripts fall back to the system sans-serif)
+**Code Font:** the system monospace, for code, diffs, blame, logs, SHAs and branch names only
 
-**Character:** Gabarito is warm, round and a little playful at weight; Lexend is open, even and made for comfortable reading. Display is friendly, text is effortless.
+**Character:** a neutral, compact grotesque with tight negative tracking at title sizes. Hierarchy is weight and size, not a second family.
 
 ### Hierarchy
-- **Title** (Gabarito 700, 34sp/38sp, -0.01em): the title of a top-level screen in its header field ("Trending", "Inbox"). Marked as a heading.
-- **Detail Title** (Gabarito 700, 30sp/34sp, -0.01em): one step under Title, for a detail screen whose subject is a name: a repository's name, a plain screen title set under the back row (Settings, Credits, Sign-in). Marked as a heading.
-- **Hero** (Gabarito 700, 26sp/31sp, -0.01em): the subject of a detail screen when it is a sentence or a handle: an issue's title and number, a profile's name or `@login`, a job's, check's or release's name. Marked as a heading.
-- **Name** (Gabarito 700, 21sp/25sp): repository names in Trending rows, a detail header's small title (file name), a signed-in account's name, Notice titles.
-- **Section** (Gabarito 500, 17sp/22sp): section titles inside a list (Settings groups, Feed days), the Inbox's "Needs you" and "Everything else", the notification prompt title.
-- **Figure** (Gabarito 700, 16sp/20sp, tabular): ranks and "+gained" counts, in ember.
-- **Control** (Gabarito 500, 15sp/20sp): switch and tab labels, button text, the selected navigation label, comment author names; at body size (15sp/24sp) for `owner/name` in shared repository rows. A single-word switch label shrinks instead of wrapping when it cannot fit at very large font scales, never below 12dp on screen; labels with a space wrap.
-- **Lead** (Lexend 400, 16sp/24sp): what a subject says of itself under its name in a header (a repository's description, a profile's bio), held to 580dp; and what is typed into a text field, its placeholder included.
-- **Row Title** (Lexend 400, 16sp/22sp): the line of a list row read at a glance: an Inbox thread's title (500 unread, 400 read) and what a Feed event is about (500).
-- **Body** (Lexend 400, 15sp/24sp): descriptions, issue titles in rows, comment and Notice bodies, setting titles. Measure capped at 580dp (about 65-75 characters).
-- **Secondary** (Lexend 400, 14sp/20sp): owner above a name, `@login`, a detail header's repository line, timeline event lines.
-- **Meta** (Lexend 400, 13sp/18sp, tabular): language, stars, forks, issue numbers and relative times.
-- **Label** (Lexend 500, 13sp/18sp): the resume link, the Stopped-here marker, an issue's state tag, forge labels; at 12sp/16sp (**Tag**) for tags and reactions; at meta size for the navigation labels (bar and rail).
-- **Code** (monospace 400, 13sp/20sp): the file viewer and Markdown code, with a muted line-number gutter; a changed file's path at 500.
-- **Code Dense** (monospace 400, 12sp/18sp): code read many lines at a time: a pull request's changed lines, a blame, a job's log (its step titles at 500).
-- **Gutter** (monospace 400, 11sp/18sp, tabular): line numbers and hunk headers beside dense code, in muted ink.
+- **Title** (600, 28sp/32sp, -0.03em): a tab's name on its band ("Inbox", "Trending"). A heading, up to two lines.
+- **Detail Title** (600, 24sp/29sp, -0.02em): a detail screen's title on the band when it is a name (a repository, Settings).
+- **Hero** (600, 22sp/27sp, -0.02em): a detail screen's subject when it is a sentence: an issue's title, a person's name, a job.
+- **Name** (600, 16sp/21sp, -0.005em): a repository in a list, an account's name, a Notice's or sheet's title.
+- **Section** (600, 14sp/18sp): a section's title over its rows ("Needs you", a settings group, a Feed day).
+- **Control** (600, 14sp/20sp): buttons, a comment's author, the choice pill; tabs use it at 600 when chosen and 400 otherwise.
+- **Figure** (600, 13sp/18sp, tabular): ranks, gains, counts.
+- **Body** (400, 15sp/22sp): descriptions, comments, Notice bodies. Measure capped at 580dp.
+- **Lead** (400, 15sp/22sp): what a subject says of itself under its name in a header, and what is written in a field.
+- **Row Title** (400, 15sp/20sp): the line of a row read at a glance; an unread Inbox thread at 600 in ink, a read one at 400 muted.
+- **Secondary** (400, 13.5sp/19sp): Trending descriptions, a header's repository line, timeline event lines, error lines.
+- **Label** (600, 12.5sp/17sp): state tags, a field's name above it, the left-off mark.
+- **Meta** (400, 12sp/16sp, tabular): source lines, times, stats, navigation labels (held at 1.15x on the bar).
+- **Tag** (600, 11.5sp/16sp): tags, labels, reactions, counts.
+- **Code / Code Dense / Gutter** (monospace 400, 13sp/20sp, 12sp/18sp, 11sp/18sp tabular): a file; a change, a blame or a log; line numbers and hunk headers.
 
-Material's scale (`SoftTypography`) is filled from the same faces for leftover pieces and Markdown headings: display, headline and title roles in Gabarito (titleMedium and titleSmall at 500, the rest 700), body and label roles in Lexend.
+Material's scale (`SoftTypography`) is filled from Geist for leftovers and Markdown headings: display, headline and title roles at 600, body at 400, labels at 600.
 
 ### Named Rules
-**The Two Weights Rule.** Gabarito ships in exactly two weights, Medium 500 for controls and Bold 700 for everything else it sets; Lexend in Regular 400 and Medium 500. No other weights, no other families, no condensed faces.
+**The Two Weights Rule.** Geist ships Regular 400 and SemiBold 600 only. No other weight, no other family, no condensed face; anything else is faked or falls back. `DesignSystemTest` rejects every other `FontWeight` outside monospace.
 
-**The Tabular Figures Rule.** Every number meant to be compared down a list (ranks, gains, stats, line numbers) is set with `tnum`, so columns line up without a grid.
+**The Tabular Figures Rule.** Every number meant to be compared down a list (ranks, gains, stats, times, line numbers) is set with `tnum`, so columns line up without a grid.
 
-**The Named Style Rule.** Every text takes one of the styles above from `Soft.type`, changing at most its weight (within the Two Weights Rule) or its colour. A size set by hand in a screen is drift; a new need gets a new named style here and in `SoftType`. `DesignSystemTest` holds every screen to it; the reaction emoji in a comment's menu and its double-tap burst are the one exception, as pictures rather than text.
+**The Named Style Rule.** Every text takes one of the styles above from `Soft.type`, changing at most its weight (within the Two Weights Rule) or its colour. A size set by hand in a screen is drift; a new need gets a new named style here and in `SoftType`. `DesignSystemTest` holds every screen to it; the reaction emoji in a comment's menu and its burst are the one exception, as pictures rather than text.
 
 ## Layout
 
-A single centred reading column. Content is capped at 720dp wide (`MaxReadingWidth`) on tablets and large screens, with running text further capped at 580dp (`MaxMeasure`); the header field tint still runs edge to edge behind it. The screen gutter is 20dp; top-level headers pad 20dp start and 8dp end, where icon buttons supply their own 48dp targets, and detail headers start 4dp in so the back arrow's target lines up, with their hero content indented 16dp. Rows sit 8dp in from the column edge (2dp apart vertically) so the pressed surface has room, then pad 12dp; a 36dp round badge and a 14dp gap lead the text column where a row has one.
+A single centred reading column, capped at 720dp (`MaxReadingWidth`), with running text further capped at 580dp (`MaxMeasure`); the band runs edge to edge behind it. There is no tablet-specific layout, by owner decision, and none is planned: tablets get the same column, centred.
 
-Spacing moves in 4dp steps (4, 8, 12, 16, 20, 24, 32), with 2dp and 6dp for tight gaps inside a row. Content draws edge to edge: the field sits under the status bar, which gets a 94% ground veil (`SoftStatusBarScrim`) once the field has scrolled away. Section tabs (`SoftChipTabs`) pin under the header as a sticky ground-coloured strip.
+The band's text edge is 18dp on top-level screens; a detail screen starts 4dp in so the back arrow's 48dp target lines up, its title and header content 16dp further. Tabs carry a 10dp inset of their own, so the header's tab row is laid out a tab-inset wider on each side and the first label sits on the title's edge; the pinned section tabs pad 8dp so they land on the same 18dp line. List rows pad 16dp at the sides and 10dp top and bottom (9dp in the Inbox), lead with the 32dp tile and a 12dp gap, and so put their text at 60dp, where the hairline starts. The conversation reads from a 20dp gutter. Spacing otherwise moves in small steps (2, 4, 6, 8, 12, 14dp).
 
-Navigation is responsive at 600dp. Below it, a floating pill bar (at most 480dp wide, 16dp from the sides, 12dp above the system bar) floats over content, and `LocalBottomBarSpace` (bar height, both margins and the system inset) is added under every list so its last row and snackbars clear the bar. At 600dp and up, a soft rail (88dp wide, 12dp inset) stands at the start and the content takes the rest; only the system inset is reserved.
+Edge to edge: the band sits under the status bar, and once it has scrolled away `SoftStatusBarScrim` keeps the band's colour there. Section tabs pin under the header on the band. Navigation is responsive at 600dp: below it a 56dp bar on the page along the bottom, its height plus the system inset reserved under every list (`listBottomPadding()`); from 600dp an 80dp rail at the start, divided from content by a hairline. Every screen takes the horizontal safe-drawing inset (`sideSafeArea()`), and screens with fields take `imePadding`.
 
-Insets: every screen's content column, header included, takes the horizontal safe-drawing inset (`Modifier.sideSafeArea()`), so a landscape navigation bar or a camera cutout never covers content; Search and Sign-in also take `imePadding` so results and the field stay above the keyboard. Tablets get the same single column, centred, by decision: there is no tablet-specific layout, and none is planned.
-
-Trending keeps its own row anatomy: rank in a 30dp column, meta line stats left (14dp apart), the star toggle on the right edge, and builders' avatars (22dp, overlapping by 6dp) just before the toggle only when everything fits; crowded rows drop the builders first, then wrap the stats.
+Rows grow, never cut: at large font the Inbox's time moves from the right edge into the end of the source line, the section tabs scroll sideways only when they overflow, and Trending's meta line is sized by its glyphs.
 
 ## Elevation & Depth
 
-Mostly flat and tonal. Depth on the page comes from the field tint against the ground and the soft surface appearing under a pressed row; there are no card elevations and no outlines. Only things that float above the page get a shadow, and every shadow is soft and tinted, never grey and never hard.
+Flat. Depth on the page is the band against the body, the tile at the head of a row, and the hairlines between rows. A pressed row fills with the tile surface; anything else pressed takes the veil. Menus, sheets and text fields sit on `raised` with Material's own elevation for menus and sheets.
 
 ### Shadow Vocabulary
-- **Ember Glow** (6dp Compose shadow, ambient and spot colour set to `thumb`, on the 24dp thumb shape): a soft ember halo that lifts the switch thumb off its track.
-- **Floating Lift** (8dp Compose shadow, ambient and spot colour `ink` at 18%, on the pill): lifts the phone navigation bar off the content scrolling beneath it.
-- **Rail Lift** (12dp Compose shadow, ambient and spot colour `ink` at 25%, on the 24dp shape): lifts the rail on wide windows.
-- Menus and dialogs keep Material's own elevation on `raised`.
+- **Jump Lift** (8dp Compose shadow, ambient and spot `ink` at 18%, on the 8dp tile shape): the one drawn shadow, lifting the conversation's jump buttons off the comments scrolling beneath.
 
 ### Named Rules
-**The Nothing Boxed Rule.** No divider lines, no card outlines, no stacked cards. Rows are separated by space and type; a surface appears only as feedback (press, focus) or as a loading shape. The 2dp ground-coloured ring around overlapping avatars is a cut-out that separates faces, not a border, and is the only stroke in the world.
-
-As built app-wide, the soft surface also fills small, self-contained shapes that carry meaning: pill tags and reactions, tonal buttons, text fields, round badges, and code blocks. None of them contains other content, so the page stays unboxed. Prompts (the notification ask) and the sign-in device code sit on the ground like notices, never in a card. The Feed's repository previews are the one larger soft panel: they hold only the repository's own name, description and stats, never other rows. Horizontal rules and table fills inside rendered Markdown are the author's content, drawn at a doubled track veil.
+**The Hairline Rule.** Rows are parted by one device pixel in `hairline`, starting where the row's text starts (60dp past a tile, 20dp in a conversation), never a card, an outline or stacked panels. The same pixel separates the navigation from the page and ends a band that melts into it. Small self-contained shapes (tiles, tags, tonal buttons, fields, the Feed's 8dp repository panel) hold their own content and never other rows.
 
 ## Shapes
 
-Round and soft throughout. The header field has 28dp rounded bottom corners and square top (it runs under the status bar); the switch track is 28dp, its thumb and segment clips 24dp. Rows, swipe backgrounds and pressed surfaces clip to 20dp. The rail and its items are 24dp. Buttons, chip tabs, tags, labels, the search field, the navigation bar and its items, the Stopped-here marker and loading bars are full pills; badges, avatars, dots and the loading dot are circles. The snackbar is 16dp. Material shapes for leftover pieces follow the same steps (8, 12, 20, 24, 28dp). No sharp corners, no square tiles.
+Small, quiet corners. Tags and counts are 5dp; controls (buttons, fields, the check, the choice pill, the left-off mark) are 6dp; tiles, icon buttons, the send tile, menus, the snackbar and the selection bar are 8dp; Material's leftover shapes step 4, 6, 8, 10 and 12dp, and nothing exceeds 12dp (`DesignSystemTest`). Rows and the band are rectangles. Circles are reserved for dots (unread, language, the forge badge's cut-out) and for people's faces: a Feed actor and a profile are round, while repository owners in lists and comment authors (28dp) are rounded squares. There are no pills and no pill switches.
 
 ## Components
 
-Material 3 composables (Icon, Snackbar, PullToRefresh, DropdownMenu, Switch, bottom sheets) remain as the base, restyled from Soft through `ForgelineTheme`; the distinctive pieces are the Soft components in `core/ui/.../soft/SoftComponents.kt` and the shared rows in `app/.../ui/`.
+Material 3 composables (Icon, menus, bottom sheets, snackbars, pull-to-refresh, progress) remain as the base, restyled through `ForgelineTheme`; the distinctive pieces are the Soft components in `core/ui/.../soft/` and the shared rows in `app/.../ui/`.
 
-### Header Field (`SoftHeader`)
-- **Character:** the one place colour arrives at scale, heading every screen.
-- **Shape:** edge-to-edge tint, 28dp bottom corners, content held to the 720dp column.
-- **Top-level screens:** a Title (up to two lines) left, actions (search, the Inbox's account pill) right, then optional content 12dp below: Trending's period switch, the Inbox filter switch.
-- **Detail screens:** a back arrow and actions (open on the forge, copy) in a 48dp row; a screen with a plain title (Settings, Credits, Sign-in) sets it in Detail Title in the field under that row, never inline beside the arrow; then the hero in the content slot: repository line, Hero title, state tag and labels for an issue; avatar, name and follow button for a profile; the search field and scope switch for search.
-- **Behaviour:** the tint crossfades between tints over 400ms (instant when animations are off). Tint semantics are listed under Colors. Titles and heroes are headings for screen readers.
+### Band (`SoftHeader`, signature)
+- **Character:** the one place colour arrives at scale; the screen's name and its one axis.
+- **Top-level:** Title left (up to two lines), actions right (search; the Inbox's account as a tile), then the axis as tabs ending on their own underline.
+- **Detail:** back and actions on a 48dp row, then the Detail Title or the subject's own header (repository line, Hero, state tag, labels) 16dp in, 14dp below.
+- **Palette:** everything inside is drawn with `onBand()`, so it reads on ink, black or white alike. `DesignSystemTest` holds header content to the band's palette.
 
-### Period Switch (`SoftSwitch`, signature)
-- **Style:** a full-width pill track (`track` over the field, 4dp inset) with equal segments and one ember thumb with the Ember Glow.
-- **Labels:** Control type, `ink-muted` unselected, `on-thumb` selected, centred.
-- **Size:** at least 48dp tall; grows to the tallest label at large font scales so no word is cut; a single-word label shrinks (12dp floor on screen) rather than wrapping mid-word. A segment with a leading mark (sign-in's forge logos) sets the mark beside its label, and above it from 1.5x font scale, so the name keeps the segment's whole width.
-- **Behaviour:** the thumb springs to the chosen segment (damping 0.8, medium-low stiffness). Exposed as a selectable group of tabs. Used for Trending's period, the Inbox filter, the search scope, the theme setting, the forge to sign in to, a repository's open or closed issues, branches or tags, and a yes-or-no input when running a workflow.
+### Tabs (`SoftSwitch`, `SoftChipTabs`)
+- **Style:** text tabs at their natural width, 48dp tall, 10dp inset; the chosen one in Control 600 ink, the others 400 muted.
+- **Underline:** a 3dp marigold line under the chosen label, sliding and resizing to it on the spring (damping 0.8); instant under Remove animations.
+- **Placement:** `SoftSwitch` is the one axis inside a header (period, filter, scope, theme, header style); `SoftChipTabs` are a page's sections on the band, pinned while the page scrolls. Both scroll sideways only when they overflow, bringing the chosen tab into view.
 
-**The Ember Thumb Rule.** Selection among options in the open is the springing ember thumb. Don't show it with underlines, outlines, checkmarks or tinted text alone; only inside a menu (the choice pill's) does the chosen option carry an ember check.
+**The Underline Rule.** Selection in the open is a bold label over a marigold underline (tabs) or a marigold bar with a filled icon and bold label (navigation). Never a tinted chip, a filled pill or colour alone.
 
-### Chip Tabs (`SoftChipTabs`)
-- **Style:** the period switch's scrolling form: the same `track` pill (28dp corners, 4dp inset) holding options at their natural width (48dp tall, 18dp horizontal padding), scrolling sideways when they overflow and bringing the chosen option into view (8dp clear of the edge); the strip sits on the ground from the 20dp gutter, capped at the 720dp reading width, pinned under the header.
-- **State:** one ember thumb (with the Ember Glow) springs to the chosen option and takes its width; labels are Control type, `on-thumb` selected and `ink-muted` otherwise. Exposed as tabs.
-- **Use:** a page's sections (a repository's README, Code, Issues, Pull requests, Releases, Actions; a profile's Repositories and Starred).
+**The One Axis Rule.** A header carries one axis in the open, as the tabs; a second axis (forge, account) is a `SoftChoicePill`, never a second strip of tabs.
 
 ### Choice Pill (`SoftChoicePill`)
-- **Style:** a secondary choice (which forge, which account) folded into one pill: `track` fill so it reads on a field and on the ground, the option's forge logo, its label in Control ink (ellipsised, at most 220dp wide, 160dp for the Inbox's account), and a muted expand chevron; 48dp tall, 14dp/10dp padding.
-- **Menu:** opens a Material menu on `raised` with 28dp corners; the chosen option carries an ember check. Screen readers hear it as a button, "Forge, Codeberg".
-- **Placement:** Trending, in the "Updated..." status line; Search, beside Back; Inbox, in the title row, dropping under the title above 1.3x font scale so "Inbox" never breaks. Shown only when there is more than one forge or account.
+The current value in Control ink and a muted chevron, transparent so it reads on the band and the page, 48dp tall, 6dp corners, at most 220dp; or, beside a band's title, a 32dp tile holding only the chosen account's forge logo. Opens a menu on `raised` with 8dp corners; the chosen option carries a deep amber check. Screen readers hear "Forge, Codeberg".
 
-**The One Axis Rule.** A header carries one axis in the open, as the `SoftSwitch` (period, filter, scope); a second axis (forge, account) is a choice pill, never a second strip of chips.
-
-### Rows (list items)
-- **Anatomy (shared rows):** optional 36dp round badge, 14dp gap, then the text column. A repository row leads with its owner's 36dp avatar (left out where every row shares the owner, as on someone's own repositories), then `owner/` (muted) + name in Control at body size, a two-line Body description, and a meta line with the language's linguist-color dot; an issue row is an optional repo line (search results), a two-line Body title, a Meta line (number, time, author), then draft tag and labels, with a comment count on the right.
-- **Trending anatomy:** ember rank (figure) in a 30dp column; the owner's 20dp avatar and login (secondary, muted) above the name (name, ink); ember "+gained" figure on the right; description (body) below; meta line last.
-- **Rest:** transparent on the ground; no divider, no card.
-- **Pressed / Focused:** `surface` fills the row, clipped to 20dp, and the row squishes to 98% on the soft spring, springing back on release (`softPressable`). No ripple.
-- **Swipe (Inbox):** the row slides off a 20dp tint with an ink icon: fresh to mark read, warm for done. Every swipe or menu action shows at once but waits 5 seconds before reaching the forge, with Undo on the snackbar; leaving the Inbox sends what is waiting.
-- **Entry (Trending):** after a section change, the first eight rows rise 16dp and fade in from 35% opacity, staggered 35ms, on the soft spring.
-
-**The Soft Press Rule.** Pressed or focused rows get a 20dp soft surface in `surface`, never a ripple. Every text colour on it is tested to 4.5:1. Everything else that can be pressed (buttons, pills, choice and check rows, links, icons) answers with the soft veil: `track` washed over it while pressed or focused, set once as the theme's default indication (`SoftIndication`), so no clickable falls back to Material's ripple. Icons are pressed through `SoftIconButton` and `SoftIconToggleButton` (a 40dp circle in a 48dp target), never Material's icon buttons, which draw their own ripple; on the ink selection bar the veil is the ground's colour at 14%. `DesignSystemTest` holds every screen to it.
-
-### Inbox (needs you first)
-The Inbox is triage: what's waiting on you first, newest first, then the rest by repository.
-- **Sections:** "Needs you" (review requested, mentioned, team mentioned, assigned, security alert) then "Everything else", as pinned Section titles with the unread count as a tag (warm for Needs you, `surface` otherwise) that ticks up or down as it changes.
-- **Owners and repositories (Everything else):** grouped by owner (user or organisation, case-insensitive), then repository, each ordered by its newest activity; threads newest first, naming only their number. An owner with several repositories gets a heading (its 24dp avatar, initial on `surface` until it loads, and its login in Control ink), and each repository under it is its name in Control ink, lined up with its threads' content (36dp). An owner with one repository gets a single heading: avatar, `owner/` muted and the name. In Needs you, each row names its repository instead, after an 18dp owner avatar.
-- **Row:** a 20dp gutter holding the 8dp ember unread dot (it pops in and shrinks away; screen readers hear "Unread"), then a line with a pill and `owner/name #N` (or `#N` under a repository heading) in Meta muted, the title in Row Title (500 ink unread, 400 muted read, easing between them over 300ms), and a Meta line: the reason (Everything else only) and the abbreviated time. The overflow menu stays on the right.
-- **The pill says why, or what:** in Needs you it names the reason on warm ("Review requested", "Mentioned"); in Everything else it names the kind on `surface` ("Issue", "Release", "Checks"). Both lead with the kind's glyph.
-
-### Round Badges
-A circle with an 18dp ink icon (36dp on rows, 28dp with 15dp icons on the timeline, 40dp with 20dp icons for Inbox threads and You entries), tinted by kind with the field tints:
-- **Issues and pull requests:** warm issue, fresh pull request, `surface` with a muted icon for drafts.
-- **Code tab:** cool folder, `surface` file; **Releases:** warm.
-- **Actions runs:** cool with a small ink spinner while running, fresh check on success, warm with an ember cross on failure.
-
-### Feed timeline (kind first)
-The Feed tells what happened by leading every event with its object, so an open pull request and a closed issue differ at a glance, the way they do on the forge's own web feed, but unboxed.
-- **Day chapters:** events stay one chronological timeline under Section titles: Today, Yesterday, This week, Earlier (the device's local date).
-- **The line:** a 40dp avatar, then one Secondary line: the actor (or "alice and 2 others") and named repositories in ink 500, the verb muted, then " · GitHub" where forges mix and " · 15 min. ago" (abbreviated, never split by a wrap: each "·" is glued to what precedes it with a no-break space).
-- **The object, below the line, drawn for its kind:**
-  - Starred, forked, made public, created: a **repository preview**, a 20dp-corner `surface` panel (held to 580dp) with `owner/` muted and the name in Section at 700, the description in Secondary ink (3 lines), then a linguist-colored 9dp dot, the language and "12.4k stars" in Meta muted.
-  - Issues, pull requests, reviews and comments: a **state pill** (15dp ink glyph + Label on a field tint: Open/Reopened fresh, Merged cool, Closed warm, Approved fresh, Changes requested warm, Comment cool, Reviewed `surface`) with "#N" muted beside it, then the title in Row Title at 500, ink (3 lines).
-  - Releases: the tag as a warm pill (plus a Pre-release tag), then the release name as the title. Pushes, branches and tags: the ref as a `surface` pill in the code face. Members added: the line alone.
-- **Filled progressively:** events don't carry repository details or pull request titles, so rows on screen ask for them; they are fetched once, cached a day (kept a week), and fill in as they arrive: the panel grows and the new text fades in over 220ms. Cached details scrolling into view show at once. Until a title arrives, a 14dp `surface` pill bar holds its place so the row keeps its shape; a repository preview shows its name alone.
-- The whole row is one `softPressable` target opening what it's about; the avatar opens the actor.
-
-### Conversation (issue and pull request)
-- **Comments are unboxed turns:** a 28dp avatar, author in Control and the relative time in Meta on one pill-clipped line (tapping opens the profile), then the Markdown body in a 40dp gutter, held to 580dp, with reactions as tags below. No bubble, no card, no divider between turns.
-
-A pull request's header says where it goes and how much it changes in one unboxed meta line (`main ← head` in monospace, then `+n −n`), then one wrapping row of pills on `ground`, each a round badge and a count: files changed, commits, and where the checks stand, its badge on that state's tint. Review and Merge follow. No panel, no stacked rows.
-- **Timeline events are small badges in the avatar column:** a 28dp round badge (merged cool, reopened fresh, closed warm, approved review fresh, everything else `surface`) followed by one muted Secondary line; commits use the code face for the short SHA; a labelled event carries the label pill inline; cross-references are pressable.
-
-### Code and Markdown
-- **Markdown** (READMEs, Markdown files, comments): ink text, headings on the Material headline/title scale, links in readable ember at Lexend 500 underlined; code blocks and inline code on `surface`, set in the code face and syntax-highlighted.
-- **File viewer:** code in the code face, a right-aligned muted line-number gutter, highlighted off the main thread (plain text shows first).
-- **Changes, blame and logs:** Code Dense lines beside a muted Gutter of line numbers and hunk headers.
-- **Syntax colours:** Forgeline's own light and dark token sets (keyword ember, strings green, literals blue, metadata violet, comments muted ink), each readable at 4.5:1 on every ground; `CodeContrastTest` holds them to it.
-- **Actions logs:** ANSI colours from Forgeline's own light and dark palettes (`AnsiLight`, `AnsiDark`); the light set holds 4.5:1 on the log's ground and on the error band (the warm field).
-- **Slugs:** `owner/name` in running text carries a word joiner after the slash, so a repository name never breaks across lines.
+### Rows and Tiles (`SoftTile`, `ui/Rows.kt`)
+- **Tile:** 32dp, 8dp corners, `surface` by default, an 18dp ink glyph or a name's initial. An unread dot (marigold on a page-coloured ring) sits on its top corner; when more than one forge is signed in, the forge's logo sits on its bottom corner on a page-coloured disc, and the tile is named by that forge for screen readers.
+- **Inbox thread:** the tile in marigold tint with a deep amber glyph when it needs you, its state's tint otherwise, marigold with a check when picked; a Meta source line (the reason in deep amber 600, then `owner/name #N`) with the time on the right, or inline at the end above 1.3x font; the title in Row Title, 600 ink unread and 400 muted read; an overflow menu on the right.
+- **Trending:** the owner's avatar as a tile with the forge badge; `owner · #rank` in Meta muted, the "+gained" Figure in deep amber on the marigold tint at the trailing edge; the name in Name; a one-line Secondary description; a meta line with the language dot, stats, builders and the star toggle.
+- **Feed:** the actor's face as a round tile with the forge badge, then the line and the object (state tag, title, or an 8dp `surface` repository panel held to 580dp).
+- **Press:** `softPressable` fills the whole row with `surface` while pressed or focused; no squish, no ripple.
+- **Swipe (Inbox):** the row slides off a rectangle in a meaning tint with an ink icon. Every swipe or menu action shows at once but waits for the Undo delay (5 seconds by default, a setting) before reaching the forge, with Undo on the snackbar.
 
 ### Buttons
-- **Filled (`SoftButton`):** full pill, `thumb` fill, `on-thumb` Control text, 24dp horizontal padding, 48dp minimum height. The one primary action: Retry, Sign in, Follow, Allow notifications.
-- **Tonal (`SoftTonalButton`):** full pill, `surface` fill, `ink` Control text, 20dp padding, 48dp. Secondary actions: Cancel, Sign out, Read the licence, retry inside a list. On a field, the same pill in `ground` (Following).
-- **Final action (`SoftDangerButton`):** full pill, `ink` fill, `ground` Control text, 24dp padding, 48dp. For what can't be taken back: deleting a repository, an issue or a comment, unpublishing a site, changing who sees a repository, merging against a failed check ("Merge anyway"). Ember says "this is the way forward"; ink says "this is final". Never beside a filled ember button, always beside a tonal Cancel.
-- **Link:** Label type in `accent`, pill-clipped, 48dp tall (the resume link with a 16dp down arrow; the token link on sign-in).
-- **Icon (`SoftIconButton`):** a 40dp circle in a 48dp target, pressed with the soft veil; icons in `ink` in headers, `accent` / `ink-muted` for the star toggle (`SoftIconToggleButton`). Not enabled, it fades to 38%. A repository's Star is exposed as a toggle (on/off), not a plain button.
+- **Filled (`SoftButton`):** marigold, `on-thumb` Control text, 6dp corners, 40dp tall in a 48dp target, 16dp padding. The one primary action. Disabled, it goes quiet on `surface`.
+- **Tonal (`SoftTonalButton`):** `surface`, ink Control text, 14dp padding. Cancel and secondary actions.
+- **Final (`SoftDangerButton`):** ink with page-coloured text. For what can't be taken back; always beside a tonal Cancel, never beside marigold.
+- **Icon (`SoftIconButton`, `SoftIconToggleButton`):** a 40dp press shape with 8dp corners in a 48dp target, answering with the veil; disabled at 38%.
+- **Send (`SoftSendButton`):** a send arrow on a 40dp marigold tile in a 48dp target, at the end of the composer; quiet on `surface` while nothing is written, a small spinner while sending.
 
-### Tags and Labels
-- **Pill (`SoftPill`):** a 15dp ink glyph and Label type on a tint, 8dp/12dp horizontal padding: the Feed's state pills and the Inbox's reason and kind pills.
-- **Tag (`SoftTag`):** Tag type on a pill, 10dp/4dp padding, `surface` by default: Draft, Pre-release, reactions, the Inbox unread count (on warm), a run's branch. A tag stays on one line and ends in "…" when it can't fit; it never breaks into a stub.
-- **State tag:** an issue's state on a `ground` pill inside the field, with a 16dp ink icon and Label text.
-- **Forge labels:** pills in the forge's own colour, as the forge shows it, in Label type, with whichever of black or white text contrasts more (`readableOn`); `SoftTest` holds GitHub's default label colours to 4.5:1.
+**The Veil Rule.** Nothing pressable answers with Material's ripple. Rows fill with `surface`; everything else takes the veil (`SoftIndication`, the theme's default indication); on the ink selection bar the veil is the page colour at 14%. `DesignSystemTest` holds every screen to it.
 
-### Forge Marks (`ForgeIcon`, `ForgeMark`, `appendForge`)
-A forge is its monochrome logo (Simple Icons) in the surrounding text colour, 14dp in lines, 16-18dp in pills.
+### Check (`SoftCheck`, `SoftCheckRow`, `SoftChoiceRow`)
+A 22dp square with 6dp corners: marigold with an ink check when on, a 1.5dp muted frame when off. It shows the state of a row that toggles as a whole (Pure black, Feed kinds, repository settings) and replaces every pill switch. A choice among a few in a sheet is a `SoftChoiceRow`: a ring that fills deep amber for the one picked, Control title and Meta summary, 48dp.
 
-**The Name the Forge Rule.** Wherever a list mixes forges, the forge's name (GitHub, Codeberg, or a self-hosted server's host) is written beside its logo. The logo is then silent for screen readers, and inside running text it is joined to its name (word joiner, no-break space) so a wrap never separates them. A logo alone, with its name as its description, is only for places that do not mix forges. Where the name sits beside a handle (You), it moves under the handle when both don't fit, rather than being cut.
+### Inputs (`SoftTextField`)
+`raised` fill in a one-pixel hairline frame, 6dp corners, at least 48dp, 14dp padding; Lead text with a deep amber cursor; the placeholder muted; an optional Label above that stays once something is written; an error line in deep amber Secondary below. Multi-line fields grow with what is written.
 
-### Text Fields (`SoftTextField`)
-The one text field: a filled pill, 52dp tall, no outline, Lead text with an ember cursor, its label as the muted placeholder, an optional leading glyph and trailing action, and an ember Secondary error line under it. `surface` on the ground (the sign-in token); `ground` inside a field (search, with a search glyph and a clear button).
+### Tags (`SoftTag`, `SoftPill`)
+- **Tag:** Tag type on 5dp corners, 7dp/2dp padding, `surface` by default (marigold tint for "Needs you"); one line, ellipsised, never broken into a stub.
+- **State tag:** a 14dp ink glyph and Label on a meaning tint, 5dp corners: the Feed's states, a release tag, a branch (monospace).
+- **Forge labels:** the forge's own colour, with black or white text, whichever contrasts more (`readableOn`).
+
+### Conversation (issue and pull request)
+Comments are parted by hairlines starting at 20dp: a 28dp rounded-square author avatar, the author in Control and the time in Meta, then the Markdown body held to 580dp, reactions as tags. No bubble, no card. Timeline events are 28dp tiles tinted by meaning with a muted Secondary line. Jump buttons, event badges and reaction targets are 8dp tiles. The composer closes the conversation: a `SoftTextField` and the send tile.
 
 ### Navigation (`SoftNavigation`)
-- **Phones:** a floating pill bar on `raised`, 64dp tall with 6dp inner padding, Floating Lift shadow, four equal-width tabs. Every tab shows its label under its icon in Label type at meta size, following the font scale up to 1.15x and then holding (four labels share the bar; each is still named in full for screen readers). The selected tab sits on an ember pill (52dp, `on-thumb` filled icon and label; the pill crossfades in over 180ms); the others are muted outlined icons and labels. Exposed as tabs.
-- **Wide windows (600dp and up):** a soft rail on `raised`, 24dp corners, Rail Lift shadow; each item stacks icon and label the same way, the selected one filled `thumb`.
-- **Order and start tab:** Inbox, Feed, Trending, You, always (owner decision). The app opens on Inbox when signed in to any forge and on Trending when signed in nowhere, decided once per launch when the session first resolves; signing in or out later does not move it.
-- **Spacing:** `LocalBottomBarSpace` / `listBottomPadding()` reserve room under every list.
+- **Phones:** a 56dp bar on the page with a hairline above, four equal tabs (Inbox, Feed, Trending, You), each icon over its Meta label. The selected tab shows a filled icon, a 600 label and a 3dp marigold bar across 44% of its width at its top edge, crossfading in over 180ms. Labels follow the font scale to 1.15x and then hold.
+- **Wide windows (600dp and up):** an 80dp rail on the page with a hairline beside it; the selected item has a 3dp × 32dp marigold bar on its start edge.
+- **Order and start:** Inbox, Feed, Trending, You, always; the app opens on Inbox when signed in and on Trending when signed in nowhere.
 
-### Settings Rows
-Unboxed rows with a Body title and muted Secondary summary; a toggle row switches as a whole, with a Material switch restyled from Soft (ember track and `on-thumb` thumb when on, `surface` track and muted thumb when off, no outline in either state). Groups are headed by Section titles.
+### Notices, Loading, Sheets, Snackbar
+- **Notice (`SoftNotice`):** a Name heading, a muted Body line, then a filled and optionally a tonal button, in the column at 18dp/28dp. No illustration, no box.
+- **Loading (`SoftLoadingRows`):** five rows of a 32dp tile and three 5dp-cornered bars in `surface`, parted by hairlines. No shimmer.
+- **Sheets (`SoftConfirmSheet`, `SoftSheet`, `SoftChoiceSheet`):** rise from the foot on the page colour: a Name heading, a muted Body line, what to pick or write, then tonal Cancel beside the way on, right-aligned and wrapping. Never a centred dialog with two equal text buttons.
+- **Snackbar (`SoftSnackbarHost`):** ink with page-coloured text, 8dp corners; its action is marigold on the light theme's ink bar and deep amber on the pale bar of the dark themes.
+- **Left-off mark:** a warm 6dp-cornered mark with a 6dp marigold dot and "Where you left off" in Label, between rows; nothing to press.
 
-### Stopped-here Marker
-Where the last browse stopped, in Trending and the Feed: a small warm pill (`field-today`, 12dp/6dp padding) holding a 6dp ember dot, an 8dp gap and "Where you left off" in Label ink, set between the rows from the 20dp gutter. Nothing to press, and no line across the list.
-
-### Notices (empty and error, `SoftNotice`)
-No illustration and no box: a Name-style title (a heading), 6dp, a Body line in muted ink, 20dp gap, then one filled pill button and optionally a tonal one beside it (12dp apart, wrapping), in the reading column with 20dp/32dp padding. Signed-out walls name every forge and pair Sign in with "Browse Trending". A plain empty list may be just a muted Body line.
-
-### Loading
-Skeleton rows (`SoftLoadingRows`, five by default) of pill bars and an optional circle in `surface`, shaped like real rows. No shimmer. Lists loading more show an ember spinner on a `surface` track.
-
-### Confirmation Sheet (`SoftConfirmSheet`) and Choice Rows (`SoftChoiceRow`)
-What asks before something happens rises from the foot of the screen, where the thumb is: a Name-type title (a heading), a muted Body line saying what it does, anything to pick or write first, then a tonal Cancel beside the way on, right-aligned and wrapping at large type. The way on is the filled ember button for what can be undone (archive, fork, sign out) and the ink Final action for what can't. A confirmation is never a centred dialog with two text buttons of equal weight. A field to fill in carries its name in Label type above it and starts empty; what must be written is never a placeholder. A sign-in that may not do the thing is told so in the sheet before anything is written, with the way to sign in again as its way on.
-
-A sheet is a `SoftSheet` (a Name-type heading, then what it holds, scrolling when long). A choice among a few that applies when picked, like a setting, is a `SoftChoiceSheet`: picking closes it. Several to tick are `SoftCheckRow`s, a box that fills in `accent`, announced as a checkbox. None of these is a centred dialog.
-
-A choice among a few inside a sheet is a `SoftChoiceRow`: a ring that fills in `accent` for the one picked, its name in Control type and a Meta line about it, 48dp tall, announced as a radio button. Where a pull request's checks failed or are still running, Merge is tonal on its panel, the merge sheet repeats where the checks stand on that state's tint, and against a failure its way on reads "Merge anyway" on the ink pill.
-
-### Repository Settings
-Headed by the repository's own warm field, "owner/name" in Secondary over a Detail Title, "Settings". Chip tabs under the field hold its groups, About, Features, Merging, Pages and Danger zone, each shown only where the forge has something in it; About opens first and Danger zone is always last. Nothing is boxed: a group is a plain column of settings rows. A row's ending says what a tap does: a switch toggles, a chevron opens an editor in a sheet, an open-in-new glyph leaves the app, and no glyph means it asks first in a confirmation sheet. Deleting stands below the other dangers as a full-width Final action. A choice among a few is a sheet of `SoftChoiceRow`s, never a dialog. A switch or a choice applies at once and its snackbar says so with Undo for 5 seconds, as the Inbox does; words saved from a sheet are said without Undo.
-
-### Snackbar (`SoftSnackbarHost`)
-Inverted: `ink` background, `ground` text, 16dp corners; it sits above the navigation bar space. Its action (Undo, `softSnackbarAction`) is `thumb` on the dark bar of the light theme and the light theme's `accent` on the pale bar of the dark themes, tested to 4.5:1.
-
-**The One Spring Rule.** Things that move use one soft spring, lively but never bouncy (damping 0.8-0.85, medium-low stiffness; medium for the press squish); colour changes crossfade over 400ms (300ms for a title going read), content arriving late fades in over 220ms, and list rows enter, leave and reorder with Compose's item animations. All of it is skipped when the system animator scale is 0 (Remove animations).
+**The One Spring Rule.** Things that move use one soft spring (damping 0.8-0.85, medium-low stiffness): the tab underline, scroll-to-tab. Colour changes crossfade (180ms for the navigation bar, 300ms for a title going read); late content fades in. All of it is skipped when the system animator scale is 0 (Remove animations).
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** take every colour and type style from `Soft.colors` and `Soft.type` inside `SoftTheme`; never hard-code a hex in a screen.
-- **Do** give each surface one header field tint with 28dp bottom corners, and keep ember for momentum marks and the selection thumb.
-- **Do** head every screen with `SoftHeader`, and pick its tint (warm, cool, fresh) by what the screen is about, following the table under Colors.
-- **Do** set names, titles and figures in Gabarito (500/700 only) and all reading text in Lexend (400/500).
-- **Do** use `tnum` figures for ranks, counts and stats.
-- **Do** separate list items with space and type alone, and show press or focus with the 20dp `surface` fill.
-- **Do** lead a row with a round soft badge tinted by kind when the kind matters, and render timeline events as badges in the avatar column.
-- **Do** put code on the soft surface in the code face, and forge labels on pills in the forge's own colour.
-- **Do** pad every list's bottom with `listBottomPadding()` so the floating bar never covers the last row.
-- **Do** use the soft spring for movement and drop all motion when Remove animations is on.
-- **Do** keep 48dp touch targets, sp type that grows with the font scale, system Back and edge-to-edge insets.
-- **Do** add a `SoftTest` assertion for every new text/background pair (4.5:1 minimum).
-- **Do** write the forge's name beside its logo wherever a list mixes forges, and keep the logo silent and unbreakable from its name.
-- **Do** give a header one axis in the open (the `SoftSwitch`) and fold a second one (forge, account) into a `SoftChoicePill`.
-- **Do** keep the nav order Inbox, Feed, Trending, You, and open on Inbox when signed in, Trending when signed in nowhere, decided once per launch.
-- **Do** give every screen `sideSafeArea()`, and `imePadding()` where a field takes typing.
+- **Do** take every colour and type style from `Soft.colors` and `Soft.type`; never hard-code a hex in a screen.
+- **Do** head every screen with `SoftHeader` and draw everything on the band from `onBand()`.
+- **Do** show selection with a bold label and a 3dp marigold underline (tabs) or bar (navigation), and double every marigold mark with weight, a filled icon or text.
+- **Do** open list rows with a 32dp 8dp-cornered tile, and part rows with a one-pixel hairline from the text edge.
+- **Do** keep things as 8dp tiles and people's faces round, except comment authors' 28dp rounded squares.
+- **Do** set everything in Geist 400 or 600, and code in the system monospace.
+- **Do** use `tnum` figures for ranks, gains, counts, times and line numbers.
+- **Do** use the square `SoftCheck` for on and off, and the send tile for sending.
+- **Do** keep 48dp targets, sp type that grows at 1.3x and 2.0x without cutting, system Back and edge-to-edge insets.
+- **Do** add a `SoftTest` assertion for every new text/background pair, in every theme and header style.
+- **Do** honour Remove animations and the Undo delay for Inbox actions.
 
 ### Don't:
-- **Don't** draw divider lines, card outlines, stacked cards or square tiles; nothing is boxed.
-- **Don't** put comments in bubbles or cards; a comment is an unboxed turn.
-- **Don't** build brutalist or boxy layouts, or borrow literal metaphors from other domains (split-flap, departure boards).
-- **Don't** use harsh, aggressive contrast or condensed signage display faces.
-- **Don't** let it feel corporate.
-- **Don't** scatter ember as backgrounds, borders or decoration.
-- **Don't** add a third weight of Gabarito or Lexend, or another family.
-- **Don't** give rows, buttons or pills a ripple; a press is the soft surface or the soft veil.
-- **Don't** mark selection in the open with anything other than the ember thumb (a menu's ember check is the one exception).
-- **Don't** bring back dynamic colour (Material You); the palette is Soft's alone.
-- **Don't** stack a second strip of chips under a header's switch, or show a forge by its logo alone in a mixed list.
-- **Don't** hide navigation labels or let them ellipsise into a stub; they hold size above 1.15x instead.
-
-## Unresolved
-
-- **Dynamic colour stays off,** by decision (see Don'ts); listed so it is not mistaken for a gap.
+- **Don't** build brutalist or boxy layouts, or borrow literal metaphors from other domains (train boards, split-flap).
+- **Don't** use condensed signage type, a third Geist weight or another family.
+- **Don't** use Material 3 rounded pills, tinted-background selection or Material switches.
+- **Don't** use a big text pill for a small action; a small action is an icon on an 8dp tile.
+- **Don't** use corners above 12dp, or pills anywhere.
+- **Don't** let the marigold underline or bar carry meaning alone; on the light page it is 1.9:1.
+- **Don't** wash marigold over backgrounds or borders; deep amber is its text.
+- **Don't** put rows in cards or comments in bubbles; rows are parted by hairlines.
+- **Don't** give anything pressable a ripple, or press a row with a squish.
+- **Don't** stack a second strip of tabs under a header's axis.
+- **Don't** build a two-pane or tablet-specific layout.
