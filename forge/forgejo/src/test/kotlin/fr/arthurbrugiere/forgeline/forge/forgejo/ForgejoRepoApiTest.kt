@@ -289,4 +289,14 @@ class ForgejoRepoApiTest {
         assertThat(with.hasWiki).isTrue()
         assertThat(with.hasDiscussions).isFalse()
     }
+
+    @Test
+    fun languages_are_bytes_turned_into_shares() = runTest {
+        // forgejo/forgejo's, cut short, on 2026-10-16.
+        val languages = with(codeberg) {
+            api { path -> if (path.endsWith("/languages")) json("""{"Go":18410439,"go-html-template":2332759,"TypeScript":607109}""") else status(io.ktor.http.HttpStatusCode.NotFound) }
+        }.languages(null, forgejo).value()
+
+        assertThat(languages.map { it.name }).containsExactly("Go", "go-html-template", "TypeScript").inOrder()
+    }
 }

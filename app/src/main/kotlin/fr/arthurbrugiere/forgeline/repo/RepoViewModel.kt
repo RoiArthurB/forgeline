@@ -25,6 +25,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoDetails
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -102,6 +103,8 @@ data class RepoUiState(
     val canAdminister: Boolean = false,
     /** A workflow was just started by hand, to say so once. */
     val workflowStarted: Boolean = false,
+    /** What the code is written in, largest share first; empty until known, or when the forge can't say. */
+    val languages: List<RepoLanguage> = emptyList(),
 ) {
     /** The tabs this repository fills: Actions unless its CI is switched off (Forgejo repositories can). */
     val tabs: List<RepoTab>
@@ -151,6 +154,9 @@ class RepoViewModel @AssistedInject constructor(
             combine(canonicalIds(), accounts.activeAccount.map { it?.id }.distinctUntilChanged()) { id, account -> id to account }
                 .collect { (id, account) ->
                     // Asked side by side: neither waits for the other.
+                    viewModelScope.launch {
+                        (repos.languages(id) as? ForgeResult.Success)?.value?.let { languages -> local.update { it.copy(languages = languages) } }
+                    }
                     viewModelScope.launch {
                         val watching = if (account == null) null else stars.isWatching(id)
                         local.update { it.copy(watching = watching) }

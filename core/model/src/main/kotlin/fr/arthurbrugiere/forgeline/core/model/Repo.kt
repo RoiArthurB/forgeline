@@ -96,6 +96,15 @@ data class RepoDetails(
 
 data class Readme(val path: String, val markdown: String)
 
+/** A language a repository is written in, and its [share] of the code, from 0 to 1. */
+data class RepoLanguage(val name: String, val share: Double)
+
+/** Amounts by language (bytes, or percentages on GitLab) as shares of the whole, largest first; nothing counted gives none. */
+fun languageShares(amounts: Map<String, Double>): List<RepoLanguage> {
+    val total = amounts.values.filter { it > 0 }.sum().takeIf { it > 0 } ?: return emptyList()
+    return amounts.filterValues { it > 0 }.map { (name, amount) -> RepoLanguage(name, amount / total) }.sortedByDescending { it.share }
+}
+
 /** The README a person or organisation shows on their profile, and the repository it lives in (for its pictures). */
 data class ProfileReadme(val repo: RepoId, val readme: Readme)
 

@@ -519,6 +519,15 @@ class ScreenshotTest {
         readme = Readme("README.md", "# Paperclip\n\nOpen-source orchestration for **teams of AI agents**.\n\n```bash\nnpx paperclip init\n```"),
         readmeContext = ReadmeContext("https://raw.example/", "https://blob.example/"),
         starred = true,
+        // paperclipai/paperclip's own split, rounded, with a language Linguist doesn't colour among the rest.
+        languages = listOf(
+            fr.arthurbrugiere.forgeline.core.model.RepoLanguage("TypeScript", 0.812),
+            fr.arthurbrugiere.forgeline.core.model.RepoLanguage("Python", 0.091),
+            fr.arthurbrugiere.forgeline.core.model.RepoLanguage("Shell", 0.041),
+            fr.arthurbrugiere.forgeline.core.model.RepoLanguage("Dockerfile", 0.03),
+            fr.arthurbrugiere.forgeline.core.model.RepoLanguage("CSS", 0.021),
+            fr.arthurbrugiere.forgeline.core.model.RepoLanguage("Uncoloured", 0.005),
+        ),
     )
 
     @Test

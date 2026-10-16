@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
+import fr.arthurbrugiere.forgeline.core.model.languageShares
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
@@ -29,6 +31,11 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
 
     override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = forgejoCall {
         get(token, id).toResult { body<RepoJson>().toDetails(forge) }
+    }
+
+    /** Bytes of code by language, as GitHub's API gives them. */
+    override suspend fun languages(token: String?, id: RepoId): ForgeResult<List<RepoLanguage>> = forgejoCall {
+        get(token, id, "languages").toResult { languageShares(body<Map<String, Double>>()) }
     }
 
     override suspend fun readme(token: String?, id: RepoId, ref: String?): ForgeResult<Readme?> = forgejoCall {

@@ -199,4 +199,14 @@ class GitLabRepoApiTest {
         // Not said: not offered.
         assertThat(api { json(project("")) }.repo(null, repo).value().hasWiki).isFalse()
     }
+
+    @Test
+    fun languages_come_as_percentages_and_are_shares_all_the_same() = runTest {
+        // gitlab-org/gitlab-runner's, on 2026-10-16.
+        val languages = api { json("""{"Go":98.46,"Shell":0.83,"Makefile":0.44,"HCL":0.13,"PowerShell":0.06}""") }.languages(null, repo).value()
+
+        assertThat(requests.single().url.encodedPath).isEqualTo("/api/v4/projects/gitlab-org%2Fgitlab/languages")
+        assertThat(languages.first().name).isEqualTo("Go")
+        assertThat(languages.first().share).isWithin(1e-3).of(0.9846)
+    }
 }

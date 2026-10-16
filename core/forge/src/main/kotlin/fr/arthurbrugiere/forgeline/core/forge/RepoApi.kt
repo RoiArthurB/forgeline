@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.model.Release
 import fr.arthurbrugiere.forgeline.core.model.RepoDetails
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 
 /**
@@ -39,6 +40,9 @@ interface RepoApi {
     suspend fun pinnedIssues(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> = ForgeResult.Success(emptyList())
 
     suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>>
+
+    /** The languages the code is written in, largest share first. */
+    suspend fun languages(token: String?, id: RepoId): ForgeResult<List<RepoLanguage>> = ForgeResult.Success(emptyList())
 
     /** The release published under [tag]; 404 when there is none, or it is still a draft. */
     suspend fun release(token: String?, id: RepoId, tag: String): ForgeResult<Release>

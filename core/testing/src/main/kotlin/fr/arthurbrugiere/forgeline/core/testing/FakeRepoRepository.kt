@@ -109,6 +109,11 @@ class FakeRepoRepository : RepoRepository {
 
     override suspend fun releases(id: RepoId) = releases.also { calls += "releases:${id.fullName}" }
 
+    var languages: ForgeResult<List<fr.arthurbrugiere.forgeline.core.model.RepoLanguage>> = ForgeResult.Success(emptyList())
+
+    /** Not in [calls]: a plain read asked beside the details, which tests of the order of loading needn't list. */
+    override suspend fun languages(id: RepoId) = languages
+
     /** Releases already seen this session, by tag. */
     val seenReleases = mutableMapOf<String, Release>()
 

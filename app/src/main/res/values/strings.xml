@@ -297,6 +297,7 @@
     <string name="repo_fork_offline">Not forked: check your connection and try again.</string>
     <string name="repo_fork_exists">Not forked: your account already has a repository by that name.</string>
     <string name="repo_fork_refused">Not forked: this repository can\'t be forked with your account.</string>
+    <string name="repo_languages_other">Other</string>
     <string name="repo_watchers">%1$s watching</string>
     <string name="repo_archived">Archived</string>
     <string name="repo_fork">Fork</string>

@@ -289,6 +289,7 @@
     <string name="repo_fork_offline">Non forké : vérifiez votre connexion et réessayez.</string>
     <string name="repo_fork_exists">Non forké : votre compte a déjà un dépôt de ce nom.</string>
     <string name="repo_fork_refused">Non forké : ce dépôt ne peut pas être forké avec votre compte.</string>
+    <string name="repo_languages_other">Autres</string>
     <string name="repo_watchers">%1$s le surveillent</string>
     <string name="repo_archived">Archivé</string>
     <string name="repo_fork">Fork</string>

@@ -142,6 +142,17 @@ class RepoScreenTest {
     }
 
     @Test
+    fun the_language_bar_names_the_main_languages_and_the_rest_as_other() {
+        val languages = listOf("TypeScript" to 0.6, "Dart" to 0.2, "Svelte" to 0.1, "Python" to 0.05, "Ruby" to 0.03, "HCL" to 0.02)
+            .map { (name, share) -> fr.arthurbrugiere.forgeline.core.model.RepoLanguage(name, share) }
+        setContent(loaded.copy(languages = languages))
+
+        // Read out as one sentence; past four languages, the rest is one share.
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("TypeScript 60.0%, Dart 20.0%, Svelte 10.0%, Python 5.0%, Other 5.0%")).assertIsDisplayed()
+        composeRule.onNodeWithText("Ruby", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
     fun renders_the_readme_and_resolves_its_relative_links() {
         setContent(loaded)
 

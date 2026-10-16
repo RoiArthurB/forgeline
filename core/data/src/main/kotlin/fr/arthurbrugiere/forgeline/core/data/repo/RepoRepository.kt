@@ -19,6 +19,7 @@ import fr.arthurbrugiere.forgeline.core.model.Release
 import fr.arthurbrugiere.forgeline.core.model.RepoDetails
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -59,6 +60,9 @@ interface RepoRepository {
     suspend fun pinnedIssues(id: RepoId): ForgeResult<List<IssueSummary>>
 
     suspend fun releases(id: RepoId): ForgeResult<List<Release>>
+
+    /** The languages [id]'s code is written in, largest share first. */
+    suspend fun languages(id: RepoId): ForgeResult<List<RepoLanguage>>
 
     /** The release under [tag] as last listed or loaded this session, to show at once; null when it wasn't. */
     fun cachedRelease(id: RepoId, tag: String): Release?
@@ -179,6 +183,8 @@ class DefaultRepoRepository @Inject constructor(
 
     /** Releases seen this session, by repository then tag: opening one from its list asks the forge nothing. */
     private val seenReleases = ConcurrentHashMap<Pair<RepoId, String>, Release>()
+
+    override suspend fun languages(id: RepoId) = clients.repos(id.forge).languages(token(id), id)
 
     override suspend fun releases(id: RepoId) = clients.repos(id.forge).releases(token(id), id).also { result ->
         if (result is ForgeResult.Success) result.value.forEach { seenReleases[id to it.tag] = it }

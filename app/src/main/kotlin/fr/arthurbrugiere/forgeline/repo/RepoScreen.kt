@@ -1,5 +1,12 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
+import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
@@ -370,7 +377,7 @@ fun RepoScreen(
                         },
                     ) {
                         if (details != null) {
-                            RepoHeader(details, state.starred, signedIn, onToggleStar, onLinkClick, onOpenUser, state.watching, onToggleWatch, state.isForking, onFork = { forking = true }, onOpenWiki = { onOpenInBrowser(details.id.wikiUrl) })
+                            RepoHeader(details, state.starred, signedIn, onToggleStar, onLinkClick, onOpenUser, state.watching, onToggleWatch, state.isForking, onFork = { forking = true }, onOpenWiki = { onOpenInBrowser(details.id.wikiUrl) }, languages = state.languages)
                         } else {
                             Text(id.name, style = Soft.type.title, color = Soft.colors.ink)
                         }
@@ -654,6 +661,7 @@ private fun RepoHeader(
     isForking: Boolean = false,
     onFork: () -> Unit = {},
     onOpenWiki: () -> Unit = {},
+    languages: List<RepoLanguage> = emptyList(),
 ) {
     val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -692,17 +700,21 @@ private fun RepoHeader(
             Stat(stringResource(R.string.trending_stars, compactCount(details.stars)))
             Stat(stringResource(R.string.trending_forks, compactCount(details.forks)))
             Stat(stringResource(R.string.repo_watchers, compactCount(details.watchers)))
-            details.language?.let { language ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    languageColor(language)?.let { dot ->
-                        Box(Modifier.size(9.dp).background(dot, CircleShape))
-                        Spacer(Modifier.width(6.dp))
+            // The main language alone until every language is known: the bar below says them all.
+            if (languages.isEmpty()) {
+                details.language?.let { language ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        languageColor(language)?.let { dot ->
+                            Box(Modifier.size(9.dp).background(dot, CircleShape))
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Stat(language)
                     }
-                    Stat(language)
                 }
             }
             details.license?.let { Stat(it) }
         }
+        if (languages.isNotEmpty()) LanguageBar(languages)
         if (details.isArchived || details.isFork) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (details.isArchived) SoftTag(stringResource(R.string.repo_archived), background = colors.surface)
@@ -749,6 +761,51 @@ private fun RepoHeader(
  * One of the header's actions, as a small button. With [onToggle] it is a switch, so screen readers hear "on" or "off" as well
  * as the label; with [onClick] a button.
  */
+/**
+ * What the code is written in, as GitHub draws it: one bar shared between the languages in their colours, then the
+ * main ones named with their share. Past [LEGEND], the rest is said as one "Other" share.
+ */
+@Composable
+private fun LanguageBar(languages: List<RepoLanguage>) {
+    val colors = Soft.colors
+    val shown = languages.take(LEGEND)
+    val other = languages.drop(LEGEND).sumOf { it.share }
+    val unknown = colors.inkMuted.copy(alpha = 0.45f)
+    val said = (shown.map { "${it.name} ${percent(it.share)}" } + listOfNotNull(if (other > 0) "${stringResource(R.string.repo_languages_other)} ${percent(other)}" else null)).joinToString(", ")
+    Column(Modifier.widthIn(max = SoftTokens.MaxMeasure).fillMaxWidth().clearAndSetSemantics { contentDescription = said }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            // Slivers under half a percent would be hairlines between gaps: they join "Other" in the bar too.
+            val bars = languages.filter { it.share >= 0.005 }
+            bars.forEach { language ->
+                Box(Modifier.weight(language.share.toFloat()).fillMaxHeight().background(languageColor(language.name) ?: unknown))
+            }
+            val rest = 1.0 - bars.sumOf { it.share }
+            if (rest > 0.0005) Box(Modifier.weight(rest.toFloat()).fillMaxHeight().background(unknown))
+        }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            shown.forEach { LanguageShare(it.name, it.share, languageColor(it.name) ?: unknown) }
+            if (other > 0) LanguageShare(stringResource(R.string.repo_languages_other), other, unknown)
+        }
+    }
+}
+
+@Composable
+private fun LanguageShare(name: String, share: Double, dot: Color) {
+    val colors = Soft.colors
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(Modifier.size(with(LocalDensity.current) { 9.sp.toDp() }).background(dot, CircleShape))
+        Text(name, style = Soft.type.meta.copy(fontWeight = FontWeight.SemiBold), color = colors.ink)
+        Text(percent(share), style = Soft.type.meta, color = colors.inkMuted)
+    }
+}
+
+/** A share as people read it: one decimal, "<0.1%" for less. */
+private fun percent(share: Double): String =
+    if (share < 0.001) "<0.1%" else String.format(java.util.Locale.getDefault(), "%.1f%%", share * 100)
+
+/** Languages named under the bar; the rest share one "Other". */
+private const val LEGEND = 4
+
 @Composable
 private fun HeaderAction(
     icon: ImageVector,

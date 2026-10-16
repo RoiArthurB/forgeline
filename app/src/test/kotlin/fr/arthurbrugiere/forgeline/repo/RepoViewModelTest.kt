@@ -64,6 +64,18 @@ class RepoViewModelTest {
     }
 
     @Test
+    fun the_repository_s_languages_reach_its_page() = test {
+        cache()
+        val split = listOf(fr.arthurbrugiere.forgeline.core.model.RepoLanguage("Kotlin", 0.9), fr.arthurbrugiere.forgeline.core.model.RepoLanguage("Shell", 0.1))
+        repos.languages = fr.arthurbrugiere.forgeline.core.forge.ForgeResult.Success(split)
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.languages).isEqualTo(split)
+    }
+
+    @Test
     fun only_who_administers_the_repository_is_offered_its_settings() = test {
         cache()
         issueApi.access[requested] = fr.arthurbrugiere.forgeline.core.model.RepoAccess.WRITE

@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
+import fr.arthurbrugiere.forgeline.core.model.languageShares
 import io.ktor.http.isSuccess
 import kotlinx.serialization.json.JsonObjectBuilder
 import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
@@ -74,6 +76,11 @@ class GitHubRepoApi(
     } catch (e: Exception) {
         // A count is a nicety: the repository opens without it.
         null
+    }
+
+    /** Bytes of code by language, as GitHub's linguist counts them. */
+    override suspend fun languages(token: String?, id: RepoId): ForgeResult<List<RepoLanguage>> = gitHubCall {
+        get(token, "repos", id.owner, id.name, "languages").toResult { languageShares(body<Map<String, Double>>()) }
     }
 
     override suspend fun readme(token: String?, id: RepoId, ref: String?): ForgeResult<Readme?> = gitHubCall {

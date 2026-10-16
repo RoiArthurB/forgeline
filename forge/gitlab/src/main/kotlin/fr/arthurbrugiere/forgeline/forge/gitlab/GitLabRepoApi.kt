@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
+import fr.arthurbrugiere.forgeline.core.model.languageShares
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
 import fr.arthurbrugiere.forgeline.core.forge.VersionOrder
@@ -50,6 +52,11 @@ class GitLabRepoApi(
     } catch (e: Exception) {
         // A count is a nicety: the repository opens without it.
         null
+    }
+
+    /** GitLab gives percentages rather than bytes: shares all the same. */
+    override suspend fun languages(token: String?, id: RepoId): ForgeResult<List<RepoLanguage>> = gitlabCall {
+        httpClient.gitlabApi(id.forge, token, "projects", encodePath(id.fullName), "languages").toResult { languageShares(body<Map<String, Double>>()) }
     }
 
     override suspend fun readme(token: String?, id: RepoId, ref: String?): ForgeResult<Readme?> = gitlabCall {

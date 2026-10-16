@@ -578,4 +578,14 @@ class GitHubRepoApiTest {
         assertThat(other.hasDiscussions).isFalse()
         assertThat(other.hasWiki).isTrue()
     }
+
+    @Test
+    fun languages_are_bytes_turned_into_shares() = runTest {
+        // immich-app/immich's, cut short, on 2026-10-16.
+        val languages = api { json("""{"TypeScript":6118914,"Dart":3277862,"Svelte":1421462}""") }.languages(null, paperclip).value()
+
+        assertThat(requests.single().url.encodedPath).isEqualTo("/repos/paperclipai/paperclip/languages")
+        assertThat(languages.map { it.name }).containsExactly("TypeScript", "Dart", "Svelte").inOrder()
+        assertThat(languages.first().share).isWithin(1e-3).of(0.565)
+    }
 }

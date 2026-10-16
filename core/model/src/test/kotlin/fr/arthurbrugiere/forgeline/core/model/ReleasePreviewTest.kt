@@ -144,4 +144,14 @@ class ReleasePreviewTest {
         assertThat(firstImage("![logo](./docs/logo.png)")).isNull()
         assertThat(firstImage(null)).isNull()
     }
+
+    @Test
+    fun languages_become_shares_of_the_whole_largest_first() {
+        val shares = languageShares(mapOf("Kotlin" to 158_348.0, "TypeScript" to 6_118_914.0, "Shell" to 0.0))
+
+        assertThat(shares.map { it.name }).containsExactly("TypeScript", "Kotlin").inOrder()
+        assertThat(shares.sumOf { it.share }).isWithin(1e-9).of(1.0)
+        assertThat(shares.first().share).isWithin(1e-4).of(0.9748)
+        assertThat(languageShares(emptyMap())).isEmpty()
+    }
 }
