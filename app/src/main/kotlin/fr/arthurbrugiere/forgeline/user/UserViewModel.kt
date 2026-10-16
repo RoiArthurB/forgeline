@@ -51,17 +51,19 @@ class UserViewModel @AssistedInject constructor(
     val state: StateFlow<UserUiState> = _state.asStateFlow()
 
     init {
+        setTab(UserTab.REPOS, Loadable.Loading)
         viewModelScope.launch {
             when (val result = repository.user(forge, login)) {
                 is ForgeResult.Success -> _state.update { it.copy(profile = result.value, error = null) }
                 is ForgeResult.Failure -> _state.update { it.copy(error = result.error) }
             }
+            // After the profile: whether it's an organisation decides which list holds its private repositories.
+            loadTab(UserTab.REPOS)
         }
         viewModelScope.launch {
             val following = repository.isFollowing(forge, login)
             _state.update { it.copy(following = following) }
         }
-        loadTab(UserTab.REPOS)
     }
 
     fun selectTab(tab: UserTab) {

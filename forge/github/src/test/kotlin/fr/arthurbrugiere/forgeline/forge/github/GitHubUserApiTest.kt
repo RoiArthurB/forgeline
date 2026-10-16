@@ -60,6 +60,28 @@ class GitHubUserApiTest {
     }
 
     @Test
+    fun one_s_own_and_an_organisation_s_lists_hold_their_private_repositories() = runTest {
+        // GitHub's list of someone's repositories is public only, even for that person (reported 2026-10-16).
+        val api = api { json("""[{"full_name":"me/secret","private":true},{"full_name":"me/open"}]""") }
+
+        val mine = api.repos("tok", "me", mine = true).value()
+        api.repos("tok", "ACROSS-Lab", organization = true)
+        api.repos("tok", "octocat")
+
+        assertThat(requests.map { it.url.encodedPath }).containsExactly("/user/repos", "/orgs/ACROSS-Lab/repos", "/users/octocat/repos").inOrder()
+        assertThat(requests[0].url.parameters["affiliation"]).isEqualTo("owner")
+        assertThat(requests[1].url.parameters["type"]).isEqualTo("all")
+        assertThat(mine.map { it.isPrivate }).containsExactly(true, false).inOrder()
+    }
+
+    @Test
+    fun signed_out_one_s_own_list_is_the_public_one() = runTest {
+        api { json("[]") }.repos(null, "me", mine = true)
+
+        assertThat(requests.single().url.encodedPath).isEqualTo("/users/me/repos")
+    }
+
+    @Test
     fun following_state_comes_from_the_status_code() = runTest {
         assertThat(api { respond("", HttpStatusCode.NoContent) }.isFollowing("t", "octocat")).isEqualTo(ForgeResult.Success(true))
         assertThat(api { respond("", HttpStatusCode.NotFound) }.isFollowing("t", "octocat")).isEqualTo(ForgeResult.Success(false))

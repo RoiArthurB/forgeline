@@ -56,7 +56,12 @@ class DefaultUserRepository @Inject constructor(
         synchronized(profiles) { profiles.keys.removeAll { it.startsWith("${forge.host}/") } }
     }
 
-    override suspend fun repos(forge: ForgeInstance, login: String) = clients.users(forge).repos(accounts.tokenOn(forge), login)
+    /** One's own repositories, and an organisation's, include the private ones the account may see. */
+    override suspend fun repos(forge: ForgeInstance, login: String): ForgeResult<List<RepoSummary>> {
+        val mine = accounts.accountOn(forge)?.user?.login.equals(login, ignoreCase = true)
+        val organization = cachedUser(forge, login)?.isOrganization == true
+        return clients.users(forge).repos(accounts.tokenOn(forge), login, mine, organization)
+    }
 
     override suspend fun starred(forge: ForgeInstance, login: String) = clients.users(forge).starred(accounts.tokenOn(forge), login)
 

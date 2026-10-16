@@ -23,9 +23,18 @@ class GitHubUserApi(
         httpClient.gitHubApi(apiBaseUrl, token, "users", login).toResult { body<ProfileJson>().toModel() }
     }
 
-    override suspend fun repos(token: String?, login: String): ForgeResult<List<RepoSummary>> = gitHubCall {
-        httpClient.gitHubApi(apiBaseUrl, token, "users", login, "repos", query = mapOf("sort" to "updated", "per_page" to "30"))
-            .toResult { body<List<RepoJson>>().map { it.toModel() } }
+    /**
+     * GitHub's list of someone's repositories holds only the public ones, even for that person. One's own come from
+     * `/user/repos`, an organisation's from `/orgs/…/repos`, which add the private ones the token may see.
+     */
+    override suspend fun repos(token: String?, login: String, mine: Boolean, organization: Boolean): ForgeResult<List<RepoSummary>> = gitHubCall {
+        val query = mapOf("sort" to "updated", "per_page" to "30")
+        val response = when {
+            mine && token != null -> httpClient.gitHubApi(apiBaseUrl, token, "user", "repos", query = query + ("affiliation" to "owner"))
+            organization -> httpClient.gitHubApi(apiBaseUrl, token, "orgs", login, "repos", query = query + ("type" to "all"))
+            else -> httpClient.gitHubApi(apiBaseUrl, token, "users", login, "repos", query = query)
+        }
+        response.toResult { body<List<RepoJson>>().map { it.toModel() } }
     }
 
     override suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>> = gitHubCall {
@@ -93,9 +102,10 @@ private data class RepoJson(
     @SerialName("forks_count") val forks: Int = 0,
     val fork: Boolean = false,
     @SerialName("updated_at") val updatedAt: String? = null,
+    val private: Boolean = false,
 ) {
     fun toModel(): RepoSummary {
         val (owner, name) = fullName.split('/', limit = 2)
-        return RepoSummary(RepoId(owner, name, ForgeInstance.GitHub), description, language, stars, forks, fork, updatedAt?.let(Instant::parse), this.owner?.avatarUrl)
+        return RepoSummary(RepoId(owner, name, ForgeInstance.GitHub), description, language, stars, forks, fork, updatedAt?.let(Instant::parse), this.owner?.avatarUrl, private)
     }
 }

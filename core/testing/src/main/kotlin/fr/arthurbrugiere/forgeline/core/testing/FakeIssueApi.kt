@@ -326,7 +326,13 @@ class FakeUserApi : UserApi {
 
     override suspend fun user(token: String?, login: String) = answer(token) { users[login] }
 
-    override suspend fun repos(token: String?, login: String) = answer(token) { repos[login] ?: emptyList() }
+    /** How each list was asked for: whose, and whether as one's own or an organisation's. */
+    val reposAsked: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
+
+    override suspend fun repos(token: String?, login: String, mine: Boolean, organization: Boolean) = answer(token) {
+        reposAsked += login + (if (mine) " mine" else "") + (if (organization) " organization" else "")
+        repos[login] ?: emptyList()
+    }
 
     override suspend fun starred(token: String?, login: String) = answer(token) { starred[login] ?: emptyList() }
 

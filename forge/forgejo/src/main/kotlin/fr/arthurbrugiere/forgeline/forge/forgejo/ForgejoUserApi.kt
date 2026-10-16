@@ -54,7 +54,8 @@ class ForgejoUserApi(private val httpClient: HttpClient, private val forge: Forg
         }
     }
 
-    override suspend fun repos(token: String?, login: String): ForgeResult<List<RepoSummary>> = forgejoCall {
+    /** Forgejo's list already holds the private repositories the token may see, one's own and an organisation's. */
+    override suspend fun repos(token: String?, login: String, mine: Boolean, organization: Boolean): ForgeResult<List<RepoSummary>> = forgejoCall {
         httpClient.forgejoApi(forge, token, "users", login, "repos", query = mapOf("limit" to "30"))
             .toResult { body<List<RepoJson>>().map { it.toSummary(forge) }.sortedByDescending { it.updatedAt } }
     }

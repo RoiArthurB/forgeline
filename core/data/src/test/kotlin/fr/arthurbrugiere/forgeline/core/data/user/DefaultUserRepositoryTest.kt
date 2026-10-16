@@ -30,6 +30,19 @@ class DefaultUserRepositoryTest {
     }
 
     @Test
+    fun one_s_own_repositories_and_an_organisation_s_are_asked_so_the_private_ones_come_too() = runTest {
+        signIn()
+        api.users["ACROSS-Lab"] = userProfile("ACROSS-Lab").copy(isOrganization = true)
+        repository.user(ForgeInstance.GitHub, "ACROSS-Lab")
+
+        repository.repos(ForgeInstance.GitHub, "Me")
+        repository.repos(ForgeInstance.GitHub, "ACROSS-Lab")
+        repository.repos(ForgeInstance.GitHub, "octocat")
+
+        assertThat(api.reposAsked).containsExactly("Me mine", "ACROSS-Lab organization", "octocat").inOrder()
+    }
+
+    @Test
     fun signed_out_the_follow_state_is_unknown_and_cannot_change() = runTest {
         assertThat(repository.isFollowing(ForgeInstance.GitHub, "octocat")).isNull()
         assertThat(repository.setFollowing(ForgeInstance.GitHub, "octocat", true)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))

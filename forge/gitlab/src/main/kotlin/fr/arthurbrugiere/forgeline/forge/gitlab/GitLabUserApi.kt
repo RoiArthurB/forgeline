@@ -52,7 +52,8 @@ class GitLabUserApi(
         ForgeResult.Failure(ForgeError.Http(404, "User or group $login not found"))
     }
 
-    override suspend fun repos(token: String?, login: String): ForgeResult<List<RepoSummary>> = gitlabCall {
+    /** GitLab lists every project the token may see, private ones included, for a person and for a group. */
+    override suspend fun repos(token: String?, login: String, mine: Boolean, organization: Boolean): ForgeResult<List<RepoSummary>> = gitlabCall {
         val userProjectsRes = httpClient.gitlabApi(
             forge, token, "users", login, "projects",
             query = mapOf("order_by" to "updated_at", "sort" to "desc", "per_page" to "30"),

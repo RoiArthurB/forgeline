@@ -37,6 +37,8 @@ internal data class GitLabProjectJson(
     val path: String,
     @SerialName("path_with_namespace") val pathWithNamespace: String,
     val description: String? = null,
+    /** `public`, `internal` (any signed-in person) or `private`. */
+    val visibility: String? = null,
     @SerialName("default_branch") val defaultBranch: String? = null,
     @SerialName("web_url") val webUrl: String,
     @SerialName("readme_url") val readmeUrl: String? = null,
@@ -95,6 +97,7 @@ internal data class GitLabProjectJson(
         isFork = false,
         updatedAt = gitlabInstant(lastActivityAt) ?: gitlabInstant(createdAt) ?: Instant.EPOCH,
         ownerAvatarUrl = avatarUrl,
+        isPrivate = visibility == "private",
     )
 }
 

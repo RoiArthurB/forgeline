@@ -133,8 +133,11 @@ private val unsupported = ForgeResult.Failure(ForgeError.Unsupported)
 interface UserApi {
     suspend fun user(token: String?, login: String): ForgeResult<UserProfile>
 
-    /** Most recently updated first. */
-    suspend fun repos(token: String?, login: String): ForgeResult<List<RepoSummary>>
+    /**
+     * Most recently updated first. [mine] says [login] is the signed-in person, and [organization] that it's an
+     * organisation: where the forge lists those apart, their private repositories are then included.
+     */
+    suspend fun repos(token: String?, login: String, mine: Boolean = false, organization: Boolean = false): ForgeResult<List<RepoSummary>>
 
     suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>>
 

@@ -32,6 +32,7 @@ internal data class UserJson(
 internal data class RepoJson(
     val name: String,
     val owner: UserJson,
+    val private: Boolean = false,
     val description: String? = null,
     val website: String? = null,
     val topics: List<String>? = null,
@@ -86,6 +87,7 @@ internal data class RepoJson(
         isFork = fork,
         updatedAt = instant(updatedAt),
         ownerAvatarUrl = owner.avatarUrl,
+        isPrivate = private,
     )
 }
 

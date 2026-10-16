@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.ui
 
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.material.icons.outlined.Lock
 import fr.arthurbrugiere.forgeline.core.ui.format.iconRes
 import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTile
@@ -107,6 +110,13 @@ fun RepoSummaryRow(repo: RepoSummary, onOpenRepo: (RepoId) -> Unit, showOwner: B
                 )
             }
             Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                // First, so a private repository is told from a public one before anything else.
+                if (repo.isPrivate) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Icon(Icons.Outlined.Lock, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(with(LocalDensity.current) { 13.sp.toDp() }))
+                        Text(stringResource(R.string.repo_visibility_private), style = Soft.type.meta, color = colors.inkMuted)
+                    }
+                }
                 repo.language?.let { language ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         languageColor(language)?.let { dot ->

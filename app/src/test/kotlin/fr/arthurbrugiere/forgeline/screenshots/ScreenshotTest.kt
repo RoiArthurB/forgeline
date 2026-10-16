@@ -1327,7 +1327,12 @@ class ScreenshotTest {
             state = UserUiState(
                 login = "octocat",
                 profile = userProfile("octocat", name = "The Octocat").copy(location = "San Francisco", website = "https://github.blog"),
-                repos = Loadable.Loaded(listOf(RepoSummary(RepoId("octocat", "Hello-World"), "My first repository on GitHub!", "Kotlin", 2_500, 10, false, null))),
+                repos = Loadable.Loaded(
+                    listOf(
+                        RepoSummary(RepoId("octocat", "Hello-World"), "My first repository on GitHub!", "Kotlin", 2_500, 10, false, null),
+                        RepoSummary(RepoId("octocat", "dotfiles"), "What my machines start from.", "Shell", 0, 0, false, null, isPrivate = true),
+                    ),
+                ),
                 following = false,
             ),
             signedIn = true, onBack = {}, onSelectTab = {}, onRetry = {}, onToggleFollow = {}, onSignIn = {}, onOpenRepo = {},

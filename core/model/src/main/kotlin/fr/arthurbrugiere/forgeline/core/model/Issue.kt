@@ -187,4 +187,6 @@ data class RepoSummary(
     val updatedAt: Instant?,
     /** The owner's (user or organisation) avatar, when the forge sends it. */
     val ownerAvatarUrl: String? = null,
+    /** Seen only by its owner and the people it's shared with. */
+    val isPrivate: Boolean = false,
 )

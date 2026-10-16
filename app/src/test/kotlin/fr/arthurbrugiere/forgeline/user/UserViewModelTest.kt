@@ -37,6 +37,17 @@ class UserViewModelTest {
     private suspend fun signIn() = accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "t")
 
     @Test
+    fun an_organisation_s_repositories_are_asked_once_it_is_known_to_be_one() = test {
+        // Asked together, the list could go out before the profile said "organisation", and miss the private ones.
+        api.users["ACROSS-Lab"] = userProfile("ACROSS-Lab").copy(isOrganization = true)
+
+        UserViewModel(ForgeInstance.GitHub, "ACROSS-Lab", repository)
+        advanceUntilIdle()
+
+        assertThat(api.reposAsked).containsExactly("ACROSS-Lab organization")
+    }
+
+    @Test
     fun loads_the_profile_and_repositories() = test {
         api.users["octocat"] = userProfile("octocat")
         api.repos["octocat"] = listOf(repo)
