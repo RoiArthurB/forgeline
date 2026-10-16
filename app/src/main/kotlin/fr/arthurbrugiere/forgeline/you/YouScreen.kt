@@ -40,6 +40,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoOwner
+import fr.arthurbrugiere.forgeline.core.model.RepoFilter
+import androidx.compose.material.icons.outlined.Group
 import fr.arthurbrugiere.forgeline.core.ui.format.iconRes
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
@@ -117,7 +119,7 @@ fun YouDestination(
         onOpenProfile = onOpenProfile,
         repos = repos,
         onSearch = viewModel::search,
-        onPickOwner = viewModel::pick,
+        onPick = viewModel::pick,
         onOpenOwner = { onOpenOwner(it.forge, it.login) },
         onOpenRepo = onOpenRepo,
         onRefresh = viewModel::refresh,
@@ -139,7 +141,7 @@ fun YouScreen(
     onOpenProfile: (Account) -> Unit = {},
     repos: YouReposState = YouReposState(),
     onSearch: (String) -> Unit = {},
-    onPickOwner: (RepoOwner?) -> Unit = {},
+    onPick: (RepoFilter) -> Unit = {},
     onOpenOwner: (RepoOwner) -> Unit = {},
     onOpenRepo: (RepoId) -> Unit = {},
     onRefresh: () -> Unit = {},
@@ -209,7 +211,7 @@ fun YouScreen(
                     }
                 }
                 notices(session, onSignIn)
-                if (signedIn != null) repositories(repos, showForge, nowMillis, onSearch, onPickOwner, onOpenOwner, onOpenRepo, onRefresh, onSignIn)
+                if (signedIn != null) repositories(repos, showForge, nowMillis, onSearch, onPick, onOpenOwner, onOpenRepo, onRefresh, onSignIn)
                 if (signedIn == null) item(key = "settings") { NavigationRow(Icons.Outlined.Settings, stringResource(R.string.settings_title), onOpenSettings) }
             }
         }
@@ -260,7 +262,7 @@ private fun LazyListScope.repositories(
     showForge: Boolean,
     nowMillis: Long,
     onSearch: (String) -> Unit,
-    onPickOwner: (RepoOwner?) -> Unit,
+    onPick: (RepoFilter) -> Unit,
     onOpenOwner: (RepoOwner) -> Unit,
     onOpenRepo: (RepoId) -> Unit,
     onRefresh: () -> Unit,
@@ -299,14 +301,22 @@ private fun LazyListScope.repositories(
                     modifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 6.dp),
                 )
             }
-            item(key = "owners") { Owners(all.owners, repos.owner, showForge, onPickOwner, onOpenOwner) }
-            if (repos.owner != null || repos.query.isNotBlank()) {
+            item(key = "owners") { Owners(all.owners, all.sharedCount, repos.filter, showForge, onPick, onOpenOwner) }
+            if (repos.filter != RepoFilter.All || repos.query.isNotBlank()) {
                 item(key = "count") {
                     val count = repos.shown.size
-                    val total = repos.owner?.repoCount ?: all.repos.size
+                    val filter = repos.filter
+                    val total = when (filter) {
+                        RepoFilter.All -> all.repos.size
+                        RepoFilter.Shared -> all.sharedCount
+                        is RepoFilter.Of -> filter.owner.repoCount
+                    }
                     Text(
-                        repos.owner?.let { pluralStringResource(R.plurals.you_repos_count_of_owner, total, count, total, it.login) }
-                            ?: pluralStringResource(R.plurals.you_repos_count, total, count, total),
+                        when (filter) {
+                            RepoFilter.All -> pluralStringResource(R.plurals.you_repos_count, total, count, total)
+                            RepoFilter.Shared -> pluralStringResource(R.plurals.you_repos_count_shared, total, count, total)
+                            is RepoFilter.Of -> pluralStringResource(R.plurals.you_repos_count_of_owner, total, count, total, filter.owner.login)
+                        },
                         style = Soft.type.meta,
                         color = Soft.colors.inkMuted,
                         modifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 2.dp),
@@ -332,12 +342,13 @@ private fun LazyListScope.repositories(
 }
 
 /**
- * Everyone whose repositories are here, as a row of logos: "All" first, then oneself, then each organisation. A tap
- * narrows the list to that owner (again, back to all); a long press opens the owner's page.
+ * Everyone whose repositories are here, as a row of logos that scrolls sideways: "All" first, then oneself, then what
+ * others shared (when they did), then every organisation. A tap narrows the list to it (again, back to all); a long
+ * press on an owner opens its page.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Owners(owners: List<RepoOwner>, picked: RepoOwner?, showForge: Boolean, onPick: (RepoOwner?) -> Unit, onOpen: (RepoOwner) -> Unit) {
+private fun Owners(owners: List<RepoOwner>, sharedCount: Int, filter: RepoFilter, showForge: Boolean, onPick: (RepoFilter) -> Unit, onOpen: (RepoOwner) -> Unit) {
     val colors = Soft.colors
     LazyRow(
         contentPadding = PaddingValues(horizontal = 12.dp),
@@ -345,24 +356,37 @@ private fun Owners(owners: List<RepoOwner>, picked: RepoOwner?, showForge: Boole
         modifier = Modifier.fillMaxWidth().rowHairline(start = 0.dp),
     ) {
         item(key = "all") {
-            OwnerChoice(stringResource(R.string.you_repos_all), selected = picked == null, onClick = { onPick(null) }) {
+            OwnerChoice(stringResource(R.string.you_repos_all), selected = filter == RepoFilter.All, onClick = { onPick(RepoFilter.All) }) {
                 SoftTile(size = OwnerTile) { Icon(Icons.Outlined.Apps, contentDescription = null, tint = colors.ink) }
             }
         }
-        items(owners, key = { "${it.forge.host}/${it.login}" }) { owner ->
-            val label = if (owner.isYou && !showForge) stringResource(R.string.you_repos_yours) else owner.login
-            val forge = owner.forge.takeIf { showForge }
-            OwnerChoice(
-                label,
-                selected = picked?.login == owner.login && picked.forge == owner.forge,
-                onClick = { onPick(owner) },
-                onLongClick = { onOpen(owner) },
-                longClickLabel = stringResource(R.string.you_repos_open_owner, owner.login),
-            ) {
-                SoftTile(size = OwnerTile, badge = forge?.let { painterResource(it.iconRes) }, badgeDescription = forge?.displayName) {
-                    Avatar(owner.avatarUrl, owner.login, size = OwnerTile, shape = SoftTokens.TileCorner, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
+        val (yours, organisations) = owners.partition { it.isYou }
+        items(yours, key = { "${it.forge.host}/${it.login}" }) { owner -> Owner(owner, filter, showForge, onPick, onOpen) }
+        if (sharedCount > 0) {
+            item(key = "shared") {
+                OwnerChoice(stringResource(R.string.you_repos_shared), selected = filter == RepoFilter.Shared, onClick = { onPick(RepoFilter.Shared) }) {
+                    SoftTile(size = OwnerTile) { Icon(Icons.Outlined.Group, contentDescription = null, tint = colors.ink) }
                 }
             }
+        }
+        items(organisations, key = { "${it.forge.host}/${it.login}" }) { owner -> Owner(owner, filter, showForge, onPick, onOpen) }
+    }
+}
+
+@Composable
+private fun Owner(owner: RepoOwner, filter: RepoFilter, showForge: Boolean, onPick: (RepoFilter) -> Unit, onOpen: (RepoOwner) -> Unit) {
+    val colors = Soft.colors
+    val label = if (owner.isYou && !showForge) stringResource(R.string.you_repos_yours) else owner.login
+    val forge = owner.forge.takeIf { showForge }
+    OwnerChoice(
+        label,
+        selected = (filter as? RepoFilter.Of)?.owner?.let { it.login == owner.login && it.forge == owner.forge } == true,
+        onClick = { onPick(RepoFilter.Of(owner)) },
+        onLongClick = { onOpen(owner) },
+        longClickLabel = stringResource(R.string.you_repos_open_owner, owner.login),
+    ) {
+        SoftTile(size = OwnerTile, badge = forge?.let { painterResource(it.iconRes) }, badgeDescription = forge?.displayName) {
+            Avatar(owner.avatarUrl, owner.login, size = OwnerTile, shape = SoftTokens.TileCorner, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
         }
     }
 }

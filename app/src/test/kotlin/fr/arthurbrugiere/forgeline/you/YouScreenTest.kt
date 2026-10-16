@@ -164,8 +164,8 @@ class YouScreenTest {
             forges.flatMap { forge -> listOf("ACROSS-Lab", "gama-platform").map { fr.arthurbrugiere.forgeline.core.model.UserSummary(it, null, true, forge) } },
             1L,
         )
-        val picked = all.owners.firstOrNull { it.login == owner }
-        return YouReposState(all, query, picked, all.repos.filter { (picked == null || picked.owns(it)) && it.matches(query) })
+        val filter = all.owners.firstOrNull { it.login == owner }?.let { fr.arthurbrugiere.forgeline.core.model.RepoFilter.Of(it) } ?: fr.arthurbrugiere.forgeline.core.model.RepoFilter.All
+        return YouReposState(all, query, filter, all.repos.filter { all.shows(it, filter) && it.matches(query) })
     }
 
     @Test
@@ -182,11 +182,11 @@ class YouScreenTest {
     @Test
     fun typing_searches_and_a_tap_on_an_owner_narrows_to_it_or_back_to_all() {
         val typed = mutableListOf<String>()
-        val picked = mutableListOf<String?>()
+        val picked = mutableListOf<String>()
         composeRule.setContent {
             YouScreen(
                 SessionState.SignedIn(me), onSignIn = {}, onOpenSettings = {}, repos = repos(),
-                onSearch = { typed += it }, onPickOwner = { picked += it?.login },
+                onSearch = { typed += it }, onPick = { picked += (it as? fr.arthurbrugiere.forgeline.core.model.RepoFilter.Of)?.owner?.login ?: it.toString() },
             )
         }
 
@@ -195,7 +195,7 @@ class YouScreenTest {
         composeRule.onNodeWithText("All", useUnmergedTree = true).performClick()
 
         assertThat(typed).containsExactly("gama")
-        assertThat(picked).containsExactly("ACROSS-Lab", null).inOrder()
+        assertThat(picked).containsExactly("ACROSS-Lab", "All").inOrder()
     }
 
     @Test
@@ -254,5 +254,27 @@ class YouScreenTest {
 
         assertThat(opened).isTrue()
         composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    @Test
+    fun repositories_others_shared_have_a_logo_of_their_own_that_narrows_to_them() {
+        val picked = mutableListOf<fr.arthurbrugiere.forgeline.core.model.RepoFilter>()
+        val all = fr.arthurbrugiere.forgeline.core.model.YourRepos.of(
+            listOf(ForgeUser("octocat", null, null) to ForgeInstance.GitHub),
+            listOf("octocat/forgeline", "benoitgaudou/V_fusion_zada_app").map { full ->
+                val (o, n) = full.split('/')
+                fr.arthurbrugiere.forgeline.core.model.RepoSummary(fr.arthurbrugiere.forgeline.core.model.RepoId(o, n), null, null, 0, 0, false, null, ownerIsOrganization = false)
+            },
+            emptyList(),
+            1L,
+        )
+        val shared = YouReposState(all, "", fr.arthurbrugiere.forgeline.core.model.RepoFilter.Shared, all.repos.filter { all.isShared(it) })
+        composeRule.setContent { YouScreen(SessionState.SignedIn(me), onSignIn = {}, onOpenSettings = {}, repos = shared, onPick = { picked += it }) }
+
+        composeRule.onNodeWithText("1 of 1 shared with you").assertIsDisplayed()
+        composeRule.onNodeWithText("benoitgaudou/V_fusion_zada_app", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("octocat/forgeline", substring = true).assertDoesNotExist()
+        composeRule.onNodeWithText("Shared", useUnmergedTree = true).performClick()
+        assertThat(picked).containsExactly(fr.arthurbrugiere.forgeline.core.model.RepoFilter.Shared)
     }
 }

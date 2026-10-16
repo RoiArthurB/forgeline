@@ -42,6 +42,7 @@ internal data class GitLabProjectJson(
     val description: String? = null,
     /** `public`, `internal` (any signed-in person) or `private`. */
     val visibility: String? = null,
+    val namespace: GitLabNamespaceJson? = null,
     @SerialName("default_branch") val defaultBranch: String? = null,
     @SerialName("web_url") val webUrl: String,
     @SerialName("readme_url") val readmeUrl: String? = null,
@@ -101,6 +102,7 @@ internal data class GitLabProjectJson(
         updatedAt = gitlabInstant(lastActivityAt) ?: gitlabInstant(createdAt) ?: Instant.EPOCH,
         ownerAvatarUrl = avatarUrl,
         isPrivate = visibility == "private",
+        ownerIsOrganization = namespace?.kind?.let { it == "group" },
     )
 }
 
@@ -420,6 +422,10 @@ internal data class GitLabUserJson(
         forge = forge,
     )
 }
+
+/** Whose a project is: `user` or `group`. */
+@Serializable
+internal data class GitLabNamespaceJson(val kind: String? = null)
 
 @Serializable
 internal data class GitLabGroupJson(

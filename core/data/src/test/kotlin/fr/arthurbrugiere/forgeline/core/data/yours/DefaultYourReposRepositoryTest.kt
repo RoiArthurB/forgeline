@@ -110,6 +110,18 @@ class DefaultYourReposRepositoryTest {
         database.yourReposDao().keepOnly(emptyList())
         assertThat(database.yourReposDao().get(Account.idFor(ForgeInstance.GitHub, "me"))).isNull()
     }
+
+    @Test
+    fun a_list_kept_by_an_earlier_version_is_read_again_at_once() = runTest {
+        // Version 1 didn't keep whose each repository is: kept as is, its organisations would stay missing an hour.
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
+        val id = accounts.accounts.first().single().id
+        database.yourReposDao().upsert(YourReposEntity(id, """{"repos":[{"owner":"me","name":"forgeline"}]}""", now.toEpochMilli()))
+
+        repository.refresh()
+
+        assertThat(gitHub.reachableAsked.get()).isEqualTo(1)
+    }
 }
 
 private typealias Account = fr.arthurbrugiere.forgeline.core.model.Account

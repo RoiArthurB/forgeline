@@ -54,14 +54,14 @@ class YouViewModelTest {
         advanceUntilIdle()
         assertThat(viewModel.state.value.shown.map { it.id.fullName }).containsExactly("ACROSS-Lab/GamaWebPlayer", "gama-platform/gama")
 
-        viewModel.pick(all.owners.first { it.login == "ACROSS-Lab" })
+        viewModel.pick(fr.arthurbrugiere.forgeline.core.model.RepoFilter.Of(all.owners.first { it.login == "ACROSS-Lab" }))
         advanceUntilIdle()
         assertThat(viewModel.state.value.shown.map { it.id.fullName }).containsExactly("ACROSS-Lab/GamaWebPlayer")
 
         // The same owner again shows everyone's.
-        viewModel.pick(all.owners.first { it.login == "ACROSS-Lab" })
+        viewModel.pick(fr.arthurbrugiere.forgeline.core.model.RepoFilter.Of(all.owners.first { it.login == "ACROSS-Lab" }))
         advanceUntilIdle()
-        assertThat(viewModel.state.value.owner).isNull()
+        assertThat(viewModel.state.value.filter).isEqualTo(fr.arthurbrugiere.forgeline.core.model.RepoFilter.All)
     }
 
     @Test

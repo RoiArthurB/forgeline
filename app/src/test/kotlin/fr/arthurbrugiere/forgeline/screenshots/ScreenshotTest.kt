@@ -297,7 +297,12 @@ class ScreenshotTest {
             repo("ACROSS-Lab/GamaWebPlayer", null, "2026-09-27T06:04:00Z"),
             repo("ACROSS-Lab/an-internal-tool", "Python", "2026-09-26T08:00:00Z", private = true),
             repo("gama-platform/gama.docker", "Dockerfile", "2026-09-12T03:13:00Z"),
-        ) + if (codeberg) listOf(repo("octocat/dotfiles", "Shell", "2026-09-27T08:00:00Z", on = ForgeInstance.Codeberg)) else emptyList()
+            repo("benoitgaudou/V_fusion_zada_app", "GAML", "2026-09-20T08:00:00Z"),
+        ).map {
+            // As GitHub says: organisations own most, a person shared one. projet-tango isn't in the forge's list of
+            // organisations (no read:org): its repository says it is one.
+            it.copy(ownerIsOrganization = it.id.owner != "octocat" && it.id.owner != "benoitgaudou")
+        } + listOf(repo("projet-tango/gama-models", "GAML", "2026-09-10T07:03:00Z").copy(ownerIsOrganization = true)) + if (codeberg) listOf(repo("octocat/dotfiles", "Shell", "2026-09-27T08:00:00Z", on = ForgeInstance.Codeberg)) else emptyList()
         val orgs = listOf("ACROSS-Lab", "project-SIMPLE", "gama-platform").map { fr.arthurbrugiere.forgeline.core.model.UserSummary(it, null, true, forge) }
         val accounts = listOf(ForgeUser("octocat", "The Octocat", null) to forge) + if (codeberg) listOf(ForgeUser("octocat", "The Octocat", null) to ForgeInstance.Codeberg) else emptyList()
         return fr.arthurbrugiere.forgeline.core.model.YourRepos.of(accounts, repos, orgs, 1L)
@@ -305,8 +310,8 @@ class ScreenshotTest {
 
     private fun youRepos(query: String = "", owner: String? = null, codeberg: Boolean = false): YouReposState {
         val all = yourRepos(codeberg = codeberg)
-        val picked = all.owners.firstOrNull { it.login == owner }
-        return YouReposState(all, query, picked, all.repos.filter { (picked == null || picked.owns(it)) && it.matches(query) })
+        val filter = all.owners.firstOrNull { it.login == owner }?.let { fr.arthurbrugiere.forgeline.core.model.RepoFilter.Of(it) } ?: fr.arthurbrugiere.forgeline.core.model.RepoFilter.All
+        return YouReposState(all, query, filter, all.repos.filter { all.shows(it, filter) && it.matches(query) })
     }
 
     @Test

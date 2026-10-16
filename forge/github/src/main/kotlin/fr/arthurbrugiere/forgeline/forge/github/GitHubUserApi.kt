@@ -151,7 +151,7 @@ private data class ProfileJson(
 }
 
 @Serializable
-private data class RepoJsonOwner(@SerialName("avatar_url") val avatarUrl: String? = null)
+private data class RepoJsonOwner(@SerialName("avatar_url") val avatarUrl: String? = null, val type: String? = null)
 
 @Serializable
 private data class RepoJson(
@@ -168,6 +168,6 @@ private data class RepoJson(
 ) {
     fun toModel(): RepoSummary {
         val (owner, name) = fullName.split('/', limit = 2)
-        return RepoSummary(RepoId(owner, name, ForgeInstance.GitHub), description, language, stars, forks, fork, updatedAt?.let(Instant::parse), this.owner?.avatarUrl, private, pushedAt?.let(Instant::parse))
+        return RepoSummary(RepoId(owner, name, ForgeInstance.GitHub), description, language, stars, forks, fork, updatedAt?.let(Instant::parse), this.owner?.avatarUrl, private, pushedAt?.let(Instant::parse), this.owner?.type?.let { it == "Organization" })
     }
 }

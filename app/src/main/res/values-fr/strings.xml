@@ -618,6 +618,12 @@
     <string name="you_repos_error_title">Vos dépôts n’ont pas pu être chargés</string>
     <string name="you_repos_refresh_failed">Vos dépôts n’ont pas pu être actualisés</string>
     <string name="you_repos_pushed">Poussé %1$s</string>
+    <string name="you_repos_shared">Partagés</string>
+    <plurals name="you_repos_count_shared">
+        <item quantity="one">%1$d sur %2$d partagé avec vous</item>
+        <item quantity="many">%1$d sur %2$d partagés avec vous</item>
+        <item quantity="other">%1$d sur %2$d partagés avec vous</item>
+    </plurals>
     <string name="you_repos_clear">Effacer</string>
     <string name="you_repos_all">Tous</string>
     <string name="you_repos_yours">Vous</string>

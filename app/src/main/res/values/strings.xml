@@ -636,6 +636,11 @@
     <string name="you_repos_error_title">Your repositories couldn\'t be loaded</string>
     <string name="you_repos_refresh_failed">Your repositories couldn\'t be refreshed</string>
     <string name="you_repos_pushed">Pushed %1$s</string>
+    <string name="you_repos_shared">Shared</string>
+    <plurals name="you_repos_count_shared">
+        <item quantity="one">%1$d of %2$d shared with you</item>
+        <item quantity="other">%1$d of %2$d shared with you</item>
+    </plurals>
     <string name="you_repos_clear">Clear</string>
     <string name="you_repos_all">All</string>
     <string name="you_repos_yours">You</string>

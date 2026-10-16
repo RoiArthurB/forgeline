@@ -54,4 +54,22 @@ class YourReposTest {
         assertThat(gama.matches("unity")).isFalse()
         assertThat(gama.matches("  ")).isTrue()
     }
+
+    @Test
+    fun an_organisation_owning_a_repository_counts_even_when_the_forge_did_not_list_it() {
+        // GitHub lists only public memberships without read:org (seen 2026-10-16: 1 organisation of 16).
+        val repos = listOf(
+            repo("ACROSS-Lab/EVEIL.Plus", "2026-10-16T10:52:47Z").copy(ownerIsOrganization = true, ownerAvatarUrl = "https://avatars.example/across"),
+            repo("benoitgaudou/V_fusion_zada_app", "2026-10-01T00:00:00Z").copy(ownerIsOrganization = false),
+            repo("RoiArthurB/forgeline", "2026-10-16T13:58:28Z"),
+        )
+
+        val yours = YourRepos.of(listOf(me), repos, organizations = emptyList(), syncedAtMillis = 1L)
+
+        assertThat(yours.owners.map { it.login }).containsExactly("RoiArthurB", "ACROSS-Lab").inOrder()
+        assertThat(yours.owners.last().avatarUrl).isEqualTo("https://avatars.example/across")
+        // A person's repository shared with one is neither one's own nor an organisation's.
+        assertThat(yours.sharedCount).isEqualTo(1)
+        assertThat(yours.repos.filter { yours.shows(it, RepoFilter.Shared) }.map { it.id.owner }).containsExactly("benoitgaudou")
+    }
 }

@@ -7,7 +7,7 @@ import fr.arthurbrugiere.forgeline.core.data.di.Computation
 import fr.arthurbrugiere.forgeline.core.data.yours.YourReposRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
-import fr.arthurbrugiere.forgeline.core.model.RepoOwner
+import fr.arthurbrugiere.forgeline.core.model.RepoFilter
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.YourRepos
 import fr.arthurbrugiere.forgeline.core.model.matches
@@ -26,8 +26,8 @@ import javax.inject.Inject
 data class YouReposState(
     val all: YourRepos? = null,
     val query: String = "",
-    /** Whose repositories alone are shown; null for everyone's. */
-    val owner: RepoOwner? = null,
+    /** Whose repositories are shown: everyone's, one owner's, or those others shared. */
+    val filter: RepoFilter = RepoFilter.All,
     /** The repositories that match, most recently pushed first. */
     val shown: List<RepoSummary> = emptyList(),
     val isRefreshing: Boolean = false,
@@ -40,19 +40,21 @@ class YouViewModel @Inject constructor(
     @param:Computation private val computation: CoroutineDispatcher,
 ) : ViewModel() {
 
-    private data class Local(val query: String = "", val owner: RepoOwner? = null, val isRefreshing: Boolean = false, val error: ForgeError? = null)
+    private data class Local(val query: String = "", val filter: RepoFilter = RepoFilter.All, val isRefreshing: Boolean = false, val error: ForgeError? = null)
 
     private val local = MutableStateFlow(Local())
 
     // Filtered off the main thread: a thousand repositories, at every letter typed.
     val state: StateFlow<YouReposState> = combine(repository.observe(), local) { all, local ->
         // An owner no longer there (an account signed out) stops narrowing the list.
-        val owner = local.owner?.takeIf { picked -> all?.owners?.any { it.login == picked.login && it.forge == picked.forge } == true }
+        val filter = (local.filter as? RepoFilter.Of)?.owner?.let { picked ->
+            all?.owners?.firstOrNull { it.login == picked.login && it.forge == picked.forge }?.let { RepoFilter.Of(it) } ?: RepoFilter.All
+        } ?: local.filter
         YouReposState(
             all = all,
             query = local.query,
-            owner = owner,
-            shown = all?.repos.orEmpty().filter { (owner == null || owner.owns(it)) && it.matches(local.query) },
+            filter = filter,
+            shown = all?.repos.orEmpty().filter { all?.shows(it, filter) != false && it.matches(local.query) },
             isRefreshing = local.isRefreshing,
             error = local.error,
         )
@@ -64,8 +66,8 @@ class YouViewModel @Inject constructor(
 
     fun search(query: String) = local.update { it.copy(query = query) }
 
-    /** Narrows to [owner]'s repositories; the same owner again, or null, shows everyone's. */
-    fun pick(owner: RepoOwner?) = local.update { it.copy(owner = if (owner == it.owner) null else owner) }
+    /** Narrows the list as [filter] says; the same again shows everyone's. */
+    fun pick(filter: RepoFilter) = local.update { it.copy(filter = if (filter == it.filter) RepoFilter.All else filter) }
 
     fun refresh() = load(force = true)
 

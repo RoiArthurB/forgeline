@@ -102,7 +102,10 @@ class DefaultYourReposRepository @Inject constructor(
 
     private suspend fun refresh(account: Account, force: Boolean): ForgeResult<Unit> {
         val now = clock.millis()
-        if (!force && dao.get(account.id)?.let { now - it.fetchedAtMillis < YourReposRepository.MAX_AGE_MILLIS } == true) return ForgeResult.Success(Unit)
+        val kept = dao.get(account.id)
+        // A list written by an earlier version lacks what this one shows (whose each repository is): read again.
+        val current = kept?.let { runCatching { Stored.decode(it.json).version }.getOrNull() } == Stored.VERSION
+        if (!force && current && kept != null && now - kept.fetchedAtMillis < YourReposRepository.MAX_AGE_MILLIS) return ForgeResult.Success(Unit)
         val token = accounts.token(account.id) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
         val users = clients.users(account.forge)
         return coroutineScope {
@@ -121,10 +124,13 @@ class DefaultYourReposRepository @Inject constructor(
 private val StoredJson = Json { ignoreUnknownKeys = true }
 
 @Serializable
-private data class Stored(val repos: List<StoredRepo> = emptyList(), val orgs: List<StoredOrg> = emptyList()) {
-    fun encode() = StoredJson.encodeToString(serializer(), this)
+private data class Stored(val repos: List<StoredRepo> = emptyList(), val orgs: List<StoredOrg> = emptyList(), val version: Int = 1) {
+    fun encode() = StoredJson.encodeToString(serializer(), copy(version = VERSION))
 
     companion object {
+        /** 2: whether an organisation owns each repository. */
+        const val VERSION = 2
+
         fun decode(json: String) = StoredJson.decodeFromString(serializer(), json)
     }
 }
@@ -145,16 +151,17 @@ private data class StoredRepo(
     val ownerAvatarUrl: String? = null,
     val isPrivate: Boolean = false,
     val pushedAtMillis: Long? = null,
+    val ownerIsOrganization: Boolean? = null,
 ) {
     fun toModel(forge: ForgeInstance) = RepoSummary(
         RepoId(owner, name, forge), description, language, stars, forks, isFork,
-        updatedAtMillis?.let(Instant::ofEpochMilli), ownerAvatarUrl, isPrivate, pushedAtMillis?.let(Instant::ofEpochMilli),
+        updatedAtMillis?.let(Instant::ofEpochMilli), ownerAvatarUrl, isPrivate, pushedAtMillis?.let(Instant::ofEpochMilli), ownerIsOrganization,
     )
 
     companion object {
         fun of(repo: RepoSummary) = StoredRepo(
             repo.id.owner, repo.id.name, repo.description, repo.language, repo.stars, repo.forks, repo.isFork,
-            repo.updatedAt?.toEpochMilli(), repo.ownerAvatarUrl, repo.isPrivate, repo.pushedAt?.toEpochMilli(),
+            repo.updatedAt?.toEpochMilli(), repo.ownerAvatarUrl, repo.isPrivate, repo.pushedAt?.toEpochMilli(), repo.ownerIsOrganization,
         )
     }
 }

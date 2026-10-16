@@ -193,4 +193,6 @@ data class RepoSummary(
     val isPrivate: Boolean = false,
     /** When code was last pushed to it, where the forge tells it apart from [updatedAt] (which a star also moves). */
     val pushedAt: Instant? = null,
+    /** Whether an organisation (a GitLab group) owns it; null where the forge doesn't say. */
+    val ownerIsOrganization: Boolean? = null,
 )

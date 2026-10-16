@@ -150,7 +150,7 @@ class GitHubUserApiTest {
             val link = """<https://api.github.com/user/repos?page=3>; rel="last""""
             when (page) {
                 "1" -> respond(
-                    """[{"full_name":"me/forgeline","pushed_at":"2026-10-16T13:58:28Z"},{"full_name":"ACROSS-Lab/GamaWebPlayer","private":false}]""",
+                    """[{"full_name":"me/forgeline","pushed_at":"2026-10-16T13:58:28Z","owner":{"type":"User"}},{"full_name":"ACROSS-Lab/GamaWebPlayer","private":false,"owner":{"type":"Organization"}}]""",
                     HttpStatusCode.OK, headersOf(HttpHeaders.ContentType to listOf("application/json"), HttpHeaders.Link to listOf(link)),
                 )
                 "2" -> json("""[{"full_name":"gama-platform/gama"}]""")
@@ -162,6 +162,7 @@ class GitHubUserApiTest {
 
         assertThat(repos.map { it.id.fullName }).containsExactly("me/forgeline", "ACROSS-Lab/GamaWebPlayer", "gama-platform/gama", "ACROSS-Lab/a-private-one").inOrder()
         assertThat(repos.first().pushedAt).isEqualTo(java.time.Instant.parse("2026-10-16T13:58:28Z"))
+        assertThat(repos.take(2).map { it.ownerIsOrganization }).containsExactly(false, true).inOrder()
         assertThat(requests.first().url.parameters["affiliation"]).isEqualTo("owner,collaborator,organization_member")
         assertThat(requests.first().url.parameters["sort"]).isEqualTo("pushed")
         assertThat(requests.map { it.url.parameters["page"] }).containsExactly("1", "2", "3")
