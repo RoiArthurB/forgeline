@@ -27,16 +27,15 @@ fun PictureScreen(route: PictureRoute, onBack: () -> Unit, onOpenInBrowser: (Str
     val inBrowser = stringResource(R.string.open_in_browser)
     Column(modifier.fillMaxSize().background(colors.ground).sideSafeArea()) {
         SoftHeader(
-            tint = colors.fields[1],
             onBack = onBack,
             backDescription = stringResource(R.string.navigate_up),
             actions = {
                 SoftIconButton(onClick = { onOpenInBrowser(route.url) }) {
-                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = inBrowser, tint = colors.ink)
+                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = inBrowser, tint = Soft.colors.ink)
                 }
             },
         ) {
-            Text(route.description?.takeIf { it.isNotBlank() } ?: route.fileName, style = Soft.type.name, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(route.description?.takeIf { it.isNotBlank() } ?: route.fileName, style = Soft.type.name, color = Soft.colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Box(Modifier.weight(1f).fillMaxWidth().padding(bottom = listBottomPadding())) {
             ZoomablePicture(route.url, route.description, onOpenInBrowser = { onOpenInBrowser(route.url) }, browserLabel = inBrowser)

@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.compose.ui.test.onNodeWithContentDescription
 import fr.arthurbrugiere.forgeline.core.testing.issueSummary
 import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.Reaction
@@ -111,6 +112,9 @@ class CommentActionsScreenTest {
     }
 
     private fun offered(label: String) = composeRule.onAllNodesWithText(label).fetchSemanticsNodes().isNotEmpty()
+
+    /** The send arrow is named for screen readers, not written. */
+    private fun sendOffered() = composeRule.onAllNodesWithContentDescription("Comment").fetchSemanticsNodes().isNotEmpty()
 
     @Test
     fun the_description_and_every_comment_have_a_menu() {
@@ -248,7 +252,7 @@ class CommentActionsScreenTest {
         composeRule.onNodeWithText("Rewriting your comment").assertIsDisplayed()
         // Closing the conversation is not offered beside a rewrite.
         assertThat(offered("Close issue")).isFalse()
-        assertThat(offered("Comment")).isFalse()
+        assertThat(sendOffered()).isFalse()
         composeRule.onNodeWithText("Save").assertIsEnabled().performClick()
         composeRule.onNodeWithText("Cancel").performClick()
 
@@ -406,7 +410,7 @@ class CommentActionsScreenTest {
         assertThat(previewShown()).isTrue()
         assertThat(fieldShown()).isFalse()
         // It can be sent from there.
-        composeRule.onNodeWithText("Comment").assertIsEnabled()
+        composeRule.onNodeWithContentDescription("Comment").assertIsEnabled()
 
         composeRule.onNode(hasContentDescription("Back to writing")).performClick()
 
@@ -641,7 +645,7 @@ class CommentActionsScreenTest {
         // Its words show once, in the field; the reader's turn waits at the end.
         assertThat(composeRule.onAllNodesWithText("Same here").fetchSemanticsNodes()).hasSize(1)
         assertThat(composeRule.onAllNodes(hasSetTextAction()).fetchSemanticsNodes()).hasSize(1)
-        assertThat(offered("Comment")).isFalse()
+        assertThat(sendOffered()).isFalse()
     }
 
     @Test
@@ -669,8 +673,8 @@ class CommentActionsScreenTest {
         shown.value = opened
         composeRule.waitForIdle()
 
-        reach(hasText("Comment"))
-        composeRule.onNodeWithText("Comment").assertIsDisplayed()
+        reach(hasContentDescription("Comment"))
+        composeRule.onNodeWithContentDescription("Comment").assertIsDisplayed()
         assertThat(offered("Rewriting your comment")).isFalse()
     }
 

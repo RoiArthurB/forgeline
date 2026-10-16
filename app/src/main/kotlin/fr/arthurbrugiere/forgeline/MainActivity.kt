@@ -24,7 +24,9 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
+import fr.arthurbrugiere.forgeline.core.ui.soft.bandIsDark
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
+import fr.arthurbrugiere.forgeline.core.ui.theme.softColors
 import fr.arthurbrugiere.forgeline.core.ui.theme.isDark
 import fr.arthurbrugiere.forgeline.session.SessionViewModel
 import fr.arthurbrugiere.forgeline.ui.ForgelineApp
@@ -49,15 +51,20 @@ class MainActivity : ComponentActivity() {
             val settings = (uiState as? MainUiState.Ready)?.settings ?: UserSettings()
             val darkTheme = settings.themeMode.isDark(isSystemInDarkTheme())
 
-            DisposableEffect(darkTheme) {
-                val style = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { darkTheme }
-                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+            // The status bar always sits on the header band, so its icons follow the band; the navigation bar's, the page.
+            val bandIsDark = softColors(darkTheme, settings.amoledBlack, settings.headerStyle).bandIsDark
+            DisposableEffect(darkTheme, bandIsDark) {
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { bandIsDark },
+                    navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { darkTheme },
+                )
                 onDispose {}
             }
 
             ForgelineTheme(
                 darkTheme = darkTheme,
                 amoledBlack = settings.amoledBlack,
+                headerStyle = settings.headerStyle,
             ) {
                 val session by sessionViewModel.session.collectAsStateWithLifecycle()
                 CompositionLocalProvider(LocalUserSettings provides settings) {

@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.ui
 
+import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
@@ -61,7 +62,7 @@ class LargeFontLayoutTest {
                 nowMillis = 60_000L,
             )
         }
-        composeRule.onNode(hasScrollAction()).performScrollToIndex(11)
+        composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(11)
 
         // One line of the rank's figure style (20sp) and its top padding; two lines would be twice that.
         val oneLine = with(composeRule.density) { 20.sp.toDp() } + 4.dp
@@ -92,8 +93,9 @@ class LargeFontLayoutTest {
     fun a_notification_keeps_its_repository_whole_beside_its_reason() {
         inbox(notificationThread("42", repo = "acme/rocket", title = "Launch fails on cold start"))
 
-        val where = composeRule.onNodeWithText("acme/⁠rocket #42", useUnmergedTree = true).textLayout()
-        assertThat(where.isLineEllipsized(0)).isFalse()
+        // Reason and place share a line; at a large font it takes a second one rather than cutting the place short.
+        val where = composeRule.onNodeWithText("acme/⁠rocket #42", substring = true, useUnmergedTree = true).textLayout()
+        assertThat((0 until where.lineCount).none { where.isLineEllipsized(it) }).isTrue()
     }
 
     @Test

@@ -1,5 +1,17 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.AlternateEmail
+import androidx.compose.material.icons.outlined.RateReview
+import androidx.compose.material.icons.outlined.AssignmentInd
+import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.Color
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTile
+import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
+import fr.arthurbrugiere.forgeline.core.ui.format.iconRes
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
@@ -246,30 +258,24 @@ private val LocalShowForge = staticCompositionLocalOf { false }
 private fun InboxHeader(filter: InboxFilter?, onSelectFilter: (InboxFilter) -> Unit, accountPicker: (@Composable () -> Unit)? = null) {
     val colors = Soft.colors
     val openSearch = LocalOpenSearch.current
-    // Beside the short title while it fits; at very large fonts it drops under the title so "Inbox" never breaks.
-    val pickerInRow = LocalDensity.current.fontScale <= 1.3f
     SoftHeader(
-        // One tint per filter; "Yours" shares All's.
-        tint = colors.fields[(filter?.ordinal ?: 0).coerceAtMost(colors.fields.lastIndex)],
         title = stringResource(R.string.tab_inbox),
         actions = {
-            if (pickerInRow) accountPicker?.invoke()
+            // A tile, beside search: it takes the same room at every font size, so "Inbox" never breaks.
+            accountPicker?.invoke()
             if (openSearch != null) {
                 SoftIconButton(onClick = openSearch) {
-                    Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = colors.ink)
+                    Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = Soft.colors.ink)
                 }
             }
         },
         content = filter?.let {
             {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (!pickerInRow) accountPicker?.invoke()
-                    SoftSwitch(
-                        options = InboxFilter.entries.map { stringResource(it.label) },
-                        selected = filter.ordinal,
-                        onSelect = { onSelectFilter(InboxFilter.entries[it]) },
-                    )
-                }
+                SoftSwitch(
+                    options = InboxFilter.entries.map { stringResource(it.label) },
+                    selected = filter.ordinal,
+                    onSelect = { onSelectFilter(InboxFilter.entries[it]) },
+                )
             }
         },
     )
@@ -410,12 +416,16 @@ fun InboxScreen(
                                         state.accountTabs.map { "@${it.user.login} · ${it.forge.displayName}" },
                                     selected = state.accountTabs.indexOfFirst { it.id == state.selectedAccountId } + 1,
                                     onSelect = { onSelectAccount(state.accountTabs.getOrNull(it - 1)?.id) },
-                                    // Beside the title the pill says "All accounts" or "@login" with the account's logo; the menu
-                                    // and screen readers keep the full "@login · Forge".
-                                    shortLabel = { index -> state.accountTabs.getOrNull(index - 1)?.let { "@${it.user.login}" } ?: allAccounts },
-                                    maxWidth = 160.dp,
+                                    // Beside the title, a tile with the chosen account's forge (or every account's glyph); the menu
+                                    // and screen readers say the full "@login · Forge".
+                                    tileOnly = true,
                                     leading = { index, color ->
-                                        state.accountTabs.getOrNull(index - 1)?.let { ForgeIcon(it.forge, size = 16.dp, tint = color, contentDescription = null) }
+                                        val account = state.accountTabs.getOrNull(index - 1)
+                                        if (account != null) {
+                                            ForgeIcon(account.forge, size = 18.dp, tint = color, contentDescription = null)
+                                        } else {
+                                            Icon(Icons.Outlined.Groups, contentDescription = null, tint = color, modifier = Modifier.size(18.dp))
+                                        }
                                     },
                                 )
                             }
@@ -521,7 +531,7 @@ private fun SelectionBar(
             modifier
                 .widthIn(max = SoftTokens.MaxReadingWidth)
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(8.dp))
                 .background(colors.ink)
                 .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -600,13 +610,13 @@ private fun OwnerHeading(thread: NotificationThread, modifier: Modifier = Modifi
     Row(
         modifier
             .fillMaxWidth()
-            .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 2.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 2.dp)
             .semantics(mergeDescendants = true) { heading() },
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        OwnerAvatar(thread, 24.dp)
-        Spacer(Modifier.width(10.dp))
-        Text(thread.repo.owner, style = Soft.type.control, color = Soft.colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+        OwnerAvatar(thread, 20.dp)
+        Spacer(Modifier.width(8.dp))
+        Text(thread.repo.owner, style = Soft.type.label, color = Soft.colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
         HeadingForge(thread)
     }
 }
@@ -626,7 +636,7 @@ private fun RepoHeading(thread: NotificationThread, showOwner: Boolean, onMarkAl
     val swipe = remember { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, threshold) }
     SwipeToDismissBox(
         state = swipe,
-        modifier = modifier.padding(start = 8.dp, end = 8.dp, top = if (showOwner) 10.dp else 6.dp),
+        modifier = modifier.padding(top = if (showOwner) 10.dp else 4.dp),
         // A repository is swiped away toward the side that means "done" for a thread, if one does.
         enableDismissFromStartToEnd = swipes.inboxSwipeRight == SwipeAction.DONE,
         enableDismissFromEndToStart = swipes.inboxSwipeLeft == SwipeAction.DONE,
@@ -636,10 +646,9 @@ private fun RepoHeading(thread: NotificationThread, showOwner: Boolean, onMarkAl
         Row(
             Modifier
                 .fillMaxWidth()
-                .clip(SoftTokens.RowCorner)
                 .background(colors.ground)
-                // Under an owner heading, the name lines up with its threads' pills and titles.
-                .padding(start = if (showOwner) 12.dp else 28.dp, end = 12.dp, top = 4.dp, bottom = 2.dp)
+                // Under an owner heading, the name lines up with its threads' titles, past their tiles.
+                .padding(start = if (showOwner) 16.dp else ThreadTextStart, end = 16.dp, top = 4.dp, bottom = 2.dp)
                 .semantics(mergeDescendants = true) {
                     heading()
                     // Swipes are invisible to screen readers: the same action as an accessibility action.
@@ -648,15 +657,15 @@ private fun RepoHeading(thread: NotificationThread, showOwner: Boolean, onMarkAl
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (showOwner) {
-                OwnerAvatar(thread, 24.dp)
-                Spacer(Modifier.width(10.dp))
+                OwnerAvatar(thread, 20.dp)
+                Spacer(Modifier.width(8.dp))
             }
             Text(
                 buildAnnotatedString {
                     if (showOwner) withStyle(SpanStyle(color = colors.inkMuted)) { append("${thread.repo.owner}/\u2060") }
                     append(thread.repo.name)
                 },
-                style = Soft.type.control,
+                style = Soft.type.label,
                 color = colors.ink,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -667,12 +676,15 @@ private fun RepoHeading(thread: NotificationThread, showOwner: Boolean, onMarkAl
     }
 }
 
-/** The forge's logo after a heading's name, once accounts span several forges; the heading reads out the forge too. */
+/**
+ * Which forge a heading's repositories live on, once accounts span several forges: said to screen readers only, since
+ * every thread under it carries the forge's badge on its tile.
+ */
 @Composable
 private fun HeadingForge(thread: NotificationThread) {
     if (!LocalShowForge.current) return
-    Spacer(Modifier.width(8.dp))
-    ForgeIcon(thread.repo.forge, size = 16.dp, tint = Soft.colors.inkMuted)
+    val forge = thread.repo.forge.displayName
+    Spacer(Modifier.semantics { contentDescription = forge })
 }
 
 /** The repository owner's avatar (a user or an organisation), its initial on the soft surface until it loads. */
@@ -699,7 +711,7 @@ private fun SectionHeading(section: InboxSection, unread: Int, modifier: Modifie
             .widthIn(max = SoftTokens.MaxReadingWidth)
             .fillMaxWidth()
             .background(colors.ground)
-            .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 6.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)
             .semantics(mergeDescendants = true) { heading() },
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -724,7 +736,7 @@ private fun SectionHeading(section: InboxSection, unread: Int, modifier: Modifie
                     },
                     label = "unread",
                 ) { count ->
-                    SoftTag("$count", background = if (section == InboxSection.NEEDS_YOU) colors.fields[0] else colors.surface)
+                    SoftTag("$count", background = if (section == InboxSection.NEEDS_YOU) colors.accentSoft else colors.surface)
                 }
             }
         }
@@ -770,7 +782,7 @@ private fun ThreadRow(
     val returning = remember { mutableStateOf(false) }
     SwipeToDismissBox(
         state = swipe,
-        modifier = modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+        modifier = modifier,
         // Each side does what Settings says. The read swipe always has something to do: read threads go back to unread.
         // While threads are being picked nothing swipes: the bar acts on them all.
         enableDismissFromStartToEnd = toEnd != SwipeAction.NONE && !selecting,
@@ -806,10 +818,11 @@ private fun ThreadRow(
             tween(if (animations) 300 else 0),
             label = "title",
         )
+        val needsYou = section == InboxSection.NEEDS_YOU
+        val forge = thread.repo.forge.takeIf { LocalShowForge.current }
         Row(
             Modifier
                 .fillMaxWidth()
-                .clip(SoftTokens.RowCorner)
                 .background(if (picked) colors.surface else colors.ground)
                 .softPressable(
                     onLongClick = {
@@ -829,84 +842,79 @@ private fun ThreadRow(
                         add(CustomAccessibilityAction(unsubscribeLabel) { onUnsubscribe(thread); true })
                     }
                 }
-                .padding(start = 4.dp, top = 12.dp, bottom = 12.dp),
-            verticalAlignment = Alignment.Top,
+                .rowHairline(start = ThreadTextStart)
+                .padding(start = 16.dp, top = 9.dp, bottom = 9.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            // The unread dot, in its own gutter so read and unread titles stay aligned; it pops away when read.
-            Box(Modifier.width(20.dp).padding(top = 9.dp), contentAlignment = Alignment.TopCenter) {
-                // Picked: a tick takes the dot's place.
-                if (picked) Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = colors.thumb, modifier = Modifier.size(16.dp).offset(y = (-4).dp))
-                androidx.compose.animation.AnimatedVisibility(
-                    thread.unread && !picked,
-                    enter = if (animations) scaleIn(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)) + fadeIn() else EnterTransition.None,
-                    exit = if (animations) scaleOut(tween(180)) + fadeOut(tween(180)) else ExitTransition.None,
-                ) {
-                    Box(Modifier.size(8.dp).background(colors.thumb, CircleShape))
-                }
+            // The tile says what it is at a glance; marigold when it waits on you, its state's tint otherwise. The dot pops
+            // in while it is unread, and the forge's logo sits on its corner once more than one forge is signed in.
+            SoftTile(
+                background = when {
+                    picked -> colors.thumb
+                    needsYou -> colors.accentSoft
+                    else -> thread.stateTint(colors)
+                },
+                unread = thread.unread && !picked,
+                badge = forge?.let { painterResource(it.iconRes) },
+                badgeDescription = forge?.displayName,
+            ) {
+                Icon(
+                    if (picked) Icons.Outlined.Check else thread.tileIcon,
+                    contentDescription = null,
+                    tint = if (needsYou && !picked) colors.accent else colors.ink,
+                    modifier = Modifier.size(18.dp),
+                )
             }
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                // A flow, so at a large font the repository drops below the pill instead of being squeezed to "ac…".
-                FlowRow(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    itemVerticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // Waiting on you: why, on the warm "for you" tint. Everything else: what it is, on a quiet surface.
-                    if (section == InboxSection.NEEDS_YOU) {
-                        SoftPill(stringResource(thread.reason.label), thread.type.icon, colors.fields[0])
+                // Why it waits on you (or what it is), where, then when: on the right where times line up, or at the end
+                // of the line at a large font, where a column for it would squeeze the place out of sight.
+                val large = LocalDensity.current.fontScale > 1.3f
+                val time = relative(thread.updatedAt, nowMillis, abbreviated = true)
+                val source = buildAnnotatedString {
+                    if (needsYou) {
+                        withStyle(SpanStyle(color = colors.accent, fontWeight = FontWeight.SemiBold)) { append(stringResource(thread.reason.label)) }
+                        append(" · ")
+                        append((thread.repo.fullName + (thread.number?.let { " #$it" } ?: "")).unbreakable())
                     } else {
-                        KindPill(thread)
+                        append(thread.kindLabel())
+                        thread.number?.let { append(" #$it") }
+                        append(" · ")
+                        append(stringResource(thread.reason.label))
                     }
-                    val where = if (section == InboxSection.NEEDS_YOU) {
-                        (thread.repo.fullName + (thread.number?.let { " #$it" } ?: "")).unbreakable()
-                    } else {
-                        thread.number?.let { "#$it" }
-                    }
-                    if (where != null) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (section == InboxSection.NEEDS_YOU) {
-                                OwnerAvatar(thread, 18.dp)
-                                Spacer(Modifier.width(6.dp))
-                            }
-                            Text(where, style = Soft.type.meta, color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
+                    if (large) append(" · ${time.replace(' ', '\u00A0')}")
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        source,
+                        style = Soft.type.meta,
+                        color = colors.inkMuted,
+                        maxLines = if (large) 3 else 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (!large) {
+                        Text(time, style = Soft.type.meta, color = colors.inkMuted, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
                     }
                 }
                 Text(
                     thread.title,
-                    style = Soft.type.rowTitle.copy(fontWeight = if (thread.unread) FontWeight.Medium else FontWeight.Normal),
+                    style = Soft.type.rowTitle.copy(fontWeight = if (thread.unread) FontWeight.SemiBold else FontWeight.Normal),
                     color = titleColor,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 6.dp),
-                )
-                // Which forge (its logo), once more than one is signed in.
-                val forge = thread.repo.forge.takeIf { LocalShowForge.current }
-                val rest = listOfNotNull(
-                    stringResource(thread.reason.label).takeIf { section == InboxSection.OTHERS },
-                    relative(thread.updatedAt, nowMillis, abbreviated = true),
-                ).joinToString(" · ")
-                Text(
-                    buildAnnotatedString {
-                        forge?.let { appendForge(it); append(" · ") }
-                        append(rest)
-                    },
-                    inlineContent = forge?.let { forgeInlineContent(it, colors.inkMuted) }.orEmpty(),
-                    style = Soft.type.meta,
-                    color = colors.inkMuted,
-                    modifier = Modifier.padding(top = 2.dp),
+                    modifier = Modifier.padding(top = 1.dp),
                 )
             }
             // The menu acts on one thread: it steps aside, keeping its room, while several are being picked.
             if (selecting) Spacer(Modifier.size(48.dp)) else Box {
                 SoftIconButton(onClick = { menuOpen = true }) {
-                    Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.inbox_more), tint = colors.inkMuted)
+                    Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.inbox_more), tint = colors.inkMuted, modifier = Modifier.size(20.dp))
                 }
                 DropdownMenu(
                     expanded = menuOpen,
                     onDismissRequest = { menuOpen = false },
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(8.dp),
                     containerColor = colors.raised,
                 ) {
                     DropdownMenuItem(text = { Text(toggleReadLabel) }, onClick = { menuOpen = false; toggleRead() })
@@ -918,9 +926,12 @@ private fun ThreadRow(
     }
 }
 
+/** Where a thread's text starts: past the 16dp gutter, its 32dp tile and a 12dp gap. Headings and hairlines line up on it. */
+private val ThreadTextStart = 60.dp
+
 /**
- * What a swipe does, shown on a soft tint under the row, on the side the row leaves: mint to mark read (or unread
- * again, for a thread already read), ember for done.
+ * What a swipe does, shown on a tint under the row, on the side the row leaves: fresh to mark read (or unread
+ * again, for a thread already read), warm for done.
  */
 @Composable
 private fun SwipeBackground(direction: SwipeToDismissBoxValue, action: SwipeAction, unread: Boolean = true) {
@@ -951,29 +962,51 @@ private val InboxFilter.label: Int
         InboxFilter.YOURS -> R.string.inbox_filter_yours
     }
 
-/**
- * What a thread is about, and where it stands once known: "Merged pull request", "Closed issue". Tinted like the
- * Feed's states: mint while open, lilac once merged, ember once closed.
- */
+/** What a thread is about, and where it stands once known: "Merged pull request", "Closed issue". */
 @Composable
-private fun KindPill(thread: NotificationThread) {
-    val colors = Soft.colors
-    val isPull = thread.type == SubjectType.PULL_REQUEST
-    when (thread.state) {
-        null -> SoftPill(stringResource(thread.type.label), thread.type.icon, colors.surface)
-        SubjectState.OPEN -> SoftPill(
-            stringResource(if (isPull) R.string.inbox_state_open_pull else R.string.inbox_state_open_issue), thread.type.icon, colors.fields[2],
-        )
-        SubjectState.DRAFT -> SoftPill(stringResource(R.string.inbox_state_draft_pull), thread.type.icon, colors.surface)
-        SubjectState.MERGED -> SoftPill(stringResource(R.string.inbox_state_merged_pull), Icons.AutoMirrored.Outlined.CallMerge, colors.fields[1])
-        SubjectState.CLOSED -> SoftPill(
-            stringResource(if (isPull) R.string.inbox_state_closed_pull else R.string.inbox_state_closed_issue),
-            if (isPull) Icons.Outlined.Close else Icons.Outlined.CheckCircleOutline,
-            colors.fields[0],
-        )
-        SubjectState.NOT_PLANNED -> SoftPill(stringResource(R.string.inbox_state_not_planned), Icons.Outlined.Block, colors.surface)
-    }
+private fun NotificationThread.kindLabel(): String {
+    val isPull = type == SubjectType.PULL_REQUEST
+    return stringResource(
+        when (state) {
+            null -> type.label
+            SubjectState.OPEN -> if (isPull) R.string.inbox_state_open_pull else R.string.inbox_state_open_issue
+            SubjectState.DRAFT -> R.string.inbox_state_draft_pull
+            SubjectState.MERGED -> R.string.inbox_state_merged_pull
+            SubjectState.CLOSED -> if (isPull) R.string.inbox_state_closed_pull else R.string.inbox_state_closed_issue
+            SubjectState.NOT_PLANNED -> R.string.inbox_state_not_planned
+        },
+    )
 }
+
+/** A thread's tile, tinted like the Feed's states: fresh while open, cool once merged, warm once closed. */
+private fun NotificationThread.stateTint(colors: SoftColors): Color = when (state) {
+    SubjectState.OPEN -> colors.fields[2]
+    SubjectState.MERGED -> colors.fields[1]
+    SubjectState.CLOSED -> colors.fields[0]
+    null, SubjectState.DRAFT, SubjectState.NOT_PLANNED -> colors.surface
+}
+
+/** The tile's glyph: the kind, or how it ended. */
+private val NotificationThread.tileIcon: ImageVector
+    get() = when (state) {
+        SubjectState.MERGED -> Icons.AutoMirrored.Outlined.CallMerge
+        SubjectState.CLOSED -> if (type == SubjectType.PULL_REQUEST) Icons.Outlined.Close else Icons.Outlined.CheckCircleOutline
+        SubjectState.NOT_PLANNED -> Icons.Outlined.Block
+        else -> if (reasonIsNeedsYou) reason.icon else type.icon
+    }
+
+private val NotificationThread.reasonIsNeedsYou: Boolean
+    get() = reason in setOf(NotificationReason.MENTION, NotificationReason.TEAM_MENTION, NotificationReason.REVIEW_REQUESTED, NotificationReason.ASSIGN, NotificationReason.SECURITY_ALERT)
+
+/** Why a thread waits on you, as a glyph. */
+private val NotificationReason.icon: ImageVector
+    get() = when (this) {
+        NotificationReason.MENTION, NotificationReason.TEAM_MENTION -> Icons.Outlined.AlternateEmail
+        NotificationReason.REVIEW_REQUESTED -> Icons.Outlined.RateReview
+        NotificationReason.ASSIGN -> Icons.Outlined.AssignmentInd
+        NotificationReason.SECURITY_ALERT -> Icons.Outlined.Shield
+        else -> Icons.Outlined.Notifications
+    }
 
 private val SubjectType.icon: ImageVector
     get() = when (this) {

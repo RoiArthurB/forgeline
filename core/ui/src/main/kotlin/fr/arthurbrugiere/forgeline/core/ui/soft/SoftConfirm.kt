@@ -29,8 +29,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material.icons.outlined.CheckBox
-import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -38,6 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -46,27 +45,28 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 /**
- * The ink pill: an action that can't be taken back (deleting, unpublishing, merging against failed checks). Ember says
- * "this is the way forward"; ink says "this is final", and is never the pill a thumb lands on by habit. Not [enabled],
- * it goes quiet like the filled button.
+ * The ink button: an action that can't be taken back (deleting, unpublishing, merging against failed checks). Marigold
+ * says "this is the way forward"; ink says "this is final", and is never the button a thumb lands on by habit. Not
+ * [enabled], it goes quiet like the filled button.
  */
 @Composable
 fun SoftDangerButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val colors = Soft.colors
     Box(
         modifier
+            .minimumInteractiveComponentSize()
             .clip(SoftTokens.Pill)
             .background(if (enabled) colors.ink else colors.surface)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 24.dp),
+            .heightIn(min = 40.dp)
+            .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(label, style = Soft.type.control, color = if (enabled) colors.ground else colors.inkMuted)
     }
 }
 
-/** One choice among a few, in a sheet: a ring that fills in ember for the one picked, its name, and a line about it. */
+/** One choice among a few, in a sheet: a ring that fills in marigold for the one picked, its name, and a line about it. */
 @Composable
 fun SoftChoiceRow(title: String, selected: Boolean, onSelect: () -> Unit, modifier: Modifier = Modifier, summary: String? = null) {
     val colors = Soft.colors
@@ -96,7 +96,7 @@ fun SoftChoiceRow(title: String, selected: Boolean, onSelect: () -> Unit, modifi
 /**
  * Asks before something happens, from the foot of the screen where the thumb is: what it is, what it does, anything
  * to pick or write first ([content]), then a way out beside the way on. [danger] is for what can't be taken back: the
- * way on is then the ink pill. Nothing happens while [confirmEnabled] is false, and the way out always works.
+ * way on is then the ink button. Nothing happens while [confirmEnabled] is false, and the way out always works.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -137,7 +137,7 @@ fun SoftConfirmSheet(
     }
 }
 
-/** A checkbox among others in a sheet or a list: a box that fills in ember when on, its name, and a line about it. */
+/** A checkbox among others in a sheet or a list: the square check, its name, and a line about it. */
 @Composable
 fun SoftCheckRow(title: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier, summary: String? = null) {
     val colors = Soft.colors
@@ -150,12 +150,7 @@ fun SoftCheckRow(title: String, checked: Boolean, onCheckedChange: (Boolean) -> 
             .padding(horizontal = 8.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            if (checked) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
-            contentDescription = null,
-            tint = if (checked) colors.accent else colors.inkMuted,
-            modifier = Modifier.size(22.dp),
-        )
+        SoftCheck(checked)
         Spacer(Modifier.width(12.dp))
         Column {
             Text(title, style = Soft.type.control, color = colors.ink)
@@ -201,16 +196,16 @@ fun SoftChoiceSheet(title: String, options: List<String>, selected: Int, onSelec
 }
 
 /**
- * The snackbar every screen raises: inverted, `ink` with `ground` text and 16dp corners, its action (Undo) in
+ * The snackbar every screen raises: inverted, `ink` with `ground` text and 8dp corners, its action (Undo) in
  * [softSnackbarAction].
  */
 @Composable
 fun SoftSnackbarHost(state: SnackbarHostState, modifier: Modifier = Modifier) {
     val colors = Soft.colors
     SnackbarHost(state, modifier) { data ->
-        Snackbar(data, shape = RoundedCornerShape(16.dp), containerColor = colors.ink, contentColor = colors.ground, actionColor = softSnackbarAction(colors))
+        Snackbar(data, shape = RoundedCornerShape(8.dp), containerColor = colors.ink, contentColor = colors.ground, actionColor = softSnackbarAction(colors))
     }
 }
 
-/** A snackbar's action on its ink bar: ember where it reads (light), the light theme's deeper ember on the pale dark-theme bar. */
+/** A snackbar's action on its ink bar: marigold where it reads (light), the light theme's deep amber on the pale dark-theme bar. */
 fun softSnackbarAction(colors: SoftColors): Color = if (colors.isDark) SoftLight.accent else colors.thumb

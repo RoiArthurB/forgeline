@@ -149,33 +149,28 @@ fun JobLogScreen(
             ) {
             item(key = "header") {
                 SoftHeader(
-                    tint = when {
-                        errors.isNotEmpty() || state.job?.conclusion.failed -> colors.fields[0]
-                        state.job?.conclusion == RunConclusion.SUCCESS -> colors.fields[2]
-                        else -> colors.fields[1]
-                    },
                     onBack = onBack,
                     backDescription = stringResource(R.string.navigate_up),
                     actions = {
                         SoftIconButton(onClick = onOpenInBrowser) {
-                            Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.repo.forge.displayName), tint = colors.ink)
+                            Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.repo.forge.displayName), tint = Soft.colors.ink)
                         }
                     },
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(state.jobName, style = Soft.type.hero, color = colors.ink, modifier = Modifier.semantics { heading() })
+                        Text(state.jobName, style = Soft.type.hero, color = Soft.colors.ink, modifier = Modifier.semantics { heading() })
                         state.job?.let { job ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 RunStatusIcon(job.status, job.conclusion, size = 28.dp)
                                 Spacer(Modifier.width(10.dp))
-                                Text(statusLine(job.status, job.conclusion, job.startedAt, job.completedAt, nowMillis), style = Soft.type.body, color = colors.ink)
+                                Text(statusLine(job.status, job.conclusion, job.startedAt, job.completedAt, nowMillis), style = Soft.type.body, color = Soft.colors.ink)
                             }
                         }
                         if (errors.isNotEmpty()) {
                             Row(
                                 Modifier
                                     .clip(SoftTokens.Pill)
-                                    .background(colors.ground)
+                                    .background(Soft.colors.ground)
                                     .softPressable(role = Role.Button) {
                                         val target = errors[nextError % errors.size]
                                         nextError++
@@ -186,9 +181,9 @@ fun JobLogScreen(
                                     .padding(horizontal = 16.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = colors.accent, modifier = Modifier.size(18.dp))
+                                Icon(Icons.Outlined.ErrorOutline, contentDescription = null, tint = Soft.colors.accent, modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text(pluralStringResource(R.plurals.log_jump_to_error, errors.size, errors.size), style = Soft.type.control, color = colors.ink)
+                                Text(pluralStringResource(R.plurals.log_jump_to_error, errors.size, errors.size), style = Soft.type.control, color = Soft.colors.ink)
                             }
                         }
                     }
@@ -287,7 +282,7 @@ private fun GroupHeader(row: LogRow.Header, onClick: () -> Unit) {
             modifier = Modifier.size(18.dp),
         )
         Spacer(Modifier.width(6.dp))
-        Text(row.title, style = Soft.type.codeDense.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Medium), color = colors.ink, maxLines = 2, modifier = Modifier.weight(1f))
+        Text(row.title, style = Soft.type.codeDense.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold), color = colors.ink, maxLines = 2, modifier = Modifier.weight(1f))
         if (!row.open) Text(row.lines.toString(), style = Soft.type.meta, color = colors.inkMuted)
     }
 }

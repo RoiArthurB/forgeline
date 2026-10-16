@@ -622,6 +622,10 @@
     <string name="theme_system">Système</string>
     <string name="theme_light">Clair</string>
     <string name="theme_dark">Sombre</string>
+    <string name="settings_header">En-tête</string>
+    <string name="settings_header_ink">Encre</string>
+    <string name="settings_header_black">Noir pur</string>
+    <string name="settings_header_white">Blanc</string>
     <string name="settings_amoled">Noir pur</string>
     <string name="settings_amoled_summary">Utiliser un fond noir pur avec le thème sombre</string>
     <string name="settings_section_notifications">Réception &amp; notifications</string>
@@ -691,7 +695,7 @@
     <string name="credits_title">Crédits</string>
     <string name="credits_app_license">Forgeline est un logiciel libre, sous licence publique générale GNU v3.0.</string>
     <string name="credits_read_license">Lire la licence</string>
-    <string name="credits_fonts">Polices : Gabarito (© The Gabarito Project Authors) et Lexend (© The Lexend Project Authors), toutes deux sous licence SIL Open Font License 1.1.</string>
+    <string name="credits_fonts">Police : Geist (© The Geist Project Authors), sous licence SIL Open Font License 1.1.</string>
     <string name="credits_icons">Logos des forges : Simple Icons (simpleicons.org), versés au domaine public sous CC0 1.0. Les logos restent des marques de leurs propriétaires.</string>
     <string name="credits_libraries_intro">Réalisé avec ces bibliothèques libres</string>
     <string name="widget_inbox_description">Ce que vous n’avez pas encore lu, à un geste de chaque conversation</string>

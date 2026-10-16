@@ -120,7 +120,7 @@ private fun FileHeading(diff: FileDiff, expanded: Boolean, onToggle: () -> Unit)
         Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(file.path, style = Soft.type.code.copy(fontWeight = FontWeight.Medium), color = colors.ink)
+            Text(file.path, style = Soft.type.code.copy(fontWeight = FontWeight.SemiBold), color = colors.ink)
             val note = when (file.change) {
                 FileChange.ADDED -> stringResource(R.string.changes_file_added)
                 FileChange.REMOVED -> stringResource(R.string.changes_file_removed)
@@ -196,7 +196,7 @@ private fun LineRow(line: DiffLine, onClick: (() -> Unit)?) {
 private fun PendingRemark(remark: LineComment, onRemove: () -> Unit) {
     val colors = Soft.colors
     Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp).clip(RoundedCornerShape(16.dp)).background(colors.surface).padding(start = 14.dp),
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp).clip(RoundedCornerShape(8.dp)).background(colors.surface).padding(start = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f).padding(vertical = 10.dp)) {

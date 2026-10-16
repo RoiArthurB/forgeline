@@ -1,8 +1,10 @@
 package fr.arthurbrugiere.forgeline.ui
 
+import fr.arthurbrugiere.forgeline.core.ui.format.iconRes
+import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTile
+import androidx.compose.ui.res.painterResource
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
-import fr.arthurbrugiere.forgeline.core.ui.format.forgeInlineContent
-import fr.arthurbrugiere.forgeline.core.ui.format.appendForge
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -49,9 +51,12 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 
-// List rows shared by the repo, profile and search screens: unboxed, with the soft pressed surface.
+// List rows shared by the repo, profile and search screens: edge to edge between hairlines, led by a tile.
 
-private val RowModifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
+private val RowModifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()
+
+/** Where a row's text starts past its tile: the 16dp gutter, the 32dp tile and a 12dp gap. Hairlines start there. */
+private val RowTextStart = 60.dp
 
 /**
  * A repository in a list: its owner's avatar (a user or organisation; left out where every row shares the owner, as
@@ -62,17 +67,23 @@ private val RowModifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fil
 @Composable
 fun RepoSummaryRow(repo: RepoSummary, onOpenRepo: (RepoId) -> Unit, showOwner: Boolean = true, forge: ForgeInstance? = null) {
     val colors = Soft.colors
-    Row(RowModifier.softPressable { onOpenRepo(repo.id) }.padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.Top) {
+    Row(
+        RowModifier.softPressable { onOpenRepo(repo.id) }.rowHairline(start = if (showOwner) RowTextStart else 16.dp).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
         if (showOwner) {
-            Avatar(
-                repo.ownerAvatarUrl,
-                repo.id.owner,
-                size = 36.dp,
-                placeholderColor = colors.surface,
-                placeholderContentColor = colors.inkMuted,
-                modifier = Modifier.clearAndSetSemantics {},
-            )
-            Spacer(Modifier.width(14.dp))
+            SoftTile(badge = forge?.let { painterResource(it.iconRes) }, badgeDescription = forge?.displayName) {
+                Avatar(
+                    repo.ownerAvatarUrl,
+                    repo.id.owner,
+                    size = SoftTokens.Tile,
+                    shape = SoftTokens.TileCorner,
+                    placeholderColor = colors.surface,
+                    placeholderContentColor = colors.inkMuted,
+                    modifier = Modifier.clearAndSetSemantics {},
+                )
+            }
+            Spacer(Modifier.width(12.dp))
         }
         Column(Modifier.weight(1f)) {
             Text(
@@ -80,7 +91,7 @@ fun RepoSummaryRow(repo: RepoSummary, onOpenRepo: (RepoId) -> Unit, showOwner: B
                     withStyle(SpanStyle(color = colors.inkMuted)) { append("${repo.id.owner}/") }
                     append(repo.id.name)
                 },
-                style = Soft.type.control.copy(fontSize = Soft.type.body.fontSize, lineHeight = Soft.type.body.lineHeight),
+                style = Soft.type.name,
                 color = colors.ink,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -88,25 +99,25 @@ fun RepoSummaryRow(repo: RepoSummary, onOpenRepo: (RepoId) -> Unit, showOwner: B
             repo.description?.let {
                 Text(
                     it,
-                    style = Soft.type.body,
+                    style = Soft.type.secondary,
                     color = colors.ink,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp).widthIn(max = SoftTokens.MaxMeasure),
+                    modifier = Modifier.padding(top = 1.dp).widthIn(max = SoftTokens.MaxMeasure),
                 )
             }
-            Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 repo.language?.let { language ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         languageColor(language)?.let { dot ->
-                            Box(Modifier.size(9.dp).background(dot, CircleShape))
-                            Spacer(Modifier.width(6.dp))
+                            Box(Modifier.size(8.dp).background(dot, CircleShape))
+                            Spacer(Modifier.width(5.dp))
                         }
                         Text(language, style = Soft.type.meta, color = colors.inkMuted)
                     }
                 }
                 Text(stringResource(R.string.trending_stars, compactCount(repo.stars)), style = Soft.type.meta, color = colors.inkMuted)
-                forge?.let { ForgeMark(it, style = Soft.type.meta, color = colors.inkMuted) }
+                if (!showOwner) forge?.let { ForgeMark(it, style = Soft.type.meta, color = colors.inkMuted) }
             }
         }
     }
@@ -136,27 +147,23 @@ fun IssueSummaryRow(
         issue.state == IssueState.CLOSED -> Icons.Outlined.CheckCircleOutline
         else -> Icons.Outlined.Adjust
     }
-    Row(RowModifier.softPressable { onOpen(issue.number) }.padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 12.dp), verticalAlignment = Alignment.Top) {
-        Box(Modifier.size(36.dp).background(badge, CircleShape), contentAlignment = Alignment.Center) {
+    Row(RowModifier.softPressable { onOpen(issue.number) }.rowHairline(start = RowTextStart).padding(start = 16.dp, top = 10.dp, bottom = 10.dp, end = 16.dp), verticalAlignment = Alignment.Top) {
+        SoftTile(background = badge, badge = forge?.let { painterResource(it.iconRes) }, badgeDescription = forge?.displayName) {
             Icon(icon, contentDescription = null, tint = if (quiet) colors.inkMuted else colors.ink, modifier = Modifier.size(18.dp))
         }
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             // Search results come from anywhere, so they name their repo.
             repo?.let {
                 Text(
-                    buildAnnotatedString {
-                        forge?.let { forge -> appendForge(forge); append(" ") }
-                        append(it.fullName)
-                    },
-                    inlineContent = forge?.let { forge -> forgeInlineContent(forge, colors.inkMuted) }.orEmpty(),
+                    it.fullName,
                     style = Soft.type.meta,
                     color = colors.inkMuted,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(issue.title, style = Soft.type.body, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(issue.title, style = Soft.type.rowTitle, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
                 stringResource(R.string.repo_issue_meta, issue.number, relativeInSentence(issue.createdAt, nowMillis), issue.author?.login ?: stringResource(R.string.deleted_account)),
                 style = Soft.type.meta,

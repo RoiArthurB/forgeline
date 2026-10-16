@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 /**
  * How anything pressable answers a press in the Soft world: a soft ink veil over it while pressed or focused, and no
  * ripple. Set once as the default indication, so every clickable, selectable and toggleable row, pill and button
- * answers the same way; [softPressable] rows add their squish on top. [veil] is the track colour: a 6-7% ink (or
+ * answers the same way; [softPressable] rows fill with the tile surface instead. [veil] is the track colour: a 6-7% ink (or
  * white) wash that follows whatever it lies over.
  */
 data class SoftIndication(val veil: Color) : IndicationNodeFactory {

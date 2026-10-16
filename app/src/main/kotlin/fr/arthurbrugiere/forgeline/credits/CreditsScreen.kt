@@ -62,7 +62,6 @@ fun CreditsScreen(
             header = {
                 item(key = "header") {
                     SoftHeader(
-                        tint = colors.fields[2],
                         title = stringResource(R.string.credits_title),
                         onBack = onBack,
                         backDescription = stringResource(R.string.navigate_up),

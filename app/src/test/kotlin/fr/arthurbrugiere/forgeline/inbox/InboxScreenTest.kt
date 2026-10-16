@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onNodeWithContentDescription
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
@@ -89,11 +90,12 @@ class InboxScreenTest {
         setContent(grouped)
 
         composeRule.onNodeWithText("Needs you").assertIsDisplayed()
-        composeRule.onNodeWithText("Mentioned").assertIsDisplayed()
-        composeRule.onNodeWithText("Review requested").assertIsDisplayed()
-        composeRule.onNodeWithText("acme/\u2060rocket #42").assertIsDisplayed()
+        // Why it waits on you leads its line, then where.
+        composeRule.onNodeWithText("Mentioned · acme/\u2060rocket #42", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Review requested", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("Launch fails on cold start").assertIsDisplayed()
-        composeRule.onAllNodes(hasText("1 hr. ago")).assertCountEquals(2)
+        // Every thread says when, on the right where the times line up.
+        composeRule.onAllNodes(hasText("1 hr. ago")).assertCountEquals(3)
     }
 
     @Test
@@ -101,9 +103,10 @@ class InboxScreenTest {
         setContent(grouped)
 
         composeRule.onNodeWithText("Everything else").assertIsDisplayed()
-        composeRule.onNodeWithText("Issue").assertIsDisplayed()
+        // What it is and why, on the line above its title; when, on the right.
+        composeRule.onNodeWithText("Issue", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("octo/\u2060tools").assertIsDisplayed()
-        composeRule.onNodeWithText("Watching · 1 hr. ago").assertIsDisplayed()
+        composeRule.onNodeWithText("Watching", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -117,9 +120,9 @@ class InboxScreenTest {
             .copy(state = SubjectState.CLOSED)
         setContent(grouped.copy(groups = listOf(SectionGroup(InboxSection.OTHERS, listOf(merged, open, closed)))))
 
-        composeRule.onNodeWithText("Merged pull request").assertIsDisplayed()
-        composeRule.onNodeWithText("Open pull request").assertIsDisplayed()
-        composeRule.onNodeWithText("Closed issue").assertIsDisplayed()
+        composeRule.onNodeWithText("Merged pull request", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Open pull request", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Closed issue", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("Pull request").assertDoesNotExist()
     }
 
@@ -400,8 +403,8 @@ class InboxScreenTest {
             .let { it.copy(repo = it.repo.copy(forge = ForgeInstance.Codeberg), accountId = "forgejo:codeberg.org:me") }
         setContent(grouped.copy(groups = listOf(SectionGroup(InboxSection.OTHERS, listOf(github, codeberg))), showForge = true))
 
-        composeRule.onNodeWithText("Codeberg · Watching", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("GitHub · Watching", substring = true).assertIsDisplayed()
+        forgeBadges("Codeberg").assertCountEquals(1)
+        forgeBadges("GitHub").assertCountEquals(1)
     }
 
     @Test
@@ -444,15 +447,21 @@ class InboxScreenTest {
     private fun others(vararg threads: NotificationThread, showForge: Boolean = true) =
         setContent(InboxUiState(groups = listOf(SectionGroup(InboxSection.OTHERS, threads.toList())), syncedAtMillis = 1, showForge = showForge))
 
-    private fun forgeIcons(name: String) = composeRule.onAllNodes(hasContentDescription(name), useUnmergedTree = true)
+    /** Headings that say which forge their repositories live on (the logo is on each thread's tile, not after the name). */
+    private fun forgeIcons(name: String) = composeRule.onAllNodes(hasContentDescription(name) and isHeading())
+
+    /** Threads whose tile wears the forge's badge. */
+    private fun forgeBadges(name: String) = composeRule.onAllNodes(hasContentDescription(name) and !isHeading())
 
     @Test
     fun a_repository_heading_wears_its_forge_after_the_name() {
         others(onForge(ForgeInstance.Codeberg, "1", "octo/tools"), onForge(ForgeInstance.GitHub, "2", "acme/rocket"))
 
-        // Each lone repository: avatar, owner/ and name, then its forge's logo.
+        // Each lone repository's heading names its forge for screen readers; each thread's tile wears its logo.
         forgeIcons("Codeberg").assertCountEquals(1)
         forgeIcons("GitHub").assertCountEquals(1)
+        forgeBadges("Codeberg").assertCountEquals(1)
+        forgeBadges("GitHub").assertCountEquals(1)
     }
 
     @Test
@@ -462,8 +471,9 @@ class InboxScreenTest {
             onForge(ForgeInstance.Codeberg, "2", "octo/docs"),
         )
 
-        // <avatar> octo <logo>, then "tools <logo>" and "docs <logo>".
+        // The owner's heading and each repository's say the forge; each thread's tile wears its logo.
         forgeIcons("Codeberg").assertCountEquals(3)
+        forgeBadges("Codeberg").assertCountEquals(2)
     }
 
     @Test

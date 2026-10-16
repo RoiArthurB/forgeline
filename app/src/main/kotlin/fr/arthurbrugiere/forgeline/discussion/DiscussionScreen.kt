@@ -171,13 +171,12 @@ fun DiscussionScreen(
             ) {
                 item(key = "header") {
                     SoftHeader(
-                        tint = colors.fields[1],
                         onBack = onBack,
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
                             ShareLinkButton(state.webUrl, (state.discussion?.summary ?: state.summary)?.title ?: "${state.repo.fullName}#${state.number}")
                             SoftIconButton(onClick = { onOpenInBrowser(state.webUrl) }) {
-                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, forge), tint = colors.ink)
+                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, forge), tint = Soft.colors.ink)
                             }
                         },
                     ) {
@@ -185,24 +184,24 @@ fun DiscussionScreen(
                             Text(
                                 state.repo.fullName,
                                 style = Soft.type.secondary,
-                                color = colors.inkMuted,
+                                color = Soft.colors.inkMuted,
                                 modifier = Modifier.clickable { onOpenRepo(state.repo) },
                             )
                             Text(
                                 summary?.let { "${it.title} - #${it.number}" } ?: "#${state.number}",
                                 style = Soft.type.detailTitle,
-                                color = colors.ink,
+                                color = Soft.colors.ink,
                                 modifier = Modifier.semantics { heading() },
                             )
                             if (summary != null) {
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    summary.category?.let { SoftTag(it, background = colors.ground) }
-                                    if (summary.isAnswered == true) SoftTag(stringResource(R.string.repo_discussion_answered), background = colors.ground)
+                                    summary.category?.let { SoftTag(it, background = Soft.colors.ground) }
+                                    if (summary.isAnswered == true) SoftTag(stringResource(R.string.repo_discussion_answered), background = Soft.colors.ground)
                                     if (summary.upvotes > 0) Upvotes(summary.upvotes, background = true)
                                 }
                                 val who = summary.author?.login ?: stringResource(R.string.deleted_account)
                                 summary.createdAt?.let {
-                                    Text(stringResource(R.string.discussion_opened, who, relative(it, nowMillis)), style = Soft.type.secondary, color = colors.inkMuted)
+                                    Text(stringResource(R.string.discussion_opened, who, relative(it, nowMillis)), style = Soft.type.secondary, color = Soft.colors.inkMuted)
                                 }
                             }
                         }

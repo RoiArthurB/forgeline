@@ -39,27 +39,27 @@ object CodeHighlighter {
     // Token colors from the Soft palette, each readable at 4.5:1 on its ground (CodeContrastTest holds them to it).
     private val SoftLightSyntax = SyntaxTheme(
         key = "soft-light",
-        code = 0x1E1B2E,
-        keyword = 0xB83A17,
+        code = 0x16181A,
+        keyword = 0x8F5600,
         string = 0x2E7550,
         literal = 0x1F5FB8,
-        comment = 0x5A566B,
+        comment = 0x606065,
         metadata = 0x7A45B0,
-        multilineComment = 0x5A566B,
+        multilineComment = 0x606065,
         punctuation = 0x3D3A4F,
-        mark = 0x1E1B2E,
+        mark = 0x16181A,
     )
     private val SoftDarkSyntax = SyntaxTheme(
         key = "soft-dark",
-        code = 0xF1EEF6,
-        keyword = 0xFF8A5C,
+        code = 0xEDEDF0,
+        keyword = 0xFFC062,
         string = 0x8FD6A8,
         literal = 0x8CB8FF,
-        comment = 0xA7A2B8,
+        comment = 0x9C9BA3,
         metadata = 0xC9A7F5,
-        multilineComment = 0xA7A2B8,
+        multilineComment = 0x9C9BA3,
         punctuation = 0xC9C4D6,
-        mark = 0xF1EEF6,
+        mark = 0xEDEDF0,
     )
 
     private fun language(fileName: String): SyntaxLanguage? = languages[fileName.substringAfterLast('.', "").lowercase()]

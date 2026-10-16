@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.pull
 
+import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -78,12 +78,11 @@ fun CommitsScreen(
             state = listState,
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = PaddingValues(bottom = 24.dp),
-            modifier = Modifier.fillMaxSize().sideSafeArea().navigationBarsPadding(),
+            modifier = Modifier.fillMaxSize().sideSafeArea().padding(bottom = LocalBottomBarSpace.current),
         ) {
             item(key = "header") {
                 val target = state.target
                 SoftHeader(
-                    tint = colors.fields[1],
                     title = stringResource(if (target is CommitsTarget.Pull) R.string.commits_title else R.string.history_title),
                     onBack = onBack,
                     backDescription = stringResource(R.string.navigate_up),
@@ -93,7 +92,7 @@ fun CommitsScreen(
                             // What the history is of, then where it is read from.
                             is CommitsTarget.History -> listOfNotNull(target.path ?: target.repo.fullName, target.ref).joinToString(" · ")
                         }
-                        Text(about, style = Soft.type.secondary, color = colors.inkMuted)
+                        Text(about, style = Soft.type.secondary, color = Soft.colors.inkMuted)
                     },
                 )
             }
@@ -116,7 +115,7 @@ fun CommitsScreen(
         }
         val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
         SoftStatusBarScrim(scrolled)
-        SoftSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
+        SoftSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current))
     }
 }
 

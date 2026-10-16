@@ -139,7 +139,6 @@ fun SignInScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         SoftHeader(
-            tint = colors.fields[0],
             title = if (forgeName.isBlank()) stringResource(R.string.sign_in_headline_other) else stringResource(R.string.sign_in_headline, forgeName),
             onBack = onBack,
             backDescription = stringResource(R.string.navigate_up),
@@ -148,7 +147,7 @@ fun SignInScreen(
             Text(
                 stringResource(R.string.sign_in_privacy, forgeName.ifBlank { stringResource(R.string.sign_in_forge_other) }),
                 style = Soft.type.body,
-                color = colors.inkMuted,
+                color = Soft.colors.inkMuted,
                 modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure),
             )
         }
@@ -342,7 +341,7 @@ private fun AwaitingAuthorization(
         Text(stringResource(R.string.sign_in_enter_code), style = Soft.type.body, color = colors.ink)
         Text(
             step.userCode,
-            style = Soft.type.title.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium, letterSpacing = 0.08.em),
+            style = Soft.type.title.copy(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.SemiBold, letterSpacing = 0.08.em),
             color = colors.ink,
             modifier = Modifier.semantics { contentDescription = step.userCode.toList().joinToString(" ") },
         )

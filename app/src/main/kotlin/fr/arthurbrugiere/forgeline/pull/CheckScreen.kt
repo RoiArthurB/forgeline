@@ -150,7 +150,6 @@ fun CheckScreen(
             ) {
                 item(key = "header") {
                     SoftHeader(
-                        tint = report?.state?.tint(colors) ?: colors.surface,
                         onBack = onBack,
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
@@ -158,7 +157,7 @@ fun CheckScreen(
                                 Icon(
                                     Icons.AutoMirrored.Outlined.OpenInNew,
                                     contentDescription = stringResource(R.string.repo_open_on_forge, state.repo.forge.displayName),
-                                    tint = colors.ink,
+                                    tint = Soft.colors.ink,
                                 )
                             }
                         },
@@ -210,7 +209,7 @@ private fun Header(state: CheckUiState, nowMillis: Long) {
         Text(report?.name ?: state.name, style = Soft.type.hero, color = colors.ink, maxLines = 4, overflow = TextOverflow.Ellipsis, modifier = Modifier.semantics { heading() })
         if (report == null) return@Column
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(28.dp).background(colors.ground, CircleShape), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(28.dp).background(colors.surface, SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
                 Icon(report.state.icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(16.dp))
             }
             Spacer(Modifier.width(10.dp))

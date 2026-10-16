@@ -56,7 +56,7 @@ import fr.arthurbrugiere.forgeline.ui.message
 import androidx.compose.foundation.layout.PaddingValues
 
 /**
- * The branch or tag the README and Code tabs show, as a pill; tapping it opens [RefSheet].
+ * The branch or tag the README and Code tabs show, as a small button; tapping it opens [RefSheet].
  * Tags get a tag glyph once the refs are known, branches (and anything unknown) a branch glyph.
  */
 @Composable

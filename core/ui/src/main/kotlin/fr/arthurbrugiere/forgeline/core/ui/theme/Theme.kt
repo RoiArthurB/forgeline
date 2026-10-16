@@ -15,14 +15,15 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import fr.arthurbrugiere.forgeline.core.model.HeaderStyle
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
-import fr.arthurbrugiere.forgeline.core.ui.soft.Gabarito
-import fr.arthurbrugiere.forgeline.core.ui.soft.Lexend
+import fr.arthurbrugiere.forgeline.core.ui.soft.Geist
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDark
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLight
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTheme
 import fr.arthurbrugiere.forgeline.core.ui.soft.amoled
+import fr.arthurbrugiere.forgeline.core.ui.soft.withHeader
 
 fun ThemeMode.isDark(systemInDarkTheme: Boolean): Boolean = when (this) {
     ThemeMode.SYSTEM -> systemInDarkTheme
@@ -30,11 +31,11 @@ fun ThemeMode.isDark(systemInDarkTheme: Boolean): Boolean = when (this) {
     ThemeMode.DARK -> true
 }
 
-fun softColors(darkTheme: Boolean, amoledBlack: Boolean): SoftColors = when {
+fun softColors(darkTheme: Boolean, amoledBlack: Boolean, headerStyle: HeaderStyle = HeaderStyle.INK): SoftColors = when {
     !darkTheme -> SoftLight
     amoledBlack -> SoftDark.amoled()
     else -> SoftDark
-}
+}.withHeader(headerStyle)
 
 /**
  * Material's roles filled from the Soft palette, so the Material pieces the app still uses (dialogs, switches,
@@ -45,9 +46,9 @@ fun SoftColors.toMaterial(): ColorScheme {
     return base.copy(
         primary = accent,
         onPrimary = ground,
-        primaryContainer = fields[0],
+        primaryContainer = accentSoft,
         onPrimaryContainer = ink,
-        // A snackbar's action, on the inverse (ink) bar: the ember reads on dark ink, not on the pale ink of a dark theme.
+        // A snackbar's action, on the inverse (ink) bar: marigold reads on dark ink, deep amber on the pale ink of a dark theme.
         inversePrimary = if (isDark) SoftLight.accent else thumb,
         secondary = inkMuted,
         onSecondary = ground,
@@ -67,7 +68,7 @@ fun SoftColors.toMaterial(): ColorScheme {
         inverseSurface = ink,
         inverseOnSurface = ground,
         outline = inkMuted,
-        outlineVariant = track.copy(alpha = track.alpha * 2),
+        outlineVariant = hairline,
         surfaceBright = ground,
         surfaceDim = surface,
         surfaceContainerLowest = ground,
@@ -79,46 +80,45 @@ fun SoftColors.toMaterial(): ColorScheme {
     )
 }
 
-private fun display(size: Int, line: Int, weight: FontWeight = FontWeight.Bold) =
-    TextStyle(fontFamily = Gabarito, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp)
+private fun geist(size: Int, line: Int, weight: FontWeight = FontWeight.Normal) =
+    TextStyle(fontFamily = Geist, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp)
 
-private fun text(size: Int, line: Int, weight: FontWeight = FontWeight.Normal) =
-    TextStyle(fontFamily = Lexend, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp)
-
-/** Gabarito for display, headline and title roles; Lexend for everything read or tapped. */
+/** Geist for every role: SemiBold for display, headline and title, Regular for reading, SemiBold for labels. */
 val SoftTypography = Typography(
-    displayLarge = display(52, 58),
-    displayMedium = display(44, 50),
-    displaySmall = display(36, 42),
-    headlineLarge = display(32, 38),
-    headlineMedium = display(28, 34),
-    headlineSmall = display(24, 30),
-    titleLarge = display(21, 26),
-    titleMedium = display(17, 22, FontWeight.Medium),
-    titleSmall = display(15, 20, FontWeight.Medium),
-    bodyLarge = text(16, 24),
-    bodyMedium = text(15, 22),
-    bodySmall = text(13, 18),
-    labelLarge = text(14, 20, FontWeight.Medium),
-    labelMedium = text(13, 18, FontWeight.Medium),
-    labelSmall = text(12, 16, FontWeight.Medium),
+    displayLarge = geist(44, 50, FontWeight.SemiBold),
+    displayMedium = geist(36, 42, FontWeight.SemiBold),
+    displaySmall = geist(30, 36, FontWeight.SemiBold),
+    headlineLarge = geist(26, 32, FontWeight.SemiBold),
+    headlineMedium = geist(22, 28, FontWeight.SemiBold),
+    headlineSmall = geist(20, 26, FontWeight.SemiBold),
+    titleLarge = geist(18, 24, FontWeight.SemiBold),
+    titleMedium = geist(16, 22, FontWeight.SemiBold),
+    titleSmall = geist(14, 20, FontWeight.SemiBold),
+    bodyLarge = geist(15, 22),
+    bodyMedium = geist(14, 20),
+    bodySmall = geist(12, 16),
+    labelLarge = geist(14, 20, FontWeight.SemiBold),
+    labelMedium = geist(12, 16, FontWeight.SemiBold),
+    labelSmall = geist(11, 16, FontWeight.SemiBold),
 )
 
+/** Small, quiet corners: 6dp controls and fields, up to 12dp for a sheet. */
 val SoftShapes = Shapes(
-    extraSmall = RoundedCornerShape(8.dp),
-    small = RoundedCornerShape(12.dp),
-    medium = RoundedCornerShape(20.dp),
-    large = RoundedCornerShape(24.dp),
-    extraLarge = RoundedCornerShape(28.dp),
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(6.dp),
+    medium = RoundedCornerShape(8.dp),
+    large = RoundedCornerShape(10.dp),
+    extraLarge = RoundedCornerShape(12.dp),
 )
 
 @Composable
 fun ForgelineTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     amoledBlack: Boolean = false,
+    headerStyle: HeaderStyle = HeaderStyle.INK,
     content: @Composable () -> Unit,
 ) {
-    val soft = softColors(darkTheme, amoledBlack)
+    val soft = softColors(darkTheme, amoledBlack, headerStyle)
     val scheme = remember(soft) { soft.toMaterial() }
     MaterialTheme(colorScheme = scheme, typography = SoftTypography, shapes = SoftShapes) {
         SoftTheme(soft, content)

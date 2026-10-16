@@ -159,7 +159,6 @@ fun SearchScreen(
         ) {
             item(key = "header") {
                 SoftHeader(
-                    tint = colors.fields[1],
                     onBack = onBack,
                     backDescription = stringResource(R.string.navigate_up),
                     actions = {
@@ -284,7 +283,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, onSubmit
         value = query,
         onValueChange = onQueryChange,
         placeholder = target?.let { stringResource(R.string.search_hint, it.displayName) } ?: stringResource(R.string.search_hint_all),
-        background = colors.ground,
+        background = colors.surface,
         leading = { Icon(Icons.Outlined.Search, contentDescription = null, tint = colors.inkMuted) },
         trailing = {
             if (query.isNotEmpty()) {

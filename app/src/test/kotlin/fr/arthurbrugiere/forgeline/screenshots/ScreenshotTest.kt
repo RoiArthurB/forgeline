@@ -15,6 +15,7 @@ import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
@@ -382,7 +383,7 @@ class ScreenshotTest {
         "trending_two_digit_ranks_font_2_0_light",
         darkTheme = false,
         // Rank 10 and beyond, where a fixed-width rank column used to wrap its digits.
-        beforeCapture = { composeRule.onNode(hasScrollAction()).performScrollToIndex(11) },
+        beforeCapture = { composeRule.onNode(hasScrollToIndexAction()).performScrollToIndex(11) },
     ) {
         val items = (1..25).map { TrendingItem(trendingRepo("owner$it/project$it", stars = 1_000 * it, periodStars = 300 - it), null) }
         TrendingPreview(TrendingUiState(items = items, updatedAtMillis = 0L))
@@ -853,9 +854,9 @@ class ScreenshotTest {
     @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
     fun issue_close_font_2_0_light() = snapshot(
         "issue_close_font_2_0_light", darkTheme = false, awaitText = "Same here on 2026.9", awaitGoneTag = MARKDOWN_PENDING_TAG,
-        // The two actions no longer fit side by side: scroll to where they stack.
+        // The actions at the foot of the composer, where the close button and the send tile sit at large text.
         beforeCapture = {
-            composeRule.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToNode(hasText("Comment"))
+            composeRule.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToNode(hasContentDescription("Comment"))
         },
     ) {
         IssueWithComposer({ it.copy(canChangeState = true) })

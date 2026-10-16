@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollToNode
@@ -258,12 +259,12 @@ class IssueScreenTest {
     @Test
     fun an_empty_comment_can_t_be_sent_and_a_written_one_can() {
         setContent(opened)
-        reach(hasText("Comment"))
-        composeRule.onNodeWithText("Comment").assertIsNotEnabled()
+        reach(hasContentDescription("Comment"))
+        composeRule.onNodeWithContentDescription("Comment").assertIsNotEnabled()
 
         setDraft("Thanks, fixed!")
-        reach(hasText("Comment"))
-        composeRule.onNodeWithText("Comment").assertIsEnabled().performClick()
+        reach(hasContentDescription("Comment"))
+        composeRule.onNodeWithContentDescription("Comment").assertIsEnabled().performClick()
 
         assertThat(events).contains("send")
     }
@@ -278,8 +279,8 @@ class IssueScreenTest {
     fun while_a_comment_is_sent_it_can_t_be_sent_again() {
         setContent(opened.copy(draft = "Thanks", isCommenting = true))
 
-        reach(hasText("Sending"))
-        composeRule.onNodeWithText("Sending").assertIsNotEnabled()
+        reach(hasContentDescription("Sending"))
+        composeRule.onNodeWithContentDescription("Sending").assertIsNotEnabled()
     }
 
     @Test
@@ -288,7 +289,7 @@ class IssueScreenTest {
 
         reach(hasText("You can't comment here", substring = true))
         composeRule.onNodeWithText("Thanks").assertExists()
-        composeRule.onNodeWithText("Comment").assertIsEnabled()
+        composeRule.onNodeWithContentDescription("Comment").assertIsEnabled()
     }
 
     @Test
@@ -353,7 +354,7 @@ class IssueScreenTest {
         val merged = issueDetails(ref, "Fix it", IssueState.MERGED).copy(pullRequest = PullRequestInfo(false, true, "main", "fix/it", 12, 3, 2, 1))
         setContent(closable.copy(issue = merged))
 
-        reach(hasText("Comment"))
+        reach(hasContentDescription("Comment"))
         composeRule.onNodeWithText("Close pull request").assertDoesNotExist()
         composeRule.onNodeWithText("Reopen pull request").assertDoesNotExist()
     }
@@ -362,7 +363,7 @@ class IssueScreenTest {
     fun whoever_may_not_close_it_is_offered_nothing() {
         setContent(opened)
 
-        reach(hasText("Comment"))
+        reach(hasContentDescription("Comment"))
         composeRule.onNodeWithText("Close issue").assertDoesNotExist()
     }
 
@@ -411,7 +412,7 @@ class IssueScreenTest {
         composeRule.onNodeWithText("Locked").assertIsDisplayed()
         reach(hasText("This conversation is locked.", substring = true))
         composeRule.onNode(hasSetTextAction()).assertDoesNotExist()
-        composeRule.onNodeWithText("Comment").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Comment").assertDoesNotExist()
     }
 
     @Test
@@ -569,7 +570,7 @@ class IssueScreenTest {
         setContent(IssueUiState(ref, issueDetails(ref, "Crash on start"), listOf(comment(1, "Same here", login = "hubot"))))
         waitFor("Same here")
 
-        composeRule.onNodeWithText("Comment").assertExists()
+        composeRule.onNodeWithContentDescription("Comment").assertExists()
         composeRule.onNodeWithContentDescription("Go to the latest").assertDoesNotExist()
     }
 

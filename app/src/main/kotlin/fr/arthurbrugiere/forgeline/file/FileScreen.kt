@@ -129,27 +129,26 @@ fun FileScreen(
     val content = state.content
     Column(modifier.fillMaxSize().background(colors.ground).sideSafeArea(), horizontalAlignment = Alignment.CenterHorizontally) {
         SoftHeader(
-            tint = colors.fields[1],
             onBack = onBack,
             backDescription = stringResource(R.string.navigate_up),
             actions = {
                 if (content is Loadable.Loaded && content.value is FileContent.Text) {
                     SoftIconButton(onClick = { onCopy(content.value.text) }) {
-                        Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.file_copy), tint = colors.ink)
+                        Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.file_copy), tint = Soft.colors.ink)
                     }
                 }
                 ShareLinkButton(state.webUrl, state.target.name)
                 SoftIconButton(onClick = { onOpenInBrowser(state.webUrl) }) {
-                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.target.id.forge.displayName), tint = colors.ink)
+                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.target.id.forge.displayName), tint = Soft.colors.ink)
                 }
             },
         ) {
             Column {
-                Text(state.target.name, style = Soft.type.name, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(state.target.name, style = Soft.type.name, color = Soft.colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(
                     "${state.target.id.fullName} · ${state.target.path}",
                     style = Soft.type.meta,
-                    color = colors.inkMuted,
+                    color = Soft.colors.inkMuted,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )

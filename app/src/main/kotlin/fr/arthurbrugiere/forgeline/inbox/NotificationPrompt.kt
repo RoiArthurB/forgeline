@@ -84,10 +84,10 @@ private fun openNotificationSettings(context: Context) {
 @Composable
 fun NotificationPromptCard(prompt: NotificationPrompt, onAllow: () -> Unit, modifier: Modifier = Modifier) {
     val colors = Soft.colors
-    // Unboxed like every other notice: a soft badge, the ask, one pill.
+    // Unboxed like every other notice: a tile, the ask, one button.
     Column(modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Box(Modifier.size(40.dp).background(colors.fields[0], CircleShape), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(40.dp).background(colors.fields[0], SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
                 Icon(Icons.Outlined.NotificationsActive, contentDescription = null, tint = colors.ink, modifier = Modifier.size(20.dp))
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {

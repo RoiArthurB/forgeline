@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.ui
 
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.model.ShareTap
 import android.content.ActivityNotFoundException
 import android.content.ClipData
@@ -45,7 +46,7 @@ fun ShareLinkButton(url: String, title: String?, modifier: Modifier = Modifier) 
         modifier
             .minimumInteractiveComponentSize()
             .size(40.dp)
-            .clip(CircleShape)
+            .clip(SoftTokens.TileCorner)
             .combinedClickable(
                 role = Role.Button,
                 onLongClickLabel = stringResource(if (copies) R.string.link_share else R.string.link_copy),

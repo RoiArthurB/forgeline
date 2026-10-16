@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.pull
 
+import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -78,15 +78,14 @@ fun BlameScreen(
             state = listState,
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = PaddingValues(bottom = 24.dp),
-            modifier = Modifier.fillMaxSize().sideSafeArea().navigationBarsPadding(),
+            modifier = Modifier.fillMaxSize().sideSafeArea().padding(bottom = LocalBottomBarSpace.current),
         ) {
             item(key = "header") {
                 SoftHeader(
-                    tint = colors.fields[1],
                     title = stringResource(R.string.blame_title),
                     onBack = onBack,
                     backDescription = stringResource(R.string.navigate_up),
-                    content = { Text("${state.target.path} · ${state.target.ref}", style = Soft.type.secondary, color = colors.inkMuted) },
+                    content = { Text("${state.target.path} · ${state.target.ref}", style = Soft.type.secondary, color = Soft.colors.inkMuted) },
                 )
             }
             when (val blocks = state.blocks) {

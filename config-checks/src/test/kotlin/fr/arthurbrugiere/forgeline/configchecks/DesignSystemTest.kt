@@ -32,4 +32,62 @@ class DesignSystemTest {
 
         assertThat(offenders(handSet, except = setOf(scale, reactionGlyphs))).isEmpty()
     }
+
+    @Test
+    fun what_a_header_holds_is_drawn_in_the_band_s_palette() {
+        // Regression: a screen's colors, read before its header, put dark ink on the ink band in light theme (titles
+        // and repository lines vanished). Inside a SoftHeader, colors come from Soft.colors, which is the band's there.
+        val captured = Regex("""(?<![\w.])colors\.""")
+        val offenders = screens.flatMap { file ->
+            val path = file.relativeTo(Repo.root).invariantSeparatorsPath
+            val text = file.readText()
+            headerCalls(text).filter { (start, end) -> captured.containsMatchIn(text.substring(start, end)) }
+                .map { (start, _) -> "$path:${text.substring(0, start).count { it == '\n' } + 1}" }
+        }
+        assertThat(offenders).isEmpty()
+    }
+
+    @Test
+    fun corners_stay_small() {
+        // No pills and no big soft corners: controls take 6dp, tiles 8dp, a sheet at most 12dp.
+        val big = Regex("""RoundedCornerShape\((1[3-9]|[2-9][0-9])\.dp\)|RoundedCornerShape\(percent""")
+        assertThat(offenders(big)).isEmpty()
+    }
+
+    @Test
+    fun text_comes_in_geist_s_two_weights() {
+        // Geist ships Regular and SemiBold only: any other weight is faked or falls back. A job's log is monospace,
+        // whose bold is real.
+        val other = Regex("""FontWeight\.(Thin|ExtraLight|Light|Medium|Bold|ExtraBold|Black)\b""")
+        val log = "app/src/main/kotlin/fr/arthurbrugiere/forgeline/actions/Ansi.kt"
+        assertThat(offenders(other, except = setOf(log))).isEmpty()
+    }
+
+    /** Where each `SoftHeader(...)` call sits in [text], its trailing content lambda included. */
+    private fun headerCalls(text: String): List<Pair<Int, Int>> {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        var from = 0
+        while (true) {
+            val start = text.indexOf("SoftHeader(", from).takeIf { it >= 0 } ?: break
+            if (text.substring(maxOf(0, start - 4), start).contains("fun ")) { from = start + 1; continue }
+            var end = closing(text, start + "SoftHeader".length, '(', ')')
+            var next = end
+            while (next < text.length && text[next] == ' ') next++
+            if (next < text.length && text[next] == '{') end = closing(text, next, '{', '}')
+            calls += start to end
+            from = end
+        }
+        return calls
+    }
+
+    private fun closing(text: String, open: Int, opening: Char, closingChar: Char): Int {
+        var depth = 0
+        for (index in open until text.length) {
+            when (text[index]) {
+                opening -> depth++
+                closingChar -> if (--depth == 0) return index + 1
+            }
+        }
+        return text.length
+    }
 }

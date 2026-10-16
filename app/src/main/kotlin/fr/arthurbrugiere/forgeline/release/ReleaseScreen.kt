@@ -182,7 +182,6 @@ fun ReleaseScreen(
             ) {
                 item(key = "header") {
                     SoftHeader(
-                        tint = colors.fields[0],
                         onBack = onBack,
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
@@ -191,7 +190,7 @@ fun ReleaseScreen(
                                 Icon(
                                     Icons.AutoMirrored.Outlined.OpenInNew,
                                     contentDescription = stringResource(R.string.repo_open_on_forge, state.repo.forge.displayName),
-                                    tint = colors.ink,
+                                    tint = Soft.colors.ink,
                                 )
                             }
                         },
@@ -281,8 +280,8 @@ private fun Header(state: ReleaseUiState, nowMillis: Long, onOpenRepo: () -> Uni
             itemVerticalAlignment = Alignment.CenterVertically,
         ) {
             SoftPill(state.tag, Icons.Outlined.Sell, colors.ground, monospace = true)
-            if (release?.isLatest == true) SoftTag(stringResource(R.string.release_latest), background = colors.ground)
-            if (release?.isPrerelease == true) SoftTag(stringResource(R.string.repo_prerelease), background = colors.ground)
+            if (release?.isLatest == true) SoftTag(stringResource(R.string.release_latest), background = colors.surface)
+            if (release?.isPrerelease == true) SoftTag(stringResource(R.string.repo_prerelease), background = colors.surface)
         }
         if (release == null) return@Column
         val author = release.author
@@ -293,7 +292,7 @@ private fun Header(state: ReleaseUiState, nowMillis: Long, onOpenRepo: () -> Uni
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = author != null) { author?.let { onOpenUser(it.login) } },
             ) {
-                if (author != null) Avatar(author.avatarUrl, author.login, size = 24.dp, placeholderColor = colors.ground, placeholderContentColor = colors.inkMuted)
+                if (author != null) Avatar(author.avatarUrl, author.login, size = 24.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
                 Text(
                     when {
                         author != null && published != null -> stringResource(R.string.release_published_by, author.login, published)

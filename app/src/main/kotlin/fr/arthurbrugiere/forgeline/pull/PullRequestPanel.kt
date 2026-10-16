@@ -118,7 +118,7 @@ fun PullRequestPanel(issue: IssueDetails, state: PullRequestUiState, actions: Pu
         }
     }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // What stands behind the numbers, one pill each: they wrap rather than stack as rows.
+        // What stands behind the numbers, one each: they wrap rather than stack as rows.
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             PanelPill(Icons.AutoMirrored.Outlined.InsertDriveFile, pluralStringResource(R.plurals.pull_files_changed, pr.changedFiles, pr.changedFiles), onClick = actions.onOpenChanges)
             PanelPill(Icons.Outlined.Commit, pluralStringResource(R.plurals.issue_pr_commits, pr.commits, pr.commits), onClick = actions.onOpenCommits)
@@ -130,7 +130,7 @@ fun PullRequestPanel(issue: IssueDetails, state: PullRequestUiState, actions: Pu
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SoftTonalButton(stringResource(R.string.review_start), onClick = { reviewing = true })
                 if (mergeInfo?.canMerge == true) {
-                    // Ember says "this is the way forward": not while a check failed or is still running.
+                    // Marigold says "this is the way forward": not while a check failed or is still running.
                     if (checks.overall() in UNSETTLED) {
                         SoftTonalButton(stringResource(R.string.merge_start), onClick = { merging = true })
                     } else {
@@ -145,7 +145,7 @@ fun PullRequestPanel(issue: IssueDetails, state: PullRequestUiState, actions: Pu
 /** Where a pull request's checks stand when merging it isn't the plain next step. */
 private val UNSETTLED = setOf(CheckState.FAILURE, CheckState.PENDING)
 
-/** A pill on the field for what a number stands for: its glyph on a round badge (tinted where it has a state), and its count. */
+/** What a number stands for: its glyph on a tile (tinted where it has a state), and its count. */
 @Composable
 private fun PanelPill(icon: ImageVector, label: String, onClick: () -> Unit, tint: Color = Soft.colors.surface) {
     val colors = Soft.colors
@@ -158,7 +158,7 @@ private fun PanelPill(icon: ImageVector, label: String, onClick: () -> Unit, tin
             .padding(start = 8.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(28.dp).background(tint, CircleShape), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(28.dp).background(tint, SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(16.dp))
         }
         Spacer(Modifier.width(8.dp))
@@ -186,7 +186,7 @@ internal val CheckState.icon: ImageVector
         CheckState.SKIPPED -> Icons.Outlined.Remove
     }
 
-/** Mint once passed, ember once failed, lilac while running: the tints runs wear elsewhere. */
+/** Fresh once passed, warm once failed, cool while running: the tints runs wear elsewhere. */
 internal fun CheckState.tint(colors: SoftColors): Color = when (this) {
     CheckState.SUCCESS -> colors.fields[2]
     CheckState.FAILURE -> colors.fields[0]
@@ -230,7 +230,7 @@ private fun ChecksSheet(checks: List<Check>, onOpenRun: (Long) -> Unit, onOpenCh
                         .semantics(mergeDescendants = true) {},
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(Modifier.size(28.dp).background(check.state.tint(colors), CircleShape), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(28.dp).background(check.state.tint(colors), SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
                         Icon(check.state.icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(16.dp))
                     }
                     Spacer(Modifier.width(12.dp))
@@ -283,7 +283,7 @@ private fun MergeSheet(
             val standing = checks.overall()
             if (standing in UNSETTLED) {
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(standing!!.tint(colors)).padding(14.dp),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(standing!!.tint(colors)).padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(standing.icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(18.dp))
@@ -296,7 +296,7 @@ private fun MergeSheet(
                     stringResource(blocked),
                     style = Soft.type.secondary,
                     color = colors.ink,
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(colors.fields[0]).padding(14.dp),
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(colors.fields[0]).padding(14.dp),
                 )
             }
             Column(Modifier.selectableGroup()) {
@@ -319,7 +319,7 @@ private fun MergeSheet(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 SoftTonalButton(stringResource(R.string.cancel), onDismiss)
-                // Against a failed check, merging is said for what it is, on the ink pill of what can't be taken back.
+                // Against a failed check, merging is said for what it is, on the ink button of what can't be taken back.
                 if (standing == CheckState.FAILURE) {
                     SoftDangerButton(stringResource(if (isMerging) R.string.merge_merging else R.string.merge_anyway), onClick = { onMerge(method) }, enabled = enabled)
                 } else {

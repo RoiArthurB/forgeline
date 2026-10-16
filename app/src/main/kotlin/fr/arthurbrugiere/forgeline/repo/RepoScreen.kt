@@ -351,13 +351,12 @@ fun RepoScreen(
             ) {
                 item(key = "header") {
                     SoftHeader(
-                        tint = colors.fields[0],
                         onBack = onBack,
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
                             if (state.canAdminister && details != null) {
                                 SoftIconButton(onClick = onOpenSettings) {
-                                    Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.repo_settings_title), tint = colors.ink)
+                                    Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.repo_settings_title), tint = Soft.colors.ink)
                                 }
                             }
                             ShareLinkButton(id.webUrl, id.fullName)
@@ -365,7 +364,7 @@ fun RepoScreen(
                                 Icon(
                                     Icons.AutoMirrored.Outlined.OpenInNew,
                                     contentDescription = stringResource(R.string.repo_open_on_forge, id.forge.displayName),
-                                    tint = colors.ink,
+                                    tint = Soft.colors.ink,
                                 )
                             }
                         },
@@ -373,7 +372,7 @@ fun RepoScreen(
                         if (details != null) {
                             RepoHeader(details, state.starred, signedIn, onToggleStar, onLinkClick, onOpenUser, state.watching, onToggleWatch, state.isForking, onFork = { forking = true }, onOpenWiki = { onOpenInBrowser(details.id.wikiUrl) })
                         } else {
-                            Text(id.name, style = Soft.type.title, color = colors.ink)
+                            Text(id.name, style = Soft.type.title, color = Soft.colors.ink)
                         }
                     }
                 }
@@ -605,7 +604,7 @@ private fun DiscussionRow(discussion: DiscussionSummary, nowMillis: Long, onOpen
         Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).softPressable(onClick = onOpen).padding(12.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        Box(Modifier.size(36.dp).background(if (answered) colors.fields[2] else colors.surface, CircleShape), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(36.dp).background(if (answered) colors.fields[2] else colors.surface, SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
             Icon(if (answered) Icons.Outlined.CheckCircleOutline else Icons.Outlined.Forum, contentDescription = null, tint = colors.ink, modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.width(14.dp))
@@ -664,7 +663,7 @@ private fun RepoHeader(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.clip(SoftTokens.Pill).clickable { onOpenUser(details.id.owner) }.padding(end = 8.dp),
             ) {
-                Avatar(details.ownerAvatarUrl, details.id.owner, size = 28.dp, placeholderColor = colors.ground, placeholderContentColor = colors.inkMuted)
+                Avatar(details.ownerAvatarUrl, details.id.owner, size = 28.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
                 Text(details.id.owner, style = Soft.type.secondary, color = colors.inkMuted)
             }
             // Where the repository lives: always said here, whatever else is signed in.
@@ -686,7 +685,7 @@ private fun RepoHeader(
         }
         if (details.topics.isNotEmpty()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                details.topics.forEach { SoftTag(it, background = colors.ground) }
+                details.topics.forEach { SoftTag(it, background = colors.surface) }
             }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -706,8 +705,8 @@ private fun RepoHeader(
         }
         if (details.isArchived || details.isFork) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (details.isArchived) SoftTag(stringResource(R.string.repo_archived), background = colors.ground)
-                if (details.isFork) SoftTag(stringResource(R.string.repo_fork), background = colors.ground)
+                if (details.isArchived) SoftTag(stringResource(R.string.repo_archived), background = colors.surface)
+                if (details.isFork) SoftTag(stringResource(R.string.repo_fork), background = colors.surface)
             }
         }
         val isStarred = starred == true && signedIn
@@ -747,7 +746,7 @@ private fun RepoHeader(
 }
 
 /**
- * One of the header's actions, as a pill. With [onToggle] it is a switch, so screen readers hear "on" or "off" as well
+ * One of the header's actions, as a small button. With [onToggle] it is a switch, so screen readers hear "on" or "off" as well
  * as the label; with [onClick] a button.
  */
 @Composable
@@ -764,7 +763,7 @@ private fun HeaderAction(
     Box(
         Modifier
             .clip(SoftTokens.Pill)
-            .background(if (prominent) colors.thumb else colors.ground)
+            .background(if (prominent) colors.thumb else colors.surface)
             .then(
                 if (onToggle != null) Modifier.toggleable(value = on, role = Role.Switch, onValueChange = { onToggle() })
                 else Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick),

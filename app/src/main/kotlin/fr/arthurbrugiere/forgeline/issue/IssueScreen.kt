@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
 import fr.arthurbrugiere.forgeline.ui.relativeInSentence
@@ -47,6 +48,7 @@ import fr.arthurbrugiere.forgeline.ui.rememberNow
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSendButton
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.foundation.text.KeyboardOptions
@@ -167,7 +169,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
@@ -459,8 +460,9 @@ fun IssueScreen(
     val unread = remember { mutableIntStateOf(0) }
     // Counts the times the list was sent somewhere: a place being held gives way to the next one asked for.
     var sent by remember { mutableIntStateOf(0) }
-    // An entry lands below the status bar, not under it.
-    val topInset = WindowInsets.statusBars.getTop(LocalDensity.current) + with(LocalDensity.current) { 8.dp.roundToPx() }
+    // An entry lands right below the status bar (and the band behind it), not under it; its own padding gives it air,
+    // and nothing of the entry before it peeks in above.
+    val topInset = WindowInsets.statusBars.getTop(LocalDensity.current)
     LaunchedEffect(state.scrollTo) {
         // The header and the description come first; the reader's turn comes last, after "Load more" if any.
         val (index, offset) = when (val target = state.scrollTo) {
@@ -515,7 +517,6 @@ fun IssueScreen(
             ) {
                 item(key = "header") {
                     SoftHeader(
-                        tint = colors.fields[issue?.tintIndex ?: 2],
                         onBack = onBack,
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
@@ -524,20 +525,20 @@ fun IssueScreen(
                                 Row(
                                     Modifier
                                         .clip(SoftTokens.Pill)
-                                        .background(colors.ground)
+                                        .background(Soft.colors.ground)
                                         .clickable(role = Role.Button, onClick = { managing = true })
                                         .heightIn(min = 40.dp)
                                         .padding(start = 10.dp, end = 14.dp),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
-                                    Icon(Icons.Outlined.Tune, contentDescription = null, tint = colors.ink, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Outlined.Tune, contentDescription = null, tint = Soft.colors.ink, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(6.dp))
-                                    Text(stringResource(R.string.manage_title), style = Soft.type.control, color = colors.ink, maxLines = 1)
+                                    Text(stringResource(R.string.manage_title), style = Soft.type.control, color = Soft.colors.ink, maxLines = 1)
                                 }
                             }
                             ShareLinkButton(webUrl, issue?.title ?: "${state.ref.repo.fullName}#${state.ref.number}")
                             SoftIconButton(onClick = { onOpenInBrowser(webUrl) }) {
-                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.ref.repo.forge.displayName), tint = colors.ink)
+                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.ref.repo.forge.displayName), tint = Soft.colors.ink)
                             }
                         },
                     ) {
@@ -662,14 +663,14 @@ private const val SETTLE_MILLIS = 600L
 /** However restless what is around it, the list is the reader's again after this long. */
 private const val HOLD_LIMIT_MILLIS = 5_000L
 
-/** A round button floating over the conversation, like the navigation bar it sits above. */
+/** A tile floating over the conversation, above the navigation bar. */
 @Composable
 private fun JumpButton(icon: ImageVector, label: String, busy: Boolean = false, onClick: () -> Unit) {
     val colors = Soft.colors
     Box(
         Modifier
-            .shadow(8.dp, CircleShape, ambientColor = colors.ink.copy(alpha = 0.18f), spotColor = colors.ink.copy(alpha = 0.18f))
-            .clip(CircleShape)
+            .shadow(8.dp, SoftTokens.TileCorner, ambientColor = colors.ink.copy(alpha = 0.18f), spotColor = colors.ink.copy(alpha = 0.18f))
+            .clip(SoftTokens.TileCorner)
             .background(colors.raised)
             .softPressable(role = Role.Button) { if (!busy) onClick() }
             .size(JumpSize)
@@ -766,8 +767,7 @@ private fun Composer(
             // Not to be changed while it is on its way.
             readOnly = state.isCommenting,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-            // On the rounded ground a rewrite sits on, the field is the lighter of the two.
-            background = if (inPlace) colors.raised else colors.surface,
+            background = colors.raised,
             modifier = Modifier.fillMaxWidth().focusRequester(focus),
         )
         // The conversations the reference being typed may mean, right under where it is typed.
@@ -812,17 +812,21 @@ private fun Composer(
                     enabled = !state.isChangingState,
                 )
             }
-            SoftButton(
-                stringResource(
-                    when {
-                        isEditing -> if (state.isCommenting) R.string.issue_comment_saving else R.string.issue_comment_save
-                        state.isCommenting -> R.string.issue_comment_sending
-                        else -> R.string.issue_comment_send
-                    },
-                ),
-                onSend,
-                enabled = state.draft.isNotBlank() && !state.isCommenting,
-            )
+            // A rewrite is saved, in words; a new comment goes with the send arrow, quiet until something is written.
+            if (isEditing) {
+                SoftButton(
+                    stringResource(if (state.isCommenting) R.string.issue_comment_saving else R.string.issue_comment_save),
+                    onSend,
+                    enabled = state.draft.isNotBlank() && !state.isCommenting,
+                )
+            } else {
+                SoftSendButton(
+                    onClick = onSend,
+                    description = stringResource(if (state.isCommenting) R.string.issue_comment_sending else R.string.issue_comment_send),
+                    enabled = state.draft.isNotBlank() && !state.isCommenting,
+                    busy = state.isCommenting,
+                )
+            }
         }
         state.stateError?.let { error ->
             Text(
@@ -856,7 +860,7 @@ internal fun WritingPreview(text: String, repo: RepoId, modifier: Modifier = Mod
     Box(
         modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(Soft.colors.surface)
             .padding(horizontal = 20.dp, vertical = 14.dp)
             .testTag(WRITING_PREVIEW_TAG),
@@ -883,7 +887,7 @@ const val REFERENCE_SUGGESTIONS_TAG = "reference-suggestions"
 internal fun ReferenceSuggestionList(offer: ReferenceOffer, onPick: (IssueSummary) -> Unit) {
     if (offer.suggestions.isEmpty() && !offer.isLoading) return
     val colors = Soft.colors
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(colors.surface).testTag(REFERENCE_SUGGESTIONS_TAG)) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(colors.surface).testTag(REFERENCE_SUGGESTIONS_TAG)) {
         // There from the first letter: a far forge takes its time, and says so here meanwhile.
         if (offer.isLoading) {
             val looking = stringResource(R.string.reference_looking)
@@ -930,14 +934,14 @@ internal fun PreviewToggle(previewing: Boolean, onToggle: () -> Unit) {
     )
 }
 
-/** A quiet round action beside the one that sends: something done to what is being written. [busy] shows it at work. */
+/** A quiet action on a tile beside the one that sends: something done to what is being written. [busy] shows it at work. */
 @Composable
 internal fun WritingAction(icon: ImageVector, label: String, busy: Boolean = false, onClick: () -> Unit) {
     val colors = Soft.colors
     Box(
         Modifier
             .size(48.dp)
-            .clip(CircleShape)
+            .clip(SoftTokens.TileCorner)
             .background(colors.surface)
             .softPressable(role = Role.Button) { if (!busy) onClick() }
             .semantics { contentDescription = label },
@@ -1026,7 +1030,7 @@ private fun Header(
             )
         }
         issue.pullRequest?.let { pr ->
-            // Where it goes and how much it changes, in one unboxed line; the files and commits it counts are the panel's pills.
+            // Where it goes and how much it changes, in one unboxed line; the files and commits it counts are the panel's.
             Text(
                 buildAnnotatedString {
                     withStyle(SpanStyle(fontFamily = FontFamily.Monospace, color = colors.ink)) { append(stringResource(R.string.issue_pr_branches, pr.baseRef, pr.headRef)) }
@@ -1083,12 +1087,12 @@ private fun StateTag(issue: IssueDetails) {
     HeaderTag(icon, stringResource(label))
 }
 
-/** A pill in the header field: a glyph and a word, for where the conversation stands. */
+/** A tag on the band: a glyph and a word, for where the conversation stands. */
 @Composable
 private fun HeaderTag(icon: ImageVector, label: String) {
     val colors = Soft.colors
     Row(
-        Modifier.clip(SoftTokens.Pill).background(colors.ground).padding(start = 8.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
+        Modifier.clip(SoftTokens.Pill).background(colors.surface).padding(start = 8.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -1149,12 +1153,13 @@ private fun Comment(
         )
     }
     SwipeToReply(offered.value?.onQuote?.takeIf { swipeToReply }, modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
-        Box(Modifier.fillMaxWidth().testTag(COMMENT_TAG).then(gestures)) {
+        // Comments are parted by hairlines, like the rows of a list; one being rewritten stands on its own ground instead.
+        Box(Modifier.fillMaxWidth().testTag(COMMENT_TAG).then(if (editor == null) Modifier.rowHairline(start = 20.dp) else Modifier).then(gestures)) {
             Column(
                 Modifier
                     .fillMaxWidth()
                     // A comment being rewritten stands out from those around it, on a ground of its own.
-                    .then(if (editor != null) Modifier.padding(horizontal = 8.dp, vertical = 4.dp).clip(RoundedCornerShape(24.dp)).background(colors.surface).padding(horizontal = 12.dp, vertical = 6.dp) else Modifier.padding(horizontal = 20.dp, vertical = 10.dp)),
+                    .then(if (editor != null) Modifier.padding(horizontal = 8.dp, vertical = 4.dp).clip(RoundedCornerShape(8.dp)).background(colors.surface).padding(horizontal = 12.dp, vertical = 6.dp) else Modifier.padding(horizontal = 20.dp, vertical = 12.dp)),
             ) {
                 // The author takes the room their name needs; the menu sits at the end of the line whatever that is.
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
@@ -1167,7 +1172,7 @@ private fun Comment(
                             .clickable(enabled = author != null) { author?.let { onOpenUser(it.login) } }
                             .padding(end = 8.dp),
                     ) {
-                        Avatar(author?.avatarUrl, author?.login ?: "?", size = 28.dp, placeholderColor = colors.raised.takeIf { editor != null } ?: colors.surface, placeholderContentColor = colors.inkMuted)
+                        Avatar(author?.avatarUrl, author?.login ?: "?", size = 28.dp, shape = SoftTokens.TileCorner, placeholderColor = colors.raised.takeIf { editor != null } ?: colors.surface, placeholderContentColor = colors.inkMuted)
                         Text(author?.login ?: stringResource(R.string.deleted_account), style = Soft.type.control, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                         createdAt?.let { Text(relative(it, nowMillis), style = Soft.type.meta, color = colors.inkMuted, maxLines = 1) }
                     }
@@ -1296,7 +1301,7 @@ private fun CommentMenuButton(menu: CommentMenu) {
 /** What a comment's menu offers, from its button or from a long press on the comment. */
 @Composable
 private fun CommentDropdown(menu: CommentMenu, expanded: Boolean, onDismiss: () -> Unit) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, shape = RoundedCornerShape(20.dp), containerColor = Soft.colors.raised) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, shape = RoundedCornerShape(8.dp), containerColor = Soft.colors.raised) {
         // Reactions first, as two rows of four: the quickest answer there is.
         menu.onReact?.let { onReact ->
             FlowRow(Modifier.padding(horizontal = 8.dp), maxItemsInEachRow = 4) {
@@ -1305,7 +1310,7 @@ private fun CommentDropdown(menu: CommentMenu, expanded: Boolean, onDismiss: () 
                     Box(
                         Modifier
                             .size(48.dp)
-                            .clip(CircleShape)
+                            .clip(SoftTokens.TileCorner)
                             .clickable(role = Role.Button) { onDismiss(); onReact(reaction) }
                             .semantics { contentDescription = name },
                         contentAlignment = Alignment.Center,
@@ -1486,7 +1491,7 @@ private fun TimelineEntry(
     }
 }
 
-/** A small event on the conversation's timeline: a soft round badge in the avatar column, then one muted line. */
+/** A small event on the conversation's timeline: a tile in the avatar column, then one muted line. */
 @Composable
 private fun EventLine(
     icon: ImageVector,
@@ -1507,7 +1512,7 @@ private fun EventLine(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Box(Modifier.size(28.dp).background(badge, CircleShape), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(28.dp).background(badge, SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(15.dp), tint = colors.ink)
         }
         Text(

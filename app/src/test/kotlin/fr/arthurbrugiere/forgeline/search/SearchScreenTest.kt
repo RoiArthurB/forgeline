@@ -162,12 +162,12 @@ class SearchScreenTest {
             ).let { it.copy(results = it.results.copy(forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg))) },
         )
 
-        // The issue's repository line writes the forge before the repository.
-        composeRule.onNodeWithText("Codeberg ziglang/zig", substring = true).assertIsDisplayed()
-        // The repository's stats line and the person's line say it in words.
-        composeRule.onAllNodesWithText("Codeberg").assertCountEquals(2)
-        // Written out, so the logos beside the words are not read a second time.
-        composeRule.onAllNodesWithContentDescription("Codeberg").assertCountEquals(0)
+        // The repository's and the issue's tiles wear the forge's badge, said to screen readers; the person's line, which
+        // has no tile, writes it out (and its logo is then silent).
+        composeRule.onAllNodesWithContentDescription("Codeberg").assertCountEquals(2)
+        composeRule.onAllNodesWithText("Codeberg").assertCountEquals(1)
+        // The repository's row, and the issue's line naming where it is.
+        composeRule.onAllNodesWithText("ziglang/zig", substring = true).assertCountEquals(2)
         composeRule.onNodeWithText("alice").performClick()
 
         assertThat(events).containsExactly("user:codeberg.org/alice")

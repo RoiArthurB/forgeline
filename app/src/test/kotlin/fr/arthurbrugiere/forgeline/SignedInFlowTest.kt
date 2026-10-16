@@ -106,14 +106,14 @@ class SignedInFlowTest {
 
         reach(hasSetTextAction())
         composeRule.onNode(hasSetTextAction()).performTextInput("Fixed in 2026.10, thanks.")
-        reach(hasText("Comment"))
-        composeRule.onNodeWithText("Comment").performClick()
+        reach(hasContentDescription("Comment"))
+        composeRule.onNodeWithContentDescription("Comment").performClick()
 
         // Posted: it is the last word of the conversation, and the box is ready for the next one.
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Add a comment")).fetchSemanticsNodes().isNotEmpty() }
         waitFor("Fixed in 2026.10, thanks.")
         composeRule.onNodeWithText("I can reproduce this on every restart.", substring = true).assertExists()
-        composeRule.onNodeWithText("Comment").assertIsNotEnabled()
+        composeRule.onNodeWithContentDescription("Comment").assertIsNotEnabled()
     }
 
     @Test
@@ -366,14 +366,14 @@ class SignedInFlowTest {
         waitFor("Rewriting your comment")
         // One field, holding the comment; the reader's turn waits at the end.
         composeRule.onNode(hasSetTextAction()).assert(hasText("Mine happens after an update."))
-        composeRule.onNodeWithText("Comment").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Comment").assertDoesNotExist()
 
         composeRule.onNodeWithText("Cancel").performClick()
 
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Rewriting your comment")).fetchSemanticsNodes().isEmpty() }
         waitFor("Mine happens after an update.")
-        reach(hasText("Comment"))
-        composeRule.onNodeWithText("Comment").assertIsDisplayed()
+        reach(hasContentDescription("Comment"))
+        composeRule.onNodeWithContentDescription("Comment").assertIsDisplayed()
     }
 
     @Test

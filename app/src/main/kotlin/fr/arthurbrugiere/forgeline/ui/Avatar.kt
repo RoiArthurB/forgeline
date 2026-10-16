@@ -15,12 +15,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import coil3.compose.AsyncImage
 
 /**
- * Round avatar; shows the login's initial until (or unless) the image loads. The placeholder goes away once it
+ * An avatar, round unless a [shape] is given; shows the login's initial until (or unless) the image loads. The placeholder goes away once it
  * has, so it can't show through transparent pictures.
  */
 @Composable
@@ -31,12 +32,14 @@ fun Avatar(
     modifier: Modifier = Modifier,
     placeholderColor: Color = MaterialTheme.colorScheme.primaryContainer,
     placeholderContentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer,
+    /** A circle for a person in a conversation; a row's tile passes its own corner. */
+    shape: Shape = CircleShape,
 ) {
     var loaded by remember(url) { mutableStateOf(false) }
-    Box(modifier = modifier.size(size).clip(CircleShape), contentAlignment = Alignment.Center) {
+    Box(modifier = modifier.size(size).clip(shape), contentAlignment = Alignment.Center) {
         if (!loaded) {
             Box(Modifier.matchParentSize().background(placeholderColor), contentAlignment = Alignment.Center) {
-                // Sized from the avatar (dp-based, so font scaling can't make it overflow the circle).
+                // Sized from the avatar (dp-based, so font scaling can't make it overflow its shape).
                 val fontSize = with(LocalDensity.current) { (size * 0.45f).toSp() }
                 Text(
                     login.take(1).uppercase(),

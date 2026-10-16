@@ -298,7 +298,7 @@ fun RepoSettingsScreen(
                 confirming = null
                 onChange(RepoSettingsChange.Visibility(it))
             }
-            // The website goes down for whoever follows a link to it: the ink pill.
+            // The website goes down for whoever follows a link to it: the ink button.
             Confirming.UNPUBLISH -> SoftConfirmSheet(
                 title = stringResource(R.string.repo_pages_unpublish_title),
                 body = stringResource(R.string.repo_pages_unpublish_body),
@@ -389,18 +389,17 @@ fun RepoSettingsScreen(
                     item(key = "header") {
                         // The repository's own warm field: these are its settings, and the page under it is its page.
                         SoftHeader(
-                            tint = colors.fields[0],
                             onBack = onBack,
                             backDescription = stringResource(R.string.navigate_up),
                             actions = {
                                 SoftIconButton(onClick = { onOpenUrl(state.repo.settingsUrl) }) {
-                                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, forgeName), tint = colors.ink)
+                                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, forgeName), tint = Soft.colors.ink)
                                 }
                             },
                         ) {
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(state.repo.fullName, style = Soft.type.secondary, color = colors.inkMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                                Text(stringResource(R.string.settings_title), style = Soft.type.detailTitle, color = colors.ink, modifier = Modifier.semantics { heading() })
+                                Text(state.repo.fullName, style = Soft.type.secondary, color = Soft.colors.inkMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text(stringResource(R.string.settings_title), style = Soft.type.detailTitle, color = Soft.colors.ink, modifier = Modifier.semantics { heading() })
                             }
                         }
                     }
@@ -429,7 +428,6 @@ fun RepoSettingsScreen(
                                     options = tabs.map { stringResource(it.label) },
                                     selected = tabs.indexOf(tab),
                                     onSelect = { picked = tabs[it] },
-                                    modifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
                                 )
                             }
                             when (tab) {
@@ -497,7 +495,7 @@ fun RepoSettingsScreen(
                                             onClick = { confirming = Confirming.ARCHIVE },
                                         )
                                         SettingRow(stringResource(R.string.repo_settings_rename), state.repo.name, onClick = { editing = Editing.RENAME })
-                                        // Deleting stands apart, below the rest, on the ink pill of what can't be taken back.
+                                        // Deleting stands apart, below the rest, on the ink button of what can't be taken back.
                                         Column(
                                             Modifier.padding(start = 20.dp, end = 20.dp, top = 28.dp),
                                             verticalArrangement = Arrangement.spacedBy(12.dp),

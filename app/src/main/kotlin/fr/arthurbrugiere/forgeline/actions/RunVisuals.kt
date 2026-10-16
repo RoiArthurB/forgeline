@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -28,20 +29,20 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import java.time.Duration
 import java.time.Instant
 
-/** A soft round icon for a row: the file kind, a release, a run's state. */
+/** An icon on a tile for a row: the file kind, a release, a run's state. */
 @Composable
 fun RowIcon(icon: ImageVector, background: Color, tint: Color = Soft.colors.ink, size: Dp = 36.dp) {
-    Box(Modifier.size(size).background(background, CircleShape), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size).background(background, SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(size / 2))
     }
 }
 
-/** A run's or job's state as a soft round badge: mint for success, ember for failure, quiet for the rest. */
+/** A run's or job's state as a tile: fresh for success, warm for failure, quiet for the rest. */
 @Composable
 fun RunStatusIcon(status: RunStatus, conclusion: RunConclusion?, size: Dp = 36.dp) {
     val colors = Soft.colors
     when {
-        status == RunStatus.IN_PROGRESS -> Box(Modifier.size(size).background(colors.fields[1], CircleShape), contentAlignment = Alignment.Center) {
+        status == RunStatus.IN_PROGRESS -> Box(Modifier.size(size).background(colors.fields[1], SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(Modifier.size(size / 2), strokeWidth = 2.dp, color = colors.ink, trackColor = colors.fields[1])
         }
         status == RunStatus.QUEUED -> RowIcon(Icons.Outlined.Schedule, colors.surface, colors.inkMuted, size)
@@ -56,7 +57,7 @@ fun RunStatusIcon(run: WorkflowRun) = RunStatusIcon(run.status, run.conclusion)
 
 val RunConclusion?.failed: Boolean get() = this == RunConclusion.FAILURE || this == RunConclusion.TIMED_OUT
 
-/** The header field's tint for a run: mint when it passed, ember when it failed, lilac while it runs. */
+/** A run's tint: fresh when it passed, warm when it failed, cool while it runs. */
 @Composable
 fun runTint(run: WorkflowRun?): Color {
     val colors = Soft.colors

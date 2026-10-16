@@ -106,7 +106,6 @@ fun NewIssueScreen(
         ) {
             // The field an open conversation wears: that is what this becomes.
             SoftHeader(
-                tint = colors.fields[2],
                 title = stringResource(
                     when {
                         state.editing == null -> R.string.new_issue_title
@@ -121,12 +120,12 @@ fun NewIssueScreen(
                     Text(
                         state.repo.fullName,
                         style = Soft.type.secondary,
-                        color = colors.inkMuted,
+                        color = Soft.colors.inkMuted,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
-                    ForgeMark(state.repo.forge, style = Soft.type.secondary, color = colors.inkMuted, size = 16.dp)
+                    ForgeMark(state.repo.forge, style = Soft.type.secondary, color = Soft.colors.inkMuted, size = 16.dp)
                 }
             }
             Column(

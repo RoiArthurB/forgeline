@@ -65,12 +65,11 @@ fun YouScreen(
     ) {
         val openSearch = LocalOpenSearch.current
         SoftHeader(
-            tint = colors.fields[2],
             title = stringResource(R.string.tab_you),
             actions = {
                 if (openSearch != null) {
                     SoftIconButton(onClick = openSearch) {
-                        Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = colors.ink)
+                        Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = Soft.colors.ink)
                     }
                 }
             },
@@ -136,7 +135,7 @@ private fun AccountHeader(account: Account, compact: Boolean, onClick: () -> Uni
             account.user.avatarUrl,
             account.user.login,
             size = if (compact) 48.dp else 64.dp,
-            placeholderColor = colors.ground,
+            placeholderColor = colors.surface,
             placeholderContentColor = colors.inkMuted,
         )
         Spacer(Modifier.width(16.dp))
@@ -158,7 +157,7 @@ private fun AccountHeader(account: Account, compact: Boolean, onClick: () -> Uni
     }
 }
 
-/** A row that leads somewhere: a soft round icon, its name, and a chevron. */
+/** A row that leads somewhere: an icon on a tile, its name, and a chevron. */
 @Composable
 internal fun NavigationRow(icon: ImageVector, label: String, onClick: () -> Unit, summary: String? = null) {
     val colors = Soft.colors
@@ -171,10 +170,10 @@ internal fun NavigationRow(icon: ImageVector, label: String, onClick: () -> Unit
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(40.dp).background(colors.surface, CircleShape), contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(20.dp))
+        Box(Modifier.size(SoftTokens.Tile).background(colors.surface, SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(18.dp))
         }
-        Spacer(Modifier.width(14.dp))
+        Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(label, style = Soft.type.body, color = colors.ink)
             summary?.let { Text(it, style = Soft.type.secondary, color = colors.inkMuted) }

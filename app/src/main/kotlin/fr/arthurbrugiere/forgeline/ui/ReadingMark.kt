@@ -67,8 +67,8 @@ fun ReportReading(listState: LazyListState, resetKey: Any?, positionOf: (key: An
 }
 
 /**
- * Where the last visit's reading stopped: the Stopped-here marker, a warm pill with an ember dot and its name, set
- * between the rows. Nothing to press, and no line across: nothing in the world is ruled.
+ * Where the last visit's reading stopped: the Stopped-here marker, a marigold-tinted tag with a marigold dot and its name, set
+ * between the rows. Nothing to press, and no line of its own: the rows' hairlines already part what comes before and after.
  */
 @Composable
 fun LeftOffMark(modifier: Modifier = Modifier) {

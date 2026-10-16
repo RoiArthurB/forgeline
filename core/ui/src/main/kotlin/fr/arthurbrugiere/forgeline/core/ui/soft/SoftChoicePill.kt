@@ -37,9 +37,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * A secondary choice (which forge, which account) folded into one pill that opens a short menu. It replaces a second
- * strip of chips under a screen's main switch, so a header carries one axis in the open and the other one tap away.
- * [name] says what is being chosen ("Forge", "Account") to screen readers; the pill reads "Forge, Codeberg".
+ * A secondary choice (which forge, which account) folded into its current value and a chevron that open a short menu.
+ * It replaces a second row of tabs under a screen's main axis, so a header carries one axis in the open and the other
+ * one tap away.
+ * [name] says what is being chosen ("Forge", "Account") to screen readers; it reads "Forge, Codeberg".
  */
 @Composable
 fun SoftChoicePill(
@@ -50,17 +51,35 @@ fun SoftChoicePill(
     modifier: Modifier = Modifier,
     /** Drawn before an option's label, in its color (a forge's logo). */
     leading: (@Composable (index: Int, color: Color) -> Unit)? = null,
-    /** The pill's fill: the track by default, so it reads on a header's tinted field and on the ground alike. */
-    background: Color = Soft.colors.track,
-    /** A shorter label for the pill itself (the menu and screen readers keep the full option). */
+    /** Behind the value: nothing by default, so it reads as text on the band and on the page alike. */
+    background: Color = Color.Transparent,
+    /** A shorter label for the choice itself (the menu and screen readers keep the full option). */
     shortLabel: (Int) -> String = { options[it] },
     maxWidth: Dp = 220.dp,
+    /** Shown as a tile with only the chosen option's glyph (an account's forge) beside a band's title, not as words. */
+    tileOnly: Boolean = false,
 ) {
     val colors = Soft.colors
     var open by rememberSaveable { mutableStateOf(false) }
     val current = options.getOrElse(selected) { options.first() }
     Box(modifier) {
-        Row(
+        if (tileOnly) {
+            Box(
+                Modifier
+                    .clip(SoftTokens.TileCorner)
+                    .clickable(role = Role.Button, onClickLabel = name) { open = true }
+                    .clearAndSetSemantics {
+                        contentDescription = name
+                        stateDescription = current
+                    }
+                    .size(48.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(Modifier.size(SoftTokens.Tile).clip(SoftTokens.TileCorner).background(colors.surface), contentAlignment = Alignment.Center) {
+                    leading?.invoke(selected, colors.ink)
+                }
+            }
+        } else Row(
             Modifier
                 .clip(SoftTokens.Pill)
                 .background(background)
@@ -71,7 +90,7 @@ fun SoftChoicePill(
                 }
                 .heightIn(min = 48.dp)
                 .widthIn(max = maxWidth)
-                .padding(start = 14.dp, end = 10.dp),
+                .padding(start = 8.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
@@ -82,7 +101,7 @@ fun SoftChoicePill(
         DropdownMenu(
             expanded = open,
             onDismissRequest = { open = false },
-            shape = RoundedCornerShape(SoftTokens.FieldCorner),
+            shape = RoundedCornerShape(8.dp),
             containerColor = colors.raised,
         ) {
             options.forEachIndexed { index, option ->

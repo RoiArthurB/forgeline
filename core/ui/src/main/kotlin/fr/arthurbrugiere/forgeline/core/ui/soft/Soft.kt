@@ -15,11 +15,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import fr.arthurbrugiere.forgeline.core.model.HeaderStyle
 import fr.arthurbrugiere.forgeline.core.ui.R
 
 /*
- * Forgeline's own visual world: a warm, rounded display face and very readable text on soft surfaces, with one
- * vivid ember accent. Nothing is boxed: hierarchy comes from type, space and tone, never from divider lines.
+ * Forgeline's own visual world, Ink Compact: an ink band carries each screen's name and its one axis, and below it
+ * a fast, hairline-ruled list where every item opens with a big icon tile. One typeface, one marigold accent.
  */
 
 @Immutable
@@ -27,49 +28,62 @@ data class SoftColors(
     val ground: Color,
     val ink: Color,
     val inkMuted: Color,
-    /** Ember as text and marks; tuned per theme to stay readable on the ground. */
+    /** Marigold as text and marks; tuned per theme to stay readable on the ground (a deep amber in light). */
     val accent: Color,
-    /** The pill switch's thumb, and filled buttons. */
+    /** Marigold as a fill: the selected tab's underline and bar, unread dots, the send tile, filled buttons. */
     val thumb: Color,
+    /** Text and icons on [thumb]. */
     val onThumb: Color,
-    /** The pill switch's track, laid over a field. */
+    /** The veil laid over anything pressed or focused. */
     val track: Color,
-    /** Soft surface behind a pressed row, loading shapes and snackbars. */
+    /** Icon tiles, a pressed row, tags, loading shapes, code. */
     val surface: Color,
-    /** Floating things: the navigation bar, menus and sheets, lifted off the ground by a soft shadow. */
+    /** Floating things: menus, sheets and dialogs. */
     val raised: Color,
-    /** Header field tints: warm, cool and fresh, one per section of a surface (Trending's periods). */
+    /** One device-pixel rule between rows and under a band that would otherwise melt into the page. */
+    val hairline: Color,
+    /** Marigold's soft tint: a tile that needs you, a "+gained" figure. */
+    val accentSoft: Color,
+    /** Meaning tints, warm, cool and fresh: closed or failed, merged or running, open or passed. */
     val fields: List<Color>,
+    /** The header band every screen starts with. */
+    val band: Color,
     val isDark: Boolean,
 )
 
 val SoftLight = SoftColors(
-    ground = Color(0xFFFAFAFB),
-    ink = Color(0xFF1E1B2E),
-    // Dark enough to stay readable on the switch track laid over every field tint, not only on the ground.
-    inkMuted = Color(0xFF5A566B),
-    // Deep enough to stay readable on the pressed/focused surface as well as the ground.
-    accent = Color(0xFFB83A17),
-    thumb = Color(0xFFFF6B3D),
-    onThumb = Color(0xFF1E1B2E),
-    track = Color(0x0F1E1B2E),
-    surface = Color(0xFFF0EFF3),
+    ground = Color(0xFFF5F4F6),
+    ink = Color(0xFF16181A),
+    // Dark enough to stay readable on a tile, a meaning tint and a pressed row, not only on the ground.
+    inkMuted = Color(0xFF606065),
+    accent = Color(0xFF8F5600),
+    thumb = Color(0xFFF5A524),
+    onThumb = Color(0xFF16181A),
+    track = Color(0x0F16181A),
+    surface = Color(0xFFE8E7EB),
     raised = Color(0xFFFFFFFF),
-    fields = listOf(Color(0xFFFFE6DC), Color(0xFFECE6FF), Color(0xFFDDF3EA)),
+    hairline = Color(0xFFDCDADF),
+    accentSoft = Color(0xFFFCE9C0),
+    fields = listOf(Color(0xFFFCE6DE), Color(0xFFE7E4F6), Color(0xFFDDF0E4)),
+    band = Color(0xFF16181A),
     isDark = false,
 )
 
 val SoftDark = SoftColors(
-    ground = Color(0xFF15131C),
-    ink = Color(0xFFF1EEF6),
-    inkMuted = Color(0xFFA7A2B8),
-    accent = Color(0xFFFF8A5C),
-    thumb = Color(0xFFFF6B3D),
-    onThumb = Color(0xFF1A1216),
-    track = Color(0x12FFFFFF),
-    surface = Color(0xFF221F2C),
-    raised = Color(0xFF282533),
-    fields = listOf(Color(0xFF2B1E1F), Color(0xFF221F33), Color(0xFF1A2724)),
+    ground = Color(0xFF111113),
+    ink = Color(0xFFEDEDF0),
+    inkMuted = Color(0xFF9C9BA3),
+    accent = Color(0xFFFFC062),
+    thumb = Color(0xFFF5A524),
+    onThumb = Color(0xFF16181A),
+    track = Color(0x14FFFFFF),
+    surface = Color(0xFF1F1F24),
+    raised = Color(0xFF1D1D21),
+    hairline = Color(0xFF2A2A30),
+    accentSoft = Color(0xFF3A2C12),
+    fields = listOf(Color(0xFF3A221C), Color(0xFF25233A), Color(0xFF18291F)),
+    // A step lighter than the page, so the band still reads as the top of the screen.
+    band = Color(0xFF24242A),
     isDark = true,
 )
 
@@ -85,41 +99,82 @@ fun readableOn(background: Color): Color =
     if (contrastRatio(Color.Black, background) >= contrastRatio(Color.White, background)) Color.Black else Color.White
 
 /** The dark palette on a true-black ground, for OLED screens (the AMOLED black setting). */
-fun SoftColors.amoled(): SoftColors = copy(ground = Color.Black, surface = Color(0xFF16141D), raised = Color(0xFF1C1925))
+fun SoftColors.amoled(): SoftColors =
+    copy(ground = Color.Black, surface = Color(0xFF141417), raised = Color(0xFF17171A), hairline = Color(0xFF232327), band = Color(0xFF17171A))
 
-/** Gabarito: display, names and figures (two weights only). Lexend: every line of reading text. */
-val Gabarito = FontFamily(
-    Font(R.font.gabarito_medium, FontWeight.Medium),
-    Font(R.font.gabarito_bold, FontWeight.Bold),
+/** The band in the style the person chose: ink (this palette's own), true black, or white. */
+fun SoftColors.withHeader(style: HeaderStyle): SoftColors = when (style) {
+    HeaderStyle.INK -> this
+    HeaderStyle.BLACK -> copy(band = Color.Black)
+    HeaderStyle.WHITE -> copy(band = if (isDark) Color(0xFFEDEDF0) else Color.White)
+}
+
+/** True when the band sits so close to the page that a hairline has to say where it ends. */
+val SoftColors.bandNeedsRule: Boolean get() = contrastRatio(band, ground) < 1.12f
+
+/** True when the band is dark, so what sits on it (and the status bar's icons) is light. */
+val SoftColors.bandIsDark: Boolean get() = band.luminance() < 0.3f
+
+/**
+ * The palette for whatever sits on the band: its title, tabs, actions and a detail screen's header. A dark band gets
+ * light ink whichever theme the page is in; a light one gets dark ink.
+ */
+fun SoftColors.onBand(): SoftColors {
+    val dark = bandIsDark
+    val base = if (dark) SoftDark else SoftLight
+    return base.copy(
+        ground = band,
+        // On the band itself muted ink must also read on the band's own surface (a tag, a field).
+        inkMuted = if (dark) Color(0xFFA6A5AB) else Color(0xFF5E5D63),
+        surface = if (dark) Color(0xFF303037) else Color(0xFFDDDCE1),
+        hairline = if (dark) Color(0xFF34343B) else Color(0xFFD3D1D7),
+        raised = raised,
+        band = band,
+    )
+}
+
+/** Geist: one family for everything, in two weights (Regular 400 and SemiBold 600). Code stays monospace. */
+val Geist = FontFamily(
+    Font(R.font.geist_regular, FontWeight.Normal),
+    Font(R.font.geist_semibold, FontWeight.SemiBold),
 )
-val Lexend = FontFamily(
-    Font(R.font.lexend_regular, FontWeight.Normal),
-    Font(R.font.lexend_medium, FontWeight.Medium),
-)
+
+private fun geist(size: Float, line: Float, weight: FontWeight = FontWeight.Normal, tracking: Float = 0f, tabular: Boolean = false) =
+    TextStyle(
+        fontFamily = Geist,
+        fontWeight = weight,
+        fontSize = size.sp,
+        lineHeight = line.sp,
+        letterSpacing = tracking.em,
+        fontFeatureSettings = if (tabular) "tnum" else null,
+    )
 
 @Immutable
 data class SoftType(
-    val title: TextStyle = TextStyle(fontFamily = Gabarito, fontWeight = FontWeight.Bold, fontSize = 34.sp, lineHeight = 38.sp, letterSpacing = (-0.01).em),
-    /** A detail screen's title in its field (a repository, a search): one step under a tab's [title]. */
-    val detailTitle: TextStyle = title.copy(fontSize = 30.sp, lineHeight = 34.sp),
+    /** A tab's name on its band ("Inbox", "Trending"). */
+    val title: TextStyle = geist(28f, 32f, FontWeight.SemiBold, tracking = -0.03f),
+    /** A detail screen's title on its band when it is a name (a repository, Settings). */
+    val detailTitle: TextStyle = geist(24f, 29f, FontWeight.SemiBold, tracking = -0.02f),
     /** Who or what a detail screen is about when that is a sentence: an issue's title, a person's name, a job. */
-    val hero: TextStyle = title.copy(fontSize = 26.sp, lineHeight = 31.sp),
-    /** A section's title over its rows (Needs you, a settings group, a card's heading). */
-    val section: TextStyle = TextStyle(fontFamily = Gabarito, fontWeight = FontWeight.Medium, fontSize = 17.sp, lineHeight = 22.sp),
-    val name: TextStyle = TextStyle(fontFamily = Gabarito, fontWeight = FontWeight.Bold, fontSize = 21.sp, lineHeight = 25.sp),
-    /** Ranks and counts: tabular, so they line up down a list. */
-    val figure: TextStyle = TextStyle(fontFamily = Gabarito, fontWeight = FontWeight.Bold, fontSize = 16.sp, lineHeight = 20.sp, fontFeatureSettings = "tnum"),
-    val control: TextStyle = TextStyle(fontFamily = Gabarito, fontWeight = FontWeight.Medium, fontSize = 15.sp, lineHeight = 20.sp),
-    val body: TextStyle = TextStyle(fontFamily = Lexend, fontWeight = FontWeight.Normal, fontSize = 15.sp, lineHeight = 24.sp),
-    val secondary: TextStyle = TextStyle(fontFamily = Lexend, fontWeight = FontWeight.Normal, fontSize = 14.sp, lineHeight = 20.sp),
-    val meta: TextStyle = TextStyle(fontFamily = Lexend, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 18.sp, fontFeatureSettings = "tnum"),
-    val label: TextStyle = TextStyle(fontFamily = Lexend, fontWeight = FontWeight.Medium, fontSize = 13.sp, lineHeight = 18.sp),
-    /** What a subject says of itself under its name in a header (a repository's description, a bio), and what is written in a field. */
-    val lead: TextStyle = body.copy(fontSize = 16.sp, lineHeight = 24.sp),
+    val hero: TextStyle = geist(22f, 27f, FontWeight.SemiBold, tracking = -0.02f),
+    /** A section's title over its rows (Needs you, a settings group, a Feed day). */
+    val section: TextStyle = geist(14f, 18f, FontWeight.SemiBold),
+    /** A repository's name in a list, an account's name, a Notice's title. */
+    val name: TextStyle = geist(16f, 21f, FontWeight.SemiBold, tracking = -0.005f),
+    /** Ranks, gains and counts: tabular, so they line up down a list. */
+    val figure: TextStyle = geist(13f, 18f, FontWeight.SemiBold, tabular = true),
+    /** Tabs, buttons, a comment's author. */
+    val control: TextStyle = geist(14f, 20f, FontWeight.SemiBold),
+    val body: TextStyle = geist(15f, 22f),
+    val secondary: TextStyle = geist(13.5f, 19f),
+    val meta: TextStyle = geist(12f, 16f, tabular = true),
+    val label: TextStyle = geist(12.5f, 17f, FontWeight.SemiBold),
+    /** What a subject says of itself under its name in a header (a description, a bio), and what is written in a field. */
+    val lead: TextStyle = geist(15f, 22f),
     /** The title line of a list row read at a glance (a thread in the Inbox, what an event is about in the Feed). */
-    val rowTitle: TextStyle = TextStyle(fontFamily = Lexend, fontWeight = FontWeight.Normal, fontSize = 16.sp, lineHeight = 22.sp),
+    val rowTitle: TextStyle = geist(15f, 20f),
     /** Tags, labels and reactions. */
-    val tag: TextStyle = TextStyle(fontFamily = Lexend, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 16.sp),
+    val tag: TextStyle = geist(11.5f, 16f, FontWeight.SemiBold),
     /** A file's code, and code in Markdown. */
     val code: TextStyle = TextStyle(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Normal, fontSize = 13.sp, lineHeight = 20.sp),
     /** Code read many lines at a time: a change's lines, a blame, a job's log. */
@@ -133,11 +188,10 @@ val LocalSoftType = staticCompositionLocalOf { SoftType() }
 
 /**
  * Enters the Soft world: its colors, ink as the content color so untinted icons from the remaining Material pieces
- * take the palette, and the soft veil as what a press looks like on anything clickable that doesn't say otherwise.
+ * take the palette, and the veil as what a press looks like on anything clickable that doesn't say otherwise.
  */
 @Composable
 fun SoftTheme(colors: SoftColors, content: @Composable () -> Unit) {
-    // Pressing answers with the soft veil, not a ripple: rows, pills and buttons alike.
     CompositionLocalProvider(
         LocalSoftColors provides colors,
         LocalContentColor provides colors.ink,

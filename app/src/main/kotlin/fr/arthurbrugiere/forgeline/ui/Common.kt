@@ -57,13 +57,13 @@ fun <T> LazyListScope.loadable(
     }
 }
 
-/** A small state tag (Draft, Open, Archived…) on a soft pill. */
+/** A small state tag (Draft, Open, Archived…). */
 @Composable
 fun Badge(text: String) {
     SoftTag(text)
 }
 
-/** A forge label in its own color, as the forge shows it, on a pill; text contrast follows the color. */
+/** A forge label in its own color, as the forge shows it, as a tag; text contrast follows the color. */
 @Composable
 fun LabelChip(label: Label) {
     val color = parseHexColor(label.color?.let { "#$it" }) ?: Soft.colors.surface

@@ -13,8 +13,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 /**
- * Every text/background pair the Soft world draws must meet WCAG AA for normal text (4.5:1), in both themes
- * and on every field tint. Regression: muted labels on the switch track over the tints once sat near 4.1:1.
+ * Every text/background pair the Soft world draws must meet WCAG AA for normal text (4.5:1), in every theme, on every
+ * meaning tint, and on the header band in each of its styles. Regression: muted labels on a tint once sat near 4.1:1.
  */
 @RunWith(RobolectricTestRunner::class)
 class SoftTest {
@@ -22,6 +22,11 @@ class SoftTest {
     val composeRule = createComposeRule()
 
     private val palettes = mapOf("light" to SoftLight, "dark" to SoftDark, "amoled" to SoftDark.amoled())
+
+    /** Every theme with every header style: the band and what is drawn on it change with both. */
+    private val banded = palettes.flatMap { (theme, c) ->
+        fr.arthurbrugiere.forgeline.core.model.HeaderStyle.entries.map { style -> "$theme/${style.name.lowercase()}" to c.withHeader(style) }
+    }
 
     private fun contrast(foreground: Color, background: Color): Float {
         val a = foreground.compositeOver(background).luminance() + 0.05f
@@ -44,27 +49,60 @@ class SoftTest {
     }
 
     @Test
-    fun header_fields_and_the_period_switch_are_readable() {
+    fun everything_on_the_header_band_is_readable_in_every_style() {
+        banded.forEach { (name, c) ->
+            val band = c.onBand()
+            assertThat(band.ground).isEqualTo(c.band)
+            assertReadable("$name title on the band", band.ink, c.band)
+            assertReadable("$name unselected tab on the band", band.inkMuted, c.band)
+            assertReadable("$name link on the band", band.accent, c.band)
+            assertReadable("$name tag on the band's surface", band.inkMuted, band.surface)
+            assertReadable("$name pressed action on the band", band.ink, band.track.compositeOver(c.band))
+        }
+    }
+
+    @Test
+    fun the_chosen_tab_s_underline_stands_out_on_a_dark_band() {
+        // A non-text mark (3:1). On a white band it sits beside the bold label, which says the choice on its own.
+        banded.filter { (_, c) -> c.bandIsDark }.forEach { (name, c) ->
+            assertWithMessage("$name underline").that(contrast(c.thumb, c.band)).isAtLeast(3f)
+        }
+    }
+
+    @Test
+    fun a_band_that_melts_into_the_page_gets_its_rule() {
+        assertThat(SoftLight.bandNeedsRule).isFalse()
+        assertThat(SoftDark.bandNeedsRule).isFalse()
+        assertThat(SoftDark.amoled().bandNeedsRule).isFalse()
+        // True black on the true-black page, white on the light page: the hairline says where the band ends.
+        assertThat(SoftDark.amoled().withHeader(fr.arthurbrugiere.forgeline.core.model.HeaderStyle.BLACK).bandNeedsRule).isTrue()
+        assertThat(SoftLight.withHeader(fr.arthurbrugiere.forgeline.core.model.HeaderStyle.WHITE).bandNeedsRule).isTrue()
+    }
+
+    @Test
+    fun tags_and_tiles_on_meaning_tints_are_readable() {
         palettes.forEach { (theme, c) ->
             c.fields.forEachIndexed { index, field ->
-                assertReadable("$theme title on field $index", c.ink, field)
-                assertReadable("$theme unselected period on field $index", c.inkMuted, c.track.compositeOver(field))
+                assertReadable("$theme ink on tint $index", c.ink, field)
+                assertReadable("$theme muted ink on tint $index", c.inkMuted, field)
             }
-            assertReadable("$theme selected period", c.onThumb, c.thumb)
+            assertReadable("$theme glyph and gain on marigold's tint", c.accent, c.accentSoft)
+            assertReadable("$theme ink on marigold's tint", c.ink, c.accentSoft)
+            assertReadable("$theme send arrow and filled button", c.onThumb, c.thumb)
         }
     }
 
     @Test
     fun markers_buttons_and_snackbars_are_readable() {
         palettes.forEach { (theme, c) ->
-            assertReadable("$theme stopped-here pill", c.ink, c.fields[0])
+            assertReadable("$theme stopped-here marker", c.ink, c.accentSoft)
             assertReadable("$theme filled button", c.onThumb, c.thumb)
             assertReadable("$theme snackbar", c.ground, c.ink)
             assertReadable("$theme final-action button", c.ground, c.ink)
             assertReadable("$theme quiet button that can't be pressed", c.inkMuted, c.surface)
             assertReadable("$theme picked choice ring on the ground", c.accent, c.ground)
             assertReadable("$theme text on a pressed surface", c.ink, c.surface)
-            // A focused row keeps this surface on screen, so its ember rank and figures must stay readable on it.
+            // A focused row keeps this surface on screen, so its marigold text must stay readable on it.
             assertReadable("$theme accent on a pressed surface", c.accent, c.surface)
             assertReadable("$theme muted ink on a pressed surface", c.inkMuted, c.surface)
             assertReadable("$theme ink on a floating surface", c.ink, c.raised)

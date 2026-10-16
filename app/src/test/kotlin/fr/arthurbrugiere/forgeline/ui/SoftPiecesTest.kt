@@ -141,6 +141,10 @@ class SoftPiecesTest {
     }
 
     /** The colour of the icon button [description] near its edge, off the glyph: what a press washes over. */
+    /** The largest difference between two colours, channel by channel. */
+    private fun channelsApart(a: Int, b: Int): Int =
+        listOf(16, 8, 0).maxOf { shift -> kotlin.math.abs((a shr shift and 0xFF) - (b shr shift and 0xFF)) }
+
     private fun edgeOf(description: String): Int {
         val image = composeRule.onNodeWithContentDescription(description).captureToImage().asAndroidBitmap()
         return image.getPixel(image.width / 2, image.height / 2 - (image.height * 0.38f).toInt())
@@ -169,8 +173,8 @@ class SoftPiecesTest {
         assertThat(edgeOf("Search")).isEqualTo(ground)
         composeRule.onNodeWithContentDescription("Search").performTouchInput { down(center) }
         composeRule.waitForIdle()
-        // The veil, as on a row or a pill: not a ripple's spreading circle.
-        assertThat(edgeOf("Search")).isEqualTo(veiled)
+        // The veil, as on a row or a pill: not a ripple's spreading circle. Blending rounds each channel its own way.
+        assertThat(channelsApart(edgeOf("Search"), veiled)).isAtMost(2)
         composeRule.onNodeWithContentDescription("Search").performTouchInput { up() }
 
         composeRule.onNodeWithContentDescription("Off").assertIsNotEnabled().performClick()

@@ -1,5 +1,12 @@
 package fr.arthurbrugiere.forgeline.trending
 
+import androidx.compose.ui.res.painterResource
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTile
+import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
+import fr.arthurbrugiere.forgeline.core.ui.format.iconRes
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.SpanStyle
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
@@ -235,12 +242,11 @@ fun TrendingScreen(
                     item(key = "header", contentType = "header") {
                         val openSearch = LocalOpenSearch.current
                         SoftHeader(
-                            tint = colors.fields[state.period.ordinal],
                             title = stringResource(R.string.tab_trending),
                             actions = {
                                 if (openSearch != null) {
                                     SoftIconButton(onClick = openSearch) {
-                                        Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = colors.ink)
+                                        Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = Soft.colors.ink)
                                     }
                                 }
                             },
@@ -325,7 +331,7 @@ fun TrendingScreen(
                     }
                 }
             }
-            // Once the tinted field has scrolled away, the status bar gets the ground behind it.
+            // Once the header has scrolled away, the band stays behind the status bar.
             val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
             SoftStatusBarScrim(scrolled)
             SoftSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current))
@@ -356,14 +362,14 @@ private fun riseIn(id: RepoId, period: TrendingPeriod, index: Int, enabled: Bool
 private fun StatusLine(updatedAtMillis: Long?, nowMillis: Long, resumeAt: Int?, onResume: () -> Unit, forgePicker: (@Composable () -> Unit)? = null) {
     val colors = Soft.colors
     Row(
-        Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 8.dp).heightIn(min = 48.dp),
+        Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 16.dp, end = 4.dp).heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             updatedAtMillis?.let {
                 stringResource(R.string.trending_updated, DateUtils.getRelativeTimeSpanString(it, nowMillis, DateUtils.MINUTE_IN_MILLIS).toString())
             }.orEmpty(),
-            style = Soft.type.secondary,
+            style = Soft.type.meta,
             color = colors.inkMuted,
             modifier = Modifier.weight(1f),
         )
@@ -382,9 +388,8 @@ private fun StatusLine(updatedAtMillis: Long?, nowMillis: Long, resumeAt: Int?, 
             }
         }
         forgePicker?.let {
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(4.dp))
             it()
-            Spacer(Modifier.width(12.dp))
         }
     }
 }
@@ -397,55 +402,72 @@ private fun RepoRow(rank: Int, item: TrendingItem, period: TrendingPeriod, onTog
     val gained = NumberFormat.getIntegerInstance().format(repo.periodStars)
     val rankDescription = stringResource(R.string.trending_rank, rank)
     val gainedDescription = stringResource(period.gainedLabel, gained)
-    Column(
+    val forge = repo.id.forge.takeIf { LocalShowForge.current }
+    Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp)
             .softPressable(onClick = onOpen)
-            .padding(start = 12.dp, end = 4.dp, top = 14.dp, bottom = 4.dp),
+            .rowHairline(start = RowTextStart)
+            .padding(start = 16.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.Top,
     ) {
-        // The rank column grows with the font: a fixed 30dp split "10" in two once the text was scaled up.
-        val rankWidth = with(LocalDensity.current) { 30.sp.toDp() }
-        Row(verticalAlignment = Alignment.Top) {
-            Text(
-                "$rank",
-                style = type.figure,
-                color = colors.accent,
-                modifier = Modifier.width(rankWidth).padding(top = 3.dp).clearAndSetSemantics { contentDescription = rankDescription },
-            )
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(
-                        repo.ownerAvatarUrl,
-                        repo.id.owner,
-                        size = 20.dp,
-                        placeholderColor = colors.surface,
-                        placeholderContentColor = colors.inkMuted,
-                        modifier = Modifier.clearAndSetSemantics {},
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(repo.id.owner, style = type.secondary, color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                Text(repo.id.name, style = type.name, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-            Spacer(Modifier.width(12.dp))
-            Text(
-                "+$gained",
-                style = type.figure,
-                color = colors.accent,
-                modifier = Modifier.padding(top = 3.dp, end = 12.dp).clearAndSetSemantics { contentDescription = gainedDescription },
+        // The owner's face on the row's tile, the forge's logo on its corner when forges are mixed.
+        SoftTile(badge = forge?.let { painterResource(it.iconRes) }, badgeDescription = forge?.displayName, modifier = Modifier.padding(top = 2.dp)) {
+            Avatar(
+                repo.ownerAvatarUrl,
+                repo.id.owner,
+                size = SoftTokens.Tile,
+                shape = SoftTokens.TileCorner,
+                placeholderColor = colors.surface,
+                placeholderContentColor = colors.inkMuted,
+                modifier = Modifier.clearAndSetSemantics {},
             )
         }
-        Column(Modifier.fillMaxWidth().padding(start = 30.dp)) {
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            // Who, where it ranks, and what it gained, on the right where the gains line up down the list.
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(end = 12.dp)) {
+                // Owner and rank take the room; the gain keeps the same trailing edge on every row, over the star.
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        repo.id.owner,
+                        style = type.meta,
+                        color = colors.inkMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    Text(
+                        " · #$rank",
+                        style = type.meta,
+                        color = colors.inkMuted,
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.clearAndSetSemantics { contentDescription = rankDescription },
+                    )
+                }
+                Text(
+                    "+$gained",
+                    style = type.figure,
+                    color = colors.accent,
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                        .clip(SoftTokens.TagCorner)
+                        .background(colors.accentSoft)
+                        .padding(horizontal = 5.dp)
+                        .clearAndSetSemantics { contentDescription = gainedDescription },
+                )
+            }
+            Text(repo.id.name, style = type.name, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 1.dp))
             repo.description?.let {
                 // Capped so lines stay near a comfortable 65-75 characters on wide screens.
                 Text(
                     it,
-                    style = type.body,
+                    style = type.secondary,
                     color = colors.ink,
                     maxLines = descriptionMaxLines(LocalDensity.current.fontScale),
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = MaxMeasure).fillMaxWidth().padding(top = 6.dp, end = 12.dp).testTag(DESCRIPTION_TAG),
+                    modifier = Modifier.widthIn(max = MaxMeasure).fillMaxWidth().padding(top = 2.dp, end = 12.dp).testTag(DESCRIPTION_TAG),
                 )
             }
             MetaLine(
@@ -453,17 +475,16 @@ private fun RepoRow(rank: Int, item: TrendingItem, period: TrendingPeriod, onTog
                 stats = {
                     // Wraps only when even the stats alone don't fit, as at large font scales.
                     FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                         itemVerticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (LocalShowForge.current) ForgeMark(repo.id.forge, style = Soft.type.meta, color = Soft.colors.inkMuted)
                         repo.language?.let { language ->
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 // Forgejo names a language without its colour: the app's own table fills it in.
                                 (parseHexColor(repo.languageColor) ?: languageColor(language))?.let { dot ->
-                                    Box(Modifier.size(9.dp).background(dot, CircleShape))
-                                    Spacer(Modifier.width(6.dp))
+                                    Box(Modifier.size(8.dp).background(dot, CircleShape))
+                                    Spacer(Modifier.width(5.dp))
                                 }
                                 MetaText(language)
                             }
@@ -484,7 +505,7 @@ private fun RepoRow(rank: Int, item: TrendingItem, period: TrendingPeriod, onTog
                                 Avatar(
                                     it.avatarUrl,
                                     it.login,
-                                    size = 22.dp,
+                                    size = 20.dp,
                                     modifier = Modifier.border(2.dp, colors.ground, CircleShape),
                                     placeholderColor = colors.surface,
                                     placeholderContentColor = colors.inkMuted,
@@ -513,6 +534,8 @@ private fun MetaLine(
     modifier: Modifier = Modifier,
 ) {
     val gap = with(LocalDensity.current) { 8.dp.roundToPx() }
+    // The line is as tall as its glyphs, not as the star's 48dp target: the target reaches past it, into the row's padding.
+    val glyph = with(LocalDensity.current) { 24.dp.roundToPx() }
     Layout(contents = listOf(stats, builders, toggle), modifier = modifier) { (statsM, buildersM, toggleM), constraints ->
         val width = constraints.maxWidth
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
@@ -522,7 +545,7 @@ private fun MetaLine(
         val statsOnOneLine = statsM.first().maxIntrinsicWidth(Constraints.Infinity)
         val statsPlaced = statsM.first().measure(loose.copy(maxWidth = room))
         val buildersPlaced = buildersM.firstOrNull()?.measure(loose)?.takeIf { statsOnOneLine + gap + it.width <= room }
-        val height = maxOf(togglePlaced.height, statsPlaced.height, buildersPlaced?.height ?: 0)
+        val height = maxOf(glyph, statsPlaced.height, buildersPlaced?.height ?: 0)
         layout(width, height) {
             statsPlaced.placeRelative(0, (height - statsPlaced.height) / 2)
             val toggleX = width - togglePlaced.width
@@ -554,8 +577,11 @@ private fun StarToggle(starred: Boolean, fullName: String, onToggle: () -> Unit)
     }
 }
 
-/** Three lines at normal sizes; with enlarged text nothing is cut, since reading is the point of the screen. */
-internal fun descriptionMaxLines(fontScale: Float): Int = if (fontScale > 1f) Int.MAX_VALUE else 3
+/** One line at normal sizes, for a compact browse; with enlarged text nothing is cut, since reading is the point of the screen. */
+internal fun descriptionMaxLines(fontScale: Float): Int = if (fontScale > 1f) Int.MAX_VALUE else 1
+
+/** Where a row's text starts: past the 16dp gutter, its 32dp tile and a 12dp gap. Hairlines line up on it. */
+private val RowTextStart = 60.dp
 
 private val TrendingPeriod.label: Int
     get() = when (this) {

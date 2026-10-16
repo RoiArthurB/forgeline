@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.settings
 
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftCheckRow
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftCheck
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceSheet
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
@@ -41,7 +42,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
@@ -58,6 +58,7 @@ import fr.arthurbrugiere.forgeline.BuildConfig
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
+import fr.arthurbrugiere.forgeline.core.model.HeaderStyle
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import fr.arthurbrugiere.forgeline.core.model.Account
@@ -71,7 +72,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
@@ -180,7 +180,6 @@ fun SettingsScreen(
         ) {
             item {
                 SoftHeader(
-                    tint = colors.fields[2],
                     title = stringResource(section?.title ?: R.string.settings_title),
                     onBack = onBack,
                     backDescription = stringResource(R.string.navigate_up),
@@ -211,6 +210,18 @@ fun SettingsScreen(
                         options = ThemeMode.entries.map { stringResource(it.label) },
                         selected = settings.themeMode.ordinal,
                         onSelect = { onThemeModeChange(ThemeMode.entries[it]) },
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
+                }
+            }
+            if (section == SettingsSection.APPEARANCE) item {
+                // The band at the top of every screen: ink by default, or true black, or white for whoever likes it.
+                Column(SettingModifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                    Text(stringResource(R.string.settings_header), style = Soft.type.body, color = colors.ink)
+                    SoftSwitch(
+                        options = HeaderStyle.entries.map { stringResource(it.label) },
+                        selected = settings.headerStyle.ordinal,
+                        onSelect = { picked -> onChange { it.copy(headerStyle = HeaderStyle.entries[picked]) } },
                         modifier = Modifier.padding(top = 10.dp),
                     )
                 }
@@ -600,20 +611,7 @@ internal fun SwitchItem(
         summary = summary,
         leading = leading,
         modifier = Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
-        trailing = {
-            Switch(
-                checked = checked,
-                onCheckedChange = null,
-                colors = SwitchDefaults.colors(
-                    checkedTrackColor = colors.thumb,
-                    checkedThumbColor = colors.onThumb,
-                    checkedBorderColor = colors.thumb,
-                    uncheckedTrackColor = colors.surface,
-                    uncheckedThumbColor = colors.inkMuted,
-                    uncheckedBorderColor = Color.Transparent,
-                ),
-            )
-        },
+        trailing = { SoftCheck(checked) },
     )
 }
 
@@ -622,4 +620,11 @@ private val ThemeMode.label: Int
         ThemeMode.SYSTEM -> R.string.theme_system
         ThemeMode.LIGHT -> R.string.theme_light
         ThemeMode.DARK -> R.string.theme_dark
+    }
+
+private val HeaderStyle.label: Int
+    get() = when (this) {
+        HeaderStyle.INK -> R.string.settings_header_ink
+        HeaderStyle.BLACK -> R.string.settings_header_black
+        HeaderStyle.WHITE -> R.string.settings_header_white
     }

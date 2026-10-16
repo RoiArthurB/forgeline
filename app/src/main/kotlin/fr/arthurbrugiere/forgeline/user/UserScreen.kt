@@ -133,20 +133,19 @@ fun UserScreen(
         ) {
             item(key = "header") {
                 SoftHeader(
-                    tint = colors.fields[1],
                     onBack = onBack,
                     backDescription = stringResource(R.string.navigate_up),
                     actions = {
                         ShareLinkButton("${state.forge.webUrl}/${state.login}", state.login)
                         SoftIconButton(onClick = { onOpenUrl("${state.forge.webUrl}/${state.login}") }) {
-                            Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.forge.displayName), tint = colors.ink)
+                            Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.forge.displayName), tint = Soft.colors.ink)
                         }
                     },
                 ) {
                     if (profile != null) {
                         Header(profile, state.following, signedIn, onToggleFollow, onSignIn, onOpenUrl)
                     } else {
-                        Text("@${state.login}", style = Soft.type.hero, color = colors.ink, modifier = Modifier.semantics { heading() })
+                        Text("@${state.login}", style = Soft.type.hero, color = Soft.colors.ink, modifier = Modifier.semantics { heading() })
                     }
                 }
             }
@@ -199,12 +198,12 @@ private fun Header(
     val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Avatar(profile.avatarUrl, profile.login, size = 72.dp, placeholderColor = colors.ground, placeholderContentColor = colors.inkMuted)
+            Avatar(profile.avatarUrl, profile.login, size = 72.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 // The name leads when there is one; otherwise the login is the page's heading.
                 profile.name?.let { Text(it, style = Soft.type.hero, color = colors.ink, modifier = Modifier.semantics { heading() }) }
                 Text("@${profile.login}", style = Soft.type.secondary, color = colors.inkMuted, modifier = if (profile.name == null) Modifier.semantics { heading() } else Modifier)
-                if (profile.isOrganization) SoftTag(stringResource(R.string.user_organization), background = colors.ground)
+                if (profile.isOrganization) SoftTag(stringResource(R.string.user_organization), background = colors.surface)
             }
         }
         profile.bio?.let { Text(it, style = Soft.type.lead, color = colors.ink, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure)) }
@@ -225,7 +224,7 @@ private fun Header(
         when {
             !signedIn -> SoftButton(stringResource(R.string.user_follow), onSignIn, action)
             following == true -> Box(
-                action.clip(SoftTokens.Pill).background(colors.ground).clickable(role = Role.Button, onClick = onToggleFollow).heightIn(min = 48.dp).padding(horizontal = 20.dp),
+                action.clip(SoftTokens.Pill).background(colors.surface).clickable(role = Role.Button, onClick = onToggleFollow).heightIn(min = 48.dp).padding(horizontal = 20.dp),
                 contentAlignment = Alignment.Center,
             ) { Text(stringResource(R.string.user_following), style = Soft.type.control, color = colors.ink) }
             following == false -> SoftButton(stringResource(R.string.user_follow), onToggleFollow, action)

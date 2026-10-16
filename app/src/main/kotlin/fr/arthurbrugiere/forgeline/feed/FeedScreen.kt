@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import fr.arthurbrugiere.forgeline.core.ui.format.iconRes
+import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTile
+import androidx.compose.ui.res.painterResource
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.openInCustomTab
@@ -8,8 +12,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material.icons.outlined.Campaign
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.ui.platform.LocalDensity
-import fr.arthurbrugiere.forgeline.core.ui.format.forgeInlineContent
-import fr.arthurbrugiere.forgeline.core.ui.format.appendForge
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.clickable
@@ -175,12 +177,11 @@ private fun FeedHeader() {
     val colors = Soft.colors
     val openSearch = LocalOpenSearch.current
     SoftHeader(
-        tint = colors.fields[1],
         title = stringResource(R.string.tab_feed),
         actions = {
             if (openSearch != null) {
                 SoftIconButton(onClick = openSearch) {
-                    Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = colors.ink)
+                    Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = Soft.colors.ink)
                 }
             }
         },
@@ -315,7 +316,7 @@ fun FeedScreen(
 
 /**
  * One event, kind first: a short line saying who did what and when, then the thing it's about, drawn for its kind:
- * a repository preview, a state pill and title for issues and pull requests, a tag for a release, a branch for a push.
+ * a repository preview, a state tag and title for issues and pull requests, a tag for a release, a branch for a push.
  */
 @Composable
 private fun FeedRow(
@@ -333,29 +334,32 @@ private fun FeedRow(
     val actor = item.actors.first()
     val openRelease = LocalOpenRelease.current
     val openDiscussion = fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion.current
+    // Which forge (its logo, on the corner of the actor's face), once more than one is signed in.
+    val forge = item.repo.forge.takeIf { LocalShowForge.current }
     Row(
         modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp)
             .softPressable { item.open(onOpenRepo, onOpenIssue, onOpenUser, onOpenUrl, openRelease, openDiscussion) }
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .rowHairline(start = 60.dp)
+            .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        Avatar(
-            actor.avatarUrl,
-            actor.login,
-            size = 40.dp,
-            placeholderColor = colors.surface,
-            placeholderContentColor = colors.inkMuted,
-            modifier = Modifier
-                .clip(CircleShape)
-                .clickable { onOpenUser(item.repo.forge, actor.login) }
-                .semantics { contentDescription = actor.login },
-        )
+        // People are round, things are tiles: the actor's face, as tall as a row's tile.
+        SoftTile(shape = CircleShape, badge = forge?.let { painterResource(it.iconRes) }, badgeDescription = forge?.displayName) {
+            Avatar(
+                actor.avatarUrl,
+                actor.login,
+                size = SoftTokens.Tile,
+                placeholderColor = colors.surface,
+                placeholderContentColor = colors.inkMuted,
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .clickable { onOpenUser(item.repo.forge, actor.login) }
+                    .semantics { contentDescription = actor.login },
+            )
+        }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            // Which forge (its logo), once more than one is signed in.
-            val forge = item.repo.forge.takeIf { LocalShowForge.current }
             // A name is never broken across lines, and GitLab's can be long (group/subgroup/project): one that doesn't
             // leave room pushed the end of the line out of sight, which is the forge and the time. The repository's
             // name gives way first, step by step, then the row takes one more line.
@@ -367,12 +371,8 @@ private fun FeedRow(
                     append(item.headline(repoLabel).emphasizing(item.names(repoLabel), colors.ink))
                     // Each dot sticks to what precedes it, so a line never starts with "·"; the time is kept whole.
                     val time = relative(item.createdAt, nowMillis, abbreviated = true).replace(' ', '\u00A0')
-                    withStyle(SpanStyle(color = colors.inkMuted)) {
-                        forge?.let { append("\u00A0· "); appendForge(it) }
-                        append("\u00A0· $time")
-                    }
+                    withStyle(SpanStyle(color = colors.inkMuted)) { append("\u00A0· $time") }
                 },
-                inlineContent = forge?.let { forgeInlineContent(it, colors.inkMuted) }.orEmpty(),
                 style = Soft.type.secondary,
                 color = colors.inkMuted,
                 maxLines = lines,
@@ -450,17 +450,17 @@ private fun RepoObject(repo: RepoId, preview: RepoPreview?, description: String?
         modifier
             .widthIn(max = SoftTokens.MaxMeasure)
             .fillMaxWidth()
-            .clip(SoftTokens.RowCorner)
+            .clip(SoftTokens.TileCorner)
             .background(colors.surface)
             .then(if (animations) Modifier.animateContentSize(tween(PREVIEW_MILLIS)) else Modifier)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
     ) {
         Text(
             buildAnnotatedString {
                 withStyle(SpanStyle(color = colors.inkMuted)) { append("${repo.owner}/\u2060") }
                 append(repo.name)
             },
-            style = Soft.type.section.copy(fontWeight = FontWeight.Bold),
+            style = Soft.type.section.copy(fontWeight = FontWeight.SemiBold),
             color = colors.ink,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -514,7 +514,7 @@ private fun FadeInIfLate(late: Boolean, content: @Composable () -> Unit) {
 
 private const val PREVIEW_MILLIS = 220
 
-/** A state (Open, Merged, a tag, a branch...) as a soft pill, then an optional #number. */
+/** A state (Open, Merged, a tag, a branch...) as a tag, then an optional #number. */
 @Composable
 private fun StatePill(
     label: String,
@@ -535,7 +535,7 @@ private fun StatePill(
 private fun ObjectTitle(title: String) {
     Text(
         title,
-        style = Soft.type.rowTitle.copy(fontWeight = FontWeight.Medium),
+        style = Soft.type.rowTitle.copy(fontWeight = FontWeight.SemiBold),
         color = Soft.colors.ink,
         maxLines = 3,
         overflow = TextOverflow.Ellipsis,
@@ -701,7 +701,7 @@ private fun String.emphasizing(names: List<String>, ink: Color): AnnotatedString
     append(this@emphasizing)
     names.forEach { name ->
         val start = this@emphasizing.indexOf(name)
-        if (start >= 0) addStyle(SpanStyle(fontWeight = FontWeight.Medium, color = ink), start, start + name.length)
+        if (start >= 0) addStyle(SpanStyle(fontWeight = FontWeight.SemiBold, color = ink), start, start + name.length)
     }
 }
 

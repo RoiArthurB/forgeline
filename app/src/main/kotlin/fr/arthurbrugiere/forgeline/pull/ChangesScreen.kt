@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.pull
 
+import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -117,12 +117,11 @@ fun ChangesScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             // Room for the review button, so the last lines can be read above it.
             contentPadding = PaddingValues(bottom = if (state.canReview) 96.dp else 24.dp),
-            modifier = Modifier.fillMaxSize().sideSafeArea().navigationBarsPadding(),
+            modifier = Modifier.fillMaxSize().sideSafeArea().padding(bottom = LocalBottomBarSpace.current),
         ) {
             item(key = "header") {
                 val target = state.target
                 SoftHeader(
-                    tint = colors.fields[1],
                     title = when (target) {
                         is ChangesTarget.Pull -> stringResource(R.string.changes_title)
                         is ChangesTarget.OfCommit -> state.commit?.title ?: target.sha.take(7)
@@ -131,7 +130,7 @@ fun ChangesScreen(
                     backDescription = stringResource(R.string.navigate_up),
                     content = {
                         when (target) {
-                            is ChangesTarget.Pull -> Text(target.ref.label(), style = Soft.type.secondary, color = colors.inkMuted)
+                            is ChangesTarget.Pull -> Text(target.ref.label(), style = Soft.type.secondary, color = Soft.colors.inkMuted)
                             is ChangesTarget.OfCommit -> state.commit?.let { CommitFacts(it, nowMillis) }
                         }
                     },
@@ -179,7 +178,7 @@ fun ChangesScreen(
         }
         val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
         SoftStatusBarScrim(scrolled)
-        Column(Modifier.align(Alignment.BottomCenter).navigationBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current), horizontalAlignment = Alignment.CenterHorizontally) {
             SoftSnackbarHost(snackbar)
             if (state.canReview && files != null) {
                 val remarks = state.comments.size

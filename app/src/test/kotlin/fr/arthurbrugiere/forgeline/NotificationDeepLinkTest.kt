@@ -51,7 +51,9 @@ class NotificationDeepLinkTest {
         ActivityScenario.launch<MainActivity>(intent).use {
             composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Remark 31 on the retry.")).fetchSemanticsNodes().isNotEmpty() }
             composeRule.onNode(hasText("Remark 31 on the retry.")).assertIsDisplayed()
-            composeRule.onNode(hasText("Remark 30 on the retry.")).assertIsNotDisplayed()
+            // Opened at what is new, not at the title. (Remark 31 is the last one, so the remark before it may show above
+            // it as context once the list reaches its end.)
+            composeRule.onNode(hasText("Keep install flags on retry - #14129")).assertIsNotDisplayed()
         }
     }
 

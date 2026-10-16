@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline
 
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
@@ -104,6 +106,18 @@ class PullRequestFlowTest {
         // The remark went with the review: nothing is left waiting.
         waitFor("Review sent")
         composeRule.onNodeWithText("Why not three times?").assertDoesNotExist()
+    }
+
+    @Test
+    fun the_review_button_sits_above_the_navigation_bar() {
+        // Regression: it cleared only the system bar, so the app's bar covered it and a tap on it opened Trending.
+        openPullRequest()
+        composeRule.onNodeWithText("2 files changed").performClick()
+        waitFor("Files changed")
+
+        val review = composeRule.onNode(hasText("Review") and hasClickAction()).assertIsDisplayed().getBoundsInRoot()
+        val bar = composeRule.onNodeWithContentDescription("Trending").getBoundsInRoot()
+        assertThat(review.bottom.value).isAtMost(bar.top.value)
     }
 
     @Test

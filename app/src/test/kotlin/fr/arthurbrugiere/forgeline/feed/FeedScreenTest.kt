@@ -253,8 +253,9 @@ class FeedScreenTest {
         val codeberg = feedEvent("2", actor = "alice", repo = "forgejo/forgejo").let { it.copy(repo = it.repo.copy(forge = ForgeInstance.Codeberg)) }
         setContent(state(codeberg, feedEvent("1", actor = "bob")).copy(showForge = true))
 
-        composeRule.onNodeWithText("alice starred", substring = true).assertTextContains("Codeberg", substring = true)
-        composeRule.onNodeWithText("bob starred", substring = true).assertTextContains("GitHub", substring = true)
+        // The forge's logo badges the actor's face; screen readers hear it with the rest of the row.
+        composeRule.onNode(hasText("alice starred", substring = true) and hasContentDescription("Codeberg")).assertExists()
+        composeRule.onNode(hasText("bob starred", substring = true) and hasContentDescription("GitHub")).assertExists()
     }
 
     @Test

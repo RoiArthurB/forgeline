@@ -179,19 +179,18 @@ fun RunScreen(
             ) {
                 item(key = "header") {
                     SoftHeader(
-                        tint = runTint(run),
                         onBack = onBack,
                         backDescription = stringResource(R.string.navigate_up),
                         actions = {
                             SoftIconButton(onClick = onOpenInBrowser) {
-                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.repo.forge.displayName), tint = colors.ink)
+                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.repo.forge.displayName), tint = Soft.colors.ink)
                             }
                         },
                     ) {
                         if (run != null) {
                             RunHeader(run, state.pending, signedIn, nowMillis, onPerform, onOpenUser, canRerun = state.canRerun, forgeName = state.repo.forge.displayName)
                         } else {
-                            Text(state.repo.fullName, style = Soft.type.title, color = colors.ink)
+                            Text(state.repo.fullName, style = Soft.type.title, color = Soft.colors.ink)
                         }
                     }
                 }
@@ -254,10 +253,10 @@ private fun RunHeader(
             )
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            run.branch?.let { SoftTag(it, background = colors.ground) }
-            SoftTag(run.event, background = colors.ground)
-            SoftTag("#${run.runNumber}", background = colors.ground)
-            if (run.attempt > 1) SoftTag(stringResource(R.string.run_attempt, run.attempt), background = colors.ground)
+            run.branch?.let { SoftTag(it, background = colors.surface) }
+            SoftTag(run.event, background = colors.surface)
+            SoftTag("#${run.runNumber}", background = colors.surface)
+            if (run.attempt > 1) SoftTag(stringResource(R.string.run_attempt, run.attempt), background = colors.surface)
         }
         Text(
             listOfNotNull(run.actor?.login?.let { stringResource(R.string.run_by, it) }, relative(run.createdAt, nowMillis)).joinToString(" · "),

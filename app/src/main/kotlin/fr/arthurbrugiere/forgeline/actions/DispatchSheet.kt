@@ -191,7 +191,7 @@ private fun WorkflowRow(workflow: Workflow, startable: Boolean?, onClick: () -> 
         when (startable) {
             true -> RowIcon(Icons.Outlined.PlayArrow, colors.fields[2])
             false -> RowIcon(Icons.Outlined.Bolt, colors.surface, colors.inkMuted)
-            null -> Box(Modifier.size(36.dp).background(colors.surface, CircleShape), contentAlignment = Alignment.Center) {
+            null -> Box(Modifier.size(36.dp).background(colors.surface, SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = colors.inkMuted, trackColor = colors.surface)
             }
         }

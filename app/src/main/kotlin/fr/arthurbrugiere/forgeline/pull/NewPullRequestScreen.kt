@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.pull
 
+import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftCheckRow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -9,7 +10,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -76,15 +76,14 @@ fun NewPullRequestScreen(
 ) {
     val colors = Soft.colors
     Column(
-        modifier.fillMaxSize().background(colors.ground).sideSafeArea().verticalScroll(rememberScrollState()).navigationBarsPadding().imePadding(),
+        modifier.fillMaxSize().background(colors.ground).sideSafeArea().verticalScroll(rememberScrollState()).padding(bottom = LocalBottomBarSpace.current).imePadding(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         SoftHeader(
-            tint = colors.fields[2],
             title = stringResource(R.string.new_pull_title),
             onBack = onBack,
             backDescription = stringResource(R.string.navigate_up),
-            content = { Text(state.repo.fullName, style = Soft.type.secondary, color = colors.inkMuted) },
+            content = { Text(state.repo.fullName, style = Soft.type.secondary, color = Soft.colors.inkMuted) },
         )
         when (val branches = state.branches) {
             Loadable.Idle, Loadable.Loading -> SoftLoadingRows(stringResource(R.string.new_pull_loading), rows = 3, leadingDot = false)

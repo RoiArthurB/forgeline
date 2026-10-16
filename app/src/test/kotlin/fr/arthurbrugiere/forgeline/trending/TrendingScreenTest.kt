@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.trending
 
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onNodeWithContentDescription
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -187,6 +188,8 @@ class TrendingScreenTest {
     // together at 2x) is only visible with real text metrics, so the trending_font_* screenshot goldens guard it.
     @Test
     @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    // Real text widths: the tabs measure at their natural width, which Robolectric's fake fonts misreport as overflow.
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
     fun labels_and_stats_stay_whole_at_large_font_scales_on_a_small_phone() {
         val repo = paperclip.copy(language = "TypeScript", forks = 4_210)
         setContent(TrendingUiState(items = listOf(TrendingItem(repo, starred = true))))
@@ -194,17 +197,24 @@ class TrendingScreenTest {
         for (stat in listOf("TypeScript", "85.9k stars", "4.2k forks")) {
             composeRule.onNodeWithText(stat, useUnmergedTree = true).assertIsDisplayed()
         }
-        // The switch grows to its tallest label and keeps all three centred on one line.
+        // The tabs keep every label whole on one line at its natural width, all three on a level; when they don't fit,
+        // the row scrolls rather than cutting a word, and the chosen one is in full view.
         val centres = listOf("Today", "This week", "This month").map { label ->
-            composeRule.onNodeWithText(label, useUnmergedTree = true).getBoundsInRoot().let { (it.top + it.bottom) / 2 }
+            composeRule.onNodeWithText(label, useUnmergedTree = true).getUnclippedBoundsInRoot().let { (it.top + it.bottom) / 2 }
         }
         centres.forEach { assertThat(it.value).isWithin(1f).of(centres.first().value) }
         for (label in listOf("Today", "This week", "This month")) {
-            val node = composeRule.onNodeWithText(label, useUnmergedTree = true).assertIsDisplayed().fetchSemanticsNode()
+            val node = composeRule.onNodeWithText(label, useUnmergedTree = true).fetchSemanticsNode()
             val layouts = mutableListOf<TextLayoutResult>()
             node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(layouts)
-            assertWithMessage("$label is cut off").that(layouts.single().hasVisualOverflow).isFalse()
+            val layout = layouts.single()
+            assertWithMessage("$label wraps").that(layout.lineCount).isEqualTo(1)
+            assertWithMessage("$label is cut at the bottom").that(layout.didOverflowHeight).isFalse()
         }
+        val today = composeRule.onNodeWithText("Today", useUnmergedTree = true).assertIsDisplayed()
+        val shown = today.getBoundsInRoot()
+        val whole = today.getUnclippedBoundsInRoot()
+        assertWithMessage("Today is cut off").that((shown.right - shown.left).value).isWithin(0.5f).of((whole.right - whole.left).value)
     }
 
     @Test
@@ -217,8 +227,9 @@ class TrendingScreenTest {
     }
 
     @Test
-    fun descriptions_keep_three_lines_normally_and_all_of_their_text_when_fonts_are_enlarged() {
-        assertThat(descriptionMaxLines(1f)).isEqualTo(3)
+    fun descriptions_keep_one_line_normally_and_all_of_their_text_when_fonts_are_enlarged() {
+        // One line keeps the browse compact (about seven rows a screen); enlarged text still loses nothing.
+        assertThat(descriptionMaxLines(1f)).isEqualTo(1)
         assertThat(descriptionMaxLines(1.3f)).isEqualTo(Int.MAX_VALUE)
         assertThat(descriptionMaxLines(2f)).isEqualTo(Int.MAX_VALUE)
     }
@@ -228,10 +239,10 @@ class TrendingScreenTest {
         val zig = trendingRepo("ziglang/zig", forge = ForgeInstance.Codeberg).copy(language = "Zig", languageColor = null)
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null), TrendingItem(zig, null)), showForge = true))
 
-        // A logo and its name, so a row never depends on a 14dp mark alone. The name is written, so the logo is silent.
-        composeRule.onNodeWithText("Codeberg").assertExists()
-        composeRule.onNodeWithText("GitHub").assertExists()
-        composeRule.onNodeWithContentDescription("Codeberg").assertDoesNotExist()
+        // The forge's logo badges each row's tile; the logo is the only place it shows, so screen readers hear its name there.
+        composeRule.onNodeWithContentDescription("Codeberg").assertExists()
+        composeRule.onNodeWithContentDescription("GitHub").assertExists()
+        composeRule.onNodeWithText("Codeberg").assertDoesNotExist()
     }
 
     @Test
@@ -239,7 +250,7 @@ class TrendingScreenTest {
         val tool = trendingRepo("group/sub/tool", forge = ForgeInstance.GitLab)
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null), TrendingItem(tool, null)), showForge = true))
 
-        composeRule.onNodeWithText("GitLab").assertExists()
+        composeRule.onNodeWithContentDescription("GitLab").assertExists()
         composeRule.onNode(hasContentDescription("Star paperclipai/paperclip")).assertExists()
         composeRule.onNode(hasContentDescription("Star group/sub/tool")).assertExists()
     }
@@ -249,6 +260,7 @@ class TrendingScreenTest {
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null))))
 
         composeRule.onNodeWithText("GitHub").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("GitHub").assertDoesNotExist()
     }
 
     @Test
@@ -257,8 +269,8 @@ class TrendingScreenTest {
         val onCodeberg = paperclip.copy(id = paperclip.id.copy(forge = ForgeInstance.Codeberg))
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, null), TrendingItem(onCodeberg, null)), showForge = true))
 
-        composeRule.onNodeWithText("Codeberg").assertExists()
-        composeRule.onNodeWithText("GitHub").assertExists()
+        composeRule.onNodeWithContentDescription("Codeberg").assertExists()
+        composeRule.onNodeWithContentDescription("GitHub").assertExists()
     }
 
     @Test
