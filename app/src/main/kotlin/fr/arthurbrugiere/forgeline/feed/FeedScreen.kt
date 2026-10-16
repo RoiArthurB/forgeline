@@ -370,9 +370,10 @@ private fun FeedRow(
         verticalAlignment = Alignment.Top,
     ) {
         if (item.action is FeedAction.Released) {
-            // A release is the project's: its logo, a thing, so a tile. The tag until the logo is known.
-            SoftTile(background = colors.accentSoft, badge = badge, badgeDescription = forge?.displayName) {
-                val logo = release?.logoUrl
+            // A release is the project's: its logo, as the project drew it (round ones stay round, with nothing behind
+            // them). The tag on marigold until the logo is known.
+            val logo = release?.logoUrl
+            SoftTile(background = if (logo == null) colors.accentSoft else Color.Transparent, badge = badge, badgeDescription = forge?.displayName) {
                 if (logo == null) {
                     Icon(Icons.Outlined.Sell, contentDescription = null, tint = colors.accent, modifier = Modifier.size(18.dp))
                 } else {

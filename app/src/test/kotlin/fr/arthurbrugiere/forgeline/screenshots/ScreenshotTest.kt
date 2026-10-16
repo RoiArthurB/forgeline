@@ -1527,7 +1527,12 @@ class ScreenshotTest {
             val url = chain.request.data.toString()
             // People's faces stay as their initials, as in every other screenshot.
             if ("example.org" !in url) return@Interceptor coil3.request.ErrorResult(null, chain.request, IllegalStateException("offline"))
-            val bitmap = if ("card" in url) standInCard() else standInLogo(url.hashCode())
+            val bitmap = when {
+                "card" in url -> standInCard()
+                // Some projects draw a round logo on a transparent square (Sonarr): nothing should show behind it.
+                "round" in url -> standInLogo(url.hashCode(), round = true)
+                else -> standInLogo(url.hashCode())
+            }
             coil3.request.SuccessResult(bitmap.asImage(), chain.request, coil3.decode.DataSource.MEMORY)
         }
         coil3.SingletonImageLoader.setUnsafe(coil3.ImageLoader.Builder(context).components { add(answer) }.build())
@@ -1555,12 +1560,14 @@ class ScreenshotTest {
         return bitmap
     }
 
-    private fun standInLogo(seed: Int): android.graphics.Bitmap {
+    private fun standInLogo(seed: Int, round: Boolean = false): android.graphics.Bitmap {
         val bitmap = android.graphics.Bitmap.createBitmap(64, 64, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bitmap)
         val colors = listOf(0xFFF97316, 0xFF0EA5E9, 0xFF16181A, 0xFF7C3AED)
-        canvas.drawColor(colors[Math.floorMod(seed, colors.size)].toInt())
-        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt() }
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        paint.color = colors[Math.floorMod(seed, colors.size)].toInt()
+        if (round) canvas.drawCircle(32f, 32f, 32f, paint) else canvas.drawRect(0f, 0f, 64f, 64f, paint)
+        paint.color = 0xFFFFFFFF.toInt()
         canvas.drawCircle(32f, 32f, 14f, paint)
         return bitmap
     }
@@ -1599,7 +1606,7 @@ class ScreenshotTest {
                         ),
                         fr.arthurbrugiere.forgeline.core.model.ReleaseRef(zed, "v1.25.0-pre") to fr.arthurbrugiere.forgeline.core.model.ReleasePreview(
                             "This week's release includes automatic unfolding of folded code when jumping to a location, and applying inlay hint edits with a double-click.",
-                            "v1.24.2", null, "https://example.org/logo/zed",
+                            "v1.24.2", null, "https://example.org/logo/round/zed",
                             mapOf(fr.arthurbrugiere.forgeline.core.model.Reaction.HOORAY to 8, fr.arthurbrugiere.forgeline.core.model.Reaction.THUMBS_UP to 7),
                         ),
                     ),
