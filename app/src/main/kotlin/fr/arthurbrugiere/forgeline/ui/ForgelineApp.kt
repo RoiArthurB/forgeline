@@ -73,7 +73,7 @@ import fr.arthurbrugiere.forgeline.navigation.YouRoute
 import fr.arthurbrugiere.forgeline.navigation.rememberAppNavigator
 import fr.arthurbrugiere.forgeline.settings.SettingsRoute as SettingsDestination
 import fr.arthurbrugiere.forgeline.trending.TrendingRoute as TrendingDestination
-import fr.arthurbrugiere.forgeline.you.YouScreen
+import fr.arthurbrugiere.forgeline.you.YouDestination
 
 @Composable
 fun ForgelineApp(
@@ -234,11 +234,13 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
             )
         }
         entry<YouRoute> {
-            YouScreen(
+            YouDestination(
                 session,
                 onSignIn = signIn,
                 onOpenSettings = { navigator.navigate(SettingsRoute) },
                 onOpenProfile = { account -> openUser(account.forge, account.user.login) },
+                onOpenOwner = openUser,
+                onOpenRepo = openRepo,
             )
         }
         entry<SettingsRoute> {

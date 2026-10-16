@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.core.model.UserSummary
+import kotlinx.coroutines.awaitAll
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -53,6 +55,31 @@ class GitHubUserApi(
         response.toResult { body<List<RepoJson>>().map { it.toModel() } }
     }
 
+    /** Own, organisations' and shared repositories, by last push; the pages after the first are asked all at once. */
+    override suspend fun reachableRepos(token: String): ForgeResult<List<RepoSummary>> = gitHubCall {
+        val query = mapOf("affiliation" to "owner,collaborator,organization_member", "sort" to "pushed", "per_page" to "100")
+        val first = httpClient.gitHubApi(apiBaseUrl, token, "user", "repos", query = query + ("page" to "1"))
+        if (first.status != HttpStatusCode.OK) return@gitHubCall first.failure()
+        val last = (first.lastPage() ?: 1).coerceAtMost(MAX_REACHABLE_PAGES)
+        val rest = coroutineScope {
+            (2..last).map { page ->
+                async {
+                    // A later page that fails only loses its own repositories.
+                    runCatching {
+                        httpClient.gitHubApi(apiBaseUrl, token, "user", "repos", query = query + ("page" to "$page"))
+                            .takeIf { it.status == HttpStatusCode.OK }?.body<List<RepoJson>>()
+                    }.getOrNull().orEmpty()
+                }
+            }.awaitAll().flatten()
+        }
+        ForgeResult.Success((first.body<List<RepoJson>>() + rest).map { it.toModel() }.distinctBy { it.id })
+    }
+
+    override suspend fun organizations(token: String): ForgeResult<List<UserSummary>> = gitHubCall {
+        httpClient.gitHubApi(apiBaseUrl, token, "user", "orgs", query = mapOf("per_page" to "100"))
+            .toResult { body<List<OrgJson>>().map { UserSummary(it.login, it.avatarUrl, isOrganization = true, forge = ForgeInstance.GitHub) } }
+    }
+
     override suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>> = gitHubCall {
         httpClient.gitHubApi(apiBaseUrl, token, "users", login, "starred", query = mapOf("per_page" to "30"))
             .toResult { body<List<RepoJson>>().map { it.toModel() } }
@@ -73,6 +100,12 @@ class GitHubUserApi(
             .toResult { }
     }
 }
+
+@Serializable
+private data class OrgJson(val login: String, @SerialName("avatar_url") val avatarUrl: String? = null)
+
+/** Ten pages of a hundred: past a thousand repositories, those left alone longest are left out. */
+private const val MAX_REACHABLE_PAGES = 10
 
 @Serializable
 private data class SocialAccountJson(val provider: String = "generic", val url: String)
@@ -131,9 +164,10 @@ private data class RepoJson(
     val fork: Boolean = false,
     @SerialName("updated_at") val updatedAt: String? = null,
     val private: Boolean = false,
+    @SerialName("pushed_at") val pushedAt: String? = null,
 ) {
     fun toModel(): RepoSummary {
         val (owner, name) = fullName.split('/', limit = 2)
-        return RepoSummary(RepoId(owner, name, ForgeInstance.GitHub), description, language, stars, forks, fork, updatedAt?.let(Instant::parse), this.owner?.avatarUrl, private)
+        return RepoSummary(RepoId(owner, name, ForgeInstance.GitHub), description, language, stars, forks, fork, updatedAt?.let(Instant::parse), this.owner?.avatarUrl, private, pushedAt?.let(Instant::parse))
     }
 }

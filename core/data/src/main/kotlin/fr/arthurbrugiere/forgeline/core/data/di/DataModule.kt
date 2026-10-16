@@ -78,6 +78,9 @@ abstract class DataModule {
     abstract fun bindSignedOutData(impl: AccountDataCleaner): SignedOutData
 
     @Binds
+    abstract fun bindYourReposRepository(impl: fr.arthurbrugiere.forgeline.core.data.yours.DefaultYourReposRepository): fr.arthurbrugiere.forgeline.core.data.yours.YourReposRepository
+
+    @Binds
     abstract fun bindTokenRefresher(impl: ForgeTokenRefresher): TokenRefresher
 
     @Binds
@@ -139,6 +142,9 @@ abstract class DataModule {
 
         @Provides
         fun provideConversationDao(database: ForgelineDatabase): ConversationDao = database.conversationDao()
+
+        @Provides
+        fun provideYourReposDao(database: ForgelineDatabase): fr.arthurbrugiere.forgeline.core.data.yours.YourReposDao = database.yourReposDao()
 
         /** What the reader did: never rebuilt, unlike the cache. */
         @Provides

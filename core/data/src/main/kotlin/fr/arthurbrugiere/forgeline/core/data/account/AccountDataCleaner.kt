@@ -40,6 +40,7 @@ class AccountDataCleaner @Inject constructor(
     private val conversations: IssueRepository,
     private val users: UserRepository,
     private val drafts: DraftStore,
+    private val yourRepos: fr.arthurbrugiere.forgeline.core.data.yours.YourReposDao,
 ) : SignedOutData {
 
     override suspend fun forget(account: Account) {
@@ -64,5 +65,7 @@ class AccountDataCleaner @Inject constructor(
         keptUnread.keepOnly(ids)
         baselines.keepOnly(ids)
         feed.keepOnly(ids + ids.map { STARRED_PREFIX + it })
+        // The account's repositories, private ones among them.
+        yourRepos.keepOnly(ids)
     }
 }

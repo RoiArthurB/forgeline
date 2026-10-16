@@ -68,7 +68,15 @@ private val RowTextStart = 60.dp
  */
 /** [forge] shows the repository's forge (its logo), for lists mixing several. */
 @Composable
-fun RepoSummaryRow(repo: RepoSummary, onOpenRepo: (RepoId) -> Unit, showOwner: Boolean = true, forge: ForgeInstance? = null) {
+fun RepoSummaryRow(
+    repo: RepoSummary,
+    onOpenRepo: (RepoId) -> Unit,
+    showOwner: Boolean = true,
+    forge: ForgeInstance? = null,
+    highlight: String = "",
+    /** Set where a list is ordered by last push: each row then says when, and its stars only when it has some. */
+    pushedNowMillis: Long? = null,
+) {
     val colors = Soft.colors
     Row(
         RowModifier.softPressable { onOpenRepo(repo.id) }.rowHairline(start = if (showOwner) RowTextStart else 16.dp).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
@@ -93,6 +101,12 @@ fun RepoSummaryRow(repo: RepoSummary, onOpenRepo: (RepoId) -> Unit, showOwner: B
                 buildAnnotatedString {
                     withStyle(SpanStyle(color = colors.inkMuted)) { append("${repo.id.owner}/") }
                     append(repo.id.name)
+                    // What was typed to find it, marked where it shows in the name.
+                    highlight.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.forEach { word ->
+                        Regex(Regex.escape(word), RegexOption.IGNORE_CASE).findAll(repo.id.fullName).forEach { match ->
+                            addStyle(SpanStyle(background = colors.accentSoft, color = colors.ink), match.range.first, match.range.last + 1)
+                        }
+                    }
                 },
                 style = Soft.type.name,
                 color = colors.ink,
@@ -126,7 +140,12 @@ fun RepoSummaryRow(repo: RepoSummary, onOpenRepo: (RepoId) -> Unit, showOwner: B
                         Text(language, style = Soft.type.meta, color = colors.inkMuted)
                     }
                 }
-                Text(stringResource(R.string.trending_stars, compactCount(repo.stars)), style = Soft.type.meta, color = colors.inkMuted)
+                if (pushedNowMillis == null || repo.stars > 0) {
+                    Text(stringResource(R.string.trending_stars, compactCount(repo.stars)), style = Soft.type.meta, color = colors.inkMuted)
+                }
+                if (pushedNowMillis != null) {
+                    (repo.pushedAt ?: repo.updatedAt)?.let { Text(stringResource(R.string.you_repos_pushed, relativeInSentence(it, pushedNowMillis)), style = Soft.type.meta, color = colors.inkMuted) }
+                }
                 if (!showOwner) forge?.let { ForgeMark(it, style = Soft.type.meta, color = colors.inkMuted) }
             }
         }

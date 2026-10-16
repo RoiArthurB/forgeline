@@ -336,6 +336,15 @@ class FakeUserApi : UserApi {
 
     override suspend fun starred(token: String?, login: String) = answer(token) { starred[login] ?: emptyList() }
 
+    /** Every repository the token reaches, and its organisations; each ask counted in [reachableAsked]. */
+    var reachable: List<RepoSummary> = emptyList()
+    var organizations: List<fr.arthurbrugiere.forgeline.core.model.UserSummary> = emptyList()
+    val reachableAsked = java.util.concurrent.atomic.AtomicInteger()
+
+    override suspend fun reachableRepos(token: String) = answer(token) { reachable.also { reachableAsked.incrementAndGet() } }
+
+    override suspend fun organizations(token: String) = answer(token) { organizations }
+
     override suspend fun isFollowing(token: String, login: String) = answer(token) { login in following }
 
     override suspend fun setFollowing(token: String, login: String, follow: Boolean) = answer(token) {

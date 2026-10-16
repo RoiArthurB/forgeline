@@ -142,4 +142,37 @@ class GitHubUserApiTest {
         assertThat(api { json("""{"message":"Not Found"}""", HttpStatusCode.NotFound) }.user(null, "nobody"))
             .isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "Not Found")))
     }
+
+    @Test
+    fun every_reachable_repository_is_read_page_by_page_by_last_push() = runTest {
+        val api = api { request ->
+            val page = request.url.parameters["page"]
+            val link = """<https://api.github.com/user/repos?page=3>; rel="last""""
+            when (page) {
+                "1" -> respond(
+                    """[{"full_name":"me/forgeline","pushed_at":"2026-10-16T13:58:28Z"},{"full_name":"ACROSS-Lab/GamaWebPlayer","private":false}]""",
+                    HttpStatusCode.OK, headersOf(HttpHeaders.ContentType to listOf("application/json"), HttpHeaders.Link to listOf(link)),
+                )
+                "2" -> json("""[{"full_name":"gama-platform/gama"}]""")
+                else -> json("""[{"full_name":"ACROSS-Lab/a-private-one","private":true}]""")
+            }
+        }
+
+        val repos = api.reachableRepos("tok").value()
+
+        assertThat(repos.map { it.id.fullName }).containsExactly("me/forgeline", "ACROSS-Lab/GamaWebPlayer", "gama-platform/gama", "ACROSS-Lab/a-private-one").inOrder()
+        assertThat(repos.first().pushedAt).isEqualTo(java.time.Instant.parse("2026-10-16T13:58:28Z"))
+        assertThat(requests.first().url.parameters["affiliation"]).isEqualTo("owner,collaborator,organization_member")
+        assertThat(requests.first().url.parameters["sort"]).isEqualTo("pushed")
+        assertThat(requests.map { it.url.parameters["page"] }).containsExactly("1", "2", "3")
+    }
+
+    @Test
+    fun one_s_organisations_are_listed() = runTest {
+        val orgs = api { json("""[{"login":"ACROSS-Lab","avatar_url":"https://avatars.example/across"}]""") }.organizations("tok").value()
+
+        assertThat(requests.single().url.encodedPath).isEqualTo("/user/orgs")
+        assertThat(orgs.single().login).isEqualTo("ACROSS-Lab")
+        assertThat(orgs.single().isOrganization).isTrue()
+    }
 }

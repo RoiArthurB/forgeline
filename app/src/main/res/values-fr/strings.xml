@@ -614,6 +614,32 @@
     <string name="user_error_title">Impossible d’ouvrir ce profil</string>
     <string name="user_follow_failed">Le suivi n’a pas pu être mis à jour. Réessayez.</string>
     <string name="no_app_for_link">Aucune application de ce téléphone n’ouvre ce lien</string>
+    <string name="you_repos_loading">Chargement de vos dépôts</string>
+    <string name="you_repos_error_title">Vos dépôts n’ont pas pu être chargés</string>
+    <string name="you_repos_refresh_failed">Vos dépôts n’ont pas pu être actualisés</string>
+    <string name="you_repos_pushed">Poussé %1$s</string>
+    <string name="you_repos_clear">Effacer</string>
+    <string name="you_repos_all">Tous</string>
+    <string name="you_repos_yours">Vous</string>
+    <string name="you_repos_open_owner">Ouvrir la page de %1$s</string>
+    <string name="you_repos_none_title">Aucun dépôt ici</string>
+    <string name="you_repos_none_body">Aucun de vos dépôts ne correspond à « %1$s ».</string>
+    <string name="you_repos_none_owner">Vous n’avez accès à aucun de ses dépôts.</string>
+    <plurals name="you_repos_find">
+        <item quantity="one">Chercher parmi votre %d dépôt</item>
+        <item quantity="many">Chercher parmi vos %d dépôts</item>
+        <item quantity="other">Chercher parmi vos %d dépôts</item>
+    </plurals>
+    <plurals name="you_repos_count">
+        <item quantity="one">%1$d sur %2$d</item>
+        <item quantity="many">%1$d sur %2$d</item>
+        <item quantity="other">%1$d sur %2$d</item>
+    </plurals>
+    <plurals name="you_repos_count_of_owner">
+        <item quantity="one">%1$d sur %2$d chez %3$s</item>
+        <item quantity="many">%1$d sur %2$d chez %3$s</item>
+        <item quantity="other">%1$d sur %2$d chez %3$s</item>
+    </plurals>
     <string name="user_organization">Organisation</string>
     <string name="no_browser">Aucun navigateur disponible pour ouvrir cette page</string>
     <string name="search">Rechercher</string>

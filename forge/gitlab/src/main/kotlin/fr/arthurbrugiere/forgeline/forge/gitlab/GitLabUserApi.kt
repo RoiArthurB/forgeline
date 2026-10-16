@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.StarApi
@@ -76,6 +77,30 @@ class GitLabUserApi(
             query = mapOf("order_by" to "updated_at", "sort" to "desc", "per_page" to "30"),
         )
         groupProjectsRes.toResult { body<List<GitLabProjectJson>>().map { it.toSummary(forge) } }
+    }
+
+    /** Every project one is a member of, by last activity; the pages after the first are asked all at once. */
+    override suspend fun reachableRepos(token: String): ForgeResult<List<RepoSummary>> = gitlabCall {
+        val query = mapOf("membership" to "true", "order_by" to "last_activity_at", "sort" to "desc", "per_page" to "100")
+        val first = httpClient.gitlabApi(forge, token, "projects", query = query + ("page" to "1"))
+        if (!first.status.isSuccess()) return@gitlabCall first.failure()
+        val last = (first.lastPage() ?: 1).coerceAtMost(MAX_REACHABLE_PAGES)
+        val rest = coroutineScope {
+            (2..last).map { page ->
+                async {
+                    runCatching {
+                        httpClient.gitlabApi(forge, token, "projects", query = query + ("page" to "$page"))
+                            .takeIf { it.status.isSuccess() }?.body<List<GitLabProjectJson>>()
+                    }.getOrNull().orEmpty()
+                }
+            }.awaitAll().flatten()
+        }
+        ForgeResult.Success((first.body<List<GitLabProjectJson>>() + rest).map { it.toSummary(forge) }.distinctBy { it.id })
+    }
+
+    override suspend fun organizations(token: String): ForgeResult<List<UserSummary>> = gitlabCall {
+        httpClient.gitlabApi(forge, token, "groups", query = mapOf("min_access_level" to "10", "per_page" to "100"))
+            .toResult { body<List<GitLabGroupJson>>().map { it.toSummary(forge) } }
     }
 
     override suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>> = gitlabCall {
@@ -174,3 +199,6 @@ class GitLabStarApi(
 
 @Serializable
 private data class GitLabNotificationLevelJson(val level: String = "")
+
+/** Ten pages of a hundred: past a thousand projects, those left alone longest are left out. */
+private const val MAX_REACHABLE_PAGES = 10

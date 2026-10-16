@@ -109,8 +109,10 @@ class TranslationsTest {
         composeRule.setContent { ForgelineTheme { YouScreen(SessionState.SignedIn(account), onSignIn = {}, onOpenSettings = {}) } }
 
         composeRule.onNodeWithText("Vous").assertIsDisplayed()
-        composeRule.onNodeWithText("Réglages").assertIsDisplayed()
-        composeRule.onNodeWithText("Settings").assertDoesNotExist()
+        // Settings is the header's icon now: its name is read out, in French.
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Réglages")).assertIsDisplayed()
+        composeRule.onNodeWithText("Ajouter un compte").assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Settings")).assertDoesNotExist()
     }
 
     @Test

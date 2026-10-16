@@ -1,5 +1,10 @@
 package fr.arthurbrugiere.forgeline.you
 
+import androidx.compose.ui.test.onAllNodesWithText
+import fr.arthurbrugiere.forgeline.core.model.matches
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -142,5 +147,112 @@ class YouScreenTest {
 
         composeRule.assertTextFits("@octocat")
         composeRule.assertTextFits("GitHub")
+    }
+
+    private val me = Account(Account.idFor(ForgeInstance.GitHub, "octocat"), ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null))
+
+    private fun repos(query: String = "", owner: String? = null, forges: List<ForgeInstance> = listOf(ForgeInstance.GitHub)): YouReposState {
+        val repos = forges.flatMap { forge ->
+            listOf("octocat/forgeline", "ACROSS-Lab/GamaWebPlayer", "ACROSS-Lab/EVEIL.Plus", "gama-platform/gama").map { full ->
+                val (o, n) = full.split('/')
+                fr.arthurbrugiere.forgeline.core.model.RepoSummary(fr.arthurbrugiere.forgeline.core.model.RepoId(o, n, forge), null, null, 0, 0, false, null)
+            }
+        }
+        val all = fr.arthurbrugiere.forgeline.core.model.YourRepos.of(
+            forges.map { ForgeUser("octocat", null, null) to it },
+            repos,
+            forges.flatMap { forge -> listOf("ACROSS-Lab", "gama-platform").map { fr.arthurbrugiere.forgeline.core.model.UserSummary(it, null, true, forge) } },
+            1L,
+        )
+        val picked = all.owners.firstOrNull { it.login == owner }
+        return YouReposState(all, query, picked, all.repos.filter { (picked == null || picked.owns(it)) && it.matches(query) })
+    }
+
+    @Test
+    fun every_reachable_repository_is_listed_and_opens() {
+        val opened = mutableListOf<String>()
+        composeRule.setContent { YouScreen(SessionState.SignedIn(me), onSignIn = {}, onOpenSettings = {}, repos = repos(), onOpenRepo = { opened += it.fullName }) }
+
+        composeRule.onNodeWithText("Find among your 4 repositories").assertIsDisplayed()
+        composeRule.onNodeWithText("EVEIL.Plus", substring = true).performClick()
+
+        assertThat(opened).containsExactly("ACROSS-Lab/EVEIL.Plus")
+    }
+
+    @Test
+    fun typing_searches_and_a_tap_on_an_owner_narrows_to_it_or_back_to_all() {
+        val typed = mutableListOf<String>()
+        val picked = mutableListOf<String?>()
+        composeRule.setContent {
+            YouScreen(
+                SessionState.SignedIn(me), onSignIn = {}, onOpenSettings = {}, repos = repos(),
+                onSearch = { typed += it }, onPickOwner = { picked += it?.login },
+            )
+        }
+
+        composeRule.onNodeWithText("Find among your 4 repositories").performTextInput("gama")
+        composeRule.onNodeWithText("ACROSS-Lab", useUnmergedTree = true).performClick()
+        composeRule.onNodeWithText("All", useUnmergedTree = true).performClick()
+
+        assertThat(typed).containsExactly("gama")
+        assertThat(picked).containsExactly("ACROSS-Lab", null).inOrder()
+    }
+
+    @Test
+    fun a_long_press_on_an_owner_opens_its_page() {
+        val opened = mutableListOf<String>()
+        composeRule.setContent { YouScreen(SessionState.SignedIn(me), onSignIn = {}, onOpenSettings = {}, repos = repos(), onOpenOwner = { opened += it.login }) }
+
+        composeRule.onNodeWithText("gama-platform", useUnmergedTree = true).performTouchInput { longClick() }
+
+        assertThat(opened).containsExactly("gama-platform")
+    }
+
+    @Test
+    fun a_narrowed_list_says_how_much_of_it_shows_and_where() {
+        composeRule.setContent { YouScreen(SessionState.SignedIn(me), onSignIn = {}, onOpenSettings = {}, repos = repos(query = "gama", owner = "ACROSS-Lab")) }
+
+        composeRule.onNodeWithText("1 of 2 in ACROSS-Lab").assertIsDisplayed()
+        composeRule.onNodeWithText("ACROSS-Lab/GamaWebPlayer", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("gama-platform/gama", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun nothing_matching_says_so() {
+        composeRule.setContent { YouScreen(SessionState.SignedIn(me), onSignIn = {}, onOpenSettings = {}, repos = repos(query = "unity")) }
+
+        composeRule.onNodeWithText("None of your repositories matches “unity”.").assertIsDisplayed()
+    }
+
+    @Test
+    fun owners_and_rows_carry_their_forge_once_several_are_signed_in() {
+        val codeberg = Account(Account.idFor(ForgeInstance.Codeberg, "octocat"), ForgeInstance.Codeberg, ForgeUser("octocat", "The Octocat", null))
+        composeRule.setContent {
+            YouScreen(SessionState.SignedIn(me, listOf(me, codeberg)), onSignIn = {}, onOpenSettings = {}, repos = repos(forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)))
+        }
+
+        // The same owner on two forges: each logo badged with its forge, as rows are elsewhere.
+        assertThat(composeRule.onAllNodes(androidx.compose.ui.test.hasContentDescription("Codeberg"), useUnmergedTree = true).fetchSemanticsNodes()).isNotEmpty()
+        assertThat(composeRule.onAllNodes(androidx.compose.ui.test.hasContentDescription("GitHub"), useUnmergedTree = true).fetchSemanticsNodes()).isNotEmpty()
+    }
+
+    @Test
+    fun with_one_forge_nothing_is_badged_and_you_are_called_you() {
+        composeRule.setContent { YouScreen(SessionState.SignedIn(me), onSignIn = {}, onOpenSettings = {}, repos = repos()) }
+
+        composeRule.onNodeWithContentDescription("GitHub", useUnmergedTree = true).assertDoesNotExist()
+        // The tab's title, and one's own logo among the owners.
+        assertThat(composeRule.onAllNodesWithText("You", useUnmergedTree = true).fetchSemanticsNodes()).hasSize(2)
+    }
+
+    @Test
+    fun settings_open_from_the_header() {
+        var opened = false
+        composeRule.setContent { YouScreen(SessionState.SignedIn(me), onSignIn = {}, onOpenSettings = { opened = true }, repos = repos()) }
+
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+
+        assertThat(opened).isTrue()
+        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 }

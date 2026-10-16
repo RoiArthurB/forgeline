@@ -191,4 +191,6 @@ data class RepoSummary(
     val ownerAvatarUrl: String? = null,
     /** Seen only by its owner and the people it's shared with. */
     val isPrivate: Boolean = false,
+    /** When code was last pushed to it, where the forge tells it apart from [updatedAt] (which a star also moves). */
+    val pushedAt: Instant? = null,
 )

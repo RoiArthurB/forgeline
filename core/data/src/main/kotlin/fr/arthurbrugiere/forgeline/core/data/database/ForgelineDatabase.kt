@@ -21,6 +21,8 @@ import fr.arthurbrugiere.forgeline.core.data.repo.RepoDao
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingDao
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingFetchEntity
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepoEntity
+import fr.arthurbrugiere.forgeline.core.data.yours.YourReposDao
+import fr.arthurbrugiere.forgeline.core.data.yours.YourReposEntity
 
 /**
  * Local cache: the UI renders from here first, the network only refreshes it. Rebuilt from nothing at every schema
@@ -36,8 +38,9 @@ import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepoEntity
         FeedEventEntity::class, FeedSyncEntity::class, ReadingMarkEntity::class, FeedPreviewEntity::class, SubjectStateEntity::class,
         ConversationEntity::class,
         DoneEntity::class,
+        YourReposEntity::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = true,
 )
 abstract class ForgelineDatabase : RoomDatabase() {
@@ -52,4 +55,6 @@ abstract class ForgelineDatabase : RoomDatabase() {
     abstract fun feedPreviewDao(): FeedPreviewDao
 
     abstract fun conversationDao(): ConversationDao
+
+    abstract fun yourReposDao(): YourReposDao
 }

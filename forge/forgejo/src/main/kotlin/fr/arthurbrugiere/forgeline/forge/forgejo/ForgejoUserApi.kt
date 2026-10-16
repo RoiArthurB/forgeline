@@ -62,6 +62,29 @@ class ForgejoUserApi(private val httpClient: HttpClient, private val forge: Forg
             .toResult { body<List<RepoJson>>().map { it.toSummary(forge) }.sortedByDescending { it.updatedAt } }
     }
 
+    /** Fifty at a time, Forgejo's largest page: the pages after the first are asked all at once, then sorted by update. */
+    override suspend fun reachableRepos(token: String): ForgeResult<List<RepoSummary>> = forgejoCall {
+        val first = httpClient.forgejoApi(forge, token, "user", "repos", query = mapOf("limit" to "$PAGE", "page" to "1"))
+        if (first.status != HttpStatusCode.OK) return@forgejoCall first.failure()
+        val pages = ((first.totalCount() ?: 0) + PAGE - 1) / PAGE
+        val rest = coroutineScope {
+            (2..pages.coerceAtMost(MAX_PAGES)).map { page ->
+                async {
+                    runCatching {
+                        httpClient.forgejoApi(forge, token, "user", "repos", query = mapOf("limit" to "$PAGE", "page" to "$page"))
+                            .takeIf { it.status == HttpStatusCode.OK }?.body<List<RepoJson>>()
+                    }.getOrNull().orEmpty()
+                }
+            }.awaitAll().flatten()
+        }
+        ForgeResult.Success((first.body<List<RepoJson>>() + rest).map { it.toSummary(forge) }.distinctBy { it.id }.sortedByDescending { it.updatedAt })
+    }
+
+    override suspend fun organizations(token: String): ForgeResult<List<UserSummary>> = forgejoCall {
+        httpClient.forgejoApi(forge, token, "user", "orgs", query = mapOf("limit" to "$PAGE"))
+            .toResult { body<List<OrgJson>>().map { UserSummary(it.username ?: it.name.orEmpty(), it.avatarUrl, isOrganization = true, forge = forge) }.filter { it.login.isNotEmpty() } }
+    }
+
     /** Codeberg only shows a person's stars to signed-in callers (401 anonymously, 2026-09-29). */
     override suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>> = forgejoCall {
         httpClient.forgejoApi(forge, token, "users", login, "starred", query = mapOf("limit" to "30"))
@@ -200,6 +223,13 @@ private data class ProfileJson(
     @SerialName("following_count") val following: Int = 0,
     val created: String? = null,
 )
+
+@Serializable
+private data class OrgJson(val username: String? = null, val name: String? = null, @SerialName("avatar_url") val avatarUrl: String? = null)
+
+/** Forgejo's largest page, and twenty of them at most: a thousand repositories. */
+private const val PAGE = 50
+private const val MAX_PAGES = 20
 
 @Serializable
 private data class ForgejoSubscriptionJson(val subscribed: Boolean = false)

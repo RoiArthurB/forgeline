@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.forge
 
+import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
@@ -140,6 +141,15 @@ interface UserApi {
     suspend fun repos(token: String?, login: String, mine: Boolean = false, organization: Boolean = false): ForgeResult<List<RepoSummary>>
 
     suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>>
+
+    /**
+     * Every repository the signed-in person can reach: their own, their organisations', and those shared with them,
+     * most recently pushed first. Up to a thousand or so: past that, the ones left alone longest are left out.
+     */
+    suspend fun reachableRepos(token: String): ForgeResult<List<RepoSummary>> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** The organisations (GitLab: groups) the signed-in person belongs to. */
+    suspend fun organizations(token: String): ForgeResult<List<UserSummary>> = ForgeResult.Success(emptyList())
 
     /** Whether the signed-in user follows [login]. */
     suspend fun isFollowing(token: String, login: String): ForgeResult<Boolean>

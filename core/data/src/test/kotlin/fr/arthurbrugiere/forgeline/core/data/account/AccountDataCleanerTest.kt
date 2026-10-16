@@ -59,7 +59,7 @@ class AccountDataCleanerTest {
     private val users = DefaultUserRepository(clients, accounts)
     private val drafts = InMemoryDraftStore()
     private val cleaner = AccountDataCleaner(
-        accounts, database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), database.feedDao(), database.repoDao(), database.feedPreviewDao(), conversations, users, drafts,
+        accounts, database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), database.feedDao(), database.repoDao(), database.feedPreviewDao(), conversations, users, drafts, database.yourReposDao(),
     )
 
     private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)
@@ -103,6 +103,17 @@ class AccountDataCleanerTest {
     private suspend fun signOut(account: Account) {
         accounts.signOut(account.id)
         cleaner.forget(account)
+    }
+
+    @Test
+    fun signing_out_deletes_the_account_s_list_of_repositories() = runTest {
+        val (gitHub, codeberg) = signInEverywhere()
+        listOf(gitHub, codeberg).forEach { database.yourReposDao().upsert(fr.arthurbrugiere.forgeline.core.data.yours.YourReposEntity(it.id, "{}", 1_000)) }
+
+        signOut(codeberg)
+
+        assertThat(database.yourReposDao().get(codeberg.id)).isNull()
+        assertThat(database.yourReposDao().get(gitHub.id)).isNotNull()
     }
 
     @Test

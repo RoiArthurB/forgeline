@@ -204,4 +204,23 @@ class GitLabUserApiTest {
         assertThat(requests.single().method).isEqualTo(HttpMethod.Post)
         assertThat(requests.single().url.encodedPath).endsWith("/fork")
     }
+
+    @Test
+    fun every_project_one_is_a_member_of_and_one_s_groups() = runTest {
+        val project = """{"id":1,"name":"runner","path":"runner","path_with_namespace":"acme/runner","web_url":"https://gitlab.com/acme/runner","visibility":"private"}"""
+        val api = userApi { req ->
+            when (req.url.encodedPath) {
+                "/api/v4/projects" -> respond("[$project]", HttpStatusCode.OK, headersOf(io.ktor.http.HttpHeaders.ContentType to listOf("application/json"), "X-Total-Pages" to listOf("1")))
+                else -> json("""[{"id":7,"name":"Acme","path":"acme","full_path":"acme"}]""")
+            }
+        }
+
+        val repos = api.reachableRepos("tok").value()
+        val groups = api.organizations("tok").value()
+
+        assertThat(requests.first().url.parameters["membership"]).isEqualTo("true")
+        assertThat(repos.single().id.fullName).isEqualTo("acme/runner")
+        assertThat(repos.single().isPrivate).isTrue()
+        assertThat(groups.single().login).isEqualTo("acme")
+    }
 }

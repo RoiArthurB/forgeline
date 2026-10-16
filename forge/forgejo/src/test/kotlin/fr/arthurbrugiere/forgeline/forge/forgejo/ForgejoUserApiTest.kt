@@ -259,4 +259,32 @@ class ForgejoUserApiTest {
         val patience = codeberg.requests.map { it.getCapabilityOrNull(io.ktor.client.plugins.HttpTimeoutCapability)?.socketTimeoutMillis }
         assertThat(patience).containsExactly(30_000L, null).inOrder()
     }
+
+    @Test
+    fun every_reachable_repository_is_read_fifty_at_a_time() = runTest {
+        val pages = java.util.concurrent.CopyOnWriteArrayList<String>()
+        val repo = { name: String -> """{"name":"$name","owner":{"login":"ana"},"updated_at":"2026-10-0${name.last()}T10:00:00Z"}""" }
+        val api = with(codeberg) {
+            ForgejoUserApi(
+                client {
+                    when (it.url.encodedPath) {
+                        "/api/v1/user/repos" -> {
+                            val page = it.url.parameters["page"]!!
+                            pages += page
+                            json(if (page == "1") "[${repo("r1")}]" else "[${repo("r2")}]", headers = mapOf("X-Total-Count" to "51"))
+                        }
+                        else -> json("""[{"username":"forgejo","avatar_url":"https://codeberg.org/avatars/forgejo"}]""")
+                    }
+                },
+                ForgeInstance.Codeberg,
+            )
+        }
+
+        val repos = api.reachableRepos("tok").value()
+
+        assertThat(pages).containsExactly("1", "2")
+        // Forgejo can't sort this list: it's sorted here, latest first.
+        assertThat(repos.map { it.id.name }).containsExactly("r2", "r1").inOrder()
+        assertThat(api.organizations("tok").value().map { it.login }).containsExactly("forgejo")
+    }
 }

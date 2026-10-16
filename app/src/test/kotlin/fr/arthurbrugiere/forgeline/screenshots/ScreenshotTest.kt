@@ -42,6 +42,8 @@ import fr.arthurbrugiere.forgeline.signin.SignInScreen
 import fr.arthurbrugiere.forgeline.signin.SignInStep
 import fr.arthurbrugiere.forgeline.signin.SignInUiState
 import fr.arthurbrugiere.forgeline.you.YouScreen
+import fr.arthurbrugiere.forgeline.core.model.matches
+import fr.arthurbrugiere.forgeline.you.YouReposState
 import androidx.compose.foundation.background
 import fr.arthurbrugiere.forgeline.actions.DispatchContent
 import fr.arthurbrugiere.forgeline.actions.DispatchUiState
@@ -281,15 +283,46 @@ class ScreenshotTest {
         )
     }
 
+    /** Repositories one reaches, shaped like the owner's own (public ones, 2026-10-16), and whose they are. */
+    private fun yourRepos(forge: ForgeInstance = ForgeInstance.GitHub, codeberg: Boolean = false): fr.arthurbrugiere.forgeline.core.model.YourRepos {
+        fun repo(full: String, language: String?, pushed: String, private: Boolean = false, on: ForgeInstance = forge): RepoSummary {
+            val (owner, name) = full.split('/')
+            return RepoSummary(RepoId(owner, name, on), null, language, 0, 0, false, null, isPrivate = private, pushedAt = java.time.Instant.parse(pushed))
+        }
+        val repos = listOf(
+            repo("octocat/forgeline", "Kotlin", "2026-09-27T09:58:00Z"),
+            repo("project-SIMPLE/adb-auto-enable", "Java", "2026-09-27T09:35:00Z"),
+            repo("gama-platform/gama", "Java", "2026-09-27T06:59:00Z"),
+            repo("ACROSS-Lab/EVEIL.Plus", "C#", "2026-09-27T06:52:00Z"),
+            repo("ACROSS-Lab/GamaWebPlayer", null, "2026-09-27T06:04:00Z"),
+            repo("ACROSS-Lab/an-internal-tool", "Python", "2026-09-26T08:00:00Z", private = true),
+            repo("gama-platform/gama.docker", "Dockerfile", "2026-09-12T03:13:00Z"),
+        ) + if (codeberg) listOf(repo("octocat/dotfiles", "Shell", "2026-09-27T08:00:00Z", on = ForgeInstance.Codeberg)) else emptyList()
+        val orgs = listOf("ACROSS-Lab", "project-SIMPLE", "gama-platform").map { fr.arthurbrugiere.forgeline.core.model.UserSummary(it, null, true, forge) }
+        val accounts = listOf(ForgeUser("octocat", "The Octocat", null) to forge) + if (codeberg) listOf(ForgeUser("octocat", "The Octocat", null) to ForgeInstance.Codeberg) else emptyList()
+        return fr.arthurbrugiere.forgeline.core.model.YourRepos.of(accounts, repos, orgs, 1L)
+    }
+
+    private fun youRepos(query: String = "", owner: String? = null, codeberg: Boolean = false): YouReposState {
+        val all = yourRepos(codeberg = codeberg)
+        val picked = all.owners.firstOrNull { it.login == owner }
+        return YouReposState(all, query, picked, all.repos.filter { (picked == null || picked.owns(it)) && it.matches(query) })
+    }
+
     @Test
     fun you_signed_in_light() = snapshot("you_signed_in_light", darkTheme = false) {
-        YouScreen(SessionState.SignedIn(octocat), onSignIn = {}, onOpenSettings = {})
+        YouScreen(SessionState.SignedIn(octocat), onSignIn = {}, onOpenSettings = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(), repos = youRepos())
+    }
+
+    @Test
+    fun you_repos_found_dark() = snapshot("you_repos_found_dark", darkTheme = true) {
+        YouScreen(SessionState.SignedIn(octocat), onSignIn = {}, onOpenSettings = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(), repos = youRepos(query = "gama", owner = "ACROSS-Lab"))
     }
 
     @Test
     @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
     fun you_signed_in_font_2_0_light() = snapshot("you_signed_in_font_2_0_light", darkTheme = false) {
-        YouScreen(SessionState.SignedIn(octocat), onSignIn = {}, onOpenSettings = {})
+        YouScreen(SessionState.SignedIn(octocat), onSignIn = {}, onOpenSettings = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(), repos = youRepos())
     }
 
     @Test
@@ -308,7 +341,7 @@ class ScreenshotTest {
         val codeberg = Account(Account.idFor(ForgeInstance.Codeberg, "octocat"), ForgeInstance.Codeberg, ForgeUser("octocat", "The Octocat", null))
         val selfHosted = ForgeInstance(ForgeType.FORGEJO, "git.example.org")
         val home = Account(Account.idFor(selfHosted, "octo"), selfHosted, ForgeUser("octo", null, null))
-        YouScreen(SessionState.SignedIn(octocat, listOf(octocat, codeberg, home)), onSignIn = {}, onOpenSettings = {})
+        YouScreen(SessionState.SignedIn(octocat, listOf(octocat, codeberg, home)), onSignIn = {}, onOpenSettings = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(), repos = youRepos(codeberg = true))
     }
 
     // Synthetic list: plausible names, languages and counts, not real GitHub data.

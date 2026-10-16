@@ -632,6 +632,29 @@
     <string name="user_error_title">Couldn\'t open this profile</string>
     <string name="user_follow_failed">Couldn\'t update following. Try again.</string>
     <string name="no_app_for_link">No app on this phone opens that link</string>
+    <string name="you_repos_loading">Loading your repositories</string>
+    <string name="you_repos_error_title">Your repositories couldn\'t be loaded</string>
+    <string name="you_repos_refresh_failed">Your repositories couldn\'t be refreshed</string>
+    <string name="you_repos_pushed">Pushed %1$s</string>
+    <string name="you_repos_clear">Clear</string>
+    <string name="you_repos_all">All</string>
+    <string name="you_repos_yours">You</string>
+    <string name="you_repos_open_owner">Open %1$s\'s page</string>
+    <string name="you_repos_none_title">No repository here</string>
+    <string name="you_repos_none_body">None of your repositories matches “%1$s”.</string>
+    <string name="you_repos_none_owner">You can\'t reach any of its repositories.</string>
+    <plurals name="you_repos_find">
+        <item quantity="one">Find among your %d repository</item>
+        <item quantity="other">Find among your %d repositories</item>
+    </plurals>
+    <plurals name="you_repos_count">
+        <item quantity="one">%1$d of %2$d</item>
+        <item quantity="other">%1$d of %2$d</item>
+    </plurals>
+    <plurals name="you_repos_count_of_owner">
+        <item quantity="one">%1$d of %2$d in %3$s</item>
+        <item quantity="other">%1$d of %2$d in %3$s</item>
+    </plurals>
     <string name="user_organization">Organization</string>
 
     <string name="no_browser">No browser available to open this page</string>
