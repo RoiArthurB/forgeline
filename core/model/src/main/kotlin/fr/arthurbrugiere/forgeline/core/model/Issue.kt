@@ -175,6 +175,8 @@ data class UserProfile(
     val publicRepos: Int,
     val isOrganization: Boolean,
     val createdAt: Instant?,
+    /** Where else to find them: email, social accounts, chat. The [website] is apart. */
+    val links: List<ProfileLink> = emptyList(),
 )
 
 data class RepoSummary(

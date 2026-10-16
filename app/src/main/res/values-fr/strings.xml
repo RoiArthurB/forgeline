@@ -611,6 +611,7 @@
     <string name="user_no_starred">Aucun dépôt étoilé.</string>
     <string name="user_error_title">Impossible d’ouvrir ce profil</string>
     <string name="user_follow_failed">Le suivi n’a pas pu être mis à jour. Réessayez.</string>
+    <string name="no_app_for_link">Aucune application de ce téléphone n’ouvre ce lien</string>
     <string name="user_organization">Organisation</string>
     <string name="no_browser">Aucun navigateur disponible pour ouvrir cette page</string>
     <string name="search">Rechercher</string>

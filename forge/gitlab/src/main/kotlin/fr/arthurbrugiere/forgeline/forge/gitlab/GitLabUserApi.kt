@@ -34,9 +34,17 @@ class GitLabUserApi(
             val users = userRes.body<List<GitLabUserJson>>()
             val user = users.firstOrNull { it.username.equals(login, ignoreCase = true) }
             if (user != null) {
-                val reposRes = httpClient.gitlabApi(forge, token, "users", user.id.toString(), "projects", query = mapOf("per_page" to "1"))
-                val reposCount = reposRes.totalCount() ?: 0
-                return@gitlabCall ForgeResult.Success(user.toProfile(reposCount))
+                // A lookup by username answers only the name and avatar: the bio, website and links come with the id.
+                return@gitlabCall coroutineScope {
+                    val full = async {
+                        runCatching {
+                            httpClient.gitlabApi(forge, token, "users", user.id.toString()).takeIf { it.status.isSuccess() }?.body<GitLabUserJson>()
+                        }.getOrNull()
+                    }
+                    val reposRes = httpClient.gitlabApi(forge, token, "users", user.id.toString(), "projects", query = mapOf("per_page" to "1"))
+                    val reposCount = reposRes.totalCount() ?: 0
+                    ForgeResult.Success((full.await() ?: user).toProfile(reposCount))
+                }
             }
         }
 

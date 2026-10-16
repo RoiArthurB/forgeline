@@ -11,6 +11,25 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import fr.arthurbrugiere.forgeline.R
 
+/**
+ * Opens a link of any kind: a web page in a Custom Tab over the app, anything else (an email address, an XMPP account)
+ * in the app that handles it.
+ */
+@Composable
+fun rememberLinkOpener(): (String) -> Unit {
+    val context = LocalContext.current
+    return remember(context) { { url -> openLink(context, url) } }
+}
+
+fun openLink(context: Context, url: String) {
+    if (url.startsWith("https://") || url.startsWith("http://")) return openInCustomTab(context, url)
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).apply { if (context !is android.app.Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+    } catch (e: ActivityNotFoundException) {
+        Toast.makeText(context, R.string.no_app_for_link, Toast.LENGTH_SHORT).show()
+    }
+}
+
 /** Opens forge pages we can't render natively (login, token creation) in a Custom Tab over the app. */
 @Composable
 fun rememberCustomTabOpener(): (String) -> Unit {

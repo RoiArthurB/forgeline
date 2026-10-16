@@ -66,6 +66,33 @@ class GitLabUserApiTest {
     }
 
     @Test
+    fun a_person_s_full_profile_and_links_come_from_their_id() = runTest {
+        // A lookup by username answers only the name and avatar (checked 2026-10-16): the rest comes with the id.
+        val api = userApi { req ->
+            when {
+                req.url.encodedPath.endsWith("/projects") -> respond("[]", HttpStatusCode.OK, headersOf("X-Total" to listOf("3")))
+                req.url.encodedPath == "/api/v4/users/123" -> json(
+                    """{"id":123,"username":"tanuki","name":"Tanuki","bio":"GitLab mascot","website_url":"https://tanuki.dev","organization":"GitLab",""" +
+                        """"public_email":"tanuki@example.org","twitter":"tanuki","linkedin":"","discord":"81384788765712384","github":"tanuki-gh"}""",
+                )
+                else -> json("""[{"id":123,"username":"tanuki","name":"Tanuki"}]""")
+            }
+        }
+
+        val profile = api.user("tok", "tanuki").value()
+
+        assertThat(profile.bio).isEqualTo("GitLab mascot")
+        assertThat(profile.company).isEqualTo("GitLab")
+        assertThat(profile.website).isEqualTo("https://tanuki.dev")
+        assertThat(profile.links.map { it.kind to it.url }).containsExactly(
+            fr.arthurbrugiere.forgeline.core.model.LinkKind.EMAIL to "mailto:tanuki@example.org",
+            fr.arthurbrugiere.forgeline.core.model.LinkKind.X to "https://x.com/tanuki",
+            fr.arthurbrugiere.forgeline.core.model.LinkKind.GITHUB to "https://github.com/tanuki-gh",
+            fr.arthurbrugiere.forgeline.core.model.LinkKind.DISCORD to "https://discord.com/users/81384788765712384",
+        ).inOrder()
+    }
+
+    @Test
     fun fetches_group_profile_when_user_not_found() = runTest {
         val api = userApi { req ->
             if (req.url.encodedPath == "/api/v4/users") {

@@ -35,9 +35,38 @@ class UserScreenTest {
                 state = state, signedIn = signedIn, onBack = {},
                 onSelectTab = { events += "tab:$it" }, onRetry = {}, onToggleFollow = { events += "follow" },
                 onSignIn = { events += "signin" }, onOpenRepo = { events += "repo:${it.fullName}" },
-                onOpenUrl = {}, onFollowFailureShown = {},
+                onOpenUrl = { events += "url:$it" }, onFollowFailureShown = {},
             )
         }
+    }
+
+    private val linked = base.copy(
+        profile = base.profile!!.copy(
+            links = listOfNotNull(
+                fr.arthurbrugiere.forgeline.core.model.ProfileLink.email("octocat@example.org"),
+                fr.arthurbrugiere.forgeline.core.model.ProfileLink.of("https://matrix.to/#/@octocat:matrix.org"),
+                fr.arthurbrugiere.forgeline.core.model.ProfileLink.of("https://fosstodon.org/@octocat"),
+            ),
+        ),
+    )
+
+    @Test
+    fun each_link_shows_how_people_write_it_and_opens_where_it_points() {
+        setContent(linked)
+
+        composeRule.onNodeWithText("@octocat@fosstodon.org").assertIsDisplayed()
+        composeRule.onNodeWithText("@octocat:matrix.org").performClick()
+        composeRule.onNodeWithText("octocat@example.org").performClick()
+
+        assertThat(events).containsExactly("url:https://matrix.to/#/@octocat:matrix.org", "url:mailto:octocat@example.org").inOrder()
+    }
+
+    @Test
+    fun a_link_says_its_service_to_screen_readers_since_only_its_logo_shows_it() {
+        setContent(linked)
+
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Mastodon, @octocat@fosstodon.org")).assertExists()
+        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 
     @Test

@@ -1,5 +1,14 @@
 package fr.arthurbrugiere.forgeline.user
 
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.style.TextOverflow
+import fr.arthurbrugiere.forgeline.ui.rememberLinkOpener
+import fr.arthurbrugiere.forgeline.core.ui.format.iconRes
+import fr.arthurbrugiere.forgeline.core.model.LinkKind
+import androidx.compose.material.icons.outlined.MailOutline
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.graphics.painter.Painter
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
@@ -83,7 +92,7 @@ fun UserRoute(
         it.create(route.forge, route.login)
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val openUrl = rememberCustomTabOpener()
+    val openUrl = rememberLinkOpener()
     UserScreen(
         state = state,
         signedIn = session.signedInOn(route.forge),
@@ -213,6 +222,20 @@ private fun Header(
             val url = if (site.startsWith("http")) site else "https://$site"
             Detail(Icons.Outlined.Link, site.removePrefix("https://").removePrefix("http://"), Modifier.clip(SoftTokens.Pill).clickable { onOpenUrl(url) }, link = true)
         }
+        // Each other place by its logo and the way people write it ("@ana@mastodon.social"); the service's name is read
+        // out with it, since the logo is the only place it's written.
+        profile.links.forEach { link ->
+            val icon = link.kind.iconRes?.let { painterResource(it) } ?: rememberVectorPainter(if (link.kind == LinkKind.EMAIL) Icons.Outlined.MailOutline else Icons.Outlined.Link)
+            Detail(
+                icon,
+                link.label,
+                Modifier
+                    .clip(SoftTokens.Pill)
+                    .clickable(onClickLabel = link.kind.displayName) { onOpenUrl(link.url) }
+                    .semantics(mergeDescendants = true) { contentDescription = "${link.kind.displayName}, ${link.label}" },
+                link = true,
+            )
+        }
         if (!profile.isOrganization) {
             Text(
                 stringResource(R.string.user_followers, compactCount(profile.followers), compactCount(profile.following)),
@@ -235,11 +258,14 @@ private fun Header(
 }
 
 @Composable
-private fun Detail(icon: ImageVector, text: String, modifier: Modifier = Modifier, link: Boolean = false) {
+private fun Detail(icon: ImageVector, text: String, modifier: Modifier = Modifier, link: Boolean = false) = Detail(rememberVectorPainter(icon), text, modifier, link)
+
+@Composable
+private fun Detail(icon: Painter, text: String, modifier: Modifier = Modifier, link: Boolean = false) {
     val colors = Soft.colors
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = if (link) colors.accent else colors.inkMuted)
-        Text(text, style = Soft.type.secondary, color = if (link) colors.accent else colors.ink)
+        Text(text, style = Soft.type.secondary, color = if (link) colors.accent else colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

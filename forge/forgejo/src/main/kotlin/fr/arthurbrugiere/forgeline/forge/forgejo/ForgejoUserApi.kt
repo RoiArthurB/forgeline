@@ -23,6 +23,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.SerialName
+import fr.arthurbrugiere.forgeline.core.model.ProfileLink
 import kotlinx.serialization.Serializable
 
 class ForgejoUserApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : UserApi {
@@ -48,6 +49,7 @@ class ForgejoUserApi(private val httpClient: HttpClient, private val forge: Forg
                     following = user.following,
                     publicRepos = repos.await() ?: 0,
                     isOrganization = org.await(),
+                    links = listOfNotNull(ProfileLink.email(user.email)),
                     createdAt = instant(user.created),
                 ),
             )
@@ -192,6 +194,8 @@ private data class ProfileJson(
     val description: String? = null,
     val location: String? = null,
     val website: String? = null,
+    /** The person's address when they made it public, else one on the server's noreply domain. */
+    val email: String? = null,
     @SerialName("followers_count") val followers: Int = 0,
     @SerialName("following_count") val following: Int = 0,
     val created: String? = null,

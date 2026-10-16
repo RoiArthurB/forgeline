@@ -629,6 +629,7 @@
     <string name="user_no_starred">No starred repositories.</string>
     <string name="user_error_title">Couldn\'t open this profile</string>
     <string name="user_follow_failed">Couldn\'t update following. Try again.</string>
+    <string name="no_app_for_link">No app on this phone opens that link</string>
     <string name="user_organization">Organization</string>
 
     <string name="no_browser">No browser available to open this page</string>

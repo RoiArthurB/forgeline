@@ -1326,7 +1326,17 @@ class ScreenshotTest {
         UserScreen(
             state = UserUiState(
                 login = "octocat",
-                profile = userProfile("octocat", name = "The Octocat").copy(location = "San Francisco", website = "https://github.blog"),
+                profile = userProfile("octocat", name = "The Octocat").copy(
+                    location = "San Francisco",
+                    website = "https://github.blog",
+                    links = listOfNotNull(
+                        fr.arthurbrugiere.forgeline.core.model.ProfileLink.email("octocat@example.org"),
+                        fr.arthurbrugiere.forgeline.core.model.ProfileLink.of("https://fosstodon.org/@octocat"),
+                        fr.arthurbrugiere.forgeline.core.model.ProfileLink.of("https://matrix.to/#/@octocat:matrix.org"),
+                        fr.arthurbrugiere.forgeline.core.model.ProfileLink.of("https://signal.me/#eu/abc"),
+                        fr.arthurbrugiere.forgeline.core.model.ProfileLink.of("https://bsky.app/profile/octocat.bsky.social"),
+                    ),
+                ),
                 repos = Loadable.Loaded(
                     listOf(
                         RepoSummary(RepoId("octocat", "Hello-World"), "My first repository on GitHub!", "Kotlin", 2_500, 10, false, null),

@@ -6,6 +6,10 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
+import fr.arthurbrugiere.forgeline.core.model.ProfileLink
+import fr.arthurbrugiere.forgeline.core.model.distinctPlaces
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
@@ -19,8 +23,20 @@ class GitHubUserApi(
     private val apiBaseUrl: String = "https://api.github.com",
 ) : UserApi {
 
+    /** The profile, and beside it the social accounts the person listed (organisations have none to list). */
     override suspend fun user(token: String?, login: String): ForgeResult<UserProfile> = gitHubCall {
-        httpClient.gitHubApi(apiBaseUrl, token, "users", login).toResult { body<ProfileJson>().toModel() }
+        coroutineScope {
+            val social = async {
+                runCatching {
+                    httpClient.gitHubApi(apiBaseUrl, token, "users", login, "social_accounts")
+                        .takeIf { it.status == HttpStatusCode.OK }?.body<List<SocialAccountJson>>()
+                }.getOrNull().orEmpty()
+            }
+            httpClient.gitHubApi(apiBaseUrl, token, "users", login).toResult {
+                val profile = body<ProfileJson>()
+                profile.toModel().copy(links = profile.links(social.await()))
+            }
+        }
     }
 
     /**
@@ -59,6 +75,9 @@ class GitHubUserApi(
 }
 
 @Serializable
+private data class SocialAccountJson(val provider: String = "generic", val url: String)
+
+@Serializable
 private data class ProfileJson(
     val login: String,
     val name: String? = null,
@@ -72,7 +91,16 @@ private data class ProfileJson(
     @SerialName("public_repos") val publicRepos: Int = 0,
     val type: String = "User",
     @SerialName("created_at") val createdAt: String? = null,
+    val email: String? = null,
+    @SerialName("twitter_username") val twitterUsername: String? = null,
 ) {
+    /** The public email, the social accounts, then the X name GitHub keeps apart (once, if also listed). */
+    fun links(social: List<SocialAccountJson>): List<ProfileLink> = (
+        listOfNotNull(ProfileLink.email(email)) +
+            social.mapNotNull { ProfileLink.of(it.url, mastodon = it.provider == "mastodon") } +
+            listOfNotNull(twitterUsername?.ifBlank { null }?.let { ProfileLink.of("https://x.com/$it") })
+        ).distinctPlaces()
+
     fun toModel() = UserProfile(
         login = login,
         name = name?.ifBlank { null },

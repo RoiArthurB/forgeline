@@ -42,6 +42,25 @@ class ForgejoUserApiTest {
     }
 
     @Test
+    fun a_public_email_is_a_link_and_the_server_s_noreply_stand_in_is_not() = runTest {
+        fun api(email: String) = with(codeberg) {
+            ForgejoUserApi(
+                client {
+                    when {
+                        it.url.encodedPath.startsWith("/api/v1/orgs/") -> status(HttpStatusCode.NotFound)
+                        it.url.encodedPath.endsWith("/repos") -> json("[]")
+                        else -> json("""{"login":"ana","email":"$email"}""")
+                    }
+                },
+                ForgeInstance.Codeberg,
+            )
+        }
+
+        assertThat(api("ana@example.org").user(null, "ana").value().links.map { it.label }).containsExactly("ana@example.org")
+        assertThat(api("ana@noreply.codeberg.org").user(null, "ana").value().links).isEmpty()
+    }
+
+    @Test
     fun an_organization_is_known_by_its_orgs_page() = runTest {
         val api = with(codeberg) {
             ForgejoUserApi(

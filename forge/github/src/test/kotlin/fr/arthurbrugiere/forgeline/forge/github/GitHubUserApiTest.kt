@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.forge.github
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.LinkKind
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
@@ -39,6 +40,43 @@ class GitHubUserApiTest {
         assertThat(user.publicRepos).isEqualTo(8)
         assertThat(user.followers).isGreaterThan(20_000)
         assertThat(user.isOrganization).isFalse()
+    }
+
+    @Test
+    fun a_person_s_links_are_their_public_email_social_accounts_and_x_name() = runTest {
+        // The owner's own listed accounts are all "generic" on GitHub: Signal, XMPP and Matrix (2026-10-16).
+        val api = api { request ->
+            when (request.url.encodedPath) {
+                "/users/ana/social_accounts" -> json(
+                    """[{"provider":"generic","url":"https://signal.me/#eu/abc"},{"provider":"generic","url":"https://matrix.to/#/@ana:matrix.org"},""" +
+                        """{"provider":"mastodon","url":"https://social.example.org/users/ana"},{"provider":"twitter","url":"https://twitter.com/ana"}]""",
+                )
+                else -> json("""{"login":"ana","type":"User","email":"ana@example.org","twitter_username":"ana"}""")
+            }
+        }
+
+        val links = api.user("tok", "ana").value().links
+
+        assertThat(links.map { it.kind to it.label }).containsExactly(
+            LinkKind.EMAIL to "ana@example.org",
+            LinkKind.SIGNAL to "Signal",
+            LinkKind.MATRIX to "@ana:matrix.org",
+            LinkKind.MASTODON to "@ana@social.example.org",
+            // Listed and also kept as the X name: once.
+            LinkKind.X to "@ana",
+        ).inOrder()
+    }
+
+    @Test
+    fun an_organisation_has_no_social_accounts_to_list_and_still_loads() = runTest {
+        val api = api { request ->
+            if (request.url.encodedPath.endsWith("social_accounts")) json("""{"message":"Not Found"}""", HttpStatusCode.NotFound) else json(fixture("org.json"))
+        }
+
+        val org = api.user(null, "github").value()
+
+        assertThat(org.isOrganization).isTrue()
+        assertThat(org.links.map { it.kind }).doesNotContain(LinkKind.SIGNAL)
     }
 
     @Test

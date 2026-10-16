@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import fr.arthurbrugiere.forgeline.core.model.distinctPlaces
+import fr.arthurbrugiere.forgeline.core.model.LinkKind
+import fr.arthurbrugiere.forgeline.core.model.ProfileLink
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
@@ -366,7 +369,28 @@ internal data class GitLabUserJson(
     val followers: Int = 0,
     val following: Int = 0,
     @SerialName("created_at") val createdAt: String? = null,
+    /** The rest only comes with `/users/:id`, not with a lookup by username. */
+    val organization: String? = null,
+    @SerialName("public_email") val publicEmail: String? = null,
+    val linkedin: String? = null,
+    val twitter: String? = null,
+    val discord: String? = null,
+    val github: String? = null,
 ) {
+    /** GitLab keeps handles, not addresses (a Discord account is its number): each is made the link it names. */
+    fun links(): List<ProfileLink> = listOfNotNull(
+        ProfileLink.email(publicEmail),
+        twitter?.handleOn("https://x.com/"),
+        linkedin?.handleOn("https://www.linkedin.com/in/"),
+        github?.handleOn("https://github.com/"),
+        discord?.ifBlank { null }?.let { ProfileLink(LinkKind.DISCORD, "https://discord.com/users/$it", "Discord") },
+    ).distinctPlaces()
+
+    private fun String.handleOn(base: String): ProfileLink? {
+        val handle = trim().removePrefix("@").ifBlank { return null }
+        return ProfileLink.of(if (handle.contains("://")) handle else base + handle)
+    }
+
     fun toForgeUser(): ForgeUser = ForgeUser(
         login = username,
         name = name?.ifBlank { null },
@@ -378,7 +402,7 @@ internal data class GitLabUserJson(
         name = name?.ifBlank { null },
         avatarUrl = avatarUrl,
         bio = bio?.ifBlank { null },
-        company = null,
+        company = organization?.ifBlank { null },
         location = location?.ifBlank { null },
         website = websiteUrl?.ifBlank { null },
         followers = followers,
@@ -386,6 +410,7 @@ internal data class GitLabUserJson(
         publicRepos = publicRepos,
         isOrganization = false,
         createdAt = gitlabInstant(createdAt),
+        links = links(),
     )
 
     fun toSummary(forge: ForgeInstance = ForgeInstance.GitLab): UserSummary = UserSummary(
