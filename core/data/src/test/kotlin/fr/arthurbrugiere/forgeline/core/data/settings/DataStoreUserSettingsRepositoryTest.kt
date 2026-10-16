@@ -95,6 +95,7 @@ class DataStoreUserSettingsRepositoryTest {
     private val changed = UserSettings(
         themeMode = ThemeMode.DARK,
         amoledBlack = true,
+        headerStyle = fr.arthurbrugiere.forgeline.core.model.HeaderStyle.WHITE,
         inboxCheckInterval = InboxCheckInterval.HOUR_6,
         separateInboxPerForge = true,
         startTab = fr.arthurbrugiere.forgeline.core.model.StartTab.FEED,
@@ -136,6 +137,7 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(changed.shareTap).isNotEqualTo(defaults.shareTap)
         assertThat(changed.openAtUnread).isNotEqualTo(defaults.openAtUnread)
         assertThat(changed.readingMarks).isNotEqualTo(defaults.readingMarks)
+        assertThat(changed.headerStyle).isNotEqualTo(defaults.headerStyle)
     }
 
     @Test
@@ -160,6 +162,7 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(defaults.inboxSwipeLeft).isEqualTo(fr.arthurbrugiere.forgeline.core.model.SwipeAction.DONE)
         assertThat(defaults.undoDelay.millis).isEqualTo(5_000)
         assertThat(defaults.shareTap).isEqualTo(fr.arthurbrugiere.forgeline.core.model.ShareTap.SHARE)
+        assertThat(defaults.headerStyle).isEqualTo(fr.arthurbrugiere.forgeline.core.model.HeaderStyle.INK)
         assertThat(listOf(defaults.loadConversationsAhead, defaults.readElsewhereIsDone, defaults.doubleTapReaction, defaults.swipeToReply, defaults.openAtUnread, defaults.readingMarks)).doesNotContain(false)
     }
 
@@ -169,11 +172,13 @@ class DataStoreUserSettingsRepositoryTest {
         store.edit {
             it[stringPreferencesKey("start_tab")] = "DASHBOARD"
             it[stringPreferencesKey("undo_delay")] = "SEC_60"
+            it[stringPreferencesKey("header_style")] = "RAINBOW"
         }
 
         val settings = DataStoreUserSettingsRepository(store).settings.first()
 
         assertThat(settings.startTab).isEqualTo(fr.arthurbrugiere.forgeline.core.model.StartTab.AUTOMATIC)
         assertThat(settings.undoDelay).isEqualTo(fr.arthurbrugiere.forgeline.core.model.UndoDelay.SEC_5)
+        assertThat(settings.headerStyle).isEqualTo(fr.arthurbrugiere.forgeline.core.model.HeaderStyle.INK)
     }
 }

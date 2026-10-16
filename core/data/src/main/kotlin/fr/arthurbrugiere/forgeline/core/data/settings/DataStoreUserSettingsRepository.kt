@@ -36,6 +36,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
                 inboxSwipeLeft = choice(SWIPE_LEFT, defaults.inboxSwipeLeft),
                 undoDelay = choice(UNDO_DELAY, defaults.undoDelay),
                 shareTap = choice(SHARE_TAP, defaults.shareTap),
+                headerStyle = choice(HEADER_STYLE, defaults.headerStyle),
                 loadConversationsAhead = prefs[LOAD_AHEAD] ?: defaults.loadConversationsAhead,
                 readElsewhereIsDone = prefs[READ_ELSEWHERE] ?: defaults.readElsewhereIsDone,
                 doubleTapReaction = prefs[DOUBLE_TAP] ?: defaults.doubleTapReaction,
@@ -66,6 +67,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
             val wanted = change(prefs.toSettings())
             prefs[THEME_MODE] = wanted.themeMode.name
             prefs[AMOLED_BLACK] = wanted.amoledBlack
+            prefs[HEADER_STYLE] = wanted.headerStyle.name
             prefs[SEPARATE_INBOX] = wanted.separateInboxPerForge
             prefs[INBOX_CHECK] = wanted.inboxCheckInterval.name
             prefs[START_TAB] = wanted.startTab.name
@@ -117,6 +119,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
     private companion object {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val AMOLED_BLACK = booleanPreferencesKey("amoled_black")
+        val HEADER_STYLE = stringPreferencesKey("header_style")
         val SEPARATE_INBOX = booleanPreferencesKey("separate_inbox_per_forge")
         val MEASURED_TRENDING = stringSetPreferencesKey("measured_trending_hosts")
         val INBOX_CHECK = stringPreferencesKey("inbox_check_interval")
