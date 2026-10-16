@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import fr.arthurbrugiere.forgeline.core.ui.soft.animationsEnabled
+import androidx.compose.material.icons.outlined.Sync
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -31,24 +33,26 @@ import java.time.Instant
 
 /** An icon on a tile for a row: the file kind, a release, a run's state. */
 @Composable
-fun RowIcon(icon: ImageVector, background: Color, tint: Color = Soft.colors.ink, size: Dp = 36.dp) {
-    Box(Modifier.size(size).background(background, SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
+fun RowIcon(icon: ImageVector, background: Color, tint: Color = Soft.colors.ink, size: Dp = 36.dp, modifier: Modifier = Modifier) {
+    Box(modifier.size(size).background(background, SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
         Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(size / 2))
     }
 }
 
 /** A run's or job's state as a tile: fresh for success, warm for failure, quiet for the rest. */
 @Composable
-fun RunStatusIcon(status: RunStatus, conclusion: RunConclusion?, size: Dp = 36.dp) {
+fun RunStatusIcon(status: RunStatus, conclusion: RunConclusion?, size: Dp = 36.dp, modifier: Modifier = Modifier) {
     val colors = Soft.colors
     when {
-        status == RunStatus.IN_PROGRESS -> Box(Modifier.size(size).background(colors.fields[1], SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
+        // With the phone's animations off, the spinner stops on a broken arc: a still "running" glyph says it instead.
+        status == RunStatus.IN_PROGRESS && !animationsEnabled() -> RowIcon(Icons.Outlined.Sync, colors.fields[1], size = size, modifier = modifier)
+        status == RunStatus.IN_PROGRESS -> Box(modifier.size(size).background(colors.fields[1], SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(Modifier.size(size / 2), strokeWidth = 2.dp, color = colors.ink, trackColor = colors.fields[1])
         }
-        status == RunStatus.QUEUED -> RowIcon(Icons.Outlined.Schedule, colors.surface, colors.inkMuted, size)
-        conclusion == RunConclusion.SUCCESS -> RowIcon(Icons.Outlined.Check, colors.fields[2], size = size)
-        conclusion.failed -> RowIcon(Icons.Outlined.Close, colors.fields[0], colors.accent, size)
-        else -> RowIcon(Icons.Outlined.Block, colors.surface, colors.inkMuted, size)
+        status == RunStatus.QUEUED -> RowIcon(Icons.Outlined.Schedule, colors.surface, colors.inkMuted, size, modifier)
+        conclusion == RunConclusion.SUCCESS -> RowIcon(Icons.Outlined.Check, colors.fields[2], size = size, modifier = modifier)
+        conclusion.failed -> RowIcon(Icons.Outlined.Close, colors.fields[0], colors.accent, size, modifier)
+        else -> RowIcon(Icons.Outlined.Block, colors.surface, colors.inkMuted, size, modifier)
     }
 }
 

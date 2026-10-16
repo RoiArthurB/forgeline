@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import androidx.compose.ui.test.onAllNodesWithTag
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.compose.ui.test.assertIsDisplayed
@@ -158,5 +159,49 @@ class RunScreenTest {
     fun every_target_is_48dp_at_least() {
         setContent(failedRun)
         composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    @Test
+    fun the_jobs_heading_and_the_job_tiles_share_one_left_edge() {
+        // Regression: the tiles sat about 4dp right of "2 jobs".
+        setContent(failedRun)
+
+        val heading = composeRule.onNodeWithText("2 jobs").fetchSemanticsNode().boundsInRoot.left
+        val tiles = composeRule.onAllNodesWithTag(JOB_STATUS_TAG, useUnmergedTree = true).fetchSemanticsNodes().map { it.boundsInRoot.left }
+
+        assertThat(tiles).isNotEmpty()
+        tiles.forEach { assertThat(it).isWithin(0.5f).of(heading) }
+    }
+
+    private val runningJob = RunJob(3, "tests", RunStatus.IN_PROGRESS, null, start, null, emptyList())
+    private val runningRun = RunUiState(repo, 8, run = workflowRun(8, conclusion = null), jobs = listOf(runningJob))
+
+    private fun hasSpinner() = composeRule.onAllNodes(
+        androidx.compose.ui.test.SemanticsMatcher.expectValue(
+            androidx.compose.ui.semantics.SemanticsProperties.ProgressBarRangeInfo,
+            androidx.compose.ui.semantics.ProgressBarRangeInfo.Indeterminate,
+        ),
+        useUnmergedTree = true,
+    ).fetchSemanticsNodes().isNotEmpty()
+
+    @Test
+    fun a_running_job_spins_while_animations_play() {
+        setContent(runningRun)
+
+        assertThat(hasSpinner()).isTrue()
+    }
+
+    @Test
+    fun with_the_phone_s_animations_off_a_running_job_shows_a_still_glyph_not_a_frozen_arc() {
+        val resolver = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>().contentResolver
+        android.provider.Settings.Global.putFloat(resolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 0f)
+        try {
+            setContent(runningRun)
+
+            assertThat(hasSpinner()).isFalse()
+            composeRule.onNodeWithText("tests").assertExists()
+        } finally {
+            android.provider.Settings.Global.putFloat(resolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
+        }
     }
 }

@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.actions
 
+import androidx.compose.ui.platform.testTag
+import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import fr.arthurbrugiere.forgeline.ui.rememberNow
@@ -293,21 +295,25 @@ private fun RunActions(run: WorkflowRun, pending: RunAction?, onPerform: (RunAct
     }
 }
 
+internal const val JOB_STATUS_TAG = "job-status"
+
 @Composable
 private fun JobRow(job: RunJob, nowMillis: Long, onClick: () -> Unit) {
     val colors = Soft.colors
     val failedStep = job.steps.firstOrNull { it.conclusion.failed }
+    // A row like every list's: pressed edge to edge, its tile on the same 16dp line as the "4 jobs" heading above it.
+    // Regression: an inset press area put the tiles 4dp right of the heading.
     Row(
         Modifier
             .widthIn(max = SoftTokens.MaxReadingWidth)
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp)
             .softPressable(onClick = onClick)
-            .padding(12.dp),
+            .rowHairline(start = 64.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RunStatusIcon(job.status, job.conclusion)
-        Spacer(Modifier.width(14.dp))
+        RunStatusIcon(job.status, job.conclusion, modifier = Modifier.testTag(JOB_STATUS_TAG))
+        Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(job.name, style = Soft.type.body, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(
