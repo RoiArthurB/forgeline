@@ -67,7 +67,56 @@ class GitHubFeedApi(
      * 2026-10-01), so this goes in two steps: the stars are listed over REST, every page at once, then only those pushed
      * to since [since] are asked about, [BATCH] repositories per request, all requests together.
      */
-    override suspend fun starredActivity(token: String, since: Instant): ForgeResult<List<FeedEvent>> {
+    override suspend fun starredActivity(token: String, since: Instant): ForgeResult<List<FeedEvent>> = coroutineScope {
+        // GitHub's events no longer say when someone creates a repository (checked 2026-10-16: none in the whole public
+        // stream), though github.com's own dashboard still shows it: asked apart, and losing it never loses the rest.
+        val created = async { (gitHubCall { newRepositories(token, since) } as? ForgeResult.Success)?.value.orEmpty() }
+        when (val starred = starredReleases(token, since)) {
+            is ForgeResult.Success -> ForgeResult.Success(starred.value + created.await())
+            is ForgeResult.Failure -> starred
+        }
+    }
+
+    /**
+     * The repositories the people [token]'s owner follows and the organisations they belong to created since [since],
+     * forks left out (their own events say those), in one GraphQL request for the first [FOLLOWING_PAGE] people. An
+     * organisation's repository is signed by the organisation: GitHub doesn't say which member created it.
+     */
+    private suspend fun newRepositories(token: String, since: Instant): ForgeResult<List<FeedEvent>> {
+        val events = mutableListOf<FeedEvent>()
+        var after: String? = null
+        repeat(MAX_FOLLOWING_PAGES) { page ->
+            val result = httpClient.gitHubApi(
+                apiBaseUrl, token, "graphql", method = HttpMethod.Post,
+                body = buildJsonObject {
+                    put("query", if (page == 0) NEW_REPOSITORIES else NEW_REPOSITORIES_FOLLOWING)
+                    put("variables", buildJsonObject { put("after", after) })
+                },
+            ).toResult { body<NewRepositoriesResponse>() }
+            val viewer = when (result) {
+                is ForgeResult.Failure -> return if (events.isEmpty()) result else ForgeResult.Success(events)
+                is ForgeResult.Success -> result.value.data?.viewer ?: return ForgeResult.Success(events)
+            }
+            (viewer.following?.nodes.orEmpty() + viewer.organizations?.nodes.orEmpty()).forEach { owner ->
+                owner.repositories.nodes.forEach { repo ->
+                    val at = runCatching { Instant.parse(repo.createdAt) }.getOrNull()?.takeIf { it >= since } ?: return@forEach
+                    events += FeedEvent(
+                        "new-repo:${owner.login}/${repo.name}",
+                        ForgeUser(owner.login, null, owner.avatarUrl),
+                        RepoId(owner.login, repo.name),
+                        FeedAction.CreatedRepo(repo.description?.ifBlank { null }),
+                        at,
+                    )
+                }
+            }
+            val following = viewer.following ?: return ForgeResult.Success(events)
+            if (!following.pageInfo.hasNextPage) return ForgeResult.Success(events)
+            after = following.pageInfo.endCursor
+        }
+        return ForgeResult.Success(events)
+    }
+
+    private suspend fun starredReleases(token: String, since: Instant): ForgeResult<List<FeedEvent>> {
         val first = when (val result = gitHubCall { starredPage(token, 1) }) {
             is ForgeResult.Failure -> return result
             is ForgeResult.Success -> result.value
@@ -124,6 +173,18 @@ class GitHubFeedApi(
     }
 
     private companion object {
+        /** People asked per request: their three newest repositories each stay far within GraphQL's limits. */
+        const val FOLLOWING_PAGE = 100
+
+        /** 500 people followed at most: beyond that, the last ones followed are left out. */
+        const val MAX_FOLLOWING_PAGES = 5
+        const val NEWEST = "repositories(first: 3, orderBy: {field: CREATED_AT, direction: DESC}, isFork: false) { nodes { name description createdAt } }"
+        const val FOLLOWING = "following(first: $FOLLOWING_PAGE, after: \$after) { pageInfo { hasNextPage endCursor } nodes { login avatarUrl $NEWEST } }"
+
+        /** The first page also asks for the organisations, whose private repositories a member can see. */
+        const val NEW_REPOSITORIES = "query NewRepositories(\$after: String) { viewer { $FOLLOWING organizations(first: 100) { nodes { login avatarUrl $NEWEST } } } }"
+        const val NEW_REPOSITORIES_FOLLOWING = "query NewRepositories(\$after: String) { viewer { $FOLLOWING } }"
+
         /** 1,000 starred repositories at most: beyond that, the oldest stars are left out. */
         const val MAX_STARRED_PAGES = 10
 
@@ -135,6 +196,27 @@ class GitHubFeedApi(
         const val DISCUSSIONS = "discussions(first: 5, orderBy: {field: CREATED_AT, direction: DESC}) { nodes { number title createdAt category { slug } author { login avatarUrl } } }"
     }
 }
+
+@Serializable
+private data class NewRepositoriesResponse(val data: NewRepositoriesData? = null)
+
+@Serializable
+private data class NewRepositoriesData(val viewer: NewRepositoriesViewer? = null)
+
+@Serializable
+private data class NewRepositoriesViewer(val following: NewRepositoriesOwners? = null, val organizations: NewRepositoriesOwners? = null)
+
+@Serializable
+private data class NewRepositoriesPageInfo(val hasNextPage: Boolean = false, val endCursor: String? = null)
+
+@Serializable
+private data class NewRepositoriesOwners(val pageInfo: NewRepositoriesPageInfo = NewRepositoriesPageInfo(), val nodes: List<NewRepositoriesOwner> = emptyList())
+
+@Serializable
+private data class NewRepositoriesOwner(val login: String, val avatarUrl: String? = null, val repositories: PublishedNodes<NewRepositoryJson> = PublishedNodes())
+
+@Serializable
+private data class NewRepositoryJson(val name: String, val description: String? = null, val createdAt: String)
 
 @Serializable
 private data class StarOwnerJson(val login: String, @SerialName("avatar_url") val avatarUrl: String? = null)

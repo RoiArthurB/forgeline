@@ -43,7 +43,8 @@ interface FeedApi {
     /**
      * What the repositories the signed-in person starred published since [since]: each one's latest release and, where
      * the forge has them, its announcements. The forges' own feeds leave these out (they only cover people followed and
-     * repositories watched). It can take many seconds, so it is asked apart from [receivedEvents]. An announcement
+     * repositories watched). On GitHub, also the repositories the people followed and the organisations joined
+     * created, which its events stopped saying. It can take many seconds, so it is asked apart from [receivedEvents]. An announcement
      * posted with a release is left out: the release says it.
      */
     suspend fun starredActivity(token: String, since: Instant): ForgeResult<List<FeedEvent>> = ForgeResult.Success(emptyList())

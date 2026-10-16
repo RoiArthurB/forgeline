@@ -362,6 +362,19 @@ class DefaultFeedRepositoryTest {
     }
 
     @Test
+    fun a_new_repository_seen_in_the_events_and_asked_apart_shows_once() = runTest {
+        signIn()
+        api.pages[1] = listOf(feedEvent("78", actor = "lfpoulain", repo = "lfpoulain/wakeword-generator", createdAt = "2026-09-27T09:00:02Z", action = FeedAction.CreatedRepo("Wake words")))
+        api.starred = listOf(
+            feedEvent("new-repo:lfpoulain/wakeword-generator", actor = "lfpoulain", repo = "LFPoulain/wakeword-generator", createdAt = "2026-09-27T09:00:00Z", action = FeedAction.CreatedRepo("Wake words")),
+        )
+        repository.refresh(force = true)
+        repository.syncStarred()
+
+        assertThat(repository.observe().first().events.map { it.action }).containsExactly(FeedAction.CreatedRepo("Wake words"))
+    }
+
+    @Test
     fun starred_activity_older_than_the_loaded_feed_waits_for_its_page() = runTest {
         // Rows never appear below what's loaded: an old starred release shows once paging reaches its time.
         signIn()

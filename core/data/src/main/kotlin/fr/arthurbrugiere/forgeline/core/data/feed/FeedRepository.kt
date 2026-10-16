@@ -100,13 +100,17 @@ class DefaultFeedRepository @Inject constructor(
                 val horizon = states.filter { it.nextPage != null }
                     .mapNotNull { state -> mine.filter { it.accountId == state.accountId }.minOfOrNull { it.createdAtMillis } }
                     .maxOrNull()
-                // A release can come twice, from a watched repository's events and from the starred ones: it shows once.
+                // A release can come twice, from a watched repository's events and from the starred ones, and so can a
+                // new repository (GitHub's events used to say it; it's now asked apart): each shows once.
                 val releases = HashSet<String>()
+                val created = (mine + starred).filter { it.action == "created_repo" && !it.id.startsWith(NEW_REPO) }
+                    .mapTo(HashSet()) { "${it.host}/${it.owner}/${it.name}".lowercase() }
                 FeedSnapshot(
                     events = (mine + starred).filter { horizon == null || it.createdAtMillis >= horizon }
                         .sortedByDescending { it.createdAtMillis }
                         .mapNotNull { it.toModel() }
-                        .filter { event -> (event.action as? FeedAction.Released)?.let { releases.add("${event.repo.key}#${it.tag}") } ?: true },
+                        .filter { event -> (event.action as? FeedAction.Released)?.let { releases.add("${event.repo.key}#${it.tag}") } ?: true }
+                        .filter { event -> !event.id.startsWith(NEW_REPO) || created.add(event.repo.key.lowercase()) },
                     syncedAtMillis = states.takeIf { it.size == ids.size }?.minOfOrNull { it.syncedAtMillis },
                     hasMore = states.any { it.nextPage != null },
                 )
@@ -216,6 +220,9 @@ class DefaultFeedRepository @Inject constructor(
         const val DEFAULT_POLL_SECONDS = 60
 
         const val STARRED = STARRED_PREFIX
+
+        /** How the repositories GitHub's events no longer announce are named when they're asked apart. */
+        const val NEW_REPO = "new-repo:"
         const val STARRED_WINDOW_DAYS = 30L
         const val STARRED_INTERVAL_MILLIS = 30 * 60_000L
         const val STARRED_FORCED_MILLIS = 5 * 60_000L

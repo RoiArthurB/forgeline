@@ -34,8 +34,23 @@ class GitHubFeedApiTest {
     private fun MockRequestHandleScope.json(body: String, headers: Map<String, String> = emptyMap(), status: HttpStatusCode = HttpStatusCode.OK) =
         respond(body, status, headersOf(*(headers + (HttpHeaders.ContentType to "application/json")).map { it.key to listOf(it.value) }.toTypedArray()))
 
+    /** What GitHub answers when asked for the newest repositories of the people followed and organisations joined. */
+    private var newRepositories = """{"data":{"viewer":{"following":{"pageInfo":{"hasNextPage":false},"nodes":[]},"organizations":{"nodes":[]}}}}"""
+
     private fun api(handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData) =
-        GitHubFeedApi(gitHubHttpClient(MockEngine { requests += it; handler(it) }))
+        GitHubFeedApi(
+            gitHubHttpClient(
+                MockEngine {
+                    requests += it
+                    if (it.isNewRepositories()) json(newRepositories) else handler(it)
+                },
+            ),
+        )
+
+    private fun HttpRequestData.isNewRepositories() = url.encodedPath == "/graphql" && "NewRepositories" in text()
+
+    /** The starred repositories' own GraphQL requests. */
+    private fun HttpRequestData.isPublished() = url.encodedPath == "/graphql" && !isNewRepositories()
 
     private fun <T> ForgeResult<T>.value(): T = (this as ForgeResult.Success).value
 
@@ -172,7 +187,7 @@ class GitHubFeedApiTest {
 
         // One request of 100 repositories with releases and discussions timed out at GitHub (HTTP 504, 2026-10-01): the
         // stars are listed first, and only those pushed to since [since], not archived, are asked about.
-        val asked = requests.single { it.url.encodedPath == "/graphql" }.text()
+        val asked = requests.single { it.isPublished() }.text()
         assertThat(asked).contains("immich")
         assertThat(asked).contains("netbird")
         assertThat(asked).doesNotContain("quiet")
@@ -235,7 +250,7 @@ class GitHubFeedApiTest {
         }
 
         assertThat(batched.starredActivity("tok", since)).isEqualTo(ForgeResult.Success(emptyList<FeedEvent>()))
-        assertThat(requests.count { it.url.encodedPath == "/graphql" }).isEqualTo(3)
+        assertThat(requests.count { it.isPublished() }).isEqualTo(3)
     }
 
     @Test
@@ -259,5 +274,48 @@ class GitHubFeedApiTest {
         val result = api { json("{}", status = HttpStatusCode.Unauthorized) }.starredActivity("tok", since)
 
         assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+    }
+
+    @Test
+    fun repositories_created_by_people_followed_and_organisations_joined_come_with_the_stars() = runTest {
+        // GitHub's events stopped saying it (2026-10-16): asked of the people and organisations themselves.
+        newRepositories = """{"data":{"viewer":{
+          "following":{"pageInfo":{"hasNextPage":false,"endCursor":"c1"},"nodes":[
+            {"login":"lfpoulain","avatarUrl":"https://avatars.example/lfpoulain","repositories":{"nodes":[
+              {"name":"wakeword-generator","description":"Train a wake word in minutes","createdAt":"2026-09-28T21:40:43Z"},
+              {"name":"fastvideo","description":"","createdAt":"2026-08-05T18:26:14Z"}]}}]},
+          "organizations":{"nodes":[
+            {"login":"ACROSS-Lab","avatarUrl":"https://avatars.example/across","repositories":{"nodes":[
+              {"name":"GamaWebPlayer","description":null,"createdAt":"2026-09-30T10:04:05Z"}]}}]}}}}"""
+
+        val created = starredActivity().filter { it.action is FeedAction.CreatedRepo }
+
+        assertThat(created.map { Triple(it.actor.login, it.repo.fullName, it.action) }).containsExactly(
+            Triple("lfpoulain", "lfpoulain/wakeword-generator", FeedAction.CreatedRepo("Train a wake word in minutes")),
+            // An organisation's repository is signed by the organisation: GitHub doesn't say which member made it.
+            Triple("ACROSS-Lab", "ACROSS-Lab/GamaWebPlayer", FeedAction.CreatedRepo(null)),
+        )
+        assertThat(created.first().createdAt).isEqualTo(Instant.parse("2026-09-28T21:40:43Z"))
+        // Forks are left to their own events, which GitHub still sends.
+        assertThat(requests.single { it.isNewRepositories() }.text()).contains("isFork: false")
+    }
+
+    @Test
+    fun more_people_followed_than_a_page_holds_are_asked_page_by_page() = runTest {
+        newRepositories = """{"data":{"viewer":{"following":{"pageInfo":{"hasNextPage":true,"endCursor":"c1"},"nodes":[]},"organizations":{"nodes":[]}}}}"""
+        starredApi().starredActivity("tok", since)
+
+        val asked = requests.filter { it.isNewRepositories() }
+        // Five pages at most (500 people): the first page says there are more, and so do the next ones here.
+        assertThat(asked).hasSize(5)
+        assertThat(asked[1].text()).contains("\"after\":\"c1\"")
+        assertThat(asked[1].text()).doesNotContain("organizations")
+    }
+
+    @Test
+    fun new_repositories_failing_never_loses_the_starred_releases() = runTest {
+        newRepositories = "{"
+
+        assertThat(starredActivity().map { it.repo.name }).contains("netbird")
     }
 }
