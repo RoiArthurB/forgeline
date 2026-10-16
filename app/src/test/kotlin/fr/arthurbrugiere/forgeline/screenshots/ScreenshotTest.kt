@@ -1351,6 +1351,28 @@ class ScreenshotTest {
     }
 
     @Test
+    fun user_readme_light() = snapshot("user_readme_light", darkTheme = false, awaitText = "Hi, I'm Mona") {
+        UserScreen(
+            state = UserUiState(
+                login = "octocat",
+                profile = userProfile("octocat", name = "The Octocat"),
+                tab = UserTab.README,
+                readme = fr.arthurbrugiere.forgeline.core.model.ProfileReadme(
+                    RepoId("octocat", "octocat"),
+                    fr.arthurbrugiere.forgeline.core.model.Readme(
+                        "README.md",
+                        "## Hi, I'm Mona 👋\n\nI build small tools for **people who ship** from their phones.\n\n" +
+                            "- 🔭 Working on [Forgeline](https://github.com/RoiArthurB/forgeline)\n- 🌱 Learning Zig\n- 📫 Reach me on Matrix",
+                    ),
+                ),
+                repos = Loadable.Loaded(emptyList()),
+            ),
+            signedIn = true, onBack = {}, onSelectTab = {}, onRetry = {}, onToggleFollow = {}, onSignIn = {}, onOpenRepo = {},
+            onOpenUrl = {}, onFollowFailureShown = {},
+        )
+    }
+
+    @Test
     fun user_starred_light() = snapshot("user_starred_light", darkTheme = false) {
         UserScreen(
             state = UserUiState(

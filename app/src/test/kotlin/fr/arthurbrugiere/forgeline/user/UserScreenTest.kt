@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.user
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
@@ -49,6 +50,27 @@ class UserScreenTest {
             ),
         ),
     )
+
+    @Test
+    fun a_readme_is_offered_first_and_shown_in_its_tab() {
+        val readme = fr.arthurbrugiere.forgeline.core.model.ProfileReadme(
+            RepoId("octocat", "octocat"),
+            fr.arthurbrugiere.forgeline.core.model.Readme("README.md", "Hi, I build forges for phones."),
+        )
+        setContent(base.copy(readme = readme, tab = UserTab.README))
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithText("Hi, I build forges for phones.", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("README").assertIsDisplayed()
+        // The repositories wait behind their own tab.
+        composeRule.onNodeWithText("octocat/Hello-World", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun without_a_readme_there_is_no_readme_tab() {
+        setContent(base)
+
+        composeRule.onNodeWithText("README").assertDoesNotExist()
+    }
 
     @Test
     fun each_link_shows_how_people_write_it_and_opens_where_it_points() {

@@ -96,6 +96,9 @@ data class RepoDetails(
 
 data class Readme(val path: String, val markdown: String)
 
+/** The README a person or organisation shows on their profile, and the repository it lives in (for its pictures). */
+data class ProfileReadme(val repo: RepoId, val readme: Readme)
+
 /** Where a repository can be browsed: branches by name, tags newest version first. */
 data class GitRefs(val branches: List<String>, val tags: List<String>)
 

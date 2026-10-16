@@ -42,6 +42,54 @@ class DefaultUserRepositoryTest {
         assertThat(api.reposAsked).containsExactly("Me mine", "ACROSS-Lab organization", "octocat").inOrder()
     }
 
+    private val repoApi = fr.arthurbrugiere.forgeline.core.testing.FakeRepoApi()
+    private val clients = FakeForgeClients(users = api, repos = repoApi).also { all ->
+        // One fake answers for every forge here: each forge's keys say where they look.
+        all.put(ForgeInstance.Codeberg, FakeForgeClients(users = api, repos = repoApi))
+        all.put(ForgeInstance.GitLab, FakeForgeClients(users = api, repos = repoApi))
+    }
+    private val withRepos = DefaultUserRepository(clients, accounts)
+
+    @Test
+    fun a_person_s_readme_is_in_the_repository_named_after_them() = runTest {
+        val home = fr.arthurbrugiere.forgeline.core.model.RepoId("octocat", "octocat")
+        repoApi.readmes[home] = fr.arthurbrugiere.forgeline.core.model.Readme("README.md", "# Hi, I'm Octocat")
+
+        val found = withRepos.profileReadme(ForgeInstance.GitHub, "octocat", organization = false)
+
+        assertThat(found?.repo).isEqualTo(home)
+        assertThat(found?.readme?.markdown).isEqualTo("# Hi, I'm Octocat")
+    }
+
+    @Test
+    fun an_organisation_shows_its_members_the_private_readme_and_everyone_else_the_public_one() = runTest {
+        val public = fr.arthurbrugiere.forgeline.core.model.RepoId("acme", ".github")
+        val private = fr.arthurbrugiere.forgeline.core.model.RepoId("acme", ".github-private")
+        repoApi.files[public to "profile/README.md"] = "Welcome to Acme"
+        repoApi.files[private to "profile/README.md"] = "Hello, team"
+
+        // Signed out: the private one isn't even asked.
+        assertThat(withRepos.profileReadme(ForgeInstance.GitHub, "acme", organization = true)?.readme?.markdown).isEqualTo("Welcome to Acme")
+        assertThat(repoApi.calls).doesNotContain("file:acme/.github-private:profile/README.md@HEAD")
+        signIn()
+        assertThat(withRepos.profileReadme(ForgeInstance.GitHub, "acme", organization = true)?.readme?.markdown).isEqualTo("Hello, team")
+        // A member of an organisation without a private one gets the public one.
+        repoApi.files.remove(private to "profile/README.md")
+        assertThat(withRepos.profileReadme(ForgeInstance.GitHub, "acme", organization = true)?.repo).isEqualTo(public)
+    }
+
+    @Test
+    fun forgejo_and_gitlab_keep_profile_readmes_where_they_say() = runTest {
+        val profile = fr.arthurbrugiere.forgeline.core.model.RepoId("ana", ".profile", ForgeInstance.Codeberg)
+        val group = fr.arthurbrugiere.forgeline.core.model.RepoId("acme", "gitlab-profile", ForgeInstance.GitLab)
+        repoApi.readmes[profile] = fr.arthurbrugiere.forgeline.core.model.Readme("README.md", "Ana on Codeberg")
+        repoApi.readmes[group] = fr.arthurbrugiere.forgeline.core.model.Readme("README.md", "Acme on GitLab")
+
+        assertThat(withRepos.profileReadme(ForgeInstance.Codeberg, "ana", organization = false)?.repo).isEqualTo(profile)
+        assertThat(withRepos.profileReadme(ForgeInstance.GitLab, "acme", organization = true)?.repo).isEqualTo(group)
+        assertThat(withRepos.profileReadme(ForgeInstance.GitHub, "nobody", organization = false)).isNull()
+    }
+
     @Test
     fun signed_out_the_follow_state_is_unknown_and_cannot_change() = runTest {
         assertThat(repository.isFollowing(ForgeInstance.GitHub, "octocat")).isNull()

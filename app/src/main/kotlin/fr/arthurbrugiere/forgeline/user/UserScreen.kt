@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.user
 
+import fr.arthurbrugiere.forgeline.repo.ReadmeBody
+import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
+import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
+import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
 import fr.arthurbrugiere.forgeline.ui.rememberLinkOpener
@@ -169,16 +173,36 @@ fun UserScreen(
                 }
                 profile == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.user_loading), rows = 3, leadingDot = false) }
                 else -> {
+                    val tabs = UserTab.entries.filter { it != UserTab.README || state.readme != null }
                     stickyHeader(key = "tabs") {
                         SoftChipTabs(
-                            options = UserTab.entries.map { stringResource(if (it == UserTab.REPOS) R.string.user_tab_repos else R.string.user_tab_starred) },
-                            selected = state.tab.ordinal,
-                            onSelect = { onSelectTab(UserTab.entries[it]) },
+                            options = tabs.map {
+                                stringResource(
+                                    when (it) {
+                                        UserTab.README -> R.string.user_tab_readme
+                                        UserTab.REPOS -> R.string.user_tab_repos
+                                        UserTab.STARRED -> R.string.user_tab_starred
+                                    },
+                                )
+                            },
+                            selected = tabs.indexOf(state.tab).coerceAtLeast(0),
+                            onSelect = { onSelectTab(tabs[it]) },
                         )
                     }
+                    val readme = state.readme
+                    if (state.tab == UserTab.README && readme != null) {
+                        item(key = "readme") {
+                            val directory = readme.readme.path.substringBeforeLast('/', missingDelimiterValue = "").let { if (it.isEmpty()) "" else "$it/" }
+                            val context = remember(readme) {
+                                ReadmeContext(rawBaseUrl = readme.repo.rawBaseUrl("HEAD"), blobBaseUrl = readme.repo.blobBaseUrl("HEAD"), directory = directory)
+                            }
+                            ReadmeBody(readme.readme.markdown, context, onOpenUrl)
+                        }
+                        return@LazyColumn
+                    }
                     val (list, empty) = when (state.tab) {
-                        UserTab.REPOS -> state.repos to R.string.user_no_repos
                         UserTab.STARRED -> state.starred to R.string.user_no_starred
+                        else -> state.repos to R.string.user_no_repos
                     }
                     loadable(list, empty, onRetry) { repos ->
                         items(repos, key = { "repo-${it.id.fullName}" }) {

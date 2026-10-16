@@ -605,6 +605,7 @@
     <string name="user_follow">Suivre</string>
     <string name="user_following">Suivi</string>
     <string name="user_followers">%1$s abonnés · %2$s abonnements</string>
+    <string name="user_tab_readme">README</string>
     <string name="user_tab_repos">Dépôts</string>
     <string name="user_tab_starred">Étoilés</string>
     <string name="user_no_repos">Aucun dépôt public.</string>

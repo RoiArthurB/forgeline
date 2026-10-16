@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
+import fr.arthurbrugiere.forgeline.core.model.ProfileReadme
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +20,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class UserTab { REPOS, STARRED }
+/** README is offered only where the profile has one, and comes first, as the profile's own words. */
+enum class UserTab { README, REPOS, STARRED }
 
 data class UserUiState(
     val login: String,
@@ -30,6 +32,8 @@ data class UserUiState(
     val tab: UserTab = UserTab.REPOS,
     val repos: Loadable<List<RepoSummary>> = Loadable.Idle,
     val starred: Loadable<List<RepoSummary>> = Loadable.Idle,
+    /** The README the profile shows, once found; null while looking and when there is none. */
+    val readme: ProfileReadme? = null,
     /** Null when following isn't possible or unknown (signed out, own profile, lookup failed). */
     val following: Boolean? = null,
     val followFailed: Boolean = false,
@@ -57,8 +61,14 @@ class UserViewModel @AssistedInject constructor(
                 is ForgeResult.Success -> _state.update { it.copy(profile = result.value, error = null) }
                 is ForgeResult.Failure -> _state.update { it.copy(error = result.error) }
             }
-            // After the profile: whether it's an organisation decides which list holds its private repositories.
+            // After the profile: whether it's an organisation decides which list holds its private repositories,
+            // and where its README is kept.
             loadTab(UserTab.REPOS)
+            val organization = _state.value.profile?.isOrganization == true
+            repository.profileReadme(forge, login, organization)?.let { readme ->
+                // Opened on the README, as on the forge, unless a tab was picked meanwhile.
+                _state.update { it.copy(readme = readme, tab = if (tabPicked) it.tab else UserTab.README) }
+            }
         }
         viewModelScope.launch {
             val following = repository.isFollowing(forge, login)
@@ -66,7 +76,11 @@ class UserViewModel @AssistedInject constructor(
         }
     }
 
+    /** Whether a tab was picked: a README found afterwards then doesn't take the screen from it. */
+    private var tabPicked = false
+
     fun selectTab(tab: UserTab) {
+        tabPicked = true
         _state.update { it.copy(tab = tab) }
         if (tab.content(_state.value) == Loadable.Idle) loadTab(tab)
     }
@@ -101,6 +115,7 @@ class UserViewModel @AssistedInject constructor(
             val result = when (tab) {
                 UserTab.REPOS -> repository.repos(forge, login)
                 UserTab.STARRED -> repository.starred(forge, login)
+                UserTab.README -> return@launch
             }
             setTab(tab, if (result is ForgeResult.Success) Loadable.Loaded(result.value) else Loadable.Failed((result as ForgeResult.Failure).error))
         }
@@ -110,12 +125,15 @@ class UserViewModel @AssistedInject constructor(
         when (tab) {
             UserTab.REPOS -> it.copy(repos = value)
             UserTab.STARRED -> it.copy(starred = value)
+            UserTab.README -> it
         }
     }
 
     private fun UserTab.content(state: UserUiState) = when (this) {
         UserTab.REPOS -> state.repos
         UserTab.STARRED -> state.starred
+        // Already there when its tab is offered.
+        UserTab.README -> Loadable.Loaded(emptyList())
     }
 
     private fun UserProfile.adjustFollowers(delta: Int) = copy(followers = (followers + delta).coerceAtLeast(0))

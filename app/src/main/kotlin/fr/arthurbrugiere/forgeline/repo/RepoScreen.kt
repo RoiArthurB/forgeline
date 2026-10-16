@@ -437,7 +437,7 @@ fun RepoScreen(
                                     if (readme == null || state.readmeContext == null) {
                                         Message(stringResource(R.string.repo_no_readme))
                                     } else {
-                                        Readme(readme.markdown, state.readmeContext, onLinkClick)
+                                        ReadmeBody(readme.markdown, state.readmeContext, onLinkClick)
                                     }
                                 }
                             }
@@ -789,7 +789,7 @@ private fun HeaderAction(
 }
 
 @Composable
-private fun Readme(markdown: String, context: ReadmeContext, onLinkClick: (String) -> Unit) {
+internal fun ReadmeBody(markdown: String, context: ReadmeContext, onLinkClick: (String) -> Unit) {
     val darkTheme = Soft.colors.isDark
     val parsed = rememberReadmeState(markdown, context, darkTheme)
     if (parsed == null) {

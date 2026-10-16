@@ -48,6 +48,33 @@ class UserViewModelTest {
     }
 
     @Test
+    fun a_profile_with_a_readme_opens_on_it() = test {
+        val reposApi = fr.arthurbrugiere.forgeline.core.testing.FakeRepoApi()
+        reposApi.readmes[RepoId("octocat", "octocat")] = fr.arthurbrugiere.forgeline.core.model.Readme("README.md", "# Hi")
+        api.users["octocat"] = userProfile("octocat")
+
+        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", DefaultUserRepository(FakeForgeClients(users = api, repos = reposApi), accounts))
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.tab).isEqualTo(UserTab.README)
+        assertThat(viewModel.state.value.readme?.readme?.markdown).isEqualTo("# Hi")
+    }
+
+    @Test
+    fun a_readme_found_after_a_tab_was_picked_leaves_that_tab() = test {
+        val reposApi = fr.arthurbrugiere.forgeline.core.testing.FakeRepoApi()
+        reposApi.readmes[RepoId("octocat", "octocat")] = fr.arthurbrugiere.forgeline.core.model.Readme("README.md", "# Hi")
+        api.users["octocat"] = userProfile("octocat")
+
+        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", DefaultUserRepository(FakeForgeClients(users = api, repos = reposApi), accounts))
+        viewModel.selectTab(UserTab.STARRED)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.tab).isEqualTo(UserTab.STARRED)
+        assertThat(viewModel.state.value.readme).isNotNull()
+    }
+
+    @Test
     fun loads_the_profile_and_repositories() = test {
         api.users["octocat"] = userProfile("octocat")
         api.repos["octocat"] = listOf(repo)

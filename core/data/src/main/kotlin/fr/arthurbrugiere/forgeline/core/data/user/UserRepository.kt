@@ -1,6 +1,10 @@
 package fr.arthurbrugiere.forgeline.core.data.user
 
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.Readme
+import fr.arthurbrugiere.forgeline.core.model.ProfileReadme
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import fr.arthurbrugiere.forgeline.core.data.account.accountOn
@@ -22,6 +26,9 @@ interface UserRepository {
     suspend fun repos(forge: ForgeInstance, login: String): ForgeResult<List<RepoSummary>>
 
     suspend fun starred(forge: ForgeInstance, login: String): ForgeResult<List<RepoSummary>>
+
+    /** The README [login] shows on their profile, null when they have none (or it can't be read now). */
+    suspend fun profileReadme(forge: ForgeInstance, login: String, organization: Boolean): ProfileReadme?
 
     /** Null when unknown: signed out on [forge], the lookup failed, or [login] is the signed-in user there. */
     suspend fun isFollowing(forge: ForgeInstance, login: String): Boolean?
@@ -65,6 +72,33 @@ class DefaultUserRepository @Inject constructor(
 
     override suspend fun starred(forge: ForgeInstance, login: String) = clients.users(forge).starred(accounts.tokenOn(forge), login)
 
+    /**
+     * Where each forge keeps a profile's README, tried in order: on GitHub a person's `login/login` and an
+     * organisation's `.github` (`.github-private` first, which GitHub shows its members); on Forgejo `login/.profile`
+     * for both; on GitLab a person's `login/login` and a group's `gitlab-profile`.
+     */
+    override suspend fun profileReadme(forge: ForgeInstance, login: String, organization: Boolean): ProfileReadme? {
+        val token = accounts.tokenOn(forge)
+        val repos = clients.repos(forge)
+        suspend fun root(name: String): ProfileReadme? {
+            val id = RepoId(login, name, forge)
+            return (repos.readme(token, id) as? ForgeResult.Success)?.value?.takeIf { it.markdown.isNotBlank() }?.let { ProfileReadme(id, it) }
+        }
+        suspend fun inProfileFolder(name: String): ProfileReadme? {
+            val id = RepoId(login, name, forge)
+            return (repos.fileText(token, id, PROFILE_README, "HEAD") as? ForgeResult.Success)?.value?.takeIf { it.isNotBlank() }?.let { ProfileReadme(id, Readme(PROFILE_README, it)) }
+        }
+        return when (forge.type) {
+            ForgeType.GITHUB -> if (organization) {
+                (if (token != null) inProfileFolder(".github-private") else null) ?: inProfileFolder(".github")
+            } else {
+                root(login)
+            }
+            ForgeType.FORGEJO -> root(".profile")
+            ForgeType.GITLAB -> root(if (organization) "gitlab-profile" else login)
+        }
+    }
+
     override suspend fun isFollowing(forge: ForgeInstance, login: String): Boolean? {
         val account = accounts.accountOn(forge) ?: return null
         if (account.user.login.equals(login, ignoreCase = true)) return null
@@ -78,6 +112,7 @@ class DefaultUserRepository @Inject constructor(
     }
 
     private companion object {
+        const val PROFILE_README = "profile/README.md"
         const val CACHE_SIZE = 50
     }
 }

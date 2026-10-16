@@ -623,6 +623,7 @@
     <string name="user_follow">Follow</string>
     <string name="user_following">Following</string>
     <string name="user_followers">%1$s followers · %2$s following</string>
+    <string name="user_tab_readme">README</string>
     <string name="user_tab_repos">Repositories</string>
     <string name="user_tab_starred">Starred</string>
     <string name="user_no_repos">No public repositories.</string>
