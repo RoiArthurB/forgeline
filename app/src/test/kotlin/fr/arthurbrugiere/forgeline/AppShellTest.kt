@@ -70,20 +70,21 @@ class AppShellTest {
     @Test
     fun each_tab_shows_its_screen() {
         tab("Feed").performClick()
-        composeRule.onNodeWithText("Follow the people you follow").assertIsDisplayed()
+        composeRule.onNodeWithText("What the people you follow are making").assertIsDisplayed()
 
         tab("Trending").performClick()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("paperclip", substring = true)).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNode(hasContentDescription("+2,109 today"), useUnmergedTree = true).assertIsDisplayed()
 
         tab("You").performClick()
-        composeRule.onNodeWithText("Settings").assertIsDisplayed()
+        // Settings is the header's gear on You, signed in or not.
+        composeRule.onNode(hasContentDescription("Settings")).assertIsDisplayed()
     }
 
     @Test
     fun settings_open_from_you_and_back_returns() {
         tab("You").performClick()
-        composeRule.onNodeWithText("Settings").performClick()
+        composeRule.onNode(hasContentDescription("Settings")).performClick()
         composeRule.onNodeWithText("Appearance").assertIsDisplayed()
 
         composeRule.onNode(hasContentDescription("Navigate up")).performClick()
@@ -108,7 +109,7 @@ class AppShellTest {
     @Test
     fun credits_open_from_settings() {
         tab("You").performClick()
-        composeRule.onNodeWithText("Settings").performClick()
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Settings")).performClick()
         // Credits live on Settings' About page.
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("About"))
         composeRule.onNodeWithText("About").performClick()

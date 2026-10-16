@@ -86,7 +86,7 @@ class SettingsFlowTest {
         launch {
             composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasContentDescription("You") and isSelectable()).fetchSemanticsNodes().isNotEmpty() }
             tab("You").performClick()
-            composeRule.onNodeWithText("Settings").performClick()
+            composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Settings")).performClick()
             composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Gestures"))
             composeRule.onNodeWithText("Gestures").performClick()
             composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Share button"))

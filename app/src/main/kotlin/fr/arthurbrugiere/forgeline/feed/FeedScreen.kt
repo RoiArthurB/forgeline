@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import androidx.compose.material.icons.outlined.DynamicFeed
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.FlowRowScope
@@ -166,6 +167,7 @@ fun FeedRoute(
                     onAction = onSignIn,
                     secondaryAction = stringResource(R.string.browse_trending),
                     onSecondaryAction = onBrowseTrending,
+                    icon = Icons.Outlined.DynamicFeed,
                 )
             }
         }
@@ -186,6 +188,7 @@ fun FeedRoute(
         onErrorShown = viewModel::errorShown,
         onVisible = viewModel::onVisible,
         onReadThrough = viewModel::readThrough,
+        onBrowseTrending = onBrowseTrending,
     )
 }
 
@@ -223,6 +226,7 @@ fun FeedScreen(
     onOpenUrl: (String) -> Unit = {},
     onVisible: (List<FeedItem>) -> Unit = {},
     onReadThrough: (FeedItem) -> Unit = {},
+    onBrowseTrending: () -> Unit = {},
     nowMillis: Long = rememberNow(state.items),
     zone: ZoneId = ZoneId.systemDefault(),
 ) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
@@ -300,7 +304,14 @@ fun FeedScreen(
                         SoftLoadingRows(stringResource(R.string.feed_loading))
                     }
                     !hasItems -> item(key = "empty") {
-                        SoftNotice(stringResource(R.string.feed_empty_title), stringResource(R.string.feed_empty_body))
+                        // A new account follows nobody yet: Trending is where people and projects to follow are found.
+                        SoftNotice(
+                            stringResource(R.string.feed_empty_title),
+                            stringResource(R.string.feed_empty_body),
+                            secondaryAction = stringResource(R.string.browse_trending),
+                            onSecondaryAction = onBrowseTrending,
+                            icon = Icons.Outlined.DynamicFeed,
+                        )
                     }
                     else -> {
                         days.forEach { (day, items) ->

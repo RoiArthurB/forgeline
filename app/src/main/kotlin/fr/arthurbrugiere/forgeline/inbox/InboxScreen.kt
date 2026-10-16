@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.inbox
 
+import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.AlternateEmail
@@ -245,6 +246,7 @@ private fun InboxSignedOut(session: SessionState, onSignIn: () -> Unit, onBrowse
                 onAction = onSignIn,
                 secondaryAction = stringResource(R.string.browse_trending),
                 onSecondaryAction = onBrowseTrending,
+                icon = Icons.Outlined.Inbox,
             )
         }
     }
@@ -462,6 +464,8 @@ fun InboxScreen(
                         SoftNotice(
                             stringResource(if (state.filter == InboxFilter.UNREAD) R.string.inbox_caught_up_title else R.string.inbox_empty_title),
                             stringResource(if (state.filter == InboxFilter.UNREAD) R.string.inbox_caught_up_body else R.string.inbox_empty_body),
+                            // Caught up is the Inbox's goal reached; a filter showing nothing is no event.
+                            icon = if (state.filter == InboxFilter.UNREAD) Icons.Outlined.DoneAll else null,
                         )
                     }
                     else -> state.groups.forEach { group ->

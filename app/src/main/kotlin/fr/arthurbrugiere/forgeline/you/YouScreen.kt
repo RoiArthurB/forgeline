@@ -212,7 +212,6 @@ fun YouScreen(
                 }
                 notices(session, onSignIn)
                 if (signedIn != null) repositories(repos, showForge, nowMillis, onSearch, onPick, onOpenOwner, onOpenRepo, onRefresh, onSignIn)
-                if (signedIn == null) item(key = "settings") { NavigationRow(Icons.Outlined.Settings, stringResource(R.string.settings_title), onOpenSettings) }
             }
         }
         val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
@@ -229,6 +228,7 @@ private fun LazyListScope.notices(session: SessionState, onSignIn: () -> Unit) {
                 stringResource(R.string.you_signed_out_body),
                 action = stringResource(R.string.sign_in),
                 onAction = onSignIn,
+                icon = Icons.Outlined.PersonAdd,
             )
         }
     }
@@ -325,10 +325,17 @@ private fun LazyListScope.repositories(
             }
             if (repos.shown.isEmpty()) {
                 item(key = "none") {
-                    SoftNotice(
-                        stringResource(R.string.you_repos_none_title),
-                        if (repos.query.isNotBlank()) stringResource(R.string.you_repos_none_body, repos.query) else stringResource(R.string.you_repos_none_owner),
-                    )
+                    when {
+                        repos.query.isNotBlank() -> SoftNotice(stringResource(R.string.you_repos_none_title), stringResource(R.string.you_repos_none_body, repos.query))
+                        // A new account: nothing of one's own yet, nothing shared.
+                        all.repos.isEmpty() -> SoftNotice(
+                            stringResource(R.string.you_repos_first_title),
+                            stringResource(R.string.you_repos_first_body),
+                            icon = Icons.Outlined.Apps,
+                        )
+                        repos.filter == RepoFilter.Shared -> SoftNotice(stringResource(R.string.you_repos_none_title), stringResource(R.string.you_repos_none_shared))
+                        else -> SoftNotice(stringResource(R.string.you_repos_none_title), stringResource(R.string.you_repos_none_owner))
+                    }
                 }
             }
             items(repos.shown, key = { "repo-${it.id.key}" }, contentType = { "repo" }) { repo ->

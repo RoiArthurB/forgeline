@@ -529,9 +529,20 @@ fun SoftNotice(
     /** A quieter way out beside the main action (a signed-out wall's "Browse Trending"). */
     secondaryAction: String? = null,
     onSecondaryAction: () -> Unit = {},
+    /**
+     * What the place is for, as a glyph on a marigold tile above the title: for a first visit or an empty list, so
+     * the page says what will be here. Errors keep none.
+     */
+    icon: ImageVector? = null,
 ) {
     val colors = Soft.colors
     Column(modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 18.dp, vertical = 28.dp)) {
+        if (icon != null) {
+            Box(Modifier.size(48.dp).background(colors.accentSoft, SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
+                Icon(icon, contentDescription = null, tint = colors.accent, modifier = Modifier.size(24.dp))
+            }
+            Spacer(Modifier.height(16.dp))
+        }
         Text(title, style = Soft.type.name, color = colors.ink, modifier = Modifier.semantics { heading() })
         Spacer(Modifier.height(6.dp))
         Text(body, style = Soft.type.body, color = colors.inkMuted, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure))

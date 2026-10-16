@@ -85,7 +85,7 @@
     <string name="reason_ci_activity">CI activity</string>
     <string name="reason_security_alert">Security alert</string>
     <string name="reason_other">Update</string>
-    <string name="feed_signed_out_title">Follow the people you follow</string>
+    <string name="feed_signed_out_title">What the people you follow are making</string>
     <string name="feed_signed_out_body">Sign in to GitHub, GitLab, Codeberg or your own Forgejo to see what they star, fork and release.</string>
     <string name="browse_trending">Browse Trending</string>
     <string name="feed_empty_title">Quiet for now</string>
@@ -627,7 +627,7 @@
     <string name="user_tab_readme">README</string>
     <string name="user_tab_repos">Repositories</string>
     <string name="user_tab_starred">Starred</string>
-    <string name="user_no_repos">No public repositories.</string>
+    <string name="user_no_repos">No repositories yet.</string>
     <string name="user_no_starred">No starred repositories.</string>
     <string name="user_error_title">Couldn\'t open this profile</string>
     <string name="user_follow_failed">Couldn\'t update following. Try again.</string>
@@ -641,6 +641,9 @@
         <item quantity="one">%1$d of %2$d shared with you</item>
         <item quantity="other">%1$d of %2$d shared with you</item>
     </plurals>
+    <string name="you_repos_first_title">Your repositories, in one list</string>
+    <string name="you_repos_first_body">Repositories you create, your organisations\' and those shared with you show up here, latest first.</string>
+    <string name="you_repos_none_shared">Nobody has shared a repository with you.</string>
     <string name="you_repos_clear">Clear</string>
     <string name="you_repos_all">All</string>
     <string name="you_repos_yours">You</string>

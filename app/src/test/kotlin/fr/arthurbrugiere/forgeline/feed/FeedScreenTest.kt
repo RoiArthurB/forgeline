@@ -238,10 +238,19 @@ class FeedScreenTest {
     }
 
     @Test
-    fun an_empty_feed_explains_where_activity_comes_from() {
-        setContent(FeedUiState(syncedAtMillis = 1))
+    fun an_empty_feed_explains_where_activity_comes_from_and_where_to_find_people_to_follow() {
+        var browsed = false
+        composeRule.setContent {
+            FeedScreen(
+                state = FeedUiState(syncedAtMillis = 1),
+                onRefresh = {}, onLoadMore = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = { _, _ -> }, onErrorShown = {},
+                onBrowseTrending = { browsed = true },
+            )
+        }
 
         composeRule.onNodeWithText("Quiet for now").assertIsDisplayed()
+        composeRule.onNodeWithText("Browse Trending").performClick()
+        assertThat(browsed).isTrue()
     }
 
     @Test

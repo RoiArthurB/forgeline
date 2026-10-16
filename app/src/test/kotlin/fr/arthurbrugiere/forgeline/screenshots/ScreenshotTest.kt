@@ -1586,6 +1586,26 @@ class ScreenshotTest {
     fun feed_dark() = withFeedPictures { snapshot("feed_dark", darkTheme = true) { FeedPreview() } }
 
     @Test
+    fun feed_signed_out_light() = snapshot("feed_signed_out_light", darkTheme = false) {
+        fr.arthurbrugiere.forgeline.feed.FeedRoute(
+            session = SessionState.SignedOut, onSignIn = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = { _, _ -> },
+        )
+    }
+
+    @Test
+    fun feed_empty_dark() = snapshot("feed_empty_dark", darkTheme = true) {
+        FeedScreen(
+            state = FeedUiState(syncedAtMillis = 1),
+            onRefresh = {}, onLoadMore = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = { _, _ -> }, onErrorShown = {},
+        )
+    }
+
+    @Test
+    fun you_signed_out_light() = snapshot("you_signed_out_light", darkTheme = false) {
+        YouScreen(SessionState.SignedOut, onSignIn = {}, onOpenSettings = {})
+    }
+
+    @Test
     fun feed_releases_light() = withFeedPictures { snapshot("feed_releases_light", darkTheme = false) { FeedReleasesPreview() } }
 
     @Test

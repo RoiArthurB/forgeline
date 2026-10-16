@@ -277,4 +277,14 @@ class YouScreenTest {
         composeRule.onNodeWithText("Shared", useUnmergedTree = true).performClick()
         assertThat(picked).containsExactly(fr.arthurbrugiere.forgeline.core.model.RepoFilter.Shared)
     }
+
+    @Test
+    fun a_new_account_with_no_repository_is_told_what_will_be_here() {
+        val none = fr.arthurbrugiere.forgeline.core.model.YourRepos.of(listOf(ForgeUser("octocat", null, null) to ForgeInstance.GitHub), emptyList(), emptyList(), 1L)
+        composeRule.setContent { YouScreen(SessionState.SignedIn(me), onSignIn = {}, onOpenSettings = {}, repos = YouReposState(none)) }
+
+        composeRule.onNodeWithText("Your repositories, in one list").assertIsDisplayed()
+        // Not "can't reach any of its repositories", which was said of everyone at once.
+        composeRule.onNodeWithText("You can't reach any of its repositories.").assertDoesNotExist()
+    }
 }

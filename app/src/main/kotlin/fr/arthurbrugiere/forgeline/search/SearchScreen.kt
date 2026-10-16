@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.search
 
+import androidx.compose.material.icons.outlined.SearchOff
 import androidx.navigation3.runtime.NavKey
 import fr.arthurbrugiere.forgeline.navigation.ForgeLinks
 import fr.arthurbrugiere.forgeline.you.NavigationRow
@@ -226,7 +227,7 @@ fun SearchScreen(
                     )
                 }
                 results.items.isEmpty() -> item(key = "empty") {
-                    SoftNotice(stringResource(R.string.search_empty_title), stringResource(R.string.search_empty_body, results.query.orEmpty()))
+                    SoftNotice(stringResource(R.string.search_empty_title), stringResource(R.string.search_empty_body, results.query.orEmpty()), icon = Icons.Outlined.SearchOff)
                 }
                 else -> {
                     results.totalCount?.let { total ->
