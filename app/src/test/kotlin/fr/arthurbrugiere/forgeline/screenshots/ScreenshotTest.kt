@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.screenshots
 
+import coil3.asImage
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import fr.arthurbrugiere.forgeline.settings.SettingsSection
@@ -1495,21 +1496,131 @@ class ScreenshotTest {
     }
 
     @Test
-    fun feed_light() = snapshot("feed_light", darkTheme = false) { FeedPreview() }
+    fun feed_light() = withFeedPictures { snapshot("feed_light", darkTheme = false) { FeedPreview() } }
 
     @Test
-    fun feed_dark() = snapshot("feed_dark", darkTheme = true) { FeedPreview() }
+    fun feed_dark() = withFeedPictures { snapshot("feed_dark", darkTheme = true) { FeedPreview() } }
+
+    @Test
+    fun feed_releases_light() = withFeedPictures { snapshot("feed_releases_light", darkTheme = false) { FeedReleasesPreview() } }
+
+    @Test
+    fun feed_releases_dark() = withFeedPictures { snapshot("feed_releases_dark", darkTheme = true) { FeedReleasesPreview() } }
+
+    @Test
+    fun feed_releases_without_pictures_light() = withFeedPictures {
+        snapshot("feed_releases_without_pictures_light", darkTheme = false) {
+            CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalUserSettings provides fr.arthurbrugiere.forgeline.core.model.UserSettings(feedPictures = false)) {
+                FeedReleasesPreview()
+            }
+        }
+    }
+
+    /**
+     * Pictures as the Feed would load them, drawn here: a project's card (a wide picture) and logos (squares, one
+     * color per project). Screenshots never reach the network.
+     */
+    @OptIn(coil3.annotation.DelicateCoilApi::class)
+    private fun withFeedPictures(block: () -> Unit) {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val answer = coil3.intercept.Interceptor { chain ->
+            val url = chain.request.data.toString()
+            // People's faces stay as their initials, as in every other screenshot.
+            if ("example.org" !in url) return@Interceptor coil3.request.ErrorResult(null, chain.request, IllegalStateException("offline"))
+            val bitmap = if ("card" in url) standInCard() else standInLogo(url.hashCode())
+            coil3.request.SuccessResult(bitmap.asImage(), chain.request, coil3.decode.DataSource.MEMORY)
+        }
+        coil3.SingletonImageLoader.setUnsafe(coil3.ImageLoader.Builder(context).components { add(answer) }.build())
+        try {
+            block()
+        } finally {
+            coil3.SingletonImageLoader.reset()
+        }
+    }
+
+    private fun standInCard(): android.graphics.Bitmap {
+        val bitmap = android.graphics.Bitmap.createBitmap(640, 320, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+        canvas.drawColor(0xFFEEF0FB.toInt())
+        paint.color = 0xFF4250AF.toInt()
+        canvas.drawRoundRect(330f, 120f, 590f, 160f, 8f, 8f, paint)
+        paint.color = 0xFF9AA2D8.toInt()
+        canvas.drawRoundRect(330f, 182f, 540f, 198f, 6f, 6f, paint)
+        canvas.drawRoundRect(330f, 210f, 500f, 226f, 6f, 6f, paint)
+        listOf(0xFFFA2921, 0xFFFFB400, 0xFF18C249, 0xFF1E83F7).forEachIndexed { i, color ->
+            paint.color = color.toInt()
+            canvas.drawCircle(150f + (i % 2) * 44f, 130f + (i / 2) * 44f, 34f, paint)
+        }
+        return bitmap
+    }
+
+    private fun standInLogo(seed: Int): android.graphics.Bitmap {
+        val bitmap = android.graphics.Bitmap.createBitmap(64, 64, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        val colors = listOf(0xFFF97316, 0xFF0EA5E9, 0xFF16181A, 0xFF7C3AED)
+        canvas.drawColor(colors[Math.floorMod(seed, colors.size)].toInt())
+        val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt() }
+        canvas.drawCircle(32f, 32f, 14f, paint)
+        return bitmap
+    }
+
+    /** Releases as they reach the Feed: with the project's picture, without one, a pre-release, and still loading. */
+    @Composable
+    private fun FeedReleasesPreview() {
+        val immich = RepoId("immich-app", "immich")
+        val netbird = RepoId("netbirdio", "netbird")
+        val zed = RepoId("zed-industries", "zed")
+        val events = listOf(
+            feedEvent("r1", actor = "netbirdio", repo = "netbirdio/netbird", createdAt = "2026-09-27T08:00:00Z", action = FeedAction.Released("v0.81.1", null, prerelease = false)),
+            feedEvent("r2", actor = "alextran", repo = "immich-app/immich", createdAt = "2026-09-26T08:00:00Z", action = FeedAction.Released("v3.3.3", null, prerelease = false)),
+            feedEvent("r3", actor = "zed", repo = "zed-industries/zed", createdAt = "2026-09-25T08:00:00Z", action = FeedAction.Released("v1.25.0-pre", null, prerelease = true)),
+            feedEvent("r4", actor = "octo", repo = "octo/tools", createdAt = "2026-09-24T08:00:00Z", action = FeedAction.Released("v2.0.0", "Tools 2.0", prerelease = false)),
+        )
+        FeedScreen(
+            state = FeedUiState(
+                items = feedItems(events, FeedKind.defaults),
+                syncedAtMillis = 1,
+                previews = fr.arthurbrugiere.forgeline.core.model.FeedPreviews(
+                    releases = mapOf(
+                        fr.arthurbrugiere.forgeline.core.model.ReleaseRef(netbird, "v0.81.1") to fr.arthurbrugiere.forgeline.core.model.ReleasePreview(
+                            "[client] Keep interface discovery out of the bind open path", "v0.81.0", null, "https://example.org/logo/netbird",
+                            mapOf(fr.arthurbrugiere.forgeline.core.model.Reaction.HEART to 4),
+                        ),
+                        fr.arthurbrugiere.forgeline.core.model.ReleaseRef(immich, "v3.3.3") to fr.arthurbrugiere.forgeline.core.model.ReleasePreview(
+                            "Well, you know how it goes... Misclick once and a release is sacrificed. The second patch release v3.3.3 has some more bug " +
+                                "fixes, notably a major performance improvement for the explore page.",
+                            "v3.3.1", "https://example.org/card/immich", "https://example.org/logo/immich",
+                            mapOf(
+                                fr.arthurbrugiere.forgeline.core.model.Reaction.THUMBS_UP to 52, fr.arthurbrugiere.forgeline.core.model.Reaction.HEART to 29,
+                                fr.arthurbrugiere.forgeline.core.model.Reaction.LAUGH to 21, fr.arthurbrugiere.forgeline.core.model.Reaction.HOORAY to 15,
+                                fr.arthurbrugiere.forgeline.core.model.Reaction.EYES to 5,
+                            ),
+                        ),
+                        fr.arthurbrugiere.forgeline.core.model.ReleaseRef(zed, "v1.25.0-pre") to fr.arthurbrugiere.forgeline.core.model.ReleasePreview(
+                            "This week's release includes automatic unfolding of folded code when jumping to a location, and applying inlay hint edits with a double-click.",
+                            "v1.24.2", null, "https://example.org/logo/zed",
+                            mapOf(fr.arthurbrugiere.forgeline.core.model.Reaction.HOORAY to 8, fr.arthurbrugiere.forgeline.core.model.Reaction.THUMBS_UP to 7),
+                        ),
+                    ),
+                ),
+            ),
+            onRefresh = {}, onLoadMore = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = { _, _ -> }, onErrorShown = {},
+            nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+            zone = java.time.ZoneOffset.UTC,
+        )
+    }
 
     @Test
     fun feed_mixed_forges_light() = snapshot("feed_mixed_forges_light", darkTheme = false) { FeedMixedPreview() }
 
     @Test
     @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
-    fun feed_font_2_0_light() = snapshot("feed_font_2_0_light", darkTheme = false) { FeedPreview() }
+    fun feed_font_2_0_light() = withFeedPictures { snapshot("feed_font_2_0_light", darkTheme = false) { FeedPreview() } }
 
     @Test
     @Config(qualifiers = "w1280dp-h800dp-land-xhdpi")
-    fun feed_tablet_light() = snapshot("feed_tablet_light", darkTheme = false) { FeedPreview() }
+    fun feed_tablet_light() = withFeedPictures { snapshot("feed_tablet_light", darkTheme = false) { FeedPreview() } }
 
     @Test
     fun feed_starred_repositories_light() = snapshot("feed_starred_repositories_light", darkTheme = false) {
@@ -1573,11 +1684,24 @@ class ScreenshotTest {
                 previews = fr.arthurbrugiere.forgeline.core.model.FeedPreviews(
                     repos = mapOf(
                         RepoId("acme", "rocket") to fr.arthurbrugiere.forgeline.core.model.RepoPreview(
-                            "Launch orchestration for tiny satellites, in pure Rust.", "Rust", 12_400,
+                            "Launch orchestration for tiny satellites, in pure Rust.", "Rust", 12_400, java.time.Instant.parse("2026-09-27T09:40:00Z"),
                         ),
                     ),
-                    pullTitles = mapOf(
-                        fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("acme", "rocket"), 43) to "Retry the fuel pump handshake on cold start",
+                    releases = mapOf(
+                        fr.arthurbrugiere.forgeline.core.model.ReleaseRef(RepoId("octo", "tools"), "v2.0.0") to fr.arthurbrugiere.forgeline.core.model.ReleasePreview(
+                            "Every command starts twice as fast, and the config file finally has a schema.", "v1.9.2", "https://example.org/card/tools",
+                            "https://example.org/logo/octo", mapOf(fr.arthurbrugiere.forgeline.core.model.Reaction.HOORAY to 31, fr.arthurbrugiere.forgeline.core.model.Reaction.ROCKET to 12),
+                        ),
+                    ),
+                    conversations = mapOf(
+                        fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("acme", "rocket"), 43, isPullRequest = true) to
+                            fr.arthurbrugiere.forgeline.core.model.ConversationPreview("Retry the fuel pump handshake on cold start", additions = 212, deletions = 40, changedFiles = 7),
+                        fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("acme", "rocket"), 42, isPullRequest = false) to
+                            fr.arthurbrugiere.forgeline.core.model.ConversationPreview(
+                                "Launch fails on cold start",
+                                labels = listOf(fr.arthurbrugiere.forgeline.core.model.Label("bug", "d73a4a"), fr.arthurbrugiere.forgeline.core.model.Label("needs-triage", "fbca04")),
+                                comments = 4,
+                            ),
                     ),
                 ),
             ),

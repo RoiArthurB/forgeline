@@ -1,6 +1,8 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
+import fr.arthurbrugiere.forgeline.core.model.ReleaseRef
 import fr.arthurbrugiere.forgeline.core.model.FeedEvent
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
@@ -31,20 +33,26 @@ fun feedItems(events: List<FeedEvent>, shown: Set<FeedKind>): List<FeedItem> {
     return items.values.toList()
 }
 
-/** The repository whose preview (description, language, stars) this row shows, when the event doesn't carry it. */
-val FeedItem.previewRepo: RepoId?
-    get() = when (action) {
-        FeedAction.Starred, FeedAction.MadePublic, is FeedAction.Forked -> repo
-        else -> null
+/**
+ * What this row shows that its event doesn't carry, looked up once it scrolls into view: a repository's details, a
+ * release's summary, picture and reactions, an issue's labels and comments, a pull request's title and size.
+ */
+val FeedItem.details: List<FeedDetailKey>
+    get() = when (val a = action) {
+        FeedAction.Starred, FeedAction.MadePublic, is FeedAction.Forked, is FeedAction.CreatedRepo -> listOf(FeedDetailKey.Repo(repo))
+        is FeedAction.Released -> listOf(FeedDetailKey.Release(ReleaseRef(repo, a.tag)))
+        is FeedAction.Issue -> listOf(FeedDetailKey.Conversation(IssueRef(repo, a.number, isPullRequest = false)))
+        is FeedAction.PullRequest -> listOf(FeedDetailKey.Conversation(IssueRef(repo, a.number, isPullRequest = true)))
+        is FeedAction.Reviewed -> listOf(FeedDetailKey.Conversation(IssueRef(repo, a.number, isPullRequest = true)))
+        // GitHub's comment events name their issue; Codeberg's give the comment, not the title.
+        is FeedAction.Commented -> if (a.title == null) listOf(FeedDetailKey.Conversation(IssueRef(repo, a.number, a.isPullRequest))) else emptyList()
+        else -> emptyList()
     }
 
-/** The conversation whose title this row shows, when its event carries only the number. */
-val FeedItem.previewPull: IssueRef?
-    get() = when (val a = action) {
-        // Forgejo's events carry the title; GitHub's need it fetched.
-        is FeedAction.PullRequest -> if (a.title == null) IssueRef(repo, a.number, isPullRequest = true) else null
-        is FeedAction.Reviewed -> IssueRef(repo, a.number, isPullRequest = true)
-        // GitHub's comment events name their issue; Codeberg's give the comment, not the title.
-        is FeedAction.Commented -> if (a.title == null) IssueRef(repo, a.number, a.isPullRequest) else null
-        else -> null
-    }
+/** The issue or pull request this row is about, as its preview is kept. */
+val FeedItem.conversation: IssueRef?
+    get() = (details.firstOrNull() as? FeedDetailKey.Conversation)?.ref
+
+/** The release this row is about. */
+val FeedItem.release: ReleaseRef?
+    get() = (action as? FeedAction.Released)?.let { ReleaseRef(repo, it.tag) }

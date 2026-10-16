@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
+import fr.arthurbrugiere.forgeline.core.model.ReleaseRef
+import fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import com.google.common.truth.Truth.assertThat
@@ -78,8 +81,23 @@ class FeedItemsTest {
         val onPull = feedItems(listOf(feedEvent("2", action = FeedAction.Commented(13, null, isPullRequest = true))), FeedKind.entries.toSet()).single()
         val named = feedItems(listOf(feedEvent("3", action = FeedAction.Commented(14, "Launch fails", isPullRequest = false))), FeedKind.entries.toSet()).single()
 
-        assertThat(onIssue.previewPull).isEqualTo(IssueRef(RepoId("acme", "rocket"), 12))
-        assertThat(onPull.previewPull).isEqualTo(IssueRef(RepoId("acme", "rocket"), 13))
-        assertThat(named.previewPull).isNull()
+        assertThat(onIssue.conversation).isEqualTo(IssueRef(RepoId("acme", "rocket"), 12, isPullRequest = false))
+        assertThat(onPull.conversation).isEqualTo(IssueRef(RepoId("acme", "rocket"), 13, isPullRequest = true))
+        assertThat(named.details).isEmpty()
+    }
+
+    @Test
+    fun each_row_asks_for_what_it_shows() {
+        fun keysOf(action: FeedAction) = feedItems(listOf(feedEvent("1", action = action)), FeedKind.entries.toSet()).single().details
+        val rocket = RepoId("acme", "rocket")
+
+        assertThat(keysOf(FeedAction.Starred)).containsExactly(FeedDetailKey.Repo(rocket))
+        assertThat(keysOf(FeedAction.CreatedRepo("A fresh idea"))).containsExactly(FeedDetailKey.Repo(rocket))
+        // A release's summary, picture and reactions; an issue's labels and comments, even with its title known.
+        assertThat(keysOf(FeedAction.Released("v2.0.0", null, prerelease = false))).containsExactly(FeedDetailKey.Release(ReleaseRef(rocket, "v2.0.0")))
+        assertThat(keysOf(FeedAction.Issue(IssueAction.OPENED, 8, "Has a title"))).containsExactly(FeedDetailKey.Conversation(IssueRef(rocket, 8, isPullRequest = false)))
+        // A pull request's size, even where its event carries the title (Forgejo).
+        assertThat(keysOf(FeedAction.PullRequest(PullRequestAction.MERGED, 9, "Titled"))).containsExactly(FeedDetailKey.Conversation(IssueRef(rocket, 9, isPullRequest = true)))
+        assertThat(keysOf(FeedAction.Pushed("main"))).isEmpty()
     }
 }

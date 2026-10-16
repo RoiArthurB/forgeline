@@ -1379,7 +1379,7 @@ private fun Reactions(reactions: Map<Reaction, Int>, modifier: Modifier = Modifi
     }
 }
 
-private val Reaction.label: Int
+internal val Reaction.label: Int
     get() = when (this) {
         Reaction.THUMBS_UP -> R.string.reaction_thumbs_up
         Reaction.THUMBS_DOWN -> R.string.reaction_thumbs_down

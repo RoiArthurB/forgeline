@@ -357,6 +357,15 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun release_pictures_switch_off_in_the_feed_s_settings() {
+        setContent(section = SettingsSection.FEED)
+
+        composeRule.onNodeWithText("Release pictures").performClick()
+
+        assertThat(changed).isEqualTo(UserSettings(feedPictures = false))
+    }
+
+    @Test
     fun a_choice_switched_off_shows_as_off() {
         setContent(UserSettings(openAtUnread = false), section = SettingsSection.READING)
 

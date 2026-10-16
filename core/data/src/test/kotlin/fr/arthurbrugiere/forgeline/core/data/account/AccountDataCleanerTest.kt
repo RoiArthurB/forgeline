@@ -87,8 +87,9 @@ class AccountDataCleanerTest {
         database.repoDao().upsert(RepoCacheEntity("$host/acme/secret", "{}", "README.md", "# Secret", 1_000))
         database.feedPreviewDao().upsert(
             listOf(
-                FeedPreviewEntity("repo:$host/acme/secret", "Private", null, 1, null, 1_000),
-                FeedPreviewEntity("pull:$host/acme/secret#7", null, null, null, "Private plans", 1_000),
+                FeedPreviewEntity("repo:$host/acme/secret", "{\"repo\":{\"description\":\"Private\"}}", 1_000),
+                FeedPreviewEntity("release:$host/acme/secret v1.0", "{\"release\":{\"summary\":\"Private plans\"}}", 1_000),
+                FeedPreviewEntity("talk:$host/acme/secret#7", "{\"conversation\":{\"title\":\"Private plans\"}}", 1_000),
             ),
         )
         issueApi.issues[issue(account.forge)] = issueDetails(issue(account.forge))
@@ -119,7 +120,7 @@ class AccountDataCleanerTest {
         assertThat(database.feedDao().sync(codeberg.id)).isNull()
         assertThat(database.feedDao().sync(STARRED_PREFIX + codeberg.id)).isNull()
         assertThat(database.repoDao().fetchedAt("codeberg.org/acme/secret")).isNull()
-        assertThat(database.feedPreviewDao().freshness().map { it.key }).containsExactly("repo:github.com/acme/secret", "pull:github.com/acme/secret#7")
+        assertThat(database.feedPreviewDao().freshness().map { it.key }).containsExactly("repo:github.com/acme/secret", "release:github.com/acme/secret v1.0", "talk:github.com/acme/secret#7")
         assertThat(conversations.stored(issue(ForgeInstance.Codeberg))).isNull()
         assertThat(users.cachedUser(ForgeInstance.Codeberg, "alice")).isNull()
     }

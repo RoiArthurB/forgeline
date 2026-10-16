@@ -33,7 +33,7 @@ data class FeedUiState(
     val isRefreshing: Boolean = false,
     val isLoadingMore: Boolean = false,
     val error: ForgeError? = null,
-    /** Repo previews and pull request titles fetched so far; rows fill in as these arrive. */
+    /** Previews of repositories, releases and conversations fetched so far; rows fill in as these arrive. */
     val previews: FeedPreviews = FeedPreviews(),
     /**
      * The row the last visit's reading reached, which "Where you left off" sits above: everything above it is newer.
@@ -110,12 +110,11 @@ class FeedViewModel @Inject constructor(
         }
     }
 
-    /** Rows on screen: fetch the previews they need (repositories they name, pull request titles). */
+    /** Rows on screen: fetch the previews they need (repositories, releases, issues and pull requests). */
     fun onVisible(items: List<FeedItem>) {
-        val repos = items.mapNotNull { it.previewRepo }.toSet()
-        val pulls = items.mapNotNull { it.previewPull }.toSet()
-        if (repos.isEmpty() && pulls.isEmpty()) return
-        viewModelScope.launch { previews.ensure(repos, pulls) }
+        val keys = items.flatMap { it.details }.toSet()
+        if (keys.isEmpty()) return
+        viewModelScope.launch { previews.ensure(keys) }
     }
 
     fun errorShown() {

@@ -59,4 +59,6 @@ data class UserSettings(
     val openAtUnread: Boolean = true,
     /** Trending and the Feed mark where the last visit's reading stopped. */
     val readingMarks: Boolean = true,
+    /** Feed releases show their project's picture; off, they're text only and load no images. */
+    val feedPictures: Boolean = true,
 )

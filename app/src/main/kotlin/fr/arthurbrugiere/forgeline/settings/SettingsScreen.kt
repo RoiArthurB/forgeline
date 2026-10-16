@@ -354,7 +354,17 @@ fun SettingsScreen(
                     )
                 }
             }
-            if (section == SettingsSection.FEED) item { FeedKindsItem(settings.feedKinds, onFeedKindChange) }
+            if (section == SettingsSection.FEED) {
+                item {
+                    SwitchItem(
+                        title = stringResource(R.string.settings_feed_pictures),
+                        summary = stringResource(R.string.settings_feed_pictures_summary),
+                        checked = settings.feedPictures,
+                        onCheckedChange = { on -> onChange { it.copy(feedPictures = on) } },
+                    )
+                }
+                item { FeedKindsItem(settings.feedKinds, onFeedKindChange) }
+            }
             if (section == SettingsSection.TRENDING) {
                 // Only GitHub has a trending list of its own. Codeberg's and gitlab.com's are published daily for
                 // everyone; once signed in there, the phone can measure them instead, and any other server's too.

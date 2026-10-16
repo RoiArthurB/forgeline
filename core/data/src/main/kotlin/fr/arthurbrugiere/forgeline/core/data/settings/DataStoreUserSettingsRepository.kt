@@ -43,6 +43,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
                 swipeToReply = prefs[SWIPE_REPLY] ?: defaults.swipeToReply,
                 openAtUnread = prefs[OPEN_AT_UNREAD] ?: defaults.openAtUnread,
                 readingMarks = prefs[READING_MARKS] ?: defaults.readingMarks,
+                feedPictures = prefs[FEED_PICTURES] ?: defaults.feedPictures,
                 themeMode = prefs[THEME_MODE]
                     ?.let { stored -> ThemeMode.entries.firstOrNull { it.name == stored } }
                     ?: defaults.themeMode,
@@ -82,6 +83,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
             prefs[SWIPE_REPLY] = wanted.swipeToReply
             prefs[OPEN_AT_UNREAD] = wanted.openAtUnread
             prefs[READING_MARKS] = wanted.readingMarks
+            prefs[FEED_PICTURES] = wanted.feedPictures
         }
     }
 
@@ -137,5 +139,6 @@ class DataStoreUserSettingsRepository @Inject constructor(
         val SWIPE_REPLY = booleanPreferencesKey("swipe_to_reply")
         val OPEN_AT_UNREAD = booleanPreferencesKey("open_at_unread")
         val READING_MARKS = booleanPreferencesKey("reading_marks")
+        val FEED_PICTURES = booleanPreferencesKey("feed_pictures")
     }
 }

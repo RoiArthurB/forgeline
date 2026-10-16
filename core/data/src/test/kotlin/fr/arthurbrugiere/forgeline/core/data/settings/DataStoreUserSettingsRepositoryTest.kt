@@ -110,6 +110,7 @@ class DataStoreUserSettingsRepositoryTest {
         shareTap = fr.arthurbrugiere.forgeline.core.model.ShareTap.COPY,
         openAtUnread = false,
         readingMarks = false,
+        feedPictures = false,
     )
 
     @Test
@@ -137,6 +138,7 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(changed.shareTap).isNotEqualTo(defaults.shareTap)
         assertThat(changed.openAtUnread).isNotEqualTo(defaults.openAtUnread)
         assertThat(changed.readingMarks).isNotEqualTo(defaults.readingMarks)
+        assertThat(changed.feedPictures).isNotEqualTo(defaults.feedPictures)
         assertThat(changed.headerStyle).isNotEqualTo(defaults.headerStyle)
     }
 
@@ -163,7 +165,7 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(defaults.undoDelay.millis).isEqualTo(5_000)
         assertThat(defaults.shareTap).isEqualTo(fr.arthurbrugiere.forgeline.core.model.ShareTap.SHARE)
         assertThat(defaults.headerStyle).isEqualTo(fr.arthurbrugiere.forgeline.core.model.HeaderStyle.INK)
-        assertThat(listOf(defaults.loadConversationsAhead, defaults.readElsewhereIsDone, defaults.doubleTapReaction, defaults.swipeToReply, defaults.openAtUnread, defaults.readingMarks)).doesNotContain(false)
+        assertThat(listOf(defaults.loadConversationsAhead, defaults.readElsewhereIsDone, defaults.doubleTapReaction, defaults.swipeToReply, defaults.openAtUnread, defaults.readingMarks, defaults.feedPictures)).doesNotContain(false)
     }
 
     @Test

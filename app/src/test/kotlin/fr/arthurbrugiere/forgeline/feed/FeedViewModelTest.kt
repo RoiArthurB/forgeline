@@ -154,7 +154,7 @@ class FeedViewModelTest {
     }
 
     @Test
-    fun visible_rows_ask_only_for_the_previews_they_show() = test {
+    fun visible_rows_ask_for_the_previews_they_show() = test {
         feed.set(
             feedEvent("3", action = FeedAction.PullRequest(PullRequestAction.OPENED, 7)),
             feedEvent("2", repo = "octo/tools"),
@@ -166,8 +166,11 @@ class FeedViewModelTest {
         viewModel.onVisible(viewModel.state.value.items)
         advanceUntilIdle()
 
-        assertThat(previews.requestedRepos).containsExactly(RepoId("octo", "tools"))
-        assertThat(previews.requestedPulls).containsExactly(IssueRef(RepoId("acme", "rocket"), 7))
+        assertThat(previews.requested).containsExactly(
+            fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey.Repo(RepoId("octo", "tools")),
+            fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey.Conversation(IssueRef(RepoId("acme", "rocket"), 7, isPullRequest = true)),
+            fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey.Conversation(IssueRef(RepoId("acme", "rocket"), 8, isPullRequest = false)),
+        )
     }
 
     @Test

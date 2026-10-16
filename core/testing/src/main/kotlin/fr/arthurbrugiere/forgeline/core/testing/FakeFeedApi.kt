@@ -2,6 +2,8 @@ package fr.arthurbrugiere.forgeline.core.testing
 
 import kotlinx.coroutines.CompletableDeferred
 import fr.arthurbrugiere.forgeline.core.forge.FeedApi
+import fr.arthurbrugiere.forgeline.core.forge.FeedDetail
+import fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey
 import fr.arthurbrugiere.forgeline.core.forge.FeedPage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -28,6 +30,18 @@ class FakeFeedApi : FeedApi {
 
     /** When set, starred activity waits for it: GitHub takes about 10 s per 100 stars. */
     var starredGate: CompletableDeferred<Unit>? = null
+
+    /** What the forge answers for many rows at once; null where it can't, and they're looked up one by one. */
+    var details: Map<FeedDetailKey, FeedDetail>? = null
+    var detailsFailure: ForgeError? = null
+    val detailCalls: MutableList<List<FeedDetailKey>> = java.util.concurrent.CopyOnWriteArrayList()
+
+    override suspend fun details(token: String, keys: List<FeedDetailKey>): ForgeResult<Map<FeedDetailKey, FeedDetail>>? {
+        val all = details ?: return null
+        detailCalls += keys
+        detailsFailure?.let { return ForgeResult.Failure(it) }
+        return ForgeResult.Success(all.filterKeys { it in keys })
+    }
 
     override suspend fun starredActivity(token: String, since: Instant): ForgeResult<List<FeedEvent>> {
         starredCalls += since

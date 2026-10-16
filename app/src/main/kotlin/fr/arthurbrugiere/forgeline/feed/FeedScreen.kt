@@ -1,5 +1,26 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.FlowRowScope
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
+import fr.arthurbrugiere.forgeline.core.model.ConversationPreview
+import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.Reaction
+import fr.arthurbrugiere.forgeline.core.model.ReleaseJump
+import fr.arthurbrugiere.forgeline.core.model.ReleasePreview
+import fr.arthurbrugiere.forgeline.core.model.releaseJump
+import fr.arthurbrugiere.forgeline.issue.emoji
+import fr.arthurbrugiere.forgeline.issue.label
+import fr.arthurbrugiere.forgeline.ui.relativeInSentence
 import fr.arthurbrugiere.forgeline.core.ui.format.iconRes
 import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTile
@@ -290,8 +311,9 @@ fun FeedScreen(
                                     // Each row gets only its own preview: one arriving redraws the rows it is for, not all of them.
                                     FeedRow(
                                         item,
-                                        repoPreview = item.previewRepo?.let { state.previews.repos[it] },
-                                        pullTitle = item.previewPull?.let { state.previews.pullTitles[it] },
+                                        repoPreview = state.previews.repos[item.repo],
+                                        release = item.release?.let { state.previews.releases[it] },
+                                        conversation = item.conversation?.let { state.previews.conversations[it] },
                                         nowMillis, onOpenRepo, onOpenIssue, onOpenUser, onOpenUrl,
                                     )
                                 }
@@ -315,14 +337,16 @@ fun FeedScreen(
 }
 
 /**
- * One event, kind first: a short line saying who did what and when, then the thing it's about, drawn for its kind:
- * a repository preview, a state tag and title for issues and pull requests, a tag for a release, a branch for a push.
+ * One event: who did what and when, then the thing it's about, drawn for its kind. A release leads with its
+ * project's logo, its version and how big a step it is, the project's picture, what its notes say first and how
+ * people reacted; an issue or pull request with its title, then its state, size, labels and comments.
  */
 @Composable
 private fun FeedRow(
     item: FeedItem,
     repoPreview: RepoPreview?,
-    pullTitle: String?,
+    release: ReleasePreview?,
+    conversation: ConversationPreview?,
     nowMillis: Long,
     onOpenRepo: (RepoId) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
@@ -334,29 +358,42 @@ private fun FeedRow(
     val actor = item.actors.first()
     val openRelease = LocalOpenRelease.current
     val openDiscussion = fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion.current
-    // Which forge (its logo, on the corner of the actor's face), once more than one is signed in.
+    // Which forge (its logo, on the corner of the tile), once more than one is signed in.
     val forge = item.repo.forge.takeIf { LocalShowForge.current }
+    val badge = forge?.let { painterResource(it.iconRes) }
     Row(
         modifier
             .fillMaxWidth()
             .softPressable { item.open(onOpenRepo, onOpenIssue, onOpenUser, onOpenUrl, openRelease, openDiscussion) }
             .rowHairline(start = 60.dp)
-            .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 13.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        // People are round, things are tiles: the actor's face, as tall as a row's tile.
-        SoftTile(shape = CircleShape, badge = forge?.let { painterResource(it.iconRes) }, badgeDescription = forge?.displayName) {
-            Avatar(
-                actor.avatarUrl,
-                actor.login,
-                size = SoftTokens.Tile,
-                placeholderColor = colors.surface,
-                placeholderContentColor = colors.inkMuted,
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .clickable { onOpenUser(item.repo.forge, actor.login) }
-                    .semantics { contentDescription = actor.login },
-            )
+        if (item.action is FeedAction.Released) {
+            // A release is the project's: its logo, a thing, so a tile. The tag until the logo is known.
+            SoftTile(background = colors.accentSoft, badge = badge, badgeDescription = forge?.displayName) {
+                val logo = release?.logoUrl
+                if (logo == null) {
+                    Icon(Icons.Outlined.Sell, contentDescription = null, tint = colors.accent, modifier = Modifier.size(18.dp))
+                } else {
+                    Avatar(logo, item.repo.owner, size = SoftTokens.Tile, shape = SoftTokens.TileCorner, placeholderColor = colors.accentSoft, placeholderContentColor = colors.accent)
+                }
+            }
+        } else {
+            // People are round: the actor's face, as tall as a row's tile.
+            SoftTile(shape = CircleShape, badge = badge, badgeDescription = forge?.displayName) {
+                Avatar(
+                    actor.avatarUrl,
+                    actor.login,
+                    size = SoftTokens.Tile,
+                    placeholderColor = colors.surface,
+                    placeholderContentColor = colors.inkMuted,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable { onOpenUser(item.repo.forge, actor.login) }
+                        .semantics { contentDescription = actor.login },
+                )
+            }
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -370,8 +407,8 @@ private fun FeedRow(
                 buildAnnotatedString {
                     append(item.headline(repoLabel).emphasizing(item.names(repoLabel), colors.ink))
                     // Each dot sticks to what precedes it, so a line never starts with "·"; the time is kept whole.
-                    val time = relative(item.createdAt, nowMillis, abbreviated = true).replace(' ', '\u00A0')
-                    withStyle(SpanStyle(color = colors.inkMuted)) { append("\u00A0· $time") }
+                    val time = relative(item.createdAt, nowMillis, abbreviated = true).replace(' ', ' ')
+                    withStyle(SpanStyle(color = colors.inkMuted)) { append(" · $time") }
                 },
                 style = Soft.type.secondary,
                 color = colors.inkMuted,
@@ -380,87 +417,258 @@ private fun FeedRow(
                 onTextLayout = { if (it.hasVisualOverflow) squeeze = nextFeedSqueeze(item.repo.fullName, squeeze) },
                 modifier = Modifier.padding(top = 2.dp),
             )
-            FeedObject(item, repoPreview, pullTitle, Modifier.padding(top = 8.dp))
+            FeedObject(item, repoPreview, release, conversation, nowMillis)
         }
     }
 }
 
 /** The thing an event is about, drawn for its kind. */
 @Composable
-private fun FeedObject(item: FeedItem, repoPreview: RepoPreview?, pullTitle: String?, modifier: Modifier = Modifier) {
+private fun FeedObject(item: FeedItem, repoPreview: RepoPreview?, release: ReleasePreview?, conversation: ConversationPreview?, nowMillis: Long) {
     val colors = Soft.colors
+    val (closed, merged, open) = colors.fieldInks
     when (val a = item.action) {
-        FeedAction.Starred, FeedAction.MadePublic, is FeedAction.Forked -> RepoObject(item.repo, repoPreview, null, modifier)
-        is FeedAction.CreatedRepo -> RepoObject(item.repo, null, a.description, modifier)
-        is FeedAction.Released -> Column(modifier) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                StatePill(a.tag, Icons.Outlined.Sell, colors.fields[0])
-                if (a.prerelease) SoftTag(stringResource(R.string.repo_prerelease))
-            }
-            a.name?.takeIf { it != a.tag }?.let { ObjectTitle(it) }
-        }
-        is FeedAction.Announced -> Column(modifier) {
-            StatePill(stringResource(R.string.feed_state_announcement), Icons.Outlined.Campaign, colors.fields[1], number = a.number)
+        FeedAction.Starred, FeedAction.MadePublic, is FeedAction.Forked -> RepoObject(item.repo, repoPreview, null, nowMillis)
+        is FeedAction.CreatedRepo -> RepoObject(item.repo, repoPreview, a.description, nowMillis)
+        is FeedAction.Released -> ReleaseObject(a, release)
+        is FeedAction.Announced -> Column {
             ObjectTitle(a.title)
+            MetaRow { StateMark(stringResource(R.string.feed_state_announcement), Icons.Outlined.Campaign, merged, a.number) }
         }
-        is FeedAction.Issue -> Column(modifier) {
-            when (a.action) {
-                IssueAction.OPENED -> StatePill(stringResource(R.string.feed_state_open), Icons.Outlined.Adjust, colors.fields[2], number = a.number)
-                IssueAction.REOPENED -> StatePill(stringResource(R.string.feed_state_reopened), Icons.Outlined.Replay, colors.fields[2], number = a.number)
-                IssueAction.CLOSED -> StatePill(stringResource(R.string.feed_state_closed), Icons.Outlined.CheckCircleOutline, colors.fields[0], number = a.number)
+        is FeedAction.Issue -> Column {
+            ObjectTitle(conversation?.title ?: a.title)
+            MetaRow {
+                when (a.action) {
+                    IssueAction.OPENED -> StateMark(stringResource(R.string.feed_state_open), Icons.Outlined.Adjust, open, a.number)
+                    IssueAction.REOPENED -> StateMark(stringResource(R.string.feed_state_reopened), Icons.Outlined.Replay, open, a.number)
+                    IssueAction.CLOSED -> StateMark(stringResource(R.string.feed_state_closed), Icons.Outlined.CheckCircleOutline, closed, a.number)
+                }
+                ConversationMarks(conversation)
             }
-            ObjectTitle(a.title)
         }
-        is FeedAction.PullRequest -> Column(modifier) {
-            when (a.action) {
-                PullRequestAction.OPENED -> StatePill(stringResource(R.string.feed_state_open), Icons.AutoMirrored.Outlined.CallMerge, colors.fields[2], number = a.number)
-                PullRequestAction.REOPENED -> StatePill(stringResource(R.string.feed_state_reopened), Icons.AutoMirrored.Outlined.CallMerge, colors.fields[2], number = a.number)
-                PullRequestAction.MERGED -> StatePill(stringResource(R.string.feed_state_merged), Icons.AutoMirrored.Outlined.CallMerge, colors.fields[1], number = a.number)
-                PullRequestAction.CLOSED -> StatePill(stringResource(R.string.feed_state_closed), Icons.Outlined.Close, colors.fields[0], number = a.number)
+        is FeedAction.PullRequest -> Column {
+            LateTitle(a.title ?: conversation?.title)
+            MetaRow {
+                when (a.action) {
+                    PullRequestAction.OPENED -> StateMark(stringResource(R.string.feed_state_open), Icons.AutoMirrored.Outlined.CallMerge, open, a.number)
+                    PullRequestAction.REOPENED -> StateMark(stringResource(R.string.feed_state_reopened), Icons.AutoMirrored.Outlined.CallMerge, open, a.number)
+                    PullRequestAction.MERGED -> StateMark(stringResource(R.string.feed_state_merged), Icons.AutoMirrored.Outlined.CallMerge, merged, a.number)
+                    PullRequestAction.CLOSED -> StateMark(stringResource(R.string.feed_state_closed), Icons.Outlined.Close, closed, a.number)
+                }
+                ConversationMarks(conversation)
             }
-            LateTitle(a.title ?: pullTitle)
         }
-        is FeedAction.Reviewed -> Column(modifier) {
-            when (a.state) {
-                ReviewState.APPROVED -> StatePill(stringResource(R.string.feed_state_approved), Icons.Outlined.Check, colors.fields[2], number = a.number)
-                ReviewState.CHANGES_REQUESTED -> StatePill(stringResource(R.string.feed_state_changes), Icons.Outlined.RateReview, colors.fields[0], number = a.number)
-                else -> StatePill(stringResource(R.string.feed_state_reviewed), Icons.Outlined.RateReview, colors.surface, number = a.number)
+        is FeedAction.Reviewed -> Column {
+            LateTitle(conversation?.title)
+            MetaRow {
+                when (a.state) {
+                    ReviewState.APPROVED -> StateMark(stringResource(R.string.feed_state_approved), Icons.Outlined.Check, open, a.number)
+                    ReviewState.CHANGES_REQUESTED -> StateMark(stringResource(R.string.feed_state_changes), Icons.Outlined.RateReview, closed, a.number)
+                    else -> StateMark(stringResource(R.string.feed_state_reviewed), Icons.Outlined.RateReview, colors.inkMuted, a.number)
+                }
             }
-            LateTitle(pullTitle)
         }
-        is FeedAction.Commented -> Column(modifier) {
-            StatePill(stringResource(R.string.feed_state_comment), Icons.Outlined.ChatBubbleOutline, colors.fields[1], number = a.number)
-            LateTitle(a.title ?: pullTitle)
+        is FeedAction.Commented -> Column {
+            LateTitle(a.title ?: conversation?.title)
+            MetaRow { StateMark(stringResource(R.string.feed_state_comment), Icons.Outlined.ChatBubbleOutline, colors.inkMuted, a.number) }
         }
-        is FeedAction.Pushed -> StatePill(a.branch, Icons.Outlined.Commit, colors.surface, monospace = true, modifier = modifier)
-        is FeedAction.Branch -> StatePill(a.name, if (a.isTag) Icons.Outlined.Sell else Icons.Outlined.AccountTree, colors.surface, monospace = true, modifier = modifier)
+        is FeedAction.Pushed -> MetaRow { RefMark(a.branch, Icons.Outlined.Commit) }
+        is FeedAction.Branch -> MetaRow { RefMark(a.name, if (a.isTag) Icons.Outlined.Sell else Icons.Outlined.AccountTree) }
         // The line already says who joined where.
         is FeedAction.AddedMember -> Unit
     }
 }
 
-/** A repository at a glance: its name, description, language and stars, on a soft panel. */
+/**
+ * A release: its version large with the size of the step, its name when that says more than the tag, the project's
+ * picture, what the notes say first, and how people reacted. The row opens the full notes.
+ */
 @Composable
-private fun RepoObject(repo: RepoId, preview: RepoPreview?, description: String?, modifier: Modifier = Modifier) {
+private fun ReleaseObject(action: FeedAction.Released, release: ReleasePreview?) {
     val colors = Soft.colors
-    // Details arriving later grow the panel and fade in, rather than popping the rows below down.
-    val animations = animationsEnabled()
-    val startedEmpty = remember(repo) { preview == null }
-    Column(
-        modifier
-            .widthIn(max = SoftTokens.MaxMeasure)
+    val pictures = LocalUserSettings.current.feedPictures
+    val startedEmpty = remember(action.tag) { release == null }
+    Column(Modifier.widthIn(max = SoftTokens.MaxMeasure)) {
+        FlowRow(
+            Modifier.padding(top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            itemVerticalAlignment = Alignment.Bottom,
+        ) {
+            Text(action.tag, style = Soft.type.version, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val jump = release?.let { releaseJump(action.tag, it.previousTag) }
+            val step = listOfNotNull(jump?.let { stringResource(it.label) }, if (action.prerelease) stringResource(R.string.repo_prerelease) else null)
+            if (step.isNotEmpty()) {
+                // A patch is routine; a new minor or major version, or a pre-release, is news.
+                val news = action.prerelease || jump == ReleaseJump.MAJOR || jump == ReleaseJump.MINOR
+                Text(step.joinToString(" · "), style = Soft.type.label, color = if (news) colors.accent else colors.inkMuted, modifier = Modifier.padding(bottom = 2.dp))
+            }
+        }
+        action.name?.takeIf { it != action.tag && it.removePrefix("v") != action.tag.removePrefix("v") }?.let {
+            Text(it, style = Soft.type.secondary, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 1.dp))
+        }
+        val image = release?.imageUrl?.takeIf { pictures }
+        if (image != null) ReleasePicture(image)
+        when {
+            release == null -> PendingTitle()
+            else -> FadeInIfLate(late = startedEmpty) {
+                Column {
+                    release.summary?.let {
+                        Text(
+                            it,
+                            style = Soft.type.secondary,
+                            color = colors.ink,
+                            maxLines = if (image != null) 2 else 3,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = if (image != null) 8.dp else 4.dp),
+                        )
+                    }
+                    Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Reactions(release.reactions, Modifier.weight(1f))
+                        Text(stringResource(R.string.feed_release_notes), style = Soft.type.label, color = colors.accent)
+                        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null, tint = colors.accent, modifier = Modifier.size(textSized(16)))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The project's picture, at the width of the row, two to one: its social image, or the first picture in its notes. */
+@Composable
+private fun ReleasePicture(url: String) {
+    val colors = Soft.colors
+    AsyncImage(
+        model = url,
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .testTag(RELEASE_PICTURE_TAG)
+            .padding(top = 9.dp)
             .fillMaxWidth()
+            .aspectRatio(2f)
             .clip(SoftTokens.TileCorner)
             .background(colors.surface)
-            .then(if (animations) Modifier.animateContentSize(tween(PREVIEW_MILLIS)) else Modifier)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-    ) {
+            .border(Dp.Hairline, colors.hairline, SoftTokens.TileCorner),
+    )
+}
+
+internal const val RELEASE_PICTURE_TAG = "release-picture"
+
+/** How people reacted, most given first: the emoji and its count, four kinds at most. */
+@Composable
+private fun Reactions(reactions: Map<Reaction, Int>, modifier: Modifier = Modifier) {
+    val colors = Soft.colors
+    val said = reactions.entries.sortedByDescending { it.value }.take(4)
+    val description = said.map { (reaction, count) -> stringResource(R.string.issue_reaction_count, stringResource(reaction.label), count) }.joinToString("; ")
+    Row(modifier.clearAndSetSemantics { if (description.isNotEmpty()) contentDescription = description }, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        said.forEach { (reaction, count) ->
+            Text("${reaction.emoji} ${compactCount(count)}", style = Soft.type.meta, color = colors.inkMuted)
+        }
+    }
+}
+
+/** [dp] at the default text size, growing with the reader's text size so a mark keeps its place beside its words. */
+@Composable
+private fun textSized(dp: Int): Dp = with(LocalDensity.current) { dp.sp.toDp() }
+
+/** A line of small facts under a title: a state, a size, labels, a count. They wrap rather than squeeze. */
+@Composable
+private fun MetaRow(content: @Composable FlowRowScope.() -> Unit) {
+    FlowRow(
+        Modifier.padding(top = 7.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
+/** A state in its meaning's ink, with its glyph and number: "Merged #3412". */
+@Composable
+private fun StateMark(label: String, icon: ImageVector, ink: Color, number: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(icon, contentDescription = null, tint = ink, modifier = Modifier.size(textSized(15)))
+        Text("$label #$number", style = Soft.type.label, color = ink)
+    }
+}
+
+/** What an issue or pull request adds once known: its size, files changed, labels and comments. */
+@Composable
+private fun ConversationMarks(conversation: ConversationPreview?) {
+    val colors = Soft.colors
+    if (conversation == null) return
+    val added = conversation.additions
+    val removed = conversation.deletions
+    if (added != null && removed != null) SizeMark(added, removed)
+    conversation.changedFiles?.let { files ->
+        Text(pluralStringResource(R.plurals.feed_files, files, files), style = Soft.type.meta, color = colors.inkMuted)
+    }
+    conversation.labels.take(3).forEach { label -> LabelMark(label) }
+    conversation.comments?.takeIf { it > 0 }?.let { comments ->
+        val said = pluralStringResource(R.plurals.feed_comments, comments, comments)
+        Row(Modifier.clearAndSetSemantics { contentDescription = said }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            Icon(Icons.Outlined.ChatBubbleOutline, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(textSized(14)))
+            Text(compactCount(comments), style = Soft.type.meta, color = colors.inkMuted)
+        }
+    }
+}
+
+/** Lines added and removed, then five squares shared between them the way GitHub draws a change's size. */
+@Composable
+private fun SizeMark(added: Int, removed: Int) {
+    val colors = Soft.colors
+    val (red, _, green) = colors.fieldInks
+    val said = stringResource(R.string.feed_size, added, removed)
+    val greens = if (added + removed == 0) 0 else ((5f * added / (added + removed)) + 0.5f).toInt().coerceIn(if (added > 0) 1 else 0, if (removed > 0) 4 else 5)
+    Row(Modifier.clearAndSetSemantics { contentDescription = said }, verticalAlignment = Alignment.CenterVertically) {
         Text(
             buildAnnotatedString {
-                withStyle(SpanStyle(color = colors.inkMuted)) { append("${repo.owner}/\u2060") }
+                withStyle(SpanStyle(color = green)) { append("+${compactCount(added)}") }
+                append(" ")
+                withStyle(SpanStyle(color = red)) { append("−${compactCount(removed)}") }
+            },
+            style = Soft.type.meta,
+        )
+        Spacer(Modifier.width(5.dp))
+        val square = textSized(7)
+        repeat(5) { i ->
+            Box(Modifier.padding(start = if (i == 0) 0.dp else 2.dp).size(square).background(if (i < greens) green else red, RoundedCornerShape(1.5.dp)))
+        }
+    }
+}
+
+/** A forge label: its color as a dot, then its name. */
+@Composable
+private fun LabelMark(label: Label) {
+    val dot = label.color?.let { runCatching { Color(0xFF000000 or it.removePrefix("#").toLong(16)) }.getOrNull() } ?: Soft.colors.inkMuted
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Box(Modifier.size(textSized(8)).background(dot, CircleShape))
+        Text(label.name, style = Soft.type.tag, color = Soft.colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 140.dp))
+    }
+}
+
+/** A branch or tag by name, in code type. */
+@Composable
+private fun RefMark(name: String, icon: ImageVector) {
+    val colors = Soft.colors
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Icon(icon, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(textSized(15)))
+        Text(name, style = Soft.type.codeDense, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** A repository at a glance: its name, what it says it is, its language, stars and when it last moved. */
+@Composable
+private fun RepoObject(repo: RepoId, preview: RepoPreview?, description: String?, nowMillis: Long) {
+    val colors = Soft.colors
+    val startedEmpty = remember(repo) { preview == null }
+    Column(Modifier.widthIn(max = SoftTokens.MaxMeasure).padding(top = 4.dp)) {
+        Text(
+            buildAnnotatedString {
+                withStyle(SpanStyle(color = colors.inkMuted, fontWeight = FontWeight.Normal)) { append("${repo.owner}/⁠") }
                 append(repo.name)
             },
-            style = Soft.type.section.copy(fontWeight = FontWeight.SemiBold),
+            style = Soft.type.rowTitle.copy(fontWeight = FontWeight.SemiBold),
             color = colors.ink,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
@@ -470,7 +678,7 @@ private fun RepoObject(repo: RepoId, preview: RepoPreview?, description: String?
             FadeInIfLate(late = startedEmpty) {
                 Column {
                     if (description == null) preview.description?.let { RepoDescription(it) }
-                    RepoMeta(preview)
+                    RepoMeta(preview, nowMillis)
                 }
             }
         }
@@ -479,24 +687,25 @@ private fun RepoObject(repo: RepoId, preview: RepoPreview?, description: String?
 
 @Composable
 private fun RepoDescription(text: String) {
-    Text(text, style = Soft.type.secondary, color = Soft.colors.ink, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+    Text(text, style = Soft.type.secondary, color = Soft.colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
 }
 
-/** A repository's language (with its linguist color) and stars. */
+/** A repository's language (with its linguist color), stars, and when something was last pushed to it. */
 @Composable
-private fun RepoMeta(preview: RepoPreview) {
+private fun RepoMeta(preview: RepoPreview, nowMillis: Long) {
     val colors = Soft.colors
-    Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    MetaRow {
         preview.language?.let { language ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 languageColor(language)?.let { dot ->
-                    Box(Modifier.size(9.dp).background(dot, CircleShape))
-                    Spacer(Modifier.width(6.dp))
+                    Box(Modifier.size(textSized(9)).background(dot, CircleShape))
+                    Spacer(Modifier.width(5.dp))
                 }
                 Text(language, style = Soft.type.meta, color = colors.inkMuted)
             }
         }
         Text(stringResource(R.string.trending_stars, compactCount(preview.stars)), style = Soft.type.meta, color = colors.inkMuted)
+        preview.pushedAt?.let { Text(stringResource(R.string.feed_updated, relativeInSentence(it, nowMillis)), style = Soft.type.meta, color = colors.inkMuted) }
     }
 }
 
@@ -514,21 +723,13 @@ private fun FadeInIfLate(late: Boolean, content: @Composable () -> Unit) {
 
 private const val PREVIEW_MILLIS = 220
 
-/** A state (Open, Merged, a tag, a branch...) as a tag, then an optional #number. */
-@Composable
-private fun StatePill(
-    label: String,
-    icon: ImageVector,
-    tint: Color,
-    modifier: Modifier = Modifier,
-    number: Int? = null,
-    monospace: Boolean = false,
-) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        SoftPill(label, icon, tint, monospace = monospace)
-        number?.let { Text("#$it", style = Soft.type.meta, color = Soft.colors.inkMuted) }
+/** How a release's step reads. */
+private val ReleaseJump.label: Int
+    get() = when (this) {
+        ReleaseJump.MAJOR -> R.string.feed_jump_major
+        ReleaseJump.MINOR -> R.string.feed_jump_minor
+        ReleaseJump.PATCH -> R.string.feed_jump_patch
     }
-}
 
 /** The title of what an event is about, set to be read. */
 @Composable
@@ -539,7 +740,7 @@ private fun ObjectTitle(title: String) {
         color = Soft.colors.ink,
         maxLines = 3,
         overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.padding(top = 6.dp).widthIn(max = SoftTokens.MaxMeasure),
+        modifier = Modifier.padding(top = 4.dp).widthIn(max = SoftTokens.MaxMeasure),
     )
 }
 
@@ -553,7 +754,7 @@ private fun LateTitle(title: String?) {
     if (title == null) PendingTitle() else FadeInIfLate(late = startedEmpty) { ObjectTitle(title) }
 }
 
-/** Where a title will land: a soft bar, so the row keeps its shape. */
+/** Where text will land: a soft bar, so the row keeps its shape. */
 @Composable
 private fun PendingTitle() {
     Box(Modifier.padding(top = 10.dp).fillMaxWidth(0.7f).height(14.dp).background(Soft.colors.surface, SoftTokens.Pill))
@@ -646,7 +847,8 @@ private fun FeedItem.rawHeadline(repoLabel: String): String {
         is FeedAction.Forked -> stringResource(R.string.feed_line_forked, who, a.fork.fullName)
         is FeedAction.CreatedRepo -> stringResource(R.string.feed_line_created, who)
         FeedAction.MadePublic -> stringResource(R.string.feed_line_made_public, who)
-        is FeedAction.Released -> stringResource(R.string.feed_line_released, who, repo)
+        // A release is the project's news: the line names the project, the row leads with its logo.
+        is FeedAction.Released -> stringResource(R.string.feed_line_repo_released, repo)
         is FeedAction.Announced -> stringResource(R.string.feed_line_announced, who, repo)
         is FeedAction.Issue -> stringResource(
             when (a.action) {

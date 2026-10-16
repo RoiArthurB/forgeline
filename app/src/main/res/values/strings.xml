@@ -99,7 +99,21 @@
     <string name="feed_line_forked">%1$s forked to %2$s</string>
     <string name="feed_line_created">%1$s created a repository</string>
     <string name="feed_line_made_public">%1$s made a repository public</string>
-    <string name="feed_line_released">%1$s released %2$s</string>
+    <string name="feed_line_repo_released">%1$s released</string>
+    <string name="feed_jump_major">Major</string>
+    <string name="feed_jump_minor">Minor</string>
+    <string name="feed_jump_patch">Patch</string>
+    <string name="feed_release_notes">Notes</string>
+    <string name="feed_size">%1$d lines added, %2$d removed</string>
+    <string name="feed_updated">Updated %1$s</string>
+    <plurals name="feed_files">
+        <item quantity="one">%d file</item>
+        <item quantity="other">%d files</item>
+    </plurals>
+    <plurals name="feed_comments">
+        <item quantity="one">%d comment</item>
+        <item quantity="other">%d comments</item>
+    </plurals>
     <string name="feed_line_announced">%1$s announced in %2$s</string>
     <string name="feed_state_announcement">Announcement</string>
     <string name="feed_line_pr_opened">%1$s opened a pull request in %2$s</string>
@@ -658,6 +672,8 @@
     <string name="interval_3h">Every 3 hours</string>
     <string name="interval_6h">Every 6 hours</string>
     <string name="settings_section_feed">Feed</string>
+    <string name="settings_feed_pictures">Release pictures</string>
+    <string name="settings_feed_pictures_summary">Releases show their project\'s picture</string>
     <string name="settings_feed_kinds">Feed activity</string>
     <string name="settings_feed_kinds_summary">Showing %1$d of %2$d</string>
     <string name="feed_kind_stars">Stars</string>

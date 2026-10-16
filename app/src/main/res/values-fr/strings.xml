@@ -100,7 +100,23 @@
     <string name="feed_line_forked">%1$s a forké vers %2$s</string>
     <string name="feed_line_created">%1$s a créé un dépôt</string>
     <string name="feed_line_made_public">%1$s a rendu un dépôt public</string>
-    <string name="feed_line_released">%1$s a publié %2$s</string>
+    <string name="feed_line_repo_released">%1$s a publié une version</string>
+    <string name="feed_jump_major">Majeure</string>
+    <string name="feed_jump_minor">Mineure</string>
+    <string name="feed_jump_patch">Correctif</string>
+    <string name="feed_release_notes">Notes</string>
+    <string name="feed_size">%1$d lignes ajoutées, %2$d retirées</string>
+    <string name="feed_updated">Mis à jour %1$s</string>
+    <plurals name="feed_files">
+        <item quantity="one">%d fichier</item>
+        <item quantity="many">%d fichiers</item>
+        <item quantity="other">%d fichiers</item>
+    </plurals>
+    <plurals name="feed_comments">
+        <item quantity="one">%d commentaire</item>
+        <item quantity="many">%d commentaires</item>
+        <item quantity="other">%d commentaires</item>
+    </plurals>
     <string name="feed_line_announced">%1$s a fait une annonce dans %2$s</string>
     <string name="feed_state_announcement">Annonce</string>
     <string name="feed_line_pr_opened">%1$s a ouvert une pull request dans %2$s</string>
@@ -637,6 +653,8 @@
     <string name="interval_3h">Toutes les 3 heures</string>
     <string name="interval_6h">Toutes les 6 heures</string>
     <string name="settings_section_feed">Fil</string>
+    <string name="settings_feed_pictures">Images des versions</string>
+    <string name="settings_feed_pictures_summary">Les versions montrent l’image de leur projet</string>
     <string name="settings_feed_kinds">Activité du fil</string>
     <string name="settings_feed_kinds_summary">%1$d affichés sur %2$d</string>
     <string name="feed_kind_stars">Étoiles</string>

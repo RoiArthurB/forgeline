@@ -1,6 +1,8 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
 import fr.arthurbrugiere.forgeline.core.forge.FeedApi
+import fr.arthurbrugiere.forgeline.core.forge.FeedDetail
+import fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey
 import fr.arthurbrugiere.forgeline.core.forge.FeedPage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
@@ -81,6 +83,9 @@ class GitHubFeedApi(
         }
         return ForgeResult.Success(events)
     }
+
+    override suspend fun details(token: String, keys: List<FeedDetailKey>): ForgeResult<Map<FeedDetailKey, FeedDetail>> =
+        httpClient.gitHubFeedDetails(apiBaseUrl, token, keys)
 
     /** One page of stars, and the last page's number when GitHub announces it. */
     private suspend fun starredPage(token: String, page: Int): ForgeResult<Pair<List<StarJson>, Int?>> {

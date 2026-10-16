@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import androidx.compose.ui.test.onNodeWithTag
+import fr.arthurbrugiere.forgeline.core.model.Reaction
+import fr.arthurbrugiere.forgeline.core.model.ReleaseRef
+import fr.arthurbrugiere.forgeline.core.model.ReleasePreview
 import androidx.compose.ui.test.assertTextContains
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.compose.ui.test.assertIsDisplayed
@@ -13,6 +17,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.FeedPreviews
+import fr.arthurbrugiere.forgeline.core.model.ConversationPreview
 import fr.arthurbrugiere.forgeline.core.model.IssueAction
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
@@ -147,17 +152,16 @@ class FeedScreenTest {
                 feedEvent("4", actor = "alice", repo = "alice/idea", action = FeedAction.CreatedRepo("A fresh idea")),
                 feedEvent("3", actor = "alice", repo = "alice/dotfiles", action = FeedAction.Pushed("main")),
             ),
-            FeedPreviews(pullTitles = mapOf(IssueRef(RepoId("acme", "rocket"), 43) to "Retry the fuel pump")),
+            FeedPreviews(conversations = mapOf(IssueRef(RepoId("acme", "rocket"), 43) to ConversationPreview("Retry the fuel pump"))),
         )
 
         composeRule.onNodeWithText("carol closed an issue in acme/\u2060rocket", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Closed").assertIsDisplayed()
+        composeRule.onNodeWithText("Closed #42").assertIsDisplayed()
         composeRule.onNodeWithText("Launch fails").assertIsDisplayed()
         composeRule.onNodeWithText("bob merged a pull request in acme/\u2060rocket", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Merged").assertIsDisplayed()
-        composeRule.onNodeWithText("#43").assertIsDisplayed()
+        composeRule.onNodeWithText("Merged #43").assertIsDisplayed()
         composeRule.onNodeWithText("Retry the fuel pump").assertIsDisplayed()
-        composeRule.onNodeWithText("Approved").assertIsDisplayed()
+        composeRule.onNodeWithText("Approved #44").assertIsDisplayed()
         composeRule.onNodeWithText("v2.0.0").assertIsDisplayed()
         composeRule.onNodeWithText("Tools 2.0").assertIsDisplayed()
         composeRule.onNodeWithText("carol forked to carol/\u2060tools", substring = true).assertIsDisplayed()
@@ -262,7 +266,7 @@ class FeedScreenTest {
     fun a_comment_on_an_issue_shows_the_title_fetched_for_it() {
         setContent(
             state(feedEvent("1", actor = "carol", action = FeedAction.Commented(12, null, isPullRequest = false))),
-            FeedPreviews(pullTitles = mapOf(IssueRef(RepoId("acme", "rocket"), 12) to "Launch fails")),
+            FeedPreviews(conversations = mapOf(IssueRef(RepoId("acme", "rocket"), 12) to ConversationPreview("Launch fails"))),
         )
 
         composeRule.onNodeWithText("Launch fails").assertIsDisplayed()
@@ -285,7 +289,7 @@ class FeedScreenTest {
         setContent(FeedUiState(items = feedItems(listOf(announced), FeedKind.defaults), syncedAtMillis = 1))
 
         composeRule.onNodeWithText("alextran announced in immich-app/\u2060immich", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("Announcement", useUnmergedTree = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Announcement #880", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Immich turns three", useUnmergedTree = true).performClick()
 
         // Outside the app shell there is no discussion page: the announcement opens on the forge.
@@ -309,11 +313,11 @@ class FeedScreenTest {
             state(
                 feedEvent("1", actor = "octocat", repo = "RoiArthurB/forgeline", action = FeedAction.PullRequest(PullRequestAction.OPENED, 4)),
             ),
-            FeedPreviews(pullTitles = mapOf(IssueRef(RepoId("roiarthurb", "forgeline"), 4) to "Fix PR title display bug")),
+            FeedPreviews(conversations = mapOf(IssueRef(RepoId("roiarthurb", "forgeline"), 4) to ConversationPreview("Fix PR title display bug"))),
         )
 
         composeRule.onNodeWithText("octocat opened a pull request in RoiArthurB/\u2060forgeline", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText("#4").assertIsDisplayed()
+        composeRule.onNodeWithText("Open #4").assertIsDisplayed()
         composeRule.onNodeWithText("Fix PR title display bug").assertIsDisplayed()
     }
 
@@ -402,5 +406,93 @@ class FeedScreenTest {
             ),
         )
         composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    private val tools = RepoId("octo", "tools")
+    private val released = feedEvent("r", actor = "alice", repo = "octo/tools", action = FeedAction.Released("v2.0.0", null, prerelease = false))
+    private val releasePreview = ReleasePreview(
+        summary = "Every command starts twice as fast.",
+        previousTag = "v1.9.2",
+        imageUrl = "https://example.org/card.png",
+        logoUrl = "https://example.org/logo.png",
+        reactions = mapOf(Reaction.HOORAY to 31, Reaction.EYES to 2, Reaction.ROCKET to 12, Reaction.HEART to 5, Reaction.LAUGH to 1),
+    )
+
+    @Test
+    fun a_release_names_its_project_says_its_step_and_sums_up_its_notes() {
+        setContent(state(released), FeedPreviews(releases = mapOf(ReleaseRef(tools, "v2.0.0") to releasePreview)))
+
+        composeRule.onNodeWithText("octo/\u2060tools released", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("v2.0.0").assertIsDisplayed()
+        composeRule.onNodeWithText("Major").assertIsDisplayed()
+        composeRule.onNodeWithText("Every command starts twice as fast.").assertIsDisplayed()
+        composeRule.onNodeWithText("Notes").assertIsDisplayed()
+        // The four reactions given most, most first; a fifth would only crowd the line.
+        composeRule.onNode(hasContentDescription("Hooray, 31; Rocket, 12; Heart, 5; Eyes, 2")).assertExists()
+    }
+
+    @Test
+    fun a_pre_release_says_so_beside_its_step() {
+        val candidate = feedEvent("p", repo = "octo/tools", action = FeedAction.Released("v2.1.0-rc.1", null, prerelease = true))
+        setContent(state(candidate), FeedPreviews(releases = mapOf(ReleaseRef(tools, "v2.1.0-rc.1") to releasePreview.copy(previousTag = "v2.0.0"))))
+
+        composeRule.onNodeWithText("Minor · Pre-release").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_release_shows_its_project_s_picture_unless_pictures_are_switched_off() {
+        setContent(state(released), FeedPreviews(releases = mapOf(ReleaseRef(tools, "v2.0.0") to releasePreview)))
+        composeRule.onNodeWithTag(RELEASE_PICTURE_TAG, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun with_pictures_switched_off_a_release_is_text_only() {
+        userSettings = userSettings.copy(feedPictures = false)
+        setContent(state(released), FeedPreviews(releases = mapOf(ReleaseRef(tools, "v2.0.0") to releasePreview)))
+
+        composeRule.onNodeWithTag(RELEASE_PICTURE_TAG, useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText("Every command starts twice as fast.").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_release_still_on_its_way_keeps_its_version_and_waits_for_the_rest() {
+        setContent(state(released))
+
+        composeRule.onNodeWithText("v2.0.0").assertIsDisplayed()
+        composeRule.onNodeWithText("Notes").assertDoesNotExist()
+        composeRule.onNodeWithTag(RELEASE_PICTURE_TAG, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun a_pull_request_shows_its_size_and_an_issue_its_labels_and_comments() {
+        setContent(
+            state(
+                feedEvent("2", actor = "bob", action = FeedAction.PullRequest(PullRequestAction.MERGED, 43)),
+                feedEvent("1", actor = "carol", action = FeedAction.Issue(IssueAction.OPENED, 42, "Launch fails")),
+            ),
+            FeedPreviews(
+                conversations = mapOf(
+                    IssueRef(RepoId("acme", "rocket"), 43, isPullRequest = true) to ConversationPreview("Retry", additions = 212, deletions = 40, changedFiles = 7),
+                    IssueRef(RepoId("acme", "rocket"), 42, isPullRequest = false) to ConversationPreview(
+                        "Launch fails", labels = listOf(fr.arthurbrugiere.forgeline.core.model.Label("bug", "d73a4a")), comments = 4,
+                    ),
+                ),
+            ),
+        )
+
+        composeRule.onNode(hasContentDescription("212 lines added, 40 removed")).assertExists()
+        composeRule.onNodeWithText("7 files").assertIsDisplayed()
+        composeRule.onNodeWithText("bug").assertIsDisplayed()
+        composeRule.onNode(hasContentDescription("4 comments")).assertExists()
+    }
+
+    @Test
+    fun a_starred_repository_says_when_it_last_moved() {
+        setContent(
+            state(feedEvent("1")),
+            FeedPreviews(repos = mapOf(RepoId("acme", "rocket") to RepoPreview("Rockets.", "Rust", 3, Instant.parse("2026-09-27T09:40:00Z")))),
+        )
+
+        composeRule.onNodeWithText("Updated 20 minutes ago").assertIsDisplayed()
     }
 }
