@@ -90,4 +90,22 @@ class DesignSystemTest {
         }
         return text.length
     }
+
+    @Test
+    fun the_launcher_icon_and_splash_are_drawn_in_the_band_s_ink_not_the_retired_ember() {
+        // The owner's pick (2026-10-16, "C"): the ink ground of the header band, the newest commit in marigold. The
+        // ember (#9C4221) went with Ink Compact and stayed only here.
+        val res = Repo.root.resolve("app/src/main/res")
+        val colors = res.resolve("values/colors.xml").readText()
+        assertThat(colors).doesNotContain("9C4221")
+        assertThat(colors).contains("""<color name="launcher_ink">#FF16181A</color>""")
+        assertThat(res.resolve("mipmap-anydpi/ic_launcher.xml").readText()).contains("@color/launcher_ink")
+        assertThat(res.resolve("values/themes.xml").readText()).contains("""<item name="windowSplashScreenBackground">@color/launcher_ink</item>""")
+        assertThat(res.resolve("drawable/ic_launcher_foreground.xml").readText()).contains("#FFF5A524")
+        // The themed icon is one colour: a marigold commit there would be tinted like the rest, or lost.
+        assertThat(res.resolve("drawable/ic_launcher_monochrome.xml").readText()).doesNotContain("F5A524")
+        // The same ink as the band the app draws.
+        val soft = Repo.root.resolve("core/ui/src/main/kotlin/fr/arthurbrugiere/forgeline/core/ui/soft/Soft.kt").readText()
+        assertThat(soft).contains("band = Color(0xFF16181A)")
+    }
 }

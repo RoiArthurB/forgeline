@@ -2,8 +2,10 @@
     <style name="Theme.Forgeline" parent="android:Theme.Material.Light.NoActionBar" />
 
     <style name="Theme.Forgeline.Starting" parent="Theme.SplashScreen">
+        <!-- The icon's mark on the band's ink, light theme or dark: the app opens on its band. -->
+        <item name="windowSplashScreenBackground">@color/launcher_ink</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
-        <item name="windowSplashScreenIconBackgroundColor">@color/ember</item>
+        <item name="windowSplashScreenIconBackgroundColor">@color/launcher_ink</item>
         <item name="postSplashScreenTheme">@style/Theme.Forgeline</item>
     </style>
 </resources>
