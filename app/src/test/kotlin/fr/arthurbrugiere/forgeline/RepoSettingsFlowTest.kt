@@ -78,6 +78,7 @@ class RepoSettingsFlowTest {
     @Test
     fun who_administers_a_repository_changes_its_settings_from_it() {
         hiltRule.inject()
+        settings.writeLatencyMillis = WRITE_LATENCY_MILLIS
         runBlocking { accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null), "tok") }
         openRepository()
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasContentDescription("Repository settings")).fetchSemanticsNodes().isNotEmpty() }
@@ -86,8 +87,7 @@ class RepoSettingsFlowTest {
         waitFor("Tools for octocats")
         composeRule.onNodeWithText("Features").performClick()
         composeRule.onNode(hasText("Wiki") and isToggleable()).performClick()
-        composeRule.waitForIdle()
-        composeRule.waitUntil(FLOW_WAIT_MILLIS) { settings.changes.size == 1 }
+        composeRule.waitUntilAsked { settings.changes.size == 1 }
         // Said, with the way back.
         waitFor("Wiki switched on")
         // Regression: the switch's change landing closed whatever sheet had been opened meanwhile.
@@ -98,8 +98,7 @@ class RepoSettingsFlowTest {
         pressWhenEnabled("Save")
 
         // The sheet closes on what it saved, and the row says it.
-        composeRule.waitForIdle()
-        composeRule.waitUntil(FLOW_WAIT_MILLIS) { settings.changes.size == 2 }
+        composeRule.waitUntilAsked { settings.changes.size == 2 }
         waitFor("Faster tools")
         assertThat(settings.changes).containsExactly(RepoSettingsChange.Switch(RepoSwitch.WIKI, true), RepoSettingsChange.Description("Faster tools")).inOrder()
         composeRule.onNode(hasContentDescription("Navigate up")).performClick()
@@ -171,6 +170,7 @@ class RepoSettingsFlowTest {
     @Test
     fun a_website_is_published_from_the_settings() {
         hiltRule.inject()
+        settings.writeLatencyMillis = WRITE_LATENCY_MILLIS
         runBlocking { accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null), "tok") }
         openRepository()
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasContentDescription("Repository settings")).fetchSemanticsNodes().isNotEmpty() }
@@ -183,7 +183,7 @@ class RepoSettingsFlowTest {
         composeRule.onAllNodes(hasText("Publish a website"))[1].performClick()
         composeRule.waitForIdle()
 
-        composeRule.waitUntil(FLOW_WAIT_MILLIS) { settings.pagesChanges.isNotEmpty() }
+        composeRule.waitUntilAsked { settings.pagesChanges.isNotEmpty() }
         // The sheet closes on it, and the section says where the site now is.
         waitFor("https://paperclipai.example/paperclip/")
         assertThat(settings.pagesChanges).containsExactly(fr.arthurbrugiere.forgeline.core.model.PagesChange.Publish(fr.arthurbrugiere.forgeline.core.model.PagesBuild.Workflow))

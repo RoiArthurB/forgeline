@@ -61,6 +61,8 @@ class PullRequestFlowTest {
     /** Signs in, then opens the pull request a review is asked for, from the Inbox's own-work filter. */
     private fun openPullRequest() {
         hiltRule.inject()
+        // Its reviews and merges are answered late, from off the main thread, as a forge's are.
+        pulls.writeLatencyMillis = WRITE_LATENCY_MILLIS
         // Regression: on a slow runner the app had settled on its signed-out start tab before the sign-in landed, and
         // the Inbox the test waited for never opened (2026-10-12 and 14). Signed in after it settles, as it was there.
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasContentDescription("Trending") and isSelected()).fetchSemanticsNodes().isNotEmpty() }
@@ -94,8 +96,7 @@ class PullRequestFlowTest {
         waitFor("Send review")
         composeRule.onNodeWithText("Request changes").performClick()
         composeRule.onNodeWithText("Send review").performClick()
-        composeRule.waitForIdle()
-        composeRule.waitUntil(FLOW_WAIT_MILLIS) { pulls.reviews.isNotEmpty() }
+        composeRule.waitUntilAsked { pulls.reviews.isNotEmpty() }
 
         assertThat(pulls.reviews.single()).isEqualTo(
             FakePullRequestApi.SentReview(
@@ -165,8 +166,7 @@ class PullRequestFlowTest {
         // One of its two checks failed: the sheet says so again, and names the merge for what it is.
         composeRule.onNodeWithText("Confirm merge").assertDoesNotExist()
         composeRule.onNodeWithText("Merge anyway").performClick()
-        composeRule.waitForIdle()
-        composeRule.waitUntil(FLOW_WAIT_MILLIS) { pulls.calls.any { it.startsWith("merge:") } }
+        composeRule.waitUntilAsked { pulls.calls.any { it.startsWith("merge:") } }
 
         assertThat(pulls.calls).contains("merge:octo/tools#88:${MergeMethod.SQUASH}")
         // The sheet closes on what it did.

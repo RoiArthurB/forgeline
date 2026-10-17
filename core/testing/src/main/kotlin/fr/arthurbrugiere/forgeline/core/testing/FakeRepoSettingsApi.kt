@@ -31,12 +31,16 @@ class FakeRepoSettingsApi(
     /** How long a rename takes to be answered, as a real forge's does: what waits for it must wait for its answer. */
     var renameDelayMillis: Long = 0
 
+    /** How long a change takes to be answered, off the caller's thread as a real forge's is; recorded once it is. */
+    var writeLatencyMillis: Long = 0
+
     override suspend fun settings(token: String, repo: RepoId): ForgeResult<RepoSettings> {
         calls += "settings:${repo.fullName}"
         return failure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(settings)
     }
 
     override suspend fun change(token: String, repo: RepoId, change: RepoSettingsChange): ForgeResult<RepoSettings> {
+        answerLate(writeLatencyMillis)
         calls += "change:${repo.fullName}"
         changes += change
         writeFailure?.let { return ForgeResult.Failure(it) }
@@ -82,6 +86,7 @@ class FakeRepoSettingsApi(
     }
 
     override suspend fun changePages(token: String, repo: RepoId, change: fr.arthurbrugiere.forgeline.core.model.PagesChange): ForgeResult<fr.arthurbrugiere.forgeline.core.model.PagesSite> {
+        answerLate(writeLatencyMillis)
         calls += "changePages:${repo.fullName}"
         pagesChanges += change
         writeFailure?.let { return ForgeResult.Failure(it) }

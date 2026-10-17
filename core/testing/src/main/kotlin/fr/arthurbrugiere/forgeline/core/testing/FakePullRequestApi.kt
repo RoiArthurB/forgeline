@@ -35,6 +35,9 @@ class FakePullRequestApi(
     /** When set, every write fails with it. */
     var writeFailure: ForgeError? = null
 
+    /** How long a write takes to be answered, off the caller's thread as a real forge's is; recorded once it is. */
+    var writeLatencyMillis: Long = 0
+
     /** Each entry is a page. */
     var files: List<List<ChangedFile>> = emptyList()
     var commits: List<Commit> = emptyList()
@@ -59,7 +62,8 @@ class FakePullRequestApi(
         return failure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(value())
     }
 
-    private fun <T> write(call: String, value: () -> T): ForgeResult<T> {
+    private suspend fun <T> write(call: String, value: () -> T): ForgeResult<T> {
+        answerLate(writeLatencyMillis)
         calls += call
         return writeFailure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(value())
     }
