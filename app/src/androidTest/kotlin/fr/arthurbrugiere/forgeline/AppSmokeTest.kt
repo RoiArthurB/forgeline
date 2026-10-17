@@ -9,6 +9,7 @@ import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.onAllNodesWithText
@@ -72,7 +73,7 @@ class AppSmokeTest {
         tab("Inbox").performClick()
         composeRule.onNodeWithText("Your notifications, in one place").assertIsDisplayed()
         tab("Feed").performClick()
-        composeRule.onNodeWithText("Follow the people you follow").assertIsDisplayed()
+        composeRule.onNodeWithText("What the people you follow are making").assertIsDisplayed()
 
         pressBack()
 
@@ -103,8 +104,11 @@ class AppSmokeTest {
         tab("Inbox").performClick()
         composeRule.onNodeWithText("Sign in").performClick()
         // The field is named by its label, which stays above it once something is written.
-        composeRule.onNode(hasContentDescription("Personal access token") and hasSetTextAction()).performTextInput("ghp_emulator")
-        composeRule.onNodeWithText("Sign in with token").performClick()
+        val tokenField = composeRule.onNode(hasContentDescription("Personal access token") and hasSetTextAction())
+        tokenField.performTextInput("ghp_emulator")
+        // Submitted from the keyboard: the "Sign in with token" button can sit half under the bottom bar, where a tap
+        // at its centre lands on the Trending tab instead.
+        tokenField.performImeAction()
 
         composeRule.waitUntil(10_000) {
             composeRule.onAllNodes(hasText("Heartbeat recovery escalates too early")).fetchSemanticsNodes().isNotEmpty()
