@@ -121,7 +121,9 @@ class GitHubLiveContractTest {
         assertWithMessage("received events: $result").that(result).isInstanceOf(ForgeResult.Success::class.java)
         val page = (result as ForgeResult.Success).value
         assertThat(page.events).isNotEmpty()
-        assertThat(page.nextPage).isEqualTo(2)
+        // torvalds follows nobody, so his feed is only his own repositories' and can fit one page of 100: whether a
+        // next page exists is his activity, not the contract. Reading the Link header is GitHubFeedApiTest's job.
+        assertThat(page.nextPage).isAnyOf(null, 2)
     }
 
     @Test
