@@ -40,6 +40,8 @@ import fr.arthurbrugiere.forgeline.core.data.inbox.InboxDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxRepository
 import fr.arthurbrugiere.forgeline.core.data.actions.ActionsRepository
 import fr.arthurbrugiere.forgeline.core.data.actions.DefaultActionsRepository
+import fr.arthurbrugiere.forgeline.core.data.actions.DefaultJobLogRepository
+import fr.arthurbrugiere.forgeline.core.data.actions.JobLogRepository
 import fr.arthurbrugiere.forgeline.core.data.issue.ConversationDao
 import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkDao
 import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
@@ -103,6 +105,9 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindActionsRepository(impl: DefaultActionsRepository): ActionsRepository
+
+    @Binds
+    abstract fun bindJobLogRepository(impl: DefaultJobLogRepository): JobLogRepository
 
     @Binds
     abstract fun bindIssueRepository(impl: DefaultIssueRepository): IssueRepository
@@ -173,6 +178,10 @@ abstract class DataModule {
         @Computation
         fun provideComputationDispatcher(): CoroutineDispatcher = Dispatchers.Default
 
+        @Provides
+        @DiskIo
+        fun provideDiskIoDispatcher(): CoroutineDispatcher = Dispatchers.IO
+
         /** For work that outlives the screen that started it, like what an Inbox sync does after the list is in. */
         @Provides
         @Singleton
@@ -181,6 +190,11 @@ abstract class DataModule {
 
         // Background work is extra (states, conversations ahead): its failure is logged, never a crash.
         private val LogFailures = CoroutineExceptionHandler { _, error -> Log.w("Forgeline", "Background work failed", error) }
+
+        /** In the cache: Android may clear it when space runs low, and a log is only downloaded again. */
+        @Provides
+        @JobLogCache
+        fun provideJobLogCache(@ApplicationContext context: Context): java.io.File = java.io.File(context.cacheDir, "job-logs")
 
         @Provides
         @Singleton

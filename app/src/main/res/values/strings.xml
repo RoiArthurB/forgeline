@@ -394,6 +394,11 @@
     <string name="log_sign_in_body">%1$s only shows job logs to signed-in people, even on public repositories.</string>
     <string name="log_empty_title">Nothing logged</string>
     <string name="log_empty_body">This job hasn\'t written anything yet.</string>
+    <string name="log_step_setup">Set up job</string>
+    <string name="log_step_skipped">Skipped</string>
+    <string name="log_step_empty">This step wrote nothing.</string>
+    <string name="log_earlier_size">Show earlier lines (%1$s)</string>
+    <string name="log_earlier_failed">Couldn\'t read the earlier lines. Try again</string>
     <string name="repo_ref_switch">Browsing %1$s. Switch branch or tag</string>
     <string name="repo_ref_branches">Branches</string>
     <string name="repo_ref_tags">Tags</string>
@@ -796,6 +801,14 @@
     <plurals name="run_jobs">
         <item quantity="one">%d job</item>
         <item quantity="other">%d jobs</item>
+    </plurals>
+    <plurals name="log_step_errors">
+        <item quantity="one">%d error</item>
+        <item quantity="other">%d errors</item>
+    </plurals>
+    <plurals name="log_earlier_lines">
+        <item quantity="one">Show %d earlier line</item>
+        <item quantity="other">Show %d earlier lines</item>
     </plurals>
     <plurals name="log_jump_to_error">
         <item quantity="one">Jump to the error</item>

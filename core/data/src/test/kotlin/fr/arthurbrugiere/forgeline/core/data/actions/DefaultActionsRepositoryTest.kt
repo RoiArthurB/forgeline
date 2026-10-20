@@ -6,7 +6,6 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
-import fr.arthurbrugiere.forgeline.core.model.JobLog
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.Workflow
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
@@ -38,24 +37,12 @@ class DefaultActionsRepositoryTest {
     }
 
     @Test
-    fun signed_out_the_client_decides_about_logs() = runTest {
-        // GitHub's client refuses without a token; Forgejo's serves public logs to anyone.
-        api.logs[1] = JobLog(emptyList())
-
-        assertThat(repository.jobLog(repo, 1)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
-        api.logsNeedToken = false
-        assertThat(repository.jobLog(repo, 1)).isEqualTo(ForgeResult.Success(JobLog(emptyList())))
-    }
-
-    @Test
-    fun signed_in_logs_and_writes_reach_the_forge() = runTest {
+    fun signed_in_writes_reach_the_forge() = runTest {
         accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "ghp_token")
-        api.logs[1] = JobLog(emptyList())
 
-        assertThat(repository.jobLog(repo, 1)).isEqualTo(ForgeResult.Success(JobLog(emptyList())))
         repository.rerun(repo, 7, failedJobsOnly = true)
 
-        assertThat(api.calls).containsExactly("log:octo/repo:1", "rerun:octo/repo:7:failed").inOrder()
+        assertThat(api.calls).containsExactly("rerun:octo/repo:7:failed")
     }
 
     @Test

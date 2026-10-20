@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.core.forge
 import fr.arthurbrugiere.forgeline.core.model.JobLog
 import fr.arthurbrugiere.forgeline.core.model.LogEntry
 import fr.arthurbrugiere.forgeline.core.model.LogLineKind
+import java.time.Instant
 
 /**
  * Reads a GitHub or Forgejo Actions job log (Forgejo's runner writes the same format): every line starts with a timestamp, `##[group]`/`##[endgroup]` fold lines, and
@@ -20,6 +21,21 @@ object ActionsLogParser {
         "[command]" to LogLineKind.COMMAND,
     )
 
+    /** When [raw] was written, if it says: GitHub's and Forgejo's runners stamp every line. */
+    fun timeOf(raw: String): Instant? = timestamp.find(raw.removePrefix(BOM))?.let { runCatching { Instant.parse(it.value.trim()) }.getOrNull() }
+
+    /** [raw] without its time. */
+    fun contentOf(raw: String): String {
+        val line = raw.removePrefix(BOM)
+        val stamped = timestamp.find(line) ?: return line
+        return line.substring(stamped.range.last + 1)
+    }
+
+    /** Whether [content] (a line without its time) is an error line. */
+    fun isError(content: String): Boolean = content.startsWith("##[error]")
+
+    private const val BOM = "\uFEFF"
+
     fun parse(text: String): JobLog {
         val entries = mutableListOf<LogEntry>()
         var groupTitle: String? = null
@@ -32,7 +48,7 @@ object ActionsLogParser {
             groupLines.clear()
         }
 
-        for (raw in text.removePrefix("﻿").lines()) {
+        for (raw in text.removePrefix(BOM).lines()) {
             val stamped = timestamp.find(raw)
             val content = if (stamped != null) raw.substring(stamped.range.last + 1) else raw
             when {

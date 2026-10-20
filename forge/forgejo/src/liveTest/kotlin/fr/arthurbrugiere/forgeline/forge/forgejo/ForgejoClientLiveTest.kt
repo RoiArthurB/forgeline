@@ -59,7 +59,14 @@ class ForgejoClientLiveTest {
         assertThat(finished.webUrl).endsWith("/actions/runs/${finished.runNumber}")
         val job = api.jobs(null, website, finished.id).value().first()
         assertThat(api.job(null, website, finished.id, job.id).value().name).isEqualTo(job.name)
-        assertThat(api.jobLog(null, website, job.id).value().entries).isNotEmpty()
+        val log = java.io.ByteArrayOutputStream().also { api.downloadJobLog(null, website, job.id, it).value() }.toByteArray()
+        val steps = fr.arthurbrugiere.forgeline.core.forge.JobLogSteps.index(log.inputStream(), api.logFormat)
+        assertWithMessage("steps of job ${job.id}").that(steps.count { it.title != null }).isAtLeast(1)
+        // Parts or not, the log is readable: read in parts, a part is the log's own bytes.
+        when (val opened = api.openJobLog(null, website, job.id)) {
+            is ForgeResult.Success -> assertThat(opened.value.read(0L..99L).value().bytes).isEqualTo(log.copyOfRange(0, 100))
+            is ForgeResult.Failure -> assertThat(opened.error).isEqualTo(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unsupported)
+        }
         assertThat(api.workflows(null, website).value()).isNotEmpty()
     }
 

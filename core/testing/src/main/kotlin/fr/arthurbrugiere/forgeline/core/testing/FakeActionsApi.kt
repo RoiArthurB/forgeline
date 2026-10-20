@@ -4,17 +4,31 @@ import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.DispatchInput
-import fr.arthurbrugiere.forgeline.core.model.JobLog
+import fr.arthurbrugiere.forgeline.core.forge.JobLogReader
+import fr.arthurbrugiere.forgeline.core.model.LogFormat
+import fr.arthurbrugiere.forgeline.core.model.LogPart
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RunJob
 import fr.arthurbrugiere.forgeline.core.model.Workflow
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
+import java.io.OutputStream
 
 /** Records every call as "method:owner/name:extra"; unknown runs and jobs answer 404. */
-class FakeActionsApi(override val supportsRerun: Boolean = true) : ActionsApi {
+class FakeActionsApi(
+    override val supportsRerun: Boolean = true,
+    override val logFormat: LogFormat = LogFormat.GITHUB,
+) : ActionsApi {
     val runs = mutableMapOf<Long, WorkflowRun>()
     val jobs = mutableMapOf<Long, List<RunJob>>()
-    val logs = mutableMapOf<Long, JobLog>()
+    /** Each job's log, as the forge stores it. */
+    val logs = mutableMapOf<Long, String>()
+
+    /** Whether logs are served in parts, as GitHub's are; when not, they can only be downloaded whole. */
+    var logsInParts = true
+
+    /** How many parts of logs were read, and how many bytes: what reading a step costs. */
+    var partsRead = 0
+    var bytesRead = 0L
     var workflows: List<Workflow> = emptyList()
     val inputs = mutableMapOf<Long, List<DispatchInput>?>()
     var writeFailure: ForgeError? = null
@@ -39,10 +53,27 @@ class FakeActionsApi(override val supportsRerun: Boolean = true) : ActionsApi {
     /** Like GitHub's: without a token, Unauthorized. */
     var logsNeedToken = true
 
-    override suspend fun jobLog(token: String?, id: RepoId, jobId: Long): ForgeResult<JobLog> {
-        calls += "log:${id.fullName}:$jobId"
+    override suspend fun openJobLog(token: String?, id: RepoId, jobId: Long): ForgeResult<JobLogReader> {
+        calls += "openLog:${id.fullName}:$jobId"
         if (token == null && logsNeedToken) return ForgeResult.Failure(ForgeError.Unauthorized)
-        return found(logs[jobId])
+        val log = logs[jobId]?.toByteArray() ?: return notFound
+        if (!logsInParts) return ForgeResult.Failure(ForgeError.Unsupported)
+        return ForgeResult.Success(
+            JobLogReader(log.size.toLong()) { range ->
+                partsRead++
+                bytesRead += range.last - range.first + 1
+                ForgeResult.Success(LogPart(log.copyOfRange(range.first.toInt(), range.last.toInt() + 1), range.first, log.size.toLong()))
+            },
+        )
+    }
+
+    override suspend fun downloadJobLog(token: String?, id: RepoId, jobId: Long, into: OutputStream): ForgeResult<Unit> {
+        calls += "downloadLog:${id.fullName}:$jobId"
+        if (token == null && logsNeedToken) return ForgeResult.Failure(ForgeError.Unauthorized)
+        val log = logs[jobId] ?: return notFound
+        into.write(log.toByteArray())
+        bytesRead += log.toByteArray().size
+        return ForgeResult.Success(Unit)
     }
 
     override suspend fun workflows(token: String?, id: RepoId) = ForgeResult.Success(workflows).also { calls += "workflows:${id.fullName}" }

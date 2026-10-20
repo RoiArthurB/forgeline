@@ -88,11 +88,22 @@ class GitLabActionsApiTest {
     }
 
     @Test
-    fun fetches_job_trace_log() = runTest {
+    fun a_job_trace_is_read_in_part_or_written_out_whole() = runTest {
         val logText = "Running with gitlab-runner 16.0\nJob succeeded\n"
-        val log = api { respond(logText, HttpStatusCode.OK) }.jobLog("token", repo, 501).value()
-        assertThat(log.entries).isNotEmpty()
-        assertThat(requests.single().url.encodedPath).contains("/jobs/501/trace")
+        val reader = api { request ->
+            val (first, last) = request.headers["Range"]!!.removePrefix("bytes=").split('-').map { it.toInt() }
+            respond(logText.substring(first, last + 1), HttpStatusCode.PartialContent, io.ktor.http.headersOf(io.ktor.http.HttpHeaders.ContentRange, "bytes $first-$last/${logText.length}"))
+        }.openJobLog("token", repo, 501).value()
+        assertThat(String(reader.read(32L..44L).value().bytes)).isEqualTo("Job succeeded")
+        assertThat(requests.last().url.encodedPath).contains("/jobs/501/trace")
+        assertThat(requests.last().headers["Range"]).isEqualTo("bytes=32-44")
+        requests.clear()
+
+        val whole = api { respond(logText, HttpStatusCode.OK) }
+        assertThat(whole.openJobLog("token", repo, 501)).isEqualTo(ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unsupported))
+        val out = java.io.ByteArrayOutputStream()
+        assertThat(whole.downloadJobLog("token", repo, 501, out)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(out.toString(Charsets.UTF_8)).isEqualTo(logText)
     }
 
     @Test

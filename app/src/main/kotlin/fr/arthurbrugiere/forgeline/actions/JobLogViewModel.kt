@@ -7,58 +7,107 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.actions.ActionsRepository
+import fr.arthurbrugiere.forgeline.core.data.actions.JobLogRepository
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
-import fr.arthurbrugiere.forgeline.core.model.JobLog
+import fr.arthurbrugiere.forgeline.core.forge.StepLines
 import fr.arthurbrugiere.forgeline.core.model.LogEntry
 import fr.arthurbrugiere.forgeline.core.model.LogLineKind
+import fr.arthurbrugiere.forgeline.core.model.LogStep
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RunConclusion
 import fr.arthurbrugiere.forgeline.core.model.RunJob
 import fr.arthurbrugiere.forgeline.core.model.RunStatus
-import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Duration
+
+/** What has been read of one step: windows of its last lines, the earliest first. */
+data class StepRead(
+    val entries: Loadable<List<LogEntry>> = Loadable.Loading,
+    /** Where the earliest line read begins: the step has more before it while this is past the step's start. */
+    val start: Long = 0,
+    /** How many of the log's lines have been read. */
+    val lines: Int = 0,
+    val loadingEarlier: Boolean = false,
+    val earlierFailed: ForgeError? = null,
+    /** Folded groups the reader opened, and groups holding an error, which start open: counted from the step's end. */
+    val openGroups: Set<Int> = emptySet(),
+)
 
 data class JobLogUiState(
     val repo: RepoId,
     val jobId: Long,
     val jobName: String,
-    val log: Loadable<JobLog> = Loadable.Loading,
     /** The job and its steps, which update while it runs; its log only exists once it has finished. */
     val job: RunJob? = null,
+    /** The log's steps, each with where its lines are: nothing of them is read until one is opened. */
+    val steps: Loadable<List<LogStep>> = Loadable.Loading,
     /** Log requests made since the job finished: GitHub publishes the log a few seconds after. */
     val logAttempts: Int = 0,
-    /** Folded groups the reader opened, and groups holding an error, which start open. */
-    val openGroups: Set<Int> = emptySet(),
+    /** Steps opened, by index. */
+    val opened: Set<Int> = emptySet(),
+    /** What has been read of each step, kept while it is folded again. */
+    val read: Map<Int, StepRead> = emptyMap(),
 ) {
     /** The job is still going: the screen shows its steps live instead of a log. */
     val isRunning: Boolean get() = job != null && job.status != RunStatus.COMPLETED
 
     /** Worth checking again soon: the job runs, or it just finished and its log isn't published yet. */
     val isLive: Boolean
-        get() = isRunning || (job != null && logAttempts < MAX_LOG_ATTEMPTS && (log as? Loadable.Failed)?.error.isNotFound())
+        get() = isRunning || (job != null && logAttempts < MAX_LOG_ATTEMPTS && (steps as? Loadable.Failed)?.error.isNotFound())
 
-    /** What the list shows: lines, group headers, and the lines of open groups. */
+    /** The step the job failed at: what the header offers to open. */
+    val failedStep: Int? get() = (steps as? Loadable.Loaded)?.value?.indexOfFirst { it.conclusion == RunConclusion.FAILURE }?.takeIf { it >= 0 }
+
+    /** How long each step took, when the forge says and its steps are the log's. */
+    val durations: List<Duration?> by lazy {
+        val logSteps = (steps as? Loadable.Loaded)?.value.orEmpty()
+        val apiSteps = job?.steps.orEmpty().sortedBy { it.number }
+        if (apiSteps.size != logSteps.size) return@lazy logSteps.map { null }
+        apiSteps.map { step -> step.startedAt?.let { start -> step.completedAt?.let { Duration.between(start, it) } } }
+    }
+
+    /** What the list shows: each step, and the lines of those opened. */
     val rows: List<LogRow> by lazy {
-        val entries = (log as? Loadable.Loaded)?.value?.entries.orEmpty()
+        val logSteps = (steps as? Loadable.Loaded)?.value.orEmpty()
         buildList {
-            entries.forEachIndexed { index, entry ->
-                when (entry) {
-                    is LogEntry.Line -> add(LogRow.Line(entry, index))
-                    is LogEntry.Group -> {
-                        val open = index in openGroups
-                        add(LogRow.Header(entry.title, index, open, entry.lines.size))
-                        if (open) entry.lines.forEachIndexed { line, it -> add(LogRow.Line(it, index, line)) }
+            logSteps.forEachIndexed { index, step ->
+                val open = index in opened
+                add(LogRow.Step(index, step, open, durations.getOrNull(index)))
+                if (!open) return@forEachIndexed
+                val read = read[index] ?: StepRead()
+                when (val entries = read.entries) {
+                    Loadable.Idle, Loadable.Loading -> add(LogRow.Loading(index))
+                    is Loadable.Failed -> add(LogRow.Failed(index, entries.error))
+                    is Loadable.Loaded -> {
+                        if (read.start > step.start) {
+                            add(LogRow.Earlier(index, step.lines?.let { it - read.lines }, read.start - step.start, read.loadingEarlier, read.earlierFailed))
+                        }
+                        val count = entries.value.size
+                        entries.value.forEachIndexed { at, entry ->
+                            val fromEnd = count - at
+                            when (entry) {
+                                is LogEntry.Line -> add(LogRow.Line(index, entry, fromEnd))
+                                is LogEntry.Group -> {
+                                    val groupOpen = fromEnd in read.openGroups
+                                    add(LogRow.Group(index, entry.title, fromEnd, groupOpen, entry.lines.size))
+                                    if (groupOpen) entry.lines.forEachIndexed { line, it -> add(LogRow.Line(index, it, fromEnd, line)) }
+                                }
+                            }
+                        }
+                        if (count == 0 && read.start <= step.start) add(LogRow.Empty(index))
                     }
                 }
             }
         }
     }
 
-    /** Where the errors are in [rows], for "Jump to error". */
+    /** Where the errors read so far are in [rows], for "Jump to an error". */
     val errorRows: List<Int> by lazy { rows.indices.filter { (rows[it] as? LogRow.Line)?.line?.kind == LogLineKind.ERROR } }
 }
 
@@ -68,14 +117,36 @@ const val MAX_LOG_ATTEMPTS = 6
 private fun ForgeError?.isNotFound() = this is ForgeError.Http && status == 404
 
 sealed interface LogRow {
+    val step: Int
     val key: String
 
-    data class Line(val line: LogEntry.Line, val entry: Int, val inGroup: Int? = null) : LogRow {
-        override val key get() = if (inGroup == null) "l$entry" else "g$entry-$inGroup"
+    data class Step(override val step: Int, val logStep: LogStep, val open: Boolean, val took: Duration?) : LogRow {
+        override val key get() = "s$step"
     }
 
-    data class Header(val title: String, val entry: Int, val open: Boolean, val lines: Int) : LogRow {
-        override val key get() = "h$entry"
+    data class Loading(override val step: Int) : LogRow {
+        override val key get() = "s$step-loading"
+    }
+
+    data class Failed(override val step: Int, val error: ForgeError) : LogRow {
+        override val key get() = "s$step-failed"
+    }
+
+    /** The step has lines before those read: [lines] of them when the whole log was read, else [bytes] of them. */
+    data class Earlier(override val step: Int, val lines: Int?, val bytes: Long, val loading: Boolean, val error: ForgeError?) : LogRow {
+        override val key get() = "s$step-earlier"
+    }
+
+    data class Empty(override val step: Int) : LogRow {
+        override val key get() = "s$step-empty"
+    }
+
+    data class Group(override val step: Int, val title: String, val fromEnd: Int, val open: Boolean, val lines: Int) : LogRow {
+        override val key get() = "s$step-g$fromEnd"
+    }
+
+    data class Line(override val step: Int, val line: LogEntry.Line, val fromEnd: Int, val inGroup: Int? = null) : LogRow {
+        override val key get() = if (inGroup == null) "s$step-l$fromEnd" else "s$step-g$fromEnd-$inGroup"
     }
 }
 
@@ -86,6 +157,7 @@ class JobLogViewModel @AssistedInject constructor(
     @Assisted("jobId") private val jobId: Long,
     @Assisted jobName: String,
     private val actions: ActionsRepository,
+    private val logs: JobLogRepository,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -101,11 +173,11 @@ class JobLogViewModel @AssistedInject constructor(
     }
 
     fun load() {
-        _state.update { it.copy(log = Loadable.Loading, logAttempts = 0) }
+        _state.update { it.copy(steps = Loadable.Loading, logAttempts = 0) }
         viewModelScope.launch { check() }
     }
 
-    /** A quiet check while [JobLogUiState.isLive]: the steps while the job runs, then its log. */
+    /** A quiet check while [JobLogUiState.isLive]: the steps while the job runs, then its log's. */
     fun poll() {
         viewModelScope.launch { check() }
     }
@@ -113,30 +185,102 @@ class JobLogViewModel @AssistedInject constructor(
     private suspend fun check() {
         val job = (actions.job(repo, runId, jobId) as? ForgeResult.Success)?.value
         if (job != null) _state.update { it.copy(job = job) }
-        // Without the job's state (an error), try the log anyway: a finished job's log may still come.
-        if (job == null || job.status == RunStatus.COMPLETED) loadLog() else _state.update { it.copy(log = Loadable.Idle) }
+        // Without the job (an older Forgejo lists no jobs), its log may still come: its steps are read from it.
+        val finished = job ?: RunJob(jobId, _state.value.jobName, RunStatus.COMPLETED, null, null, null, emptyList())
+        if (finished.status == RunStatus.COMPLETED) loadSteps(finished) else _state.update { it.copy(steps = Loadable.Idle) }
     }
 
-    private suspend fun loadLog() {
-        if (_state.value.log is Loadable.Loaded) return
+    private suspend fun loadSteps(job: RunJob) {
+        if (_state.value.steps is Loadable.Loaded) return
         _state.update { it.copy(logAttempts = it.logAttempts + 1) }
-        when (val result = actions.jobLog(repo, jobId)) {
-            is ForgeResult.Failure -> _state.update { it.copy(log = Loadable.Failed(result.error)) }
-            is ForgeResult.Success -> {
-                val failing = result.value.entries.withIndex()
-                    .filter { (_, entry) -> entry is LogEntry.Group && entry.lines.any { it.kind == LogLineKind.ERROR } }
-                    .map { it.index }
-                _state.update { it.copy(log = Loadable.Loaded(result.value), openGroups = failing.toSet()) }
+        when (val result = logs.steps(repo, job)) {
+            is ForgeResult.Failure -> _state.update { it.copy(steps = Loadable.Failed(result.error)) }
+            is ForgeResult.Success -> _state.update { it.copy(steps = Loadable.Loaded(result.value)) }
+        }
+    }
+
+    /** Opens step [index], reading its last lines the first time; folds it when open. */
+    fun toggleStep(index: Int) {
+        val state = _state.value
+        if (index in state.opened) return _state.update { it.copy(opened = it.opened - index) }
+        val step = (state.steps as? Loadable.Loaded)?.value?.getOrNull(index) ?: return
+        if (step.isEmpty) return
+        _state.update { it.copy(opened = it.opened + index) }
+        if (state.read[index]?.entries is Loadable.Loaded) return
+        readLast(index, step)
+    }
+
+    /** Opens the step the job failed at, if it isn't: answers its index, to be scrolled to. */
+    fun openFailed(): Int? {
+        val failed = _state.value.failedStep ?: return null
+        if (failed !in _state.value.opened) toggleStep(failed)
+        return failed
+    }
+
+    /** Reads [index]'s last lines again, after they failed to come. */
+    fun retryStep(index: Int) {
+        val step = (_state.value.steps as? Loadable.Loaded)?.value?.getOrNull(index) ?: return
+        readLast(index, step)
+    }
+
+    /** The job the log is read for: as the forge said it, or as little as the screen knows of it. */
+    private val job: RunJob
+        get() = _state.value.job ?: RunJob(jobId, _state.value.jobName, RunStatus.COMPLETED, null, null, null, emptyList())
+
+    private fun readLast(index: Int, step: LogStep) {
+        updateRead(index) { StepRead(start = step.end) }
+        viewModelScope.launch {
+            when (val result = logs.lines(repo, job, step, step.end)) {
+                is ForgeResult.Failure -> updateRead(index) { it.copy(entries = Loadable.Failed(result.error)) }
+                is ForgeResult.Success -> updateRead(index) {
+                    StepRead(Loadable.Loaded(result.value.entries), result.value.start, result.value.lines, openGroups = errorGroups(result.value.entries))
+                }
             }
         }
     }
 
+    /** Reads the lines of step [index] before those already read. */
+    fun loadEarlier(index: Int) {
+        val state = _state.value
+        val step = (state.steps as? Loadable.Loaded)?.value?.getOrNull(index) ?: return
+        val read = state.read[index] ?: return
+        val shown = (read.entries as? Loadable.Loaded)?.value ?: return
+        if (read.loadingEarlier || read.start <= step.start) return
+        updateRead(index) { it.copy(loadingEarlier = true, earlierFailed = null) }
+        viewModelScope.launch {
+            when (val result = logs.lines(repo, job, step, read.start)) {
+                is ForgeResult.Failure -> updateRead(index) { it.copy(loadingEarlier = false, earlierFailed = result.error) }
+                is ForgeResult.Success -> updateRead(index) { current ->
+                    val earlier: StepLines = result.value
+                    // Groups are counted from the step's end: those already read keep their place.
+                    val opened = errorGroups(earlier.entries).map { it + shown.size }.toSet()
+                    current.copy(
+                        entries = Loadable.Loaded(earlier.entries + shown),
+                        start = earlier.start,
+                        lines = current.lines + earlier.lines,
+                        loadingEarlier = false,
+                        openGroups = current.openGroups + opened,
+                    )
+                }
+            }
+        }
+    }
+
+    fun toggleGroup(step: Int, fromEnd: Int) = updateRead(step) {
+        it.copy(openGroups = if (fromEnd in it.openGroups) it.openGroups - fromEnd else it.openGroups + fromEnd)
+    }
+
+    private fun updateRead(index: Int, change: (StepRead) -> StepRead) =
+        _state.update { it.copy(read = it.read + (index to change(it.read[index] ?: StepRead()))) }
+
+    /** The groups of [entries] holding an error, counted from the end: they start open. */
+    private fun errorGroups(entries: List<LogEntry>): Set<Int> = entries.withIndex()
+        .filter { (_, entry) -> entry is LogEntry.Group && entry.lines.any { it.kind == LogLineKind.ERROR } }
+        .map { entries.size - it.index }
+        .toSet()
+
     companion object {
         /** How often a live job is checked while on screen. */
         const val POLL_MILLIS = 5_000L
-    }
-
-    fun toggleGroup(entry: Int) = _state.update {
-        it.copy(openGroups = if (entry in it.openGroups) it.openGroups - entry else it.openGroups + entry)
     }
 }

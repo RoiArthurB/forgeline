@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import io.ktor.utils.io.readAvailable
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
@@ -51,3 +52,13 @@ private val lastPage = Regex("""<[^>]*[?&]page=(\d+)[^>]*>;\s*rel="last"""")
 
 /** The last page GitHub announces (`rel="last"`), so the pages in between can be asked all at once. */
 internal fun HttpResponse.lastPage(): Int? = headers["Link"]?.let { lastPage.find(it)?.groupValues?.get(1)?.toIntOrNull() }
+
+/** Writes what's left of [this] to [into] as it comes, a piece at a time. */
+internal suspend fun io.ktor.utils.io.ByteReadChannel.writeTo(into: java.io.OutputStream) {
+    val buffer = ByteArray(64 * 1024)
+    while (true) {
+        val read = readAvailable(buffer, 0, buffer.size)
+        if (read == -1) break
+        into.write(buffer, 0, read)
+    }
+}

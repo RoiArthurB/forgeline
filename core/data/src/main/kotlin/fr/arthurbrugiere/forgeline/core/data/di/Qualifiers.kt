@@ -18,3 +18,13 @@ annotation class DraftsDataStore
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class Computation
+
+/** The folder finished jobs' logs are kept in once read whole, so each is downloaded once. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class JobLogCache
+
+/** Where files are read and written: never the main thread. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class DiskIo

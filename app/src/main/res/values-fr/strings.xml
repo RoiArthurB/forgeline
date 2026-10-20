@@ -386,6 +386,11 @@
     <string name="log_sign_in_body">%1$s ne montre les journaux des tâches qu’aux personnes connectées, même sur les dépôts publics.</string>
     <string name="log_empty_title">Rien dans le journal</string>
     <string name="log_empty_body">Cette tâche n’a encore rien écrit.</string>
+    <string name="log_step_setup">Préparation de la tâche</string>
+    <string name="log_step_skipped">Ignorée</string>
+    <string name="log_step_empty">Cette étape n’a rien écrit.</string>
+    <string name="log_earlier_size">Afficher les lignes précédentes (%1$s)</string>
+    <string name="log_earlier_failed">Impossible de lire les lignes précédentes. Réessayer</string>
     <string name="repo_ref_switch">Vous parcourez %1$s. Changer de branche ou d’étiquette</string>
     <string name="repo_ref_branches">Branches</string>
     <string name="repo_ref_tags">Étiquettes</string>
@@ -787,6 +792,16 @@
         <item quantity="other">%d tâches</item>
     </plurals>
     <!-- Only offered when there is an error to go to: "one" is never none here. -->
+    <plurals name="log_step_errors">
+        <item quantity="one">%d erreur</item>
+        <item quantity="many">%d erreurs</item>
+        <item quantity="other">%d erreurs</item>
+    </plurals>
+    <plurals name="log_earlier_lines">
+        <item quantity="one">Afficher %d ligne précédente</item>
+        <item quantity="many">Afficher les %d lignes précédentes</item>
+        <item quantity="other">Afficher les %d lignes précédentes</item>
+    </plurals>
     <plurals name="log_jump_to_error" tools:ignore="ImpliedQuantity">
         <item quantity="one">Aller à l’erreur</item>
         <item quantity="many">Aller à une erreur (%d)</item>

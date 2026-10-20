@@ -1,0 +1,102 @@
+﻿2026-09-29T07:57:45.7099505Z Current runner version: '2.337.0'
+2026-09-29T07:57:45.7131278Z ##[group]Runner Image Provisioner
+2026-09-29T07:57:45.7132180Z Hosted Compute Agent
+2026-09-29T07:57:45.7132754Z Version: 20260828.587
+2026-09-29T07:57:45.7133412Z Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+2026-09-29T07:57:45.7134171Z Build Date: 2026-08-28T16:44:25Z
+2026-09-29T07:57:45.7135183Z Worker ID: {865daece-01e7-46c3-9909-37ae4acdb0bf}
+2026-09-29T07:57:45.7135948Z Azure Region: northcentralus
+2026-09-29T07:57:45.7136552Z ##[endgroup]
+2026-09-29T07:57:45.7137937Z ##[group]Operating System
+2026-09-29T07:57:45.7138542Z Ubuntu
+2026-09-29T07:57:45.7139041Z 24.04.5
+2026-09-29T07:57:45.7139611Z LTS
+2026-09-29T07:57:45.7140118Z ##[endgroup]
+2026-09-29T07:57:45.7140661Z ##[group]Runner Image
+2026-09-29T07:57:45.7141278Z Image: ubuntu-24.04
+2026-09-29T07:57:45.7141819Z Version: 20260920.314.1
+2026-09-29T07:57:45.7143092Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260920.314/images/ubuntu/Ubuntu2404-Readme.md
+2026-09-29T07:57:45.7144693Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260920.314
+2026-09-29T07:57:45.7145836Z ##[endgroup]
+2026-09-29T07:57:45.7147107Z ##[group]GITHUB_TOKEN Permissions
+2026-09-29T07:57:45.7149175Z Actions: read
+2026-09-29T07:57:45.7149732Z Contents: read
+2026-09-29T07:57:45.7150332Z Metadata: read
+2026-09-29T07:57:45.7150884Z PullRequests: read
+2026-09-29T07:57:45.7151498Z ##[endgroup]
+2026-09-29T07:57:45.7153902Z Secret source: None
+2026-09-29T07:57:45.7155067Z Cache mode: write
+2026-09-29T07:57:45.7156064Z Prepare workflow directory
+2026-09-29T07:57:45.7490195Z Prepare all required actions
+2026-09-29T07:57:45.7540189Z Getting action download info
+2026-09-29T07:57:46.0556500Z Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-09-29T07:57:46.1711314Z Download action repository 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020' (SHA:820762786026740c76f36085b0efc47a31fe5020)
+2026-09-29T07:57:46.3046036Z Download action repository 'pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86' (SHA:0977fd99725f1db4007ccb2928dbb4e90d06cc86)
+2026-09-29T07:57:46.5890803Z Download action repository 'actions/cache@caa296126883cff596d87d8935842f9db880ef25' (SHA:caa296126883cff596d87d8935842f9db880ef25)
+2026-09-29T07:57:46.8969503Z Download action repository 'Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6' (SHA:6323deb102c322ba6fcbdcafc7e3dddab59af2b6)
+2026-09-29T07:57:47.4962354Z Uses: paperclipai/paperclip/.github/workflows/pr-trusted.yml@refs/heads/master (53aad90b9e83dc147707797bf224bec12600b171)
+2026-09-29T07:57:47.4967132Z Complete job name: ci / Verify Paperclip Runner (vitest 1/2)
+2026-09-29T07:57:47.5737917Z ##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+2026-09-29T07:57:47.5738913Z with:
+2026-09-29T07:57:47.5739699Z   persist-credentials: false
+2026-09-29T07:57:47.5740315Z   repository: paperclipai/paperclip
+2026-09-29T07:57:47.5743791Z   token: ***
+2026-09-29T07:57:47.5744302Z   ssh-strict: true
+2026-09-29T07:57:47.5745119Z   ssh-user: git
+2026-09-29T07:58:47.2610053Z ##[group]Run pnpm --filter @paperclipai/paperclip-runner test:typescript:vitest --shard=1/2
+2026-09-29T07:58:47.2610704Z [36;1mpnpm --filter @paperclipai/paperclip-runner test:typescript:vitest --shard=1/2[0m
+2026-09-29T07:58:47.2651518Z shell: /usr/bin/bash -e {0}
+2026-09-29T07:58:47.2651823Z env:
+2026-09-29T07:58:47.2652093Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+2026-09-29T07:58:47.2652454Z   RUSTUP_TOOLCHAIN: 1.97.1-x86_64-unknown-linux-gnu
+2026-09-29T07:58:47.2652757Z   CACHE_ON_FAILURE: false
+2026-09-29T07:58:47.2653005Z   CARGO_INCREMENTAL: 0
+2026-09-29T07:58:47.2653384Z ##[endgroup]
+2026-09-29T07:58:47.6798626Z 
+2026-09-29T07:58:47.6799964Z > @paperclipai/paperclip-runner@0.0.0 test:typescript:vitest /home/runner/work/paperclip/paperclip/packages/paperclip-runner
+2026-09-29T07:58:47.6801303Z > node ./scripts/run-pr-vitest-lane.mjs "--shard=1/2"
+2026-09-29T07:58:47.6801884Z 
+2026-09-29T08:03:43.0956329Z     [90m4315|[39m     }
+2026-09-29T08:03:43.0957020Z     [90m4316|[39m     if (this.#ownsRoot && !adoptedRunner) {
+2026-09-29T08:03:43.0958352Z [90m [2m❯[22m CodexAppServerDriver.openSession src/drivers/codex/codex-app-server-driver-impl.ts:[2m331:7[22m[39m
+2026-09-29T08:03:43.0959679Z [90m [2m❯[22m src/live/runnerd-codex-transport.test.ts:[2m7320:15[22m[39m
+2026-09-29T08:03:43.0960172Z 
+2026-09-29T08:03:43.0960578Z [31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+2026-09-29T08:03:43.0960896Z 
+2026-09-29T08:03:43.0960923Z 
+2026-09-29T08:03:43.0961849Z [2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m76 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (78)[39m
+2026-09-29T08:03:43.0963304Z [2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m1038 passed[39m[22m[2m | [22m[33m3 skipped[39m[90m (1042)[39m
+2026-09-29T08:03:43.0964281Z [2m   Start at [22m 08:00:32
+2026-09-29T08:03:43.0965573Z [2m   Duration [22m 191.00s[2m (transform 4.47s, setup 0ms, import 11.37s, tests 390.88s, environment 8ms)[22m
+2026-09-29T08:03:43.0966180Z 
+2026-09-29T08:03:43.0966191Z 
+2026-09-29T08:03:43.0978651Z ##[error]NativeSessionCloseUnrecoverableError: provider_transport_failed: runner did not durably suspend before checkpoint
+ ❯ DurablePrpCodexTransport.#closeOnce src/live/runnerd-codex-transport.ts:4314:13
+ ❯ CodexAppServerDriver.openSession src/drivers/codex/codex-app-server-driver-impl.ts:331:7
+ ❯ src/live/runnerd-codex-transport.test.ts:7320:15
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'native_session_close_unrecoverable' }
+
+2026-09-29T08:03:43.1770235Z /home/runner/work/paperclip/paperclip/packages/paperclip-runner:
+2026-09-29T08:03:43.1772277Z  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @paperclipai/paperclip-runner@0.0.0 test:typescript:vitest: `node ./scripts/run-pr-vitest-lane.mjs "--shard=1/2"`
+2026-09-29T08:03:43.1772978Z Exit status 1
+2026-09-29T08:03:43.1916057Z ##[error]Process completed with exit code 1.
+2026-09-29T08:03:43.2021114Z Post job cleanup.
+2026-09-29T08:03:43.3441835Z Pruning is unnecessary.
+2026-09-29T08:03:43.3580525Z Post job cleanup.
+2026-09-29T08:03:43.4453133Z [command]/usr/bin/git version
+2026-09-29T08:03:43.4489755Z git version 2.55.0
+2026-09-29T08:03:43.4521221Z Temporarily overriding HOME='/home/runner/work/_temp/dacce1b3-10c9-4028-8e7e-2b924377ca39' before making global git config changes
+2026-09-29T08:03:43.4522802Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-29T08:03:43.4525782Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/paperclip/paperclip
+2026-09-29T08:03:43.4556686Z Removing SSH command configuration
+2026-09-29T08:03:43.4562760Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-09-29T08:03:43.4593951Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-09-29T08:03:43.4799477Z Removing HTTP extra header
+2026-09-29T08:03:43.4805206Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-09-29T08:03:43.4836762Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-09-29T08:03:43.5030176Z Removing includeIf entries pointing to credentials config files
+2026-09-29T08:03:43.5036636Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-09-29T08:03:43.5064357Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-09-29T08:03:43.5407529Z Cleaning up orphan processes

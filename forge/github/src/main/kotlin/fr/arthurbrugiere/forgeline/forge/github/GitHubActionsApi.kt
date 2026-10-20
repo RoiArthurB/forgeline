@@ -2,11 +2,13 @@ package fr.arthurbrugiere.forgeline.forge.github
 
 import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
-import fr.arthurbrugiere.forgeline.core.forge.ActionsLogParser
+import fr.arthurbrugiere.forgeline.core.forge.JobLogReader
+import fr.arthurbrugiere.forgeline.core.forge.logPartOf
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.WorkflowDispatchParser
 import fr.arthurbrugiere.forgeline.core.model.DispatchInput
-import fr.arthurbrugiere.forgeline.core.model.JobLog
+import fr.arthurbrugiere.forgeline.core.model.LogFormat
+import fr.arthurbrugiere.forgeline.core.model.LogPart
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RunJob
 import fr.arthurbrugiere.forgeline.core.model.RunStep
@@ -15,11 +17,20 @@ import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.statement.HttpResponse
-import io.ktor.client.statement.bodyAsText
+import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.header
+import io.ktor.client.request.prepareGet
+import io.ktor.client.statement.HttpStatement
+import io.ktor.client.statement.bodyAsChannel
+import io.ktor.client.statement.readRawBytes
+import io.ktor.http.HttpHeaders
+import io.ktor.http.Url
+import io.ktor.http.appendPathSegments
+import io.ktor.http.isSuccess
+import io.ktor.http.takeFrom
+import java.io.OutputStream
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
@@ -45,16 +56,72 @@ class GitHubActionsApi(
         call(token, id, "actions", "jobs", jobId.toString()).toResult { body<JobResponse>().toModel() }
     }
 
-    override suspend fun jobLog(token: String?, id: RepoId, jobId: Long): ForgeResult<JobLog> = gitHubCall {
+    override val logFormat = LogFormat.GITHUB
+
+    /**
+     * The API answers with a redirect to blob storage, signed for ten minutes (checked 2026-10-17). Parts are read from
+     * there, sparing the API's rate limit; once the signature runs out, storage refuses and the log is opened again.
+     */
+    override suspend fun openJobLog(token: String?, id: RepoId, jobId: Long): ForgeResult<JobLogReader> = gitHubCall {
         // Signed-in users only, even on public repositories.
         if (token == null) return@gitHubCall ForgeResult.Failure(ForgeError.Unauthorized)
-        // Answers a redirect to short-lived blob storage, which the client follows.
-        val response = call(token, id, "actions", "jobs", jobId.toString(), "logs")
-        if (response.status != HttpStatusCode.OK) return@gitHubCall response.failure()
-        val text = response.bodyAsText()
-        // Logs run to megabytes: parse off the caller's thread.
-        ForgeResult.Success(withContext(Dispatchers.Default) { ActionsLogParser.parse(text) })
+        when (val opened = locateLog(token, id, jobId)) {
+            is ForgeResult.Failure -> opened
+            is ForgeResult.Success -> {
+                var location = opened.value.first
+                ForgeResult.Success(
+                    JobLogReader(opened.value.second) { range ->
+                        gitHubCall {
+                            val read = readLog(location, token, range)
+                            val expired = (read as? ForgeResult.Failure)?.error.let { it is ForgeError.Http && it.status == 403 }
+                            if (!expired) return@gitHubCall read
+                            when (val again = locateLog(token, id, jobId)) {
+                                is ForgeResult.Failure -> again
+                                is ForgeResult.Success -> readLog(again.value.first.also { location = it }, token, range)
+                            }
+                        }
+                    },
+                )
+            }
+        }
     }
+
+    /** Where the log's bytes are read from, and how many there are. */
+    private suspend fun locateLog(token: String, id: RepoId, jobId: Long): ForgeResult<Pair<Url, Long>> =
+        logRequest(token, id, jobId) { header(HttpHeaders.Range, "bytes=0-0") }.execute { response ->
+            when (val part = logPartOf(response.status.value, response.headers[HttpHeaders.ContentRange]) { response.readRawBytes() } ?: response.failure()) {
+                is ForgeResult.Failure -> part
+                is ForgeResult.Success -> ForgeResult.Success(response.call.request.url to part.value.total)
+            }
+        }
+
+    /** Bytes [range] from [location]: the API itself carries the token, storage's signed address never does. */
+    private suspend fun readLog(location: Url, token: String, range: LongRange): ForgeResult<LogPart> =
+        httpClient.prepareGet(location) {
+            if (location.host == Url(apiBaseUrl).host) gitHubHeaders(token)
+            header(HttpHeaders.Range, "bytes=${range.first}-${range.last}")
+        }.execute { response ->
+            logPartOf(response.status.value, response.headers[HttpHeaders.ContentRange]) { response.readRawBytes() } ?: response.failure()
+        }
+
+    override suspend fun downloadJobLog(token: String?, id: RepoId, jobId: Long, into: OutputStream): ForgeResult<Unit> = gitHubCall {
+        if (token == null) return@gitHubCall ForgeResult.Failure(ForgeError.Unauthorized)
+        logRequest(token, id, jobId).execute { response ->
+            if (!response.status.isSuccess()) return@execute response.failure()
+            response.bodyAsChannel().writeTo(into)
+            ForgeResult.Success(Unit)
+        }
+    }
+
+    private suspend fun logRequest(token: String, id: RepoId, jobId: Long, more: HttpRequestBuilder.() -> Unit = {}): HttpStatement =
+        httpClient.prepareGet {
+            url {
+                takeFrom(apiBaseUrl)
+                appendPathSegments("repos", id.owner, id.name, "actions", "jobs", jobId.toString(), "logs")
+            }
+            gitHubHeaders(token)
+            more()
+        }
 
     override suspend fun workflows(token: String?, id: RepoId): ForgeResult<List<Workflow>> = gitHubCall {
         call(token, id, "actions", "workflows", query = mapOf("per_page" to "100")).toResult {

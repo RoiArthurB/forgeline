@@ -1,11 +1,12 @@
 package fr.arthurbrugiere.forgeline.core.forge
 
 import fr.arthurbrugiere.forgeline.core.model.DispatchInput
-import fr.arthurbrugiere.forgeline.core.model.JobLog
+import fr.arthurbrugiere.forgeline.core.model.LogFormat
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RunJob
 import fr.arthurbrugiere.forgeline.core.model.Workflow
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
+import java.io.OutputStream
 
 /** A repository's CI: runs, their jobs and logs, and starting or stopping them. Writes need a token. */
 interface ActionsApi {
@@ -23,11 +24,20 @@ interface ActionsApi {
      */
     suspend fun job(token: String?, id: RepoId, runId: Long, jobId: Long): ForgeResult<RunJob>
 
+    /** How this forge's job logs mark their steps. */
+    val logFormat: LogFormat
+
     /**
-     * A finished job's log. GitHub serves logs to signed-in users only, even on public repositories (Unauthorized
-     * without a token); Forgejo serves public ones to anyone.
+     * Opens a finished job's log to be read in parts ([JobLogReader]), a step without the rest. Unsupported when the
+     * forge can only send it whole (the answer is left unread): then [downloadJobLog].
+     *
+     * GitHub serves logs to signed-in users only, even on public repositories (Unauthorized without a token); Forgejo
+     * serves public ones to anyone.
      */
-    suspend fun jobLog(token: String?, id: RepoId, jobId: Long): ForgeResult<JobLog>
+    suspend fun openJobLog(token: String?, id: RepoId, jobId: Long): ForgeResult<JobLogReader>
+
+    /** A finished job's whole log, written to [into] as it comes rather than held: logs run to tens of megabytes. */
+    suspend fun downloadJobLog(token: String?, id: RepoId, jobId: Long, into: OutputStream): ForgeResult<Unit>
 
     /** Active workflows defined in the repository. */
     suspend fun workflows(token: String?, id: RepoId): ForgeResult<List<Workflow>>

@@ -6,4 +6,8 @@ dependencies {
     api(projects.core.model)
     // Reads the inputs a workflow asks for when started by hand, on GitHub and Forgejo alike.
     implementation(libs.snakeyaml.engine)
+    // Reads the few parts of a log that say where its steps are, side by side.
+    implementation(libs.kotlinx.coroutines.core)
+
+    testImplementation(libs.kotlinx.coroutines.test)
 }

@@ -239,6 +239,40 @@ enum class LogLineKind { PLAIN, COMMAND, ERROR, WARNING, NOTICE, DEBUG }
 /** A job's log: lines, some folded into named groups. Text may carry ANSI color codes. */
 data class JobLog(val entries: List<LogEntry>)
 
+/** Bytes of a job's log from [start] on, out of the [total] it has: the part of it a reader asked for. */
+class LogPart(val bytes: ByteArray, val start: Long, val total: Long)
+
+/**
+ * One step of a job's log: where its bytes are, and what reading them told. A step that didn't run has none
+ * ([start] equals [end]).
+ */
+data class LogStep(
+    /** What the forge or the log calls it; null for what the runner says before the first step. */
+    val title: String?,
+    val start: Long,
+    /** Where the next step begins: this one's bytes run from [start] until there. */
+    val end: Long,
+    /** How it ended, when the forge or the log says. */
+    val conclusion: RunConclusion? = null,
+    /** How many lines and errors it has, when the whole log was read; unknown when only parts of it were. */
+    val lines: Int? = null,
+    val errors: Int? = null,
+) {
+    val isEmpty: Boolean get() = end <= start
+}
+
+/** How a job's log marks where each of its steps begins. */
+enum class LogFormat {
+    /** GitHub's runner: a step's first line is `##[group]Run …`, a post step's `Post job cleanup.`. */
+    GITHUB,
+
+    /** Forgejo's runner: GitHub's lines, with each step opened by `⭐ Run …` and closed by its outcome. */
+    FORGEJO,
+
+    /** GitLab's: `section_start:<time>:<name>` and `section_end:<time>:<name>` around each section of the job. */
+    GITLAB,
+}
+
 sealed interface LogEntry {
     data class Line(val text: String, val kind: LogLineKind = LogLineKind.PLAIN) : LogEntry
 

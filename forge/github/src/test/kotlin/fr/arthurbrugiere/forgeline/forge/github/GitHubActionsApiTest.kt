@@ -4,8 +4,6 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.DispatchInputType
-import fr.arthurbrugiere.forgeline.core.model.LogEntry
-import fr.arthurbrugiere.forgeline.core.model.LogLineKind
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RunConclusion
 import fr.arthurbrugiere.forgeline.core.model.RunStatus
@@ -88,38 +86,71 @@ class GitHubActionsApiTest {
         assertThat(requests.single().url.encodedPath).isEqualTo("/repos/paperclipai/paperclip/actions/jobs/109371394234")
     }
 
-    @Test
-    fun a_job_log_folds_groups_and_marks_errors() = runTest {
-        val log = api { respond(fixture("job_log.txt"), HttpStatusCode.OK) }.jobLog("token", paperclip, 109312096849).value()
+    /** The API redirecting to storage, which answers [storage] for each range asked. */
+    private fun redirectingApi(storage: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData) = api {
+        if (it.url.host == "api.github.com") {
+            respond("", HttpStatusCode.Found, headersOf(HttpHeaders.Location, "https://logs.example/job.txt?sig=abc"))
+        } else {
+            storage(it)
+        }
+    }
 
-        val groups = log.entries.filterIsInstance<LogEntry.Group>()
-        assertThat(groups.first().title).isEqualTo("Runner Image Provisioner")
-        assertThat(groups.first().lines.first().text).isEqualTo("Hosted Compute Agent")
-        val errors = log.entries.filterIsInstance<LogEntry.Line>().filter { it.kind == LogLineKind.ERROR }
-        assertThat(errors.first().text).startsWith("NativeSessionCloseUnrecoverableError")
-        // An error's following lines, which carry no timestamp, belong to it.
-        assertThat(errors.any { it.text.contains("runnerd-codex-transport.ts:4314") }).isTrue()
-        assertThat(errors.last().text).isEqualTo("Process completed with exit code 1.")
-        assertThat(log.entries.filterIsInstance<LogEntry.Line>().any { it.kind == LogLineKind.COMMAND && it.text == "/usr/bin/git version" }).isTrue()
-        // Timestamps are gone; ANSI colors stay for the viewer.
-        assertThat(log.entries.filterIsInstance<LogEntry.Line>().none { it.text.startsWith("2026-") }).isTrue()
-        assertThat(requests.single().headers[HttpHeaders.Authorization]).isEqualTo("Bearer token")
+    private fun MockRequestHandleScope.part(log: String, request: HttpRequestData): HttpResponseData {
+        val (first, last) = request.headers[HttpHeaders.Range]!!.removePrefix("bytes=").split('-').map { it.toInt() }
+        val end = minOf(last, log.length - 1)
+        return respond(log.substring(first, end + 1), HttpStatusCode.PartialContent, headersOf(HttpHeaders.ContentRange, "bytes $first-$end/${log.length}"))
     }
 
     @Test
-    fun the_log_redirect_is_followed_without_the_token() = runTest {
-        val log = api {
-            if (it.url.host == "api.github.com") {
-                respond("", HttpStatusCode.Found, headersOf(HttpHeaders.Location, "https://logs.example/job.txt?sig=abc"))
-            } else {
-                respond("2026-09-29T07:57:45.0000000Z hello\n", HttpStatusCode.OK)
-            }
-        }.jobLog("token", paperclip, 1).value()
+    fun a_log_is_opened_once_then_read_in_parts_from_storage_without_the_token() = runTest {
+        val log = "2026-09-29T07:57:45.0000000Z hello\n2026-09-29T07:57:46.0000000Z world\n"
+        val reader = redirectingApi { part(log, it) }.openJobLog("token", paperclip, 109312096849).value()
 
-        assertThat(log.entries).containsExactly(LogEntry.Line("hello"))
-        assertThat(requests.map { it.url.host }).containsExactly("api.github.com", "logs.example").inOrder()
+        assertThat(reader.size).isEqualTo(log.length.toLong())
+        assertThat(String(reader.read(29L..33L).value().bytes)).isEqualTo("hello")
+        assertThat(requests.map { it.url.host }).containsExactly("api.github.com", "logs.example", "logs.example").inOrder()
+        assertThat(requests[0].url.encodedPath).isEqualTo("/repos/paperclipai/paperclip/actions/jobs/109312096849/logs")
+        assertThat(requests[0].headers[HttpHeaders.Authorization]).isEqualTo("Bearer token")
+        assertThat(requests[1].headers[HttpHeaders.Range]).isEqualTo("bytes=0-0")
+        assertThat(requests[2].headers[HttpHeaders.Range]).isEqualTo("bytes=29-33")
         // The signed storage URL must never receive the forge token.
-        assertThat(requests[1].headers[HttpHeaders.Authorization]).isNull()
+        assertThat(requests.drop(1).map { it.headers[HttpHeaders.Authorization] }).containsExactly(null, null)
+    }
+
+    @Test
+    fun once_storage_s_signature_runs_out_the_log_is_opened_again() = runTest {
+        val log = "2026-09-29T07:57:45.0000000Z hello\n"
+        var expired = false
+        val reader = redirectingApi {
+            if (expired && it.headers[HttpHeaders.Range] != "bytes=0-0") {
+                expired = false
+                respond("<Error><Code>AuthenticationFailed</Code></Error>", HttpStatusCode.Forbidden)
+            } else {
+                part(log, it)
+            }
+        }.openJobLog("token", paperclip, 1).value()
+        expired = true
+
+        assertThat(String(reader.read(29L..33L).value().bytes)).isEqualTo("hello")
+        // Opened, refused, opened again, read.
+        assertThat(requests.map { it.url.host }).containsExactly("api.github.com", "logs.example", "logs.example", "api.github.com", "logs.example", "logs.example").inOrder()
+    }
+
+    @Test
+    fun a_log_sent_whole_instead_of_in_part_is_unsupported() = runTest {
+        val result = api { respond(fixture("job_log.txt"), HttpStatusCode.OK) }.openJobLog("token", paperclip, 1)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+    }
+
+    @Test
+    fun a_whole_log_is_written_out_as_it_comes() = runTest {
+        val out = java.io.ByteArrayOutputStream()
+        val result = api { respond(fixture("job_log.txt"), HttpStatusCode.OK) }.downloadJobLog("token", paperclip, 109312096849, out)
+
+        assertThat(result).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(out.toString(Charsets.UTF_8)).isEqualTo(fixture("job_log.txt"))
+        assertThat(requests.single().headers[HttpHeaders.Range]).isNull()
     }
 
     @Test
@@ -199,9 +230,10 @@ class GitHubActionsApiTest {
     @Test
     fun signed_out_a_log_is_unauthorized_without_asking() = runTest {
         var asked = false
-        val result = api { asked = true; json("{}") }.jobLog(null, paperclip, 1)
+        val api = api { asked = true; json("{}") }
 
-        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(api.openJobLog(null, paperclip, 1)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(api.downloadJobLog(null, paperclip, 1, java.io.ByteArrayOutputStream())).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
         assertThat(asked).isFalse()
     }
 }

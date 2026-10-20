@@ -1,0 +1,993 @@
+﻿2026-10-17T02:36:17.5768476Z Current runner version: '2.337.0'
+2026-10-17T02:36:17.5784102Z ##[group]Runner Image Provisioner
+2026-10-17T02:36:17.5784663Z Hosted Compute Agent
+2026-10-17T02:36:17.5785152Z Version: 20261012.601
+2026-10-17T02:36:17.5785598Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+2026-10-17T02:36:17.5786006Z Build Date: 2026-10-12T17:48:21Z
+2026-10-17T02:36:17.5786455Z Worker ID: {b1c0a42e-38b4-4552-a29e-5609f27abe3b}
+2026-10-17T02:36:17.5786854Z Region: southcentralus
+2026-10-17T02:36:17.5787205Z Cloud: Azure
+2026-10-17T02:36:17.5787550Z ##[endgroup]
+2026-10-17T02:36:17.5788286Z ##[group]Operating System
+2026-10-17T02:36:17.5788682Z Ubuntu
+2026-10-17T02:36:17.5788987Z 24.04.5
+2026-10-17T02:36:17.5789272Z LTS
+2026-10-17T02:36:17.5789651Z ##[endgroup]
+2026-10-17T02:36:17.5789969Z ##[group]Runner Image
+2026-10-17T02:36:17.5790365Z Image: ubuntu-24.04
+2026-10-17T02:36:17.5790872Z Version: 20261012.334.1
+2026-10-17T02:36:17.5791651Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-17T02:36:17.5792458Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-17T02:36:17.5793042Z ##[endgroup]
+2026-10-17T02:36:17.5793650Z ##[group]GITHUB_TOKEN Permissions
+2026-10-17T02:36:17.5795211Z Contents: read
+2026-10-17T02:36:17.5795540Z Metadata: read
+2026-10-17T02:36:17.5795847Z ##[endgroup]
+2026-10-17T02:36:17.5797061Z Secret source: Actions
+2026-10-17T02:36:17.5797599Z Cache mode: write
+2026-10-17T02:36:17.5798159Z Prepare workflow directory
+2026-10-17T02:36:17.6837572Z Prepare all required actions
+2026-10-17T02:36:17.6867621Z Getting action download info
+2026-10-17T02:36:17.9186669Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-10-17T02:36:18.0837051Z Download action repository 'actions/setup-java@v6' (SHA:b843ebf9b913146b38da2eaa7aeddf76074ae1ad)
+2026-10-17T02:36:18.8489572Z Download action repository 'gradle/actions@v6' (SHA:3f5f9adaf7d9fecd50b5935e54106014257a94e6)
+2026-10-17T02:36:20.2553931Z Download action repository 'actions/upload-artifact@v7' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+2026-10-17T02:36:20.8963725Z Complete job name: JVM tests, screenshots, lint, build
+2026-10-17T02:36:20.9629473Z ##[group]Run actions/checkout@v7
+2026-10-17T02:36:20.9629796Z with:
+2026-10-17T02:36:20.9631838Z   repository: RoiArthurB/forgeline
+2026-10-17T02:36:20.9636232Z   token: ***
+2026-10-17T02:36:20.9636576Z   ssh-strict: true
+2026-10-17T02:36:20.9636866Z   ssh-user: git
+2026-10-17T02:36:20.9638487Z   persist-credentials: true
+2026-10-17T02:36:20.9639481Z   clean: true
+2026-10-17T02:36:20.9642211Z   sparse-checkout-cone-mode: true
+2026-10-17T02:36:20.9643468Z   fetch-depth: 1
+2026-10-17T02:36:20.9643659Z   fetch-tags: false
+2026-10-17T02:36:20.9645572Z   show-progress: true
+2026-10-17T02:36:20.9646627Z   lfs: false
+2026-10-17T02:36:20.9647873Z   submodules: false
+2026-10-17T02:36:20.9648142Z   set-safe-directory: true
+2026-10-17T02:36:20.9648449Z   allow-unsafe-pr-checkout: false
+2026-10-17T02:36:20.9650367Z ##[endgroup]
+2026-10-17T02:36:21.0487103Z Syncing repository: RoiArthurB/forgeline
+2026-10-17T02:36:21.0488267Z ##[group]Getting Git version info
+2026-10-17T02:36:21.0488757Z Working directory is '/home/runner/work/forgeline/forgeline'
+2026-10-17T02:36:21.0489241Z [command]/usr/bin/git version
+2026-10-17T02:36:21.0530945Z git version 2.55.0
+2026-10-17T02:36:21.0549571Z ##[endgroup]
+2026-10-17T02:36:21.0556576Z Temporarily overriding HOME='/home/runner/work/_temp/7fee04cf-7d14-4eba-a7a3-a6a95a747c4b' before making global git config changes
+2026-10-17T02:36:21.0557255Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-17T02:36:21.0561963Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/forgeline/forgeline
+2026-10-17T02:36:21.0606345Z Deleting the contents of '/home/runner/work/forgeline/forgeline'
+2026-10-17T02:36:21.0608648Z ##[group]Determining repository object format
+2026-10-17T02:36:21.0609768Z ##[endgroup]
+2026-10-17T02:36:21.0610124Z ##[group]Initializing the repository
+2026-10-17T02:36:21.0613414Z [command]/usr/bin/git init /home/runner/work/forgeline/forgeline
+2026-10-17T02:36:21.0716764Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-17T02:36:21.0720739Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-17T02:36:21.0721213Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-17T02:36:21.0721557Z hint: call:
+2026-10-17T02:36:21.0721723Z hint:
+2026-10-17T02:36:21.0721969Z hint: 	git config --global init.defaultBranch <name>
+2026-10-17T02:36:21.0722225Z hint:
+2026-10-17T02:36:21.0722419Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-17T02:36:21.0722685Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-17T02:36:21.0722882Z hint:
+2026-10-17T02:36:21.0722999Z hint: 	git branch -m <name>
+2026-10-17T02:36:21.0723138Z hint:
+2026-10-17T02:36:21.0723314Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-17T02:36:21.0723598Z Initialized empty Git repository in /home/runner/work/forgeline/forgeline/.git/
+2026-10-17T02:36:21.0730082Z [command]/usr/bin/git remote add origin https://github.com/RoiArthurB/forgeline
+2026-10-17T02:36:21.0772681Z ##[endgroup]
+2026-10-17T02:36:21.0772915Z ##[group]Disabling automatic garbage collection
+2026-10-17T02:36:21.0775005Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-17T02:36:21.0802962Z ##[endgroup]
+2026-10-17T02:36:21.0803172Z ##[group]Setting up auth
+2026-10-17T02:36:21.0803434Z Removing SSH command configuration
+2026-10-17T02:36:21.0807836Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-17T02:36:21.0843105Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-17T02:36:21.1113309Z Removing HTTP extra header
+2026-10-17T02:36:21.1117911Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-17T02:36:21.1148474Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-17T02:36:21.1316248Z Removing includeIf entries pointing to credentials config files
+2026-10-17T02:36:21.1319791Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-17T02:36:21.1348281Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-17T02:36:21.1523506Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-548d2be7-fa91-492c-8c12-18044b30a6d4.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-17T02:36:21.1553903Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/forgeline/forgeline/.git.path /home/runner/work/_temp/git-credentials-548d2be7-fa91-492c-8c12-18044b30a6d4.config
+2026-10-17T02:36:21.1581853Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/forgeline/forgeline/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-548d2be7-fa91-492c-8c12-18044b30a6d4.config
+2026-10-17T02:36:21.1612018Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-548d2be7-fa91-492c-8c12-18044b30a6d4.config
+2026-10-17T02:36:21.1640086Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-548d2be7-fa91-492c-8c12-18044b30a6d4.config
+2026-10-17T02:36:21.1665297Z ##[endgroup]
+2026-10-17T02:36:21.1665602Z ##[group]Fetching the repository
+2026-10-17T02:36:21.1669613Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +9879c20d7c121096e71bffb77d3c70a84ad93858:refs/remotes/origin/main
+2026-10-17T02:36:23.3969364Z From https://github.com/RoiArthurB/forgeline
+2026-10-17T02:36:23.3969945Z  * [new ref]         9879c20d7c121096e71bffb77d3c70a84ad93858 -> origin/main
+2026-10-17T02:36:23.3977258Z [command]/usr/bin/git branch --list --remote origin/main
+2026-10-17T02:36:23.4001492Z   origin/main
+2026-10-17T02:36:23.4007165Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+2026-10-17T02:36:23.4028981Z 9879c20d7c121096e71bffb77d3c70a84ad93858
+2026-10-17T02:36:23.4031722Z ##[endgroup]
+2026-10-17T02:36:23.4032064Z ##[group]Determining the checkout info
+2026-10-17T02:36:23.4035353Z ##[endgroup]
+2026-10-17T02:36:23.4041583Z [command]/usr/bin/git sparse-checkout disable
+2026-10-17T02:36:23.4091347Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-17T02:36:23.4111078Z ##[group]Checking out the ref
+2026-10-17T02:36:23.4113720Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-10-17T02:36:23.5706661Z Switched to a new branch 'main'
+2026-10-17T02:36:23.5710287Z branch 'main' set up to track 'origin/main'.
+2026-10-17T02:36:23.5722752Z ##[endgroup]
+2026-10-17T02:36:23.5762548Z [command]/usr/bin/git log -1 --format=%H
+2026-10-17T02:36:23.5784998Z 9879c20d7c121096e71bffb77d3c70a84ad93858
+2026-10-17T02:36:23.6001822Z ##[group]Run actions/setup-java@v6
+2026-10-17T02:36:23.6001992Z with:
+2026-10-17T02:36:23.6002152Z   distribution: temurin
+2026-10-17T02:36:23.6002279Z   java-version: 21
+2026-10-17T02:36:23.6002566Z   java-package: jdk
+2026-10-17T02:36:23.6002687Z   check-latest: false
+2026-10-17T02:36:23.6002813Z   force-download: false
+2026-10-17T02:36:23.6002943Z   set-default: true
+2026-10-17T02:36:23.6003057Z   server-id: github
+2026-10-17T02:36:23.6003192Z   mvn-repositories-include-central: true
+2026-10-17T02:36:23.6003379Z   mvn-repositories-prioritize-central: true
+2026-10-17T02:36:23.6003584Z   overwrite-settings: true
+2026-10-17T02:36:23.6003769Z   cache-read-only: false
+2026-10-17T02:36:23.6003900Z   job-status: success
+2026-10-17T02:36:23.6005311Z   token: ***
+2026-10-17T02:36:23.6005435Z   show-download-progress: false
+2026-10-17T02:36:23.6005584Z   problem-matcher: true
+2026-10-17T02:36:23.6005715Z ##[endgroup]
+2026-10-17T02:36:23.6449145Z ##[group]Installed distributions
+2026-10-17T02:36:23.6497047Z Resolved Java 21.0.12+1 from tool-cache
+2026-10-17T02:36:23.6497316Z Setting Java 21.0.12+1 as the default
+2026-10-17T02:36:23.6502058Z 
+2026-10-17T02:36:23.6502203Z Java configuration:
+2026-10-17T02:36:23.6502402Z   Distribution: temurin
+2026-10-17T02:36:23.6502589Z   Version: 21.0.12+1
+2026-10-17T02:36:23.6502853Z   Path: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-17T02:36:23.6503076Z 
+2026-10-17T02:36:23.6503285Z ##[endgroup]
+2026-10-17T02:36:23.6528686Z Creating settings.xml with server-id: github
+2026-10-17T02:36:23.6529041Z Creating toolchains.xml for JDK version 21 from temurin
+2026-10-17T02:36:23.6529362Z Writing to /home/runner/.m2/settings.xml
+2026-10-17T02:36:23.6530767Z Writing to /home/runner/.m2/toolchains.xml
+2026-10-17T02:36:23.6536913Z Configured MAVEN_ARGS to include -ntp to suppress Maven transfer progress logs. Set 'show-download-progress: true' to keep the download progress output.
+2026-10-17T02:36:23.6748273Z ##[group]Run gradle/actions/setup-gradle@v6
+2026-10-17T02:36:23.6748468Z with:
+2026-10-17T02:36:23.6748590Z   cache-provider: enhanced
+2026-10-17T02:36:23.6748764Z   cache-disabled: false
+2026-10-17T02:36:23.6748967Z   cache-read-only: false
+2026-10-17T02:36:23.6749203Z   cache-write-only: false
+2026-10-17T02:36:23.6749421Z   cache-overwrite-existing: false
+2026-10-17T02:36:23.6749658Z   cache-cleanup: on-success
+2026-10-17T02:36:23.6749918Z   gradle-home-cache-includes: caches
+notifications
+
+2026-10-17T02:36:23.6750198Z   add-job-summary: always
+2026-10-17T02:36:23.6750406Z   add-job-summary-as-pr-comment: never
+2026-10-17T02:36:23.6750769Z   dependency-graph: disabled
+2026-10-17T02:36:23.6751222Z   dependency-graph-report-dir: dependency-graph-reports
+2026-10-17T02:36:23.6751542Z   dependency-graph-continue-on-failure: true
+2026-10-17T02:36:23.6751814Z   build-scan-publish: false
+2026-10-17T02:36:23.6752028Z   validate-wrappers: true
+2026-10-17T02:36:23.6752301Z   allow-snapshot-wrappers: false
+2026-10-17T02:36:23.6752546Z   gradle-home-cache-strict-match: false
+2026-10-17T02:36:23.6752797Z   workflow-job-context: null
+2026-10-17T02:36:23.6754329Z   github-token: ***
+2026-10-17T02:36:23.6754445Z env:
+2026-10-17T02:36:23.6754611Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-17T02:36:23.6754869Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-17T02:36:23.6755109Z   MAVEN_ARGS: -ntp
+2026-10-17T02:36:23.6755295Z ##[endgroup]
+2026-10-17T02:36:24.0768723Z Merged default JDK locations into /home/runner/.m2/toolchains.xml
+2026-10-17T02:36:24.0772487Z Enhanced Caching: This build is using the proprietary 'gradle-actions-caching' provider for optimized caching support. See https://github.com/gradle/actions/blob/main/DISTRIBUTION.md for terms of use and opt-out instructions.
+2026-10-17T02:36:24.1272585Z ##[group]Restore Gradle state from cache
+2026-10-17T02:36:24.2866790Z Cache hit for restore-key: gradle-home-v2|Linux-X64|check[b8a35c2f917259958c9abe8f2ff1b5ff]-185aa9b29222bbcfb133812c7f7486c7eff26aee
+2026-10-17T02:36:25.0477003Z Received 22008383 of 22008383 (100.0%), 35.3 MBs/sec
+2026-10-17T02:36:25.0477389Z Cache Size: ~21 MB (22008383 B)
+2026-10-17T02:36:25.0496526Z [command]/usr/bin/tar -xf /home/runner/work/_temp/7f3e65c5-05fa-43ba-8035-9b3038aa84b1/cache.tzst -P -C /home/runner/work/forgeline/forgeline --use-compress-program unzstd
+2026-10-17T02:36:25.3103276Z Cache restored successfully
+2026-10-17T02:36:25.3115028Z Restored cache entry with key gradle-home-v2|Linux-X64|check[b8a35c2f917259958c9abe8f2ff1b5ff]-9879c20d7c121096e71bffb77d3c70a84ad93858 in 1184ms
+2026-10-17T02:36:25.4697211Z Cache hit for: gradle-groovy-dsl-v2-a0ec777700eac7f4079dfa633e170560
+2026-10-17T02:36:25.4714576Z Cache hit for: gradle-kotlin-dsl-v2-7b1432b1fecf54da488f74cfa9f5b7a7
+2026-10-17T02:36:25.4731366Z Cache hit for: gradle-instrumented-jars-v2-45029a4f7db764cd5e32ea10e45d6822
+2026-10-17T02:36:25.4733186Z Cache hit for: gradle-build-cache-v2-c6d19ce092622a267d906ceea05fd87f
+2026-10-17T02:36:25.4753593Z Cache hit for: gradle-wrapper-zips-v2-c9df1941c607e9f3a791c5cd067a03dd
+2026-10-17T02:36:25.4756229Z Cache hit for: gradle-transforms-v2-8adde06df496fecf92b261f54ed2bf9f
+2026-10-17T02:36:25.4769143Z Cache hit for: gradle-dependencies-v2-c79dd3835d0d66155f72b8ad6684471f
+2026-10-17T02:36:25.4867100Z Cache hit for: gradle-generated-gradle-jars-v2-a77f931ec87ec4dc6371499962ae87b7
+2026-10-17T02:36:25.8016434Z Received 60625 of 60625 (100.0%), 0.3 MBs/sec
+2026-10-17T02:36:25.8016734Z Cache Size: ~0 MB (60625 B)
+2026-10-17T02:36:25.8033628Z [command]/usr/bin/tar -xf /home/runner/work/_temp/f8516ead-c6d2-4792-b7f5-76952d4067a9/cache.tzst -P -C /home/runner/work/forgeline/forgeline --use-compress-program unzstd
+2026-10-17T02:36:25.8149396Z Cache restored successfully
+2026-10-17T02:36:25.8153846Z Received 90814 of 90814 (100.0%), 0.4 MBs/sec
+2026-10-17T02:36:25.8154177Z Cache Size: ~0 MB (90814 B)
+2026-10-17T02:36:25.8220842Z Restored cache entry with key gradle-instrumented-jars-v2-45029a4f7db764cd5e32ea10e45d6822 in 509ms
+2026-10-17T02:36:25.8441489Z [command]/usr/bin/tar -xf /home/runner/work/_temp/2d021691-d788-4e0b-a4f9-67827ed9b414/cache.tzst -P -C /home/runner/work/forgeline/forgeline --use-compress-program unzstd
+2026-10-17T02:36:25.8587193Z Cache restored successfully
+2026-10-17T02:36:25.8588555Z Restored cache entry with key gradle-groovy-dsl-v2-a0ec777700eac7f4079dfa633e170560 in 546ms
+2026-10-17T02:36:26.0365006Z Received 287213 of 287213 (100.0%), 0.7 MBs/sec
+2026-10-17T02:36:26.0365408Z Cache Size: ~0 MB (287213 B)
+2026-10-17T02:36:26.0424332Z [command]/usr/bin/tar -xf /home/runner/work/_temp/ab9df90b-9e09-483b-9db5-89a02419025e/cache.tzst -P -C /home/runner/work/forgeline/forgeline --use-compress-program unzstd
+2026-10-17T02:36:26.2875401Z Received 43119188 of 43119188 (100.0%), 53.9 MBs/sec
+2026-10-17T02:36:26.2875827Z Cache Size: ~41 MB (43119188 B)
+2026-10-17T02:36:26.3071819Z Cache restored successfully
+2026-10-17T02:36:26.3085171Z Restored cache entry with key gradle-kotlin-dsl-v2-7b1432b1fecf54da488f74cfa9f5b7a7 in 992ms
+2026-10-17T02:36:26.3125519Z [command]/usr/bin/tar -xf /home/runner/work/_temp/3fa440f2-46f8-4d75-be56-abbd6ec1ab31/cache.tzst -P -C /home/runner/work/forgeline/forgeline --use-compress-program unzstd
+2026-10-17T02:36:26.6199860Z Received 51542264 of 55736568 (92.5%), 48.7 MBs/sec
+2026-10-17T02:36:26.6202451Z Received 54525952 of 150839757 (36.1%), 51.8 MBs/sec
+2026-10-17T02:36:26.6428583Z Received 55736568 of 55736568 (100.0%), 51.5 MBs/sec
+2026-10-17T02:36:26.6429347Z Cache Size: ~53 MB (55736568 B)
+2026-10-17T02:36:26.6498916Z Received 50331648 of 264900970 (19.0%), 47.2 MBs/sec
+2026-10-17T02:36:26.6552843Z Cache restored successfully
+2026-10-17T02:36:26.6639551Z Restored cache entry with key gradle-generated-gradle-jars-v2-a77f931ec87ec4dc6371499962ae87b7 in 1351ms
+2026-10-17T02:36:26.6686839Z Received 46137344 of 780318928 (5.9%), 43.9 MBs/sec
+2026-10-17T02:36:26.6698638Z [command]/usr/bin/tar -xf /home/runner/work/_temp/4eec461a-04f5-401b-93a9-bd80249468a6/cache.tzst -P -C /home/runner/work/forgeline/forgeline --use-compress-program unzstd
+2026-10-17T02:36:26.7571746Z Cache restored successfully
+2026-10-17T02:36:26.7599552Z Restored cache entry with key gradle-build-cache-v2-c6d19ce092622a267d906ceea05fd87f in 1447ms
+2026-10-17T02:36:27.3827231Z Received 150839757 of 150839757 (100.0%), 81.5 MBs/sec
+2026-10-17T02:36:27.3827707Z Cache Size: ~144 MB (150839757 B)
+2026-10-17T02:36:27.3858515Z [command]/usr/bin/tar -xf /home/runner/work/_temp/26d55664-e694-4705-bbd2-e0dc36c9ecab/cache.tzst -P -C /home/runner/work/forgeline/forgeline --use-compress-program unzstd
+2026-10-17T02:36:27.6469737Z Cache restored successfully
+2026-10-17T02:36:27.6518704Z Received 209715200 of 264900970 (79.2%), 99.1 MBs/sec
+2026-10-17T02:36:27.6555581Z Restored cache entry with key gradle-wrapper-zips-v2-c9df1941c607e9f3a791c5cd067a03dd in 2343ms
+2026-10-17T02:36:27.6722779Z Received 222298112 of 780318928 (28.5%), 105.7 MBs/sec
+2026-10-17T02:36:27.9137401Z Received 264900970 of 264900970 (100.0%), 110.8 MBs/sec
+2026-10-17T02:36:27.9138195Z Cache Size: ~253 MB (264900970 B)
+2026-10-17T02:36:27.9193194Z [command]/usr/bin/tar -xf /home/runner/work/_temp/8c427c51-fc74-4cfb-bb7a-86e591080a8b/cache.tzst -P -C /home/runner/work/forgeline/forgeline --use-compress-program unzstd
+2026-10-17T02:36:28.7963392Z Received 402653184 of 780318928 (51.6%), 122.7 MBs/sec
+2026-10-17T02:36:29.7959799Z Received 620756992 of 780318928 (79.6%), 143.4 MBs/sec
+2026-10-17T02:36:30.7966658Z Received 776124624 of 780318928 (99.5%), 144.3 MBs/sec
+2026-10-17T02:36:31.1505087Z Received 780318928 of 780318928 (100.0%), 135.7 MBs/sec
+2026-10-17T02:36:31.1505855Z Cache Size: ~744 MB (780318928 B)
+2026-10-17T02:36:31.1634715Z [command]/usr/bin/tar -xf /home/runner/work/_temp/c461ed19-cfa2-4d38-b61c-82cae5761ef6/cache.tzst -P -C /home/runner/work/forgeline/forgeline --use-compress-program unzstd
+2026-10-17T02:36:33.3985829Z Cache restored successfully
+2026-10-17T02:36:33.4097809Z Restored cache entry with key gradle-transforms-v2-8adde06df496fecf92b261f54ed2bf9f in 8096ms
+2026-10-17T02:36:38.7320198Z Cache restored successfully
+2026-10-17T02:36:38.7626565Z Restored cache entry with key gradle-dependencies-v2-c79dd3835d0d66155f72b8ad6684471f in 13450ms
+2026-10-17T02:36:38.8191243Z ##[endgroup]
+2026-10-17T02:36:38.8354111Z ##[group]All Gradle Wrapper jars are valid
+2026-10-17T02:36:38.8354966Z ✓ Found known Gradle Wrapper JAR files:
+2026-10-17T02:36:38.8355297Z   238e777fcddd7e34f9708186085def2abd6e08e658505b38718d79d74c21abd5 gradle/wrapper/gradle-wrapper.jar
+2026-10-17T02:36:38.8355697Z ##[endgroup]
+2026-10-17T02:36:38.9305434Z ##[group]Run ./gradlew testDebugUnitTest verifyRoborazziDebug lintDebug assembleDebug --continue
+2026-10-17T02:36:38.9306071Z [36;1m./gradlew testDebugUnitTest verifyRoborazziDebug lintDebug assembleDebug --continue[0m
+2026-10-17T02:36:38.9649856Z shell: /usr/bin/bash -e {0}
+2026-10-17T02:36:38.9650050Z env:
+2026-10-17T02:36:38.9650261Z   JAVA_HOME: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-17T02:36:38.9650735Z   JAVA_HOME_21_X64: /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/21.0.12-1/x64
+2026-10-17T02:36:38.9650981Z   MAVEN_ARGS: -ntp
+2026-10-17T02:36:38.9651159Z   GRADLE_ACTION_ID: gradle/actions/setup-gradle
+2026-10-17T02:36:38.9651363Z   GRADLE_USER_HOME: /home/runner/.gradle
+2026-10-17T02:36:38.9651556Z   GRADLE_BUILD_ACTION_SETUP_COMPLETED: true
+2026-10-17T02:36:38.9651834Z   DEVELOCITY_INJECTION_INIT_SCRIPT_NAME: gradle-actions.inject-develocity.init.gradle
+2026-10-17T02:36:38.9652134Z   DEVELOCITY_INJECTION_CUSTOM_VALUE: gradle-actions
+2026-10-17T02:36:38.9652385Z   GITHUB_DEPENDENCY_GRAPH_ENABLED: false
+2026-10-17T02:36:38.9652564Z ##[endgroup]
+2026-10-17T02:36:40.5473096Z Starting a Gradle Daemon (subsequent builds will be faster)
+2026-10-17T02:36:43.1476244Z Calculating task graph as no cached configuration is available for tasks: testDebugUnitTest verifyRoborazziDebug lintDebug assembleDebug
+2026-10-17T02:36:46.0480433Z Type-safe project accessors is an incubating feature.
+2026-10-17T02:36:46.9487206Z > Task :build-logic:convention:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-10-17T02:36:47.0481537Z > Task :build-logic:convention:compileKotlin FROM-CACHE
+2026-10-17T02:36:47.0491136Z > Task :build-logic:convention:compileJava NO-SOURCE
+2026-10-17T02:36:47.1471143Z > Task :build-logic:convention:pluginDescriptors
+2026-10-17T02:36:47.1471953Z > Task :build-logic:convention:processResources
+2026-10-17T02:36:47.1472555Z > Task :build-logic:convention:classes
+2026-10-17T02:36:47.1473031Z > Task :build-logic:convention:jar
+2026-10-17T02:36:53.9482099Z > Task :core:forge:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-10-17T02:36:53.9532459Z > Task :forge:github:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-10-17T02:36:53.9591443Z > Task :core:model:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-10-17T02:36:53.9610037Z > Task :core:forge:processResources NO-SOURCE
+2026-10-17T02:36:53.9617330Z > Task :forge:github:processResources NO-SOURCE
+2026-10-17T02:36:53.9617831Z > Task :core:model:processResources NO-SOURCE
+2026-10-17T02:36:53.9618398Z > Task :forge:gitlab:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-10-17T02:36:53.9619120Z > Task :forge:forgejo:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-10-17T02:36:53.9619673Z > Task :app:preBuild UP-TO-DATE
+2026-10-17T02:36:53.9620078Z > Task :app:preDebugBuild UP-TO-DATE
+2026-10-17T02:36:53.9620690Z > Task :forge:forgejo:processResources NO-SOURCE
+2026-10-17T02:36:54.0476970Z > Task :forge:gitlab:processResources NO-SOURCE
+2026-10-17T02:36:54.0493490Z > Task :app:generateDebugResources FROM-CACHE
+2026-10-17T02:36:54.0495994Z > Task :core:data:preBuild UP-TO-DATE
+2026-10-17T02:36:54.0496373Z > Task :core:data:preDebugBuild UP-TO-DATE
+2026-10-17T02:36:54.0496772Z > Task :app:generateDebugBuildConfig FROM-CACHE
+2026-10-17T02:36:54.0497099Z > Task :core:markdown:preBuild UP-TO-DATE
+2026-10-17T02:36:54.0497417Z > Task :core:markdown:preDebugBuild UP-TO-DATE
+2026-10-17T02:36:54.0497962Z > Task :core:data:processDebugNavigationResources FROM-CACHE
+2026-10-17T02:36:54.0498462Z > Task :core:ui:preBuild UP-TO-DATE
+2026-10-17T02:36:54.0498898Z > Task :core:ui:preDebugBuild UP-TO-DATE
+2026-10-17T02:36:54.0499398Z > Task :core:ui:processDebugNavigationResources FROM-CACHE
+2026-10-17T02:36:54.0499962Z > Task :core:markdown:processDebugNavigationResources FROM-CACHE
+2026-10-17T02:36:54.0500641Z > Task :core:data:generateDebugResources FROM-CACHE
+2026-10-17T02:36:54.0501161Z > Task :app:prepareLibraryDefinitionsDebug FROM-CACHE
+2026-10-17T02:36:54.0501963Z > Task :core:data:packageDebugResources FROM-CACHE
+2026-10-17T02:36:54.0502472Z > Task :app:packageDebugResources FROM-CACHE
+2026-10-17T02:36:54.1482190Z > Task :core:model:compileKotlin FROM-CACHE
+2026-10-17T02:36:54.1533080Z > Task :core:model:compileJava NO-SOURCE
+2026-10-17T02:36:54.1557818Z > Task :core:model:classes UP-TO-DATE
+2026-10-17T02:36:54.1596464Z > Task :core:model:jar
+2026-10-17T02:36:54.1615827Z > Task :core:forge:compileKotlin FROM-CACHE
+2026-10-17T02:36:54.1641038Z > Task :core:forge:compileJava NO-SOURCE
+2026-10-17T02:36:54.1641642Z > Task :core:forge:classes UP-TO-DATE
+2026-10-17T02:36:54.2470370Z > Task :core:forge:jar
+2026-10-17T02:36:55.5495373Z > Task :core:data:javaPreCompileDebug FROM-CACHE
+2026-10-17T02:36:55.6514254Z > Task :forge:forgejo:compileKotlin FROM-CACHE
+2026-10-17T02:36:55.6558760Z > Task :forge:forgejo:compileJava NO-SOURCE
+2026-10-17T02:36:55.6589924Z > Task :forge:forgejo:classes UP-TO-DATE
+2026-10-17T02:36:55.7539691Z > Task :forge:github:compileKotlin FROM-CACHE
+2026-10-17T02:36:55.7591675Z > Task :forge:github:compileJava NO-SOURCE
+2026-10-17T02:36:55.7592120Z > Task :forge:github:classes UP-TO-DATE
+2026-10-17T02:36:55.7592518Z > Task :core:data:parseDebugLocalResources FROM-CACHE
+2026-10-17T02:36:55.7592873Z > Task :forge:forgejo:jar
+2026-10-17T02:36:55.8489498Z > Task :core:data:generateDebugRFile FROM-CACHE
+2026-10-17T02:36:55.8489941Z > Task :forge:github:jar
+2026-10-17T02:36:55.8490275Z > Task :app:processDebugNavigationResources FROM-CACHE
+2026-10-17T02:36:55.8490818Z > Task :core:data:preDebugUnitTestBuild UP-TO-DATE
+2026-10-17T02:36:55.8491186Z > Task :app:parseDebugLocalResources FROM-CACHE
+2026-10-17T02:36:55.8491532Z > Task :app:generateDebugRFile FROM-CACHE
+2026-10-17T02:36:55.8491852Z > Task :core:testing:preBuild UP-TO-DATE
+2026-10-17T02:36:55.8492183Z > Task :core:testing:preDebugBuild UP-TO-DATE
+2026-10-17T02:36:55.9486453Z > Task :core:data:writeDebugAarMetadata
+2026-10-17T02:36:55.9487476Z > Task :core:testing:writeDebugAarMetadata
+2026-10-17T02:36:55.9488004Z > Task :forge:gitlab:compileKotlin FROM-CACHE
+2026-10-17T02:36:55.9488475Z > Task :forge:gitlab:compileJava NO-SOURCE
+2026-10-17T02:36:55.9488923Z > Task :forge:gitlab:classes UP-TO-DATE
+2026-10-17T02:36:55.9489361Z > Task :core:data:mapDebugSourceSetPaths
+2026-10-17T02:36:55.9489850Z > Task :core:data:compileDebugLibraryResources FROM-CACHE
+2026-10-17T02:36:55.9490376Z > Task :core:data:mapDebugUnitTestSourceSetPaths
+2026-10-17T02:36:55.9491021Z > Task :core:data:kspDebugKotlin FROM-CACHE
+2026-10-17T02:36:56.0504511Z > Task :core:data:generateDebugUnitTestResources FROM-CACHE
+2026-10-17T02:36:56.0505490Z > Task :core:testing:generateDebugResources FROM-CACHE
+2026-10-17T02:36:56.0537378Z > Task :core:testing:packageDebugResources FROM-CACHE
+2026-10-17T02:36:56.0561397Z > Task :forge:gitlab:jar
+2026-10-17T02:36:56.0592584Z > Task :core:data:extractDeepLinksDebug FROM-CACHE
+2026-10-17T02:36:56.0622330Z > Task :core:data:processDebugManifest FROM-CACHE
+2026-10-17T02:36:56.0634496Z > Task :core:testing:extractDeepLinksDebug FROM-CACHE
+2026-10-17T02:36:56.0658554Z > Task :core:testing:processDebugManifest FROM-CACHE
+2026-10-17T02:36:56.0682399Z > Task :core:data:checkDebugUnitTestAarMetadata
+2026-10-17T02:36:56.0711115Z > Task :core:testing:mapDebugSourceSetPaths
+2026-10-17T02:36:56.0731284Z > Task :core:testing:processDebugNavigationResources FROM-CACHE
+2026-10-17T02:36:56.0752507Z > Task :core:testing:compileDebugLibraryResources FROM-CACHE
+2026-10-17T02:36:56.0786325Z > Task :core:testing:parseDebugLocalResources FROM-CACHE
+2026-10-17T02:36:56.1562006Z > Task :core:data:mergeDebugUnitTestResources FROM-CACHE
+2026-10-17T02:36:56.1589533Z > Task :core:testing:generateDebugRFile FROM-CACHE
+2026-10-17T02:36:56.1653959Z > Task :core:data:javaPreCompileDebugUnitTest FROM-CACHE
+2026-10-17T02:36:56.1681196Z > Task :core:testing:javaPreCompileDebug FROM-CACHE
+2026-10-17T02:36:56.1711067Z > Task :core:markdown:generateDebugResources FROM-CACHE
+2026-10-17T02:36:56.1761708Z > Task :core:ui:generateDebugResources FROM-CACHE
+2026-10-17T02:36:56.1801694Z > Task :core:markdown:packageDebugResources FROM-CACHE
+2026-10-17T02:36:56.1857066Z > Task :core:markdown:parseDebugLocalResources FROM-CACHE
+2026-10-17T02:36:56.1891361Z > Task :core:markdown:generateDebugRFile FROM-CACHE
+2026-10-17T02:36:56.1927160Z > Task :core:ui:javaPreCompileDebug FROM-CACHE
+2026-10-17T02:36:56.1927742Z > Task :core:markdown:javaPreCompileDebug FROM-CACHE
+2026-10-17T02:36:56.1928130Z > Task :core:ui:packageDebugResources FROM-CACHE
+2026-10-17T02:36:56.1928602Z > Task :app:javaPreCompileDebug FROM-CACHE
+2026-10-17T02:36:56.1929053Z > Task :core:data:compileDebugKotlin FROM-CACHE
+2026-10-17T02:36:56.1929422Z > Task :core:ui:parseDebugLocalResources FROM-CACHE
+2026-10-17T02:36:56.1933764Z > Task :core:ui:generateDebugRFile FROM-CACHE
+2026-10-17T02:36:56.3480369Z > Task :core:ui:compileDebugKotlin FROM-CACHE
+2026-10-17T02:36:56.3569604Z > Task :core:ui:compileDebugJavaWithJavac NO-SOURCE
+2026-10-17T02:36:56.3623075Z > Task :core:markdown:writeDebugAarMetadata
+2026-10-17T02:36:56.3630365Z > Task :core:ui:bundleLibRuntimeToJarDebug
+2026-10-17T02:36:56.3675290Z > Task :core:ui:bundleLibCompileToJarDebug
+2026-10-17T02:36:56.3692818Z > Task :core:ui:writeDebugAarMetadata
+2026-10-17T02:36:56.4476436Z > Task :core:data:mergeDebugUnitTestManifest
+2026-10-17T02:36:56.4500347Z > Task :core:data:processDebugUnitTestManifest
+2026-10-17T02:36:56.4501281Z > Task :core:markdown:compileDebugKotlin FROM-CACHE
+2026-10-17T02:36:56.5471970Z > Task :core:markdown:compileDebugJavaWithJavac NO-SOURCE
+2026-10-17T02:36:56.5507427Z > Task :core:markdown:bundleLibCompileToJarDebug
+2026-10-17T02:36:56.5538642Z > Task :core:markdown:bundleLibRuntimeToJarDebug
+2026-10-17T02:36:56.5561980Z > Task :core:data:processDebugUnitTestResources FROM-CACHE
+2026-10-17T02:36:56.5571096Z > Task :app:mapDebugSourceSetPaths
+2026-10-17T02:36:56.5593977Z > Task :app:checkDebugAarMetadata
+2026-10-17T02:36:56.5622187Z > Task :app:compileDebugNavigationResources FROM-CACHE
+2026-10-17T02:36:56.5646654Z > Task :app:createDebugCompatibleScreenManifests
+2026-10-17T02:36:56.5681446Z > Task :app:extractDeepLinksDebug FROM-CACHE
+2026-10-17T02:36:56.5698016Z > Task :core:markdown:extractDeepLinksDebug FROM-CACHE
+2026-10-17T02:36:56.5711227Z > Task :core:ui:extractDeepLinksDebug FROM-CACHE
+2026-10-17T02:36:56.5742955Z > Task :core:markdown:processDebugManifest FROM-CACHE
+2026-10-17T02:36:56.5771172Z > Task :core:markdown:mapDebugSourceSetPaths
+2026-10-17T02:36:56.5786043Z > Task :core:markdown:compileDebugLibraryResources FROM-CACHE
+2026-10-17T02:36:56.5811135Z > Task :core:ui:processDebugManifest FROM-CACHE
+2026-10-17T02:36:56.5833308Z > Task :core:ui:mapDebugSourceSetPaths
+2026-10-17T02:36:56.5862843Z > Task :core:ui:compileDebugLibraryResources FROM-CACHE
+2026-10-17T02:36:56.5881530Z > Task :app:generateDebugAssets UP-TO-DATE
+2026-10-17T02:36:56.5882330Z > Task :core:data:generateDebugAssets UP-TO-DATE
+2026-10-17T02:36:56.6501728Z > Task :core:data:mergeDebugAssets
+2026-10-17T02:36:56.6551411Z > Task :core:markdown:generateDebugAssets UP-TO-DATE
+2026-10-17T02:36:56.6559779Z > Task :core:markdown:mergeDebugAssets
+2026-10-17T02:36:56.6589969Z > Task :core:ui:generateDebugAssets UP-TO-DATE
+2026-10-17T02:36:56.7521199Z > Task :app:mergeDebugResources FROM-CACHE
+2026-10-17T02:36:56.7543648Z > Task :app:preDebugUnitTestBuild UP-TO-DATE
+2026-10-17T02:36:56.7555959Z > Task :app:javaPreCompileDebugUnitTest FROM-CACHE
+2026-10-17T02:36:56.7570235Z > Task :core:ui:mergeDebugAssets
+2026-10-17T02:36:56.7587064Z > Task :app:processDebugMainManifest FROM-CACHE
+2026-10-17T02:36:56.7587567Z > Task :app:processDebugManifest FROM-CACHE
+2026-10-17T02:36:56.7589277Z > Task :app:processDebugManifestForPackage FROM-CACHE
+2026-10-17T02:36:56.8490749Z > Task :core:data:processDebugJavaRes
+2026-10-17T02:36:56.8581467Z > Task :app:mergeDebugAssets
+2026-10-17T02:36:56.8671522Z > Task :core:markdown:processDebugJavaRes
+2026-10-17T02:36:56.8685944Z > Task :core:ui:processDebugJavaRes
+2026-10-17T02:36:56.8710402Z > Task :config-checks:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-10-17T02:36:56.8711287Z > Task :config-checks:compileKotlin NO-SOURCE
+2026-10-17T02:36:56.8712005Z > Task :config-checks:compileJava NO-SOURCE
+2026-10-17T02:36:56.8712478Z > Task :config-checks:processResources NO-SOURCE
+2026-10-17T02:36:56.8712943Z > Task :config-checks:classes UP-TO-DATE
+2026-10-17T02:36:56.9493978Z > Task :config-checks:jar
+2026-10-17T02:36:56.9502254Z > Task :core:data:compileDebugJavaWithJavac FROM-CACHE
+2026-10-17T02:36:56.9531425Z > Task :config-checks:compileTestKotlin FROM-CACHE
+2026-10-17T02:36:56.9567388Z > Task :config-checks:compileTestJava NO-SOURCE
+2026-10-17T02:36:56.9601162Z > Task :config-checks:processTestResources NO-SOURCE
+2026-10-17T02:36:56.9601821Z > Task :config-checks:testClasses UP-TO-DATE
+2026-10-17T02:36:56.9641873Z > Task :app:processDebugResources FROM-CACHE
+2026-10-17T02:36:57.0469617Z 
+2026-10-17T02:36:57.0481357Z > Task :app:mergeDebugUnitTestManifest
+2026-10-17T02:36:57.0507106Z /home/runner/work/forgeline/forgeline/app/src/main/AndroidManifest.xml:76:13-79:39 Warning:
+2026-10-17T02:36:57.0508283Z 	meta-data#androidx.work.WorkManagerInitializer was tagged at AndroidManifest.xml:76 to remove other declarations but no other declaration present
+2026-10-17T02:36:57.0508968Z 
+2026-10-17T02:36:57.0509225Z > Task :app:processDebugUnitTestManifest
+2026-10-17T02:36:57.0509730Z > Task :core:data:generateDebugUnitTestAssets UP-TO-DATE
+2026-10-17T02:36:57.0510231Z > Task :core:testing:generateDebugAssets UP-TO-DATE
+2026-10-17T02:36:57.0510853Z > Task :app:packageDebugUnitTestForUnitTest
+2026-10-17T02:36:57.0511302Z > Task :core:testing:mergeDebugAssets
+2026-10-17T02:36:57.0511756Z > Task :app:generateDebugUnitTestConfig
+2026-10-17T02:36:57.1502004Z > Task :core:data:mergeDebugUnitTestAssets
+2026-10-17T02:36:57.1502479Z > Task :core:forge:compileTestKotlin FROM-CACHE
+2026-10-17T02:36:57.1503187Z > Task :core:forge:compileTestJava NO-SOURCE
+2026-10-17T02:36:57.1503637Z > Task :core:forge:processTestResources NO-SOURCE
+2026-10-17T02:36:57.1504144Z > Task :core:forge:testClasses UP-TO-DATE
+2026-10-17T02:36:57.1504666Z > Task :core:data:packageDebugUnitTestForUnitTest
+2026-10-17T02:36:57.1505071Z > Task :core:forge:test FROM-CACHE
+2026-10-17T02:36:57.1505448Z > Task :core:forge:testDebugUnitTest UP-TO-DATE
+2026-10-17T02:36:57.1505902Z > Task :core:markdown:preDebugUnitTestBuild UP-TO-DATE
+2026-10-17T02:36:57.1506260Z > Task :core:data:generateDebugUnitTestConfig
+2026-10-17T02:36:57.1506733Z > Task :core:markdown:mapDebugUnitTestSourceSetPaths
+2026-10-17T02:36:57.1507231Z > Task :core:markdown:generateDebugUnitTestResources FROM-CACHE
+2026-10-17T02:36:57.1507741Z > Task :core:data:transformDebugClassesWithAsm FROM-CACHE
+2026-10-17T02:36:57.2471453Z > Task :core:markdown:checkDebugUnitTestAarMetadata
+2026-10-17T02:36:57.2504481Z > Task :core:markdown:mergeDebugUnitTestResources FROM-CACHE
+2026-10-17T02:36:57.2530348Z > Task :core:data:bundleLibCompileToJarDebug
+2026-10-17T02:36:57.3477601Z > Task :core:data:bundleLibRuntimeToJarDebug
+2026-10-17T02:36:57.4507281Z > Task :core:markdown:mergeDebugUnitTestManifest
+2026-10-17T02:36:57.4551407Z > Task :core:markdown:processDebugUnitTestManifest
+2026-10-17T02:36:57.5482876Z > Task :core:markdown:processDebugUnitTestResources FROM-CACHE
+2026-10-17T02:36:57.5497643Z > Task :core:markdown:javaPreCompileDebugUnitTest FROM-CACHE
+2026-10-17T02:36:57.5513101Z > Task :core:markdown:generateDebugUnitTestAssets UP-TO-DATE
+2026-10-17T02:36:57.6471429Z > Task :core:markdown:mergeDebugUnitTestAssets
+2026-10-17T02:36:57.6522686Z > Task :core:markdown:packageDebugUnitTestForUnitTest
+2026-10-17T02:36:57.6571834Z > Task :core:markdown:generateDebugUnitTestConfig
+2026-10-17T02:36:57.7541920Z > Task :core:model:compileTestKotlin FROM-CACHE
+2026-10-17T02:36:57.7571558Z > Task :core:model:compileTestJava NO-SOURCE
+2026-10-17T02:36:57.7601270Z > Task :core:model:processTestResources NO-SOURCE
+2026-10-17T02:36:57.7662907Z > Task :core:model:testClasses UP-TO-DATE
+2026-10-17T02:36:57.7688029Z > Task :app:kspDebugKotlin FROM-CACHE
+2026-10-17T02:36:57.7701111Z > Task :core:model:test FROM-CACHE
+2026-10-17T02:36:57.7736141Z > Task :core:model:testDebugUnitTest UP-TO-DATE
+2026-10-17T02:36:57.7761116Z > Task :core:testing:preDebugUnitTestBuild UP-TO-DATE
+2026-10-17T02:36:57.8551887Z > Task :core:testing:checkDebugUnitTestAarMetadata
+2026-10-17T02:36:57.8604289Z > Task :core:testing:mapDebugUnitTestSourceSetPaths
+2026-10-17T02:36:57.8660294Z > Task :core:testing:generateDebugUnitTestResources FROM-CACHE
+2026-10-17T02:36:57.9491717Z > Task :core:testing:mergeDebugUnitTestResources FROM-CACHE
+2026-10-17T02:36:57.9580065Z > Task :core:testing:mergeDebugUnitTestManifest
+2026-10-17T02:36:57.9593833Z > Task :core:testing:processDebugUnitTestManifest
+2026-10-17T02:36:58.0521958Z > Task :core:testing:processDebugUnitTestResources FROM-CACHE
+2026-10-17T02:36:58.0531519Z > Task :core:testing:javaPreCompileDebugUnitTest FROM-CACHE
+2026-10-17T02:36:58.0551233Z > Task :core:testing:generateDebugUnitTestAssets UP-TO-DATE
+2026-10-17T02:36:58.0582946Z > Task :core:testing:mergeDebugUnitTestAssets
+2026-10-17T02:36:58.0591182Z > Task :core:testing:packageDebugUnitTestForUnitTest
+2026-10-17T02:36:58.0621236Z > Task :core:testing:generateDebugUnitTestConfig
+2026-10-17T02:36:58.0630957Z > Task :core:ui:preDebugUnitTestBuild UP-TO-DATE
+2026-10-17T02:36:58.0660250Z > Task :core:ui:checkDebugUnitTestAarMetadata
+2026-10-17T02:36:58.0691020Z > Task :core:ui:mapDebugUnitTestSourceSetPaths
+2026-10-17T02:36:58.1481179Z > Task :core:ui:generateDebugUnitTestResources FROM-CACHE
+2026-10-17T02:36:58.2471785Z > Task :core:ui:mergeDebugUnitTestResources FROM-CACHE
+2026-10-17T02:36:58.2551463Z > Task :app:compileDebugKotlin FROM-CACHE
+2026-10-17T02:36:58.2561073Z > Task :core:ui:mergeDebugUnitTestManifest
+2026-10-17T02:36:58.3505111Z > Task :app:processDebugJavaRes
+2026-10-17T02:36:58.3531177Z > Task :core:ui:processDebugUnitTestManifest
+2026-10-17T02:36:58.4491723Z > Task :core:ui:processDebugUnitTestResources FROM-CACHE
+2026-10-17T02:36:58.5486014Z > Task :core:ui:compileDebugUnitTestKotlin FROM-CACHE
+2026-10-17T02:36:58.5541791Z > Task :core:ui:javaPreCompileDebugUnitTest FROM-CACHE
+2026-10-17T02:36:58.5601745Z > Task :core:ui:compileDebugUnitTestJavaWithJavac NO-SOURCE
+2026-10-17T02:36:58.5631382Z > Task :core:ui:generateDebugUnitTestAssets UP-TO-DATE
+2026-10-17T02:36:58.5681337Z > Task :core:ui:mergeDebugUnitTestAssets
+2026-10-17T02:36:58.5701920Z > Task :core:ui:packageDebugUnitTestForUnitTest
+2026-10-17T02:36:58.5710864Z > Task :core:ui:generateDebugUnitTestConfig
+2026-10-17T02:36:58.5733044Z > Task :core:ui:processDebugUnitTestJavaRes
+2026-10-17T02:36:58.8487975Z > Task :core:ui:testDebugUnitTest FROM-CACHE
+2026-10-17T02:36:58.8488497Z > Task :app:compileDebugJavaWithJavac FROM-CACHE
+2026-10-17T02:36:58.8526969Z > Task :app:hiltCollectClassesDebug UP-TO-DATE
+2026-10-17T02:36:58.9492034Z > Task :forge:forgejo:compileTestKotlin FROM-CACHE
+2026-10-17T02:36:58.9521371Z > Task :forge:forgejo:compileTestJava NO-SOURCE
+2026-10-17T02:36:58.9551211Z > Task :forge:forgejo:processTestResources
+2026-10-17T02:36:58.9561032Z > Task :forge:forgejo:testClasses
+2026-10-17T02:36:59.0523482Z > Task :forge:forgejo:test FROM-CACHE
+2026-10-17T02:36:59.0531246Z > Task :forge:forgejo:testDebugUnitTest UP-TO-DATE
+2026-10-17T02:36:59.2471116Z > Task :forge:github:compileTestKotlin FROM-CACHE
+2026-10-17T02:36:59.2501427Z > Task :forge:github:compileTestJava NO-SOURCE
+2026-10-17T02:36:59.2510189Z > Task :app:hiltAggregateDepsDebug FROM-CACHE
+2026-10-17T02:36:59.2541196Z > Task :forge:github:processTestResources
+2026-10-17T02:36:59.2571080Z > Task :forge:github:testClasses
+2026-10-17T02:36:59.2575712Z > Task :forge:github:test FROM-CACHE
+2026-10-17T02:36:59.2641402Z > Task :forge:github:testDebugUnitTest UP-TO-DATE
+2026-10-17T02:36:59.4483043Z > Task :forge:gitlab:compileTestKotlin FROM-CACHE
+2026-10-17T02:36:59.4484766Z > Task :forge:gitlab:compileTestJava NO-SOURCE
+2026-10-17T02:36:59.5497820Z > Task :forge:gitlab:processTestResources
+2026-10-17T02:36:59.5556582Z > Task :forge:gitlab:testClasses
+2026-10-17T02:36:59.5611940Z > Task :forge:gitlab:test FROM-CACHE
+2026-10-17T02:36:59.5657119Z > Task :forge:gitlab:testDebugUnitTest UP-TO-DATE
+2026-10-17T02:36:59.5675906Z > Task :tools:trending:checkKotlinGradlePluginConfigurationErrors SKIPPED
+2026-10-17T02:36:59.5681236Z > Task :app:hiltJavaCompileDebug FROM-CACHE
+2026-10-17T02:36:59.5681953Z > Task :tools:trending:compileKotlin FROM-CACHE
+2026-10-17T02:36:59.7512296Z > Task :app:transformDebugClassesWithAsm FROM-CACHE
+2026-10-17T02:36:59.7541423Z > Task :config-checks:test
+2026-10-17T02:36:59.7564863Z > Task :config-checks:testDebugUnitTest
+2026-10-17T02:36:59.7565409Z > Task :tools:trending:compileJava NO-SOURCE
+2026-10-17T02:36:59.7566139Z > Task :tools:trending:processResources NO-SOURCE
+2026-10-17T02:36:59.7566612Z > Task :tools:trending:classes UP-TO-DATE
+2026-10-17T02:36:59.7590970Z > Task :tools:trending:jar
+2026-10-17T02:36:59.7596352Z > Task :tools:trending:compileTestKotlin NO-SOURCE
+2026-10-17T02:36:59.7606750Z > Task :tools:trending:compileTestJava NO-SOURCE
+2026-10-17T02:36:59.7620745Z > Task :tools:trending:processTestResources NO-SOURCE
+2026-10-17T02:36:59.7621310Z > Task :tools:trending:testClasses UP-TO-DATE
+2026-10-17T02:36:59.7621789Z > Task :tools:trending:test NO-SOURCE
+2026-10-17T02:36:59.7622588Z > Task :tools:trending:testDebugUnitTest UP-TO-DATE
+2026-10-17T02:36:59.7681005Z > Task :core:testing:checkDebugAarMetadata
+2026-10-17T02:36:59.8470409Z > Task :app:bundleDebugClassesToCompileJar
+2026-10-17T02:36:59.8501519Z > Task :core:testing:extractDebugAnnotations
+2026-10-17T02:36:59.8515056Z > Task :core:testing:extractDeepLinksForAarDebug FROM-CACHE
+2026-10-17T02:36:59.8560781Z > Task :core:testing:prepareDebugArtProfile
+2026-10-17T02:36:59.8561189Z > Task :core:testing:prepareLintJarForPublish
+2026-10-17T02:36:59.8561519Z > Task :core:data:checkDebugAarMetadata
+2026-10-17T02:36:59.8561872Z > Task :core:data:extractDebugAnnotations FROM-CACHE
+2026-10-17T02:36:59.8562254Z > Task :core:data:mergeDebugGeneratedProguardFiles
+2026-10-17T02:36:59.8562675Z > Task :core:data:extractDeepLinksForAarDebug FROM-CACHE
+2026-10-17T02:36:59.9501883Z > Task :core:data:mergeDebugConsumerProguardFiles
+2026-10-17T02:36:59.9561441Z > Task :core:data:prepareLintJarForPublish
+2026-10-17T02:36:59.9621614Z > Task :app:bundleDebugClassesToRuntimeJar
+2026-10-17T02:36:59.9645936Z > Task :core:data:prepareDebugArtProfile
+2026-10-17T02:36:59.9701189Z > Task :core:markdown:checkDebugAarMetadata
+2026-10-17T02:36:59.9701938Z > Task :core:markdown:extractDeepLinksForAarDebug FROM-CACHE
+2026-10-17T02:36:59.9731311Z > Task :core:markdown:mergeDebugGeneratedProguardFiles
+2026-10-17T02:36:59.9742321Z > Task :core:markdown:extractDebugAnnotations FROM-CACHE
+2026-10-17T02:36:59.9782454Z > Task :core:markdown:mergeDebugConsumerProguardFiles
+2026-10-17T02:36:59.9782936Z > Task :core:markdown:prepareDebugArtProfile
+2026-10-17T02:36:59.9813435Z > Task :core:markdown:prepareLintJarForPublish
+2026-10-17T02:36:59.9840930Z > Task :core:ui:checkDebugAarMetadata
+2026-10-17T02:37:00.0474363Z > Task :core:ui:extractDebugAnnotations FROM-CACHE
+2026-10-17T02:37:00.0476499Z > Task :core:ui:extractDeepLinksForAarDebug FROM-CACHE
+2026-10-17T02:37:00.0503953Z > Task :core:ui:mergeDebugGeneratedProguardFiles
+2026-10-17T02:37:00.0531164Z > Task :core:ui:mergeDebugConsumerProguardFiles
+2026-10-17T02:37:00.0561030Z > Task :core:ui:prepareDebugArtProfile
+2026-10-17T02:37:00.0596387Z > Task :core:ui:prepareLintJarForPublish
+2026-10-17T02:37:00.0620897Z > Task :core:ui:mergeDebugJavaResource
+2026-10-17T02:37:00.0687133Z > Task :core:markdown:mergeDebugJavaResource
+2026-10-17T02:37:00.0711011Z > Task :core:data:mergeDebugJavaResource
+2026-10-17T02:37:00.0752885Z > Task :core:markdown:syncDebugLibJars FROM-CACHE
+2026-10-17T02:37:00.1477848Z > Task :core:ui:syncDebugLibJars FROM-CACHE
+2026-10-17T02:37:00.1493958Z > Task :core:markdown:bundleDebugLocalLintAar
+2026-10-17T02:37:00.1553053Z > Task :core:ui:bundleDebugLocalLintAar
+2026-10-17T02:37:00.1603683Z > Task :core:data:syncDebugLibJars FROM-CACHE
+2026-10-17T02:37:00.1631516Z > Task :core:data:bundleDebugLocalLintAar
+2026-10-17T02:37:00.1650992Z > Task :app:preDebugAndroidTestBuild SKIPPED
+2026-10-17T02:37:00.1680938Z > Task :core:data:writeDebugLintModelMetadata
+2026-10-17T02:37:00.1704514Z > Task :core:markdown:createFullJarDebug
+2026-10-17T02:37:00.1730972Z > Task :core:markdown:writeDebugLintModelMetadata
+2026-10-17T02:37:00.1731788Z > Task :core:testing:writeDebugLintModelMetadata
+2026-10-17T02:37:00.2469358Z > Task :core:ui:createFullJarDebug
+2026-10-17T02:37:00.2501390Z > Task :core:ui:writeDebugLintModelMetadata
+2026-10-17T02:37:00.2501978Z > Task :core:data:createFullJarDebug
+2026-10-17T02:37:00.2531035Z > Task :app:extractProguardFiles
+2026-10-17T02:37:00.2581068Z > Task :core:data:extractProguardFiles
+2026-10-17T02:37:00.2602086Z > Task :core:markdown:extractProguardFiles
+2026-10-17T02:37:00.2602593Z > Task :core:ui:extractProguardFiles
+2026-10-17T02:37:00.7481849Z > Task :core:data:lintAnalyzeDebug FROM-CACHE
+2026-10-17T02:37:00.8484594Z > Task :core:ui:lintAnalyzeDebug FROM-CACHE
+2026-10-17T02:37:00.8511519Z > Task :core:data:generateDebugLintModel
+2026-10-17T02:37:00.8527068Z > Task :core:data:preDebugAndroidTestBuild UP-TO-DATE
+2026-10-17T02:37:00.8536192Z > Task :core:ui:generateDebugLintModel
+2026-10-17T02:37:00.9471617Z > Task :core:markdown:lintAnalyzeDebug FROM-CACHE
+2026-10-17T02:37:00.9491115Z > Task :core:data:generateDebugAndroidTestLintModel
+2026-10-17T02:37:00.9521014Z > Task :core:markdown:generateDebugLintModel
+2026-10-17T02:37:00.9521633Z > Task :core:data:lintAnalyzeDebugAndroidTest FROM-CACHE
+2026-10-17T02:37:00.9550861Z > Task :core:markdown:preDebugAndroidTestBuild UP-TO-DATE
+2026-10-17T02:37:01.0488080Z > Task :core:markdown:generateDebugAndroidTestLintModel
+2026-10-17T02:37:01.0511342Z > Task :core:markdown:lintAnalyzeDebugAndroidTest FROM-CACHE
+2026-10-17T02:37:01.0541844Z > Task :core:ui:preDebugAndroidTestBuild UP-TO-DATE
+2026-10-17T02:37:01.0542516Z > Task :app:lintAnalyzeDebug FROM-CACHE
+2026-10-17T02:37:01.0572351Z > Task :app:generateDebugLintReportModel
+2026-10-17T02:37:01.1485200Z > Task :core:ui:lintAnalyzeDebugAndroidTest FROM-CACHE
+2026-10-17T02:37:01.1492221Z > Task :core:ui:generateDebugAndroidTestLintModel
+2026-10-17T02:37:01.1492891Z > Task :core:ui:lintAnalyzeDebugUnitTest FROM-CACHE
+2026-10-17T02:37:01.1493424Z > Task :core:ui:generateDebugUnitTestLintModel
+2026-10-17T02:37:01.1493953Z > Task :core:testing:preDebugAndroidTestBuild UP-TO-DATE
+2026-10-17T02:37:01.1494480Z > Task :core:data:generateDebugLintReportModel
+2026-10-17T02:37:01.1494950Z > Task :core:testing:extractProguardFiles
+2026-10-17T02:37:01.1495437Z > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+2026-10-17T02:37:01.1495927Z > Task :app:compressDebugAssets FROM-CACHE
+2026-10-17T02:37:01.1496497Z > Task :app:generateDebugGlobalSynthetics FROM-CACHE
+2026-10-17T02:37:01.1497013Z > Task :core:markdown:generateDebugLintReportModel
+2026-10-17T02:37:01.1497507Z > Task :core:ui:generateDebugLintReportModel
+2026-10-17T02:37:01.4491616Z > Task :app:checkDebugDuplicateClasses
+2026-10-17T02:37:01.4548742Z > Task :app:desugarDebugFileDependencies FROM-CACHE
+2026-10-17T02:37:02.4491567Z > Task :app:mergeExtDexDebug FROM-CACHE
+2026-10-17T02:37:02.6478988Z > Task :core:data:bundleLibRuntimeToDirDebug
+2026-10-17T02:37:02.7473686Z > Task :app:mergeDebugJavaResource
+2026-10-17T02:37:02.7521803Z > Task :core:markdown:bundleLibRuntimeToDirDebug
+2026-10-17T02:37:02.8488978Z > Task :core:ui:bundleLibRuntimeToDirDebug
+2026-10-17T02:37:03.2530949Z > Task :app:mergeLibDexDebug FROM-CACHE
+2026-10-17T02:37:03.2613980Z > Task :app:mergeDebugJniLibFolders
+2026-10-17T02:37:03.2684243Z > Task :core:data:mergeDebugJniLibFolders
+2026-10-17T02:37:03.2720432Z > Task :core:data:mergeDebugNativeLibs NO-SOURCE
+2026-10-17T02:37:03.3483236Z > Task :core:data:copyDebugJniLibsProjectOnly
+2026-10-17T02:37:03.3559314Z > Task :core:markdown:mergeDebugJniLibFolders
+2026-10-17T02:37:03.3701857Z > Task :core:markdown:mergeDebugNativeLibs NO-SOURCE
+2026-10-17T02:37:03.3731231Z > Task :core:markdown:copyDebugJniLibsProjectOnly
+2026-10-17T02:37:03.3785225Z > Task :core:ui:mergeDebugJniLibFolders
+2026-10-17T02:37:03.3831134Z > Task :core:ui:mergeDebugNativeLibs NO-SOURCE
+2026-10-17T02:37:03.3871081Z > Task :core:ui:copyDebugJniLibsProjectOnly
+2026-10-17T02:37:03.4491815Z > Task :app:dexBuilderDebug FROM-CACHE
+2026-10-17T02:37:03.5491724Z > Task :app:mergeProjectDexDebug FROM-CACHE
+2026-10-17T02:37:03.5508954Z > Task :app:mergeDebugNativeLibs
+2026-10-17T02:37:03.6491120Z 
+2026-10-17T02:37:03.6523482Z > Task :app:stripDebugDebugSymbols
+2026-10-17T02:37:03.6536968Z Unable to strip the following libraries, packaging them as they are: libandroidx.graphics.path.so, libdatastore_shared_counter.so. Run with --info option to learn more.
+2026-10-17T02:37:03.6538021Z 
+2026-10-17T02:37:03.6538214Z > Task :app:writeDebugAppMetadata
+2026-10-17T02:37:03.7483414Z > Task :app:writeDebugSigningConfigVersions
+2026-10-17T02:37:03.7537629Z > Task :core:data:stripDebugDebugSymbols NO-SOURCE
+2026-10-17T02:37:03.7613995Z > Task :core:data:copyDebugJniLibsProjectAndLocalJars
+2026-10-17T02:37:03.7661316Z > Task :core:data:bundleDebugAar
+2026-10-17T02:37:03.7721276Z > Task :core:data:assembleDebug
+2026-10-17T02:37:03.7809666Z > Task :core:markdown:stripDebugDebugSymbols NO-SOURCE
+2026-10-17T02:37:03.8489893Z > Task :core:markdown:copyDebugJniLibsProjectAndLocalJars
+2026-10-17T02:37:03.8581522Z > Task :core:markdown:bundleDebugAar
+2026-10-17T02:37:03.8611224Z > Task :core:markdown:assembleDebug
+2026-10-17T02:37:03.8611589Z > Task :core:testing:mergeDebugJniLibFolders
+2026-10-17T02:37:03.8611934Z > Task :core:testing:mergeDebugNativeLibs NO-SOURCE
+2026-10-17T02:37:03.8612305Z > Task :core:testing:stripDebugDebugSymbols NO-SOURCE
+2026-10-17T02:37:03.8612695Z > Task :core:testing:copyDebugJniLibsProjectAndLocalJars
+2026-10-17T02:37:03.8613064Z > Task :core:ui:stripDebugDebugSymbols NO-SOURCE
+2026-10-17T02:37:03.8613452Z > Task :core:ui:copyDebugJniLibsProjectAndLocalJars
+2026-10-17T02:37:03.9529468Z > Task :core:ui:bundleDebugAar
+2026-10-17T02:37:03.9547719Z > Task :core:ui:assembleDebug
+2026-10-17T02:37:04.5511739Z > Task :app:validateSigningDebug
+2026-10-17T02:37:05.1521769Z > Task :app:packageDebug
+2026-10-17T02:37:05.1551049Z > Task :app:assembleDebug
+2026-10-17T02:37:05.1575281Z > Task :app:createDebugApkListingFileRedirect
+2026-10-17T02:37:06.3504105Z 
+2026-10-17T02:37:06.3521395Z > Task :core:ui:lintReportDebug
+2026-10-17T02:37:06.3531336Z Wrote HTML report to file:///home/runner/work/forgeline/forgeline/core/ui/build/reports/lint-results-debug.html
+2026-10-17T02:37:06.3551145Z Wrote SARIF report to file:///home/runner/work/forgeline/forgeline/core/ui/build/reports/lint-results-debug.sarif
+2026-10-17T02:37:06.3551591Z 
+2026-10-17T02:37:06.3551718Z > Task :core:ui:lintDebug
+2026-10-17T02:37:10.4470346Z 
+2026-10-17T02:37:10.4471145Z > Task :core:testing:compileDebugKotlin
+2026-10-17T02:37:10.4472583Z w: file:///home/runner/work/forgeline/forgeline/core/testing/src/main/kotlin/fr/arthurbrugiere/forgeline/core/testing/MainDispatcherRule.kt:12:42 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:37:10.4476815Z w: file:///home/runner/work/forgeline/forgeline/core/testing/src/main/kotlin/fr/arthurbrugiere/forgeline/core/testing/MainDispatcherRule.kt:14:67 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:37:10.4478817Z w: file:///home/runner/work/forgeline/forgeline/core/testing/src/main/kotlin/fr/arthurbrugiere/forgeline/core/testing/MainDispatcherRule.kt:16:67 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:37:10.8479260Z 
+2026-10-17T02:37:10.8491102Z > Task :core:testing:compileDebugJavaWithJavac NO-SOURCE
+2026-10-17T02:37:10.8493995Z > Task :core:testing:mergeDebugGeneratedProguardFiles
+2026-10-17T02:37:10.9483834Z > Task :core:testing:processDebugJavaRes
+2026-10-17T02:37:10.9524861Z > Task :core:testing:bundleLibRuntimeToJarDebug
+2026-10-17T02:37:10.9540923Z > Task :core:testing:bundleLibCompileToJarDebug
+2026-10-17T02:37:10.9571064Z > Task :core:testing:mergeDebugConsumerProguardFiles
+2026-10-17T02:37:10.9600787Z > Task :core:testing:mergeDebugJavaResource
+2026-10-17T02:37:11.0511717Z > Task :core:data:kspDebugUnitTestKotlin
+2026-10-17T02:37:12.9484035Z > Task :core:testing:compileDebugUnitTestKotlin
+2026-10-17T02:37:12.9542646Z > Task :core:testing:compileDebugUnitTestJavaWithJavac NO-SOURCE
+2026-10-17T02:37:12.9642312Z > Task :core:testing:processDebugUnitTestJavaRes
+2026-10-17T02:37:15.2469704Z > Task :core:testing:testDebugUnitTest
+2026-10-17T02:37:15.3470661Z > Task :core:testing:syncDebugLibJars
+2026-10-17T02:37:15.3491324Z > Task :core:testing:bundleDebugLocalLintAar
+2026-10-17T02:37:15.4516975Z > Task :core:testing:createFullJarDebug
+2026-10-17T02:37:15.5523939Z > Task :app:generateDebugAndroidTestLintModel
+2026-10-17T02:37:15.6469250Z > Task :app:generateDebugUnitTestLintModel
+2026-10-17T02:37:16.1469625Z > Task :core:markdown:compileDebugUnitTestKotlin
+2026-10-17T02:37:16.1526794Z > Task :core:markdown:compileDebugUnitTestJavaWithJavac NO-SOURCE
+2026-10-17T02:37:16.2491676Z > Task :core:markdown:processDebugUnitTestJavaRes
+2026-10-17T02:37:29.8471008Z 
+2026-10-17T02:37:29.8522209Z > Task :core:data:compileDebugUnitTestKotlin
+2026-10-17T02:37:29.8585719Z w: file:///home/runner/work/forgeline/forgeline/core/data/src/test/kotlin/fr/arthurbrugiere/forgeline/core/data/account/DataStoreAccountRepositoryTest.kt:241:9 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:37:29.8631598Z w: file:///home/runner/work/forgeline/forgeline/core/data/src/test/kotlin/fr/arthurbrugiere/forgeline/core/data/account/DataStoreAccountRepositoryTest.kt:245:9 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:37:29.8702744Z w: file:///home/runner/work/forgeline/forgeline/core/data/src/test/kotlin/fr/arthurbrugiere/forgeline/core/data/account/DataStoreAccountRepositoryTest.kt:264:9 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:37:29.8742517Z w: file:///home/runner/work/forgeline/forgeline/core/data/src/test/kotlin/fr/arthurbrugiere/forgeline/core/data/account/DataStoreAccountRepositoryTest.kt:266:9 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:37:29.8779557Z w: file:///home/runner/work/forgeline/forgeline/core/data/src/test/kotlin/fr/arthurbrugiere/forgeline/core/data/issue/DefaultIssueRepositoryTest.kt:286:56 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:37:29.8832437Z w: file:///home/runner/work/forgeline/forgeline/core/data/src/test/kotlin/fr/arthurbrugiere/forgeline/core/data/issue/DefaultIssueRepositoryTest.kt:392:56 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:37:29.8872115Z w: file:///home/runner/work/forgeline/forgeline/core/data/src/test/kotlin/fr/arthurbrugiere/forgeline/core/data/issue/DefaultIssueRepositoryTest.kt:456:56 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:37:29.8902494Z w: file:///home/runner/work/forgeline/forgeline/core/data/src/test/kotlin/fr/arthurbrugiere/forgeline/core/data/issue/DefaultIssueRepositoryTest.kt:507:56 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:37:29.8962160Z w: file:///home/runner/work/forgeline/forgeline/core/data/src/test/kotlin/fr/arthurbrugiere/forgeline/core/data/issue/DefaultIssueRepositoryTest.kt:529:56 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:37:29.9002328Z w: file:///home/runner/work/forgeline/forgeline/core/data/src/test/kotlin/fr/arthurbrugiere/forgeline/core/data/issue/DefaultIssueRepositoryTest.kt:544:56 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:37:29.9044024Z w: file:///home/runner/work/forgeline/forgeline/core/data/src/test/kotlin/fr/arthurbrugiere/forgeline/core/data/issue/DefaultIssueRepositoryTest.kt:698:56 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:37:29.9102706Z w: file:///home/runner/work/forgeline/forgeline/core/data/src/test/kotlin/fr/arthurbrugiere/forgeline/core/data/issue/DefaultIssueRepositoryTest.kt:717:56 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:37:30.4472890Z 
+2026-10-17T02:37:30.4522293Z > Task :core:data:compileDebugUnitTestJavaWithJavac NO-SOURCE
+2026-10-17T02:37:30.4531042Z > Task :core:data:copyRoomSchemas NO-SOURCE
+2026-10-17T02:37:30.4546323Z > Task :core:data:processDebugUnitTestJavaRes
+2026-10-17T02:37:30.4581149Z > Task :core:data:hiltCollectClassesDebugUnitTest
+2026-10-17T02:37:30.6492027Z > Task :core:data:hiltAggregateDepsDebugUnitTest FROM-CACHE
+2026-10-17T02:37:30.6521340Z > Task :core:data:hiltJavaCompileDebugUnitTest NO-SOURCE
+2026-10-17T02:37:31.2472164Z > Task :core:data:transformDebugUnitTestClassesWithAsm
+2026-10-17T02:37:32.2511262Z > Task :app:kspDebugUnitTestKotlin
+2026-10-17T02:37:41.1502108Z > Task :app:lintAnalyzeDebugAndroidTest
+2026-10-17T02:37:46.2471323Z > Task :core:markdown:testDebugUnitTest
+2026-10-17T02:37:47.1541897Z > Task :core:data:generateDebugUnitTestLintModel
+2026-10-17T02:38:01.2528051Z > Task :core:data:testDebugUnitTest
+2026-10-17T02:38:02.2509293Z > Task :app:compileDebugUnitTestKotlin
+2026-10-17T02:38:06.2471817Z > Task :core:markdown:generateDebugUnitTestLintModel
+2026-10-17T02:38:06.3481644Z > Task :core:testing:generateDebugAndroidTestLintModel
+2026-10-17T02:38:06.3521657Z > Task :core:testing:generateDebugLintReportModel
+2026-10-17T02:38:06.4501665Z > Task :core:testing:generateDebugUnitTestLintModel
+2026-10-17T02:38:06.4561553Z > Task :core:testing:bundleDebugAar
+2026-10-17T02:38:06.4591408Z > Task :core:testing:assembleDebug
+2026-10-17T02:38:11.1481841Z > Task :app:lintAnalyzeDebugUnitTest
+2026-10-17T02:38:12.8491261Z 
+2026-10-17T02:38:12.8541741Z > Task :app:compileDebugUnitTestKotlin
+2026-10-17T02:38:12.8592021Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/di/ForgejoResetContentTest.kt:36:70 Expression is unused.
+2026-10-17T02:38:12.8621997Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/notifications/InboxSyncSchedulerTest.kt:55:9 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:38:12.8672793Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/notifications/InboxSyncSchedulerTest.kt:63:9 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:38:12.8726980Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/notifications/InboxSyncSchedulerTest.kt:70:9 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:38:12.8762022Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/notifications/InboxSyncSchedulerTest.kt:77:9 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:38:12.8813477Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/notifications/InboxSyncSchedulerTest.kt:80:9 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:38:12.8852209Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/notifications/InboxSyncSchedulerTest.kt:84:9 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:38:12.8909348Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/notifications/InboxSyncSchedulerTest.kt:88:9 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:38:12.8942134Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/notifications/InboxSyncSchedulerTest.kt:100:9 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:38:12.8974922Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/pull/ChangesViewModelTest.kt:59:31 Unnecessary non-null assertion (!!) on a non-null receiver of type 'List<FileDiff>'.
+2026-10-17T02:38:12.8994605Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/pull/ChangesViewModelTest.kt:61:31 Unnecessary non-null assertion (!!) on a non-null receiver of type 'List<FileDiff>'.
+2026-10-17T02:38:12.9001991Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/screenshots/ScreenshotTest.kt:194:13 This declaration needs opt-in. Its usage should be marked with '@com.github.takahirom.roborazzi.ExperimentalRoborazziApi' or '@OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)'
+2026-10-17T02:38:12.9083229Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/trending/TrendingMeasureWorkerTest.kt:87:9 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:38:12.9096798Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/trending/TrendingMeasureWorkerTest.kt:91:9 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:38:12.9113424Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/trending/TrendingMeasureWorkerTest.kt:99:9 This declaration needs opt-in. Its usage should be marked with '@kotlinx.coroutines.ExperimentalCoroutinesApi' or '@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)'
+2026-10-17T02:38:12.9148302Z w: file:///home/runner/work/forgeline/forgeline/app/src/test/kotlin/fr/arthurbrugiere/forgeline/ui/PickedPictureTest.kt:29:9 'static fun shadowOf(p0: MimeTypeMap!): ShadowMimeTypeMap!' is deprecated. Deprecated in Java.
+2026-10-17T02:38:12.9481038Z 
+2026-10-17T02:38:12.9499205Z > Task :app:processDebugUnitTestJavaRes
+2026-10-17T02:38:14.7471801Z > Task :core:data:lintAnalyzeDebugUnitTest
+2026-10-17T02:38:15.5492221Z > Task :app:compileDebugUnitTestJavaWithJavac
+2026-10-17T02:38:15.5516594Z > Task :app:hiltCollectClassesDebugUnitTest
+2026-10-17T02:38:15.7481927Z > Task :app:hiltAggregateDepsDebugUnitTest FROM-CACHE
+2026-10-17T02:38:17.1491899Z > Task :core:markdown:lintAnalyzeDebugUnitTest
+2026-10-17T02:38:17.2481742Z > Task :core:data:lintReportDebug
+2026-10-17T02:38:17.2511342Z > Task :core:data:lintDebug
+2026-10-17T02:38:17.3493010Z > Task :core:markdown:lintReportDebug
+2026-10-17T02:38:17.3521359Z > Task :core:markdown:lintDebug
+2026-10-17T02:38:21.0485833Z > Task :app:hiltJavaCompileDebugUnitTest
+2026-10-17T02:38:21.5485470Z > Task :app:transformDebugUnitTestClassesWithAsm
+2026-10-17T02:38:29.7468896Z > Task :core:testing:lintAnalyzeDebug
+2026-10-17T02:38:29.9502004Z > Task :core:testing:lintAnalyzeDebugAndroidTest
+2026-10-17T02:38:30.4489383Z > Task :core:testing:lintAnalyzeDebugUnitTest
+2026-10-17T02:38:30.4521634Z > Task :core:testing:lintReportDebug
+2026-10-17T02:38:30.4535012Z > Task :core:testing:lintDebug
+2026-10-17T02:38:42.2469572Z 
+2026-10-17T02:38:42.2481716Z > Task :app:lintReportDebug
+2026-10-17T02:38:42.2511376Z Wrote HTML report to file:///home/runner/work/forgeline/forgeline/app/build/reports/lint-results-debug.html
+2026-10-17T02:38:42.2534738Z Wrote SARIF report to file:///home/runner/work/forgeline/forgeline/app/build/reports/lint-results-debug.sarif
+2026-10-17T02:38:42.2550636Z 
+2026-10-17T02:38:42.2591317Z > Task :app:lintDebug
+2026-10-17T02:38:51.5493364Z > Task :app:testDebugUnitTest
+2026-10-17T02:40:16.9469029Z > Task :app:verifyRoborazziDebug
+2026-10-17T02:40:16.9470270Z > Task :app:finalizeTestRoborazziDebug
+2026-10-17T02:40:16.9471449Z gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run-1792204603753.json
+2026-10-17T02:40:17.0280359Z 
+2026-10-17T02:40:17.0281575Z [Incubating] Problems report is available at: file:///home/runner/work/forgeline/forgeline/build/reports/problems/problems-report.html
+2026-10-17T02:40:17.0285145Z 
+2026-10-17T02:40:17.0285638Z Deprecated Gradle features were used in this build, making it incompatible with Gradle 10.
+2026-10-17T02:40:17.0286100Z 
+2026-10-17T02:40:17.0286603Z You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+2026-10-17T02:40:17.0311025Z 
+2026-10-17T02:40:17.0311638Z For more on this, please refer to https://docs.gradle.org/9.8.0/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+2026-10-17T02:40:17.0314163Z 
+2026-10-17T02:40:17.0314476Z BUILD SUCCESSFUL in 3m 37s
+2026-10-17T02:40:17.0314887Z 331 actionable tasks: 204 executed, 127 from cache
+2026-10-17T02:40:17.0315329Z Configuration cache entry stored.
+2026-10-17T02:40:17.3600036Z Post job cleanup.
+2026-10-17T02:40:17.5083452Z In post-action step
+2026-10-17T02:40:17.5088085Z Enhanced Caching: This build is using the proprietary 'gradle-actions-caching' provider for optimized caching support. See https://github.com/gradle/actions/blob/main/DISTRIBUTION.md for terms of use and opt-out instructions.
+2026-10-17T02:40:17.5534167Z ##[group]Stopping Gradle daemons
+2026-10-17T02:40:17.5535316Z Stopping Gradle daemons for /home/runner/.gradle/wrapper/dists/gradle-9.8.0-bin/3m7h6ceboy5k31n8kzwzuxssm/gradle-9.8.0
+2026-10-17T02:40:17.5550986Z [command]/home/runner/.gradle/wrapper/dists/gradle-9.8.0-bin/3m7h6ceboy5k31n8kzwzuxssm/gradle-9.8.0/bin/gradle --stop
+2026-10-17T02:40:18.0624855Z Stopping Daemon(s)
+2026-10-17T02:40:18.0626669Z 1 Daemon stopped
+2026-10-17T02:40:18.0717550Z ##[endgroup]
+2026-10-17T02:40:18.0718228Z ##[group]Performing cache cleanup
+2026-10-17T02:40:20.3168142Z Removed 32 files excluded from the cache (e.g. locks)
+2026-10-17T02:40:20.3169212Z Removing Gradle User Home content that was not used during the build
+2026-10-17T02:40:20.5211453Z Removed 25 inactive cross-version entries
+2026-10-17T02:40:21.0322040Z Removed 7 inactive version-scoped entries
+2026-10-17T02:40:21.0322512Z Active Gradle versions: 9.8.0
+2026-10-17T02:40:21.0331064Z ##[endgroup]
+2026-10-17T02:40:21.0331656Z ##[group]Caching Gradle state
+2026-10-17T02:40:21.7736780Z [command]/usr/bin/tar --posix -cf cache.tzst --exclude cache.tzst -P -C /home/runner/work/forgeline/forgeline --files-from manifest.txt --use-compress-program zstdmt
+2026-10-17T02:40:22.7953437Z Sent 55771143 of 55771143 (100.0%), 65.5 MBs/sec
+2026-10-17T02:40:22.9062426Z [command]/usr/bin/tar --posix -cf cache.tzst --exclude cache.tzst -P -C /home/runner/work/forgeline/forgeline --files-from manifest.txt --use-compress-program zstdmt
+2026-10-17T02:40:22.9882486Z Saved cache entry with key gradle-build-cache-v2-01988c8e369394ab59a9ce0e15028da0 from /home/runner/.gradle/caches/build-cache-*/* in 1288ms
+2026-10-17T02:40:25.5474845Z Sent 0 of 264884792 (0.0%), 0.0 MBs/sec
+2026-10-17T02:40:25.9969717Z Sent 264884792 of 264884792 (100.0%), 174.2 MBs/sec
+2026-10-17T02:40:26.1919104Z Saved cache entry with key gradle-transforms-v2-424d4005c6def5a601500e99da0ae2dd from /home/runner/.gradle/caches/transforms-4/*/,/home/runner/.gradle/caches/*/transforms/*/ in 3886ms
+2026-10-17T02:40:28.3774631Z [command]/usr/bin/tar --posix -cf cache.tzst --exclude cache.tzst -P -C /home/runner/work/forgeline/forgeline --files-from manifest.txt --use-compress-program zstdmt
+2026-10-17T02:40:29.2968442Z Sent 22011866 of 22011866 (100.0%), 40.1 MBs/sec
+2026-10-17T02:40:29.4682309Z Saved cache entry with key gradle-home-v2|Linux-X64|check[b8a35c2f917259958c9abe8f2ff1b5ff]-9879c20d7c121096e71bffb77d3c70a84ad93858 from /home/runner/.gradle/caches,/home/runner/.gradle/notifications,/home/runner/.gradle/.setup-gradle in 1101ms
+2026-10-17T02:40:29.4683153Z ##[endgroup]
+2026-10-17T02:40:29.4688042Z ##[group]Generating Job Summary
+2026-10-17T02:40:29.4693465Z 
+2026-10-17T02:40:29.4693537Z 
+2026-10-17T02:40:29.4693678Z <table>
+2026-10-17T02:40:29.4693921Z     <tr>
+2026-10-17T02:40:29.4694185Z         <th>Gradle Root Project</th>
+2026-10-17T02:40:29.4694523Z         <th>Requested Tasks</th>
+2026-10-17T02:40:29.4694832Z         <th>Gradle Version</th>
+2026-10-17T02:40:29.4695125Z         <th>Build Outcome</th>
+2026-10-17T02:40:29.4695750Z         <th>Build&nbsp;Scan®</th>
+2026-10-17T02:40:29.4696041Z     </tr>
+2026-10-17T02:40:29.4696256Z     <tr>
+2026-10-17T02:40:29.4696489Z         <td>forgeline</td>
+2026-10-17T02:40:29.4697618Z         <td><div title='testDebugUnitTest verifyRoborazziDebug lintDebug assembleDebug'>testDebugUnitTest verifyRoborazziDebug lintDebug assembleDe…</div></td>
+2026-10-17T02:40:29.4698045Z         <td align='center'>9.8.0</td>
+2026-10-17T02:40:29.4698272Z         <td align='center'>:white_check_mark:</td>
+2026-10-17T02:40:29.4699098Z         <td><a href="https://scans.gradle.com" rel="nofollow" target="_blank"><img src="https://img.shields.io/badge/Not%20published-lightgrey" alt="Build Scan not published" /></a></td>
+2026-10-17T02:40:29.4699580Z     </tr>
+2026-10-17T02:40:29.4699721Z </table>
+2026-10-17T02:40:29.4699800Z 
+2026-10-17T02:40:29.4699872Z ============================
+2026-10-17T02:40:29.4700117Z <h4>Gradle State Caching - ⚡ Enhanced</h4>
+2026-10-17T02:40:29.4700251Z 
+2026-10-17T02:40:29.4701125Z **[Enhanced Caching](https://github.com/gradle/actions/blob/main/docs/setup-gradle.md#enhanced-caching)** uses the proprietary `gradle-actions-caching` provider. See [DISTRIBUTION.md](https://github.com/gradle/actions/blob/main/DISTRIBUTION.md) for terms of use and opt-out instructions.
+2026-10-17T02:40:29.4702102Z 
+2026-10-17T02:40:29.4702205Z <details>
+2026-10-17T02:40:29.4702612Z <summary>Entries: 9 restored (1256Mb), 3 saved (327Mb) - Expand for more details</summary>
+2026-10-17T02:40:29.4702954Z 
+2026-10-17T02:40:29.4703740Z [Cache was enabled](https://github.com/gradle/actions/blob/main/docs/setup-gradle.md#caching-build-state-between-jobs) — Gradle User Home was restored from the cache and saved for use by subsequent jobs.
+2026-10-17T02:40:29.4704665Z 
+2026-10-17T02:40:29.4705191Z [Cache cleanup](https://github.com/gradle/actions/blob/main/docs/setup-gradle.md#configuring-cache-cleanup) purged stale files from Gradle User Home before saving.
+2026-10-17T02:40:29.4705787Z 
+2026-10-17T02:40:29.4705898Z <table>
+2026-10-17T02:40:29.4706245Z     <tr><td></td><th>Count</th><th>Total Size (Mb)</th><th>Total Time (ms)</th></tr>
+2026-10-17T02:40:29.4706670Z     <tr><td>Entries Restored</td>
+2026-10-17T02:40:29.4706968Z         <td>9</td>
+2026-10-17T02:40:29.4707228Z         <td>1256</td>
+2026-10-17T02:40:29.4707488Z         <td>29918</td>
+2026-10-17T02:40:29.4707738Z     </tr>
+2026-10-17T02:40:29.4707982Z     <tr><td>Entries Saved</td>
+2026-10-17T02:40:29.4708266Z         <td>3</td>
+2026-10-17T02:40:29.4708511Z         <td>327</td>
+2026-10-17T02:40:29.4708778Z         <td>6275</td>
+2026-10-17T02:40:29.4709013Z     </tr>
+2026-10-17T02:40:29.4709241Z </table>
+2026-10-17T02:40:29.4709370Z 
+2026-10-17T02:40:29.4709472Z <pre>
+2026-10-17T02:40:29.4709702Z Entry: Gradle User Home
+2026-10-17T02:40:29.4710241Z     Requested Key : gradle-home-v2|Linux-X64|check[b8a35c2f917259958c9abe8f2ff1b5ff]-9879c20d7c121096e71bffb77d3c70a84ad93858
+2026-10-17T02:40:29.4711219Z     Restored  Key : gradle-home-v2|Linux-X64|check[b8a35c2f917259958c9abe8f2ff1b5ff]-185aa9b29222bbcfb133812c7f7486c7eff26aee
+2026-10-17T02:40:29.4711797Z               Size: 21 MB (22008383 B)
+2026-10-17T02:40:29.4712129Z               Time: 1184 ms
+2026-10-17T02:40:29.4712436Z               (Entry restored: partial match found)
+2026-10-17T02:40:29.4713017Z     Saved     Key : gradle-home-v2|Linux-X64|check[b8a35c2f917259958c9abe8f2ff1b5ff]-9879c20d7c121096e71bffb77d3c70a84ad93858
+2026-10-17T02:40:29.4713559Z               Size: 21 MB (22011866 B)
+2026-10-17T02:40:29.4713853Z               Time: 1101 ms
+2026-10-17T02:40:29.4714162Z               (Entry saved)
+2026-10-17T02:40:29.4714442Z ---
+2026-10-17T02:40:29.4714834Z Entry: caches/9.8.0/generated-gradle-jars/gradle-api-9.8.0.jar
+2026-10-17T02:40:29.4715456Z     Requested Key : gradle-generated-gradle-jars-v2-a77f931ec87ec4dc6371499962ae87b7
+2026-10-17T02:40:29.4716083Z     Restored  Key : gradle-generated-gradle-jars-v2-a77f931ec87ec4dc6371499962ae87b7
+2026-10-17T02:40:29.4716518Z               Size: 41 MB (43119188 B)
+2026-10-17T02:40:29.4716829Z               Time: 1351 ms
+2026-10-17T02:40:29.4717118Z               (Entry restored: exact match found)
+2026-10-17T02:40:29.4717422Z     Saved     Key : 
+2026-10-17T02:40:29.4717664Z               Size: 
+2026-10-17T02:40:29.4717898Z               Time: 
+2026-10-17T02:40:29.4718168Z               (Entry not saved: contents unchanged)
+2026-10-17T02:40:29.4718474Z ---
+2026-10-17T02:40:29.4718771Z Entry: wrapper/dists/gradle-9.8.0-bin/3m7h6ceboy5k31n8kzwzuxssm
+2026-10-17T02:40:29.4719263Z     Requested Key : gradle-wrapper-zips-v2-c9df1941c607e9f3a791c5cd067a03dd
+2026-10-17T02:40:29.4720045Z     Restored  Key : gradle-wrapper-zips-v2-c9df1941c607e9f3a791c5cd067a03dd
+2026-10-17T02:40:29.4720875Z               Size: 144 MB (150839757 B)
+2026-10-17T02:40:29.4721177Z               Time: 2343 ms
+2026-10-17T02:40:29.4721466Z               (Entry restored: exact match found)
+2026-10-17T02:40:29.4721782Z     Saved     Key : 
+2026-10-17T02:40:29.4722041Z               Size: 
+2026-10-17T02:40:29.4722273Z               Time: 
+2026-10-17T02:40:29.4722541Z               (Entry not saved: contents unchanged)
+2026-10-17T02:40:29.4722843Z ---
+2026-10-17T02:40:29.4723062Z Entry: dependencies
+2026-10-17T02:40:29.4723423Z     Requested Key : gradle-dependencies-v2-c79dd3835d0d66155f72b8ad6684471f
+2026-10-17T02:40:29.4723934Z     Restored  Key : gradle-dependencies-v2-c79dd3835d0d66155f72b8ad6684471f
+2026-10-17T02:40:29.4724330Z               Size: 744 MB (780318928 B)
+2026-10-17T02:40:29.4724619Z               Time: 13450 ms
+2026-10-17T02:40:29.4725029Z               (Entry restored: exact match found)
+2026-10-17T02:40:29.4725356Z     Saved     Key : 
+2026-10-17T02:40:29.4725595Z               Size: 
+2026-10-17T02:40:29.4725824Z               Time: 
+2026-10-17T02:40:29.4726092Z               (Entry not saved: contents unchanged)
+2026-10-17T02:40:29.4726393Z ---
+2026-10-17T02:40:29.4726613Z Entry: instrumented-jars
+2026-10-17T02:40:29.4726998Z     Requested Key : gradle-instrumented-jars-v2-45029a4f7db764cd5e32ea10e45d6822
+2026-10-17T02:40:29.4727540Z     Restored  Key : gradle-instrumented-jars-v2-45029a4f7db764cd5e32ea10e45d6822
+2026-10-17T02:40:29.4727966Z               Size: 0 MB (60625 B)
+2026-10-17T02:40:29.4728254Z               Time: 509 ms
+2026-10-17T02:40:29.4728547Z               (Entry restored: exact match found)
+2026-10-17T02:40:29.4728859Z     Saved     Key : 
+2026-10-17T02:40:29.4729110Z               Size: 
+2026-10-17T02:40:29.4729351Z               Time: 
+2026-10-17T02:40:29.4729624Z               (Entry not saved: contents unchanged)
+2026-10-17T02:40:29.4729937Z ---
+2026-10-17T02:40:29.4730164Z Entry: build-cache
+2026-10-17T02:40:29.4730638Z     Requested Key : gradle-build-cache-v2-c6d19ce092622a267d906ceea05fd87f
+2026-10-17T02:40:29.4731147Z     Restored  Key : gradle-build-cache-v2-c6d19ce092622a267d906ceea05fd87f
+2026-10-17T02:40:29.4731548Z               Size: 53 MB (55736568 B)
+2026-10-17T02:40:29.4731844Z               Time: 1447 ms
+2026-10-17T02:40:29.4732141Z               (Entry restored: exact match found)
+2026-10-17T02:40:29.4732556Z     Saved     Key : gradle-build-cache-v2-01988c8e369394ab59a9ce0e15028da0
+2026-10-17T02:40:29.4732952Z               Size: 53 MB (55771143 B)
+2026-10-17T02:40:29.4733242Z               Time: 1288 ms
+2026-10-17T02:40:29.4733510Z               (Entry saved)
+2026-10-17T02:40:29.4733766Z ---
+2026-10-17T02:40:29.4733989Z Entry: kotlin-dsl
+2026-10-17T02:40:29.4734346Z     Requested Key : gradle-kotlin-dsl-v2-7b1432b1fecf54da488f74cfa9f5b7a7
+2026-10-17T02:40:29.4734852Z     Restored  Key : gradle-kotlin-dsl-v2-7b1432b1fecf54da488f74cfa9f5b7a7
+2026-10-17T02:40:29.4735256Z               Size: 0 MB (287213 B)
+2026-10-17T02:40:29.4735550Z               Time: 992 ms
+2026-10-17T02:40:29.4735844Z               (Entry restored: exact match found)
+2026-10-17T02:40:29.4736152Z     Saved     Key : 
+2026-10-17T02:40:29.4736401Z               Size: 
+2026-10-17T02:40:29.4736645Z               Time: 
+2026-10-17T02:40:29.4736924Z               (Entry not saved: contents unchanged)
+2026-10-17T02:40:29.4737233Z ---
+2026-10-17T02:40:29.4737455Z Entry: groovy-dsl
+2026-10-17T02:40:29.4737813Z     Requested Key : gradle-groovy-dsl-v2-a0ec777700eac7f4079dfa633e170560
+2026-10-17T02:40:29.4738316Z     Restored  Key : gradle-groovy-dsl-v2-a0ec777700eac7f4079dfa633e170560
+2026-10-17T02:40:29.4738718Z               Size: 0 MB (90814 B)
+2026-10-17T02:40:29.4739010Z               Time: 546 ms
+2026-10-17T02:40:29.4739298Z               (Entry restored: exact match found)
+2026-10-17T02:40:29.4739639Z     Saved     Key : 
+2026-10-17T02:40:29.4739899Z               Size: 
+2026-10-17T02:40:29.4740149Z               Time: 
+2026-10-17T02:40:29.4740641Z               (Entry not saved: contents unchanged)
+2026-10-17T02:40:29.4740957Z ---
+2026-10-17T02:40:29.4741180Z Entry: transforms
+2026-10-17T02:40:29.4741537Z     Requested Key : gradle-transforms-v2-8adde06df496fecf92b261f54ed2bf9f
+2026-10-17T02:40:29.4742041Z     Restored  Key : gradle-transforms-v2-8adde06df496fecf92b261f54ed2bf9f
+2026-10-17T02:40:29.4742444Z               Size: 253 MB (264900970 B)
+2026-10-17T02:40:29.4742739Z               Time: 8096 ms
+2026-10-17T02:40:29.4743031Z               (Entry restored: exact match found)
+2026-10-17T02:40:29.4743443Z     Saved     Key : gradle-transforms-v2-424d4005c6def5a601500e99da0ae2dd
+2026-10-17T02:40:29.4743837Z               Size: 253 MB (264884792 B)
+2026-10-17T02:40:29.4744131Z               Time: 3886 ms
+2026-10-17T02:40:29.4744395Z               (Entry saved)
+2026-10-17T02:40:29.4744649Z </pre>
+2026-10-17T02:40:29.4744866Z </details>
+2026-10-17T02:40:29.4745106Z 
+2026-10-17T02:40:29.4745399Z ##[endgroup]
+2026-10-17T02:40:29.4745649Z Completed post-action step
+2026-10-17T02:40:29.4966342Z Post job cleanup.
+2026-10-17T02:40:29.5546338Z Post job cleanup.
+2026-10-17T02:40:29.6129667Z [command]/usr/bin/git version
+2026-10-17T02:40:29.6163528Z git version 2.55.0
+2026-10-17T02:40:29.6190439Z Temporarily overriding HOME='/home/runner/work/_temp/700de6fd-c3ba-426f-8d33-54269308b3fa' before making global git config changes
+2026-10-17T02:40:29.6191334Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-17T02:40:29.6193604Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/forgeline/forgeline
+2026-10-17T02:40:29.6220129Z Removing SSH command configuration
+2026-10-17T02:40:29.6224441Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-17T02:40:29.6253891Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-17T02:40:29.6471073Z Removing HTTP extra header
+2026-10-17T02:40:29.6472044Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-17T02:40:29.6495080Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-17T02:40:29.6700096Z Removing includeIf entries pointing to credentials config files
+2026-10-17T02:40:29.6705597Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-17T02:40:29.6734141Z includeif.gitdir:/home/runner/work/forgeline/forgeline/.git.path
+2026-10-17T02:40:29.6734619Z includeif.gitdir:/home/runner/work/forgeline/forgeline/.git/worktrees/*.path
+2026-10-17T02:40:29.6735288Z includeif.gitdir:/github/workspace/.git.path
+2026-10-17T02:40:29.6735981Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-17T02:40:29.6742954Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/forgeline/forgeline/.git.path
+2026-10-17T02:40:29.6765807Z /home/runner/work/_temp/git-credentials-548d2be7-fa91-492c-8c12-18044b30a6d4.config
+2026-10-17T02:40:29.6774513Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/forgeline/forgeline/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-548d2be7\-fa91\-492c\-8c12\-18044b30a6d4\.config
+2026-10-17T02:40:29.6806376Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/forgeline/forgeline/.git/worktrees/*.path
+2026-10-17T02:40:29.6829906Z /home/runner/work/_temp/git-credentials-548d2be7-fa91-492c-8c12-18044b30a6d4.config
+2026-10-17T02:40:29.6835717Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/forgeline/forgeline/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-548d2be7\-fa91\-492c\-8c12\-18044b30a6d4\.config
+2026-10-17T02:40:29.6872984Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-17T02:40:29.6895429Z /github/runner_temp/git-credentials-548d2be7-fa91-492c-8c12-18044b30a6d4.config
+2026-10-17T02:40:29.6900905Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-548d2be7\-fa91\-492c\-8c12\-18044b30a6d4\.config
+2026-10-17T02:40:29.6930943Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-17T02:40:29.6952292Z /github/runner_temp/git-credentials-548d2be7-fa91-492c-8c12-18044b30a6d4.config
+2026-10-17T02:40:29.6957054Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-548d2be7\-fa91\-492c\-8c12\-18044b30a6d4\.config
+2026-10-17T02:40:29.6987980Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-17T02:40:29.7169203Z Removing credentials config '/home/runner/work/_temp/git-credentials-548d2be7-fa91-492c-8c12-18044b30a6d4.config'
+2026-10-17T02:40:29.7285061Z Cleaning up orphan processes

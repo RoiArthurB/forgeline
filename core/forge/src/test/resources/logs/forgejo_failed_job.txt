@@ -1,0 +1,48 @@
+2026-09-25T22:07:12.5194486Z Runner 99799607-3c8d-4aec-b3b3-91b3219e1ef2 (version:v13.1.0) received task 9841581 of job preview, triggered by event: pull_request
+2026-09-25T22:07:12.5207584Z workflow prepared
+2026-09-25T22:07:12.5246477Z 🚀  Start image=data.forgejo.org/oci/ci:3
+2026-09-25T22:07:12.5284392Z Cleaning up network for job preview, and network name is: WORKFLOW-885896eee10421c073420e952c98d3dc
+2026-09-25T22:07:12.6247657Z   🐳  docker create image=data.forgejo.org/oci/ci:3 platform=linux/amd64 entrypoint=["tail" "-f" "/dev/null"] cmd=[] network="WORKFLOW-885896eee10421c073420e952c98d3dc"
+2026-09-25T22:07:12.7867538Z   🐳  docker run image=data.forgejo.org/oci/ci:3 platform=linux/amd64 entrypoint=["tail" "-f" "/dev/null"] cmd=[] network="WORKFLOW-885896eee10421c073420e952c98d3dc"
+2026-09-25T22:07:13.0639492Z   ☁️  git fetch 'https://data.forgejo.org/actions/checkout' skipped; ref=3d3c42e5aac5ba805825da76410c181273ba90b1 cached
+2026-09-25T22:07:13.0790182Z   ☁️  git fetch 'https://data.forgejo.org/crate-ci/typos' skipped; ref=512fc24f32f44ab01972217aaaf3dc86ec234d53 cached
+2026-09-25T22:07:13.2054308Z ⭐ Run Pre run typos
+2026-09-25T22:07:13.2074098Z   ✅  Success - Pre run typos
+2026-09-25T22:07:13.2138831Z   ☁️  git fetch 'https://data.forgejo.org/actions/git-pages' skipped; ref=2b24bbb7ff943d3c8fe1df91326adec66daea6dd cached
+2026-09-25T22:07:13.2173524Z ⭐ Run Main https://data.forgejo.org/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+2026-09-25T22:07:13.2185480Z   🐳  docker cp src=/home/debian/.cache/act/fc/cc917c389e65c53f947eed73ea7f75b98b946e47225246871b4b7796ae6149/ dst=/var/run/act/actions/fc/cc917c389e65c53f947eed73ea7f75b98b946e47225246871b4b7796ae6149/
+2026-09-25T22:07:13.2309513Z   🐳  docker exec cmd=[node /var/run/act/actions/fc/cc917c389e65c53f947eed73ea7f75b98b946e47225246871b4b7796ae6149/dist/index.js] user= workdir=
+2026-09-25T22:07:13.3097148Z   ❓ add-matcher /run/act/actions/fc/cc917c389e65c53f947eed73ea7f75b98b946e47225246871b4b7796ae6149/dist/problem-matcher.json
+2026-09-25T22:07:13.3097269Z ::add-matcher::/run/act/actions/fc/cc917c389e65c53f947eed73ea7f75b98b946e47225246871b4b7796ae6149/dist/problem-matcher.json
+2026-09-25T22:07:13.3098588Z Syncing repository: forgejo/website
+2026-09-25T22:07:13.3099938Z ##[group]Getting Git version info
+2026-09-25T22:07:13.3100019Z Working directory is '/workspace/forgejo/website'
+2026-09-25T22:07:13.3111770Z [command]/usr/bin/git version
+2026-09-25T22:07:13.3132419Z git version 2.47.3
+2026-09-25T22:07:13.3138883Z ##[endgroup]
+2026-09-25T22:07:13.3143349Z Temporarily overriding HOME='/tmp/aeb5e0aa-62df-4783-b47e-84edc61ce37f' before making global git config changes
+2026-09-25T22:07:13.3143471Z Adding repository directory to the temporary git global config as a safe directory
+2026-09-25T22:07:13.3145209Z [command]/usr/bin/git config --global --add safe.directory /workspace/forgejo/website
+2026-09-25T22:07:13.3157863Z Deleting the contents of '/workspace/forgejo/website'
+2026-09-25T22:07:13.3161074Z ##[group]Determining repository object format
+2026-09-25T22:07:13.3161281Z ##[endgroup]
+2026-09-25T22:07:13.3161496Z ##[group]Initializing the repository
+2026-09-25T22:07:13.3167396Z [command]/usr/bin/git init /workspace/forgejo/website
+2026-09-25T22:07:13.3183973Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-09-25T22:07:13.3184077Z hint: is subject to change. To configure the initial branch name to use in all
+2026-09-25T22:07:13.3184177Z hint: of your new repositories, which will suppress this warning, call:
+2026-09-25T22:07:13.3184250Z hint:
+2026-09-25T22:07:13.3184307Z hint: 	git config --global init.defaultBranch <name>
+2026-09-25T22:07:13.3184366Z hint:
+2026-09-25T22:07:13.3184420Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-09-25T22:07:13.3184492Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-09-25T22:07:13.3184550Z hint:
+2026-09-25T22:07:13.3184606Z hint: 	git branch -m <name>
+2026-09-25T22:13:22.4436603Z error: Put "https://forgejo.preview.codeberg.page/website@1112/": unexpected EOF
+2026-09-25T22:13:22.5190948Z ⚙️ [runner]: exit with `FAILURE`: 1
+2026-09-25T22:13:22.5245083Z ⭐ Run Post run typos
+2026-09-25T22:13:22.5278835Z   🐳  docker cp src=/home/debian/.cache/act/9a/7eda38d8888288baf01282593575c04166225132be94b16c9b03be680cc836/ dst=/var/run/act/actions/9a/7eda38d8888288baf01282593575c04166225132be94b16c9b03be680cc836/
+2026-09-25T22:13:22.6148735Z   ✅  Success - Post run typos
+2026-09-25T22:13:23.6157183Z   ✅  Success - Post https://data.forgejo.org/actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+2026-09-25T22:13:23.6291920Z 🏁  Job failed
+2026-09-25T22:13:24.8276004Z Job 'preview' failed

@@ -7,7 +7,6 @@ import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.DispatchInput
-import fr.arthurbrugiere.forgeline.core.model.JobLog
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RunJob
 import fr.arthurbrugiere.forgeline.core.model.Workflow
@@ -17,7 +16,7 @@ import javax.inject.Inject
 
 /**
  * CI, with the account signed in to the repository's forge. Every write needs one: without it they fail as Unauthorized.
- * Logs too on GitHub; Forgejo serves public logs to anyone.
+ * Logs are read by [JobLogRepository].
  */
 interface ActionsRepository {
     suspend fun run(id: RepoId, runId: Long): ForgeResult<WorkflowRun>
@@ -25,8 +24,6 @@ interface ActionsRepository {
     suspend fun jobs(id: RepoId, runId: Long): ForgeResult<List<RunJob>>
 
     suspend fun job(id: RepoId, runId: Long, jobId: Long): ForgeResult<RunJob>
-
-    suspend fun jobLog(id: RepoId, jobId: Long): ForgeResult<JobLog>
 
     suspend fun workflows(id: RepoId): ForgeResult<List<Workflow>>
 
@@ -52,8 +49,6 @@ class DefaultActionsRepository @Inject constructor(
     override suspend fun jobs(id: RepoId, runId: Long) = on(id) { api, token -> api.jobs(token, id, runId) }
 
     override suspend fun job(id: RepoId, runId: Long, jobId: Long) = on(id) { api, token -> api.job(token, id, runId, jobId) }
-
-    override suspend fun jobLog(id: RepoId, jobId: Long) = on(id) { api, token -> api.jobLog(token, id, jobId) }
 
     override suspend fun workflows(id: RepoId) = on(id) { api, token -> api.workflows(token, id) }
 

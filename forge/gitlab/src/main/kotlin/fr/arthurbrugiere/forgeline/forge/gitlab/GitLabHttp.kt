@@ -1,5 +1,10 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.prepareRequest
+import io.ktor.client.statement.HttpStatement
+import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.readAvailable
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -60,7 +65,28 @@ internal suspend fun HttpClient.gitlabApi(
     query: Map<String, String> = emptyMap(),
     body: JsonObject? = null,
     patienceMillis: Long? = null,
-): HttpResponse = request {
+): HttpResponse = request { gitlab(forge, token, segments, method, query, body, patienceMillis) }
+
+/** Like [gitlabApi], for an answer read as it comes (a job's trace): run it with `execute`. */
+internal suspend fun HttpClient.gitlabStatement(
+    forge: ForgeInstance,
+    token: String?,
+    vararg segments: String,
+    more: HttpRequestBuilder.() -> Unit = {},
+): HttpStatement = prepareRequest {
+    gitlab(forge, token, segments, HttpMethod.Get, emptyMap(), null, null)
+    more()
+}
+
+private fun HttpRequestBuilder.gitlab(
+    forge: ForgeInstance,
+    token: String?,
+    segments: Array<out String>,
+    method: HttpMethod,
+    query: Map<String, String>,
+    body: JsonObject?,
+    patienceMillis: Long?,
+) {
     this.method = method
     if (patienceMillis != null) timeout { socketTimeoutMillis = patienceMillis }
     url {
@@ -127,3 +153,13 @@ internal fun HttpResponse.lastPage(): Int? = headers["X-Total-Pages"]?.toIntOrNu
 
 internal fun HttpResponse.totalCount(): Int? =
     headers["X-Total"]?.toIntOrNull() ?: headers["X-Total-Count"]?.toIntOrNull()
+
+/** Writes what's left of [this] to [into] as it comes, a piece at a time. */
+internal suspend fun ByteReadChannel.writeTo(into: java.io.OutputStream) {
+    val buffer = ByteArray(64 * 1024)
+    while (true) {
+        val read = readAvailable(buffer, 0, buffer.size)
+        if (read == -1) break
+        into.write(buffer, 0, read)
+    }
+}

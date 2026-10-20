@@ -12,10 +12,15 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
+import io.ktor.client.request.prepareRequest
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.HttpStatement
+import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.readAvailable
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -59,7 +64,28 @@ internal suspend fun HttpClient.forgejoApi(
     body: JsonObject? = null,
     /** How long this call may go without a byte from the server; null keeps the engine's limit (10 s). */
     patienceMillis: Long? = null,
-): HttpResponse = request {
+): HttpResponse = request { forgejo(forge, token, segments, method, query, body, patienceMillis) }
+
+/** Like [forgejoApi], for an answer read as it comes (a log): run it with `execute`. */
+internal suspend fun HttpClient.forgejoStatement(
+    forge: ForgeInstance,
+    token: String?,
+    vararg segments: String,
+    more: HttpRequestBuilder.() -> Unit = {},
+): HttpStatement = prepareRequest {
+    forgejo(forge, token, segments, HttpMethod.Get, emptyMap(), null, null)
+    more()
+}
+
+private fun HttpRequestBuilder.forgejo(
+    forge: ForgeInstance,
+    token: String?,
+    segments: Array<out String>,
+    method: HttpMethod,
+    query: Map<String, String>,
+    body: JsonObject?,
+    patienceMillis: Long?,
+) {
     this.method = method
     if (patienceMillis != null) timeout { socketTimeoutMillis = patienceMillis }
     url {
@@ -119,3 +145,13 @@ private val nextPage = Regex("""<[^>]*[?&]page=(\d+)[^>]*>;\s*rel="next"""")
 internal fun HttpResponse.nextPage(): Int? = headers[HttpHeaders.Link]?.let { nextPage.find(it)?.groupValues?.get(1)?.toIntOrNull() }
 
 internal fun HttpResponse.totalCount(): Int? = headers["X-Total-Count"]?.toIntOrNull()
+
+/** Writes what's left of [this] to [into] as it comes, a piece at a time. */
+internal suspend fun ByteReadChannel.writeTo(into: java.io.OutputStream) {
+    val buffer = ByteArray(64 * 1024)
+    while (true) {
+        val read = readAvailable(buffer, 0, buffer.size)
+        if (read == -1) break
+        into.write(buffer, 0, read)
+    }
+}

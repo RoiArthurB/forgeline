@@ -1,13 +1,15 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
 import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
-import fr.arthurbrugiere.forgeline.core.forge.ActionsLogParser
+import fr.arthurbrugiere.forgeline.core.forge.JobLogReader
+import fr.arthurbrugiere.forgeline.core.forge.logPartOf
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.WorkflowDispatchParser
 import fr.arthurbrugiere.forgeline.core.model.DispatchInput
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
-import fr.arthurbrugiere.forgeline.core.model.JobLog
+import fr.arthurbrugiere.forgeline.core.model.LogFormat
+import fr.arthurbrugiere.forgeline.core.model.LogPart
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RunConclusion
 import fr.arthurbrugiere.forgeline.core.model.RunJob
@@ -17,11 +19,16 @@ import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.header
+import io.ktor.client.statement.HttpStatement
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.readRawBytes
+import io.ktor.http.HttpHeaders
+import java.io.OutputStream
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
@@ -66,13 +73,30 @@ class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: F
                 ?: ForgeResult.Failure(ForgeError.Http(404, "No job $jobId in run $runId"))
         }
 
-    override suspend fun jobLog(token: String?, id: RepoId, jobId: Long): ForgeResult<JobLog> = forgejoCall {
-        val response = call(token, id, "actions", "jobs", jobId.toString(), "logs")
-        if (response.status != HttpStatusCode.OK) return@forgejoCall response.failure()
-        val text = response.bodyAsText()
-        // The runner writes GitHub's log format; logs run to megabytes, so parse off the caller's thread.
-        ForgeResult.Success(withContext(Dispatchers.Default) { ActionsLogParser.parse(text) })
+    override val logFormat = LogFormat.FORGEJO
+
+    override suspend fun openJobLog(token: String?, id: RepoId, jobId: Long): ForgeResult<JobLogReader> = forgejoCall {
+        when (val first = readLog(token, id, jobId, 0L..0L)) {
+            is ForgeResult.Failure -> first
+            is ForgeResult.Success -> ForgeResult.Success(JobLogReader(first.value.total) { range -> forgejoCall { readLog(token, id, jobId, range) } })
+        }
     }
+
+    private suspend fun readLog(token: String?, id: RepoId, jobId: Long, range: LongRange): ForgeResult<LogPart> =
+        logRequest(token, id, jobId) { header(HttpHeaders.Range, "bytes=${range.first}-${range.last}") }.execute { response ->
+            logPartOf(response.status.value, response.headers[HttpHeaders.ContentRange]) { response.readRawBytes() } ?: response.failure()
+        }
+
+    override suspend fun downloadJobLog(token: String?, id: RepoId, jobId: Long, into: OutputStream): ForgeResult<Unit> = forgejoCall {
+        logRequest(token, id, jobId).execute { response ->
+            if (response.status != HttpStatusCode.OK) return@execute response.failure()
+            response.bodyAsChannel().writeTo(into)
+            ForgeResult.Success(Unit)
+        }
+    }
+
+    private suspend fun logRequest(token: String?, id: RepoId, jobId: Long, more: HttpRequestBuilder.() -> Unit = {}): HttpStatement =
+        httpClient.forgejoStatement(forge, token, "repos", id.owner, id.name, "actions", "jobs", jobId.toString(), "logs", more = more)
 
     /** The workflow files, from the first folder Forgejo reads them from that exists. */
     override suspend fun workflows(token: String?, id: RepoId): ForgeResult<List<Workflow>> = forgejoCall {

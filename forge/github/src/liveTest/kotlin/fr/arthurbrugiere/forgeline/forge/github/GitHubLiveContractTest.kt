@@ -3,6 +3,12 @@ package fr.arthurbrugiere.forgeline.forge.github
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.RunStatus
+import fr.arthurbrugiere.forgeline.core.model.RunConclusion
+import fr.arthurbrugiere.forgeline.core.model.LogFormat
+import fr.arthurbrugiere.forgeline.core.forge.JobLogSteps
+import fr.arthurbrugiere.forgeline.core.forge.JobLogLocator
+import fr.arthurbrugiere.forgeline.core.forge.ActionsLogParser
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
@@ -230,5 +236,32 @@ class GitHubLiveContractTest {
 
         assertWithMessage("blame").that(blame).isNotEmpty()
         assertThat(blame.first().startLine).isEqualTo(1)
+    }
+
+    @Test
+    fun a_job_log_is_read_in_parts_and_its_steps_found_from_their_times() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        // This repository's own CI: public, and recent enough that its logs are kept.
+        val forgeline = RepoId("RoiArthurB", "forgeline")
+        val run = (GitHubRepoApi(client).workflowRuns(pat, forgeline) as ForgeResult.Success).value
+            .first { it.status == RunStatus.COMPLETED && it.workflowName == "CI" }
+        val actions = GitHubActionsApi(client)
+        val job = (actions.jobs(pat, forgeline, run.id) as ForgeResult.Success).value.first { it.steps.size > 3 }
+
+        val opened = actions.openJobLog(pat, forgeline, job.id)
+        assertWithMessage("open: $opened").that(opened).isInstanceOf(ForgeResult.Success::class.java)
+        val reader = (opened as ForgeResult.Success).value
+        assertThat(reader.size).isGreaterThan(1_000L)
+        // Read from storage with the range kept across GitHub's redirect.
+        val head = (reader.read(0L..99L) as ForgeResult.Success).value
+        assertThat(head.bytes.size).isEqualTo(100)
+
+        val ran = job.steps.sortedBy { it.number }.filter { it.startedAt != null && it.conclusion != RunConclusion.SKIPPED }
+        val starts = (JobLogLocator(reader, LogFormat.GITHUB).locate(ran.drop(1).map { it.startedAt!! }) as ForgeResult.Success).value
+        // Each step found begins on a line that opens one.
+        for (start in starts) {
+            val line = String((reader.read(start until start + 200) as ForgeResult.Success).value.bytes).substringBefore('\n')
+            assertWithMessage("step at $start: $line").that(JobLogSteps.opening(ActionsLogParser.contentOf(line), LogFormat.GITHUB)).isNotNull()
+        }
     }
 }

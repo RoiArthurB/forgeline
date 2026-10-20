@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.screenshots
 
+import fr.arthurbrugiere.forgeline.core.model.LogStep
+import fr.arthurbrugiere.forgeline.actions.StepRead
 import coil3.asImage
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -54,7 +56,6 @@ import fr.arthurbrugiere.forgeline.core.model.Workflow
 import fr.arthurbrugiere.forgeline.actions.JobLogUiState
 import fr.arthurbrugiere.forgeline.actions.RunScreen
 import fr.arthurbrugiere.forgeline.actions.RunUiState
-import fr.arthurbrugiere.forgeline.core.model.JobLog
 import fr.arthurbrugiere.forgeline.core.model.LogEntry
 import fr.arthurbrugiere.forgeline.core.model.LogLineKind
 import fr.arthurbrugiere.forgeline.core.model.RunConclusion
@@ -681,37 +682,57 @@ class ScreenshotTest {
 
     @Composable
     private fun JobLogShot() {
+        val start = java.time.Instant.parse("2026-09-29T07:57:44Z")
+        fun step(number: Int, name: String, from: Long, to: Long, conclusion: RunConclusion = RunConclusion.SUCCESS) =
+            RunStep(number, name, RunStatus.COMPLETED, conclusion, start.plusSeconds(from), start.plusSeconds(to))
+        val vitest = "Run pnpm --filter @paperclipai/paperclip-runner test:typescript:vitest --shard=1/2"
         JobLogScreen(
             state = JobLogUiState(
                 repo = RepoId("paperclipai", "paperclip"),
                 jobId = 2,
                 jobName = "ci / Verify Paperclip Runner (vitest 1/2)",
-                log = Loadable.Loaded(
-                    JobLog(
-                        listOf(
-                            LogEntry.Line("Current runner version: '2.337.0'"),
-                            LogEntry.Group("Runner Image Provisioner", listOf(LogEntry.Line("Hosted Compute Agent"))),
-                            LogEntry.Group("Operating System", listOf(LogEntry.Line("Ubuntu 24.04"))),
-                            LogEntry.Group(
-                                "Run pnpm --filter @paperclipai/paperclip-runner test:typescript:vitest --shard=1/2",
-                                listOf(
-                                    LogEntry.Line("pnpm --filter @paperclipai/paperclip-runner test:typescript:vitest --shard=1/2", LogLineKind.COMMAND),
-                                    LogEntry.Line("\u001B[2m Test Files \u001B[22m \u001B[1m\u001B[31m1 failed\u001B[39m\u001B[22m\u001B[2m | \u001B[22m\u001B[1m\u001B[32m76 passed\u001B[39m\u001B[22m\u001B[2m | \u001B[22m\u001B[33m1 skipped\u001B[39m"),
-                                    LogEntry.Line("\u001B[2m   Duration \u001B[22m 191.00s"),
-                                    LogEntry.Line("NativeSessionCloseUnrecoverableError: provider_transport_failed: runner did not durably suspend before checkpoint", LogLineKind.ERROR),
-                                    LogEntry.Line(" ❯ DurablePrpCodexTransport.#closeOnce src/live/runnerd-codex-transport.ts:4314:13", LogLineKind.ERROR),
-                                    LogEntry.Line("Process completed with exit code 1.", LogLineKind.ERROR),
-                                ),
-                            ),
-                            LogEntry.Line("Post job cleanup."),
-                            LogEntry.Line("/usr/bin/git version", LogLineKind.COMMAND),
-                            LogEntry.Line("git version 2.55.0"),
-                        ),
+                job = RunJob(
+                    2, "ci / Verify Paperclip Runner (vitest 1/2)", RunStatus.COMPLETED, RunConclusion.FAILURE, start, start.plusSeconds(361),
+                    listOf(
+                        step(1, "Set up job", 0, 3),
+                        step(2, "Run actions/checkout@v7", 3, 5),
+                        step(3, "Run pnpm/action-setup@v4", 5, 20),
+                        step(4, vitest, 20, 358, RunConclusion.FAILURE),
+                        step(5, "Post Run actions/checkout@v7", 358, 359),
+                        step(6, "Complete job", 359, 361),
                     ),
                 ),
-                openGroups = setOf(3),
+                steps = Loadable.Loaded(
+                    listOf(
+                        LogStep("Set up job", 0, 4_000, RunConclusion.SUCCESS),
+                        LogStep("Run actions/checkout@v7", 4_000, 9_000, RunConclusion.SUCCESS),
+                        LogStep("Run pnpm/action-setup@v4", 9_000, 20_000, RunConclusion.SUCCESS),
+                        LogStep(vitest, 20_000, 5_040_000, RunConclusion.FAILURE),
+                        LogStep("Post Run actions/checkout@v7", 5_040_000, 5_042_000, RunConclusion.SUCCESS),
+                        LogStep("Complete job", 5_042_000, 5_042_100, RunConclusion.SUCCESS),
+                    ),
+                ),
+                opened = setOf(3),
+                read = mapOf(
+                    3 to StepRead(
+                        Loadable.Loaded(
+                            listOf(
+                                LogEntry.Line("\u001B[32m ✓\u001B[39m src/live/runnerd-session.test.ts \u001B[2m(42 tests)\u001B[22m"),
+                                LogEntry.Line("\u001B[31m ✗\u001B[39m src/live/runnerd-codex-transport.test.ts \u001B[2m(1 failed)\u001B[22m"),
+                                LogEntry.Line("\u001B[2m Test Files \u001B[22m \u001B[1m\u001B[31m1 failed\u001B[39m\u001B[22m\u001B[2m | \u001B[22m\u001B[1m\u001B[32m76 passed\u001B[39m\u001B[22m\u001B[2m | \u001B[22m\u001B[33m1 skipped\u001B[39m"),
+                                LogEntry.Line("\u001B[2m   Duration \u001B[22m 191.00s"),
+                                LogEntry.Line("NativeSessionCloseUnrecoverableError: provider_transport_failed: runner did not durably suspend before checkpoint", LogLineKind.ERROR),
+                                LogEntry.Line(" ❯ DurablePrpCodexTransport.#closeOnce src/live/runnerd-codex-transport.ts:4314:13", LogLineKind.ERROR),
+                                LogEntry.Line("Process completed with exit code 1.", LogLineKind.ERROR),
+                            ),
+                        ),
+                        start = 5_020_000,
+                        lines = 300,
+                    ),
+                ),
             ),
-            onBack = {}, onRetry = {}, onToggleGroup = {}, onSignIn = {}, onOpenInBrowser = {},
+            onBack = {}, onRetry = {}, onToggleStep = {}, onOpenFailed = { null }, onRetryStep = {}, onLoadEarlier = {},
+            onToggleGroup = { _, _ -> }, onSignIn = {}, onOpenInBrowser = {},
         )
     }
 

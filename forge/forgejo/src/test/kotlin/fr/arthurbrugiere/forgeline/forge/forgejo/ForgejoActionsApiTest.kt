@@ -5,12 +5,12 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.DispatchInputType
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
-import fr.arthurbrugiere.forgeline.core.model.LogEntry
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RunConclusion
 import fr.arthurbrugiere.forgeline.core.model.RunStatus
 import fr.arthurbrugiere.forgeline.core.model.Workflow
 import io.ktor.client.engine.mock.MockRequestHandleScope
+import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpMethod
@@ -109,17 +109,30 @@ class ForgejoActionsApiTest {
     }
 
     @Test
-    fun a_public_log_is_read_without_an_account_and_folds_groups() = runTest {
-        val log = with(codeberg) { api { text(fixture("actions_job_log.txt")) } }.jobLog(null, website, 13330092).value()
+    fun a_public_log_is_read_in_parts_without_an_account() = runTest {
+        val log = "2026-09-25T22:07:13.2173524Z ⭐ Run Main\n"
+        val reader = with(codeberg) {
+            api { request ->
+                val (first, last) = request.headers["Range"]!!.removePrefix("bytes=").split('-').map { it.toInt() }
+                respond(log.encodeToByteArray().copyOfRange(first, last + 1), HttpStatusCode.PartialContent, io.ktor.http.headersOf(io.ktor.http.HttpHeaders.ContentRange, "bytes $first-$last/${log.encodeToByteArray().size}"))
+            }
+        }.openJobLog(null, website, 13330092).value()
 
-        val groups = log.entries.filterIsInstance<LogEntry.Group>()
-        assertThat(groups.map { it.title }).contains("Getting Git version info")
-        val lines = log.entries.flatMap { entry -> if (entry is LogEntry.Group) entry.lines else listOf(entry as LogEntry.Line) }.map { it.text }
-        // Timestamps are gone, the runner's own lines stay.
-        assertThat(lines).contains("🏁  Job failed")
-        assertThat(lines.none { it.startsWith("2026-") }).isTrue()
-        assertThat(codeberg.requests.single().url.encodedPath).isEqualTo("/api/v1/repos/forgejo/website/actions/jobs/13330092/logs")
-        assertThat(codeberg.requests.single().headers["Authorization"]).isNull()
+        // Bytes, not characters: the star alone is three.
+        assertThat(String(reader.read(29L..35L).value().bytes)).isEqualTo("⭐ Run")
+        assertThat(codeberg.requests.map { it.url.encodedPath }.toSet()).containsExactly("/api/v1/repos/forgejo/website/actions/jobs/13330092/logs")
+        assertThat(codeberg.requests.map { it.headers["Range"] }).containsExactly("bytes=0-0", "bytes=29-35").inOrder()
+        assertThat(codeberg.requests.map { it.headers["Authorization"] }).containsExactly(null, null)
+    }
+
+    @Test
+    fun a_log_sent_whole_is_unsupported_in_part_and_written_out_whole() = runTest {
+        val api = with(codeberg) { api { text(fixture("actions_job_log.txt")) } }
+
+        assertThat(api.openJobLog(null, website, 13330092)).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+        val out = java.io.ByteArrayOutputStream()
+        assertThat(api.downloadJobLog(null, website, 13330092, out)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(out.toString(Charsets.UTF_8)).isEqualTo(codeberg.fixture("actions_job_log.txt"))
     }
 
     @Test
