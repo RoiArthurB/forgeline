@@ -61,8 +61,10 @@ class PullRequestFlowTest {
     /** Signs in, then opens the pull request a review is asked for, from the Inbox's own-work filter. */
     private fun openPullRequest() {
         hiltRule.inject()
-        // Its reviews and merges are answered late, from off the main thread, as a forge's are.
+        // Its reviews and merges are answered late, from off the main thread, as a forge's are; so is what it reads, which
+        // on a slow runner came after the screen's title (2026-10-20).
         pulls.writeLatencyMillis = WRITE_LATENCY_MILLIS
+        pulls.readLatencyMillis = WRITE_LATENCY_MILLIS
         // Regression: on a slow runner the app had settled on its signed-out start tab before the sign-in landed, and
         // the Inbox the test waited for never opened (2026-10-12 and 14). Signed in after it settles, as it was there.
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasContentDescription("Trending") and isSelected()).fetchSemanticsNodes().isNotEmpty() }
@@ -76,14 +78,19 @@ class PullRequestFlowTest {
         waitFor("2 files changed")
     }
 
+    /** Opens the change. Its title shows before its files are read: the files are what is waited for. */
+    private fun openFiles() {
+        composeRule.onNodeWithText("2 files changed").performClick()
+        waitFor("src/Upload.kt")
+    }
+
     @Test
     fun a_pull_request_leads_to_its_change_where_a_line_is_remarked_on_and_a_review_sent() {
         openPullRequest()
         // What ran on it is said beside its numbers.
         waitFor("1 of 2 checks failed")
 
-        composeRule.onNodeWithText("2 files changed").performClick()
-        waitFor("Files changed")
+        openFiles()
         composeRule.onNodeWithText("src/Upload.kt").assertIsDisplayed()
         waitForDescription("Line 2, added: retry { send(file) }")
         composeRule.onNodeWithContentDescription("Line 2, added: retry { send(file) }").performClick()
@@ -113,8 +120,7 @@ class PullRequestFlowTest {
     fun the_review_button_sits_above_the_navigation_bar() {
         // Regression: it cleared only the system bar, so the app's bar covered it and a tap on it opened Trending.
         openPullRequest()
-        composeRule.onNodeWithText("2 files changed").performClick()
-        waitFor("Files changed")
+        openFiles()
 
         val review = composeRule.onNode(hasText("Review") and hasClickAction()).assertIsDisplayed().getBoundsInRoot()
         val bar = composeRule.onNodeWithContentDescription("Trending").getBoundsInRoot()

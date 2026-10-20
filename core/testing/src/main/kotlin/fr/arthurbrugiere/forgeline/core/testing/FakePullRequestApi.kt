@@ -38,6 +38,9 @@ class FakePullRequestApi(
     /** How long a write takes to be answered, off the caller's thread as a real forge's is; recorded once it is. */
     var writeLatencyMillis: Long = 0
 
+    /** How long a read takes to be answered, off the caller's thread as a real forge's is. */
+    var readLatencyMillis: Long = 0
+
     /** Each entry is a page. */
     var files: List<List<ChangedFile>> = emptyList()
     var commits: List<Commit> = emptyList()
@@ -57,7 +60,8 @@ class FakePullRequestApi(
 
     private fun IssueRef.name() = "${repo.fullName}#$number"
 
-    private fun <T> read(call: String, value: () -> T): ForgeResult<T> {
+    private suspend fun <T> read(call: String, value: () -> T): ForgeResult<T> {
+        answerLate(readLatencyMillis)
         calls += call
         return failure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(value())
     }
