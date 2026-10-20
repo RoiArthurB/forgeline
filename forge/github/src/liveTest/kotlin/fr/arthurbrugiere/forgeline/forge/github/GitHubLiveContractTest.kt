@@ -193,10 +193,12 @@ class GitHubLiveContractTest {
         val pulls = GitHubPullRequestApi(client)
         val open = GitHubRepoApi(client).pullRequests(token, repo, fr.arthurbrugiere.forgeline.core.model.IssueQuery()).read("pull requests")
         assumeTrue("no open pull request to read", open.isNotEmpty())
-        val ref = fr.arthurbrugiere.forgeline.core.model.IssueRef(repo, open.first().number, isPullRequest = true)
-
-        val files = pulls.files(token, ref).read("files")
-        assertWithMessage("files of #${ref.number}").that(files.files).isNotEmpty()
+        // Anyone can open a pull request here, and some change nothing (#11578, 2026-10-18): the newest that changes a
+        // file is read. Five empty in a row says the files no longer parse.
+        val (ref, files) = open.take(5).firstNotNullOfOrNull { pull ->
+            val ref = fr.arthurbrugiere.forgeline.core.model.IssueRef(repo, pull.number, isPullRequest = true)
+            pulls.files(token, ref).read("files of #${pull.number}").takeIf { it.files.isNotEmpty() }?.let { ref to it }
+        } ?: throw AssertionError("none of #${open.take(5).map { it.number }} changes a file")
         // A text file's change reads into numbered lines.
         val patched = files.files.firstOrNull { it.patch != null }
         if (patched != null) assertWithMessage("hunks of ${patched.path}").that(fr.arthurbrugiere.forgeline.core.model.parsePatch(patched.patch!!)).isNotEmpty()
