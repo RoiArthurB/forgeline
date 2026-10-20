@@ -101,13 +101,15 @@ class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: F
     /** The workflow files, from the first folder Forgejo reads them from that exists. */
     override suspend fun workflows(token: String?, id: RepoId): ForgeResult<List<Workflow>> = forgejoCall {
         for (folder in WORKFLOW_FOLDERS) {
-            val response = call(token, id, "contents", *folder.split('/').toTypedArray())
-            if (response.status == HttpStatusCode.NotFound) continue
-            return@forgejoCall response.toResult {
-                body<List<ContentJson>>()
-                    .filter { it.type == "file" && (it.name.endsWith(".yml") || it.name.endsWith(".yaml")) }
-                    .map { Workflow(it.path.hashCode().toLong(), it.name, it.path) }
+            val files = when (val tree = httpClient.forgejoTree(forge, token, id, "HEAD", folder)) {
+                is ForgeResult.Failure -> return@forgejoCall tree
+                is ForgeResult.Success -> tree.value ?: continue
             }
+            return@forgejoCall ForgeResult.Success(
+                files
+                    .filter { it.type == "blob" && (it.path.endsWith(".yml") || it.path.endsWith(".yaml")) }
+                    .map { "$folder/${it.path}".let { path -> Workflow(path.hashCode().toLong(), it.path, path) } },
+            )
         }
         ForgeResult.Success(emptyList())
     }

@@ -139,7 +139,7 @@ class ForgejoActionsApiTest {
     fun workflows_are_the_files_of_the_first_workflow_folder() = runTest {
         val workflows = with(codeberg) {
             api { request ->
-                if (request.url.encodedPath.endsWith("/contents/.forgejo/workflows")) json(fixture("workflows_dir.json")) else status(HttpStatusCode.NotFound)
+                if (request.url.encodedPath.endsWith("/git/trees/HEAD:.forgejo%2Fworkflows")) json(fixture("tree_workflows.json")) else status(HttpStatusCode.NotFound)
             }
         }.workflows(null, website).value()
 
@@ -150,14 +150,16 @@ class ForgejoActionsApiTest {
 
     @Test
     fun without_forgejo_workflows_the_github_folder_is_read() = runTest {
-        val listing = """[{"name":"ci.yml","path":".github/workflows/ci.yml","type":"file"},{"name":"README.md","path":".github/workflows/README.md","type":"file"}]"""
+        val listing = """{"sha":"a","total_count":3,"tree":[{"path":"ci.yml","type":"blob"},{"path":"README.md","type":"blob"},{"path":"old.yml","type":"tree"}]}"""
+        // A folder missing at the ref: Forgejo says its "sha" isn't found.
+        val missing = """{"message":"sha not found"}"""
         val workflows = with(codeberg) {
-            api { request -> if (".github" in request.url.encodedPath) json(listing) else status(HttpStatusCode.NotFound) }
+            api { request -> if (".github" in request.url.encodedPath) json(listing) else json(missing, HttpStatusCode.BadRequest) }
         }.workflows(null, website).value()
 
         assertThat(workflows.map { it.path }).containsExactly(".github/workflows/ci.yml")
-        assertThat(codeberg.requests.map { it.url.encodedPath.substringAfter("contents/") })
-            .containsExactly(".forgejo/workflows", ".gitea/workflows", ".github/workflows").inOrder()
+        assertThat(codeberg.requests.map { it.url.encodedPath.substringAfter("git/trees/") })
+            .containsExactly("HEAD:.forgejo%2Fworkflows", "HEAD:.gitea%2Fworkflows", "HEAD:.github%2Fworkflows").inOrder()
     }
 
     @Test

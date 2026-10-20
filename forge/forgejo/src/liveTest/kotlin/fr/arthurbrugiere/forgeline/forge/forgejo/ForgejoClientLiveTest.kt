@@ -25,7 +25,13 @@ class ForgejoClientLiveTest {
         assertThat(repo.id).isEqualTo(forgejo)
         assertThat(repo.stars).isGreaterThan(1000)
         assertThat(api.readme(null, forgejo).value()?.markdown).isNotEmpty()
-        assertThat(api.refs(null, forgejo).value().branches).contains(repo.defaultBranch)
+        val refs = api.refs(null, forgejo).value()
+        assertThat(refs.branches).contains(repo.defaultBranch)
+        // Folders, at the root and below, on a branch with a slash in its name.
+        assertThat(api.contents(null, forgejo, "", repo.defaultBranch).value().map { it.path }).containsAtLeast("services", "go.mod")
+        val branch = refs.branches.first { '/' in it }
+        val services = api.contents(null, forgejo, "services", branch).value()
+        assertWithMessage("services on $branch").that(services.filter { it.type == fr.arthurbrugiere.forgeline.core.model.RepoFileType.DIR }.map { it.path }).contains("services/actions")
         assertThat(api.issues(null, forgejo).value()).isNotEmpty()
         assertThat(api.pullRequests(null, forgejo).value().all { it.isPullRequest }).isTrue()
     }

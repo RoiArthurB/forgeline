@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import io.ktor.http.HttpHeaders
@@ -62,7 +63,7 @@ class ForgejoRepoApiTest {
         assertThat(readme.path).isEqualTo("README.md")
         assertThat(readme.markdown).startsWith("<div align=\"center\">")
         assertThat(codeberg.requests.map { it.url.toString() }).containsExactly(
-            "https://codeberg.org/api/v1/repos/forgejo/forgejo/git/trees/v16.0%2Fforgejo",
+            "https://codeberg.org/api/v1/repos/forgejo/forgejo/git/trees/v16.0%2Fforgejo?per_page=1000&page=1",
             "https://codeberg.org/api/v1/repos/forgejo/forgejo/raw/README.md?ref=v16.0%2Fforgejo",
         ).inOrder()
     }
@@ -72,7 +73,7 @@ class ForgejoRepoApiTest {
         with(codeberg) { api { path -> if ("/git/trees/" in path) json(fixture("tree_root.json")) else text(fixture("readme.md")) } }.readme(null, forgejo).value()
 
         assertThat(codeberg.requests.map { it.url.toString() }).containsExactly(
-            "https://codeberg.org/api/v1/repos/forgejo/forgejo/git/trees/HEAD",
+            "https://codeberg.org/api/v1/repos/forgejo/forgejo/git/trees/HEAD?per_page=1000&page=1",
             "https://codeberg.org/api/v1/repos/forgejo/forgejo/raw/README.md",
         ).inOrder()
     }
@@ -95,13 +96,64 @@ class ForgejoRepoApiTest {
     }
 
     @Test
+    fun a_ref_without_files_has_no_readme() = runTest {
+        val readme = with(codeberg) { api { json("""{"message":"sha not found [HEAD]"}""", HttpStatusCode.BadRequest) } }.readme(null, forgejo).value()
+
+        assertThat(readme).isNull()
+    }
+
+    @Test
     fun lists_a_folder_with_folders_first() = runTest {
-        val entries = with(codeberg) { api { json(fixture("contents_root.json")) } }.contents(null, forgejo, "", "forgejo").value()
+        val entries = with(codeberg) { api { json(fixture("tree_root.json")) } }.contents(null, forgejo, "", "forgejo").value()
 
         assertThat(entries).hasSize(68)
         val firstFile = entries.indexOfFirst { it.type == RepoFileType.FILE }
         assertThat(entries.take(firstFile).all { it.type == RepoFileType.DIR }).isTrue()
         assertThat(entries.first().name).isEqualTo(".devcontainer")
+        assertThat(entries.first { it.name == ".air.toml" }).isEqualTo(RepoFile(".air.toml", ".air.toml", RepoFileType.FILE, 828))
+        // A folder's listing works out each file's last commit, which Codeberg takes up to 31 s for, or a 504 (2026-10-20).
+        assertThat(codeberg.requests.single().url.toString()).isEqualTo("https://codeberg.org/api/v1/repos/forgejo/forgejo/git/trees/forgejo?per_page=1000&page=1")
+    }
+
+    @Test
+    fun a_folder_is_its_git_tree_at_the_ref() = runTest {
+        val tree = """{"sha":"a","total_count":4,"tree":[{"path":"api.go","mode":"100644","type":"blob","size":120},
+            {"path":"v1","mode":"040000","type":"tree","size":0},{"path":"latest","mode":"120000","type":"blob","size":2},
+            {"path":"vendor","mode":"160000","type":"commit","size":0}]}"""
+
+        val entries = with(codeberg) { api { json(tree) } }.contents(null, forgejo, "routers/api/", "v16.0/forgejo").value()
+
+        assertThat(codeberg.requests.single().url.encodedPath).isEqualTo("/api/v1/repos/forgejo/forgejo/git/trees/v16.0%2Fforgejo:routers%2Fapi")
+        assertThat(entries).containsExactly(
+            RepoFile("routers/api/v1", "v1", RepoFileType.DIR, 0),
+            RepoFile("routers/api/api.go", "api.go", RepoFileType.FILE, 120),
+            RepoFile("routers/api/latest", "latest", RepoFileType.SYMLINK, 2),
+            RepoFile("routers/api/vendor", "vendor", RepoFileType.SUBMODULE, 0),
+        ).inOrder()
+    }
+
+    @Test
+    fun a_big_folder_is_read_a_thousand_entries_at_a_time() = runTest {
+        // Forgejo says a page is "truncated" even when it is the last one: the total is what counts.
+        val entry = { name: String -> """{"path":"$name","mode":"100644","type":"blob","size":1}""" }
+        val api = with(codeberg) {
+            api {
+                val names = if (asked.parameters["page"] == "1") (1..1000).map { "f$it" } else listOf("last")
+                json("""{"sha":"a","truncated":true,"total_count":1001,"tree":[${names.joinToString { entry(it) }}]}""")
+            }
+        }
+
+        val entries = api.contents(null, forgejo, "locale", "forgejo").value()
+
+        assertThat(entries).hasSize(1001)
+        assertThat(codeberg.requests.map { it.url.parameters["page"] }).containsExactly("1", "2").inOrder()
+    }
+
+    @Test
+    fun a_folder_missing_at_the_ref_is_not_found() = runTest {
+        val result = with(codeberg) { api { json("""{"message":"sha not found [forgejo:nope]"}""", HttpStatusCode.BadRequest) } }.contents(null, forgejo, "nope", "forgejo")
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "Not Found")))
     }
 
     @Test

@@ -189,14 +189,11 @@ internal data class AssetJson(
     @SerialName("browser_download_url") val url: String,
 )
 
+/** One level of a git tree: an entry's path is its name; `type` is blob, tree or commit (a submodule). */
 @Serializable
-internal data class ContentJson(val name: String, val path: String, val type: String, val size: Long = 0)
-
-/** One level of a git tree: a root entry's path is its name; `type` is blob, tree or commit (a submodule). */
-@Serializable
-internal data class TreeJson(val tree: List<Entry> = emptyList()) {
+internal data class TreeJson(val tree: List<Entry> = emptyList(), @SerialName("total_count") val totalCount: Int = 0) {
     @Serializable
-    data class Entry(val path: String, val type: String)
+    data class Entry(val path: String, val type: String, val mode: String = "", val size: Long = 0)
 }
 
 @Serializable

@@ -39,13 +39,12 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
     }
 
     override suspend fun readme(token: String?, id: RepoId, ref: String?): ForgeResult<Readme?> = forgejoCall {
-        // Forgejo has no README endpoint (404 on Codeberg, 2026-09-29): find it among the root files. Their listing works
-        // out each file's last commit (5 to 31 s on Codeberg, or a 504, 2026-10-20); the root's git tree takes 2 s.
-        val tree = get(token, id, "git", "trees", ref ?: "HEAD")
-        // An empty repository has no tree yet.
-        if (tree.status == HttpStatusCode.NotFound) return@forgejoCall ForgeResult.Success(null)
-        if (tree.status != HttpStatusCode.OK) return@forgejoCall tree.failure()
-        val path = readmeOf(tree.body<TreeJson>().tree.filter { it.type == "blob" }.map { it.path }) ?: return@forgejoCall ForgeResult.Success(null)
+        // Forgejo has no README endpoint (404 on Codeberg, 2026-09-29): find it among the root files.
+        val root = when (val tree = httpClient.forgejoTree(forge, token, id, ref ?: "HEAD", "")) {
+            is ForgeResult.Failure -> return@forgejoCall tree
+            is ForgeResult.Success -> tree.value ?: return@forgejoCall ForgeResult.Success(null)
+        }
+        val path = readmeOf(root.filter { it.type == "blob" }.map { it.path }) ?: return@forgejoCall ForgeResult.Success(null)
         val text = raw(token, id, path, ref)
         if (text.status != HttpStatusCode.OK) return@forgejoCall text.failure()
         ForgeResult.Success(Readme(path, text.bodyAsText()))
@@ -66,11 +65,16 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
     }
 
     override suspend fun contents(token: String?, id: RepoId, path: String, ref: String): ForgeResult<List<RepoFile>> = forgejoCall {
-        get(token, id, "contents", *path.segments(), query = mapOf("ref" to ref)).toResult {
-            body<List<ContentJson>>()
-                .map { RepoFile(it.path, it.name, it.type.toFileType(), it.size) }
-                .sortedWith(compareBy<RepoFile> { it.type != RepoFileType.DIR }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+        val entries = when (val tree = httpClient.forgejoTree(forge, token, id, ref, path)) {
+            is ForgeResult.Failure -> return@forgejoCall tree
+            is ForgeResult.Success -> tree.value ?: return@forgejoCall ForgeResult.Failure(ForgeError.Http(HttpStatusCode.NotFound.value, "Not Found"))
         }
+        val folder = path.trim('/')
+        ForgeResult.Success(
+            entries
+                .map { RepoFile(if (folder.isEmpty()) it.path else "$folder/${it.path}", it.path, it.toFileType(), it.size) }
+                .sortedWith(compareBy<RepoFile> { it.type != RepoFileType.DIR }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name }),
+        )
     }
 
     override suspend fun fileText(token: String?, id: RepoId, path: String, ref: String): ForgeResult<String> = forgejoCall {
@@ -124,10 +128,10 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
 
     private fun String.segments(): Array<String> = split('/').filter { it.isNotEmpty() }.toTypedArray()
 
-    private fun String.toFileType() = when (this) {
-        "dir" -> RepoFileType.DIR
-        "symlink" -> RepoFileType.SYMLINK
-        "submodule" -> RepoFileType.SUBMODULE
+    private fun TreeJson.Entry.toFileType() = when {
+        type == "tree" -> RepoFileType.DIR
+        type == "commit" -> RepoFileType.SUBMODULE
+        mode == "120000" -> RepoFileType.SYMLINK
         else -> RepoFileType.FILE
     }
 
