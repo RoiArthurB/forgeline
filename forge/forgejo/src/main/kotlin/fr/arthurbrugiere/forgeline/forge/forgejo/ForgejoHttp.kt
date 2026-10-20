@@ -90,7 +90,8 @@ private fun HttpRequestBuilder.forgejo(
     if (patienceMillis != null) timeout { socketTimeoutMillis = patienceMillis }
     url {
         takeFrom("${forge.webUrl}/api/v1")
-        appendPathSegments(*segments)
+        // A segment stays one even with a slash in it (a branch like v16.0/forgejo); a path comes split by its caller.
+        appendPathSegments(segments.toList(), encodeSlash = true)
         query.forEach { (key, value) -> parameters.append(key, value) }
     }
     header(HttpHeaders.Accept, "application/json")

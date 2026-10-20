@@ -192,6 +192,13 @@ internal data class AssetJson(
 @Serializable
 internal data class ContentJson(val name: String, val path: String, val type: String, val size: Long = 0)
 
+/** One level of a git tree: a root entry's path is its name; `type` is blob, tree or commit (a submodule). */
+@Serializable
+internal data class TreeJson(val tree: List<Entry> = emptyList()) {
+    @Serializable
+    data class Entry(val path: String, val type: String)
+}
+
 @Serializable
 internal data class GitRefJson(val ref: String)
 

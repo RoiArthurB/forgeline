@@ -51,9 +51,10 @@ class ForgejoRepoApiTest {
     }
 
     @Test
-    fun the_readme_is_found_among_the_root_files_and_read_raw() = runTest {
+    fun the_readme_is_found_in_the_root_tree_and_read_raw() = runTest {
+        // Fixture: forgejo/forgejo's root tree, captured 2026-10-20.
         val api = with(codeberg) {
-            api { path -> if (path.endsWith("/contents")) json(fixture("contents_root.json")) else text(fixture("readme.md")) }
+            api { path -> if ("/git/trees/" in path) json(fixture("tree_root.json")) else text(fixture("readme.md")) }
         }
 
         val readme = api.readme(null, forgejo, "v16.0/forgejo").value()!!
@@ -61,17 +62,36 @@ class ForgejoRepoApiTest {
         assertThat(readme.path).isEqualTo("README.md")
         assertThat(readme.markdown).startsWith("<div align=\"center\">")
         assertThat(codeberg.requests.map { it.url.toString() }).containsExactly(
-            "https://codeberg.org/api/v1/repos/forgejo/forgejo/contents?ref=v16.0%2Fforgejo",
+            "https://codeberg.org/api/v1/repos/forgejo/forgejo/git/trees/v16.0%2Fforgejo",
             "https://codeberg.org/api/v1/repos/forgejo/forgejo/raw/README.md?ref=v16.0%2Fforgejo",
         ).inOrder()
     }
 
     @Test
+    fun the_default_branch_s_readme_is_read_from_head() = runTest {
+        with(codeberg) { api { path -> if ("/git/trees/" in path) json(fixture("tree_root.json")) else text(fixture("readme.md")) } }.readme(null, forgejo).value()
+
+        assertThat(codeberg.requests.map { it.url.toString() }).containsExactly(
+            "https://codeberg.org/api/v1/repos/forgejo/forgejo/git/trees/HEAD",
+            "https://codeberg.org/api/v1/repos/forgejo/forgejo/raw/README.md",
+        ).inOrder()
+    }
+
+    @Test
     fun a_repository_without_readme_has_none() = runTest {
-        val readme = with(codeberg) { api { json("""[{"name":"main.go","path":"main.go","type":"file","size":10}]""") } }.readme(null, forgejo).value()
+        // A folder named like a README is no README.
+        val tree = """{"sha":"a","tree":[{"path":"main.go","type":"blob","size":10},{"path":"readme","type":"tree","size":0}]}"""
+        val readme = with(codeberg) { api { json(tree) } }.readme(null, forgejo).value()
 
         assertThat(readme).isNull()
         assertThat(codeberg.requests).hasSize(1)
+    }
+
+    @Test
+    fun an_empty_repository_has_no_readme() = runTest {
+        val readme = with(codeberg) { api { status(HttpStatusCode.NotFound) } }.readme(null, forgejo).value()
+
+        assertThat(readme).isNull()
     }
 
     @Test
@@ -188,6 +208,17 @@ class ForgejoRepoApiTest {
 
         assertThat(asked.encodedPath).isEqualTo("/api/v1/repos/forgejo/forgejo/pulls")
         assertThat(asked.parameters["state"]).isEqualTo("closed")
+    }
+
+    @Test
+    fun only_the_slow_pull_request_list_waits_longer() = runTest {
+        val api = with(codeberg) { api { path -> json(fixture(if (path.endsWith("/pulls")) "pulls.json" else "issues.json")) } }
+
+        api.pullRequests(null, forgejo)
+        api.issues(null, forgejo)
+
+        val patience = codeberg.requests.map { it.getCapabilityOrNull(io.ktor.client.plugins.HttpTimeoutCapability)?.socketTimeoutMillis }
+        assertThat(patience).containsExactly(30_000L, null).inOrder()
     }
 
     @Test

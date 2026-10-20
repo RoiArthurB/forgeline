@@ -39,14 +39,16 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
     }
 
     override suspend fun readme(token: String?, id: RepoId, ref: String?): ForgeResult<Readme?> = forgejoCall {
-        // Forgejo has no README endpoint (404 on Codeberg, 2026-09-29): find it among the root files.
-        val listing = get(token, id, "contents", query = ref?.let { mapOf("ref" to it) } ?: emptyMap())
-        if (listing.status == HttpStatusCode.NotFound) return@forgejoCall ForgeResult.Success(null)
-        if (listing.status != HttpStatusCode.OK) return@forgejoCall listing.failure()
-        val file = readmeOf(listing.body<List<ContentJson>>()) ?: return@forgejoCall ForgeResult.Success(null)
-        val text = raw(token, id, file.path, ref)
+        // Forgejo has no README endpoint (404 on Codeberg, 2026-09-29): find it among the root files. Their listing works
+        // out each file's last commit (5 to 31 s on Codeberg, or a 504, 2026-10-20); the root's git tree takes 2 s.
+        val tree = get(token, id, "git", "trees", ref ?: "HEAD")
+        // An empty repository has no tree yet.
+        if (tree.status == HttpStatusCode.NotFound) return@forgejoCall ForgeResult.Success(null)
+        if (tree.status != HttpStatusCode.OK) return@forgejoCall tree.failure()
+        val path = readmeOf(tree.body<TreeJson>().tree.filter { it.type == "blob" }.map { it.path }) ?: return@forgejoCall ForgeResult.Success(null)
+        val text = raw(token, id, path, ref)
         if (text.status != HttpStatusCode.OK) return@forgejoCall text.failure()
-        ForgeResult.Success(Readme(file.path, text.bodyAsText()))
+        ForgeResult.Success(Readme(path, text.bodyAsText()))
     }
 
     override suspend fun refs(token: String?, id: RepoId): ForgeResult<GitRefs> = forgejoCall {
@@ -80,7 +82,7 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
     override suspend fun pullRequests(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = forgejoCall {
         // The pulls endpoint can't look for words: those go through the issue list, which lists pull requests too.
         if (query.text.isNotBlank()) return@forgejoCall list(token, id, "pulls", query)
-        get(token, id, "pulls", query = mapOf("state" to query.state, "sort" to "newest", "limit" to "${IssueQuery.PAGE_SIZE}", "page" to "${query.page}"))
+        get(token, id, "pulls", query = mapOf("state" to query.state, "sort" to "newest", "limit" to "${IssueQuery.PAGE_SIZE}", "page" to "${query.page}"), patienceMillis = PULLS_PATIENCE_MILLIS)
             .toResult { body<List<IssueJson>>().map { it.toSummary() } }
     }
 
@@ -114,8 +116,8 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
 
     override fun blobBaseUrl(id: RepoId, ref: String): String = id.blobBaseUrl(ref)
 
-    private suspend fun get(token: String?, id: RepoId, vararg segments: String, query: Map<String, String> = emptyMap()): HttpResponse =
-        httpClient.forgejoApi(forge, token, "repos", id.owner, id.name, *segments, method = HttpMethod.Get, query = query)
+    private suspend fun get(token: String?, id: RepoId, vararg segments: String, query: Map<String, String> = emptyMap(), patienceMillis: Long? = null): HttpResponse =
+        httpClient.forgejoApi(forge, token, "repos", id.owner, id.name, *segments, method = HttpMethod.Get, query = query, patienceMillis = patienceMillis)
 
     private suspend fun raw(token: String?, id: RepoId, path: String, ref: String?): HttpResponse =
         get(token, id, "raw", *path.segments(), query = ref?.let { mapOf("ref" to it) } ?: emptyMap())
@@ -130,10 +132,14 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
     }
 
     private companion object {
+        // Codeberg takes 6 to 10 s to list forgejo/forgejo's open pull requests (measured 2026-10-20), and longer from
+        // further away: past the 10 s any other call is given. Its issue list answers in 1 to 3 s.
+        const val PULLS_PATIENCE_MILLIS = 30_000L
+
         /** The README a forge shows: README.md first, then any README.* or README. */
-        fun readmeOf(files: List<ContentJson>): ContentJson? {
-            val candidates = files.filter { it.type == "file" && it.name.substringBefore('.').equals("readme", ignoreCase = true) }
-            return candidates.firstOrNull { it.name.equals("README.md", ignoreCase = true) } ?: candidates.minByOrNull { it.name.length }
+        fun readmeOf(files: List<String>): String? {
+            val candidates = files.filter { it.substringBefore('.').equals("readme", ignoreCase = true) }
+            return candidates.firstOrNull { it.equals("README.md", ignoreCase = true) } ?: candidates.minByOrNull { it.length }
         }
     }
 }
