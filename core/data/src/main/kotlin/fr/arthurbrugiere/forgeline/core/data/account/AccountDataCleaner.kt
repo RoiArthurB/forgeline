@@ -22,6 +22,11 @@ fun interface SignedOutData {
     suspend fun forget(account: Account)
 }
 
+/** The forges' answers the app's HTTP client kept, some read with an account and private. */
+fun interface ResponseCache {
+    suspend fun clear()
+}
+
 /**
  * What goes when an account signs out: its own rows (notifications, Feed, starred activity), and what was kept from
  * its forge whoever asked (conversations, repositories, previews), since some of it was read with that account and
@@ -41,6 +46,7 @@ class AccountDataCleaner @Inject constructor(
     private val users: UserRepository,
     private val drafts: DraftStore,
     private val yourRepos: fr.arthurbrugiere.forgeline.core.data.yours.YourReposDao,
+    private val responses: ResponseCache = ResponseCache {},
 ) : SignedOutData {
 
     override suspend fun forget(account: Account) {
@@ -52,6 +58,8 @@ class AccountDataCleaner @Inject constructor(
         conversations.forget(account.forge)
         users.forget(account.forge)
         drafts.forget(account.forge)
+        // Kept by address, not by account: all of it goes, and what is still wanted is asked again in full.
+        responses.clear()
     }
 
     /**

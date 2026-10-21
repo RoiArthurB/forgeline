@@ -52,6 +52,8 @@ internal suspend fun HttpClient.forgejoStatement(
     more: HttpRequestBuilder.() -> Unit = {},
 ): HttpStatement = prepareRequest {
     forgejo(forge, token, segments, HttpMethod.Get, emptyMap(), null, null)
+    // Read as it comes (a log runs to tens of thousands of lines): never kept with the answers.
+    header(HttpHeaders.CacheControl, "no-store")
     more()
 }
 

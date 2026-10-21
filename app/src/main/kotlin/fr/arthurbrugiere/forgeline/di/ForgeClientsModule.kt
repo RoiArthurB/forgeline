@@ -56,6 +56,7 @@ import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabStarApi
 import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabUserApi
 import fr.arthurbrugiere.forgeline.forge.gitlab.gitlabHttpClient
 import io.ktor.client.HttpClient
+import okhttp3.Cache
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Qualifier
@@ -222,12 +223,12 @@ abstract class ForgeClientsModule {
         @Provides
         @Singleton
         @Forgejo
-        fun provideForgejoHttpClient(): HttpClient = forgejoHttpClient(forgeEngine())
+        fun provideForgejoHttpClient(cache: Cache): HttpClient = forgejoHttpClient(forgeEngine(cache))
 
         @Provides
         @Singleton
         @GitLab
-        fun provideGitLabHttpClient(): HttpClient = gitlabHttpClient(forgeEngine())
+        fun provideGitLabHttpClient(cache: Cache): HttpClient = gitlabHttpClient(forgeEngine(cache))
 
         @Provides
         fun provideForgeProbe(@Forgejo http: HttpClient): ForgeProbe = HttpForgeProbe(http)

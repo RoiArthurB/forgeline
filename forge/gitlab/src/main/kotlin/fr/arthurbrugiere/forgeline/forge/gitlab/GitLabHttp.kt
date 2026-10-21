@@ -57,6 +57,8 @@ internal suspend fun HttpClient.gitlabStatement(
     more: HttpRequestBuilder.() -> Unit = {},
 ): HttpStatement = prepareRequest {
     gitlab(forge, token, segments, HttpMethod.Get, emptyMap(), null, null)
+    // Read as it comes (a log runs to tens of thousands of lines): never kept with the answers.
+    header(HttpHeaders.CacheControl, "no-store")
     more()
 }
 

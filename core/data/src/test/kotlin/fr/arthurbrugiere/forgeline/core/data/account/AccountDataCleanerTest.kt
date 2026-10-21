@@ -106,6 +106,21 @@ class AccountDataCleanerTest {
     }
 
     @Test
+    fun signing_out_empties_the_forges_answers_kept_by_the_http_client() = runTest {
+        var cleared = 0
+        val withResponses = AccountDataCleaner(
+            accounts, database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), database.feedDao(), database.repoDao(),
+            database.feedPreviewDao(), conversations, users, drafts, database.yourReposDao(), ResponseCache { cleared++ },
+        )
+        val (_, codeberg) = signInEverywhere()
+
+        accounts.signOut(codeberg.id)
+        withResponses.forget(codeberg)
+
+        assertThat(cleared).isEqualTo(1)
+    }
+
+    @Test
     fun signing_out_deletes_the_account_s_list_of_repositories() = runTest {
         val (gitHub, codeberg) = signInEverywhere()
         listOf(gitHub, codeberg).forEach { database.yourReposDao().upsert(fr.arthurbrugiere.forgeline.core.data.yours.YourReposEntity(it.id, "{}", 1_000)) }

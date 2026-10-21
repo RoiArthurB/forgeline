@@ -29,6 +29,7 @@ import fr.arthurbrugiere.forgeline.forge.github.GitHubStarApi
 import fr.arthurbrugiere.forgeline.forge.github.GitHubTrendingApi
 import fr.arthurbrugiere.forgeline.forge.github.gitHubHttpClient
 import io.ktor.client.HttpClient
+import okhttp3.Cache
 import javax.inject.Singleton
 
 @Module
@@ -36,7 +37,7 @@ import javax.inject.Singleton
 object ForgeModule {
     @Provides
     @Singleton
-    fun provideGitHubHttpClient(): HttpClient = gitHubHttpClient(forgeEngine())
+    fun provideGitHubHttpClient(cache: Cache): HttpClient = gitHubHttpClient(forgeEngine(cache))
 
     @Provides
     @Singleton

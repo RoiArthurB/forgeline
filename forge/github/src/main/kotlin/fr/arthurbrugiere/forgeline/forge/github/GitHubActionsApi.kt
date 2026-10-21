@@ -122,6 +122,8 @@ class GitHubActionsApi(
                 appendPathSegments("repos", id.owner, id.name, "actions", "jobs", jobId.toString(), "logs")
             }
             gitHubHeaders(token)
+            // A log runs to tens of thousands of lines: read as it comes, never kept with the answers.
+            header(HttpHeaders.CacheControl, "no-store")
             more()
         }
 

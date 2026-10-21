@@ -10,8 +10,12 @@ import coil3.svg.SvgDecoder
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
+import okhttp3.Cache
+import okhttp3.CacheControl
 import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
+import okhttp3.Interceptor
+import okhttp3.Response
 import java.util.concurrent.TimeUnit
 
 /**
@@ -37,10 +41,41 @@ fun forgeDispatcher(): Dispatcher = Dispatcher().apply {
  * own, so pictures served by the forge's own host (Codeberg's and GitLab's avatars) opened a second connection beside
  * the API's, a second handshake, and each engine kept threads of its own.
  */
-fun forgeEngine(): HttpClientEngine = OkHttp.create {
+fun forgeEngine(cache: Cache? = null): HttpClientEngine = OkHttp.create {
     config {
         dispatcher(sharedDispatcher)
         connectionPool(sharedConnections)
+        if (cache != null) {
+            cache(cache)
+            addInterceptor(AskAgainWithWhatIsKnown)
+        }
+    }
+}
+
+/** The forges' answers kept on the phone, for [AskAgainWithWhatIsKnown]; pictures have Coil's own cache. */
+const val HTTP_CACHE_BYTES = 20L * 1024 * 1024
+
+/**
+ * Makes every read the cache could answer ask the forge again, with what is known of it (`If-None-Match`): when
+ * nothing changed, the forge answers 304 with no body (GitHub doesn't count it against the rate limit) and the kept
+ * answer is read. Never served unasked, however fresh the forge says it is: what was just changed from the app shows
+ * at once.
+ *
+ * A request that brings its own conditions (the Inbox's "anything since?") or says how it may be cached is left as it
+ * is. A part of something (a log read a part at a time) is neither kept nor answered from what was: the cache doesn't
+ * tell parts apart.
+ */
+internal object AskAgainWithWhatIsKnown : Interceptor {
+    override fun intercept(chain: Interceptor.Chain): Response {
+        val request = chain.request()
+        val own = request.method != "GET" || request.header("Cache-Control") != null ||
+            request.header("If-None-Match") != null || request.header("If-Modified-Since") != null
+        val asked = when {
+            own -> request
+            request.header("Range") != null -> request.newBuilder().cacheControl(CacheControl.Builder().noStore().build()).build()
+            else -> request.newBuilder().cacheControl(CacheControl.Builder().maxAge(0, TimeUnit.SECONDS).build()).build()
+        }
+        return chain.proceed(asked)
     }
 }
 
