@@ -25,8 +25,10 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v6
+      - name: Format
+        run: ./gradlew spotlessCheck
       - name: Check
-        run: ./gradlew spotlessCheck testDebugUnitTest verifyRoborazziDebug lintDebug assembleDebug --continue
+        run: ./gradlew testDebugUnitTest verifyRoborazziDebug lintDebug assembleDebug --continue
       - name: Upload reports
         if: failure()
         uses: actions/upload-artifact@v7
