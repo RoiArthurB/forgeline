@@ -307,7 +307,7 @@ class GitLabIssueApiTest {
         val result = api { json("""{"message":"413 Request Entity Too Large"}""", HttpStatusCode.PayloadTooLarge) }
             .attach("tok", IssueRef(repo, 10), "big.png", "image/png", ByteArray(4))
 
-        assertThat(result).isEqualTo(ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http(413, """{"message":"413 Request Entity Too Large"}""")))
+        assertThat(result).isEqualTo(ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http(413, "413 Request Entity Too Large")))
     }
 
     @Test

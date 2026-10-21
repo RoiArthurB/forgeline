@@ -31,7 +31,11 @@ import io.ktor.serialization.ContentConvertException
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import java.io.IOException
 import java.net.URLEncoder
 import java.time.DateTimeException
@@ -128,12 +132,26 @@ internal suspend fun HttpResponse.failure(): ForgeResult.Failure {
             headers["Retry-After"]?.toLongOrNull()?.let { Instant.now().epochSecond + it }
                 ?: headers["RateLimit-Reset"]?.toLongOrNull()
         )
-        else -> {
-            val body = runCatching { bodyAsText() }.getOrNull()
-            ForgeError.Http(status.value, body)
-        }
+        else -> ForgeError.Http(status.value, runCatching { errorMessage(GitLabJson.parseToJsonElement(bodyAsText())) }.getOrNull())
     }
     return ForgeResult.Failure(error)
+}
+
+/**
+ * GitLab says what went wrong under `message` (a line, a list of lines, or lines by field) or under `error`.
+ * Regression: the whole answer was the message, so the app showed `{"message":"405 Method Not Allowed"}`.
+ */
+private fun errorMessage(answer: JsonElement): String? {
+    val fields = answer as? JsonObject ?: return null
+    return lines(fields["message"])?.takeIf { it.isNotBlank() } ?: (fields["error"] as? JsonPrimitive)?.contentOrNull
+}
+
+private fun lines(value: JsonElement?): String? = when (value) {
+    is JsonPrimitive -> value.contentOrNull
+    is JsonArray -> value.mapNotNull { lines(it) }.joinToString(", ")
+    // By field: `{"title":["can't be blank"]}` reads "title can't be blank"; `base` is about the whole thing.
+    is JsonObject -> value.entries.mapNotNull { (field, said) -> lines(said)?.let { if (field == "base") it else "$field $it" } }.joinToString(", ")
+    else -> null
 }
 
 /** Parses ISO timestamps with offset or Z. */
