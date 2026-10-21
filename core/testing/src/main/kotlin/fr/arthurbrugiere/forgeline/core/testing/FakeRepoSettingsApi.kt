@@ -80,7 +80,11 @@ class FakeRepoSettingsApi(
     var pages: fr.arthurbrugiere.forgeline.core.model.PagesSite? = fr.arthurbrugiere.forgeline.core.model.PagesSite(published = false, canPublish = true)
     val pagesChanges = mutableListOf<fr.arthurbrugiere.forgeline.core.model.PagesChange>()
 
+    /** How long the site is in coming, off the caller's thread: it is read beside the settings, and may come after them. */
+    var pagesReadLatencyMillis: Long = 0
+
     override suspend fun pages(token: String, repo: RepoId): ForgeResult<fr.arthurbrugiere.forgeline.core.model.PagesSite?> {
+        answerLate(pagesReadLatencyMillis)
         calls += "pages:${repo.fullName}"
         return failure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(pages)
     }

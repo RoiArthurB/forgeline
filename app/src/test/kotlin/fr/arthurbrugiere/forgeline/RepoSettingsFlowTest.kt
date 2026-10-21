@@ -171,13 +171,19 @@ class RepoSettingsFlowTest {
     fun a_website_is_published_from_the_settings() {
         hiltRule.inject()
         settings.writeLatencyMillis = WRITE_LATENCY_MILLIS
+        // Regression: the site, read beside the settings, came after them on a busy CI runner, and "Pages" was tapped
+        // before it was there.
+        settings.pagesReadLatencyMillis = WRITE_LATENCY_MILLIS
         runBlocking { accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null), "tok") }
         openRepository()
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasContentDescription("Repository settings")).fetchSemanticsNodes().isNotEmpty() }
         composeRule.onNode(hasContentDescription("Repository settings")).performClick()
         waitFor("Tools for octocats")
 
+        // The site is read on its own: its section is there once it is, not with the settings.
+        waitFor("Pages")
         composeRule.onNodeWithText("Pages").performClick()
+        waitFor("Publish a website")
         composeRule.onNodeWithText("Publish a website").performClick()
         waitFor("A workflow builds the site")
         composeRule.onAllNodes(hasText("Publish a website"))[1].performClick()
