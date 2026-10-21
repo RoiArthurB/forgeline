@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.TrendingApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -25,7 +26,7 @@ class GitHubTrendingApi(
 
     override val forge: ForgeInstance = ForgeInstance.GitHub
 
-    override suspend fun trending(period: TrendingPeriod): ForgeResult<List<TrendingRepo>> = gitHubCall {
+    override suspend fun trending(period: TrendingPeriod): ForgeResult<List<TrendingRepo>> = forgeCall {
         val response = httpClient.get("$webBaseUrl/trending") {
             parameter("since", period.query)
             accept(ContentType.Text.Html)

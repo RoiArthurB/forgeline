@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import java.io.IOException
 import java.net.ProtocolException
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -38,23 +39,23 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
      * [ifModifiedSince] is this client's own marker ("checks:N"), not an HTTP date: with nothing new, the list is only
      * fetched again every [FULL_EVERY] checks, to catch threads read on the web.
      */
-    override suspend fun threads(token: String, ifModifiedSince: String?, maxPages: Int): ForgeResult<NotificationsSync> = forgejoCall {
+    override suspend fun threads(token: String, ifModifiedSince: String?, maxPages: Int): ForgeResult<NotificationsSync> = forgeCall {
         val checks = ifModifiedSince?.removePrefix(MARKER)?.toIntOrNull()
         if (checks != null && checks + 1 < FULL_EVERY) {
             val count = httpClient.forgejoApi(forge, token, "notifications", "new")
-            if (count.status != HttpStatusCode.OK && count.status != HttpStatusCode.NoContent) return@forgejoCall count.failure()
+            if (count.status != HttpStatusCode.OK && count.status != HttpStatusCode.NoContent) return@forgeCall count.failure()
             val new = if (count.status == HttpStatusCode.NoContent) 0 else count.body<CountJson>().new
-            if (new == 0) return@forgejoCall ForgeResult.Success(NotificationsSync(null, "$MARKER${checks + 1}", POLL_SECONDS))
+            if (new == 0) return@forgeCall ForgeResult.Success(NotificationsSync(null, "$MARKER${checks + 1}", POLL_SECONDS))
         }
         // The first page says how many threads there are: the others are asked all at once, not one after another.
         val first = page(token, 1)
-        if (first.status != HttpStatusCode.OK) return@forgejoCall first.failure()
+        if (first.status != HttpStatusCode.OK) return@forgeCall first.failure()
         val firstBatch = first.body<List<ThreadJson>>()
         val pages = first.totalCount()?.let { (it + PAGE_SIZE - 1) / PAGE_SIZE }
             ?: first.nextPage()?.let { 2 }
             ?: if (firstBatch.size == PAGE_SIZE) 2 else 1
         val rest = coroutineScope { (2..minOf(pages, maxPages)).map { number -> async { page(token, number) } }.awaitAll() }
-        rest.firstOrNull { it.status != HttpStatusCode.OK }?.let { return@forgejoCall it.failure() }
+        rest.firstOrNull { it.status != HttpStatusCode.OK }?.let { return@forgeCall it.failure() }
         val threads = firstBatch + rest.flatMap { it.body<List<ThreadJson>>() }
         val reasons = reasons(token, threads)
         ForgeResult.Success(NotificationsSync(threads.mapNotNull { it.toModel(reasons) }, "${MARKER}0", POLL_SECONDS))
@@ -69,7 +70,7 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
 
     override suspend fun markUnread(token: String, threadId: String): ForgeResult<Unit> = mark(token, threadId, "unread")
 
-    private suspend fun mark(token: String, threadId: String, status: String): ForgeResult<Unit> = forgejoCall {
+    private suspend fun mark(token: String, threadId: String, status: String): ForgeResult<Unit> = forgeCall {
         try {
             httpClient.forgejoApi(forge, token, "notifications", "threads", threadId, method = HttpMethod.Patch, query = mapOf("to-status" to status))
                 .toResult { }
@@ -86,15 +87,15 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
     /** Forgejo can't make a thread go away: it's marked read, and the Inbox remembers it was done. */
     override suspend fun markDone(token: String, threadId: String): ForgeResult<Unit> = markRead(token, threadId)
 
-    override suspend fun unsubscribe(token: String, threadId: String): ForgeResult<Unit> = forgejoCall {
+    override suspend fun unsubscribe(token: String, threadId: String): ForgeResult<Unit> = forgeCall {
         // Subscriptions belong to issues here: find the thread's issue, and who "me" is.
         val thread = httpClient.forgejoApi(forge, token, "notifications", "threads", threadId)
-        if (thread.status != HttpStatusCode.OK) return@forgejoCall thread.failure()
+        if (thread.status != HttpStatusCode.OK) return@forgeCall thread.failure()
         val subject = thread.body<ThreadJson>()
-        val repo = subject.repository ?: return@forgejoCall ForgeResult.Success(Unit)
-        val number = subject.number() ?: return@forgejoCall ForgeResult.Success(Unit)
+        val repo = subject.repository ?: return@forgeCall ForgeResult.Success(Unit)
+        val number = subject.number() ?: return@forgeCall ForgeResult.Success(Unit)
         val me = httpClient.forgejoApi(forge, token, "user")
-        if (me.status != HttpStatusCode.OK) return@forgejoCall me.failure()
+        if (me.status != HttpStatusCode.OK) return@forgeCall me.failure()
         httpClient.forgejoApi(
             forge, token, "repos", repo.owner.login, repo.name, "issues", number.toString(), "subscriptions", me.body<UserJson>().login,
             method = HttpMethod.Delete,

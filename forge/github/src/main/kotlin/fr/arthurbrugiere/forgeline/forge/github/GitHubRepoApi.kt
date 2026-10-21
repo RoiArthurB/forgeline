@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
 import fr.arthurbrugiere.forgeline.core.model.languageShares
 import io.ktor.http.isSuccess
@@ -58,7 +59,7 @@ class GitHubRepoApi(
     private val apiBaseUrl: String = "https://api.github.com",
 ) : RepoApi {
 
-    override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = gitHubCall {
+    override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = forgeCall {
         coroutineScope {
             // Asked alongside: GitHub counts open issues and pull requests as one number, and only says how many of
             // them are pull requests through their list. Signed out, that request is saved: there are sixty an hour.
@@ -79,20 +80,20 @@ class GitHubRepoApi(
     }
 
     /** Bytes of code by language, as GitHub's linguist counts them. */
-    override suspend fun languages(token: String?, id: RepoId): ForgeResult<List<RepoLanguage>> = gitHubCall {
+    override suspend fun languages(token: String?, id: RepoId): ForgeResult<List<RepoLanguage>> = forgeCall {
         get(token, "repos", id.owner, id.name, "languages").toResult { languageShares(body<Map<String, Double>>()) }
     }
 
-    override suspend fun readme(token: String?, id: RepoId, ref: String?): ForgeResult<Readme?> = gitHubCall {
+    override suspend fun readme(token: String?, id: RepoId, ref: String?): ForgeResult<Readme?> = forgeCall {
         val response = get(token, "repos", id.owner, id.name, "readme", query = ref?.let { mapOf("ref" to it) } ?: emptyMap())
-        if (response.status == HttpStatusCode.NotFound) return@gitHubCall ForgeResult.Success(null)
+        if (response.status == HttpStatusCode.NotFound) return@forgeCall ForgeResult.Success(null)
         response.toResult {
             val file = body<ContentResponse>()
             Readme(path = file.path, markdown = file.decodedText() ?: "")
         }
     }
 
-    override suspend fun refs(token: String?, id: RepoId): ForgeResult<GitRefs> = gitHubCall {
+    override suspend fun refs(token: String?, id: RepoId): ForgeResult<GitRefs> = forgeCall {
         // matching-refs answers every ref at once, where /branches and /tags stop at 100 a page.
         val names = listOf("heads", "tags").map { kind ->
             val response = get(token, "repos", id.owner, id.name, "git", "matching-refs", kind)
@@ -100,7 +101,7 @@ class GitHubRepoApi(
                 HttpStatusCode.OK -> response.body<List<GitRefResponse>>().map { it.ref.removePrefix("refs/$kind/") }
                 // An empty repository has no git database yet.
                 HttpStatusCode.Conflict -> emptyList()
-                else -> return@gitHubCall response.failure()
+                else -> return@forgeCall response.failure()
             }
         }
         ForgeResult.Success(
@@ -112,7 +113,7 @@ class GitHubRepoApi(
     }
 
     override suspend fun contents(token: String?, id: RepoId, path: String, ref: String): ForgeResult<List<RepoFile>> =
-        gitHubCall {
+        forgeCall {
             get(token, "repos", id.owner, id.name, "contents", *path.segments(), query = mapOf("ref" to ref)).toResult {
                 body<List<ContentResponse>>()
                     .map { it.toFile() }
@@ -120,22 +121,22 @@ class GitHubRepoApi(
             }
         }
 
-    override suspend fun fileText(token: String?, id: RepoId, path: String, ref: String): ForgeResult<String> = gitHubCall {
+    override suspend fun fileText(token: String?, id: RepoId, path: String, ref: String): ForgeResult<String> = forgeCall {
         val response = get(token, "repos", id.owner, id.name, "contents", *path.segments(), query = mapOf("ref" to ref))
-        if (response.status != HttpStatusCode.OK) return@gitHubCall response.failure()
+        if (response.status != HttpStatusCode.OK) return@forgeCall response.failure()
         // Files over 1 MB come back without content: the contents API can't serve them.
         response.body<ContentResponse>().decodedText()?.let { ForgeResult.Success(it) }
             ?: ForgeResult.Failure(ForgeError.Http(413, "File too large to preview"))
     }
 
     // Search, not /issues: that endpoint mixes in pull requests, which crowd issues out on busy repos.
-    override suspend fun issues(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = gitHubCall {
+    override suspend fun issues(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = forgeCall {
         search(token, id, query, isPullRequest = false)
     }
 
-    override suspend fun pullRequests(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = gitHubCall {
+    override suspend fun pullRequests(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = forgeCall {
         // The pulls endpoint says which are drafts, but can't look for words: those go through search.
-        if (query.text.isNotBlank()) return@gitHubCall search(token, id, query, isPullRequest = true)
+        if (query.text.isNotBlank()) return@forgeCall search(token, id, query, isPullRequest = true)
         get(token, "repos", id.owner, id.name, "pulls", query = mapOf("state" to if (query.open) "open" else "closed", "per_page" to "${IssueQuery.PAGE_SIZE}", "page" to "${query.page}"))
             .toResult { body<List<IssueResponse>>().map { it.toModel(isPullRequest = true) } }
     }
@@ -153,7 +154,7 @@ class GitHubRepoApi(
     /** Only GitHub's GraphQL API knows which issues are pinned, and it answers nobody signed out. */
     override suspend fun pinnedIssues(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> {
         if (token == null) return ForgeResult.Success(emptyList())
-        return gitHubCall {
+        return forgeCall {
             val response = httpClient.post("$apiBaseUrl/graphql") {
                 bearerAuth(token)
                 header("X-GitHub-Api-Version", GitHubAuthApi.API_VERSION)
@@ -175,7 +176,7 @@ class GitHubRepoApi(
     /** Discussions are in GitHub's GraphQL API only, which answers nobody signed out. */
     private suspend fun <T> discussionsQuery(token: String?, id: RepoId, query: String, more: JsonObjectBuilder.() -> Unit, read: (DiscussionsRepository) -> T?): ForgeResult<T> {
         if (token == null) return ForgeResult.Failure(ForgeError.Unauthorized)
-        return gitHubCall {
+        return forgeCall {
             val response = httpClient.post("$apiBaseUrl/graphql") {
                 bearerAuth(token)
                 header("X-GitHub-Api-Version", GitHubAuthApi.API_VERSION)
@@ -191,7 +192,7 @@ class GitHubRepoApi(
                     },
                 )
             }
-            if (!response.status.isSuccess()) return@gitHubCall response.toResult { error("unreachable") }
+            if (!response.status.isSuccess()) return@forgeCall response.toResult { error("unreachable") }
             // What isn't there comes back as a 200 holding nothing, with the reason beside it.
             val value = response.body<DiscussionsAnswer>().data?.repository?.let(read)
             if (value == null) ForgeResult.Failure(ForgeError.Http(404, "Not Found")) else ForgeResult.Success(value)
@@ -210,17 +211,17 @@ class GitHubRepoApi(
             }
         }
 
-    override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = gitHubCall {
+    override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = forgeCall {
         get(token, "repos", id.owner, id.name, "releases", query = mapOf("per_page" to "30"))
             .toResult { body<List<ReleaseResponse>>().filterNot { it.draft }.map { it.toModel(id) }.withLatest() }
     }
 
-    override suspend fun release(token: String?, id: RepoId, tag: String): ForgeResult<Release> = gitHubCall {
+    override suspend fun release(token: String?, id: RepoId, tag: String): ForgeResult<Release> = forgeCall {
         // A tag may hold slashes: each part is its own path segment.
         get(token, "repos", id.owner, id.name, "releases", "tags", *tag.segments()).toResult { body<ReleaseResponse>().toModel(id) }
     }
 
-    override suspend fun workflowRuns(token: String?, id: RepoId): ForgeResult<List<WorkflowRun>> = gitHubCall {
+    override suspend fun workflowRuns(token: String?, id: RepoId): ForgeResult<List<WorkflowRun>> = forgeCall {
         get(token, "repos", id.owner, id.name, "actions", "runs", query = mapOf("per_page" to "30"))
             .toResult { body<RunsResponse>().workflowRuns.map { it.toModel() } }
     }

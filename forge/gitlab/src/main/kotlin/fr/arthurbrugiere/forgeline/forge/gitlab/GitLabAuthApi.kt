@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.DeviceCode
 import fr.arthurbrugiere.forgeline.core.forge.DeviceTokenPoll
 import fr.arthurbrugiere.forgeline.core.forge.ForgeAuthApi
@@ -35,7 +36,7 @@ class GitLabAuthApi(
 
     override suspend fun pollDeviceToken(deviceCode: String): ForgeResult<DeviceTokenPoll> = ForgeResult.Failure(ForgeError.Unsupported)
 
-    override suspend fun fetchAuthenticatedUser(token: String): ForgeResult<ForgeUser> = gitlabCall {
+    override suspend fun fetchAuthenticatedUser(token: String): ForgeResult<ForgeUser> = forgeCall {
         httpClient.gitlabApi(forge, token, "user").toResult { body<GitLabUserJson>().toForgeUser() }
     }
 
@@ -62,7 +63,7 @@ class GitLabAuthApi(
         "refresh_token" to refreshToken,
     )
 
-    private suspend fun token(vararg fields: Pair<String, String>): ForgeResult<OAuthTokens> = gitlabCall {
+    private suspend fun token(vararg fields: Pair<String, String>): ForgeResult<OAuthTokens> = forgeCall {
         httpClient.submitForm(
             url = "${forge.webUrl}/oauth/token",
             formParameters = parameters {

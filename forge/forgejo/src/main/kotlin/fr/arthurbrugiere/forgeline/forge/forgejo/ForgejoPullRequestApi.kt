@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.PullRequestApi
 import fr.arthurbrugiere.forgeline.core.model.ChangedFiles
@@ -38,19 +39,19 @@ import kotlinx.serialization.json.put
  */
 class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : PullRequestApi {
 
-    override suspend fun files(token: String?, ref: IssueRef, page: Int): ForgeResult<ChangedFiles> = forgejoCall {
+    override suspend fun files(token: String?, ref: IssueRef, page: Int): ForgeResult<ChangedFiles> = forgeCall {
         // The diff holds every file at once: there is no second page.
-        if (page > 1) return@forgejoCall ForgeResult.Success(ChangedFiles(emptyList(), null))
+        if (page > 1) return@forgeCall ForgeResult.Success(ChangedFiles(emptyList(), null))
         repo(token, ref.repo, "pulls", "${ref.number}.diff", patienceMillis = DIFF_PATIENCE_MILLIS)
             .toResult { ChangedFiles(parseUnifiedDiff(bodyAsText()), null) }
     }
 
-    override suspend fun commits(token: String?, ref: IssueRef): ForgeResult<List<Commit>> = forgejoCall {
+    override suspend fun commits(token: String?, ref: IssueRef): ForgeResult<List<Commit>> = forgeCall {
         val commits = mutableListOf<PrCommitJson>()
         var page: Int? = 1
         while (page != null && page <= MAX_COMMIT_PAGES) {
             val response = repo(token, ref.repo, "pulls", ref.number.toString(), "commits", query = mapOf("limit" to "50", "page" to "$page") + LIGHT)
-            if (response.status != HttpStatusCode.OK) return@forgejoCall response.failure()
+            if (response.status != HttpStatusCode.OK) return@forgeCall response.failure()
             commits += response.body<List<PrCommitJson>>()
             page = response.nextPage()
         }
@@ -58,14 +59,14 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
     }
 
     /** Forgejo keeps one kind: the statuses reported on a commit, its own Actions' among them. */
-    override suspend fun checks(token: String?, ref: IssueRef): ForgeResult<List<Check>> = forgejoCall {
+    override suspend fun checks(token: String?, ref: IssueRef): ForgeResult<List<Check>> = forgeCall {
         val pull = repo(token, ref.repo, "pulls", ref.number.toString())
-        if (pull.status != HttpStatusCode.OK) return@forgejoCall pull.failure()
+        if (pull.status != HttpStatusCode.OK) return@forgeCall pull.failure()
         val sha = pull.body<PrPullJson>().head.sha
         repo(token, ref.repo, "commits", sha, "status").toResult { body<PrCombinedStatusJson>().statuses.orEmpty().map { it.toModel(forge) } }
     }
 
-    override suspend fun mergeInfo(token: String, ref: IssueRef): ForgeResult<MergeInfo> = forgejoCall {
+    override suspend fun mergeInfo(token: String, ref: IssueRef): ForgeResult<MergeInfo> = forgeCall {
         coroutineScope {
             val pull = async { repo(token, ref.repo, "pulls", ref.number.toString()) }
             val settings = async { repo(token, ref.repo) }
@@ -87,14 +88,14 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
         }
     }
 
-    override suspend fun merge(token: String, ref: IssueRef, method: MergeMethod): ForgeResult<Unit> = forgejoCall {
+    override suspend fun merge(token: String, ref: IssueRef, method: MergeMethod): ForgeResult<Unit> = forgeCall {
         repo(
             token, ref.repo, "pulls", ref.number.toString(), "merge", method = HttpMethod.Post,
             body = buildJsonObject { put("Do", method.name.lowercase()) },
         ).toResult { }
     }
 
-    override suspend fun review(token: String, ref: IssueRef, verdict: ReviewVerdict, body: String, comments: List<LineComment>): ForgeResult<Unit> = forgejoCall {
+    override suspend fun review(token: String, ref: IssueRef, verdict: ReviewVerdict, body: String, comments: List<LineComment>): ForgeResult<Unit> = forgeCall {
         repo(
             token, ref.repo, "pulls", ref.number.toString(), "reviews", method = HttpMethod.Post,
             body = buildJsonObject {
@@ -127,7 +128,7 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
         ).toResult { }
     }
 
-    override suspend fun create(token: String, repo: RepoId, request: NewPullRequest): ForgeResult<IssueRef> = forgejoCall {
+    override suspend fun create(token: String, repo: RepoId, request: NewPullRequest): ForgeResult<IssueRef> = forgeCall {
         repo(
             token, repo, "pulls", method = HttpMethod.Post,
             body = buildJsonObject {
@@ -140,7 +141,7 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
         ).toResult { IssueRef(repo, body<PrCreatedJson>().number, isPullRequest = true) }
     }
 
-    override suspend fun history(token: String?, repo: RepoId, ref: String?, path: String?, page: Int): ForgeResult<CommitPage> = forgejoCall {
+    override suspend fun history(token: String?, repo: RepoId, ref: String?, path: String?, page: Int): ForgeResult<CommitPage> = forgeCall {
         val query = buildMap {
             put("limit", "$HISTORY_PER_PAGE")
             put("page", "$page")
@@ -156,7 +157,7 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
         }
     }
 
-    override suspend fun commit(token: String?, repo: RepoId, sha: String): ForgeResult<CommitDetails> = forgejoCall {
+    override suspend fun commit(token: String?, repo: RepoId, sha: String): ForgeResult<CommitDetails> = forgeCall {
         coroutineScope {
             val diff = async { repo(token, repo, "git", "commits", "$sha.diff", patienceMillis = DIFF_PATIENCE_MILLIS) }
             val commit = repo(token, repo, "git", "commits", sha, query = LIGHT)

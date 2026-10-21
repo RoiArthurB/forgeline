@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi
@@ -30,40 +31,40 @@ import kotlinx.serialization.json.put
  */
 class ForgejoRepoSettingsApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : RepoSettingsApi {
 
-    override suspend fun settings(token: String, repo: RepoId): ForgeResult<RepoSettings> = forgejoCall {
+    override suspend fun settings(token: String, repo: RepoId): ForgeResult<RepoSettings> = forgeCall {
         httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name).toResult { body<JsonObject>().toSettings() }
     }
 
-    override suspend fun change(token: String, repo: RepoId, change: RepoSettingsChange): ForgeResult<RepoSettings> = forgejoCall {
+    override suspend fun change(token: String, repo: RepoId, change: RepoSettingsChange): ForgeResult<RepoSettings> = forgeCall {
         if (change is RepoSettingsChange.Topics) {
             val topics = httpClient.forgejoApi(
                 forge, token, "repos", repo.owner, repo.name, "topics", method = HttpMethod.Put,
                 body = buildJsonObject { put("topics", JsonArray(change.topics.map(::JsonPrimitive))) },
             )
-            if (!topics.status.isSuccess()) return@forgejoCall topics.failure()
-            return@forgejoCall settings(token, repo)
+            if (!topics.status.isSuccess()) return@forgeCall topics.failure()
+            return@forgeCall settings(token, repo)
         }
         val body = buildJsonObject {
             when (change) {
                 is RepoSettingsChange.Description -> put("description", change.text)
                 is RepoSettingsChange.Website -> put("website", change.url)
                 is RepoSettingsChange.DefaultBranch -> put("default_branch", change.branch)
-                is RepoSettingsChange.Switch -> put(SWITCHES[change.switch] ?: return@forgejoCall unsupported, change.on)
+                is RepoSettingsChange.Switch -> put(SWITCHES[change.switch] ?: return@forgeCall unsupported, change.on)
                 is RepoSettingsChange.DefaultMerge -> put("default_merge_style", STYLES.getValue(change.method))
                 is RepoSettingsChange.Visibility -> put("private", change.visibility != RepoVisibility.PUBLIC)
                 is RepoSettingsChange.Archived -> put("archived", change.archived)
-                else -> return@forgejoCall unsupported
+                else -> return@forgeCall unsupported
             }
         }
         httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, method = HttpMethod.Patch, body = body).toResult { body<JsonObject>().toSettings() }
     }
 
-    override suspend fun rename(token: String, repo: RepoId, name: String): ForgeResult<RepoId> = forgejoCall {
+    override suspend fun rename(token: String, repo: RepoId, name: String): ForgeResult<RepoId> = forgeCall {
         httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, method = HttpMethod.Patch, body = buildJsonObject { put("name", name) })
             .toResult { body<JsonObject>().text("full_name").split('/', limit = 2).let { (owner, renamed) -> RepoId(owner, renamed, repo.forge) } }
     }
 
-    override suspend fun delete(token: String, repo: RepoId): ForgeResult<RepoDeletion> = forgejoCall {
+    override suspend fun delete(token: String, repo: RepoId): ForgeResult<RepoDeletion> = forgeCall {
         httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, method = HttpMethod.Delete).toResult { RepoDeletion.DELETED }
     }
 

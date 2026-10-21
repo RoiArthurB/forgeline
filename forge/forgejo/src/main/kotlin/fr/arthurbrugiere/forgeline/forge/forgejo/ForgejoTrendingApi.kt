@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.TrendingApi
@@ -24,13 +26,13 @@ class ForgejoTrendingApi(
     private val url: String,
 ) : TrendingApi {
 
-    override suspend fun trending(period: TrendingPeriod): ForgeResult<List<TrendingRepo>> = forgejoCall {
+    override suspend fun trending(period: TrendingPeriod): ForgeResult<List<TrendingRepo>> = forgeCall {
         val response = httpClient.get(url)
-        if (!response.status.isSuccess()) return@forgejoCall ForgeResult.Failure(ForgeError.Http(response.status.value, null))
+        if (!response.status.isSuccess()) return@forgeCall ForgeResult.Failure(ForgeError.Http(response.status.value, null))
         val file = try {
-            ForgejoJson.decodeFromString<TrendingFile>(response.bodyAsText())
+            ForgeJson.decodeFromString<TrendingFile>(response.bodyAsText())
         } catch (e: SerializationException) {
-            return@forgejoCall ForgeResult.Failure(ForgeError.Http(response.status.value, "Unreadable trending file"))
+            return@forgeCall ForgeResult.Failure(ForgeError.Http(response.status.value, "Unreadable trending file"))
         }
         ForgeResult.Success(file.list(period).map { it.toModel(forge) })
     }

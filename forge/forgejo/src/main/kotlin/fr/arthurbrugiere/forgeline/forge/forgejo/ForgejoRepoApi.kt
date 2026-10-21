@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
 import fr.arthurbrugiere.forgeline.core.model.languageShares
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -29,28 +30,28 @@ import io.ktor.http.HttpStatusCode
 
 class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : RepoApi {
 
-    override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = forgejoCall {
+    override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = forgeCall {
         get(token, id).toResult { body<RepoJson>().toDetails(forge) }
     }
 
     /** Bytes of code by language, as GitHub's API gives them. */
-    override suspend fun languages(token: String?, id: RepoId): ForgeResult<List<RepoLanguage>> = forgejoCall {
+    override suspend fun languages(token: String?, id: RepoId): ForgeResult<List<RepoLanguage>> = forgeCall {
         get(token, id, "languages").toResult { languageShares(body<Map<String, Double>>()) }
     }
 
-    override suspend fun readme(token: String?, id: RepoId, ref: String?): ForgeResult<Readme?> = forgejoCall {
+    override suspend fun readme(token: String?, id: RepoId, ref: String?): ForgeResult<Readme?> = forgeCall {
         // Forgejo has no README endpoint (404 on Codeberg, 2026-09-29): find it among the root files.
         val root = when (val tree = httpClient.forgejoTree(forge, token, id, ref ?: "HEAD", "")) {
-            is ForgeResult.Failure -> return@forgejoCall tree
-            is ForgeResult.Success -> tree.value ?: return@forgejoCall ForgeResult.Success(null)
+            is ForgeResult.Failure -> return@forgeCall tree
+            is ForgeResult.Success -> tree.value ?: return@forgeCall ForgeResult.Success(null)
         }
-        val path = readmeOf(root.filter { it.type == "blob" }.map { it.path }) ?: return@forgejoCall ForgeResult.Success(null)
+        val path = readmeOf(root.filter { it.type == "blob" }.map { it.path }) ?: return@forgeCall ForgeResult.Success(null)
         val text = raw(token, id, path, ref)
-        if (text.status != HttpStatusCode.OK) return@forgejoCall text.failure()
+        if (text.status != HttpStatusCode.OK) return@forgeCall text.failure()
         ForgeResult.Success(Readme(path, text.bodyAsText()))
     }
 
-    override suspend fun refs(token: String?, id: RepoId): ForgeResult<GitRefs> = forgejoCall {
+    override suspend fun refs(token: String?, id: RepoId): ForgeResult<GitRefs> = forgeCall {
         // git/refs answers every ref at once, where /branches and /tags page by 50 (checked on Codeberg).
         val names = listOf("heads", "tags").map { kind ->
             val response = get(token, id, "git", "refs", kind)
@@ -58,16 +59,16 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
                 HttpStatusCode.OK -> response.body<List<GitRefJson>>().map { it.ref.removePrefix("refs/$kind/") }
                 // An empty repository has no refs yet.
                 HttpStatusCode.NotFound, HttpStatusCode.Conflict -> emptyList()
-                else -> return@forgejoCall response.failure()
+                else -> return@forgeCall response.failure()
             }
         }
         ForgeResult.Success(GitRefs(names[0].sortedWith(String.CASE_INSENSITIVE_ORDER), names[1].sortedWith(VersionOrder.reversed())))
     }
 
-    override suspend fun contents(token: String?, id: RepoId, path: String, ref: String): ForgeResult<List<RepoFile>> = forgejoCall {
+    override suspend fun contents(token: String?, id: RepoId, path: String, ref: String): ForgeResult<List<RepoFile>> = forgeCall {
         val entries = when (val tree = httpClient.forgejoTree(forge, token, id, ref, path)) {
-            is ForgeResult.Failure -> return@forgejoCall tree
-            is ForgeResult.Success -> tree.value ?: return@forgejoCall ForgeResult.Failure(ForgeError.Http(HttpStatusCode.NotFound.value, "Not Found"))
+            is ForgeResult.Failure -> return@forgeCall tree
+            is ForgeResult.Success -> tree.value ?: return@forgeCall ForgeResult.Failure(ForgeError.Http(HttpStatusCode.NotFound.value, "Not Found"))
         }
         val folder = path.trim('/')
         ForgeResult.Success(
@@ -77,15 +78,15 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
         )
     }
 
-    override suspend fun fileText(token: String?, id: RepoId, path: String, ref: String): ForgeResult<String> = forgejoCall {
+    override suspend fun fileText(token: String?, id: RepoId, path: String, ref: String): ForgeResult<String> = forgeCall {
         raw(token, id, path, ref).toResult { bodyAsText() }
     }
 
-    override suspend fun issues(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = forgejoCall { list(token, id, "issues", query) }
+    override suspend fun issues(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = forgeCall { list(token, id, "issues", query) }
 
-    override suspend fun pullRequests(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = forgejoCall {
+    override suspend fun pullRequests(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = forgeCall {
         // The pulls endpoint can't look for words: those go through the issue list, which lists pull requests too.
-        if (query.text.isNotBlank()) return@forgejoCall list(token, id, "pulls", query)
+        if (query.text.isNotBlank()) return@forgeCall list(token, id, "pulls", query)
         get(token, id, "pulls", query = mapOf("state" to query.state, "sort" to "newest", "limit" to "${IssueQuery.PAGE_SIZE}", "page" to "${query.page}"), patienceMillis = PULLS_PATIENCE_MILLIS)
             .toResult { body<List<IssueJson>>().map { it.toSummary() } }
     }
@@ -99,16 +100,16 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
     private val IssueQuery.state get() = if (open) "open" else "closed"
 
     /** Forgejo pins pull requests apart: only the issues are asked for. */
-    override suspend fun pinnedIssues(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> = forgejoCall {
+    override suspend fun pinnedIssues(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> = forgeCall {
         get(token, id, "issues", "pinned").toResult { body<List<IssueJson>>().filterNot { it.isPullRequest }.map { it.toSummary() } }
     }
 
-    override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = forgejoCall {
+    override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = forgeCall {
         get(token, id, "releases", query = mapOf("limit" to "30"))
             .toResult { body<List<ReleaseJson>>().filterNot { it.draft }.map { it.toModel() }.withLatest() }
     }
 
-    override suspend fun release(token: String?, id: RepoId, tag: String): ForgeResult<Release> = forgejoCall {
+    override suspend fun release(token: String?, id: RepoId, tag: String): ForgeResult<Release> = forgeCall {
         // A tag may hold slashes: each part is its own path segment.
         get(token, id, "releases", "tags", *tag.split('/').filter { it.isNotEmpty() }.toTypedArray()).toResult { body<ReleaseJson>().toModel() }
     }

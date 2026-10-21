@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
@@ -53,14 +54,14 @@ class GitHubIssueApi(
     private val apiBaseUrl: String = "https://api.github.com",
 ) : IssueApi {
 
-    override suspend fun issue(token: String?, ref: IssueRef): ForgeResult<IssueDetails> = gitHubCall {
+    override suspend fun issue(token: String?, ref: IssueRef): ForgeResult<IssueDetails> = forgeCall {
         val response = httpClient.gitHubApi(apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString())
-        if (response.status.value != 200) return@gitHubCall response.failure()
+        if (response.status.value != 200) return@forgeCall response.failure()
         val issue = response.body<IssueJson>()
         // The issue endpoint lacks merge and branch data; pull requests need their own call.
         val pull = if (issue.pullRequest != null) {
             val pullResponse = httpClient.gitHubApi(apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "pulls", ref.number.toString())
-            if (pullResponse.status.value != 200) return@gitHubCall pullResponse.failure()
+            if (pullResponse.status.value != 200) return@forgeCall pullResponse.failure()
             pullResponse.body<PullJson>()
         } else {
             null
@@ -69,12 +70,12 @@ class GitHubIssueApi(
     }
 
     /** The issue endpoint names pull requests too: no second call for the title. */
-    override suspend fun title(token: String?, ref: IssueRef): ForgeResult<String> = gitHubCall {
+    override suspend fun title(token: String?, ref: IssueRef): ForgeResult<String> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString())
             .toResult { body<IssueJson>().title }
     }
 
-    override suspend fun timeline(token: String?, ref: IssueRef, page: Int): ForgeResult<TimelinePage> = gitHubCall {
+    override suspend fun timeline(token: String?, ref: IssueRef, page: Int): ForgeResult<TimelinePage> = forgeCall {
         val response = httpClient.gitHubApi(
             apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "timeline",
             query = mapOf("per_page" to "100", "page" to page.toString()),
@@ -82,21 +83,21 @@ class GitHubIssueApi(
         response.toResult { TimelinePage(body<List<EventJson>>().mapNotNull { it.toModel() }, nextPage(), lastPage()) }
     }
 
-    override suspend fun comment(token: String, ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment> = gitHubCall {
+    override suspend fun comment(token: String, ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment> = forgeCall {
         httpClient.gitHubApi(
             apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "comments",
             method = HttpMethod.Post, body = buildJsonObject { put("body", body) },
         ).toResult { body<CommentJson>().toModel() }
     }
 
-    override suspend fun editComment(token: String, ref: IssueRef, commentId: Long, body: String): ForgeResult<Unit> = gitHubCall {
+    override suspend fun editComment(token: String, ref: IssueRef, commentId: Long, body: String): ForgeResult<Unit> = forgeCall {
         httpClient.gitHubApi(
             apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", "comments", commentId.toString(),
             method = HttpMethod.Patch, body = buildJsonObject { put("body", body) },
         ).toResult { }
     }
 
-    override suspend fun deleteComment(token: String, ref: IssueRef, commentId: Long): ForgeResult<Unit> = gitHubCall {
+    override suspend fun deleteComment(token: String, ref: IssueRef, commentId: Long): ForgeResult<Unit> = forgeCall {
         httpClient.gitHubApi(
             apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", "comments", commentId.toString(),
             method = HttpMethod.Delete,
@@ -114,19 +115,19 @@ class GitHubIssueApi(
      * then taken back by its id. The counts come from the comment or the issue read again: a list of reactions stops
      * at a hundred, and a busy issue has more.
      */
-    override suspend fun toggleReaction(token: String, login: String, ref: IssueRef, commentId: Long?, reaction: Reaction): ForgeResult<Map<Reaction, Int>> = gitHubCall {
+    override suspend fun toggleReaction(token: String, login: String, ref: IssueRef, commentId: Long?, reaction: Reaction): ForgeResult<Map<Reaction, Int>> = forgeCall {
         val target = if (commentId == null) arrayOf("issues", ref.number.toString()) else arrayOf("issues", "comments", commentId.toString())
         val given = httpClient.gitHubApi(
             apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, *target, "reactions",
             method = HttpMethod.Post, body = buildJsonObject { put("content", reaction.content) },
         )
-        if (!given.status.isSuccess()) return@gitHubCall given.failure()
+        if (!given.status.isSuccess()) return@forgeCall given.failure()
         if (given.status.value == 200) {
             val taken = httpClient.gitHubApi(
                 apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, *target, "reactions", given.body<ReactionJson>().id.toString(),
                 method = HttpMethod.Delete,
             )
-            if (!taken.status.isSuccess()) return@gitHubCall taken.failure()
+            if (!taken.status.isSuccess()) return@forgeCall taken.failure()
         }
         httpClient.gitHubApi(apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, *target)
             .toResult { body<ReactedJson>().reactions?.toModel().orEmpty() }
@@ -144,7 +145,7 @@ class GitHubIssueApi(
             Reaction.EYES -> "eyes"
         }
 
-    override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = gitHubCall {
+    override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = forgeCall {
         httpClient.gitHubApi(
             apiBaseUrl, token, "repos", repo.owner, repo.name, "issues",
             method = HttpMethod.Post,
@@ -161,7 +162,7 @@ class GitHubIssueApi(
         if (!open && reason != null) put("state_reason", reason.name.lowercase())
     }
 
-    private suspend fun edit(token: String, ref: IssueRef, fields: JsonObjectBuilder.() -> Unit): ForgeResult<Unit> = gitHubCall {
+    private suspend fun edit(token: String, ref: IssueRef, fields: JsonObjectBuilder.() -> Unit): ForgeResult<Unit> = forgeCall {
         httpClient.gitHubApi(
             apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(),
             method = HttpMethod.Patch, body = buildJsonObject(fields),
@@ -176,19 +177,19 @@ class GitHubIssueApi(
 
     // The lists below stop at their first hundred: a repository with more is rare, and none needs them all to triage.
 
-    override suspend fun labels(token: String, repo: RepoId): ForgeResult<List<Label>> = gitHubCall {
+    override suspend fun labels(token: String, repo: RepoId): ForgeResult<List<Label>> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, "labels", query = FIRST_HUNDRED)
             .toResult { body<List<LabelJson>>().map { it.toModel() } }
     }
 
-    override suspend fun setLabels(token: String, ref: IssueRef, names: List<String>): ForgeResult<Unit> = gitHubCall {
+    override suspend fun setLabels(token: String, ref: IssueRef, names: List<String>): ForgeResult<Unit> = forgeCall {
         httpClient.gitHubApi(
             apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "labels",
             method = HttpMethod.Put, body = buildJsonObject { putJsonArray("labels") { names.forEach { add(it) } } },
         ).toResult { }
     }
 
-    override suspend fun assignable(token: String, repo: RepoId): ForgeResult<List<ForgeUser>> = gitHubCall {
+    override suspend fun assignable(token: String, repo: RepoId): ForgeResult<List<ForgeUser>> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, "assignees", query = FIRST_HUNDRED)
             .toResult { body<List<UserJson>>().map { it.toModel() } }
     }
@@ -196,7 +197,7 @@ class GitHubIssueApi(
     override suspend fun setAssignees(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> =
         edit(token, ref) { putJsonArray("assignees") { logins.forEach { add(it) } } }
 
-    override suspend fun milestones(token: String, repo: RepoId): ForgeResult<List<Milestone>> = gitHubCall {
+    override suspend fun milestones(token: String, repo: RepoId): ForgeResult<List<Milestone>> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, "milestones", query = FIRST_HUNDRED + ("state" to "open"))
             .toResult { body<List<MilestoneJson>>().map { it.toModel() } }
     }
@@ -204,7 +205,7 @@ class GitHubIssueApi(
     override suspend fun setMilestone(token: String, ref: IssueRef, milestone: Milestone?): ForgeResult<Unit> =
         edit(token, ref) { put("milestone", milestone?.id) }
 
-    override suspend fun setLocked(token: String, ref: IssueRef, locked: Boolean): ForgeResult<Unit> = gitHubCall {
+    override suspend fun setLocked(token: String, ref: IssueRef, locked: Boolean): ForgeResult<Unit> = forgeCall {
         httpClient.gitHubApi(
             apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "lock",
             method = if (locked) HttpMethod.Put else HttpMethod.Delete,
@@ -291,7 +292,7 @@ class GitHubIssueApi(
      * One GraphQL request. GitHub answers 200 even when it refuses: a refusal is told apart by its errors, FORBIDDEN
      * for a missing permission and NOT_FOUND for what the token can't see.
      */
-    private suspend fun graphQl(token: String, query: String, variables: JsonObject): ForgeResult<JsonObject> = gitHubCall {
+    private suspend fun graphQl(token: String, query: String, variables: JsonObject): ForgeResult<JsonObject> = forgeCall {
         val response = httpClient.post("$apiBaseUrl/graphql") {
             bearerAuth(token)
             header("X-GitHub-Api-Version", GitHubAuthApi.API_VERSION)
@@ -303,7 +304,7 @@ class GitHubIssueApi(
                 },
             )
         }
-        if (!response.status.isSuccess()) return@gitHubCall response.failure()
+        if (!response.status.isSuccess()) return@forgeCall response.failure()
         val answer = response.body<GraphQlAnswer>()
         val error = answer.errors.firstOrNull()
         when {
@@ -333,7 +334,7 @@ class GitHubIssueApi(
         val FIRST_HUNDRED = mapOf("per_page" to "100")
     }
 
-    override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoRights> = gitHubCall {
+    override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoRights> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name).toResult {
             val permissions = body<PermittedRepoJson>().permissions
             RepoRights(

@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.FeedApi
 import fr.arthurbrugiere.forgeline.core.forge.FeedPage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -30,14 +31,14 @@ class GitLabFeedApi(
 
     private val projectCache = ConcurrentHashMap<Long, RepoId>()
 
-    override suspend fun receivedEvents(token: String?, login: String, page: Int, ifModifiedSince: String?): ForgeResult<FeedPage> = gitlabCall {
+    override suspend fun receivedEvents(token: String?, login: String, page: Int, ifModifiedSince: String?): ForgeResult<FeedPage> = forgeCall {
         val response = if (token != null) {
             // Everything in the reader's projects, not only what they did themselves (which is all `/events` gives alone).
             httpClient.gitlabApi(forge, token, "events", query = mapOf("scope" to "all", "per_page" to "$PAGE_SIZE", "page" to page.toString()))
         } else {
             httpClient.gitlabApi(forge, null, "users", login, "events", query = mapOf("per_page" to "$PAGE_SIZE", "page" to page.toString()))
         }
-        if (!response.status.isSuccess()) return@gitlabCall response.failure()
+        if (!response.status.isSuccess()) return@forgeCall response.failure()
 
         val events = response.body<List<GitLabEventJson>>()
         resolveProjects(token, events)

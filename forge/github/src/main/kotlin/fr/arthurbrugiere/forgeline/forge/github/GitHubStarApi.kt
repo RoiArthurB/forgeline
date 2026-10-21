@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.StarApi
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -28,7 +29,7 @@ class GitHubStarApi(
     private val apiBaseUrl: String = "https://api.github.com",
 ) : StarApi {
 
-    override suspend fun setStarred(token: String, repo: RepoId, starred: Boolean): ForgeResult<Unit> = gitHubCall {
+    override suspend fun setStarred(token: String, repo: RepoId, starred: Boolean): ForgeResult<Unit> = forgeCall {
         val url = "$apiBaseUrl/user/starred/${repo.owner}/${repo.name}"
         val response = if (starred) {
             httpClient.put(url) { authenticated(token) }
@@ -39,12 +40,12 @@ class GitHubStarApi(
     }
 
     /** GitHub answers 404 for a repository the account has no subscription to: that is a no, not a failure. */
-    override suspend fun isWatching(token: String, repo: RepoId): ForgeResult<Boolean> = gitHubCall {
+    override suspend fun isWatching(token: String, repo: RepoId): ForgeResult<Boolean> = forgeCall {
         val response = httpClient.get("$apiBaseUrl/repos/${repo.owner}/${repo.name}/subscription") { authenticated(token) }
         if (response.status == HttpStatusCode.NotFound) ForgeResult.Success(false) else response.toResult { body<SubscriptionJson>().subscribed }
     }
 
-    override suspend fun setWatching(token: String, repo: RepoId, watching: Boolean): ForgeResult<Unit> = gitHubCall {
+    override suspend fun setWatching(token: String, repo: RepoId, watching: Boolean): ForgeResult<Unit> = forgeCall {
         val url = "$apiBaseUrl/repos/${repo.owner}/${repo.name}/subscription"
         val response = if (watching) {
             httpClient.put(url) {
@@ -58,14 +59,14 @@ class GitHubStarApi(
         response.toResult { }
     }
 
-    override suspend fun fork(token: String, repo: RepoId): ForgeResult<RepoId> = gitHubCall {
+    override suspend fun fork(token: String, repo: RepoId): ForgeResult<RepoId> = forgeCall {
         httpClient.post("$apiBaseUrl/repos/${repo.owner}/${repo.name}/forks") { authenticated(token) }
             .toResult { body<ForkJson>().let { RepoId(it.owner.login, it.name, repo.forge) } }
     }
 
     override suspend fun starredStatus(token: String, repos: List<RepoId>): ForgeResult<Map<RepoId, Boolean>> {
         if (repos.isEmpty()) return ForgeResult.Success(emptyMap())
-        return gitHubCall {
+        return forgeCall {
             val response = httpClient.post("$apiBaseUrl/graphql") {
                 authenticated(token)
                 contentType(ContentType.Application.Json)

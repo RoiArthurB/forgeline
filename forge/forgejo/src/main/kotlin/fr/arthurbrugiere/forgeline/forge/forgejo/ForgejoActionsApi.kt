@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.common.writeTo
 import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.forge.JobLogReader
 import fr.arthurbrugiere.forgeline.core.forge.logPartOf
@@ -48,7 +50,7 @@ class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: F
 
     override val supportsRerun: Boolean = false
 
-    override suspend fun run(token: String?, id: RepoId, runId: Long): ForgeResult<WorkflowRun> = forgejoCall {
+    override suspend fun run(token: String?, id: RepoId, runId: Long): ForgeResult<WorkflowRun> = forgeCall {
         call(token, id, "actions", "runs", runId.toString()).toResult { body<RunJson>().toModel() }
     }
 
@@ -56,9 +58,9 @@ class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: F
      * Only the latest attempt's jobs, like GitHub's list. Older Forgejo servers list runs but not their jobs (a 404
      * for a run that exists): Unsupported, so the run still shows.
      */
-    override suspend fun jobs(token: String?, id: RepoId, runId: Long): ForgeResult<List<RunJob>> = forgejoCall {
+    override suspend fun jobs(token: String?, id: RepoId, runId: Long): ForgeResult<List<RunJob>> = forgeCall {
         val response = call(token, id, "actions", "runs", runId.toString(), "jobs")
-        if (response.status == HttpStatusCode.NotFound) return@forgejoCall ForgeResult.Failure(ForgeError.Unsupported)
+        if (response.status == HttpStatusCode.NotFound) return@forgeCall ForgeResult.Failure(ForgeError.Unsupported)
         response.toResult {
             val jobs = body<List<JobJson>>()
             val latest = jobs.maxOfOrNull { it.attempt } ?: 0
@@ -75,10 +77,10 @@ class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: F
 
     override val logFormat = LogFormat.FORGEJO
 
-    override suspend fun openJobLog(token: String?, id: RepoId, jobId: Long): ForgeResult<JobLogReader> = forgejoCall {
+    override suspend fun openJobLog(token: String?, id: RepoId, jobId: Long): ForgeResult<JobLogReader> = forgeCall {
         when (val first = readLog(token, id, jobId, 0L..0L)) {
             is ForgeResult.Failure -> first
-            is ForgeResult.Success -> ForgeResult.Success(JobLogReader(first.value.total) { range -> forgejoCall { readLog(token, id, jobId, range) } })
+            is ForgeResult.Success -> ForgeResult.Success(JobLogReader(first.value.total) { range -> forgeCall { readLog(token, id, jobId, range) } })
         }
     }
 
@@ -87,7 +89,7 @@ class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: F
             logPartOf(response.status.value, response.headers[HttpHeaders.ContentRange]) { response.readRawBytes() } ?: response.failure()
         }
 
-    override suspend fun downloadJobLog(token: String?, id: RepoId, jobId: Long, into: OutputStream): ForgeResult<Unit> = forgejoCall {
+    override suspend fun downloadJobLog(token: String?, id: RepoId, jobId: Long, into: OutputStream): ForgeResult<Unit> = forgeCall {
         logRequest(token, id, jobId).execute { response ->
             if (response.status != HttpStatusCode.OK) return@execute response.failure()
             response.bodyAsChannel().writeTo(into)
@@ -99,13 +101,13 @@ class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: F
         httpClient.forgejoStatement(forge, token, "repos", id.owner, id.name, "actions", "jobs", jobId.toString(), "logs", more = more)
 
     /** The workflow files, from the first folder Forgejo reads them from that exists. */
-    override suspend fun workflows(token: String?, id: RepoId): ForgeResult<List<Workflow>> = forgejoCall {
+    override suspend fun workflows(token: String?, id: RepoId): ForgeResult<List<Workflow>> = forgeCall {
         for (folder in WORKFLOW_FOLDERS) {
             val files = when (val tree = httpClient.forgejoTree(forge, token, id, "HEAD", folder)) {
-                is ForgeResult.Failure -> return@forgejoCall tree
+                is ForgeResult.Failure -> return@forgeCall tree
                 is ForgeResult.Success -> tree.value ?: continue
             }
-            return@forgejoCall ForgeResult.Success(
+            return@forgeCall ForgeResult.Success(
                 files
                     .filter { it.type == "blob" && (it.path.endsWith(".yml") || it.path.endsWith(".yaml")) }
                     .map { "$folder/${it.path}".let { path -> Workflow(path.hashCode().toLong(), it.path, path) } },
@@ -115,15 +117,15 @@ class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: F
     }
 
     override suspend fun dispatchInputs(token: String?, id: RepoId, workflow: Workflow, ref: String): ForgeResult<List<DispatchInput>?> =
-        forgejoCall {
+        forgeCall {
             val response = call(token, id, "raw", *workflow.path.split('/').toTypedArray(), query = mapOf("ref" to ref))
-            if (response.status != HttpStatusCode.OK) return@forgejoCall response.failure()
+            if (response.status != HttpStatusCode.OK) return@forgeCall response.failure()
             ForgeResult.Success(WorkflowDispatchParser.inputs(response.bodyAsText()))
         }
 
     /** Forgejo names the workflow by its file name. */
     override suspend fun dispatch(token: String, id: RepoId, workflow: Workflow, ref: String, inputs: Map<String, String>): ForgeResult<Unit> =
-        forgejoCall {
+        forgeCall {
             val body = buildJsonObject {
                 put("ref", ref)
                 if (inputs.isNotEmpty()) put("inputs", buildJsonObject { inputs.forEach { (key, value) -> put(key, JsonPrimitive(value)) } })
@@ -135,12 +137,12 @@ class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: F
     override suspend fun rerun(token: String, id: RepoId, runId: Long, failedJobsOnly: Boolean): ForgeResult<Unit> =
         ForgeResult.Failure(ForgeError.Unsupported)
 
-    override suspend fun cancel(token: String, id: RepoId, runId: Long): ForgeResult<Unit> = forgejoCall {
+    override suspend fun cancel(token: String, id: RepoId, runId: Long): ForgeResult<Unit> = forgeCall {
         call(token, id, "actions", "runs", runId.toString(), "cancel", method = HttpMethod.Post).toResult { }
     }
 
     /** The newest runs. `page` must be sent: without it Codeberg ignores `limit` and answers every run (56 MB, 2026-09-30). */
-    suspend fun runs(token: String?, id: RepoId): ForgeResult<List<WorkflowRun>> = forgejoCall {
+    suspend fun runs(token: String?, id: RepoId): ForgeResult<List<WorkflowRun>> = forgeCall {
         call(token, id, "actions", "runs", query = mapOf("page" to "1", "limit" to "$RUNS")).toResult {
             body<RunsJson>().runs.map { it.toModel() }
         }

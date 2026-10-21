@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.PullRequestApi
@@ -41,20 +42,20 @@ class GitHubPullRequestApi(
     private val apiBaseUrl: String = "https://api.github.com",
 ) : PullRequestApi {
 
-    override suspend fun files(token: String?, ref: IssueRef, page: Int): ForgeResult<ChangedFiles> = gitHubCall {
+    override suspend fun files(token: String?, ref: IssueRef, page: Int): ForgeResult<ChangedFiles> = forgeCall {
         val response = pull(token, ref, "files", query = mapOf("per_page" to "$FILES_PER_PAGE", "page" to "$page"))
         response.toResult { ChangedFiles(body<List<PrFileJson>>().map { it.toModel() }, nextPage()) }
     }
 
-    override suspend fun commits(token: String?, ref: IssueRef): ForgeResult<List<Commit>> = gitHubCall {
+    override suspend fun commits(token: String?, ref: IssueRef): ForgeResult<List<Commit>> = forgeCall {
         // GitHub lists at most 250 commits of a pull request, whatever is asked.
         val first = pull(token, ref, "commits", query = mapOf("per_page" to "100"))
-        if (first.status != HttpStatusCode.OK) return@gitHubCall first.failure()
+        if (first.status != HttpStatusCode.OK) return@forgeCall first.failure()
         val commits = first.body<List<PrCommitJson>>().toMutableList()
         var next = first.nextPage()
         while (next != null && next <= 3) {
             val more = pull(token, ref, "commits", query = mapOf("per_page" to "100", "page" to "$next"))
-            if (more.status != HttpStatusCode.OK) return@gitHubCall more.failure()
+            if (more.status != HttpStatusCode.OK) return@forgeCall more.failure()
             commits += more.body<List<PrCommitJson>>()
             next = more.nextPage()
         }
@@ -65,9 +66,9 @@ class GitHubPullRequestApi(
      * GitHub keeps two kinds apart: check runs (Actions and the apps built like it) and statuses (what older services
      * report). Both are about a commit, so the pull request is asked for its latest one first.
      */
-    override suspend fun checks(token: String?, ref: IssueRef): ForgeResult<List<Check>> = gitHubCall {
+    override suspend fun checks(token: String?, ref: IssueRef): ForgeResult<List<Check>> = forgeCall {
         val pull = pull(token, ref)
-        if (pull.status != HttpStatusCode.OK) return@gitHubCall pull.failure()
+        if (pull.status != HttpStatusCode.OK) return@forgeCall pull.failure()
         val sha = pull.body<PrPullJson>().head.sha
         coroutineScope {
             val runs = async { repo(token, ref.repo, "commits", sha, "check-runs", query = mapOf("per_page" to "100")) }
@@ -80,11 +81,11 @@ class GitHubPullRequestApi(
         }
     }
 
-    override suspend fun checkReport(token: String?, repo: RepoId, checkId: Long): ForgeResult<CheckReport> = gitHubCall {
+    override suspend fun checkReport(token: String?, repo: RepoId, checkId: Long): ForgeResult<CheckReport> = forgeCall {
         repo(token, repo, "check-runs", checkId.toString()).toResult { body<PrCheckRunJson>().toReport() }
     }
 
-    override suspend fun mergeInfo(token: String, ref: IssueRef): ForgeResult<MergeInfo> = gitHubCall {
+    override suspend fun mergeInfo(token: String, ref: IssueRef): ForgeResult<MergeInfo> = forgeCall {
         coroutineScope {
             val pull = async { pull(token, ref) }
             val repo = async { repo(token, ref.repo) }
@@ -103,14 +104,14 @@ class GitHubPullRequestApi(
         }
     }
 
-    override suspend fun merge(token: String, ref: IssueRef, method: MergeMethod): ForgeResult<Unit> = gitHubCall {
+    override suspend fun merge(token: String, ref: IssueRef, method: MergeMethod): ForgeResult<Unit> = forgeCall {
         pull(
             token, ref, "merge", method = HttpMethod.Put,
             body = buildJsonObject { put("merge_method", method.name.lowercase()) },
         ).toResult { }
     }
 
-    override suspend fun review(token: String, ref: IssueRef, verdict: ReviewVerdict, body: String, comments: List<LineComment>): ForgeResult<Unit> = gitHubCall {
+    override suspend fun review(token: String, ref: IssueRef, verdict: ReviewVerdict, body: String, comments: List<LineComment>): ForgeResult<Unit> = forgeCall {
         pull(
             token, ref, "reviews", method = HttpMethod.Post,
             body = buildJsonObject {
@@ -137,7 +138,7 @@ class GitHubPullRequestApi(
         ).toResult { }
     }
 
-    override suspend fun create(token: String, repo: RepoId, request: NewPullRequest): ForgeResult<IssueRef> = gitHubCall {
+    override suspend fun create(token: String, repo: RepoId, request: NewPullRequest): ForgeResult<IssueRef> = forgeCall {
         repo(
             token, repo, "pulls", method = HttpMethod.Post,
             body = buildJsonObject {
@@ -150,7 +151,7 @@ class GitHubPullRequestApi(
         ).toResult { IssueRef(repo, body<PrCreatedJson>().number, isPullRequest = true) }
     }
 
-    override suspend fun history(token: String?, repo: RepoId, ref: String?, path: String?, page: Int): ForgeResult<CommitPage> = gitHubCall {
+    override suspend fun history(token: String?, repo: RepoId, ref: String?, path: String?, page: Int): ForgeResult<CommitPage> = forgeCall {
         val query = buildMap {
             put("per_page", "$HISTORY_PER_PAGE")
             put("page", "$page")
@@ -161,15 +162,15 @@ class GitHubPullRequestApi(
         response.toResult { CommitPage(body<List<PrCommitJson>>().map { it.toModel() }, nextPage()) }
     }
 
-    override suspend fun commit(token: String?, repo: RepoId, sha: String): ForgeResult<CommitDetails> = gitHubCall {
+    override suspend fun commit(token: String?, repo: RepoId, sha: String): ForgeResult<CommitDetails> = forgeCall {
         repo(token, repo, "commits", sha).toResult { body<PrCommitJson>().let { CommitDetails(it.toModel(), it.files.map { file -> file.toModel() }) } }
     }
 
     override val supportsBlame: Boolean = true
 
     /** GitHub's REST API has no blame: its GraphQL one does, for signed-in users only. */
-    override suspend fun blame(token: String?, repo: RepoId, ref: String, path: String): ForgeResult<List<BlameRange>> = gitHubCall {
-        if (token == null) return@gitHubCall ForgeResult.Failure(ForgeError.Unauthorized)
+    override suspend fun blame(token: String?, repo: RepoId, ref: String, path: String): ForgeResult<List<BlameRange>> = forgeCall {
+        if (token == null) return@forgeCall ForgeResult.Failure(ForgeError.Unauthorized)
         httpClient.gitHubApi(
             apiBaseUrl, token, "graphql", method = HttpMethod.Post,
             body = buildJsonObject {
@@ -186,7 +187,7 @@ class GitHubPullRequestApi(
             },
         ).toResult {
             // A ref or a path that isn't there answers with nothing under it, not with an error.
-            val ranges = body<PrBlameResponse>().data?.repository?.target?.blame?.ranges ?: return@gitHubCall ForgeResult.Failure(ForgeError.Http(404, null))
+            val ranges = body<PrBlameResponse>().data?.repository?.target?.blame?.ranges ?: return@forgeCall ForgeResult.Failure(ForgeError.Http(404, null))
             ranges.map { it.toModel() }
         }
     }

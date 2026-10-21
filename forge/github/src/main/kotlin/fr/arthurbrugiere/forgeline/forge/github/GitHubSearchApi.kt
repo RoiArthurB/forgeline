@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.SearchApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -25,26 +26,26 @@ class GitHubSearchApi(
     private val apiBaseUrl: String = "https://api.github.com",
 ) : SearchApi {
 
-    override suspend fun repositories(token: String?, query: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = gitHubCall {
+    override suspend fun repositories(token: String?, query: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
         search(token, "repositories", query, page).toResult {
             body<SearchJson<SearchRepoJson>>().toPage(nextPage()) { it.toModel() }
         }
     }
 
-    override suspend fun issues(token: String?, query: String, page: Int): ForgeResult<SearchPage<IssueSearchResult>> = gitHubCall {
+    override suspend fun issues(token: String?, query: String, page: Int): ForgeResult<SearchPage<IssueSearchResult>> = forgeCall {
         search(token, "issues", query, page).toResult {
             body<SearchJson<SearchIssueJson>>().toPage(nextPage()) { it.toModel() }
         }
     }
 
-    override suspend fun users(token: String?, query: String, page: Int): ForgeResult<SearchPage<UserSummary>> = gitHubCall {
+    override suspend fun users(token: String?, query: String, page: Int): ForgeResult<SearchPage<UserSummary>> = forgeCall {
         search(token, "users", query, page).toResult {
             body<SearchJson<SearchUserJson>>().toPage(nextPage()) { UserSummary(it.login, it.avatarUrl, isOrganization = it.type == "Organization") }
         }
     }
 
     // "@me" is whoever the token signs in. Archived repositories are left out: nothing can be done there.
-    override suspend fun work(token: String, login: String, kind: WorkKind): ForgeResult<List<IssueSearchResult>> = gitHubCall {
+    override suspend fun work(token: String, login: String, kind: WorkKind): ForgeResult<List<IssueSearchResult>> = forgeCall {
         val mine = when (kind) {
             WorkKind.REVIEW_REQUESTED -> "is:pr review-requested:@me"
             WorkKind.OWN_PULL_REQUESTS -> "is:pr author:@me"

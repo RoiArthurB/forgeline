@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.common.writeTo
 import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.forge.JobLogReader
 import fr.arthurbrugiere.forgeline.core.forge.logPartOf
@@ -33,27 +35,27 @@ class GitLabActionsApi(private val httpClient: HttpClient) : ActionsApi {
 
     override val supportsRerun: Boolean = true
 
-    override suspend fun run(token: String?, id: RepoId, runId: Long): ForgeResult<WorkflowRun> = gitlabCall {
+    override suspend fun run(token: String?, id: RepoId, runId: Long): ForgeResult<WorkflowRun> = forgeCall {
         httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "pipelines", runId.toString())
             .toResult { body<GitLabPipelineJson>().toRun() }
     }
 
-    override suspend fun jobs(token: String?, id: RepoId, runId: Long): ForgeResult<List<RunJob>> = gitlabCall {
+    override suspend fun jobs(token: String?, id: RepoId, runId: Long): ForgeResult<List<RunJob>> = forgeCall {
         httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "pipelines", runId.toString(), "jobs", query = mapOf("per_page" to "100"))
             .toResult { body<List<GitLabJobJson>>().map { it.toRunJob() } }
     }
 
-    override suspend fun job(token: String?, id: RepoId, runId: Long, jobId: Long): ForgeResult<RunJob> = gitlabCall {
+    override suspend fun job(token: String?, id: RepoId, runId: Long, jobId: Long): ForgeResult<RunJob> = forgeCall {
         httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "jobs", jobId.toString())
             .toResult { body<GitLabJobJson>().toRunJob() }
     }
 
     override val logFormat = LogFormat.GITLAB
 
-    override suspend fun openJobLog(token: String?, id: RepoId, jobId: Long): ForgeResult<JobLogReader> = gitlabCall {
+    override suspend fun openJobLog(token: String?, id: RepoId, jobId: Long): ForgeResult<JobLogReader> = forgeCall {
         when (val first = readLog(token, id, jobId, 0L..0L)) {
             is ForgeResult.Failure -> first
-            is ForgeResult.Success -> ForgeResult.Success(JobLogReader(first.value.total) { range -> gitlabCall { readLog(token, id, jobId, range) } })
+            is ForgeResult.Success -> ForgeResult.Success(JobLogReader(first.value.total) { range -> forgeCall { readLog(token, id, jobId, range) } })
         }
     }
 
@@ -62,7 +64,7 @@ class GitLabActionsApi(private val httpClient: HttpClient) : ActionsApi {
             logPartOf(response.status.value, response.headers[HttpHeaders.ContentRange]) { response.readRawBytes() } ?: response.failure()
         }
 
-    override suspend fun downloadJobLog(token: String?, id: RepoId, jobId: Long, into: OutputStream): ForgeResult<Unit> = gitlabCall {
+    override suspend fun downloadJobLog(token: String?, id: RepoId, jobId: Long, into: OutputStream): ForgeResult<Unit> = forgeCall {
         logRequest(token, id, jobId).execute { response ->
             if (!response.status.isSuccess()) return@execute response.failure()
             response.bodyAsChannel().writeTo(into)
@@ -73,17 +75,17 @@ class GitLabActionsApi(private val httpClient: HttpClient) : ActionsApi {
     private suspend fun logRequest(token: String?, id: RepoId, jobId: Long, more: HttpRequestBuilder.() -> Unit = {}): HttpStatement =
         httpClient.gitlabStatement(id.forge, token, "projects", id.fullName, "jobs", jobId.toString(), "trace", more = more)
 
-    override suspend fun workflows(token: String?, id: RepoId): ForgeResult<List<Workflow>> = gitlabCall {
+    override suspend fun workflows(token: String?, id: RepoId): ForgeResult<List<Workflow>> = forgeCall {
         val response = httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "repository", "files", ".gitlab-ci.yml", query = mapOf("ref" to "HEAD"))
-        if (response.status == HttpStatusCode.NotFound) return@gitlabCall ForgeResult.Success(emptyList())
-        if (!response.status.isSuccess()) return@gitlabCall response.failure()
+        if (response.status == HttpStatusCode.NotFound) return@forgeCall ForgeResult.Success(emptyList())
+        if (!response.status.isSuccess()) return@forgeCall response.failure()
         ForgeResult.Success(listOf(Workflow(id = 1L, name = "GitLab CI", path = ".gitlab-ci.yml")))
     }
 
     override suspend fun dispatchInputs(token: String?, id: RepoId, workflow: Workflow, ref: String): ForgeResult<List<DispatchInput>?> =
         ForgeResult.Success(emptyList())
 
-    override suspend fun dispatch(token: String, id: RepoId, workflow: Workflow, ref: String, inputs: Map<String, String>): ForgeResult<Unit> = gitlabCall {
+    override suspend fun dispatch(token: String, id: RepoId, workflow: Workflow, ref: String, inputs: Map<String, String>): ForgeResult<Unit> = forgeCall {
         val payload = buildJsonObject {
             put("ref", ref)
             if (inputs.isNotEmpty()) {
@@ -101,12 +103,12 @@ class GitLabActionsApi(private val httpClient: HttpClient) : ActionsApi {
             .toResult { }
     }
 
-    override suspend fun rerun(token: String, id: RepoId, runId: Long, failedJobsOnly: Boolean): ForgeResult<Unit> = gitlabCall {
+    override suspend fun rerun(token: String, id: RepoId, runId: Long, failedJobsOnly: Boolean): ForgeResult<Unit> = forgeCall {
         httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "pipelines", runId.toString(), "retry", method = HttpMethod.Post)
             .toResult { }
     }
 
-    override suspend fun cancel(token: String, id: RepoId, runId: Long): ForgeResult<Unit> = gitlabCall {
+    override suspend fun cancel(token: String, id: RepoId, runId: Long): ForgeResult<Unit> = forgeCall {
         httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "pipelines", runId.toString(), "cancel", method = HttpMethod.Post)
             .toResult { }
     }

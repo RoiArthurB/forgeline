@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.core.forge.FeedApi
 import fr.arthurbrugiere.forgeline.core.forge.FeedDetail
 import fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey
@@ -38,7 +40,7 @@ class GitHubFeedApi(
     private val apiBaseUrl: String = "https://api.github.com",
 ) : FeedApi {
 
-    override suspend fun receivedEvents(token: String?, login: String, page: Int, ifModifiedSince: String?): ForgeResult<FeedPage> = gitHubCall {
+    override suspend fun receivedEvents(token: String?, login: String, page: Int, ifModifiedSince: String?): ForgeResult<FeedPage> = forgeCall {
         val response = httpClient.request {
             method = HttpMethod.Get
             url {
@@ -70,7 +72,7 @@ class GitHubFeedApi(
     override suspend fun starredActivity(token: String, since: Instant): ForgeResult<List<FeedEvent>> = coroutineScope {
         // GitHub's events no longer say when someone creates a repository (checked 2026-10-16: none in the whole public
         // stream), though github.com's own dashboard still shows it: asked apart, and losing it never loses the rest.
-        val created = async { (gitHubCall { newRepositories(token, since) } as? ForgeResult.Success)?.value.orEmpty() }
+        val created = async { (forgeCall { newRepositories(token, since) } as? ForgeResult.Success)?.value.orEmpty() }
         when (val starred = starredReleases(token, since)) {
             is ForgeResult.Success -> ForgeResult.Success(starred.value + created.await())
             is ForgeResult.Failure -> starred
@@ -117,14 +119,14 @@ class GitHubFeedApi(
     }
 
     private suspend fun starredReleases(token: String, since: Instant): ForgeResult<List<FeedEvent>> {
-        val first = when (val result = gitHubCall { starredPage(token, 1) }) {
+        val first = when (val result = forgeCall { starredPage(token, 1) }) {
             is ForgeResult.Failure -> return result
             is ForgeResult.Success -> result.value
         }
         val last = (first.second ?: 1).coerceAtMost(MAX_STARRED_PAGES)
         val stars = first.first + coroutineScope {
             // A later page that fails only loses its own stars.
-            (2..last).map { page -> async { (gitHubCall { starredPage(token, page) } as? ForgeResult.Success)?.value?.first.orEmpty() } }.awaitAll().flatten()
+            (2..last).map { page -> async { (forgeCall { starredPage(token, page) } as? ForgeResult.Success)?.value?.first.orEmpty() } }.awaitAll().flatten()
         }
         val active = stars.filter { star -> !star.archived && (star.pushedAt?.let { runCatching { Instant.parse(it) }.getOrNull() }?.let { it >= since } ?: true) }
         val events = coroutineScope {
@@ -148,7 +150,7 @@ class GitHubFeedApi(
         val fields = batch.withIndex().joinToString(" ") { (i, star) ->
             "r$i: repository(owner: \$o$i, name: \$n$i) { $RELEASES${if (star.hasDiscussions) " $DISCUSSIONS" else ""} }"
         }
-        val result = gitHubCall {
+        val result = forgeCall {
             httpClient.gitHubApi(
                 apiBaseUrl, token, "graphql", method = HttpMethod.Post,
                 body = buildJsonObject {
@@ -168,7 +170,7 @@ class GitHubFeedApi(
         val data = (result as? ForgeResult.Success)?.value?.data ?: return emptyList()
         return batch.withIndex().flatMap { (i, star) ->
             val node = data["r$i"] as? JsonObject ?: return@flatMap emptyList()
-            runCatching { GitHubJson.decodeFromJsonElement<PublishedJson>(node) }.getOrNull()?.events(star, since).orEmpty()
+            runCatching { ForgeJson.decodeFromJsonElement<PublishedJson>(node) }.getOrNull()?.events(star, since).orEmpty()
         }
     }
 
@@ -319,7 +321,7 @@ private data class FeedEventJson(
         return FeedEvent(id, ForgeUser(actor.login, null, actor.avatarUrl), RepoId(owner, name, ForgeInstance.GitHub), action, Instant.parse(createdAt))
     }
 
-    private inline fun <reified T> payload(): T = GitHubJson.decodeFromJsonElement(payload)
+    private inline fun <reified T> payload(): T = ForgeJson.decodeFromJsonElement(payload)
 
     /** Null for activity the Feed doesn't show: label changes, wiki edits, unknown future events. */
     private fun action(): FeedAction? = when (type) {

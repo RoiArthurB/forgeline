@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.SearchApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -20,7 +21,7 @@ class GitLabSearchApi(
     private val forge: ForgeInstance = ForgeInstance.GitLab,
 ) : SearchApi {
 
-    override suspend fun repositories(token: String?, query: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = gitlabCall {
+    override suspend fun repositories(token: String?, query: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
         val response = httpClient.gitlabApi(
             forge, token, "projects",
             query = mapOf("search" to query, "page" to page.toString(), "per_page" to "$PAGE_SIZE"),
@@ -33,7 +34,7 @@ class GitLabSearchApi(
 
     // Through the search endpoint: listing every merge request of gitlab.com that matches (`/merge_requests?scope=all`)
     // times out there (408 after 15 s, measured 2026-10-04), where the search answers in a second or two.
-    override suspend fun issues(token: String?, query: String, page: Int): ForgeResult<SearchPage<IssueSearchResult>> = gitlabCall {
+    override suspend fun issues(token: String?, query: String, page: Int): ForgeResult<SearchPage<IssueSearchResult>> = forgeCall {
         coroutineScope {
             val issuesDeferred = async {
                 httpClient.gitlabApi(
@@ -80,7 +81,7 @@ class GitLabSearchApi(
         }
     }
 
-    override suspend fun users(token: String?, query: String, page: Int): ForgeResult<SearchPage<UserSummary>> = gitlabCall {
+    override suspend fun users(token: String?, query: String, page: Int): ForgeResult<SearchPage<UserSummary>> = forgeCall {
         val response = httpClient.gitlabApi(
             forge, token, "users",
             query = mapOf("search" to query, "page" to page.toString(), "per_page" to "$PAGE_SIZE"),
@@ -92,7 +93,7 @@ class GitLabSearchApi(
     }
 
     // Narrowed to one person, listing merge requests answers at once, where listing them all times out (see [issues]).
-    override suspend fun work(token: String, login: String, kind: WorkKind): ForgeResult<List<IssueSearchResult>> = gitlabCall {
+    override suspend fun work(token: String, login: String, kind: WorkKind): ForgeResult<List<IssueSearchResult>> = forgeCall {
         when (kind) {
             WorkKind.REVIEW_REQUESTED -> mergeRequests(token, mapOf("scope" to "all", "reviewer_username" to login))
             WorkKind.OWN_PULL_REQUESTS -> mergeRequests(token, mapOf("scope" to "created_by_me"))

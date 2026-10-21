@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.DeviceCode
 import fr.arthurbrugiere.forgeline.core.forge.DeviceTokenPoll
 import fr.arthurbrugiere.forgeline.core.forge.ForgeAuthApi
@@ -39,7 +40,7 @@ class ForgejoAuthApi(
 
     override suspend fun pollDeviceToken(deviceCode: String): ForgeResult<DeviceTokenPoll> = ForgeResult.Failure(ForgeError.Unsupported)
 
-    override suspend fun fetchAuthenticatedUser(token: String): ForgeResult<ForgeUser> = forgejoCall {
+    override suspend fun fetchAuthenticatedUser(token: String): ForgeResult<ForgeUser> = forgeCall {
         httpClient.forgejoApi(forge, token, "user").toResult { body<UserJson>().toModel() }
     }
 
@@ -65,7 +66,7 @@ class ForgejoAuthApi(
         "refresh_token" to refreshToken,
     )
 
-    private suspend fun token(vararg fields: Pair<String, String>): ForgeResult<OAuthTokens> = forgejoCall {
+    private suspend fun token(vararg fields: Pair<String, String>): ForgeResult<OAuthTokens> = forgeCall {
         httpClient.submitForm(
             url = "${forge.webUrl}/login/oauth/access_token",
             formParameters = parameters {

@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.FeedApi
 import fr.arthurbrugiere.forgeline.core.forge.FeedPage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -42,7 +43,7 @@ class ForgejoFeedApi(
     /** When each followed person's activity was last read, for the rotation. */
     private val lastRead = ConcurrentHashMap<String, Long>()
 
-    override suspend fun receivedEvents(token: String?, login: String, page: Int, ifModifiedSince: String?): ForgeResult<FeedPage> = forgejoCall {
+    override suspend fun receivedEvents(token: String?, login: String, page: Int, ifModifiedSince: String?): ForgeResult<FeedPage> = forgeCall {
         coroutineScope {
             // Followed people only join the newest page: older pages follow your own feed back in time. Both are asked
             // at once, not one after the other.
@@ -92,12 +93,12 @@ class ForgejoFeedApi(
      * the stars are listed, then each repository that could have a recent release is asked for its latest one, all at
      * once. Repositories with no release, archived, or untouched since [since] are skipped unasked.
      */
-    override suspend fun starredActivity(token: String, since: Instant): ForgeResult<List<FeedEvent>> = forgejoCall {
+    override suspend fun starredActivity(token: String, since: Instant): ForgeResult<List<FeedEvent>> = forgeCall {
         val starred = mutableListOf<RepoJson>()
         for (page in 1..MAX_STARRED_PAGES) {
             val response = httpClient.forgejoApi(forge, token, "user", "starred", query = mapOf("limit" to "$STARRED_PAGE_SIZE", "page" to page.toString()))
             if (response.status != HttpStatusCode.OK) {
-                if (page == 1) return@forgejoCall response.failure()
+                if (page == 1) return@forgeCall response.failure()
                 break
             }
             val repos = response.body<List<RepoJson>>()

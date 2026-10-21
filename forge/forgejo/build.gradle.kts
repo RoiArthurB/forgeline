@@ -4,7 +4,7 @@ plugins {
 }
 
 dependencies {
-    api(projects.core.forge)
+    api(projects.forge.common)
     api(libs.ktor.client.core)
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)

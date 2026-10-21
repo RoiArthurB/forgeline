@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi
 import fr.arthurbrugiere.forgeline.core.model.PagesBuild
@@ -35,64 +36,64 @@ class GitHubRepoSettingsApi(
     private val apiBaseUrl: String = "https://api.github.com",
 ) : RepoSettingsApi {
 
-    override suspend fun settings(token: String, repo: RepoId): ForgeResult<RepoSettings> = gitHubCall {
+    override suspend fun settings(token: String, repo: RepoId): ForgeResult<RepoSettings> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name).toResult { body<JsonObject>().toSettings() }
     }
 
-    override suspend fun change(token: String, repo: RepoId, change: RepoSettingsChange): ForgeResult<RepoSettings> = gitHubCall {
+    override suspend fun change(token: String, repo: RepoId, change: RepoSettingsChange): ForgeResult<RepoSettings> = forgeCall {
         if (change is RepoSettingsChange.Topics) {
             val topics = httpClient.gitHubApi(
                 apiBaseUrl, token, "repos", repo.owner, repo.name, "topics", method = HttpMethod.Put,
                 body = buildJsonObject { put("names", JsonArray(change.topics.map(::JsonPrimitive))) },
             )
-            if (topics.status != HttpStatusCode.OK) return@gitHubCall topics.failure()
-            return@gitHubCall settings(token, repo)
+            if (topics.status != HttpStatusCode.OK) return@forgeCall topics.failure()
+            return@forgeCall settings(token, repo)
         }
         val body = buildJsonObject {
             when (change) {
                 is RepoSettingsChange.Description -> put("description", change.text)
                 is RepoSettingsChange.Website -> put("homepage", change.url)
                 is RepoSettingsChange.DefaultBranch -> put("default_branch", change.branch)
-                is RepoSettingsChange.Switch -> put(SWITCHES[change.switch] ?: return@gitHubCall unsupported, change.on)
+                is RepoSettingsChange.Switch -> put(SWITCHES[change.switch] ?: return@forgeCall unsupported, change.on)
                 is RepoSettingsChange.Visibility -> put("visibility", change.visibility.name.lowercase())
                 is RepoSettingsChange.Archived -> put("archived", change.archived)
-                else -> return@gitHubCall unsupported
+                else -> return@forgeCall unsupported
             }
         }
         httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, method = HttpMethod.Patch, body = body).toResult { body<JsonObject>().toSettings() }
     }
 
-    override suspend fun rename(token: String, repo: RepoId, name: String): ForgeResult<RepoId> = gitHubCall {
+    override suspend fun rename(token: String, repo: RepoId, name: String): ForgeResult<RepoId> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, method = HttpMethod.Patch, body = buildJsonObject { put("name", name) })
             .toResult { body<JsonObject>().text("full_name").split('/', limit = 2).let { (owner, renamed) -> RepoId(owner, renamed, repo.forge) } }
     }
 
     /** GitHub lists a classic or OAuth token's scopes with every answer; a fine-grained token lists none, and isn't judged here. */
-    override suspend fun mayDelete(token: String): ForgeResult<Boolean> = gitHubCall {
+    override suspend fun mayDelete(token: String): ForgeResult<Boolean> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "user").toResult {
             headers["X-OAuth-Scopes"]?.split(',')?.map { it.trim() }?.let { DELETE_SCOPE in it } ?: true
         }
     }
 
-    override suspend fun delete(token: String, repo: RepoId): ForgeResult<RepoDeletion> = gitHubCall {
+    override suspend fun delete(token: String, repo: RepoId): ForgeResult<RepoDeletion> = forgeCall {
         val response = httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, method = HttpMethod.Delete)
         // Deleting has a scope of its own, which older sign-ins weren't given. GitHub doesn't say which scope a refused
         // deletion wanted (its X-Accepted-OAuth-Scopes comes empty, seen 2026-10-12), only which ones the token has;
         // a token that lists none (a fine-grained one) is refused for another reason.
         val scopes = response.headers["X-OAuth-Scopes"]?.split(',')?.map { it.trim() }
         if (response.status == HttpStatusCode.Forbidden && scopes != null && DELETE_SCOPE !in scopes) {
-            return@gitHubCall ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unauthorized)
+            return@forgeCall ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unauthorized)
         }
         response.toResult { RepoDeletion.DELETED }
     }
 
     /** GitHub answers 404 for a repository that publishes nothing: that is a site switched off, not a failure. */
-    override suspend fun pages(token: String, repo: RepoId): ForgeResult<PagesSite?> = gitHubCall {
+    override suspend fun pages(token: String, repo: RepoId): ForgeResult<PagesSite?> = forgeCall {
         val response = httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, "pages")
         if (response.status == HttpStatusCode.NotFound) ForgeResult.Success(PagesSite(published = false, canPublish = true)) else response.toResult { body<JsonObject>().toSite() }
     }
 
-    override suspend fun changePages(token: String, repo: RepoId, change: PagesChange): ForgeResult<PagesSite> = gitHubCall {
+    override suspend fun changePages(token: String, repo: RepoId, change: PagesChange): ForgeResult<PagesSite> = forgeCall {
         suspend fun send(method: HttpMethod, body: JsonObject? = null) = httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, "pages", method = method, body = body)
         val response = when (change) {
             is PagesChange.Publish -> {
@@ -116,7 +117,7 @@ class GitHubRepoSettingsApi(
             is PagesChange.Domain -> send(HttpMethod.Put, buildJsonObject { put("cname", change.domain.ifBlank { null }) })
             PagesChange.Unpublish -> send(HttpMethod.Delete)
         }
-        if (!response.status.isSuccess()) return@gitHubCall response.failure()
+        if (!response.status.isSuccess()) return@forgeCall response.failure()
         // Changes answer nothing: the site is read as it now is.
         when (val site = pages(token, repo)) {
             is ForgeResult.Success -> ForgeResult.Success(site.value ?: PagesSite(published = false, canPublish = true))

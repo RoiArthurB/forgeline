@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import kotlinx.coroutines.awaitAll
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -26,7 +27,7 @@ class GitHubUserApi(
 ) : UserApi {
 
     /** The profile, and beside it the social accounts the person listed (organisations have none to list). */
-    override suspend fun user(token: String?, login: String): ForgeResult<UserProfile> = gitHubCall {
+    override suspend fun user(token: String?, login: String): ForgeResult<UserProfile> = forgeCall {
         coroutineScope {
             val social = async {
                 runCatching {
@@ -45,7 +46,7 @@ class GitHubUserApi(
      * GitHub's list of someone's repositories holds only the public ones, even for that person. One's own come from
      * `/user/repos`, an organisation's from `/orgs/…/repos`, which add the private ones the token may see.
      */
-    override suspend fun repos(token: String?, login: String, mine: Boolean, organization: Boolean): ForgeResult<List<RepoSummary>> = gitHubCall {
+    override suspend fun repos(token: String?, login: String, mine: Boolean, organization: Boolean): ForgeResult<List<RepoSummary>> = forgeCall {
         val query = mapOf("sort" to "updated", "per_page" to "30")
         val response = when {
             mine && token != null -> httpClient.gitHubApi(apiBaseUrl, token, "user", "repos", query = query + ("affiliation" to "owner"))
@@ -56,10 +57,10 @@ class GitHubUserApi(
     }
 
     /** Own, organisations' and shared repositories, by last push; the pages after the first are asked all at once. */
-    override suspend fun reachableRepos(token: String): ForgeResult<List<RepoSummary>> = gitHubCall {
+    override suspend fun reachableRepos(token: String): ForgeResult<List<RepoSummary>> = forgeCall {
         val query = mapOf("affiliation" to "owner,collaborator,organization_member", "sort" to "pushed", "per_page" to "100")
         val first = httpClient.gitHubApi(apiBaseUrl, token, "user", "repos", query = query + ("page" to "1"))
-        if (first.status != HttpStatusCode.OK) return@gitHubCall first.failure()
+        if (first.status != HttpStatusCode.OK) return@forgeCall first.failure()
         val last = (first.lastPage() ?: 1).coerceAtMost(MAX_REACHABLE_PAGES)
         val rest = coroutineScope {
             (2..last).map { page ->
@@ -75,17 +76,17 @@ class GitHubUserApi(
         ForgeResult.Success((first.body<List<RepoJson>>() + rest).map { it.toModel() }.distinctBy { it.id })
     }
 
-    override suspend fun organizations(token: String): ForgeResult<List<UserSummary>> = gitHubCall {
+    override suspend fun organizations(token: String): ForgeResult<List<UserSummary>> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "user", "orgs", query = mapOf("per_page" to "100"))
             .toResult { body<List<OrgJson>>().map { UserSummary(it.login, it.avatarUrl, isOrganization = true, forge = ForgeInstance.GitHub) } }
     }
 
-    override suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>> = gitHubCall {
+    override suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "users", login, "starred", query = mapOf("per_page" to "30"))
             .toResult { body<List<RepoJson>>().map { it.toModel() } }
     }
 
-    override suspend fun isFollowing(token: String, login: String): ForgeResult<Boolean> = gitHubCall {
+    override suspend fun isFollowing(token: String, login: String): ForgeResult<Boolean> = forgeCall {
         // Answered by status code alone: 204 follows, 404 doesn't.
         val response = httpClient.gitHubApi(apiBaseUrl, token, "user", "following", login)
         when (response.status) {
@@ -95,7 +96,7 @@ class GitHubUserApi(
         }
     }
 
-    override suspend fun setFollowing(token: String, login: String, follow: Boolean): ForgeResult<Unit> = gitHubCall {
+    override suspend fun setFollowing(token: String, login: String, follow: Boolean): ForgeResult<Unit> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "user", "following", login, method = if (follow) HttpMethod.Put else HttpMethod.Delete)
             .toResult { }
     }

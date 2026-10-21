@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.SearchApi
 import fr.arthurbrugiere.forgeline.core.model.WorkKind
@@ -28,7 +29,7 @@ import kotlinx.serialization.Serializable
 
 class ForgejoUserApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : UserApi {
 
-    override suspend fun user(token: String?, login: String): ForgeResult<UserProfile> = forgejoCall {
+    override suspend fun user(token: String?, login: String): ForgeResult<UserProfile> = forgeCall {
         coroutineScope {
             // Organizations answer /users too, looking like people; /orgs tells them apart. Neither counts repositories.
             val org = async { httpClient.forgejoApi(forge, token, "orgs", login).status == HttpStatusCode.OK }
@@ -57,15 +58,15 @@ class ForgejoUserApi(private val httpClient: HttpClient, private val forge: Forg
     }
 
     /** Forgejo's list already holds the private repositories the token may see, one's own and an organisation's. */
-    override suspend fun repos(token: String?, login: String, mine: Boolean, organization: Boolean): ForgeResult<List<RepoSummary>> = forgejoCall {
+    override suspend fun repos(token: String?, login: String, mine: Boolean, organization: Boolean): ForgeResult<List<RepoSummary>> = forgeCall {
         httpClient.forgejoApi(forge, token, "users", login, "repos", query = mapOf("limit" to "30"))
             .toResult { body<List<RepoJson>>().map { it.toSummary(forge) }.sortedByDescending { it.updatedAt } }
     }
 
     /** Fifty at a time, Forgejo's largest page: the pages after the first are asked all at once, then sorted by update. */
-    override suspend fun reachableRepos(token: String): ForgeResult<List<RepoSummary>> = forgejoCall {
+    override suspend fun reachableRepos(token: String): ForgeResult<List<RepoSummary>> = forgeCall {
         val first = httpClient.forgejoApi(forge, token, "user", "repos", query = mapOf("limit" to "$PAGE", "page" to "1"))
-        if (first.status != HttpStatusCode.OK) return@forgejoCall first.failure()
+        if (first.status != HttpStatusCode.OK) return@forgeCall first.failure()
         val pages = ((first.totalCount() ?: 0) + PAGE - 1) / PAGE
         val rest = coroutineScope {
             (2..pages.coerceAtMost(MAX_PAGES)).map { page ->
@@ -80,18 +81,18 @@ class ForgejoUserApi(private val httpClient: HttpClient, private val forge: Forg
         ForgeResult.Success((first.body<List<RepoJson>>() + rest).map { it.toSummary(forge) }.distinctBy { it.id }.sortedByDescending { it.updatedAt })
     }
 
-    override suspend fun organizations(token: String): ForgeResult<List<UserSummary>> = forgejoCall {
+    override suspend fun organizations(token: String): ForgeResult<List<UserSummary>> = forgeCall {
         httpClient.forgejoApi(forge, token, "user", "orgs", query = mapOf("limit" to "$PAGE"))
             .toResult { body<List<OrgJson>>().map { UserSummary(it.username ?: it.name.orEmpty(), it.avatarUrl, isOrganization = true, forge = forge) }.filter { it.login.isNotEmpty() } }
     }
 
     /** Codeberg only shows a person's stars to signed-in callers (401 anonymously, 2026-09-29). */
-    override suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>> = forgejoCall {
+    override suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>> = forgeCall {
         httpClient.forgejoApi(forge, token, "users", login, "starred", query = mapOf("limit" to "30"))
             .toResult { body<List<RepoJson>>().map { it.toSummary(forge) } }
     }
 
-    override suspend fun isFollowing(token: String, login: String): ForgeResult<Boolean> = forgejoCall {
+    override suspend fun isFollowing(token: String, login: String): ForgeResult<Boolean> = forgeCall {
         // Answered by status code alone: 204 follows, 404 doesn't.
         val response = httpClient.forgejoApi(forge, token, "user", "following", login)
         when (response.status) {
@@ -101,7 +102,7 @@ class ForgejoUserApi(private val httpClient: HttpClient, private val forge: Forg
         }
     }
 
-    override suspend fun setFollowing(token: String, login: String, follow: Boolean): ForgeResult<Unit> = forgejoCall {
+    override suspend fun setFollowing(token: String, login: String, follow: Boolean): ForgeResult<Unit> = forgeCall {
         httpClient.forgejoApi(forge, token, "user", "following", login, method = if (follow) HttpMethod.Put else HttpMethod.Delete).toResult { }
     }
 }
@@ -109,7 +110,7 @@ class ForgejoUserApi(private val httpClient: HttpClient, private val forge: Forg
 class ForgejoStarApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : StarApi {
 
     /** One request per repository (Forgejo has no batch lookup), a few at a time. */
-    override suspend fun starredStatus(token: String, repos: List<RepoId>): ForgeResult<Map<RepoId, Boolean>> = forgejoCall {
+    override suspend fun starredStatus(token: String, repos: List<RepoId>): ForgeResult<Map<RepoId, Boolean>> = forgeCall {
         val gate = Semaphore(CONCURRENCY)
         val answers = coroutineScope {
             repos.map { repo ->
@@ -128,23 +129,23 @@ class ForgejoStarApi(private val httpClient: HttpClient, private val forge: Forg
         ForgeResult.Success(answers.filterNotNull().toMap())
     }
 
-    override suspend fun setStarred(token: String, repo: RepoId, starred: Boolean): ForgeResult<Unit> = forgejoCall {
+    override suspend fun setStarred(token: String, repo: RepoId, starred: Boolean): ForgeResult<Unit> = forgeCall {
         httpClient.forgejoApi(forge, token, "user", "starred", repo.owner, repo.name, method = if (starred) HttpMethod.Put else HttpMethod.Delete)
             .toResult { }
     }
 
     /** Forgejo answers 404 for a repository the account doesn't watch: that is a no, not a failure. */
-    override suspend fun isWatching(token: String, repo: RepoId): ForgeResult<Boolean> = forgejoCall {
+    override suspend fun isWatching(token: String, repo: RepoId): ForgeResult<Boolean> = forgeCall {
         val response = httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "subscription")
         if (response.status == HttpStatusCode.NotFound) ForgeResult.Success(false) else response.toResult { body<ForgejoSubscriptionJson>().subscribed }
     }
 
-    override suspend fun setWatching(token: String, repo: RepoId, watching: Boolean): ForgeResult<Unit> = forgejoCall {
+    override suspend fun setWatching(token: String, repo: RepoId, watching: Boolean): ForgeResult<Unit> = forgeCall {
         httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "subscription", method = if (watching) HttpMethod.Put else HttpMethod.Delete)
             .toResult { }
     }
 
-    override suspend fun fork(token: String, repo: RepoId): ForgeResult<RepoId> = forgejoCall {
+    override suspend fun fork(token: String, repo: RepoId): ForgeResult<RepoId> = forgeCall {
         val response = httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "forks", method = HttpMethod.Post, body = buildJsonObject { })
         response.toResult { body<ForgejoForkJson>().let { RepoId(it.owner.login, it.name, forge) } }
     }
@@ -156,7 +157,7 @@ class ForgejoStarApi(private val httpClient: HttpClient, private val forge: Forg
 
 class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : SearchApi {
 
-    override suspend fun repositories(token: String?, query: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = forgejoCall {
+    override suspend fun repositories(token: String?, query: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
         val response = httpClient.forgejoApi(forge, token, "repos", "search", query = params(query, page))
         response.toResult {
             val items = body<SearchJson<RepoJson>>().data.map { it.toSummary(forge) }
@@ -165,7 +166,7 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
     }
 
     /** Codeberg answered 500 to anonymous issue searches (2026-09-29), so this needs an account there. */
-    override suspend fun issues(token: String?, query: String, page: Int): ForgeResult<SearchPage<IssueSearchResult>> = forgejoCall {
+    override suspend fun issues(token: String?, query: String, page: Int): ForgeResult<SearchPage<IssueSearchResult>> = forgeCall {
         val response = httpClient.forgejoApi(forge, token, "repos", "issues", "search", query = params(query, page))
         response.toResult {
             val items = body<List<IssueJson>>().mapNotNull { issue ->
@@ -175,7 +176,7 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
         }
     }
 
-    override suspend fun users(token: String?, query: String, page: Int): ForgeResult<SearchPage<UserSummary>> = forgejoCall {
+    override suspend fun users(token: String?, query: String, page: Int): ForgeResult<SearchPage<UserSummary>> = forgeCall {
         val response = httpClient.forgejoApi(forge, token, "users", "search", query = params(query, page))
         response.toResult {
             val items = body<SearchJson<UserJson>>().data.map { it.toSummary(forge) }
@@ -184,7 +185,7 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
     }
 
     // Forgejo lists the newest first unless told otherwise: asked for the most recently touched, as the other forges give.
-    override suspend fun work(token: String, login: String, kind: WorkKind): ForgeResult<List<IssueSearchResult>> = forgejoCall {
+    override suspend fun work(token: String, login: String, kind: WorkKind): ForgeResult<List<IssueSearchResult>> = forgeCall {
         val mine = when (kind) {
             WorkKind.REVIEW_REQUESTED -> mapOf("review_requested" to "true", "type" to "pulls")
             WorkKind.OWN_PULL_REQUESTS -> mapOf("created" to "true", "type" to "pulls")

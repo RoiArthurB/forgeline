@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.DeviceCode
 import fr.arthurbrugiere.forgeline.core.forge.DeviceTokenPoll
 import fr.arthurbrugiere.forgeline.core.forge.ForgeAuthApi
@@ -34,7 +35,7 @@ class GitHubAuthApi(
 
     override val supportsDeviceFlow: Boolean = clientId.isNotBlank()
 
-    override suspend fun requestDeviceCode(): ForgeResult<DeviceCode> = gitHubCall {
+    override suspend fun requestDeviceCode(): ForgeResult<DeviceCode> = forgeCall {
         val response = httpClient.submitForm(
             url = "$webBaseUrl/login/device/code",
             formParameters = parameters {
@@ -45,7 +46,7 @@ class GitHubAuthApi(
         response.toResult { body<DeviceCodeResponse>().toModel() }
     }
 
-    override suspend fun pollDeviceToken(deviceCode: String): ForgeResult<DeviceTokenPoll> = gitHubCall {
+    override suspend fun pollDeviceToken(deviceCode: String): ForgeResult<DeviceTokenPoll> = forgeCall {
         val response = httpClient.submitForm(
             url = "$webBaseUrl/login/oauth/access_token",
             formParameters = parameters {
@@ -54,7 +55,7 @@ class GitHubAuthApi(
                 append("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
             },
         ) { accept(ContentType.Application.Json) }
-        if (!response.status.isSuccess()) return@gitHubCall response.failure()
+        if (!response.status.isSuccess()) return@forgeCall response.failure()
         // GitHub reports pending/denied states as 200 responses with an `error` field.
         val token = response.body<AccessTokenResponse>()
         when {
@@ -67,7 +68,7 @@ class GitHubAuthApi(
         }
     }
 
-    override suspend fun fetchAuthenticatedUser(token: String): ForgeResult<ForgeUser> = gitHubCall {
+    override suspend fun fetchAuthenticatedUser(token: String): ForgeResult<ForgeUser> = forgeCall {
         val response = httpClient.get("$apiBaseUrl/user") {
             bearerAuth(token)
             accept(ContentType.parse("application/vnd.github+json"))
@@ -77,7 +78,7 @@ class GitHubAuthApi(
     }
 
     /** GitHub lists a classic or OAuth token's scopes with every answer. */
-    override suspend fun reachesPrivateRepositories(token: String): ForgeResult<Boolean?> = gitHubCall {
+    override suspend fun reachesPrivateRepositories(token: String): ForgeResult<Boolean?> = forgeCall {
         val response = httpClient.get("$apiBaseUrl/user") {
             bearerAuth(token)
             accept(ContentType.parse("application/vnd.github+json"))

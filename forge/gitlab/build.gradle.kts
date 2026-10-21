@@ -5,7 +5,7 @@ plugins {
 
 // gitlab.com, for Trending only so far. Recording the history and building the lists is Forgejo's code, shared.
 dependencies {
-    api(projects.core.forge)
+    api(projects.forge.common)
     api(libs.ktor.client.core)
     implementation(projects.forge.forgejo)
     implementation(libs.ktor.client.content.negotiation)

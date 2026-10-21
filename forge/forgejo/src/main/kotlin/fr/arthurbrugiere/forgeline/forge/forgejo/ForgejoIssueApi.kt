@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.request.parameter
 import io.ktor.http.takeFrom
 import io.ktor.http.appendPathSegments
@@ -54,7 +55,7 @@ import java.time.Instant
 
 class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : IssueApi {
 
-    override suspend fun issue(token: String?, ref: IssueRef): ForgeResult<IssueDetails> = forgejoCall {
+    override suspend fun issue(token: String?, ref: IssueRef): ForgeResult<IssueDetails> = forgeCall {
         coroutineScope {
             val reactions = async { get(token, ref, "issues", ref.number.toString(), "reactions") }
             // The pull request's branches and size live on its own endpoint. Asked alongside the issue, before knowing
@@ -81,11 +82,11 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     }
 
     /** The issue endpoint names pull requests too: no second call for the title. */
-    override suspend fun title(token: String?, ref: IssueRef): ForgeResult<String> = forgejoCall {
+    override suspend fun title(token: String?, ref: IssueRef): ForgeResult<String> = forgeCall {
         get(token, ref, "issues", ref.number.toString()).toResult { body<IssueJson>().title }
     }
 
-    override suspend fun timeline(token: String?, ref: IssueRef, page: Int): ForgeResult<TimelinePage> = forgejoCall {
+    override suspend fun timeline(token: String?, ref: IssueRef, page: Int): ForgeResult<TimelinePage> = forgeCall {
         coroutineScope {
             // A review entry doesn't say whether it approved; the pull request's reviews do. Asked alongside the
             // timeline, before knowing there are reviews: one round trip instead of two.
@@ -95,7 +96,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         }
     }
 
-    override suspend fun comment(token: String, ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment> = forgejoCall {
+    override suspend fun comment(token: String, ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment> = forgeCall {
         httpClient.forgejoApi(
             forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "comments",
             method = HttpMethod.Post, body = buildJsonObject { put("body", body) },
@@ -105,14 +106,14 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         }
     }
 
-    override suspend fun editComment(token: String, ref: IssueRef, commentId: Long, body: String): ForgeResult<Unit> = forgejoCall {
+    override suspend fun editComment(token: String, ref: IssueRef, commentId: Long, body: String): ForgeResult<Unit> = forgeCall {
         httpClient.forgejoApi(
             forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", "comments", commentId.toString(),
             method = HttpMethod.Patch, body = buildJsonObject { put("body", body) },
         ).toResult { }
     }
 
-    override suspend fun deleteComment(token: String, ref: IssueRef, commentId: Long): ForgeResult<Unit> = forgejoCall {
+    override suspend fun deleteComment(token: String, ref: IssueRef, commentId: Long): ForgeResult<Unit> = forgeCall {
         httpClient.forgejoApi(
             forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", "comments", commentId.toString(),
             method = HttpMethod.Delete,
@@ -129,10 +130,10 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
      * Forgejo lists who gave what: the reader's own is looked for there, then given or taken back by its name. The
      * counts are that list's, with the change just made.
      */
-    override suspend fun toggleReaction(token: String, login: String, ref: IssueRef, commentId: Long?, reaction: Reaction): ForgeResult<Map<Reaction, Int>> = forgejoCall {
+    override suspend fun toggleReaction(token: String, login: String, ref: IssueRef, commentId: Long?, reaction: Reaction): ForgeResult<Map<Reaction, Int>> = forgeCall {
         val target = if (commentId == null) arrayOf("issues", ref.number.toString(), "reactions") else arrayOf("issues", "comments", commentId.toString(), "reactions")
         val listed = get(token, ref, *target)
-        if (listed.status != HttpStatusCode.OK) return@forgejoCall listed.failure()
+        if (listed.status != HttpStatusCode.OK) return@forgeCall listed.failure()
         // No reactions answers null, not an empty list.
         val given = listed.body<List<ReactionJson>?>().orEmpty()
         val mine = given.any { reaction(it.content) == reaction && it.user?.login.equals(login, ignoreCase = true) }
@@ -141,7 +142,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             forge, token, "repos", ref.repo.owner, ref.repo.name, *target,
             method = if (mine) HttpMethod.Delete else HttpMethod.Post, body = buildJsonObject { put("content", name) },
         )
-        if (!changed.status.isSuccess()) return@forgejoCall changed.failure()
+        if (!changed.status.isSuccess()) return@forgeCall changed.failure()
         val counts = given.mapNotNull { reaction(it.content) }.groupingBy { it }.eachCount()
         val now = (counts[reaction] ?: 0) + if (mine) -1 else 1
         ForgeResult.Success(if (now > 0) counts + (reaction to now) else counts - reaction)
@@ -162,7 +163,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     /** Forgejo keeps a comment's files with the conversation, which its author and the repository's writers may add to. */
     override val attachments: AttachmentRule = AttachmentRule.AUTHOR_OR_WRITER
 
-    override suspend fun attach(token: String, ref: IssueRef, name: String, mimeType: String, bytes: ByteArray): ForgeResult<String> = forgejoCall {
+    override suspend fun attach(token: String, ref: IssueRef, name: String, mimeType: String, bytes: ByteArray): ForgeResult<String> = forgeCall {
         httpClient.post {
             url {
                 takeFrom("${forge.webUrl}/api/v1")
@@ -178,7 +179,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         }
     }
 
-    override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = forgejoCall {
+    override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = forgeCall {
         httpClient.forgejoApi(
             forge, token, "repos", repo.owner, repo.name, "issues",
             method = HttpMethod.Post,
@@ -194,7 +195,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     override suspend fun setOpen(token: String, ref: IssueRef, open: Boolean, reason: CloseReason?): ForgeResult<Unit> =
         edit(token, ref) { put("state", if (open) "open" else "closed") }
 
-    private suspend fun edit(token: String, ref: IssueRef, fields: JsonObjectBuilder.() -> Unit): ForgeResult<Unit> = forgejoCall {
+    private suspend fun edit(token: String, ref: IssueRef, fields: JsonObjectBuilder.() -> Unit): ForgeResult<Unit> = forgeCall {
         httpClient.forgejoApi(
             forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(),
             method = HttpMethod.Patch, body = buildJsonObject(fields),
@@ -216,7 +217,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     }
 
     /** Everyone's time on the conversation, from its first page of entries, and the signed-in user's timer if it runs here. */
-    override suspend fun timeTracking(token: String, ref: IssueRef): ForgeResult<TimeTracking> = forgejoCall {
+    override suspend fun timeTracking(token: String, ref: IssueRef): ForgeResult<TimeTracking> = forgeCall {
         coroutineScope {
             val timers = async { httpClient.forgejoApi(forge, token, "user", "stopwatches") }
             val times = get(token, ref, "issues", ref.number.toString(), "times", query = FIRST_PAGE)
@@ -230,21 +231,21 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         }
     }
 
-    override suspend fun setTimerRunning(token: String, ref: IssueRef, running: Boolean): ForgeResult<Unit> = forgejoCall {
+    override suspend fun setTimerRunning(token: String, ref: IssueRef, running: Boolean): ForgeResult<Unit> = forgeCall {
         httpClient.forgejoApi(
             forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "stopwatch", if (running) "start" else "stop",
             method = HttpMethod.Post,
         ).toResult { }
     }
 
-    override suspend fun addTime(token: String, ref: IssueRef, seconds: Long): ForgeResult<Unit> = forgejoCall {
+    override suspend fun addTime(token: String, ref: IssueRef, seconds: Long): ForgeResult<Unit> = forgeCall {
         httpClient.forgejoApi(
             forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "times",
             method = HttpMethod.Post, body = buildJsonObject { put("time", seconds) },
         ).toResult { }
     }
 
-    override suspend fun dependencies(token: String, ref: IssueRef): ForgeResult<List<LinkedIssue>> = forgejoCall {
+    override suspend fun dependencies(token: String, ref: IssueRef): ForgeResult<List<LinkedIssue>> = forgeCall {
         get(token, ref, "issues", ref.number.toString(), "dependencies").toResult {
             body<List<IssueJson>>().map { issue ->
                 // A dependency can live in another repository, which it then names.
@@ -258,7 +259,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
 
     override suspend fun removeDependency(token: String, ref: IssueRef, on: IssueRef): ForgeResult<Unit> = dependency(token, ref, on, HttpMethod.Delete)
 
-    private suspend fun dependency(token: String, ref: IssueRef, on: IssueRef, method: HttpMethod): ForgeResult<Unit> = forgejoCall {
+    private suspend fun dependency(token: String, ref: IssueRef, on: IssueRef, method: HttpMethod): ForgeResult<Unit> = forgeCall {
         httpClient.forgejoApi(
             forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "dependencies",
             method = method,
@@ -273,7 +274,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     // The lists below stop at their first page: a repository with more is rare, and none needs them all to triage.
 
     /** The repository's own labels, then its organisation's: both can be put on its conversations. */
-    override suspend fun labels(token: String, repo: RepoId): ForgeResult<List<Label>> = forgejoCall {
+    override suspend fun labels(token: String, repo: RepoId): ForgeResult<List<Label>> = forgeCall {
         coroutineScope {
             val shared = async { httpClient.forgejoApi(forge, token, "orgs", repo.owner, "labels", query = FIRST_PAGE) }
             val own = httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "labels", query = FIRST_PAGE)
@@ -288,21 +289,21 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     }
 
     /** Forgejo takes names as well as ids here. */
-    override suspend fun setLabels(token: String, ref: IssueRef, names: List<String>): ForgeResult<Unit> = forgejoCall {
+    override suspend fun setLabels(token: String, ref: IssueRef, names: List<String>): ForgeResult<Unit> = forgeCall {
         httpClient.forgejoApi(
             forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "labels",
             method = HttpMethod.Put, body = buildJsonObject { putJsonArray("labels") { names.forEach { add(it) } } },
         ).toResult { }
     }
 
-    override suspend fun assignable(token: String, repo: RepoId): ForgeResult<List<ForgeUser>> = forgejoCall {
+    override suspend fun assignable(token: String, repo: RepoId): ForgeResult<List<ForgeUser>> = forgeCall {
         httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "assignees").toResult { body<List<UserJson>>().map { it.toModel() } }
     }
 
     override suspend fun setAssignees(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> =
         edit(token, ref) { putJsonArray("assignees") { logins.forEach { add(it) } } }
 
-    override suspend fun milestones(token: String, repo: RepoId): ForgeResult<List<Milestone>> = forgejoCall {
+    override suspend fun milestones(token: String, repo: RepoId): ForgeResult<List<Milestone>> = forgeCall {
         httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "milestones", query = FIRST_PAGE + ("state" to "open"))
             .toResult { body<List<MilestoneJson>>().map { it.toModel() } }
     }
@@ -311,18 +312,18 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     override suspend fun setMilestone(token: String, ref: IssueRef, milestone: Milestone?): ForgeResult<Unit> =
         edit(token, ref) { put("milestone", milestone?.id ?: 0) }
 
-    override suspend fun isPinned(token: String, ref: IssueRef): ForgeResult<Boolean> = forgejoCall {
+    override suspend fun isPinned(token: String, ref: IssueRef): ForgeResult<Boolean> = forgeCall {
         get(token, ref, "issues", ref.number.toString()).toResult { body<PinnedJson>().pinOrder > 0 }
     }
 
-    override suspend fun setPinned(token: String, ref: IssueRef, pinned: Boolean): ForgeResult<Unit> = forgejoCall {
+    override suspend fun setPinned(token: String, ref: IssueRef, pinned: Boolean): ForgeResult<Unit> = forgeCall {
         httpClient.forgejoApi(
             forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "pin",
             method = if (pinned) HttpMethod.Post else HttpMethod.Delete,
         ).toResult { }
     }
 
-    override suspend fun delete(token: String, ref: IssueRef): ForgeResult<Unit> = forgejoCall {
+    override suspend fun delete(token: String, ref: IssueRef): ForgeResult<Unit> = forgeCall {
         httpClient.forgejoApi(forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), method = HttpMethod.Delete).toResult { }
     }
 
@@ -330,7 +331,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
      * Forgejo has no triage role: whoever can push manages the conversations too. A repository's own settings switch
      * time tracking and dependencies on, and may keep tracking to those who can push.
      */
-    override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoRights> = forgejoCall {
+    override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoRights> = forgeCall {
         httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name).toResult {
             val answer = body<PermittedRepoJson>()
             val permissions = answer.permissions

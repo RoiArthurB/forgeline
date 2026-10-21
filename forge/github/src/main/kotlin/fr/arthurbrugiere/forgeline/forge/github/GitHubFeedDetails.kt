@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.core.forge.FeedDetail
 import fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -30,7 +32,7 @@ import java.time.Instant
  * that isn't found (a deleted repository) comes back null without failing the others.
  */
 internal suspend fun HttpClient.gitHubFeedDetails(apiBaseUrl: String, token: String, keys: List<FeedDetailKey>): ForgeResult<Map<FeedDetailKey, FeedDetail>> {
-    val results = coroutineScope { keys.chunked(BATCH).map { batch -> async { gitHubCall { batch(apiBaseUrl, token, batch) } } }.awaitAll() }
+    val results = coroutineScope { keys.chunked(BATCH).map { batch -> async { forgeCall { batch(apiBaseUrl, token, batch) } } }.awaitAll() }
     // One batch failing loses only its rows, unless all did: then the Feed hears why.
     if (results.all { it is ForgeResult.Failure }) return results.first() as ForgeResult.Failure
     return ForgeResult.Success(results.filterIsInstance<ForgeResult.Success<Map<FeedDetailKey, FeedDetail>>>().fold(emptyMap()) { all, it -> all + it.value })
@@ -80,7 +82,7 @@ private suspend fun HttpClient.batch(apiBaseUrl: String, token: String, keys: Li
         val data = body<DetailsResponse>().data ?: JsonObject(emptyMap())
         keys.withIndex().mapNotNull { (i, key) ->
             val node = data["r$i"] as? JsonObject ?: return@mapNotNull null
-            runCatching { key.detail(GitHubJson.decodeFromJsonElement<DetailsRepoJson>(node)) }.getOrNull()?.let { key to it }
+            runCatching { key.detail(ForgeJson.decodeFromJsonElement<DetailsRepoJson>(node)) }.getOrNull()?.let { key to it }
         }.toMap()
     }
 }

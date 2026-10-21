@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsSync
@@ -33,9 +34,9 @@ class GitLabNotificationsApi(
     /** Where each todo last listed points: unsubscribing is from its conversation, which a todo's id doesn't say. */
     private val targets = ConcurrentHashMap<String, IssueRef>()
 
-    override suspend fun threads(token: String, ifModifiedSince: String?, maxPages: Int): ForgeResult<NotificationsSync> = gitlabCall {
+    override suspend fun threads(token: String, ifModifiedSince: String?, maxPages: Int): ForgeResult<NotificationsSync> = forgeCall {
         val first = page(token, 1)
-        if (!first.status.isSuccess()) return@gitlabCall first.failure()
+        if (!first.status.isSuccess()) return@forgeCall first.failure()
         val firstBatch = first.body<List<GitLabTodoJson>>()
         val total = first.totalCount()
         val pages = total?.let { (it + PAGE_SIZE - 1) / PAGE_SIZE }
@@ -46,7 +47,7 @@ class GitLabNotificationsApi(
                 async { page(token, number) }
             }.awaitAll()
         }
-        rest.firstOrNull { !it.status.isSuccess() }?.let { return@gitlabCall it.failure() }
+        rest.firstOrNull { !it.status.isSuccess() }?.let { return@forgeCall it.failure() }
         val todos = firstBatch + rest.flatMap { it.body<List<GitLabTodoJson>>() }
         val threads = todos.mapNotNull { it.toModel() }
         threads.forEach { thread -> thread.subject?.let { targets[thread.id] = it } }
@@ -64,17 +65,17 @@ class GitLabNotificationsApi(
      */
     override suspend fun markRead(token: String, threadId: String): ForgeResult<Unit> = ForgeResult.Success(Unit)
 
-    override suspend fun markDone(token: String, threadId: String): ForgeResult<Unit> = gitlabCall {
+    override suspend fun markDone(token: String, threadId: String): ForgeResult<Unit> = forgeCall {
         httpClient.gitlabApi(forge, token, "todos", threadId, "mark_as_done", method = HttpMethod.Post)
             .toResult { }
     }
 
     /** Leaves the conversation the todo is about, then clears the todo. */
-    override suspend fun unsubscribe(token: String, threadId: String): ForgeResult<Unit> = gitlabCall {
+    override suspend fun unsubscribe(token: String, threadId: String): ForgeResult<Unit> = forgeCall {
         // Not listed since the app started: looked up among the pending ones.
         val target = targets[threadId] ?: run {
             val listed = page(token, 1)
-            if (!listed.status.isSuccess()) return@gitlabCall listed.failure()
+            if (!listed.status.isSuccess()) return@forgeCall listed.failure()
             listed.body<List<GitLabTodoJson>>().firstOrNull { it.id.toString() == threadId }?.toModel()?.subject
         }
         if (target != null) {
@@ -83,13 +84,13 @@ class GitLabNotificationsApi(
                 forge, token, "projects", target.repo.fullName, kind, target.number.toString(), "unsubscribe", method = HttpMethod.Post,
             )
             // 304: not subscribed to begin with, which is where this was going.
-            if (!left.status.isSuccess() && left.status != HttpStatusCode.NotModified) return@gitlabCall left.failure()
+            if (!left.status.isSuccess() && left.status != HttpStatusCode.NotModified) return@forgeCall left.failure()
         }
         markDone(token, threadId)
     }
 
-    override suspend fun subjectStates(token: String, subjects: List<IssueRef>): ForgeResult<Map<IssueRef, SubjectState>> = gitlabCall {
-        if (subjects.isEmpty()) return@gitlabCall ForgeResult.Success(emptyMap())
+    override suspend fun subjectStates(token: String, subjects: List<IssueRef>): ForgeResult<Map<IssueRef, SubjectState>> = forgeCall {
+        if (subjects.isEmpty()) return@forgeCall ForgeResult.Success(emptyMap())
         val gate = Semaphore(CONCURRENCY)
         val answers = coroutineScope {
             subjects.distinct().map { ref ->

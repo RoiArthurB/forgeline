@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.async
@@ -48,19 +49,19 @@ class GitHubNotificationsApi(
      * thread read or marked done on github.com changes nothing to it. So [ifModifiedSince] also counts the checks
      * answered 304 in a row, and every [FULL_EVERY]th asks for the list whatever happened.
      */
-    override suspend fun threads(token: String, ifModifiedSince: String?, maxPages: Int): ForgeResult<NotificationsSync> = gitHubCall {
+    override suspend fun threads(token: String, ifModifiedSince: String?, maxPages: Int): ForgeResult<NotificationsSync> = forgeCall {
         val since = ifModifiedSince?.substringBefore(CHECKS)
         val checks = ifModifiedSince?.substringAfter(CHECKS, "0")?.toIntOrNull() ?: 0
         val first = page(token, 1, since.takeIf { checks + 1 < FULL_EVERY })
         val pollInterval = first.headers["X-Poll-Interval"]?.toIntOrNull()
         if (first.status == HttpStatusCode.NotModified) {
-            return@gitHubCall ForgeResult.Success(NotificationsSync(null, "$since$CHECKS${checks + 1}", pollInterval))
+            return@forgeCall ForgeResult.Success(NotificationsSync(null, "$since$CHECKS${checks + 1}", pollInterval))
         }
         val lastModified = first.headers[HttpHeaders.LastModified] ?: since
-        if (first.status != HttpStatusCode.OK) return@gitHubCall first.failure()
+        if (first.status != HttpStatusCode.OK) return@forgeCall first.failure()
         val last = minOf(first.lastPage() ?: first.nextPage() ?: 1, maxPages)
         val rest = coroutineScope { (2..last).map { number -> async { page(token, number, null) } }.awaitAll() }
-        rest.firstOrNull { it.status != HttpStatusCode.OK }?.let { return@gitHubCall it.failure() }
+        rest.firstOrNull { it.status != HttpStatusCode.OK }?.let { return@forgeCall it.failure() }
         val threads = (listOf(first) + rest).flatMap { response -> response.body<List<ThreadJson>>().mapNotNull { it.toModel() } }
         ForgeResult.Success(NotificationsSync(threads, lastModified, pollInterval))
     }
@@ -98,7 +99,7 @@ class GitHubNotificationsApi(
         val query = "query SubjectStates($params) { $fields } fragment state on IssueOrPullRequest { " +
             "__typename ... on Issue { state stateReason } ... on PullRequest { state isDraft } }"
         val variables = repos.withIndex().flatMap { (i, entry) -> listOf("o$i" to entry.key.owner, "n$i" to entry.key.name) }.toMap()
-        val result = gitHubCall {
+        val result = forgeCall {
             httpClient.gitHubApi(
                 apiBaseUrl, token, "graphql", method = HttpMethod.Post,
                 body = buildJsonObject {
@@ -139,15 +140,15 @@ class GitHubNotificationsApi(
         }
     }
 
-    override suspend fun markRead(token: String, threadId: String): ForgeResult<Unit> = gitHubCall {
+    override suspend fun markRead(token: String, threadId: String): ForgeResult<Unit> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "notifications", "threads", threadId, method = HttpMethod.Patch).toResult { }
     }
 
-    override suspend fun markDone(token: String, threadId: String): ForgeResult<Unit> = gitHubCall {
+    override suspend fun markDone(token: String, threadId: String): ForgeResult<Unit> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "notifications", "threads", threadId, method = HttpMethod.Delete).toResult { }
     }
 
-    override suspend fun unsubscribe(token: String, threadId: String): ForgeResult<Unit> = gitHubCall {
+    override suspend fun unsubscribe(token: String, threadId: String): ForgeResult<Unit> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "notifications", "threads", threadId, "subscription", method = HttpMethod.Delete)
             .toResult { }
     }
