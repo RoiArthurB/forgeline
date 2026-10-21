@@ -7,6 +7,7 @@ import fr.arthurbrugiere.forgeline.core.forge.FeedDetail
 import fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey
 import fr.arthurbrugiere.forgeline.core.forge.FeedPage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.map
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.FeedEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -88,16 +89,16 @@ class GitHubFeedApi(
         val events = mutableListOf<FeedEvent>()
         var after: String? = null
         repeat(MAX_FOLLOWING_PAGES) { page ->
-            val result = httpClient.gitHubApi(
-                apiBaseUrl, token, "graphql", method = HttpMethod.Post,
-                body = buildJsonObject {
-                    put("query", if (page == 0) NEW_REPOSITORIES else NEW_REPOSITORIES_FOLLOWING)
-                    put("variables", buildJsonObject { put("after", after) })
-                },
-            ).toResult { body<NewRepositoriesResponse>() }
+            // An organisation that hides its members' repositories (SAML) leaves the others'.
+            val result = forgeCall {
+                httpClient.gitHubGraphQl(
+                    apiBaseUrl, token, if (page == 0) NEW_REPOSITORIES else NEW_REPOSITORIES_FOLLOWING,
+                    buildJsonObject { put("after", after) }, partial = true,
+                ).map { ForgeJson.decodeFromJsonElement<NewRepositoriesData>(it) }
+            }
             val viewer = when (result) {
                 is ForgeResult.Failure -> return if (events.isEmpty()) result else ForgeResult.Success(events)
-                is ForgeResult.Success -> result.value.data?.viewer ?: return ForgeResult.Success(events)
+                is ForgeResult.Success -> result.value.viewer ?: return ForgeResult.Success(events)
             }
             (viewer.following?.nodes.orEmpty() + viewer.organizations?.nodes.orEmpty()).forEach { owner ->
                 owner.repositories.nodes.forEach { repo ->
@@ -150,24 +151,15 @@ class GitHubFeedApi(
         val fields = batch.withIndex().joinToString(" ") { (i, star) ->
             "r$i: repository(owner: \$o$i, name: \$n$i) { $RELEASES${if (star.hasDiscussions) " $DISCUSSIONS" else ""} }"
         }
-        val result = forgeCall {
-            httpClient.gitHubApi(
-                apiBaseUrl, token, "graphql", method = HttpMethod.Post,
-                body = buildJsonObject {
-                    put("query", "query Published($params) { $fields }")
-                    put(
-                        "variables",
-                        buildJsonObject {
-                            batch.forEachIndexed { i, star ->
-                                put("o$i", star.fullName.substringBefore('/'))
-                                put("n$i", star.fullName.substringAfter('/'))
-                            }
-                        },
-                    )
-                },
-            ).toResult { body<PublishedResponse>() }
+        val variables = buildJsonObject {
+            batch.forEachIndexed { i, star ->
+                put("o$i", star.fullName.substringBefore('/'))
+                put("n$i", star.fullName.substringAfter('/'))
+            }
         }
-        val data = (result as? ForgeResult.Success)?.value?.data ?: return emptyList()
+        // A repository unstarred or deleted since leaves the others'.
+        val result = forgeCall { httpClient.gitHubGraphQl(apiBaseUrl, token, "query Published($params) { $fields }", variables, partial = true) }
+        val data = (result as? ForgeResult.Success)?.value ?: return emptyList()
         return batch.withIndex().flatMap { (i, star) ->
             val node = data["r$i"] as? JsonObject ?: return@flatMap emptyList()
             runCatching { ForgeJson.decodeFromJsonElement<PublishedJson>(node) }.getOrNull()?.events(star, since).orEmpty()
@@ -200,9 +192,6 @@ class GitHubFeedApi(
 }
 
 @Serializable
-private data class NewRepositoriesResponse(val data: NewRepositoriesData? = null)
-
-@Serializable
 private data class NewRepositoriesData(val viewer: NewRepositoriesViewer? = null)
 
 @Serializable
@@ -231,9 +220,6 @@ private data class StarJson(
     @SerialName("has_discussions") val hasDiscussions: Boolean = false,
     val archived: Boolean = false,
 )
-
-@Serializable
-private data class PublishedResponse(val data: JsonObject? = null)
 
 @Serializable
 private data class PublishedActorJson(val login: String, val avatarUrl: String? = null) {

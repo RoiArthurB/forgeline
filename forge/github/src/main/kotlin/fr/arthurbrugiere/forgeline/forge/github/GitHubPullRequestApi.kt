@@ -3,6 +3,9 @@ package fr.arthurbrugiere.forgeline.forge.github
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import kotlinx.serialization.json.decodeFromJsonElement
+import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
+import fr.arthurbrugiere.forgeline.core.forge.map
 import fr.arthurbrugiere.forgeline.core.forge.PullRequestApi
 import fr.arthurbrugiere.forgeline.core.model.BlameRange
 import fr.arthurbrugiere.forgeline.core.model.ChangedFile
@@ -171,23 +174,16 @@ class GitHubPullRequestApi(
     /** GitHub's REST API has no blame: its GraphQL one does, for signed-in users only. */
     override suspend fun blame(token: String?, repo: RepoId, ref: String, path: String): ForgeResult<List<BlameRange>> = forgeCall {
         if (token == null) return@forgeCall ForgeResult.Failure(ForgeError.Unauthorized)
-        httpClient.gitHubApi(
-            apiBaseUrl, token, "graphql", method = HttpMethod.Post,
-            body = buildJsonObject {
-                put("query", BLAME_QUERY)
-                put(
-                    "variables",
-                    buildJsonObject {
-                        put("owner", repo.owner)
-                        put("name", repo.name)
-                        put("ref", ref)
-                        put("path", path)
-                    },
-                )
-            },
-        ).toResult {
+        val variables = buildJsonObject {
+            put("owner", repo.owner)
+            put("name", repo.name)
+            put("ref", ref)
+            put("path", path)
+        }
+        httpClient.gitHubGraphQl(apiBaseUrl, token, BLAME_QUERY, variables).map { data ->
             // A ref or a path that isn't there answers with nothing under it, not with an error.
-            val ranges = body<PrBlameResponse>().data?.repository?.target?.blame?.ranges ?: return@forgeCall ForgeResult.Failure(ForgeError.Http(404, null))
+            val ranges = ForgeJson.decodeFromJsonElement<PrBlameData>(data).repository?.target?.blame?.ranges
+                ?: return@forgeCall ForgeResult.Failure(ForgeError.Http(404, null))
             ranges.map { it.toModel() }
         }
     }
@@ -342,9 +338,6 @@ private data class PrStatusJson(val context: String, val state: String, val desc
         url = targetUrl,
     )
 }
-
-@Serializable
-private data class PrBlameResponse(val data: PrBlameData? = null)
 
 @Serializable
 private data class PrBlameData(val repository: PrBlameRepository? = null)

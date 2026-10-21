@@ -546,10 +546,11 @@ class GitHubRepoApiTest {
 
     @Test
     fun a_discussion_that_is_not_there_is_not_found() = runTest {
-        // GitHub answers 200 holding nothing, with the reason beside it.
+        // GitHub answers 200 holding nothing, with the reason beside it: the reason is kept.
         val gone = """{"data":{"repository":{"discussion":null}},"errors":[{"type":"NOT_FOUND","message":"Could not resolve to a Discussion with the number of 9."}]}"""
 
-        assertThat(api { json(gone) }.discussion("tok", paperclip, 9)).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "Not Found")))
+        assertThat(api { json(gone) }.discussion("tok", paperclip, 9))
+            .isEqualTo(ForgeResult.Failure(ForgeError.Http(404, "Could not resolve to a Discussion with the number of 9.")))
     }
 
     @Test

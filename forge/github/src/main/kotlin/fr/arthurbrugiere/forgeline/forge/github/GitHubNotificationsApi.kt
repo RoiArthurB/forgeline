@@ -33,9 +33,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.time.Instant
 
-@Serializable
-private data class StatesResponse(val data: JsonObject? = null)
-
 class GitHubNotificationsApi(
     private val httpClient: HttpClient,
     private val apiBaseUrl: String = "https://api.github.com",
@@ -99,18 +96,14 @@ class GitHubNotificationsApi(
         val query = "query SubjectStates($params) { $fields } fragment state on IssueOrPullRequest { " +
             "__typename ... on Issue { state stateReason } ... on PullRequest { state isDraft } }"
         val variables = repos.withIndex().flatMap { (i, entry) -> listOf("o$i" to entry.key.owner, "n$i" to entry.key.name) }.toMap()
-        val result = forgeCall {
-            httpClient.gitHubApi(
-                apiBaseUrl, token, "graphql", method = HttpMethod.Post,
-                body = buildJsonObject {
-                    put("query", query)
-                    put("variables", buildJsonObject { variables.forEach { (key, value) -> put(key, value) } })
-                },
-            ).toResult { body<StatesResponse>() }
-        }
-        val data = when (result) {
+        // A subject deleted since, or in a repository the token can no longer see, leaves the others answered.
+        val data = when (
+            val result = forgeCall {
+                httpClient.gitHubGraphQl(apiBaseUrl, token, query, buildJsonObject { variables.forEach { (key, value) -> put(key, value) } }, partial = true)
+            }
+        ) {
             is ForgeResult.Failure -> return result
-            is ForgeResult.Success -> result.value.data ?: return ForgeResult.Success(emptyMap())
+            is ForgeResult.Success -> result.value
         }
         val states = mutableMapOf<IssueRef, SubjectState>()
         repos.forEachIndexed { i, (_, refs) ->

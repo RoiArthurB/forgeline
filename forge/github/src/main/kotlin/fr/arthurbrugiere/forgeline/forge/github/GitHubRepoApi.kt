@@ -11,6 +11,9 @@ import fr.arthurbrugiere.forgeline.core.model.DiscussionComment
 import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import kotlinx.serialization.json.decodeFromJsonElement
+import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
+import fr.arthurbrugiere.forgeline.core.forge.map
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
 import fr.arthurbrugiere.forgeline.core.forge.VersionOrder
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -154,48 +157,34 @@ class GitHubRepoApi(
     /** Only GitHub's GraphQL API knows which issues are pinned, and it answers nobody signed out. */
     override suspend fun pinnedIssues(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> {
         if (token == null) return ForgeResult.Success(emptyList())
+        val variables = buildJsonObject {
+            put("owner", id.owner)
+            put("name", id.name)
+        }
+        // A repository the token can't see has nothing pinned for it.
         return forgeCall {
-            val response = httpClient.post("$apiBaseUrl/graphql") {
-                bearerAuth(token)
-                header("X-GitHub-Api-Version", GitHubAuthApi.API_VERSION)
-                contentType(ContentType.Application.Json)
-                setBody(
-                    buildJsonObject {
-                        put("query", PINNED_QUERY)
-                        putJsonObject("variables") {
-                            put("owner", id.owner)
-                            put("name", id.name)
-                        }
-                    },
-                )
+            httpClient.gitHubGraphQl(apiBaseUrl, token, PINNED_QUERY, variables, partial = true).map { data ->
+                ForgeJson.decodeFromJsonElement<PinnedData>(data).repository?.pinnedIssues?.nodes.orEmpty().map { it.issue.toModel() }
             }
-            response.toResult { body<PinnedAnswer>().data?.repository?.pinnedIssues?.nodes.orEmpty().map { it.issue.toModel() } }
         }
     }
 
     /** Discussions are in GitHub's GraphQL API only, which answers nobody signed out. */
     private suspend fun <T> discussionsQuery(token: String?, id: RepoId, query: String, more: JsonObjectBuilder.() -> Unit, read: (DiscussionsRepository) -> T?): ForgeResult<T> {
         if (token == null) return ForgeResult.Failure(ForgeError.Unauthorized)
+        val variables = buildJsonObject {
+            put("owner", id.owner)
+            put("name", id.name)
+            more()
+        }
         return forgeCall {
-            val response = httpClient.post("$apiBaseUrl/graphql") {
-                bearerAuth(token)
-                header("X-GitHub-Api-Version", GitHubAuthApi.API_VERSION)
-                contentType(ContentType.Application.Json)
-                setBody(
-                    buildJsonObject {
-                        put("query", query)
-                        putJsonObject("variables") {
-                            put("owner", id.owner)
-                            put("name", id.name)
-                            more()
-                        }
-                    },
-                )
+            when (val answer = httpClient.gitHubGraphQl(apiBaseUrl, token, query, variables)) {
+                is ForgeResult.Failure -> answer
+                is ForgeResult.Success -> {
+                    val value = ForgeJson.decodeFromJsonElement<DiscussionsData>(answer.value).repository?.let(read)
+                    if (value == null) ForgeResult.Failure(ForgeError.Http(404, "Not Found")) else ForgeResult.Success(value)
+                }
             }
-            if (!response.status.isSuccess()) return@forgeCall response.toResult { error("unreachable") }
-            // What isn't there comes back as a 200 holding nothing, with the reason beside it.
-            val value = response.body<DiscussionsAnswer>().data?.repository?.let(read)
-            if (value == null) ForgeResult.Failure(ForgeError.Http(404, "Not Found")) else ForgeResult.Success(value)
         }
     }
 
@@ -374,9 +363,6 @@ private const val DISCUSSION_QUERY = "query(\$owner: String!, \$name: String!, \
     "replies(first: $DISCUSSION_REPLIES) { totalCount nodes { $DISCUSSION_COMMENT_FIELDS } } } } } } }"
 
 @Serializable
-private data class DiscussionsAnswer(val data: DiscussionsData? = null)
-
-@Serializable
 private data class DiscussionsData(val repository: DiscussionsRepository? = null)
 
 @Serializable
@@ -433,9 +419,6 @@ private data class DiscussionCommentJson(
 
 private const val PINNED_QUERY = "query(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { pinnedIssues(first: 3) { nodes { issue { " +
     "number title state createdAt author { login avatarUrl } comments { totalCount } labels(first: 10) { nodes { name color } } } } } } }"
-
-@Serializable
-private data class PinnedAnswer(val data: PinnedData? = null)
 
 @Serializable
 private data class PinnedData(val repository: PinnedRepository? = null)

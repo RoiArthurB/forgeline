@@ -25,6 +25,7 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import io.ktor.http.HttpMethod
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.map
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -288,47 +289,11 @@ class GitHubIssueApi(
             is ForgeResult.Success -> act(node.value.getValue("id").jsonPrimitive.content)
         }
 
-    /**
-     * One GraphQL request. GitHub answers 200 even when it refuses: a refusal is told apart by its errors, FORBIDDEN
-     * for a missing permission and NOT_FOUND for what the token can't see.
-     */
-    private suspend fun graphQl(token: String, query: String, variables: JsonObject): ForgeResult<JsonObject> = forgeCall {
-        val response = httpClient.post("$apiBaseUrl/graphql") {
-            bearerAuth(token)
-            header("X-GitHub-Api-Version", GitHubAuthApi.API_VERSION)
-            contentType(ContentType.Application.Json)
-            setBody(
-                buildJsonObject {
-                    put("query", query)
-                    put("variables", variables)
-                },
-            )
-        }
-        if (!response.status.isSuccess()) return@forgeCall response.failure()
-        val answer = response.body<GraphQlAnswer>()
-        val error = answer.errors.firstOrNull()
-        when {
-            error != null -> ForgeResult.Failure(
-                ForgeError.Http(
-                    when (error.type) {
-                        "FORBIDDEN" -> 403
-                        "NOT_FOUND" -> 404
-                        else -> 422
-                    },
-                    error.message,
-                ),
-            )
-            else -> ForgeResult.Success(answer.data ?: JsonObject(emptyMap()))
-        }
-    }
+    private suspend fun graphQl(token: String, query: String, variables: JsonObject): ForgeResult<JsonObject> =
+        forgeCall { httpClient.gitHubGraphQl(apiBaseUrl, token, query, variables) }
 
     private fun JsonObject.objectAt(vararg path: String): JsonObject? =
         path.fold<String, JsonObject?>(this) { at, key -> at?.get(key)?.takeUnless { it is JsonNull }?.jsonObject }
-
-    private inline fun <T, R> ForgeResult<T>.map(transform: (T) -> R): ForgeResult<R> = when (this) {
-        is ForgeResult.Failure -> this
-        is ForgeResult.Success -> ForgeResult.Success(transform(value))
-    }
 
     private companion object {
         val FIRST_HUNDRED = mapOf("per_page" to "100")
@@ -348,12 +313,6 @@ class GitHubIssueApi(
         }
     }
 }
-
-@Serializable
-private data class GraphQlErrorJson(val type: String? = null, val message: String? = null)
-
-@Serializable
-private data class GraphQlAnswer(val data: JsonObject? = null, val errors: List<GraphQlErrorJson> = emptyList())
 
 @Serializable
 private data class PermissionsJson(val admin: Boolean = false, val maintain: Boolean = false, val push: Boolean = false, val triage: Boolean = false)

@@ -69,22 +69,21 @@ private suspend fun HttpClient.batch(apiBaseUrl: String, token: String, keys: Li
         }
         "r$i: repository(owner: \$o$i, name: \$n$i) { $inside }"
     }
-    val request = buildJsonObject {
-        put("query", "query FeedDetails(${params.joinToString(", ")}) { ${fields.joinToString(" ")} }")
-        put(
-            "variables",
-            buildJsonObject {
-                variables.forEach { (name, value) -> if (value is Int) put(name, value) else put(name, value.toString()) }
-            },
-        )
+    val query = "query FeedDetails(${params.joinToString(", ")}) { ${fields.joinToString(" ")} }"
+    val values = buildJsonObject {
+        variables.forEach { (name, value) -> if (value is Int) put(name, value) else put(name, value.toString()) }
     }
-    return gitHubApi(apiBaseUrl, token, "graphql", method = HttpMethod.Post, body = request).toResult {
-        val data = body<DetailsResponse>().data ?: JsonObject(emptyMap())
+    // A repository deleted since leaves the others' details.
+    val data = when (val result = gitHubGraphQl(apiBaseUrl, token, query, values, partial = true)) {
+        is ForgeResult.Failure -> return result
+        is ForgeResult.Success -> result.value
+    }
+    return ForgeResult.Success(
         keys.withIndex().mapNotNull { (i, key) ->
             val node = data["r$i"] as? JsonObject ?: return@mapNotNull null
             runCatching { key.detail(ForgeJson.decodeFromJsonElement<DetailsRepoJson>(node)) }.getOrNull()?.let { key to it }
-        }.toMap()
-    }
+        }.toMap(),
+    )
 }
 
 private fun FeedDetailKey.repo(): RepoId = when (this) {
@@ -130,9 +129,6 @@ private fun FeedDetailKey.detail(json: DetailsRepoJson): FeedDetail? = when (thi
 private fun List<DetailsReactionGroupJson>.reactions(): Map<Reaction, Int> =
     mapNotNull { group -> Reaction.entries.firstOrNull { it.name == group.content }?.let { it to group.reactors.totalCount } }
         .filter { it.second > 0 }.toMap()
-
-@Serializable
-private data class DetailsResponse(val data: JsonObject? = null)
 
 @Serializable
 private data class DetailsNameJson(val name: String)

@@ -6,6 +6,12 @@ sealed interface ForgeResult<out T> {
     data class Failure(val error: ForgeError) : ForgeResult<Nothing>
 }
 
+/** The value [transform]ed when there is one; a failure stays as it is. */
+inline fun <T, R> ForgeResult<T>.map(transform: (T) -> R): ForgeResult<R> = when (this) {
+    is ForgeResult.Failure -> this
+    is ForgeResult.Success -> ForgeResult.Success(transform(value))
+}
+
 sealed interface ForgeError {
     data object Network : ForgeError
 
