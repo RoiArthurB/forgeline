@@ -2,7 +2,7 @@ package fr.arthurbrugiere.forgeline.discussion
 
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
-import fr.arthurbrugiere.forgeline.issue.referenceLinks
+import fr.arthurbrugiere.forgeline.ui.referenceLinks
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -65,7 +65,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
-import fr.arthurbrugiere.forgeline.issue.Markdown
+import fr.arthurbrugiere.forgeline.ui.Markdown
 import fr.arthurbrugiere.forgeline.navigation.DiscussionRoute
 import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink

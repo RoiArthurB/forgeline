@@ -98,7 +98,7 @@ import fr.arthurbrugiere.forgeline.issue.ManagePage
 import fr.arthurbrugiere.forgeline.issue.ManageUiState
 import fr.arthurbrugiere.forgeline.issue.NewIssueScreen
 import fr.arthurbrugiere.forgeline.issue.NewIssueUiState
-import fr.arthurbrugiere.forgeline.issue.MARKDOWN_PENDING_TAG
+import fr.arthurbrugiere.forgeline.ui.MARKDOWN_PENDING_TAG
 import fr.arthurbrugiere.forgeline.issue.IssueUiState
 import fr.arthurbrugiere.forgeline.user.UserScreen
 import fr.arthurbrugiere.forgeline.user.UserTab

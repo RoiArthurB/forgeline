@@ -3,7 +3,7 @@ package fr.arthurbrugiere.forgeline.release
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.core.model.releaseUrl
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
-import fr.arthurbrugiere.forgeline.issue.referenceLinks
+import fr.arthurbrugiere.forgeline.ui.referenceLinks
 import androidx.compose.foundation.background
 import fr.arthurbrugiere.forgeline.ui.rememberNow
 import androidx.compose.foundation.clickable
@@ -84,7 +84,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
-import fr.arthurbrugiere.forgeline.issue.emoji
+import fr.arthurbrugiere.forgeline.ui.emoji
 import fr.arthurbrugiere.forgeline.navigation.ReleaseRoute
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.ui.Avatar

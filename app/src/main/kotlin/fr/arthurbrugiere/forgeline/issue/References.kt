@@ -4,8 +4,6 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
-import fr.arthurbrugiere.forgeline.core.markdown.ReferenceLinks
-import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -19,12 +17,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-/** Where the conversations a text of this repository names by number live: `#12`, and `!12` where merge requests are numbered apart. */
-fun RepoId.referenceLinks(): ReferenceLinks = when (forge.type) {
-    ForgeType.GITLAB -> ReferenceLinks(forge.webUrl, fullName, issuePath = "/-/issues/", mergeRequestPath = "/-/merge_requests/")
-    else -> ReferenceLinks(forge.webUrl, fullName, issuePath = "/issues/")
-}
 
 /** The marks that name a conversation by number on this repository's forge. */
 val RepoId.referenceMarks: String get() = if (forge.type.numbersMergeRequestsApart) "#!" else "#"

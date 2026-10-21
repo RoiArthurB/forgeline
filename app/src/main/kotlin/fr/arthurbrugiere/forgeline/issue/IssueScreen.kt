@@ -1,5 +1,12 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import fr.arthurbrugiere.forgeline.ui.LocalUnreadMarkdown
+import fr.arthurbrugiere.forgeline.ui.Markdown
+import fr.arthurbrugiere.forgeline.ui.emoji
+import fr.arthurbrugiere.forgeline.ui.label
+import fr.arthurbrugiere.forgeline.ui.referenceLinks
 import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
@@ -58,10 +65,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.withFrameMillis
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.compositionLocalOf
-import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
@@ -109,7 +113,6 @@ import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import androidx.compose.material.icons.automirrored.outlined.Label
@@ -129,7 +132,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.pluralStringResource
@@ -143,9 +145,7 @@ import fr.arthurbrugiere.forgeline.R
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.semantics.Role
 import androidx.compose.material.icons.outlined.ChevronRight
-import fr.arthurbrugiere.forgeline.core.markdown.ForgelineMarkdown
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
-import fr.arthurbrugiere.forgeline.core.markdown.rememberReadmeState
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -195,7 +195,6 @@ import fr.arthurbrugiere.forgeline.pull.PullRequestPanel
 import fr.arthurbrugiere.forgeline.pull.PullRequestUiState
 import fr.arthurbrugiere.forgeline.pull.PullRequestViewModel
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
-import androidx.compose.runtime.getValue
 
 @Composable
 fun IssueRoute(
@@ -1103,12 +1102,6 @@ private fun HeaderTag(icon: ImageVector, label: String) {
 
 private val TimelineGutter = 40.dp
 
-/** On a comment body still being parsed; lets tests wait until every body is rendered. */
-const val MARKDOWN_PENDING_TAG = "markdown-pending"
-
-/** The count of comments in sight whose Markdown is still being read, kept by the conversation they are in. */
-private val LocalUnreadMarkdown = compositionLocalOf<MutableIntState> { mutableIntStateOf(0) }
-
 /** One comment as a conversation turn: the author and when, then their words; unboxed, the reading is the point. */
 @Composable
 private fun Comment(
@@ -1328,31 +1321,6 @@ private fun CommentDropdown(menu: CommentMenu, expanded: Boolean, onDismiss: () 
     }
 }
 
-@Composable
-internal fun Markdown(body: String, context: ReadmeContext, onLinkClick: (String) -> Unit) {
-    val colors = Soft.colors
-    val parsed = rememberReadmeState(body, context, colors.isDark)
-    if (parsed == null) {
-        // Counted while it shows: a list sent somewhere waits for it before letting go.
-        val unread = LocalUnreadMarkdown.current
-        DisposableEffect(unread) {
-            unread.intValue++
-            onDispose { unread.intValue-- }
-        }
-        // Styled like the rendered paragraph, so nothing jumps when parsing lands.
-        Text(
-            body,
-            style = MaterialTheme.typography.bodyLarge,
-            color = colors.ink,
-            maxLines = 6,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.testTag(MARKDOWN_PENDING_TAG),
-        )
-    } else {
-        ForgelineMarkdown(parsed, onLinkClick)
-    }
-}
-
 /**
  * The reactions a text was given, each with its count. With [onReact], tapping one gives it too, or takes back the
  * reader's own: each then has a finger's room around it.
@@ -1378,18 +1346,6 @@ private fun Reactions(reactions: Map<Reaction, Int>, modifier: Modifier = Modifi
         }
     }
 }
-
-internal val Reaction.label: Int
-    get() = when (this) {
-        Reaction.THUMBS_UP -> R.string.reaction_thumbs_up
-        Reaction.THUMBS_DOWN -> R.string.reaction_thumbs_down
-        Reaction.LAUGH -> R.string.reaction_laugh
-        Reaction.HOORAY -> R.string.reaction_hooray
-        Reaction.CONFUSED -> R.string.reaction_confused
-        Reaction.HEART -> R.string.reaction_heart
-        Reaction.ROCKET -> R.string.reaction_rocket
-        Reaction.EYES -> R.string.reaction_eyes
-    }
 
 @Composable
 private fun TimelineEntry(
@@ -1533,15 +1489,3 @@ private fun TimelineItem.key(index: Int): String = when (this) {
     is TimelineItem.Committed -> "commit-$sha"
     else -> "event-$index"
 }
-
-val Reaction.emoji: String
-    get() = when (this) {
-        Reaction.THUMBS_UP -> "👍"
-        Reaction.THUMBS_DOWN -> "👎"
-        Reaction.LAUGH -> "😄"
-        Reaction.HOORAY -> "🎉"
-        Reaction.CONFUSED -> "😕"
-        Reaction.HEART -> "❤️"
-        Reaction.ROCKET -> "🚀"
-        Reaction.EYES -> "👀"
-    }

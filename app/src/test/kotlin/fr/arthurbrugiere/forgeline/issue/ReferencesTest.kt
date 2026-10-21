@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.ui.referenceLinks
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.google.common.truth.Truth.assertThat

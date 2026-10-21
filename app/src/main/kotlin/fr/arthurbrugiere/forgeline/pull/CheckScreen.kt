@@ -61,7 +61,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
-import fr.arthurbrugiere.forgeline.issue.referenceLinks
+import fr.arthurbrugiere.forgeline.ui.referenceLinks
 import fr.arthurbrugiere.forgeline.navigation.CheckRoute
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace

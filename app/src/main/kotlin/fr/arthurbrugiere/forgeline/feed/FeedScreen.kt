@@ -19,8 +19,8 @@ import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.ReleaseJump
 import fr.arthurbrugiere.forgeline.core.model.ReleasePreview
 import fr.arthurbrugiere.forgeline.core.model.releaseJump
-import fr.arthurbrugiere.forgeline.issue.emoji
-import fr.arthurbrugiere.forgeline.issue.label
+import fr.arthurbrugiere.forgeline.ui.emoji
+import fr.arthurbrugiere.forgeline.ui.label
 import fr.arthurbrugiere.forgeline.ui.relativeInSentence
 import fr.arthurbrugiere.forgeline.core.ui.format.iconRes
 import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline

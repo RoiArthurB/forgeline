@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import fr.arthurbrugiere.forgeline.ui.MARKDOWN_PENDING_TAG
+import fr.arthurbrugiere.forgeline.ui.emoji
 import androidx.compose.ui.test.onNodeWithContentDescription
 import fr.arthurbrugiere.forgeline.core.testing.issueSummary
 import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
