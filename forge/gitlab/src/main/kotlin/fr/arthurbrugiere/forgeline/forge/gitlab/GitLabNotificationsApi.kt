@@ -80,7 +80,7 @@ class GitLabNotificationsApi(
         if (target != null) {
             val kind = if (target.isPullRequest == true) "merge_requests" else "issues"
             val left = httpClient.gitlabApi(
-                forge, token, "projects", encodePath(target.repo.fullName), kind, target.number.toString(), "unsubscribe", method = HttpMethod.Post,
+                forge, token, "projects", target.repo.fullName, kind, target.number.toString(), "unsubscribe", method = HttpMethod.Post,
             )
             // 304: not subscribed to begin with, which is where this was going.
             if (!left.status.isSuccess() && left.status != HttpStatusCode.NotModified) return@gitlabCall left.failure()
@@ -96,7 +96,7 @@ class GitLabNotificationsApi(
                 async {
                     gate.withPermit {
                         val kind = if (ref.isPullRequest == true) "merge_requests" else "issues"
-                        val response = httpClient.gitlabApi(ref.repo.forge, token, "projects", encodePath(ref.repo.fullName), kind, ref.number.toString())
+                        val response = httpClient.gitlabApi(ref.repo.forge, token, "projects", ref.repo.fullName, kind, ref.number.toString())
                         if (response.status != HttpStatusCode.OK) return@withPermit null
                         val state = if (ref.isPullRequest == true) {
                             val mr = response.body<GitLabMergeRequestJson>()

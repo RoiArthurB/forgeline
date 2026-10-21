@@ -187,7 +187,7 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
 
     /** GitLab answers runs of lines with the commit that left them, in the file's order: their numbers are counted here. */
     override suspend fun blame(token: String?, repo: RepoId, ref: String, path: String): ForgeResult<List<BlameRange>> = gitlabCall {
-        project(token, repo, "repository", "files", encodePath(path), "blame", query = mapOf("ref" to ref)).toResult {
+        project(token, repo, "repository", "files", path, "blame", query = mapOf("ref" to ref)).toResult {
             var line = 1
             body<List<MrBlameJson>>().filter { it.lines.isNotEmpty() }.map { range ->
                 BlameRange(line, line + range.lines.size - 1, range.commit.toModel()).also { line += range.lines.size }
@@ -197,7 +197,7 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
 
     private suspend fun project(
         token: String?, id: RepoId, vararg segments: String, method: HttpMethod = HttpMethod.Get, query: Map<String, String> = emptyMap(), body: JsonObject? = null,
-    ): HttpResponse = httpClient.gitlabApi(id.forge, token, "projects", encodePath(id.fullName), *segments, method = method, query = query, body = body)
+    ): HttpResponse = httpClient.gitlabApi(id.forge, token, "projects", id.fullName, *segments, method = method, query = query, body = body)
 
     private suspend fun mergeRequest(
         token: String?, ref: IssueRef, vararg segments: String, method: HttpMethod = HttpMethod.Get, query: Map<String, String> = emptyMap(), body: JsonObject? = null,

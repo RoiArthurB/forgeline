@@ -24,6 +24,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.appendPathSegments
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.http.takeFrom
@@ -37,7 +38,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import java.io.IOException
-import java.net.URLEncoder
 import java.time.DateTimeException
 import java.time.Instant
 import java.time.OffsetDateTime
@@ -56,11 +56,10 @@ fun gitlabHttpClient(engine: HttpClientEngine): HttpClient = HttpClient(engine) 
     }
 }
 
-/** URL-encodes a path (e.g. project path with namespace "gitlab-org/gitlab" -> "gitlab-org%2Fgitlab"). */
-internal fun encodePath(path: String): String =
-    URLEncoder.encode(path, "UTF-8").replace("+", "%20")
-
-/** A call to a GitLab instance's API (`https://host/api/v4/...`). */
+/**
+ * A call to a GitLab instance's API (`https://host/api/v4/...`); path segments are encoded one by one, slashes too, so
+ * a project's path (`gitlab-org/gitlab`) or a file's is passed as it is.
+ */
 internal suspend fun HttpClient.gitlabApi(
     forge: ForgeInstance,
     token: String?,
@@ -94,8 +93,8 @@ private fun HttpRequestBuilder.gitlab(
     this.method = method
     if (patienceMillis != null) timeout { socketTimeoutMillis = patienceMillis }
     url {
-        val combinedSegments = segments.joinToString("/")
-        takeFrom("${forge.webUrl}/api/v4" + (if (combinedSegments.isNotEmpty()) "/$combinedSegments" else ""))
+        takeFrom("${forge.webUrl}/api/v4")
+        appendPathSegments(segments.toList(), encodeSlash = true)
         query.forEach { (key, value) -> parameters.append(key, value) }
     }
     header(HttpHeaders.Accept, "application/json")

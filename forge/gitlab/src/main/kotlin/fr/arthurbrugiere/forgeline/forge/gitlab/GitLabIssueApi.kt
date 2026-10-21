@@ -5,6 +5,8 @@ import io.ktor.client.request.setBody
 import io.ktor.client.request.header
 import io.ktor.http.HttpHeaders
 import io.ktor.http.Headers
+import io.ktor.http.appendPathSegments
+import io.ktor.http.takeFrom
 import io.ktor.client.request.post
 import io.ktor.client.request.forms.formData
 import io.ktor.client.request.forms.MultiPartFormDataContent
@@ -55,9 +57,6 @@ class GitLabIssueApi(
 
     /** Merge requests have no due date, and only issues are deleted from here. */
     override val issueOnly: Set<ConversationAction> = setOf(ConversationAction.DUE_DATE, ConversationAction.DELETE)
-
-    private fun projectPath(repo: RepoId): String = encodePath(repo.fullName)
-
     /** GitLab numbers merge requests apart from issues: a reference that doesn't say which is an issue, here as everywhere. */
     private fun targetKind(ref: IssueRef): String =
         if (ref.isPullRequest == true) "merge_requests" else "issues"
@@ -69,9 +68,9 @@ class GitLabIssueApi(
 
     private suspend fun fetchIssue(token: String?, ref: IssueRef): ForgeResult<IssueDetails> = coroutineScope {
         val reactionsDeferred = async {
-            httpClient.gitlabApi(ref.repo.forge, token, "projects", projectPath(ref.repo), "issues", ref.number.toString(), "award_emoji")
+            httpClient.gitlabApi(ref.repo.forge, token, "projects", ref.repo.fullName, "issues", ref.number.toString(), "award_emoji")
         }
-        val response = httpClient.gitlabApi(ref.repo.forge, token, "projects", projectPath(ref.repo), "issues", ref.number.toString())
+        val response = httpClient.gitlabApi(ref.repo.forge, token, "projects", ref.repo.fullName, "issues", ref.number.toString())
         if (response.status != HttpStatusCode.OK) return@coroutineScope response.failure()
 
         val issueJson = response.body<GitLabIssueJson>()
@@ -86,9 +85,9 @@ class GitLabIssueApi(
 
     private suspend fun fetchMergeRequest(token: String?, ref: IssueRef): ForgeResult<IssueDetails> = coroutineScope {
         val reactionsDeferred = async {
-            httpClient.gitlabApi(ref.repo.forge, token, "projects", projectPath(ref.repo), "merge_requests", ref.number.toString(), "award_emoji")
+            httpClient.gitlabApi(ref.repo.forge, token, "projects", ref.repo.fullName, "merge_requests", ref.number.toString(), "award_emoji")
         }
-        val response = httpClient.gitlabApi(ref.repo.forge, token, "projects", projectPath(ref.repo), "merge_requests", ref.number.toString())
+        val response = httpClient.gitlabApi(ref.repo.forge, token, "projects", ref.repo.fullName, "merge_requests", ref.number.toString())
         if (response.status != HttpStatusCode.OK) return@coroutineScope response.failure()
 
         val mrJson = response.body<GitLabMergeRequestJson>()
@@ -116,12 +115,12 @@ class GitLabIssueApi(
             // Closing, reopening and merging are kept apart from the notes: asked alongside, not after.
             val stateEvents = async {
                 httpClient.gitlabApi(
-                    ref.repo.forge, token, "projects", projectPath(ref.repo), kind, ref.number.toString(), "resource_state_events",
+                    ref.repo.forge, token, "projects", ref.repo.fullName, kind, ref.number.toString(), "resource_state_events",
                     query = mapOf("per_page" to "100"),
                 )
             }
             val response = httpClient.gitlabApi(
-                ref.repo.forge, token, "projects", projectPath(ref.repo), kind, ref.number.toString(), "notes",
+                ref.repo.forge, token, "projects", ref.repo.fullName, kind, ref.number.toString(), "notes",
                 query = mapOf("sort" to "asc", "page" to page.toString(), "per_page" to "$NOTES_PER_PAGE"),
             )
             if (response.status != HttpStatusCode.OK) {
@@ -174,7 +173,7 @@ class GitLabIssueApi(
         val kind = targetKind(ref)
         val payload = buildJsonObject { put("body", body) }
         httpClient.gitlabApi(
-            ref.repo.forge, token, "projects", projectPath(ref.repo), kind, ref.number.toString(), "notes",
+            ref.repo.forge, token, "projects", ref.repo.fullName, kind, ref.number.toString(), "notes",
             method = HttpMethod.Post,
             body = payload,
         ).toResult { body<GitLabNoteJson>().toComment() }
@@ -182,7 +181,7 @@ class GitLabIssueApi(
 
     override suspend fun editComment(token: String, ref: IssueRef, commentId: Long, body: String): ForgeResult<Unit> = gitlabCall {
         httpClient.gitlabApi(
-            ref.repo.forge, token, "projects", projectPath(ref.repo), targetKind(ref), ref.number.toString(), "notes", commentId.toString(),
+            ref.repo.forge, token, "projects", ref.repo.fullName, targetKind(ref), ref.number.toString(), "notes", commentId.toString(),
             method = HttpMethod.Put,
             body = buildJsonObject { put("body", body) },
         ).toResult { }
@@ -190,7 +189,7 @@ class GitLabIssueApi(
 
     override suspend fun deleteComment(token: String, ref: IssueRef, commentId: Long): ForgeResult<Unit> = gitlabCall {
         httpClient.gitlabApi(
-            ref.repo.forge, token, "projects", projectPath(ref.repo), targetKind(ref), ref.number.toString(), "notes", commentId.toString(),
+            ref.repo.forge, token, "projects", ref.repo.fullName, targetKind(ref), ref.number.toString(), "notes", commentId.toString(),
             method = HttpMethod.Delete,
         ).toResult { }
     }
@@ -198,7 +197,7 @@ class GitLabIssueApi(
     /** GitLab calls the text of an issue or a merge request its description. */
     override suspend fun edit(token: String, ref: IssueRef, title: String, body: String): ForgeResult<Unit> = gitlabCall {
         httpClient.gitlabApi(
-            ref.repo.forge, token, "projects", projectPath(ref.repo), targetKind(ref), ref.number.toString(),
+            ref.repo.forge, token, "projects", ref.repo.fullName, targetKind(ref), ref.number.toString(),
             method = HttpMethod.Put,
             body = buildJsonObject {
                 put("title", title)
@@ -212,7 +211,7 @@ class GitLabIssueApi(
      * that id, or given. Giving one twice is refused (404, "Name has already been taken"), so it is never tried blind.
      */
     override suspend fun toggleReaction(token: String, login: String, ref: IssueRef, commentId: Long?, reaction: Reaction): ForgeResult<Map<Reaction, Int>> = gitlabCall {
-        val target = listOfNotNull("projects", projectPath(ref.repo), targetKind(ref), ref.number.toString(), commentId?.let { "notes/$it" }, "award_emoji").toTypedArray()
+        val target = listOfNotNull("projects", ref.repo.fullName, targetKind(ref), ref.number.toString(), commentId?.let { "notes" }, commentId?.toString(), "award_emoji").toTypedArray()
         val listed = httpClient.gitlabApi(ref.repo.forge, token, *target, query = mapOf("per_page" to "100"))
         if (listed.status != HttpStatusCode.OK) return@gitlabCall listed.failure()
         val given = listed.body<List<GitLabAwardEmojiJson>>()
@@ -249,7 +248,11 @@ class GitLabIssueApi(
      * there, and in a notification's e-mail.
      */
     override suspend fun attach(token: String, ref: IssueRef, name: String, mimeType: String, bytes: ByteArray): ForgeResult<String> = gitlabCall {
-        httpClient.post("${ref.repo.forge.webUrl}/api/v4/projects/${projectPath(ref.repo)}/uploads") {
+        httpClient.post {
+            url {
+                takeFrom("${ref.repo.forge.webUrl}/api/v4")
+                appendPathSegments(listOf("projects", ref.repo.fullName, "uploads"), encodeSlash = true)
+            }
             header(HttpHeaders.Accept, "application/json")
             header(HttpHeaders.Authorization, "Bearer $token")
             setBody(
@@ -277,7 +280,7 @@ class GitLabIssueApi(
             put("description", body)
         }
         httpClient.gitlabApi(
-            repo.forge, token, "projects", projectPath(repo), "issues",
+            repo.forge, token, "projects", repo.fullName, "issues",
             method = HttpMethod.Post,
             body = payload,
         ).toResult { body<GitLabIssueJson>().toDetails(repo) }
@@ -289,14 +292,14 @@ class GitLabIssueApi(
             put("state_event", if (open) "reopen" else "close")
         }
         httpClient.gitlabApi(
-            ref.repo.forge, token, "projects", projectPath(ref.repo), kind, ref.number.toString(),
+            ref.repo.forge, token, "projects", ref.repo.fullName, kind, ref.number.toString(),
             method = HttpMethod.Put,
             body = payload,
         ).toResult { }
     }
 
     override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoRights> = gitlabCall {
-        val response = httpClient.gitlabApi(repo.forge, token, "projects", projectPath(repo))
+        val response = httpClient.gitlabApi(repo.forge, token, "projects", repo.fullName)
         if (response.status != HttpStatusCode.OK) return@gitlabCall response.failure()
 
         val project = response.body<GitLabProjectJson>()
@@ -314,7 +317,7 @@ class GitLabIssueApi(
     }
 
     override suspend fun labels(token: String, repo: RepoId): ForgeResult<List<Label>> = gitlabCall {
-        httpClient.gitlabApi(repo.forge, token, "projects", projectPath(repo), "labels", query = mapOf("per_page" to "100"))
+        httpClient.gitlabApi(repo.forge, token, "projects", repo.fullName, "labels", query = mapOf("per_page" to "100"))
             .toResult { body<List<GitLabLabelJson>>().map { it.toModel() } }
     }
 
@@ -324,21 +327,21 @@ class GitLabIssueApi(
             put("labels", names.joinToString(","))
         }
         httpClient.gitlabApi(
-            ref.repo.forge, token, "projects", projectPath(ref.repo), kind, ref.number.toString(),
+            ref.repo.forge, token, "projects", ref.repo.fullName, kind, ref.number.toString(),
             method = HttpMethod.Put,
             body = payload,
         ).toResult { }
     }
 
     override suspend fun assignable(token: String, repo: RepoId): ForgeResult<List<ForgeUser>> = gitlabCall {
-        httpClient.gitlabApi(repo.forge, token, "projects", projectPath(repo), "users", query = mapOf("per_page" to "100"))
+        httpClient.gitlabApi(repo.forge, token, "projects", repo.fullName, "users", query = mapOf("per_page" to "100"))
             .toResult { body<List<GitLabUserJson>>().map { it.toForgeUser() } }
     }
 
     override suspend fun setAssignees(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> = gitlabCall {
         val kind = targetKind(ref)
         // Look up member IDs for these usernames
-        val membersRes = httpClient.gitlabApi(ref.repo.forge, token, "projects", projectPath(ref.repo), "users", query = mapOf("per_page" to "100"))
+        val membersRes = httpClient.gitlabApi(ref.repo.forge, token, "projects", ref.repo.fullName, "users", query = mapOf("per_page" to "100"))
         if (membersRes.status != HttpStatusCode.OK) return@gitlabCall membersRes.failure()
         val members = membersRes.body<List<GitLabUserJson>>()
         val assigneeIds = logins.mapNotNull { login -> members.firstOrNull { it.username.equals(login, ignoreCase = true) }?.id }
@@ -347,14 +350,14 @@ class GitLabIssueApi(
             put("assignee_ids", assigneeIds.joinToString(","))
         }
         httpClient.gitlabApi(
-            ref.repo.forge, token, "projects", projectPath(ref.repo), kind, ref.number.toString(),
+            ref.repo.forge, token, "projects", ref.repo.fullName, kind, ref.number.toString(),
             method = HttpMethod.Put,
             body = payload,
         ).toResult { }
     }
 
     override suspend fun milestones(token: String, repo: RepoId): ForgeResult<List<Milestone>> = gitlabCall {
-        httpClient.gitlabApi(repo.forge, token, "projects", projectPath(repo), "milestones", query = mapOf("state" to "active", "per_page" to "100"))
+        httpClient.gitlabApi(repo.forge, token, "projects", repo.fullName, "milestones", query = mapOf("state" to "active", "per_page" to "100"))
             .toResult { body<List<GitLabMilestoneJson>>().map { Milestone(it.id, it.title) } }
     }
 
@@ -364,7 +367,7 @@ class GitLabIssueApi(
             put("milestone_id", milestone?.id ?: 0L)
         }
         httpClient.gitlabApi(
-            ref.repo.forge, token, "projects", projectPath(ref.repo), kind, ref.number.toString(),
+            ref.repo.forge, token, "projects", ref.repo.fullName, kind, ref.number.toString(),
             method = HttpMethod.Put,
             body = payload,
         ).toResult { }
@@ -376,7 +379,7 @@ class GitLabIssueApi(
             put("discussion_locked", locked)
         }
         httpClient.gitlabApi(
-            ref.repo.forge, token, "projects", projectPath(ref.repo), kind, ref.number.toString(),
+            ref.repo.forge, token, "projects", ref.repo.fullName, kind, ref.number.toString(),
             method = HttpMethod.Put,
             body = payload,
         ).toResult { }
@@ -389,7 +392,7 @@ class GitLabIssueApi(
             put("due_date", date?.toString() ?: "")
         }
         httpClient.gitlabApi(
-            ref.repo.forge, token, "projects", projectPath(ref.repo), "issues", ref.number.toString(),
+            ref.repo.forge, token, "projects", ref.repo.fullName, "issues", ref.number.toString(),
             method = HttpMethod.Put,
             body = payload,
         ).toResult { }
@@ -397,7 +400,7 @@ class GitLabIssueApi(
 
     override suspend fun timeTracking(token: String, ref: IssueRef): ForgeResult<TimeTracking> = gitlabCall {
         val kind = targetKind(ref)
-        httpClient.gitlabApi(ref.repo.forge, token, "projects", projectPath(ref.repo), kind, ref.number.toString(), "time_stats")
+        httpClient.gitlabApi(ref.repo.forge, token, "projects", ref.repo.fullName, kind, ref.number.toString(), "time_stats")
             .toResult {
                 val stats = body<GitLabTimeStatsJson>()
                 TimeTracking(totalSeconds = stats.totalTimeSpent, runningSince = null)
@@ -407,7 +410,7 @@ class GitLabIssueApi(
     override suspend fun addTime(token: String, ref: IssueRef, seconds: Long): ForgeResult<Unit> = gitlabCall {
         val kind = targetKind(ref)
         httpClient.gitlabApi(
-            ref.repo.forge, token, "projects", projectPath(ref.repo), kind, ref.number.toString(), "add_spent_time",
+            ref.repo.forge, token, "projects", ref.repo.fullName, kind, ref.number.toString(), "add_spent_time",
             method = HttpMethod.Post,
             query = mapOf("duration" to "${seconds}s"),
         ).toResult { }
@@ -416,7 +419,7 @@ class GitLabIssueApi(
     override suspend fun delete(token: String, ref: IssueRef): ForgeResult<Unit> = gitlabCall {
         if (ref.isPullRequest == true) return@gitlabCall ForgeResult.Failure(ForgeError.Unsupported)
         httpClient.gitlabApi(
-            ref.repo.forge, token, "projects", projectPath(ref.repo), "issues", ref.number.toString(),
+            ref.repo.forge, token, "projects", ref.repo.fullName, "issues", ref.number.toString(),
             method = HttpMethod.Delete,
         ).toResult { }
     }

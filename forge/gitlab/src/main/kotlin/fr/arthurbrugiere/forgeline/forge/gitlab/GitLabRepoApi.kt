@@ -29,14 +29,11 @@ class GitLabRepoApi(
     private val httpClient: HttpClient,
     private val forge: ForgeInstance = ForgeInstance.GitLab,
 ) : RepoApi {
-
-    private fun projectPath(id: RepoId): String = encodePath(id.fullName)
-
     override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = gitlabCall {
         coroutineScope {
             // Asked alongside: a project says how many issues are open, not how many merge requests.
             val openPulls = async { openMergeRequests(token, id) }
-            httpClient.gitlabApi(id.forge, token, "projects", projectPath(id))
+            httpClient.gitlabApi(id.forge, token, "projects", id.fullName)
                 .toResult { body<GitLabProjectJson>().toDetails(id.forge) }
                 .let { result -> if (result is ForgeResult.Success) ForgeResult.Success(result.value.copy(openPulls = openPulls.await())) else result }
         }
@@ -45,7 +42,7 @@ class GitLabRepoApi(
     /** How many merge requests are open, from the total GitLab sends with a one-item page; null when it can't be told. */
     private suspend fun openMergeRequests(token: String?, id: RepoId): Int? = try {
         httpClient.gitlabApi(
-            id.forge, token, "projects", projectPath(id), "merge_requests", query = mapOf("state" to "opened", "per_page" to "1"),
+            id.forge, token, "projects", id.fullName, "merge_requests", query = mapOf("state" to "opened", "per_page" to "1"),
         ).takeIf { it.status == HttpStatusCode.OK }?.totalCount()
     } catch (e: CancellationException) {
         throw e
@@ -56,19 +53,19 @@ class GitLabRepoApi(
 
     /** GitLab gives percentages rather than bytes: shares all the same. */
     override suspend fun languages(token: String?, id: RepoId): ForgeResult<List<RepoLanguage>> = gitlabCall {
-        httpClient.gitlabApi(id.forge, token, "projects", encodePath(id.fullName), "languages").toResult { languageShares(body<Map<String, Double>>()) }
+        httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "languages").toResult { languageShares(body<Map<String, Double>>()) }
     }
 
     override suspend fun readme(token: String?, id: RepoId, ref: String?): ForgeResult<Readme?> = gitlabCall {
         val branch = ref ?: run {
-            val projectResponse = httpClient.gitlabApi(id.forge, token, "projects", projectPath(id))
+            val projectResponse = httpClient.gitlabApi(id.forge, token, "projects", id.fullName)
             if (projectResponse.status != HttpStatusCode.OK) return@gitlabCall projectResponse.failure()
             projectResponse.body<GitLabProjectJson>().defaultBranch ?: "main"
         }
 
         // Try standard README.md directly
         val directResponse = httpClient.gitlabApi(
-            id.forge, token, "projects", projectPath(id), "repository", "files", encodePath("README.md"), "raw",
+            id.forge, token, "projects", id.fullName, "repository", "files", "README.md", "raw",
             query = mapOf("ref" to branch),
         )
         if (directResponse.status == HttpStatusCode.OK) {
@@ -77,7 +74,7 @@ class GitLabRepoApi(
 
         // Otherwise scan tree at root for any file matching readme.*
         val treeResponse = httpClient.gitlabApi(
-            id.forge, token, "projects", projectPath(id), "repository", "tree",
+            id.forge, token, "projects", id.fullName, "repository", "tree",
             query = mapOf("ref" to branch, "per_page" to "100"),
         )
         if (treeResponse.status != HttpStatusCode.OK) return@gitlabCall treeResponse.failure()
@@ -86,7 +83,7 @@ class GitLabRepoApi(
             ?: return@gitlabCall ForgeResult.Success(null)
 
         val rawResponse = httpClient.gitlabApi(
-            id.forge, token, "projects", projectPath(id), "repository", "files", encodePath(readmeItem.path), "raw",
+            id.forge, token, "projects", id.fullName, "repository", "files", readmeItem.path, "raw",
             query = mapOf("ref" to branch),
         )
         rawResponse.toResult { Readme(readmeItem.path, bodyAsText()) }
@@ -95,10 +92,10 @@ class GitLabRepoApi(
     override suspend fun refs(token: String?, id: RepoId): ForgeResult<GitRefs> = gitlabCall {
         coroutineScope {
             val branchesDeferred = async {
-                httpClient.gitlabApi(id.forge, token, "projects", projectPath(id), "repository", "branches", query = mapOf("per_page" to "100"))
+                httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "repository", "branches", query = mapOf("per_page" to "100"))
             }
             val tagsDeferred = async {
-                httpClient.gitlabApi(id.forge, token, "projects", projectPath(id), "repository", "tags", query = mapOf("per_page" to "100"))
+                httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "repository", "tags", query = mapOf("per_page" to "100"))
             }
             val branchesRes = branchesDeferred.await()
             val tagsRes = tagsDeferred.await()
@@ -116,7 +113,7 @@ class GitLabRepoApi(
         val query = mutableMapOf("ref" to ref, "per_page" to "100")
         if (path.isNotBlank()) query["path"] = path
 
-        httpClient.gitlabApi(id.forge, token, "projects", projectPath(id), "repository", "tree", query = query)
+        httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "repository", "tree", query = query)
             .toResult {
                 body<List<GitLabTreeItemJson>>()
                     .map { it.toRepoFile() }
@@ -126,7 +123,7 @@ class GitLabRepoApi(
 
     override suspend fun fileText(token: String?, id: RepoId, path: String, ref: String): ForgeResult<String> = gitlabCall {
         httpClient.gitlabApi(
-            id.forge, token, "projects", projectPath(id), "repository", "files", encodePath(path), "raw",
+            id.forge, token, "projects", id.fullName, "repository", "files", path, "raw",
             query = mapOf("ref" to ref),
         ).toResult { bodyAsText() }
     }
@@ -141,7 +138,7 @@ class GitLabRepoApi(
         )
         if (query.text.isNotBlank()) params["search"] = query.text
 
-        httpClient.gitlabApi(id.forge, token, "projects", projectPath(id), "issues", query = params)
+        httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "issues", query = params)
             .toResult { body<List<GitLabIssueJson>>().map { it.toSummary(id) } }
     }
 
@@ -153,7 +150,7 @@ class GitLabRepoApi(
                 async {
                     val params = mutableMapOf("state" to state, "order_by" to "created_at", "sort" to "desc", "per_page" to "${IssueQuery.PAGE_SIZE}", "page" to "${query.page}")
                     if (query.text.isNotBlank()) params["search"] = query.text
-                    httpClient.gitlabApi(id.forge, token, "projects", projectPath(id), "merge_requests", query = params)
+                    httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "merge_requests", query = params)
                 }
             }.map { it.await() }
         }
@@ -165,17 +162,17 @@ class GitLabRepoApi(
         ForgeResult.Success(emptyList())
 
     override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = gitlabCall {
-        httpClient.gitlabApi(id.forge, token, "projects", projectPath(id), "releases", query = mapOf("per_page" to "50"))
+        httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "releases", query = mapOf("per_page" to "50"))
             .toResult { body<List<GitLabReleaseJson>>().map { it.toModel() } }
     }
 
     override suspend fun release(token: String?, id: RepoId, tag: String): ForgeResult<Release> = gitlabCall {
-        httpClient.gitlabApi(id.forge, token, "projects", projectPath(id), "releases", encodePath(tag))
+        httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "releases", tag)
             .toResult { body<GitLabReleaseJson>().toModel() }
     }
 
     override suspend fun workflowRuns(token: String?, id: RepoId): ForgeResult<List<WorkflowRun>> = gitlabCall {
-        httpClient.gitlabApi(id.forge, token, "projects", projectPath(id), "pipelines", query = mapOf("per_page" to "30"))
+        httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "pipelines", query = mapOf("per_page" to "30"))
             .toResult { body<List<GitLabPipelineJson>>().map { it.toRun() } }
     }
 

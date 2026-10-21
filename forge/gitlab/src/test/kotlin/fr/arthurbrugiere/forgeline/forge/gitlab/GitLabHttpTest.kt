@@ -19,6 +19,16 @@ class GitLabHttpTest {
             .gitlabApi(ForgeInstance.GitLab, "t", "projects", "1")
             .failure()
 
+    // Callers used to encode a project's path and a file's by hand, each in its own way; one left out was a broken call.
+    @Test
+    fun each_segment_is_encoded_slashes_and_all() = runTest {
+        val requests = mutableListOf<io.ktor.client.request.HttpRequestData>()
+        gitlabHttpClient(MockEngine { requests += it; respond("{}") })
+            .gitlabApi(ForgeInstance.GitLab, "t", "projects", "group/sub group", "repository", "files", "docs/a #1?.md", "raw")
+
+        assertThat(requests.single().url.encodedPath).isEqualTo("/api/v4/projects/group%2Fsub%20group/repository/files/docs%2Fa%20%231%3F.md/raw")
+    }
+
     // Regression: the whole answer was the message, so a failed merge said {"message":"405 Method Not Allowed"}.
     @Test
     fun an_error_keeps_gitlabs_message_not_its_whole_answer() = runTest {

@@ -34,13 +34,13 @@ import kotlinx.serialization.json.put
 class GitLabRepoSettingsApi(private val httpClient: HttpClient, private val forge: ForgeInstance = ForgeInstance.GitLab) : RepoSettingsApi {
 
     override suspend fun settings(token: String, repo: RepoId): ForgeResult<RepoSettings> = gitlabCall {
-        httpClient.gitlabApi(forge, token, "projects", encodePath(repo.fullName)).toResult { body<JsonObject>().toSettings() }
+        httpClient.gitlabApi(forge, token, "projects", repo.fullName).toResult { body<JsonObject>().toSettings() }
     }
 
     override suspend fun change(token: String, repo: RepoId, change: RepoSettingsChange): ForgeResult<RepoSettings> = gitlabCall {
         // Archiving is a call of its own, which answers the project like the others.
         if (change is RepoSettingsChange.Archived) {
-            return@gitlabCall httpClient.gitlabApi(forge, token, "projects", encodePath(repo.fullName), if (change.archived) "archive" else "unarchive", method = HttpMethod.Post)
+            return@gitlabCall httpClient.gitlabApi(forge, token, "projects", repo.fullName, if (change.archived) "archive" else "unarchive", method = HttpMethod.Post)
                 .toResult { body<JsonObject>().toSettings() }
         }
         val body = buildJsonObject {
@@ -64,13 +64,13 @@ class GitLabRepoSettingsApi(private val httpClient: HttpClient, private val forg
                 else -> return@gitlabCall unsupported
             }
         }
-        httpClient.gitlabApi(forge, token, "projects", encodePath(repo.fullName), method = HttpMethod.Put, body = body).toResult { body<JsonObject>().toSettings() }
+        httpClient.gitlabApi(forge, token, "projects", repo.fullName, method = HttpMethod.Put, body = body).toResult { body<JsonObject>().toSettings() }
     }
 
     /** A project has a name to read and a path to be found at: both become [name], so that its address says what it is called. */
     override suspend fun rename(token: String, repo: RepoId, name: String): ForgeResult<RepoId> = gitlabCall {
         httpClient.gitlabApi(
-            forge, token, "projects", encodePath(repo.fullName), method = HttpMethod.Put,
+            forge, token, "projects", repo.fullName, method = HttpMethod.Put,
             body = buildJsonObject {
                 put("name", name)
                 put("path", name)
@@ -86,7 +86,7 @@ class GitLabRepoSettingsApi(private val httpClient: HttpClient, private val forg
      * id, read beforehand, to tell which happened.
      */
     override suspend fun delete(token: String, repo: RepoId): ForgeResult<RepoDeletion> = gitlabCall {
-        val project = httpClient.gitlabApi(forge, token, "projects", encodePath(repo.fullName))
+        val project = httpClient.gitlabApi(forge, token, "projects", repo.fullName)
         if (!project.status.isSuccess()) return@gitlabCall project.failure()
         val id = project.body<JsonObject>().textOrNull("id") ?: return@gitlabCall ForgeResult.Failure(ForgeError.Unreadable)
         val deleted = httpClient.gitlabApi(forge, token, "projects", id, method = HttpMethod.Delete)
@@ -101,13 +101,13 @@ class GitLabRepoSettingsApi(private val httpClient: HttpClient, private val forg
      * be set. A project without the feature answers 404, which is no site to set anything about.
      */
     override suspend fun pages(token: String, repo: RepoId): ForgeResult<PagesSite?> = gitlabCall {
-        val response = httpClient.gitlabApi(forge, token, "projects", encodePath(repo.fullName), "pages")
+        val response = httpClient.gitlabApi(forge, token, "projects", repo.fullName, "pages")
         if (response.status == HttpStatusCode.NotFound) ForgeResult.Success(null) else response.toResult { body<JsonObject>().toSite() }
     }
 
     override suspend fun changePages(token: String, repo: RepoId, change: PagesChange): ForgeResult<PagesSite> = gitlabCall {
         suspend fun send(method: HttpMethod, body: JsonObject? = null) =
-            httpClient.gitlabApi(forge, token, "projects", encodePath(repo.fullName), "pages", method = method, body = body)
+            httpClient.gitlabApi(forge, token, "projects", repo.fullName, "pages", method = method, body = body)
         when (change) {
             is PagesChange.Https -> send(HttpMethod.Patch, buildJsonObject { put("pages_https_only", change.enforced) }).toResult { body<JsonObject>().toSite() }
             PagesChange.Unpublish -> {

@@ -50,10 +50,10 @@ class GitLabUserApi(
         }
 
         // Fall back to looking up a group
-        val groupRes = httpClient.gitlabApi(forge, token, "groups", encodePath(login))
+        val groupRes = httpClient.gitlabApi(forge, token, "groups", login)
         if (groupRes.status.isSuccess()) {
             val group = groupRes.body<GitLabGroupJson>()
-            val reposRes = httpClient.gitlabApi(forge, token, "groups", encodePath(login), "projects", query = mapOf("per_page" to "1"))
+            val reposRes = httpClient.gitlabApi(forge, token, "groups", login, "projects", query = mapOf("per_page" to "1"))
             val reposCount = reposRes.totalCount() ?: 0
             return@gitlabCall ForgeResult.Success(group.toProfile(reposCount))
         }
@@ -73,7 +73,7 @@ class GitLabUserApi(
 
         // If not a user, try group projects
         val groupProjectsRes = httpClient.gitlabApi(
-            forge, token, "groups", encodePath(login), "projects",
+            forge, token, "groups", login, "projects",
             query = mapOf("order_by" to "updated_at", "sort" to "desc", "per_page" to "30"),
         )
         groupProjectsRes.toResult { body<List<GitLabProjectJson>>().map { it.toSummary(forge) } }
@@ -159,7 +159,7 @@ class GitLabStarApi(
 
     override suspend fun setStarred(token: String, repo: RepoId, starred: Boolean): ForgeResult<Unit> = gitlabCall {
         val action = if (starred) "star" else "unstar"
-        val response = httpClient.gitlabApi(repo.forge, token, "projects", encodePath(repo.fullName), action, method = HttpMethod.Post)
+        val response = httpClient.gitlabApi(repo.forge, token, "projects", repo.fullName, action, method = HttpMethod.Post)
         if (response.status.isSuccess() || response.status == HttpStatusCode.NotModified) {
             ForgeResult.Success(Unit)
         } else {
@@ -172,20 +172,20 @@ class GitLabStarApi(
      * (the account's general setting, "participating", "mention") is not watching.
      */
     override suspend fun isWatching(token: String, repo: RepoId): ForgeResult<Boolean> = gitlabCall {
-        httpClient.gitlabApi(repo.forge, token, "projects", encodePath(repo.fullName), "notification_settings")
+        httpClient.gitlabApi(repo.forge, token, "projects", repo.fullName, "notification_settings")
             .toResult { body<GitLabNotificationLevelJson>().level == WATCH }
     }
 
     /** No longer watching goes back to the account's general setting, as if the project had never been set. */
     override suspend fun setWatching(token: String, repo: RepoId, watching: Boolean): ForgeResult<Unit> = gitlabCall {
         httpClient.gitlabApi(
-            repo.forge, token, "projects", encodePath(repo.fullName), "notification_settings",
+            repo.forge, token, "projects", repo.fullName, "notification_settings",
             method = HttpMethod.Put, body = buildJsonObject { put("level", if (watching) WATCH else "global") },
         ).toResult { }
     }
 
     override suspend fun fork(token: String, repo: RepoId): ForgeResult<RepoId> = gitlabCall {
-        httpClient.gitlabApi(repo.forge, token, "projects", encodePath(repo.fullName), "fork", method = HttpMethod.Post)
+        httpClient.gitlabApi(repo.forge, token, "projects", repo.fullName, "fork", method = HttpMethod.Post)
             .toResult { body<GitLabProjectJson>().pathWithNamespace.let { path -> RepoId(path.substringBeforeLast('/'), path.substringAfterLast('/'), repo.forge) } }
     }
 
