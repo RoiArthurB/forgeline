@@ -300,21 +300,7 @@ class GitLabIssueApi(
     }
 
     override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoRights> = forgeCall {
-        val response = httpClient.gitlabApi(repo.forge, token, "projects", repo.fullName)
-        if (response.status != HttpStatusCode.OK) return@forgeCall response.failure()
-
-        val project = response.body<GitLabProjectJson>()
-        val accessLevel = maxOf(
-            project.permissions?.projectAccess?.accessLevel ?: 0,
-            project.permissions?.groupAccess?.accessLevel ?: 0,
-        )
-        val access = when {
-            accessLevel >= 40 -> RepoAccess.ADMIN
-            accessLevel >= 30 -> RepoAccess.WRITE
-            accessLevel >= 20 -> RepoAccess.TRIAGE
-            else -> RepoAccess.NONE
-        }
-        ForgeResult.Success(RepoRights(access))
+        httpClient.gitlabApi(repo.forge, token, "projects", repo.fullName).toResult { body<GitLabProjectJson>().toRights() }
     }
 
     override suspend fun labels(token: String, repo: RepoId): ForgeResult<List<Label>> = forgeCall {
@@ -428,4 +414,17 @@ class GitLabIssueApi(
     private companion object {
         const val NOTES_PER_PAGE = 30
     }
+}
+
+/** What a project's answer says the token's account may do there: the higher of its own access and its group's. */
+internal fun GitLabProjectJson.toRights(): RepoRights {
+    val accessLevel = maxOf(permissions?.projectAccess?.accessLevel ?: 0, permissions?.groupAccess?.accessLevel ?: 0)
+    return RepoRights(
+        when {
+            accessLevel >= 40 -> RepoAccess.ADMIN
+            accessLevel >= 30 -> RepoAccess.WRITE
+            accessLevel >= 20 -> RepoAccess.TRIAGE
+            else -> RepoAccess.NONE
+        },
+    )
 }

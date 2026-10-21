@@ -32,8 +32,12 @@ class FakeRepoRepository : RepoRepository {
 
     override fun observe(id: RepoId): Flow<RepoSnapshot> = snapshot
 
+    /** Holds every refresh until completed, like a far forge's answer. */
+    var refreshGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+
     override suspend fun refresh(id: RepoId, force: Boolean): RefreshResult {
         refreshes += force
+        refreshGate?.await()
         return nextRefresh
     }
 

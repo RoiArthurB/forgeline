@@ -25,6 +25,8 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import io.ktor.http.HttpMethod
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
+import io.ktor.client.statement.bodyAsText
 import fr.arthurbrugiere.forgeline.core.forge.map
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
@@ -300,17 +302,7 @@ class GitHubIssueApi(
     }
 
     override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoRights> = forgeCall {
-        httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name).toResult {
-            val permissions = body<PermittedRepoJson>().permissions
-            RepoRights(
-                when {
-                    permissions.admin -> RepoAccess.ADMIN
-                    permissions.push || permissions.maintain -> RepoAccess.WRITE
-                    permissions.triage -> RepoAccess.TRIAGE
-                    else -> RepoAccess.NONE
-                },
-            )
-        }
+        httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name).toResult { gitHubRights(bodyAsText()) }
     }
 }
 
@@ -319,6 +311,19 @@ private data class PermissionsJson(val admin: Boolean = false, val maintain: Boo
 
 @Serializable
 private data class PermittedRepoJson(val permissions: PermissionsJson = PermissionsJson())
+
+/** What a repository's answer says the token's account may do there (`permissions`, sent to whoever is signed in). */
+internal fun gitHubRights(repoAnswer: String): RepoRights {
+    val permissions = ForgeJson.decodeFromString<PermittedRepoJson>(repoAnswer).permissions
+    return RepoRights(
+        when {
+            permissions.admin -> RepoAccess.ADMIN
+            permissions.push || permissions.maintain -> RepoAccess.WRITE
+            permissions.triage -> RepoAccess.TRIAGE
+            else -> RepoAccess.NONE
+        },
+    )
+}
 
 @Serializable
 private data class CommentJson(

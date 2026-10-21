@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.core.testing
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
+import fr.arthurbrugiere.forgeline.core.forge.map
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueState
@@ -12,6 +13,7 @@ import fr.arthurbrugiere.forgeline.core.model.Release
 import fr.arthurbrugiere.forgeline.core.model.RepoDetails
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 
 /** Records every call as "method:owner/name[:extra]" and the token used. */
@@ -43,6 +45,12 @@ class FakeRepoApi : RepoApi {
         failure?.let { return ForgeResult.Failure(it) }
         return details[id]?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Http(404, "Not Found"))
     }
+
+    /** What the forge says the signed-in account may do, beside the details; nothing signed out, nor when unset. */
+    val rights = mutableMapOf<RepoId, RepoRights>()
+
+    override suspend fun repoAndRights(token: String?, id: RepoId): ForgeResult<Pair<RepoDetails, RepoRights?>> =
+        repo(token, id).map { it to rights[id]?.takeIf { token != null } }
 
     override suspend fun readme(token: String?, id: RepoId, ref: String?) =
         answer<Readme?>("readme:${id.fullName}" + (ref?.let { "@$it" } ?: ""), token) { readmes[id] }

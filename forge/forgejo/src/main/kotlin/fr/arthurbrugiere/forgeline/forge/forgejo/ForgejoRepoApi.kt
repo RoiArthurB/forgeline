@@ -5,6 +5,9 @@ import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
 import fr.arthurbrugiere.forgeline.core.model.languageShares
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
+import fr.arthurbrugiere.forgeline.core.forge.map
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
 import fr.arthurbrugiere.forgeline.core.forge.VersionOrder
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -30,8 +33,13 @@ import io.ktor.http.HttpStatusCode
 
 class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : RepoApi {
 
-    override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = forgeCall {
-        get(token, id).toResult { body<RepoJson>().toDetails(forge) }
+    override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = repoAndRights(token, id).map { it.first }
+
+    override suspend fun repoAndRights(token: String?, id: RepoId): ForgeResult<Pair<RepoDetails, RepoRights?>> = forgeCall {
+        get(token, id).toResult {
+            val answer = bodyAsText()
+            ForgeJson.decodeFromString<RepoJson>(answer).toDetails(forge) to token?.let { forgejoRights(answer) }
+        }
     }
 
     /** Bytes of code by language, as GitHub's API gives them. */

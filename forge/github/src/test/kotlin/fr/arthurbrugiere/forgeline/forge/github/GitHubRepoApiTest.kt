@@ -8,6 +8,8 @@ import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RunConclusion
 import fr.arthurbrugiere.forgeline.core.model.RunStatus
 import io.ktor.client.engine.mock.MockEngine
@@ -57,6 +59,24 @@ class GitHubRepoApiTest {
         assertThat(repo.isArchived).isFalse()
         assertThat(repo.hasIssues).isTrue()
         assertThat(requests.single().url.toString()).isEqualTo("https://api.github.com/repos/paperclipai/paperclip")
+    }
+
+    // Regression: opening a repository asked GitHub for it twice, once for its details and again for the account's rights.
+    @Test
+    fun what_the_account_may_do_comes_with_the_repository() = runTest {
+        val permitted = fixture("repo.json").replaceFirst("{", """{"permissions":{"admin":false,"maintain":false,"push":true,"triage":true,"pull":true},""")
+        val api = api { if (it.url.encodedPath.endsWith("/pulls")) json("[]") else json(permitted) }
+
+        val (repo, rights) = api.repoAndRights("tok", paperclip).value()
+
+        assertThat(repo.id).isEqualTo(paperclip)
+        assertThat(rights).isEqualTo(RepoRights(RepoAccess.WRITE))
+        assertThat(requests.map { it.url.encodedPath }.filter { it == "/repos/paperclipai/paperclip" }).hasSize(1)
+    }
+
+    @Test
+    fun signed_out_no_rights_are_read() = runTest {
+        assertThat(api { json(fixture("repo.json")) }.repoAndRights(null, paperclip).value().second).isNull()
     }
 
     @Test

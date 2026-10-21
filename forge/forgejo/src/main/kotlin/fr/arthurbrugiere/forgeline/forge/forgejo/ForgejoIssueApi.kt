@@ -25,6 +25,8 @@ import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import io.ktor.http.HttpMethod
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
+import io.ktor.client.statement.bodyAsText
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -327,29 +329,8 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         httpClient.forgejoApi(forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), method = HttpMethod.Delete).toResult { }
     }
 
-    /**
-     * Forgejo has no triage role: whoever can push manages the conversations too. A repository's own settings switch
-     * time tracking and dependencies on, and may keep tracking to those who can push.
-     */
     override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoRights> = forgeCall {
-        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name).toResult {
-            val answer = body<PermittedRepoJson>()
-            val permissions = answer.permissions
-            // Without its own tracker (issues kept elsewhere), neither applies.
-            val tracker = answer.tracker
-            val tracksTime = tracker != null && tracker.timeTracker && (permissions.push || !tracker.contributorsOnly)
-            RepoRights(
-                access = when {
-                    permissions.admin -> RepoAccess.ADMIN
-                    permissions.push -> RepoAccess.WRITE
-                    else -> RepoAccess.NONE
-                },
-                switchedOff = setOfNotNull(
-                    ConversationAction.TIME_TRACKING.takeUnless { tracksTime },
-                    ConversationAction.DEPENDENCIES.takeUnless { tracker?.dependencies == true },
-                ),
-            )
-        }
+        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name).toResult { forgejoRights(bodyAsText()) }
     }
 
     private fun IssueJson.toDetails(ref: IssueRef, pull: PullJson?, reactions: Map<Reaction, Int>) = IssueDetails(
@@ -506,6 +487,30 @@ private data class PermittedRepoJson(
     val permissions: PermissionsJson = PermissionsJson(),
     @SerialName("internal_tracker") val tracker: TrackerJson? = null,
 )
+
+/**
+ * What a repository's answer says the token's account may do there. Forgejo has no triage role: whoever can push
+ * manages the conversations too. A repository's own settings switch time tracking and dependencies on, and may keep
+ * tracking to those who can push.
+ */
+internal fun forgejoRights(repoAnswer: String): RepoRights {
+    val answer = ForgeJson.decodeFromString<PermittedRepoJson>(repoAnswer)
+    val permissions = answer.permissions
+    // Without its own tracker (issues kept elsewhere), neither applies.
+    val tracker = answer.tracker
+    val tracksTime = tracker != null && tracker.timeTracker && (permissions.push || !tracker.contributorsOnly)
+    return RepoRights(
+        access = when {
+            permissions.admin -> RepoAccess.ADMIN
+            permissions.push -> RepoAccess.WRITE
+            else -> RepoAccess.NONE
+        },
+        switchedOff = setOfNotNull(
+            ConversationAction.TIME_TRACKING.takeUnless { tracksTime },
+            ConversationAction.DEPENDENCIES.takeUnless { tracker?.dependencies == true },
+        ),
+    )
+}
 
 @Serializable
 private data class TrackedTimeJson(val time: Long = 0)

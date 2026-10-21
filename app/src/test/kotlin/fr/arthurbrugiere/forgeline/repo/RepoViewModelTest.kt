@@ -91,6 +91,24 @@ class RepoViewModelTest {
         assertThat(issueApi.calls).contains("access:octo/repo")
     }
 
+    // Regression: the settings gear asked the forge for the repository again while its refresh was already asking for it.
+    @Test
+    fun what_the_account_may_do_is_asked_once_the_details_are_in() = test {
+        cache()
+        issueApi.access[requested] = fr.arthurbrugiere.forgeline.core.model.RepoAccess.ADMIN
+        accounts.signIn(fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitHub, fr.arthurbrugiere.forgeline.core.model.ForgeUser("owner", null, null), "tok")
+        val refreshing = kotlinx.coroutines.CompletableDeferred<Unit>()
+        repos.refreshGate = refreshing
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(issueApi.calls).doesNotContain("access:octo/repo")
+
+        refreshing.complete(Unit)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.canAdminister).isTrue()
+    }
+
     @Test
     fun an_administrator_is_offered_the_settings_until_they_sign_out() = test {
         cache()

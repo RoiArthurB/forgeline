@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoDetails
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 
 /**
@@ -19,6 +20,12 @@ import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
  */
 interface RepoApi {
     suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails>
+
+    /**
+     * [repo], with what [token]'s account may do there when the same answer says it: opening a repository then asks the
+     * forge for it once, not again for [IssueApi.access]. Null rights signed out, or where the answer doesn't tell.
+     */
+    suspend fun repoAndRights(token: String?, id: RepoId): ForgeResult<Pair<RepoDetails, RepoRights?>> = repo(token, id).map { it to null }
 
     /** Null when the repo has no README. [ref] null reads the default branch. */
     suspend fun readme(token: String?, id: RepoId, ref: String? = null): ForgeResult<Readme?>

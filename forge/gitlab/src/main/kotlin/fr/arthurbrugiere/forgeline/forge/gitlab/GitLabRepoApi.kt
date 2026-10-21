@@ -4,6 +4,8 @@ import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
 import fr.arthurbrugiere.forgeline.core.model.languageShares
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.map
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
 import fr.arthurbrugiere.forgeline.core.forge.VersionOrder
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -30,13 +32,15 @@ class GitLabRepoApi(
     private val httpClient: HttpClient,
     private val forge: ForgeInstance = ForgeInstance.GitLab,
 ) : RepoApi {
-    override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = forgeCall {
+    override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = repoAndRights(token, id).map { it.first }
+
+    override suspend fun repoAndRights(token: String?, id: RepoId): ForgeResult<Pair<RepoDetails, RepoRights?>> = forgeCall {
         coroutineScope {
             // Asked alongside: a project says how many issues are open, not how many merge requests.
             val openPulls = async { openMergeRequests(token, id) }
             httpClient.gitlabApi(id.forge, token, "projects", id.fullName)
-                .toResult { body<GitLabProjectJson>().toDetails(id.forge) }
-                .let { result -> if (result is ForgeResult.Success) ForgeResult.Success(result.value.copy(openPulls = openPulls.await())) else result }
+                .toResult { body<GitLabProjectJson>().let { it.toDetails(id.forge) to token?.let { _ -> it.toRights() } } }
+                .map { (details, rights) -> details.copy(openPulls = openPulls.await()) to rights }
         }
     }
 

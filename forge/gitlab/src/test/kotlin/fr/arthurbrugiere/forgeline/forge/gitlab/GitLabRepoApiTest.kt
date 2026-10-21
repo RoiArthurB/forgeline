@@ -6,6 +6,8 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
@@ -28,6 +30,22 @@ class GitLabRepoApiTest {
         GitLabRepoApi(gitlabHttpClient(MockEngine { requests += it; handler(it) }))
 
     private fun <T> ForgeResult<T>.value(): T = (this as ForgeResult.Success).value
+
+    // Regression: opening a project asked GitLab for it twice, once for its details and again for the account's rights.
+    @Test
+    fun what_the_account_may_do_comes_with_the_project() = runTest {
+        // Captured signed in, as the scratch project's owner.
+        val project = requireNotNull(javaClass.getResource("/gitlab/captured/project.json")).readText()
+        val scratch = RepoId("RoiArthurB", "forgeline-scratch", ForgeInstance.GitLab)
+        val api = api { request -> if (request.url.encodedPath.endsWith("/merge_requests")) json("[]") else json(project) }
+
+        val (details, rights) = api.repoAndRights("tok", scratch).value()
+
+        assertThat(details.id).isEqualTo(scratch)
+        assertThat(rights).isEqualTo(RepoRights(RepoAccess.ADMIN))
+        assertThat(requests.filterNot { it.url.encodedPath.endsWith("/merge_requests") }).hasSize(1)
+        assertThat(api.repoAndRights(null, scratch).value().second).isNull()
+    }
 
     @Test
     fun project_parses_details_and_handles_url_encoded_path() = runTest {

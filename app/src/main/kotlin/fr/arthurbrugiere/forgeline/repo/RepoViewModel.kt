@@ -18,6 +18,7 @@ import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.Release
@@ -148,8 +149,14 @@ class RepoViewModel @AssistedInject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RepoUiState(requested))
 
+    /** The first refresh is over: what the account may do came with the details, when they were asked. */
+    private val firstRefresh = CompletableDeferred<Unit>()
+
     init {
-        viewModelScope.launch { refreshDetails(force = false) }
+        viewModelScope.launch {
+            refreshDetails(force = false)
+            firstRefresh.complete(Unit)
+        }
         viewModelScope.launch {
             combine(canonicalIds(), accounts.activeAccount.map { it?.id }.distinctUntilChanged()) { id, account -> id to account }
                 .collect { (id, account) ->
@@ -162,6 +169,8 @@ class RepoViewModel @AssistedInject constructor(
                         local.update { it.copy(watching = watching) }
                     }
                     viewModelScope.launch {
+                        // Asked once the details are in, which tell it: asked alongside, it was a second request for them.
+                        firstRefresh.await()
                         val administers = account != null && conversations.access(id) == RepoAccess.ADMIN
                         local.update { it.copy(canAdminister = administers) }
                     }

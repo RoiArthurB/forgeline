@@ -11,6 +11,8 @@ import fr.arthurbrugiere.forgeline.core.model.DiscussionComment
 import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import io.ktor.client.statement.bodyAsText
 import kotlinx.serialization.json.decodeFromJsonElement
 import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.core.forge.map
@@ -62,12 +64,17 @@ class GitHubRepoApi(
     private val apiBaseUrl: String = "https://api.github.com",
 ) : RepoApi {
 
-    override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = forgeCall {
+    override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = repoAndRights(token, id).map { it.first }
+
+    override suspend fun repoAndRights(token: String?, id: RepoId): ForgeResult<Pair<RepoDetails, RepoRights?>> = forgeCall {
         coroutineScope {
             // Asked alongside: GitHub counts open issues and pull requests as one number, and only says how many of
             // them are pull requests through their list. Signed out, that request is saved: there are sixty an hour.
             val openPulls = async { if (token == null) null else openPulls(token, id) }
-            get(token, "repos", id.owner, id.name).toResult { body<RepoResponse>().toModel(openPulls.await()) }
+            get(token, "repos", id.owner, id.name).toResult {
+                val answer = bodyAsText()
+                ForgeJson.decodeFromString<RepoResponse>(answer).toModel(openPulls.await()) to token?.let { gitHubRights(answer) }
+            }
         }
     }
 

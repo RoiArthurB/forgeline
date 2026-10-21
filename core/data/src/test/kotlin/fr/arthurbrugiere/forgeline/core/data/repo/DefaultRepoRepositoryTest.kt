@@ -1,6 +1,10 @@
 package fr.arthurbrugiere.forgeline.core.data.repo
 
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
+import fr.arthurbrugiere.forgeline.core.testing.FakeIssueApi
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
+import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
 import fr.arthurbrugiere.forgeline.core.testing.Rendezvous
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import androidx.room.Room
@@ -259,7 +263,7 @@ class DefaultRepoRepositoryTest {
         api.readmes[id] = readme
         val together = Rendezvous(2)
         val meeting = object : RepoApi by api {
-            override suspend fun repo(token: String?, id: RepoId) = together.arrive("repo").let { api.repo(token, id) }
+            override suspend fun repoAndRights(token: String?, id: RepoId) = together.arrive("repo").let { api.repoAndRights(token, id) }
             override suspend fun readme(token: String?, id: RepoId, ref: String?) = together.arrive("readme").let { api.readme(token, id, ref) }
         }
         val repository = DefaultRepoRepository(database.repoDao(), FakeForgeClients(repos = meeting), accounts, clock)
@@ -357,5 +361,42 @@ class DefaultRepoRepositoryTest {
         repository.discussion(id, 7)
 
         assertThat(repository.rememberedDiscussion(id, 7)).isEqualTo(read)
+    }
+
+    // Regression: opening a repository asked the forge for it twice, once for its details and again for the account's rights.
+    @Test
+    fun what_the_account_may_do_comes_with_the_details_and_is_not_asked_again() = runTest {
+        val issueApi = FakeIssueApi()
+        val rights = RepoRightsCache()
+        val clients = FakeForgeClients(repos = api, issues = issueApi)
+        val repository = DefaultRepoRepository(database.repoDao(), clients, accounts, clock, rights)
+        val conversations = DefaultIssueRepository(clients, accounts, database.conversationDao(), clock, rights)
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "ghp_token")
+        api.details[id] = repoDetails("octo/repo")
+        api.rights[id] = RepoRights(RepoAccess.ADMIN)
+
+        repository.refresh(id)
+
+        assertThat(conversations.access(id)).isEqualTo(RepoAccess.ADMIN)
+        assertThat(api.calls.filter { it.startsWith("repo:") }).containsExactly("repo:octo/repo")
+        assertThat(issueApi.calls).isEmpty()
+    }
+
+    @Test
+    fun signed_out_nothing_is_remembered_for_an_account() = runTest {
+        val issueApi = FakeIssueApi()
+        val rights = RepoRightsCache()
+        val clients = FakeForgeClients(repos = api, issues = issueApi)
+        val repository = DefaultRepoRepository(database.repoDao(), clients, accounts, clock, rights)
+        api.details[id] = repoDetails("octo/repo")
+        api.rights[id] = RepoRights(RepoAccess.ADMIN)
+
+        repository.refresh(id)
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "ghp_token")
+        issueApi.access[id] = RepoAccess.WRITE
+
+        // The account signed in afterwards: its own rights are asked.
+        assertThat(DefaultIssueRepository(clients, accounts, database.conversationDao(), clock, rights).access(id)).isEqualTo(RepoAccess.WRITE)
+        assertThat(issueApi.calls).containsExactly("access:octo/repo")
     }
 }

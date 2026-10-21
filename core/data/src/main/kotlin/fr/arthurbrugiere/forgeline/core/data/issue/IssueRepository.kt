@@ -15,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import java.time.LocalDate
 import java.util.concurrent.ConcurrentHashMap
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.repo.RepoRightsCache
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
@@ -180,6 +181,7 @@ class DefaultIssueRepository @Inject constructor(
     private val accounts: AccountRepository,
     private val dao: ConversationDao,
     private val clock: Clock,
+    private val rightsCache: RepoRightsCache = RepoRightsCache(),
 ) : IssueRepository {
 
     private val cache = object : LinkedHashMap<IssueRef, CachedConversation>(CACHE_SIZE, 0.75f, true) {
@@ -302,18 +304,15 @@ class DefaultIssueRepository @Inject constructor(
 
     override val changed: Flow<IssueRef> = changes.asSharedFlow()
 
-    /** What each account may do where, as the forge said this session; keyed by account, then repository. */
-    private val managed = ConcurrentHashMap<Pair<String, RepoId>, RepoRights>()
-
     override suspend fun access(repo: RepoId): RepoAccess = rights(repo).access
 
     private suspend fun rights(repo: RepoId): RepoRights {
         val account = accounts.accountOn(repo.forge) ?: return RepoRights(RepoAccess.NONE)
-        managed[account.id to repo]?.let { return it }
+        rightsCache[account.id, repo]?.let { return it }
         val token = accounts.token(account.id) ?: return RepoRights(RepoAccess.NONE)
         // A failure isn't remembered: it is asked again the next time a conversation opens.
         val answer = clients.issues(repo.forge).access(token, repo) as? ForgeResult.Success ?: return RepoRights(RepoAccess.NONE)
-        managed[account.id to repo] = answer.value
+        rightsCache[account.id, repo] = answer.value
         return answer.value
     }
 
@@ -423,7 +422,7 @@ class DefaultIssueRepository @Inject constructor(
     }
 
     override suspend fun forget(forge: ForgeInstance) {
-        managed.keys.removeAll { it.second.forge == forge }
+        rightsCache.forget(forge)
         synchronized(cache) { cache.keys.removeAll { it.repo.forge == forge } }
         dao.clear(forge.host)
     }

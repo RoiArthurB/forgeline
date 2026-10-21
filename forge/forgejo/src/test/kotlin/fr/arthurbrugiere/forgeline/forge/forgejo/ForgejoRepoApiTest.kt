@@ -9,6 +9,9 @@ import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.ConversationAction
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
@@ -29,6 +32,24 @@ class ForgejoRepoApiTest {
         val repo = with(codeberg) { api { json(fixture("repo.json").replace("\"has_issues\":true", "\"has_issues\":false")) } }.repo(null, forgejo).value()
 
         assertThat(repo.hasIssues).isFalse()
+    }
+
+    // Regression: opening a repository asked Codeberg for it twice, once for its details and again for the account's rights.
+    @Test
+    fun what_the_account_may_do_comes_with_the_repository() = runTest {
+        val pushing = with(codeberg) { fixture("repo.json") }.replace("\"permissions\":{\"admin\":false,\"push\":false", "\"permissions\":{\"admin\":false,\"push\":true")
+
+        val (repo, rights) = with(codeberg) { api { json(pushing) } }.repoAndRights("cb_token", forgejo).value()
+
+        assertThat(repo.id).isEqualTo(forgejo)
+        // Codeberg's own tracker keeps time tracking off, and dependencies on.
+        assertThat(rights).isEqualTo(RepoRights(RepoAccess.WRITE, setOf(ConversationAction.TIME_TRACKING)))
+        assertThat(codeberg.requests).hasSize(1)
+    }
+
+    @Test
+    fun signed_out_no_rights_are_read() = runTest {
+        assertThat(with(codeberg) { api { json(fixture("repo.json")) } }.repoAndRights(null, forgejo).value().second).isNull()
     }
 
     @Test

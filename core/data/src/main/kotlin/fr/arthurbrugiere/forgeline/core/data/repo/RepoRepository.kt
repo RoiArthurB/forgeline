@@ -7,6 +7,7 @@ import fr.arthurbrugiere.forgeline.core.model.Discussion
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.async
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.account.accountOn
 import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -101,6 +102,7 @@ class DefaultRepoRepository @Inject constructor(
     private val clients: ForgeClients,
     private val accounts: AccountRepository,
     private val clock: Clock,
+    private val rights: RepoRightsCache = RepoRightsCache(),
 ) : RepoRepository {
 
     override fun observe(id: RepoId): Flow<RepoSnapshot> = dao.observe(id.cacheKey()).map { entity ->
@@ -111,16 +113,22 @@ class DefaultRepoRepository @Inject constructor(
         val fetchedAt = dao.fetchedAt(id.cacheKey())
         if (!force && fetchedAt != null && clock.millis() - fetchedAt < MAX_AGE.inWholeMilliseconds) return RefreshResult.Fresh
         val api = clients.repos(id.forge)
-        val token = accounts.tokenOn(id.forge)
+        val account = accounts.accountOn(id.forge)
+        val token = account?.let { accounts.token(it.id) }
         // The details and the README side by side: one round trip to a far forge instead of two.
         val (detailsResult, readmeAsked) = coroutineScope {
-            val details = async { api.repo(token, id) }
+            val details = async { api.repoAndRights(token, id) }
             val readme = async { api.readme(token, id) }
             details.await() to readme.await()
         }
         val details = when (detailsResult) {
             is ForgeResult.Failure -> return RefreshResult.Failed(detailsResult.error)
-            is ForgeResult.Success -> detailsResult.value
+            is ForgeResult.Success -> {
+                // What the account may do there came with the details: its conversations and settings needn't ask.
+                val (details, granted) = detailsResult.value
+                if (account != null && granted != null) rights[account.id, details.id] = granted
+                details
+            }
         }
         // details.id is canonical: a moved repo may not answer its old name for the README, so ask again there.
         val readmeResult = if (details.id == id) readmeAsked else api.readme(token, details.id)
