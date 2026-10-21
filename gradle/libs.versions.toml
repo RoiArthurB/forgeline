@@ -1,4 +1,7 @@
 [versions]
+# The formatter (./gradlew spotlessApply) and the Kotlin rules it applies.
+spotless = "8.10.3"
+ktlint = "1.8.0"
 agp = "9.4.1"
 kotlin = "2.4.21"
 ksp = "2.3.12"
@@ -124,6 +127,7 @@ aboutlibraries = { id = "com.mikepenz.aboutlibraries.plugin.android", version.re
 roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
 baselineprofile = { id = "androidx.baselineprofile", version.ref = "baselineprofile" }
 room = { id = "androidx.room", version.ref = "room" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 
 # Convention plugins (build-logic)
 forgeline-android-application = { id = "forgeline.android.application" }

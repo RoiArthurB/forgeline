@@ -26,7 +26,7 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v6
       - name: Check
-        run: ./gradlew testDebugUnitTest verifyRoborazziDebug lintDebug assembleDebug --continue
+        run: ./gradlew spotlessCheck testDebugUnitTest verifyRoborazziDebug lintDebug assembleDebug --continue
       - name: Upload reports
         if: failure()
         uses: actions/upload-artifact@v7
