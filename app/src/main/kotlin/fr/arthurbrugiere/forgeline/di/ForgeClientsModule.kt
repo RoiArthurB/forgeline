@@ -1,8 +1,6 @@
 package fr.arthurbrugiere.forgeline.di
 
 import fr.arthurbrugiere.forgeline.core.forge.TrendingMeter
-import fr.arthurbrugiere.forgeline.forge.forgejo.trending.ForgejoTrendingMeter
-import fr.arthurbrugiere.forgeline.forge.gitlab.trending.GitLabTrendingMeter
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -11,6 +9,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.forge.PullRequestApi
 import fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi
 import fr.arthurbrugiere.forgeline.core.forge.FeedApi
+import fr.arthurbrugiere.forgeline.core.forge.ForgeApis
 import fr.arthurbrugiere.forgeline.core.forge.ForgeAuthApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
@@ -30,30 +29,11 @@ import fr.arthurbrugiere.forgeline.signin.ForgeProbe
 import fr.arthurbrugiere.forgeline.signin.HttpForgeProbe
 import fr.arthurbrugiere.forgeline.signin.StoredForgeHosts
 import fr.arthurbrugiere.forgeline.signin.LoopbackRedirects
-import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoActionsApi
-import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoPullRequestApi
-import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoRepoSettingsApi
-import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoAuthApi
-import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoFeedApi
-import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoIssueApi
-import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoNotificationsApi
-import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoRepoApi
-import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoSearchApi
-import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoStarApi
+import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoApis
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoTrendingApi
-import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoUserApi
+import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabApis
+import fr.arthurbrugiere.forgeline.forge.gitlab.trending.GitLabTrendingMeter
 import fr.arthurbrugiere.forgeline.forge.forgejo.forgejoHttpClient
-import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabActionsApi
-import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabPullRequestApi
-import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabRepoSettingsApi
-import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabAuthApi
-import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabFeedApi
-import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabIssueApi
-import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabNotificationsApi
-import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabRepoApi
-import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabSearchApi
-import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabStarApi
-import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabUserApi
 import fr.arthurbrugiere.forgeline.forge.gitlab.gitlabHttpClient
 import io.ktor.client.HttpClient
 import okhttp3.Cache
@@ -63,7 +43,9 @@ import javax.inject.Qualifier
 import javax.inject.Singleton
 
 /**
- * GitHub's clients come from [ForgeModule]; each Forgejo or GitLab instance gets its own from `forge:forgejo` and `forge:gitlab`, built on first use.
+ * GitHub's clients come from [ForgeModule]; each Forgejo or GitLab instance gets its own [ForgeApis] from
+ * `forge:forgejo` and `forge:gitlab`, built on first use. What comes from the build (which instance signs in through
+ * which application, which has a published Trending) is decided here.
  */
 @Singleton
 class DefaultForgeClients @Inject constructor(
@@ -74,107 +56,90 @@ class DefaultForgeClients @Inject constructor(
     private val hosts: ForgeHosts,
     @CodebergTrendingUrl private val codebergTrendingUrl: String,
     @GitLabTrendingUrl private val gitlabTrendingUrl: String,
-    private val repos: RepoApi,
-    private val issues: IssueApi,
-    private val pulls: PullRequestApi,
-    private val repoSettings: RepoSettingsApi,
-    private val users: UserApi,
-    private val stars: StarApi,
-    private val search: SearchApi,
-    private val feed: FeedApi,
-    private val notifications: NotificationsApi,
-    private val auth: ForgeAuthApi,
-    private val actions: ActionsApi,
-    private val trending: TrendingApi,
+    repos: RepoApi,
+    issues: IssueApi,
+    pulls: PullRequestApi,
+    repoSettings: RepoSettingsApi,
+    users: UserApi,
+    stars: StarApi,
+    search: SearchApi,
+    feed: FeedApi,
+    notifications: NotificationsApi,
+    auth: ForgeAuthApi,
+    actions: ActionsApi,
+    trending: TrendingApi,
 ) : ForgeClients {
 
-    /** One Forgejo instance's clients. */
-    private inner class ForgejoClients(http: HttpClient, forge: ForgeInstance) {
-        val repos = ForgejoRepoApi(http, forge)
-        val issues = ForgejoIssueApi(http, forge)
-        val pulls = ForgejoPullRequestApi(http, forge)
-        val repoSettings = ForgejoRepoSettingsApi(http, forge)
-        val users = ForgejoUserApi(http, forge)
-        val stars = ForgejoStarApi(http, forge)
-        val search = ForgejoSearchApi(http, forge)
-        val notifications = ForgejoNotificationsApi(http, forge)
-        val feed = ForgejoFeedApi(http, forge)
-        val actions = ForgejoActionsApi(http, forge)
-        val trendingMeter = ForgejoTrendingMeter(http, forge)
-
-        // Only Codeberg has a registered OAuth application: self-hosted instances sign in with a token.
-        val auth = ForgejoAuthApi(http, forge, clientId = if (forge == ForgeInstance.Codeberg) codebergClientId else "")
-
-        // Forgejo has no Trending: only Codeberg's is measured, by the daily job that publishes it.
-        val trending = codebergTrendingUrl.takeIf { forge == ForgeInstance.Codeberg && it.isNotBlank() }
-            ?.let { ForgejoTrendingApi(http, forge, it) }
+    /** github.com's, one of each: GitHub has its own Trending, nothing to measure. */
+    private val gitHub = object : ForgeApis {
+        override val repos = repos
+        override val issues = issues
+        override val pulls = pulls
+        override val repoSettings = repoSettings
+        override val users = users
+        override val stars = stars
+        override val search = search
+        override val feed = feed
+        override val notifications = notifications
+        override val auth = auth
+        override val actions = actions
+        override val trending = trending
+        override val trendingMeter: TrendingMeter? = null
     }
 
-    /** One GitLab instance's clients. */
-    private inner class GitLabClients(http: HttpClient, forge: ForgeInstance) {
-        val repos = GitLabRepoApi(http, forge)
-        val issues = GitLabIssueApi(http, forge)
-        val pulls = GitLabPullRequestApi(http, forge)
-        val repoSettings = GitLabRepoSettingsApi(http, forge)
-        val users = GitLabUserApi(http, forge)
-        val stars = GitLabStarApi(http, forge)
-        val search = GitLabSearchApi(http, forge)
-        val notifications = GitLabNotificationsApi(http, forge)
-        val feed = GitLabFeedApi(http, forge)
-        val actions = GitLabActionsApi(http)
-        val trendingMeter = if (forge == ForgeInstance.GitLab) gitlabTrendingMeter else null
-
-        // gitlab.com's application is Forgeline's own; a self-hosted server's is the one its owner created there.
-        val auth = GitLabAuthApi(http, forge, clientId = { if (forge == ForgeInstance.GitLab) gitlabClientId else hosts.oauthClientId(forge.host) })
-
-        val trending = gitlabTrendingUrl.takeIf { forge == ForgeInstance.GitLab && it.isNotBlank() }
-            ?.let { ForgejoTrendingApi(http, forge, it) }
-    }
-
-    private val forgejo = ConcurrentHashMap<ForgeInstance, ForgejoClients>()
-    private val gitlab = ConcurrentHashMap<ForgeInstance, GitLabClients>()
-
-    private fun <T> pick(
-        forge: ForgeInstance,
-        gitHub: T,
-        forgejo: ForgejoClients.() -> T,
-        gitlab: GitLabClients.() -> T,
-    ): T = when (forge.type) {
-        ForgeType.GITHUB -> gitHub
-        ForgeType.GITLAB -> this.gitlab.getOrPut(forge) { GitLabClients(gitlabHttp, forge) }.gitlab()
-        ForgeType.FORGEJO -> this.forgejo.getOrPut(forge) { ForgejoClients(forgejoHttp, forge) }.forgejo()
-    }
+    private val instances = ConcurrentHashMap<ForgeInstance, ForgeApis>()
 
     // gitlab.com's daily list has the same format as Codeberg's.
     private val gitlabTrendingMeter = GitLabTrendingMeter(gitlabHttp)
 
-    override fun repos(forge: ForgeInstance) = pick(forge, repos, { repos }, { repos })
+    private fun apis(forge: ForgeInstance): ForgeApis = when (forge.type) {
+        ForgeType.GITHUB -> gitHub
+        ForgeType.FORGEJO -> instances.getOrPut(forge) {
+            ForgejoApis(
+                forgejoHttp, forge,
+                // Only Codeberg has a registered OAuth application: self-hosted instances sign in with a token.
+                clientId = if (forge == ForgeInstance.Codeberg) codebergClientId else "",
+                // Forgejo has no Trending: only Codeberg's is measured, by the daily job that publishes it.
+                trending = codebergTrendingUrl.takeIf { forge == ForgeInstance.Codeberg && it.isNotBlank() }?.let { ForgejoTrendingApi(forgejoHttp, forge, it) },
+            )
+        }
+        ForgeType.GITLAB -> instances.getOrPut(forge) {
+            val gitlabCom = forge == ForgeInstance.GitLab
+            GitLabApis(
+                gitlabHttp, forge,
+                // gitlab.com's application is Forgeline's own; a self-hosted server's is the one its owner created there.
+                clientId = { if (gitlabCom) gitlabClientId else hosts.oauthClientId(forge.host) },
+                trending = gitlabTrendingUrl.takeIf { gitlabCom && it.isNotBlank() }?.let { ForgejoTrendingApi(gitlabHttp, forge, it) },
+                trendingMeter = gitlabTrendingMeter.takeIf { gitlabCom },
+            )
+        }
+    }
 
-    override fun issues(forge: ForgeInstance) = pick(forge, issues, { issues }, { issues })
+    override fun repos(forge: ForgeInstance) = apis(forge).repos
 
-    override fun pulls(forge: ForgeInstance): PullRequestApi = pick(forge, pulls, { pulls }, { pulls })
+    override fun issues(forge: ForgeInstance) = apis(forge).issues
 
-    override fun repoSettings(forge: ForgeInstance): RepoSettingsApi = pick(forge, repoSettings, { repoSettings }, { repoSettings })
+    override fun pulls(forge: ForgeInstance) = apis(forge).pulls
 
-    override fun users(forge: ForgeInstance) = pick(forge, users, { users }, { users })
+    override fun repoSettings(forge: ForgeInstance) = apis(forge).repoSettings
 
-    override fun stars(forge: ForgeInstance) = pick(forge, stars, { stars }, { stars })
+    override fun users(forge: ForgeInstance) = apis(forge).users
 
-    override fun search(forge: ForgeInstance) = pick(forge, search, { search }, { search })
+    override fun stars(forge: ForgeInstance) = apis(forge).stars
 
-    override fun feed(forge: ForgeInstance) = pick(forge, feed, { feed }, { feed })
+    override fun search(forge: ForgeInstance) = apis(forge).search
 
-    override fun notifications(forge: ForgeInstance) = pick(forge, notifications, { notifications }, { notifications })
+    override fun feed(forge: ForgeInstance) = apis(forge).feed
 
-    override fun auth(forge: ForgeInstance) = pick(forge, auth, { auth }, { auth })
+    override fun notifications(forge: ForgeInstance) = apis(forge).notifications
 
-    override fun actions(forge: ForgeInstance): ActionsApi? = pick(forge, actions, { actions }, { actions })
+    override fun auth(forge: ForgeInstance) = apis(forge).auth
 
-    override fun trending(forge: ForgeInstance): TrendingApi? =
-        pick(forge, trending, { trending }, { trending })
+    override fun actions(forge: ForgeInstance) = apis(forge).actions
 
-    override fun trendingMeter(forge: ForgeInstance): TrendingMeter? =
-        pick(forge, null, { trendingMeter }, { trendingMeter })
+    override fun trending(forge: ForgeInstance) = apis(forge).trending
+
+    override fun trendingMeter(forge: ForgeInstance) = apis(forge).trendingMeter
 }
 
 /** Codeberg's OAuth client ID, from `forgeline.codebergClientId`; blank without one. */
@@ -197,12 +162,17 @@ annotation class CodebergTrendingUrl
 @Retention(AnnotationRetention.BINARY)
 annotation class GitLabTrendingUrl
 
-/** Forgejo's HTTP client: its own JSON settings and user agent, shared by every instance. */
+/** github.com's HTTP client. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class GitHub
+
+/** Forgejo's HTTP client, shared by every instance. */
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class Forgejo
 
-/** GitLab's HTTP client: its own JSON settings and user agent, shared by every instance. */
+/** GitLab's HTTP client, shared by every instance. */
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class GitLab

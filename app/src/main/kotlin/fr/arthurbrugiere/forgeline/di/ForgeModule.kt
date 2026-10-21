@@ -13,6 +13,8 @@ import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
+import fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi
+import fr.arthurbrugiere.forgeline.forge.github.GitHubRepoSettingsApi
 import fr.arthurbrugiere.forgeline.core.forge.SearchApi
 import fr.arthurbrugiere.forgeline.core.forge.StarApi
 import fr.arthurbrugiere.forgeline.core.forge.TrendingApi
@@ -37,55 +39,55 @@ import javax.inject.Singleton
 object ForgeModule {
     @Provides
     @Singleton
+    @GitHub
     fun provideGitHubHttpClient(cache: Cache): HttpClient = gitHubHttpClient(forgeEngine(cache))
 
     @Provides
     @Singleton
-    fun provideSearchApi(httpClient: HttpClient): SearchApi = GitHubSearchApi(httpClient)
+    fun provideSearchApi(@GitHub httpClient: HttpClient): SearchApi = GitHubSearchApi(httpClient)
 
     @Provides
     @Singleton
-    fun provideFeedApi(httpClient: HttpClient): FeedApi = GitHubFeedApi(httpClient)
+    fun provideFeedApi(@GitHub httpClient: HttpClient): FeedApi = GitHubFeedApi(httpClient)
 
     @Provides
     @Singleton
-    fun provideForgeAuthApi(httpClient: HttpClient): ForgeAuthApi =
+    fun provideForgeAuthApi(@GitHub httpClient: HttpClient): ForgeAuthApi =
         GitHubAuthApi(httpClient, clientId = BuildConfig.GITHUB_CLIENT_ID)
 
     @Provides
     @Singleton
-    fun provideTrendingApi(httpClient: HttpClient): TrendingApi = GitHubTrendingApi(httpClient)
+    fun provideTrendingApi(@GitHub httpClient: HttpClient): TrendingApi = GitHubTrendingApi(httpClient)
 
     @Provides
     @Singleton
-    fun provideStarApi(httpClient: HttpClient): StarApi = GitHubStarApi(httpClient)
+    fun provideStarApi(@GitHub httpClient: HttpClient): StarApi = GitHubStarApi(httpClient)
 
     @Provides
     @Singleton
-    fun provideRepoApi(httpClient: HttpClient): RepoApi = GitHubRepoApi(httpClient)
+    fun provideRepoApi(@GitHub httpClient: HttpClient): RepoApi = GitHubRepoApi(httpClient)
 
     @Provides
     @Singleton
-    fun provideActionsApi(httpClient: HttpClient): ActionsApi = GitHubActionsApi(httpClient)
+    fun provideActionsApi(@GitHub httpClient: HttpClient): ActionsApi = GitHubActionsApi(httpClient)
 
     @Provides
     @Singleton
-    fun provideRepoSettingsApi(httpClient: HttpClient): fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi =
-        fr.arthurbrugiere.forgeline.forge.github.GitHubRepoSettingsApi(httpClient)
+    fun provideRepoSettingsApi(@GitHub httpClient: HttpClient): RepoSettingsApi = GitHubRepoSettingsApi(httpClient)
 
     @Provides
     @Singleton
-    fun providePullRequestApi(httpClient: HttpClient): PullRequestApi = GitHubPullRequestApi(httpClient)
+    fun providePullRequestApi(@GitHub httpClient: HttpClient): PullRequestApi = GitHubPullRequestApi(httpClient)
 
     @Provides
     @Singleton
-    fun provideIssueApi(httpClient: HttpClient): IssueApi = GitHubIssueApi(httpClient)
+    fun provideIssueApi(@GitHub httpClient: HttpClient): IssueApi = GitHubIssueApi(httpClient)
 
     @Provides
     @Singleton
-    fun provideUserApi(httpClient: HttpClient): UserApi = GitHubUserApi(httpClient)
+    fun provideUserApi(@GitHub httpClient: HttpClient): UserApi = GitHubUserApi(httpClient)
 
     @Provides
     @Singleton
-    fun provideNotificationsApi(httpClient: HttpClient): NotificationsApi = GitHubNotificationsApi(httpClient)
+    fun provideNotificationsApi(@GitHub httpClient: HttpClient): NotificationsApi = GitHubNotificationsApi(httpClient)
 }
