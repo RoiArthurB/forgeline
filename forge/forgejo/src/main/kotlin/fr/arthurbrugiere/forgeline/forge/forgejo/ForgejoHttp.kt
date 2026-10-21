@@ -1,6 +1,5 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
-import io.ktor.client.plugins.timeout
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -9,6 +8,7 @@ import fr.arthurbrugiere.forgeline.forge.common.forgeHttpClient
 import fr.arthurbrugiere.forgeline.forge.common.nextLinkedPage
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
 import io.ktor.client.request.prepareRequest

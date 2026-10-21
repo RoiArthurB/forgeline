@@ -1,22 +1,22 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
-import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi
 import fr.arthurbrugiere.forgeline.core.model.PagesBuild
 import fr.arthurbrugiere.forgeline.core.model.PagesChange
 import fr.arthurbrugiere.forgeline.core.model.PagesSite
-import io.ktor.http.isSuccess
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSettings
 import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.RepoSwitch
 import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.isSuccess
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -103,10 +103,13 @@ class GitHubRepoSettingsApi(
                         PagesBuild.Workflow -> put("build_type", "workflow")
                         is PagesBuild.Branch -> {
                             put("build_type", "legacy")
-                            put("source", buildJsonObject {
-                                put("branch", build.branch)
-                                put("path", build.folder)
-                            })
+                            put(
+                                "source",
+                                buildJsonObject {
+                                    put("branch", build.branch)
+                                    put("path", build.folder)
+                                }
+                            )
                         }
                     }
                 }

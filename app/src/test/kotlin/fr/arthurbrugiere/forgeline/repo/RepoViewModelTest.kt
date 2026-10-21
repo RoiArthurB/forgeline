@@ -1,30 +1,31 @@
 package fr.arthurbrugiere.forgeline.repo
 
-import fr.arthurbrugiere.forgeline.core.testing.discussionSummary
-import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoSnapshot
 import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
+import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
+import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
-import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import fr.arthurbrugiere.forgeline.core.testing.FakeIssueApi
-import fr.arthurbrugiere.forgeline.core.testing.InMemoryConversationDao
-import java.time.Clock
 import fr.arthurbrugiere.forgeline.core.testing.FakeRepoRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeStarRepository
+import fr.arthurbrugiere.forgeline.core.testing.InMemoryConversationDao
 import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
+import fr.arthurbrugiere.forgeline.core.testing.discussionSummary
 import fr.arthurbrugiere.forgeline.core.testing.issueSummary
 import fr.arthurbrugiere.forgeline.core.testing.repoDetails
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,14 +33,13 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
-import fr.arthurbrugiere.forgeline.core.model.IssueQuery
-import fr.arthurbrugiere.forgeline.core.model.IssueState
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
+import java.time.Clock
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RepoViewModelTest {

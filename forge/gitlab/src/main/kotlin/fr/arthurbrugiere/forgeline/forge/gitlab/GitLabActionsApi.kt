@@ -1,11 +1,9 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
-import fr.arthurbrugiere.forgeline.forge.common.forgeCall
-import fr.arthurbrugiere.forgeline.forge.common.writeTo
 import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
+import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.JobLogReader
 import fr.arthurbrugiere.forgeline.core.forge.logPartOf
-import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.DispatchInput
 import fr.arthurbrugiere.forgeline.core.model.LogFormat
 import fr.arthurbrugiere.forgeline.core.model.LogPart
@@ -13,6 +11,8 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RunJob
 import fr.arthurbrugiere.forgeline.core.model.Workflow
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.common.writeTo
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.HttpRequestBuilder
@@ -22,7 +22,6 @@ import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
 import io.ktor.client.statement.readRawBytes
 import io.ktor.http.HttpHeaders
-import java.io.OutputStream
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
@@ -30,6 +29,7 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.io.OutputStream
 
 class GitLabActionsApi(private val httpClient: HttpClient) : ActionsApi {
 
@@ -89,14 +89,19 @@ class GitLabActionsApi(private val httpClient: HttpClient) : ActionsApi {
         val payload = buildJsonObject {
             put("ref", ref)
             if (inputs.isNotEmpty()) {
-                put("variables", buildJsonArray {
-                    inputs.forEach { (key, value) ->
-                        add(buildJsonObject {
-                            put("key", key)
-                            put("value", value)
-                        })
+                put(
+                    "variables",
+                    buildJsonArray {
+                        inputs.forEach { (key, value) ->
+                            add(
+                                buildJsonObject {
+                                    put("key", key)
+                                    put("value", value)
+                                }
+                            )
+                        }
                     }
-                })
+                )
             }
         }
         httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "pipeline", method = HttpMethod.Post, body = payload)

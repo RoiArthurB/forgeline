@@ -1,12 +1,12 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo.trending
 
-import fr.arthurbrugiere.forgeline.forge.common.isUnreadableAnswer
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.TrendingMeasurement
 import fr.arthurbrugiere.forgeline.core.forge.TrendingMeter
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
+import fr.arthurbrugiere.forgeline.forge.common.isUnreadableAnswer
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
 import java.io.IOException

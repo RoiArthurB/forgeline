@@ -1,42 +1,42 @@
 package fr.arthurbrugiere.forgeline.inbox
 
-import androidx.compose.ui.test.isHeading
-import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.onNodeWithContentDescription
-import fr.arthurbrugiere.forgeline.core.model.ForgeUser
-import fr.arthurbrugiere.forgeline.core.model.Account
-import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.Account
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
-import fr.arthurbrugiere.forgeline.core.testing.notificationThread
+import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
-import fr.arthurbrugiere.forgeline.core.model.NotificationThread
+import fr.arthurbrugiere.forgeline.core.testing.notificationThread
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 import org.junit.Rule
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.test.SemanticsMatcher
-import androidx.compose.ui.semantics.SemanticsProperties
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = PHONE)
@@ -55,28 +55,28 @@ class InboxScreenTest {
     private fun setContent(state: InboxUiState, prompt: NotificationPrompt? = null) {
         composeRule.setContent {
             androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalUserSettings provides userSettings) {
-            InboxScreen(
-                state = state,
-                onSelectFilter = { events += "filter:$it" },
-                onRefresh = { events += "refresh" },
-                onOpen = { events += "open:${it.id}" },
-                onMarkRead = { events += "read:${it.id}" },
-                onMarkUnread = { events += "unread:${it.id}" },
-                onMarkDone = { events += "done:${it.id}" },
-                onUnsubscribe = { events += "unsubscribe:${it.id}" },
-                onErrorShown = {},
-                onActionFailureShown = {},
-                notificationPrompt = prompt,
-                onAllowNotifications = { events += "allow" },
-                onUndo = { events += "undo:${it.key.substringAfter('|')}:${it.action}" },
-                onToggleSelected = { events += "pick:${it.id}" },
-                onSelectAll = { events += "pick-all" },
-                onClearSelection = { events += "pick-none" },
-                onActOnSelected = { events += "selected:$it" },
-                onMarkAllDone = { threads -> events += "all-done:" + threads.joinToString(",") { it.id } },
-                nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
-            )
-        }
+                InboxScreen(
+                    state = state,
+                    onSelectFilter = { events += "filter:$it" },
+                    onRefresh = { events += "refresh" },
+                    onOpen = { events += "open:${it.id}" },
+                    onMarkRead = { events += "read:${it.id}" },
+                    onMarkUnread = { events += "unread:${it.id}" },
+                    onMarkDone = { events += "done:${it.id}" },
+                    onUnsubscribe = { events += "unsubscribe:${it.id}" },
+                    onErrorShown = {},
+                    onActionFailureShown = {},
+                    notificationPrompt = prompt,
+                    onAllowNotifications = { events += "allow" },
+                    onUndo = { events += "undo:${it.key.substringAfter('|')}:${it.action}" },
+                    onToggleSelected = { events += "pick:${it.id}" },
+                    onSelectAll = { events += "pick-all" },
+                    onClearSelection = { events += "pick-none" },
+                    onActOnSelected = { events += "selected:$it" },
+                    onMarkAllDone = { threads -> events += "all-done:" + threads.joinToString(",") { it.id } },
+                    nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+                )
+            }
         }
     }
 

@@ -1,15 +1,14 @@
 package fr.arthurbrugiere.forgeline.issue
 
-import fr.arthurbrugiere.forgeline.ui.PickedPicture
-import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
-import fr.arthurbrugiere.forgeline.core.model.Reaction
 import androidx.lifecycle.SavedStateHandle
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
@@ -21,6 +20,7 @@ import fr.arthurbrugiere.forgeline.core.testing.InMemoryConversationDao
 import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
 import fr.arthurbrugiere.forgeline.core.testing.comment
 import fr.arthurbrugiere.forgeline.core.testing.issueDetails
+import fr.arthurbrugiere.forgeline.ui.PickedPicture
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope

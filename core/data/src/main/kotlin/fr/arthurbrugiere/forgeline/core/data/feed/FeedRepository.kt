@@ -1,15 +1,18 @@
 package fr.arthurbrugiere.forgeline.core.data.feed
 
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
+import fr.arthurbrugiere.forgeline.core.data.di.Computation
 import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkDao
 import fr.arthurbrugiere.forgeline.core.data.reading.advance
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Account
+import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.FeedEvent
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -19,19 +22,16 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Clock
 import java.time.Duration
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.CoroutineScope
-import fr.arthurbrugiere.forgeline.core.model.FeedAction
-import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.CoroutineDispatcher
-import fr.arthurbrugiere.forgeline.core.data.di.Computation
 import javax.inject.Singleton
 
 data class FeedSnapshot(val events: List<FeedEvent>, val syncedAtMillis: Long?, val hasMore: Boolean)

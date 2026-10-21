@@ -1,13 +1,5 @@
 package fr.arthurbrugiere.forgeline.issue
 
-import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
-import androidx.compose.runtime.remember
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.TextFieldValue
-import fr.arthurbrugiere.forgeline.core.model.IssueSummary
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,11 +19,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -39,6 +37,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
@@ -52,6 +51,7 @@ import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
+import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
 
 @Composable
 fun NewIssueRoute(route: NewIssueRoute, session: SessionState, onBack: () -> Unit, onSignIn: () -> Unit, onCreated: (IssueRef) -> Unit) {
@@ -160,52 +160,52 @@ fun NewIssueScreen(
                 }
                 // The description, what is suggested under it and the action: kept in sight together above the keyboard.
                 Column(Modifier.fillMaxWidth().staysAboveKeyboard(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                // The cursor is the field's own: it says where a reference is being typed, and goes after one picked.
-                val marks = state.repo.referenceMarks
-                var field by remember { mutableStateOf(TextFieldValue(state.body, TextRange(state.body.length))) }
-                // Text that came from elsewhere (a draft read from disk, an issue to edit) leaves the cursor at its end.
-                LaunchedEffect(state.body) {
-                    if (field.text != state.body) field = TextFieldValue(state.body, TextRange(state.body.length))
-                }
-                if (!showPreview) SoftTextField(
-                    value = if (field.text == state.body) field else field.copy(text = state.body),
-                    onValueChange = { written ->
-                        val changed = written.text != state.body
-                        field = written
-                        if (changed) onBodyChange(written.text)
-                        onReferenceTyped(written.typedReference(marks))
-                    },
-                    label = stringResource(R.string.new_issue_body_label),
-                    placeholder = stringResource(R.string.new_issue_body_placeholder),
-                    error = state.error?.let { issueErrorText(it, forge, edits = state.editing != null) },
-                    singleLine = false,
-                    minLines = 6,
-                    readOnly = state.isSending,
-                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (!showPreview) {
-                    ReferenceSuggestionList(suggestions) { picked ->
-                        val typed = field.typedReference(marks) ?: return@ReferenceSuggestionList
-                        field = field.withReference(typed, picked.number)
-                        onBodyChange(field.text)
-                        onReferenceTyped(null)
+                    // The cursor is the field's own: it says where a reference is being typed, and goes after one picked.
+                    val marks = state.repo.referenceMarks
+                    var field by remember { mutableStateOf(TextFieldValue(state.body, TextRange(state.body.length))) }
+                    // Text that came from elsewhere (a draft read from disk, an issue to edit) leaves the cursor at its end.
+                    LaunchedEffect(state.body) {
+                        if (field.text != state.body) field = TextFieldValue(state.body, TextRange(state.body.length))
                     }
-                }
-                Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (state.body.isNotBlank()) PreviewToggle(showPreview) { previewing = !showPreview }
-                    SoftButton(
-                        stringResource(
-                            when {
-                                state.editing != null -> if (state.isSending) R.string.issue_comment_saving else R.string.edit_issue_send
-                                state.isSending -> R.string.issue_comment_sending
-                                else -> R.string.new_issue_send
-                            },
-                        ),
-                        onSend,
-                        enabled = state.canSend,
+                    if (!showPreview) SoftTextField(
+                        value = if (field.text == state.body) field else field.copy(text = state.body),
+                        onValueChange = { written ->
+                            val changed = written.text != state.body
+                            field = written
+                            if (changed) onBodyChange(written.text)
+                            onReferenceTyped(written.typedReference(marks))
+                        },
+                        label = stringResource(R.string.new_issue_body_label),
+                        placeholder = stringResource(R.string.new_issue_body_placeholder),
+                        error = state.error?.let { issueErrorText(it, forge, edits = state.editing != null) },
+                        singleLine = false,
+                        minLines = 6,
+                        readOnly = state.isSending,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                        modifier = Modifier.fillMaxWidth(),
                     )
-                }
+                    if (!showPreview) {
+                        ReferenceSuggestionList(suggestions) { picked ->
+                            val typed = field.typedReference(marks) ?: return@ReferenceSuggestionList
+                            field = field.withReference(typed, picked.number)
+                            onBodyChange(field.text)
+                            onReferenceTyped(null)
+                        }
+                    }
+                    Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (state.body.isNotBlank()) PreviewToggle(showPreview) { previewing = !showPreview }
+                        SoftButton(
+                            stringResource(
+                                when {
+                                    state.editing != null -> if (state.isSending) R.string.issue_comment_saving else R.string.edit_issue_send
+                                    state.isSending -> R.string.issue_comment_sending
+                                    else -> R.string.new_issue_send
+                                },
+                            ),
+                            onSend,
+                            enabled = state.canSend,
+                        )
+                    }
                 }
             }
             Spacer(Modifier.height(listBottomPadding()))

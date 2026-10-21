@@ -1,11 +1,11 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
-import fr.arthurbrugiere.forgeline.core.model.WorkKind
-import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest

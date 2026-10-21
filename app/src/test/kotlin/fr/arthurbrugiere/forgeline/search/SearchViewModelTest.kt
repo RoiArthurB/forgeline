@@ -1,15 +1,15 @@
 package fr.arthurbrugiere.forgeline.search
 
-import fr.arthurbrugiere.forgeline.core.model.ForgeUser
-import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
-import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import androidx.lifecycle.SavedStateHandle
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.search.SearchRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.SearchScope
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import fr.arthurbrugiere.forgeline.core.testing.FakeSearchApi
 import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
 import fr.arthurbrugiere.forgeline.core.testing.repoSummary

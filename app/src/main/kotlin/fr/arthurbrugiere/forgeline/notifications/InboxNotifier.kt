@@ -1,8 +1,5 @@
 package fr.arthurbrugiere.forgeline.notifications
 
-import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
-import fr.arthurbrugiere.forgeline.core.model.webUrl
-import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,9 +11,12 @@ import androidx.core.net.toUri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import fr.arthurbrugiere.forgeline.MainActivity
 import fr.arthurbrugiere.forgeline.R
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
+import fr.arthurbrugiere.forgeline.core.model.webUrl
 import javax.inject.Inject
 
 interface InboxNotifier {

@@ -1,6 +1,5 @@
 package fr.arthurbrugiere.forgeline.issue
 
-import fr.arthurbrugiere.forgeline.ui.referenceLinks
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.google.common.truth.Truth.assertThat
@@ -12,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.issueSummary
+import fr.arthurbrugiere.forgeline.ui.referenceLinks
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle

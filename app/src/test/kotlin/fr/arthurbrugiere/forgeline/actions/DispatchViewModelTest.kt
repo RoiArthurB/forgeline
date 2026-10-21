@@ -1,6 +1,5 @@
 package fr.arthurbrugiere.forgeline.actions
 
-import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.actions.DefaultActionsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -12,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.Workflow
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeActionsApi
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import kotlinx.coroutines.ExperimentalCoroutinesApi

@@ -1,8 +1,5 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
-import fr.arthurbrugiere.forgeline.forge.common.forgeCall
-import java.io.IOException
-import java.net.ProtocolException
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsSync
@@ -13,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
@@ -22,6 +20,8 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import java.io.IOException
+import java.net.ProtocolException
 
 /**
  * A Forgejo instance's notifications. Unlike GitHub, Forgejo (checked against Codeberg's API description, 2026-09-29):

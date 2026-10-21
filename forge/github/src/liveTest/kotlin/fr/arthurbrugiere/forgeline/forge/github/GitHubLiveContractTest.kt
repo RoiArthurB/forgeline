@@ -2,15 +2,15 @@ package fr.arthurbrugiere.forgeline.forge.github
 
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
-import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
-import fr.arthurbrugiere.forgeline.core.model.RunStatus
-import fr.arthurbrugiere.forgeline.core.model.RunConclusion
-import fr.arthurbrugiere.forgeline.core.model.LogFormat
-import fr.arthurbrugiere.forgeline.core.forge.JobLogSteps
-import fr.arthurbrugiere.forgeline.core.forge.JobLogLocator
 import fr.arthurbrugiere.forgeline.core.forge.ActionsLogParser
+import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.JobLogLocator
+import fr.arthurbrugiere.forgeline.core.forge.JobLogSteps
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.LogFormat
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RunConclusion
+import fr.arthurbrugiere.forgeline.core.model.RunStatus
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.runBlocking

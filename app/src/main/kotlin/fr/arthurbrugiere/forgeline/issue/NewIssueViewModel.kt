@@ -1,16 +1,16 @@
 package fr.arthurbrugiere.forgeline.issue
 
-import fr.arthurbrugiere.forgeline.core.data.draft.issueDraftKey
-import fr.arthurbrugiere.forgeline.core.data.draft.commentDraftKey
-import fr.arthurbrugiere.forgeline.core.data.draft.InMemoryDraftStore
-import fr.arthurbrugiere.forgeline.core.data.draft.DraftStore
-import fr.arthurbrugiere.forgeline.core.data.draft.Draft
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import fr.arthurbrugiere.forgeline.core.data.draft.Draft
+import fr.arthurbrugiere.forgeline.core.data.draft.DraftStore
+import fr.arthurbrugiere.forgeline.core.data.draft.InMemoryDraftStore
+import fr.arthurbrugiere.forgeline.core.data.draft.commentDraftKey
+import fr.arthurbrugiere.forgeline.core.data.draft.issueDraftKey
 import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult

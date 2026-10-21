@@ -1,30 +1,6 @@
 package fr.arthurbrugiere.forgeline.issue
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import fr.arthurbrugiere.forgeline.ui.Markdown
-import fr.arthurbrugiere.forgeline.ui.label
-import fr.arthurbrugiere.forgeline.ui.referenceLinks
-import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
-import fr.arthurbrugiere.forgeline.core.model.IssueSummary
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.TextRange
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSendButton
-import fr.arthurbrugiere.forgeline.core.forge.ForgeError
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.heading
-import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
-import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,44 +8,68 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.CallMerge
 import androidx.compose.material.icons.outlined.Adjust
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import fr.arthurbrugiere.forgeline.core.model.RepoAccess
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import fr.arthurbrugiere.forgeline.R
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.ui.semantics.Role
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.IssueSummary
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
-import fr.arthurbrugiere.forgeline.ui.relative
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
+import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
+import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSendButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
+import fr.arthurbrugiere.forgeline.ui.Markdown
+import fr.arthurbrugiere.forgeline.ui.label
+import fr.arthurbrugiere.forgeline.ui.referenceLinks
+import fr.arthurbrugiere.forgeline.ui.relative
+import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
 
 /**
  * The reader's turn, closing the conversation: a field that grows with the comment and one action. Signed out of the
@@ -259,6 +259,7 @@ internal fun WritingPreview(text: String, repo: RepoId, modifier: Modifier = Mod
 const val WRITING_PREVIEW_TAG = "writing-preview"
 
 /** Goes from writing to reading what was written, and back. */
+
 /** The reference the cursor stands at the end of; none while text is selected. */
 internal fun TextFieldValue.typedReference(marks: String): TypedReference? =
     if (selection.collapsed) typedReference(text, selection.end, marks) else null

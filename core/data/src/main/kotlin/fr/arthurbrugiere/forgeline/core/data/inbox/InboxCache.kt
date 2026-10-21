@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.core.data.inbox
 
 import androidx.room.Dao
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
@@ -12,7 +13,6 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
-import androidx.room.Index
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant

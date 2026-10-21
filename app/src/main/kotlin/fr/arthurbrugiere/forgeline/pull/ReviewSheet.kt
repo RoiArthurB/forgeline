@@ -1,13 +1,12 @@
 package fr.arthurbrugiere.forgeline.pull
 
-import androidx.compose.foundation.selection.selectableGroup
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceRow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -30,6 +29,7 @@ import fr.arthurbrugiere.forgeline.core.model.DiffLine
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceRow
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.ui.message

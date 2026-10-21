@@ -1,7 +1,5 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
-import fr.arthurbrugiere.forgeline.forge.common.forgeCall
-import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.core.forge.FeedDetail
 import fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -13,6 +11,8 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoPreview
 import fr.arthurbrugiere.forgeline.core.model.firstImage
 import fr.arthurbrugiere.forgeline.core.model.releaseSummary
+import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod

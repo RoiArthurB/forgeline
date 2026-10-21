@@ -1,28 +1,28 @@
 package fr.arthurbrugiere.forgeline.you
 
-import androidx.compose.ui.test.onAllNodesWithText
-import fr.arthurbrugiere.forgeline.core.model.matches
-import androidx.compose.ui.test.longClick
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.matches
 import fr.arthurbrugiere.forgeline.session.SessionState
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
+import fr.arthurbrugiere.forgeline.ui.assertTextFits
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
-import fr.arthurbrugiere.forgeline.ui.assertTextFits
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = PHONE)

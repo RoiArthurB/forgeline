@@ -1,24 +1,24 @@
 package fr.arthurbrugiere.forgeline.core.forge
 
-import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
-import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.Reaction
-import fr.arthurbrugiere.forgeline.core.model.IssueRef
-import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
-import fr.arthurbrugiere.forgeline.core.model.RepoRights
-import fr.arthurbrugiere.forgeline.core.model.TimeTracking
-import java.time.LocalDate
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
+import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
+import fr.arthurbrugiere.forgeline.core.model.UserSummary
+import java.time.LocalDate
 
 /** Issues and pull requests share numbering and conversation on every supported forge. */
 interface IssueApi {

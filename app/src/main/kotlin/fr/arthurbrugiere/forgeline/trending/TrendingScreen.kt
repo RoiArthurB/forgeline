@@ -1,25 +1,5 @@
 package fr.arthurbrugiere.forgeline.trending
 
-import androidx.compose.ui.res.painterResource
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTile
-import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
-import fr.arthurbrugiere.forgeline.core.ui.format.iconRes
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.text.SpanStyle
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
-import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
-import fr.arthurbrugiere.forgeline.ui.sideSafeArea
-import fr.arthurbrugiere.forgeline.ui.rememberNow
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
-import androidx.compose.ui.unit.sp
-import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
-import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
-import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
-import fr.arthurbrugiere.forgeline.session.signedInOn
-import fr.arthurbrugiere.forgeline.core.ui.format.languageColor
-import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.runtime.CompositionLocalProvider
 import android.os.SystemClock
 import android.text.format.DateUtils
 import androidx.compose.animation.core.Animatable
@@ -57,66 +37,86 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconToggleButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
-import fr.arthurbrugiere.forgeline.ui.ReportReading
-import fr.arthurbrugiere.forgeline.ui.LeftOffMark
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
+import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
+import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import fr.arthurbrugiere.forgeline.core.ui.format.compactCount
+import fr.arthurbrugiere.forgeline.core.ui.format.iconRes
+import fr.arthurbrugiere.forgeline.core.ui.format.languageColor
 import fr.arthurbrugiere.forgeline.core.ui.format.parseHexColor
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconToggleButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSwitch
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTile
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.animationsEnabled
+import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
-import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
-import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import fr.arthurbrugiere.forgeline.session.SessionState
+import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.ui.Avatar
+import fr.arthurbrugiere.forgeline.ui.LeftOffMark
+import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
+import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
+import fr.arthurbrugiere.forgeline.ui.ReportReading
+import fr.arthurbrugiere.forgeline.ui.listBottomPadding
+import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
+import fr.arthurbrugiere.forgeline.ui.rememberNow
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
-import androidx.compose.runtime.getValue
-import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
-import androidx.compose.runtime.setValue
 
 @Composable
 fun TrendingRoute(
@@ -146,7 +146,6 @@ fun TrendingRoute(
 private const val FIRST_ROW = 2
 internal val MaxMeasure = SoftTokens.MaxMeasure
 internal const val DESCRIPTION_TAG = "trending_description"
-
 
 /** Whether rows name their forge: only when the page mixes more than one. */
 private val LocalShowForge = staticCompositionLocalOf { false }

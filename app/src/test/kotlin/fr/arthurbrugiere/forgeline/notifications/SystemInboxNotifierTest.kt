@@ -1,11 +1,11 @@
 package fr.arthurbrugiere.forgeline.notifications
 
-import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import android.app.Application
 import android.app.NotificationManager
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import fr.arthurbrugiere.forgeline.core.testing.notificationThread

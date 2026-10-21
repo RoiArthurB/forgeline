@@ -7,14 +7,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.google.common.truth.Truth.assertThat
-import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.HeaderStyle
+import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.ui.soft.Geist
-import fr.arthurbrugiere.forgeline.core.ui.soft.bandIsDark
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDark
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLight
+import fr.arthurbrugiere.forgeline.core.ui.soft.bandIsDark
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

@@ -1,32 +1,32 @@
 package fr.arthurbrugiere.forgeline.core.data.trending
 
-import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
-import fr.arthurbrugiere.forgeline.core.forge.ForgeError
-import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
-import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
-import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
-import fr.arthurbrugiere.forgeline.core.model.TrendingRepo
-import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkDao
-import fr.arthurbrugiere.forgeline.core.data.reading.advance
-import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
+import fr.arthurbrugiere.forgeline.core.data.di.Computation
+import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkDao
+import fr.arthurbrugiere.forgeline.core.data.reading.advance
+import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
+import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
+import fr.arthurbrugiere.forgeline.core.model.TrendingRepo
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Clock
 import javax.inject.Inject
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.CoroutineDispatcher
-import fr.arthurbrugiere.forgeline.core.data.di.Computation
 import javax.inject.Singleton
 import kotlin.time.Duration.Companion.hours
 
@@ -203,6 +203,7 @@ class DefaultTrendingRepository @Inject constructor(
  * And a forge whose whole list gained fewer than [MIN_FORGE_STARS] is weighed as if it had gained that many: with 17
  * stars gained across gitlab.com's list, the first project's 3 stars were 18% of its forge and led the page.
  */
+
 /** The list length from which a forge's shares count in full. Every list GitHub gives is longer. */
 const val MIN_SHARE_ENTRIES = 10
 

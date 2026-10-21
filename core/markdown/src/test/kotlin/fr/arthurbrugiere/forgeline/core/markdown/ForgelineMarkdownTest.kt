@@ -22,7 +22,7 @@ class ForgelineMarkdownTest {
         val clicked = mutableListOf<String>()
         val state = parseForgeMarkdown("# Forgeline\n\nRead the [guide](https://example.com/guide).\n\n```kotlin\nval x = 1\n```")
         composeRule.setContent {
-            ForgelineTheme() { ForgelineMarkdown(state, onLinkClick = { clicked += it }) }
+            ForgelineTheme { ForgelineMarkdown(state, onLinkClick = { clicked += it }) }
         }
 
         composeRule.onNodeWithText("Forgeline").assertIsDisplayed()
@@ -37,7 +37,7 @@ class ForgelineMarkdownTest {
         // Regression: the renderer's default H1 used the display scale, dwarfing the whole screen.
         var headlineMedium = 0f
         composeRule.setContent {
-            ForgelineTheme() {
+            ForgelineTheme {
                 headlineMedium = androidx.compose.material3.MaterialTheme.typography.headlineMedium.fontSize.value
                 ForgelineMarkdown(parseForgeMarkdown("# Big title"), onLinkClick = {})
             }
@@ -62,7 +62,7 @@ class ForgelineMarkdownTest {
         try {
             val badges = (1..7).joinToString("\n") { "[![badge $it](https://badges.example/$it.svg)](https://example.com/$it)" }
             composeRule.setContent {
-                ForgelineTheme() { ForgelineMarkdown(parseForgeMarkdown("# Title\n$badges\n\nBody"), onLinkClick = {}) }
+                ForgelineTheme { ForgelineMarkdown(parseForgeMarkdown("# Title\n$badges\n\nBody"), onLinkClick = {}) }
             }
             composeRule.waitForIdle()
 
@@ -76,7 +76,7 @@ class ForgelineMarkdownTest {
     }
 
     private fun withPictures(text: String, opened: MutableList<String>?) = composeRule.setContent {
-        ForgelineTheme() {
+        ForgelineTheme {
             if (opened == null) {
                 ForgelineMarkdown(parseForgeMarkdown(text), onLinkClick = {})
             } else {

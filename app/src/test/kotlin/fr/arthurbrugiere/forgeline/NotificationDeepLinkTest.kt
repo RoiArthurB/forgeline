@@ -1,9 +1,9 @@
 package fr.arthurbrugiere.forgeline
 
 import android.content.Intent
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.core.net.toUri
 import androidx.test.core.app.ActivityScenario

@@ -1,18 +1,17 @@
 package fr.arthurbrugiere.forgeline.trending
 
-import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
-import kotlinx.coroutines.flow.first
-import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.data.star.StarRepository
 import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import fr.arthurbrugiere.forgeline.core.model.TrendingRepo
@@ -22,6 +21,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -70,6 +70,7 @@ class TrendingViewModel @Inject constructor(
     private val refreshing = MutableStateFlow(false)
     private val error = MutableStateFlow<ForgeError?>(null)
     private val starFailed = MutableStateFlow(false)
+
     /** Where each view (a period, mixed or narrowed to one forge's host) was left, fixed for this visit. */
     private val resumeAt = MutableStateFlow<Map<Pair<TrendingPeriod, String?>, RepoId?>>(emptyMap())
 

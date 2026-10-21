@@ -1,8 +1,10 @@
 package fr.arthurbrugiere.forgeline.core.data.inbox
 
-import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
+import fr.arthurbrugiere.forgeline.core.data.di.Computation
 import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
+import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -12,13 +14,9 @@ import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.SubjectState
-import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
-import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -27,13 +25,15 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import java.time.Clock
-import javax.inject.Inject
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.CoroutineDispatcher
-import fr.arthurbrugiere.forgeline.core.data.di.Computation
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
+import java.time.Clock
+import java.util.concurrent.ConcurrentHashMap
+import javax.inject.Inject
 import javax.inject.Singleton
 
 data class InboxSnapshot(val threads: List<NotificationThread>, val syncedAtMillis: Long?)
@@ -128,10 +128,10 @@ class DefaultInboxRepository @Inject constructor(
                         // is unread again. Not by its date: marking it read moves that too.
                         .filterNot { entity -> !entity.unread && (entity.accountId to entity.id) in doneKeys }
                         .map { entity ->
-                        val thread = entity.toModel()
-                        val state = thread.subject?.let { byRef[it] }?.state?.let { name -> SubjectState.entries.firstOrNull { it.name == name } }
-                        thread.copy(state = state)
-                    },
+                            val thread = entity.toModel()
+                            val state = thread.subject?.let { byRef[it] }?.state?.let { name -> SubjectState.entries.firstOrNull { it.name == name } }
+                            thread.copy(state = state)
+                        },
                     // The Inbox is as fresh as its stalest account.
                     syncs.filter { it.accountId in ids }.takeIf { it.size == ids.size }?.minOfOrNull { it.syncedAtMillis },
                 )

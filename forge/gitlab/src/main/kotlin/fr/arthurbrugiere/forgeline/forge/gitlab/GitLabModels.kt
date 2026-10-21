@@ -1,8 +1,5 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
-import fr.arthurbrugiere.forgeline.core.model.distinctPlaces
-import fr.arthurbrugiere.forgeline.core.model.LinkKind
-import fr.arthurbrugiere.forgeline.core.model.ProfileLink
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
@@ -11,14 +8,16 @@ import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.LinkKind
 import fr.arthurbrugiere.forgeline.core.model.Milestone
+import fr.arthurbrugiere.forgeline.core.model.ProfileLink
 import fr.arthurbrugiere.forgeline.core.model.PullRequestInfo
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.Release
 import fr.arthurbrugiere.forgeline.core.model.ReleaseAsset
 import fr.arthurbrugiere.forgeline.core.model.RepoDetails
-import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
+import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.RunConclusion
@@ -29,6 +28,7 @@ import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
+import fr.arthurbrugiere.forgeline.core.model.distinctPlaces
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.time.Instant

@@ -1,20 +1,20 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
-import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.SearchApi
-import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import fr.arthurbrugiere.forgeline.core.forge.StarApi
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
+import fr.arthurbrugiere.forgeline.core.model.ProfileLink
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.SearchPage
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
+import fr.arthurbrugiere.forgeline.core.model.WorkKind
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
-import kotlinx.serialization.json.buildJsonObject
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -24,8 +24,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.SerialName
-import fr.arthurbrugiere.forgeline.core.model.ProfileLink
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.buildJsonObject
 
 class ForgejoUserApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : UserApi {
 

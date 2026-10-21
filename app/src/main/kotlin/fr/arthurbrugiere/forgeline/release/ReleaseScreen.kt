@@ -1,11 +1,6 @@
 package fr.arthurbrugiere.forgeline.release
 
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
-import fr.arthurbrugiere.forgeline.core.model.releaseUrl
-import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
-import fr.arthurbrugiere.forgeline.ui.referenceLinks
 import androidx.compose.foundation.background
-import fr.arthurbrugiere.forgeline.ui.rememberNow
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,7 +33,6 @@ import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -73,27 +67,33 @@ import fr.arthurbrugiere.forgeline.core.model.ReleaseAsset
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
 import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
+import fr.arthurbrugiere.forgeline.core.model.releaseUrl
 import fr.arthurbrugiere.forgeline.core.ui.format.compactCount
 import fr.arthurbrugiere.forgeline.core.ui.format.formatBytes
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftPill
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
-import fr.arthurbrugiere.forgeline.ui.emoji
 import fr.arthurbrugiere.forgeline.navigation.ReleaseRoute
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.ui.Avatar
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import fr.arthurbrugiere.forgeline.ui.Message
+import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
+import fr.arthurbrugiere.forgeline.ui.emoji
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import fr.arthurbrugiere.forgeline.ui.message
+import fr.arthurbrugiere.forgeline.ui.referenceLinks
 import fr.arthurbrugiere.forgeline.ui.relative
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
+import fr.arthurbrugiere.forgeline.ui.rememberNow
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 
 @Composable

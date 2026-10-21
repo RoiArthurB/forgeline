@@ -1,25 +1,27 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
-import java.util.concurrent.CopyOnWriteArrayList
-import kotlinx.coroutines.CompletableDeferred
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsSync
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
-import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
+import kotlinx.coroutines.CompletableDeferred
 import java.time.Instant
+import java.util.concurrent.CopyOnWriteArrayList
 
 class FakeNotificationsApi(override val supportsDone: Boolean = true) : NotificationsApi {
     var threads: List<NotificationThread> = emptyList()
+
     /** When set, the next sync answers "not modified". */
     var notModified = false
     var pollIntervalSeconds: Int? = 60
     var failure: ForgeError? = null
+
     // Accounts sync at the same time, on background threads: what records them takes that.
     val calls: MutableList<String> = CopyOnWriteArrayList()
     val ifModifiedSince: MutableList<String?> = CopyOnWriteArrayList()

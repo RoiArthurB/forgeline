@@ -1,16 +1,16 @@
 package fr.arthurbrugiere.forgeline.core.data.user
 
-import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
-import fr.arthurbrugiere.forgeline.core.model.RepoId
-import fr.arthurbrugiere.forgeline.core.model.Readme
-import fr.arthurbrugiere.forgeline.core.model.ProfileReadme
-import fr.arthurbrugiere.forgeline.core.model.ForgeType
-import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
-import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
-import fr.arthurbrugiere.forgeline.core.data.account.accountOn
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.account.accountOn
+import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
+import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import fr.arthurbrugiere.forgeline.core.model.ProfileReadme
+import fr.arthurbrugiere.forgeline.core.model.Readme
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
 import kotlinx.coroutines.flow.first

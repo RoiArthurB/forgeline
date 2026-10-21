@@ -1,31 +1,31 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
-import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
-import fr.arthurbrugiere.forgeline.core.model.Reaction
-import java.util.concurrent.CopyOnWriteArrayList
-import kotlinx.coroutines.CompletableDeferred
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
+import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
-import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
-import fr.arthurbrugiere.forgeline.core.model.Label
-import fr.arthurbrugiere.forgeline.core.model.Milestone
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
+import fr.arthurbrugiere.forgeline.core.model.Milestone
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
-import fr.arthurbrugiere.forgeline.core.model.RepoRights
-import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
+import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
+import kotlinx.coroutines.CompletableDeferred
 import java.time.Instant
+import java.util.concurrent.CopyOnWriteArrayList
 
 class FakeIssueApi : IssueApi {
     val issues = mutableMapOf<IssueRef, IssueDetails>()
@@ -36,6 +36,7 @@ class FakeIssueApi : IssueApi {
     val failingPages = mutableSetOf<Int>()
 
     override var issueOnly: Set<ConversationAction> = emptySet()
+
     // Conversations are loaded ahead several at a time, on background threads: what records them takes that.
     val calls: MutableList<String> = CopyOnWriteArrayList()
     val tokens: MutableList<String?> = CopyOnWriteArrayList()

@@ -1,19 +1,17 @@
 package fr.arthurbrugiere.forgeline.core.data.feed
 
-import kotlin.time.Duration.Companion.minutes
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
-import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
-import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Upsert
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
+import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
+import fr.arthurbrugiere.forgeline.core.data.di.Computation
 import fr.arthurbrugiere.forgeline.core.forge.FeedDetail
 import fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey
+import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ConversationPreview
 import fr.arthurbrugiere.forgeline.core.model.FeedPreviews
@@ -27,10 +25,14 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoPreview
 import fr.arthurbrugiere.forgeline.core.model.firstImage
 import fr.arthurbrugiere.forgeline.core.model.releaseSummary
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
@@ -42,12 +44,10 @@ import java.time.Clock
 import java.time.Instant
 import java.util.Locale
 import javax.inject.Inject
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.CoroutineDispatcher
-import fr.arthurbrugiere.forgeline.core.data.di.Computation
 import javax.inject.Singleton
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 /**
  * One Feed preview, kept as JSON: a repository (`repo:host/owner/name`), a release (`release:host/owner/name tag`)
@@ -225,6 +225,7 @@ class DefaultFeedPreviewRepository @Inject constructor(
         const val REPO = "repo:"
         const val RELEASE = "release:"
         const val TALK = "talk:"
+
         /** Rows looked up at once one by one: far forges answer slowly, so small waves add up. */
         const val CONCURRENCY = 8
         val MAX_AGE = 24.hours

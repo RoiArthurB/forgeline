@@ -1,11 +1,11 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
-import kotlinx.coroutines.CompletableDeferred
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedRepository
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedSnapshot
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.FeedEvent
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import java.time.Instant

@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.core.data.feed
 
 import androidx.room.Dao
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
@@ -17,7 +18,6 @@ import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import kotlinx.coroutines.flow.Flow
-import androidx.room.Index
 import java.time.Instant
 
 /** Rows of starred-repository activity are kept under the account's id with this prefix, apart from its own events. */

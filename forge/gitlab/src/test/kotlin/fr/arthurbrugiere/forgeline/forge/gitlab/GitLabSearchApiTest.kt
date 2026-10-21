@@ -1,9 +1,9 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
-import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
@@ -51,7 +51,8 @@ class GitLabSearchApiTest {
     fun searches_issues_and_merge_requests() = runTest {
         val api = api { req ->
             if (req.url.parameters["scope"] == "merge_requests") {
-                json("""
+                json(
+                    """
                     [
                         {
                             "id": 20,
@@ -63,9 +64,11 @@ class GitLabSearchApiTest {
                             "web_url": "https://gitlab.com/group/project-a/-/merge_requests/2"
                         }
                     ]
-                """.trimIndent())
+                    """.trimIndent()
+                )
             } else {
-                json("""
+                json(
+                    """
                     [
                         {
                             "id": 10,
@@ -77,7 +80,8 @@ class GitLabSearchApiTest {
                             "web_url": "https://gitlab.com/group/project-a/-/issues/1"
                         }
                     ]
-                """.trimIndent())
+                    """.trimIndent()
+                )
             }
         }
 

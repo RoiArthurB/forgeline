@@ -1,7 +1,5 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
-import fr.arthurbrugiere.forgeline.forge.common.forgeCall
-import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.TrendingApi
@@ -9,12 +7,14 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import fr.arthurbrugiere.forgeline.core.model.TrendingRepo
+import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 
 /**
  * A Forgejo instance's Trending, which Forgejo doesn't have: a daily job measures it for everyone and publishes

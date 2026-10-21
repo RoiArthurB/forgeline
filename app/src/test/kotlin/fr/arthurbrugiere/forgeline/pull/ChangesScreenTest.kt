@@ -27,13 +27,13 @@ import fr.arthurbrugiere.forgeline.core.model.parsePatch
 import fr.arthurbrugiere.forgeline.core.testing.changedFile
 import fr.arthurbrugiere.forgeline.core.testing.commit
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.Instant
-import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = PHONE)

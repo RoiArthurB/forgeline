@@ -1,7 +1,5 @@
 package fr.arthurbrugiere.forgeline.ui
 
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
-import fr.arthurbrugiere.forgeline.core.model.ShareTap
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -28,7 +26,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import fr.arthurbrugiere.forgeline.R
+import fr.arthurbrugiere.forgeline.core.model.ShareTap
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 
 /**
  * Sends the address of what a screen shows somewhere else: a tap hands it to Android's share sheet, a long press

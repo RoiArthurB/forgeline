@@ -1,59 +1,59 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
-import fr.arthurbrugiere.forgeline.forge.common.forgeCall
-import io.ktor.client.request.parameter
-import io.ktor.http.takeFrom
-import io.ktor.http.appendPathSegments
-import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
-import io.ktor.client.request.setBody
-import io.ktor.client.request.header
-import io.ktor.http.HttpHeaders
-import io.ktor.http.Headers
-import io.ktor.client.request.post
-import io.ktor.client.request.forms.formData
-import io.ktor.client.request.forms.MultiPartFormDataContent
-import io.ktor.http.isSuccess
-import fr.arthurbrugiere.forgeline.core.model.CloseReason
-import fr.arthurbrugiere.forgeline.core.model.ForgeUser
-import fr.arthurbrugiere.forgeline.core.model.ConversationAction
-import fr.arthurbrugiere.forgeline.core.model.Label
-import fr.arthurbrugiere.forgeline.core.model.Milestone
-import kotlinx.serialization.json.JsonObjectBuilder
-import kotlinx.serialization.json.add
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
-import kotlinx.serialization.json.buildJsonObject
-import io.ktor.http.HttpMethod
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
-import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
-import io.ktor.client.statement.bodyAsText
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
+import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
+import fr.arthurbrugiere.forgeline.core.model.CloseReason
+import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
+import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.PullRequestInfo
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.core.model.StateChange
+import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
+import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.header
+import io.ktor.client.request.parameter
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.appendPathSegments
+import io.ktor.http.isSuccess
+import io.ktor.http.takeFrom
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
-import fr.arthurbrugiere.forgeline.core.model.RepoRights
-import fr.arthurbrugiere.forgeline.core.model.TimeTracking
+import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
-import java.time.Instant
 
 class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : IssueApi {
 
@@ -193,6 +193,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     }
 
     /** A pull request is an issue to this endpoint: one call closes either. */
+
     /** Forgejo keeps no reason for closing: [reason] is left out. */
     override suspend fun setOpen(token: String, ref: IssueRef, open: Boolean, reason: CloseReason?): ForgeResult<Unit> =
         edit(token, ref) { put("state", if (open) "open" else "closed") }

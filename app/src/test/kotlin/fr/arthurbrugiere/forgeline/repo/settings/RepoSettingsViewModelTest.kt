@@ -7,6 +7,10 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
+import fr.arthurbrugiere.forgeline.core.model.PagesBuild
+import fr.arthurbrugiere.forgeline.core.model.PagesChange
+import fr.arthurbrugiere.forgeline.core.model.PagesSite
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.RepoSwitch
@@ -22,10 +26,6 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
-import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
-import fr.arthurbrugiere.forgeline.core.model.PagesBuild
-import fr.arthurbrugiere.forgeline.core.model.PagesChange
-import fr.arthurbrugiere.forgeline.core.model.PagesSite
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)

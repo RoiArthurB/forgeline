@@ -1,6 +1,5 @@
 package fr.arthurbrugiere.forgeline.navigation
 
-import fr.arthurbrugiere.forgeline.core.model.StartTab
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
@@ -9,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.rememberNavBackStack
+import fr.arthurbrugiere.forgeline.core.model.StartTab
 
 /**
  * One back stack per top-level tab. The home tab always sits underneath the current tab, so

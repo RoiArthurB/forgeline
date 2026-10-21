@@ -1,36 +1,36 @@
 package fr.arthurbrugiere.forgeline.trending
 
-import androidx.compose.ui.test.getUnclippedBoundsInRoot
-import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.onNodeWithContentDescription
-import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
-import androidx.compose.ui.test.assertIsDisplayed
-import com.google.common.truth.Truth.assertWithMessage
-import androidx.compose.ui.test.getBoundsInRoot
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.text.TextLayoutResult
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import fr.arthurbrugiere.forgeline.core.testing.trendingRepo
-import androidx.compose.ui.test.SemanticsMatcher
-import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableStateOf
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = PHONE)
@@ -47,17 +47,17 @@ class TrendingScreenTest {
     private fun setContent(state: TrendingUiState) {
         composeRule.setContent {
             androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalUserSettings provides userSettings) {
-            TrendingScreen(
-                state = state,
-                onPeriodChange = { events += "period:$it" },
-                onRefresh = { events += "refresh" },
-                onToggleStar = { events += "star:${it.fullName}" },
-                onOpenRepo = { events += "open:${it.fullName}" },
-                onErrorShown = { events += "errorShown" },
-                onStarFailureShown = { events += "starFailureShown" },
-                nowMillis = 10 * 60_000L,
-            )
-        }
+                TrendingScreen(
+                    state = state,
+                    onPeriodChange = { events += "period:$it" },
+                    onRefresh = { events += "refresh" },
+                    onToggleStar = { events += "star:${it.fullName}" },
+                    onOpenRepo = { events += "open:${it.fullName}" },
+                    onErrorShown = { events += "errorShown" },
+                    onStarFailureShown = { events += "starFailureShown" },
+                    nowMillis = 10 * 60_000L,
+                )
+            }
         }
     }
 

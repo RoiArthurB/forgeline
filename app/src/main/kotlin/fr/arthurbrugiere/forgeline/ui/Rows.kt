@@ -1,14 +1,5 @@
 package fr.arthurbrugiere.forgeline.ui
 
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.material.icons.outlined.Lock
-import fr.arthurbrugiere.forgeline.core.ui.format.iconRes
-import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTile
-import androidx.compose.ui.res.painterResource
-import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
-import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,17 +14,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import fr.arthurbrugiere.forgeline.core.model.IssueState
-import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material.icons.outlined.CheckCircleOutline
 import androidx.compose.material.icons.automirrored.outlined.CallMerge
 import androidx.compose.material.icons.outlined.Adjust
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -44,14 +37,21 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import fr.arthurbrugiere.forgeline.R
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
+import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import fr.arthurbrugiere.forgeline.core.ui.format.compactCount
+import fr.arthurbrugiere.forgeline.core.ui.format.iconRes
 import fr.arthurbrugiere.forgeline.core.ui.format.languageColor
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTile
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 
 // List rows shared by the repo, profile and search screens: edge to edge between hairlines, led by a tile.
@@ -66,6 +66,7 @@ private val RowTextStart = 60.dp
  * on someone's own repositories), `owner/` muted and the name, a two-line description, then its language with the
  * linguist color and its stars.
  */
+
 /** [forge] shows the repository's forge (its logo), for lists mixing several. */
 @Composable
 fun RepoSummaryRow(

@@ -1,6 +1,5 @@
 package fr.arthurbrugiere.forgeline.core.data.database
 
-import fr.arthurbrugiere.forgeline.core.data.trending.TrendingMeasurementEntity
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedDao
@@ -8,18 +7,19 @@ import fr.arthurbrugiere.forgeline.core.data.feed.FeedEventEntity
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewDao
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewEntity
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedSyncEntity
-import fr.arthurbrugiere.forgeline.core.data.inbox.InboxDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.DoneEntity
+import fr.arthurbrugiere.forgeline.core.data.inbox.InboxDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxSyncEntity
-import fr.arthurbrugiere.forgeline.core.data.issue.ConversationDao
-import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkEntity
-import fr.arthurbrugiere.forgeline.core.data.issue.ConversationEntity
-import fr.arthurbrugiere.forgeline.core.data.inbox.SubjectStateEntity
 import fr.arthurbrugiere.forgeline.core.data.inbox.NotificationEntity
+import fr.arthurbrugiere.forgeline.core.data.inbox.SubjectStateEntity
+import fr.arthurbrugiere.forgeline.core.data.issue.ConversationDao
+import fr.arthurbrugiere.forgeline.core.data.issue.ConversationEntity
+import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkEntity
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoCacheEntity
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoDao
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingDao
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingFetchEntity
+import fr.arthurbrugiere.forgeline.core.data.trending.TrendingMeasurementEntity
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepoEntity
 import fr.arthurbrugiere.forgeline.core.data.yours.YourReposDao
 import fr.arthurbrugiere.forgeline.core.data.yours.YourReposEntity

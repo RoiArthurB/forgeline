@@ -1,6 +1,5 @@
 package fr.arthurbrugiere.forgeline.core.data.work
 
-import kotlinx.coroutines.launch
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -13,6 +12,7 @@ import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import fr.arthurbrugiere.forgeline.core.testing.FakeSearchApi
 import fr.arthurbrugiere.forgeline.core.testing.issueSummary
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 

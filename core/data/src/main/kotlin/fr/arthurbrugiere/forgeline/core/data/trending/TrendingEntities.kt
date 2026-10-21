@@ -1,9 +1,9 @@
 package fr.arthurbrugiere.forgeline.core.data.trending
 
-import androidx.room.PrimaryKey
 import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Insert
+import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
@@ -43,7 +43,6 @@ data class TrendingFetchEntity(
     val period: String,
     val fetchedAtMillis: Long,
 )
-
 
 /** A forge's Trending history measured on the phone: opaque to the app, handed back to the next measurement. */
 @Entity(tableName = "trending_measurements")
@@ -86,7 +85,6 @@ interface TrendingDao {
 
     @Upsert
     suspend fun upsertFetch(fetch: TrendingFetchEntity)
-
 
     @Transaction
     suspend fun replace(host: String, period: String, repos: List<TrendingRepoEntity>, fetchedAtMillis: Long) {

@@ -1,41 +1,41 @@
 package fr.arthurbrugiere.forgeline.core.data.issue
 
-import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
-import fr.arthurbrugiere.forgeline.core.model.Reaction
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.async
-import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
+import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.data.account.accountOn
 import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
-import fr.arthurbrugiere.forgeline.core.model.IssueState
-import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
-import fr.arthurbrugiere.forgeline.core.model.RepoAccess
-import fr.arthurbrugiere.forgeline.core.model.RepoRights
-import fr.arthurbrugiere.forgeline.core.model.TimeTracking
-import java.time.LocalDate
-import java.util.concurrent.ConcurrentHashMap
-import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoRightsCache
+import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
+import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
-import fr.arthurbrugiere.forgeline.core.model.Label
-import fr.arthurbrugiere.forgeline.core.model.Milestone
-import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
+import fr.arthurbrugiere.forgeline.core.model.Milestone
+import fr.arthurbrugiere.forgeline.core.model.Reaction
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.TimeTracking
+import fr.arthurbrugiere.forgeline.core.model.TimelineItem
+import fr.arthurbrugiere.forgeline.core.model.TimelinePage
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import fr.arthurbrugiere.forgeline.core.model.TimelineItem
-import fr.arthurbrugiere.forgeline.core.model.TimelinePage
 import kotlinx.coroutines.flow.first
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -438,7 +438,6 @@ class DefaultIssueRepository @Inject constructor(
         )
         dao.prune(STORED_CONVERSATIONS)
     }
-
 
     companion object {
         const val CACHE_SIZE = 50

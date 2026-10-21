@@ -2,42 +2,44 @@ package fr.arthurbrugiere.forgeline.ui
 
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
-import androidx.compose.ui.graphics.asAndroidBitmap
-import androidx.compose.ui.graphics.compositeOver
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.test.assert
-import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.onNodeWithContentDescription
-import androidx.compose.ui.test.performTouchInput
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.isHeading
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftCheckRow
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceSheet
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIndication
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
@@ -46,8 +48,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import androidx.compose.foundation.layout.width
-import androidx.compose.ui.unit.dp
 
 /** The shared Soft pieces every screen builds from, checked once here rather than on each screen. */
 @RunWith(RobolectricTestRunner::class)
@@ -141,6 +141,7 @@ class SoftPiecesTest {
     }
 
     /** The colour of the icon button [description] near its edge, off the glyph: what a press washes over. */
+
     /** The largest difference between two colours, channel by channel. */
     private fun channelsApart(a: Int, b: Int): Int =
         listOf(16, 8, 0).maxOf { shift -> kotlin.math.abs((a shr shift and 0xFF) - (b shr shift and 0xFF)) }

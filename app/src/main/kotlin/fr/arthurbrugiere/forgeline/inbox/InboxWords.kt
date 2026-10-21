@@ -1,31 +1,31 @@
 package fr.arthurbrugiere.forgeline.inbox
 
-import androidx.compose.material.icons.outlined.AlternateEmail
-import androidx.compose.material.icons.outlined.RateReview
-import androidx.compose.material.icons.outlined.AssignmentInd
-import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.ui.graphics.Color
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.CallMerge
 import androidx.compose.material.icons.outlined.Adjust
+import androidx.compose.material.icons.outlined.AlternateEmail
+import androidx.compose.material.icons.outlined.AssignmentInd
+import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Forum
-import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PlayCircleOutline
+import androidx.compose.material.icons.outlined.RateReview
+import androidx.compose.material.icons.outlined.Sell
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
-import fr.arthurbrugiere.forgeline.core.model.SubjectType
-import androidx.compose.material.icons.outlined.Block
-import androidx.compose.material.icons.outlined.CheckCircleOutline
-import androidx.compose.material.icons.outlined.Close
 import fr.arthurbrugiere.forgeline.core.model.SubjectState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import fr.arthurbrugiere.forgeline.core.model.SubjectType
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
 
 internal val InboxFilter.label: Int
     get() = when (this) {

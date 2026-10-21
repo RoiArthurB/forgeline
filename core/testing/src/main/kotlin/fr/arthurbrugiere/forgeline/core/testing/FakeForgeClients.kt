@@ -1,17 +1,17 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
-import fr.arthurbrugiere.forgeline.core.forge.TrendingMeter
 import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.forge.FeedApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeAuthApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
-import fr.arthurbrugiere.forgeline.core.forge.PullRequestApi
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsApi
+import fr.arthurbrugiere.forgeline.core.forge.PullRequestApi
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
 import fr.arthurbrugiere.forgeline.core.forge.SearchApi
 import fr.arthurbrugiere.forgeline.core.forge.StarApi
 import fr.arthurbrugiere.forgeline.core.forge.TrendingApi
+import fr.arthurbrugiere.forgeline.core.forge.TrendingMeter
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 
@@ -35,6 +35,7 @@ class FakeForgeClients(
     val trendingMeter: TrendingMeter? = null,
 ) : ForgeClients {
     private val others = java.util.concurrent.ConcurrentHashMap<ForgeInstance, FakeForgeClients>()
+
     // Regression: an Inbox sync asks for several conversations at once, from background threads. A plain list lost
     // its footing under two of them now and then ("Index 1 out of bounds for length 0") and failed an unrelated test.
     val asked: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()

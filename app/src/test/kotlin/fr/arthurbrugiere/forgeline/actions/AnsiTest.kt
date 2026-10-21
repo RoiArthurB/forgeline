@@ -4,8 +4,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLight
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDark
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLight
 import fr.arthurbrugiere.forgeline.core.ui.soft.amoled
 import fr.arthurbrugiere.forgeline.core.ui.soft.contrastRatio
 import org.junit.Test

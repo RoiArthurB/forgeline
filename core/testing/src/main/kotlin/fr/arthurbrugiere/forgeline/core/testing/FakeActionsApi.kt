@@ -3,8 +3,8 @@ package fr.arthurbrugiere.forgeline.core.testing
 import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
-import fr.arthurbrugiere.forgeline.core.model.DispatchInput
 import fr.arthurbrugiere.forgeline.core.forge.JobLogReader
+import fr.arthurbrugiere.forgeline.core.model.DispatchInput
 import fr.arthurbrugiere.forgeline.core.model.LogFormat
 import fr.arthurbrugiere.forgeline.core.model.LogPart
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -20,6 +20,7 @@ class FakeActionsApi(
 ) : ActionsApi {
     val runs = mutableMapOf<Long, WorkflowRun>()
     val jobs = mutableMapOf<Long, List<RunJob>>()
+
     /** Each job's log, as the forge stores it. */
     val logs = mutableMapOf<Long, String>()
 

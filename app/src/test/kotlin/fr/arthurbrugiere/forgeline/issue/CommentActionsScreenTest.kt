@@ -1,49 +1,49 @@
 package fr.arthurbrugiere.forgeline.issue
 
-import fr.arthurbrugiere.forgeline.ui.MARKDOWN_PENDING_TAG
-import fr.arthurbrugiere.forgeline.ui.emoji
-import androidx.compose.ui.test.onNodeWithContentDescription
-import fr.arthurbrugiere.forgeline.core.testing.issueSummary
-import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
-import fr.arthurbrugiere.forgeline.core.model.Reaction
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.assertIsFocused
-import androidx.compose.ui.test.click
-import androidx.compose.ui.test.doubleClick
-import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.unit.dp
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.comment
 import fr.arthurbrugiere.forgeline.core.testing.issueDetails
+import fr.arthurbrugiere.forgeline.core.testing.issueSummary
+import fr.arthurbrugiere.forgeline.ui.MARKDOWN_PENDING_TAG
 import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 import fr.arthurbrugiere.forgeline.ui.assertTextFits
+import fr.arthurbrugiere.forgeline.ui.emoji
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -78,29 +78,29 @@ class CommentActionsScreenTest {
         shown.value = state
         composeRule.setContent {
             androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalUserSettings provides userSettings) {
-            IssueScreen(
-                state = shown.value,
-                canComment = canComment,
-                onDraftChange = { events += "draft:$it" }, onSendComment = { events += "send" }, onToggleOpen = { events += "toggle" }, onSignIn = {},
-                onCommentNoticeShown = {}, onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {},
-                onOpenInBrowser = {}, onLinkClick = { events += "link:$it" }, onErrorShown = {},
-                nowMillis = Instant.parse("2026-09-26T09:00:00Z").toEpochMilli(),
-                comments = CommentActions(
-                    onQuote = { events += "quote:$it" },
-                    onEdit = { events += "edit:$it" },
-                    onCancelEdit = { events += "cancel" },
-                    onDelete = { events += "delete:$it" },
-                    onDeleteErrorShown = { events += "delete-error-shown" },
-                    onEditIssue = { events += "edit-issue" },
-                    onReact = { comment, reaction -> events += "react:$comment:$reaction" },
-                    onReactionErrorShown = { events += "reaction-error-shown" },
-                    onPickPicture = { events += "pick" },
-                    onAttachErrorShown = { events += "attach-error-shown" },
-                    onReferenceTyped = { typedReferences += it },
-                ),
-                suggestions = suggested.value,
-            )
-        }
+                IssueScreen(
+                    state = shown.value,
+                    canComment = canComment,
+                    onDraftChange = { events += "draft:$it" }, onSendComment = { events += "send" }, onToggleOpen = { events += "toggle" }, onSignIn = {},
+                    onCommentNoticeShown = {}, onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {},
+                    onOpenInBrowser = {}, onLinkClick = { events += "link:$it" }, onErrorShown = {},
+                    nowMillis = Instant.parse("2026-09-26T09:00:00Z").toEpochMilli(),
+                    comments = CommentActions(
+                        onQuote = { events += "quote:$it" },
+                        onEdit = { events += "edit:$it" },
+                        onCancelEdit = { events += "cancel" },
+                        onDelete = { events += "delete:$it" },
+                        onDeleteErrorShown = { events += "delete-error-shown" },
+                        onEditIssue = { events += "edit-issue" },
+                        onReact = { comment, reaction -> events += "react:$comment:$reaction" },
+                        onReactionErrorShown = { events += "reaction-error-shown" },
+                        onPickPicture = { events += "pick" },
+                        onAttachErrorShown = { events += "attach-error-shown" },
+                        onReferenceTyped = { typedReferences += it },
+                    ),
+                    suggestions = suggested.value,
+                )
+            }
         }
         composeRule.waitForIdle()
     }

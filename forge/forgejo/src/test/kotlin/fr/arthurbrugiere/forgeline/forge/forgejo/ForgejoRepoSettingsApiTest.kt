@@ -6,18 +6,18 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.MergeStyle
+import fr.arthurbrugiere.forgeline.core.model.PagesChange
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.RepoSwitch
+import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import kotlinx.coroutines.test.runTest
-import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
-import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
-import fr.arthurbrugiere.forgeline.core.model.PagesChange
 import org.junit.Test
 
 /** Fields are those of Codeberg's API description (`Repository`, `EditRepoOption`), read on 2026-10-12. */

@@ -1,13 +1,5 @@
 package fr.arthurbrugiere.forgeline.core.data.trending
 
-import fr.arthurbrugiere.forgeline.core.model.ForgeType
-import fr.arthurbrugiere.forgeline.core.forge.TrendingMeasurement
-import fr.arthurbrugiere.forgeline.core.testing.FakeTrendingMeter
-import fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository
-import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
-import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
-import fr.arthurbrugiere.forgeline.core.testing.RecordingDispatcher
-import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
@@ -15,14 +7,22 @@ import fr.arthurbrugiere.forgeline.core.data.database.ForgelineDatabase
 import fr.arthurbrugiere.forgeline.core.data.database.UserStateDatabase
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.TrendingMeasurement
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
+import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import fr.arthurbrugiere.forgeline.core.testing.FakeTrendingApi
+import fr.arthurbrugiere.forgeline.core.testing.FakeTrendingMeter
+import fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository
+import fr.arthurbrugiere.forgeline.core.testing.RecordingDispatcher
 import fr.arthurbrugiere.forgeline.core.testing.trendingRepo
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
-import fr.arthurbrugiere.forgeline.core.model.RepoId
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner

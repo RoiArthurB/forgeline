@@ -1,6 +1,5 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
-import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.FeedApi
 import fr.arthurbrugiere.forgeline.core.forge.FeedPage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -11,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueAction
 import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpStatusCode
@@ -180,6 +180,7 @@ class ForgejoFeedApi(
 
         /** Latest-release requests in flight; the HTTP engine caps what really goes out per forge. */
         const val RELEASES_AT_ONCE = 16
+
         /**
          * Followed people read at once: all of a refresh's, in one wave. Far from the forge each feed takes seconds
          * (Codeberg: about 3 s, measured from Vietnam on 2026-10-01), so a second wave doubled the wait. The HTTP

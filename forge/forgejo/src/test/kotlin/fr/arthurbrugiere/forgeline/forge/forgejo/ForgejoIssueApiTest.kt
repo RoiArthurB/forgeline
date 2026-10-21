@@ -1,36 +1,36 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
-import io.ktor.client.engine.mock.toByteArray
-import io.ktor.http.HttpHeaders
-import java.time.Instant
-import io.ktor.http.content.TextContent
-import io.ktor.http.HttpMethod
-import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.CompletableDeferred
-import io.ktor.http.HttpStatusCode
-import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
-import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
-import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
-import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.core.model.StateChange
-import fr.arthurbrugiere.forgeline.core.model.TimelineItem
-import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.TimeTracking
-import java.time.LocalDate
+import fr.arthurbrugiere.forgeline.core.model.TimelineItem
+import io.ktor.client.engine.mock.toByteArray
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.TextContent
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.Test
+import java.time.Instant
+import java.time.LocalDate
 
 class ForgejoIssueApiTest {
     private val codeberg = Codeberg()

@@ -1,8 +1,5 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
-import io.ktor.client.request.HttpRequestBuilder
-import io.ktor.client.request.prepareRequest
-import io.ktor.client.statement.HttpStatement
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -12,10 +9,13 @@ import fr.arthurbrugiere.forgeline.forge.common.nextLinkedPage
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.timeout
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
+import io.ktor.client.request.prepareRequest
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.HttpStatement
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders

@@ -1,8 +1,8 @@
 package fr.arthurbrugiere.forgeline.core.ui.soft
 
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
@@ -211,7 +211,9 @@ fun SoftTheme(colors: SoftColors, content: @Composable () -> Unit) {
 
 object Soft {
     val colors: SoftColors
-        @Composable @ReadOnlyComposable get() = LocalSoftColors.current
+        @Composable @ReadOnlyComposable
+        get() = LocalSoftColors.current
     val type: SoftType
-        @Composable @ReadOnlyComposable get() = LocalSoftType.current
+        @Composable @ReadOnlyComposable
+        get() = LocalSoftType.current
 }

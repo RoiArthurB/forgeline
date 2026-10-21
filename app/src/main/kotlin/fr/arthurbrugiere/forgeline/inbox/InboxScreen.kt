@@ -1,38 +1,49 @@
 package fr.arthurbrugiere.forgeline.inbox
 
-import androidx.compose.material.icons.outlined.DoneAll
-import androidx.compose.material.icons.outlined.Groups
-import androidx.compose.ui.semantics.contentDescription
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
-import fr.arthurbrugiere.forgeline.ui.sideSafeArea
-import fr.arthurbrugiere.forgeline.ui.rememberNow
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
-import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
-import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Inbox
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.ui.platform.LocalResources
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -40,39 +51,28 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
-import fr.arthurbrugiere.forgeline.work.WorkUiState
-import fr.arthurbrugiere.forgeline.work.WorkViewModel
-import fr.arthurbrugiere.forgeline.work.workItems
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
-import androidx.activity.compose.BackHandler
-import androidx.compose.ui.semantics.selected
-import fr.arthurbrugiere.forgeline.session.SessionState
-import fr.arthurbrugiere.forgeline.ui.message
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.ui.semantics.heading
+import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSwitch
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarResult
+import fr.arthurbrugiere.forgeline.ui.message
+import fr.arthurbrugiere.forgeline.ui.rememberNow
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
+import fr.arthurbrugiere.forgeline.work.WorkUiState
+import fr.arthurbrugiere.forgeline.work.WorkViewModel
+import fr.arthurbrugiere.forgeline.work.workItems
 
 @Composable
 fun InboxRoute(
@@ -148,6 +148,7 @@ private fun InboxSignedOut(session: SessionState, onSignIn: () -> Unit, onBrowse
 }
 
 /** The Inbox's tinted field: the title, search and, once signed in, the filter switch (each filter its own tint). */
+
 /** Whether rows name their forge: only when accounts span more than one. */
 internal val LocalShowForge = staticCompositionLocalOf { false }
 

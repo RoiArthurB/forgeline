@@ -100,7 +100,8 @@ class GitLabUserApiTest {
             } else if (req.url.encodedPath.endsWith("/projects")) {
                 respond("[]", HttpStatusCode.OK, headersOf("X-Total" to listOf("45")))
             } else {
-                json("""
+                json(
+                    """
                     {
                         "id": 999,
                         "name": "GitLab Org",
@@ -109,7 +110,8 @@ class GitLabUserApiTest {
                         "description": "GitLab organization",
                         "avatar_url": "https://gitlab.com/org.png"
                     }
-                """.trimIndent())
+                    """.trimIndent()
+                )
             }
         }
 

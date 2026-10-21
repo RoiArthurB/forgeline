@@ -1,12 +1,12 @@
 package fr.arthurbrugiere.forgeline.settings
 
-import fr.arthurbrugiere.forgeline.core.testing.FakeTrendingRepository
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
+import fr.arthurbrugiere.forgeline.core.testing.FakeTrendingRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
 import kotlinx.coroutines.flow.first
@@ -19,6 +19,7 @@ class SettingsViewModelTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     private val repository = FakeUserSettingsRepository()
+
     // Lazy: must be created after MainDispatcherRule has installed the test Main dispatcher.
     private val viewModel by lazy { SettingsViewModel(repository, FakeTrendingRepository()) }
 

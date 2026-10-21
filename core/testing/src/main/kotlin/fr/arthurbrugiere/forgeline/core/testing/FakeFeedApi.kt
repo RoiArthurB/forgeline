@@ -1,6 +1,5 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
-import kotlinx.coroutines.CompletableDeferred
 import fr.arthurbrugiere.forgeline.core.forge.FeedApi
 import fr.arthurbrugiere.forgeline.core.forge.FeedDetail
 import fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey
@@ -11,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.FeedEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import kotlinx.coroutines.CompletableDeferred
 import java.time.Instant
 
 class FakeFeedApi : FeedApi {
@@ -18,6 +18,7 @@ class FakeFeedApi : FeedApi {
     val pages: MutableMap<Int, List<FeedEvent>> = java.util.concurrent.ConcurrentHashMap()
     var lastModified: String = "Sun, 27 Sep 2026 10:00:00 GMT"
     var failure: ForgeError? = null
+
     // The feed refreshes in the background while a test reads what was asked: plain lists broke under that now and then.
     val calls: MutableList<String> = java.util.concurrent.CopyOnWriteArrayList()
 

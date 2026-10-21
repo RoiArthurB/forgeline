@@ -1,10 +1,10 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
-import fr.arthurbrugiere.forgeline.core.model.IssueState
-import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import com.google.common.truth.Truth.assertWithMessage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue

@@ -1,37 +1,37 @@
 package fr.arthurbrugiere.forgeline
 
-import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
-import androidx.compose.runtime.CompositionLocalProvider
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.navigation3.runtime.NavKey
-import fr.arthurbrugiere.forgeline.navigation.linkRoute
-import fr.arthurbrugiere.forgeline.navigation.ForgeLinks
-import android.widget.Toast
-import fr.arthurbrugiere.forgeline.notifications.EXTRA_LAST_READ_AT
-import fr.arthurbrugiere.forgeline.notifications.EXTRA_UNREAD
-import fr.arthurbrugiere.forgeline.ui.openInCustomTab
+import androidx.compose.runtime.setValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation3.runtime.NavKey
 import dagger.hilt.android.AndroidEntryPoint
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import fr.arthurbrugiere.forgeline.core.ui.soft.bandIsDark
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
-import fr.arthurbrugiere.forgeline.core.ui.theme.softColors
 import fr.arthurbrugiere.forgeline.core.ui.theme.isDark
+import fr.arthurbrugiere.forgeline.core.ui.theme.softColors
+import fr.arthurbrugiere.forgeline.navigation.ForgeLinks
+import fr.arthurbrugiere.forgeline.navigation.linkRoute
+import fr.arthurbrugiere.forgeline.notifications.EXTRA_LAST_READ_AT
+import fr.arthurbrugiere.forgeline.notifications.EXTRA_UNREAD
 import fr.arthurbrugiere.forgeline.session.SessionViewModel
 import fr.arthurbrugiere.forgeline.ui.ForgelineApp
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
+import fr.arthurbrugiere.forgeline.ui.openInCustomTab
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {

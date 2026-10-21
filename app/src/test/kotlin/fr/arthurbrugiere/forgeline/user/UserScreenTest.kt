@@ -1,9 +1,11 @@
 package fr.arthurbrugiere.forgeline.user
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
@@ -11,10 +13,8 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.testing.userProfile
 import fr.arthurbrugiere.forgeline.repo.Loadable
-import org.junit.Rule
 import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
-import androidx.compose.ui.test.isHeading
-import androidx.compose.ui.test.hasText
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner

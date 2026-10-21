@@ -1,9 +1,9 @@
 package fr.arthurbrugiere.forgeline.navigation
 
-import fr.arthurbrugiere.forgeline.core.model.KnownForges
-import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import fr.arthurbrugiere.forgeline.core.model.KnownForges
 import org.junit.Test
 
 class ForgeLinksTest {

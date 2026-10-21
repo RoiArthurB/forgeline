@@ -1,12 +1,5 @@
 package fr.arthurbrugiere.forgeline.ui
 
-import fr.arthurbrugiere.forgeline.core.model.StartTab
-import fr.arthurbrugiere.forgeline.navigation.DiscussionRoute
-import fr.arthurbrugiere.forgeline.R
-import androidx.compose.ui.res.stringResource
-import fr.arthurbrugiere.forgeline.navigation.PictureRoute
-import fr.arthurbrugiere.forgeline.core.markdown.LocalOpenPictureLabel
-import fr.arthurbrugiere.forgeline.core.markdown.LocalOpenPicture
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavEntry
 import androidx.navigation3.runtime.NavKey
@@ -21,59 +15,65 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import fr.arthurbrugiere.forgeline.credits.CreditsRoute
-import fr.arthurbrugiere.forgeline.feed.FeedRoute as FeedDestination
-import fr.arthurbrugiere.forgeline.inbox.InboxRoute as InboxDestination
-import fr.arthurbrugiere.forgeline.core.model.SubjectType
-import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
-import fr.arthurbrugiere.forgeline.navigation.AppNavigator
-import fr.arthurbrugiere.forgeline.navigation.CreditsRoute as CreditsKey
-import fr.arthurbrugiere.forgeline.navigation.FeedRoute
-import fr.arthurbrugiere.forgeline.navigation.InboxRoute
-import fr.arthurbrugiere.forgeline.navigation.SettingsRoute
-import fr.arthurbrugiere.forgeline.navigation.SettingsSectionRoute
-import fr.arthurbrugiere.forgeline.navigation.SearchRoute as SearchKey
-import fr.arthurbrugiere.forgeline.search.SearchRoute as SearchDestination
-import fr.arthurbrugiere.forgeline.navigation.RepoRoute as RepoKey
-import fr.arthurbrugiere.forgeline.navigation.FileRoute as FileKey
-import fr.arthurbrugiere.forgeline.file.FileRoute as FileDestination
-import fr.arthurbrugiere.forgeline.repo.RepoRoute as RepoDestination
+import fr.arthurbrugiere.forgeline.R
+import fr.arthurbrugiere.forgeline.core.markdown.LocalOpenPicture
+import fr.arthurbrugiere.forgeline.core.markdown.LocalOpenPictureLabel
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
-import fr.arthurbrugiere.forgeline.core.model.RepoId
-import fr.arthurbrugiere.forgeline.navigation.route
-import fr.arthurbrugiere.forgeline.navigation.userRoute
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
-import fr.arthurbrugiere.forgeline.navigation.IssueRoute as IssueKey
-import fr.arthurbrugiere.forgeline.navigation.NewIssueRoute as NewIssueKey
-import fr.arthurbrugiere.forgeline.issue.NewIssueRoute as NewIssueDestination
-import fr.arthurbrugiere.forgeline.navigation.newIssueRoute
-import fr.arthurbrugiere.forgeline.navigation.changesRoute
-import fr.arthurbrugiere.forgeline.navigation.commitsRoute
-import fr.arthurbrugiere.forgeline.navigation.checkRoute
-import fr.arthurbrugiere.forgeline.navigation.commitRoute
-import fr.arthurbrugiere.forgeline.navigation.settingsRoute
-import fr.arthurbrugiere.forgeline.navigation.historyRoute
-import fr.arthurbrugiere.forgeline.navigation.ReleaseRoute as ReleaseKey
-import fr.arthurbrugiere.forgeline.release.ReleaseRoute as ReleaseDestination
-import fr.arthurbrugiere.forgeline.navigation.releaseRoute
-import fr.arthurbrugiere.forgeline.navigation.RunRoute as RunKey
-import fr.arthurbrugiere.forgeline.navigation.JobLogRoute as JobLogKey
-import fr.arthurbrugiere.forgeline.actions.RunRoute as RunDestination
-import fr.arthurbrugiere.forgeline.actions.JobLogRoute as JobLogDestination
-import fr.arthurbrugiere.forgeline.navigation.UserRoute as UserKey
-import fr.arthurbrugiere.forgeline.issue.IssueRoute as IssueDestination
-import fr.arthurbrugiere.forgeline.user.UserRoute as UserDestination
-import fr.arthurbrugiere.forgeline.navigation.SignInRoute as SignInKey
-import fr.arthurbrugiere.forgeline.session.SessionState
-import fr.arthurbrugiere.forgeline.signin.SignInRoute
+import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.StartTab
+import fr.arthurbrugiere.forgeline.core.model.SubjectType
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.credits.CreditsRoute
+import fr.arthurbrugiere.forgeline.navigation.AppNavigator
+import fr.arthurbrugiere.forgeline.navigation.DiscussionRoute
+import fr.arthurbrugiere.forgeline.navigation.FeedRoute
+import fr.arthurbrugiere.forgeline.navigation.InboxRoute
+import fr.arthurbrugiere.forgeline.navigation.PictureRoute
+import fr.arthurbrugiere.forgeline.navigation.SettingsRoute
+import fr.arthurbrugiere.forgeline.navigation.SettingsSectionRoute
 import fr.arthurbrugiere.forgeline.navigation.TopLevelDestination
 import fr.arthurbrugiere.forgeline.navigation.TrendingRoute
 import fr.arthurbrugiere.forgeline.navigation.YouRoute
+import fr.arthurbrugiere.forgeline.navigation.changesRoute
+import fr.arthurbrugiere.forgeline.navigation.checkRoute
+import fr.arthurbrugiere.forgeline.navigation.commitRoute
+import fr.arthurbrugiere.forgeline.navigation.commitsRoute
+import fr.arthurbrugiere.forgeline.navigation.historyRoute
+import fr.arthurbrugiere.forgeline.navigation.newIssueRoute
+import fr.arthurbrugiere.forgeline.navigation.releaseRoute
 import fr.arthurbrugiere.forgeline.navigation.rememberAppNavigator
+import fr.arthurbrugiere.forgeline.navigation.route
+import fr.arthurbrugiere.forgeline.navigation.settingsRoute
+import fr.arthurbrugiere.forgeline.navigation.userRoute
+import fr.arthurbrugiere.forgeline.session.SessionState
+import fr.arthurbrugiere.forgeline.signin.SignInRoute
+import fr.arthurbrugiere.forgeline.you.YouDestination
+import fr.arthurbrugiere.forgeline.actions.JobLogRoute as JobLogDestination
+import fr.arthurbrugiere.forgeline.actions.RunRoute as RunDestination
+import fr.arthurbrugiere.forgeline.feed.FeedRoute as FeedDestination
+import fr.arthurbrugiere.forgeline.file.FileRoute as FileDestination
+import fr.arthurbrugiere.forgeline.inbox.InboxRoute as InboxDestination
+import fr.arthurbrugiere.forgeline.issue.IssueRoute as IssueDestination
+import fr.arthurbrugiere.forgeline.issue.NewIssueRoute as NewIssueDestination
+import fr.arthurbrugiere.forgeline.navigation.CreditsRoute as CreditsKey
+import fr.arthurbrugiere.forgeline.navigation.FileRoute as FileKey
+import fr.arthurbrugiere.forgeline.navigation.IssueRoute as IssueKey
+import fr.arthurbrugiere.forgeline.navigation.JobLogRoute as JobLogKey
+import fr.arthurbrugiere.forgeline.navigation.NewIssueRoute as NewIssueKey
+import fr.arthurbrugiere.forgeline.navigation.ReleaseRoute as ReleaseKey
+import fr.arthurbrugiere.forgeline.navigation.RepoRoute as RepoKey
+import fr.arthurbrugiere.forgeline.navigation.RunRoute as RunKey
+import fr.arthurbrugiere.forgeline.navigation.SearchRoute as SearchKey
+import fr.arthurbrugiere.forgeline.navigation.SignInRoute as SignInKey
+import fr.arthurbrugiere.forgeline.navigation.UserRoute as UserKey
+import fr.arthurbrugiere.forgeline.release.ReleaseRoute as ReleaseDestination
+import fr.arthurbrugiere.forgeline.repo.RepoRoute as RepoDestination
+import fr.arthurbrugiere.forgeline.search.SearchRoute as SearchDestination
 import fr.arthurbrugiere.forgeline.settings.SettingsRoute as SettingsDestination
 import fr.arthurbrugiere.forgeline.trending.TrendingRoute as TrendingDestination
-import fr.arthurbrugiere.forgeline.you.YouDestination
+import fr.arthurbrugiere.forgeline.user.UserRoute as UserDestination
 
 @Composable
 fun ForgelineApp(

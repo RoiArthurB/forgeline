@@ -3,27 +3,27 @@ package fr.arthurbrugiere.forgeline.feed
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewRepository
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.di.Computation
+import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewRepository
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedRepository
-import fr.arthurbrugiere.forgeline.core.model.FeedPreviews
+import fr.arthurbrugiere.forgeline.core.data.feed.FeedSnapshot
 import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.FeedPreviews
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
-import fr.arthurbrugiere.forgeline.core.data.di.Computation
-import fr.arthurbrugiere.forgeline.core.data.feed.FeedSnapshot
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 data class FeedUiState(

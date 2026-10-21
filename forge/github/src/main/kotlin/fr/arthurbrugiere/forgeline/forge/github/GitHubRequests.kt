@@ -2,26 +2,26 @@ package fr.arthurbrugiere.forgeline.forge.github
 
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
-import io.ktor.client.call.body
-import io.ktor.http.isSuccess
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
 import fr.arthurbrugiere.forgeline.forge.common.lastLinkedPage
 import fr.arthurbrugiere.forgeline.forge.common.nextLinkedPage
 import io.ktor.client.HttpClient
+import io.ktor.client.call.body
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.header
 import io.ktor.client.request.request
-import io.ktor.client.statement.HttpResponse
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
-import io.ktor.http.contentType
-import kotlinx.serialization.json.JsonObject
 import io.ktor.http.appendPathSegments
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 import io.ktor.http.takeFrom
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /** A REST call to the GitHub API; path segments are encoded one by one. Anonymous when [token] is null. */
 internal suspend fun HttpClient.gitHubApi(

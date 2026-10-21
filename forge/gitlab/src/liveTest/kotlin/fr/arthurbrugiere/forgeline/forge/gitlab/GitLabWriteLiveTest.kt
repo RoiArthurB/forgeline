@@ -1,13 +1,17 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.DiffLineKind
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
+import fr.arthurbrugiere.forgeline.core.model.MergeStyle
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
+import fr.arthurbrugiere.forgeline.core.model.RepoSwitch
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import fr.arthurbrugiere.forgeline.core.model.parsePatch
 import io.ktor.client.call.body
@@ -29,10 +33,6 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assume.assumeTrue
-import fr.arthurbrugiere.forgeline.core.model.RepoSwitch
-import fr.arthurbrugiere.forgeline.core.model.MergeStyle
-import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
-import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 /**

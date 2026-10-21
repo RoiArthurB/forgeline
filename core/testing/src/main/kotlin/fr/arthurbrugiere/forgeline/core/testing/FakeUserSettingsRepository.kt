@@ -18,7 +18,6 @@ class FakeUserSettingsRepository(initial: UserSettings = UserSettings()) : UserS
 
     override suspend fun setThemeMode(mode: ThemeMode) = state.update { it.copy(themeMode = mode) }
 
-
     override suspend fun setAmoledBlack(enabled: Boolean) = state.update { it.copy(amoledBlack = enabled) }
 
     override suspend fun setSeparateInboxPerForge(enabled: Boolean) = state.update { it.copy(separateInboxPerForge = enabled) }

@@ -1,25 +1,25 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
-import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
-import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.JsonObject
 import fr.arthurbrugiere.forgeline.core.forge.RepoViewer
-import kotlinx.serialization.json.put
-import kotlinx.serialization.json.buildJsonObject
-import fr.arthurbrugiere.forgeline.core.forge.map
 import fr.arthurbrugiere.forgeline.core.forge.StarApi
+import fr.arthurbrugiere.forgeline.core.forge.map
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 class GitHubStarApi(
     private val httpClient: HttpClient,
@@ -100,4 +100,3 @@ private data class ForkJson(val name: String, val owner: ForkOwnerJson)
 
 @Serializable
 private data class ForkOwnerJson(val login: String)
-

@@ -6,8 +6,8 @@ import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewDao
 import fr.arthurbrugiere.forgeline.core.data.feed.STARRED_PREFIX
 import fr.arthurbrugiere.forgeline.core.data.inbox.BaselineDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.DoneDao
-import fr.arthurbrugiere.forgeline.core.data.inbox.KeptUnreadDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxDao
+import fr.arthurbrugiere.forgeline.core.data.inbox.KeptUnreadDao
 import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoDao
 import fr.arthurbrugiere.forgeline.core.data.user.UserRepository

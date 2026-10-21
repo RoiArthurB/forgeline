@@ -1,14 +1,14 @@
 package fr.arthurbrugiere.forgeline.feed
 
-import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
-import fr.arthurbrugiere.forgeline.core.model.ReleaseRef
-import fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey
-import fr.arthurbrugiere.forgeline.core.model.RepoId
-import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.IssueAction
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
+import fr.arthurbrugiere.forgeline.core.model.ReleaseRef
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.feedEvent
 import org.junit.Test
 

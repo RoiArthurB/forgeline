@@ -1,7 +1,5 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
-import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.CompletableDeferred
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.NotificationsSync
@@ -11,7 +9,9 @@ import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import io.ktor.client.request.HttpRequestData
 import io.ktor.http.HttpMethod
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Test
 
 /**
@@ -31,9 +31,11 @@ class ForgejoNotificationsApiTest {
                     path.endsWith("/notifications/new") -> json("""{"new":$newCount}""")
                     path.endsWith("/notifications") -> json(fixture("notifications.json"))
                     path.endsWith("/issues/search") -> json(if (request.url.parameters["review_requested"] == "true") reviewRequested else "[]")
-                    path.endsWith("/notifications/threads/902") && request.method == HttpMethod.Get -> json(fixture("notifications.json").let { all ->
-                        all.substring(all.indexOf("{\"id\": 902"), all.indexOf(",\n  {\"id\": 903"))
-                    })
+                    path.endsWith("/notifications/threads/902") && request.method == HttpMethod.Get -> json(
+                        fixture("notifications.json").let { all ->
+                            all.substring(all.indexOf("{\"id\": 902"), all.indexOf(",\n  {\"id\": 903"))
+                        }
+                    )
                     path == "/api/v1/user" -> json(fixture("user.json"))
                     else -> status(io.ktor.http.HttpStatusCode.NoContent)
                 }

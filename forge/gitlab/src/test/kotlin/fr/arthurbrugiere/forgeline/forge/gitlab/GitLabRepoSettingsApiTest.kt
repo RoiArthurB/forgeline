@@ -6,9 +6,14 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.MergeStyle
+import fr.arthurbrugiere.forgeline.core.model.PagesBuild
+import fr.arthurbrugiere.forgeline.core.model.PagesChange
+import fr.arthurbrugiere.forgeline.core.model.PagesSite
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.RepoSwitch
+import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
@@ -20,11 +25,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
-import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
-import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
-import fr.arthurbrugiere.forgeline.core.model.PagesBuild
-import fr.arthurbrugiere.forgeline.core.model.PagesChange
-import fr.arthurbrugiere.forgeline.core.model.PagesSite
 import org.junit.Test
 
 /** Answers are cut down from gitlab.com's for a project its reader owns, read on 2026-10-12. */

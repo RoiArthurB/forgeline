@@ -30,36 +30,36 @@ class DataStoreUserSettingsRepository @Inject constructor(
         val prefs = this
         val defaults = UserSettings()
         return UserSettings(
-                startTab = choice(START_TAB, defaults.startTab),
-                trendingPeriod = choice(TRENDING_PERIOD, defaults.trendingPeriod),
-                inboxSwipeRight = choice(SWIPE_RIGHT, defaults.inboxSwipeRight),
-                inboxSwipeLeft = choice(SWIPE_LEFT, defaults.inboxSwipeLeft),
-                undoDelay = choice(UNDO_DELAY, defaults.undoDelay),
-                shareTap = choice(SHARE_TAP, defaults.shareTap),
-                headerStyle = choice(HEADER_STYLE, defaults.headerStyle),
-                loadConversationsAhead = prefs[LOAD_AHEAD] ?: defaults.loadConversationsAhead,
-                readElsewhereIsDone = prefs[READ_ELSEWHERE] ?: defaults.readElsewhereIsDone,
-                doubleTapReaction = prefs[DOUBLE_TAP] ?: defaults.doubleTapReaction,
-                swipeToReply = prefs[SWIPE_REPLY] ?: defaults.swipeToReply,
-                openAtUnread = prefs[OPEN_AT_UNREAD] ?: defaults.openAtUnread,
-                readingMarks = prefs[READING_MARKS] ?: defaults.readingMarks,
-                feedPictures = prefs[FEED_PICTURES] ?: defaults.feedPictures,
-                themeMode = prefs[THEME_MODE]
-                    ?.let { stored -> ThemeMode.entries.firstOrNull { it.name == stored } }
-                    ?: defaults.themeMode,
-                amoledBlack = prefs[AMOLED_BLACK] ?: defaults.amoledBlack,
-                separateInboxPerForge = prefs[SEPARATE_INBOX] ?: defaults.separateInboxPerForge,
-                measuredTrending = prefs[MEASURED_TRENDING] ?: defaults.measuredTrending,
-                inboxCheckInterval = prefs[INBOX_CHECK]
-                    ?.let { stored -> InboxCheckInterval.entries.firstOrNull { it.name == stored } }
-                    ?: defaults.inboxCheckInterval,
-                feedKinds = FeedKind.entries.filterTo(mutableSetOf()) { kind ->
-                    when (kind.name) {
-                        in prefs[FEED_SHOWN].orEmpty() -> true
-                        in prefs[FEED_HIDDEN].orEmpty() -> false
-                        else -> kind.shownByDefault
-                    }
-                },
+            startTab = choice(START_TAB, defaults.startTab),
+            trendingPeriod = choice(TRENDING_PERIOD, defaults.trendingPeriod),
+            inboxSwipeRight = choice(SWIPE_RIGHT, defaults.inboxSwipeRight),
+            inboxSwipeLeft = choice(SWIPE_LEFT, defaults.inboxSwipeLeft),
+            undoDelay = choice(UNDO_DELAY, defaults.undoDelay),
+            shareTap = choice(SHARE_TAP, defaults.shareTap),
+            headerStyle = choice(HEADER_STYLE, defaults.headerStyle),
+            loadConversationsAhead = prefs[LOAD_AHEAD] ?: defaults.loadConversationsAhead,
+            readElsewhereIsDone = prefs[READ_ELSEWHERE] ?: defaults.readElsewhereIsDone,
+            doubleTapReaction = prefs[DOUBLE_TAP] ?: defaults.doubleTapReaction,
+            swipeToReply = prefs[SWIPE_REPLY] ?: defaults.swipeToReply,
+            openAtUnread = prefs[OPEN_AT_UNREAD] ?: defaults.openAtUnread,
+            readingMarks = prefs[READING_MARKS] ?: defaults.readingMarks,
+            feedPictures = prefs[FEED_PICTURES] ?: defaults.feedPictures,
+            themeMode = prefs[THEME_MODE]
+                ?.let { stored -> ThemeMode.entries.firstOrNull { it.name == stored } }
+                ?: defaults.themeMode,
+            amoledBlack = prefs[AMOLED_BLACK] ?: defaults.amoledBlack,
+            separateInboxPerForge = prefs[SEPARATE_INBOX] ?: defaults.separateInboxPerForge,
+            measuredTrending = prefs[MEASURED_TRENDING] ?: defaults.measuredTrending,
+            inboxCheckInterval = prefs[INBOX_CHECK]
+                ?.let { stored -> InboxCheckInterval.entries.firstOrNull { it.name == stored } }
+                ?: defaults.inboxCheckInterval,
+            feedKinds = FeedKind.entries.filterTo(mutableSetOf()) { kind ->
+                when (kind.name) {
+                    in prefs[FEED_SHOWN].orEmpty() -> true
+                    in prefs[FEED_HIDDEN].orEmpty() -> false
+                    else -> kind.shownByDefault
+                }
+            },
         )
     }
 

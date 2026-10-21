@@ -80,16 +80,16 @@ class JobLogStepsTest {
     fun a_gitlab_trace_is_read_into_its_outer_sections() {
         val esc = "\u001B"
         val trace = listOf(
-            "${esc}[0KRunning with gitlab-runner 16.0",
-            "section_start:1700000000:prepare_executor\r${esc}[0K${esc}[0K${esc}[36;1mPreparing the \"docker\" executor${esc}[0;m",
+            "$esc[0KRunning with gitlab-runner 16.0",
+            "section_start:1700000000:prepare_executor\r$esc[0K$esc[0K$esc[36;1mPreparing the \"docker\" executor$esc[0;m",
             "Using Docker executor",
-            "section_end:1700000005:prepare_executor\r${esc}[0K",
-            "section_start:1700000006:step_script[collapsed=true]\r${esc}[0K",
-            "section_start:1700000007:inner\r${esc}[0K${esc}[0KNested, not a step",
+            "section_end:1700000005:prepare_executor\r$esc[0K",
+            "section_start:1700000006:step_script[collapsed=true]\r$esc[0K",
+            "section_start:1700000007:inner\r$esc[0K$esc[0KNested, not a step",
             "$ make test",
-            "section_end:1700000008:inner\r${esc}[0K",
-            "${esc}[31;1mERROR: Job failed: exit code 1${esc}[0;m",
-            "section_end:1700000009:step_script\r${esc}[0Ksection_start:1700000009:cleanup_file_variables\r${esc}[0KCleaning up project directory",
+            "section_end:1700000008:inner\r$esc[0K",
+            "$esc[31;1mERROR: Job failed: exit code 1$esc[0;m",
+            "section_end:1700000009:step_script\r$esc[0Ksection_start:1700000009:cleanup_file_variables\r$esc[0KCleaning up project directory",
         ).joinToString("\n")
 
         val steps = index(trace, LogFormat.GITLAB)

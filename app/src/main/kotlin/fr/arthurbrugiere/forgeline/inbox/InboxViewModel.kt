@@ -1,21 +1,25 @@
 package fr.arthurbrugiere.forgeline.inbox
 
-import fr.arthurbrugiere.forgeline.core.model.UndoDelay
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxRepository
-import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
-import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.data.inbox.SyncResult
+import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
-import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.UndoDelay
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -24,10 +28,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import javax.inject.Inject
 
 /**
@@ -68,6 +68,7 @@ data class SectionGroup(val section: InboxSection, val threads: List<Notificatio
 enum class InboxAction { READ, UNREAD, DONE, UNSUBSCRIBE }
 
 /** The latest action that can still be undone. [serial] tells two identical actions apart. */
+
 /**
  * [key] is the thread's [NotificationThread.key]: its account and id. [others] are the threads the same gesture took
  * with it, a whole repository's: one Undo brings them all back.

@@ -1,13 +1,11 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
-import fr.arthurbrugiere.forgeline.forge.common.forgeCall
-import fr.arthurbrugiere.forgeline.forge.common.writeTo
 import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
-import fr.arthurbrugiere.forgeline.core.forge.JobLogReader
-import fr.arthurbrugiere.forgeline.core.forge.logPartOf
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.JobLogReader
 import fr.arthurbrugiere.forgeline.core.forge.WorkflowDispatchParser
+import fr.arthurbrugiere.forgeline.core.forge.logPartOf
 import fr.arthurbrugiere.forgeline.core.model.DispatchInput
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.LogFormat
@@ -18,17 +16,18 @@ import fr.arthurbrugiere.forgeline.core.model.RunJob
 import fr.arthurbrugiere.forgeline.core.model.RunStatus
 import fr.arthurbrugiere.forgeline.core.model.Workflow
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.common.writeTo
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.statement.HttpResponse
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.HttpStatement
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
 import io.ktor.client.statement.readRawBytes
 import io.ktor.http.HttpHeaders
-import java.io.OutputStream
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.SerialName
@@ -36,6 +35,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.io.OutputStream
 import java.time.Instant
 
 /**

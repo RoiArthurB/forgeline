@@ -9,9 +9,9 @@ import fr.arthurbrugiere.forgeline.core.data.search.SearchCursor
 import fr.arthurbrugiere.forgeline.core.data.search.SearchRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
-import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.SearchScope
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import kotlinx.coroutines.flow.MutableStateFlow

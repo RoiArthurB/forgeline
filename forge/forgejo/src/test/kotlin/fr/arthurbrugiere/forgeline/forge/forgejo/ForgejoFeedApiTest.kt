@@ -1,7 +1,5 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
-import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.CompletableDeferred
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.FeedPage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -10,7 +8,9 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueAction
 import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Test
 
 /** activities.json holds one real entry of each kind from earl-warren's Codeberg activity (captured 2026-09-29). */

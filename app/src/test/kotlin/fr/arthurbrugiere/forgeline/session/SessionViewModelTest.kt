@@ -1,13 +1,13 @@
 package fr.arthurbrugiere.forgeline.session
 
-import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
-import fr.arthurbrugiere.forgeline.core.testing.FakeForgeAuthApi
-import fr.arthurbrugiere.forgeline.core.model.Account
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.account.SignedOutData
+import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeAuthApi
+import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest

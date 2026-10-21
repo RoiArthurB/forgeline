@@ -1,6 +1,10 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -8,13 +12,9 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import fr.arthurbrugiere.forgeline.R
-import androidx.compose.runtime.setValue
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.IssueAction
 import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
-import androidx.compose.foundation.layout.size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.runtime.getValue
 
 /** A word joiner after each slash, so "owner/name" never breaks across lines. */
 internal fun String.unbreakable(): String = replace("/", "/\u2060")

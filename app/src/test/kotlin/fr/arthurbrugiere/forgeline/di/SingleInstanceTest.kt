@@ -27,12 +27,19 @@ class SingleInstanceTest {
     val hiltRule = HiltAndroidRule(this)
 
     @Inject lateinit var accounts: AccountRepository
+
     @Inject lateinit var accountsAgain: AccountRepository
+
     @Inject lateinit var previews: FeedPreviewRepository
+
     @Inject lateinit var previewsAgain: FeedPreviewRepository
+
     @Inject lateinit var trending: TrendingRepository
+
     @Inject lateinit var trendingAgain: TrendingRepository
+
     @Inject lateinit var repos: fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
+
     @Inject lateinit var reposAgain: fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 
     @Before

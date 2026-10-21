@@ -1,120 +1,120 @@
 package fr.arthurbrugiere.forgeline.issue
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import fr.arthurbrugiere.forgeline.ui.LocalUnreadMarkdown
-import fr.arthurbrugiere.forgeline.ui.Markdown
-import fr.arthurbrugiere.forgeline.ui.label
-import fr.arthurbrugiere.forgeline.ui.referenceLinks
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.Spacer
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
-import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
-import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
-import fr.arthurbrugiere.forgeline.ui.SayOnce
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.Dispatchers
-import fr.arthurbrugiere.forgeline.ui.readPicture
-import androidx.compose.ui.platform.LocalContext
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.compose.foundation.layout.offset
-import fr.arthurbrugiere.forgeline.session.signedInOn
-import fr.arthurbrugiere.forgeline.ui.rememberNow
-import fr.arthurbrugiere.forgeline.session.SessionState
-import fr.arthurbrugiere.forgeline.core.forge.ForgeError
-import androidx.compose.foundation.layout.imePadding
-import fr.arthurbrugiere.forgeline.ui.sideSafeArea
-import androidx.compose.ui.draw.shadow
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.withFrameMillis
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
-import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
-import fr.arthurbrugiere.forgeline.core.model.webUrl
-import fr.arthurbrugiere.forgeline.navigation.openForgeLink
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.ui.semantics.Role
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.Reaction
+import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
-import fr.arthurbrugiere.forgeline.navigation.IssueRoute
-import fr.arthurbrugiere.forgeline.ui.message
-import fr.arthurbrugiere.forgeline.ui.relative
-import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
-import java.time.Instant
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
-import androidx.compose.runtime.derivedStateOf
-import androidx.compose.ui.draw.clip
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
+import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
+import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
+import fr.arthurbrugiere.forgeline.core.model.webUrl
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
-import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
+import fr.arthurbrugiere.forgeline.navigation.IssueRoute
+import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.pull.PullActions
 import fr.arthurbrugiere.forgeline.pull.PullRequestUiState
 import fr.arthurbrugiere.forgeline.pull.PullRequestViewModel
+import fr.arthurbrugiere.forgeline.session.SessionState
+import fr.arthurbrugiere.forgeline.session.signedInOn
+import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
+import fr.arthurbrugiere.forgeline.ui.LocalUnreadMarkdown
+import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
+import fr.arthurbrugiere.forgeline.ui.Markdown
+import fr.arthurbrugiere.forgeline.ui.SayOnce
+import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
+import fr.arthurbrugiere.forgeline.ui.label
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
+import fr.arthurbrugiere.forgeline.ui.message
+import fr.arthurbrugiere.forgeline.ui.readPicture
+import fr.arthurbrugiere.forgeline.ui.referenceLinks
+import fr.arthurbrugiere.forgeline.ui.relative
+import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
+import fr.arthurbrugiere.forgeline.ui.rememberNow
+import fr.arthurbrugiere.forgeline.ui.sideSafeArea
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 
 @Composable
 fun IssueRoute(
@@ -404,162 +404,162 @@ fun IssueScreen(
         onScrolled()
     }
     CompositionLocalProvider(LocalUnreadMarkdown provides unread) {
-    Box(modifier.fillMaxSize().background(colors.ground)) {
-        val pullState = rememberPullToRefreshState()
-        PullToRefreshBox(
-            isRefreshing = state.isRefreshing && issue != null,
-            onRefresh = onRefresh,
-            state = pullState,
-            indicator = {
-                PullToRefreshDefaults.Indicator(
-                    state = pullState,
-                    isRefreshing = state.isRefreshing && issue != null,
-                    modifier = Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.statusBars),
-                    containerColor = colors.raised,
-                    color = colors.accent,
-                )
-            },
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            LazyColumn(
-                state = listState,
-                horizontalAlignment = Alignment.CenterHorizontally,
-                // Room under the reader's turn for the buttons that float over the list's end.
-                contentPadding = PaddingValues(bottom = listBottomPadding(extra = 24.dp + JumpSize)),
-                // The comment box stays above the keyboard (edge-to-edge doesn't resize the window for it).
-                modifier = Modifier.fillMaxSize().sideSafeArea().imePadding(),
+        Box(modifier.fillMaxSize().background(colors.ground)) {
+            val pullState = rememberPullToRefreshState()
+            PullToRefreshBox(
+                isRefreshing = state.isRefreshing && issue != null,
+                onRefresh = onRefresh,
+                state = pullState,
+                indicator = {
+                    PullToRefreshDefaults.Indicator(
+                        state = pullState,
+                        isRefreshing = state.isRefreshing && issue != null,
+                        modifier = Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.statusBars),
+                        containerColor = colors.raised,
+                        color = colors.accent,
+                    )
+                },
+                modifier = Modifier.fillMaxSize(),
             ) {
-                item(key = "header") {
-                    SoftHeader(
-                        onBack = onBack,
-                        backDescription = stringResource(R.string.navigate_up),
-                        actions = {
-                            if (state.canManage(signedIn = canComment)) {
-                                // Named, not a glyph to learn: what the issue's owner reaches for most.
-                                Row(
-                                    Modifier
-                                        .clip(SoftTokens.Pill)
-                                        .background(Soft.colors.ground)
-                                        .clickable(role = Role.Button, onClick = { managing = true })
-                                        .heightIn(min = 40.dp)
-                                        .padding(start = 10.dp, end = 14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Icon(Icons.Outlined.Tune, contentDescription = null, tint = Soft.colors.ink, modifier = Modifier.size(18.dp))
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(stringResource(R.string.manage_title), style = Soft.type.control, color = Soft.colors.ink, maxLines = 1)
+                LazyColumn(
+                    state = listState,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    // Room under the reader's turn for the buttons that float over the list's end.
+                    contentPadding = PaddingValues(bottom = listBottomPadding(extra = 24.dp + JumpSize)),
+                    // The comment box stays above the keyboard (edge-to-edge doesn't resize the window for it).
+                    modifier = Modifier.fillMaxSize().sideSafeArea().imePadding(),
+                ) {
+                    item(key = "header") {
+                        SoftHeader(
+                            onBack = onBack,
+                            backDescription = stringResource(R.string.navigate_up),
+                            actions = {
+                                if (state.canManage(signedIn = canComment)) {
+                                    // Named, not a glyph to learn: what the issue's owner reaches for most.
+                                    Row(
+                                        Modifier
+                                            .clip(SoftTokens.Pill)
+                                            .background(Soft.colors.ground)
+                                            .clickable(role = Role.Button, onClick = { managing = true })
+                                            .heightIn(min = 40.dp)
+                                            .padding(start = 10.dp, end = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Icon(Icons.Outlined.Tune, contentDescription = null, tint = Soft.colors.ink, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(stringResource(R.string.manage_title), style = Soft.type.control, color = Soft.colors.ink, maxLines = 1)
+                                    }
                                 }
-                            }
-                            ShareLinkButton(webUrl, issue?.title ?: "${state.ref.repo.fullName}#${state.ref.number}")
-                            SoftIconButton(onClick = { onOpenInBrowser(webUrl) }) {
-                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.ref.repo.forge.displayName), tint = Soft.colors.ink)
-                            }
-                        },
-                    ) {
-                        Header(state.ref, issue, nowMillis, onOpenRepo, onOpenUser, pull, pullActions)
+                                ShareLinkButton(webUrl, issue?.title ?: "${state.ref.repo.fullName}#${state.ref.number}")
+                                SoftIconButton(onClick = { onOpenInBrowser(webUrl) }) {
+                                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.ref.repo.forge.displayName), tint = Soft.colors.ink)
+                                }
+                            },
+                        ) {
+                            Header(state.ref, issue, nowMillis, onOpenRepo, onOpenUser, pull, pullActions)
+                        }
                     }
-                }
-                when {
-                    issue == null && state.error != null -> item(key = "error") {
-                        SoftNotice(
-                            stringResource(R.string.issue_error_title),
-                            stringResource(state.error.message),
-                            action = stringResource(R.string.retry),
-                            onAction = onRefresh,
-                        )
-                    }
-                    issue == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.issue_loading), rows = 3) }
-                    else -> {
-                        item(key = "body") {
-                            Comment(
-                                author = issue.author,
-                                body = issue.body ?: stringResource(R.string.issue_no_description),
-                                createdAt = issue.createdAt,
-                                reactions = issue.reactions,
-                                context = context,
-                                nowMillis = nowMillis,
-                                onOpenUser = onOpenUser,
-                                onLinkClick = onLinkClick,
-                                modifier = Modifier.padding(top = 12.dp),
-                                menu = CommentMenu(
-                                    onQuote = issue.body?.takeIf { canWrite }?.let { text -> { comments.onQuote(text) } },
-                                    onEdit = comments.onEditIssue.takeIf { state.canEditIssue },
-                                    onDelete = null,
-                                    // Reacting takes an account, not the right to comment: a locked conversation still takes them.
-                                    onReact = if (canComment) ({ reaction -> comments.onReact(null, reaction) }) else null,
-                                ),
+                    when {
+                        issue == null && state.error != null -> item(key = "error") {
+                            SoftNotice(
+                                stringResource(R.string.issue_error_title),
+                                stringResource(state.error.message),
+                                action = stringResource(R.string.retry),
+                                onAction = onRefresh,
                             )
                         }
-                        itemsIndexed(state.items, key = { index, item -> item.key(index) }) { _, item ->
-                            // A comment being rewritten is rewritten where it stands: its words give way to the field.
-                            val editor: (@Composable () -> Unit)? = if (item is TimelineItem.Comment && item.id == state.editing) {
-                                { Composer(state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture, inPlace = true, suggestions = suggestions, onReferenceTyped = comments.onReferenceTyped) }
-                            } else null
-                            TimelineEntry(item, context, nowMillis, onOpenUser, onOpenIssue, onLinkClick, editor) { comment ->
-                                CommentMenu(
-                                    onQuote = if (canWrite) ({ comments.onQuote(comment.body) }) else null,
-                                    onEdit = if (canWrite && state.canEdit(comment)) ({ comments.onEdit(comment.id) }) else null,
-                                    onDelete = if (state.canDelete(comment)) ({ deleting = comment.id }) else null,
-                                    onReact = if (canComment) ({ reaction -> comments.onReact(comment.id, reaction) }) else null,
+                        issue == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.issue_loading), rows = 3) }
+                        else -> {
+                            item(key = "body") {
+                                Comment(
+                                    author = issue.author,
+                                    body = issue.body ?: stringResource(R.string.issue_no_description),
+                                    createdAt = issue.createdAt,
+                                    reactions = issue.reactions,
+                                    context = context,
+                                    nowMillis = nowMillis,
+                                    onOpenUser = onOpenUser,
+                                    onLinkClick = onLinkClick,
+                                    modifier = Modifier.padding(top = 12.dp),
+                                    menu = CommentMenu(
+                                        onQuote = issue.body?.takeIf { canWrite }?.let { text -> { comments.onQuote(text) } },
+                                        onEdit = comments.onEditIssue.takeIf { state.canEditIssue },
+                                        onDelete = null,
+                                        // Reacting takes an account, not the right to comment: a locked conversation still takes them.
+                                        onReact = if (canComment) ({ reaction -> comments.onReact(null, reaction) }) else null,
+                                    ),
                                 )
                             }
-                        }
-                        if (state.nextPage != null) {
-                            item(key = "more") {
-                                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-                                    if (state.isLoadingMore) {
-                                        CircularProgressIndicator(color = colors.accent, trackColor = colors.surface)
-                                    } else {
-                                        SoftTonalButton(stringResource(R.string.issue_load_more), onLoadMore)
+                            itemsIndexed(state.items, key = { index, item -> item.key(index) }) { _, item ->
+                                // A comment being rewritten is rewritten where it stands: its words give way to the field.
+                                val editor: (@Composable () -> Unit)? = if (item is TimelineItem.Comment && item.id == state.editing) {
+                                    { Composer(state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture, inPlace = true, suggestions = suggestions, onReferenceTyped = comments.onReferenceTyped) }
+                                } else null
+                                TimelineEntry(item, context, nowMillis, onOpenUser, onOpenIssue, onLinkClick, editor) { comment ->
+                                    CommentMenu(
+                                        onQuote = if (canWrite) ({ comments.onQuote(comment.body) }) else null,
+                                        onEdit = if (canWrite && state.canEdit(comment)) ({ comments.onEdit(comment.id) }) else null,
+                                        onDelete = if (state.canDelete(comment)) ({ deleting = comment.id }) else null,
+                                        onReact = if (canComment) ({ reaction -> comments.onReact(comment.id, reaction) }) else null,
+                                    )
+                                }
+                            }
+                            if (state.nextPage != null) {
+                                item(key = "more") {
+                                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                        if (state.isLoadingMore) {
+                                            CircularProgressIndicator(color = colors.accent, trackColor = colors.surface)
+                                        } else {
+                                            SoftTonalButton(stringResource(R.string.issue_load_more), onLoadMore)
+                                        }
                                     }
                                 }
                             }
-                        }
-                        // Where the next comment will appear: the conversation ends with the reader's turn.
-                        // It waits while a comment is rewritten further up: one thing is written at a time.
-                        item(key = "composer") {
-                            if (!state.isEditingInPlace) {
-                                Composer(
-                                    state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture,
-                                    suggestions = suggestions, onReferenceTyped = comments.onReferenceTyped,
-                                )
+                            // Where the next comment will appear: the conversation ends with the reader's turn.
+                            // It waits while a comment is rewritten further up: one thing is written at a time.
+                            item(key = "composer") {
+                                if (!state.isEditingInPlace) {
+                                    Composer(
+                                        state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture,
+                                        suggestions = suggestions, onReferenceTyped = comments.onReferenceTyped,
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-        val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
-        SoftStatusBarScrim(scrolled)
-        // A long conversation is crossed in one tap: each end is offered while the list isn't there. The end is also
-        // offered while some of the conversation is still to load, which is what stands between the reader and it.
-        // With the reader's turn in sight the end is as good as reached, and a button there would sit on "Comment".
-        val turnInSight by remember {
-            derivedStateOf { listState.layoutInfo.run { visibleItemsInfo.lastOrNull()?.index == totalItemsCount - 1 } }
-        }
-        val atEnd by remember { derivedStateOf { !listState.canScrollForward } }
-        if (issue != null) {
-            Column(
-                Modifier
-                    .align(Alignment.BottomEnd)
-                    .sideSafeArea()
-                    .imePadding()
-                    .padding(end = 16.dp, bottom = LocalBottomBarSpace.current + 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                if (scrolled) {
-                    JumpButton(Icons.Outlined.KeyboardArrowUp, stringResource(R.string.issue_to_top)) {
-                        sent++
-                        scope.launch { listState.scrollToItem(0) }
+            val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+            SoftStatusBarScrim(scrolled)
+            // A long conversation is crossed in one tap: each end is offered while the list isn't there. The end is also
+            // offered while some of the conversation is still to load, which is what stands between the reader and it.
+            // With the reader's turn in sight the end is as good as reached, and a button there would sit on "Comment".
+            val turnInSight by remember {
+                derivedStateOf { listState.layoutInfo.run { visibleItemsInfo.lastOrNull()?.index == totalItemsCount - 1 } }
+            }
+            val atEnd by remember { derivedStateOf { !listState.canScrollForward } }
+            if (issue != null) {
+                Column(
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .sideSafeArea()
+                        .imePadding()
+                        .padding(end = 16.dp, bottom = LocalBottomBarSpace.current + 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    if (scrolled) {
+                        JumpButton(Icons.Outlined.KeyboardArrowUp, stringResource(R.string.issue_to_top)) {
+                            sent++
+                            scope.launch { listState.scrollToItem(0) }
+                        }
+                    }
+                    if (!turnInSight || (atEnd && state.nextPage != null)) {
+                        JumpButton(Icons.Outlined.KeyboardArrowDown, stringResource(R.string.issue_to_end), busy = state.isLoadingMore, onClick = onToEnd)
                     }
                 }
-                if (!turnInSight || (atEnd && state.nextPage != null)) {
-                    JumpButton(Icons.Outlined.KeyboardArrowDown, stringResource(R.string.issue_to_end), busy = state.isLoadingMore, onClick = onToEnd)
-                }
             }
+            SoftSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current))
         }
-        SoftSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current))
-    }
     }
 }
 

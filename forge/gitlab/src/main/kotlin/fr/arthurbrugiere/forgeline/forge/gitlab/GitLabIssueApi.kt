@@ -1,19 +1,9 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
-import fr.arthurbrugiere.forgeline.forge.common.forgeCall
-import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
-import io.ktor.client.request.setBody
-import io.ktor.client.request.header
-import io.ktor.http.HttpHeaders
-import io.ktor.http.Headers
-import io.ktor.http.appendPathSegments
-import io.ktor.http.takeFrom
-import io.ktor.client.request.post
-import io.ktor.client.request.forms.formData
-import io.ktor.client.request.forms.MultiPartFormDataContent
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
+import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
@@ -27,13 +17,23 @@ import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
-import fr.arthurbrugiere.forgeline.core.model.TimeTracking
+import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.appendPathSegments
+import io.ktor.http.takeFrom
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.buildJsonObject
@@ -58,6 +58,7 @@ class GitLabIssueApi(
 
     /** Merge requests have no due date, and only issues are deleted from here. */
     override val issueOnly: Set<ConversationAction> = setOf(ConversationAction.DUE_DATE, ConversationAction.DELETE)
+
     /** GitLab numbers merge requests apart from issues: a reference that doesn't say which is an issue, here as everywhere. */
     private fun targetKind(ref: IssueRef): String =
         if (ref.isPullRequest == true) "merge_requests" else "issues"

@@ -1,8 +1,5 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
-import io.ktor.client.engine.mock.toByteArray
-import io.ktor.http.content.OutgoingContent
-import io.ktor.http.content.TextContent
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
@@ -15,11 +12,14 @@ import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.toByteArray
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
+import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -43,7 +43,8 @@ class GitLabIssueApiTest {
             if (req.url.encodedPath.endsWith("/award_emoji")) {
                 json("""[{"id": 1, "name": "thumbsup"}, {"id": 2, "name": "thumbsup"}]""")
             } else {
-                json("""
+                json(
+                    """
                     {
                         "id": 100,
                         "iid": 10,
@@ -55,7 +56,8 @@ class GitLabIssueApiTest {
                         "user_notes_count": 2,
                         "labels": ["bug"]
                     }
-                """.trimIndent())
+                    """.trimIndent()
+                )
             }
         }
 
@@ -74,7 +76,8 @@ class GitLabIssueApiTest {
             if (req.url.encodedPath.endsWith("/award_emoji")) {
                 json("[]")
             } else {
-                json("""
+                json(
+                    """
                     {
                         "id": 200,
                         "iid": 10,
@@ -88,7 +91,8 @@ class GitLabIssueApiTest {
                         "target_branch": "main",
                         "changes_count": "5"
                     }
-                """.trimIndent())
+                    """.trimIndent()
+                )
             }
         }
 

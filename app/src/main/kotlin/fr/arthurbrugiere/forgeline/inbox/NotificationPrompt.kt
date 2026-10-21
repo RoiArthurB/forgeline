@@ -7,38 +7,38 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
-import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.background
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import fr.arthurbrugiere.forgeline.R
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 
 /** How the Inbox asks for notifications: the system dialog first, then the app's settings once it was denied. */
 enum class NotificationPrompt { ASK, OPEN_SETTINGS }
@@ -48,6 +48,7 @@ class NotificationPromptState(val prompt: NotificationPrompt?, val onAllow: () -
 @Composable
 fun rememberNotificationPrompt(): NotificationPromptState {
     val context = LocalContext.current
+
     // Also false on Android 13+ until the runtime permission is granted.
     fun enabled() = NotificationManagerCompat.from(context).areNotificationsEnabled()
     var isEnabled by remember { mutableStateOf(enabled()) }

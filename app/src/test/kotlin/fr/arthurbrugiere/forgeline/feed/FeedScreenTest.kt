@@ -1,38 +1,38 @@
 package fr.arthurbrugiere.forgeline.feed
 
-import androidx.compose.ui.test.onNodeWithTag
-import fr.arthurbrugiere.forgeline.core.model.Reaction
-import fr.arthurbrugiere.forgeline.core.model.ReleaseRef
-import fr.arthurbrugiere.forgeline.core.model.ReleasePreview
-import androidx.compose.ui.test.assertTextContains
-import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.ConversationPreview
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.FeedPreviews
-import fr.arthurbrugiere.forgeline.core.model.ConversationPreview
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueAction
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
+import fr.arthurbrugiere.forgeline.core.model.Reaction
+import fr.arthurbrugiere.forgeline.core.model.ReleasePreview
+import fr.arthurbrugiere.forgeline.core.model.ReleaseRef
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoPreview
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.core.testing.feedEvent
+import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 import org.junit.Rule
-import androidx.compose.ui.test.hasText
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.Instant
-import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = PHONE)
@@ -52,31 +52,31 @@ class FeedScreenTest {
     private fun setContent(state: FeedUiState, previews: FeedPreviews = FeedPreviews()) {
         composeRule.setContent {
             androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalUserSettings provides userSettings) {
-            val openRelease: ((fr.arthurbrugiere.forgeline.core.model.RepoId, String) -> Unit)? =
-                if (hasReleasePage) ({ repo, tag -> events += "release:${repo.fullName}@$tag" }) else null
-            val openDiscussion: ((fr.arthurbrugiere.forgeline.core.model.RepoId, Int) -> Unit)? =
-                if (hasReleasePage) ({ repo, number -> events += "discussion:${repo.fullName}#$number" }) else null
-            androidx.compose.runtime.CompositionLocalProvider(
-                fr.arthurbrugiere.forgeline.ui.LocalOpenRelease provides openRelease,
-                fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion provides openDiscussion,
-            ) {
-            FeedScreen(
-                state = state.copy(previews = previews),
-                onRefresh = { events += "refresh" },
-                onLoadMore = { events += "more" },
-                onOpenRepo = { events += "repo:${it.fullName}" },
-                onOpenIssue = {
-                    events += "issue:${it.repo.fullName}#${it.number}"
-                    opened += it
-                },
-                onOpenUser = { _, login -> events += "user:$login" },
-                onOpenUrl = { events += "url:$it" },
-                onErrorShown = {},
-                nowMillis = Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
-                zone = java.time.ZoneOffset.UTC,
-            )
+                val openRelease: ((fr.arthurbrugiere.forgeline.core.model.RepoId, String) -> Unit)? =
+                    if (hasReleasePage) ({ repo, tag -> events += "release:${repo.fullName}@$tag" }) else null
+                val openDiscussion: ((fr.arthurbrugiere.forgeline.core.model.RepoId, Int) -> Unit)? =
+                    if (hasReleasePage) ({ repo, number -> events += "discussion:${repo.fullName}#$number" }) else null
+                androidx.compose.runtime.CompositionLocalProvider(
+                    fr.arthurbrugiere.forgeline.ui.LocalOpenRelease provides openRelease,
+                    fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion provides openDiscussion,
+                ) {
+                    FeedScreen(
+                        state = state.copy(previews = previews),
+                        onRefresh = { events += "refresh" },
+                        onLoadMore = { events += "more" },
+                        onOpenRepo = { events += "repo:${it.fullName}" },
+                        onOpenIssue = {
+                            events += "issue:${it.repo.fullName}#${it.number}"
+                            opened += it
+                        },
+                        onOpenUser = { _, login -> events += "user:$login" },
+                        onOpenUrl = { events += "url:$it" },
+                        onErrorShown = {},
+                        nowMillis = Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
+                        zone = java.time.ZoneOffset.UTC,
+                    )
+                }
             }
-        }
         }
     }
 

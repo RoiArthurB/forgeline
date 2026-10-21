@@ -1,11 +1,9 @@
 package fr.arthurbrugiere.forgeline.ui
 
-import fr.arthurbrugiere.forgeline.core.model.ShareTap
-import fr.arthurbrugiere.forgeline.core.model.UserSettings
-import androidx.compose.runtime.CompositionLocalProvider
 import android.app.Application
 import android.content.ClipboardManager
 import android.content.Intent
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
@@ -14,6 +12,8 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
+import fr.arthurbrugiere.forgeline.core.model.ShareTap
+import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
 import org.junit.Rule
 import org.junit.Test
@@ -69,6 +69,7 @@ class ShareLinkTest {
         composeRule.onNode(hasContentDescription("Share link")).performClick()
 
         val chooser = shadowOf(ApplicationProvider.getApplicationContext<Application>()).nextStartedActivity
+
         @Suppress("DEPRECATION")
         val sent = chooser.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)!!
         assertThat(chooser.action).isEqualTo(Intent.ACTION_CHOOSER)

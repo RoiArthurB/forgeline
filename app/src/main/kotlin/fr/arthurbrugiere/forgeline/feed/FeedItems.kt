@@ -2,11 +2,11 @@ package fr.arthurbrugiere.forgeline.feed
 
 import fr.arthurbrugiere.forgeline.core.forge.FeedDetailKey
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
-import fr.arthurbrugiere.forgeline.core.model.ReleaseRef
 import fr.arthurbrugiere.forgeline.core.model.FeedEvent
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.ReleaseRef
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import java.time.Instant
 
