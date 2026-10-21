@@ -1,65 +1,24 @@
 package fr.arthurbrugiere.forgeline.repo
 
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.fillMaxHeight
-import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.outlined.CheckCircleOutline
-import androidx.compose.material.icons.outlined.Forum
-import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
-import androidx.compose.material.icons.automirrored.outlined.CallSplit
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.filled.Visibility
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import fr.arthurbrugiere.forgeline.ui.rememberNow
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.heading
-import fr.arthurbrugiere.forgeline.core.ui.format.languageColor
-import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.ui.platform.LocalDensity
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSwitch
-import fr.arthurbrugiere.forgeline.core.model.IssueQuery
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material.icons.outlined.Sell
-import androidx.compose.material.icons.outlined.StarBorder
-import androidx.compose.material.icons.outlined.SubdirectoryArrowLeft
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
@@ -73,58 +32,35 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
-import fr.arthurbrugiere.forgeline.core.markdown.ForgelineMarkdown
-import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
-import fr.arthurbrugiere.forgeline.core.markdown.rememberReadmeState
-import fr.arthurbrugiere.forgeline.core.model.Release
 import fr.arthurbrugiere.forgeline.core.model.RepoDetails
 import fr.arthurbrugiere.forgeline.core.model.RepoFile
-import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
-import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 import fr.arthurbrugiere.forgeline.core.ui.format.compactCount
 import fr.arthurbrugiere.forgeline.navigation.RepoRoute
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.session.SessionState
-import fr.arthurbrugiere.forgeline.actions.RowIcon
 import fr.arthurbrugiere.forgeline.actions.WorkflowDispatchSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
-import fr.arthurbrugiere.forgeline.actions.RunStatusIcon
 import fr.arthurbrugiere.forgeline.ui.IssueSummaryRow
-import fr.arthurbrugiere.forgeline.ui.Avatar
-import fr.arthurbrugiere.forgeline.ui.Badge
 import fr.arthurbrugiere.forgeline.ui.Message
 import fr.arthurbrugiere.forgeline.ui.loadable
 import fr.arthurbrugiere.forgeline.ui.message
-import fr.arthurbrugiere.forgeline.ui.relative
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.sp
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
@@ -132,9 +68,6 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
-import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import fr.arthurbrugiere.forgeline.ui.SayOnce
 import fr.arthurbrugiere.forgeline.ui.LocalOpenRelease
@@ -534,435 +467,11 @@ fun RepoScreen(
     }
 }
 
-/** What an empty list says: nothing matches the words, or there is none open, or none closed. */
-private fun IssueQuery.emptyMessage(noneOpen: Int, noneClosed: Int): Int = when {
-    text.isNotBlank() -> R.string.repo_no_match
-    open -> noneOpen
-    else -> noneClosed
-}
-
-/**
- * What heads a list of issues or pull requests: the open or the closed ones, the action that opens a new one where
- * there is one, and a field to look for words among them.
- */
-@Composable
-private fun ListControls(
-    query: IssueQuery,
-    searchHint: String,
-    onShowOpen: (Boolean) -> Unit,
-    onSearch: (String) -> Unit,
-    onNewIssue: (() -> Unit)?,
-    newLabel: String = stringResource(R.string.new_issue_title),
-) {
-    val colors = Soft.colors
-    Column(RowModifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        val options = listOf(stringResource(R.string.repo_list_open), stringResource(R.string.repo_list_closed))
-        // Side by side, the switch's words shrink at large text: there, the action goes under it.
-        if (onNewIssue != null && LocalDensity.current.fontScale > 1.3f) {
-            SoftSwitch(options, selected = if (query.open) 0 else 1, onSelect = { onShowOpen(it == 0) })
-            SoftTonalButton(newLabel, onClick = onNewIssue)
-        } else {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                SoftSwitch(options, selected = if (query.open) 0 else 1, onSelect = { onShowOpen(it == 0) }, modifier = Modifier.weight(1f))
-                if (onNewIssue != null) SoftTonalButton(newLabel, onClick = onNewIssue)
-            }
-        }
-        SoftTextField(
-            value = query.text,
-            onValueChange = onSearch,
-            placeholder = searchHint,
-            leading = { Icon(Icons.Outlined.Search, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(20.dp)) },
-            trailing = {
-                if (query.text.isNotEmpty()) {
-                    SoftIconButton(onClick = { onSearch("") }) {
-                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.search_clear), tint = colors.inkMuted)
-                    }
-                }
-            },
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-}
-
-/** A quiet word above a group of rows. */
-@Composable
-private fun ListTitle(text: String) {
-    Text(
-        text,
-        style = Soft.type.label,
-        color = Soft.colors.inkMuted,
-        modifier = RowModifier.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 2.dp).semantics { heading() },
-    )
-}
-
 /** Where a repository's wiki is on its forge's site. */
 internal val RepoId.wikiUrl: String get() = if (forge.type == ForgeType.GITLAB) "$webUrl/-/wikis" else "$webUrl/wiki"
 
 /** An archived repository is read-only, and an owner can switch issues off. */
 private val RepoDetails.takesIssues: Boolean get() = hasIssues && !isArchived
-
-/** One discussion in its repository's list: what it asks or says, where it was filed, and whether it was answered. */
-@Composable
-private fun DiscussionRow(discussion: DiscussionSummary, nowMillis: Long, onOpen: () -> Unit) {
-    val colors = Soft.colors
-    val answered = discussion.isAnswered == true
-    Row(
-        Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp).softPressable(onClick = onOpen).padding(12.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Box(Modifier.size(36.dp).background(if (answered) colors.fields[2] else colors.surface, SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
-            Icon(if (answered) Icons.Outlined.CheckCircleOutline else Icons.Outlined.Forum, contentDescription = null, tint = colors.ink, modifier = Modifier.size(18.dp))
-        }
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(discussion.title, style = Soft.type.name, color = colors.ink)
-            val facts = listOfNotNull(
-                discussion.category,
-                stringResource(R.string.repo_discussion_answered).takeIf { answered },
-                discussion.author?.login,
-                discussion.createdAt?.let { relative(it, nowMillis) },
-                pluralStringResource(R.plurals.repo_discussion_comments, discussion.comments, discussion.comments).takeIf { discussion.comments > 0 },
-            )
-            Text(facts.joinToString(" · "), style = Soft.type.meta, color = colors.inkMuted)
-        }
-    }
-}
-
-/**
- * The end of a list that has more: reaching it asks for the next page, by itself. A page that couldn't be loaded is
- * asked for by hand instead, so a forge that is down isn't asked again and again.
- */
-private fun LazyListScope.more(paging: ListPaging, onLoadMore: () -> Unit) {
-    val next = paging.next ?: return
-    item(key = "more") {
-        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
-            if (paging.failed) {
-                SoftTonalButton(stringResource(R.string.issue_load_more), onLoadMore)
-            } else {
-                LaunchedEffect(next) { onLoadMore() }
-                val loading = stringResource(R.string.repo_loading_more)
-                CircularProgressIndicator(Modifier.semantics { contentDescription = loading }, color = Soft.colors.accent, trackColor = Soft.colors.surface)
-            }
-        }
-    }
-}
-
-@Composable
-private fun RepoHeader(
-    details: RepoDetails,
-    starred: Boolean?,
-    signedIn: Boolean,
-    onToggleStar: () -> Unit,
-    onLinkClick: (String) -> Unit,
-    onOpenUser: (String) -> Unit,
-    watching: Boolean? = null,
-    onToggleWatch: () -> Unit = {},
-    isForking: Boolean = false,
-    onFork: () -> Unit = {},
-    onOpenWiki: () -> Unit = {},
-    languages: List<RepoLanguage> = emptyList(),
-) {
-    val colors = Soft.colors
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.clip(SoftTokens.Pill).clickable { onOpenUser(details.id.owner) }.padding(end = 8.dp),
-            ) {
-                Avatar(details.ownerAvatarUrl, details.id.owner, size = 28.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
-                Text(details.id.owner, style = Soft.type.secondary, color = colors.inkMuted)
-            }
-            // Where the repository lives: always said here, whatever else is signed in.
-            ForgeMark(details.id.forge, style = Soft.type.secondary, color = colors.inkMuted, size = 16.dp)
-        }
-        Text(details.id.name, style = Soft.type.detailTitle, color = colors.ink, modifier = Modifier.semantics { heading() })
-        details.description?.let {
-            Text(it, style = Soft.type.lead, color = colors.ink, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure))
-        }
-        details.homepage?.let { url ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.clip(SoftTokens.Pill).clickable { onLinkClick(url) },
-            ) {
-                Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(18.dp), tint = colors.accent)
-                Text(url.removePrefix("https://").removePrefix("http://").trimEnd('/'), style = Soft.type.secondary, color = colors.accent)
-            }
-        }
-        if (details.topics.isNotEmpty()) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                details.topics.forEach { SoftTag(it, background = colors.surface) }
-            }
-        }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Stat(stringResource(R.string.trending_stars, compactCount(details.stars)))
-            Stat(stringResource(R.string.trending_forks, compactCount(details.forks)))
-            Stat(stringResource(R.string.repo_watchers, compactCount(details.watchers)))
-            // The main language alone until every language is known: the bar below says them all.
-            if (languages.isEmpty()) {
-                details.language?.let { language ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        languageColor(language)?.let { dot ->
-                            Box(Modifier.size(9.dp).background(dot, CircleShape))
-                            Spacer(Modifier.width(6.dp))
-                        }
-                        Stat(language)
-                    }
-                }
-            }
-            details.license?.let { Stat(it) }
-        }
-        if (languages.isNotEmpty()) LanguageBar(languages)
-        if (details.isArchived || details.isFork) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (details.isArchived) SoftTag(stringResource(R.string.repo_archived), background = colors.surface)
-                if (details.isFork) SoftTag(stringResource(R.string.repo_fork), background = colors.surface)
-            }
-        }
-        val isStarred = starred == true && signedIn
-        // Side by side while they fit; at large text or on a narrow screen they go one under another.
-        FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            HeaderAction(
-                icon = if (isStarred) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                label = stringResource(if (isStarred) R.string.repo_starred else R.string.repo_star),
-                // The one thing asked of a passer-by stands out until it is done.
-                prominent = !isStarred,
-                on = isStarred,
-                onToggle = onToggleStar,
-            )
-            // Watching and forking are an account's: nothing is offered before the forge has said where it stands.
-            if (signedIn && watching != null) {
-                HeaderAction(
-                    icon = if (watching) Icons.Filled.Visibility else Icons.Outlined.Visibility,
-                    label = stringResource(if (watching) R.string.repo_watching else R.string.repo_watch),
-                    on = watching,
-                    onToggle = onToggleWatch,
-                )
-            }
-            // The app has no wiki pages of its own yet: where a repository has a wiki, it opens on its forge.
-            if (details.hasWiki) {
-                HeaderAction(icon = Icons.AutoMirrored.Outlined.MenuBook, label = stringResource(R.string.repo_wiki), onClick = onOpenWiki)
-            }
-            if (signedIn) {
-                HeaderAction(
-                    icon = Icons.AutoMirrored.Outlined.CallSplit,
-                    label = stringResource(if (isForking) R.string.repo_forking else R.string.repo_fork_action),
-                    enabled = !isForking,
-                    onClick = onFork,
-                )
-            }
-        }
-    }
-}
-
-/**
- * One of the header's actions, as a small button. With [onToggle] it is a switch, so screen readers hear "on" or "off" as well
- * as the label; with [onClick] a button.
- */
-/**
- * What the code is written in, as GitHub draws it: one bar shared between the languages in their colours, then the
- * main ones named with their share. Past [LEGEND], the rest is said as one "Other" share.
- */
-@Composable
-private fun LanguageBar(languages: List<RepoLanguage>) {
-    val colors = Soft.colors
-    val shown = languages.take(LEGEND)
-    val other = languages.drop(LEGEND).sumOf { it.share }
-    val unknown = colors.inkMuted.copy(alpha = 0.45f)
-    val said = (shown.map { "${it.name} ${percent(it.share)}" } + listOfNotNull(if (other > 0) "${stringResource(R.string.repo_languages_other)} ${percent(other)}" else null)).joinToString(", ")
-    Column(Modifier.widthIn(max = SoftTokens.MaxMeasure).fillMaxWidth().clearAndSetSemantics { contentDescription = said }, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            // Slivers under half a percent would be hairlines between gaps: they join "Other" in the bar too.
-            val bars = languages.filter { it.share >= 0.005 }
-            bars.forEach { language ->
-                Box(Modifier.weight(language.share.toFloat()).fillMaxHeight().background(languageColor(language.name) ?: unknown))
-            }
-            val rest = 1.0 - bars.sumOf { it.share }
-            if (rest > 0.0005) Box(Modifier.weight(rest.toFloat()).fillMaxHeight().background(unknown))
-        }
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            shown.forEach { LanguageShare(it.name, it.share, languageColor(it.name) ?: unknown) }
-            if (other > 0) LanguageShare(stringResource(R.string.repo_languages_other), other, unknown)
-        }
-    }
-}
-
-@Composable
-private fun LanguageShare(name: String, share: Double, dot: Color) {
-    val colors = Soft.colors
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Box(Modifier.size(with(LocalDensity.current) { 9.sp.toDp() }).background(dot, CircleShape))
-        Text(name, style = Soft.type.meta.copy(fontWeight = FontWeight.SemiBold), color = colors.ink)
-        Text(percent(share), style = Soft.type.meta, color = colors.inkMuted)
-    }
-}
-
-/** A share as people read it: one decimal, "<0.1%" for less. */
-private fun percent(share: Double): String =
-    if (share < 0.001) "<0.1%" else String.format(java.util.Locale.getDefault(), "%.1f%%", share * 100)
-
-/** Languages named under the bar; the rest share one "Other". */
-private const val LEGEND = 4
-
-@Composable
-private fun HeaderAction(
-    icon: ImageVector,
-    label: String,
-    prominent: Boolean = false,
-    on: Boolean = false,
-    enabled: Boolean = true,
-    onToggle: (() -> Unit)? = null,
-    onClick: () -> Unit = {},
-) {
-    val colors = Soft.colors
-    Box(
-        Modifier
-            .clip(SoftTokens.Pill)
-            .background(if (prominent) colors.thumb else colors.surface)
-            .then(
-                if (onToggle != null) Modifier.toggleable(value = on, role = Role.Switch, onValueChange = { onToggle() })
-                else Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick),
-            )
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 20.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = when {
-                    prominent -> colors.onThumb
-                    on -> colors.accent
-                    else -> colors.ink.copy(alpha = if (enabled) 1f else 0.5f)
-                },
-                modifier = Modifier.size(18.dp),
-            )
-            Text(label, style = Soft.type.control, color = if (prominent) colors.onThumb else colors.ink.copy(alpha = if (enabled) 1f else 0.5f))
-        }
-    }
-}
-
-@Composable
-internal fun ReadmeBody(markdown: String, context: ReadmeContext, onLinkClick: (String) -> Unit) {
-    val darkTheme = Soft.colors.isDark
-    val parsed = rememberReadmeState(markdown, context, darkTheme)
-    if (parsed == null) {
-        Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = Soft.colors.accent, trackColor = Soft.colors.surface)
-        }
-    } else {
-        ForgelineMarkdown(parsed, onLinkClick, Modifier.widthIn(max = SoftTokens.MaxReadingWidth).padding(horizontal = 20.dp, vertical = 12.dp))
-    }
-}
-
-private val RowModifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)
-
-private fun LazyListScope.code(
-    code: CodeState,
-    onRetry: () -> Unit,
-    onOpenDirectory: (String) -> Unit,
-    onOpenParentDirectory: () -> Unit,
-    onOpenFile: (RepoFile) -> Unit,
-) {
-    if (code.path.isNotEmpty()) {
-        item(key = "code-path") {
-            val colors = Soft.colors
-            Row(
-                RowModifier.softPressable(onClick = onOpenParentDirectory).padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RowIcon(Icons.Outlined.SubdirectoryArrowLeft, colors.surface)
-                Spacer(Modifier.width(14.dp))
-                Column {
-                    Text(stringResource(R.string.repo_parent_folder), style = Soft.type.body, color = colors.ink)
-                    Text(code.path, style = Soft.type.meta, color = colors.inkMuted)
-                }
-            }
-        }
-    }
-    loadable(code.entries, R.string.repo_empty_folder, onRetry) { entries ->
-        items(entries, key = { "file-${it.path}" }) { file ->
-            val colors = Soft.colors
-            Row(
-                RowModifier.softPressable {
-                    when (file.type) {
-                        RepoFileType.DIR -> onOpenDirectory(file.path)
-                        RepoFileType.FILE -> onOpenFile(file)
-                        RepoFileType.SYMLINK, RepoFileType.SUBMODULE -> Unit
-                    }
-                }.padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RowIcon(
-                    when (file.type) {
-                        RepoFileType.DIR -> Icons.Outlined.Folder
-                        RepoFileType.SUBMODULE, RepoFileType.SYMLINK -> Icons.Outlined.Link
-                        RepoFileType.FILE -> Icons.AutoMirrored.Outlined.InsertDriveFile
-                    },
-                    if (file.type == RepoFileType.DIR) colors.fields[1] else colors.surface,
-                )
-                Spacer(Modifier.width(14.dp))
-                Text(file.name, style = Soft.type.body, color = colors.ink)
-            }
-        }
-    }
-}
-
-/** One release in the list: what it is called, its tag and age, where it stands, and how much it ships. Its page holds the rest. */
-@Composable
-private fun ReleaseRow(release: Release, nowMillis: Long, onClick: () -> Unit) {
-    val colors = Soft.colors
-    Row(RowModifier.softPressable(onClick = onClick).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        RowIcon(Icons.Outlined.Sell, if (release.isPrerelease) colors.surface else colors.fields[0])
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(release.name ?: release.tag, style = Soft.type.body, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(
-                listOfNotNull(
-                    release.tag.takeIf { release.name != null },
-                    release.publishedAt?.let { relative(it, nowMillis) },
-                    release.assets.size.takeIf { it > 0 }?.let { pluralStringResource(R.plurals.release_assets, it, it) },
-                ).joinToString(" · "),
-                style = Soft.type.meta,
-                color = colors.inkMuted,
-            )
-            if (release.isLatest || release.isPrerelease) {
-                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (release.isLatest) Badge(stringResource(R.string.release_latest))
-                    if (release.isPrerelease) Badge(stringResource(R.string.repo_prerelease))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RunRow(run: WorkflowRun, nowMillis: Long, onClick: () -> Unit) {
-    val colors = Soft.colors
-    Row(RowModifier.softPressable(onClick = onClick).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        RunStatusIcon(run)
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(run.title, style = Soft.type.body, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(
-                listOfNotNull(
-                    stringResource(R.string.repo_run_meta, run.workflowName, run.branch ?: run.event, run.runNumber),
-                    relative(run.createdAt, nowMillis),
-                ).joinToString(" · "),
-                style = Soft.type.meta,
-                color = colors.inkMuted,
-            )
-        }
-    }
-}
-
-@Composable
-private fun Stat(text: String) {
-    Text(text, style = Soft.type.meta, color = Soft.colors.inkMuted)
-}
 
 private val RepoTab.label: Int
     get() = when (this) {

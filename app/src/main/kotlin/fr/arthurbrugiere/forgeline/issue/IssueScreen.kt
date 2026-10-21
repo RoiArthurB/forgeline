@@ -4,61 +4,26 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import fr.arthurbrugiere.forgeline.ui.LocalUnreadMarkdown
 import fr.arthurbrugiere.forgeline.ui.Markdown
-import fr.arthurbrugiere.forgeline.ui.emoji
 import fr.arthurbrugiere.forgeline.ui.label
 import fr.arthurbrugiere.forgeline.ui.referenceLinks
-import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
-import fr.arthurbrugiere.forgeline.ui.relativeInSentence
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
-import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
-import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.ui.SayOnce
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.material.icons.automirrored.outlined.Reply
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.round
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import fr.arthurbrugiere.forgeline.ui.readPicture
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material.icons.outlined.Image
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.layout.offset
-import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.TextRange
-import androidx.compose.material3.minimumInteractiveComponentSize
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material.icons.outlined.MoreHoriz
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.ui.rememberNow
 import fr.arthurbrugiere.forgeline.session.SessionState
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSendButton
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.imePadding
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import androidx.compose.ui.draw.shadow
@@ -72,7 +37,6 @@ import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.heading
 import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
 import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
 import fr.arthurbrugiere.forgeline.core.model.webUrl
@@ -81,7 +45,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -91,34 +54,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.CallMerge
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.outlined.Adjust
-import androidx.compose.material.icons.outlined.CheckCircleOutline
-import androidx.compose.material.icons.outlined.Commit
-import androidx.compose.material.icons.outlined.AccountTree
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Event
-import androidx.compose.material.icons.outlined.Timer
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.Forum
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.LockOpen
-import androidx.compose.material.icons.outlined.PersonOutline
-import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
-import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
-import androidx.compose.material.icons.automirrored.outlined.Label
-import androidx.compose.material.icons.outlined.Link
-import androidx.compose.material.icons.outlined.RateReview
-import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -131,67 +74,44 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.semantics.Role
-import androidx.compose.material.icons.outlined.ChevronRight
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
-import fr.arthurbrugiere.forgeline.core.model.ForgeUser
-import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
-import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
-import fr.arthurbrugiere.forgeline.core.model.ReviewState
-import fr.arthurbrugiere.forgeline.core.model.StateChange
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.navigation.IssueRoute
-import fr.arthurbrugiere.forgeline.ui.Avatar
-import fr.arthurbrugiere.forgeline.ui.LabelChip
 import fr.arthurbrugiere.forgeline.ui.message
 import fr.arthurbrugiere.forgeline.ui.relative
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import java.time.Instant
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.sp
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import fr.arthurbrugiere.forgeline.pull.PullActions
-import fr.arthurbrugiere.forgeline.pull.PullRequestPanel
 import fr.arthurbrugiere.forgeline.pull.PullRequestUiState
 import fr.arthurbrugiere.forgeline.pull.PullRequestViewModel
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
@@ -353,11 +273,6 @@ class CommentActions(
     /** Told the reference being typed at the cursor (`#12`, `#crash`), or null when there is none. */
     val onReferenceTyped: (TypedReference?) -> Unit = {},
 )
-
-/** What one comment's menu offers; a null entry is not offered. [onReact] also makes the reactions shown tappable. */
-private class CommentMenu(val onQuote: (() -> Unit)?, val onEdit: (() -> Unit)?, val onDelete: (() -> Unit)?, val onReact: ((Reaction) -> Unit)? = null) {
-    val isEmpty: Boolean get() = onQuote == null && onEdit == null && onDelete == null && onReact == null
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -684,808 +599,5 @@ private fun JumpButton(icon: ImageVector, label: String, busy: Boolean = false, 
     }
 }
 
-/**
- * The reader's turn, closing the conversation: a field that grows with the comment and one action. Signed out of the
- * conversation's forge, it says so and offers to sign in. A comment that wasn't sent stays written. Whoever may close
- * the conversation, or reopen it, finds that beside the comment's action, quieter.
- */
-@Composable
-private fun Composer(
-    state: IssueUiState,
-    canComment: Boolean,
-    onDraftChange: (String) -> Unit,
-    onSend: () -> Unit,
-    onToggleOpen: () -> Unit,
-    onSignIn: () -> Unit,
-    onCancelEdit: () -> Unit = {},
-    onPickPicture: () -> Unit = {},
-    /** Set where the comment being rewritten stands, which gives it its room; the keyboard comes up for it. */
-    inPlace: Boolean = false,
-    suggestions: ReferenceOffer = ReferenceOffer(),
-    onReferenceTyped: (TypedReference?) -> Unit = {},
-) {
-    val colors = Soft.colors
-    val forge = state.ref.repo.forge.displayName
-    val isEditing = state.editing != null
-    val focus = remember { FocusRequester() }
-    // Nothing to focus while the rewrite is previewed: the field is not there.
-    if (inPlace) LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
-    Column(
-        (if (inPlace) Modifier.fillMaxWidth() else Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 24.dp))
-            .staysAboveKeyboard(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        if (!canComment) {
-            Text(stringResource(R.string.issue_comment_sign_in, forge), style = Soft.type.body, color = colors.inkMuted)
-            SoftTonalButton(stringResource(R.string.sign_in), onSignIn)
-            return@Column
-        }
-        // A locked conversation only takes comments from whoever can write to the repository.
-        if (state.issue?.isLocked == true && state.access < RepoAccess.WRITE) {
-            Text(stringResource(R.string.issue_comment_locked), style = Soft.type.body, color = colors.inkMuted)
-            return@Column
-        }
-        if (isEditing) {
-            Text(stringResource(R.string.issue_comment_editing), style = Soft.type.secondary, color = colors.inkMuted, modifier = Modifier.semantics { heading() })
-        }
-        // The cursor is the field's own. Text put there by something other than typing (a quote, a comment to
-        // rewrite) leaves it at the end, where the reader goes on writing.
-        var field by remember { mutableStateOf(TextFieldValue(state.draft, TextRange(state.draft.length))) }
-        LaunchedEffect(state.draftPlaced) {
-            if (field.text != state.draft) field = TextFieldValue(state.draft, TextRange(state.draft.length))
-        }
-        val marks = state.ref.repo.referenceMarks
-        // What is written, as it will read once sent. Nothing written, nothing to preview: the field is back.
-        var previewing by rememberSaveable { mutableStateOf(false) }
-        val showPreview = previewing && state.draft.isNotBlank()
-        if (showPreview) {
-            WritingPreview(state.draft, state.ref.repo)
-            state.commentError?.let { error ->
-                Text(
-                    commentErrorText(error, forge),
-                    style = Soft.type.secondary,
-                    color = colors.accent,
-                    modifier = Modifier.padding(start = 20.dp),
-                )
-            }
-        } else SoftTextField(
-            value = if (field.text == state.draft) field else field.copy(text = state.draft),
-            onValueChange = { written ->
-                val changed = written.text != state.draft
-                field = written
-                if (changed) onDraftChange(written.text)
-                onReferenceTyped(written.typedReference(marks))
-            },
-            placeholder = stringResource(R.string.issue_comment_placeholder),
-            error = state.commentError?.let { error ->
-                commentErrorText(error, forge)
-            },
-            singleLine = false,
-            minLines = 2,
-            maxLines = 12,
-            // Not to be changed while it is on its way.
-            readOnly = state.isCommenting,
-            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-            background = colors.raised,
-            modifier = Modifier.fillMaxWidth().focusRequester(focus),
-        )
-        // The conversations the reference being typed may mean, right under where it is typed.
-        if (!showPreview) {
-            ReferenceSuggestionList(suggestions) { picked ->
-                val typed = field.typedReference(marks) ?: return@ReferenceSuggestionList
-                field = field.withReference(typed, picked.number)
-                onDraftChange(field.text)
-                onReferenceTyped(null)
-            }
-        }
-        // Side by side while they fit; at large text the comment's action goes under the other, still at the end.
-        FlowRow(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            val issue = state.issue
-            if (state.canAttach) {
-                WritingAction(
-                    Icons.Outlined.Image,
-                    stringResource(if (state.isAttaching) R.string.issue_attaching else R.string.issue_attach),
-                    busy = state.isAttaching,
-                    onClick = onPickPicture,
-                )
-            }
-            if (state.draft.isNotBlank()) PreviewToggle(showPreview) { previewing = !showPreview }
-            if (isEditing) SoftTonalButton(stringResource(R.string.cancel), onCancelEdit, enabled = !state.isCommenting)
-            // A merged pull request stays merged. Not offered beside a comment being rewritten: one thing at a time.
-            if (!isEditing && state.canChangeState && issue != null && issue.state != IssueState.MERGED) {
-                val isOpen = issue.state == IssueState.OPEN
-                val isPullRequest = issue.pullRequest != null
-                SoftTonalButton(
-                    stringResource(
-                        when {
-                            state.isChangingState -> if (isOpen) R.string.issue_closing else R.string.issue_reopening
-                            isOpen -> if (isPullRequest) R.string.issue_close_pull else R.string.issue_close
-                            else -> if (isPullRequest) R.string.issue_reopen_pull else R.string.issue_reopen
-                        },
-                    ),
-                    onToggleOpen,
-                    enabled = !state.isChangingState,
-                )
-            }
-            // A rewrite is saved, in words; a new comment goes with the send arrow, quiet until something is written.
-            if (isEditing) {
-                SoftButton(
-                    stringResource(if (state.isCommenting) R.string.issue_comment_saving else R.string.issue_comment_save),
-                    onSend,
-                    enabled = state.draft.isNotBlank() && !state.isCommenting,
-                )
-            } else {
-                SoftSendButton(
-                    onClick = onSend,
-                    description = stringResource(if (state.isCommenting) R.string.issue_comment_sending else R.string.issue_comment_send),
-                    enabled = state.draft.isNotBlank() && !state.isCommenting,
-                    busy = state.isCommenting,
-                )
-            }
-        }
-        state.stateError?.let { error ->
-            Text(
-                when {
-                    error == ForgeError.Unauthorized -> stringResource(R.string.issue_state_error_expired, forge)
-                    error is ForgeError.Http && (error.status == 403 || error.status == 404) -> stringResource(R.string.issue_state_error_refused)
-                    error == ForgeError.Network -> stringResource(R.string.issue_state_error_offline)
-                    else -> stringResource(R.string.issue_state_error)
-                },
-                style = Soft.type.secondary,
-                color = colors.accent,
-            )
-        }
-    }
-}
-
-/** Why a comment wasn't sent, in words that say what to do next. */
-@Composable
-private fun commentErrorText(error: ForgeError, forge: String): String = when {
-    error == ForgeError.Unauthorized -> stringResource(R.string.issue_comment_error_expired, forge)
-    error is ForgeError.Http && (error.status == 403 || error.status == 404) -> stringResource(R.string.issue_comment_error_refused)
-    error == ForgeError.Network -> stringResource(R.string.issue_comment_error_offline)
-    else -> stringResource(R.string.issue_comment_error)
-}
-
-/** Markdown being written, as it will read once the forge has it: on the field's own ground, in the field's place. */
-@Composable
-internal fun WritingPreview(text: String, repo: RepoId, modifier: Modifier = Modifier) {
-    // Links and pictures relative to the repository resolve as they will in the conversation.
-    val context = remember(repo) { ReadmeContext(rawBaseUrl = repo.rawBaseUrl("HEAD"), blobBaseUrl = repo.blobBaseUrl("HEAD"), references = repo.referenceLinks()) }
-    Box(
-        modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(Soft.colors.surface)
-            .padding(horizontal = 20.dp, vertical = 14.dp)
-            .testTag(WRITING_PREVIEW_TAG),
-    ) {
-        // A preview is read, not followed: its links go nowhere.
-        Markdown(text, context, onLinkClick = {})
-    }
-}
-
-const val WRITING_PREVIEW_TAG = "writing-preview"
-
-/** Goes from writing to reading what was written, and back. */
-/** The reference the cursor stands at the end of; none while text is selected. */
-internal fun TextFieldValue.typedReference(marks: String): TypedReference? =
-    if (selection.collapsed) typedReference(text, selection.end, marks) else null
-
-const val REFERENCE_SUGGESTIONS_TAG = "reference-suggestions"
-
-/**
- * The conversations a reference being typed may mean, each by its number and title: tapping one writes its number.
- * Nothing is shown when there is nothing to suggest.
- */
-@Composable
-internal fun ReferenceSuggestionList(offer: ReferenceOffer, onPick: (IssueSummary) -> Unit) {
-    if (offer.suggestions.isEmpty() && !offer.isLoading) return
-    val colors = Soft.colors
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(colors.surface).testTag(REFERENCE_SUGGESTIONS_TAG)) {
-        // There from the first letter: a far forge takes its time, and says so here meanwhile.
-        if (offer.isLoading) {
-            val looking = stringResource(R.string.reference_looking)
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 20.dp, vertical = 8.dp).semantics(mergeDescendants = true) { contentDescription = looking },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                CircularProgressIndicator(Modifier.size(18.dp), color = colors.accent, trackColor = colors.track, strokeWidth = 2.dp)
-                Text(looking, style = Soft.type.secondary, color = colors.inkMuted, modifier = Modifier.clearAndSetSemantics { })
-            }
-        }
-        offer.suggestions.forEach { suggestion ->
-            val mark = if (suggestion.isPullRequest) stringResource(R.string.reference_pull_request) else stringResource(R.string.reference_issue)
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clickable(role = Role.Button) { onPick(suggestion) }
-                    .heightIn(min = 48.dp)
-                    .padding(horizontal = 20.dp, vertical = 8.dp)
-                    .semantics(mergeDescendants = true) { contentDescription = "$mark #${suggestion.number}, ${suggestion.title}" },
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Icon(
-                    if (suggestion.isPullRequest) Icons.AutoMirrored.Outlined.CallMerge else Icons.Outlined.Adjust,
-                    contentDescription = null,
-                    tint = colors.inkMuted,
-                    modifier = Modifier.size(18.dp),
-                )
-                Text("#${suggestion.number}", style = Soft.type.control, color = colors.ink, modifier = Modifier.clearAndSetSemantics { })
-                Text(suggestion.title, style = Soft.type.secondary, color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).clearAndSetSemantics { })
-            }
-        }
-    }
-}
-
-@Composable
-internal fun PreviewToggle(previewing: Boolean, onToggle: () -> Unit) {
-    WritingAction(
-        if (previewing) Icons.Outlined.Edit else Icons.Outlined.Visibility,
-        stringResource(if (previewing) R.string.write_preview_back else R.string.write_preview),
-        onClick = onToggle,
-    )
-}
-
-/** A quiet action on a tile beside the one that sends: something done to what is being written. [busy] shows it at work. */
-@Composable
-internal fun WritingAction(icon: ImageVector, label: String, busy: Boolean = false, onClick: () -> Unit) {
-    val colors = Soft.colors
-    Box(
-        Modifier
-            .size(48.dp)
-            .clip(SoftTokens.TileCorner)
-            .background(colors.surface)
-            .softPressable(role = Role.Button) { if (!busy) onClick() }
-            .semantics { contentDescription = label },
-        contentAlignment = Alignment.Center,
-    ) {
-        if (busy) {
-            CircularProgressIndicator(Modifier.size(20.dp), color = colors.accent, trackColor = colors.ground, strokeWidth = 2.5.dp)
-        } else {
-            Icon(icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(22.dp))
-        }
-    }
-}
-
 /** A day as the reader's language writes it, like "Oct 10, 2026". */
 internal fun formatDay(day: LocalDate): String = day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
-
-/** Fresh while open, cool once merged, warm once closed: the header field says where the conversation stands. */
-private val IssueDetails.tintIndex: Int
-    get() = when (state) {
-        IssueState.OPEN -> 2
-        IssueState.MERGED -> 1
-        else -> 0
-    }
-
-@Composable
-private fun Header(
-    ref: IssueRef,
-    issue: IssueDetails?,
-    nowMillis: Long,
-    onOpenRepo: (RepoId) -> Unit,
-    onOpenUser: (String) -> Unit,
-    pull: PullRequestUiState? = null,
-    pullActions: PullActions = PullActions(),
-) {
-    val colors = Soft.colors
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        // The repository it belongs to, one tap away.
-        Row(
-            Modifier
-                .clip(SoftTokens.Pill)
-                .clickable(role = Role.Button, onClickLabel = stringResource(R.string.issue_open_repo)) { onOpenRepo(ref.repo) }
-                .heightIn(min = 48.dp)
-                .padding(end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                ref.repo.fullName,
-                style = Soft.type.secondary,
-                color = colors.inkMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp))
-        }
-        if (issue == null) {
-            Text("#${ref.number}", style = Soft.type.hero, color = colors.ink, modifier = Modifier.semantics { heading() })
-            return@Column
-        }
-        // The title, then its number (the owner's requested "Title - #123").
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                buildAnnotatedString {
-                    append(issue.title)
-                    withStyle(SpanStyle(color = colors.inkMuted)) { append(" - #${ref.number}") }
-                },
-                style = Soft.type.hero,
-                color = colors.ink,
-                modifier = Modifier.semantics { heading() },
-            )
-        }
-        // Wraps at large text: on one row the sentence was squeezed beside the tags and clipped.
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            itemVerticalAlignment = Alignment.CenterVertically,
-        ) {
-            StateTag(issue)
-            if (issue.isLocked) HeaderTag(Icons.Outlined.Lock, stringResource(R.string.issue_locked))
-            Text(
-                stringResource(R.string.issue_opened_by, issue.author?.login ?: stringResource(R.string.deleted_account), relativeInSentence(issue.createdAt, nowMillis)),
-                style = Soft.type.secondary,
-                color = colors.inkMuted,
-                // Not a pill: over two lines its round ends cut into the first and last letters.
-                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = issue.author != null) { issue.author?.let { onOpenUser(it.login) } },
-            )
-        }
-        issue.pullRequest?.let { pr ->
-            // Where it goes and how much it changes, in one unboxed line; the files and commits it counts are the panel's.
-            Text(
-                buildAnnotatedString {
-                    withStyle(SpanStyle(fontFamily = FontFamily.Monospace, color = colors.ink)) { append(stringResource(R.string.issue_pr_branches, pr.baseRef, pr.headRef)) }
-                    append("  ")
-                    append(
-                        if (pull != null) {
-                            stringResource(R.string.issue_pr_changes, pr.additions, pr.deletions)
-                        } else {
-                            // No panel to count them (the forge can't show its change): said here instead.
-                            stringResource(
-                                R.string.issue_pr_stats,
-                                pr.additions,
-                                pr.deletions,
-                                pluralStringResource(R.plurals.issue_pr_files, pr.changedFiles, pr.changedFiles),
-                                pluralStringResource(R.plurals.issue_pr_commits, pr.commits, pr.commits),
-                            )
-                        },
-                    )
-                },
-                style = Soft.type.meta,
-                color = colors.inkMuted,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (pull != null) PullRequestPanel(issue, pull, pullActions)
-        }
-        if (issue.labels.isNotEmpty()) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                issue.labels.forEach { LabelChip(it) }
-            }
-        }
-        // Who it is on and what it is for: one quiet line each, only when there is something to say.
-        if (issue.assignees.isNotEmpty()) {
-            Text(
-                stringResource(R.string.issue_assigned_to, issue.assignees.joinToString(", ") { it.login }),
-                style = Soft.type.secondary,
-                color = colors.inkMuted,
-            )
-        }
-        issue.milestone?.let { Text(stringResource(R.string.issue_milestone, it.title), style = Soft.type.secondary, color = colors.inkMuted) }
-        issue.dueDate?.let { Text(stringResource(R.string.issue_due, formatDay(it)), style = Soft.type.secondary, color = colors.inkMuted) }
-    }
-}
-
-@Composable
-private fun StateTag(issue: IssueDetails) {
-    val colors = Soft.colors
-    val (label, icon) = when {
-        issue.pullRequest?.isDraft == true && issue.state == IssueState.OPEN -> R.string.issue_state_draft to Icons.AutoMirrored.Outlined.CallMerge
-        issue.state == IssueState.OPEN -> R.string.issue_state_open to if (issue.pullRequest != null) Icons.AutoMirrored.Outlined.CallMerge else Icons.Outlined.Adjust
-        issue.state == IssueState.MERGED -> R.string.issue_state_merged to Icons.AutoMirrored.Outlined.CallMerge
-        else -> R.string.issue_state_closed to Icons.Outlined.CheckCircleOutline
-    }
-    HeaderTag(icon, stringResource(label))
-}
-
-/** A tag on the band: a glyph and a word, for where the conversation stands. */
-@Composable
-private fun HeaderTag(icon: ImageVector, label: String) {
-    val colors = Soft.colors
-    Row(
-        Modifier.clip(SoftTokens.Pill).background(colors.surface).padding(start = 8.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = colors.ink)
-        Text(label, style = Soft.type.label, color = colors.ink)
-    }
-}
-
-private val TimelineGutter = 40.dp
-
-/** One comment as a conversation turn: the author and when, then their words; unboxed, the reading is the point. */
-@Composable
-private fun Comment(
-    author: ForgeUser?,
-    body: String,
-    createdAt: Instant?,
-    reactions: Map<Reaction, Int>,
-    context: ReadmeContext,
-    nowMillis: Long,
-    onOpenUser: (String) -> Unit,
-    onLinkClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    menu: CommentMenu? = null,
-    /** What stands in for the comment's words while it is rewritten. */
-    editor: (@Composable () -> Unit)? = null,
-) {
-    val colors = Soft.colors
-    val haptics = LocalHapticFeedback.current
-    val offered = rememberUpdatedState(menu?.takeIf { !it.isEmpty && editor == null })
-    // Where the menu opens: under the finger after a long press, at its button otherwise.
-    var pressedAt by remember { mutableStateOf<IntOffset?>(null) }
-    // Where a double tap landed, while its thumbs up shows.
-    var thumbAt by remember { mutableStateOf<IntOffset?>(null) }
-    val doubleTap = LocalUserSettings.current.doubleTapReaction
-    val swipeToReply = LocalUserSettings.current.swipeToReply
-    val gestures = if (offered.value == null) Modifier else Modifier.pointerInput(doubleTap) {
-        detectTapGestures(
-            onLongPress = { at ->
-                if (offered.value != null) {
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    pressedAt = at.round()
-                }
-            },
-            // Without the double tap, a single tap isn't held back waiting for a second one.
-            onDoubleTap = if (!doubleTap) null else { at ->
-                offered.value?.onReact?.let { react ->
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    thumbAt = at.round()
-                    react(Reaction.THUMBS_UP)
-                }
-            },
-        )
-    }
-    SwipeToReply(offered.value?.onQuote?.takeIf { swipeToReply }, modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
-        // Comments are parted by hairlines, like the rows of a list; one being rewritten stands on its own ground instead.
-        Box(Modifier.fillMaxWidth().testTag(COMMENT_TAG).then(if (editor == null) Modifier.rowHairline(start = 20.dp) else Modifier).then(gestures)) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    // A comment being rewritten stands out from those around it, on a ground of its own.
-                    .then(if (editor != null) Modifier.padding(horizontal = 8.dp, vertical = 4.dp).clip(RoundedCornerShape(8.dp)).background(colors.surface).padding(horizontal = 12.dp, vertical = 6.dp) else Modifier.padding(horizontal = 20.dp, vertical = 12.dp)),
-            ) {
-                // The author takes the room their name needs; the menu sits at the end of the line whatever that is.
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier
-                            .weight(1f, fill = false)
-                            .clip(SoftTokens.Pill)
-                            .clickable(enabled = author != null) { author?.let { onOpenUser(it.login) } }
-                            .padding(end = 8.dp),
-                    ) {
-                        Avatar(author?.avatarUrl, author?.login ?: "?", size = 28.dp, shape = SoftTokens.TileCorner, placeholderColor = colors.raised.takeIf { editor != null } ?: colors.surface, placeholderContentColor = colors.inkMuted)
-                        Text(author?.login ?: stringResource(R.string.deleted_account), style = Soft.type.control, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                        createdAt?.let { Text(relative(it, nowMillis), style = Soft.type.meta, color = colors.inkMuted, maxLines = 1) }
-                    }
-                    offered.value?.let { CommentMenuButton(it) }
-                }
-                if (editor != null) {
-                    Box(Modifier.padding(top = 10.dp, bottom = 6.dp)) { editor() }
-                } else {
-                    Column(Modifier.padding(start = TimelineGutter, top = 6.dp).widthIn(max = SoftTokens.MaxMeasure)) {
-                        Markdown(body, context, onLinkClick)
-                        if (reactions.isNotEmpty()) {
-                            // Tappable, each brings its own room: no more is added above.
-                            Reactions(reactions, Modifier.padding(top = if (menu?.onReact == null) 8.dp else 0.dp), onReact = menu?.onReact)
-                        }
-                    }
-                }
-            }
-            pressedAt?.let { at ->
-                Box(Modifier.offset { at }) { offered.value?.let { CommentDropdown(it, expanded = true) { pressedAt = null } } }
-            }
-            thumbAt?.let { at -> ThumbsUpGiven(at) { thumbAt = null } }
-        }
-    }
-}
-
-/** How far a comment is pulled before letting go quotes it, and how far it follows the finger at most. */
-private val ReplyPull = 64.dp
-private val ReplyPullLimit = 96.dp
-
-/**
- * Pulling a comment toward the end of the line and letting go starts a reply quoting it, as in a messaging app. A
- * reply arrow comes in behind it, full once letting go will quote. Without [onReply] nothing moves.
- */
-@Composable
-private fun SwipeToReply(onReply: (() -> Unit)?, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    if (onReply == null) {
-        Box(modifier) { content() }
-        return
-    }
-    val colors = Soft.colors
-    val haptics = LocalHapticFeedback.current
-    val scope = rememberCoroutineScope()
-    val reply = rememberUpdatedState(onReply)
-    val pulled = remember { Animatable(0f) }
-    val toEnd = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1f else 1f
-    val threshold = with(LocalDensity.current) { ReplyPull.toPx() }
-    val limit = with(LocalDensity.current) { ReplyPullLimit.toPx() }
-    fun release(quote: Boolean) {
-        if (quote && pulled.value >= threshold) reply.value()
-        scope.launch { pulled.animateTo(0f) }
-    }
-    Box(
-        modifier.pointerInput(toEnd) {
-            detectHorizontalDragGestures(
-                onDragEnd = { release(quote = true) },
-                onDragCancel = { release(quote = false) },
-            ) { change, amount ->
-                val before = pulled.value
-                val after = (before + amount * toEnd).coerceIn(0f, limit)
-                if (after != before) {
-                    change.consume()
-                    if (before < threshold && after >= threshold) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                    scope.launch { pulled.snapTo(after) }
-                }
-            }
-        },
-    ) {
-        Icon(
-            Icons.AutoMirrored.Outlined.Reply,
-            contentDescription = null,
-            tint = colors.accent,
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = 20.dp)
-                .size(24.dp)
-                .graphicsLayer {
-                    val progress = (pulled.value / threshold).coerceIn(0f, 1f)
-                    alpha = progress
-                    scaleX = 0.6f + 0.4f * progress
-                    scaleY = 0.6f + 0.4f * progress
-                },
-        )
-        Box(Modifier.graphicsLayer { translationX = pulled.value * toEnd }) { content() }
-    }
-}
-
-/** The thumbs up a double tap gave, where the finger was: it grows, then fades, on its way to the comment's tags. */
-@Composable
-private fun ThumbsUpGiven(at: IntOffset, onGone: () -> Unit) {
-    val shown = remember(at) { Animatable(0f) }
-    LaunchedEffect(at) {
-        shown.animateTo(1f, tween(450))
-        onGone()
-    }
-    val half = with(LocalDensity.current) { 24.dp.roundToPx() }
-    Box(
-        Modifier
-            .offset { at - IntOffset(half, half) }
-            .size(48.dp)
-            .graphicsLayer {
-                val grown = 0.6f + 0.8f * shown.value
-                scaleX = grown
-                scaleY = grown
-                alpha = 1f - shown.value * shown.value
-            }
-            .clearAndSetSemantics { },
-        contentAlignment = Alignment.Center,
-    ) { Text(Reaction.THUMBS_UP.emoji, fontSize = 28.sp) }
-}
-
-/** The quiet "more" at the end of a comment's first line, and what it opens. */
-@Composable
-private fun CommentMenuButton(menu: CommentMenu) {
-    val colors = Soft.colors
-    var open by remember { mutableStateOf(false) }
-    // Its dots end where the comment's text does: the room around them is for the finger, not the eye.
-    Box(Modifier.offset(x = 12.dp)) {
-        // The avatar's height, so the comment's first line keeps its own; the touch target stays 48dp around it.
-        SoftIconButton(onClick = { open = true }, modifier = Modifier.size(28.dp).minimumInteractiveComponentSize()) {
-            Icon(Icons.Outlined.MoreHoriz, contentDescription = stringResource(R.string.issue_comment_more), tint = colors.inkMuted)
-        }
-        CommentDropdown(menu, open) { open = false }
-    }
-}
-
-/** What a comment's menu offers, from its button or from a long press on the comment. */
-@Composable
-private fun CommentDropdown(menu: CommentMenu, expanded: Boolean, onDismiss: () -> Unit) {
-    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, shape = RoundedCornerShape(8.dp), containerColor = Soft.colors.raised) {
-        // Reactions first, as two rows of four: the quickest answer there is.
-        menu.onReact?.let { onReact ->
-            FlowRow(Modifier.padding(horizontal = 8.dp), maxItemsInEachRow = 4) {
-                Reaction.entries.forEach { reaction ->
-                    val name = stringResource(reaction.label)
-                    Box(
-                        Modifier
-                            .size(48.dp)
-                            .clip(SoftTokens.TileCorner)
-                            .clickable(role = Role.Button) { onDismiss(); onReact(reaction) }
-                            .semantics { contentDescription = name },
-                        contentAlignment = Alignment.Center,
-                    ) { Text(reaction.emoji, fontSize = 22.sp) }
-                }
-            }
-        }
-        @Composable
-        fun choice(label: Int, action: (() -> Unit)?) {
-            if (action != null) DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { onDismiss(); action() })
-        }
-        choice(R.string.issue_comment_quote, menu.onQuote)
-        choice(R.string.issue_comment_edit, menu.onEdit)
-        choice(R.string.issue_comment_delete, menu.onDelete)
-    }
-}
-
-/**
- * The reactions a text was given, each with its count. With [onReact], tapping one gives it too, or takes back the
- * reader's own: each then has a finger's room around it.
- */
-@Composable
-private fun Reactions(reactions: Map<Reaction, Int>, modifier: Modifier = Modifier, onReact: ((Reaction) -> Unit)? = null) {
-    val gap = if (onReact == null) 6.dp else 0.dp
-    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(gap), verticalArrangement = Arrangement.spacedBy(gap)) {
-        reactions.forEach { (reaction, count) ->
-            if (onReact == null) {
-                SoftTag("${reaction.emoji} $count")
-            } else {
-                val said = stringResource(R.string.issue_reaction_count, stringResource(reaction.label), count)
-                Box(
-                    Modifier
-                        .clip(SoftTokens.Pill)
-                        .clickable(role = Role.Button) { onReact(reaction) }
-                        .minimumInteractiveComponentSize()
-                        .clearAndSetSemantics { contentDescription = said },
-                    contentAlignment = Alignment.Center,
-                ) { SoftTag("${reaction.emoji} $count") }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TimelineEntry(
-    item: TimelineItem,
-    context: ReadmeContext,
-    nowMillis: Long,
-    onOpenUser: (String) -> Unit,
-    onOpenIssue: (IssueRef) -> Unit,
-    onLinkClick: (String) -> Unit,
-    editor: (@Composable () -> Unit)? = null,
-    menuFor: (TimelineItem.Comment) -> CommentMenu? = { null },
-) {
-    val colors = Soft.colors
-    val time = item.createdAt?.let { relative(it, nowMillis) }.orEmpty()
-    when (item) {
-        is TimelineItem.Comment -> Comment(item.author, item.body, item.createdAt, item.reactions, context, nowMillis, onOpenUser, onLinkClick, menu = menuFor(item), editor = editor)
-        is TimelineItem.Review -> Column {
-            val who = item.author?.login ?: stringResource(R.string.deleted_account)
-            val (text, icon) = when (item.state) {
-                ReviewState.APPROVED -> stringResource(R.string.issue_review_approved, who) to Icons.Outlined.Check
-                ReviewState.CHANGES_REQUESTED -> stringResource(R.string.issue_review_changes, who) to Icons.Outlined.RateReview
-                ReviewState.DISMISSED -> stringResource(R.string.issue_review_dismissed, who) to Icons.Outlined.RateReview
-                ReviewState.COMMENTED -> stringResource(R.string.issue_review_commented, who) to Icons.Outlined.RateReview
-            }
-            EventLine(icon, "$text $time", badge = if (item.state == ReviewState.APPROVED) colors.fields[2] else colors.surface)
-            item.body?.let { Comment(item.author, it, null, emptyMap(), context, nowMillis, onOpenUser, onLinkClick) }
-        }
-        is TimelineItem.StateChanged -> {
-            val who = item.actor?.login ?: stringResource(R.string.deleted_account)
-            val text = when (item.change) {
-                StateChange.MERGED -> stringResource(R.string.issue_merged_event, who, time)
-                StateChange.REOPENED -> stringResource(R.string.issue_reopened_event, who, time)
-                StateChange.CLOSED -> when (item.stateReason) {
-                    "completed" -> stringResource(R.string.issue_closed_completed_event, who, time)
-                    "not_planned" -> stringResource(R.string.issue_closed_not_planned_event, who, time)
-                    else -> stringResource(R.string.issue_closed_event, who, time)
-                }
-            }
-            val (icon, badge) = when (item.change) {
-                StateChange.MERGED -> Icons.AutoMirrored.Outlined.CallMerge to colors.fields[1]
-                StateChange.REOPENED -> Icons.Outlined.Replay to colors.fields[2]
-                StateChange.CLOSED -> Icons.Outlined.CheckCircleOutline to colors.fields[0]
-            }
-            EventLine(icon, text, badge = badge)
-        }
-        is TimelineItem.Labeled -> {
-            val who = item.actor?.login ?: stringResource(R.string.deleted_account)
-            // The chip goes inside the line: next to a full-width EventLine it was squeezed to nothing.
-            EventLine(Icons.AutoMirrored.Outlined.Label, stringResource(if (item.added) R.string.issue_labeled_event else R.string.issue_unlabeled_event, who)) {
-                LabelChip(item.label)
-            }
-        }
-        is TimelineItem.Renamed -> EventLine(Icons.Outlined.Edit, stringResource(R.string.issue_renamed_event, item.actor?.login ?: stringResource(R.string.deleted_account), item.from, item.to))
-        is TimelineItem.CrossReferenced -> EventLine(
-            Icons.Outlined.Link,
-            stringResource(R.string.issue_referenced_event, item.actor?.login ?: stringResource(R.string.deleted_account), item.source.number, item.sourceTitle),
-            onClick = { onOpenIssue(item.source) },
-        )
-        is TimelineItem.Event -> {
-            val who = item.actor?.login ?: stringResource(R.string.deleted_account)
-            val subject = item.subject.orEmpty()
-            val (icon, text) = when (item.event) {
-                ConversationEvent.LOCKED -> Icons.Outlined.Lock to stringResource(R.string.issue_locked_event, who, time)
-                ConversationEvent.UNLOCKED -> Icons.Outlined.LockOpen to stringResource(R.string.issue_unlocked_event, who, time)
-                ConversationEvent.PINNED -> Icons.Outlined.PushPin to stringResource(R.string.issue_pinned_event, who, time)
-                ConversationEvent.UNPINNED -> Icons.Outlined.PushPin to stringResource(R.string.issue_unpinned_event, who, time)
-                ConversationEvent.ASSIGNED -> Icons.Outlined.PersonOutline to if (subject.equals(who, ignoreCase = true)) {
-                    stringResource(R.string.issue_self_assigned_event, who, time)
-                } else {
-                    stringResource(R.string.issue_assigned_event, who, subject, time)
-                }
-                ConversationEvent.UNASSIGNED -> Icons.Outlined.PersonOutline to if (subject.equals(who, ignoreCase = true)) {
-                    stringResource(R.string.issue_self_unassigned_event, who, time)
-                } else {
-                    stringResource(R.string.issue_unassigned_event, who, subject, time)
-                }
-                ConversationEvent.MILESTONED -> Icons.Outlined.Flag to stringResource(R.string.issue_milestoned_event, who, subject, time)
-                ConversationEvent.DEMILESTONED -> Icons.Outlined.Flag to stringResource(R.string.issue_demilestoned_event, who, subject, time)
-                ConversationEvent.TRANSFERRED -> Icons.Outlined.SwapHoriz to stringResource(R.string.issue_transferred_event, who, time)
-                // The day is kept as written (ISO); anything else is shown as it came.
-                ConversationEvent.DEADLINE_SET -> Icons.Outlined.Event to stringResource(
-                    R.string.issue_deadline_set_event, who, runCatching { formatDay(LocalDate.parse(subject)) }.getOrDefault(subject), time,
-                )
-                ConversationEvent.DEADLINE_REMOVED -> Icons.Outlined.Event to stringResource(R.string.issue_deadline_removed_event, who, time)
-                ConversationEvent.TRACKING_STARTED -> Icons.Outlined.Timer to stringResource(R.string.issue_tracking_started_event, who, time)
-                ConversationEvent.TRACKING_STOPPED -> Icons.Outlined.Timer to stringResource(R.string.issue_tracking_stopped_event, who, time)
-                ConversationEvent.TIME_ADDED -> Icons.Outlined.Timer to stringResource(R.string.issue_time_added_event, who, time)
-                ConversationEvent.DEPENDENCY_ADDED -> Icons.Outlined.AccountTree to stringResource(R.string.issue_dependency_added_event, who, subject, time)
-                ConversationEvent.DEPENDENCY_REMOVED -> Icons.Outlined.AccountTree to stringResource(R.string.issue_dependency_removed_event, who, subject, time)
-                ConversationEvent.CONVERTED_TO_DISCUSSION -> Icons.Outlined.Forum to stringResource(R.string.issue_converted_event, who, time)
-            }
-            EventLine(icon, text)
-        }
-        is TimelineItem.Committed -> EventLine(
-            Icons.Outlined.Commit,
-            "${item.sha.take(7)}  ${item.message.lineSequence().first()}",
-            monospace = true,
-        )
-    }
-}
-
-/** A small event on the conversation's timeline: a tile in the avatar column, then one muted line. */
-@Composable
-private fun EventLine(
-    icon: ImageVector,
-    text: String,
-    badge: Color = Soft.colors.surface,
-    monospace: Boolean = false,
-    onClick: (() -> Unit)? = null,
-    trailing: (@Composable () -> Unit)? = null,
-) {
-    val colors = Soft.colors
-    Row(
-        Modifier
-            .widthIn(max = SoftTokens.MaxReadingWidth)
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-            .then(if (onClick != null) Modifier.softPressable(onClick = onClick) else Modifier)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Box(Modifier.size(28.dp).background(badge, SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(15.dp), tint = colors.ink)
-        }
-        Text(
-            text,
-            style = if (monospace) Soft.type.meta.copy(fontFamily = FontFamily.Monospace) else Soft.type.secondary,
-            color = colors.inkMuted,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f, fill = false),
-        )
-        trailing?.invoke()
-    }
-}
-
-private fun TimelineItem.key(index: Int): String = when (this) {
-    is TimelineItem.Comment -> "comment-$id"
-    is TimelineItem.Review -> "review-$id"
-    is TimelineItem.Committed -> "commit-$sha"
-    else -> "event-$index"
-}

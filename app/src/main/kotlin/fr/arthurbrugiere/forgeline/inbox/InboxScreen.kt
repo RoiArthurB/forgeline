@@ -2,94 +2,37 @@ package fr.arthurbrugiere.forgeline.inbox
 
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Groups
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.AlternateEmail
-import androidx.compose.material.icons.outlined.RateReview
-import androidx.compose.material.icons.outlined.AssignmentInd
-import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.graphics.Color
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTile
-import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
-import fr.arthurbrugiere.forgeline.core.ui.format.iconRes
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.clickable
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
-import fr.arthurbrugiere.forgeline.core.model.SwipeAction
-import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import fr.arthurbrugiere.forgeline.ui.rememberNow
-import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.platform.LocalDensity
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
-import fr.arthurbrugiere.forgeline.core.ui.format.forgeInlineContent
-import fr.arthurbrugiere.forgeline.core.ui.format.appendForge
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.CallMerge
-import androidx.compose.material.icons.outlined.Adjust
-import androidx.compose.material.icons.outlined.Done
-import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.Inbox
-import androidx.compose.material.icons.outlined.MarkEmailRead
-import androidx.compose.material.icons.outlined.MarkEmailUnread
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.Sell
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.PlayCircleOutline
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIndication
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.ui.platform.LocalResources
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.SwipeToDismissBoxDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
-import fr.arthurbrugiere.forgeline.core.model.RepoId
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.CustomAccessibilityAction
-import androidx.compose.ui.semantics.customActions
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -97,87 +40,39 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
-import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.work.WorkUiState
 import fr.arthurbrugiere.forgeline.work.WorkViewModel
 import fr.arthurbrugiere.forgeline.work.workItems
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
-import fr.arthurbrugiere.forgeline.core.model.SubjectType
-import androidx.compose.material.icons.outlined.Block
-import androidx.compose.material.icons.outlined.CheckCircleOutline
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.SelectAll
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.offset
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selected
-import androidx.compose.material.icons.outlined.Close
-import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.ui.message
-import fr.arthurbrugiere.forgeline.ui.relative
-import kotlinx.coroutines.launch
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.unit.sp
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSwitch
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
-import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
-import fr.arthurbrugiere.forgeline.core.ui.soft.SoftPill
-import fr.arthurbrugiere.forgeline.core.ui.soft.animationsEnabled
-import fr.arthurbrugiere.forgeline.feed.unbreakable
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.Dp
-import fr.arthurbrugiere.forgeline.ui.Avatar
 
 @Composable
 fun InboxRoute(
@@ -254,7 +149,7 @@ private fun InboxSignedOut(session: SessionState, onSignIn: () -> Unit, onBrowse
 
 /** The Inbox's tinted field: the title, search and, once signed in, the filter switch (each filter its own tint). */
 /** Whether rows name their forge: only when accounts span more than one. */
-private val LocalShowForge = staticCompositionLocalOf { false }
+internal val LocalShowForge = staticCompositionLocalOf { false }
 
 @Composable
 private fun InboxHeader(filter: InboxFilter?, onSelectFilter: (InboxFilter) -> Unit, accountPicker: (@Composable () -> Unit)? = null) {
@@ -511,540 +406,3 @@ fun InboxScreen(
         SoftSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current))
     }
 }
-
-/** The threads picked so far, and how a row picks itself or lets itself go. */
-private class Picking(val selected: Set<String>, val onToggle: (NotificationThread) -> Unit)
-
-/**
- * What can be done to the threads picked, all at once: on the ink bar the Undo snackbar uses, in its place. Read and
- * unread share a button: read while any of them is unread, unread once they are all read.
- */
-@Composable
-private fun SelectionBar(
-    threads: List<NotificationThread>,
-    onSelectAll: () -> Unit,
-    onClear: () -> Unit,
-    onAct: (InboxAction) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val colors = Soft.colors
-    val anyUnread = threads.any { it.unread }
-    // On ink, the usual veil (ink over the ground) wouldn't show: here a press washes the ground's colour over it.
-    CompositionLocalProvider(LocalIndication provides SoftIndication(colors.ground.copy(alpha = 0.14f))) {
-        Row(
-            modifier
-                .widthIn(max = SoftTokens.MaxReadingWidth)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(colors.ink)
-                .padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SoftIconButton(onClick = onClear) {
-                Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.inbox_selection_cancel), tint = colors.ground)
-            }
-            Text(
-                pluralStringResource(R.plurals.inbox_selected, threads.size, threads.size),
-                style = Soft.type.control,
-                color = colors.ground,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f).padding(horizontal = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
-            )
-            SoftIconButton(onClick = onSelectAll) {
-                Icon(Icons.Outlined.SelectAll, contentDescription = stringResource(R.string.inbox_select_all), tint = colors.ground)
-            }
-            // What the picked threads become, said in words: a glyph alone had to be learned.
-            BarAction(
-                if (anyUnread) Icons.Outlined.MarkEmailRead else Icons.Outlined.MarkEmailUnread,
-                stringResource(if (anyUnread) R.string.inbox_selection_read else R.string.inbox_selection_unread),
-                stringResource(if (anyUnread) R.string.inbox_mark_read else R.string.inbox_mark_unread),
-            ) { onAct(if (anyUnread) InboxAction.READ else InboxAction.UNREAD) }
-            BarAction(Icons.Outlined.Done, stringResource(R.string.inbox_selection_done), stringResource(R.string.inbox_mark_done)) { onAct(InboxAction.DONE) }
-        }
-    }
-}
-
-/** An action of the selection bar: its glyph and its word on the ink bar, named in full for a screen reader. */
-@Composable
-private fun BarAction(icon: ImageVector, label: String, description: String, onClick: () -> Unit) {
-    val colors = Soft.colors
-    Row(
-        Modifier
-            .clip(SoftTokens.Pill)
-            .clickable(role = Role.Button, onClick = onClick)
-            .semantics(mergeDescendants = true) { contentDescription = description }
-            .heightIn(min = 48.dp)
-            .padding(horizontal = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, contentDescription = null, tint = colors.ground, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(label, style = Soft.type.control, color = colors.ground, maxLines = 1)
-    }
-}
-
-/** Threads by owner, then by repository, in list order. By forge too: "acme" on GitHub and on Codeberg are two owners. */
-private fun List<NotificationThread>.byOwnerAndRepo(): List<Pair<Pair<ForgeInstance, String>, Map<RepoId, List<NotificationThread>>>> =
-    groupBy { it.repo.forge to it.repo.owner.lowercase() }.map { (forgeOwner, owned) -> forgeOwner to owned.groupBy { it.repo } }
-
-private fun LazyListScope.threadItems(
-    threads: List<NotificationThread>,
-    section: InboxSection,
-    nowMillis: Long,
-    picking: Picking,
-    onOpen: (NotificationThread) -> Unit,
-    onMarkRead: (NotificationThread) -> Unit,
-    onMarkUnread: (NotificationThread) -> Unit,
-    onMarkDone: (NotificationThread) -> Unit,
-    onUnsubscribe: (NotificationThread) -> Unit,
-) {
-    // Keyed by account and id: two forges can use the same thread id, and duplicate keys crash the list.
-    items(threads, key = { "thread-${it.key}" }, contentType = { "thread" }) { thread ->
-        ThreadRow(
-            thread, section, nowMillis, picking, onOpen, onMarkRead, onMarkUnread, onMarkDone, onUnsubscribe,
-            Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem(),
-        )
-    }
-}
-
-/** An owner (user or organisation) with several repositories under Everything else: its avatar and login. */
-@Composable
-private fun OwnerHeading(thread: NotificationThread, modifier: Modifier = Modifier) {
-    Row(
-        modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 2.dp)
-            .semantics(mergeDescendants = true) { heading() },
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        OwnerAvatar(thread, 20.dp)
-        Spacer(Modifier.width(8.dp))
-        Text(thread.repo.owner, style = Soft.type.label, color = Soft.colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-        HeadingForge(thread)
-    }
-}
-
-/**
- * A repository under Everything else. Alone under its owner: the owner's avatar, `owner/` muted and the name. Under an
- * owner heading: just the name, lined up with the threads below it. Swiped away like a thread, it takes every thread
- * listed under it: all done at once.
- */
-@Composable
-private fun RepoHeading(thread: NotificationThread, showOwner: Boolean, onMarkAllDone: () -> Unit, modifier: Modifier = Modifier) {
-    val colors = Soft.colors
-    val markAllDone = stringResource(R.string.inbox_mark_all_done)
-    val swipes = LocalUserSettings.current
-    // Not saved, like a thread's: a heading brought back by Undo starts settled.
-    val threshold = SwipeToDismissBoxDefaults.positionalThreshold
-    val swipe = remember { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, threshold) }
-    SwipeToDismissBox(
-        state = swipe,
-        modifier = modifier.padding(top = if (showOwner) 10.dp else 4.dp),
-        // A repository is swiped away toward the side that means "done" for a thread, if one does.
-        enableDismissFromStartToEnd = swipes.inboxSwipeRight == SwipeAction.DONE,
-        enableDismissFromEndToStart = swipes.inboxSwipeLeft == SwipeAction.DONE,
-        backgroundContent = { SwipeBackground(swipe.dismissDirection, SwipeAction.DONE) },
-        onDismiss = { direction -> if (direction != SwipeToDismissBoxValue.Settled) onMarkAllDone() },
-    ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .background(colors.ground)
-                // Under an owner heading, the name lines up with its threads' titles, past their tiles.
-                .padding(start = if (showOwner) 16.dp else ThreadTextStart, end = 16.dp, top = 4.dp, bottom = 2.dp)
-                .semantics(mergeDescendants = true) {
-                    heading()
-                    // Swipes are invisible to screen readers: the same action as an accessibility action.
-                    customActions = listOf(CustomAccessibilityAction(markAllDone) { onMarkAllDone(); true })
-                },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (showOwner) {
-                OwnerAvatar(thread, 20.dp)
-                Spacer(Modifier.width(8.dp))
-            }
-            Text(
-                buildAnnotatedString {
-                    if (showOwner) withStyle(SpanStyle(color = colors.inkMuted)) { append("${thread.repo.owner}/\u2060") }
-                    append(thread.repo.name)
-                },
-                style = Soft.type.label,
-                color = colors.ink,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            HeadingForge(thread)
-        }
-    }
-}
-
-/**
- * Which forge a heading's repositories live on, once accounts span several forges: said to screen readers only, since
- * every thread under it carries the forge's badge on its tile.
- */
-@Composable
-private fun HeadingForge(thread: NotificationThread) {
-    if (!LocalShowForge.current) return
-    val forge = thread.repo.forge.displayName
-    Spacer(Modifier.semantics { contentDescription = forge })
-}
-
-/** The repository owner's avatar (a user or an organisation), its initial on the soft surface until it loads. */
-@Composable
-private fun OwnerAvatar(thread: NotificationThread, size: Dp) {
-    val colors = Soft.colors
-    Avatar(
-        thread.ownerAvatarUrl,
-        thread.repo.owner,
-        size = size,
-        placeholderColor = colors.surface,
-        placeholderContentColor = colors.inkMuted,
-        modifier = Modifier.clearAndSetSemantics {},
-    )
-}
-
-/** A section's title over its threads, pinned while they scroll; the unread count ticks as it changes. */
-@Composable
-private fun SectionHeading(section: InboxSection, unread: Int, modifier: Modifier = Modifier) {
-    val colors = Soft.colors
-    val animations = animationsEnabled()
-    Row(
-        modifier
-            .widthIn(max = SoftTokens.MaxReadingWidth)
-            .fillMaxWidth()
-            .background(colors.ground)
-            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 4.dp)
-            .semantics(mergeDescendants = true) { heading() },
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            stringResource(if (section == InboxSection.NEEDS_YOU) R.string.inbox_section_needs_you else R.string.inbox_section_others),
-            style = Soft.type.section,
-            color = colors.ink,
-        )
-        AnimatedVisibility(unread > 0, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut()) {
-            Row {
-                Spacer(Modifier.width(8.dp))
-                AnimatedContent(
-                    targetState = unread,
-                    transitionSpec = {
-                        if (!animations) {
-                            EnterTransition.None togetherWith ExitTransition.None
-                        } else {
-                            val down = targetState < initialState
-                            (slideInVertically { if (down) -it else it } + fadeIn()) togetherWith
-                                (slideOutVertically { if (down) it else -it } + fadeOut())
-                        }
-                    },
-                    label = "unread",
-                ) { count ->
-                    SoftTag("$count", background = if (section == InboxSection.NEEDS_YOU) colors.accentSoft else colors.surface)
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun ThreadRow(
-    thread: NotificationThread,
-    section: InboxSection,
-    nowMillis: Long,
-    picking: Picking,
-    onOpen: (NotificationThread) -> Unit,
-    onMarkRead: (NotificationThread) -> Unit,
-    onMarkUnread: (NotificationThread) -> Unit,
-    onMarkDone: (NotificationThread) -> Unit,
-    onUnsubscribe: (NotificationThread) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val selecting = picking.selected.isNotEmpty()
-    val picked = thread.key in picking.selected
-    val selectLabel = stringResource(R.string.inbox_select)
-    val haptics = LocalHapticFeedback.current
-    val unreadState = stringResource(R.string.inbox_unread_state)
-    val colors = Soft.colors
-    // Not saved: a thread brought back by Undo keeps its list key, so a saved swipe state would come back dismissed
-    // and mark it done again at once. A returning row always starts settled.
-    val threshold = SwipeToDismissBoxDefaults.positionalThreshold
-    val swipe = remember { SwipeToDismissBoxState(SwipeToDismissBoxValue.Settled, threshold) }
-    val scope = rememberCoroutineScope()
-    val markReadLabel = stringResource(R.string.inbox_mark_read)
-    val markUnreadLabel = stringResource(R.string.inbox_mark_unread)
-    // The same swipe, menu entry and action for both: what it does depends on where the thread stands.
-    val toggleRead = { if (thread.unread) onMarkRead(thread) else onMarkUnread(thread) }
-    val toggleReadLabel = if (thread.unread) markReadLabel else markUnreadLabel
-    val doneLabel = stringResource(R.string.inbox_mark_done)
-    val unsubscribeLabel = stringResource(R.string.inbox_unsubscribe)
-    val animations = animationsEnabled()
-    val toEnd = LocalUserSettings.current.inboxSwipeRight
-    val toStart = LocalUserSettings.current.inboxSwipeLeft
-    // Whether a read swipe is on its way back into place. Not read by the composition: nothing is drawn from it.
-    val returning = remember { mutableStateOf(false) }
-    SwipeToDismissBox(
-        state = swipe,
-        modifier = modifier,
-        // Each side does what Settings says. The read swipe always has something to do: read threads go back to unread.
-        // While threads are being picked nothing swipes: the bar acts on them all.
-        enableDismissFromStartToEnd = toEnd != SwipeAction.NONE && !selecting,
-        enableDismissFromEndToStart = toStart != SwipeAction.NONE && !selecting,
-        backgroundContent = {
-            SwipeBackground(swipe.dismissDirection, if (swipe.dismissDirection == SwipeToDismissBoxValue.StartToEnd) toEnd else toStart, thread.unread)
-        },
-        onDismiss = { direction ->
-            when (if (direction == SwipeToDismissBoxValue.StartToEnd) toEnd else toStart) {
-                // One swipe, one turn. The row stays, so it is brought back into place, and until it is there the swipe
-                // still counts as made: asked again meanwhile (the thread just changed under it), it would mark the
-                // thread back, and that one back again, each turn cutting short the return of the one before.
-                SwipeAction.MARK_READ -> if (!returning.value) {
-                    returning.value = true
-                    toggleRead()
-                    scope.launch {
-                        try {
-                            swipe.reset()
-                        } finally {
-                            returning.value = false
-                        }
-                    }
-                }
-                SwipeAction.DONE -> onMarkDone(thread)
-                SwipeAction.NONE -> Unit
-            }
-        },
-    ) {
-        var menuOpen by rememberSaveable(thread.id) { mutableStateOf(false) }
-        // Reading a thread eases its title from ink to muted rather than snapping.
-        val titleColor by animateColorAsState(
-            if (thread.unread) colors.ink else colors.inkMuted,
-            tween(if (animations) 300 else 0),
-            label = "title",
-        )
-        val needsYou = section == InboxSection.NEEDS_YOU
-        val forge = thread.repo.forge.takeIf { LocalShowForge.current }
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .background(if (picked) colors.surface else colors.ground)
-                .softPressable(
-                    onLongClick = {
-                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                        picking.onToggle(thread)
-                    },
-                    onLongClickLabel = selectLabel,
-                ) { if (selecting) picking.onToggle(thread) else onOpen(thread) }
-                // Swipes are invisible to screen readers: the same actions as accessibility actions.
-                .semantics {
-                    // The dot and the bolder title are visual only: say it.
-                    if (thread.unread) stateDescription = unreadState
-                    if (selecting) selected = picked
-                    customActions = buildList {
-                        add(CustomAccessibilityAction(toggleReadLabel) { toggleRead(); true })
-                        add(CustomAccessibilityAction(doneLabel) { onMarkDone(thread); true })
-                        add(CustomAccessibilityAction(unsubscribeLabel) { onUnsubscribe(thread); true })
-                    }
-                }
-                .rowHairline(start = ThreadTextStart)
-                .padding(start = 16.dp, top = 9.dp, bottom = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // The tile says what it is at a glance; marigold when it waits on you, its state's tint otherwise. The dot pops
-            // in while it is unread, and the forge's logo sits on its corner once more than one forge is signed in.
-            SoftTile(
-                background = when {
-                    picked -> colors.thumb
-                    needsYou -> colors.accentSoft
-                    else -> thread.stateTint(colors)
-                },
-                unread = thread.unread && !picked,
-                badge = forge?.let { painterResource(it.iconRes) },
-                badgeDescription = forge?.displayName,
-            ) {
-                Icon(
-                    if (picked) Icons.Outlined.Check else thread.tileIcon,
-                    contentDescription = null,
-                    tint = if (needsYou && !picked) colors.accent else colors.ink,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                // Why it waits on you (or what it is), where, then when: on the right where times line up, or at the end
-                // of the line at a large font, where a column for it would squeeze the place out of sight.
-                val large = LocalDensity.current.fontScale > 1.3f
-                val time = relative(thread.updatedAt, nowMillis, abbreviated = true)
-                val source = buildAnnotatedString {
-                    if (needsYou) {
-                        withStyle(SpanStyle(color = colors.accent, fontWeight = FontWeight.SemiBold)) { append(stringResource(thread.reason.label)) }
-                        append(" · ")
-                        append((thread.repo.fullName + (thread.number?.let { " #$it" } ?: "")).unbreakable())
-                    } else {
-                        append(thread.kindLabel())
-                        thread.number?.let { append(" #$it") }
-                        append(" · ")
-                        append(stringResource(thread.reason.label))
-                    }
-                    if (large) append(" · ${time.replace(' ', '\u00A0')}")
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        source,
-                        style = Soft.type.meta,
-                        color = colors.inkMuted,
-                        maxLines = if (large) 3 else 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (!large) {
-                        Text(time, style = Soft.type.meta, color = colors.inkMuted, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
-                    }
-                }
-                Text(
-                    thread.title,
-                    style = Soft.type.rowTitle.copy(fontWeight = if (thread.unread) FontWeight.SemiBold else FontWeight.Normal),
-                    color = titleColor,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 1.dp),
-                )
-            }
-            // The menu acts on one thread: it steps aside, keeping its room, while several are being picked.
-            if (selecting) Spacer(Modifier.size(48.dp)) else Box {
-                SoftIconButton(onClick = { menuOpen = true }) {
-                    Icon(Icons.Outlined.MoreVert, contentDescription = stringResource(R.string.inbox_more), tint = colors.inkMuted, modifier = Modifier.size(20.dp))
-                }
-                DropdownMenu(
-                    expanded = menuOpen,
-                    onDismissRequest = { menuOpen = false },
-                    shape = RoundedCornerShape(8.dp),
-                    containerColor = colors.raised,
-                ) {
-                    DropdownMenuItem(text = { Text(toggleReadLabel) }, onClick = { menuOpen = false; toggleRead() })
-                    DropdownMenuItem(text = { Text(doneLabel) }, onClick = { menuOpen = false; onMarkDone(thread) })
-                    DropdownMenuItem(text = { Text(unsubscribeLabel) }, onClick = { menuOpen = false; onUnsubscribe(thread) })
-                }
-            }
-        }
-    }
-}
-
-/** Where a thread's text starts: past the 16dp gutter, its 32dp tile and a 12dp gap. Headings and hairlines line up on it. */
-private val ThreadTextStart = 60.dp
-
-/**
- * What a swipe does, shown on a tint under the row, on the side the row leaves: fresh to mark read (or unread
- * again, for a thread already read), warm for done.
- */
-@Composable
-private fun SwipeBackground(direction: SwipeToDismissBoxValue, action: SwipeAction, unread: Boolean = true) {
-    val colors = Soft.colors
-    val alignment = when (direction) {
-        SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
-        SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
-        SwipeToDismissBoxValue.Settled -> return
-    }
-    val (icon, tint) = when (action) {
-        SwipeAction.MARK_READ -> (if (unread) Icons.Outlined.MarkEmailRead else Icons.Outlined.MarkEmailUnread) to colors.fields[2]
-        SwipeAction.DONE -> Icons.Outlined.Done to colors.fields[0]
-        SwipeAction.NONE -> return
-    }
-    Box(
-        Modifier.fillMaxSize().clip(SoftTokens.RowCorner).background(tint).padding(horizontal = 24.dp),
-        contentAlignment = alignment,
-    ) {
-        Icon(icon, contentDescription = null, tint = colors.ink)
-    }
-}
-
-private val InboxFilter.label: Int
-    get() = when (this) {
-        InboxFilter.UNREAD -> R.string.inbox_filter_unread
-        InboxFilter.PARTICIPATING -> R.string.inbox_filter_participating
-        InboxFilter.ALL -> R.string.inbox_filter_all
-        InboxFilter.YOURS -> R.string.inbox_filter_yours
-    }
-
-/** What a thread is about, and where it stands once known: "Merged pull request", "Closed issue". */
-@Composable
-private fun NotificationThread.kindLabel(): String {
-    val isPull = type == SubjectType.PULL_REQUEST
-    return stringResource(
-        when (state) {
-            null -> type.label
-            SubjectState.OPEN -> if (isPull) R.string.inbox_state_open_pull else R.string.inbox_state_open_issue
-            SubjectState.DRAFT -> R.string.inbox_state_draft_pull
-            SubjectState.MERGED -> R.string.inbox_state_merged_pull
-            SubjectState.CLOSED -> if (isPull) R.string.inbox_state_closed_pull else R.string.inbox_state_closed_issue
-            SubjectState.NOT_PLANNED -> R.string.inbox_state_not_planned
-        },
-    )
-}
-
-/** A thread's tile, tinted like the Feed's states: fresh while open, cool once merged, warm once closed. */
-private fun NotificationThread.stateTint(colors: SoftColors): Color = when (state) {
-    SubjectState.OPEN -> colors.fields[2]
-    SubjectState.MERGED -> colors.fields[1]
-    SubjectState.CLOSED -> colors.fields[0]
-    null, SubjectState.DRAFT, SubjectState.NOT_PLANNED -> colors.surface
-}
-
-/** The tile's glyph: the kind, or how it ended. */
-private val NotificationThread.tileIcon: ImageVector
-    get() = when (state) {
-        SubjectState.MERGED -> Icons.AutoMirrored.Outlined.CallMerge
-        SubjectState.CLOSED -> if (type == SubjectType.PULL_REQUEST) Icons.Outlined.Close else Icons.Outlined.CheckCircleOutline
-        SubjectState.NOT_PLANNED -> Icons.Outlined.Block
-        else -> if (reasonIsNeedsYou) reason.icon else type.icon
-    }
-
-private val NotificationThread.reasonIsNeedsYou: Boolean
-    get() = reason in setOf(NotificationReason.MENTION, NotificationReason.TEAM_MENTION, NotificationReason.REVIEW_REQUESTED, NotificationReason.ASSIGN, NotificationReason.SECURITY_ALERT)
-
-/** Why a thread waits on you, as a glyph. */
-private val NotificationReason.icon: ImageVector
-    get() = when (this) {
-        NotificationReason.MENTION, NotificationReason.TEAM_MENTION -> Icons.Outlined.AlternateEmail
-        NotificationReason.REVIEW_REQUESTED -> Icons.Outlined.RateReview
-        NotificationReason.ASSIGN -> Icons.Outlined.AssignmentInd
-        NotificationReason.SECURITY_ALERT -> Icons.Outlined.Shield
-        else -> Icons.Outlined.Notifications
-    }
-
-private val SubjectType.icon: ImageVector
-    get() = when (this) {
-        SubjectType.ISSUE -> Icons.Outlined.Adjust
-        SubjectType.PULL_REQUEST -> Icons.AutoMirrored.Outlined.CallMerge
-        SubjectType.RELEASE -> Icons.Outlined.Sell
-        SubjectType.DISCUSSION -> Icons.Outlined.Forum
-        SubjectType.CHECK_SUITE -> Icons.Outlined.PlayCircleOutline
-        SubjectType.COMMIT, SubjectType.OTHER -> Icons.Outlined.Notifications
-    }
-
-private val SubjectType.label: Int
-    get() = when (this) {
-        SubjectType.ISSUE -> R.string.inbox_kind_issue
-        SubjectType.PULL_REQUEST -> R.string.inbox_kind_pull_request
-        SubjectType.RELEASE -> R.string.inbox_kind_release
-        SubjectType.DISCUSSION -> R.string.inbox_kind_discussion
-        SubjectType.CHECK_SUITE -> R.string.inbox_kind_checks
-        SubjectType.COMMIT -> R.string.inbox_kind_commit
-        SubjectType.OTHER -> R.string.inbox_kind_other
-    }
-
-private val NotificationReason.label: Int
-    get() = when (this) {
-        NotificationReason.MENTION -> R.string.reason_mention
-        NotificationReason.TEAM_MENTION -> R.string.reason_team_mention
-        NotificationReason.REVIEW_REQUESTED -> R.string.reason_review_requested
-        NotificationReason.ASSIGN -> R.string.reason_assign
-        NotificationReason.AUTHOR -> R.string.reason_author
-        NotificationReason.COMMENT -> R.string.reason_comment
-        NotificationReason.STATE_CHANGE -> R.string.reason_state_change
-        NotificationReason.SUBSCRIBED -> R.string.reason_subscribed
-        NotificationReason.MANUAL -> R.string.reason_manual
-        NotificationReason.CI_ACTIVITY -> R.string.reason_ci_activity
-        NotificationReason.SECURITY_ALERT -> R.string.reason_security_alert
-        NotificationReason.OTHER -> R.string.reason_other
-    }

@@ -28,7 +28,7 @@ class DesignSystemTest {
         // reactions under a comment, not text.
         val handSet = Regex("""fontSize\s*=\s*[0-9.]+f?\.sp""")
         val scale = "core/ui/src/main/kotlin/fr/arthurbrugiere/forgeline/core/ui/soft/Soft.kt"
-        val reactionGlyphs = "app/src/main/kotlin/fr/arthurbrugiere/forgeline/issue/IssueScreen.kt"
+        val reactionGlyphs = "app/src/main/kotlin/fr/arthurbrugiere/forgeline/issue/IssueComment.kt"
 
         assertThat(offenders(handSet, except = setOf(scale, reactionGlyphs))).isEmpty()
     }
