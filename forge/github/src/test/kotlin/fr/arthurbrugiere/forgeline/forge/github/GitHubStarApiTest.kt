@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.forge.github
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.RepoViewer
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -29,6 +30,38 @@ class GitHubStarApiTest {
     private val paperclip = RepoId("paperclipai", "paperclip")
     private val hindsight = RepoId("vectorize-io", "hindsight")
     private val gone = RepoId("someone", "deleted")
+
+    private fun MockRequestHandleScope.graphQl(body: String) =
+        respond(body, HttpStatusCode.OK, io.ktor.http.headersOf(HttpHeaders.ContentType, "application/json"))
+
+    // Regression: a repository's page asked GitHub twice, once whether it is starred and again whether it is watched.
+    @Test
+    fun whether_a_repository_is_starred_and_watched_is_one_request() = runTest {
+        val viewer = api { graphQl("""{"data":{"repository":{"viewerHasStarred":true,"viewerSubscription":"SUBSCRIBED"}}}""") }
+            .viewer("tok", paperclip)
+
+        assertThat(viewer).isEqualTo(RepoViewer(starred = true, watching = true))
+        assertThat(requests.single().url.toString()).isEqualTo("https://api.github.com/graphql")
+    }
+
+    @Test
+    fun a_repository_ignored_or_only_followed_for_mentions_is_not_watched() = runTest {
+        for (subscription in listOf("IGNORED", "UNSUBSCRIBED")) {
+            val viewer = api { graphQl("""{"data":{"repository":{"viewerHasStarred":false,"viewerSubscription":"$subscription"}}}""") }
+                .viewer("tok", paperclip)
+
+            assertThat(viewer).isEqualTo(RepoViewer(starred = false, watching = false))
+        }
+    }
+
+    @Test
+    fun what_github_wont_say_stays_unknown() = runTest {
+        val gone = api { graphQl("""{"data":{"repository":null},"errors":[{"type":"NOT_FOUND","message":"gone"}]}""") }.viewer("tok", paperclip)
+        val refused = api { respond("", HttpStatusCode.BadGateway) }.viewer("tok", paperclip)
+
+        assertThat(gone).isEqualTo(RepoViewer(starred = null, watching = null))
+        assertThat(refused).isEqualTo(RepoViewer(starred = null, watching = null))
+    }
 
     @Test
     fun starring_and_unstarring_use_put_and_delete() = runTest {

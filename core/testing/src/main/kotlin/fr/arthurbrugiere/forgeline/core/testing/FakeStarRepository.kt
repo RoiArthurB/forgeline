@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.core.testing
 import fr.arthurbrugiere.forgeline.core.data.star.StarRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.RepoViewer
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import kotlinx.coroutines.CompletableDeferred
 
@@ -44,6 +45,14 @@ class FakeStarRepository : StarRepository {
         setFailure?.let { return ForgeResult.Failure(it) }
         if (watching) watched += repo else watched -= repo
         return ForgeResult.Success(Unit)
+    }
+
+    /** How many times a repository's page asked whether it is starred and watched. */
+    val viewerLookups = mutableListOf<RepoId>()
+
+    override suspend fun viewer(repo: RepoId): RepoViewer {
+        viewerLookups += repo
+        return RepoViewer(starred = if (signedIn) repo in starred else null, watching = isWatching(repo))
     }
 
     override suspend fun fork(repo: RepoId): ForgeResult<RepoId> {

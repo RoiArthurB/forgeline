@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.data.star.StarRepository
 import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.RepoViewer
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
@@ -165,8 +166,9 @@ class RepoViewModel @AssistedInject constructor(
                         (repos.languages(id) as? ForgeResult.Success)?.value?.let { languages -> local.update { it.copy(languages = languages) } }
                     }
                     viewModelScope.launch {
-                        val watching = if (account == null) null else stars.isWatching(id)
-                        local.update { it.copy(watching = watching) }
+                        // Starred and watched together: one request where the forge answers both (GitHub).
+                        val viewer = if (account == null) RepoViewer(starred = null, watching = null) else stars.viewer(id)
+                        local.update { it.copy(starred = viewer.starred, watching = viewer.watching) }
                     }
                     viewModelScope.launch {
                         // Asked once the details are in, which tell it: asked alongside, it was a second request for them.
@@ -174,8 +176,6 @@ class RepoViewModel @AssistedInject constructor(
                         val administers = account != null && conversations.access(id) == RepoAccess.ADMIN
                         local.update { it.copy(canAdminister = administers) }
                     }
-                    val starred = if (account == null) null else stars.starredStatus(listOf(id))[id]
-                    local.update { it.copy(starred = starred) }
                 }
         }
 

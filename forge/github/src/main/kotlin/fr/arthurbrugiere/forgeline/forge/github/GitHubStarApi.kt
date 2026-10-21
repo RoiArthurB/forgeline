@@ -2,6 +2,10 @@ package fr.arthurbrugiere.forgeline.forge.github
 
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.JsonObject
+import fr.arthurbrugiere.forgeline.core.forge.RepoViewer
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.buildJsonObject
 import fr.arthurbrugiere.forgeline.core.forge.map
@@ -42,6 +46,23 @@ class GitHubStarApi(
         response.toResult { }
     }
 
+    /**
+     * One GraphQL request where REST takes two (`/user/starred/...` and `/subscription`). Watching is SUBSCRIBED: an
+     * IGNORED repository, or one followed only for what involves the account (UNSUBSCRIBED), isn't watched.
+     */
+    override suspend fun viewer(token: String, repo: RepoId): RepoViewer {
+        val variables = buildJsonObject {
+            put("owner", repo.owner)
+            put("name", repo.name)
+        }
+        val answer = forgeCall { httpClient.gitHubGraphQl(apiBaseUrl, token, VIEWER_QUERY, variables) }
+        val node = ((answer as? ForgeResult.Success)?.value?.get("repository") as? JsonObject) ?: return RepoViewer(starred = null, watching = null)
+        return RepoViewer(
+            starred = node["viewerHasStarred"]?.jsonPrimitive?.booleanOrNull,
+            watching = node["viewerSubscription"]?.jsonPrimitive?.contentOrNull?.let { it == "SUBSCRIBED" },
+        )
+    }
+
     override suspend fun fork(token: String, repo: RepoId): ForgeResult<RepoId> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, "forks", method = HttpMethod.Post)
             .toResult { body<ForkJson>().let { RepoId(it.owner.login, it.name, repo.forge) } }
@@ -68,6 +89,8 @@ class GitHubStarApi(
         }
     }
 }
+
+private const val VIEWER_QUERY = "query Viewer(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { viewerHasStarred viewerSubscription } }"
 
 @Serializable
 private data class SubscriptionJson(val subscribed: Boolean = false)

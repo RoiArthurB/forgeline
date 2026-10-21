@@ -4,6 +4,7 @@ import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.RepoViewer
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -25,6 +26,20 @@ class DefaultStarRepositoryTest {
         assertThat(repository.starredStatus(listOf(repo))).isEmpty()
         assertThat(repository.setStarred(repo, true)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
         assertThat(api.tokensSeen).isEmpty()
+    }
+
+    @Test
+    fun a_repositorys_page_hears_whether_it_is_starred_and_watched() = runTest {
+        assertThat(repository.viewer(repo)).isEqualTo(RepoViewer(starred = null, watching = null))
+        assertThat(api.tokensSeen).isEmpty()
+
+        signIn()
+        api.starred += repo
+        assertThat(repository.viewer(repo)).isEqualTo(RepoViewer(starred = true, watching = false))
+
+        // Where the forge can't tell, it stays unknown rather than a no.
+        api.failure = ForgeError.Network
+        assertThat(repository.viewer(repo)).isEqualTo(RepoViewer(starred = null, watching = null))
     }
 
     @Test

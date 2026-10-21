@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.RepoViewer
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
@@ -20,6 +21,9 @@ interface StarRepository {
     suspend fun isWatching(repo: RepoId): Boolean?
 
     suspend fun setWatching(repo: RepoId, watching: Boolean): ForgeResult<Unit>
+
+    /** [starredStatus] and [isWatching] for one repository, asked at once: what its page shows. Unknown signed out. */
+    suspend fun viewer(repo: RepoId): RepoViewer
 
     /** Copies [repo] to the account's own space and says where the copy is. */
     suspend fun fork(repo: RepoId): ForgeResult<RepoId>
@@ -58,9 +62,13 @@ class DefaultStarRepository @Inject constructor(
         return clients.stars(repo.forge).setWatching(token, repo, watching)
     }
 
+    override suspend fun viewer(repo: RepoId): RepoViewer {
+        val token = accounts.tokenOn(repo.forge) ?: return RepoViewer(starred = null, watching = null)
+        return clients.stars(repo.forge).viewer(token, repo)
+    }
+
     override suspend fun fork(repo: RepoId): ForgeResult<RepoId> {
         val token = accounts.tokenOn(repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
         return clients.stars(repo.forge).fork(token, repo)
     }
-
 }

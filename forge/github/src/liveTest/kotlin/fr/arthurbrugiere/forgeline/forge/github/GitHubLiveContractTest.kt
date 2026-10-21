@@ -120,6 +120,17 @@ class GitHubLiveContractTest {
     }
 
     @Test
+    fun whether_a_repository_is_starred_and_watched_is_still_one_query() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+
+        val viewer = GitHubStarApi(client).viewer(pat, RepoId("torvalds", "linux"))
+
+        // Both known: a field renamed, or the enum changed, would leave one unknown.
+        assertThat(viewer.starred).isNotNull()
+        assertThat(viewer.watching).isNotNull()
+    }
+
+    @Test
     fun the_received_events_feed_still_parses() = runBlocking {
         // Anonymous: someone else's public feed, the same shape as the signed-in one.
         val result = GitHubFeedApi(client).receivedEvents(pat.ifBlank { null }, "torvalds")

@@ -91,6 +91,23 @@ class RepoViewModelTest {
         assertThat(issueApi.calls).contains("access:octo/repo")
     }
 
+    // Regression: whether the repository is starred and whether it is watched were two requests, on GitHub too.
+    @Test
+    fun whether_it_is_starred_and_watched_is_asked_at_once() = test {
+        cache()
+        accounts.signIn(fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitHub, fr.arthurbrugiere.forgeline.core.model.ForgeUser("me", null, null), "tok")
+        stars.starred += requested
+        stars.watched += requested
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.starred).isTrue()
+        assertThat(viewModel.state.value.watching).isTrue()
+        assertThat(stars.viewerLookups).containsExactly(requested)
+        assertThat(stars.lookups).isEmpty()
+    }
+
     // Regression: the settings gear asked the forge for the repository again while its refresh was already asking for it.
     @Test
     fun what_the_account_may_do_is_asked_once_the_details_are_in() = test {
