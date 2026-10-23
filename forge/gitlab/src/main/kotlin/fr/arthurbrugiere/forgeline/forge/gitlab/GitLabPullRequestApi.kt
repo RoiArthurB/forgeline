@@ -73,7 +73,8 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
 
     override suspend fun mergeInfo(token: String, ref: IssueRef): ForgeResult<MergeInfo> = forgeCall {
         coroutineScope {
-            val mr = async { mergeRequest(token, ref) }
+            // How far the target branch moved on is only counted when asked.
+            val mr = async { mergeRequest(token, ref, query = mapOf("include_diverged_commits_count" to "true")) }
             val settings = async { project(token, ref.repo) }
             val mrResponse = mr.await()
             if (!mrResponse.status.isSuccess()) return@coroutineScope mrResponse.failure()
@@ -105,6 +106,7 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
                     // Something to wait for: a pipeline still on its way.
                     canMergeWhenChecksPass = canMerge && details.headPipeline?.status in PIPELINE_UNDER_WAY,
                     mergesWhenChecksPass = details.mergeWhenPipelineSucceeds,
+                    behind = (details.divergedCommitsCount ?: 0) > 0 || details.detailedMergeStatus == "need_rebase",
                 ),
             )
         }
@@ -119,6 +121,11 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
                 if (whenChecksPass) put("merge_when_pipeline_succeeds", true)
             },
         ).toResult { }
+    }
+
+    /** GitLab's API only rebases a merge request onto its target, later: it answers 202 at once. */
+    override suspend fun updateBranch(token: String, ref: IssueRef): ForgeResult<Unit> = forgeCall {
+        mergeRequest(token, ref, "rebase", method = HttpMethod.Put).toResult { }
     }
 
     override suspend fun cancelMergeWhenChecksPass(token: String, ref: IssueRef): ForgeResult<Unit> = forgeCall {
@@ -304,6 +311,7 @@ private data class MrJson(
     @SerialName("target_project_id") val targetProjectId: Long? = null,
     @SerialName("force_remove_source_branch") val forceRemoveSourceBranch: Boolean? = null,
     @SerialName("merge_when_pipeline_succeeds") val mergeWhenPipelineSucceeds: Boolean = false,
+    @SerialName("diverged_commits_count") val divergedCommitsCount: Int? = null,
 )
 
 @Serializable

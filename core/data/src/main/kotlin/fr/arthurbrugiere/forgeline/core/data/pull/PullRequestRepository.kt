@@ -45,6 +45,8 @@ interface PullRequestRepository {
 
     suspend fun cancelMergeWhenChecksPass(ref: IssueRef): ForgeResult<Unit>
 
+    suspend fun updateBranch(ref: IssueRef): ForgeResult<Unit>
+
     /** The verdicts a review can give on [forge]. */
     fun verdicts(forge: ForgeInstance): Set<ReviewVerdict>
 
@@ -89,6 +91,8 @@ class DefaultPullRequestRepository @Inject constructor(
         signedIn(ref.repo.forge) { merge(it, ref, method, deleteBranch, whenChecksPass) }
 
     override suspend fun cancelMergeWhenChecksPass(ref: IssueRef) = signedIn(ref.repo.forge) { cancelMergeWhenChecksPass(it, ref) }
+
+    override suspend fun updateBranch(ref: IssueRef) = signedIn(ref.repo.forge) { updateBranch(it, ref) }
 
     override fun verdicts(forge: ForgeInstance) = clients.pulls(forge).verdicts
 

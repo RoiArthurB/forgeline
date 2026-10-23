@@ -126,6 +126,39 @@ class PullRequestViewModelTest {
     }
 
     @Test
+    fun a_branch_brought_up_to_date_is_told_and_read_again() = test {
+        api.mergeInfo = api.mergeInfo.copy(behind = true)
+        signIn()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.updateBranch()
+        assertThat(viewModel.state.value.isUpdating).isTrue()
+        viewModel.updateBranch()
+        advanceUntilIdle()
+
+        assertThat(api.calls.filter { it.startsWith("updateBranch:") }).containsExactly("updateBranch:octo/tools#88")
+        assertThat(viewModel.state.value.done?.first).isEqualTo(PullDone.UPDATED)
+        assertThat(viewModel.state.value.mergeInfo?.behind).isFalse()
+    }
+
+    @Test
+    fun an_update_the_forge_refuses_is_said_once_apart_from_merging() = test {
+        signIn()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        api.writeFailure = ForgeError.Http(422, "merge conflict between base and head")
+
+        viewModel.updateBranch()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.updateError).isEqualTo(ForgeError.Http(422, "merge conflict between base and head"))
+        assertThat(viewModel.state.value.mergeError).isNull()
+        viewModel.updateErrorShown()
+        assertThat(viewModel.state.value.updateError).isNull()
+    }
+
+    @Test
     fun a_merge_the_forge_refuses_says_why_and_can_be_tried_again() = test {
         signIn()
         val viewModel = viewModel()

@@ -92,6 +92,10 @@ class FakePullRequestApi(
             if (whenChecksPass) mergeInfo = mergeInfo.copy(mergesWhenChecksPass = true)
         }
 
+    override suspend fun updateBranch(token: String, ref: IssueRef) = write("updateBranch:${ref.name()}") {
+        mergeInfo = mergeInfo.copy(behind = false)
+    }
+
     override suspend fun cancelMergeWhenChecksPass(token: String, ref: IssueRef) = write("cancelMergeWhenChecksPass:${ref.name()}") {
         mergeInfo = mergeInfo.copy(mergesWhenChecksPass = false)
     }

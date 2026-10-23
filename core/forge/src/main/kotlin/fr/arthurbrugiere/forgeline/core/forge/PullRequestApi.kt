@@ -42,6 +42,12 @@ interface PullRequestApi {
      */
     suspend fun merge(token: String, ref: IssueRef, method: MergeMethod, deleteBranch: Boolean = false, whenChecksPass: Boolean = false): ForgeResult<Unit>
 
+    /**
+     * Brings [ref]'s branch up to date with the one it goes into ([MergeInfo.behind]): the forge merges that in, or
+     * rebases onto it where that is its only way (GitLab). The forge may still be at it when this answers.
+     */
+    suspend fun updateBranch(token: String, ref: IssueRef): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
     /** Takes back [merge]'s "once its checks pass": the pull request stays open, unmerged. */
     suspend fun cancelMergeWhenChecksPass(token: String, ref: IssueRef): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
 

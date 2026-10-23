@@ -114,6 +114,7 @@ class GitHubPullRequestApi(
                     deleteBranch = false.takeIf { ownBranch && settings.deleteBranchOnMerge != true },
                     canMergeWhenChecksPass = canMerge && settings.allowAutoMerge == true,
                     mergesWhenChecksPass = details.autoMerge != null,
+                    behind = details.mergeableState == "behind",
                 ),
             )
         }
@@ -145,6 +146,11 @@ class GitHubPullRequestApi(
             val branch = pull.body<PrPullJson>().head.ref ?: return@forgeCall ForgeResult.Success(Unit)
             repo(token, ref.repo, "git", "refs", "heads", *branch.split('/').toTypedArray(), method = HttpMethod.Delete).toResult { }
         }
+    }
+
+    /** GitHub merges the branch it goes into in, later: it answers 202 at once. */
+    override suspend fun updateBranch(token: String, ref: IssueRef): ForgeResult<Unit> = forgeCall {
+        pull(token, ref, "update-branch", method = HttpMethod.Put, body = buildJsonObject { }).toResult { }
     }
 
     override suspend fun cancelMergeWhenChecksPass(token: String, ref: IssueRef): ForgeResult<Unit> = onPullNode(token, ref) { id ->
@@ -315,6 +321,8 @@ private data class PrPullJson(
     val base: PrHeadJson? = null,
     val mergeable: Boolean? = null,
     @SerialName("node_id") val nodeId: String? = null,
+    // "behind" when the branch it goes into moved on: one of GitHub's words for what stands in a merge's way.
+    @SerialName("mergeable_state") val mergeableState: String? = null,
     // Set while GitHub is to merge it once its checks pass.
     @SerialName("auto_merge") val autoMerge: JsonObject? = null,
 )

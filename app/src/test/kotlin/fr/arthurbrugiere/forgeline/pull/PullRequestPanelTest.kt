@@ -69,6 +69,7 @@ class PullRequestPanelTest {
         onOpenUrl = { events += "url:$it" },
         onMerge = { events += "merge:${it.method}${if (it.deleteBranch) ":delete-branch" else ""}${if (it.whenChecksPass) ":when-checks-pass" else ""}" },
         onCancelMergeWhenChecksPass = { events += "unschedule" },
+        onUpdateBranch = { events += "update" },
         onReview = { verdict, body -> events += "review:$verdict:$body" },
     )
 
@@ -331,6 +332,31 @@ class PullRequestPanelTest {
         composeRule.onNodeWithText("Don't merge automatically").performClick()
 
         assertThat(events).containsExactly("unschedule")
+    }
+
+    @Test
+    fun a_branch_behind_the_one_it_goes_into_is_offered_to_be_brought_up_to_date() {
+        setContent(signedIn.copy(mergeInfo = mergeable.copy(behind = true)))
+
+        composeRule.onNodeWithText("Update branch").performClick()
+
+        assertThat(events).containsExactly("update")
+        // Merging stays offered: being behind doesn't block every forge.
+        composeRule.onNodeWithText("Merge").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_branch_being_brought_up_to_date_can_t_be_pressed_twice() {
+        setContent(signedIn.copy(mergeInfo = mergeable.copy(behind = true), isUpdating = true))
+
+        composeRule.onNodeWithText("Updating…").assertIsNotEnabled()
+    }
+
+    @Test
+    fun an_up_to_date_branch_or_a_reader_who_can_t_merge_is_offered_no_update() {
+        setContent(signedIn.copy(mergeInfo = mergeable.copy(behind = true, canMerge = false)))
+
+        composeRule.onNodeWithText("Update branch").assertDoesNotExist()
     }
 
     @Test

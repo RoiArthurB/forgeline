@@ -194,7 +194,8 @@ enum class MergeMethod { MERGE, SQUASH, REBASE }
  * [deleteBranch] is whether the branch holding the change goes with the merge by the repository's default, and null
  * when that isn't a choice: the branch is in another repository, or the forge deletes it whatever is said.
  * [canMergeWhenChecksPass] is whether the forge can be told to merge it once its checks pass rather than now, and
- * [mergesWhenChecksPass] whether it already was.
+ * [mergesWhenChecksPass] whether it already was. [behind] is whether the branch it goes into moved on since: its
+ * branch can be brought up to date.
  */
 data class MergeInfo(
     val mergeable: Boolean?,
@@ -203,6 +204,7 @@ data class MergeInfo(
     val deleteBranch: Boolean? = null,
     val canMergeWhenChecksPass: Boolean = false,
     val mergesWhenChecksPass: Boolean = false,
+    val behind: Boolean = false,
 )
 
 /** What a review says of a pull request as a whole. */

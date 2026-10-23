@@ -86,12 +86,22 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
             val canMerge = repo.permissions?.push == true
             // A branch of the repository itself can go with the merge; a fork's isn't the repository's to delete.
             val ownBranch = details.head.repoId != null && details.head.repoId == details.base?.repoId
+            // Forgejo doesn't say whether the target moved on: what it has that the change's branch lacks is compared,
+            // for a branch of the repository itself. Unknown counts as up to date.
+            val behind = if (ownBranch && canMerge && details.head.ref != null && details.base?.ref != null) {
+                // The comparison is the rest of the path, slashes in branch names and all.
+                val compared = repo(token, ref.repo, "compare", *"${details.head.ref}...${details.base.ref}".split('/').toTypedArray())
+                compared.status == HttpStatusCode.OK && compared.body<PrCompareJson>().totalCommits > 0
+            } else {
+                false
+            }
             ForgeResult.Success(
                 MergeInfo(
                     details.mergeable, canMerge, methods.sortedByDescending { it == preferred },
                     deleteBranch = repo.defaultDeleteBranchAfterMerge.takeIf { ownBranch },
                     // Forgejo schedules a merge for when the checks succeed, and doesn't say afterwards that it did.
                     canMergeWhenChecksPass = canMerge,
+                    behind = behind,
                 ),
             )
         }
@@ -106,6 +116,11 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
                 if (whenChecksPass) put("merge_when_checks_succeed", true)
             },
         ).toResult { }
+    }
+
+    /** Forgejo merges the branch it goes into in, the way its own button does. */
+    override suspend fun updateBranch(token: String, ref: IssueRef): ForgeResult<Unit> = forgeCall {
+        repo(token, ref.repo, "pulls", ref.number.toString(), "update", method = HttpMethod.Post, query = mapOf("style" to "merge")).toResult { }
     }
 
     override suspend fun cancelMergeWhenChecksPass(token: String, ref: IssueRef): ForgeResult<Unit> = forgeCall {
@@ -221,7 +236,10 @@ private data class PrCommitJson(val sha: String, val commit: PrGitCommitJson? = 
 }
 
 @Serializable
-private data class PrHeadJson(val sha: String = "", @SerialName("repo_id") val repoId: Long? = null)
+private data class PrHeadJson(val sha: String = "", val ref: String? = null, @SerialName("repo_id") val repoId: Long? = null)
+
+@Serializable
+private data class PrCompareJson(@SerialName("total_commits") val totalCommits: Int = 0)
 
 @Serializable
 private data class PrPullJson(val head: PrHeadJson, val base: PrHeadJson? = null, val mergeable: Boolean? = null)

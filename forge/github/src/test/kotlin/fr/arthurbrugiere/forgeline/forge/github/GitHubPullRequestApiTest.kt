@@ -280,6 +280,27 @@ class GitHubPullRequestApiTest {
     }
 
     @Test
+    fun a_branch_behind_the_one_it_goes_into_is_brought_up_to_date_by_github() = runTest {
+        val behind = ownBranch.replace(""""mergeable":true""", """"mergeable":true,"mergeable_state":"behind"""")
+        val info = api { request -> if (request.path.endsWith("/pulls/88")) json(behind) else json("""{"permissions":{"push":true}}""") }.mergeInfo("tok", pull).value()
+        assertThat(info.behind).isTrue()
+        requests.clear()
+
+        val result = api { json("""{"message":"Updating pull request branch.","url":"https://github.com/octo/tools/pull/88"}""", HttpStatusCode.Accepted) }.updateBranch("tok", pull)
+
+        assertThat(result).isEqualTo(ForgeResult.Success(Unit))
+        assertThat("${requests.single().method.value} ${requests.single().path}").isEqualTo("PUT /repos/octo/tools/pulls/88/update-branch")
+    }
+
+    @Test
+    fun a_branch_up_to_date_is_not_behind() = runTest {
+        val clean = ownBranch.replace(""""mergeable":true""", """"mergeable":true,"mergeable_state":"clean"""")
+        val info = api { request -> if (request.path.endsWith("/pulls/88")) json(clean) else json("""{"permissions":{"push":true}}""") }.mergeInfo("tok", pull).value()
+
+        assertThat(info.behind).isFalse()
+    }
+
+    @Test
     fun a_merge_github_refuses_says_why() = runTest {
         val result = api { json("""{"message":"Pull Request is not mergeable"}""", HttpStatusCode.MethodNotAllowed) }.merge("tok", pull, MergeMethod.MERGE)
 

@@ -161,6 +161,44 @@ class ForgejoPullRequestApiTest {
     }
 
     @Test
+    fun what_the_target_has_that_the_branch_lacks_is_compared_and_the_branch_brought_up_to_date() = runTest {
+        suspend fun behind(missing: Int) = with(codeberg) {
+            api { path ->
+                when {
+                    path.endsWith("/pulls/14792") -> json("""{"head":{"sha":"cb","ref":"fix/retry","repo_id":1},"base":{"sha":"aa","ref":"main","repo_id":1},"mergeable":true}""")
+                    "/compare/" in path -> json("""{"total_commits":$missing,"commits":[]}""")
+                    else -> json("""{"permissions":{"push":true}}""")
+                }
+            }
+        }.mergeInfo("tok", pull).value().behind
+
+        assertThat(behind(2)).isTrue()
+        assertThat(behind(0)).isFalse()
+        // The branch's name keeps its slash: the comparison is the rest of the path.
+        assertThat(codeberg.requests.first { "/compare/" in it.url.encodedPath }.url.encodedPath).isEqualTo("$base/compare/fix/retry...main")
+        codeberg.requests.clear()
+
+        with(codeberg) { api { status(HttpStatusCode.OK) } }.updateBranch("tok", pull)
+
+        val update = codeberg.requests.single()
+        assertThat("${update.method.value} ${update.url.encodedPath}").isEqualTo("POST $base/pulls/14792/update")
+        assertThat(update.url.parameters["style"]).isEqualTo("merge")
+    }
+
+    @Test
+    fun a_fork_s_branch_is_not_compared() = runTest {
+        val info = with(codeberg) {
+            api { path ->
+                if (path.endsWith("/pulls/14792")) json("""{"head":{"sha":"cb","ref":"fix","repo_id":2},"base":{"sha":"aa","ref":"main","repo_id":1},"mergeable":true}""")
+                else json("""{"permissions":{"push":true}}""")
+            }
+        }.mergeInfo("tok", pull).value()
+
+        assertThat(info.behind).isFalse()
+        assertThat(codeberg.requests.none { "/compare/" in it.url.encodedPath }).isTrue()
+    }
+
+    @Test
     fun a_merge_can_delete_its_branch_wait_for_the_checks_and_be_called_off() = runTest {
         val api = with(codeberg) { api { status(HttpStatusCode.OK) } }
 

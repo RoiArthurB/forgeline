@@ -83,6 +83,9 @@ class PullActions(
     val onMergeErrorShown: () -> Unit = {},
     /** Takes back "merge once its checks pass". */
     val onCancelMergeWhenChecksPass: () -> Unit = {},
+    /** Brings the pull request's branch up to date with the one it goes into. */
+    val onUpdateBranch: () -> Unit = {},
+    val onUpdateErrorShown: () -> Unit = {},
     val onReview: (ReviewVerdict, String) -> Unit = { _, _ -> },
     val onReviewErrorShown: () -> Unit = {},
 )
@@ -134,6 +137,10 @@ fun PullRequestDecisions(issue: IssueDetails, state: PullRequestUiState, actions
         }
     }
     SoftTonalButton(stringResource(R.string.review_start), onClick = { reviewing = true })
+    // The branch it goes into moved on: brought up to date before merging, by whoever may merge.
+    if (mergeInfo?.behind == true && mergeInfo.canMerge && !mergeInfo.mergesWhenChecksPass) {
+        SoftTonalButton(stringResource(if (state.isUpdating) R.string.pull_updating_branch else R.string.pull_update_branch), onClick = actions.onUpdateBranch, enabled = !state.isUpdating)
+    }
     if (pr.isDraft && onReady != null) {
         SoftButton(stringResource(R.string.pull_ready_for_review), onClick = onReady, enabled = !isMarkingReady)
     } else if (mergeInfo?.canMerge == true) {

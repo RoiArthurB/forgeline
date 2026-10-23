@@ -166,6 +166,30 @@ class GitLabPullRequestApiTest {
     }
 
     @Test
+    fun a_merge_request_behind_its_target_is_rebased_onto_it() = runTest {
+        val behind = mrJson.replace(""""user":{"can_merge":true}}""", """"user":{"can_merge":true},"diverged_commits_count":3}""")
+        val info = api { path -> if (path.endsWith("/7606")) json(behind) else json("{}") }.mergeInfo("tok", mr).value()
+        assertThat(info.behind).isTrue()
+        // The count is only given when asked.
+        assertThat(requests.first { it.url.encodedPath.endsWith("/7606") }.url.parameters["include_diverged_commits_count"]).isEqualTo("true")
+        requests.clear()
+
+        api { json("""{"rebase_in_progress":true}""", HttpStatusCode.Accepted) }.updateBranch("tok", mr)
+
+        assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly("PUT $base/merge_requests/7606/rebase")
+    }
+
+    @Test
+    fun a_merge_request_gitlab_says_needs_a_rebase_is_behind_and_one_up_to_date_isn_t() = runTest {
+        suspend fun behind(extra: String) = api { path ->
+            if (path.endsWith("/7606")) json("""{"detailed_merge_status":"$extra","user":{"can_merge":true},"diverged_commits_count":0}""") else json("{}")
+        }.mergeInfo("tok", mr).value().behind
+
+        assertThat(behind("need_rebase")).isTrue()
+        assertThat(behind("mergeable")).isFalse()
+    }
+
+    @Test
     fun a_merge_can_delete_its_branch_wait_for_the_pipeline_and_be_called_off() = runTest {
         val api = api { json("{}") }
 

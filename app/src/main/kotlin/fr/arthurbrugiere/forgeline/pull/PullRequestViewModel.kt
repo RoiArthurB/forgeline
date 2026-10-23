@@ -33,6 +33,9 @@ enum class PullDone {
 
     /** No longer set to merge once its checks pass. */
     UNSCHEDULED,
+
+    /** Its branch is being brought up to date with the one it goes into. */
+    UPDATED,
 }
 
 /** How a merge is asked for: the way, whether its branch goes with it, and whether it waits for the checks. */
@@ -47,6 +50,9 @@ data class PullRequestUiState(
     val verdicts: Set<ReviewVerdict> = emptySet(),
     val isMerging: Boolean = false,
     val mergeError: ForgeError? = null,
+    /** Its branch is being brought up to date; and why that was refused, said once. */
+    val isUpdating: Boolean = false,
+    val updateError: ForgeError? = null,
     val isSending: Boolean = false,
     val reviewError: ForgeError? = null,
     /** Counts what was done, so that doing the same thing twice is told twice. */
@@ -98,6 +104,22 @@ class PullRequestViewModel @AssistedInject constructor(
     }
 
     fun cancelMergeWhenChecksPass() = mergeWork(PullDone.UNSCHEDULED) { repository.cancelMergeWhenChecksPass(ref) }
+
+    fun updateBranch() {
+        if (_state.value.isUpdating) return
+        _state.update { it.copy(isUpdating = true, updateError = null) }
+        viewModelScope.launch {
+            when (val result = repository.updateBranch(ref)) {
+                is ForgeResult.Failure -> _state.update { it.copy(isUpdating = false, updateError = result.error) }
+                is ForgeResult.Success -> {
+                    _state.update { it.copy(isUpdating = false, done = PullDone.UPDATED to ++serial) }
+                    refresh()
+                }
+            }
+        }
+    }
+
+    fun updateErrorShown() = _state.update { it.copy(updateError = null) }
 
     /** One merge, or change to one, at a time; once the forge took it, it is said ([done]) and read again. */
     private fun mergeWork(done: PullDone, ask: suspend () -> ForgeResult<Unit>) {

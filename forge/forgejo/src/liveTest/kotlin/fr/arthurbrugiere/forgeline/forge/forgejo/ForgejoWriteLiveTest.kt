@@ -162,8 +162,30 @@ class ForgejoWriteLiveTest {
             issues.setReviewers(token, ref, emptyList()).value("no reviewers")
             assertWithMessage("no reviewers").that(ready.pullRequest?.reviewers).isEmpty()
 
-            // Merged with its branch: the branch is gone after.
+            // main moves on: the pull request falls behind, and main is merged into its branch.
+            val onMain = http.post("$api/repos/$owner/$name/contents/OTHER.md") {
+                header("Authorization", "token $token")
+                contentType(ContentType.Application.Json)
+                setBody(
+                    buildJsonObject {
+                        put("content", java.util.Base64.getEncoder().encodeToString("Notes on main.\n".toByteArray()))
+                        put("message", "Add notes on main")
+                        put("branch", "main")
+                    },
+                )
+            }
+            check(onMain.status.isSuccess()) { "main: ${onMain.status} ${onMain.bodyAsText().take(300)}" }
             val pulls = ForgejoPullRequestApi(http, forge)
+            val behind = pulls.mergeInfo(token, ref).value("behind info")
+            System.err.println("CODEBERG behind: ${behind.behind}")
+            assertWithMessage("behind main").that(behind.behind).isTrue()
+            pulls.updateBranch(token, ref).value("update")
+            var caughtUp = pulls.mergeInfo(token, ref).value("updated info")
+            repeat(10) { if (caughtUp.behind) { kotlinx.coroutines.delay(1_000); caughtUp = pulls.mergeInfo(token, ref).value("updated info") } }
+            System.err.println("CODEBERG after update, behind: ${caughtUp.behind}")
+            assertWithMessage("up to date").that(caughtUp.behind).isFalse()
+
+            // Merged with its branch: the branch is gone after.
             var info = pulls.mergeInfo(token, ref).value("merge info")
             repeat(10) { if (info.mergeable != true) { kotlinx.coroutines.delay(1_000); info = pulls.mergeInfo(token, ref).value("merge info") } }
             System.err.println("CODEBERG merge info: $info")

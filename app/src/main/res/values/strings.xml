@@ -985,6 +985,10 @@
     <string name="merge_checking">The forge is still working out whether this can be merged. You can try.</string>
     <string name="merge_failed">The forge refused the merge: %1$s</string>
     <string name="merge_confirm">Confirm merge</string>
+    <string name="pull_update_branch">Update branch</string>
+    <string name="pull_updating_branch">Updating…</string>
+    <string name="pull_branch_updating">Bringing the branch up to date</string>
+    <string name="pull_branch_update_failed">The branch couldn\'t be brought up to date. It may conflict, or not be yours to change.</string>
     <string name="merge_when_checks_pass">Merge when checks pass</string>
     <string name="merge_now">Merge now</string>
     <string name="merge_scheduled">It will be merged once its checks pass.</string>

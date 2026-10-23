@@ -126,6 +126,24 @@ class GitLabWriteLiveTest {
             val approval = pulls.review(token, ref, ReviewVerdict.APPROVE, "", emptyList())
             System.err.println("GITLAB approve own merge request: ${if (approval is ForgeResult.Success) "accepted" else approval}")
 
+            // main moves on: the merge request falls behind, and is rebased onto it.
+            send(
+                "projects/$id/repository/commits",
+                buildJsonObject {
+                    put("branch", "main")
+                    put("commit_message", "Add notes on main")
+                    put("actions", buildJsonArray { add(buildJsonObject { put("action", "create"); put("file_path", "NOTES.md"); put("content", "Notes.\n") }) })
+                },
+            )
+            var behind = pulls.mergeInfo(token, ref).value("behind info")
+            repeat(15) { if (!behind.behind) { delay(1_000); behind = pulls.mergeInfo(token, ref).value("behind info") } }
+            System.err.println("GITLAB behind: ${behind.behind}")
+            assertWithMessage("behind main").that(behind.behind).isTrue()
+            pulls.updateBranch(token, ref).value("rebase")
+            repeat(20) { if (behind.behind) { delay(1_000); behind = pulls.mergeInfo(token, ref).value("rebased info") } }
+            System.err.println("GITLAB after rebase, behind: ${behind.behind}")
+            assertWithMessage("up to date").that(behind.behind).isFalse()
+
             var info = pulls.mergeInfo(token, ref).value("merge info")
             repeat(15) { if (info.mergeable != true) { delay(1_000); info = pulls.mergeInfo(token, ref).value("merge info") } }
             System.err.println("GITLAB merge info: $info")

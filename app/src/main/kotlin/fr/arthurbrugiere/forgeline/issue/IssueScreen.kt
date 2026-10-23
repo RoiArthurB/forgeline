@@ -231,6 +231,8 @@ fun IssueRoute(
             onMerge = { pull?.merge(it) },
             onMergeErrorShown = { pull?.mergeErrorShown() },
             onCancelMergeWhenChecksPass = { pull?.cancelMergeWhenChecksPass() },
+            onUpdateBranch = { pull?.updateBranch() },
+            onUpdateErrorShown = { pull?.updateErrorShown() },
             onReview = { verdict, body -> pull?.submitReview(verdict, body) },
             onReviewErrorShown = { pull?.reviewErrorShown() },
         )
@@ -352,8 +354,18 @@ fun IssueScreen(
     SayOnce(attachFailed, snackbar, comments.onAttachErrorShown)
     SayOnce(stringResource(R.string.issue_reaction_failed).takeIf { state.reactionError != null }, snackbar, comments.onReactionErrorShown)
     // A merge set for later leaves nothing else on screen to say it went through: not every forge says so afterwards.
+    // Nor does bringing its branch up to date: the forge may still be at it.
     val scheduled = stringResource(R.string.merge_scheduled)
-    LaunchedEffect(pull?.done) { if (pull?.done?.first == PullDone.SCHEDULED) snackbar.showSnackbar(scheduled) }
+    val updating = stringResource(R.string.pull_branch_updating)
+    LaunchedEffect(pull?.done) {
+        when (pull?.done?.first) {
+            PullDone.SCHEDULED -> snackbar.showSnackbar(scheduled)
+            PullDone.UPDATED -> snackbar.showSnackbar(updating)
+            else -> Unit
+        }
+    }
+    // A refused update has no sheet to say it in.
+    SayOnce(stringResource(R.string.pull_branch_update_failed).takeIf { pull?.updateError != null }, snackbar, pullActions.onUpdateErrorShown)
     // The comment the reader asked to delete, until they have said yes or no.
     var deleting by rememberSaveable { mutableStateOf<Long?>(null) }
     deleting?.let { id ->
