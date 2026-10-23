@@ -135,6 +135,10 @@ interface IssueRepository {
 
     suspend fun setAssignees(ref: IssueRef, logins: List<String>): ForgeResult<Unit>
 
+    suspend fun setReviewers(ref: IssueRef, logins: List<String>): ForgeResult<Unit>
+
+    suspend fun setDraft(ref: IssueRef, draft: Boolean): ForgeResult<Unit>
+
     suspend fun milestones(repo: RepoId): ForgeResult<List<Milestone>>
 
     suspend fun setMilestone(ref: IssueRef, milestone: Milestone?): ForgeResult<Unit>
@@ -386,6 +390,10 @@ class DefaultIssueRepository @Inject constructor(
     override suspend fun assignable(repo: RepoId) = signedIn(repo.forge) { assignable(it, repo) }
 
     override suspend fun setAssignees(ref: IssueRef, logins: List<String>) = changing(ref) { setAssignees(it, ref, logins) }
+
+    override suspend fun setReviewers(ref: IssueRef, logins: List<String>) = changing(ref) { setReviewers(it, ref, logins) }
+
+    override suspend fun setDraft(ref: IssueRef, draft: Boolean) = changing(ref) { setDraft(it, ref, draft) }
 
     override suspend fun milestones(repo: RepoId) = signedIn(repo.forge) { milestones(it, repo) }
 

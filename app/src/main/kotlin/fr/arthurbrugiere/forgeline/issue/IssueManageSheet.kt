@@ -25,12 +25,14 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Difference
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Event
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.RateReview
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.DatePicker
@@ -64,6 +66,7 @@ import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.Milestone
@@ -96,6 +99,9 @@ class ManageActions(
     val onLoadMilestones: () -> Unit = {},
     val onSetLabels: (List<String>) -> Unit = {},
     val onSetAssignees: (List<String>) -> Unit = {},
+    val onSetReviewers: (List<String>) -> Unit = {},
+    /** Marks the pull request a draft, or ready for review. */
+    val onSetDraft: (Boolean) -> Unit = {},
     val onSetMilestone: (Milestone?) -> Unit = {},
     val onClose: (CloseReason) -> Unit = {},
     val onToggleLocked: () -> Unit = {},
@@ -114,7 +120,7 @@ class ManageActions(
     val onOpenOnForge: () -> Unit = {},
 )
 
-enum class ManagePage { MENU, LABELS, ASSIGNEES, MILESTONE, DUE_DATE, TIME, DEPENDENCIES, TRANSFER, DELETE }
+enum class ManagePage { MENU, LABELS, ASSIGNEES, REVIEWERS, MILESTONE, DUE_DATE, TIME, DEPENDENCIES, TRANSFER, DELETE }
 
 /** Whether there is anything to manage: an action the reader may take, or an issue to start another from. */
 fun IssueUiState.canManage(signedIn: Boolean): Boolean = signedIn && issue != null && (actions.isNotEmpty() || issue.pullRequest == null)
@@ -158,7 +164,8 @@ fun IssueManageContent(
         when (page) {
             ManagePage.MENU -> Menu(state, actions, onOpen = { page = it }, onDismiss = onDismiss)
             ManagePage.LABELS -> LabelsPage(state, actions) { page = ManagePage.MENU }
-            ManagePage.ASSIGNEES -> AssigneesPage(state, actions) { page = ManagePage.MENU }
+            ManagePage.ASSIGNEES -> PeoplePage(R.string.manage_assignees, state.issue?.assignees.orEmpty(), state, actions, actions.onSetAssignees) { page = ManagePage.MENU }
+            ManagePage.REVIEWERS -> PeoplePage(R.string.manage_reviewers, state.issue?.pullRequest?.reviewers.orEmpty(), state, actions, actions.onSetReviewers) { page = ManagePage.MENU }
             ManagePage.MILESTONE -> MilestonePage(state, actions) { page = ManagePage.MENU }
             ManagePage.DUE_DATE -> DueDatePage(state, actions) { page = ManagePage.MENU }
             ManagePage.TIME -> TimePage(state, actions, nowMillis) { page = ManagePage.MENU }
@@ -210,6 +217,14 @@ private fun Menu(state: IssueUiState, actions: ManageActions, onOpen: (ManagePag
                 onOpen(ManagePage.ASSIGNEES)
             }
         }
+        // Who is asked to review, beside who it is on: both are people the repository's assignable list offers.
+        if (ConversationAction.REVIEWERS in can) add {
+            val reviewers = issue.pullRequest?.reviewers.orEmpty()
+            MenuRow(Icons.Outlined.RateReview, stringResource(R.string.manage_reviewers), reviewers.joinToString(", ") { it.login }.ifEmpty { none }, enabled) {
+                actions.onLoadAssignable()
+                onOpen(ManagePage.REVIEWERS)
+            }
+        }
         if (ConversationAction.MILESTONE in can) add {
             MenuRow(Icons.Outlined.Flag, stringResource(R.string.manage_milestone), issue.milestone?.title ?: none, enabled) {
                 actions.onLoadMilestones()
@@ -233,6 +248,10 @@ private fun Menu(state: IssueUiState, actions: ManageActions, onOpen: (ManagePag
         }
     }
     val standing = buildList<@Composable () -> Unit> {
+        // Back from a draft is the reader's turn's own button ("Ready for review"), where the rest is decided.
+        if (ConversationAction.DRAFT in can && issue.pullRequest?.isDraft == false) add {
+            MenuRow(Icons.Outlined.EditNote, stringResource(R.string.manage_to_draft), null, enabled) { actions.onSetDraft(true) }
+        }
         if (ConversationAction.CLOSE_REASON in can) {
             add { MenuRow(Icons.Outlined.Block, stringResource(R.string.manage_close_not_planned), null, enabled) { actions.onClose(CloseReason.NOT_PLANNED) } }
             add { MenuRow(Icons.Outlined.Difference, stringResource(R.string.manage_close_duplicate), null, enabled) { actions.onClose(CloseReason.DUPLICATE) } }
@@ -394,12 +413,12 @@ private fun LabelsPage(state: IssueUiState, actions: ManageActions, onBack: () -
     }
 }
 
+/** People to choose among those the repository can assign, [current] picked: its assignees, or who reviews it. */
 @Composable
-private fun AssigneesPage(state: IssueUiState, actions: ManageActions, onBack: () -> Unit) {
+private fun PeoplePage(title: Int, current: List<ForgeUser>, state: IssueUiState, actions: ManageActions, onSave: (List<String>) -> Unit, onBack: () -> Unit) {
     val colors = Soft.colors
-    val current = state.issue?.assignees.orEmpty().map { it.login }
-    var chosen by rememberSaveable { mutableStateOf(current) }
-    PageTitle(stringResource(R.string.manage_assignees), onBack)
+    var chosen by rememberSaveable { mutableStateOf(current.map { it.login }) }
+    PageTitle(stringResource(title), onBack)
     Choices(state.manage.assignable, stringResource(R.string.manage_no_assignable), actions.onLoadAssignable) { users ->
         users.forEach { user ->
             ChoiceRow(user.login in chosen, !state.manage.isWorking, { chosen = if (user.login in chosen) chosen - user.login else chosen + user.login }) {
@@ -408,7 +427,7 @@ private fun AssigneesPage(state: IssueUiState, actions: ManageActions, onBack: (
                 Text(user.login, style = Soft.type.body, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        Save(state.manage.isWorking) { actions.onSetAssignees(chosen) }
+        Save(state.manage.isWorking) { onSave(chosen) }
     }
 }
 

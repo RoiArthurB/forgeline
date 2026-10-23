@@ -75,6 +75,8 @@ data class IssueUiState(
     /** What the reader may do in the conversation's repository beyond reading it. */
     val access: RepoAccess = RepoAccess.NONE,
     val isChangingState: Boolean = false,
+    /** A draft pull request is being marked ready for review, from the reader's turn. */
+    val isMarkingReady: Boolean = false,
     val stateError: ForgeError? = null,
     /** What the forge's API can do to a conversation; [actions] is what the reader may do of it here. */
     val supported: Set<ConversationAction> = emptySet(),
@@ -133,6 +135,10 @@ data class IssueUiState(
                     ConversationAction.PIN, ConversationAction.TRANSFER -> isIssue && access >= RepoAccess.WRITE
                     ConversationAction.DELETE -> isIssue && access == RepoAccess.ADMIN
                     ConversationAction.DUE_DATE, ConversationAction.DEPENDENCIES -> access >= RepoAccess.TRIAGE
+                    // Only pull requests are reviewed, and only open ones are drafts or ready: their author's to say,
+                    // and whoever can write to the repository's.
+                    ConversationAction.REVIEWERS -> !isIssue && access >= RepoAccess.TRIAGE
+                    ConversationAction.DRAFT -> !isIssue && issue.state == IssueState.OPEN && canEditIssue
                     // Whoever the repository lets track time: the forge already took it away from anyone else.
                     ConversationAction.TIME_TRACKING -> true
                 }
@@ -251,6 +257,26 @@ class IssueViewModel @AssistedInject constructor(
                         state.copy(isChangingState = false, issue = state.issue?.copy(state = if (open) IssueState.OPEN else IssueState.CLOSED))
                     }
                     // The forge's own account of it: the line that closes the conversation, and who wrote it.
+                    refresh()
+                }
+            }
+        }
+    }
+
+    /**
+     * Marks a draft pull request ready for review, from the reader's turn rather than the sheet: what goes wrong is said
+     * there, under its row, as closing's is.
+     */
+    fun markReady() {
+        if (_state.value.isMarkingReady || _state.value.issue?.pullRequest?.isDraft != true) return
+        _state.update { it.copy(isMarkingReady = true, stateError = null) }
+        viewModelScope.launch {
+            when (val result = repository.setDraft(ref, draft = false)) {
+                is ForgeResult.Failure -> _state.update { it.copy(isMarkingReady = false, stateError = result.error) }
+                is ForgeResult.Success -> {
+                    _state.update { state ->
+                        state.copy(isMarkingReady = false, issue = state.issue?.let { it.copy(pullRequest = it.pullRequest?.copy(isDraft = false)) })
+                    }
                     refresh()
                 }
             }
@@ -576,6 +602,10 @@ class IssueViewModel @AssistedInject constructor(
     fun setLabels(names: List<String>) = manage({ repository.setLabels(ref, names) })
 
     fun setAssignees(logins: List<String>) = manage({ repository.setAssignees(ref, logins) })
+
+    fun setReviewers(logins: List<String>) = manage({ repository.setReviewers(ref, logins) })
+
+    fun setDraft(draft: Boolean) = manage({ repository.setDraft(ref, draft) })
 
     fun setMilestone(milestone: Milestone?) = manage({ repository.setMilestone(ref, milestone) })
 

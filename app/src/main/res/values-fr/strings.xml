@@ -570,6 +570,9 @@
     <string name="manage_none">Aucun</string>
     <string name="manage_labels">Labels</string>
     <string name="manage_assignees">Personnes assignées</string>
+    <string name="manage_reviewers">Relecteurs</string>
+    <string name="manage_to_draft">Repasser en brouillon</string>
+    <string name="pull_ready_for_review">Prête pour relecture</string>
     <string name="manage_milestone">Jalon</string>
     <string name="manage_no_milestone">Aucun jalon</string>
     <string name="manage_close_not_planned">Fermer comme non planifié</string>

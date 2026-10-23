@@ -587,6 +587,9 @@
     <string name="manage_none">None</string>
     <string name="manage_labels">Labels</string>
     <string name="manage_assignees">Assignees</string>
+    <string name="manage_reviewers">Reviewers</string>
+    <string name="manage_to_draft">Convert to draft</string>
+    <string name="pull_ready_for_review">Ready for review</string>
     <string name="manage_milestone">Milestone</string>
     <string name="manage_no_milestone">No milestone</string>
     <string name="manage_close_not_planned">Close as not planned</string>

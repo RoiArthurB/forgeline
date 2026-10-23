@@ -34,6 +34,7 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.SerialName
@@ -176,6 +177,7 @@ class GitHubIssueApi(
     override val actions: Set<ConversationAction> = setOf(
         ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.CLOSE_REASON,
         ConversationAction.LOCK, ConversationAction.PIN, ConversationAction.TRANSFER, ConversationAction.DELETE,
+        ConversationAction.REVIEWERS, ConversationAction.DRAFT,
     )
 
     // The lists below stop at their first hundred: a repository with more is rare, and none needs them all to triage.
@@ -199,6 +201,43 @@ class GitHubIssueApi(
 
     override suspend fun setAssignees(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> =
         edit(token, ref) { putJsonArray("assignees") { logins.forEach { add(it) } } }
+
+    /** GitHub asks for reviews one way and takes the ask back another: only who changes is sent to each. */
+    override suspend fun setReviewers(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> = forgeCall {
+        val pull = pull(token, ref)
+        if (pull.status != HttpStatusCode.OK) return@forgeCall pull.failure()
+        val asked = pull.body<PullJson>().requestedReviewers.map { it.login }
+        val added = logins.filter { login -> asked.none { it.equals(login, ignoreCase = true) } }
+        val removed = asked.filter { login -> logins.none { it.equals(login, ignoreCase = true) } }
+        for ((who, method) in listOf(added to HttpMethod.Post, removed to HttpMethod.Delete)) {
+            if (who.isEmpty()) continue
+            val response = httpClient.gitHubApi(
+                apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "pulls", ref.number.toString(), "requested_reviewers",
+                method = method,
+                body = buildJsonObject { putJsonArray("reviewers") { who.forEach { add(it) } } },
+            )
+            if (!response.status.isSuccess()) return@forgeCall response.failure()
+        }
+        ForgeResult.Success(Unit)
+    }
+
+    /** Only GitHub's GraphQL API turns a pull request into a draft and back, by its node id. */
+    override suspend fun setDraft(token: String, ref: IssueRef, draft: Boolean): ForgeResult<Unit> {
+        val id = forgeCall {
+            val pull = pull(token, ref)
+            if (pull.status != HttpStatusCode.OK) return@forgeCall pull.failure()
+            pull.body<PullJson>().nodeId?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Http(404, null))
+        }
+        val node = when (id) {
+            is ForgeResult.Failure -> return id
+            is ForgeResult.Success -> id.value
+        }
+        val mutation = if (draft) "convertPullRequestToDraft" else "markPullRequestReadyForReview"
+        return graphQl(token, "mutation(\$id: ID!) { $mutation(input: {pullRequestId: \$id}) { clientMutationId } }", buildJsonObject { put("id", node) }).map { }
+    }
+
+    private suspend fun pull(token: String, ref: IssueRef) =
+        httpClient.gitHubApi(apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "pulls", ref.number.toString())
 
     override suspend fun milestones(token: String, repo: RepoId): ForgeResult<List<Milestone>> = forgeCall {
         httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, "milestones", query = FIRST_HUNDRED + ("state" to "open"))
@@ -389,6 +428,8 @@ private data class PullJson(
     val deletions: Int = 0,
     @SerialName("changed_files") val changedFiles: Int = 0,
     val commits: Int = 0,
+    @SerialName("requested_reviewers") val requestedReviewers: List<UserJson> = emptyList(),
+    @SerialName("node_id") val nodeId: String? = null,
 )
 
 @Serializable
@@ -427,7 +468,7 @@ private data class IssueJson(
         comments = comments,
         reactions = reactions?.toModel().orEmpty(),
         pullRequest = pull?.let {
-            PullRequestInfo(it.draft, it.merged, it.base.ref, it.head.ref, it.additions, it.deletions, it.changedFiles, it.commits)
+            PullRequestInfo(it.draft, it.merged, it.base.ref, it.head.ref, it.additions, it.deletions, it.changedFiles, it.commits, it.requestedReviewers.map { user -> user.toModel() })
         },
         isLocked = locked,
         assignees = assignees.map { it.toModel() },

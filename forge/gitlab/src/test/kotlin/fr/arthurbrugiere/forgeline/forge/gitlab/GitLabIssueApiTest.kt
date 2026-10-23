@@ -200,6 +200,56 @@ class GitLabIssueApiTest {
 
     // The list is the shape gitlab.com answered on 2026-10-07 (one award per person, with its id and who gave it),
     // as are 201 for an award given and 204 for one taken back.
+    private fun mergeRequest(title: String, draft: Boolean, reviewers: String = "[]") =
+        """{"id":900,"iid":12,"project_id":278964,"title":"$title","state":"opened","created_at":"2026-10-01T10:00:00Z","draft":$draft,"reviewers":$reviewers}"""
+
+    private val bodies get() = requests.map { (it.body as? TextContent)?.text }
+
+    @Test
+    fun who_is_asked_to_review_a_merge_request_is_read_with_it() = runTest {
+        val api = api { req ->
+            if (req.url.encodedPath.endsWith("/award_emoji")) json("[]") else json(mergeRequest("Retry", false, """[{"id":7,"username":"hubot","name":"Hubot"}]"""))
+        }
+
+        val details = api.issue(null, IssueRef(repo, 12, isPullRequest = true)).value()
+
+        assertThat(details.pullRequest!!.reviewers.map { it.login }).containsExactly("hubot")
+    }
+
+    @Test
+    fun reviewers_are_set_whole_by_the_ids_of_the_project_s_members() = runTest {
+        val api = api { req ->
+            if (req.url.encodedPath.endsWith("/users")) json("""[{"id":7,"username":"hubot"},{"id":8,"username":"octocat"}]""") else json(mergeRequest("Retry", false))
+        }
+
+        assertThat(api.setReviewers("tok", IssueRef(repo, 12, isPullRequest = true), listOf("Octocat", "hubot"))).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(sent()).containsExactly("GET /api/v4/projects/gitlab-org%2Fgitlab/users", "PUT /api/v4/projects/gitlab-org%2Fgitlab/merge_requests/12").inOrder()
+        assertThat(bodies.last()).isEqualTo("""{"reviewer_ids":"8,7"}""")
+    }
+
+    @Test
+    fun a_merge_request_is_made_a_draft_by_its_title_and_ready_again_without_the_mark() = runTest {
+        var current = mergeRequest("Retry uploads", false)
+        val api = api { req -> if (req.method == HttpMethod.Get) json(current) else json(current) }
+        val ref = IssueRef(repo, 12, isPullRequest = true)
+
+        assertThat(api.setDraft("tok", ref, draft = true)).isEqualTo(ForgeResult.Success(Unit))
+        current = mergeRequest("[Draft] Retry uploads", true)
+        assertThat(api.setDraft("tok", ref, draft = false)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(bodies.filterNotNull()).containsExactly("""{"title":"Draft: Retry uploads"}""", """{"title":"Retry uploads"}""").inOrder()
+    }
+
+    @Test
+    fun a_merge_request_already_as_asked_is_left_alone() = runTest {
+        val api = api { json(mergeRequest("Draft: Retry uploads", true)) }
+
+        assertThat(api.setDraft("tok", IssueRef(repo, 12, isPullRequest = true), draft = true)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(sent()).containsExactly("GET /api/v4/projects/gitlab-org%2Fgitlab/merge_requests/12")
+    }
+
     private fun award(id: Long, name: String, username: String) = """{"id":$id,"name":"$name","user":{"id":1,"username":"$username"},"awardable_type":"Note"}"""
 
     private fun reacting(vararg awards: String) = api { request ->

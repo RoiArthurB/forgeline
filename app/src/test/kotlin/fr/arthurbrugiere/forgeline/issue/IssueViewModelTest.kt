@@ -418,7 +418,80 @@ class IssueViewModelTest {
         assertThat(viewModel.state.value.actions).containsExactly(
             ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.LOCK,
             ConversationAction.DUE_DATE, ConversationAction.TIME_TRACKING, ConversationAction.DEPENDENCIES,
+            ConversationAction.REVIEWERS, ConversationAction.DRAFT,
         )
+    }
+
+    @Test
+    fun someone_who_triages_asks_for_reviews_and_the_author_alone_says_when_it_is_ready() = test {
+        val session = { DefaultIssueRepository(FakeForgeClients(issues = api), accounts, dao, Clock.systemUTC()) }
+        val someoneElse = issueDetails(ref).copy(pullRequest = pullRequest, author = ForgeUser("octocat", null, null))
+        val mine = someoneElse.copy(author = ForgeUser("me", null, null))
+
+        val triaging = managing(RepoAccess.TRIAGE, someoneElse, session()).state.value.actions
+        val authoring = managing(RepoAccess.NONE, mine, session()).state.value.actions
+
+        assertThat(triaging).contains(ConversationAction.REVIEWERS)
+        assertThat(triaging).doesNotContain(ConversationAction.DRAFT)
+        assertThat(authoring).contains(ConversationAction.DRAFT)
+        assertThat(authoring).doesNotContain(ConversationAction.REVIEWERS)
+    }
+
+    @Test
+    fun a_merged_pull_request_is_no_draft_and_an_issue_is_never_reviewed() = test {
+        val merged = managing(RepoAccess.ADMIN, issueDetails(ref, state = IssueState.MERGED).copy(pullRequest = pullRequest.copy(isMerged = true))).state.value.actions
+        assertThat(merged).doesNotContain(ConversationAction.DRAFT)
+
+        val session = DefaultIssueRepository(FakeForgeClients(issues = api), accounts, dao, Clock.systemUTC())
+        val issue = managing(RepoAccess.ADMIN, repository = session).state.value.actions
+        assertThat(issue).containsNoneOf(ConversationAction.REVIEWERS, ConversationAction.DRAFT)
+    }
+
+    @Test
+    fun reviewers_and_the_draft_mark_go_to_the_forge_from_the_sheet() = test {
+        val viewModel = managing(RepoAccess.WRITE, issueDetails(ref).copy(pullRequest = pullRequest))
+
+        viewModel.setReviewers(listOf("octocat", "hubot"))
+        advanceUntilIdle()
+        viewModel.setDraft(true)
+        advanceUntilIdle()
+
+        assertThat(api.managed).containsExactly("reviewers octo/repo#7: octocat, hubot", "draft octo/repo#7: true").inOrder()
+        // Read again from the forge: the header and the action row show it.
+        assertThat(viewModel.state.value.issue?.pullRequest?.reviewers?.map { it.login }).containsExactly("octocat", "hubot").inOrder()
+        assertThat(viewModel.state.value.issue?.pullRequest?.isDraft).isTrue()
+    }
+
+    @Test
+    fun a_draft_is_marked_ready_from_the_reader_s_turn_without_touching_the_sheet() = test {
+        val viewModel = managing(RepoAccess.WRITE, issueDetails(ref).copy(pullRequest = pullRequest.copy(isDraft = true)))
+
+        viewModel.markReady()
+        assertThat(viewModel.state.value.isMarkingReady).isTrue()
+        advanceUntilIdle()
+
+        assertThat(api.managed).containsExactly("draft octo/repo#7: false")
+        assertThat(viewModel.state.value.isMarkingReady).isFalse()
+        assertThat(viewModel.state.value.issue?.pullRequest?.isDraft).isFalse()
+        // The sheet, closed, isn't told it is done: it would close itself the next time it opens.
+        assertThat(viewModel.state.value.manage.done).isFalse()
+        // Asked again, a pull request already ready isn't sent.
+        viewModel.markReady()
+        advanceUntilIdle()
+        assertThat(api.managed).hasSize(1)
+    }
+
+    @Test
+    fun a_draft_the_forge_won_t_mark_ready_says_so_under_the_row() = test {
+        val viewModel = managing(RepoAccess.WRITE, issueDetails(ref).copy(pullRequest = pullRequest.copy(isDraft = true)))
+        api.manageFailure = ForgeError.Http(403, "no")
+
+        viewModel.markReady()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.stateError).isEqualTo(ForgeError.Http(403, "no"))
+        assertThat(viewModel.state.value.isMarkingReady).isFalse()
+        assertThat(viewModel.state.value.issue?.pullRequest?.isDraft).isTrue()
     }
 
     @Test

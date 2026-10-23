@@ -72,6 +72,8 @@ class IssueManageSheetTest {
         onLoadMilestones = { events += "load-milestones" },
         onSetLabels = { events += "labels:${it.joinToString()}" },
         onSetAssignees = { events += "assignees:${it.joinToString()}" },
+        onSetReviewers = { events += "reviewers:${it.joinToString()}" },
+        onSetDraft = { events += "draft:$it" },
         onSetMilestone = { events += "milestone:${it?.title}" },
         onClose = { events += "close:$it" },
         onToggleLocked = { events += "lock" },
@@ -318,6 +320,58 @@ class IssueManageSheetTest {
         composeRule.onNodeWithText("Labels").assertExists()
         composeRule.onNodeWithText("Lock conversation").assertExists()
         listOf("Duplicate issue", "Pin issue", "Transfer issue", "Delete issue", "Close as not planned").forEach { composeRule.onNodeWithText(it).assertDoesNotExist() }
+    }
+
+    /** An open pull request asked of hubot, managed by someone signed in who can write to its repository. */
+    private val reviewed = owned.copy(
+        issue = owned.issue!!.copy(pullRequest = PullRequestInfo(false, false, "main", "fix/it", 12, 3, 2, 1, reviewers = listOf(people[1]))),
+        me = "octocat",
+    )
+
+    @Test
+    fun a_pull_request_says_who_reviews_it_and_offers_to_turn_it_back_into_a_draft() {
+        setContent(reviewed)
+
+        composeRule.onNodeWithText("Reviewers").assertExists()
+        composeRule.onNodeWithText("hubot").assertExists()
+        composeRule.onNodeWithText("Convert to draft").performClick()
+
+        assertThat(events).containsExactly("draft:true")
+    }
+
+    @Test
+    fun reviewers_are_chosen_among_the_assignable_then_saved_whole() {
+        setContent(reviewed)
+        composeRule.onNodeWithText("Reviewers").performClick()
+        choice("hubot").assertIsOn()
+
+        choice("octocat").performClick()
+        choice("hubot").performClick()
+        composeRule.onNodeWithText("Save").performClick()
+
+        assertThat(events).containsExactly("load-assignable", "reviewers:octocat")
+    }
+
+    @Test
+    fun a_draft_is_not_offered_to_become_one_again_nor_an_issue_reviewers() {
+        setContent(reviewed.copy(issue = reviewed.issue!!.copy(pullRequest = reviewed.issue!!.pullRequest!!.copy(isDraft = true))))
+        composeRule.onNodeWithText("Convert to draft").assertDoesNotExist()
+    }
+
+    @Test
+    fun an_issue_has_no_reviewers_and_is_no_draft() {
+        setContent(owned.copy(me = "octocat"))
+
+        composeRule.onNodeWithText("Reviewers").assertDoesNotExist()
+        composeRule.onNodeWithText("Convert to draft").assertDoesNotExist()
+    }
+
+    @Test
+    fun someone_who_only_triages_asks_for_reviews_but_doesn_t_turn_someone_else_s_pull_request_into_a_draft() {
+        setContent(reviewed.copy(access = RepoAccess.TRIAGE, me = "monalisa"))
+
+        composeRule.onNodeWithText("Reviewers").assertExists()
+        composeRule.onNodeWithText("Convert to draft").assertDoesNotExist()
     }
 
     @Test

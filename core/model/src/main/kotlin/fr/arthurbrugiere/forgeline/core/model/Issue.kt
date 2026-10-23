@@ -31,6 +31,8 @@ data class PullRequestInfo(
     val deletions: Int,
     val changedFiles: Int,
     val commits: Int,
+    /** Who is asked to review it and hasn't yet. */
+    val reviewers: List<ForgeUser> = emptyList(),
 )
 
 data class IssueDetails(
@@ -75,7 +77,15 @@ enum class AttachmentRule {
 }
 
 /** What can be done to a conversation beyond commenting on it and closing it; a forge's API offers some of them. */
-enum class ConversationAction { LABELS, ASSIGNEES, MILESTONE, CLOSE_REASON, LOCK, PIN, TRANSFER, DELETE, DUE_DATE, TIME_TRACKING, DEPENDENCIES }
+enum class ConversationAction {
+    LABELS, ASSIGNEES, MILESTONE, CLOSE_REASON, LOCK, PIN, TRANSFER, DELETE, DUE_DATE, TIME_TRACKING, DEPENDENCIES,
+
+    /** Asking for a pull request's review, and taking the ask back: only pull requests have it. */
+    REVIEWERS,
+
+    /** Marking a pull request a draft, or ready for review: only pull requests have it. */
+    DRAFT,
+}
 
 /**
  * What the signed-in user may do in a repository, and what its settings or their role take away there

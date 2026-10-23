@@ -96,6 +96,7 @@ private data class StoredPull(
     val deletions: Int,
     val changedFiles: Int,
     val commits: Int,
+    val reviewers: List<StoredUser> = emptyList(),
 )
 
 @Serializable
@@ -133,7 +134,7 @@ private data class StoredIssue(
         closedAt = closedAt?.let(Instant::ofEpochMilli),
         comments = comments,
         reactions = reactions,
-        pullRequest = pull?.run { PullRequestInfo(isDraft, isMerged, baseRef, headRef, additions, deletions, changedFiles, commits) },
+        pullRequest = pull?.run { PullRequestInfo(isDraft, isMerged, baseRef, headRef, additions, deletions, changedFiles, commits, reviewers.map { it.toModel() }) },
         isLocked = isLocked,
         assignees = assignees.map { it.toModel() },
         milestone = if (milestoneId != null && milestoneTitle != null) Milestone(milestoneId, milestoneTitle) else null,
@@ -145,7 +146,7 @@ private data class StoredIssue(
             StoredIssue(
                 ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, title, body, state, stateReason, StoredUser.of(author),
                 labels.map { StoredLabel(it.name, it.color) }, createdAt.toEpochMilli(), closedAt?.toEpochMilli(), comments, reactions,
-                pullRequest?.run { StoredPull(isDraft, isMerged, baseRef, headRef, additions, deletions, changedFiles, commits) },
+                pullRequest?.run { StoredPull(isDraft, isMerged, baseRef, headRef, additions, deletions, changedFiles, commits, reviewers.mapNotNull(StoredUser::of)) },
                 isLocked, assignees.mapNotNull(StoredUser::of), milestone?.id, milestone?.title, dueDate?.toEpochDay(),
             )
         }

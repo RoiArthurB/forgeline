@@ -102,10 +102,11 @@ fun PullRequestPanel(issue: IssueDetails, actions: PullActions, modifier: Modifi
 
 /**
  * Reviewing and merging an open pull request, for someone signed in on its forge: buttons for the row the reader's turn
- * ends on, beside closing it and sending a comment, and the sheets they open.
+ * ends on, beside closing it and sending a comment, and the sheets they open. A draft can't be merged: whoever may
+ * mark it ready ([onReady]) is offered that in Merge's place.
  */
 @Composable
-fun PullRequestDecisions(issue: IssueDetails, state: PullRequestUiState, actions: PullActions) {
+fun PullRequestDecisions(issue: IssueDetails, state: PullRequestUiState, actions: PullActions, onReady: (() -> Unit)? = null, isMarkingReady: Boolean = false) {
     val pr = issue.pullRequest ?: return
     if (!state.signedIn || issue.state != IssueState.OPEN) return
     var reviewing by rememberSaveable { mutableStateOf(false) }
@@ -130,7 +131,9 @@ fun PullRequestDecisions(issue: IssueDetails, state: PullRequestUiState, actions
         }
     }
     SoftTonalButton(stringResource(R.string.review_start), onClick = { reviewing = true })
-    if (mergeInfo?.canMerge == true) {
+    if (pr.isDraft && onReady != null) {
+        SoftButton(stringResource(R.string.pull_ready_for_review), onClick = onReady, enabled = !isMarkingReady)
+    } else if (mergeInfo?.canMerge == true) {
         // Marigold says "this is the way forward": not while a check failed or is still running.
         if (checks.overall() in UNSETTLED) {
             SoftTonalButton(stringResource(R.string.merge_start), onClick = { merging = true })

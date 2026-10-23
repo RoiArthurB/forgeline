@@ -222,6 +222,29 @@ class PullRequestPanelTest {
     }
 
     @Test
+    fun a_draft_offers_to_be_marked_ready_in_merge_s_place_to_whoever_may() {
+        val draft = open.copy(pullRequest = open.pullRequest!!.copy(isDraft = true))
+        composeRule.setContent {
+            ForgelineTheme { Row { PullRequestDecisions(draft, signedIn, actions, onReady = { events += "ready" }) } }
+        }
+
+        composeRule.onNodeWithText("Merge").assertDoesNotExist()
+        composeRule.onNodeWithText("Ready for review").performClick()
+
+        assertThat(events).containsExactly("ready")
+    }
+
+    @Test
+    fun a_draft_being_marked_ready_can_t_be_pressed_twice() {
+        val draft = open.copy(pullRequest = open.pullRequest!!.copy(isDraft = true))
+        composeRule.setContent {
+            ForgelineTheme { Row { PullRequestDecisions(draft, signedIn, actions, onReady = { events += "ready" }, isMarkingReady = true) } }
+        }
+
+        composeRule.onNodeWithText("Ready for review").assertIsNotEnabled()
+    }
+
+    @Test
     fun a_pull_request_that_is_merged_or_closed_offers_neither() {
         setContent(signedIn, open.copy(state = IssueState.MERGED))
 

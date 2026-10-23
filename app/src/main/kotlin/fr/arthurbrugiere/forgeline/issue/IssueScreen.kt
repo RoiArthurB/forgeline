@@ -68,6 +68,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
+import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
@@ -164,6 +165,8 @@ fun IssueRoute(
             onLoadMilestones = viewModel::loadMilestones,
             onSetLabels = viewModel::setLabels,
             onSetAssignees = viewModel::setAssignees,
+            onSetReviewers = viewModel::setReviewers,
+            onSetDraft = viewModel::setDraft,
             onSetMilestone = viewModel::setMilestone,
             onClose = viewModel::close,
             onToggleLocked = viewModel::toggleLocked,
@@ -255,6 +258,7 @@ fun IssueRoute(
         onOpenInBrowser = openUrl,
         onLinkClick = { url -> openForgeLink(url, ref.repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion) },
         onErrorShown = viewModel::errorShown,
+        onMarkReady = viewModel::markReady,
     )
 }
 
@@ -308,6 +312,8 @@ fun IssueScreen(
     /** What stands behind a pull request, beside its conversation; null for an issue and until it is known. */
     pull: PullRequestUiState? = null,
     pullActions: PullActions = PullActions(),
+    /** Marks a draft pull request ready for review. */
+    onMarkReady: () -> Unit = {},
 ) {
     val issue = state.issue
     var managing by rememberSaveable { mutableStateOf(false) }
@@ -535,7 +541,15 @@ fun IssueScreen(
                                     Composer(
                                         state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture,
                                         suggestions = suggestions, onReferenceTyped = comments.onReferenceTyped,
-                                        decisions = { if (pull != null) PullRequestDecisions(issue, pull, pullActions) },
+                                        decisions = {
+                                            if (pull != null) {
+                                                PullRequestDecisions(
+                                                    issue, pull, pullActions,
+                                                    onReady = onMarkReady.takeIf { ConversationAction.DRAFT in state.actions },
+                                                    isMarkingReady = state.isMarkingReady,
+                                                )
+                                            }
+                                        },
                                     )
                                 }
                             }

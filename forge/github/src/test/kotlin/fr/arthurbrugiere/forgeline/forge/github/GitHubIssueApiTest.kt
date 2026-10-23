@@ -427,6 +427,71 @@ class GitHubIssueApiTest {
         ).inOrder()
     }
 
+    /** The captured pull request, asked of two people: GitHub lists them as it lists any user. */
+    private val askedOfTwo = fixture("pr.json").replace(
+        "\"requested_reviewers\":[]",
+        "\"requested_reviewers\":[{\"login\":\"octocat\",\"id\":1},{\"login\":\"hubot\",\"id\":2}]",
+    )
+
+    @Test
+    fun who_is_asked_to_review_a_pull_request_is_read_with_it() = runTest {
+        val details = api { request ->
+            if ("/pulls/" in request.url.encodedPath) json(askedOfTwo) else json(fixture("pr_issue.json"))
+        }.issue(null, pr).value()
+
+        assertThat(details.pullRequest!!.reviewers.map { it.login }).containsExactly("octocat", "hubot").inOrder()
+    }
+
+    @Test
+    fun reviewers_are_asked_and_let_off_by_who_changes_only() = runTest {
+        val changing = api { request -> if (request.method == HttpMethod.Get) json(askedOfTwo) else json("{}", status = HttpStatusCode.Created) }
+
+        // Hubot stays asked, octocat is let off, monalisa is asked.
+        assertThat(changing.setReviewers("tok", pr, listOf("Hubot", "monalisa"))).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly(
+            "GET /repos/paperclipai/paperclip/pulls/14187",
+            "POST /repos/paperclipai/paperclip/pulls/14187/requested_reviewers",
+            "DELETE /repos/paperclipai/paperclip/pulls/14187/requested_reviewers",
+        ).inOrder()
+        assertThat(bodies.drop(1)).containsExactly("""{"reviewers":["monalisa"]}""", """{"reviewers":["octocat"]}""").inOrder()
+    }
+
+    @Test
+    fun asking_the_same_reviewers_again_asks_nothing_more() = runTest {
+        val changing = api { json(askedOfTwo) }
+
+        assertThat(changing.setReviewers("tok", pr, listOf("octocat", "hubot"))).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(requests).hasSize(1)
+    }
+
+    @Test
+    fun a_reviewer_github_refuses_is_a_failure() = runTest {
+        val changing = api { request ->
+            if (request.method == HttpMethod.Get) json(askedOfTwo) else json("""{"message":"Reviews may only be requested from collaborators."}""", status = HttpStatusCode.UnprocessableEntity)
+        }
+
+        val result = changing.setReviewers("tok", pr, listOf("stranger"))
+
+        assertThat((result as ForgeResult.Failure).error).isInstanceOf(ForgeError.Http::class.java)
+    }
+
+    @Test
+    fun a_pull_request_becomes_a_draft_and_ready_again_by_its_node() = runTest {
+        val acting = api { request ->
+            if (request.url.encodedPath == "/graphql") json("""{"data":{"done":{"clientMutationId":null}}}""") else json(fixture("pr.json"))
+        }
+
+        assertThat(acting.setDraft("tok", pr, draft = true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(acting.setDraft("tok", pr, draft = false)).isEqualTo(ForgeResult.Success(Unit))
+
+        val mutations = bodies.filterNotNull().filter { "mutation" in it }
+        assertThat(mutations[0]).contains("convertPullRequestToDraft(input: {pullRequestId: \$id})")
+        assertThat(mutations[1]).contains("markPullRequestReadyForReview(input: {pullRequestId: \$id})")
+        mutations.forEach { assertThat(it).contains(""""variables":{"id":"PR_kwDORclPyM8AAAABFTkt9A"}""") }
+    }
+
     @Test
     fun a_conversation_is_locked_and_unlocked() = runTest {
         val changing = api { respond("", HttpStatusCode.NoContent) }

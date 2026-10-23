@@ -393,6 +393,7 @@ class ForgejoIssueApiTest {
         assertThat(api.actions).containsExactly(
             ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.PIN, ConversationAction.DELETE,
             ConversationAction.DUE_DATE, ConversationAction.TIME_TRACKING, ConversationAction.DEPENDENCIES,
+            ConversationAction.REVIEWERS, ConversationAction.DRAFT,
         )
         assertThat(api.setLocked("tok", seven, locked = true)).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
         assertThat(api.transfer("tok", seven, RepoId("forgejo", "docs", ForgeInstance.Codeberg))).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
@@ -467,6 +468,44 @@ class ForgejoIssueApiTest {
         assertThat(bodies).containsExactly(
             """{"labels":["bug","Kind/Bug"]}""", """{"assignees":["me"]}""", """{"milestone":9000}""", """{"milestone":0}""",
         ).inOrder()
+    }
+
+    @Test
+    fun who_is_asked_to_review_a_pull_request_is_read_with_it() = runTest {
+        val info = api.issue(null, pull).value().pullRequest!!
+
+        assertThat(info.reviewers.map { it.login }).containsExactly("Gusted", "Cyborus", "Maks1mS", "mfenniak").inOrder()
+    }
+
+    @Test
+    fun reviewers_are_asked_and_let_off_by_who_changes_only() = runTest {
+        val api = answering { with(codeberg) { if (it.method == HttpMethod.Get) json(fixture("pull.json")) else json("[]", HttpStatusCode.Created) } }
+
+        // Gusted stays asked, the three others are let off, alice is asked.
+        assertThat(api.setReviewers("tok", pull, listOf("gusted", "alice"))).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(sent).containsExactly(
+            "GET /api/v1/repos/forgejo/forgejo/pulls/14597",
+            "POST /api/v1/repos/forgejo/forgejo/pulls/14597/requested_reviewers",
+            "DELETE /api/v1/repos/forgejo/forgejo/pulls/14597/requested_reviewers",
+        ).inOrder()
+        assertThat(bodies.drop(1)).containsExactly("""{"reviewers":["alice"]}""", """{"reviewers":["Cyborus","Maks1mS","mfenniak"]}""").inOrder()
+    }
+
+    @Test
+    fun a_pull_request_is_made_a_draft_by_its_title_and_ready_again_without_the_mark() = runTest {
+        var pullAnswer = """{"title":"Retry uploads","draft":false,"merged":false,"base":{"ref":"main"},"head":{"ref":"retry"}}"""
+        val api = answering { with(codeberg) { if (it.method == HttpMethod.Get) json(pullAnswer) else json(opened, HttpStatusCode.Created) } }
+
+        assertThat(api.setDraft("tok", seven, draft = true)).isEqualTo(ForgeResult.Success(Unit))
+        pullAnswer = """{"title":"[WIP] Retry uploads","draft":true,"merged":false,"base":{"ref":"main"},"head":{"ref":"retry"}}"""
+        assertThat(api.setDraft("tok", seven, draft = false)).isEqualTo(ForgeResult.Success(Unit))
+        // Already ready: nothing more is sent.
+        pullAnswer = """{"title":"Retry uploads","draft":false,"merged":false,"base":{"ref":"main"},"head":{"ref":"retry"}}"""
+        assertThat(api.setDraft("tok", seven, draft = false)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(sent.filterNot { it.startsWith("GET") }).containsExactly("PATCH /api/v1/repos/forgejo/forgejo/issues/7", "PATCH /api/v1/repos/forgejo/forgejo/issues/7")
+        assertThat(bodies.filterNotNull()).containsExactly("""{"title":"WIP: Retry uploads"}""", """{"title":"Retry uploads"}""").inOrder()
     }
 
     @Test

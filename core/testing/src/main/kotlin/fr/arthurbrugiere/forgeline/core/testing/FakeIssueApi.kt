@@ -224,6 +224,16 @@ class FakeIssueApi : IssueApi {
         Unit
     }
 
+    override suspend fun setReviewers(token: String, ref: IssueRef, logins: List<String>) = manage(token, "reviewers ${ref.label}: ${logins.joinToString()}") {
+        issues[ref]?.let { issue -> issues[ref] = issue.copy(pullRequest = issue.pullRequest?.copy(reviewers = logins.map { login -> ForgeUser(login, null, null) })) }
+        Unit
+    }
+
+    override suspend fun setDraft(token: String, ref: IssueRef, draft: Boolean) = manage(token, "draft ${ref.label}: $draft") {
+        issues[ref]?.let { issue -> issues[ref] = issue.copy(pullRequest = issue.pullRequest?.copy(isDraft = draft)) }
+        Unit
+    }
+
     override suspend fun milestones(token: String, repo: RepoId) = read(token, "milestones:${repo.fullName}", repoMilestones)
 
     override suspend fun setMilestone(token: String, ref: IssueRef, milestone: Milestone?) = manage(token, "milestone ${ref.label}: ${milestone?.title}") {

@@ -209,6 +209,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     override val actions: Set<ConversationAction> = setOf(
         ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.PIN, ConversationAction.DELETE,
         ConversationAction.DUE_DATE, ConversationAction.TIME_TRACKING, ConversationAction.DEPENDENCIES,
+        ConversationAction.REVIEWERS, ConversationAction.DRAFT,
     )
 
     /**
@@ -306,6 +307,44 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     override suspend fun setAssignees(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> =
         edit(token, ref) { putJsonArray("assignees") { logins.forEach { add(it) } } }
 
+    /** Forgejo asks for reviews one way and takes the ask back another: only who changes is sent to each. */
+    override suspend fun setReviewers(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> = forgeCall {
+        val pull = get(token, ref, "pulls", ref.number.toString())
+        if (pull.status != HttpStatusCode.OK) return@forgeCall pull.failure()
+        val asked = pull.body<PullJson>().requestedReviewers.orEmpty().map { it.login }
+        val added = logins.filter { login -> asked.none { it.equals(login, ignoreCase = true) } }
+        val removed = asked.filter { login -> logins.none { it.equals(login, ignoreCase = true) } }
+        for ((who, method) in listOf(added to HttpMethod.Post, removed to HttpMethod.Delete)) {
+            if (who.isEmpty()) continue
+            val response = httpClient.forgejoApi(
+                forge, token, "repos", ref.repo.owner, ref.repo.name, "pulls", ref.number.toString(), "requested_reviewers",
+                method = method,
+                body = buildJsonObject { putJsonArray("reviewers") { who.forEach { add(it) } } },
+            )
+            if (!response.status.isSuccess()) return@forgeCall response.failure()
+        }
+        ForgeResult.Success(Unit)
+    }
+
+    /**
+     * A Forgejo pull request is a draft while its title starts with "WIP:" or "[WIP]" (the instance's default marks),
+     * so the title is rewritten. Nothing is sent when it already is what was asked.
+     */
+    override suspend fun setDraft(token: String, ref: IssueRef, draft: Boolean): ForgeResult<Unit> {
+        val pull = forgeCall {
+            val answer = get(token, ref, "pulls", ref.number.toString())
+            if (answer.status != HttpStatusCode.OK) return@forgeCall answer.failure()
+            ForgeResult.Success(answer.body<PullJson>())
+        }
+        val current = when (pull) {
+            is ForgeResult.Failure -> return pull
+            is ForgeResult.Success -> pull.value
+        }
+        if (current.draft == draft) return ForgeResult.Success(Unit)
+        val title = if (draft) "WIP: ${current.title}" else current.title.replace(forgejoDraftMark, "")
+        return edit(token, ref) { put("title", title) }
+    }
+
     override suspend fun milestones(token: String, repo: RepoId): ForgeResult<List<Milestone>> = forgeCall {
         httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "milestones", query = FIRST_PAGE + ("state" to "open"))
             .toResult { body<List<MilestoneJson>>().map { it.toModel() } }
@@ -362,6 +401,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
                 deletions = it.deletions ?: 0,
                 changedFiles = it.changedFiles ?: 0,
                 commits = it.commits ?: 0,
+                reviewers = it.requestedReviewers.orEmpty().map { user -> user.toModel() },
             )
         },
     )
@@ -529,8 +569,11 @@ private data class BranchJson(val ref: String, val label: String? = null)
 
 @Serializable
 private data class PullJson(
+    val title: String = "",
     val draft: Boolean = false,
     val merged: Boolean = false,
+    // Null rather than empty when nobody was ever asked.
+    @SerialName("requested_reviewers") val requestedReviewers: List<UserJson>? = null,
     val base: BranchJson,
     val head: BranchJson,
     val additions: Int? = null,
@@ -586,3 +629,6 @@ private data class TimelineJson(
     @SerialName("old_milestone") val oldMilestone: MilestoneJson? = null,
     @SerialName("dependent_issue") val dependentIssue: RefIssueJson? = null,
 )
+
+/** The marks a pull request's title starts with while it is a draft, by Forgejo's default, and the space after. */
+private val forgejoDraftMark = Regex("""^\s*(wip:|\[wip])\s*""", RegexOption.IGNORE_CASE)

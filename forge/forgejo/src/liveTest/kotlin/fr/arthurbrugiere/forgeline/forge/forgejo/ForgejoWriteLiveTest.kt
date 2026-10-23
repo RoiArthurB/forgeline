@@ -1,8 +1,10 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import com.google.common.truth.Truth.assertWithMessage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
+import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.PagesChange
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -104,6 +106,63 @@ class ForgejoWriteLiveTest {
                 val deleted = http.delete("$api/repos/${repo.owner}/${repo.name}") { header("Authorization", "token $token") }
                 System.err.println("CODEBERG scratch repository ${repo.fullName} deleted by hand: ${deleted.status}")
             }
+        }
+    }
+
+    /** A pull request in a private scratch repository: made a draft by its title and ready again, nobody asked to review it. */
+    @Test
+    fun a_pull_request_becomes_a_draft_and_ready_again() = runBlocking<Unit> {
+        assumeTrue("CODEBERG_LIVE_TOKEN not set", token.isNotBlank())
+        assumeTrue("CODEBERG_LIVE_WRITES not set", System.getenv("CODEBERG_LIVE_WRITES") == "1")
+        val name = "forgeline-scratch-${System.currentTimeMillis()}"
+        val created = http.post("$api/user/repos") {
+            header("Authorization", "token $token")
+            contentType(ContentType.Application.Json)
+            setBody(
+                buildJsonObject {
+                    put("name", name)
+                    put("private", true)
+                    put("auto_init", true)
+                    put("default_branch", "main")
+                    put("description", "Scratch repository for Forgeline API tests. Safe to delete.")
+                },
+            )
+        }
+        check(created.status.isSuccess()) { "create: ${created.status} ${created.bodyAsText().take(300)}" }
+        val (owner, _) = created.body<JsonObject>().getValue("full_name").jsonPrimitive.content.split('/', limit = 2)
+        val repo = RepoId(owner, name, forge)
+        try {
+            // A change on a branch of its own, written through the contents API.
+            val file = http.post("$api/repos/$owner/$name/contents/NOTES.md") {
+                header("Authorization", "token $token")
+                contentType(ContentType.Application.Json)
+                setBody(
+                    buildJsonObject {
+                        put("content", java.util.Base64.getEncoder().encodeToString("A line the pull request adds.\n".toByteArray()))
+                        put("message", "Add notes")
+                        put("branch", "main")
+                        put("new_branch", "change")
+                    },
+                )
+            }
+            check(file.status.isSuccess()) { "file: ${file.status} ${file.bodyAsText().take(300)}" }
+            val ref = ForgejoPullRequestApi(http, forge).create(token, repo, NewPullRequest("Say more", "Opened by Forgeline's live test.", head = "change", base = "main")).value("create")
+            val issues = ForgejoIssueApi(http, forge)
+
+            issues.setDraft(token, ref, draft = true).value("to draft")
+            val drafted = issues.issue(token, ref).value("drafted")
+            System.err.println("CODEBERG drafted: ${drafted.title} draft=${drafted.pullRequest?.isDraft}")
+            assertWithMessage("draft").that(drafted.pullRequest?.isDraft).isTrue()
+            issues.setDraft(token, ref, draft = false).value("ready")
+            val ready = issues.issue(token, ref).value("ready")
+            assertWithMessage("ready").that(ready.pullRequest?.isDraft).isFalse()
+            assertWithMessage("ready title").that(ready.title).isEqualTo("Say more")
+            // Nobody to ask in a private repository of one; letting everyone off still answers yes.
+            issues.setReviewers(token, ref, emptyList()).value("no reviewers")
+            assertWithMessage("no reviewers").that(ready.pullRequest?.reviewers).isEmpty()
+        } finally {
+            val deleted = http.delete("$api/repos/$owner/$name") { header("Authorization", "token $token") }
+            System.err.println("CODEBERG scratch repository $owner/$name deleted: ${deleted.status}")
         }
     }
 }

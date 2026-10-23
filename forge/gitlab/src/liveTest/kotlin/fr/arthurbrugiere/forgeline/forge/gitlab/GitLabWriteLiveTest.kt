@@ -104,6 +104,22 @@ class GitLabWriteLiveTest {
             assertWithMessage("commits").that(pulls.commits(token, ref).value("commits")).hasSize(1)
             assertWithMessage("checks without CI").that(pulls.checks(token, ref).value("checks")).isEmpty()
 
+            // A draft by its title and back, then oneself asked to review it and let off again.
+            val issues = GitLabIssueApi(http, ForgeInstance.GitLab)
+            issues.setDraft(token, ref, draft = true).value("to draft")
+            val drafted = issues.issue(token, ref).value("drafted")
+            assertWithMessage("draft").that(drafted.pullRequest?.isDraft).isTrue()
+            assertWithMessage("draft title").that(drafted.title).isEqualTo("Draft: Say more in the README")
+            issues.setDraft(token, ref, draft = false).value("ready")
+            val ready = issues.issue(token, ref).value("ready")
+            assertWithMessage("ready").that(ready.pullRequest?.isDraft).isFalse()
+            assertWithMessage("ready title").that(ready.title).isEqualTo("Say more in the README")
+            val me = repo.owner
+            issues.setReviewers(token, ref, listOf(me)).value("ask")
+            assertWithMessage("reviewers").that(issues.issue(token, ref).value("asked").pullRequest?.reviewers?.map { it.login }).containsExactly(me)
+            issues.setReviewers(token, ref, emptyList()).value("let off")
+            assertWithMessage("no reviewers").that(issues.issue(token, ref).value("let off").pullRequest?.reviewers).isEmpty()
+
             pulls.review(token, ref, ReviewVerdict.COMMENT, "One remark.", listOf(LineComment("README.md", added.oldNumber, added.newNumber, "Why this line?"))).value("review")
             // The author approving their own: GitLab allows it unless the project forbids it.
             val approval = pulls.review(token, ref, ReviewVerdict.APPROVE, "", emptyList())

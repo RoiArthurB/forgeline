@@ -432,6 +432,21 @@ class DefaultIssueRepositoryTest {
     }
 
     @Test
+    fun who_is_asked_to_review_a_draft_is_kept_across_launches() = runTest {
+        val asked = issueDetails(ref).copy(
+            pullRequest = fr.arthurbrugiere.forgeline.core.model.PullRequestInfo(true, false, "main", "fix/it", 12, 3, 2, 1, reviewers = listOf(ForgeUser("hubot", "Hubot", null))),
+        )
+        api.issues[ref] = asked
+        api.pages[ref to 1] = TimelinePage(emptyList(), nextPage = null)
+        repository.issue(ref)
+        repository.timeline(ref, 1)
+
+        val relaunched = DefaultIssueRepository(FakeForgeClients(issues = api), accounts, database.conversationDao(), clock)
+
+        assertThat(relaunched.stored(ref)?.issue).isEqualTo(asked)
+    }
+
+    @Test
     fun what_can_be_done_to_a_conversation_is_what_its_forge_can_less_what_the_repository_switches_off() = runTest {
         val labels = fr.arthurbrugiere.forgeline.core.model.ConversationAction.LABELS
         val time = fr.arthurbrugiere.forgeline.core.model.ConversationAction.TIME_TRACKING

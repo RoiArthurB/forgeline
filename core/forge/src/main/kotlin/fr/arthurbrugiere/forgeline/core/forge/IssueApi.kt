@@ -90,6 +90,15 @@ interface IssueApi {
     /** Makes [logins] the assignees of [ref], taking away anyone else. */
     suspend fun setAssignees(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> = unsupported
 
+    /**
+     * Makes [logins] those asked to review the pull request [ref], taking the ask back from anyone else. Those who
+     * already reviewed it keep their review. Whoever [assignable] answers can be asked.
+     */
+    suspend fun setReviewers(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> = unsupported
+
+    /** Marks the pull request [ref] a draft, which can't be merged, or ready for review. */
+    suspend fun setDraft(token: String, ref: IssueRef, draft: Boolean): ForgeResult<Unit> = unsupported
+
     /** The open milestones of [repo]. */
     suspend fun milestones(token: String, repo: RepoId): ForgeResult<List<Milestone>> = unsupported
 

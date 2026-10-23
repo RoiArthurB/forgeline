@@ -54,6 +54,8 @@ class GitLabIssueApi(
         ConversationAction.DUE_DATE,
         ConversationAction.TIME_TRACKING,
         ConversationAction.DELETE,
+        ConversationAction.REVIEWERS,
+        ConversationAction.DRAFT,
     )
 
     /** Merge requests have no due date, and only issues are deleted from here. */
@@ -326,21 +328,42 @@ class GitLabIssueApi(
             .toResult { body<List<GitLabUserJson>>().map { it.toForgeUser() } }
     }
 
-    override suspend fun setAssignees(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> = forgeCall {
+    override suspend fun setAssignees(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> = setPeople(token, ref, "assignee_ids", logins)
+
+    override suspend fun setReviewers(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> = setPeople(token, ref, "reviewer_ids", logins)
+
+    /** GitLab takes people by their ids, which the project's members say: [field] is set to theirs, whole. */
+    private suspend fun setPeople(token: String, ref: IssueRef, field: String, logins: List<String>): ForgeResult<Unit> = forgeCall {
         val kind = targetKind(ref)
-        // Look up member IDs for these usernames
         val membersRes = httpClient.gitlabApi(ref.repo.forge, token, "projects", ref.repo.fullName, "users", query = mapOf("per_page" to "100"))
         if (membersRes.status != HttpStatusCode.OK) return@forgeCall membersRes.failure()
         val members = membersRes.body<List<GitLabUserJson>>()
-        val assigneeIds = logins.mapNotNull { login -> members.firstOrNull { it.username.equals(login, ignoreCase = true) }?.id }
+        val ids = logins.mapNotNull { login -> members.firstOrNull { it.username.equals(login, ignoreCase = true) }?.id }
 
         val payload = buildJsonObject {
-            put("assignee_ids", assigneeIds.joinToString(","))
+            put(field, ids.joinToString(","))
         }
         httpClient.gitlabApi(
             ref.repo.forge, token, "projects", ref.repo.fullName, kind, ref.number.toString(),
             method = HttpMethod.Put,
             body = payload,
+        ).toResult { }
+    }
+
+    /**
+     * GitLab's API has no switch for drafts: a merge request is one while its title starts with "Draft:" (or one of the
+     * older marks it still reads), so the title is rewritten. Nothing is sent when it already is what was asked.
+     */
+    override suspend fun setDraft(token: String, ref: IssueRef, draft: Boolean): ForgeResult<Unit> = forgeCall {
+        val current = httpClient.gitlabApi(ref.repo.forge, token, "projects", ref.repo.fullName, "merge_requests", ref.number.toString())
+        if (current.status != HttpStatusCode.OK) return@forgeCall current.failure()
+        val request = current.body<GitLabMergeRequestJson>()
+        if (request.isDraft == draft) return@forgeCall ForgeResult.Success(Unit)
+        val title = if (draft) "Draft: ${request.title}" else request.title.replace(gitLabDraftMark, "")
+        httpClient.gitlabApi(
+            ref.repo.forge, token, "projects", ref.repo.fullName, "merge_requests", ref.number.toString(),
+            method = HttpMethod.Put,
+            body = buildJsonObject { put("title", title) },
         ).toResult { }
     }
 
@@ -429,3 +452,6 @@ internal fun GitLabProjectJson.toRights(): RepoRights {
         },
     )
 }
+
+/** The marks a merge request's title starts with while it is a draft, as GitLab reads them, and the space after. */
+private val gitLabDraftMark = Regex("""^\s*(\[draft]|\(draft\)|draft:|draft\s+-|wip:|\[wip])\s*""", RegexOption.IGNORE_CASE)
