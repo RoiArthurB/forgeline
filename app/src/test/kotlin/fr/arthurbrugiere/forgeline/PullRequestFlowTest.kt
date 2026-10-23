@@ -87,7 +87,7 @@ class PullRequestFlowTest {
     @Test
     fun a_pull_request_leads_to_its_change_where_a_line_is_remarked_on_and_a_review_sent() {
         openPullRequest()
-        // What ran on it is said beside its numbers.
+        // What ran on it is said at the end of the conversation, above the reader's turn.
         waitFor("1 of 2 checks failed")
 
         openFiles()
@@ -130,9 +130,8 @@ class PullRequestFlowTest {
     @Test
     fun a_check_another_service_ran_opens_on_its_report_without_leaving_the_app() {
         openPullRequest()
+        // Listed where they are, near the end: no sheet to open first.
         waitFor("1 of 2 checks failed")
-
-        composeRule.onNodeWithText("1 of 2 checks failed").performClick()
         waitFor("2 warnings")
         composeRule.onNodeWithText("lint").performClick()
 
@@ -140,7 +139,7 @@ class PullRequestFlowTest {
         composeRule.onNodeWithText("Lint Bot").assertIsDisplayed()
         composeRule.onNodeWithText("Open on Lint Bot").assertIsDisplayed()
         assertThat(pulls.calls).contains("checkReport:octo/tools:4242")
-        // Back is the conversation, its sheet put away.
+        // Back is the conversation.
         composeRule.onNode(hasContentDescription("Navigate up")).performClick()
         waitFor("2 files changed")
     }

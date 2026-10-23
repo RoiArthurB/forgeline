@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -89,6 +90,8 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.navigation.IssueRoute
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.pull.PullActions
+import fr.arthurbrugiere.forgeline.pull.PullRequestChecks
+import fr.arthurbrugiere.forgeline.pull.PullRequestDecisions
 import fr.arthurbrugiere.forgeline.pull.PullRequestUiState
 import fr.arthurbrugiere.forgeline.pull.PullRequestViewModel
 import fr.arthurbrugiere.forgeline.session.SessionState
@@ -515,6 +518,16 @@ fun IssueScreen(
                                     }
                                 }
                             }
+                            // What ran on a pull request, right above the turn where it is merged or not.
+                            if (!pull?.checks.isNullOrEmpty()) {
+                                item(key = "checks") {
+                                    PullRequestChecks(
+                                        pull.checks,
+                                        pullActions,
+                                        Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 24.dp),
+                                    )
+                                }
+                            }
                             // Where the next comment will appear: the conversation ends with the reader's turn.
                             // It waits while a comment is rewritten further up: one thing is written at a time.
                             item(key = "composer") {
@@ -522,6 +535,7 @@ fun IssueScreen(
                                     Composer(
                                         state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture,
                                         suggestions = suggestions, onReferenceTyped = comments.onReferenceTyped,
+                                        decisions = { if (pull != null) PullRequestDecisions(issue, pull, pullActions) },
                                     )
                                 }
                             }

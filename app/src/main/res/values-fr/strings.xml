@@ -1014,6 +1014,11 @@
         <item quantity="many">%d vérifications réussies</item>
         <item quantity="other">%d vérifications réussies</item>
     </plurals>
+    <plurals name="checks_show_settled">
+        <item quantity="one">Afficher %d autre vérification</item>
+        <item quantity="many">Afficher %d autres vérifications</item>
+        <item quantity="other">Afficher %d autres vérifications</item>
+    </plurals>
     <string name="history_open">Historique</string>
     <string name="blame_open">Blame</string>
     <string name="blame_title">Blame</string>

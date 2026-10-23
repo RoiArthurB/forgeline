@@ -150,7 +150,7 @@ internal fun Header(
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (pull != null) PullRequestPanel(issue, pull, pullActions)
+            if (pull != null) PullRequestPanel(issue, pullActions)
         }
         if (issue.labels.isNotEmpty()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

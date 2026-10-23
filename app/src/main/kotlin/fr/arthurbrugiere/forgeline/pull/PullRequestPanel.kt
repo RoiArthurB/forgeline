@@ -15,11 +15,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.outlined.Check
@@ -87,14 +85,29 @@ class PullActions(
 )
 
 /**
- * What stands behind a pull request's numbers, under them in its conversation: the way to its files and its commits,
- * where its checks stand, and, for someone signed in on an open one, reviewing and merging it.
+ * What stands behind a pull request's numbers, under them at the top of its conversation: the way to its files and its
+ * commits. Where its checks stand and what can be decided on it are at the other end, with the reader's turn
+ * ([PullRequestChecks], [PullRequestDecisions]).
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun PullRequestPanel(issue: IssueDetails, state: PullRequestUiState, actions: PullActions, modifier: Modifier = Modifier) {
+fun PullRequestPanel(issue: IssueDetails, actions: PullActions, modifier: Modifier = Modifier) {
     val pr = issue.pullRequest ?: return
-    var showChecks by rememberSaveable { mutableStateOf(false) }
+    // One each: they wrap rather than stack as rows.
+    FlowRow(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        PanelPill(Icons.AutoMirrored.Outlined.InsertDriveFile, pluralStringResource(R.plurals.pull_files_changed, pr.changedFiles, pr.changedFiles), onClick = actions.onOpenChanges)
+        PanelPill(Icons.Outlined.Commit, pluralStringResource(R.plurals.issue_pr_commits, pr.commits, pr.commits), onClick = actions.onOpenCommits)
+    }
+}
+
+/**
+ * Reviewing and merging an open pull request, for someone signed in on its forge: buttons for the row the reader's turn
+ * ends on, beside closing it and sending a comment, and the sheets they open.
+ */
+@Composable
+fun PullRequestDecisions(issue: IssueDetails, state: PullRequestUiState, actions: PullActions) {
+    val pr = issue.pullRequest ?: return
+    if (!state.signedIn || issue.state != IssueState.OPEN) return
     var reviewing by rememberSaveable { mutableStateOf(false) }
     var merging by rememberSaveable { mutableStateOf(false) }
     // Each sheet closes on what it did.
@@ -103,7 +116,6 @@ fun PullRequestPanel(issue: IssueDetails, state: PullRequestUiState, actions: Pu
         merging = false
     }
     val checks = state.checks.orEmpty()
-    if (showChecks) ChecksSheet(checks, actions.onOpenRun, actions.onOpenCheck, actions.onOpenUrl, onDismiss = { showChecks = false })
     if (reviewing) {
         ReviewSheet(state.verdicts, remarks = 0, isSending = state.isSending, error = state.reviewError, onSubmit = actions.onReview) {
             reviewing = false
@@ -117,28 +129,94 @@ fun PullRequestPanel(issue: IssueDetails, state: PullRequestUiState, actions: Pu
             actions.onMergeErrorShown()
         }
     }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // What stands behind the numbers, one each: they wrap rather than stack as rows.
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            PanelPill(Icons.AutoMirrored.Outlined.InsertDriveFile, pluralStringResource(R.plurals.pull_files_changed, pr.changedFiles, pr.changedFiles), onClick = actions.onOpenChanges)
-            PanelPill(Icons.Outlined.Commit, pluralStringResource(R.plurals.issue_pr_commits, pr.commits, pr.commits), onClick = actions.onOpenCommits)
-            checks.overall()?.let { overall ->
-                PanelPill(overall.icon, checksSummary(checks), tint = overall.tint(Soft.colors), onClick = { showChecks = true })
-            }
+    SoftTonalButton(stringResource(R.string.review_start), onClick = { reviewing = true })
+    if (mergeInfo?.canMerge == true) {
+        // Marigold says "this is the way forward": not while a check failed or is still running.
+        if (checks.overall() in UNSETTLED) {
+            SoftTonalButton(stringResource(R.string.merge_start), onClick = { merging = true })
+        } else {
+            SoftButton(stringResource(R.string.merge_start), onClick = { merging = true })
         }
-        if (state.signedIn && issue.state == IssueState.OPEN) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SoftTonalButton(stringResource(R.string.review_start), onClick = { reviewing = true })
-                if (mergeInfo?.canMerge == true) {
-                    // Marigold says "this is the way forward": not while a check failed or is still running.
-                    if (checks.overall() in UNSETTLED) {
-                        SoftTonalButton(stringResource(R.string.merge_start), onClick = { merging = true })
-                    } else {
-                        SoftButton(stringResource(R.string.merge_start), onClick = { merging = true })
-                    }
-                }
+    }
+}
+
+/**
+ * Where a pull request's checks stand, said near its end, above the reader's turn: what failed and what still runs, each
+ * on a row that opens its run or its report in the app (its own page otherwise). What passed or was skipped is listed
+ * too while there are few checks; past that it waits behind one row, so a long list doesn't push the turn away.
+ */
+@Composable
+fun PullRequestChecks(checks: List<Check>, actions: PullActions, modifier: Modifier = Modifier) {
+    val overall = checks.overall() ?: return
+    val colors = Soft.colors
+    // What failed first: it is what someone looks here for.
+    val ordered = checks.sortedBy { if (it.state == CheckState.FAILURE) -1 else it.state.ordinal }
+    val (unsettled, settled) = ordered.partition { it.state in UNSETTLED }
+    var showSettled by rememberSaveable { mutableStateOf(false) }
+    val listed = if (showSettled || checks.size <= SETTLED_SHOWN_UP_TO) ordered else unsettled
+    Column(modifier) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 8.dp, vertical = 8.dp).semantics { heading() },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(28.dp).background(overall.tint(colors), SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
+                Icon(overall.icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(16.dp))
             }
+            Spacer(Modifier.width(12.dp))
+            Text(checksSummary(checks), style = Soft.type.name, color = colors.ink)
         }
+        listed.forEach { check -> CheckRow(check, actions) }
+        if (listed.size < ordered.size) {
+            Text(
+                pluralStringResource(R.plurals.checks_show_settled, settled.size, settled.size),
+                style = Soft.type.control,
+                color = colors.inkMuted,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(SoftTokens.RowCorner)
+                    .clickable(role = Role.Button) { showSettled = true }
+                    .heightIn(min = 48.dp)
+                    .padding(start = 48.dp, end = 8.dp, top = 14.dp, bottom = 14.dp),
+            )
+        }
+    }
+}
+
+/** How many checks are all listed, passed ones included, before those wait behind a row. */
+private const val SETTLED_SHOWN_UP_TO = 5
+
+/** One check with where it stands; it opens its run or its report in the app when it has one, its own page otherwise. */
+@Composable
+private fun CheckRow(check: Check, actions: PullActions) {
+    val colors = Soft.colors
+    val open: (() -> Unit)? = check.runId?.let { id -> { actions.onOpenRun(id) } }
+        ?: check.checkId?.let { id -> { actions.onOpenCheck(id, check.name) } }
+        ?: check.url?.let { url -> { actions.onOpenUrl(url) } }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(SoftTokens.RowCorner)
+            .then(if (open != null) Modifier.clickable(role = Role.Button, onClick = open) else Modifier)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 8.dp, vertical = 8.dp)
+            .semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(28.dp).background(check.state.tint(colors), SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
+            Icon(check.state.icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(16.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(check.name, style = Soft.type.control, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(
+                listOfNotNull(stringResource(check.state.label), check.description).joinToString(" · "),
+                style = Soft.type.meta,
+                color = colors.inkMuted,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (open != null) Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp))
     }
 }
 
@@ -201,55 +279,6 @@ internal val CheckState.label: Int
         CheckState.PENDING -> R.string.check_running
         CheckState.SKIPPED -> R.string.check_skipped
     }
-
-/** Each check with where it stands; one opens its run or its report in the app when it has one, its own page otherwise. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ChecksSheet(checks: List<Check>, onOpenRun: (Long) -> Unit, onOpenCheck: (Long, String) -> Unit, onOpenUrl: (String) -> Unit, onDismiss: () -> Unit) {
-    val colors = Soft.colors
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = colors.ground,
-        contentColor = colors.ink,
-    ) {
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 12.dp).navigationBarsPadding().padding(bottom = 16.dp)) {
-            Text(checksSummary(checks), style = Soft.type.name, color = colors.ink, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp).semantics { heading() })
-            // What failed first: it is what someone opens this for.
-            checks.sortedBy { it.state.ordinal.let { order -> if (it.state == CheckState.FAILURE) -1 else order } }.forEach { check ->
-                val open: (() -> Unit)? = check.runId?.let { id -> { onDismiss(); onOpenRun(id) } }
-                    ?: check.checkId?.let { id -> { onDismiss(); onOpenCheck(id, check.name) } }
-                    ?: check.url?.let { url -> { onOpenUrl(url) } }
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(SoftTokens.RowCorner)
-                        .then(if (open != null) Modifier.clickable(role = Role.Button, onClick = open) else Modifier)
-                        .heightIn(min = 48.dp)
-                        .padding(horizontal = 8.dp, vertical = 8.dp)
-                        .semantics(mergeDescendants = true) {},
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(28.dp).background(check.state.tint(colors), SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
-                        Icon(check.state.icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(16.dp))
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(check.name, style = Soft.type.control, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text(
-                            listOfNotNull(stringResource(check.state.label), check.description).joinToString(" · "),
-                            style = Soft.type.meta,
-                            color = colors.inkMuted,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    if (open != null) Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp))
-                }
-            }
-        }
-    }
-}
 
 /** How to merge, among the ways the repository allows, and what stands in the way when the forge says something does. */
 @OptIn(ExperimentalMaterial3Api::class)

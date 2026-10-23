@@ -2057,18 +2057,21 @@ class ScreenshotTest {
         val issue = issueDetails(ref, "Retry uploads on slow links")
             .copy(pullRequest = fr.arthurbrugiere.forgeline.core.model.PullRequestInfo(false, false, "main", "retry-uploads", 5, 1, 3, 2))
         androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize().background(fr.arthurbrugiere.forgeline.core.ui.soft.Soft.colors.ground).padding(androidx.compose.ui.unit.Dp(20f))) {
-            fr.arthurbrugiere.forgeline.pull.PullRequestPanel(
-                issue,
-                fr.arthurbrugiere.forgeline.pull.PullRequestUiState(
-                    checks = states.mapIndexed { index, state -> fr.arthurbrugiere.forgeline.core.model.Check("check $index", state, null, null) },
-                    mergeInfo = fr.arthurbrugiere.forgeline.core.model.MergeInfo(
-                        true, true, listOf(fr.arthurbrugiere.forgeline.core.model.MergeMethod.SQUASH, fr.arthurbrugiere.forgeline.core.model.MergeMethod.MERGE),
+            // The decisions on the row of actions the reader's turn ends on.
+            androidx.compose.foundation.layout.Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(androidx.compose.ui.unit.Dp(12f))) {
+                fr.arthurbrugiere.forgeline.pull.PullRequestDecisions(
+                    issue,
+                    fr.arthurbrugiere.forgeline.pull.PullRequestUiState(
+                        checks = states.mapIndexed { index, state -> fr.arthurbrugiere.forgeline.core.model.Check("check $index", state, null, null) },
+                        mergeInfo = fr.arthurbrugiere.forgeline.core.model.MergeInfo(
+                            true, true, listOf(fr.arthurbrugiere.forgeline.core.model.MergeMethod.SQUASH, fr.arthurbrugiere.forgeline.core.model.MergeMethod.MERGE),
+                        ),
+                        signedIn = true,
+                        verdicts = fr.arthurbrugiere.forgeline.core.model.ReviewVerdict.entries.toSet(),
                     ),
-                    signedIn = true,
-                    verdicts = fr.arthurbrugiere.forgeline.core.model.ReviewVerdict.entries.toSet(),
-                ),
-                fr.arthurbrugiere.forgeline.pull.PullActions(),
-            )
+                    fr.arthurbrugiere.forgeline.pull.PullActions(),
+                )
+            }
         }
     }
 

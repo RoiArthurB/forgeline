@@ -74,7 +74,7 @@ import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
 /**
  * The reader's turn, closing the conversation: a field that grows with the comment and one action. Signed out of the
  * conversation's forge, it says so and offers to sign in. A comment that wasn't sent stays written. Whoever may close
- * the conversation, or reopen it, finds that beside the comment's action, quieter.
+ * the conversation, or reopen it, finds that beside the comment's action, quieter, after any other [decisions].
  */
 @Composable
 internal fun Composer(
@@ -90,6 +90,8 @@ internal fun Composer(
     inPlace: Boolean = false,
     suggestions: ReferenceOffer = ReferenceOffer(),
     onReferenceTyped: (TypedReference?) -> Unit = {},
+    /** What else can be decided here (a pull request's review and merge), on the row of actions before closing. */
+    decisions: @Composable () -> Unit = {},
 ) {
     val colors = Soft.colors
     val forge = state.ref.repo.forge.displayName
@@ -182,6 +184,8 @@ internal fun Composer(
             }
             if (state.draft.isNotBlank()) PreviewToggle(showPreview) { previewing = !showPreview }
             if (isEditing) SoftTonalButton(stringResource(R.string.cancel), onCancelEdit, enabled = !state.isCommenting)
+            // Every decision on one row, in the order they are reached for: review, merge, close, then the comment.
+            if (!isEditing) decisions()
             // A merged pull request stays merged. Not offered beside a comment being rewritten: one thing at a time.
             if (!isEditing && state.canChangeState && issue != null && issue.state != IssueState.MERGED) {
                 val isOpen = issue.state == IssueState.OPEN

@@ -1013,6 +1013,10 @@
         <item quantity="one">%d check passed</item>
         <item quantity="other">%d checks passed</item>
     </plurals>
+    <plurals name="checks_show_settled">
+        <item quantity="one">Show %d more check</item>
+        <item quantity="other">Show %d more checks</item>
+    </plurals>
     <string name="history_open">History</string>
     <string name="blame_open">Blame</string>
     <string name="blame_title">Blame</string>

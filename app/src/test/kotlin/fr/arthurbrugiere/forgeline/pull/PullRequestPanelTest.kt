@@ -1,20 +1,25 @@
 package fr.arthurbrugiere.forgeline.pull
 
+import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.Check
 import fr.arthurbrugiere.forgeline.core.model.CheckState
+import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
@@ -22,8 +27,11 @@ import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.PullRequestInfo
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
+import fr.arthurbrugiere.forgeline.core.testing.comment
 import fr.arthurbrugiere.forgeline.core.testing.issueDetails
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
+import fr.arthurbrugiere.forgeline.issue.IssueScreen
+import fr.arthurbrugiere.forgeline.issue.IssueUiState
 import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 import org.junit.Rule
 import org.junit.Test
@@ -52,47 +60,56 @@ class PullRequestPanelTest {
     )
     private val mergeable = MergeInfo(mergeable = true, canMerge = true, methods = listOf(MergeMethod.SQUASH, MergeMethod.MERGE))
 
-    private fun setContent(state: PullRequestUiState, issue: fr.arthurbrugiere.forgeline.core.model.IssueDetails = open) = composeRule.setContent {
+    private val actions = PullActions(
+        onOpenChanges = { events += "changes" },
+        onOpenCommits = { events += "commits" },
+        onOpenRun = { events += "run:$it" },
+        onOpenCheck = { id, name -> events += "check:$id:$name" },
+        onOpenUrl = { events += "url:$it" },
+        onMerge = { events += "merge:$it" },
+        onReview = { verdict, body -> events += "review:$verdict:$body" },
+    )
+
+    /** The decisions as the reader's turn shows them: on its row of actions. */
+    private fun setContent(state: PullRequestUiState, issue: IssueDetails = open) = composeRule.setContent {
         ForgelineTheme {
-            PullRequestPanel(
-                issue,
-                state,
-                PullActions(
-                    onOpenChanges = { events += "changes" },
-                    onOpenCommits = { events += "commits" },
-                    onOpenRun = { events += "run:$it" },
-                    onOpenCheck = { id, name -> events += "check:$id:$name" },
-                    onOpenUrl = { events += "url:$it" },
-                    onMerge = { events += "merge:$it" },
-                    onReview = { verdict, body -> events += "review:$verdict:$body" },
-                ),
-            )
+            Row { PullRequestDecisions(issue, state, actions) }
         }
+    }
+
+    private fun setChecks(checks: List<Check>) = composeRule.setContent {
+        ForgelineTheme { PullRequestChecks(checks, actions) }
     }
 
     private val signedIn = PullRequestUiState(checks = listOf(checks[0]), mergeInfo = mergeable, signedIn = true, verdicts = ReviewVerdict.entries.toSet())
     private val failing = signedIn.copy(checks = checks)
 
     @Test
-    fun the_files_and_the_commits_behind_the_numbers_are_a_tap_away() {
-        setContent(PullRequestUiState())
+    fun the_files_and_the_commits_behind_the_numbers_are_a_tap_away_and_nothing_else_is_up_there() {
+        composeRule.setContent { ForgelineTheme { PullRequestPanel(open, actions) } }
 
         composeRule.assertEveryTargetIsAtLeast48dp()
         composeRule.onNodeWithText("2 files changed").performClick()
         composeRule.onNodeWithText("1 commit").performClick()
 
         assertThat(events).containsExactly("changes", "commits").inOrder()
-        // Signed out, and nothing ran: nothing more is offered.
+    }
+
+    @Test
+    fun signed_out_nothing_is_offered_to_decide() {
+        setContent(PullRequestUiState(mergeInfo = mergeable))
+
         composeRule.onNodeWithText("Review").assertDoesNotExist()
         composeRule.onNodeWithText("Merge").assertDoesNotExist()
     }
 
     @Test
     fun checks_say_where_they_stand_and_each_opens_its_run_or_its_page() {
-        setContent(PullRequestUiState(checks = checks))
+        setChecks(checks)
 
-        composeRule.onNodeWithText("1 of 3 checks failed").performClick()
-        // What failed and what it is, then where it leads.
+        composeRule.assertEveryTargetIsAtLeast48dp()
+        composeRule.onNodeWithText("1 of 3 checks failed").assertIsDisplayed()
+        // Listed where they are, not behind a tap: what failed, what runs, and what passed while there are few.
         composeRule.onNodeWithText("Built in 2m", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("coverage").performClick()
         composeRule.onNodeWithText("lint").performClick()
@@ -101,27 +118,46 @@ class PullRequestPanelTest {
     }
 
     @Test
-    fun a_check_that_left_a_report_opens_it_in_the_app_not_in_the_browser() {
-        setContent(PullRequestUiState(checks = reported))
+    fun what_failed_is_listed_first() {
+        setChecks(checks)
 
-        composeRule.onNodeWithText("1 of 2 checks failed").performClick()
+        val lint = composeRule.onNodeWithText("lint").getBoundsInRoot()
+        val build = composeRule.onNodeWithText("build").getBoundsInRoot()
+        assertThat(lint.top).isLessThan(build.top)
+    }
+
+    @Test
+    fun a_check_that_left_a_report_opens_it_in_the_app_not_in_the_browser() {
+        setChecks(reported)
+
         composeRule.onNodeWithText("health").performClick()
-        // The sheet closed on the way: it is opened again for the other one.
-        composeRule.onNodeWithText("1 of 2 checks failed").performClick()
         composeRule.onNodeWithText("unit").performClick()
 
         assertThat(events).containsExactly("check:4242:health", "run:777").inOrder()
     }
 
     @Test
+    fun many_passed_checks_wait_behind_one_row_so_the_turn_stays_near() {
+        val many = listOf(checks[1]) + (1..6).map { Check("job $it", CheckState.SUCCESS, null, null) }
+        setChecks(many)
+
+        composeRule.onNodeWithText("lint").assertIsDisplayed()
+        composeRule.onNodeWithText("job 1").assertDoesNotExist()
+        composeRule.onNodeWithText("Show 6 more checks").performClick()
+
+        composeRule.onNodeWithText("job 6").assertIsDisplayed()
+        composeRule.onNodeWithText("Show 6 more checks").assertDoesNotExist()
+    }
+
+    @Test
     fun checks_all_passed_or_still_running_say_so() {
-        setContent(PullRequestUiState(checks = listOf(checks[0], checks[2])))
+        setChecks(listOf(checks[0], checks[2]))
         composeRule.onNodeWithText("1 of 2 checks still running").assertIsDisplayed()
     }
 
     @Test
     fun checks_that_all_passed_are_counted() {
-        setContent(PullRequestUiState(checks = listOf(checks[0])))
+        setChecks(listOf(checks[0]))
         composeRule.onNodeWithText("1 check passed").assertIsDisplayed()
     }
 
@@ -189,7 +225,6 @@ class PullRequestPanelTest {
     fun a_pull_request_that_is_merged_or_closed_offers_neither() {
         setContent(signedIn, open.copy(state = IssueState.MERGED))
 
-        composeRule.onNodeWithText("2 files changed").assertIsDisplayed()
         composeRule.onNodeWithText("Review").assertDoesNotExist()
         composeRule.onNodeWithText("Merge").assertDoesNotExist()
     }
@@ -200,7 +235,7 @@ class PullRequestPanelTest {
 
         composeRule.onNodeWithText("Merge").performClick()
         // Where the checks stand is repeated in the sheet, and the way on no longer reads as the plain next step.
-        composeRule.onAllNodes(hasText("1 of 3 checks failed"))[1].assertIsDisplayed()
+        composeRule.onNodeWithText("1 of 3 checks failed").assertIsDisplayed()
         composeRule.onNodeWithText("Confirm merge").assertDoesNotExist()
         composeRule.onNodeWithText("Merge anyway").performClick()
 
@@ -213,7 +248,7 @@ class PullRequestPanelTest {
 
         composeRule.onNodeWithText("Merge").performClick()
 
-        composeRule.onAllNodes(hasText("1 of 2 checks still running"))[1].assertIsDisplayed()
+        composeRule.onNodeWithText("1 of 2 checks still running").assertIsDisplayed()
         composeRule.onNodeWithText("Confirm merge").assertIsDisplayed()
         composeRule.onNodeWithText("Merge anyway").assertDoesNotExist()
     }
@@ -235,6 +270,45 @@ class PullRequestPanelTest {
 
         composeRule.onNodeWithText("Merge").performClick()
 
-        composeRule.onAllNodes(hasText("1 check passed")).assertCountEquals(1)
+        composeRule.onNodeWithText("1 check passed").assertDoesNotExist()
+    }
+
+    /**
+     * Regression (2026-10-23): Review and Merge sat at the top, under the pull request's numbers, while Close sat at the
+     * end beside the comment; the owner looked for Merge at the end and took it for missing. Everything decided on a pull
+     * request is now at its end, in reading order: the conversation, what ran on it, the comment, then every action.
+     */
+    @Test
+    fun a_pull_request_is_decided_on_at_its_end_after_its_checks_and_beside_closing_it() {
+        composeRule.setContent {
+            ForgelineTheme {
+                IssueScreen(
+                    state = IssueUiState(ref, open, listOf(comment(1, "Looks good", login = "hubot")), canChangeState = true),
+                    pull = failing,
+                    pullActions = actions,
+                    canComment = true, onDraftChange = {}, onSendComment = {}, onToggleOpen = { events += "close" }, onSignIn = {}, onCommentNoticeShown = {},
+                    onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {},
+                    onLinkClick = {}, onErrorShown = {},
+                )
+            }
+        }
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Looks good")).fetchSemanticsNodes().isNotEmpty() }
+        val list = composeRule.onNode(hasScrollAction())
+        list.performScrollToNode(hasText("Close pull request"))
+
+        val comment = composeRule.onNodeWithText("Looks good").getBoundsInRoot()
+        val checksHeading = composeRule.onNodeWithText("1 of 3 checks failed").getBoundsInRoot()
+        val field = composeRule.onNode(hasSetTextAction()).getBoundsInRoot()
+        val review = composeRule.onNodeWithText("Review").getBoundsInRoot()
+        val merge = composeRule.onNodeWithText("Merge").getBoundsInRoot()
+        val close = composeRule.onNodeWithText("Close pull request").getBoundsInRoot()
+        assertThat(checksHeading.top).isGreaterThan(comment.bottom)
+        assertThat(field.top).isGreaterThan(checksHeading.bottom)
+        listOf(review, merge, close).forEach { assertThat(it.top).isAtLeast(field.bottom) }
+        // The header keeps only the way to the files and commits.
+        composeRule.onAllNodes(hasText("Merge")).assertCountEquals(1)
+        composeRule.onAllNodes(hasText("1 of 3 checks failed")).assertCountEquals(1)
+        composeRule.onNodeWithText("Merge").performClick()
+        composeRule.onNodeWithText("Merge anyway").assertIsDisplayed()
     }
 }
