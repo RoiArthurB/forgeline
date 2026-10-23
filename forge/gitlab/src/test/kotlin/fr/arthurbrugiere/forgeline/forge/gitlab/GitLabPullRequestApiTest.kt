@@ -137,7 +137,45 @@ class GitLabPullRequestApiTest {
     fun merging_offers_to_squash_or_not_as_the_project_prefers() = runTest {
         val info = api { path -> if (path.endsWith("/7606")) json(mrJson) else json("""{"squash_option":"default_on","merge_method":"ff"}""") }.mergeInfo("tok", mr).value()
 
-        assertThat(info).isEqualTo(MergeInfo(mergeable = true, canMerge = true, methods = listOf(MergeMethod.SQUASH, MergeMethod.MERGE)))
+        // Its pipeline still runs: it can be merged once that passes.
+        assertThat(info).isEqualTo(MergeInfo(mergeable = true, canMerge = true, methods = listOf(MergeMethod.SQUASH, MergeMethod.MERGE), canMergeWhenChecksPass = true))
+    }
+
+    @Test
+    fun a_branch_of_the_project_goes_with_the_merge_as_the_merge_request_or_the_project_says() = runTest {
+        val own = mrJson.replace(""""user":{"can_merge":true}}""", """"user":{"can_merge":true},"source_project_id":250833,"target_project_id":250833}""")
+        suspend fun deleting(request: String, project: String) = api { path -> if (path.endsWith("/7606")) json(request) else json(project) }.mergeInfo("tok", mr).value().deleteBranch
+
+        assertThat(deleting(own, """{"remove_source_branch_after_merge":true}""")).isTrue()
+        assertThat(deleting(own.replace(""""source_project_id""", """"force_remove_source_branch":false,"source_project_id"""), """{"remove_source_branch_after_merge":true}""")).isFalse()
+        assertThat(deleting(own, "{}")).isFalse()
+        // A fork's branch isn't the project's.
+        assertThat(deleting(own.replace(""""source_project_id":250833""", """"source_project_id":99"""), """{"remove_source_branch_after_merge":true}""")).isNull()
+    }
+
+    @Test
+    fun a_finished_pipeline_leaves_nothing_to_wait_for_and_a_merge_set_for_it_says_so() = runTest {
+        val passed = mrJson.replace(""""status":"running""", """"status":"success""")
+        val armed = mrJson.replace(""""user":{"can_merge":true}}""", """"user":{"can_merge":true},"merge_when_pipeline_succeeds":true}""")
+
+        val done = api { path -> if (path.endsWith("/7606")) json(passed) else json("{}") }.mergeInfo("tok", mr).value()
+        val waiting = api { path -> if (path.endsWith("/7606")) json(armed) else json("{}") }.mergeInfo("tok", mr).value()
+
+        assertThat(done.canMergeWhenChecksPass).isFalse()
+        assertThat(waiting.mergesWhenChecksPass).isTrue()
+    }
+
+    @Test
+    fun a_merge_can_delete_its_branch_wait_for_the_pipeline_and_be_called_off() = runTest {
+        val api = api { json("{}") }
+
+        api.merge("tok", mr, MergeMethod.MERGE, deleteBranch = true, whenChecksPass = true)
+        api.cancelMergeWhenChecksPass("tok", mr)
+
+        assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly(
+            "PUT $base/merge_requests/7606/merge", "POST $base/merge_requests/7606/cancel_merge_when_pipeline_succeeds",
+        ).inOrder()
+        assertThat(requests.first().sent).isEqualTo("""{"squash":false,"should_remove_source_branch":true,"merge_when_pipeline_succeeds":true}""")
     }
 
     @Test
@@ -160,7 +198,9 @@ class GitLabPullRequestApiTest {
 
         assertThat(requests.map { it.method }.distinct()).containsExactly(HttpMethod.Put)
         assertThat(requests.first().url.encodedPath).isEqualTo("$base/merge_requests/7606/merge")
-        assertThat(requests.map { it.sent }).containsExactly("""{"squash":true}""", """{"squash":false}""").inOrder()
+        assertThat(requests.map { it.sent }).containsExactly(
+            """{"squash":true,"should_remove_source_branch":false}""", """{"squash":false,"should_remove_source_branch":false}""",
+        ).inOrder()
     }
 
     @Test

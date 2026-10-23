@@ -91,6 +91,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.navigation.IssueRoute
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.pull.PullActions
+import fr.arthurbrugiere.forgeline.pull.PullDone
 import fr.arthurbrugiere.forgeline.pull.PullRequestChecks
 import fr.arthurbrugiere.forgeline.pull.PullRequestDecisions
 import fr.arthurbrugiere.forgeline.pull.PullRequestUiState
@@ -229,6 +230,7 @@ fun IssueRoute(
             onOpenUrl = openUrl,
             onMerge = { pull?.merge(it) },
             onMergeErrorShown = { pull?.mergeErrorShown() },
+            onCancelMergeWhenChecksPass = { pull?.cancelMergeWhenChecksPass() },
             onReview = { verdict, body -> pull?.submitReview(verdict, body) },
             onReviewErrorShown = { pull?.reviewErrorShown() },
         )
@@ -349,6 +351,9 @@ fun IssueScreen(
     }
     SayOnce(attachFailed, snackbar, comments.onAttachErrorShown)
     SayOnce(stringResource(R.string.issue_reaction_failed).takeIf { state.reactionError != null }, snackbar, comments.onReactionErrorShown)
+    // A merge set for later leaves nothing else on screen to say it went through: not every forge says so afterwards.
+    val scheduled = stringResource(R.string.merge_scheduled)
+    LaunchedEffect(pull?.done) { if (pull?.done?.first == PullDone.SCHEDULED) snackbar.showSnackbar(scheduled) }
     // The comment the reader asked to delete, until they have said yes or no.
     var deleting by rememberSaveable { mutableStateOf<Long?>(null) }
     deleting?.let { id ->

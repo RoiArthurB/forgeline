@@ -980,6 +980,13 @@
     <string name="merge_checking">La forge cherche encore si ceci peut être fusionné. Vous pouvez essayer.</string>
     <string name="merge_failed">La forge a refusé la fusion : %1$s</string>
     <string name="merge_confirm">Confirmer la fusion</string>
+    <string name="merge_when_checks_pass">Fusionner quand les vérifications passent</string>
+    <string name="merge_now">Fusionner maintenant</string>
+    <string name="merge_scheduled">Elle sera fusionnée dès que ses vérifications passeront.</string>
+    <string name="merge_unschedule">Ne pas fusionner automatiquement</string>
+    <string name="merge_start_scheduled">Fusion quand les vérifications passent</string>
+    <string name="merge_delete_branch">Supprimer %1$s</string>
+    <string name="merge_delete_branch_summary">La branche de la modification, une fois fusionnée</string>
     <string name="merge_merging">Fusion…</string>
     <string name="merge_method_merge">Commit de fusion</string>
     <string name="merge_method_merge_summary">Chaque commit est gardé, réunis par un commit de fusion</string>

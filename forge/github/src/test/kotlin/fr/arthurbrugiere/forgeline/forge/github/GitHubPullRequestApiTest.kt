@@ -204,6 +204,81 @@ class GitHubPullRequestApiTest {
         assertThat(requests.single().sent).isEqualTo("""{"merge_method":"squash"}""")
     }
 
+    /** A pull request from a branch of the repository itself, as GitHub describes both ends. */
+    private val ownBranch = """{"head":{"sha":"abc123","ref":"fix/retry","repo":{"full_name":"octo/tools"}},"base":{"sha":"def","ref":"main","repo":{"full_name":"octo/tools"}},"mergeable":true,"node_id":"PR_88"}"""
+
+    @Test
+    fun a_branch_of_the_repository_itself_can_go_with_the_merge_and_auto_merge_is_offered_where_allowed() = runTest {
+        val info = api { request ->
+            if (request.path.endsWith("/pulls/88")) json(ownBranch) else json("""{"allow_auto_merge":true,"delete_branch_on_merge":false,"permissions":{"push":true}}""")
+        }.mergeInfo("tok", pull).value()
+
+        assertThat(info.deleteBranch).isFalse()
+        assertThat(info.canMergeWhenChecksPass).isTrue()
+        assertThat(info.mergesWhenChecksPass).isFalse()
+    }
+
+    @Test
+    fun a_fork_s_branch_or_one_github_deletes_anyway_is_no_choice() = runTest {
+        val fork = ownBranch.replace(""""repo":{"full_name":"octo/tools"}},"base""", """"repo":{"full_name":"someone/tools"}},"base""")
+        val fromFork = api { request -> if (request.path.endsWith("/pulls/88")) json(fork) else json("""{"permissions":{"push":true}}""") }.mergeInfo("tok", pull).value()
+        requests.clear()
+        val deletesAnyway = api { request ->
+            if (request.path.endsWith("/pulls/88")) json(ownBranch) else json("""{"delete_branch_on_merge":true,"permissions":{"push":true}}""")
+        }.mergeInfo("tok", pull).value()
+
+        assertThat(fromFork.deleteBranch).isNull()
+        assertThat(deletesAnyway.deleteBranch).isNull()
+        // Not allowed by the repository: no auto-merge.
+        assertThat(deletesAnyway.canMergeWhenChecksPass).isFalse()
+    }
+
+    @Test
+    fun a_pull_request_set_to_merge_once_its_checks_pass_says_so() = runTest {
+        val armed = ownBranch.replace(""""node_id":"PR_88"}""", """"node_id":"PR_88","auto_merge":{"merge_method":"squash"}}""")
+        val info = api { request -> if (request.path.endsWith("/pulls/88")) json(armed) else json("""{"allow_auto_merge":true,"permissions":{"push":true}}""") }.mergeInfo("tok", pull).value()
+
+        assertThat(info.mergesWhenChecksPass).isTrue()
+    }
+
+    @Test
+    fun a_merged_branch_is_deleted_when_asked_slashes_and_all() = runTest {
+        val result = api { request ->
+            when (request.method) {
+                HttpMethod.Put -> json("""{"merged":true}""")
+                HttpMethod.Delete -> respond("", HttpStatusCode.NoContent)
+                else -> json(ownBranch)
+            }
+        }.merge("tok", pull, MergeMethod.MERGE, deleteBranch = true)
+
+        assertThat(result).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(requests.map { "${it.method.value} ${it.path}" }).containsExactly(
+            "PUT /repos/octo/tools/pulls/88/merge", "GET /repos/octo/tools/pulls/88", "DELETE /repos/octo/tools/git/refs/heads/fix/retry",
+        ).inOrder()
+    }
+
+    @Test
+    fun a_refused_merge_deletes_nothing() = runTest {
+        api { json("""{"message":"Pull Request is not mergeable"}""", HttpStatusCode.MethodNotAllowed) }.merge("tok", pull, MergeMethod.MERGE, deleteBranch = true)
+
+        assertThat(requests.map { it.method }).containsExactly(HttpMethod.Put)
+    }
+
+    @Test
+    fun merging_once_the_checks_pass_and_taking_it_back_go_through_graphql_by_the_node() = runTest {
+        val acting = api { request -> if (request.path == "/graphql") json("""{"data":{"done":{"clientMutationId":null}}}""") else json(ownBranch) }
+
+        assertThat(acting.merge("tok", pull, MergeMethod.SQUASH, whenChecksPass = true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(acting.cancelMergeWhenChecksPass("tok", pull)).isEqualTo(ForgeResult.Success(Unit))
+
+        val mutations = requests.filter { it.path == "/graphql" }.map { it.sent }
+        assertThat(mutations[0]).contains("enablePullRequestAutoMerge(input: {pullRequestId: \$id, mergeMethod: \$method})")
+        assertThat(mutations[0]).contains(""""variables":{"id":"PR_88","method":"SQUASH"}""")
+        assertThat(mutations[1]).contains("disablePullRequestAutoMerge(input: {pullRequestId: \$id})")
+        // Nothing merged now.
+        assertThat(requests.none { it.path.endsWith("/merge") }).isTrue()
+    }
+
     @Test
     fun a_merge_github_refuses_says_why() = runTest {
         val result = api { json("""{"message":"Pull Request is not mergeable"}""", HttpStatusCode.MethodNotAllowed) }.merge("tok", pull, MergeMethod.MERGE)

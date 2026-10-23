@@ -82,17 +82,34 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
             )
             // The repository's own choice first, when it names one of these.
             val preferred = MergeMethod.entries.firstOrNull { it.name.lowercase() == repo.defaultMergeStyle }
+            val details = pullResponse.body<PrPullJson>()
+            val canMerge = repo.permissions?.push == true
+            // A branch of the repository itself can go with the merge; a fork's isn't the repository's to delete.
+            val ownBranch = details.head.repoId != null && details.head.repoId == details.base?.repoId
             ForgeResult.Success(
-                MergeInfo(pullResponse.body<PrPullJson>().mergeable, repo.permissions?.push == true, methods.sortedByDescending { it == preferred }),
+                MergeInfo(
+                    details.mergeable, canMerge, methods.sortedByDescending { it == preferred },
+                    deleteBranch = repo.defaultDeleteBranchAfterMerge.takeIf { ownBranch },
+                    // Forgejo schedules a merge for when the checks succeed, and doesn't say afterwards that it did.
+                    canMergeWhenChecksPass = canMerge,
+                ),
             )
         }
     }
 
-    override suspend fun merge(token: String, ref: IssueRef, method: MergeMethod): ForgeResult<Unit> = forgeCall {
+    override suspend fun merge(token: String, ref: IssueRef, method: MergeMethod, deleteBranch: Boolean, whenChecksPass: Boolean): ForgeResult<Unit> = forgeCall {
         repo(
             token, ref.repo, "pulls", ref.number.toString(), "merge", method = HttpMethod.Post,
-            body = buildJsonObject { put("Do", method.name.lowercase()) },
+            body = buildJsonObject {
+                put("Do", method.name.lowercase())
+                put("delete_branch_after_merge", deleteBranch)
+                if (whenChecksPass) put("merge_when_checks_succeed", true)
+            },
         ).toResult { }
+    }
+
+    override suspend fun cancelMergeWhenChecksPass(token: String, ref: IssueRef): ForgeResult<Unit> = forgeCall {
+        repo(token, ref.repo, "pulls", ref.number.toString(), "merge", method = HttpMethod.Delete).toResult { }
     }
 
     override suspend fun review(token: String, ref: IssueRef, verdict: ReviewVerdict, body: String, comments: List<LineComment>): ForgeResult<Unit> = forgeCall {
@@ -204,10 +221,10 @@ private data class PrCommitJson(val sha: String, val commit: PrGitCommitJson? = 
 }
 
 @Serializable
-private data class PrHeadJson(val sha: String)
+private data class PrHeadJson(val sha: String = "", @SerialName("repo_id") val repoId: Long? = null)
 
 @Serializable
-private data class PrPullJson(val head: PrHeadJson, val mergeable: Boolean? = null)
+private data class PrPullJson(val head: PrHeadJson, val base: PrHeadJson? = null, val mergeable: Boolean? = null)
 
 @Serializable
 private data class PrPermissionsJson(val push: Boolean = false)
@@ -218,6 +235,7 @@ private data class PrRepoJson(
     @SerialName("allow_squash_merge") val allowSquashMerge: Boolean = false,
     @SerialName("allow_rebase") val allowRebase: Boolean = false,
     @SerialName("default_merge_style") val defaultMergeStyle: String? = null,
+    @SerialName("default_delete_branch_after_merge") val defaultDeleteBranchAfterMerge: Boolean = false,
     val permissions: PrPermissionsJson? = null,
 )
 

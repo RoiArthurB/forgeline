@@ -24,7 +24,19 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** What was just done to a pull request from its conversation: the conversation is read again to show it. */
-enum class PullDone { MERGED, REVIEWED }
+enum class PullDone {
+    MERGED,
+    REVIEWED,
+
+    /** Set to merge once its checks pass. */
+    SCHEDULED,
+
+    /** No longer set to merge once its checks pass. */
+    UNSCHEDULED,
+}
+
+/** How a merge is asked for: the way, whether its branch goes with it, and whether it waits for the checks. */
+data class MergeChoice(val method: MergeMethod, val deleteBranch: Boolean = false, val whenChecksPass: Boolean = false)
 
 data class PullRequestUiState(
     /** What ran on the latest commit; null until read, and when it couldn't be (the conversation reads without it). */
@@ -81,14 +93,21 @@ class PullRequestViewModel @AssistedInject constructor(
         }
     }
 
-    fun merge(method: MergeMethod) {
+    fun merge(choice: MergeChoice) = mergeWork(if (choice.whenChecksPass) PullDone.SCHEDULED else PullDone.MERGED) {
+        repository.merge(ref, choice.method, choice.deleteBranch, choice.whenChecksPass)
+    }
+
+    fun cancelMergeWhenChecksPass() = mergeWork(PullDone.UNSCHEDULED) { repository.cancelMergeWhenChecksPass(ref) }
+
+    /** One merge, or change to one, at a time; once the forge took it, it is said ([done]) and read again. */
+    private fun mergeWork(done: PullDone, ask: suspend () -> ForgeResult<Unit>) {
         if (_state.value.isMerging) return
         _state.update { it.copy(isMerging = true, mergeError = null) }
         viewModelScope.launch {
-            when (val result = repository.merge(ref, method)) {
+            when (val result = ask()) {
                 is ForgeResult.Failure -> _state.update { it.copy(isMerging = false, mergeError = result.error) }
                 is ForgeResult.Success -> {
-                    _state.update { it.copy(isMerging = false, done = PullDone.MERGED to ++serial) }
+                    _state.update { it.copy(isMerging = false, done = done to ++serial) }
                     refresh()
                 }
             }

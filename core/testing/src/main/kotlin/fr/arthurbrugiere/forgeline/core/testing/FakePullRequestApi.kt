@@ -87,7 +87,14 @@ class FakePullRequestApi(
 
     override suspend fun mergeInfo(token: String, ref: IssueRef) = read("mergeInfo:${ref.name()}") { mergeInfo }
 
-    override suspend fun merge(token: String, ref: IssueRef, method: MergeMethod) = write("merge:${ref.name()}:$method") { }
+    override suspend fun merge(token: String, ref: IssueRef, method: MergeMethod, deleteBranch: Boolean, whenChecksPass: Boolean) =
+        write("merge:${ref.name()}:$method${if (deleteBranch) ":delete-branch" else ""}${if (whenChecksPass) ":when-checks-pass" else ""}") {
+            if (whenChecksPass) mergeInfo = mergeInfo.copy(mergesWhenChecksPass = true)
+        }
+
+    override suspend fun cancelMergeWhenChecksPass(token: String, ref: IssueRef) = write("cancelMergeWhenChecksPass:${ref.name()}") {
+        mergeInfo = mergeInfo.copy(mergesWhenChecksPass = false)
+    }
 
     override suspend fun review(token: String, ref: IssueRef, verdict: ReviewVerdict, body: String, comments: List<LineComment>) =
         write("review:${ref.name()}:$verdict") { reviews += SentReview(verdict, body, comments) }

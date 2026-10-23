@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
@@ -66,7 +67,8 @@ class PullRequestPanelTest {
         onOpenRun = { events += "run:$it" },
         onOpenCheck = { id, name -> events += "check:$id:$name" },
         onOpenUrl = { events += "url:$it" },
-        onMerge = { events += "merge:$it" },
+        onMerge = { events += "merge:${it.method}${if (it.deleteBranch) ":delete-branch" else ""}${if (it.whenChecksPass) ":when-checks-pass" else ""}" },
+        onCancelMergeWhenChecksPass = { events += "unschedule" },
         onReview = { verdict, body -> events += "review:$verdict:$body" },
     )
 
@@ -274,6 +276,61 @@ class PullRequestPanelTest {
         composeRule.onNodeWithText("1 of 2 checks still running").assertIsDisplayed()
         composeRule.onNodeWithText("Confirm merge").assertIsDisplayed()
         composeRule.onNodeWithText("Merge anyway").assertDoesNotExist()
+    }
+
+    @Test
+    fun the_branch_goes_with_the_merge_as_the_repository_prefers_and_as_chosen() {
+        setContent(signedIn.copy(mergeInfo = mergeable.copy(deleteBranch = true)))
+
+        composeRule.onNodeWithText("Merge").performClick()
+        composeRule.onNodeWithText("Delete retry").assertIsOn()
+        composeRule.onNodeWithText("Confirm merge").performClick()
+        composeRule.onNodeWithText("Delete retry").performClick()
+        composeRule.onNodeWithText("Confirm merge").performClick()
+
+        assertThat(events).containsExactly("merge:SQUASH:delete-branch", "merge:SQUASH").inOrder()
+    }
+
+    @Test
+    fun a_branch_that_isn_t_the_repository_s_to_delete_is_not_offered() {
+        setContent(signedIn)
+
+        composeRule.onNodeWithText("Merge").performClick()
+
+        composeRule.onNodeWithText("Delete retry").assertDoesNotExist()
+    }
+
+    @Test
+    fun checks_still_running_make_waiting_for_them_the_way_on_and_merging_now_the_other() {
+        setContent(signedIn.copy(checks = listOf(checks[0], checks[2]), mergeInfo = mergeable.copy(canMergeWhenChecksPass = true)))
+
+        composeRule.onNodeWithText("Merge").performClick()
+        composeRule.onNodeWithText("Merge when checks pass").performClick()
+        composeRule.onNodeWithText("Merge now").performClick()
+
+        assertThat(events).containsExactly("merge:SQUASH:when-checks-pass", "merge:SQUASH").inOrder()
+    }
+
+    @Test
+    fun a_forge_that_can_t_wait_for_checks_only_merges_now() {
+        setContent(signedIn.copy(checks = listOf(checks[0], checks[2])))
+
+        composeRule.onNodeWithText("Merge").performClick()
+
+        composeRule.onNodeWithText("Merge when checks pass").assertDoesNotExist()
+        composeRule.onNodeWithText("Confirm merge").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_pull_request_set_to_merge_by_itself_says_so_and_can_be_taken_back() {
+        setContent(signedIn.copy(mergeInfo = mergeable.copy(canMergeWhenChecksPass = true, mergesWhenChecksPass = true)))
+
+        composeRule.onNodeWithText("Merge").assertDoesNotExist()
+        composeRule.onNodeWithText("Merging when checks pass").performClick()
+        composeRule.onNodeWithText("It will be merged once its checks pass.").assertIsDisplayed()
+        composeRule.onNodeWithText("Don't merge automatically").performClick()
+
+        assertThat(events).containsExactly("unschedule")
     }
 
     @Test

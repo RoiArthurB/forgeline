@@ -97,22 +97,74 @@ class GitHubPullRequestApi(
             val repoResponse = repo.await()
             if (repoResponse.status != HttpStatusCode.OK) return@coroutineScope repoResponse.failure()
             val settings = repoResponse.body<PrRepoMergeJson>()
+            val details = pullResponse.body<PrPullJson>()
             // The repository only tells its merge settings to those who can push; it allows a merge commit by default.
             val methods = listOfNotNull(
                 MergeMethod.MERGE.takeIf { settings.allowMergeCommit ?: true },
                 MergeMethod.SQUASH.takeIf { settings.allowSquashMerge ?: false },
                 MergeMethod.REBASE.takeIf { settings.allowRebaseMerge ?: false },
             )
-            ForgeResult.Success(MergeInfo(pullResponse.body<PrPullJson>().mergeable, settings.permissions?.push == true, methods))
+            val canMerge = settings.permissions?.push == true
+            // A branch of the repository itself can go with the merge; one of a fork isn't the repository's to delete,
+            // and a repository that deletes merged branches does so whatever is said.
+            val ownBranch = details.head.repo?.fullName != null && details.head.repo.fullName.equals(details.base?.repo?.fullName, ignoreCase = true)
+            ForgeResult.Success(
+                MergeInfo(
+                    details.mergeable, canMerge, methods,
+                    deleteBranch = false.takeIf { ownBranch && settings.deleteBranchOnMerge != true },
+                    canMergeWhenChecksPass = canMerge && settings.allowAutoMerge == true,
+                    mergesWhenChecksPass = details.autoMerge != null,
+                ),
+            )
         }
     }
 
-    override suspend fun merge(token: String, ref: IssueRef, method: MergeMethod): ForgeResult<Unit> = forgeCall {
-        pull(
-            token, ref, "merge", method = HttpMethod.Put,
-            body = buildJsonObject { put("merge_method", method.name.lowercase()) },
-        ).toResult { }
+    /**
+     * Merges now through the REST API, then deletes the branch when asked: GitHub's merge doesn't. Merging once the
+     * checks pass is GitHub's auto-merge, only in its GraphQL API, by the pull request's node id.
+     */
+    override suspend fun merge(token: String, ref: IssueRef, method: MergeMethod, deleteBranch: Boolean, whenChecksPass: Boolean): ForgeResult<Unit> {
+        if (whenChecksPass) {
+            return onPullNode(token, ref) { id ->
+                graphQl(
+                    token,
+                    "mutation(\$id: ID!, \$method: PullRequestMergeMethod!) { enablePullRequestAutoMerge(input: {pullRequestId: \$id, mergeMethod: \$method}) { clientMutationId } }",
+                    buildJsonObject {
+                        put("id", id)
+                        put("method", method.name)
+                    },
+                )
+            }
+        }
+        return forgeCall {
+            val merged = pull(token, ref, "merge", method = HttpMethod.Put, body = buildJsonObject { put("merge_method", method.name.lowercase()) })
+            if (merged.status != HttpStatusCode.OK) return@forgeCall merged.failure()
+            if (!deleteBranch) return@forgeCall ForgeResult.Success(Unit)
+            val pull = pull(token, ref)
+            if (pull.status != HttpStatusCode.OK) return@forgeCall pull.failure()
+            val branch = pull.body<PrPullJson>().head.ref ?: return@forgeCall ForgeResult.Success(Unit)
+            repo(token, ref.repo, "git", "refs", "heads", *branch.split('/').toTypedArray(), method = HttpMethod.Delete).toResult { }
+        }
     }
+
+    override suspend fun cancelMergeWhenChecksPass(token: String, ref: IssueRef): ForgeResult<Unit> = onPullNode(token, ref) { id ->
+        graphQl(token, "mutation(\$id: ID!) { disablePullRequestAutoMerge(input: {pullRequestId: \$id}) { clientMutationId } }", buildJsonObject { put("id", id) })
+    }
+
+    private suspend fun onPullNode(token: String, ref: IssueRef, act: suspend (id: String) -> ForgeResult<JsonObject>): ForgeResult<Unit> {
+        val node = forgeCall {
+            val pull = pull(token, ref)
+            if (pull.status != HttpStatusCode.OK) return@forgeCall pull.failure()
+            pull.body<PrPullJson>().nodeId?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Http(404, null))
+        }
+        return when (node) {
+            is ForgeResult.Failure -> node
+            is ForgeResult.Success -> act(node.value).map { }
+        }
+    }
+
+    private suspend fun graphQl(token: String, query: String, variables: JsonObject): ForgeResult<JsonObject> =
+        forgeCall { httpClient.gitHubGraphQl(apiBaseUrl, token, query, variables) }
 
     override suspend fun review(token: String, ref: IssueRef, verdict: ReviewVerdict, body: String, comments: List<LineComment>): ForgeResult<Unit> = forgeCall {
         pull(
@@ -251,10 +303,21 @@ private data class PrCommitJson(val sha: String, val commit: PrGitCommitJson, va
 }
 
 @Serializable
-private data class PrHeadJson(val sha: String)
+private data class PrBranchRepoJson(@SerialName("full_name") val fullName: String? = null)
+
+/** Where a pull request's change is ([PullJson.head]) or goes ([PullJson.base]); a deleted fork has no repository. */
+@Serializable
+private data class PrHeadJson(val sha: String = "", val ref: String? = null, val repo: PrBranchRepoJson? = null)
 
 @Serializable
-private data class PrPullJson(val head: PrHeadJson, val mergeable: Boolean? = null)
+private data class PrPullJson(
+    val head: PrHeadJson,
+    val base: PrHeadJson? = null,
+    val mergeable: Boolean? = null,
+    @SerialName("node_id") val nodeId: String? = null,
+    // Set while GitHub is to merge it once its checks pass.
+    @SerialName("auto_merge") val autoMerge: JsonObject? = null,
+)
 
 @Serializable
 private data class PrPermissionsJson(val push: Boolean = false)
@@ -264,6 +327,8 @@ private data class PrRepoMergeJson(
     @SerialName("allow_merge_commit") val allowMergeCommit: Boolean? = null,
     @SerialName("allow_squash_merge") val allowSquashMerge: Boolean? = null,
     @SerialName("allow_rebase_merge") val allowRebaseMerge: Boolean? = null,
+    @SerialName("allow_auto_merge") val allowAutoMerge: Boolean? = null,
+    @SerialName("delete_branch_on_merge") val deleteBranchOnMerge: Boolean? = null,
     val permissions: PrPermissionsJson? = null,
 )
 

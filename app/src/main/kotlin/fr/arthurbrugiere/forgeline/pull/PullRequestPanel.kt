@@ -61,6 +61,7 @@ import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import fr.arthurbrugiere.forgeline.core.model.overall
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftCheckRow
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceRow
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDangerButton
@@ -78,8 +79,10 @@ class PullActions(
     /** Opens what a check reported, in the app: its id on the forge, and its name. */
     val onOpenCheck: (Long, String) -> Unit = { _, _ -> },
     val onOpenUrl: (String) -> Unit = {},
-    val onMerge: (MergeMethod) -> Unit = {},
+    val onMerge: (MergeChoice) -> Unit = {},
     val onMergeErrorShown: () -> Unit = {},
+    /** Takes back "merge once its checks pass". */
+    val onCancelMergeWhenChecksPass: () -> Unit = {},
     val onReview: (ReviewVerdict, String) -> Unit = { _, _ -> },
     val onReviewErrorShown: () -> Unit = {},
 )
@@ -125,7 +128,7 @@ fun PullRequestDecisions(issue: IssueDetails, state: PullRequestUiState, actions
     }
     val mergeInfo = state.mergeInfo
     if (merging && mergeInfo != null) {
-        MergeSheet(mergeInfo, pr.isDraft, state.isMerging, state.mergeError, checks, actions.onMerge) {
+        MergeSheet(mergeInfo, pr.headRef, pr.isDraft, state.isMerging, state.mergeError, checks, actions.onMerge, actions.onCancelMergeWhenChecksPass) {
             merging = false
             actions.onMergeErrorShown()
         }
@@ -134,8 +137,11 @@ fun PullRequestDecisions(issue: IssueDetails, state: PullRequestUiState, actions
     if (pr.isDraft && onReady != null) {
         SoftButton(stringResource(R.string.pull_ready_for_review), onClick = onReady, enabled = !isMarkingReady)
     } else if (mergeInfo?.canMerge == true) {
-        // Marigold says "this is the way forward": not while a check failed or is still running.
-        if (checks.overall() in UNSETTLED) {
+        // Marigold says "this is the way forward": not while a check failed or is still running, nor once the forge
+        // is to merge it by itself.
+        if (mergeInfo.mergesWhenChecksPass) {
+            SoftTonalButton(stringResource(R.string.merge_start_scheduled), onClick = { merging = true })
+        } else if (checks.overall() in UNSETTLED) {
             SoftTonalButton(stringResource(R.string.merge_start), onClick = { merging = true })
         } else {
             SoftButton(stringResource(R.string.merge_start), onClick = { merging = true })
@@ -288,15 +294,19 @@ internal val CheckState.label: Int
 @Composable
 private fun MergeSheet(
     info: MergeInfo,
+    branch: String,
     isDraft: Boolean,
     isMerging: Boolean,
     error: ForgeError?,
     checks: List<Check>,
-    onMerge: (MergeMethod) -> Unit,
+    onMerge: (MergeChoice) -> Unit,
+    onCancelWhenChecksPass: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val colors = Soft.colors
     var method by rememberSaveable { mutableStateOf(info.methods.firstOrNull() ?: MergeMethod.MERGE) }
+    // The repository's own default, where it is a choice at all.
+    var deleteBranch by rememberSaveable { mutableStateOf(info.deleteBranch == true) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -331,10 +341,21 @@ private fun MergeSheet(
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(colors.fields[0]).padding(14.dp),
                 )
             }
+            if (info.mergesWhenChecksPass) {
+                Text(
+                    stringResource(R.string.merge_scheduled),
+                    style = Soft.type.secondary,
+                    color = colors.ink,
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(colors.fields[1]).padding(14.dp),
+                )
+            }
             Column(Modifier.selectableGroup()) {
                 info.methods.forEach { option ->
                     SoftChoiceRow(stringResource(option.label), method == option, { method = option }, summary = stringResource(option.summary))
                 }
+            }
+            if (info.deleteBranch != null) {
+                SoftCheckRow(stringResource(R.string.merge_delete_branch, branch), deleteBranch, { deleteBranch = it }, summary = stringResource(R.string.merge_delete_branch_summary))
             }
             if (error != null) {
                 Text(
@@ -345,17 +366,25 @@ private fun MergeSheet(
             }
             // What the forge is unsure of can still be tried: it answers no if it is no. What it refuses is not offered.
             val enabled = !isMerging && !isDraft && info.mergeable != false && info.methods.isNotEmpty()
+            val now = MergeChoice(method, deleteBranch)
             FlowRow(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 SoftTonalButton(stringResource(R.string.cancel), onDismiss)
-                // Against a failed check, merging is said for what it is, on the ink button of what can't be taken back.
-                if (standing == CheckState.FAILURE) {
-                    SoftDangerButton(stringResource(if (isMerging) R.string.merge_merging else R.string.merge_anyway), onClick = { onMerge(method) }, enabled = enabled)
-                } else {
-                    SoftButton(stringResource(if (isMerging) R.string.merge_merging else R.string.merge_confirm), onClick = { onMerge(method) }, enabled = enabled)
+                when {
+                    // Set to merge by itself: that can be taken back.
+                    info.mergesWhenChecksPass -> SoftTonalButton(stringResource(R.string.merge_unschedule), onCancelWhenChecksPass, enabled = !isMerging)
+                    // Checks still running: waiting for them is the way forward, merging now the other way.
+                    standing == CheckState.PENDING && info.canMergeWhenChecksPass && !isDraft -> {
+                        SoftTonalButton(stringResource(R.string.merge_now), onClick = { onMerge(now) }, enabled = enabled)
+                        SoftButton(stringResource(if (isMerging) R.string.merge_merging else R.string.merge_when_checks_pass), onClick = { onMerge(now.copy(whenChecksPass = true)) }, enabled = enabled)
+                    }
+                    // Against a failed check, merging is said for what it is, on the ink button of what can't be taken back.
+                    standing == CheckState.FAILURE ->
+                        SoftDangerButton(stringResource(if (isMerging) R.string.merge_merging else R.string.merge_anyway), onClick = { onMerge(now) }, enabled = enabled)
+                    else -> SoftButton(stringResource(if (isMerging) R.string.merge_merging else R.string.merge_confirm), onClick = { onMerge(now) }, enabled = enabled)
                 }
             }
         }

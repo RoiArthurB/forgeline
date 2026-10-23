@@ -81,15 +81,48 @@ class PullRequestViewModelTest {
         val viewModel = viewModel()
         advanceUntilIdle()
 
-        viewModel.merge(MergeMethod.SQUASH)
+        viewModel.merge(MergeChoice(MergeMethod.SQUASH))
         assertThat(viewModel.state.value.isMerging).isTrue()
         // A second tap while it is on its way sends nothing more.
-        viewModel.merge(MergeMethod.SQUASH)
+        viewModel.merge(MergeChoice(MergeMethod.SQUASH))
         advanceUntilIdle()
 
         assertThat(api.calls.filter { it.startsWith("merge:") }).containsExactly("merge:octo/tools#88:SQUASH")
         assertThat(viewModel.state.value.isMerging).isFalse()
         assertThat(viewModel.state.value.done?.first).isEqualTo(PullDone.MERGED)
+    }
+
+    @Test
+    fun a_merge_takes_its_branch_along_when_asked() = test {
+        signIn()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.merge(MergeChoice(MergeMethod.MERGE, deleteBranch = true))
+        advanceUntilIdle()
+
+        assertThat(api.calls.filter { it.startsWith("merge:") }).containsExactly("merge:octo/tools#88:MERGE:delete-branch")
+    }
+
+    @Test
+    fun a_merge_set_for_when_the_checks_pass_is_told_apart_and_can_be_taken_back() = test {
+        signIn()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.merge(MergeChoice(MergeMethod.SQUASH, whenChecksPass = true))
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.done?.first).isEqualTo(PullDone.SCHEDULED)
+        // Read again: the forge now says it will merge it by itself.
+        assertThat(viewModel.state.value.mergeInfo?.mergesWhenChecksPass).isTrue()
+
+        viewModel.cancelMergeWhenChecksPass()
+        advanceUntilIdle()
+
+        assertThat(api.calls.filter { it.startsWith("merge:") || it.startsWith("cancel") })
+            .containsExactly("merge:octo/tools#88:SQUASH:when-checks-pass", "cancelMergeWhenChecksPass:octo/tools#88").inOrder()
+        assertThat(viewModel.state.value.done?.first).isEqualTo(PullDone.UNSCHEDULED)
+        assertThat(viewModel.state.value.mergeInfo?.mergesWhenChecksPass).isFalse()
     }
 
     @Test
@@ -99,7 +132,7 @@ class PullRequestViewModelTest {
         advanceUntilIdle()
         api.writeFailure = ForgeError.Http(405, "Pull Request is not mergeable")
 
-        viewModel.merge(MergeMethod.MERGE)
+        viewModel.merge(MergeChoice(MergeMethod.MERGE))
         advanceUntilIdle()
 
         assertThat(viewModel.state.value.mergeError).isEqualTo(ForgeError.Http(405, "Pull Request is not mergeable"))

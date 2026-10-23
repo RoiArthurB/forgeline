@@ -35,7 +35,15 @@ interface PullRequestApi {
     /** Whether [ref] can be merged, by the signed-in user, and how. */
     suspend fun mergeInfo(token: String, ref: IssueRef): ForgeResult<MergeInfo>
 
-    suspend fun merge(token: String, ref: IssueRef, method: MergeMethod): ForgeResult<Unit>
+    /**
+     * Merges [ref] by [method], deleting the branch that holds the change when [deleteBranch] says so (and
+     * [MergeInfo.deleteBranch] made it a choice). With [whenChecksPass] the forge is told to merge it once its checks
+     * pass instead ([MergeInfo.canMergeWhenChecksPass]).
+     */
+    suspend fun merge(token: String, ref: IssueRef, method: MergeMethod, deleteBranch: Boolean = false, whenChecksPass: Boolean = false): ForgeResult<Unit>
+
+    /** Takes back [merge]'s "once its checks pass": the pull request stays open, unmerged. */
+    suspend fun cancelMergeWhenChecksPass(token: String, ref: IssueRef): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
 
     /** The verdicts a review can give here: GitLab's API can't ask for changes. */
     val verdicts: Set<ReviewVerdict> get() = ReviewVerdict.entries.toSet()

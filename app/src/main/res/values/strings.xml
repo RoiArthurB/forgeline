@@ -985,6 +985,13 @@
     <string name="merge_checking">The forge is still working out whether this can be merged. You can try.</string>
     <string name="merge_failed">The forge refused the merge: %1$s</string>
     <string name="merge_confirm">Confirm merge</string>
+    <string name="merge_when_checks_pass">Merge when checks pass</string>
+    <string name="merge_now">Merge now</string>
+    <string name="merge_scheduled">It will be merged once its checks pass.</string>
+    <string name="merge_unschedule">Don\'t merge automatically</string>
+    <string name="merge_start_scheduled">Merging when checks pass</string>
+    <string name="merge_delete_branch">Delete %1$s</string>
+    <string name="merge_delete_branch_summary">The branch the change was made on, once merged</string>
     <string name="merge_merging">Merging…</string>
     <string name="merge_method_merge">Merge commit</string>
     <string name="merge_method_merge_summary">Every commit is kept, joined by a merge commit</string>

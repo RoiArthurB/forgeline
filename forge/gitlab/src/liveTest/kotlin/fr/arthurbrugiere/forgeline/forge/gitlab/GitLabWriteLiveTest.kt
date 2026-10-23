@@ -17,6 +17,7 @@ import fr.arthurbrugiere.forgeline.core.model.parsePatch
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.request.delete
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -130,7 +131,13 @@ class GitLabWriteLiveTest {
             System.err.println("GITLAB merge info: $info")
             assertWithMessage("can merge one's own project").that(info.canMerge).isTrue()
             assertWithMessage("mergeable").that(info.mergeable).isTrue()
-            pulls.merge(token, ref, MergeMethod.MERGE).value("merge")
+            assertWithMessage("own branch can go").that(info.deleteBranch).isNotNull()
+            pulls.merge(token, ref, MergeMethod.MERGE, deleteBranch = true).value("merge")
+            // The branch went with it.
+            var branch = http.get("$api/projects/${repo.owner}%2F${repo.name}/repository/branches/change") { header("Authorization", "Bearer $token") }.status
+            repeat(10) { if (branch.isSuccess()) { delay(1_000); branch = http.get("$api/projects/${repo.owner}%2F${repo.name}/repository/branches/change") { header("Authorization", "Bearer $token") }.status } }
+            System.err.println("GITLAB merged branch: $branch")
+            assertWithMessage("branch deleted").that(branch.value).isEqualTo(404)
 
             val merged = GitLabIssueApi(http, ForgeInstance.GitLab).issue(token, ref).value("merged conversation")
             assertWithMessage("state").that(merged.pullRequest?.isMerged).isTrue()

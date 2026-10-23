@@ -141,7 +141,34 @@ class ForgejoPullRequestApiTest {
             }
         }.mergeInfo("tok", pull).value()
 
-        assertThat(info).isEqualTo(MergeInfo(mergeable = true, canMerge = true, methods = listOf(MergeMethod.SQUASH, MergeMethod.MERGE)))
+        assertThat(info).isEqualTo(MergeInfo(mergeable = true, canMerge = true, methods = listOf(MergeMethod.SQUASH, MergeMethod.MERGE), canMergeWhenChecksPass = true))
+    }
+
+    @Test
+    fun a_branch_of_the_repository_goes_with_the_merge_as_the_repository_says_a_fork_s_never() = runTest {
+        suspend fun deleting(headRepo: Long) = with(codeberg) {
+            api { path ->
+                if (path.endsWith("/pulls/14792")) {
+                    json("""{"head":{"sha":"cb7511ae","repo_id":$headRepo},"base":{"sha":"aa","repo_id":1},"mergeable":true}""")
+                } else {
+                    json("""{"default_delete_branch_after_merge":true,"permissions":{"push":true}}""")
+                }
+            }
+        }.mergeInfo("tok", pull).value().deleteBranch
+
+        assertThat(deleting(headRepo = 1)).isTrue()
+        assertThat(deleting(headRepo = 2)).isNull()
+    }
+
+    @Test
+    fun a_merge_can_delete_its_branch_wait_for_the_checks_and_be_called_off() = runTest {
+        val api = with(codeberg) { api { status(HttpStatusCode.OK) } }
+
+        api.merge("tok", pull, MergeMethod.SQUASH, deleteBranch = true, whenChecksPass = true)
+        api.cancelMergeWhenChecksPass("tok", pull)
+
+        assertThat(codeberg.requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly("POST $base/pulls/14792/merge", "DELETE $base/pulls/14792/merge").inOrder()
+        assertThat((codeberg.requests.first().body as TextContent).text).isEqualTo("""{"Do":"squash","delete_branch_after_merge":true,"merge_when_checks_succeed":true}""")
     }
 
     @Test
@@ -151,7 +178,7 @@ class ForgejoPullRequestApiTest {
         val request = codeberg.requests.single()
         assertThat(request.method).isEqualTo(HttpMethod.Post)
         assertThat(request.url.encodedPath).isEqualTo("$base/pulls/14792/merge")
-        assertThat((request.body as TextContent).text).isEqualTo("""{"Do":"rebase"}""")
+        assertThat((request.body as TextContent).text).isEqualTo("""{"Do":"rebase","delete_branch_after_merge":false}""")
     }
 
     @Test

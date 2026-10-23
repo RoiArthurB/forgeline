@@ -41,7 +41,9 @@ interface PullRequestRepository {
 
     suspend fun mergeInfo(ref: IssueRef): ForgeResult<MergeInfo>
 
-    suspend fun merge(ref: IssueRef, method: MergeMethod): ForgeResult<Unit>
+    suspend fun merge(ref: IssueRef, method: MergeMethod, deleteBranch: Boolean = false, whenChecksPass: Boolean = false): ForgeResult<Unit>
+
+    suspend fun cancelMergeWhenChecksPass(ref: IssueRef): ForgeResult<Unit>
 
     /** The verdicts a review can give on [forge]. */
     fun verdicts(forge: ForgeInstance): Set<ReviewVerdict>
@@ -83,7 +85,10 @@ class DefaultPullRequestRepository @Inject constructor(
 
     override suspend fun mergeInfo(ref: IssueRef) = signedIn(ref.repo.forge) { mergeInfo(it, ref) }
 
-    override suspend fun merge(ref: IssueRef, method: MergeMethod) = signedIn(ref.repo.forge) { merge(it, ref, method) }
+    override suspend fun merge(ref: IssueRef, method: MergeMethod, deleteBranch: Boolean, whenChecksPass: Boolean) =
+        signedIn(ref.repo.forge) { merge(it, ref, method, deleteBranch, whenChecksPass) }
+
+    override suspend fun cancelMergeWhenChecksPass(ref: IssueRef) = signedIn(ref.repo.forge) { cancelMergeWhenChecksPass(it, ref) }
 
     override fun verdicts(forge: ForgeInstance) = clients.pulls(forge).verdicts
 

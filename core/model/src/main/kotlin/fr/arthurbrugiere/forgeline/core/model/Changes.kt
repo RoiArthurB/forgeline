@@ -191,8 +191,19 @@ enum class MergeMethod { MERGE, SQUASH, REBASE }
 /**
  * Whether a pull request can be merged, and how. [mergeable] is null while the forge is still working it out;
  * [canMerge] is whether the signed-in user may; [methods] are the ways the repository allows, its preferred first.
+ * [deleteBranch] is whether the branch holding the change goes with the merge by the repository's default, and null
+ * when that isn't a choice: the branch is in another repository, or the forge deletes it whatever is said.
+ * [canMergeWhenChecksPass] is whether the forge can be told to merge it once its checks pass rather than now, and
+ * [mergesWhenChecksPass] whether it already was.
  */
-data class MergeInfo(val mergeable: Boolean?, val canMerge: Boolean, val methods: List<MergeMethod>)
+data class MergeInfo(
+    val mergeable: Boolean?,
+    val canMerge: Boolean,
+    val methods: List<MergeMethod>,
+    val deleteBranch: Boolean? = null,
+    val canMergeWhenChecksPass: Boolean = false,
+    val mergesWhenChecksPass: Boolean = false,
+)
 
 /** What a review says of a pull request as a whole. */
 enum class ReviewVerdict { COMMENT, APPROVE, REQUEST_CHANGES }

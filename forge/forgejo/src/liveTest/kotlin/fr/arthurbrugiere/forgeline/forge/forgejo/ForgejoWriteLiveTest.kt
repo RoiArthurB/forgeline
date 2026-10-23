@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.request.delete
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -160,6 +161,17 @@ class ForgejoWriteLiveTest {
             // Nobody to ask in a private repository of one; letting everyone off still answers yes.
             issues.setReviewers(token, ref, emptyList()).value("no reviewers")
             assertWithMessage("no reviewers").that(ready.pullRequest?.reviewers).isEmpty()
+
+            // Merged with its branch: the branch is gone after.
+            val pulls = ForgejoPullRequestApi(http, forge)
+            var info = pulls.mergeInfo(token, ref).value("merge info")
+            repeat(10) { if (info.mergeable != true) { kotlinx.coroutines.delay(1_000); info = pulls.mergeInfo(token, ref).value("merge info") } }
+            System.err.println("CODEBERG merge info: $info")
+            assertWithMessage("own branch can go").that(info.deleteBranch).isNotNull()
+            pulls.merge(token, ref, MergeMethod.MERGE, deleteBranch = true).value("merge")
+            val branch = http.get("$api/repos/$owner/$name/branches/change") { header("Authorization", "token $token") }.status
+            System.err.println("CODEBERG merged branch: $branch")
+            assertWithMessage("branch deleted").that(branch.value).isEqualTo(404)
         } finally {
             val deleted = http.delete("$api/repos/$owner/$name") { header("Authorization", "token $token") }
             System.err.println("CODEBERG scratch repository $owner/$name deleted: ${deleted.status}")

@@ -80,9 +80,10 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
             val projectResponse = settings.await()
             if (!projectResponse.status.isSuccess()) return@coroutineScope projectResponse.failure()
             val details = mrResponse.body<MrJson>()
+            val project = projectResponse.body<MrProjectJson>()
             // How a merge lands (a merge commit, a rebase, a fast-forward) is the project's setting, not a choice at
             // merge time: what can be chosen is whether the commits are squashed into one first.
-            val methods = when (projectResponse.body<MrProjectJson>().squashOption) {
+            val methods = when (project.squashOption) {
                 "never" -> listOf(MergeMethod.MERGE)
                 "always" -> listOf(MergeMethod.SQUASH)
                 "default_on" -> listOf(MergeMethod.SQUASH, MergeMethod.MERGE)
@@ -93,12 +94,35 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
                 "checking", "unchecked", "preparing", "approvals_syncing", null -> null
                 else -> false
             }
-            ForgeResult.Success(MergeInfo(mergeable, details.user?.canMerge == true, methods))
+            val canMerge = details.user?.canMerge == true
+            // A branch of the project itself goes with the merge as the merge request, or else the project, says; a
+            // fork's isn't the project's to delete.
+            val ownBranch = details.sourceProjectId != null && details.sourceProjectId == details.targetProjectId
+            ForgeResult.Success(
+                MergeInfo(
+                    mergeable, canMerge, methods,
+                    deleteBranch = if (ownBranch) details.forceRemoveSourceBranch ?: project.removeSourceBranchAfterMerge ?: false else null,
+                    // Something to wait for: a pipeline still on its way.
+                    canMergeWhenChecksPass = canMerge && details.headPipeline?.status in PIPELINE_UNDER_WAY,
+                    mergesWhenChecksPass = details.mergeWhenPipelineSucceeds,
+                ),
+            )
         }
     }
 
-    override suspend fun merge(token: String, ref: IssueRef, method: MergeMethod): ForgeResult<Unit> = forgeCall {
-        mergeRequest(token, ref, "merge", method = HttpMethod.Put, body = buildJsonObject { put("squash", method == MergeMethod.SQUASH) }).toResult { }
+    override suspend fun merge(token: String, ref: IssueRef, method: MergeMethod, deleteBranch: Boolean, whenChecksPass: Boolean): ForgeResult<Unit> = forgeCall {
+        mergeRequest(
+            token, ref, "merge", method = HttpMethod.Put,
+            body = buildJsonObject {
+                put("squash", method == MergeMethod.SQUASH)
+                put("should_remove_source_branch", deleteBranch)
+                if (whenChecksPass) put("merge_when_pipeline_succeeds", true)
+            },
+        ).toResult { }
+    }
+
+    override suspend fun cancelMergeWhenChecksPass(token: String, ref: IssueRef): ForgeResult<Unit> = forgeCall {
+        mergeRequest(token, ref, "cancel_merge_when_pipeline_succeeds", method = HttpMethod.Post).toResult { }
     }
 
     /** GitLab's API approves and comments; asking for changes is only in its own pages. */
@@ -276,10 +300,20 @@ private data class MrJson(
     @SerialName("merge_status") val mergeStatus: String? = null,
     @SerialName("detailed_merge_status") val detailedMergeStatus: String? = null,
     val user: MrUserJson? = null,
+    @SerialName("source_project_id") val sourceProjectId: Long? = null,
+    @SerialName("target_project_id") val targetProjectId: Long? = null,
+    @SerialName("force_remove_source_branch") val forceRemoveSourceBranch: Boolean? = null,
+    @SerialName("merge_when_pipeline_succeeds") val mergeWhenPipelineSucceeds: Boolean = false,
 )
 
 @Serializable
-private data class MrProjectJson(@SerialName("squash_option") val squashOption: String? = null)
+private data class MrProjectJson(
+    @SerialName("squash_option") val squashOption: String? = null,
+    @SerialName("remove_source_branch_after_merge") val removeSourceBranchAfterMerge: Boolean? = null,
+)
+
+/** A pipeline's states while there is still something to wait for. */
+private val PIPELINE_UNDER_WAY = setOf("created", "waiting_for_resource", "preparing", "pending", "running", "scheduled")
 
 @Serializable
 private data class MrJobJson(val id: Long, val name: String, val status: String, val stage: String? = null, @SerialName("web_url") val webUrl: String? = null) {
