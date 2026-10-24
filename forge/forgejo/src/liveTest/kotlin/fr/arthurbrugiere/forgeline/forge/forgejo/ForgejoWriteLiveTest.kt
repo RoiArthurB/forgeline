@@ -170,6 +170,23 @@ class ForgejoWriteLiveTest {
             issues.setSubscribed(token, owner, ref, subscribed = false).value("unsubscribe")
             assertWithMessage("unsubscribed").that(issues.isSubscribed(token, owner, ref).value("unsubscribed?")).isFalse()
 
+            // Pointed at another branch, then back at main.
+            val branched = http.post("$api/repos/$owner/$name/branches") {
+                header("Authorization", "token $token")
+                contentType(ContentType.Application.Json)
+                setBody(
+                    buildJsonObject {
+                        put("new_branch_name", "other")
+                        put("old_branch_name", "main")
+                    },
+                )
+            }
+            check(branched.status.isSuccess()) { "branch: ${branched.status} ${branched.bodyAsText().take(300)}" }
+            issues.setBase(token, ref, "other").value("to other")
+            assertWithMessage("into other").that(issues.issue(token, ref).value("moved").pullRequest?.baseRef).isEqualTo("other")
+            issues.setBase(token, ref, "main").value("back to main")
+            assertWithMessage("into main").that(issues.issue(token, ref).value("back").pullRequest?.baseRef).isEqualTo("main")
+
             // A remark on the line the change adds is a thread, which a reply joins.
             val pulls = ForgejoPullRequestApi(http, forge)
             pulls.review(token, ref, ReviewVerdict.COMMENT, "", listOf(LineComment("NOTES.md", oldLine = null, newLine = 1, body = "Why this line?"))).value("remark")

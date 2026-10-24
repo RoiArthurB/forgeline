@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -54,6 +55,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHairline
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
@@ -85,6 +87,7 @@ fun NewIssueRoute(route: NewIssueRoute, session: SessionState, onBack: () -> Uni
         signedIn = session.signedInOn(repo.forge),
         onTitleChange = viewModel::titleChanged,
         onUseTemplate = viewModel::useTemplate,
+        onBaseChange = viewModel::baseChanged,
         onBodyChange = viewModel::bodyChanged,
         onSend = viewModel::send,
         onSignIn = onSignIn,
@@ -110,6 +113,7 @@ fun NewIssueScreen(
     suggestions: ReferenceOffer = ReferenceOffer(),
     onReferenceTyped: (TypedReference?) -> Unit = {},
     onUseTemplate: (IssueTemplate) -> Unit = {},
+    onBaseChange: (String) -> Unit = {},
 ) {
     val colors = Soft.colors
     val forge = state.repo.forge.displayName
@@ -154,6 +158,20 @@ fun NewIssueScreen(
                     return@Column
                 }
                 if (state.offersTemplates) Templates(state.templates, state.pickingTemplate, state.templateError, onUseTemplate)
+                // Where a pull request goes, said the way the form that opens one says it.
+                if (state.offersBase) {
+                    val names = state.branches.let { if (state.base in it) it else listOfNotNull(state.base) + it }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.new_pull_into), style = Soft.type.secondary, color = colors.inkMuted)
+                        SoftChoicePill(
+                            name = stringResource(R.string.new_pull_base),
+                            options = names,
+                            selected = names.indexOf(state.base).coerceAtLeast(0),
+                            onSelect = { onBaseChange(names[it]) },
+                            background = colors.surface,
+                        )
+                    }
+                }
                 SoftTextField(
                     value = state.title,
                     onValueChange = onTitleChange,

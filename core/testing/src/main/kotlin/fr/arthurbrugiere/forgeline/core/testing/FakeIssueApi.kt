@@ -263,6 +263,11 @@ class FakeIssueApi : IssueApi {
         Unit
     }
 
+    override suspend fun setBase(token: String, ref: IssueRef, branch: String) = manage(token, "base ${ref.label}: $branch") {
+        issues[ref]?.let { issue -> issues[ref] = issue.copy(pullRequest = issue.pullRequest?.copy(baseRef = branch)) }
+        Unit
+    }
+
     /** The conversations the signed-in user hears of; null for a forge whose API has no subscriptions. */
     var subscribed: MutableSet<IssueRef>? = mutableSetOf()
 

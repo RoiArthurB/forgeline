@@ -530,6 +530,16 @@ class ForgejoIssueApiTest {
     }
 
     @Test
+    fun the_branch_a_pull_request_goes_into_is_changed_on_the_pull_request() = runTest {
+        val api = answering { with(codeberg) { json("{}", HttpStatusCode.Created) } }
+
+        assertThat(api.setBase("tok", seven, "release/2.0")).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(sent).containsExactly("PATCH /api/v1/repos/forgejo/forgejo/pulls/7")
+        assertThat(bodies.single()).isEqualTo("""{"base":"release/2.0"}""")
+    }
+
+    @Test
     fun a_subscription_is_checked_and_changed_in_the_signed_in_user_s_name() = runTest {
         // Codeberg's answer for forgejo/forgejo#14885, 2026-10-24.
         val check = """{"subscribed":false,"ignored":true,"reason":null,"created_at":"2026-10-17T15:38:45+02:00","url":"https://codeberg.org/api/v1/repos/forgejo/forgejo/pulls/14885/subscriptions"}"""

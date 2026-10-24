@@ -382,6 +382,16 @@ class GitLabIssueApi(
         ).toResult { }
     }
 
+    override suspend fun setBase(token: String, ref: IssueRef, branch: String): ForgeResult<Unit> = forgeCall {
+        // The issue with a merge request's number is another conversation: never written to.
+        if (ref.isPullRequest != true) return@forgeCall ForgeResult.Failure(ForgeError.Unsupported)
+        httpClient.gitlabApi(
+            ref.repo.forge, token, "projects", ref.repo.fullName, "merge_requests", ref.number.toString(),
+            method = HttpMethod.Put,
+            body = buildJsonObject { put("target_branch", branch) },
+        ).toResult { }
+    }
+
     override suspend fun milestones(token: String, repo: RepoId): ForgeResult<List<Milestone>> = forgeCall {
         httpClient.gitlabApi(repo.forge, token, "projects", repo.fullName, "milestones", query = mapOf("state" to "active", "per_page" to "100"))
             .toResult { body<List<GitLabMilestoneJson>>().map { Milestone(it.id, it.title) } }

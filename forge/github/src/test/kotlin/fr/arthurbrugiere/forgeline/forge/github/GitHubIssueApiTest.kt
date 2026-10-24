@@ -555,6 +555,16 @@ class GitHubIssueApiTest {
     }
 
     @Test
+    fun the_branch_a_pull_request_goes_into_is_changed_on_the_pull_request() = runTest {
+        val changing = api { json("{}") }
+
+        assertThat(changing.setBase("tok", IssueRef(repo, 5462, isPullRequest = true), "release/2.0")).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat("${requests.single().method.value} ${requests.single().url.encodedPath}").isEqualTo("PATCH /repos/paperclipai/paperclip/pulls/5462")
+        assertThat(bodies.single()).isEqualTo("""{"base":"release/2.0"}""")
+    }
+
+    @Test
     fun a_repository_s_markdown_templates_come_with_their_text() = runTest {
         // GitHub's answer for gama-platform/gama, 2026-10-24.
         val captured = requireNotNull(javaClass.getResource("/github/issue_templates.json")).readText()

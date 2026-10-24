@@ -251,6 +251,15 @@ class GitHubIssueApi(
         return graphQl(token, "mutation(\$id: ID!) { $mutation(input: {pullRequestId: \$id}) { clientMutationId } }", buildJsonObject { put("id", node) }).map { }
     }
 
+    /** The branch a pull request goes into is the pull request's own, not the issue's it also is. */
+    override suspend fun setBase(token: String, ref: IssueRef, branch: String): ForgeResult<Unit> = forgeCall {
+        httpClient.gitHubApi(
+            apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "pulls", ref.number.toString(),
+            method = HttpMethod.Patch,
+            body = buildJsonObject { put("base", branch) },
+        ).toResult { }
+    }
+
     private suspend fun pull(token: String, ref: IssueRef) =
         httpClient.gitHubApi(apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "pulls", ref.number.toString())
 

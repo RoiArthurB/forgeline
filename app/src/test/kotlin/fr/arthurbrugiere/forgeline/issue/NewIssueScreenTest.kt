@@ -91,6 +91,32 @@ class NewIssueScreenTest {
         composeRule.onNodeWithText("That template couldn't be loaded. Try again.").assertIsDisplayed()
     }
 
+    @Test
+    fun an_open_pull_request_being_edited_can_be_pointed_at_another_branch() {
+        val pull = fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("octo", "repo"), 8, isPullRequest = true)
+        composeRule.setContent {
+            NewIssueScreen(
+                state = empty.copy(title = "Fix it", editing = pull, isPullRequest = true, base = "main", baseWas = "main", branches = listOf("main", "release/2.0")),
+                signedIn = true,
+                onTitleChange = {}, onBodyChange = {}, onSend = {}, onSignIn = {}, onBack = {},
+                onBaseChange = { events += "base:$it" },
+            )
+        }
+
+        composeRule.onNodeWithText("Into").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Branch the change goes into").performClick()
+        composeRule.onNodeWithText("release/2.0").performClick()
+
+        assertThat(events).containsExactly("base:release/2.0")
+    }
+
+    @Test
+    fun a_new_issue_names_no_branch() {
+        setContent(empty.copy(branches = listOf("main", "release/2.0")))
+
+        composeRule.onNodeWithText("Into").assertDoesNotExist()
+    }
+
     private val typedReferences = mutableListOf<TypedReference?>()
     private val suggested = mutableStateOf(ReferenceOffer())
 

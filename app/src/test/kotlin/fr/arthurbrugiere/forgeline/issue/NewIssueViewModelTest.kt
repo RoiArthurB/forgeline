@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.issue
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.issue.DefaultIssueRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -220,6 +221,72 @@ class NewIssueViewModelTest {
 
         assertThat(viewModel.state.value.offersTemplates).isFalse()
         assertThat(api.calls).doesNotContain("templates:octo/repo")
+    }
+
+    private val pull = fr.arthurbrugiere.forgeline.core.model.IssueRef(repo, 8, isPullRequest = true)
+
+    /** The form opened on pull request #8, going into main, which was just read; the repository has three branches. */
+    private suspend fun editingPull(state: fr.arthurbrugiere.forgeline.core.model.IssueState = fr.arthurbrugiere.forgeline.core.model.IssueState.OPEN): NewIssueViewModel {
+        api.issues[pull] = fr.arthurbrugiere.forgeline.core.testing.issueDetails(pull, state = state)
+            .copy(pullRequest = fr.arthurbrugiere.forgeline.core.model.PullRequestInfo(false, false, "main", "fix/it", 1, 1, 1, 1))
+        repository.issue(pull)
+        return NewIssueViewModel(repo, repository, drafts, pull, branches = Branches { ForgeResult.Success(listOf("main", "release/2.0", "fix/it")) })
+    }
+
+    @Test
+    fun an_open_pull_request_is_pointed_at_another_branch_with_its_title() = test {
+        val viewModel = editingPull()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.offersBase).isTrue()
+        assertThat(viewModel.state.value.base).isEqualTo("main")
+
+        viewModel.baseChanged("release/2.0")
+        viewModel.send()
+        advanceUntilIdle()
+
+        assertThat(api.managed).containsExactly("base octo/repo#8: release/2.0")
+        assertThat(api.edited).isNotEmpty()
+        assertThat(viewModel.state.value.created).isEqualTo(pull)
+        // The conversation kept names the branch it now goes into.
+        assertThat(repository.cached(pull)?.issue?.pullRequest?.baseRef).isEqualTo("release/2.0")
+    }
+
+    @Test
+    fun a_branch_left_as_it_was_is_not_sent() = test {
+        val viewModel = editingPull()
+        advanceUntilIdle()
+
+        viewModel.titleChanged("Better")
+        viewModel.send()
+        advanceUntilIdle()
+
+        assertThat(api.managed).isEmpty()
+    }
+
+    @Test
+    fun a_branch_the_forge_refuses_saves_nothing_and_says_why() = test {
+        val viewModel = editingPull()
+        advanceUntilIdle()
+        api.manageFailure = ForgeError.Http(422, "Proposed base branch was not found")
+
+        viewModel.baseChanged("release/2.0")
+        viewModel.titleChanged("Better")
+        viewModel.send()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.error).isEqualTo(ForgeError.Http(422, "Proposed base branch was not found"))
+        assertThat(viewModel.state.value.created).isNull()
+        assertThat(api.edited).isEmpty()
+    }
+
+    @Test
+    fun a_closed_pull_request_or_an_issue_offers_no_branch() = test {
+        val closed = editingPull(fr.arthurbrugiere.forgeline.core.model.IssueState.CLOSED)
+        val issue = editing()
+        advanceUntilIdle()
+
+        assertThat(closed.state.value.offersBase).isFalse()
+        assertThat(issue.state.value.offersBase).isFalse()
     }
 
     private val edited = fr.arthurbrugiere.forgeline.core.model.IssueRef(repo, 7)

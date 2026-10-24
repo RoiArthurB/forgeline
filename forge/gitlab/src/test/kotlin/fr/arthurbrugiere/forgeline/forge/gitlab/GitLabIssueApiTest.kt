@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -266,6 +267,17 @@ class GitLabIssueApiTest {
         assertThat(api.setDraft("tok", IssueRef(repo, 12, isPullRequest = true), draft = true)).isEqualTo(ForgeResult.Success(Unit))
 
         assertThat(sent()).containsExactly("GET /api/v4/projects/gitlab-org%2Fgitlab/merge_requests/12")
+    }
+
+    @Test
+    fun a_merge_request_is_pointed_at_another_target_branch_and_an_issue_never_is() = runTest {
+        val api = api { json("{}") }
+
+        assertThat(api.setBase("tok", IssueRef(repo, 12, isPullRequest = true), "release/2.0")).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.setBase("tok", IssueRef(repo, 12, isPullRequest = false), "release/2.0")).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+
+        assertThat(sent()).containsExactly("PUT /api/v4/projects/gitlab-org%2Fgitlab/merge_requests/12")
+        assertThat(bodies.single()).isEqualTo("""{"target_branch":"release/2.0"}""")
     }
 
     @Test

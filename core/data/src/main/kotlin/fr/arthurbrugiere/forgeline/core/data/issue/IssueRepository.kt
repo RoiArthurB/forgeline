@@ -156,6 +156,9 @@ interface IssueRepository {
 
     suspend fun setPinned(ref: IssueRef, pinned: Boolean): ForgeResult<Unit>
 
+    /** Has the pull request [ref] go into [branch] instead. */
+    suspend fun setBase(ref: IssueRef, branch: String): ForgeResult<Unit>
+
     /** Whether the signed-in user hears of everything said in [ref], not only what mentions them. */
     suspend fun isSubscribed(ref: IssueRef): ForgeResult<Boolean>
 
@@ -427,6 +430,15 @@ class DefaultIssueRepository @Inject constructor(
     override suspend fun isPinned(ref: IssueRef) = signedIn(ref.repo.forge) { isPinned(it, ref) }
 
     override suspend fun setPinned(ref: IssueRef, pinned: Boolean) = changing(ref) { setPinned(it, ref, pinned) }
+
+    override suspend fun setBase(ref: IssueRef, branch: String): ForgeResult<Unit> =
+        signedIn(ref.repo.forge) { setBase(it, ref, branch) }.also { result ->
+            if (result is ForgeResult.Success) {
+                // Kept before it is announced, as a new title is: the conversation names the branch it now goes into.
+                if (cached(ref)?.issue != null) update(ref) { kept -> kept.copy(issue = kept.issue?.let { it.copy(pullRequest = it.pullRequest?.copy(baseRef = branch)) }) }
+                changes.tryEmit(ref)
+            }
+        }
 
     override suspend fun isSubscribed(ref: IssueRef) = asMe(ref.repo.forge) { token, login -> isSubscribed(token, login, ref) }
 

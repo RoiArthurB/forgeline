@@ -15,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -75,7 +76,15 @@ data class NewIssueUiState(
     val pickingTemplate: String? = null,
     /** A template's text couldn't be had. */
     val templateError: ForgeError? = null,
+    /** The branch an open pull request being edited goes into, as picked, and as it was; null for anything else. */
+    val base: String? = null,
+    val baseWas: String? = null,
+    /** The repository's branches, once listed: what [base] can be. */
+    val branches: List<String> = emptyList(),
 ) {
+    /** The branch a pull request goes into can be changed with its title, where there is another to go into. */
+    val offersBase: Boolean get() = base != null && branches.size > 1
+
     /** Templates are offered while nothing is written yet: picking one fills the form, it doesn't overwrite it. */
     val offersTemplates: Boolean get() = editing == null && templates.isNotEmpty() && title.isEmpty() && body.isEmpty() && !isSending
 
@@ -91,6 +100,7 @@ class NewIssueViewModel @AssistedInject constructor(
     /** The conversation to change instead of opening one: the form starts from its title and text as last read. */
     @Assisted private val editing: IssueRef? = null,
     suggestions: ReferenceSuggestions = ReferenceSuggestions(),
+    private val branches: Branches = Branches(),
 ) : ViewModel() {
 
     @AssistedFactory
@@ -106,7 +116,9 @@ class NewIssueViewModel @AssistedInject constructor(
             drafts[repo].let { NewIssueUiState(repo, it.title, it.body) }
         } else {
             val issue = repository.cached(editing)?.issue
-            NewIssueUiState(repo, issue?.title.orEmpty(), issue?.body.orEmpty(), editing = editing, isPullRequest = issue?.pullRequest != null)
+            // Only an open pull request is pointed elsewhere.
+            val base = issue?.pullRequest?.baseRef?.takeIf { issue.state == IssueState.OPEN }
+            NewIssueUiState(repo, issue?.title.orEmpty(), issue?.body.orEmpty(), editing = editing, isPullRequest = issue?.pullRequest != null, base = base, baseWas = base)
         },
     )
     val state: StateFlow<NewIssueUiState> = _state.asStateFlow()
@@ -117,6 +129,13 @@ class NewIssueViewModel @AssistedInject constructor(
             viewModelScope.launch {
                 val templates = (repository.issueTemplates(repo) as? ForgeResult.Success)?.value.orEmpty()
                 _state.update { it.copy(templates = templates) }
+            }
+        }
+        // What an open pull request could go into instead.
+        if (_state.value.base != null) {
+            viewModelScope.launch {
+                val listed = (branches(repo) as? ForgeResult.Success)?.value.orEmpty()
+                _state.update { it.copy(branches = listed) }
             }
         }
         // Written in an earlier launch: it comes back, unless the reader has started writing meanwhile.
@@ -148,6 +167,8 @@ class NewIssueViewModel @AssistedInject constructor(
         }
     }
 
+    fun baseChanged(branch: String) = _state.update { it.copy(base = branch, error = null) }
+
     fun titleChanged(text: String) = write { it.copy(title = text) }
 
     fun bodyChanged(text: String) = write { it.copy(body = text) }
@@ -165,6 +186,18 @@ class NewIssueViewModel @AssistedInject constructor(
         _state.update { it.copy(isSending = true, error = null) }
         if (editing != null) {
             viewModelScope.launch {
+                // The branch first: a pull request pointed elsewhere is what the reader asked above all, and a title
+                // saved without it would say it was done.
+                val base = state.base
+                if (base != null && base != state.baseWas) {
+                    when (val moved = repository.setBase(editing, base)) {
+                        is ForgeResult.Failure -> {
+                            _state.update { it.copy(isSending = false, error = moved.error) }
+                            return@launch
+                        }
+                        is ForgeResult.Success -> _state.update { it.copy(baseWas = base) }
+                    }
+                }
                 when (val result = repository.edit(editing, state.title.trim(), state.body.trim())) {
                     is ForgeResult.Failure -> _state.update { it.copy(isSending = false, error = result.error) }
                     is ForgeResult.Success -> _state.update { it.copy(isSending = false, created = editing) }

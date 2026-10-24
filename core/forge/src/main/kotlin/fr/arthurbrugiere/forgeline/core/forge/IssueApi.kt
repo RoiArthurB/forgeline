@@ -106,6 +106,9 @@ interface IssueApi {
     /** Marks the pull request [ref] a draft, which can't be merged, or ready for review. */
     suspend fun setDraft(token: String, ref: IssueRef, draft: Boolean): ForgeResult<Unit> = unsupported
 
+    /** Has the pull request [ref] go into [branch] instead: only pull requests have it. */
+    suspend fun setBase(token: String, ref: IssueRef, branch: String): ForgeResult<Unit> = unsupported
+
     /** The open milestones of [repo]. */
     suspend fun milestones(token: String, repo: RepoId): ForgeResult<List<Milestone>> = unsupported
 

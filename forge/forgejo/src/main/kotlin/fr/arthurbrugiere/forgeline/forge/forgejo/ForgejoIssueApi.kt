@@ -378,6 +378,15 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     override suspend fun setMilestone(token: String, ref: IssueRef, milestone: Milestone?): ForgeResult<Unit> =
         edit(token, ref) { put("milestone", milestone?.id ?: 0) }
 
+    /** The branch a pull request goes into is changed on the pull request, not on the issue it also is. */
+    override suspend fun setBase(token: String, ref: IssueRef, branch: String): ForgeResult<Unit> = forgeCall {
+        httpClient.forgejoApi(
+            forge, token, "repos", ref.repo.owner, ref.repo.name, "pulls", ref.number.toString(),
+            method = HttpMethod.Patch,
+            body = buildJsonObject { put("base", branch) },
+        ).toResult { }
+    }
+
     override suspend fun isPinned(token: String, ref: IssueRef): ForgeResult<Boolean> = forgeCall {
         get(token, ref, "issues", ref.number.toString()).toResult { body<PinnedJson>().pinOrder > 0 }
     }
