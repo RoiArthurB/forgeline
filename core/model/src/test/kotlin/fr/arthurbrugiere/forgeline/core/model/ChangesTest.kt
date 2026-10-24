@@ -139,4 +139,47 @@ class ChangesTest {
         assertThat(listOf(check(CheckState.PENDING), check(CheckState.FAILURE)).overall()).isEqualTo(CheckState.FAILURE)
         assertThat(listOf(check(CheckState.SKIPPED)).overall()).isEqualTo(CheckState.SKIPPED)
     }
+
+    @Test
+    fun a_suggestion_is_taken_out_of_a_review_comment_s_words() {
+        val split = splitSuggestions("Retry instead:\n```suggestion\n    retry { send(file) }\n```\nThree times is enough.")
+
+        assertThat(split.text).isEqualTo("Retry instead:\nThree times is enough.")
+        assertThat(split.suggestions).containsExactly(listOf("    retry { send(file) }"))
+    }
+
+    @Test
+    fun an_empty_suggestion_takes_the_lines_away_and_gitlab_s_range_is_read_too() {
+        val split = splitSuggestions("```suggestion:-0+1\n```\n~~~~suggestion\na\nb\n~~~~")
+
+        assertThat(split.text).isEmpty()
+        assertThat(split.suggestions).containsExactly(emptyList<String>(), listOf("a", "b")).inOrder()
+    }
+
+    @Test
+    fun code_that_isn_t_a_suggestion_and_a_suggestion_never_closed_stay_words() {
+        val body = "```kotlin\nval a = 1\n```\n```suggestion\nnot closed"
+
+        assertThat(splitSuggestions(body)).isEqualTo(Suggesting(body, emptyList()))
+    }
+
+    private fun thread(line: Int?, startLine: Int? = null, onOldSide: Boolean = false, outdated: Boolean = false) = ReviewThread(
+        "T", "src/Upload.kt", line, onOldSide, hunk = "@@ -1,3 +1,4 @@\n fun upload() {\n-    send(file)\n+    retry {\n+        send(file)\n+    }",
+        comments = emptyList(), resolved = false, canResolve = false, outdated = outdated, startLine = startLine,
+    )
+
+    @Test
+    fun a_suggestion_replaces_the_lines_its_thread_is_on() {
+        assertThat(thread(3).suggestedOver.map { it.text }).containsExactly("        send(file)")
+        assertThat(thread(4, startLine = 2).suggestedOver.map { it.newNumber }).containsExactly(2, 3, 4).inOrder()
+    }
+
+    @Test
+    fun lines_not_all_in_the_hunk_or_moved_on_since_are_not_guessed() {
+        assertThat(thread(4, startLine = 1).suggestedOver.size).isEqualTo(4)
+        assertThat(thread(9).suggestedOver).isEmpty()
+        assertThat(thread(3, startLine = 0).suggestedOver).isEmpty()
+        assertThat(thread(3, outdated = true).suggestedOver).isEmpty()
+        assertThat(thread(2, onOldSide = true).suggestedOver).isEmpty()
+    }
 }

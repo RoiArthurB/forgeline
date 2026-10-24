@@ -1014,6 +1014,8 @@
         <item quantity="one">Show %d resolved thread</item>
         <item quantity="other">Show %d resolved threads</item>
     </plurals>
+    <string name="thread_suggestion">Suggested change</string>
+    <string name="thread_suggestion_removes">Suggests removing these lines</string>
     <string name="thread_outdated">Outdated</string>
     <string name="thread_resolved">Resolved</string>
     <string name="thread_reply">Reply</string>

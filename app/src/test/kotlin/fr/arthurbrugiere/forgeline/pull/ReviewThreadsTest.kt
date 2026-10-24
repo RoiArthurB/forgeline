@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.pull
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
@@ -77,6 +78,27 @@ class ReviewThreadsTest {
         waitFor("Typo here")
         composeRule.onNodeWithText("docs/retry.md:1 · Resolved").assertIsDisplayed()
         composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    @Test
+    fun a_suggestion_shows_as_the_change_it_would_make() {
+        val suggesting = open.copy(line = 2, comments = listOf(ThreadComment(1, ForgeUser("hubot", null, null), "Three times:\n```suggestion\n    retry(3) { send(file) }\n```", at)))
+        setContent(listOf(suggesting))
+
+        waitFor("Three times:")
+        composeRule.onNodeWithText("Suggested change").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Line 2, removed:     retry { send(file) }").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Line 2, added:     retry(3) { send(file) }").assertIsDisplayed()
+        // The fence itself isn't shown as code.
+        composeRule.onAllNodes(hasText("suggestion", substring = true)).assertCountEquals(0)
+    }
+
+    @Test
+    fun a_suggestion_to_take_lines_away_says_so() {
+        setContent(listOf(open.copy(line = 2, comments = listOf(ThreadComment(1, ForgeUser("hubot", null, null), "```suggestion\n```", at)))))
+
+        composeRule.onNodeWithText("Suggests removing these lines").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Line 2, removed:     retry { send(file) }").assertIsDisplayed()
     }
 
     @Test

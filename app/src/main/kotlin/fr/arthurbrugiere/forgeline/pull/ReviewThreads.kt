@@ -37,8 +37,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
+import fr.arthurbrugiere.forgeline.core.model.DiffLine
+import fr.arthurbrugiere.forgeline.core.model.DiffLineKind
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.parsePatch
+import fr.arthurbrugiere.forgeline.core.model.splitSuggestions
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHairline
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSendButton
@@ -159,8 +162,11 @@ private fun Thread(
         if (lines.isNotEmpty()) {
             Column(Modifier.fillMaxWidth().clip(SoftTokens.RowCorner)) { lines.forEach { LineRow(it, onClick = null) } }
         }
+        val over = remember(thread) { thread.suggestedOver }
         thread.comments.forEach { comment ->
-            Comment(comment.author, comment.body, comment.createdAt, emptyMap(), context, nowMillis, onOpenUser, onLinkClick)
+            val split = remember(comment.body) { splitSuggestions(comment.body) }
+            Comment(comment.author, split.text, comment.createdAt, emptyMap(), context, nowMillis, onOpenUser, onLinkClick)
+            split.suggestions.forEach { SuggestedChange(it, over, thread.line) }
         }
         if (replying) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -193,6 +199,28 @@ private fun Thread(
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * A change a reviewer suggests, as it would read once made: the lines the remark is on taken away, where the forge
+ * gave them ([over]), and the suggested ones in their place from [line]; or that the reviewer would take them away.
+ */
+@Composable
+private fun SuggestedChange(suggested: List<String>, over: List<DiffLine>, line: Int?) {
+    val colors = Soft.colors
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            stringResource(if (suggested.isEmpty()) R.string.thread_suggestion_removes else R.string.thread_suggestion),
+            style = Soft.type.meta,
+            color = colors.inkMuted,
+            modifier = Modifier.padding(horizontal = 8.dp),
+        )
+        Column(Modifier.fillMaxWidth().clip(SoftTokens.RowCorner)) {
+            over.forEach { LineRow(DiffLine(DiffLineKind.REMOVED, it.text, oldNumber = it.newNumber, newNumber = null), onClick = null) }
+            val first = over.firstOrNull()?.newNumber ?: line ?: 1
+            suggested.forEachIndexed { index, text -> LineRow(DiffLine(DiffLineKind.ADDED, text, oldNumber = null, newNumber = first + index), onClick = null) }
         }
     }
 }

@@ -387,6 +387,21 @@ class GitHubPullRequestApiTest {
     }
 
     @Test
+    fun a_thread_on_several_lines_says_where_they_start() = runTest {
+        val threads = api {
+            json(
+                """{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_1","isResolved":false,"isOutdated":false,
+                "path":"src/Upload.kt","line":12,"originalLine":12,"startLine":10,"diffSide":"RIGHT","viewerCanResolve":true,"viewerCanUnresolve":false,
+                "comments":{"nodes":[{"databaseId":1,"body":"```suggestion\nretry()\n```","createdAt":"2026-10-24T10:00:00Z","diffHunk":"@@ -1 +1 @@","author":{"login":"hubot"}}]}}]}}}}}""",
+            )
+        }.threads("tok", gama).value()
+
+        assertThat(threads.single().startLine).isEqualTo(10)
+        assertThat(threads.single().line).isEqualTo(12)
+        assertThat(requests.single().sent).contains("originalLine startLine diffSide")
+    }
+
+    @Test
     fun signed_out_threads_are_put_back_together_from_the_rest_comments() = runTest {
         val threads = api { json(captured("review_comments.json")) }.threads(null, gama).value()
 

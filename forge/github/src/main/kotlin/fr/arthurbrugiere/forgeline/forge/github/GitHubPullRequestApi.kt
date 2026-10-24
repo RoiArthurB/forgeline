@@ -356,7 +356,7 @@ class GitHubPullRequestApi(
         const val HISTORY_PER_PAGE = 30
 
         const val THREADS_QUERY = "query Threads(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { " +
-            "pullRequest(number: \$number) { reviewThreads(first: 100) { nodes { id isResolved isOutdated path line originalLine diffSide " +
+            "pullRequest(number: \$number) { reviewThreads(first: 100) { nodes { id isResolved isOutdated path line originalLine startLine diffSide " +
             "viewerCanResolve viewerCanUnresolve comments(first: 100) { nodes { databaseId body createdAt diffHunk author { login avatarUrl } } } } } } } }"
 
         const val BLOCKERS_QUERY = "query Standing(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { " +
@@ -579,6 +579,7 @@ private data class PrReviewCommentJson(
     val path: String,
     val line: Int? = null,
     @SerialName("original_line") val originalLine: Int? = null,
+    @SerialName("start_line") val startLine: Int? = null,
     val side: String? = null,
     @SerialName("diff_hunk") val diffHunk: String? = null,
     val user: PrAccountJson? = null,
@@ -602,6 +603,7 @@ private fun threadsOf(comments: List<PrReviewCommentJson>): List<ReviewThread> {
             resolved = false,
             canResolve = false,
             outdated = first.line == null,
+            startLine = first.startLine,
         )
     }
 }
@@ -623,6 +625,7 @@ private data class PrThreadJson(
     val path: String,
     val line: Int? = null,
     val originalLine: Int? = null,
+    val startLine: Int? = null,
     val diffSide: String? = null,
     val viewerCanResolve: Boolean = false,
     val viewerCanUnresolve: Boolean = false,
@@ -640,6 +643,7 @@ private data class PrThreadJson(
         resolved = isResolved,
         canResolve = if (isResolved) viewerCanUnresolve else viewerCanResolve,
         outdated = isOutdated,
+        startLine = startLine,
     )
 }
 

@@ -253,7 +253,8 @@ data class NewPullRequest(val title: String, val body: String, val head: String,
  * it by: a GitHub thread's node id (its first comment's id when read signed out), a GitLab discussion's id, a Forgejo
  * first comment's id. [line] is the line's number on the side [onOldSide] says, null once the code it was on moved on
  * ([outdated]). [hunk] is the change around the line as a unified diff, where the forge gives it. [canResolve] is
- * whether the reader may mark it resolved, or not resolved again.
+ * whether the reader may mark it resolved, or not resolved again. [startLine] is the first of the lines it is on, where
+ * it is on several and the forge says so.
  */
 data class ReviewThread(
     val id: String,
@@ -265,7 +266,49 @@ data class ReviewThread(
     val resolved: Boolean,
     val canResolve: Boolean,
     val outdated: Boolean = false,
-)
+    val startLine: Int? = null,
+) {
+    /**
+     * The lines of the change a suggestion in it would replace, read from [hunk]: from [startLine] (or [line]) to
+     * [line] on the new side. None where they aren't all there to be read, or the code has moved on since.
+     */
+    val suggestedOver: List<DiffLine>
+        get() {
+            val last = line ?: return emptyList()
+            if (onOldSide || outdated) return emptyList()
+            val first = startLine ?: last
+            val lines = hunk?.let { parsePatch(it).lastOrNull()?.lines }.orEmpty().filter { it.kind != DiffLineKind.REMOVED && it.newNumber in first..last }
+            return lines.takeIf { it.size == last - first + 1 }.orEmpty()
+        }
+}
+
+/**
+ * A review comment's words with its suggestions taken out: each suggestion the code it proposes in place of the lines
+ * the comment is on, as lines (none to take them away).
+ */
+data class Suggesting(val text: String, val suggestions: List<List<String>>)
+
+/** A fence that opens a suggestion: GitHub's ```suggestion, and GitLab's, which may say how many lines around it covers. */
+private val suggestionFence = Regex("""^ {0,3}(`{3,}|~{3,})\s*suggestion(:-\d+\+\d+)?\s*$""")
+
+/** [body] split into its words and the suggestions written in it, in fenced blocks. A block never closed is left as it is. */
+fun splitSuggestions(body: String): Suggesting {
+    val lines = body.lines()
+    val kept = mutableListOf<String>()
+    val suggestions = mutableListOf<List<String>>()
+    var i = 0
+    while (i < lines.size) {
+        val fence = suggestionFence.find(lines[i])?.groupValues?.get(1)
+        val end = fence?.let { open -> (i + 1 until lines.size).firstOrNull { lines[it].trim().let { line -> line.startsWith(open) && line.all { c -> c == open[0] } } } }
+        if (fence == null || end == null) {
+            kept += lines[i++]
+            continue
+        }
+        suggestions += lines.subList(i + 1, end)
+        i = end + 1
+    }
+    return Suggesting(kept.joinToString("\n").trim(), suggestions)
+}
 
 /** One comment of a [ReviewThread]: the remark that opened it, or a reply. */
 data class ThreadComment(val id: Long, val author: ForgeUser?, val body: String, val createdAt: Instant?)

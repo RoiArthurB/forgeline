@@ -1012,6 +1012,8 @@
         <item quantity="many">Afficher %d fils résolus</item>
         <item quantity="other">Afficher %d fils résolus</item>
     </plurals>
+    <string name="thread_suggestion">Modification suggérée</string>
+    <string name="thread_suggestion_removes">Suggère de retirer ces lignes</string>
     <string name="thread_outdated">Obsolète</string>
     <string name="thread_resolved">Résolu</string>
     <string name="thread_reply">Répondre</string>
