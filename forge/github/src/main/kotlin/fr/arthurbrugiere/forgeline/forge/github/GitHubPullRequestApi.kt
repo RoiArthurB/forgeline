@@ -21,7 +21,9 @@ import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
+import fr.arthurbrugiere.forgeline.core.model.ThreadComment
 import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
@@ -37,6 +39,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import java.time.Instant
 
@@ -148,6 +151,52 @@ class GitHubPullRequestApi(
         }
     }
 
+    /**
+     * Signed in, GitHub's GraphQL API says which threads are resolved and whether the reader may change that. Signed
+     * out, the REST API's comments are put back into threads by what each answers; none can be resolved then.
+     */
+    override suspend fun threads(token: String?, ref: IssueRef): ForgeResult<List<ReviewThread>> {
+        if (token == null) {
+            return forgeCall {
+                pull(null, ref, "comments", query = mapOf("per_page" to "100")).toResult { threadsOf(body<List<PrReviewCommentJson>>()) }
+            }
+        }
+        val variables = buildJsonObject {
+            put("owner", ref.repo.owner)
+            put("name", ref.repo.name)
+            put("number", ref.number)
+        }
+        return graphQl(token, THREADS_QUERY, variables).map { data ->
+            val nodes = data["repository"]?.jsonObject?.get("pullRequest")?.jsonObject?.get("reviewThreads")?.jsonObject?.get("nodes") ?: return@map emptyList()
+            ForgeJson.decodeFromJsonElement<List<PrThreadJson>>(nodes).map { it.toModel() }
+        }
+    }
+
+    /** A reply goes under the thread's first comment, by its id. */
+    override suspend fun reply(token: String, ref: IssueRef, thread: ReviewThread, body: String): ForgeResult<Unit> = forgeCall {
+        val first = thread.comments.firstOrNull() ?: return@forgeCall ForgeResult.Failure(ForgeError.Http(404, null))
+        pull(token, ref, "comments", first.id.toString(), "replies", method = HttpMethod.Post, body = buildJsonObject { put("body", body) }).toResult { }
+    }
+
+    override val resolvesThreads: Boolean = true
+
+    override suspend fun setResolved(token: String, ref: IssueRef, thread: ReviewThread, resolved: Boolean): ForgeResult<Unit> {
+        val mutation = if (resolved) "resolveReviewThread" else "unresolveReviewThread"
+        return graphQl(token, "mutation(\$id: ID!) { $mutation(input: {threadId: \$id}) { thread { id } } }", buildJsonObject { put("id", thread.id) }).map { }
+    }
+
+    override val dismissesReviews: Boolean = true
+
+    override suspend fun dismissReview(token: String, ref: IssueRef, reviewId: Long, message: String): ForgeResult<Unit> = forgeCall {
+        pull(
+            token, ref, "reviews", reviewId.toString(), "dismissals", method = HttpMethod.Put,
+            body = buildJsonObject {
+                put("message", message)
+                put("event", "DISMISS")
+            },
+        ).toResult { }
+    }
+
     /** GitHub merges the branch it goes into in, later: it answers 202 at once. */
     override suspend fun updateBranch(token: String, ref: IssueRef): ForgeResult<Unit> = forgeCall {
         pull(token, ref, "update-branch", method = HttpMethod.Put, body = buildJsonObject { }).toResult { }
@@ -257,6 +306,10 @@ class GitHubPullRequestApi(
     private companion object {
         const val FILES_PER_PAGE = 50
         const val HISTORY_PER_PAGE = 30
+
+        const val THREADS_QUERY = "query Threads(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { " +
+            "pullRequest(number: \$number) { reviewThreads(first: 100) { nodes { id isResolved isOutdated path line originalLine diffSide " +
+            "viewerCanResolve viewerCanUnresolve comments(first: 100) { nodes { databaseId body createdAt diffHunk author { login avatarUrl } } } } } } } }"
 
         const val BLAME_QUERY = "query Blame(\$owner: String!, \$name: String!, \$ref: String!, \$path: String!) { " +
             "repository(owner: \$owner, name: \$name) { target: object(expression: \$ref) { ... on Commit { blame(path: \$path) { ranges { " +
@@ -450,3 +503,75 @@ private data class PrBlameRangeJson(val startingLine: Int, val endingLine: Int, 
 
 @Serializable
 private data class PrCreatedJson(val number: Int)
+
+/** A comment on a line, as GitHub's REST API lists them: a reply names the comment it answers. */
+@Serializable
+private data class PrReviewCommentJson(
+    val id: Long,
+    @SerialName("in_reply_to_id") val inReplyTo: Long? = null,
+    val path: String,
+    val line: Int? = null,
+    @SerialName("original_line") val originalLine: Int? = null,
+    val side: String? = null,
+    @SerialName("diff_hunk") val diffHunk: String? = null,
+    val user: PrAccountJson? = null,
+    val body: String = "",
+    @SerialName("created_at") val createdAt: String? = null,
+) {
+    fun toComment() = ThreadComment(id, user?.let { ForgeUser(it.login, null, it.avatarUrl) }, body, createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() })
+}
+
+/** Each first comment with the replies under it, in the order GitHub listed them (oldest first). */
+private fun threadsOf(comments: List<PrReviewCommentJson>): List<ReviewThread> {
+    val replies = comments.filter { it.inReplyTo != null }.groupBy { it.inReplyTo }
+    return comments.filter { it.inReplyTo == null }.map { first ->
+        ReviewThread(
+            id = first.id.toString(),
+            path = first.path,
+            line = first.line ?: first.originalLine,
+            onOldSide = first.side == "LEFT",
+            hunk = first.diffHunk,
+            comments = listOf(first.toComment()) + replies[first.id].orEmpty().map { it.toComment() },
+            resolved = false,
+            canResolve = false,
+            outdated = first.line == null,
+        )
+    }
+}
+
+@Serializable
+private data class PrGraphAuthorJson(val login: String, val avatarUrl: String? = null)
+
+@Serializable
+private data class PrGraphCommentJson(val databaseId: Long, val body: String = "", val createdAt: String? = null, val diffHunk: String? = null, val author: PrGraphAuthorJson? = null)
+
+@Serializable
+private data class PrGraphCommentsJson(val nodes: List<PrGraphCommentJson> = emptyList())
+
+@Serializable
+private data class PrThreadJson(
+    val id: String,
+    val isResolved: Boolean = false,
+    val isOutdated: Boolean = false,
+    val path: String,
+    val line: Int? = null,
+    val originalLine: Int? = null,
+    val diffSide: String? = null,
+    val viewerCanResolve: Boolean = false,
+    val viewerCanUnresolve: Boolean = false,
+    val comments: PrGraphCommentsJson = PrGraphCommentsJson(),
+) {
+    fun toModel() = ReviewThread(
+        id = id,
+        path = path,
+        line = line ?: originalLine,
+        onOldSide = diffSide == "LEFT",
+        hunk = comments.nodes.firstOrNull()?.diffHunk,
+        comments = comments.nodes.map { comment ->
+            ThreadComment(comment.databaseId, comment.author?.let { ForgeUser(it.login, null, it.avatarUrl) }, comment.body, comment.createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() })
+        },
+        resolved = isResolved,
+        canResolve = if (isResolved) viewerCanUnresolve else viewerCanResolve,
+        outdated = isOutdated,
+    )
+}

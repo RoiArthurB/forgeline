@@ -57,6 +57,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
+import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import fr.arthurbrugiere.forgeline.core.model.overall
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
@@ -86,6 +87,12 @@ class PullActions(
     /** Brings the pull request's branch up to date with the one it goes into. */
     val onUpdateBranch: () -> Unit = {},
     val onUpdateErrorShown: () -> Unit = {},
+    /** Answers a thread on a line of the change. */
+    val onReply: (ReviewThread, String) -> Unit = { _, _ -> },
+    val onSetResolved: (ReviewThread, Boolean) -> Unit = { _, _ -> },
+    /** Dismisses a review by its id, saying why. */
+    val onDismissReview: (Long, String) -> Unit = { _, _ -> },
+    val onThreadErrorShown: () -> Unit = {},
     val onReview: (ReviewVerdict, String) -> Unit = { _, _ -> },
     val onReviewErrorShown: () -> Unit = {},
 )

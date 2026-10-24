@@ -13,6 +13,7 @@ import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 
 /**
@@ -56,6 +57,24 @@ interface PullRequestApi {
 
     /** Reviews [ref]: a verdict, what it says ([body], Markdown, possibly empty) and remarks on lines of the change. */
     suspend fun review(token: String, ref: IssueRef, verdict: ReviewVerdict, body: String, comments: List<LineComment>): ForgeResult<Unit>
+
+    /** The remarks on lines of [ref]'s change, each with its replies, oldest first. */
+    suspend fun threads(token: String?, ref: IssueRef): ForgeResult<List<ReviewThread>> = ForgeResult.Success(emptyList())
+
+    /** Answers [thread] of [ref] with [body], Markdown. */
+    suspend fun reply(token: String, ref: IssueRef, thread: ReviewThread, body: String): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Whether this forge's API marks threads resolved: Forgejo's doesn't. */
+    val resolvesThreads: Boolean get() = false
+
+    /** Marks [thread] of [ref] resolved, or not resolved again. */
+    suspend fun setResolved(token: String, ref: IssueRef, thread: ReviewThread, resolved: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Whether this forge's API dismisses someone's review: GitLab's can't take back another's approval. */
+    val dismissesReviews: Boolean get() = false
+
+    /** Dismisses the review [reviewId] of [ref], saying why ([message]): its verdict no longer counts. */
+    suspend fun dismissReview(token: String, ref: IssueRef, reviewId: Long, message: String): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
 
     /** Opens a pull request in [repo], and answers where it is. */
     suspend fun create(token: String, repo: RepoId, request: NewPullRequest): ForgeResult<IssueRef>

@@ -12,13 +12,16 @@ import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
 import fr.arthurbrugiere.forgeline.core.model.FileChange
+import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
+import fr.arthurbrugiere.forgeline.core.model.ThreadComment
 import fr.arthurbrugiere.forgeline.core.model.countChanges
 import java.time.Instant
 
@@ -91,6 +94,27 @@ class FakePullRequestApi(
         write("merge:${ref.name()}:$method${if (deleteBranch) ":delete-branch" else ""}${if (whenChecksPass) ":when-checks-pass" else ""}") {
             if (whenChecksPass) mergeInfo = mergeInfo.copy(mergesWhenChecksPass = true)
         }
+
+    /** The threads on the change, as the forge would answer them. */
+    var reviewThreads: List<ReviewThread> = emptyList()
+
+    override var resolvesThreads: Boolean = true
+
+    override var dismissesReviews: Boolean = true
+
+    override suspend fun threads(token: String?, ref: IssueRef) = read("threads:${ref.name()}") { reviewThreads }
+
+    override suspend fun reply(token: String, ref: IssueRef, thread: ReviewThread, body: String) = write("reply:${ref.name()}:${thread.id}:$body") {
+        reviewThreads = reviewThreads.map {
+            if (it.id == thread.id) it.copy(comments = it.comments + ThreadComment(it.comments.size + 1000L, ForgeUser("octocat", null, null), body, null)) else it
+        }
+    }
+
+    override suspend fun setResolved(token: String, ref: IssueRef, thread: ReviewThread, resolved: Boolean) = write("resolved:${ref.name()}:${thread.id}:$resolved") {
+        reviewThreads = reviewThreads.map { if (it.id == thread.id) it.copy(resolved = resolved) else it }
+    }
+
+    override suspend fun dismissReview(token: String, ref: IssueRef, reviewId: Long, message: String) = write("dismiss:${ref.name()}:$reviewId:$message") { }
 
     override suspend fun updateBranch(token: String, ref: IssueRef) = write("updateBranch:${ref.name()}") {
         mergeInfo = mergeInfo.copy(behind = false)

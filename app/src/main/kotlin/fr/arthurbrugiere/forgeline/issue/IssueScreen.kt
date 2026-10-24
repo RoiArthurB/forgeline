@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -79,12 +81,15 @@ import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
 import fr.arthurbrugiere.forgeline.core.model.webUrl
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDangerButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
@@ -96,6 +101,7 @@ import fr.arthurbrugiere.forgeline.pull.PullRequestChecks
 import fr.arthurbrugiere.forgeline.pull.PullRequestDecisions
 import fr.arthurbrugiere.forgeline.pull.PullRequestUiState
 import fr.arthurbrugiere.forgeline.pull.PullRequestViewModel
+import fr.arthurbrugiere.forgeline.pull.ReviewThreads
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
@@ -233,6 +239,10 @@ fun IssueRoute(
             onCancelMergeWhenChecksPass = { pull?.cancelMergeWhenChecksPass() },
             onUpdateBranch = { pull?.updateBranch() },
             onUpdateErrorShown = { pull?.updateErrorShown() },
+            onReply = { thread, body -> pull?.reply(thread, body) },
+            onSetResolved = { thread, resolved -> pull?.setResolved(thread, resolved) },
+            onDismissReview = { id, message -> pull?.dismissReview(id, message) },
+            onThreadErrorShown = { pull?.threadErrorShown() },
             onReview = { verdict, body -> pull?.submitReview(verdict, body) },
             onReviewErrorShown = { pull?.reviewErrorShown() },
         )
@@ -357,13 +367,20 @@ fun IssueScreen(
     // Nor does bringing its branch up to date: the forge may still be at it.
     val scheduled = stringResource(R.string.merge_scheduled)
     val updating = stringResource(R.string.pull_branch_updating)
+    // The review being dismissed, until the forge took it or the reader called it off.
+    var dismissing by rememberSaveable { mutableStateOf<Long?>(null) }
+    // Dismissing someone's verdict is for whoever can write to the repository, where the forge can.
+    val canDismiss = canComment && state.access >= RepoAccess.WRITE && pull?.dismissesReviews == true
+    dismissing?.let { id -> DismissReviewSheet(isSending = pull?.busyThread == "review-$id", onDismissReview = { message -> pullActions.onDismissReview(id, message) }) { dismissing = null } }
     LaunchedEffect(pull?.done) {
         when (pull?.done?.first) {
+            PullDone.DISMISSED -> dismissing = null
             PullDone.SCHEDULED -> snackbar.showSnackbar(scheduled)
             PullDone.UPDATED -> snackbar.showSnackbar(updating)
             else -> Unit
         }
     }
+    SayOnce(stringResource(R.string.issue_state_error).takeIf { pull?.threadError != null }, snackbar, pullActions.onThreadErrorShown)
     // A refused update has no sheet to say it in.
     SayOnce(stringResource(R.string.pull_branch_update_failed).takeIf { pull?.updateError != null }, snackbar, pullActions.onUpdateErrorShown)
     // The comment the reader asked to delete, until they have said yes or no.
@@ -521,7 +538,7 @@ fun IssueScreen(
                                 val editor: (@Composable () -> Unit)? = if (item is TimelineItem.Comment && item.id == state.editing) {
                                     { Composer(state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture, inPlace = true, suggestions = suggestions, onReferenceTyped = comments.onReferenceTyped) }
                                 } else null
-                                TimelineEntry(item, context, nowMillis, onOpenUser, onOpenIssue, onLinkClick, editor) { comment ->
+                                TimelineEntry(item, context, nowMillis, onOpenUser, onOpenIssue, onLinkClick, editor, onDismissReview = if (canDismiss) ({ dismissing = it }) else null) { comment ->
                                     CommentMenu(
                                         onQuote = if (canWrite) ({ comments.onQuote(comment.body) }) else null,
                                         onEdit = if (canWrite && state.canEdit(comment)) ({ comments.onEdit(comment.id) }) else null,
@@ -539,6 +556,15 @@ fun IssueScreen(
                                             SoftTonalButton(stringResource(R.string.issue_load_more), onLoadMore)
                                         }
                                     }
+                                }
+                            }
+                            // What was said on lines of its change, after the rest of what was said.
+                            if (!pull?.threads.isNullOrEmpty()) {
+                                item(key = "threads") {
+                                    ReviewThreads(
+                                        pull.threads, pull, pullActions, canReply = canWrite, context, nowMillis, onOpenUser, onLinkClick,
+                                        Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 24.dp),
+                                    )
                                 }
                             }
                             // What ran on a pull request, right above the turn where it is merged or not.
@@ -646,3 +672,18 @@ private fun JumpButton(icon: ImageVector, label: String, busy: Boolean = false, 
 
 /** A day as the reader's language writes it, like "Oct 10, 2026". */
 internal fun formatDay(day: LocalDate): String = day.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+
+/** Why a review no longer counts, asked before it is dismissed: the forge shows it with the review. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DismissReviewSheet(isSending: Boolean, onDismissReview: (String) -> Unit, onDismiss: () -> Unit) {
+    var message by rememberSaveable { mutableStateOf("") }
+    SoftSheet(stringResource(R.string.review_dismiss), onDismiss) {
+        Text(stringResource(R.string.review_dismiss_body), style = Soft.type.secondary, color = Soft.colors.inkMuted)
+        SoftTextField(value = message, onValueChange = { message = it }, placeholder = stringResource(R.string.review_dismiss_placeholder), singleLine = false, maxLines = 6, readOnly = isSending)
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            SoftTonalButton(stringResource(R.string.cancel), onDismiss)
+            SoftDangerButton(stringResource(R.string.review_dismiss_confirm), onClick = { onDismissReview(message) }, enabled = message.isNotBlank() && !isSending)
+        }
+    }
+}

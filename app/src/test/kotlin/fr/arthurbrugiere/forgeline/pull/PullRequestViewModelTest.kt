@@ -10,7 +10,9 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
+import fr.arthurbrugiere.forgeline.core.model.ThreadComment
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import fr.arthurbrugiere.forgeline.core.testing.FakePullRequestApi
@@ -47,7 +49,8 @@ class PullRequestViewModelTest {
         assertThat(viewModel.state.value.checks!!.single().name).isEqualTo("build")
         assertThat(viewModel.state.value.signedIn).isFalse()
         assertThat(viewModel.state.value.mergeInfo).isNull()
-        assertThat(api.calls).containsExactly("checks:octo/tools#88")
+        // What was said on lines is read too: it is public.
+        assertThat(api.calls).containsExactly("checks:octo/tools#88", "threads:octo/tools#88")
     }
 
     @Test
@@ -156,6 +159,78 @@ class PullRequestViewModelTest {
         assertThat(viewModel.state.value.mergeError).isNull()
         viewModel.updateErrorShown()
         assertThat(viewModel.state.value.updateError).isNull()
+    }
+
+    private val thread = ReviewThread(
+        "T1", "src/Upload.kt", 12, onOldSide = false, hunk = null,
+        comments = listOf(ThreadComment(1, ForgeUser("hubot", null, null), "Why three?", null)), resolved = false, canResolve = true,
+    )
+
+    @Test
+    fun threads_are_read_with_the_pull_request_signed_out_too() = test {
+        api.reviewThreads = listOf(thread)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.threads).containsExactly(thread)
+        assertThat(viewModel.state.value.resolvesThreads).isTrue()
+        assertThat(viewModel.state.value.dismissesReviews).isTrue()
+    }
+
+    @Test
+    fun a_reply_joins_its_thread_and_empties_its_field() = test {
+        api.reviewThreads = listOf(thread)
+        signIn()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.reply(thread, "  Because of flaky links.  ")
+        assertThat(viewModel.state.value.busyThread).isEqualTo("T1")
+        // One thing at a time.
+        viewModel.setResolved(thread, resolved = true)
+        advanceUntilIdle()
+
+        assertThat(api.calls.filter { it.startsWith("reply:") || it.startsWith("resolved:") }).containsExactly("reply:octo/tools#88:T1:Because of flaky links.")
+        assertThat(viewModel.state.value.replied?.first).isEqualTo("T1")
+        assertThat(viewModel.state.value.busyThread).isNull()
+        // Read again: the reply is there.
+        assertThat(viewModel.state.value.threads!!.single().comments.map { it.body }).containsExactly("Why three?", "Because of flaky links.").inOrder()
+    }
+
+    @Test
+    fun a_thread_is_resolved_and_reopened() = test {
+        api.reviewThreads = listOf(thread)
+        signIn()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.setResolved(thread, resolved = true)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.threads!!.single().resolved).isTrue()
+        viewModel.setResolved(thread.copy(resolved = true), resolved = false)
+        advanceUntilIdle()
+
+        assertThat(api.calls.filter { it.startsWith("resolved:") }).containsExactly("resolved:octo/tools#88:T1:true", "resolved:octo/tools#88:T1:false").inOrder()
+        assertThat(viewModel.state.value.threads!!.single().resolved).isFalse()
+    }
+
+    @Test
+    fun a_dismissed_review_has_the_conversation_read_again_and_a_refusal_is_said() = test {
+        signIn()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.dismissReview(80, "Outdated. ")
+        advanceUntilIdle()
+        assertThat(api.calls).contains("dismiss:octo/tools#88:80:Outdated.")
+        assertThat(viewModel.state.value.done?.first).isEqualTo(PullDone.DISMISSED)
+
+        api.writeFailure = ForgeError.Http(403, "no")
+        viewModel.reply(thread, "Hm")
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.threadError).isEqualTo(ForgeError.Http(403, "no"))
+        viewModel.threadErrorShown()
+        assertThat(viewModel.state.value.threadError).isNull()
     }
 
     @Test

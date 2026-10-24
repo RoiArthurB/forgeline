@@ -300,6 +300,70 @@ class GitHubPullRequestApiTest {
         assertThat(info.behind).isFalse()
     }
 
+    // Real answers for gama-platform/gama#1265, captured 2026-10-23: five threads by a review bot, two answered.
+    private fun captured(name: String) = requireNotNull(javaClass.getResource("/github/pull/$name")) { name }.readText()
+
+    private val gama = IssueRef(RepoId("gama-platform", "gama"), 1265, isPullRequest = true)
+
+    @Test
+    fun signed_in_threads_come_from_graphql_with_whether_each_is_resolved() = runTest {
+        val threads = api { json(captured("review_threads.json")) }.threads("tok", gama).value()
+
+        assertThat(threads).hasSize(5)
+        val first = threads.first()
+        assertThat(first.id).isEqualTo("PRRT_kwDOLUle7M6vdxgm")
+        assertThat(first.path).isEqualTo("gama.core/src/gama/core/topology/graph/FloydWarshallShortestPathsGAMA.java")
+        // The code moved on: placed where it was.
+        assertThat(first.line).isEqualTo(265)
+        assertThat(first.outdated).isTrue()
+        assertThat(first.onOldSide).isFalse()
+        assertThat(first.hunk).startsWith("@@")
+        assertThat(first.comments.map { it.author?.login }).containsExactly("copilot-pull-request-reviewer", "copilot-swe-agent").inOrder()
+        assertThat(first.canResolve).isTrue()
+        assertThat(threads.map { it.resolved }).containsExactly(false, true, true, false, true).inOrder()
+        assertThat(requests.single().path).isEqualTo("/graphql")
+        assertThat(requests.single().sent).contains(""""variables":{"owner":"gama-platform","name":"gama","number":1265}""")
+    }
+
+    @Test
+    fun signed_out_threads_are_put_back_together_from_the_rest_comments() = runTest {
+        val threads = api { json(captured("review_comments.json")) }.threads(null, gama).value()
+
+        assertThat(threads.map { it.id }).containsExactly("4355905017", "4355905046", "4355905072", "4355905095", "4355905117").inOrder()
+        assertThat(threads.map { it.comments.size }).containsExactly(2, 1, 1, 2, 1).inOrder()
+        assertThat(threads[0].comments[1].id).isEqualTo(4356030362)
+        assertThat(threads[0].line).isEqualTo(265)
+        // Nothing to resolve without an account, nor anything said about it.
+        assertThat(threads.none { it.canResolve || it.resolved }).isTrue()
+        assertThat(requests.single().path).isEqualTo("/repos/gama-platform/gama/pulls/1265/comments")
+    }
+
+    @Test
+    fun a_reply_goes_under_the_first_comment_and_resolving_names_the_thread() = runTest {
+        val thread = api { json(captured("review_threads.json")) }.threads("tok", gama).value().first()
+        requests.clear()
+        val acting = api { request -> if (request.path == "/graphql") json("""{"data":{"done":{"thread":{"id":"x"}}}}""") else json("{}", HttpStatusCode.Created) }
+
+        assertThat(acting.reply("tok", gama, thread, "Fixed in 7a1b.")).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(acting.setResolved("tok", gama, thread, resolved = true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(acting.setResolved("tok", gama, thread, resolved = false)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(requests[0].path).isEqualTo("/repos/gama-platform/gama/pulls/1265/comments/4355905017/replies")
+        assertThat(requests[0].sent).isEqualTo("""{"body":"Fixed in 7a1b."}""")
+        assertThat(requests[1].sent).contains("resolveReviewThread(input: {threadId: \$id})")
+        assertThat(requests[2].sent).contains("unresolveReviewThread(input: {threadId: \$id})")
+        assertThat(requests[1].sent).contains(""""variables":{"id":"PRRT_kwDOLUle7M6vdxgm"}""")
+    }
+
+    @Test
+    fun a_review_is_dismissed_with_why() = runTest {
+        val result = api { json("""{"id":80,"state":"DISMISSED"}""") }.dismissReview("tok", pull, 80, "Outdated after the rewrite.")
+
+        assertThat(result).isEqualTo(ForgeResult.Success(Unit))
+        assertThat("${requests.single().method.value} ${requests.single().path}").isEqualTo("PUT /repos/octo/tools/pulls/88/reviews/80/dismissals")
+        assertThat(requests.single().sent).isEqualTo("""{"message":"Outdated after the rewrite.","event":"DISMISS"}""")
+    }
+
     @Test
     fun a_merge_github_refuses_says_why() = runTest {
         val result = api { json("""{"message":"Pull Request is not mergeable"}""", HttpStatusCode.MethodNotAllowed) }.merge("tok", pull, MergeMethod.MERGE)

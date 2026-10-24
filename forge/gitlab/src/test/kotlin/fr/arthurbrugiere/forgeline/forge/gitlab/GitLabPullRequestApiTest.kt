@@ -213,6 +213,54 @@ class GitLabPullRequestApiTest {
         assertThat(mergeable("checking").mergeable).isNull()
     }
 
+    // Real discussions of gitlab-org/gitlab-runner!7661, captured 2026-10-23 (three on lines, one not), cut to four.
+    private val discussions = requireNotNull(javaClass.getResource("/gitlab/captured/merge_request_discussions.json")).readText()
+
+    @Test
+    fun the_discussions_on_lines_are_the_threads_and_the_rest_is_left_to_the_conversation() = runTest {
+        val threads = api { json(discussions) }.threads("tok", mr).value()
+
+        assertThat(threads).hasSize(3)
+        assertThat(threads.map { it.id.take(10) }).containsExactly("8a3e89c007", "fa8639895c", "a107b496e7").inOrder()
+        assertThat(threads.map { it.line }).containsExactly(777, 804, 823).inOrder()
+        assertThat(threads.all { it.path == "docs/executors/kubernetes/_index.md" && !it.onOldSide && it.resolved && it.canResolve }).isTrue()
+        assertThat(threads.first().comments.single().body).isNotEmpty()
+        assertThat(requests.single().url.encodedPath).isEqualTo("$base/merge_requests/7606/discussions")
+    }
+
+    @Test
+    fun signed_out_nothing_can_be_resolved() = runTest {
+        val threads = api { json(discussions) }.threads(null, mr).value()
+
+        assertThat(threads.none { it.canResolve }).isTrue()
+    }
+
+    @Test
+    fun a_reply_and_resolving_go_to_the_discussion() = runTest {
+        val thread = api { json(discussions) }.threads("tok", mr).value().first()
+        requests.clear()
+        val acting = api { json("{}") }
+
+        acting.reply("tok", mr, thread, "Done.")
+        acting.setResolved("tok", mr, thread, resolved = false)
+
+        assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly(
+            "POST $base/merge_requests/7606/discussions/${thread.id}/notes",
+            "PUT $base/merge_requests/7606/discussions/${thread.id}",
+        ).inOrder()
+        assertThat(requests[0].sent).isEqualTo("""{"body":"Done."}""")
+        assertThat(requests[1].url.parameters["resolved"]).isEqualTo("false")
+    }
+
+    @Test
+    fun gitlab_can_t_dismiss_someone_else_s_review() = runTest {
+        val api = api { json("{}") }
+
+        assertThat(api.dismissesReviews).isFalse()
+        assertThat(api.dismissReview("tok", mr, 1, "no")).isEqualTo(ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unsupported))
+        assertThat(requests).isEmpty()
+    }
+
     @Test
     fun a_merge_says_whether_to_squash() = runTest {
         val api = api { json("{}") }

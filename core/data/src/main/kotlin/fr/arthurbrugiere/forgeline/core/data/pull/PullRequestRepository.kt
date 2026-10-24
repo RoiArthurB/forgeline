@@ -20,6 +20,7 @@ import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -46,6 +47,20 @@ interface PullRequestRepository {
     suspend fun cancelMergeWhenChecksPass(ref: IssueRef): ForgeResult<Unit>
 
     suspend fun updateBranch(ref: IssueRef): ForgeResult<Unit>
+
+    suspend fun threads(ref: IssueRef): ForgeResult<List<ReviewThread>>
+
+    suspend fun reply(ref: IssueRef, thread: ReviewThread, body: String): ForgeResult<Unit>
+
+    /** Whether threads can be marked resolved on [forge]. */
+    fun resolvesThreads(forge: ForgeInstance): Boolean
+
+    suspend fun setResolved(ref: IssueRef, thread: ReviewThread, resolved: Boolean): ForgeResult<Unit>
+
+    /** Whether a review can be dismissed on [forge]. */
+    fun dismissesReviews(forge: ForgeInstance): Boolean
+
+    suspend fun dismissReview(ref: IssueRef, reviewId: Long, message: String): ForgeResult<Unit>
 
     /** The verdicts a review can give on [forge]. */
     fun verdicts(forge: ForgeInstance): Set<ReviewVerdict>
@@ -93,6 +108,18 @@ class DefaultPullRequestRepository @Inject constructor(
     override suspend fun cancelMergeWhenChecksPass(ref: IssueRef) = signedIn(ref.repo.forge) { cancelMergeWhenChecksPass(it, ref) }
 
     override suspend fun updateBranch(ref: IssueRef) = signedIn(ref.repo.forge) { updateBranch(it, ref) }
+
+    override suspend fun threads(ref: IssueRef) = read(ref.repo.forge) { threads(it, ref) }
+
+    override suspend fun reply(ref: IssueRef, thread: ReviewThread, body: String) = signedIn(ref.repo.forge) { reply(it, ref, thread, body) }
+
+    override fun resolvesThreads(forge: ForgeInstance) = clients.pulls(forge).resolvesThreads
+
+    override suspend fun setResolved(ref: IssueRef, thread: ReviewThread, resolved: Boolean) = signedIn(ref.repo.forge) { setResolved(it, ref, thread, resolved) }
+
+    override fun dismissesReviews(forge: ForgeInstance) = clients.pulls(forge).dismissesReviews
+
+    override suspend fun dismissReview(ref: IssueRef, reviewId: Long, message: String) = signedIn(ref.repo.forge) { dismissReview(it, ref, reviewId, message) }
 
     override fun verdicts(forge: ForgeInstance) = clients.pulls(forge).verdicts
 

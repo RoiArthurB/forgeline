@@ -158,6 +158,24 @@ class GitLabIssueApiTest {
     // answers' status are GitLab's own.
 
     @Test
+    fun a_remark_on_a_line_is_left_to_its_thread_not_the_conversation() = runTest {
+        val ref = IssueRef(repo, 12, isPullRequest = true)
+        val api = api { req ->
+            when {
+                req.url.encodedPath.endsWith("/notes") -> json(
+                    """[{"id":1,"body":"On the whole","created_at":"2026-10-01T10:00:00Z","system":false,"type":null},
+                    {"id":2,"body":"On line 3","created_at":"2026-10-01T10:01:00Z","system":false,"type":"DiffNote"}]""",
+                )
+                else -> json("[]")
+            }
+        }
+
+        val items = api.timeline("tok", ref, 1).value().items
+
+        assertThat(items.filterIsInstance<TimelineItem.Comment>().map { it.body }).containsExactly("On the whole")
+    }
+
+    @Test
     fun a_note_is_rewritten_where_it_was_written() = runTest {
         // A note's address goes through its issue or its merge request: the same id under the other kind is not found.
         val api = api { json("""{"id":3969166511,"body":"probe note, edited","created_at":"2026-10-07T09:43:36.405Z","system":false}""") }

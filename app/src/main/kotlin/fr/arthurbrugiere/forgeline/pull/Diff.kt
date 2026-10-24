@@ -141,7 +141,7 @@ private fun FileHeading(diff: FileDiff, expanded: Boolean, onToggle: () -> Unit)
 
 /** One line of a change: its number before and after, then the line on the tint of what happened to it. */
 @Composable
-private fun LineRow(line: DiffLine, onClick: (() -> Unit)?) {
+internal fun LineRow(line: DiffLine, onClick: (() -> Unit)?) {
     val colors = Soft.colors
     val number = Soft.type.gutter
     val spoken = stringResource(

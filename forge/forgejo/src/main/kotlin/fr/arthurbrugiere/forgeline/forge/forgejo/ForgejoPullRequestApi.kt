@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.PullRequestApi
 import fr.arthurbrugiere.forgeline.core.model.ChangedFiles
@@ -15,7 +16,9 @@ import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
+import fr.arthurbrugiere.forgeline.core.model.ThreadComment
 import fr.arthurbrugiere.forgeline.core.model.parseUnifiedDiff
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
@@ -115,6 +118,39 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
                 put("delete_branch_after_merge", deleteBranch)
                 if (whenChecksPass) put("merge_when_checks_succeed", true)
             },
+        ).toResult { }
+    }
+
+    /**
+     * Forgejo keeps remarks on lines under the reviews they were sent with, replies included: every review that has
+     * some is asked for them, at once, and they are put back into threads by the line they are on, oldest first.
+     */
+    override suspend fun threads(token: String?, ref: IssueRef): ForgeResult<List<ReviewThread>> = forgeCall {
+        coroutineScope {
+            val reviews = repo(token, ref.repo, "pulls", ref.number.toString(), "reviews")
+            if (reviews.status != HttpStatusCode.OK) return@coroutineScope reviews.failure()
+            val answers = reviews.body<List<PrReviewJson>>().filter { it.commentsCount > 0 }.map { review ->
+                async { repo(token, ref.repo, "pulls", ref.number.toString(), "reviews", review.id.toString(), "comments") }
+            }.map { it.await() }
+            answers.firstOrNull { it.status != HttpStatusCode.OK }?.let { return@coroutineScope it.failure() }
+            val remarks = answers.flatMap { it.body<List<PrRemarkJson>>() }.sortedBy { instant(it.createdAt) }
+            ForgeResult.Success(remarks.groupBy { Triple(it.path, it.position, it.originalPosition) }.values.map { it.toThread() })
+        }
+    }
+
+    /** Forgejo's API has no reply as such: a remark on the same line, sent as a review of its own, joins the thread. */
+    override suspend fun reply(token: String, ref: IssueRef, thread: ReviewThread, body: String): ForgeResult<Unit> {
+        val line = thread.line ?: return ForgeResult.Failure(ForgeError.Unsupported)
+        val remark = LineComment(thread.path, oldLine = line.takeIf { thread.onOldSide }, newLine = line.takeUnless { thread.onOldSide }, body = body)
+        return review(token, ref, ReviewVerdict.COMMENT, "", listOf(remark))
+    }
+
+    override val dismissesReviews: Boolean = true
+
+    override suspend fun dismissReview(token: String, ref: IssueRef, reviewId: Long, message: String): ForgeResult<Unit> = forgeCall {
+        repo(
+            token, ref.repo, "pulls", ref.number.toString(), "reviews", reviewId.toString(), "dismissals", method = HttpMethod.Post,
+            body = buildJsonObject { put("message", message) },
         ).toResult { }
     }
 
@@ -278,3 +314,37 @@ private data class PrStatusJson(val context: String = "", val status: String = "
 
 @Serializable
 private data class PrCreatedJson(val number: Int)
+
+@Serializable
+private data class PrReviewJson(val id: Long, @SerialName("comments_count") val commentsCount: Int = 0)
+
+/**
+ * A remark on a line: [position] is its line in the file after the change, [originalPosition] before it, the other 0.
+ * Only a thread's first remark says who resolved it.
+ */
+@Serializable
+private data class PrRemarkJson(
+    val id: Long,
+    val body: String = "",
+    val user: UserJson? = null,
+    val path: String,
+    val position: Int = 0,
+    @SerialName("original_position") val originalPosition: Int = 0,
+    @SerialName("diff_hunk") val diffHunk: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    val resolver: UserJson? = null,
+)
+
+private fun List<PrRemarkJson>.toThread(): ReviewThread {
+    val first = first()
+    return ReviewThread(
+        id = first.id.toString(),
+        path = first.path,
+        line = first.position.takeIf { it > 0 } ?: first.originalPosition.takeIf { it > 0 },
+        onOldSide = first.position == 0,
+        hunk = first.diffHunk,
+        comments = map { ThreadComment(it.id, it.user?.toModel(), it.body, instant(it.createdAt)) },
+        resolved = first.resolver != null,
+        canResolve = false,
+    )
+}

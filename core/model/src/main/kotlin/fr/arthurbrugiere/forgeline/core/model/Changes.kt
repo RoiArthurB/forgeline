@@ -222,3 +222,25 @@ data class LineComment(val path: String, val oldLine: Int?, val newLine: Int?, v
 
 /** A pull request to open: [head] is the branch that holds the change, [base] the one it goes into. */
 data class NewPullRequest(val title: String, val body: String, val head: String, val base: String, val draft: Boolean = false)
+
+/**
+ * A remark on a line of a pull request's change and the replies under it, oldest first. [id] is what its forge names
+ * it by: a GitHub thread's node id (its first comment's id when read signed out), a GitLab discussion's id, a Forgejo
+ * first comment's id. [line] is the line's number on the side [onOldSide] says, null once the code it was on moved on
+ * ([outdated]). [hunk] is the change around the line as a unified diff, where the forge gives it. [canResolve] is
+ * whether the reader may mark it resolved, or not resolved again.
+ */
+data class ReviewThread(
+    val id: String,
+    val path: String,
+    val line: Int?,
+    val onOldSide: Boolean,
+    val hunk: String?,
+    val comments: List<ThreadComment>,
+    val resolved: Boolean,
+    val canResolve: Boolean,
+    val outdated: Boolean = false,
+)
+
+/** One comment of a [ReviewThread]: the remark that opened it, or a reply. */
+data class ThreadComment(val id: Long, val author: ForgeUser?, val body: String, val createdAt: Instant?)

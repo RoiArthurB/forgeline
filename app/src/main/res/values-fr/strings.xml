@@ -980,6 +980,32 @@
     <string name="merge_checking">La forge cherche encore si ceci peut être fusionné. Vous pouvez essayer.</string>
     <string name="merge_failed">La forge a refusé la fusion : %1$s</string>
     <string name="merge_confirm">Confirmer la fusion</string>
+    <plurals name="threads_open">
+        <item quantity="one">%d fil ouvert</item>
+        <item quantity="many">%d fils ouverts</item>
+        <item quantity="other">%d fils ouverts</item>
+    </plurals>
+    <plurals name="threads_all_resolved">
+        <item quantity="one">%d fil, résolu</item>
+        <item quantity="many">%d fils, tous résolus</item>
+        <item quantity="other">%d fils, tous résolus</item>
+    </plurals>
+    <plurals name="threads_show_resolved">
+        <item quantity="one">Afficher %d fil résolu</item>
+        <item quantity="many">Afficher %d fils résolus</item>
+        <item quantity="other">Afficher %d fils résolus</item>
+    </plurals>
+    <string name="thread_outdated">Obsolète</string>
+    <string name="thread_resolved">Résolu</string>
+    <string name="thread_reply">Répondre</string>
+    <string name="thread_reply_placeholder">Répondre…</string>
+    <string name="thread_reply_send">Envoyer la réponse</string>
+    <string name="thread_resolve">Résoudre</string>
+    <string name="thread_unresolve">Rouvrir</string>
+    <string name="review_dismiss">Écarter la relecture</string>
+    <string name="review_dismiss_body">Son verdict ne comptera plus. Dites pourquoi : ce sera affiché avec.</string>
+    <string name="review_dismiss_placeholder">Pourquoi elle ne compte plus</string>
+    <string name="review_dismiss_confirm">Écarter</string>
     <string name="pull_update_branch">Mettre à jour la branche</string>
     <string name="pull_updating_branch">Mise à jour…</string>
     <string name="pull_branch_updating">Mise à jour de la branche en cours</string>

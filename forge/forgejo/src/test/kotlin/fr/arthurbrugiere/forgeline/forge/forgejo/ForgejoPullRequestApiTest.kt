@@ -209,6 +209,56 @@ class ForgejoPullRequestApiTest {
         assertThat((codeberg.requests.first().body as TextContent).text).isEqualTo("""{"Do":"squash","delete_branch_after_merge":true,"merge_when_checks_succeed":true}""")
     }
 
+    // Real reviews of forgejo/forgejo#14885 and their remarks, captured on Codeberg 2026-10-24: replies sit in the
+    // reviews of whoever replied, and only a thread's first remark says who resolved it.
+    private val threaded = IssueRef(repo, 14885, isPullRequest = true)
+
+    private fun threadedApi() = with(codeberg) {
+        api { path ->
+            when {
+                path.endsWith("/reviews") -> json(fixture("threads/reviews.json"))
+                path.endsWith("/comments") -> json(fixture("threads/review_${path.split('/').dropLast(1).last()}.json"))
+                else -> json("{}")
+            }
+        }
+    }
+
+    @Test
+    fun remarks_are_gathered_from_every_review_into_threads_by_their_line() = runTest {
+        val threads = threadedApi().threads(null, threaded).value()
+
+        assertThat(threads.map { "${it.path.substringAfterLast('/')}:${it.line}" })
+            .containsExactly("git_push_test.go:436", "git_test.go:886", "hook_pre_receive.go:598", "git_push_test.go:460").inOrder()
+        assertThat(threads.map { it.comments.size }).containsExactly(1, 2, 2, 3).inOrder()
+        assertThat(threads.map { it.resolved }).containsExactly(false, true, true, true).inOrder()
+        assertThat(threads[3].comments.map { it.author?.login }).containsExactly("famfo-cb", "oliverpool", "famfo-cb").inOrder()
+        assertThat(threads[1].hunk).startsWith("@@ -888,0 +883,4 @@")
+        // Forgejo's API resolves nothing.
+        assertThat(threads.none { it.canResolve || it.onOldSide }).isTrue()
+        // Only the reviews that hold remarks are asked for them.
+        assertThat(codeberg.requests.count { it.url.encodedPath.endsWith("/comments") }).isEqualTo(4)
+    }
+
+    @Test
+    fun a_reply_is_a_remark_on_the_same_line_sent_as_a_review_and_a_review_is_dismissed_with_why() = runTest {
+        val thread = threadedApi().threads("tok", threaded).value().first()
+        codeberg.requests.clear()
+        val acting = with(codeberg) { api { json("""{"id":1}""") } }
+
+        acting.reply("tok", threaded, thread, "Thanks!")
+        acting.dismissReview("tok", threaded, 2117654, "Done differently.")
+
+        assertThat(codeberg.requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly(
+            "POST $base/pulls/14885/reviews", "POST $base/pulls/14885/reviews/2117654/dismissals",
+        ).inOrder()
+        val reply = (codeberg.requests[0].body as TextContent).text
+        assertThat(reply).contains(""""event":"COMMENT""")
+        assertThat(reply).contains(""""path":"tests/integration/git_push_test.go""")
+        assertThat(reply).contains(""""new_position":436""")
+        assertThat(reply).contains(""""body":"Thanks!""")
+        assertThat((codeberg.requests[1].body as TextContent).text).isEqualTo("""{"message":"Done differently."}""")
+    }
+
     @Test
     fun a_merge_says_how() = runTest {
         with(codeberg) { api { status(HttpStatusCode.OK) } }.merge("tok", pull, MergeMethod.REBASE)

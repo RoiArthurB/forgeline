@@ -985,6 +985,29 @@
     <string name="merge_checking">The forge is still working out whether this can be merged. You can try.</string>
     <string name="merge_failed">The forge refused the merge: %1$s</string>
     <string name="merge_confirm">Confirm merge</string>
+    <plurals name="threads_open">
+        <item quantity="one">%d open thread</item>
+        <item quantity="other">%d open threads</item>
+    </plurals>
+    <plurals name="threads_all_resolved">
+        <item quantity="one">%d thread, resolved</item>
+        <item quantity="other">%d threads, all resolved</item>
+    </plurals>
+    <plurals name="threads_show_resolved">
+        <item quantity="one">Show %d resolved thread</item>
+        <item quantity="other">Show %d resolved threads</item>
+    </plurals>
+    <string name="thread_outdated">Outdated</string>
+    <string name="thread_resolved">Resolved</string>
+    <string name="thread_reply">Reply</string>
+    <string name="thread_reply_placeholder">Reply…</string>
+    <string name="thread_reply_send">Send reply</string>
+    <string name="thread_resolve">Resolve</string>
+    <string name="thread_unresolve">Reopen</string>
+    <string name="review_dismiss">Dismiss review</string>
+    <string name="review_dismiss_body">Its verdict will no longer count. Say why: it is shown with it.</string>
+    <string name="review_dismiss_placeholder">Why it no longer counts</string>
+    <string name="review_dismiss_confirm">Dismiss</string>
     <string name="pull_update_branch">Update branch</string>
     <string name="pull_updating_branch">Updating…</string>
     <string name="pull_branch_updating">Bringing the branch up to date</string>

@@ -53,6 +53,7 @@ import fr.arthurbrugiere.forgeline.core.model.StateChange
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.ui.LabelChip
 import fr.arthurbrugiere.forgeline.ui.label
@@ -61,6 +62,9 @@ import fr.arthurbrugiere.forgeline.ui.relative
 import java.time.LocalDate
 
 internal val TimelineGutter = 40.dp
+
+/** The reviews that say yes or no to a pull request. */
+private val VERDICTS = setOf(ReviewState.APPROVED, ReviewState.CHANGES_REQUESTED)
 
 @Composable
 internal fun TimelineEntry(
@@ -71,6 +75,8 @@ internal fun TimelineEntry(
     onOpenIssue: (IssueRef) -> Unit,
     onLinkClick: (String) -> Unit,
     editor: (@Composable () -> Unit)? = null,
+    /** Dismisses a review that gave a verdict, by its id; null for whoever may not. */
+    onDismissReview: ((Long) -> Unit)? = null,
     menuFor: (TimelineItem.Comment) -> CommentMenu? = { null },
 ) {
     val colors = Soft.colors
@@ -87,6 +93,10 @@ internal fun TimelineEntry(
             }
             EventLine(icon, "$text $time", badge = if (item.state == ReviewState.APPROVED) colors.fields[2] else colors.surface)
             item.body?.let { Comment(item.author, it, null, emptyMap(), context, nowMillis, onOpenUser, onLinkClick) }
+            // Only a verdict can be dismissed: a review that only commented has none.
+            if (onDismissReview != null && item.state in VERDICTS) {
+                SoftTonalButton(stringResource(R.string.review_dismiss), onClick = { onDismissReview(item.id) }, modifier = Modifier.padding(start = TimelineGutter, top = 4.dp))
+            }
         }
         is TimelineItem.StateChanged -> {
             val who = item.actor?.login ?: stringResource(R.string.deleted_account)

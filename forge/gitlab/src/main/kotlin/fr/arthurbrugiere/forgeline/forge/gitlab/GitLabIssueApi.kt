@@ -149,6 +149,8 @@ class GitLabIssueApi(
     }
 
     private fun GitLabNoteJson.toTimelineItem(): TimelineItem? {
+        // A remark on a line belongs to its thread, shown apart from the conversation.
+        if (type == "DiffNote") return null
         if (!system) return toComment()
         val (event, subject) = systemNoteEvent(body) ?: return null
         return TimelineItem.Event(event, author?.toForgeUser(), subject, gitlabInstant(createdAt) ?: Instant.EPOCH)

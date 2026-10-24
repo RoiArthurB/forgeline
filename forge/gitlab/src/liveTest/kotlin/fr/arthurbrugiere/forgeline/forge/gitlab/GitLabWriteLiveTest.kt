@@ -126,6 +126,20 @@ class GitLabWriteLiveTest {
             val approval = pulls.review(token, ref, ReviewVerdict.APPROVE, "", emptyList())
             System.err.println("GITLAB approve own merge request: ${if (approval is ForgeResult.Success) "accepted" else approval}")
 
+            // The remark on a line is a thread: answered, resolved, and read back so.
+            val thread = pulls.threads(token, ref).value("threads").single()
+            assertWithMessage("thread on README").that(thread.path).isEqualTo("README.md")
+            assertWithMessage("thread can be resolved").that(thread.canResolve).isTrue()
+            pulls.reply(token, ref, thread, "Answered by the live test.").value("reply")
+            pulls.setResolved(token, ref, thread, resolved = true).value("resolve")
+            val after = pulls.threads(token, ref).value("threads after").single()
+            System.err.println("GITLAB thread after: ${after.comments.size} comments, resolved=${after.resolved}")
+            assertWithMessage("reply in thread").that(after.comments.map { it.body }).contains("Answered by the live test.")
+            assertWithMessage("resolved").that(after.resolved).isTrue()
+            // Left to its thread, not repeated in the conversation.
+            val said = GitLabIssueApi(http, ForgeInstance.GitLab).timeline(token, ref, 1).value("timeline before merge").items
+            assertWithMessage("not in the conversation").that(said.filterIsInstance<fr.arthurbrugiere.forgeline.core.model.TimelineItem.Comment>().map { it.body }).doesNotContain("Why this line?")
+
             // main moves on: the merge request falls behind, and is rebased onto it.
             send(
                 "projects/$id/repository/commits",

@@ -18,7 +18,9 @@ import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
+import fr.arthurbrugiere.forgeline.core.model.ThreadComment
 import fr.arthurbrugiere.forgeline.core.model.countChanges
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
@@ -121,6 +123,23 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
                 if (whenChecksPass) put("merge_when_pipeline_succeeds", true)
             },
         ).toResult { }
+    }
+
+    /** A merge request's discussions on lines of its change: GitLab gives no hunk with them. */
+    override suspend fun threads(token: String?, ref: IssueRef): ForgeResult<List<ReviewThread>> = forgeCall {
+        mergeRequest(token, ref, "discussions", query = mapOf("per_page" to "100")).toResult {
+            body<List<MrDiscussionJson>>().mapNotNull { it.toThread(signedIn = token != null) }
+        }
+    }
+
+    override suspend fun reply(token: String, ref: IssueRef, thread: ReviewThread, body: String): ForgeResult<Unit> = forgeCall {
+        mergeRequest(token, ref, "discussions", thread.id, "notes", method = HttpMethod.Post, body = buildJsonObject { put("body", body) }).toResult { }
+    }
+
+    override val resolvesThreads: Boolean = true
+
+    override suspend fun setResolved(token: String, ref: IssueRef, thread: ReviewThread, resolved: Boolean): ForgeResult<Unit> = forgeCall {
+        mergeRequest(token, ref, "discussions", thread.id, method = HttpMethod.Put, query = mapOf("resolved" to "$resolved")).toResult { }
     }
 
     /** GitLab's API only rebases a merge request onto its target, later: it answers 202 at once. */
@@ -344,3 +363,42 @@ private fun checkState(status: String) = when (status) {
 
 @Serializable
 private data class MrCreatedJson(val iid: Int)
+
+@Serializable
+private data class MrPositionJson(
+    @SerialName("new_path") val newPath: String? = null,
+    @SerialName("old_path") val oldPath: String? = null,
+    @SerialName("new_line") val newLine: Int? = null,
+    @SerialName("old_line") val oldLine: Int? = null,
+)
+
+@Serializable
+private data class MrNoteJson(
+    val id: Long,
+    val type: String? = null,
+    val body: String = "",
+    val author: GitLabUserJson? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    val position: MrPositionJson? = null,
+    val resolvable: Boolean = false,
+    val resolved: Boolean = false,
+)
+
+/** A discussion: on a line of the change when its first note is a DiffNote, otherwise part of the conversation. */
+@Serializable
+private data class MrDiscussionJson(val id: String, val notes: List<MrNoteJson> = emptyList()) {
+    fun toThread(signedIn: Boolean): ReviewThread? {
+        val first = notes.firstOrNull()?.takeIf { it.type == "DiffNote" } ?: return null
+        val position = first.position ?: return null
+        return ReviewThread(
+            id = id,
+            path = position.newPath ?: position.oldPath ?: return null,
+            line = position.newLine ?: position.oldLine,
+            onOldSide = position.newLine == null,
+            hunk = null,
+            comments = notes.map { ThreadComment(it.id, it.author?.toForgeUser(), it.body, gitlabInstant(it.createdAt)) },
+            resolved = first.resolved,
+            canResolve = signedIn && first.resolvable,
+        )
+    }
+}

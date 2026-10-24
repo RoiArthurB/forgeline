@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.forge.forgejo
 import com.google.common.truth.Truth.assertWithMessage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.PagesChange
@@ -11,6 +12,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.RepoSwitch
 import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
+import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.request.delete
@@ -162,6 +164,17 @@ class ForgejoWriteLiveTest {
             issues.setReviewers(token, ref, emptyList()).value("no reviewers")
             assertWithMessage("no reviewers").that(ready.pullRequest?.reviewers).isEmpty()
 
+            // A remark on the line the change adds is a thread, which a reply joins.
+            val pulls = ForgejoPullRequestApi(http, forge)
+            pulls.review(token, ref, ReviewVerdict.COMMENT, "", listOf(LineComment("NOTES.md", oldLine = null, newLine = 1, body = "Why this line?"))).value("remark")
+            val thread = pulls.threads(token, ref).value("threads").single()
+            assertWithMessage("thread on NOTES").that(thread.path).isEqualTo("NOTES.md")
+            assertWithMessage("thread line").that(thread.line).isEqualTo(1)
+            pulls.reply(token, ref, thread, "Answered by the live test.").value("reply")
+            val after = pulls.threads(token, ref).value("threads after")
+            System.err.println("CODEBERG threads after reply: ${after.map { "${it.path}:${it.line} ${it.comments.size}" }}")
+            assertWithMessage("reply joined the thread").that(after.single().comments.map { it.body }).containsExactly("Why this line?", "Answered by the live test.").inOrder()
+
             // main moves on: the pull request falls behind, and main is merged into its branch.
             val onMain = http.post("$api/repos/$owner/$name/contents/OTHER.md") {
                 header("Authorization", "token $token")
@@ -175,7 +188,6 @@ class ForgejoWriteLiveTest {
                 )
             }
             check(onMain.status.isSuccess()) { "main: ${onMain.status} ${onMain.bodyAsText().take(300)}" }
-            val pulls = ForgejoPullRequestApi(http, forge)
             val behind = pulls.mergeInfo(token, ref).value("behind info")
             System.err.println("CODEBERG behind: ${behind.behind}")
             assertWithMessage("behind main").that(behind.behind).isTrue()

@@ -70,6 +70,7 @@ class PullRequestPanelTest {
         onMerge = { events += "merge:${it.method}${if (it.deleteBranch) ":delete-branch" else ""}${if (it.whenChecksPass) ":when-checks-pass" else ""}" },
         onCancelMergeWhenChecksPass = { events += "unschedule" },
         onUpdateBranch = { events += "update" },
+        onDismissReview = { id, message -> events += "dismiss:$id:$message" },
         onReview = { verdict, body -> events += "review:$verdict:$body" },
     )
 
@@ -416,5 +417,65 @@ class PullRequestPanelTest {
         composeRule.onAllNodes(hasText("1 of 3 checks failed")).assertCountEquals(1)
         composeRule.onNodeWithText("Merge").performClick()
         composeRule.onNodeWithText("Merge anyway").assertIsDisplayed()
+    }
+
+    private val approval = fr.arthurbrugiere.forgeline.core.model.TimelineItem.Review(
+        80, fr.arthurbrugiere.forgeline.core.model.ForgeUser("hubot", null, null), fr.arthurbrugiere.forgeline.core.model.ReviewState.APPROVED, null,
+        java.time.Instant.parse("2026-09-26T09:00:00Z"),
+    )
+    private val thread = fr.arthurbrugiere.forgeline.core.model.ReviewThread(
+        "T1", "src/Upload.kt", 3, onOldSide = false, hunk = null,
+        comments = listOf(fr.arthurbrugiere.forgeline.core.model.ThreadComment(1, fr.arthurbrugiere.forgeline.core.model.ForgeUser("hubot", null, null), "Why three?", null)),
+        resolved = false, canResolve = true,
+    )
+
+    private fun setScreen(access: fr.arthurbrugiere.forgeline.core.model.RepoAccess, pullState: PullRequestUiState = failing.copy(threads = listOf(thread), dismissesReviews = true)) =
+        composeRule.setContent {
+            ForgelineTheme {
+                IssueScreen(
+                    state = IssueUiState(ref, open, listOf(comment(1, "Looks good", login = "octocat"), approval), access = access),
+                    pull = pullState,
+                    pullActions = actions,
+                    canComment = true, onDraftChange = {}, onSendComment = {}, onToggleOpen = {}, onSignIn = {}, onCommentNoticeShown = {},
+                    onBack = {}, onRefresh = {}, onLoadMore = {}, onOpenIssue = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {},
+                    onLinkClick = {}, onErrorShown = {},
+                )
+            }
+        }
+
+    @Test
+    fun threads_come_after_what_was_said_and_before_what_ran() {
+        setScreen(fr.arthurbrugiere.forgeline.core.model.RepoAccess.NONE)
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Looks good")).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("1 of 3 checks failed"))
+
+        val approved = composeRule.onNodeWithText("hubot approved", substring = true).getBoundsInRoot()
+        val threads = composeRule.onNodeWithText("1 open thread").getBoundsInRoot()
+        val checksHeading = composeRule.onNodeWithText("1 of 3 checks failed").getBoundsInRoot()
+        assertThat(threads.top).isGreaterThan(approved.bottom)
+        assertThat(checksHeading.top).isGreaterThan(threads.bottom)
+        // Reading only: nobody without the right to write dismisses a verdict.
+        composeRule.onNodeWithText("Dismiss review").assertDoesNotExist()
+    }
+
+    @Test
+    fun whoever_can_write_dismisses_a_verdict_saying_why() {
+        setScreen(fr.arthurbrugiere.forgeline.core.model.RepoAccess.WRITE)
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Dismiss review")).fetchSemanticsNodes().isNotEmpty() }
+
+        composeRule.onNodeWithText("Dismiss review").performClick()
+        composeRule.onNodeWithText("Dismiss").assertIsNotEnabled()
+        composeRule.onNode(hasSetTextAction() and hasText("Why it no longer counts")).performTextInput("Superseded by the rewrite.")
+        composeRule.onNodeWithText("Dismiss").performClick()
+
+        assertThat(events).containsExactly("dismiss:80:Superseded by the rewrite.")
+    }
+
+    @Test
+    fun a_forge_that_can_t_dismiss_offers_nothing_to_dismiss() {
+        setScreen(fr.arthurbrugiere.forgeline.core.model.RepoAccess.ADMIN, failing.copy(dismissesReviews = false))
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Looks good")).fetchSemanticsNodes().isNotEmpty() }
+
+        composeRule.onNodeWithText("Dismiss review").assertDoesNotExist()
     }
 }

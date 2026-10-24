@@ -1,0 +1,198 @@
+package fr.arthurbrugiere.forgeline.pull
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import fr.arthurbrugiere.forgeline.R
+import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
+import fr.arthurbrugiere.forgeline.core.model.ReviewThread
+import fr.arthurbrugiere.forgeline.core.model.parsePatch
+import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHairline
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSendButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
+import fr.arthurbrugiere.forgeline.issue.Comment
+
+/**
+ * The remarks on lines of a pull request's change, near its end, after its conversation: the open threads each with
+ * the code it is on, what was said, and a way to answer or resolve it; the resolved ones folded behind one row.
+ * [canReply] is whether the reader may write here at all; resolving also takes the forge's say ([ReviewThread.canResolve]).
+ */
+@Composable
+fun ReviewThreads(
+    threads: List<ReviewThread>,
+    state: PullRequestUiState,
+    actions: PullActions,
+    canReply: Boolean,
+    context: ReadmeContext,
+    nowMillis: Long,
+    onOpenUser: (String) -> Unit,
+    onLinkClick: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (threads.isEmpty()) return
+    val colors = Soft.colors
+    val (open, resolved) = threads.partition { !it.resolved }
+    var showResolved by rememberSaveable { mutableStateOf(false) }
+    Column(modifier) {
+        Text(
+            if (open.isNotEmpty()) {
+                pluralStringResource(R.plurals.threads_open, open.size, open.size)
+            } else {
+                pluralStringResource(R.plurals.threads_all_resolved, resolved.size, resolved.size)
+            },
+            style = Soft.type.name,
+            color = colors.ink,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp).semantics { heading() },
+        )
+        open.forEach { thread ->
+            SoftHairline()
+            Thread(thread, state, actions, canReply, context, nowMillis, onOpenUser, onLinkClick)
+        }
+        if (resolved.isNotEmpty()) {
+            SoftHairline()
+            if (showResolved) {
+                resolved.forEachIndexed { index, thread ->
+                    if (index > 0) SoftHairline()
+                    Thread(thread, state, actions, canReply, context, nowMillis, onOpenUser, onLinkClick)
+                }
+            } else {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(SoftTokens.RowCorner)
+                        .clickable(role = Role.Button) { showResolved = true }
+                        .heightIn(min = 48.dp)
+                        .padding(horizontal = 8.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.CheckCircleOutline, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        pluralStringResource(R.plurals.threads_show_resolved, resolved.size, resolved.size),
+                        style = Soft.type.control,
+                        color = colors.inkMuted,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+    }
+}
+
+/** How many lines of the code a remark is on are shown above it: the line itself and a few before it. */
+private const val HUNK_LINES_SHOWN = 4
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun Thread(
+    thread: ReviewThread,
+    state: PullRequestUiState,
+    actions: PullActions,
+    canReply: Boolean,
+    context: ReadmeContext,
+    nowMillis: Long,
+    onOpenUser: (String) -> Unit,
+    onLinkClick: (String) -> Unit,
+) {
+    val colors = Soft.colors
+    var replying by rememberSaveable(thread.id) { mutableStateOf(false) }
+    var reply by rememberSaveable(thread.id) { mutableStateOf("") }
+    // A reply that went through empties its field and puts it away.
+    LaunchedEffect(state.replied) {
+        if (state.replied?.first == thread.id) {
+            reply = ""
+            replying = false
+        }
+    }
+    val busy = state.busyThread == thread.id
+    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Where it is: the file and the line, and whether the code it was on has moved on since.
+        Text(
+            listOfNotNull(
+                "${thread.path}${thread.line?.let { ":$it" }.orEmpty()}",
+                stringResource(R.string.thread_outdated).takeIf { thread.outdated },
+                stringResource(R.string.thread_resolved).takeIf { thread.resolved },
+            ).joinToString(" · "),
+            style = Soft.type.meta.copy(fontFamily = FontFamily.Monospace),
+            color = colors.inkMuted,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 8.dp),
+        )
+        val lines = remember(thread.hunk) { thread.hunk?.let { parsePatch(it).lastOrNull()?.lines?.takeLast(HUNK_LINES_SHOWN) }.orEmpty() }
+        if (lines.isNotEmpty()) {
+            Column(Modifier.fillMaxWidth().clip(SoftTokens.RowCorner)) { lines.forEach { LineRow(it, onClick = null) } }
+        }
+        thread.comments.forEach { comment ->
+            Comment(comment.author, comment.body, comment.createdAt, emptyMap(), context, nowMillis, onOpenUser, onLinkClick)
+        }
+        if (replying) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SoftTextField(
+                    value = reply,
+                    onValueChange = { reply = it },
+                    placeholder = stringResource(R.string.thread_reply_placeholder),
+                    singleLine = false,
+                    maxLines = 8,
+                    readOnly = busy,
+                    modifier = Modifier.weight(1f),
+                )
+                SoftSendButton(
+                    onClick = { actions.onReply(thread, reply) },
+                    description = stringResource(R.string.thread_reply_send),
+                    enabled = reply.isNotBlank() && !busy,
+                    busy = busy,
+                )
+            }
+        }
+        val canResolve = canReply && state.resolvesThreads && thread.canResolve
+        if ((canReply && !replying) || canResolve) {
+            FlowRow(Modifier.padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (canReply && !replying && thread.line != null) SoftTonalButton(stringResource(R.string.thread_reply), onClick = { replying = true })
+                if (canResolve) {
+                    SoftTonalButton(
+                        stringResource(if (thread.resolved) R.string.thread_unresolve else R.string.thread_resolve),
+                        onClick = { actions.onSetResolved(thread, !thread.resolved) },
+                        enabled = !busy,
+                    )
+                }
+            }
+        }
+    }
+}

@@ -292,6 +292,8 @@ internal data class GitLabNoteJson(
     val author: GitLabUserJson? = null,
     @SerialName("created_at") val createdAt: String,
     val system: Boolean = false,
+    // "DiffNote" for a note on a line of a merge request's change: those are read as threads, not as the conversation.
+    val type: String? = null,
 ) {
     fun toComment(reactions: Map<Reaction, Int> = emptyMap()): TimelineItem.Comment = TimelineItem.Comment(
         id = id,
