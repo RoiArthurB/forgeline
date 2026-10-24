@@ -528,6 +528,23 @@ class ForgejoIssueApiTest {
     }
 
     @Test
+    fun a_subscription_is_checked_and_changed_in_the_signed_in_user_s_name() = runTest {
+        // Codeberg's answer for forgejo/forgejo#14885, 2026-10-24.
+        val check = """{"subscribed":false,"ignored":true,"reason":null,"created_at":"2026-10-17T15:38:45+02:00","url":"https://codeberg.org/api/v1/repos/forgejo/forgejo/pulls/14885/subscriptions"}"""
+        val api = answering { with(codeberg) { if (it.method == HttpMethod.Get) json(check) else json("", HttpStatusCode.Created) } }
+
+        assertThat(api.isSubscribed("tok", "ana", seven).value()).isFalse()
+        assertThat(api.setSubscribed("tok", "ana", seven, subscribed = true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.setSubscribed("tok", "ana", seven, subscribed = false)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(sent).containsExactly(
+            "GET /api/v1/repos/forgejo/forgejo/issues/7/subscriptions/check",
+            "PUT /api/v1/repos/forgejo/forgejo/issues/7/subscriptions/ana",
+            "DELETE /api/v1/repos/forgejo/forgejo/issues/7/subscriptions/ana",
+        ).inOrder()
+    }
+
+    @Test
     fun an_issue_that_isn_t_pinned_says_so() = runTest {
         val api = answering { with(codeberg) { json("""{"number":7,"title":"Crash","state":"open","created_at":"2026-10-02T04:20:00+02:00","pin_order":0}""") } }
 

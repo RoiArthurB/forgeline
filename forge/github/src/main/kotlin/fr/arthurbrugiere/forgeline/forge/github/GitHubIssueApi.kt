@@ -264,6 +264,41 @@ class GitHubIssueApi(
         graphQl(token, "mutation(\$id: ID!) { $mutation(input: {issueId: \$id}) { clientMutationId } }", buildJsonObject { put("id", id) }).map { }
     }
 
+    // A subscription is only in GitHub's GraphQL API too, on an issue or a pull request alike.
+
+    override suspend fun isSubscribed(token: String, login: String, ref: IssueRef): ForgeResult<Boolean> =
+        subscribable(token, ref).map { it.getValue("viewerSubscription").jsonPrimitive.content == "SUBSCRIBED" }
+
+    override suspend fun setSubscribed(token: String, login: String, ref: IssueRef, subscribed: Boolean): ForgeResult<Unit> =
+        when (val found = subscribable(token, ref)) {
+            is ForgeResult.Failure -> found
+            is ForgeResult.Success -> graphQl(
+                token,
+                "mutation(\$id: ID!, \$state: SubscriptionState!) { updateSubscription(input: {subscribableId: \$id, state: \$state}) { clientMutationId } }",
+                buildJsonObject {
+                    put("id", found.value.getValue("id").jsonPrimitive.content)
+                    put("state", if (subscribed) "SUBSCRIBED" else "UNSUBSCRIBED")
+                },
+            ).map { }
+        }
+
+    private suspend fun subscribable(token: String, ref: IssueRef): ForgeResult<JsonObject> {
+        val found = graphQl(
+            token,
+            "query(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { issueOrPullRequest(number: \$number) { " +
+                "... on Issue { id viewerSubscription } ... on PullRequest { id viewerSubscription } } } }",
+            buildJsonObject {
+                put("owner", ref.repo.owner)
+                put("name", ref.repo.name)
+                put("number", ref.number)
+            },
+        )
+        return when (found) {
+            is ForgeResult.Failure -> found
+            is ForgeResult.Success -> found.value.objectAt("repository", "issueOrPullRequest")?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Http(404, null))
+        }
+    }
+
     override suspend fun delete(token: String, ref: IssueRef): ForgeResult<Unit> = onNode(token, ref) { id ->
         graphQl(token, "mutation(\$id: ID!) { deleteIssue(input: {issueId: \$id}) { clientMutationId } }", buildJsonObject { put("id", id) }).map { }
     }

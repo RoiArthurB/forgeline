@@ -268,6 +268,29 @@ class GitLabIssueApiTest {
         assertThat(sent()).containsExactly("GET /api/v4/projects/gitlab-org%2Fgitlab/merge_requests/12")
     }
 
+    @Test
+    fun a_subscription_is_read_from_the_conversation_and_changed_on_its_own_path() = runTest {
+        val api = api { req ->
+            when {
+                req.method == HttpMethod.Get -> json("""{"iid":12,"subscribed":true}""")
+                // Already unsubscribed: GitLab says nothing changed, which is what was asked.
+                req.url.encodedPath.endsWith("/unsubscribe") -> respond("", HttpStatusCode.NotModified)
+                else -> json("""{"iid":12,"subscribed":true}""", HttpStatusCode.Created)
+            }
+        }
+        val mr = IssueRef(repo, 12, isPullRequest = true)
+
+        assertThat(api.isSubscribed("tok", "me", mr).value()).isTrue()
+        assertThat(api.setSubscribed("tok", "me", mr, subscribed = true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.setSubscribed("tok", "me", IssueRef(repo, 3, isPullRequest = false), subscribed = false)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(sent()).containsExactly(
+            "GET /api/v4/projects/gitlab-org%2Fgitlab/merge_requests/12",
+            "POST /api/v4/projects/gitlab-org%2Fgitlab/merge_requests/12/subscribe",
+            "POST /api/v4/projects/gitlab-org%2Fgitlab/issues/3/unsubscribe",
+        ).inOrder()
+    }
+
     private fun award(id: Long, name: String, username: String) = """{"id":$id,"name":"$name","user":{"id":1,"username":"$username"},"awardable_type":"Note"}"""
 
     private fun reacting(vararg awards: String) = api { request ->

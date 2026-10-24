@@ -75,6 +75,7 @@ class IssueScreenTest {
                 onErrorShown = {},
                 nowMillis = at.toEpochMilli(),
                 onToEnd = { events += "end" },
+                onToggleSubscribed = { events += "subscription" },
                 onScrolled = {
                     events += "scrolled"
                     shown.value = shown.value.copy(scrollTo = null)
@@ -401,6 +402,39 @@ class IssueScreenTest {
         reach(hasText("Close issue"))
 
         composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    @Test
+    fun whether_the_reader_hears_of_every_reply_is_said_under_their_turn_and_changed_there() {
+        setContent(opened.copy(subscribed = false))
+
+        reach(hasText("You hear of this only when you are mentioned."))
+        composeRule.onNodeWithText("Subscribe").performClick()
+        composeRule.assertEveryTargetIsAtLeast48dp()
+
+        shown.value = opened.copy(subscribed = true)
+        reach(hasText("You hear of every reply here."))
+        composeRule.onNodeWithText("Unsubscribe").performClick()
+
+        assertThat(events).containsExactly("subscription", "subscription")
+    }
+
+    @Test
+    fun a_subscription_being_changed_waits_and_one_that_didn_t_change_says_so() {
+        setContent(opened.copy(subscribed = true, isSubscribing = true))
+        reach(hasText("Unsubscribe"))
+        composeRule.onNodeWithText("Unsubscribe").assertIsNotEnabled()
+
+        shown.value = opened.copy(subscribed = true, subscriptionError = ForgeError.Network)
+        reach(hasText("Nothing changed. Try again."))
+    }
+
+    @Test
+    fun until_the_forge_says_nothing_is_offered_about_subscribing() {
+        setContent(opened)
+
+        reach(hasContentDescription("Comment"))
+        composeRule.onNodeWithText("Subscribe").assertDoesNotExist()
     }
 
     private val lockedIssue = opened.copy(issue = issueDetails(ref, "Crash on start", IssueState.CLOSED).copy(isLocked = true))

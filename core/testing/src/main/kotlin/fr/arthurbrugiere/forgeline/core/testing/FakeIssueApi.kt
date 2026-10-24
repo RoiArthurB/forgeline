@@ -253,6 +253,22 @@ class FakeIssueApi : IssueApi {
         Unit
     }
 
+    /** The conversations the signed-in user hears of; null for a forge whose API has no subscriptions. */
+    var subscribed: MutableSet<IssueRef>? = mutableSetOf()
+
+    override suspend fun isSubscribed(token: String, login: String, ref: IssueRef): ForgeResult<Boolean> {
+        val subscribed = subscribed ?: return ForgeResult.Failure(ForgeError.Unsupported)
+        return read(token, "isSubscribed:$login:${ref.label}", ref in subscribed)
+    }
+
+    override suspend fun setSubscribed(token: String, login: String, ref: IssueRef, subscribed: Boolean): ForgeResult<Unit> {
+        val set = this.subscribed ?: return ForgeResult.Failure(ForgeError.Unsupported)
+        return manage(token, "${if (subscribed) "subscribe" else "unsubscribe"} $login ${ref.label}") {
+            if (subscribed) set += ref else set -= ref
+            Unit
+        }
+    }
+
     override suspend fun transfer(token: String, ref: IssueRef, to: RepoId) = manage(token, "transfer ${ref.label} to ${to.fullName}") {
         val moved = IssueRef(to, transferredNumber ?: ref.number)
         issues.remove(ref)?.let { issues[moved] = it.copy(ref = moved) }

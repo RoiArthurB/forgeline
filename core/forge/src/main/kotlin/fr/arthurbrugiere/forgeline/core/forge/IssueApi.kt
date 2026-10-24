@@ -110,6 +110,12 @@ interface IssueApi {
 
     suspend fun isPinned(token: String, ref: IssueRef): ForgeResult<Boolean> = unsupported
 
+    /** Whether [login], the signed-in user, hears of everything said in [ref], not only what mentions them. */
+    suspend fun isSubscribed(token: String, login: String, ref: IssueRef): ForgeResult<Boolean> = unsupported
+
+    /** Has [login], the signed-in user, hear of everything said in [ref] from now on, or no longer. */
+    suspend fun setSubscribed(token: String, login: String, ref: IssueRef, subscribed: Boolean): ForgeResult<Unit> = unsupported
+
     /** A pinned issue stays at the top of its repository's issues. */
     suspend fun setPinned(token: String, ref: IssueRef, pinned: Boolean): ForgeResult<Unit> = unsupported
 

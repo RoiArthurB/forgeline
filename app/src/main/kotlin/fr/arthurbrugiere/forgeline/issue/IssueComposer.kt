@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,6 +22,8 @@ import androidx.compose.material.icons.automirrored.outlined.CallMerge
 import androidx.compose.material.icons.outlined.Adjust
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.NotificationsActive
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -92,6 +96,7 @@ internal fun Composer(
     onReferenceTyped: (TypedReference?) -> Unit = {},
     /** What else can be decided here (a pull request's review and merge), on the row of actions before closing. */
     decisions: @Composable () -> Unit = {},
+    onToggleSubscribed: () -> Unit = {},
 ) {
     val colors = Soft.colors
     val forge = state.ref.repo.forge.displayName
@@ -230,6 +235,35 @@ internal fun Composer(
                 color = colors.accent,
             )
         }
+        // Whether the reader hears of what is said next: last, under the turn, quieter than any decision.
+        val subscribed = state.subscribed
+        if (subscribed != null && !isEditing) Subscription(subscribed, state.isSubscribing, state.subscriptionError, onToggleSubscribed)
+    }
+}
+
+/** Whether the reader hears of every reply here or only of what mentions them, and the one button that changes it. */
+@Composable
+private fun Subscription(subscribed: Boolean, busy: Boolean, error: ForgeError?, onToggle: () -> Unit) {
+    val colors = Soft.colors
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                if (subscribed) Icons.Outlined.NotificationsActive else Icons.Outlined.NotificationsNone,
+                contentDescription = null,
+                tint = colors.inkMuted,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                stringResource(if (subscribed) R.string.issue_subscribed else R.string.issue_not_subscribed),
+                style = Soft.type.secondary,
+                color = colors.inkMuted,
+                modifier = Modifier.weight(1f),
+            )
+            Spacer(Modifier.width(12.dp))
+            SoftTonalButton(stringResource(if (subscribed) R.string.issue_unsubscribe else R.string.issue_subscribe), onToggle, enabled = !busy)
+        }
+        if (error != null) Text(stringResource(R.string.issue_subscription_failed), style = Soft.type.secondary, color = colors.accent)
     }
 }
 

@@ -164,6 +164,12 @@ class ForgejoWriteLiveTest {
             issues.setReviewers(token, ref, emptyList()).value("no reviewers")
             assertWithMessage("no reviewers").that(ready.pullRequest?.reviewers).isEmpty()
 
+            // Subscribed in the owner's name and let go again.
+            issues.setSubscribed(token, owner, ref, subscribed = true).value("subscribe")
+            assertWithMessage("subscribed").that(issues.isSubscribed(token, owner, ref).value("subscribed?")).isTrue()
+            issues.setSubscribed(token, owner, ref, subscribed = false).value("unsubscribe")
+            assertWithMessage("unsubscribed").that(issues.isSubscribed(token, owner, ref).value("unsubscribed?")).isFalse()
+
             // A remark on the line the change adds is a thread, which a reply joins.
             val pulls = ForgejoPullRequestApi(http, forge)
             pulls.review(token, ref, ReviewVerdict.COMMENT, "", listOf(LineComment("NOTES.md", oldLine = null, newLine = 1, body = "Why this line?"))).value("remark")

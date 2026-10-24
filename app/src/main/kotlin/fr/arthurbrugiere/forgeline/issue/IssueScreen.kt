@@ -273,6 +273,7 @@ fun IssueRoute(
         onLinkClick = { url -> openForgeLink(url, ref.repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion) },
         onErrorShown = viewModel::errorShown,
         onMarkReady = viewModel::markReady,
+        onToggleSubscribed = viewModel::toggleSubscribed,
     )
 }
 
@@ -328,6 +329,8 @@ fun IssueScreen(
     pullActions: PullActions = PullActions(),
     /** Marks a draft pull request ready for review. */
     onMarkReady: () -> Unit = {},
+    /** Has the reader hear of everything said here, or no longer. */
+    onToggleSubscribed: () -> Unit = {},
 ) {
     val issue = state.issue
     var managing by rememberSaveable { mutableStateOf(false) }
@@ -583,7 +586,7 @@ fun IssueScreen(
                                 if (!state.isEditingInPlace) {
                                     Composer(
                                         state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture,
-                                        suggestions = suggestions, onReferenceTyped = comments.onReferenceTyped,
+                                        suggestions = suggestions, onReferenceTyped = comments.onReferenceTyped, onToggleSubscribed = onToggleSubscribed,
                                         decisions = {
                                             if (pull != null) {
                                                 PullRequestDecisions(

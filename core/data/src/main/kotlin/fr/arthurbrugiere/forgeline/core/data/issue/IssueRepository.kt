@@ -149,6 +149,12 @@ interface IssueRepository {
 
     suspend fun setPinned(ref: IssueRef, pinned: Boolean): ForgeResult<Unit>
 
+    /** Whether the signed-in user hears of everything said in [ref], not only what mentions them. */
+    suspend fun isSubscribed(ref: IssueRef): ForgeResult<Boolean>
+
+    /** Has the signed-in user hear of everything said in [ref], or no longer; the conversation itself is unchanged. */
+    suspend fun setSubscribed(ref: IssueRef, subscribed: Boolean): ForgeResult<Unit>
+
     /** Moves the issue to [to] and answers where it now is; the conversation kept under its old place is dropped. */
     suspend fun transfer(ref: IssueRef, to: RepoId): ForgeResult<IssueRef>
 
@@ -380,6 +386,12 @@ class DefaultIssueRepository @Inject constructor(
         return clients.issues(forge).call(token)
     }
 
+    /** As [signedIn], for a call that also names the account: Forgejo's subscriptions are kept under the user's login. */
+    private suspend fun <T> asMe(forge: ForgeInstance, call: suspend IssueApi.(token: String, login: String) -> ForgeResult<T>): ForgeResult<T> {
+        val login = me(forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return signedIn(forge) { token -> call(token, login) }
+    }
+
     private suspend fun <T> changing(ref: IssueRef, call: suspend IssueApi.(token: String) -> ForgeResult<T>): ForgeResult<T> =
         signedIn(ref.repo.forge, call).also { if (it is ForgeResult.Success) changes.tryEmit(ref) }
 
@@ -404,6 +416,10 @@ class DefaultIssueRepository @Inject constructor(
     override suspend fun isPinned(ref: IssueRef) = signedIn(ref.repo.forge) { isPinned(it, ref) }
 
     override suspend fun setPinned(ref: IssueRef, pinned: Boolean) = changing(ref) { setPinned(it, ref, pinned) }
+
+    override suspend fun isSubscribed(ref: IssueRef) = asMe(ref.repo.forge) { token, login -> isSubscribed(token, login, ref) }
+
+    override suspend fun setSubscribed(ref: IssueRef, subscribed: Boolean) = asMe(ref.repo.forge) { token, login -> setSubscribed(token, login, ref, subscribed) }
 
     override suspend fun transfer(ref: IssueRef, to: RepoId): ForgeResult<IssueRef> {
         // Dropped before it is announced: whoever hears of the change must not find the old place still kept.

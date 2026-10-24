@@ -123,6 +123,10 @@ internal data class GitLabAccessJson(
     @SerialName("access_level") val accessLevel: Int? = null,
 )
 
+/** Whether the signed-in user is subscribed to an issue or a merge request: said with the conversation itself. */
+@Serializable
+internal data class GitLabSubscribedJson(val subscribed: Boolean = false)
+
 @Serializable
 internal data class GitLabBranchJson(
     val name: String,

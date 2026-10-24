@@ -495,6 +495,49 @@ class IssueViewModelTest {
     }
 
     @Test
+    fun anyone_signed_in_subscribes_and_unsubscribes_whatever_their_role() = test {
+        val viewModel = managing(RepoAccess.NONE)
+        // Asked once who is reading is known, in their name.
+        assertThat(api.calls).contains("isSubscribed:me:octo/repo#7")
+        assertThat(viewModel.state.value.subscribed).isFalse()
+
+        viewModel.toggleSubscribed()
+        assertThat(viewModel.state.value.isSubscribing).isTrue()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.subscribed).isTrue()
+        viewModel.toggleSubscribed()
+        advanceUntilIdle()
+
+        assertThat(api.managed).containsExactly("subscribe me octo/repo#7", "unsubscribe me octo/repo#7").inOrder()
+        assertThat(viewModel.state.value.subscribed).isFalse()
+        assertThat(viewModel.state.value.isSubscribing).isFalse()
+    }
+
+    @Test
+    fun a_subscription_that_didn_t_change_stays_as_it_was_and_says_so() = test {
+        val viewModel = managing(RepoAccess.NONE)
+        api.manageFailure = ForgeError.Network
+
+        viewModel.toggleSubscribed()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.subscribed).isFalse()
+        assertThat(viewModel.state.value.subscriptionError).isEqualTo(ForgeError.Network)
+    }
+
+    @Test
+    fun a_forge_without_subscriptions_offers_none() = test {
+        api.subscribed = null
+
+        val viewModel = managing(RepoAccess.ADMIN)
+        viewModel.toggleSubscribed()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.subscribed).isNull()
+        assertThat(api.managed).isEmpty()
+    }
+
+    @Test
     fun a_closed_issue_offers_no_reason_to_close_it() = test {
         val viewModel = managing(RepoAccess.TRIAGE, issueDetails(ref, state = IssueState.CLOSED))
 

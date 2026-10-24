@@ -516,6 +516,11 @@
     <string name="issue_demilestoned_event">%1$s a retiré ceci du jalon %2$s %3$s</string>
     <string name="issue_transferred_event">%1$s a transféré ceci depuis un autre dépôt %2$s</string>
     <string name="issue_converted_event">%1$s a converti ceci en discussion %2$s</string>
+    <string name="issue_subscribed">Vous êtes averti de chaque réponse ici.</string>
+    <string name="issue_not_subscribed">Vous n’en êtes averti que si l’on vous mentionne.</string>
+    <string name="issue_subscribe">S’abonner</string>
+    <string name="issue_unsubscribe">Se désabonner</string>
+    <string name="issue_subscription_failed">Rien n’a changé. Réessayez.</string>
     <string name="issue_close">Fermer le ticket</string>
     <string name="issue_reopen">Rouvrir le ticket</string>
     <string name="issue_close_pull">Fermer la pull request</string>

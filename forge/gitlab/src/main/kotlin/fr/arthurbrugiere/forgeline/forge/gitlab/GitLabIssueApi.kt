@@ -398,6 +398,20 @@ class GitLabIssueApi(
         ).toResult { }
     }
 
+    override suspend fun isSubscribed(token: String, login: String, ref: IssueRef): ForgeResult<Boolean> = forgeCall {
+        httpClient.gitlabApi(ref.repo.forge, token, "projects", ref.repo.fullName, targetKind(ref), ref.number.toString())
+            .toResult { body<GitLabSubscribedJson>().subscribed }
+    }
+
+    /** GitLab answers 304 when it was already so: that is done too. */
+    override suspend fun setSubscribed(token: String, login: String, ref: IssueRef, subscribed: Boolean): ForgeResult<Unit> = forgeCall {
+        val answer = httpClient.gitlabApi(
+            ref.repo.forge, token, "projects", ref.repo.fullName, targetKind(ref), ref.number.toString(), if (subscribed) "subscribe" else "unsubscribe",
+            method = HttpMethod.Post,
+        )
+        if (answer.status == HttpStatusCode.NotModified) ForgeResult.Success(Unit) else answer.toResult { }
+    }
+
     override suspend fun setDueDate(token: String, ref: IssueRef, date: LocalDate?): ForgeResult<Unit> = forgeCall {
         // Only issues have one. The issue with a merge request's number is another conversation: never written to.
         if (ref.isPullRequest == true) return@forgeCall ForgeResult.Failure(ForgeError.Unsupported)

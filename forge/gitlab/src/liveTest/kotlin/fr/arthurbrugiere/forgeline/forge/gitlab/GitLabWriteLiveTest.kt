@@ -121,6 +121,13 @@ class GitLabWriteLiveTest {
             issues.setReviewers(token, ref, emptyList()).value("let off")
             assertWithMessage("no reviewers").that(issues.issue(token, ref).value("let off").pullRequest?.reviewers).isEmpty()
 
+            // Its author hears of it from the start; unsubscribed, then subscribed again, twice (already so is done).
+            issues.setSubscribed(token, me, ref, subscribed = false).value("unsubscribe")
+            assertWithMessage("unsubscribed").that(issues.isSubscribed(token, me, ref).value("unsubscribed?")).isFalse()
+            issues.setSubscribed(token, me, ref, subscribed = true).value("subscribe")
+            issues.setSubscribed(token, me, ref, subscribed = true).value("subscribe again")
+            assertWithMessage("subscribed").that(issues.isSubscribed(token, me, ref).value("subscribed?")).isTrue()
+
             pulls.review(token, ref, ReviewVerdict.COMMENT, "One remark.", listOf(LineComment("README.md", added.oldNumber, added.newNumber, "Why this line?"))).value("review")
             // The author approving their own: GitLab allows it unless the project forbids it.
             val approval = pulls.review(token, ref, ReviewVerdict.APPROVE, "", emptyList())

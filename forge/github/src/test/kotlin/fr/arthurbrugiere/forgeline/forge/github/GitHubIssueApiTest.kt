@@ -537,6 +537,23 @@ class GitHubIssueApiTest {
         mutations.forEach { assertThat(it).contains(""""variables":{"id":"I_abc"}""") }
     }
 
+    // GitHub's answer for gama-platform/gama#1265, 2026-10-24: a pull request, found by its number as an issue is.
+    private val subscribable = """{"data":{"repository":{"issueOrPullRequest":{"id":"PR_kwDOLUle7M8AAAABKK38FQ","viewerSubscription":"UNSUBSCRIBED"}}}}"""
+
+    @Test
+    fun a_subscription_is_read_and_changed_on_an_issue_or_a_pull_request_alike() = runTest {
+        val acting = graphQl { body -> if ("mutation" in body) """{"data":{"updateSubscription":{"clientMutationId":null}}}""" else subscribable }
+
+        assertThat(acting.isSubscribed("tok", "me", issue).value()).isFalse()
+        assertThat(acting.setSubscribed("tok", "me", issue, subscribed = true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(acting.setSubscribed("tok", "me", issue, subscribed = false)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(bodies.first()).contains("issueOrPullRequest(number: \$number)")
+        val mutations = bodies.filterNotNull().filter { "mutation" in it }
+        assertThat(mutations[0]).contains(""""variables":{"id":"PR_kwDOLUle7M8AAAABKK38FQ","state":"SUBSCRIBED"}""")
+        assertThat(mutations[1]).contains(""""variables":{"id":"PR_kwDOLUle7M8AAAABKK38FQ","state":"UNSUBSCRIBED"}""")
+    }
+
     @Test
     fun a_transferred_issue_says_where_it_went() = runTest {
         val acting = graphQl { body ->

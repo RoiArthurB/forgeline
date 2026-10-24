@@ -98,6 +98,11 @@ data class IssueUiState(
     val movedTo: IssueRef? = null,
     /** The issue was deleted: there is nothing left to show. */
     val deleted: Boolean = false,
+    /** Whether the reader hears of everything said here; null until the forge has said, and where its API can't. */
+    val subscribed: Boolean? = null,
+    val isSubscribing: Boolean = false,
+    /** The subscription couldn't be changed. */
+    val subscriptionError: ForgeError? = null,
 ) {
     /** The comment being rewritten is among those shown, so it is rewritten where it stands, not in the reader's turn. */
     val isEditingInPlace: Boolean get() = editing != null && items.any { it is TimelineItem.Comment && it.id == editing }
@@ -240,6 +245,22 @@ class IssueViewModel @AssistedInject constructor(
             val supported = repository.actions(ref.repo) - if (issue.pullRequest != null) repository.issueOnly(ref.repo) else emptySet()
             val me = repository.me(ref.repo.forge)
             _state.update { it.copy(canChangeState = allowed, access = access, supported = supported, me = me, attachments = repository.attachments(ref.repo)) }
+            // Whether the reader hears of it, once there is someone signed in to ask for.
+            val subscribed = if (me != null) (repository.isSubscribed(ref) as? ForgeResult.Success)?.value else null
+            _state.update { it.copy(subscribed = subscribed) }
+        }
+    }
+
+    /** Has the reader hear of everything said here, or only of what mentions them again. */
+    fun toggleSubscribed() {
+        val subscribed = _state.value.subscribed ?: return
+        if (_state.value.isSubscribing) return
+        _state.update { it.copy(isSubscribing = true, subscriptionError = null) }
+        viewModelScope.launch {
+            when (val result = repository.setSubscribed(ref, !subscribed)) {
+                is ForgeResult.Failure -> _state.update { it.copy(isSubscribing = false, subscriptionError = result.error) }
+                is ForgeResult.Success -> _state.update { it.copy(isSubscribing = false, subscribed = !subscribed) }
+            }
         }
     }
 

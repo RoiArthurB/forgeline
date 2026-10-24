@@ -365,6 +365,17 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         ).toResult { }
     }
 
+    override suspend fun isSubscribed(token: String, login: String, ref: IssueRef): ForgeResult<Boolean> = forgeCall {
+        get(token, ref, "issues", ref.number.toString(), "subscriptions", "check").toResult { body<WatchJson>().subscribed }
+    }
+
+    override suspend fun setSubscribed(token: String, login: String, ref: IssueRef, subscribed: Boolean): ForgeResult<Unit> = forgeCall {
+        httpClient.forgejoApi(
+            forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "subscriptions", login,
+            method = if (subscribed) HttpMethod.Put else HttpMethod.Delete,
+        ).toResult { }
+    }
+
     override suspend fun delete(token: String, ref: IssueRef): ForgeResult<Unit> = forgeCall {
         httpClient.forgejoApi(forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), method = HttpMethod.Delete).toResult { }
     }
@@ -512,6 +523,10 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
 
 @Serializable
 private data class PinnedJson(@SerialName("pin_order") val pinOrder: Int = 0)
+
+/** Whether the signed-in user hears of a conversation. */
+@Serializable
+private data class WatchJson(val subscribed: Boolean = false)
 
 @Serializable
 private data class PermissionsJson(val admin: Boolean = false, val push: Boolean = false)
