@@ -28,6 +28,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.Test
 import java.time.Instant
 import java.time.LocalDate
@@ -542,6 +544,37 @@ class ForgejoIssueApiTest {
             "PUT /api/v1/repos/forgejo/forgejo/issues/7/subscriptions/ana",
             "DELETE /api/v1/repos/forgejo/forgejo/issues/7/subscriptions/ana",
         ).inOrder()
+    }
+
+    @Test
+    fun a_form_template_becomes_the_markdown_its_issue_would_have() = runTest {
+        // forgejo/forgejo's first two templates, 2026-10-24: both forms.
+        val captured = requireNotNull(javaClass.getResource("/codeberg/issue_templates.json")).readText()
+        val api = answering { with(codeberg) { json(captured) } }
+
+        val templates = api.issueTemplates("tok", seven.repo).value()
+
+        assertThat(templates.map { it.name }).containsExactly("Step 1: Report a problem or need", "Step 2: Enhancement").inOrder()
+        assertThat(templates[0].title).isEqualTo("problem: ")
+        assertThat(templates[0].key).isEqualTo(".forgejo/issue_template/1-problem.yaml")
+        val body = templates[0].body!!
+        // What only the form shows is left out; what the issue keeps is in, in order.
+        assertThat(body).doesNotContain("security@forgejo.org")
+        assertThat(body).startsWith("### Does your problem still exist on the latest Forgejo version?\n\n<!-- Please try reproducing")
+        assertThat(body).contains("\n- Yes, the problem still exists (tested on a next instance)\n")
+        assertThat(body).contains("### Problem description\n\n<!--")
+        assertThat(body).endsWith("### Solutions\n\n*Accepted solutions to address this problem will go here*\n")
+        assertThat(sent).containsExactly("GET /api/v1/repos/forgejo/forgejo/issue_templates")
+    }
+
+    @Test
+    fun checkboxes_become_boxes_to_tick_and_a_field_keeps_its_default_answer() {
+        val fields = listOf(
+            FormFieldJson("checkboxes", FormAttributesJson(label = "Before", options = listOf(buildJsonObject { put("label", "I searched") }))),
+            FormFieldJson("input", FormAttributesJson(label = "Version", value = "1.0")),
+        )
+
+        assertThat(formToMarkdown(fields)).isEqualTo("### Before\n\n- [ ] I searched\n\n### Version\n\n1.0\n")
     }
 
     @Test

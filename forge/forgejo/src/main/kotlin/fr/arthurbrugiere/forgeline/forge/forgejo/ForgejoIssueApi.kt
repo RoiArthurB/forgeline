@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
@@ -46,9 +47,14 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import java.time.Instant
@@ -190,6 +196,24 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
                 put("body", body)
             },
         ).toResult { body<IssueJson>().let { it.toDetails(IssueRef(repo, it.number), pull = null, reactions = emptyMap()) } }
+    }
+
+    /**
+     * A repository's templates, Markdown ones as they are and forms as the Markdown the issue would have once filled:
+     * each field a heading over its default answer, its help kept as a comment that doesn't show once sent.
+     */
+    override suspend fun issueTemplates(token: String, repo: RepoId): ForgeResult<List<IssueTemplate>> = forgeCall {
+        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "issue_templates").toResult {
+            body<List<IssueTemplateJson>>().map { template ->
+                IssueTemplate(
+                    key = template.fileName ?: template.name,
+                    name = template.name,
+                    about = template.about?.ifBlank { null },
+                    title = template.title.orEmpty(),
+                    body = template.content?.ifBlank { null } ?: formToMarkdown(template.body.orEmpty()),
+                )
+            }
+        }
     }
 
     /** A pull request is an issue to this endpoint: one call closes either. */
@@ -523,6 +547,53 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
 
 @Serializable
 private data class PinnedJson(@SerialName("pin_order") val pinOrder: Int = 0)
+
+@Serializable
+private data class IssueTemplateJson(
+    val name: String,
+    val title: String? = null,
+    val about: String? = null,
+    val content: String? = null,
+    val body: List<FormFieldJson>? = null,
+    @SerialName("file_name") val fileName: String? = null,
+)
+
+/** One field of an issue form: [visible] says whether it shows in the form, in the issue it writes, or both. */
+@Serializable
+internal data class FormFieldJson(val type: String, val attributes: FormAttributesJson = FormAttributesJson(), val visible: List<String>? = null)
+
+@Serializable
+internal data class FormAttributesJson(
+    val label: String? = null,
+    val description: String? = null,
+    val value: String? = null,
+    // Plain words for a dropdown, a label each for checkboxes.
+    val options: List<JsonElement> = emptyList(),
+)
+
+/**
+ * The Markdown an issue form writes, with its answers still to give: what Forgejo itself puts in the issue (its markdown
+ * meant for the issue, then each field's label as a heading over its answer), each field's help as a comment above
+ * where it is answered, a dropdown's choices as a list to keep one of, checkboxes as boxes to tick.
+ */
+internal fun formToMarkdown(fields: List<FormFieldJson>): String = fields
+    .filter { field -> field.visible?.contains("content") ?: (field.type != "markdown") }
+    .joinToString("\n") { field ->
+        val attributes = field.attributes
+        if (field.type == "markdown") return@joinToString attributes.value.orEmpty().trimEnd() + "\n"
+        buildString {
+            append("### ").append(attributes.label.orEmpty().trim()).append("\n\n")
+            attributes.description?.trim()?.takeIf { it.isNotEmpty() }?.let { append("<!-- ").append(it.replace("-->", "→")).append(" -->\n") }
+            val options = attributes.options.mapNotNull { option ->
+                (option as? JsonObject)?.get("label")?.jsonPrimitive?.contentOrNull ?: (option as? JsonPrimitive)?.contentOrNull
+            }
+            when (field.type) {
+                "checkboxes" -> options.forEach { append("- [ ] ").append(it).append("\n") }
+                "dropdown" -> options.forEach { append("- ").append(it).append("\n") }
+                else -> append(attributes.value.orEmpty().trim()).append("\n")
+            }
+        }
+    }
 
 /** Whether the signed-in user hears of a conversation. */
 @Serializable

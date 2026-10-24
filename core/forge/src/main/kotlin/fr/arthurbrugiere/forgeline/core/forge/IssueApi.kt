@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
@@ -62,6 +63,12 @@ interface IssueApi {
 
     /** Opens an issue in [repo], [body] being Markdown and possibly empty, and answers it as the forge kept it. */
     suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails>
+
+    /** The templates [repo] offers to start an issue from, in its order; none where the forge's API has none. */
+    suspend fun issueTemplates(token: String, repo: RepoId): ForgeResult<List<IssueTemplate>> = ForgeResult.Success(emptyList())
+
+    /** [template] with its body, for a forge that lists its templates without them. */
+    suspend fun issueTemplate(token: String, repo: RepoId, template: IssueTemplate): ForgeResult<IssueTemplate> = ForgeResult.Success(template)
 
     /**
      * Closes the issue or pull request [ref], or reopens it. A merged pull request can't be reopened. [reason] says

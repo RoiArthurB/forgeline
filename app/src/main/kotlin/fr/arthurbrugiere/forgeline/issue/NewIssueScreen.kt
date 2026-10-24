@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.issue
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,12 +10,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,7 +33,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -38,9 +50,11 @@ import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHairline
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
@@ -70,6 +84,7 @@ fun NewIssueRoute(route: NewIssueRoute, session: SessionState, onBack: () -> Uni
         // Opening an issue takes an account on the repository's own forge.
         signedIn = session.signedInOn(repo.forge),
         onTitleChange = viewModel::titleChanged,
+        onUseTemplate = viewModel::useTemplate,
         onBodyChange = viewModel::bodyChanged,
         onSend = viewModel::send,
         onSignIn = onSignIn,
@@ -94,6 +109,7 @@ fun NewIssueScreen(
     /** The conversations the reference being typed in the description may mean. */
     suggestions: ReferenceOffer = ReferenceOffer(),
     onReferenceTyped: (TypedReference?) -> Unit = {},
+    onUseTemplate: (IssueTemplate) -> Unit = {},
 ) {
     val colors = Soft.colors
     val forge = state.repo.forge.displayName
@@ -137,6 +153,7 @@ fun NewIssueScreen(
                     SoftTonalButton(stringResource(R.string.sign_in), onSignIn)
                     return@Column
                 }
+                if (state.offersTemplates) Templates(state.templates, state.pickingTemplate, state.templateError, onUseTemplate)
                 SoftTextField(
                     value = state.title,
                     onValueChange = onTitleChange,
@@ -211,6 +228,43 @@ fun NewIssueScreen(
             Spacer(Modifier.height(listBottomPadding()))
         }
         SoftStatusBarScrim(scroll.value > 0)
+    }
+}
+
+/**
+ * What the repository offers to start an issue from, while nothing is written: each its name and what it is for. One
+ * picked fills the title and the description, to be written on from there.
+ */
+@Composable
+private fun Templates(templates: List<IssueTemplate>, picking: String?, error: ForgeError?, onPick: (IssueTemplate) -> Unit) {
+    val colors = Soft.colors
+    Column {
+        Text(stringResource(R.string.new_issue_templates), style = Soft.type.name, color = colors.ink, modifier = Modifier.padding(bottom = 8.dp).semantics { heading() })
+        templates.forEachIndexed { index, template ->
+            if (index > 0) SoftHairline()
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(SoftTokens.RowCorner)
+                    .clickable(enabled = picking == null, role = Role.Button) { onPick(template) }
+                    .heightIn(min = 48.dp)
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(template.name, style = Soft.type.control, color = colors.ink)
+                    template.about?.let { Text(it, style = Soft.type.meta, color = colors.inkMuted, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                }
+                Spacer(Modifier.width(8.dp))
+                if (picking == template.key) {
+                    CircularProgressIndicator(Modifier.size(18.dp), color = colors.accent, trackColor = colors.ground, strokeWidth = 2.dp)
+                } else {
+                    Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+        if (error != null) Text(stringResource(R.string.new_issue_template_failed), style = Soft.type.secondary, color = colors.accent, modifier = Modifier.padding(top = 8.dp))
+        Text(stringResource(R.string.new_issue_templates_blank), style = Soft.type.secondary, color = colors.inkMuted, modifier = Modifier.padding(top = 12.dp))
     }
 }
 

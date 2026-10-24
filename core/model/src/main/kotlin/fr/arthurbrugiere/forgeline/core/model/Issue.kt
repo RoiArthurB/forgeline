@@ -99,6 +99,13 @@ data class TimeTracking(val totalSeconds: Long, val runningSince: Instant?)
 /** Another conversation this one is tied to: one it depends on. */
 data class LinkedIssue(val ref: IssueRef, val title: String, val state: IssueState)
 
+/**
+ * What a repository offers to start an issue from: [name] and [about] say what it is for, [title] and [body] go into the
+ * new issue. [body] is null until asked for, where the forge lists its templates without them (GitLab); [key] is what
+ * it is asked for by.
+ */
+data class IssueTemplate(val key: String, val name: String, val about: String? = null, val title: String = "", val body: String? = null)
+
 /** Why an issue is closed, where the forge keeps that. */
 enum class CloseReason { COMPLETED, NOT_PLANNED, DUPLICATE }
 

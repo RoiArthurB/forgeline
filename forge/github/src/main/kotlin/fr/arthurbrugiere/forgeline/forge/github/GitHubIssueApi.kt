@@ -12,6 +12,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.PullRequestInfo
@@ -46,6 +47,7 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -158,6 +160,19 @@ class GitHubIssueApi(
                 put("body", body)
             },
         ).toResult { body<IssueJson>().let { it.toModel(IssueRef(repo, it.number), pull = null) } }
+    }
+
+    /** GitHub's GraphQL API lists a repository's Markdown templates, bodies and all; its forms are left out. */
+    override suspend fun issueTemplates(token: String, repo: RepoId): ForgeResult<List<IssueTemplate>> = graphQl(
+        token,
+        "query(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { issueTemplates { filename name about title body } } }",
+        buildJsonObject {
+            put("owner", repo.owner)
+            put("name", repo.name)
+        },
+    ).map { data ->
+        val templates = data.objectAt("repository")?.get("issueTemplates")?.takeUnless { it is JsonNull } ?: return@map emptyList()
+        ForgeJson.decodeFromJsonElement<List<IssueTemplateJson>>(templates).map { IssueTemplate(it.filename ?: it.name, it.name, it.about?.ifBlank { null }, it.title.orEmpty(), it.body.orEmpty()) }
     }
 
     /** A pull request is an issue to this endpoint: one call closes either. */
@@ -605,3 +620,6 @@ private data class EventJson(
         }
     }
 }
+
+@Serializable
+private data class IssueTemplateJson(val filename: String? = null, val name: String, val about: String? = null, val title: String? = null, val body: String? = null)

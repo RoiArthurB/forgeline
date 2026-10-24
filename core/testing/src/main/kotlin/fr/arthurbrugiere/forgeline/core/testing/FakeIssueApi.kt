@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
@@ -147,6 +148,15 @@ class FakeIssueApi : IssueApi {
 
     /** The number the forge gives the next issue opened. */
     var nextNumber = 100
+
+    /** The templates every repository offers; listed without their text where [templateTexts] has it, as GitLab does. */
+    var templates = emptyList<IssueTemplate>()
+    var templateTexts = emptyMap<String, String>()
+
+    override suspend fun issueTemplates(token: String, repo: RepoId) = read(token, "templates:${repo.fullName}", templates)
+
+    override suspend fun issueTemplate(token: String, repo: RepoId, template: IssueTemplate) =
+        read(token, "template:${template.key}", template.copy(body = template.body ?: templateTexts[template.key]))
 
     override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> {
         calls += "create:${repo.fullName}"

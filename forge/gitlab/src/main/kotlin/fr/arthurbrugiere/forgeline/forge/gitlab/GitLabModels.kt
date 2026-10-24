@@ -123,6 +123,10 @@ internal data class GitLabAccessJson(
     @SerialName("access_level") val accessLevel: Int? = null,
 )
 
+/** An issue template: listed with its [key] and [name], asked for by its key with its [content]. */
+@Serializable
+internal data class GitLabTemplateJson(val key: String = "", val name: String = "", val content: String? = null)
+
 /** Whether the signed-in user is subscribed to an issue or a merge request: said with the conversation itself. */
 @Serializable
 internal data class GitLabSubscribedJson(val subscribed: Boolean = false)

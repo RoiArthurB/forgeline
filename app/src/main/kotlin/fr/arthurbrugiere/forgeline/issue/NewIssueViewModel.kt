@@ -15,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -68,7 +69,16 @@ data class NewIssueUiState(
     val editing: IssueRef? = null,
     /** Whether [editing] is a pull request, which the form then says. */
     val isPullRequest: Boolean = false,
+    /** What the repository offers to start a new issue from. */
+    val templates: List<IssueTemplate> = emptyList(),
+    /** The template whose text is being asked for, by its key. */
+    val pickingTemplate: String? = null,
+    /** A template's text couldn't be had. */
+    val templateError: ForgeError? = null,
 ) {
+    /** Templates are offered while nothing is written yet: picking one fills the form, it doesn't overwrite it. */
+    val offersTemplates: Boolean get() = editing == null && templates.isNotEmpty() && title.isEmpty() && body.isEmpty() && !isSending
+
     /** An issue needs a title; its description can stay empty. */
     val canSend: Boolean get() = title.isNotBlank() && !isSending
 }
@@ -102,11 +112,38 @@ class NewIssueViewModel @AssistedInject constructor(
     val state: StateFlow<NewIssueUiState> = _state.asStateFlow()
 
     init {
+        // What the repository offers to start from, for a new issue; a forge that won't say offers nothing.
+        if (editing == null) {
+            viewModelScope.launch {
+                val templates = (repository.issueTemplates(repo) as? ForgeResult.Success)?.value.orEmpty()
+                _state.update { it.copy(templates = templates) }
+            }
+        }
         // Written in an earlier launch: it comes back, unless the reader has started writing meanwhile.
         if (editing == null && _state.value.run { title.isEmpty() && body.isEmpty() }) {
             viewModelScope.launch {
                 val kept = drafts.stored(repo)
                 _state.update { if (it.title.isEmpty() && it.body.isEmpty()) it.copy(title = kept.title, body = kept.body) else it }
+            }
+        }
+    }
+
+    /** Fills the form from [template], its text asked for first where the forge listed it without. */
+    fun useTemplate(template: IssueTemplate) {
+        if (_state.value.pickingTemplate != null) return
+        val body = template.body
+        if (body != null) {
+            write { it.copy(title = template.title, body = body, templateError = null) }
+            return
+        }
+        _state.update { it.copy(pickingTemplate = template.key, templateError = null) }
+        viewModelScope.launch {
+            when (val result = repository.issueTemplate(repo, template)) {
+                is ForgeResult.Failure -> _state.update { it.copy(pickingTemplate = null, templateError = result.error) }
+                is ForgeResult.Success -> {
+                    _state.update { it.copy(pickingTemplate = null) }
+                    write { it.copy(title = result.value.title, body = result.value.body.orEmpty()) }
+                }
             }
         }
     }

@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
@@ -63,7 +64,8 @@ class NewIssueViewModelTest {
         viewModel.send()
         advanceUntilIdle()
 
-        assertThat(api.calls).isEmpty()
+        // Only what the form opened with: the repository's templates.
+        assertThat(api.calls).containsExactly("templates:octo/repo")
     }
 
     @Test
@@ -158,6 +160,66 @@ class NewIssueViewModelTest {
         advanceUntilIdle()
 
         assertThat(viewModel().state.value.title).isEmpty()
+    }
+
+    private val bug = IssueTemplate("bug.md", "Bug report", "Something broke", title = "Bug: ", body = "## Steps\n")
+    private val listedOnly = IssueTemplate("Feature", "Feature")
+
+    @Test
+    fun a_new_issue_starts_from_a_template_the_repository_offers() = test {
+        api.templates = listOf(bug)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.offersTemplates).isTrue()
+
+        viewModel.useTemplate(bug)
+
+        assertThat(viewModel.state.value.title).isEqualTo("Bug: ")
+        assertThat(viewModel.state.value.body).isEqualTo("## Steps\n")
+        // Written on from there: no longer offered, and kept as the draft.
+        assertThat(viewModel.state.value.offersTemplates).isFalse()
+        assertThat(drafts[repo]).isEqualTo(IssueDraft("Bug: ", "## Steps\n"))
+    }
+
+    @Test
+    fun a_template_listed_without_its_text_is_asked_for_it_when_picked() = test {
+        api.templates = listOf(listedOnly)
+        api.templateTexts = mapOf("Feature" to "## Proposal\n")
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.useTemplate(listedOnly)
+        assertThat(viewModel.state.value.pickingTemplate).isEqualTo("Feature")
+        advanceUntilIdle()
+
+        assertThat(api.calls).contains("template:Feature")
+        assertThat(viewModel.state.value.pickingTemplate).isNull()
+        assertThat(viewModel.state.value.body).isEqualTo("## Proposal\n")
+    }
+
+    @Test
+    fun a_template_that_can_t_be_had_leaves_the_form_empty_and_says_so() = test {
+        api.templates = listOf(listedOnly)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        api.manageFailure = ForgeError.Network
+
+        viewModel.useTemplate(listedOnly)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.templateError).isEqualTo(ForgeError.Network)
+        assertThat(viewModel.state.value.body).isEmpty()
+        assertThat(viewModel.state.value.offersTemplates).isTrue()
+    }
+
+    @Test
+    fun editing_an_issue_offers_no_template() = test {
+        api.templates = listOf(bug)
+        val viewModel = editing()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.offersTemplates).isFalse()
+        assertThat(api.calls).doesNotContain("templates:octo/repo")
     }
 
     private val edited = fr.arthurbrugiere.forgeline.core.model.IssueRef(repo, 7)

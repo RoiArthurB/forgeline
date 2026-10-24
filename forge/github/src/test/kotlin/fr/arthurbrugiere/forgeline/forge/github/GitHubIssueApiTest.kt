@@ -555,6 +555,21 @@ class GitHubIssueApiTest {
     }
 
     @Test
+    fun a_repository_s_markdown_templates_come_with_their_text() = runTest {
+        // GitHub's answer for gama-platform/gama, 2026-10-24.
+        val captured = requireNotNull(javaClass.getResource("/github/issue_templates.json")).readText()
+
+        val templates = graphQl { captured }.issueTemplates("tok", issue.repo).value()
+
+        assertThat(templates.map { it.name }).containsExactly("Report a problem in using GAMA", "Feature or enhancement request").inOrder()
+        assertThat(templates[0].key).isEqualTo("bug_report.md")
+        assertThat(templates[0].about).startsWith("Create a report to help us eliminate it.")
+        assertThat(templates[0].title).isEmpty()
+        assertThat(templates[0].body).startsWith("**Describe the bug**")
+        assertThat(bodies.single()).contains(""""variables":{"owner":"paperclipai","name":"paperclip"}""")
+    }
+
+    @Test
     fun a_transferred_issue_says_where_it_went() = runTest {
         val acting = graphQl { body ->
             if ("transferIssue" in body) {

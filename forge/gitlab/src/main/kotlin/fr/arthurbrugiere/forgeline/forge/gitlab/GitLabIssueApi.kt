@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.Reaction
@@ -290,6 +291,18 @@ class GitLabIssueApi(
             method = HttpMethod.Post,
             body = payload,
         ).toResult { body<GitLabIssueJson>().toDetails(repo) }
+    }
+
+    /** GitLab lists a project's templates (its own and those it inherits) by name only: each one's text is asked when picked. */
+    override suspend fun issueTemplates(token: String, repo: RepoId): ForgeResult<List<IssueTemplate>> = forgeCall {
+        httpClient.gitlabApi(repo.forge, token, "projects", repo.fullName, "templates", "issues", query = mapOf("per_page" to "100"))
+            .toResult { body<List<GitLabTemplateJson>>().map { IssueTemplate(it.key, it.name) } }
+    }
+
+    override suspend fun issueTemplate(token: String, repo: RepoId, template: IssueTemplate): ForgeResult<IssueTemplate> = forgeCall {
+        if (template.body != null) return@forgeCall ForgeResult.Success(template)
+        httpClient.gitlabApi(repo.forge, token, "projects", repo.fullName, "templates", "issues", template.key)
+            .toResult { template.copy(body = body<GitLabTemplateJson>().content.orEmpty()) }
     }
 
     override suspend fun setOpen(token: String, ref: IssueRef, open: Boolean, reason: CloseReason?): ForgeResult<Unit> = forgeCall {

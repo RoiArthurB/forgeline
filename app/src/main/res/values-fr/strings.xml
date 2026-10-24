@@ -607,6 +607,9 @@
     <string name="manage_error_refused">Vous ne pouvez pas faire cela ici : votre rôle dans ce dépôt ne le permet pas.</string>
     <string name="manage_error_expired">Votre connexion ne fonctionne plus. Reconnectez-vous, puis réessayez.</string>
     <string name="new_issue_title">Nouveau ticket</string>
+    <string name="new_issue_templates">Partir d’un modèle</string>
+    <string name="new_issue_templates_blank">Ou écrivez-le de zéro ci-dessous.</string>
+    <string name="new_issue_template_failed">Ce modèle n’a pas pu être chargé. Réessayez.</string>
     <string name="new_issue_title_placeholder">Titre</string>
     <string name="new_issue_body_placeholder">Décrivez-le. Le Markdown fonctionne.</string>
     <string name="new_issue_send">Ouvrir le ticket</string>

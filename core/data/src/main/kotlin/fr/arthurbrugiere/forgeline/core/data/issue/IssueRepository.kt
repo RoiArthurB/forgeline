@@ -16,6 +16,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
@@ -96,6 +97,12 @@ interface IssueRepository {
      * kept, so it opens at once, and announced on [changed].
      */
     suspend fun create(repo: RepoId, title: String, body: String): ForgeResult<IssueDetails>
+
+    /** The templates [repo] offers to start an issue from; Unauthorized signed out. */
+    suspend fun issueTemplates(repo: RepoId): ForgeResult<List<IssueTemplate>>
+
+    /** [template] with its text, asked for where the forge lists its templates without it. */
+    suspend fun issueTemplate(repo: RepoId, template: IssueTemplate): ForgeResult<IssueTemplate>
 
     /**
      * What the account signed in on [repo]'s forge may do there beyond reading. Asked once per repository and
@@ -351,6 +358,10 @@ class DefaultIssueRepository @Inject constructor(
             }
         }
     }
+
+    override suspend fun issueTemplates(repo: RepoId) = signedIn(repo.forge) { issueTemplates(it, repo) }
+
+    override suspend fun issueTemplate(repo: RepoId, template: IssueTemplate) = signedIn(repo.forge) { issueTemplate(it, repo, template) }
 
     override suspend fun create(repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> {
         val token = accounts.tokenOn(repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)

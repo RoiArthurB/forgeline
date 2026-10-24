@@ -291,6 +291,26 @@ class GitLabIssueApiTest {
         ).inOrder()
     }
 
+    // gitlab-org/gitlab-runner's templates, 2026-10-24: listed by name, the list cut to four, and the Bug one's text.
+    private fun captured(name: String) = requireNotNull(javaClass.getResource("/gitlab/captured/$name")).readText()
+
+    @Test
+    fun templates_are_listed_by_name_and_one_s_text_is_asked_when_it_is_picked() = runTest {
+        val api = api { req -> json(captured(if (req.url.encodedPath.endsWith("/issues/Bug")) "issue_template_bug.json" else "issue_templates.json")) }
+
+        val templates = api.issueTemplates("tok", repo).value()
+        assertThat(templates.map { it.name }).containsExactly("AI Agent template", "AI Flow template", "interlock_template", "Bug").inOrder()
+        assertThat(templates.all { it.body == null }).isTrue()
+        val bug = api.issueTemplate("tok", repo, templates.last()).value()
+        // Asked again with its text, nothing more is asked.
+        api.issueTemplate("tok", repo, bug)
+
+        assertThat(bug.body).startsWith("## Summary")
+        assertThat(sent()).containsExactly(
+            "GET /api/v4/projects/gitlab-org%2Fgitlab/templates/issues", "GET /api/v4/projects/gitlab-org%2Fgitlab/templates/issues/Bug",
+        ).inOrder()
+    }
+
     private fun award(id: Long, name: String, username: String) = """{"id":$id,"name":"$name","user":{"id":1,"username":"$username"},"awardable_type":"Note"}"""
 
     private fun reacting(vararg awards: String) = api { request ->

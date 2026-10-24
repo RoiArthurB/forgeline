@@ -18,6 +18,7 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.issueSummary
 import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
@@ -50,8 +51,44 @@ class NewIssueScreenTest {
                 onBack = { events += "back" },
                 suggestions = suggested.value,
                 onReferenceTyped = { typedReferences += it },
+                onUseTemplate = { events += "template:${it.key}" },
             )
         }
+    }
+
+    private val templates = listOf(
+        IssueTemplate("bug.md", "Bug report", "Something broke", body = "## Steps"),
+        IssueTemplate("feature.md", "Feature request", null, body = "## Idea"),
+    )
+
+    @Test
+    fun a_blank_form_offers_the_repository_s_templates_to_start_from() {
+        setContent(empty.copy(templates = templates))
+
+        composeRule.onNodeWithText("Start from a template").assertIsDisplayed()
+        composeRule.onNodeWithText("Something broke").assertIsDisplayed()
+        composeRule.onNodeWithText("Or write it from scratch below.").assertIsDisplayed()
+        composeRule.assertEveryTargetIsAtLeast48dp()
+        composeRule.onNodeWithText("Feature request").performClick()
+
+        assertThat(events).containsExactly("template:feature.md")
+    }
+
+    @Test
+    fun once_something_is_written_templates_step_aside() {
+        setContent(empty.copy(templates = templates, body = "Steps"))
+
+        composeRule.onNodeWithText("Start from a template").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_template_being_fetched_can_t_be_picked_again_and_one_that_failed_says_so() {
+        setContent(empty.copy(templates = templates, pickingTemplate = "bug.md"))
+        composeRule.onNodeWithText("Feature request").performClick()
+        assertThat(events).isEmpty()
+
+        shown.value = empty.copy(templates = templates, templateError = ForgeError.Network)
+        composeRule.onNodeWithText("That template couldn't be loaded. Try again.").assertIsDisplayed()
     }
 
     private val typedReferences = mutableListOf<TypedReference?>()
