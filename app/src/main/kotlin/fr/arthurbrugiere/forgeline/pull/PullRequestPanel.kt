@@ -55,6 +55,7 @@ import fr.arthurbrugiere.forgeline.core.model.Check
 import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.MergeBlocker
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
@@ -151,11 +152,11 @@ fun PullRequestDecisions(issue: IssueDetails, state: PullRequestUiState, actions
     if (pr.isDraft && onReady != null) {
         SoftButton(stringResource(R.string.pull_ready_for_review), onClick = onReady, enabled = !isMarkingReady)
     } else if (mergeInfo?.canMerge == true) {
-        // Marigold says "this is the way forward": not while a check failed or is still running, nor once the forge
-        // is to merge it by itself.
+        // Marigold says "this is the way forward": not while a check failed or is still running, nor while the forge
+        // names something in the way, nor once it is to merge it by itself.
         if (mergeInfo.mergesWhenChecksPass) {
             SoftTonalButton(stringResource(R.string.merge_start_scheduled), onClick = { merging = true })
-        } else if (checks.overall() in UNSETTLED) {
+        } else if (checks.overall() in UNSETTLED || mergeInfo.blockers.isNotEmpty()) {
             SoftTonalButton(stringResource(R.string.merge_start), onClick = { merging = true })
         } else {
             SoftButton(stringResource(R.string.merge_start), onClick = { merging = true })
@@ -329,11 +330,13 @@ private fun MergeSheet(
     ) {
         Column(Modifier.padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.merge_title), style = Soft.type.name, color = colors.ink, modifier = Modifier.semantics { heading() })
+            // What stands in the way, by name where the forge gives it.
             val blocked = when {
-                isDraft -> R.string.merge_blocked_draft
-                info.mergeable == false -> R.string.merge_blocked
-                info.mergeable == null -> R.string.merge_checking
-                else -> null
+                isDraft -> listOf(R.string.merge_blocked_draft)
+                info.blockers.isNotEmpty() -> info.blockers.map { it.label }
+                info.mergeable == false -> listOf(R.string.merge_blocked)
+                info.mergeable == null -> listOf(R.string.merge_checking)
+                else -> emptyList()
             }
             // Where the checks stand is said again here, where the merge is decided: it was a screen away.
             val standing = checks.overall()
@@ -347,13 +350,13 @@ private fun MergeSheet(
                     Text(checksSummary(checks), style = Soft.type.secondary, color = colors.ink)
                 }
             }
-            if (blocked != null) {
-                Text(
-                    stringResource(blocked),
-                    style = Soft.type.secondary,
-                    color = colors.ink,
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(colors.fields[0]).padding(14.dp),
-                )
+            if (blocked.isNotEmpty()) {
+                Column(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(colors.fields[0]).padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    blocked.forEach { Text(stringResource(it), style = Soft.type.secondary, color = colors.ink) }
+                }
             }
             if (info.mergesWhenChecksPass) {
                 Text(
@@ -378,8 +381,12 @@ private fun MergeSheet(
                     color = colors.accent,
                 )
             }
-            // What the forge is unsure of can still be tried: it answers no if it is no. What it refuses is not offered.
-            val enabled = !isMerging && !isDraft && info.mergeable != false && info.methods.isNotEmpty()
+            // What the forge is unsure of can still be tried: it answers no if it is no. What it refuses is not offered,
+            // and conflicts are never merged over.
+            val canTry = !isMerging && !isDraft && info.methods.isNotEmpty()
+            val enabled = canTry && info.mergeable != false && MergeBlocker.CONFLICTS !in info.blockers
+            // Waiting for the checks is offered when they are all that is missing, even where the forge refuses a merge now.
+            val enabledWhenChecksPass = enabled || (canTry && info.blockers.isNotEmpty() && info.blockers.all { it == MergeBlocker.CHECKS })
             val now = MergeChoice(method, deleteBranch)
             FlowRow(
                 Modifier.fillMaxWidth(),
@@ -393,10 +400,11 @@ private fun MergeSheet(
                     // Checks still running: waiting for them is the way forward, merging now the other way.
                     standing == CheckState.PENDING && info.canMergeWhenChecksPass && !isDraft -> {
                         SoftTonalButton(stringResource(R.string.merge_now), onClick = { onMerge(now) }, enabled = enabled)
-                        SoftButton(stringResource(if (isMerging) R.string.merge_merging else R.string.merge_when_checks_pass), onClick = { onMerge(now.copy(whenChecksPass = true)) }, enabled = enabled)
+                        SoftButton(stringResource(if (isMerging) R.string.merge_merging else R.string.merge_when_checks_pass), onClick = { onMerge(now.copy(whenChecksPass = true)) }, enabled = enabledWhenChecksPass)
                     }
-                    // Against a failed check, merging is said for what it is, on the ink button of what can't be taken back.
-                    standing == CheckState.FAILURE ->
+                    // Against a failed check or a rule the forge names, merging (as whoever may bypass it) is said for
+                    // what it is, on the ink button of what can't be taken back.
+                    standing == CheckState.FAILURE || info.blockers.isNotEmpty() ->
                         SoftDangerButton(stringResource(if (isMerging) R.string.merge_merging else R.string.merge_anyway), onClick = { onMerge(now) }, enabled = enabled)
                     else -> SoftButton(stringResource(if (isMerging) R.string.merge_merging else R.string.merge_confirm), onClick = { onMerge(now) }, enabled = enabled)
                 }
@@ -404,6 +412,17 @@ private fun MergeSheet(
         }
     }
 }
+
+private val MergeBlocker.label: Int
+    get() = when (this) {
+        MergeBlocker.CONFLICTS -> R.string.merge_blocker_conflicts
+        MergeBlocker.CHECKS -> R.string.merge_blocker_checks
+        MergeBlocker.REVIEWS -> R.string.merge_blocker_reviews
+        MergeBlocker.CHANGES_REQUESTED -> R.string.merge_blocker_changes_requested
+        MergeBlocker.THREADS -> R.string.merge_blocker_threads
+        MergeBlocker.BEHIND -> R.string.merge_blocker_behind
+        MergeBlocker.OTHER -> R.string.merge_blocker_other
+    }
 
 private val MergeMethod.label: Int
     get() = when (this) {

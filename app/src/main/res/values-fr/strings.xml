@@ -977,6 +977,13 @@
     <string name="merge_title">Fusionner la pull request</string>
     <string name="merge_blocked_draft">Un brouillon ne se fusionne pas : marquez-le comme prêt sur la forge d’abord.</string>
     <string name="merge_blocked">La forge dit que ceci ne peut pas être fusionné en l’état : conflits, vérifications en échec ou approbations manquantes.</string>
+    <string name="merge_blocker_conflicts">Elle est en conflit avec la branche où elle va : cela se résout sur la forge ou sur un ordinateur.</string>
+    <string name="merge_blocker_checks">Des vérifications exigées par le dépôt n’ont pas réussi.</string>
+    <string name="merge_blocker_reviews">Il lui manque une approbation.</string>
+    <string name="merge_blocker_changes_requested">Un relecteur a demandé des modifications.</string>
+    <string name="merge_blocker_threads">Des remarques sur ses lignes sont encore ouvertes, et le dépôt veut qu’elles soient résolues.</string>
+    <string name="merge_blocker_behind">La branche où elle va a avancé : le dépôt veut qu’elle soit mise à jour d’abord.</string>
+    <string name="merge_blocker_other">Une règle du dépôt la retient.</string>
     <string name="merge_checking">La forge cherche encore si ceci peut être fusionné. Vous pouvez essayer.</string>
     <string name="merge_failed">La forge a refusé la fusion : %1$s</string>
     <string name="merge_confirm">Confirmer la fusion</string>

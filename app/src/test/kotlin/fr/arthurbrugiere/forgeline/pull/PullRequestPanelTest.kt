@@ -23,6 +23,7 @@ import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.MergeBlocker
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.PullRequestInfo
@@ -200,6 +201,45 @@ class PullRequestPanelTest {
 
         composeRule.onNodeWithText("can't be merged as it is", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("Confirm merge").assertIsNotEnabled()
+    }
+
+    @Test
+    fun what_blocks_a_merge_is_named_and_whoever_may_bypass_it_merges_anyway() {
+        setContent(signedIn.copy(mergeInfo = mergeable.copy(blockers = listOf(MergeBlocker.REVIEWS, MergeBlocker.CHECKS))))
+
+        // Not the plain way forward on the row either.
+        composeRule.onNodeWithText("Merge").performClick()
+
+        composeRule.onNodeWithText("It needs an approval it hasn't got.").assertIsDisplayed()
+        composeRule.onNodeWithText("Checks the repository requires haven't passed.").assertIsDisplayed()
+        composeRule.onNodeWithText("can't be merged as it is", substring = true).assertDoesNotExist()
+        composeRule.onNodeWithText("Confirm merge").assertDoesNotExist()
+        composeRule.onNodeWithText("Merge anyway").performClick()
+
+        assertThat(events).containsExactly("merge:SQUASH")
+    }
+
+    @Test
+    fun conflicts_are_never_merged_over() {
+        setContent(signedIn.copy(mergeInfo = mergeable.copy(blockers = listOf(MergeBlocker.CONFLICTS))))
+
+        composeRule.onNodeWithText("Merge").performClick()
+
+        composeRule.onNodeWithText("It conflicts with the branch it goes into", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Merge anyway").assertIsNotEnabled()
+    }
+
+    @Test
+    fun checks_alone_in_the_way_can_still_be_waited_for_though_the_forge_refuses_a_merge_now() {
+        // GitLab's pipeline must succeed: the merge request isn't mergeable while it runs, but can merge once it passes.
+        val waiting = mergeable.copy(mergeable = false, canMergeWhenChecksPass = true, blockers = listOf(MergeBlocker.CHECKS))
+        setContent(signedIn.copy(checks = listOf(checks[0], checks[2]), mergeInfo = waiting))
+
+        composeRule.onNodeWithText("Merge").performClick()
+        composeRule.onNodeWithText("Merge now").assertIsNotEnabled()
+        composeRule.onNodeWithText("Merge when checks pass").performClick()
+
+        assertThat(events).containsExactly("merge:SQUASH:when-checks-pass")
     }
 
     @Test

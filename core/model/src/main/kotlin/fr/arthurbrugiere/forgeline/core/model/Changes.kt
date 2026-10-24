@@ -205,7 +205,32 @@ data class MergeInfo(
     val canMergeWhenChecksPass: Boolean = false,
     val mergesWhenChecksPass: Boolean = false,
     val behind: Boolean = false,
+    val blockers: List<MergeBlocker> = emptyList(),
 )
+
+/** What a forge says stands between a pull request and its merge, a draft aside (that is the pull request's own say). */
+enum class MergeBlocker {
+    /** Its change and the branch it goes into touch the same lines. */
+    CONFLICTS,
+
+    /** Checks the repository requires haven't passed yet, or failed. */
+    CHECKS,
+
+    /** It needs approvals it hasn't got. */
+    REVIEWS,
+
+    /** A reviewer asked for changes. */
+    CHANGES_REQUESTED,
+
+    /** Remarks on its lines are still open, and the repository wants them resolved. */
+    THREADS,
+
+    /** The branch it goes into moved on, and the repository wants it brought up to date first. */
+    BEHIND,
+
+    /** Another rule of the repository the forge doesn't name through its API. */
+    OTHER,
+}
 
 /** What a review says of a pull request as a whole. */
 enum class ReviewVerdict { COMMENT, APPROVE, REQUEST_CHANGES }

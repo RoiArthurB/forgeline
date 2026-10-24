@@ -17,6 +17,7 @@ import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.LineComment
+import fr.arthurbrugiere.forgeline.core.model.MergeBlocker
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
@@ -111,6 +112,12 @@ class GitHubPullRequestApi(
             // A branch of the repository itself can go with the merge; one of a fork isn't the repository's to delete,
             // and a repository that deletes merged branches does so whatever is said.
             val ownBranch = details.head.repo?.fullName != null && details.head.repo.fullName.equals(details.base?.repo?.fullName, ignoreCase = true)
+            val blockers = when (details.mergeableState) {
+                "dirty" -> listOf(MergeBlocker.CONFLICTS)
+                "behind" -> listOf(MergeBlocker.BEHIND)
+                "blocked" -> blockersOf(token, ref)
+                else -> emptyList()
+            }
             ForgeResult.Success(
                 MergeInfo(
                     details.mergeable, canMerge, methods,
@@ -118,9 +125,32 @@ class GitHubPullRequestApi(
                     canMergeWhenChecksPass = canMerge && settings.allowAutoMerge == true,
                     mergesWhenChecksPass = details.autoMerge != null,
                     behind = details.mergeableState == "behind",
+                    blockers = blockers,
                 ),
             )
         }
+    }
+
+    /**
+     * GitHub's REST API says only that a rule blocks the merge, not which: its GraphQL API says whether the reviews it
+     * needs are in and where the last commit's checks stand. A rule neither explains (a ruleset, conversations to
+     * resolve) is told as one the forge doesn't name.
+     */
+    private suspend fun blockersOf(token: String, ref: IssueRef): List<MergeBlocker> {
+        val variables = buildJsonObject {
+            put("owner", ref.repo.owner)
+            put("name", ref.repo.name)
+            put("number", ref.number)
+        }
+        val pull = (graphQl(token, BLOCKERS_QUERY, variables) as? ForgeResult.Success)?.value
+            ?.get("repository")?.jsonObject?.get("pullRequest")?.jsonObject
+            ?.let { ForgeJson.decodeFromJsonElement<PrStandingJson>(it) }
+            ?: return listOf(MergeBlocker.OTHER)
+        return listOfNotNull(
+            MergeBlocker.CHANGES_REQUESTED.takeIf { pull.reviewDecision == "CHANGES_REQUESTED" },
+            MergeBlocker.REVIEWS.takeIf { pull.reviewDecision == "REVIEW_REQUIRED" },
+            MergeBlocker.CHECKS.takeIf { pull.commits.nodes.lastOrNull()?.commit?.statusCheckRollup?.state.let { it != null && it != "SUCCESS" } },
+        ).ifEmpty { listOf(MergeBlocker.OTHER) }
     }
 
     /**
@@ -311,6 +341,9 @@ class GitHubPullRequestApi(
             "pullRequest(number: \$number) { reviewThreads(first: 100) { nodes { id isResolved isOutdated path line originalLine diffSide " +
             "viewerCanResolve viewerCanUnresolve comments(first: 100) { nodes { databaseId body createdAt diffHunk author { login avatarUrl } } } } } } } }"
 
+        const val BLOCKERS_QUERY = "query Standing(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { " +
+            "pullRequest(number: \$number) { reviewDecision commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } }"
+
         const val BLAME_QUERY = "query Blame(\$owner: String!, \$name: String!, \$ref: String!, \$path: String!) { " +
             "repository(owner: \$owner, name: \$name) { target: object(expression: \$ref) { ... on Commit { blame(path: \$path) { ranges { " +
             "startingLine endingLine commit { oid message authoredDate author { name user { login avatarUrl } } } } } } } } }"
@@ -379,6 +412,22 @@ private data class PrPullJson(
     // Set while GitHub is to merge it once its checks pass.
     @SerialName("auto_merge") val autoMerge: JsonObject? = null,
 )
+
+/** What GitHub's GraphQL API says of a blocked pull request: whether its reviews are in, and its last commit's checks. */
+@Serializable
+private data class PrStandingJson(val reviewDecision: String? = null, val commits: PrStandingCommitsJson = PrStandingCommitsJson())
+
+@Serializable
+private data class PrStandingCommitsJson(val nodes: List<PrStandingNodeJson> = emptyList())
+
+@Serializable
+private data class PrStandingNodeJson(val commit: PrStandingCommitJson? = null)
+
+@Serializable
+private data class PrStandingCommitJson(val statusCheckRollup: PrRollupJson? = null)
+
+@Serializable
+private data class PrRollupJson(val state: String? = null)
 
 @Serializable
 private data class PrPermissionsJson(val push: Boolean = false)

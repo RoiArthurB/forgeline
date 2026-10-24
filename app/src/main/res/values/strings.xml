@@ -982,6 +982,13 @@
     <string name="merge_title">Merge pull request</string>
     <string name="merge_blocked_draft">A draft isn\'t merged: mark it ready on the forge first.</string>
     <string name="merge_blocked">The forge says this can\'t be merged as it is: conflicts, failing checks or missing approvals.</string>
+    <string name="merge_blocker_conflicts">It conflicts with the branch it goes into: that is resolved on the forge or on a computer.</string>
+    <string name="merge_blocker_checks">Checks the repository requires haven\'t passed.</string>
+    <string name="merge_blocker_reviews">It needs an approval it hasn\'t got.</string>
+    <string name="merge_blocker_changes_requested">A reviewer asked for changes.</string>
+    <string name="merge_blocker_threads">Remarks on its lines are still open, and the repository wants them resolved.</string>
+    <string name="merge_blocker_behind">The branch it goes into moved on: the repository wants it brought up to date first.</string>
+    <string name="merge_blocker_other">A rule of the repository holds it back.</string>
     <string name="merge_checking">The forge is still working out whether this can be merged. You can try.</string>
     <string name="merge_failed">The forge refused the merge: %1$s</string>
     <string name="merge_confirm">Confirm merge</string>

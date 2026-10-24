@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.LineComment
+import fr.arthurbrugiere.forgeline.core.model.MergeBlocker
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
@@ -109,6 +110,7 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
                     canMergeWhenChecksPass = canMerge && details.headPipeline?.status in PIPELINE_UNDER_WAY,
                     mergesWhenChecksPass = details.mergeWhenPipelineSucceeds,
                     behind = (details.divergedCommitsCount ?: 0) > 0 || details.detailedMergeStatus == "need_rebase",
+                    blockers = listOfNotNull(mergeBlockerOf(details.detailedMergeStatus)),
                 ),
             )
         }
@@ -340,6 +342,22 @@ private data class MrProjectJson(
 )
 
 /** A pipeline's states while there is still something to wait for. */
+
+/**
+ * What GitLab's detailed merge status says stands in a merge's way, when something does. Being a draft is the merge
+ * request's own say, and a status still being worked out blocks nothing yet.
+ */
+internal fun mergeBlockerOf(status: String?): MergeBlocker? = when (status) {
+    null, "mergeable", "can_be_merged", "checking", "unchecked", "preparing", "approvals_syncing", "draft_status", "not_open" -> null
+    "conflict", "broken_status" -> MergeBlocker.CONFLICTS
+    "ci_must_pass", "ci_still_running", "external_status_checks", "commits_status" -> MergeBlocker.CHECKS
+    "not_approved" -> MergeBlocker.REVIEWS
+    "requested_changes" -> MergeBlocker.CHANGES_REQUESTED
+    "discussions_not_resolved" -> MergeBlocker.THREADS
+    "need_rebase" -> MergeBlocker.BEHIND
+    else -> MergeBlocker.OTHER
+}
+
 private val PIPELINE_UNDER_WAY = setOf("created", "waiting_for_resource", "preparing", "pending", "running", "scheduled")
 
 @Serializable

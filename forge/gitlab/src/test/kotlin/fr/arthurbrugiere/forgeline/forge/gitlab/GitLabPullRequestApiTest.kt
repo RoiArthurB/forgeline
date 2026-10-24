@@ -9,6 +9,7 @@ import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.LineComment
+import fr.arthurbrugiere.forgeline.core.model.MergeBlocker
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
@@ -208,9 +209,24 @@ class GitLabPullRequestApiTest {
             if (path.endsWith("/7606")) json("""{"detailed_merge_status":"$status","user":{"can_merge":false}}""") else json("""{"squash_option":"never"}""")
         }.mergeInfo("tok", mr).value()
 
-        assertThat(mergeable("not_approved")).isEqualTo(MergeInfo(false, false, listOf(MergeMethod.MERGE)))
+        assertThat(mergeable("not_approved")).isEqualTo(MergeInfo(false, false, listOf(MergeMethod.MERGE), blockers = listOf(MergeBlocker.REVIEWS)))
         assertThat(mergeable("conflict").mergeable).isFalse()
         assertThat(mergeable("checking").mergeable).isNull()
+    }
+
+    @Test
+    fun gitlab_s_detailed_merge_status_says_what_blocks_the_merge() {
+        assertThat(mergeBlockerOf("conflict")).isEqualTo(MergeBlocker.CONFLICTS)
+        assertThat(mergeBlockerOf("ci_must_pass")).isEqualTo(MergeBlocker.CHECKS)
+        assertThat(mergeBlockerOf("ci_still_running")).isEqualTo(MergeBlocker.CHECKS)
+        assertThat(mergeBlockerOf("requested_changes")).isEqualTo(MergeBlocker.CHANGES_REQUESTED)
+        assertThat(mergeBlockerOf("discussions_not_resolved")).isEqualTo(MergeBlocker.THREADS)
+        assertThat(mergeBlockerOf("need_rebase")).isEqualTo(MergeBlocker.BEHIND)
+        assertThat(mergeBlockerOf("locked_paths")).isEqualTo(MergeBlocker.OTHER)
+        // A draft says so itself, and what is being worked out blocks nothing yet.
+        assertThat(mergeBlockerOf("draft_status")).isNull()
+        assertThat(mergeBlockerOf("checking")).isNull()
+        assertThat(mergeBlockerOf("mergeable")).isNull()
     }
 
     // Real discussions of gitlab-org/gitlab-runner!7661, captured 2026-10-23 (three on lines, one not), cut to four.

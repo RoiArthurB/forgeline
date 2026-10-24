@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.LineComment
+import fr.arthurbrugiere.forgeline.core.model.MergeBlocker
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
@@ -298,6 +299,66 @@ class GitHubPullRequestApiTest {
         val info = api { request -> if (request.path.endsWith("/pulls/88")) json(clean) else json("""{"permissions":{"push":true}}""") }.mergeInfo("tok", pull).value()
 
         assertThat(info.behind).isFalse()
+        assertThat(info.blockers).isEmpty()
+    }
+
+    @Test
+    fun conflicts_and_a_branch_behind_are_said_from_the_pull_request_alone() = runTest {
+        val dirty = ownBranch.replace(""""mergeable":true""", """"mergeable":false,"mergeable_state":"dirty"""")
+        val conflicting = api { request -> if (request.path.endsWith("/pulls/88")) json(dirty) else json("""{"permissions":{"push":true}}""") }.mergeInfo("tok", pull).value()
+        val behind = ownBranch.replace(""""mergeable":true""", """"mergeable":true,"mergeable_state":"behind"""")
+        val late = api { request -> if (request.path.endsWith("/pulls/88")) json(behind) else json("""{"permissions":{"push":true}}""") }.mergeInfo("tok", pull).value()
+
+        assertThat(conflicting.blockers).containsExactly(MergeBlocker.CONFLICTS)
+        assertThat(late.blockers).containsExactly(MergeBlocker.BEHIND)
+        assertThat(requests.none { it.path == "/graphql" }).isTrue()
+    }
+
+    private val blocked = """{"head":{"sha":"abc","ref":"retry","repo":{"full_name":"octo/tools"}},"base":{"repo":{"full_name":"octo/tools"}},"mergeable":true,"mergeable_state":"blocked"}"""
+
+    private fun standing(decision: String?, rollup: String?) =
+        """{"data":{"repository":{"pullRequest":{"reviewDecision":${decision?.let { "\"$it\"" }},"commits":{"nodes":[{"commit":{"statusCheckRollup":${rollup?.let { "{\"state\":\"$it\"}" }}}}]}}}}}"""
+
+    @Test
+    fun a_blocked_merge_says_which_reviews_and_checks_stand_in_its_way() = runTest {
+        val info = api { request ->
+            when {
+                request.path == "/graphql" -> json(standing("REVIEW_REQUIRED", "FAILURE"))
+                request.path.endsWith("/pulls/88") -> json(blocked)
+                else -> json("""{"permissions":{"push":true}}""")
+            }
+        }.mergeInfo("tok", pull).value()
+
+        assertThat(info.blockers).containsExactly(MergeBlocker.REVIEWS, MergeBlocker.CHECKS).inOrder()
+        assertThat(requests.single { it.path == "/graphql" }.sent).contains(""""variables":{"owner":"octo","name":"tools","number":88}""")
+    }
+
+    @Test
+    fun a_reviewer_asking_for_changes_blocks_a_merge() = runTest {
+        val info = api { request ->
+            when {
+                request.path == "/graphql" -> json(standing("CHANGES_REQUESTED", "SUCCESS"))
+                request.path.endsWith("/pulls/88") -> json(blocked)
+                else -> json("""{"permissions":{"push":true}}""")
+            }
+        }.mergeInfo("tok", pull).value()
+
+        assertThat(info.blockers).containsExactly(MergeBlocker.CHANGES_REQUESTED)
+    }
+
+    @Test
+    fun a_blocked_merge_with_reviews_and_checks_in_is_held_by_another_rule() = runTest {
+        val info = api { request ->
+            when {
+                request.path == "/graphql" -> json(standing("APPROVED", "SUCCESS"))
+                request.path.endsWith("/pulls/88") -> json(blocked)
+                else -> json("""{"permissions":{"push":true}}""")
+            }
+        }.mergeInfo("tok", pull).value()
+
+        assertThat(info.blockers).containsExactly(MergeBlocker.OTHER)
+        // Blocked isn't refused: whoever may bypass the rules can still merge.
+        assertThat(info.mergeable).isTrue()
     }
 
     // Real answers for gama-platform/gama#1265, captured 2026-10-23: five threads by a review bot, two answered.
