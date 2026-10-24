@@ -152,6 +152,21 @@ class ForgejoWriteLiveTest {
             val ref = ForgejoPullRequestApi(http, forge).create(token, repo, NewPullRequest("Say more", "Opened by Forgeline's live test.", head = "change", base = "main")).value("create")
             val issues = ForgejoIssueApi(http, forge)
 
+            // An issue opened from a template wears its labels, put on by name once it is open.
+            val label = http.post("$api/repos/$owner/$name/labels") {
+                header("Authorization", "token $token")
+                contentType(ContentType.Application.Json)
+                setBody(
+                    buildJsonObject {
+                        put("name", "from-template")
+                        put("color", "#00aabb")
+                    },
+                )
+            }
+            check(label.status.isSuccess()) { "label: ${label.status} ${label.bodyAsText().take(300)}" }
+            val labelled = issues.create(token, repo, "From a template", "Opened by Forgeline's live test.", labels = listOf("from-template")).value("labelled issue")
+            assertWithMessage("labels").that(issues.issue(token, labelled.ref).value("labelled").labels.map { it.name }).containsExactly("from-template")
+
             issues.setDraft(token, ref, draft = true).value("to draft")
             val drafted = issues.issue(token, ref).value("drafted")
             System.err.println("CODEBERG drafted: ${drafted.title} draft=${drafted.pullRequest?.isDraft}")

@@ -107,6 +107,9 @@ class GitLabWriteLiveTest {
 
             // A draft by its title and back, then oneself asked to review it and let off again.
             val issues = GitLabIssueApi(http, ForgeInstance.GitLab)
+            // An issue opened from a template wears its labels; GitLab makes a label it doesn't know yet.
+            val labelled = issues.create(token, repo, "From a template", "Opened by Forgeline's live test.", labels = listOf("from-template", "scratch")).value("labelled issue")
+            assertWithMessage("labels").that(issues.issue(token, labelled.ref).value("labelled").labels.map { it.name }).containsExactly("from-template", "scratch")
             issues.setDraft(token, ref, draft = true).value("to draft")
             val drafted = issues.issue(token, ref).value("drafted")
             assertWithMessage("draft").that(drafted.pullRequest?.isDraft).isTrue()

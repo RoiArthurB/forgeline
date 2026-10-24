@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -52,6 +53,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
+import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
@@ -65,6 +67,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.navigation.NewIssueRoute
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.session.signedInOn
+import fr.arthurbrugiere.forgeline.ui.LabelChip
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
@@ -87,6 +90,7 @@ fun NewIssueRoute(route: NewIssueRoute, session: SessionState, onBack: () -> Uni
         signedIn = session.signedInOn(repo.forge),
         onTitleChange = viewModel::titleChanged,
         onUseTemplate = viewModel::useTemplate,
+        onDropLabels = viewModel::dropLabels,
         onBaseChange = viewModel::baseChanged,
         onBodyChange = viewModel::bodyChanged,
         onSend = viewModel::send,
@@ -113,6 +117,7 @@ fun NewIssueScreen(
     suggestions: ReferenceOffer = ReferenceOffer(),
     onReferenceTyped: (TypedReference?) -> Unit = {},
     onUseTemplate: (IssueTemplate) -> Unit = {},
+    onDropLabels: () -> Unit = {},
     onBaseChange: (String) -> Unit = {},
 ) {
     val colors = Soft.colors
@@ -182,6 +187,7 @@ fun NewIssueScreen(
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Next),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                if (state.labels.isNotEmpty()) TemplateLabels(state.labels, enabled = !state.isSending, onDrop = onDropLabels)
                 var previewing by rememberSaveable { mutableStateOf(false) }
                 val showPreview = previewing && state.body.isNotBlank()
                 if (showPreview) WritingPreview(state.body, state.repo)
@@ -283,6 +289,27 @@ private fun Templates(templates: List<IssueTemplate>, picking: String?, error: F
         }
         if (error != null) Text(stringResource(R.string.new_issue_template_failed), style = Soft.type.secondary, color = colors.accent, modifier = Modifier.padding(top = 8.dp))
         Text(stringResource(R.string.new_issue_templates_blank), style = Soft.type.secondary, color = colors.inkMuted, modifier = Modifier.padding(top = 12.dp))
+    }
+}
+
+/** The labels the template picked puts on the issue, with a way to open it without them. */
+@Composable
+private fun TemplateLabels(labels: List<String>, enabled: Boolean, onDrop: () -> Unit) {
+    val colors = Soft.colors
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
+        Text(stringResource(R.string.new_issue_labels), style = Soft.type.secondary, color = colors.inkMuted)
+        labels.forEach { LabelChip(Label(it, null)) }
+        Text(
+            stringResource(R.string.new_issue_labels_drop),
+            style = Soft.type.control,
+            color = colors.accent,
+            modifier = Modifier
+                .clip(SoftTokens.RowCorner)
+                .clickable(enabled = enabled, role = Role.Button, onClick = onDrop)
+                .heightIn(min = 48.dp)
+                .wrapContentHeight()
+                .padding(horizontal = 8.dp),
+        )
     }
 }
 

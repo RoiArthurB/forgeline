@@ -140,7 +140,7 @@ class FakeIssueApi : IssueApi {
         issues[ref]?.let { issues[ref] = it.copy(title = title, body = body.ifBlank { null }) }
     }
 
-    /** Issues opened, as "owner/name: title / body". */
+    /** Issues opened, as "owner/name: title / body", then " [label, label]" when some were asked for. */
     val opened = mutableListOf<String>()
 
     /** What opening an issue fails with, apart from [failure], which is for reading. */
@@ -158,13 +158,14 @@ class FakeIssueApi : IssueApi {
     override suspend fun issueTemplate(token: String, repo: RepoId, template: IssueTemplate) =
         read(token, "template:${template.key}", template.copy(body = template.body ?: templateTexts[template.key]))
 
-    override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> {
+    override suspend fun create(token: String, repo: RepoId, title: String, body: String, labels: List<String>): ForgeResult<IssueDetails> {
         calls += "create:${repo.fullName}"
         gate?.await()
         tokens += token
         createFailure?.let { return ForgeResult.Failure(it) }
-        opened += "${repo.fullName}: $title / $body"
-        val created = issueDetails(IssueRef(repo, nextNumber++), title).copy(body = body.ifBlank { null }, author = ForgeUser("me", null, null), comments = 0)
+        opened += "${repo.fullName}: $title / $body" + if (labels.isEmpty()) "" else " $labels"
+        val created = issueDetails(IssueRef(repo, nextNumber++), title)
+            .copy(body = body.ifBlank { null }, author = ForgeUser("me", null, null), comments = 0, labels = labels.map { Label(it, null) })
         issues[created.ref] = created
         return ForgeResult.Success(created)
     }

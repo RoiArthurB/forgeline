@@ -217,6 +217,16 @@ class GitLabIssueApiTest {
         assertThat((request.body as TextContent).text).isEqualTo("""{"title":"Probe issue, renamed","description":""}""")
     }
 
+    @Test
+    fun an_issue_is_opened_with_its_labels_as_one_list() = runTest {
+        val created = api {
+            json("""{"id":101,"iid":11,"project_id":278964,"title":"Crash","description":"","state":"opened","created_at":"2026-10-24T09:43:33.630Z","labels":["bug","triage"]}""", HttpStatusCode.Created)
+        }.create("tok", repo, "Crash", "", labels = listOf("bug", "triage")).value()
+
+        assertThat(created.labels.map { it.name }).containsExactly("bug", "triage").inOrder()
+        assertThat((requests.single().body as TextContent).text).isEqualTo("""{"title":"Crash","description":"","labels":"bug,triage"}""")
+    }
+
     // The list is the shape gitlab.com answered on 2026-10-07 (one award per person, with its id and who gave it),
     // as are 201 for an award given and 204 for one taken back.
     private fun mergeRequest(title: String, draft: Boolean, reviewers: String = "[]") =

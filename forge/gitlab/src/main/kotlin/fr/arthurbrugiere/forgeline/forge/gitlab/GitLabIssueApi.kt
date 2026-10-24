@@ -281,10 +281,12 @@ class GitLabIssueApi(
         }
     }
 
-    override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = forgeCall {
+    /** A GitLab template names its labels in its own text (`/label ~bug`): GitLab applies those itself. */
+    override suspend fun create(token: String, repo: RepoId, title: String, body: String, labels: List<String>): ForgeResult<IssueDetails> = forgeCall {
         val payload = buildJsonObject {
             put("title", title)
             put("description", body)
+            if (labels.isNotEmpty()) put("labels", labels.joinToString(","))
         }
         httpClient.gitlabApi(
             repo.forge, token, "projects", repo.fullName, "issues",

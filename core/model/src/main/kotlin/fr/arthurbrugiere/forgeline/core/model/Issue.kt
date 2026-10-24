@@ -104,7 +104,15 @@ data class LinkedIssue(val ref: IssueRef, val title: String, val state: IssueSta
  * new issue. [body] is null until asked for, where the forge lists its templates without them (GitLab); [key] is what
  * it is asked for by.
  */
-data class IssueTemplate(val key: String, val name: String, val about: String? = null, val title: String = "", val body: String? = null)
+data class IssueTemplate(
+    val key: String,
+    val name: String,
+    val about: String? = null,
+    val title: String = "",
+    val body: String? = null,
+    /** The labels an issue opened from it wears, by name. */
+    val labels: List<String> = emptyList(),
+)
 
 /** Why an issue is closed, where the forge keeps that. */
 enum class CloseReason { COMPLETED, NOT_PLANNED, DUPLICATE }

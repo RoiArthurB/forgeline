@@ -94,9 +94,9 @@ interface IssueRepository {
 
     /**
      * Opens an issue in [repo] as the account signed in on its forge; Unauthorized without one. The new conversation is
-     * kept, so it opens at once, and announced on [changed].
+     * kept, so it opens at once, and announced on [changed]. [labels] are put on it where the reader may label.
      */
-    suspend fun create(repo: RepoId, title: String, body: String): ForgeResult<IssueDetails>
+    suspend fun create(repo: RepoId, title: String, body: String, labels: List<String> = emptyList()): ForgeResult<IssueDetails>
 
     /** The templates [repo] offers to start an issue from; Unauthorized signed out. */
     suspend fun issueTemplates(repo: RepoId): ForgeResult<List<IssueTemplate>>
@@ -366,9 +366,9 @@ class DefaultIssueRepository @Inject constructor(
 
     override suspend fun issueTemplate(repo: RepoId, template: IssueTemplate) = signedIn(repo.forge) { issueTemplate(it, repo, template) }
 
-    override suspend fun create(repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> {
+    override suspend fun create(repo: RepoId, title: String, body: String, labels: List<String>): ForgeResult<IssueDetails> {
         val token = accounts.tokenOn(repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
-        return clients.issues(repo.forge).create(token, repo, title, body).also { result ->
+        return clients.issues(repo.forge).create(token, repo, title, body, labels).also { result ->
             if (result is ForgeResult.Success) {
                 // A new issue has no conversation yet: kept whole, it opens without asking the forge first.
                 update(result.value.ref) { CachedConversation(result.value, TimelinePage(emptyList(), nextPage = null)) }

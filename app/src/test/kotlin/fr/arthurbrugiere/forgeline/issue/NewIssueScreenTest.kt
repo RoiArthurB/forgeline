@@ -52,6 +52,7 @@ class NewIssueScreenTest {
                 suggestions = suggested.value,
                 onReferenceTyped = { typedReferences += it },
                 onUseTemplate = { events += "template:${it.key}" },
+                onDropLabels = { events += "dropLabels" },
             )
         }
     }
@@ -79,6 +80,26 @@ class NewIssueScreenTest {
         setContent(empty.copy(templates = templates, body = "Steps"))
 
         composeRule.onNodeWithText("Start from a template").assertDoesNotExist()
+    }
+
+    @Test
+    fun the_labels_a_template_puts_on_the_issue_are_shown_and_can_be_removed() {
+        setContent(empty.copy(title = "[ICE]: ", body = "Code", labels = listOf("I-ICE", "C-bug")))
+
+        composeRule.onNodeWithText("Labels").assertIsDisplayed()
+        composeRule.onNodeWithText("I-ICE").assertIsDisplayed()
+        composeRule.onNodeWithText("C-bug").assertIsDisplayed()
+        composeRule.assertEveryTargetIsAtLeast48dp()
+        composeRule.onNodeWithText("Remove").performClick()
+
+        assertThat(events).containsExactly("dropLabels")
+    }
+
+    @Test
+    fun without_template_labels_no_label_line_shows() {
+        setContent(empty.copy(title = "Crash"))
+
+        composeRule.onNodeWithText("Labels").assertDoesNotExist()
     }
 
     @Test

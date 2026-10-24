@@ -627,6 +627,8 @@
     <string name="new_issue_templates">Start from a template</string>
     <string name="new_issue_templates_blank">Or write it from scratch below.</string>
     <string name="new_issue_template_failed">That template couldn\'t be loaded. Try again.</string>
+    <string name="new_issue_labels">Labels</string>
+    <string name="new_issue_labels_drop">Remove</string>
     <string name="new_issue_title_placeholder">Title</string>
     <string name="new_issue_body_placeholder">Describe it. Markdown works.</string>
     <string name="new_issue_send">Open issue</string>

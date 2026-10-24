@@ -280,6 +280,36 @@ class ForgejoIssueApiTest {
     }
 
     @Test
+    fun an_issue_opened_from_a_template_gets_its_labels_by_name_once_open() = runTest {
+        val opening = with(codeberg) {
+            ForgejoIssueApi(client { req -> if (req.url.encodedPath.endsWith("/labels")) json("[]") else json(opened, HttpStatusCode.Created) }, ForgeInstance.Codeberg)
+        }
+
+        val created = opening.create("tok", pull.repo, "problem: crash", "", labels = listOf("problem", "impact/unknown")).value()
+
+        assertThat(created.labels.map { it.name }).containsExactly("problem", "impact/unknown").inOrder()
+        assertThat(codeberg.requests.map { "${it.method.value} ${it.url.encodedPath}" })
+            .containsExactly("POST /api/v1/repos/forgejo/forgejo/issues", "PUT /api/v1/repos/forgejo/forgejo/issues/9321/labels").inOrder()
+        assertThat((codeberg.requests[0].body as TextContent).text).isEqualTo("""{"title":"problem: crash","body":""}""")
+        assertThat((codeberg.requests[1].body as TextContent).text).isEqualTo("""{"labels":["problem","impact/unknown"]}""")
+    }
+
+    @Test
+    fun an_issue_opened_by_someone_who_may_not_label_stays_open_without_its_labels() = runTest {
+        val opening = with(codeberg) {
+            ForgejoIssueApi(
+                client { req -> if (req.url.encodedPath.endsWith("/labels")) json("""{"message":"forbidden"}""", HttpStatusCode.Forbidden) else json(opened, HttpStatusCode.Created) },
+                ForgeInstance.Codeberg,
+            )
+        }
+
+        val created = opening.create("tok", pull.repo, "problem: crash", "", labels = listOf("problem")).value()
+
+        assertThat(created.ref).isEqualTo(IssueRef(pull.repo, 9321))
+        assertThat(created.labels).isEmpty()
+    }
+
+    @Test
     fun an_issue_the_forge_refuses_is_a_failure() = runTest {
         val opening = with(codeberg) { ForgejoIssueApi(client { json("""{"message":"repository is archived"}""", HttpStatusCode.Forbidden) }, ForgeInstance.Codeberg) }
 
@@ -567,6 +597,8 @@ class ForgejoIssueApiTest {
         assertThat(templates.map { it.name }).containsExactly("Step 1: Report a problem or need", "Step 2: Enhancement").inOrder()
         assertThat(templates[0].title).isEqualTo("problem: ")
         assertThat(templates[0].key).isEqualTo(".forgejo/issue_template/1-problem.yaml")
+        assertThat(templates[0].labels).containsExactly("problem", "impact/unknown").inOrder()
+        assertThat(templates[1].labels).containsExactly("enhancement/feature")
         val body = templates[0].body!!
         // What only the form shows is left out; what the issue keeps is in, in order.
         assertThat(body).doesNotContain("security@forgejo.org")

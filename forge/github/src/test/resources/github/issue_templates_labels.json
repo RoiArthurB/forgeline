@@ -1,0 +1,38 @@
+{
+ "data": {
+  "repository": {
+   "issueTemplates": [
+    {
+     "filename": "ice.md",
+     "name": "Internal Compiler Error",
+     "about": "Create a report for an internal compiler error in rustc.",
+     "title": "[ICE]: ",
+     "body": "<!--\nThank you for finding an Internal Compiler Error! 🧊  If possible, try to provide\na minimal verifiable example. You can read \"Rust Bug Minimization Patterns\" for\nhow to create smaller examples.\nhttp://blog.pnkfx.org/blog/2019/11/18/rust-bug-minimization-patterns/\n-->\n\n### Code\n\n```Rust\n<code>\n```\n\n\n### Meta\n<!--\nIf you're using the stable version of the compiler, you should also check if the\nbug also exists in the beta or nightly versions.\n-->\n\n`rustc --version --verbose`:\n```\n<version>\n```\n\n### Error output\n\n```\n<output>\n```\n\n<!--\nInclude a backtrace in the code block by setting `RUST_BACKTRACE=1` in your\nenvironment. E.g. `RUST_BACKTRACE=1 cargo build`.\n-->\n<details><summary><strong>Backtrace</strong></summary>\n<p>\n\n```\n<backtrace>\n```\n\n</p>\n</details>\n",
+     "labels": {
+      "nodes": [
+       {
+        "name": "I-ICE"
+       },
+       {
+        "name": "T-compiler"
+       },
+       {
+        "name": "C-bug"
+       }
+      ]
+     }
+    },
+    {
+     "filename": "tracking_issue_future.md",
+     "name": "Future Incompatibility Tracking Issue",
+     "about": "A tracking issue for a future-incompatible lint",
+     "title": "Tracking Issue for future-incompatibility lint XXX",
+     "body": "<!--\nThank you for creating a future-incompatible tracking issue! 📜 These issues\nare for lints that implement a future-incompatible warning.\n\nRemember to add team labels to the tracking issue.\nFor something that affects the language, this would be `T-lang`, and for libs\nit would be `T-libs`.\nAlso check for any `A-` labels to add.\n-->\n\nThis is the **tracking issue** for the `YOUR_LINT_NAME_HERE` future-compatibility warning and other related errors. The goal of this page is to describe why this change was made and how you can fix code that is affected by it. It also provides a place to ask questions or register a complaint if you feel the change should not be made. For more information on the policy around future-compatibility warnings, see our [breaking change policy guidelines][guidelines].\n\n[guidelines]: https://rustc-dev-guide.rust-lang.org/bug-fix-procedure.html\n\n### What is the warning for?\n\n*Describe the conditions that trigger the warning.*\n\n### Why was this change made?\n\n*Explain why this change was made. If there is additional context, like an MCP, link it here.*\n\n### Example\n\n```rust\n// Include an example here.\n```\n\n### Recommendations\n\n*Give some recommendations on how a user can avoid the lint.*\n\n### When will this warning become a hard error?\n\n*If known, describe the future plans. For example, how long you anticipate this being a warning, or if there are other factors that will influence the anticipated closure.*\n\n### Steps\n\n- [ ] Implement the lint\n- [ ] Raise lint level to deny\n- [ ] Change the lint to report in dependencies\n- [ ] Switch to a hard error\n\n### Implementation history\n\n<!--\nInclude a list of all the PRs that were involved in implementing the lint.\n-->\n",
+     "labels": {
+      "nodes": []
+     }
+    }
+   ]
+  }
+ }
+}

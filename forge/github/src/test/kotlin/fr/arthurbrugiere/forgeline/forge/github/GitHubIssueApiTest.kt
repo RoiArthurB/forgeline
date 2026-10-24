@@ -233,6 +233,13 @@ class GitHubIssueApiTest {
     }
 
     @Test
+    fun an_issue_opened_from_a_template_asks_for_its_labels() = runTest {
+        api { json(opened, status = HttpStatusCode.Created) }.create("tok", repo, "[ICE]: crash", "", labels = listOf("I-ICE", "C-bug"))
+
+        assertThat((requests.single().body as TextContent).text).isEqualTo("""{"title":"[ICE]: crash","body":"","labels":["I-ICE","C-bug"]}""")
+    }
+
+    @Test
     fun an_issue_the_forge_refuses_is_a_failure() = runTest {
         // What GitHub answers when a repository's issues are switched off.
         val result = api { json("""{"message":"Issues are disabled for this repo"}""", status = HttpStatusCode.Gone) }.create("tok", repo, "Hello", "")
@@ -576,7 +583,22 @@ class GitHubIssueApiTest {
         assertThat(templates[0].about).startsWith("Create a report to help us eliminate it.")
         assertThat(templates[0].title).isEmpty()
         assertThat(templates[0].body).startsWith("**Describe the bug**")
+        assertThat(templates[0].labels).isEmpty()
         assertThat(bodies.single()).contains(""""variables":{"owner":"paperclipai","name":"paperclip"}""")
+    }
+
+    @Test
+    fun a_template_says_which_labels_its_issues_wear() = runTest {
+        // GitHub's answer for rust-lang/rust, 2026-10-24, cut to two templates: one with labels, one without.
+        val captured = requireNotNull(javaClass.getResource("/github/issue_templates_labels.json")).readText()
+
+        val templates = graphQl { captured }.issueTemplates("tok", issue.repo).value()
+
+        assertThat(templates.map { it.key }).containsExactly("ice.md", "tracking_issue_future.md").inOrder()
+        assertThat(templates[0].labels).containsExactly("I-ICE", "T-compiler", "C-bug").inOrder()
+        assertThat(templates[0].title).isEqualTo("[ICE]: ")
+        assertThat(templates[1].labels).isEmpty()
+        assertThat(bodies.single()).contains("labels(first: 20) { nodes { name } }")
     }
 
     @Test

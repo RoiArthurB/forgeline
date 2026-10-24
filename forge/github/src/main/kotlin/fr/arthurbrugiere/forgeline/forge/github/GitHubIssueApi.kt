@@ -151,13 +151,15 @@ class GitHubIssueApi(
             Reaction.EYES -> "eyes"
         }
 
-    override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = forgeCall {
+    /** GitHub drops [labels] without a word for a reader who can't push to [repo]. */
+    override suspend fun create(token: String, repo: RepoId, title: String, body: String, labels: List<String>): ForgeResult<IssueDetails> = forgeCall {
         httpClient.gitHubApi(
             apiBaseUrl, token, "repos", repo.owner, repo.name, "issues",
             method = HttpMethod.Post,
             body = buildJsonObject {
                 put("title", title)
                 put("body", body)
+                if (labels.isNotEmpty()) putJsonArray("labels") { labels.forEach { add(it) } }
             },
         ).toResult { body<IssueJson>().let { it.toModel(IssueRef(repo, it.number), pull = null) } }
     }
@@ -165,14 +167,16 @@ class GitHubIssueApi(
     /** GitHub's GraphQL API lists a repository's Markdown templates, bodies and all; its forms are left out. */
     override suspend fun issueTemplates(token: String, repo: RepoId): ForgeResult<List<IssueTemplate>> = graphQl(
         token,
-        "query(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { issueTemplates { filename name about title body } } }",
+        "query(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { issueTemplates { filename name about title body labels(first: 20) { nodes { name } } } } }",
         buildJsonObject {
             put("owner", repo.owner)
             put("name", repo.name)
         },
     ).map { data ->
         val templates = data.objectAt("repository")?.get("issueTemplates")?.takeUnless { it is JsonNull } ?: return@map emptyList()
-        ForgeJson.decodeFromJsonElement<List<IssueTemplateJson>>(templates).map { IssueTemplate(it.filename ?: it.name, it.name, it.about?.ifBlank { null }, it.title.orEmpty(), it.body.orEmpty()) }
+        ForgeJson.decodeFromJsonElement<List<IssueTemplateJson>>(templates).map {
+            IssueTemplate(it.filename ?: it.name, it.name, it.about?.ifBlank { null }, it.title.orEmpty(), it.body.orEmpty(), it.labels?.nodes.orEmpty().map { label -> label.name })
+        }
     }
 
     /** A pull request is an issue to this endpoint: one call closes either. */
@@ -631,4 +635,17 @@ private data class EventJson(
 }
 
 @Serializable
-private data class IssueTemplateJson(val filename: String? = null, val name: String, val about: String? = null, val title: String? = null, val body: String? = null)
+private data class IssueTemplateJson(
+    val filename: String? = null,
+    val name: String,
+    val about: String? = null,
+    val title: String? = null,
+    val body: String? = null,
+    val labels: TemplateLabelsJson? = null,
+)
+
+@Serializable
+private data class TemplateLabelsJson(val nodes: List<TemplateLabelJson> = emptyList())
+
+@Serializable
+private data class TemplateLabelJson(val name: String)

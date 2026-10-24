@@ -213,6 +213,53 @@ class NewIssueViewModelTest {
         assertThat(viewModel.state.value.offersTemplates).isTrue()
     }
 
+    private val crash = IssueTemplate("ice.md", "Internal Compiler Error", title = "[ICE]: ", body = "Code\n", labels = listOf("I-ICE", "C-bug"))
+
+    @Test
+    fun an_issue_from_a_template_is_opened_with_the_template_s_labels() = test {
+        api.templates = listOf(crash)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.useTemplate(crash)
+        assertThat(viewModel.state.value.labels).containsExactly("I-ICE", "C-bug").inOrder()
+        viewModel.titleChanged("[ICE]: crash in borrowck")
+        viewModel.send()
+        advanceUntilIdle()
+
+        assertThat(api.opened).containsExactly("octo/repo: [ICE]: crash in borrowck / Code [I-ICE, C-bug]")
+        assertThat(repository.cached(IssueRef(repo, 100))?.issue?.labels?.map { it.name }).containsExactly("I-ICE", "C-bug").inOrder()
+    }
+
+    @Test
+    fun a_template_s_labels_can_be_left_off() = test {
+        api.templates = listOf(crash)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.useTemplate(crash)
+
+        viewModel.dropLabels()
+        viewModel.send()
+        advanceUntilIdle()
+
+        assertThat(api.opened).containsExactly("octo/repo: [ICE]: / Code")
+    }
+
+    @Test
+    fun taking_away_everything_a_template_wrote_takes_its_labels_away_too() = test {
+        api.templates = listOf(crash)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        viewModel.useTemplate(crash)
+
+        viewModel.titleChanged("")
+        assertThat(viewModel.state.value.labels).isNotEmpty()
+        viewModel.bodyChanged("")
+
+        assertThat(viewModel.state.value.labels).isEmpty()
+        assertThat(viewModel.state.value.offersTemplates).isTrue()
+    }
+
     @Test
     fun editing_an_issue_offers_no_template() = test {
         api.templates = listOf(bug)

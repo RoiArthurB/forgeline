@@ -76,6 +76,8 @@ data class NewIssueUiState(
     val pickingTemplate: String? = null,
     /** A template's text couldn't be had. */
     val templateError: ForgeError? = null,
+    /** The labels the template picked puts on the issue, by name, unless the reader takes them off. */
+    val labels: List<String> = emptyList(),
     /** The branch an open pull request being edited goes into, as picked, and as it was; null for anything else. */
     val base: String? = null,
     val baseWas: String? = null,
@@ -152,7 +154,7 @@ class NewIssueViewModel @AssistedInject constructor(
         if (_state.value.pickingTemplate != null) return
         val body = template.body
         if (body != null) {
-            write { it.copy(title = template.title, body = body, templateError = null) }
+            write { it.copy(title = template.title, body = body, templateError = null, labels = template.labels) }
             return
         }
         _state.update { it.copy(pickingTemplate = template.key, templateError = null) }
@@ -161,7 +163,7 @@ class NewIssueViewModel @AssistedInject constructor(
                 is ForgeResult.Failure -> _state.update { it.copy(pickingTemplate = null, templateError = result.error) }
                 is ForgeResult.Success -> {
                     _state.update { it.copy(pickingTemplate = null) }
-                    write { it.copy(title = result.value.title, body = result.value.body.orEmpty()) }
+                    write { it.copy(title = result.value.title, body = result.value.body.orEmpty(), labels = result.value.labels) }
                 }
             }
         }
@@ -173,8 +175,15 @@ class NewIssueViewModel @AssistedInject constructor(
 
     fun bodyChanged(text: String) = write { it.copy(body = text) }
 
+    /** Opens the issue without the labels its template puts on it. */
+    fun dropLabels() = _state.update { it.copy(labels = emptyList()) }
+
     private fun write(change: (NewIssueUiState) -> NewIssueUiState) {
-        val written = _state.updateAndGet { change(it).copy(error = null) }
+        val written = _state.updateAndGet { before ->
+            val changed = change(before).copy(error = null)
+            // Everything written taken away is the template too: its labels go with it.
+            if (changed.title.isEmpty() && changed.body.isEmpty()) changed.copy(labels = emptyList()) else changed
+        }
         // The draft kept is the issue not opened yet: changes to one that exists are not it.
         if (editing == null) drafts.keep(repo, IssueDraft(written.title, written.body))
     }
@@ -206,7 +215,7 @@ class NewIssueViewModel @AssistedInject constructor(
             return
         }
         viewModelScope.launch {
-            when (val result = repository.create(repo, state.title.trim(), state.body.trim())) {
+            when (val result = repository.create(repo, state.title.trim(), state.body.trim(), state.labels)) {
                 is ForgeResult.Failure -> _state.update { it.copy(isSending = false, error = result.error) }
                 is ForgeResult.Success -> {
                     drafts.keep(repo, IssueDraft())

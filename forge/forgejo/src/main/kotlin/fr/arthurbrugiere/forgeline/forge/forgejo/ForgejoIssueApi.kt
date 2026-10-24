@@ -187,8 +187,12 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         }
     }
 
-    override suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails> = forgeCall {
-        httpClient.forgejoApi(
+    /**
+     * Forgejo opens an issue with labels by their ids only: [labels] are put on it once it is open, by name, which its
+     * labels endpoint takes. A reader who may not label is refused that, and the issue stays open without them.
+     */
+    override suspend fun create(token: String, repo: RepoId, title: String, body: String, labels: List<String>): ForgeResult<IssueDetails> = forgeCall {
+        val created = httpClient.forgejoApi(
             forge, token, "repos", repo.owner, repo.name, "issues",
             method = HttpMethod.Post,
             body = buildJsonObject {
@@ -196,6 +200,11 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
                 put("body", body)
             },
         ).toResult { body<IssueJson>().let { it.toDetails(IssueRef(repo, it.number), pull = null, reactions = emptyMap()) } }
+        if (created !is ForgeResult.Success || labels.isEmpty()) return@forgeCall created
+        when (setLabels(token, created.value.ref, labels)) {
+            is ForgeResult.Success -> ForgeResult.Success(created.value.copy(labels = labels.map { Label(it, null) }))
+            is ForgeResult.Failure -> created
+        }
     }
 
     /**
@@ -211,6 +220,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
                     about = template.about?.ifBlank { null },
                     title = template.title.orEmpty(),
                     body = template.content?.ifBlank { null } ?: formToMarkdown(template.body.orEmpty()),
+                    labels = template.labels.orEmpty(),
                 )
             }
         }
@@ -565,6 +575,7 @@ private data class IssueTemplateJson(
     val content: String? = null,
     val body: List<FormFieldJson>? = null,
     @SerialName("file_name") val fileName: String? = null,
+    val labels: List<String>? = null,
 )
 
 /** One field of an issue form: [visible] says whether it shows in the form, in the issue it writes, or both. */

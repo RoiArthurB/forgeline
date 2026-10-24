@@ -61,8 +61,11 @@ interface IssueApi {
      */
     suspend fun attach(token: String, ref: IssueRef, name: String, mimeType: String, bytes: ByteArray): ForgeResult<String> = unsupported
 
-    /** Opens an issue in [repo], [body] being Markdown and possibly empty, and answers it as the forge kept it. */
-    suspend fun create(token: String, repo: RepoId, title: String, body: String): ForgeResult<IssueDetails>
+    /**
+     * Opens an issue in [repo], [body] being Markdown and possibly empty, and answers it as the forge kept it. [labels],
+     * by name, are put on it where the reader may label; the forges drop them for anyone else, and so does this.
+     */
+    suspend fun create(token: String, repo: RepoId, title: String, body: String, labels: List<String> = emptyList()): ForgeResult<IssueDetails>
 
     /** The templates [repo] offers to start an issue from, in its order; none where the forge's API has none. */
     suspend fun issueTemplates(token: String, repo: RepoId): ForgeResult<List<IssueTemplate>> = ForgeResult.Success(emptyList())
