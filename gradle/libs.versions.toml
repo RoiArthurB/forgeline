@@ -1,6 +1,6 @@
 [versions]
 # The formatter (./gradlew spotlessApply) and the Kotlin rules it applies.
-spotless = "8.10.3"
+spotless = "8.10.4"
 ktlint = "1.8.0"
 agp = "9.4.1"
 kotlin = "2.4.21"
