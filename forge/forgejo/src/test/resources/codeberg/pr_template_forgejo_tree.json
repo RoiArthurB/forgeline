@@ -1,0 +1,73 @@
+{
+ "sha": "a306d5eeacd54f28e8bdabff3dd0b378f167582f",
+ "url": "https://codeberg.org/api/v1/repos/forgejo/forgejo/git/trees/a306d5eeacd54f28e8bdabff3dd0b378f167582f",
+ "tree": [
+  {
+   "path": "cascading-pr-end-to-end",
+   "mode": "100755",
+   "type": "blob",
+   "size": 884,
+   "sha": "8013fde06a70b7a460ff30d4620d1574698dad41",
+   "url": "https://codeberg.org/api/v1/repos/forgejo/forgejo/git/blobs/8013fde06a70b7a460ff30d4620d1574698dad41"
+  },
+  {
+   "path": "cascading-release-end-to-end",
+   "mode": "100755",
+   "type": "blob",
+   "size": 636,
+   "sha": "f78c3aeedb1a0d450b5df34ecb61a54c50890e56",
+   "url": "https://codeberg.org/api/v1/repos/forgejo/forgejo/git/blobs/f78c3aeedb1a0d450b5df34ecb61a54c50890e56"
+  },
+  {
+   "path": "issue_template",
+   "mode": "040000",
+   "type": "tree",
+   "size": 0,
+   "sha": "ac9a3dba96a269e9a41343bed0bb78406543a3eb",
+   "url": "https://codeberg.org/api/v1/repos/forgejo/forgejo/git/trees/ac9a3dba96a269e9a41343bed0bb78406543a3eb"
+  },
+  {
+   "path": "pull_request_template.md",
+   "mode": "100644",
+   "type": "blob",
+   "size": 2512,
+   "sha": "98d36a461c899ef1190d943be7495dd9348ff3ca",
+   "url": "https://codeberg.org/api/v1/repos/forgejo/forgejo/git/blobs/98d36a461c899ef1190d943be7495dd9348ff3ca"
+  },
+  {
+   "path": "renovate.json",
+   "mode": "100644",
+   "type": "blob",
+   "size": 6652,
+   "sha": "53a121ac221a60b9865c7ec06220449d9afedd8c",
+   "url": "https://codeberg.org/api/v1/repos/forgejo/forgejo/git/blobs/53a121ac221a60b9865c7ec06220449d9afedd8c"
+  },
+  {
+   "path": "testdata",
+   "mode": "040000",
+   "type": "tree",
+   "size": 0,
+   "sha": "89ba90f9b9f2f5529346a707b5a7c01a5a642224",
+   "url": "https://codeberg.org/api/v1/repos/forgejo/forgejo/git/trees/89ba90f9b9f2f5529346a707b5a7c01a5a642224"
+  },
+  {
+   "path": "workflows-composite",
+   "mode": "040000",
+   "type": "tree",
+   "size": 0,
+   "sha": "5b0ae5e30da36d9381f37b99501a669c75d81ec3",
+   "url": "https://codeberg.org/api/v1/repos/forgejo/forgejo/git/trees/5b0ae5e30da36d9381f37b99501a669c75d81ec3"
+  },
+  {
+   "path": "workflows",
+   "mode": "040000",
+   "type": "tree",
+   "size": 0,
+   "sha": "e1820270348e34c410895aaaa3666737e19e21d0",
+   "url": "https://codeberg.org/api/v1/repos/forgejo/forgejo/git/trees/e1820270348e34c410895aaaa3666737e19e21d0"
+  }
+ ],
+ "truncated": false,
+ "page": 1,
+ "total_count": 8
+}

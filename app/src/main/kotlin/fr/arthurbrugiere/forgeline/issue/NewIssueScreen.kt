@@ -162,7 +162,9 @@ fun NewIssueScreen(
                     SoftTonalButton(stringResource(R.string.sign_in), onSignIn)
                     return@Column
                 }
-                if (state.offersTemplates) Templates(state.templates, state.pickingTemplate, state.templateError, onUseTemplate)
+                if (state.offersTemplates) {
+                    Templates(state.templates, state.pickingTemplate, state.templateError, onUseTemplate, hint = stringResource(R.string.new_issue_templates_blank))
+                }
                 // Where a pull request goes, said the way the form that opens one says it.
                 if (state.offersBase) {
                     val names = state.branches.let { if (state.base in it) it else listOfNotNull(state.base) + it }
@@ -252,43 +254,6 @@ fun NewIssueScreen(
             Spacer(Modifier.height(listBottomPadding()))
         }
         SoftStatusBarScrim(scroll.value > 0)
-    }
-}
-
-/**
- * What the repository offers to start an issue from, while nothing is written: each its name and what it is for. One
- * picked fills the title and the description, to be written on from there.
- */
-@Composable
-private fun Templates(templates: List<IssueTemplate>, picking: String?, error: ForgeError?, onPick: (IssueTemplate) -> Unit) {
-    val colors = Soft.colors
-    Column {
-        Text(stringResource(R.string.new_issue_templates), style = Soft.type.name, color = colors.ink, modifier = Modifier.padding(bottom = 8.dp).semantics { heading() })
-        templates.forEachIndexed { index, template ->
-            if (index > 0) SoftHairline()
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(SoftTokens.RowCorner)
-                    .clickable(enabled = picking == null, role = Role.Button) { onPick(template) }
-                    .heightIn(min = 48.dp)
-                    .padding(horizontal = 8.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(template.name, style = Soft.type.control, color = colors.ink)
-                    template.about?.let { Text(it, style = Soft.type.meta, color = colors.inkMuted, maxLines = 2, overflow = TextOverflow.Ellipsis) }
-                }
-                Spacer(Modifier.width(8.dp))
-                if (picking == template.key) {
-                    CircularProgressIndicator(Modifier.size(18.dp), color = colors.accent, trackColor = colors.ground, strokeWidth = 2.dp)
-                } else {
-                    Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp))
-                }
-            }
-        }
-        if (error != null) Text(stringResource(R.string.new_issue_template_failed), style = Soft.type.secondary, color = colors.accent, modifier = Modifier.padding(top = 8.dp))
-        Text(stringResource(R.string.new_issue_templates_blank), style = Soft.type.secondary, color = colors.inkMuted, modifier = Modifier.padding(top = 12.dp))
     }
 }
 

@@ -26,6 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftCheckRow
@@ -35,6 +36,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.issue.Templates
 import fr.arthurbrugiere.forgeline.navigation.NewPullRequestRoute
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
@@ -54,6 +56,7 @@ fun NewPullRequestRoute(route: NewPullRequestRoute, onBack: () -> Unit, onCreate
         onHeadChange = viewModel::headChanged,
         onTitleChange = viewModel::titleChanged,
         onBodyChange = viewModel::bodyChanged,
+        onUseTemplate = viewModel::useTemplate,
         onDraftChange = viewModel::draftChanged,
         onSend = viewModel::send,
     )
@@ -73,6 +76,7 @@ fun NewPullRequestScreen(
     onDraftChange: (Boolean) -> Unit,
     onSend: () -> Unit,
     modifier: Modifier = Modifier,
+    onUseTemplate: (IssueTemplate) -> Unit = {},
 ) {
     val colors = Soft.colors
     Column(
@@ -123,6 +127,8 @@ fun NewPullRequestScreen(
                         Text(stringResource(R.string.new_pull_same_branch), style = Soft.type.secondary, color = colors.accent)
                     }
                     SoftTextField(value = state.title, onValueChange = onTitleChange, placeholder = "", label = stringResource(R.string.new_issue_title_placeholder))
+                    // Over the description it fills: offered until the reader writes in it.
+                    if (state.offersTemplates) Templates(state.templates, state.pickingTemplate, state.templateError, onUseTemplate, selected = state.template)
                     SoftTextField(
                         value = state.body, onValueChange = onBodyChange, placeholder = stringResource(R.string.new_pull_body_hint), label = stringResource(R.string.new_issue_body_label),
                         singleLine = false, minLines = 5, maxLines = 14,

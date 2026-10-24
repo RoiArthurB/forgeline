@@ -72,6 +72,26 @@ class GitLabWriteLiveTest {
         val (owner, path) = project.getValue("path_with_namespace").jsonPrimitive.content.split('/', limit = 2)
         val repo = RepoId(owner, path, ForgeInstance.GitLab)
         try {
+            // A merge request template on the default branch first, which the change then starts from.
+            send(
+                "projects/$id/repository/commits",
+                buildJsonObject {
+                    put("branch", "main")
+                    put("commit_message", "Add a merge request template")
+                    put(
+                        "actions",
+                        buildJsonArray {
+                            add(
+                                buildJsonObject {
+                                    put("action", "create")
+                                    put("file_path", ".gitlab/merge_request_templates/Default.md")
+                                    put("content", "## Why\n\nFrom %{source_branch}.\n")
+                                },
+                            )
+                        },
+                    )
+                },
+            )
             send(
                 "projects/$id/repository/commits",
                 buildJsonObject {
@@ -93,6 +113,10 @@ class GitLabWriteLiveTest {
                 },
             )
             val pulls = GitLabPullRequestApi(http)
+            val templates = pulls.pullRequestTemplates(token, repo, "main").value("templates")
+            assertWithMessage("templates").that(templates.map { it.key }).contains("Default")
+            val default = pulls.pullRequestTemplate(token, repo, templates.first { it.key == "Default" }).value("Default template")
+            assertWithMessage("template text").that(default.body).isEqualTo("## Why\n\nFrom %{source_branch}.\n")
 
             val ref = pulls.create(token, repo, NewPullRequest("Say more in the README", "Opened by Forgeline's live test.", head = "change", base = "main")).value("create")
             assertWithMessage("opened as a merge request").that(ref.isPullRequest).isTrue()

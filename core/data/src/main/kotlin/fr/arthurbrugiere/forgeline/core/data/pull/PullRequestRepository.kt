@@ -15,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
@@ -68,6 +69,12 @@ interface PullRequestRepository {
     suspend fun review(ref: IssueRef, verdict: ReviewVerdict, body: String, comments: List<LineComment> = emptyList()): ForgeResult<Unit>
 
     suspend fun create(repo: RepoId, request: NewPullRequest): ForgeResult<IssueRef>
+
+    /** The templates [repo] offers for a pull request's description, kept on [branch], its default one; Unauthorized signed out. */
+    suspend fun templates(repo: RepoId, branch: String): ForgeResult<List<IssueTemplate>>
+
+    /** [template] with its text, asked for where the forge lists its templates without it. */
+    suspend fun template(repo: RepoId, template: IssueTemplate): ForgeResult<IssueTemplate>
 
     suspend fun history(repo: RepoId, ref: String?, path: String?, page: Int = 1): ForgeResult<CommitPage>
 
@@ -127,6 +134,10 @@ class DefaultPullRequestRepository @Inject constructor(
         signedIn(ref.repo.forge) { review(it, ref, verdict, body, comments) }
 
     override suspend fun create(repo: RepoId, request: NewPullRequest) = signedIn(repo.forge) { create(it, repo, request) }
+
+    override suspend fun templates(repo: RepoId, branch: String) = signedIn(repo.forge) { pullRequestTemplates(it, repo, branch) }
+
+    override suspend fun template(repo: RepoId, template: IssueTemplate) = signedIn(repo.forge) { pullRequestTemplate(it, repo, template) }
 
     override suspend fun history(repo: RepoId, ref: String?, path: String?, page: Int) = read(repo.forge) { history(it, repo, ref, path, page) }
 

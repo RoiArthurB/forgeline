@@ -363,4 +363,67 @@ class ForgejoPullRequestApiTest {
         assertThat(api.blame(null, repo, "forgejo", "go.mod")).isEqualTo(ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unsupported))
         assertThat(codeberg.requests).isEmpty()
     }
+
+    // forgejo/forgejo on its default branch, 2026-10-24: its root (cut to four entries), its .forgejo folder and the template there.
+    private fun captured(name: String) = requireNotNull(javaClass.getResource("/codeberg/$name")).readText()
+
+    @Test
+    fun the_pull_request_template_is_found_in_the_folders_forgejo_looks_into() = runTest {
+        val templates = with(codeberg) {
+            api { path ->
+                when {
+                    path.endsWith("/git/trees/forgejo") -> json(captured("pr_template_root.json"))
+                    path.endsWith("/git/trees/forgejo:.forgejo") -> json(captured("pr_template_forgejo_tree.json"))
+                    path.endsWith("/raw/.forgejo/pull_request_template.md") -> text(captured("pull_request_template.md"))
+                    else -> error(path)
+                }
+            }
+        }.pullRequestTemplates("tok", repo, "forgejo").value()
+
+        val template = templates.single()
+        assertThat(template.key).isEqualTo(".forgejo/pull_request_template.md")
+        assertThat(template.name).isEqualTo("Pull Request Template")
+        assertThat(template.about).isEqualTo("Template for all Pull Requests")
+        // The front matter isn't part of the description.
+        assertThat(template.body).startsWith("## Checklist\n")
+        assertThat(codeberg.requests.map { it.url.encodedPath }).containsExactly(
+            "$base/git/trees/forgejo", "$base/git/trees/forgejo:.forgejo", "$base/raw/.forgejo/pull_request_template.md",
+        ).inOrder()
+        assertThat(codeberg.requests.last().url.parameters["ref"]).isEqualTo("forgejo")
+    }
+
+    @Test
+    fun a_repository_without_those_folders_has_no_template_and_is_asked_nothing_more() = runTest {
+        val templates = with(codeberg) {
+            api { json("""{"tree":[{"path":"README.md","type":"blob","mode":"100644"},{"path":"src","type":"tree","mode":"040000"}],"total_count":2}""") }
+        }.pullRequestTemplates("tok", repo, "main").value()
+
+        assertThat(templates).isEmpty()
+        assertThat(codeberg.requests).hasSize(1)
+    }
+
+    @Test
+    fun a_template_at_the_root_comes_before_one_in_a_folder() = runTest {
+        val templates = with(codeberg) {
+            api { path ->
+                if (path.endsWith("/raw/PULL_REQUEST_TEMPLATE.md")) {
+                    text("## Why\n")
+                } else {
+                    json("""{"tree":[{"path":".github","type":"tree"},{"path":"PULL_REQUEST_TEMPLATE.md","type":"blob"}],"total_count":2}""")
+                }
+            }
+        }.pullRequestTemplates("tok", repo, "main").value()
+
+        assertThat(templates.single().key).isEqualTo("PULL_REQUEST_TEMPLATE.md")
+        assertThat(templates.single().body).isEqualTo("## Why\n")
+        assertThat(codeberg.requests).hasSize(2)
+    }
+
+    @Test
+    fun a_template_without_front_matter_is_kept_whole() {
+        val template = markdownTemplate(".gitea/pull_request_template.md", "---\nnot front matter, a rule\n")
+
+        assertThat(template.body).isEqualTo("---\nnot front matter, a rule\n")
+        assertThat(template.name).isEqualTo("pull_request_template.md")
+    }
 }

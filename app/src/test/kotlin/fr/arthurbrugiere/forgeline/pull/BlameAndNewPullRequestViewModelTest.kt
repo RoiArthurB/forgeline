@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
@@ -184,5 +185,96 @@ class BlameAndNewPullRequestViewModelTest {
 
         // No default branch known for this repository: the first one listed stands in.
         assertThat(viewModel.state.value.base).isEqualTo("dev")
+    }
+
+    private val gitlabDefault = IssueTemplate("Default", "Default")
+    private val docs = IssueTemplate("Documentation", "Documentation")
+
+    @Test
+    fun a_repository_s_only_template_fills_the_description_from_its_default_branch() = test {
+        signIn()
+        api.templates = listOf(IssueTemplate("PULL_REQUEST_TEMPLATE.md", "PULL_REQUEST_TEMPLATE.md", body = "## Summary\n"))
+        val viewModel = form()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.body).isEqualTo("## Summary\n")
+        assertThat(api.calls).contains("templates:octo/repo@main")
+        // One template is no choice: none is offered.
+        assertThat(viewModel.state.value.offersTemplates).isFalse()
+    }
+
+    @Test
+    fun among_several_the_default_one_is_filled_in_and_the_others_offered_until_the_reader_writes() = test {
+        signIn()
+        api.templates = listOf(docs, gitlabDefault)
+        api.templateTexts = mapOf("Default" to "## What does this MR do?\n", "Documentation" to "## Docs\n")
+        val viewModel = form()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.body).isEqualTo("## What does this MR do?\n")
+        assertThat(viewModel.state.value.template).isEqualTo("Default")
+        assertThat(viewModel.state.value.offersTemplates).isTrue()
+
+        viewModel.useTemplate(docs)
+        assertThat(viewModel.state.value.pickingTemplate).isEqualTo("Documentation")
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.body).isEqualTo("## Docs\n")
+        assertThat(viewModel.state.value.template).isEqualTo("Documentation")
+
+        viewModel.bodyChanged("## Docs\nThe retry page.")
+        assertThat(viewModel.state.value.offersTemplates).isFalse()
+    }
+
+    @Test
+    fun a_template_arriving_after_the_reader_started_writing_leaves_their_text() = test {
+        signIn()
+        api.templates = listOf(IssueTemplate("pull_request_template.md", "pull_request_template.md", body = "## Summary\n"))
+        val viewModel = form()
+        // Written before the branches, and so the templates, are in.
+        viewModel.bodyChanged("Three times.")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.body).isEqualTo("Three times.")
+    }
+
+    @Test
+    fun several_templates_without_a_default_fill_nothing() = test {
+        signIn()
+        api.templates = listOf(docs, IssueTemplate("Security Release", "Security Release"))
+        val viewModel = form()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.body).isEmpty()
+        assertThat(viewModel.state.value.offersTemplates).isTrue()
+        assertThat(api.calls.filter { it.startsWith("template:") }).isEmpty()
+    }
+
+    @Test
+    fun a_template_that_names_the_branches_follows_them_until_it_is_written_on() = test {
+        signIn()
+        api.templates = listOf(IssueTemplate("Default", "Default", body = "From %{source_branch} into %{target_branch}.\n\n%{first_multiline_commit}"))
+        val viewModel = form()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.body).isEqualTo("From  into main.\n\n")
+
+        viewModel.headChanged("fix/slow-uploads")
+        assertThat(viewModel.state.value.body).isEqualTo("From fix/slow-uploads into main.\n\n")
+        viewModel.bodyChanged("From fix/slow-uploads into main.\n\nThree retries.")
+        viewModel.baseChanged("release")
+
+        assertThat(viewModel.state.value.body).isEqualTo("From fix/slow-uploads into main.\n\nThree retries.")
+    }
+
+    @Test
+    fun a_template_that_can_t_be_had_leaves_the_description_empty_and_says_so() = test {
+        signIn()
+        api.templates = listOf(docs, gitlabDefault)
+        val viewModel = form()
+        advanceUntilIdle()
+        api.failure = ForgeError.Network
+
+        viewModel.useTemplate(docs)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.templateError).isEqualTo(ForgeError.Network)
     }
 }

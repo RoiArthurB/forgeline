@@ -539,4 +539,24 @@ class GitHubPullRequestApiTest {
         val missing = api { json("""{"data":{"repository":{"target":null}}}""") }.blame("tok", repo, "nope", "a.kt")
         assertThat(missing).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, null)))
     }
+
+    @Test
+    fun a_repository_s_pull_request_template_comes_with_its_text() = runTest {
+        // GitHub's answer for facebook/react, 2026-10-24.
+        val captured = requireNotNull(javaClass.getResource("/github/pull_request_templates.json")).readText()
+
+        val templates = api { json(captured) }.pullRequestTemplates("tok", repo, "main").value()
+
+        assertThat(templates.map { it.key }).containsExactly("PULL_REQUEST_TEMPLATE.md")
+        assertThat(templates.single().body).startsWith("<!--\n  Thanks for submitting a pull request!")
+        assertThat(requests.single().path).isEqualTo("/graphql")
+        assertThat(requests.single().sent).contains(""""variables":{"owner":"octo","name":"tools"}""")
+    }
+
+    @Test
+    fun a_repository_without_a_pull_request_template_offers_none() = runTest {
+        val templates = api { json("""{"data":{"repository":{"pullRequestTemplates":[]}}}""") }.pullRequestTemplates("tok", repo, "main").value()
+
+        assertThat(templates).isEmpty()
+    }
 }

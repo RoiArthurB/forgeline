@@ -8,6 +8,7 @@ import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
@@ -78,6 +79,15 @@ interface PullRequestApi {
 
     /** Opens a pull request in [repo], and answers where it is. */
     suspend fun create(token: String, repo: RepoId, request: NewPullRequest): ForgeResult<IssueRef>
+
+    /**
+     * The templates [repo] offers for a pull request's description, as kept on [branch], its default one, where the
+     * forge reads them from the repository; none where it has none. A template's title stays empty.
+     */
+    suspend fun pullRequestTemplates(token: String, repo: RepoId, branch: String): ForgeResult<List<IssueTemplate>> = ForgeResult.Success(emptyList())
+
+    /** [template] with its body, for a forge that lists its templates without them. */
+    suspend fun pullRequestTemplate(token: String, repo: RepoId, template: IssueTemplate): ForgeResult<IssueTemplate> = ForgeResult.Success(template)
 
     /**
      * [repo]'s history, newest first: from [ref] (a branch, a tag, a commit; the default branch when null), and

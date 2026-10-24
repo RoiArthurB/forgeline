@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.repo.Loadable
@@ -36,8 +37,24 @@ data class NewPullRequestUiState(
     val error: ForgeError? = null,
     /** The pull request once opened: the form gives way to it. */
     val created: IssueRef? = null,
+    /** What the repository offers to start the description from. */
+    val templates: List<IssueTemplate> = emptyList(),
+    /** The template whose text is being asked for, by its key. */
+    val pickingTemplate: String? = null,
+    /** A template's text couldn't be had. */
+    val templateError: ForgeError? = null,
+    /** The template the description was last filled from, by its key, its text as kept, and as put in the description. */
+    val template: String? = null,
+    val templateSource: String? = null,
+    val templateText: String? = null,
 ) {
     val canSend: Boolean get() = !isSending && title.isNotBlank() && base != null && head != null && head != base
+
+    /** Whether the description is still a template's, untouched, or empty: another template may then take its place. */
+    val bodyIsTemplate: Boolean get() = body.isEmpty() || body == templateText
+
+    /** Where there is a choice, it stays offered until the reader writes in the description. */
+    val offersTemplates: Boolean get() = templates.size > 1 && bodyIsTemplate && !isSending
 }
 
 /**
@@ -73,16 +90,65 @@ class NewPullRequestViewModel @AssistedInject constructor(
                     val default = repos.observe(repo).first().details?.defaultBranch?.takeIf { it in result.value.branches }
                     val branches = listOfNotNull(default) + (result.value.branches - setOfNotNull(default))
                     _state.update { it.copy(branches = Loadable.Loaded(branches), base = it.base ?: default ?: branches.firstOrNull()) }
+                    (default ?: branches.firstOrNull())?.let(::loadTemplates)
                 }
             }
         }
     }
 
-    fun baseChanged(branch: String) = _state.update { it.copy(base = branch) }
+    private var templatesAsked = false
+
+    /** What the repository offers to start the description from, as kept on its default [branch]. */
+    private fun loadTemplates(branch: String) {
+        if (templatesAsked) return
+        templatesAsked = true
+        viewModelScope.launch {
+            // A forge that won't say offers nothing: the form works without.
+            val templates = (pulls.templates(repo, branch) as? ForgeResult.Success)?.value.orEmpty()
+            _state.update { it.copy(templates = templates) }
+            // The one the forge's own form starts from: the only one, or the one named for it.
+            val default = templates.singleOrNull() ?: templates.firstOrNull { it.key.substringAfterLast('/').substringBeforeLast('.').lowercase() in DEFAULT_TEMPLATES }
+            if (default != null && _state.value.body.isEmpty()) useTemplate(default)
+        }
+    }
+
+    /** Fills the description from [template], its text asked for first where the forge listed it without. */
+    fun useTemplate(template: IssueTemplate) {
+        if (_state.value.pickingTemplate != null) return
+        template.body?.let { return fill(template.key, it) }
+        _state.update { it.copy(pickingTemplate = template.key, templateError = null) }
+        viewModelScope.launch {
+            when (val result = pulls.template(repo, template)) {
+                is ForgeResult.Failure -> _state.update { it.copy(pickingTemplate = null, templateError = result.error) }
+                is ForgeResult.Success -> {
+                    _state.update { it.copy(pickingTemplate = null) }
+                    fill(template.key, result.value.body.orEmpty())
+                }
+            }
+        }
+    }
+
+    /** Puts [source] in the description, its branches filled in, unless the reader has written their own meanwhile. */
+    private fun fill(key: String, source: String) = _state.update {
+        if (!it.bodyIsTemplate) return@update it
+        val text = withBranches(source, it.head, it.base)
+        it.copy(body = text, template = key, templateSource = source, templateText = text, templateError = null)
+    }
+
+    /** A template still untouched follows the branches picked, where it names them. */
+    private fun NewPullRequestUiState.branchesPicked(): NewPullRequestUiState {
+        val source = templateSource ?: return this
+        if (body != templateText) return this
+        val text = withBranches(source, head, base)
+        return copy(body = text, templateText = text)
+    }
+
+    fun baseChanged(branch: String) = _state.update { it.copy(base = branch).branchesPicked() }
 
     /** The branch that holds the change; a title still empty takes its name, as the forges' own forms do. */
     fun headChanged(branch: String) = _state.update {
         it.copy(head = branch, title = it.title.ifBlank { branch.substringAfterLast('/').replace('-', ' ').replace('_', ' ').replaceFirstChar(Char::uppercase) })
+            .branchesPicked()
     }
 
     fun titleChanged(title: String) = _state.update { it.copy(title = title) }
@@ -105,3 +171,15 @@ class NewPullRequestViewModel @AssistedInject constructor(
         }
     }
 }
+
+/** The names, without folder or extension, of the template a forge's own form starts from when there are several. */
+private val DEFAULT_TEMPLATES = setOf("pull_request_template", "default")
+
+/**
+ * [template] with the branches GitLab's templates may name (`%{source_branch}`, `%{target_branch}`) filled in, blank
+ * until picked; the commits they may quote (`%{first_commit}` and the like) are left out, as they aren't read here.
+ */
+internal fun withBranches(template: String, head: String?, base: String?): String = template
+    .replace("%{source_branch}", head.orEmpty())
+    .replace("%{target_branch}", base.orEmpty())
+    .replace(Regex("""%\{(all_commits|co_authored_by|first_commit|first_multiline_commit)}"""), "")

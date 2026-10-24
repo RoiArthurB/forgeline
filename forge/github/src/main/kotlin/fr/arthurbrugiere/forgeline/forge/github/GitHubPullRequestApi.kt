@@ -16,6 +16,7 @@ import fr.arthurbrugiere.forgeline.core.model.CommitPage
 import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeBlocker
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
@@ -36,6 +37,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -289,6 +291,22 @@ class GitHubPullRequestApi(
                 put("draft", request.draft)
             },
         ).toResult { IssueRef(repo, body<PrCreatedJson>().number, isPullRequest = true) }
+    }
+
+    /** GitHub reads them from the default branch itself, wherever they are kept (the root, `.github`, `docs`). */
+    override suspend fun pullRequestTemplates(token: String, repo: RepoId, branch: String): ForgeResult<List<IssueTemplate>> = graphQl(
+        token,
+        "query(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { pullRequestTemplates { filename body } } }",
+        buildJsonObject {
+            put("owner", repo.owner)
+            put("name", repo.name)
+        },
+    ).map { data ->
+        val templates = (data["repository"] as? JsonObject)?.get("pullRequestTemplates") as? JsonArray ?: return@map emptyList()
+        ForgeJson.decodeFromJsonElement<List<PrTemplateJson>>(templates).mapNotNull { template ->
+            val file = template.filename ?: return@mapNotNull null
+            IssueTemplate(file, file.substringAfterLast('/'), body = template.body.orEmpty())
+        }
     }
 
     override suspend fun history(token: String?, repo: RepoId, ref: String?, path: String?, page: Int): ForgeResult<CommitPage> = forgeCall {
@@ -624,3 +642,6 @@ private data class PrThreadJson(
         outdated = isOutdated,
     )
 }
+
+@Serializable
+private data class PrTemplateJson(val filename: String? = null, val body: String? = null)

@@ -135,6 +135,22 @@ class ForgejoWriteLiveTest {
         val (owner, _) = created.body<JsonObject>().getValue("full_name").jsonPrimitive.content.split('/', limit = 2)
         val repo = RepoId(owner, name, forge)
         try {
+            // A pull request template on the default branch, with front matter as Forgejo's own has.
+            val template = http.post("$api/repos/$owner/$name/contents/.forgejo/pull_request_template.md") {
+                header("Authorization", "token $token")
+                contentType(ContentType.Application.Json)
+                setBody(
+                    buildJsonObject {
+                        put("content", java.util.Base64.getEncoder().encodeToString("---\nname: \"Scratch\"\nabout: \"For the test\"\n---\n\n## Why\n".toByteArray()))
+                        put("message", "Add a pull request template")
+                        put("branch", "main")
+                    },
+                )
+            }
+            check(template.status.isSuccess()) { "template: ${template.status} ${template.bodyAsText().take(300)}" }
+            val templates = ForgejoPullRequestApi(http, forge).pullRequestTemplates(token, repo, "main").value("templates")
+            assertWithMessage("template").that(templates.map { Triple(it.key, it.name, it.body) }).containsExactly(Triple(".forgejo/pull_request_template.md", "Scratch", "## Why\n"))
+
             // A change on a branch of its own, written through the contents API.
             val file = http.post("$api/repos/$owner/$name/contents/NOTES.md") {
                 header("Authorization", "token $token")

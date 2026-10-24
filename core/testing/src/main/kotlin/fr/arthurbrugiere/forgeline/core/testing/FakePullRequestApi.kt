@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.model.CommitPage
 import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
@@ -132,6 +133,15 @@ class FakePullRequestApi(
             opened += request
             IssueRef(repo, created, isPullRequest = true)
         }
+
+    /** The pull request templates every repository offers; listed without their text where [templateTexts] has it, as GitLab does. */
+    var templates = emptyList<IssueTemplate>()
+    var templateTexts = emptyMap<String, String>()
+
+    override suspend fun pullRequestTemplates(token: String, repo: RepoId, branch: String) = read("templates:${repo.fullName}@$branch") { templates }
+
+    override suspend fun pullRequestTemplate(token: String, repo: RepoId, template: IssueTemplate) =
+        read("template:${template.key}") { template.copy(body = template.body ?: templateTexts[template.key]) }
 
     override suspend fun history(token: String?, repo: RepoId, ref: String?, path: String?, page: Int) =
         read("history:${repo.fullName}:${ref.orEmpty()}:${path.orEmpty()}:$page") {

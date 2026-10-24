@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
@@ -209,6 +210,34 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
         ).toResult { IssueRef(repo, body<PrCreatedJson>().number, isPullRequest = true) }
     }
 
+    /**
+     * Forgejo's API has no word of pull request templates: it reads one file itself, the first of [PR_TEMPLATE_FOLDERS]
+     * that holds one of [PR_TEMPLATE_NAMES] on the default [branch]. Looked for the same way, through git trees (1 to
+     * 2 s each on Codeberg), only into the folders the repository has.
+     */
+    override suspend fun pullRequestTemplates(token: String, repo: RepoId, branch: String): ForgeResult<List<IssueTemplate>> = forgeCall {
+        val root = when (val listed = httpClient.forgejoTree(forge, token, repo, branch, "")) {
+            is ForgeResult.Failure -> return@forgeCall listed
+            is ForgeResult.Success -> listed.value.orEmpty()
+        }
+        var path: String? = null
+        for (folder in PR_TEMPLATE_FOLDERS) {
+            val entries = when {
+                folder.isEmpty() -> root
+                root.none { it.path == folder && it.type == "tree" } -> continue
+                else -> when (val listed = httpClient.forgejoTree(forge, token, repo, branch, folder)) {
+                    is ForgeResult.Failure -> return@forgeCall listed
+                    is ForgeResult.Success -> listed.value.orEmpty()
+                }
+            }
+            val name = PR_TEMPLATE_NAMES.firstOrNull { name -> entries.any { it.path == name && it.type == "blob" } } ?: continue
+            path = if (folder.isEmpty()) name else "$folder/$name"
+            break
+        }
+        val found = path ?: return@forgeCall ForgeResult.Success(emptyList())
+        repo(token, repo, "raw", *found.split('/').toTypedArray(), query = mapOf("ref" to branch)).toResult { listOf(markdownTemplate(found, bodyAsText())) }
+    }
+
     override suspend fun history(token: String?, repo: RepoId, ref: String?, path: String?, page: Int): ForgeResult<CommitPage> = forgeCall {
         val query = buildMap {
             put("limit", "$HISTORY_PER_PAGE")
@@ -347,4 +376,24 @@ private fun List<PrRemarkJson>.toThread(): ReviewThread {
         resolved = first.resolver != null,
         canResolve = false,
     )
+}
+
+/** Where Forgejo looks for a pull request template, in its order: the root first. */
+private val PR_TEMPLATE_FOLDERS = listOf("", ".forgejo", ".gitea", ".github")
+
+/** The file names Forgejo takes for one; its YAML forms are left out. */
+private val PR_TEMPLATE_NAMES = listOf("PULL_REQUEST_TEMPLATE.md", "pull_request_template.md")
+
+/**
+ * A Markdown template at [path] whose [text] may open with YAML front matter (between `---` lines): its `name` and
+ * `about` are read from it, and the description is what follows.
+ */
+internal fun markdownTemplate(path: String, text: String): IssueTemplate {
+    val lines = text.lines()
+    val end = if (lines.firstOrNull()?.trim() == "---") lines.drop(1).indexOfFirst { it.trim() == "---" }.takeIf { it >= 0 }?.plus(1) else null
+    fun field(key: String) = end?.let { lines.subList(1, it) }?.firstNotNullOfOrNull { line ->
+        line.takeIf { it.startsWith("$key:") }?.substringAfter(':')?.trim()?.trim('"', '\'')?.ifEmpty { null }
+    }
+    val body = if (end == null) text else lines.drop(end + 1).joinToString("\n").trimStart('\n')
+    return IssueTemplate(path, field("name") ?: path.substringAfterLast('/'), about = field("about"), body = body)
 }

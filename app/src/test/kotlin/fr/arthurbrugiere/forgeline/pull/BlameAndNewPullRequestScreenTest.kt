@@ -7,6 +7,8 @@ import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
+import androidx.compose.ui.test.isNotSelected
+import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -15,6 +17,7 @@ import androidx.compose.ui.test.performTextInput
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.commit
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
@@ -99,6 +102,7 @@ class BlameAndNewPullRequestScreenTest {
                 onBaseChange = { events += "base:$it" }, onHeadChange = { events += "head:$it" },
                 onTitleChange = { events += "title:$it" }, onBodyChange = { events += "body:$it" },
                 onDraftChange = { events += "draft:$it" }, onSend = { events += "send" },
+                onUseTemplate = { events += "template:${it.key}" },
             )
         }
     }
@@ -118,6 +122,27 @@ class BlameAndNewPullRequestScreenTest {
         composeRule.onNode(hasContentDescription("Title") and hasSetTextAction()).performScrollTo().performTextInput("R")
 
         assertThat(events).containsExactly("head:fix/slow-uploads", "draft:true", "title:R").inOrder()
+    }
+
+    private val templates = listOf(IssueTemplate("Default", "Default", body = "## What"), IssueTemplate("Documentation", "Documentation"))
+
+    @Test
+    fun several_templates_are_offered_over_the_description_the_one_used_ticked() {
+        form(NewPullRequestUiState(tools, branches, base = "main", body = "## What", templates = templates, template = "Default", templateSource = "## What", templateText = "## What"))
+
+        composeRule.onNodeWithText("Start from a template").performScrollTo().assertIsDisplayed()
+        composeRule.onNode(hasText("Default") and isSelected()).assertExists()
+        composeRule.onNode(hasText("Documentation") and isNotSelected()).assertExists()
+        composeRule.onNodeWithText("Documentation").performScrollTo().performClick()
+
+        assertThat(events).containsExactly("template:Documentation")
+    }
+
+    @Test
+    fun once_the_description_is_written_on_templates_step_aside() {
+        form(NewPullRequestUiState(tools, branches, base = "main", body = "## What\nRetries", templates = templates, template = "Default", templateSource = "## What", templateText = "## What"))
+
+        composeRule.onNodeWithText("Start from a template").assertDoesNotExist()
     }
 
     @Test

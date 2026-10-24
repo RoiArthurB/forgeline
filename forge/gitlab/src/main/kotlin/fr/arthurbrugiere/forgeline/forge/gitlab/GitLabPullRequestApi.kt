@@ -13,6 +13,7 @@ import fr.arthurbrugiere.forgeline.core.model.CommitPage
 import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeBlocker
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
@@ -212,6 +213,17 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
                 put("target_branch", request.base)
             },
         ).toResult { IssueRef(repo, body<MrCreatedJson>().iid, isPullRequest = true) }
+    }
+
+    /** GitLab lists a project's templates (its own and those it inherits) by name only: each one's text is asked when picked. */
+    override suspend fun pullRequestTemplates(token: String, repo: RepoId, branch: String): ForgeResult<List<IssueTemplate>> = forgeCall {
+        project(token, repo, "templates", "merge_requests", query = mapOf("per_page" to "100"))
+            .toResult { body<List<GitLabTemplateJson>>().map { IssueTemplate(it.key, it.name) } }
+    }
+
+    override suspend fun pullRequestTemplate(token: String, repo: RepoId, template: IssueTemplate): ForgeResult<IssueTemplate> = forgeCall {
+        if (template.body != null) return@forgeCall ForgeResult.Success(template)
+        project(token, repo, "templates", "merge_requests", template.key).toResult { template.copy(body = body<GitLabTemplateJson>().content.orEmpty()) }
     }
 
     override suspend fun history(token: String?, repo: RepoId, ref: String?, path: String?, page: Int): ForgeResult<CommitPage> = forgeCall {

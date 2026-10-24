@@ -399,4 +399,21 @@ class GitLabPullRequestApiTest {
         assertThat(requests.single().url.encodedPath).isEqualTo("$base/repository/files/cmd%2Frun%20main.go/blame")
         assertThat(requests.single().url.parameters["ref"]).isEqualTo("main")
     }
+
+    // gitlab-org/gitlab-runner's merge request templates, 2026-10-24: listed by name, and the Default one's text.
+    private fun captured(name: String) = requireNotNull(javaClass.getResource("/gitlab/captured/$name")).readText()
+
+    @Test
+    fun merge_request_templates_are_listed_by_name_and_one_s_text_is_asked_when_it_is_picked() = runTest {
+        val api = api { path -> json(captured(if (path.endsWith("/merge_requests/Default")) "merge_request_template_default.json" else "merge_request_templates.json")) }
+
+        val templates = api.pullRequestTemplates("tok", repo, "main").value()
+        assertThat(templates.map { it.key }).containsExactly("Default", "Documentation", "Security Release").inOrder()
+        assertThat(templates.all { it.body == null }).isTrue()
+        val default = api.pullRequestTemplate("tok", repo, templates.first()).value()
+        api.pullRequestTemplate("tok", repo, default)
+
+        assertThat(default.body).contains("## What does this MR do?\n\n%{first_multiline_commit}")
+        assertThat(requests.map { it.url.encodedPath }).containsExactly("$base/templates/merge_requests", "$base/templates/merge_requests/Default").inOrder()
+    }
 }
