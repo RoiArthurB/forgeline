@@ -22,6 +22,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
+import fr.arthurbrugiere.forgeline.core.model.SubIssues
 import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
@@ -229,6 +230,26 @@ class FakeIssueApi : IssueApi {
     private val IssueRef.label get() = "${repo.fullName}#$number"
 
     override suspend fun labels(token: String, repo: RepoId) = read(token, "labels:${repo.fullName}", repoLabels)
+
+    override var tracksSubIssues: Boolean = true
+
+    /** Each issue's parent and sub-issues. */
+    val subs = mutableMapOf<IssueRef, SubIssues>()
+
+    override suspend fun subIssues(token: String?, ref: IssueRef): ForgeResult<SubIssues> {
+        calls += "subIssues:${ref.label}"
+        return ForgeResult.Success(subs[ref] ?: SubIssues(null, emptyList()))
+    }
+
+    override suspend fun addSubIssue(token: String, ref: IssueRef, sub: IssueRef) = manage(token, "sub-issue ${ref.label} + ${sub.label}") {
+        val now = subs[ref] ?: SubIssues(null, emptyList())
+        subs[ref] = now.copy(children = now.children + LinkedIssue(sub, issues[sub]?.title.orEmpty(), IssueState.OPEN))
+    }
+
+    override suspend fun removeSubIssue(token: String, ref: IssueRef, sub: IssueRef) = manage(token, "sub-issue ${ref.label} - ${sub.label}") {
+        subs[ref]?.let { now -> subs[ref] = now.copy(children = now.children.filterNot { it.ref.number == sub.number && it.ref.repo == sub.repo }) }
+        Unit
+    }
 
     /** The pull requests that close each issue once merged. */
     val closers = mutableMapOf<IssueRef, List<LinkedIssue>>()

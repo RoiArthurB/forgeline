@@ -521,6 +521,13 @@
     <string name="issue_comment_hidden">%1$s’s comment was hidden as %2$s</string>
     <string name="issue_comment_show">Show</string>
     <string name="issue_closing_pulls">Closed by merging</string>
+    <string name="issue_part_of">Part of %1$s</string>
+    <string name="issue_sub_issues">Sub-issues</string>
+    <string name="issue_sub_issues_done">Sub-issues · %1$d of %2$d done</string>
+    <string name="issue_sub_issue_remove">Take #%1$d out of the sub-issues</string>
+    <string name="issue_sub_issue_number">#number</string>
+    <string name="issue_sub_issue_add">Add</string>
+    <string name="issue_sub_issues_failed">The sub-issues weren’t changed. Try again.</string>
     <string name="hide_off_topic">Off-topic</string>
     <string name="hide_outdated">Outdated</string>
     <string name="hide_resolved">Resolved</string>

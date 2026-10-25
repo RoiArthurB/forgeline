@@ -99,6 +99,12 @@ data class TimeTracking(val totalSeconds: Long, val runningSince: Instant?)
 /** Another conversation this one is tied to: one it depends on. */
 data class LinkedIssue(val ref: IssueRef, val title: String, val state: IssueState)
 
+/** Where an issue stands among others: the one it is part of, if any, and those that are part of it. */
+data class SubIssues(val parent: LinkedIssue?, val children: List<LinkedIssue>) {
+    /** How many of its sub-issues are done. */
+    val done: Int get() = children.count { it.state != IssueState.OPEN }
+}
+
 /**
  * What a repository offers to start an issue from: [name] and [about] say what it is for, [title] and [body] go into the
  * new issue. [body] is null until asked for, where the forge lists its templates without them (GitLab); [key] is what

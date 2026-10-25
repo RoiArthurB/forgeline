@@ -160,6 +160,19 @@ class GitHubLiveContractTest {
         assertWithMessage("may hide").that(comments.all { it.canHide }).isTrue()
     }
 
+    /** Read only: cli/cli#10093 is split into sub-issues, #14512 among them, which names it as its parent (2026-10-25). */
+    @Test
+    fun sub_issues_and_their_parent_still_read() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        val api = GitHubIssueApi(client)
+
+        val epic = api.subIssues(pat, fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("cli", "cli"), 10093))
+        val child = api.subIssues(pat, fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("cli", "cli"), 14512))
+
+        assertWithMessage("epic: $epic").that((epic as ForgeResult.Success).value.children.map { it.ref.number }).contains(14512)
+        assertWithMessage("child: $child").that((child as ForgeResult.Success).value.parent?.ref?.number).isEqualTo(10093)
+    }
+
     /** Read only: gama-platform/gama#999 names #1020 as the pull request that would close it (2026-10-25). */
     @Test
     fun the_pull_requests_that_close_an_issue_are_still_told() = runBlocking {

@@ -252,6 +252,62 @@ class GitHubIssueApiTest {
         assertThat(requests).isEmpty()
     }
 
+    // cli/cli#10093 and its sub-issues, as GitHub's REST API answered them (2026-10-25), trimmed to what is read.
+    private val epic = IssueRef(RepoId("cli", "cli"), 10093)
+    private fun child(id: Long, number: Int, title: String, state: String = "open") =
+        """{"id":$id,"number":$number,"title":"$title","state":"$state","repository_url":"https://api.github.com/repos/cli/cli"}"""
+
+    @Test
+    fun an_issue_s_sub_issues_and_parent_are_read_together() = runTest {
+        val api = api { request ->
+            when {
+                request.url.encodedPath.endsWith("/sub_issues") -> json("[${child(5552791292, 14510, "Create pull requests from a fork")},${child(5552791303, 14511, "Use the tracked fork", "closed")}]")
+                request.url.encodedPath.endsWith("/parent") -> json("{}", status = HttpStatusCode.NotFound)
+                else -> json("{}")
+            }
+        }
+
+        val read = api.subIssues("tok", epic).value()
+
+        assertThat(api.tracksSubIssues).isTrue()
+        assertThat(read.parent).isNull()
+        assertThat(read.children).containsExactly(
+            LinkedIssue(IssueRef(RepoId("cli", "cli"), 14510, isPullRequest = false), "Create pull requests from a fork", IssueState.OPEN),
+            LinkedIssue(IssueRef(RepoId("cli", "cli"), 14511, isPullRequest = false), "Use the tracked fork", IssueState.CLOSED),
+        ).inOrder()
+    }
+
+    @Test
+    fun a_sub_issue_names_its_parent() = runTest {
+        val api = api { request ->
+            if (request.url.encodedPath.endsWith("/parent")) json(child(2743353349, 10093, "Enhance gh pr create")) else json("[]")
+        }
+
+        assertThat(api.subIssues("tok", IssueRef(RepoId("cli", "cli"), 14512)).value().parent?.ref?.number).isEqualTo(10093)
+    }
+
+    @Test
+    fun a_sub_issue_is_added_and_taken_out_by_its_id() = runTest {
+        val api = api { request ->
+            when {
+                request.method == io.ktor.http.HttpMethod.Get -> json(child(5552791308, 14512, "Choose a fork"))
+                else -> json("{}", status = HttpStatusCode.Created)
+            }
+        }
+        val sub = IssueRef(RepoId("cli", "cli"), 14512)
+
+        api.addSubIssue("tok", epic, sub).value()
+        api.removeSubIssue("tok", epic, sub).value()
+
+        // Each is asked for its id first: the sub-issue is named by it, not by its number.
+        assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly(
+            "GET /repos/cli/cli/issues/14512", "POST /repos/cli/cli/issues/10093/sub_issues",
+            "GET /repos/cli/cli/issues/14512", "DELETE /repos/cli/cli/issues/10093/sub_issue",
+        ).inOrder()
+        assertThat((requests[1].body as io.ktor.http.content.TextContent).text).isEqualTo("""{"sub_issue_id":5552791308}""")
+        assertThat((requests[3].body as io.ktor.http.content.TextContent).text).isEqualTo("""{"sub_issue_id":5552791308}""")
+    }
+
     @Test
     fun a_next_page_is_announced_by_the_link_header() = runTest {
         val link = """<https://api.github.com/repositories/1/issues/5462/timeline?per_page=100&page=2>; rel="next", """ +

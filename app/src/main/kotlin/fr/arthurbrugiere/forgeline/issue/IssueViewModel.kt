@@ -24,6 +24,7 @@ import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SubIssues
 import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.repo.Loadable
@@ -106,6 +107,10 @@ data class IssueUiState(
     val subscriptionError: ForgeError? = null,
     /** The pull requests that close the issue once merged, where its forge links them. */
     val closingPulls: List<LinkedIssue> = emptyList(),
+    /** What the issue is part of, and its sub-issues; null where the forge doesn't split issues, or until read. */
+    val subIssues: SubIssues? = null,
+    /** Why a sub-issue couldn't be added or taken out, said once. */
+    val subIssueError: ForgeError? = null,
 ) {
     /** The comment being rewritten is among those shown, so it is rewritten where it stands, not in the reader's turn. */
     val isEditingInPlace: Boolean get() = editing != null && items.any { it is TimelineItem.Comment && it.id == editing }
@@ -330,6 +335,32 @@ class IssueViewModel @AssistedInject constructor(
             // What would close it, for an issue: read after it, never holding it up.
             if (ref.isPullRequest != true && _state.value.issue?.pullRequest == null) {
                 (repository.closingPulls(ref) as? ForgeResult.Success)?.let { read -> _state.update { it.copy(closingPulls = read.value) } }
+                loadSubIssues()
+            }
+        }
+    }
+
+    private suspend fun loadSubIssues() {
+        if (!repository.tracksSubIssues(ref.repo.forge)) return
+        (repository.subIssues(ref) as? ForgeResult.Success)?.let { read -> _state.update { it.copy(subIssues = read.value) } }
+    }
+
+    /** Makes the issue numbered in [typed] ("#12" or "12", of this repository) a sub-issue of this one. */
+    fun addSubIssue(typed: String) {
+        val number = typed.trim().removePrefix("#").toIntOrNull()?.takeIf { it > 0 && it != ref.number } ?: return
+        subIssueWork { repository.addSubIssue(ref, IssueRef(ref.repo, number, isPullRequest = false)) }
+    }
+
+    fun removeSubIssue(sub: IssueRef) = subIssueWork { repository.removeSubIssue(ref, sub) }
+
+    fun subIssueErrorShown() = _state.update { it.copy(subIssueError = null) }
+
+    /** A change to the sub-issues, then the sub-issues read again from the forge. */
+    private fun subIssueWork(change: suspend () -> ForgeResult<Unit>) {
+        viewModelScope.launch {
+            when (val result = change()) {
+                is ForgeResult.Failure -> _state.update { it.copy(subIssueError = result.error) }
+                is ForgeResult.Success -> loadSubIssues()
             }
         }
     }

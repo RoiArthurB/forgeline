@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Tune
@@ -75,9 +76,11 @@ import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SubIssues
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
 import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
@@ -213,6 +216,9 @@ fun IssueRoute(
             onCancelEdit = viewModel::cancelEditing,
             onDelete = viewModel::deleteComment,
             onSetHidden = viewModel::setCommentHidden,
+            onAddSubIssue = viewModel::addSubIssue,
+            onRemoveSubIssue = viewModel::removeSubIssue,
+            onSubIssueErrorShown = viewModel::subIssueErrorShown,
             onDeleteErrorShown = viewModel::deleteErrorShown,
             onReact = viewModel::react,
             onReactionErrorShown = viewModel::reactionErrorShown,
@@ -307,6 +313,10 @@ class CommentActions(
     val onReferenceTyped: (TypedReference?) -> Unit = {},
     /** Hides a comment, by its id, for a reason; or shows it again (null). */
     val onSetHidden: (Long, HideReason?) -> Unit = { _, _ -> },
+    /** Makes the issue typed ("#12") a sub-issue, or takes one out. */
+    val onAddSubIssue: (String) -> Unit = {},
+    val onRemoveSubIssue: (IssueRef) -> Unit = {},
+    val onSubIssueErrorShown: () -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -367,6 +377,7 @@ fun IssueScreen(
     }
 
     SayOnce(stringResource(R.string.issue_comment_delete_failed).takeIf { state.deleteError != null }, snackbar, comments.onDeleteErrorShown)
+    SayOnce(stringResource(R.string.issue_sub_issues_failed).takeIf { state.subIssueError != null }, snackbar, comments.onSubIssueErrorShown)
     val attachFailed = state.attachError?.let { error ->
         stringResource(
             when {
@@ -649,6 +660,15 @@ fun IssueScreen(
                                     }
                                 }
                             }
+                            // Where the issue stands among others: what it is part of, and the pieces it is split into.
+                            state.subIssues?.let { subs ->
+                                val mayChange = canComment && state.access >= RepoAccess.TRIAGE
+                                if (subs.parent != null || subs.children.isNotEmpty() || mayChange) {
+                                    item(key = "sub-issues") {
+                                        SubIssuesSection(subs, state.ref.repo, mayChange, onOpenIssue, comments.onAddSubIssue, comments.onRemoveSubIssue)
+                                    }
+                                }
+                            }
                             // What ran on a pull request, right above the turn where it is merged or not.
                             if (!pull?.checks.isNullOrEmpty()) {
                                 item(key = "checks") {
@@ -766,6 +786,71 @@ private fun DismissReviewSheet(isSending: Boolean, onDismissReview: (String) -> 
         FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SoftTonalButton(stringResource(R.string.cancel), onDismiss)
             SoftDangerButton(stringResource(R.string.review_dismiss_confirm), onClick = { onDismissReview(message) }, enabled = message.isNotBlank() && !isSending)
+        }
+    }
+}
+
+/**
+ * What an issue is part of, and the sub-issues it is split into with how many are done; whoever triages may add one by
+ * its number or take one out.
+ */
+@Composable
+private fun SubIssuesSection(
+    subs: SubIssues,
+    home: RepoId,
+    mayChange: Boolean,
+    onOpenIssue: (IssueRef) -> Unit,
+    onAdd: (String) -> Unit,
+    onRemove: (IssueRef) -> Unit,
+) {
+    val colors = Soft.colors
+    var typed by rememberSaveable { mutableStateOf("") }
+    fun line(issue: LinkedIssue) = listOfNotNull("#${issue.ref.number} ${issue.title}", issue.ref.repo.fullName.takeIf { issue.ref.repo != home }).joinToString(" · ")
+    Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 24.dp)) {
+        subs.parent?.let { parent ->
+            Text(
+                stringResource(R.string.issue_part_of, line(parent)),
+                style = Soft.type.body,
+                color = colors.ink,
+                modifier = Modifier.fillMaxWidth().softPressable { onOpenIssue(parent.ref) }.padding(horizontal = 8.dp, vertical = 12.dp),
+            )
+        }
+        if (subs.children.isNotEmpty() || mayChange) {
+            Text(
+                if (subs.children.isEmpty()) stringResource(R.string.issue_sub_issues) else stringResource(R.string.issue_sub_issues_done, subs.done, subs.children.size),
+                style = Soft.type.name,
+                color = colors.ink,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp).semantics { heading() },
+            )
+        }
+        subs.children.forEach { child ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    line(child),
+                    style = Soft.type.body,
+                    color = if (child.state == IssueState.OPEN) colors.ink else colors.inkMuted,
+                    textDecoration = if (child.state == IssueState.OPEN) null else androidx.compose.ui.text.style.TextDecoration.LineThrough,
+                    modifier = Modifier.weight(1f).softPressable { onOpenIssue(child.ref) }.padding(horizontal = 8.dp, vertical = 12.dp),
+                )
+                if (mayChange) {
+                    SoftIconButton(onClick = { onRemove(child.ref) }) {
+                        Icon(Icons.Outlined.Close, contentDescription = stringResource(R.string.issue_sub_issue_remove, child.ref.number), tint = colors.inkMuted)
+                    }
+                }
+            }
+        }
+        if (mayChange) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SoftTextField(value = typed, onValueChange = { typed = it }, placeholder = stringResource(R.string.issue_sub_issue_number), modifier = Modifier.weight(1f))
+                SoftTonalButton(
+                    stringResource(R.string.issue_sub_issue_add),
+                    onClick = {
+                        onAdd(typed)
+                        typed = ""
+                    },
+                    enabled = typed.trim().removePrefix("#").toIntOrNull() != null,
+                )
+            }
         }
     }
 }

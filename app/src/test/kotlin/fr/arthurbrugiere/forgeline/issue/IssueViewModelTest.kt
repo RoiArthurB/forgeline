@@ -409,6 +409,36 @@ class IssueViewModelTest {
         assertThat(viewModel.state.value.closingPulls).containsExactly(fix)
     }
 
+    @Test
+    fun sub_issues_are_read_with_an_issue_and_added_and_taken_out_by_whoever_triages() = test {
+        val parent = fr.arthurbrugiere.forgeline.core.model.LinkedIssue(IssueRef(ref.repo, 1, isPullRequest = false), "Epic", fr.arthurbrugiere.forgeline.core.model.IssueState.OPEN)
+        api.subs[ref] = fr.arthurbrugiere.forgeline.core.model.SubIssues(parent, emptyList())
+        api.issues[IssueRef(ref.repo, 12)] = issueDetails(IssueRef(ref.repo, 12), "A piece of it")
+        val viewModel = managing(RepoAccess.TRIAGE)
+        assertThat(viewModel.state.value.subIssues?.parent).isEqualTo(parent)
+
+        viewModel.addSubIssue("#12")
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.subIssues?.children?.map { it.ref.number }).containsExactly(12)
+
+        viewModel.removeSubIssue(viewModel.state.value.subIssues!!.children.single().ref)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.subIssues?.children).isEmpty()
+        assertThat(api.calls.filter { it.startsWith("manage:sub-issue") }).containsExactly("manage:sub-issue octo/repo#7 + octo/repo#12", "manage:sub-issue octo/repo#7 - octo/repo#12").inOrder()
+    }
+
+    @Test
+    fun what_isn_t_an_issue_number_is_not_sent() = test {
+        val viewModel = managing(RepoAccess.TRIAGE)
+
+        viewModel.addSubIssue("twelve")
+        viewModel.addSubIssue("#7")
+        advanceUntilIdle()
+
+        // Not a number, and not the issue itself.
+        assertThat(api.calls.none { it.startsWith("manage:sub-issue") }).isTrue()
+    }
+
     private val pullRequest = PullRequestInfo(false, false, "main", "fix/it", 12, 3, 2, 1)
 
     @Test

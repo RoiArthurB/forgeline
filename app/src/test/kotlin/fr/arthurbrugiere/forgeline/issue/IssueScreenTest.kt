@@ -80,7 +80,11 @@ class IssueScreenTest {
                 nowMillis = at.toEpochMilli(),
                 onToEnd = { events += "end" },
                 onToggleSubscribed = { events += "subscription" },
-                comments = CommentActions(onSetHidden = { id, reason -> events += "hide:$id:$reason" }),
+                comments = CommentActions(
+                    onSetHidden = { id, reason -> events += "hide:$id:$reason" },
+                    onAddSubIssue = { events += "sub+:$it" },
+                    onRemoveSubIssue = { events += "sub-:${it.number}" },
+                ),
                 onScrolled = {
                     events += "scrolled"
                     shown.value = shown.value.copy(scrollTo = null)
@@ -809,5 +813,26 @@ class IssueScreenTest {
         composeRule.onNodeWithText("#12 Fix the crash", substring = true).performClick()
 
         assertThat(events).contains("issue:octo/repo#12")
+    }
+
+    @Test
+    fun an_issue_says_what_it_is_part_of_and_lists_its_sub_issues_with_how_many_are_done() {
+        val subs = fr.arthurbrugiere.forgeline.core.model.SubIssues(
+            fr.arthurbrugiere.forgeline.core.model.LinkedIssue(IssueRef(ref.repo, 1, isPullRequest = false), "Epic", IssueState.OPEN),
+            listOf(
+                fr.arthurbrugiere.forgeline.core.model.LinkedIssue(IssueRef(ref.repo, 12, isPullRequest = false), "First piece", IssueState.CLOSED),
+                fr.arthurbrugiere.forgeline.core.model.LinkedIssue(IssueRef(ref.repo, 13, isPullRequest = false), "Second piece", IssueState.OPEN),
+            ),
+        )
+        setContent(IssueUiState(ref, issueDetails(ref), subIssues = subs, access = RepoAccess.TRIAGE))
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Second piece", substring = true))
+        composeRule.onNodeWithText("Part of #1 Epic", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Sub-issues · 1 of 2 done").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Take #13 out of the sub-issues").performClick()
+        composeRule.onNode(hasText("#number") and hasSetTextAction()).performTextInput("14")
+        composeRule.onNodeWithText("Add").performClick()
+
+        assertThat(events).containsAtLeast("sub-:13", "sub+:14").inOrder()
     }
 }

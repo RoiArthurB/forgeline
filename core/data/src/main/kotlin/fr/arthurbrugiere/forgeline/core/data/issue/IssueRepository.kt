@@ -26,6 +26,7 @@ import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.SubIssues
 import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
@@ -140,6 +141,16 @@ interface IssueRepository {
     // Each change is announced on [changed]; the conversation kept is brought up to date by loading it again.
 
     suspend fun labels(repo: RepoId): ForgeResult<List<Label>>
+
+    /** Whether issues are split into sub-issues on [forge]. */
+    fun tracksSubIssues(forge: ForgeInstance): Boolean
+
+    /** The issue [ref] is part of, and those part of it. */
+    suspend fun subIssues(ref: IssueRef): ForgeResult<SubIssues>
+
+    suspend fun addSubIssue(ref: IssueRef, sub: IssueRef): ForgeResult<Unit>
+
+    suspend fun removeSubIssue(ref: IssueRef, sub: IssueRef): ForgeResult<Unit>
 
     /** The pull requests that close the issue [ref] once merged, where its forge links them. */
     suspend fun closingPulls(ref: IssueRef): ForgeResult<List<LinkedIssue>>
@@ -429,6 +440,14 @@ class DefaultIssueRepository @Inject constructor(
         signedIn(ref.repo.forge, call).also { if (it is ForgeResult.Success) changes.tryEmit(ref) }
 
     override suspend fun labels(repo: RepoId) = signedIn(repo.forge) { labels(it, repo) }
+
+    override fun tracksSubIssues(forge: ForgeInstance) = clients.issues(forge).tracksSubIssues
+
+    override suspend fun subIssues(ref: IssueRef) = clients.issues(ref.repo.forge).subIssues(accounts.tokenOn(ref.repo.forge), ref)
+
+    override suspend fun addSubIssue(ref: IssueRef, sub: IssueRef) = changing(ref) { addSubIssue(it, ref, sub) }
+
+    override suspend fun removeSubIssue(ref: IssueRef, sub: IssueRef) = changing(ref) { removeSubIssue(it, ref, sub) }
 
     override suspend fun closingPulls(ref: IssueRef) = clients.issues(ref.repo.forge).closingPulls(accounts.tokenOn(ref.repo.forge), ref)
 

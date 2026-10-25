@@ -16,6 +16,7 @@ import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
+import fr.arthurbrugiere.forgeline.core.model.SubIssues
 import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
@@ -98,6 +99,17 @@ interface IssueApi {
 
     /** Makes a label named [name] in [repo], of [color] (`#rrggbb`), for someone who may: it can then be set. */
     suspend fun createLabel(token: String, repo: RepoId, name: String, color: String): ForgeResult<Label> = unsupported
+
+    /** Whether issues are split into sub-issues here. */
+    val tracksSubIssues: Boolean get() = false
+
+    /** The issue [ref] is part of, and those part of it; none where the forge doesn't split issues. */
+    suspend fun subIssues(token: String?, ref: IssueRef): ForgeResult<SubIssues> = ForgeResult.Success(SubIssues(null, emptyList()))
+
+    /** Makes [sub] a sub-issue of [ref], or no longer. */
+    suspend fun addSubIssue(token: String, ref: IssueRef, sub: IssueRef): ForgeResult<Unit> = unsupported
+
+    suspend fun removeSubIssue(token: String, ref: IssueRef, sub: IssueRef): ForgeResult<Unit> = unsupported
 
     /** The pull requests that close the issue [ref] once merged, as the forge links them; none where it doesn't say. */
     suspend fun closingPulls(token: String?, ref: IssueRef): ForgeResult<List<LinkedIssue>> = ForgeResult.Success(emptyList())

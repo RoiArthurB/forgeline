@@ -28,6 +28,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.core.model.StateChange
+import fr.arthurbrugiere.forgeline.core.model.SubIssues
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
 import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
@@ -119,6 +120,37 @@ class GitHubIssueApi(
             val node = (item as? TimelineItem.Comment)?.nodeId?.let(nodes::get) ?: return@map item
             item.copy(hidden = node.reason.takeIf { node.isMinimized }, canHide = node.viewerCanMinimize)
         }
+    }
+
+    override val tracksSubIssues: Boolean = true
+
+    /** Its sub-issues and its parent, asked together; no parent answers 404. */
+    override suspend fun subIssues(token: String?, ref: IssueRef): ForgeResult<SubIssues> = forgeCall {
+        coroutineScope {
+            val parent = async { httpClient.gitHubApi(apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "parent") }
+            val children = httpClient.gitHubApi(apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "sub_issues", query = mapOf("per_page" to "50"))
+            if (!children.status.isSuccess()) {
+                parent.cancel()
+                return@coroutineScope children.failure()
+            }
+            val above = parent.await().takeIf { it.status.isSuccess() }?.let { runCatching { it.body<SubIssueJson>().toModel(ref.repo.forge) }.getOrNull() }
+            ForgeResult.Success(SubIssues(above, children.body<List<SubIssueJson>>().map { it.toModel(ref.repo.forge) }))
+        }
+    }
+
+    override suspend fun addSubIssue(token: String, ref: IssueRef, sub: IssueRef): ForgeResult<Unit> = subIssueChange(token, ref, sub, "sub_issues", HttpMethod.Post)
+
+    override suspend fun removeSubIssue(token: String, ref: IssueRef, sub: IssueRef): ForgeResult<Unit> = subIssueChange(token, ref, sub, "sub_issue", HttpMethod.Delete)
+
+    /** A sub-issue is named by its id, not its number: it is asked for first. */
+    private suspend fun subIssueChange(token: String, ref: IssueRef, sub: IssueRef, segment: String, method: HttpMethod): ForgeResult<Unit> = forgeCall {
+        val read = httpClient.gitHubApi(apiBaseUrl, token, "repos", sub.repo.owner, sub.repo.name, "issues", sub.number.toString())
+        if (!read.status.isSuccess()) return@forgeCall read.failure()
+        val id = read.body<SubIssueJson>().id
+        httpClient.gitHubApi(
+            apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), segment,
+            method = method, body = buildJsonObject { put("sub_issue_id", id) },
+        ).toResult { }
     }
 
     /** GraphQL only, which takes an account: signed out, none are told. */
@@ -691,6 +723,16 @@ private data class RenameJson(val from: String, val to: String)
 @Serializable
 private data class HiddenNodeJson(val id: String, val isMinimized: Boolean = false, val minimizedReason: String? = null, val viewerCanMinimize: Boolean = false) {
     val reason: HideReason? get() = HideReason.entries.firstOrNull { it.name.replace('_', '-').equals(minimizedReason, ignoreCase = true) }
+}
+
+/** An issue as the sub-issue endpoints answer it: its id names it to them. */
+@Serializable
+private data class SubIssueJson(val id: Long, val number: Int, val title: String = "", val state: String = "open", @SerialName("repository_url") val repositoryUrl: String? = null) {
+    fun toModel(forge: ForgeInstance): LinkedIssue {
+        val path = repositoryUrl?.substringAfter("/repos/", "")?.split('/')?.takeIf { it.size == 2 }
+        val repo = RepoId(path?.get(0).orEmpty(), path?.get(1).orEmpty(), forge)
+        return LinkedIssue(IssueRef(repo, number, isPullRequest = false), title, if (state == "closed") IssueState.CLOSED else IssueState.OPEN)
+    }
 }
 
 private const val CLOSING_QUERY = "query Closing(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { issue(number: \$number) { " +
