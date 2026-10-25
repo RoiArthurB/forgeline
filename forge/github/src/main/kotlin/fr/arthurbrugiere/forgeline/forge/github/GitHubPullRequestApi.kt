@@ -302,6 +302,53 @@ class GitHubPullRequestApi(
         }
     }
 
+    override val marksFilesViewed: Boolean = true
+
+    /** Read a page of a hundred at a time; viewed before the file changed since ("DISMISSED") is to be viewed again. */
+    override suspend fun viewedFiles(token: String, ref: IssueRef): ForgeResult<Set<String>> {
+        val viewed = mutableSetOf<String>()
+        var after: String? = null
+        repeat(VIEWED_PAGES) {
+            val page = when (val read = graphQl(token, VIEWED_QUERY, buildJsonObject { putPull(ref); put("after", after) })) {
+                is ForgeResult.Failure -> return read
+                is ForgeResult.Success -> read.value.pullRequestFiles() ?: return ForgeResult.Failure(ForgeError.Unreadable)
+            }
+            viewed += page.nodes.filter { it.viewerViewedState == "VIEWED" }.map { it.path }
+            after = page.pageInfo.endCursor?.takeIf { page.pageInfo.hasNextPage } ?: return ForgeResult.Success(viewed)
+        }
+        return ForgeResult.Success(viewed)
+    }
+
+    /** By the pull request's own id, which is asked first. */
+    override suspend fun setFileViewed(token: String, ref: IssueRef, path: String, viewed: Boolean): ForgeResult<Unit> {
+        val id = when (val read = graphQl(token, VIEWED_QUERY, buildJsonObject { putPull(ref); put("after", null as String?) })) {
+            is ForgeResult.Failure -> return read
+            is ForgeResult.Success -> read.value.pullRequestId() ?: return ForgeResult.Failure(ForgeError.Unreadable)
+        }
+        val mutation = if (viewed) "markFileAsViewed" else "unmarkFileAsViewed"
+        return graphQl(
+            token, "mutation(\$id: ID!, \$path: String!) { done: $mutation(input: {pullRequestId: \$id, path: \$path}) { clientMutationId } }",
+            buildJsonObject {
+                put("id", id)
+                put("path", path)
+            },
+        ).map { }
+    }
+
+    private fun kotlinx.serialization.json.JsonObjectBuilder.putPull(ref: IssueRef) {
+        put("owner", ref.repo.owner)
+        put("name", ref.repo.name)
+        put("number", ref.number)
+    }
+
+    private fun JsonObject.pullRequest(): JsonObject? =
+        (get("repository") as? JsonObject)?.get("pullRequest") as? JsonObject
+
+    private fun JsonObject.pullRequestId(): String? = (pullRequest()?.get("id") as? kotlinx.serialization.json.JsonPrimitive)?.content
+
+    private fun JsonObject.pullRequestFiles(): PrViewedFilesJson? =
+        pullRequest()?.get("files")?.let { runCatching { ForgeJson.decodeFromJsonElement<PrViewedFilesJson>(it) }.getOrNull() }
+
     private suspend fun graphQl(token: String, query: String, variables: JsonObject): ForgeResult<JsonObject> =
         forgeCall { httpClient.gitHubGraphQl(apiBaseUrl, token, query, variables) }
 
@@ -436,6 +483,12 @@ class GitHubPullRequestApi(
     private companion object {
         const val FILES_PER_PAGE = 50
         const val HISTORY_PER_PAGE = 30
+
+        /** How many pages of a hundred files are read for which were viewed: a change of more is past reviewing on a phone. */
+        const val VIEWED_PAGES = 30
+
+        const val VIEWED_QUERY = "query Viewed(\$owner: String!, \$name: String!, \$number: Int!, \$after: String) { repository(owner: \$owner, name: \$name) { " +
+            "pullRequest(number: \$number) { id files(first: 100, after: \$after) { pageInfo { hasNextPage endCursor } nodes { path viewerViewedState } } } } }"
 
         const val THREADS_QUERY = "query Threads(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { " +
             "pullRequest(number: \$number) { reviewThreads(first: 100) { nodes { id isResolved isOutdated path line originalLine startLine diffSide " +
@@ -696,6 +749,15 @@ private fun threadsOf(comments: List<PrReviewCommentJson>): List<ReviewThread> {
 
 @Serializable
 private data class PrGraphAuthorJson(val login: String, val avatarUrl: String? = null)
+
+@Serializable
+private data class PrViewedFilesJson(val pageInfo: PrPageInfoJson = PrPageInfoJson(), val nodes: List<PrViewedFileJson> = emptyList())
+
+@Serializable
+private data class PrPageInfoJson(val hasNextPage: Boolean = false, val endCursor: String? = null)
+
+@Serializable
+private data class PrViewedFileJson(val path: String, val viewerViewedState: String? = null)
 
 @Serializable
 private data class PrGraphCommentJson(

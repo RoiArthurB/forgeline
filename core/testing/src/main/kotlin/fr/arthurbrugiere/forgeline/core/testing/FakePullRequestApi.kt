@@ -135,6 +135,18 @@ class FakePullRequestApi(
 
     private val givenReactions = mutableSetOf<String>()
 
+    override var marksFilesViewed: Boolean = true
+
+    /** The files the reader has viewed. */
+    var viewed: MutableSet<String> = mutableSetOf()
+
+    override suspend fun viewedFiles(token: String, ref: IssueRef) = read("viewedFiles:${ref.name()}") { viewed.toSet() }
+
+    override suspend fun setFileViewed(token: String, ref: IssueRef, path: String, viewed: Boolean) = write("viewed:${ref.name()}:$path:$viewed") {
+        if (viewed) this.viewed += path else this.viewed -= path
+        Unit
+    }
+
     override var commentsOnRanges: Boolean = true
 
     override var commentsOnFiles: Boolean = true

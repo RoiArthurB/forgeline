@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AddComment
+import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -63,12 +65,20 @@ internal fun LazyListScope.fileDiffItems(
     onRemoveComment: (LineComment) -> Unit = {},
     /** Starts a remark on a whole file, by its path; null where none can be written. */
     onFileRemark: ((String) -> Unit)? = null,
+    /** The files the reader viewed, and how one is marked viewed or no longer; null where it can't be. */
+    viewed: Set<String> = emptySet(),
+    onToggleViewed: ((String) -> Unit)? = null,
 ) {
     files.forEachIndexed { index, diff ->
         val expanded = isExpanded(diff)
         item(key = "file-$index", contentType = "file") {
             Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
-                FileHeading(diff, expanded, onToggle = { onToggle(diff.file.path) }, onRemark = onFileRemark?.let { remark -> { remark(diff.file.path) } })
+                FileHeading(
+                    diff, expanded, onToggle = { onToggle(diff.file.path) },
+                    onRemark = onFileRemark?.let { remark -> { remark(diff.file.path) } },
+                    viewed = diff.file.path in viewed,
+                    onToggleViewed = onToggleViewed?.let { toggle -> { toggle(diff.file.path) } },
+                )
                 // A remark on the whole file waits under its heading, folded or not.
                 comments.filter { it.onFile && it.path == diff.file.path }.forEach { remark -> PendingRemark(remark, onRemove = { onRemoveComment(remark) }) }
             }
@@ -108,7 +118,14 @@ internal fun LazyListScope.fileDiffItems(
 }
 
 @Composable
-private fun FileHeading(diff: FileDiff, expanded: Boolean, onToggle: () -> Unit, onRemark: (() -> Unit)? = null) {
+private fun FileHeading(
+    diff: FileDiff,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onRemark: (() -> Unit)? = null,
+    viewed: Boolean = false,
+    onToggleViewed: (() -> Unit)? = null,
+) {
     val colors = Soft.colors
     val file = diff.file
     val state = stringResource(if (expanded) R.string.changes_file_shown else R.string.changes_file_folded)
@@ -144,6 +161,16 @@ private fun FileHeading(diff: FileDiff, expanded: Boolean, onToggle: () -> Unit,
         Row(Modifier.clearAndSetSemantics { contentDescription = counts }, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             if (file.additions > 0) SoftTag("+${file.additions}", background = colors.fields[2])
             if (file.deletions > 0) SoftTag("−${file.deletions}", background = colors.fields[0])
+        }
+        if (onToggleViewed != null) {
+            SoftIconButton(onClick = onToggleViewed) {
+                Icon(
+                    if (viewed) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
+                    contentDescription = stringResource(if (viewed) R.string.changes_file_viewed else R.string.changes_file_mark_viewed, file.path),
+                    tint = if (viewed) colors.ink else colors.inkMuted,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
         if (onRemark != null) {
             SoftIconButton(onClick = onRemark) {

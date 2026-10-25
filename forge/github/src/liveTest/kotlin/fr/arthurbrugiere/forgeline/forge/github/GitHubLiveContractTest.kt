@@ -139,6 +139,9 @@ class GitHubLiveContractTest {
         val read = (threads as ForgeResult.Success).value
         assertWithMessage("threads").that(read.size).isAtLeast(5)
         assertWithMessage("remarks").that(read.flatMap { it.comments }.all { it.id > 0 && it.body.isNotBlank() }).isTrue()
+        // Which of its files the reader viewed: none asked to be, but the question still reads.
+        val viewed = GitHubPullRequestApi(client).viewedFiles(pat, pull)
+        assertWithMessage("viewed: $viewed").that(viewed).isInstanceOf(ForgeResult.Success::class.java)
     }
 
     /** gama-platform/gama#1118 was closed by a commit: the timeline still names it, and the commit still reads. */

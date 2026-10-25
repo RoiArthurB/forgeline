@@ -64,6 +64,7 @@ class ChangesScreenTest {
                     onCancelComment = { events += "remark-cancel" },
                     onAddComment = { body, start -> events += "remark-add:$body${start?.let { " from ${it.number}" }.orEmpty()}" },
                     onStartFileComment = { events += "remark-file:$it" },
+                    onToggleViewed = { events += "viewed:$it" },
                     onRemoveComment = { events += "remark-remove:${it.body}" },
                     onOpen = { events += "review-open" },
                     onClose = { events += "review-close" },
@@ -258,5 +259,16 @@ class ChangesScreenTest {
         setContent(loaded(upload).copy(canReview = true, remarksOnFiles = false))
 
         composeRule.onNodeWithContentDescription("Remark on src/Upload.kt").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_file_is_marked_viewed_from_its_heading_and_says_so() {
+        val other = diff("src/Other.kt")
+        setContent(loaded(upload, other).copy(canReview = true, marksFilesViewed = true, viewed = setOf("src/Other.kt")))
+
+        composeRule.onNodeWithContentDescription("Mark src/Upload.kt as viewed").performClick()
+        composeRule.onNodeWithContentDescription("src/Other.kt viewed").assertExists()
+
+        assertThat(events).containsExactly("viewed:src/Upload.kt")
     }
 }

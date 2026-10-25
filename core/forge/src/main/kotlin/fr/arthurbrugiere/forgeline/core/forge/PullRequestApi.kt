@@ -59,6 +59,15 @@ interface PullRequestApi {
     /** The verdicts a review can give here: GitLab's API can't ask for changes. */
     val verdicts: Set<ReviewVerdict> get() = ReviewVerdict.entries.toSet()
 
+    /** Whether the reader can mark the files of a change as viewed here, as they review it file by file. */
+    val marksFilesViewed: Boolean get() = false
+
+    /** The paths of [ref]'s files the reader has viewed, since they last changed. */
+    suspend fun viewedFiles(token: String, ref: IssueRef): ForgeResult<Set<String>> = ForgeResult.Success(emptySet())
+
+    /** Marks the file at [path] of [ref] as viewed by the reader, or no longer. */
+    suspend fun setFileViewed(token: String, ref: IssueRef, path: String, viewed: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
     /** Whether a remark can cover several lines ([LineComment.isRange]) here. */
     val commentsOnRanges: Boolean get() = false
 

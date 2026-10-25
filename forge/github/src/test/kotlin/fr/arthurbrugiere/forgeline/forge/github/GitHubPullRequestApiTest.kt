@@ -496,6 +496,34 @@ class GitHubPullRequestApiTest {
     }
 
     @Test
+    fun the_files_the_reader_has_viewed_are_read_page_by_page_and_marked_by_the_pull_request_s_id() = runTest {
+        // As GraphQL answered for gama-platform/gama#1265 (2026-10-25), in two pages here.
+        val first = """{"data":{"repository":{"pullRequest":{"id":"PR_kwDOLUle7M8AAAABKK38FQ","files":{"pageInfo":{"hasNextPage":true,"endCursor":"c1"},""" +
+            """"nodes":[{"path":"a/GamaQuadTree.java","viewerViewedState":"VIEWED"},{"path":"b/Floyd.java","viewerViewedState":"UNVIEWED"}]}}}}}"""
+        val second = """{"data":{"repository":{"pullRequest":{"id":"PR_kwDOLUle7M8AAAABKK38FQ","files":{"pageInfo":{"hasNextPage":false,"endCursor":null},""" +
+            """"nodes":[{"path":"c/Graph.java","viewerViewedState":"DISMISSED"},{"path":"d/Topology.java","viewerViewedState":"VIEWED"}]}}}}}"""
+        val api = api { request ->
+            when {
+                "markFileAsViewed" in request.sent || "unmarkFileAsViewed" in request.sent -> json("""{"data":{"done":{"clientMutationId":null}}}""")
+                "\"after\":\"c1\"" in request.sent -> json(second)
+                else -> json(first)
+            }
+        }
+
+        assertThat(api.marksFilesViewed).isTrue()
+        // Viewed before the file changed since ("DISMISSED") is to be viewed again.
+        assertThat(api.viewedFiles("tok", gama).value()).containsExactly("a/GamaQuadTree.java", "d/Topology.java")
+        requests.clear()
+        assertThat(api.setFileViewed("tok", gama, "b/Floyd.java", viewed = true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.setFileViewed("tok", gama, "a/GamaQuadTree.java", viewed = false)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(requests.map { it.sent }.filter { "FileAsViewed" in it }.map { it.substringAfter("mutation").substringBefore("(input").trim() })
+            .hasSize(2)
+        assertThat(requests.last().sent).contains("unmarkFileAsViewed(input: {pullRequestId: \$id, path: \$path})")
+        assertThat(requests.last().sent).contains(""""variables":{"id":"PR_kwDOLUle7M8AAAABKK38FQ","path":"a/GamaQuadTree.java"}""")
+    }
+
+    @Test
     fun a_review_is_dismissed_with_why() = runTest {
         val result = api { json("""{"id":80,"state":"DISMISSED"}""") }.dismissReview("tok", pull, 80, "Outdated after the rewrite.")
 

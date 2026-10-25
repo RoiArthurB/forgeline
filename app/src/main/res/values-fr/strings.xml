@@ -915,6 +915,8 @@
     <string name="changes_remark_more">Une ligne de plus au-dessus</string>
     <string name="changes_remark_fewer">Une ligne de moins</string>
     <string name="changes_file_remark">Remarque sur %1$s</string>
+    <string name="changes_file_mark_viewed">Marquer %1$s comme vu</string>
+    <string name="changes_file_viewed">%1$s vu</string>
     <string name="review_title">Relecture</string>
     <string name="review_body">Ce que dit la relecture (facultatif)</string>
     <string name="review_failed">La forge a refusé la relecture : %1$s</string>

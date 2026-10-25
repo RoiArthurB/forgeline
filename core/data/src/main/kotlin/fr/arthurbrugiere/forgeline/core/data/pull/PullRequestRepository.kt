@@ -59,6 +59,13 @@ interface PullRequestRepository {
     /** Whether threads can be marked resolved on [forge]. */
     fun resolvesThreads(forge: ForgeInstance): Boolean
 
+    /** Whether the reader can mark the files of a change as viewed on [forge]. */
+    fun marksFilesViewed(forge: ForgeInstance): Boolean
+
+    suspend fun viewedFiles(ref: IssueRef): ForgeResult<Set<String>>
+
+    suspend fun setFileViewed(ref: IssueRef, path: String, viewed: Boolean): ForgeResult<Unit>
+
     /** Whether a remark can cover several lines, and be on a whole file, on [forge]. */
     fun commentsOnRanges(forge: ForgeInstance): Boolean
 
@@ -154,6 +161,12 @@ class DefaultPullRequestRepository @Inject constructor(
     override fun reactsToThreadComments(forge: ForgeInstance) = clients.pulls(forge).reactsToThreadComments
 
     override fun commentsOnRanges(forge: ForgeInstance) = clients.pulls(forge).commentsOnRanges
+
+    override fun marksFilesViewed(forge: ForgeInstance) = clients.pulls(forge).marksFilesViewed
+
+    override suspend fun viewedFiles(ref: IssueRef) = signedIn(ref.repo.forge) { viewedFiles(it, ref) }
+
+    override suspend fun setFileViewed(ref: IssueRef, path: String, viewed: Boolean) = signedIn(ref.repo.forge) { setFileViewed(it, ref, path, viewed) }
 
     override fun commentsOnFiles(forge: ForgeInstance) = clients.pulls(forge).commentsOnFiles
 

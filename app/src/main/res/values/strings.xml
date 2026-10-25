@@ -918,6 +918,8 @@
     <string name="changes_remark_more">One more line above</string>
     <string name="changes_remark_fewer">One line fewer</string>
     <string name="changes_file_remark">Remark on %1$s</string>
+    <string name="changes_file_mark_viewed">Mark %1$s as viewed</string>
+    <string name="changes_file_viewed">%1$s viewed</string>
     <string name="review_title">Review</string>
     <string name="review_body">What the review says (optional)</string>
     <string name="review_failed">The forge refused the review: %1$s</string>

@@ -185,6 +185,46 @@ class ChangesViewModelTest {
     }
 
     @Test
+    fun files_the_reader_viewed_start_folded_and_are_marked_and_unmarked() = test {
+        signIn()
+        api.files = listOf(listOf(changedFile("a.kt"), changedFile("b.kt")))
+        api.viewed = mutableSetOf("a.kt")
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        val (a, b) = viewModel.state.value.files!!
+        assertThat(viewModel.state.value.marksFilesViewed).isTrue()
+        assertThat(viewModel.state.value.viewed).containsExactly("a.kt")
+        assertThat(viewModel.state.value.isExpanded(a)).isFalse()
+        assertThat(viewModel.state.value.isExpanded(b)).isTrue()
+
+        viewModel.toggleViewed("b.kt")
+        // Folded at once, as on GitHub, before the forge has answered.
+        assertThat(viewModel.state.value.isExpanded(b)).isFalse()
+        advanceUntilIdle()
+        viewModel.toggleViewed("a.kt")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.viewed).containsExactly("b.kt")
+        assertThat(viewModel.state.value.isExpanded(a)).isTrue()
+        assertThat(api.calls.filter { it.startsWith("viewed:") }).containsExactly("viewed:octo/tools#88:b.kt:true", "viewed:octo/tools#88:a.kt:false").inOrder()
+    }
+
+    @Test
+    fun a_file_the_forge_wouldn_t_mark_goes_back_as_it_was() = test {
+        signIn()
+        api.files = listOf(listOf(changedFile("a.kt")))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        api.writeFailure = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Network
+
+        viewModel.toggleViewed("a.kt")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.viewed).isEmpty()
+        assertThat(viewModel.state.value.error).isEqualTo(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Network)
+    }
+
+    @Test
     fun remarks_on_lines_wait_for_the_review_and_go_with_it() = test {
         signIn()
         api.files = listOf(listOf(changedFile("new/a.kt", change = FileChange.RENAMED, previousPath = "old/a.kt")))

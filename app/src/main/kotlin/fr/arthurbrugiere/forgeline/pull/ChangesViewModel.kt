@@ -72,6 +72,9 @@ data class ChangesUiState(
     /** Whether a review can be written: a pull request's change, by someone signed in on its forge. */
     val canReview: Boolean = false,
     val verdicts: Set<ReviewVerdict> = emptySet(),
+    /** Whether the reader can mark files as viewed on this forge, and those they have viewed: they start folded. */
+    val marksFilesViewed: Boolean = false,
+    val viewed: Set<String> = emptySet(),
     /** Whether a remark can cover several lines, and be on a whole file, on this forge. */
     val remarksOnRanges: Boolean = false,
     val remarksOnFiles: Boolean = false,
@@ -84,7 +87,7 @@ data class ChangesUiState(
     /** Set once a review went through, until the screen has said so. */
     val reviewSent: Boolean = false,
 ) {
-    fun isExpanded(diff: FileDiff): Boolean = diff.isLarge == (diff.file.path in toggled)
+    fun isExpanded(diff: FileDiff): Boolean = (diff.isLarge || diff.file.path in viewed) == (diff.file.path in toggled)
 }
 
 @HiltViewModel(assistedFactory = ChangesViewModel.Factory::class)
@@ -104,6 +107,7 @@ class ChangesViewModel @AssistedInject constructor(
             target,
             verdicts = repository.verdicts(target.repo.forge),
             remarksOnRanges = repository.commentsOnRanges(target.repo.forge),
+            marksFilesViewed = target is ChangesTarget.Pull && repository.marksFilesViewed(target.repo.forge),
             remarksOnFiles = repository.commentsOnFiles(target.repo.forge),
         ),
     )
@@ -113,7 +117,14 @@ class ChangesViewModel @AssistedInject constructor(
         refresh()
         if (target is ChangesTarget.Pull) {
             viewModelScope.launch {
-                accounts.accounts.collect { signedIn -> _state.update { it.copy(canReview = signedIn.any { account -> account.forge == target.repo.forge }) } }
+                accounts.accounts.collect { signedIn ->
+                    val canReview = signedIn.any { account -> account.forge == target.repo.forge }
+                    _state.update { it.copy(canReview = canReview) }
+                    // Which files the reader viewed is theirs: known once signed in.
+                    if (canReview && _state.value.marksFilesViewed) {
+                        (repository.viewedFiles(target.ref) as? ForgeResult.Success)?.let { read -> _state.update { it.copy(viewed = read.value) } }
+                    }
+                }
             }
         }
     }
@@ -156,6 +167,23 @@ class ChangesViewModel @AssistedInject constructor(
     }
 
     fun errorShown() = _state.update { it.copy(error = null) }
+
+    /**
+     * Marks the file at [path] viewed, or no longer: it folds, or opens, at once, as on GitHub, and goes back as it was
+     * when the forge refuses.
+     */
+    fun toggleViewed(path: String) {
+        val state = _state.value
+        if (!state.canReview || !state.marksFilesViewed || target !is ChangesTarget.Pull) return
+        val viewed = path !in state.viewed
+        _state.update { it.copy(viewed = if (viewed) it.viewed + path else it.viewed - path, toggled = it.toggled - path) }
+        viewModelScope.launch {
+            val result = repository.setFileViewed(target.ref, path, viewed)
+            if (result is ForgeResult.Failure) {
+                _state.update { it.copy(viewed = if (viewed) it.viewed - path else it.viewed + path, error = result.error) }
+            }
+        }
+    }
 
     /** Folds the file at [path], or unfolds it. */
     fun toggle(path: String) = _state.update { it.copy(toggled = if (path in it.toggled) it.toggled - path else it.toggled + path) }
