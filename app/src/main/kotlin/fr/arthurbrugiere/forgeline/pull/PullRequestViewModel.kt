@@ -16,6 +16,7 @@ import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
+import fr.arthurbrugiere.forgeline.core.model.ThreadComment
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -67,6 +68,13 @@ data class PullRequestUiState(
     val busyThread: String? = null,
     /** The thread a reply was just added to, counted like [done]: its field empties. */
     val replied: Pair<String, Int>? = null,
+    /** The login the reader is signed in with on its forge; null signed out. Their own remarks can be rewritten. */
+    val me: String? = null,
+    /** Whether the reader's own remarks on lines can be rewritten, and taken back, on this forge. */
+    val editsThreadComments: Boolean = false,
+    val deletesThreadComments: Boolean = false,
+    /** The remark just rewritten, by its id, counted like [done]: its editor closes. */
+    val threadEdited: Pair<Long, Int>? = null,
     /** Why a reply, a change to a thread or a dismissal was refused, said once. */
     val threadError: ForgeError? = null,
     /** Its branch is being brought up to date; and why that was refused, said once. */
@@ -97,6 +105,8 @@ class PullRequestViewModel @AssistedInject constructor(
             resolvesThreads = repository.resolvesThreads(ref.repo.forge),
             dismissesReviews = repository.dismissesReviews(ref.repo.forge),
             appliesSuggestions = repository.appliesSuggestions(ref.repo.forge),
+            editsThreadComments = repository.editsThreadComments(ref.repo.forge),
+            deletesThreadComments = repository.deletesThreadComments(ref.repo.forge),
         ),
     )
     val state: StateFlow<PullRequestUiState> = _state.asStateFlow()
@@ -105,8 +115,9 @@ class PullRequestViewModel @AssistedInject constructor(
     init {
         viewModelScope.launch {
             // Read once signed out, and again when an account on the forge appears: only then is merging known.
-            accounts.accounts.map { signedIn -> signedIn.any { it.forge == ref.repo.forge } }.distinctUntilChanged().collect { signedIn ->
-                _state.update { it.copy(signedIn = signedIn, mergeInfo = it.mergeInfo.takeIf { signedIn }) }
+            accounts.accounts.map { signedIn -> signedIn.firstOrNull { it.forge == ref.repo.forge }?.user?.login }.distinctUntilChanged().collect { me ->
+                val signedIn = me != null
+                _state.update { it.copy(signedIn = signedIn, me = me, mergeInfo = it.mergeInfo.takeIf { signedIn }) }
                 refresh()
             }
         }
@@ -160,6 +171,20 @@ class PullRequestViewModel @AssistedInject constructor(
     }
 
     fun setResolved(thread: ReviewThread, resolved: Boolean) = threadWork(thread.id) { repository.setResolved(ref, thread, resolved) }
+
+    /** Rewrites the reader's own [comment] of [thread]; anyone else's is left as it is. */
+    fun editThreadComment(thread: ReviewThread, comment: ThreadComment, body: String) {
+        if (!wrote(comment) || body.isBlank()) return
+        threadWork(thread.id, onDone = { it.copy(threadEdited = comment.id to ++serial) }) { repository.editThreadComment(ref, thread, comment, body.trim()) }
+    }
+
+    /** Takes back the reader's own [comment] of [thread]. */
+    fun deleteThreadComment(thread: ReviewThread, comment: ThreadComment) {
+        if (!wrote(comment) || !_state.value.deletesThreadComments) return
+        threadWork(thread.id) { repository.deleteThreadComment(ref, thread, comment) }
+    }
+
+    private fun wrote(comment: ThreadComment): Boolean = _state.value.me?.let { comment.author?.login.equals(it, ignoreCase = true) } == true
 
     /**
      * Commits [suggestion] to the pull request's branch in place of the lines [thread] is on, as GitHub's own button

@@ -325,6 +325,24 @@ class GitLabPullRequestApiTest {
     }
 
     @Test
+    fun a_remark_on_a_line_is_rewritten_and_taken_back_in_its_discussion() = runTest {
+        val thread = api { json(discussions) }.threads("tok", mr).value().first()
+        val note = thread.comments.first()
+        requests.clear()
+        val acting = api { json("{}") }
+
+        assertThat(acting.editsThreadComments).isTrue()
+        acting.editThreadComment("tok", mr, thread, note, "Done, finally.")
+        acting.deleteThreadComment("tok", mr, thread, note)
+
+        assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly(
+            "PUT $base/merge_requests/7606/discussions/${thread.id}/notes/${note.id}",
+            "DELETE $base/merge_requests/7606/discussions/${thread.id}/notes/${note.id}",
+        ).inOrder()
+        assertThat(requests[0].sent).isEqualTo("""{"body":"Done, finally."}""")
+    }
+
+    @Test
     fun gitlab_can_t_dismiss_someone_else_s_review() = runTest {
         val api = api { json("{}") }
 

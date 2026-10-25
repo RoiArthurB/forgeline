@@ -43,6 +43,7 @@ import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.parsePatch
 import fr.arthurbrugiere.forgeline.core.model.splitSuggestions
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHairline
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSendButton
@@ -50,6 +51,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.issue.Comment
+import fr.arthurbrugiere.forgeline.issue.CommentMenu
 
 /**
  * The remarks on lines of a pull request's change, near its end, after its conversation: the open threads each with
@@ -152,6 +154,13 @@ private fun Thread(
         }
     }
     val busy = state.busyThread == thread.id
+    // The reader's own remark being rewritten in its place, and the one they asked to take back.
+    var editing by rememberSaveable(thread.id) { mutableStateOf<Long?>(null) }
+    var edited by rememberSaveable(thread.id) { mutableStateOf("") }
+    var deleting by rememberSaveable(thread.id) { mutableStateOf<Long?>(null) }
+    LaunchedEffect(state.threadEdited) {
+        if (state.threadEdited != null && state.threadEdited.first == editing) editing = null
+    }
     Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         // Where it is: the file and the line, and whether the code it was on has moved on since.
         Text(
@@ -175,7 +184,44 @@ private fun Thread(
         val commits = canCommit && state.appliesSuggestions && over.isNotEmpty() && !thread.outdated
         thread.comments.forEachIndexed { at, comment ->
             val split = remember(comment.body) { splitSuggestions(comment.body) }
-            Comment(comment.author, split.text, comment.createdAt, emptyMap(), context, nowMillis, onOpenUser, onLinkClick)
+            val own = canReply && state.editsThreadComments && state.me != null && comment.author?.login.equals(state.me, ignoreCase = true)
+            Comment(
+                comment.author, split.text, comment.createdAt, emptyMap(), context, nowMillis, onOpenUser, onLinkClick,
+                menu = CommentMenu(
+                    onQuote = null,
+                    onEdit = {
+                        edited = comment.body
+                        editing = comment.id
+                    },
+                    onDelete = { deleting = comment.id }.takeIf { state.deletesThreadComments },
+                ).takeIf { own },
+                editor = if (editing == comment.id) {
+                    {
+                        ThreadCommentEditor(
+                            text = edited,
+                            onChange = { edited = it },
+                            busy = busy,
+                            onCancel = { editing = null },
+                            onSave = { actions.onEditThreadComment(thread, comment, edited) },
+                        )
+                    }
+                } else {
+                    null
+                },
+            )
+            if (deleting == comment.id) {
+                SoftConfirmSheet(
+                    title = stringResource(R.string.issue_comment_delete_title),
+                    body = stringResource(R.string.issue_comment_delete_body),
+                    confirm = stringResource(R.string.issue_comment_delete),
+                    cancel = stringResource(R.string.cancel),
+                    onConfirm = {
+                        deleting = null
+                        actions.onDeleteThreadComment(thread, comment)
+                    },
+                    onDismiss = { deleting = null },
+                )
+            }
             split.suggestions.forEachIndexed { index, suggested ->
                 val key = "$at:$index"
                 // Where the forge keeps it (GitLab), it says itself what it replaces and whether it can still be made.
@@ -234,6 +280,21 @@ private fun Thread(
                     )
                 }
             }
+        }
+    }
+}
+
+/** The reader's own remark, rewritten where it stands: its words in a field, then saved or left as they were. */
+@Composable
+private fun ThreadCommentEditor(text: String, onChange: (String) -> Unit, busy: Boolean, onCancel: () -> Unit, onSave: () -> Unit) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SoftTextField(
+            value = text, onValueChange = onChange, placeholder = stringResource(R.string.issue_comment_editing),
+            singleLine = false, maxLines = 12, readOnly = busy, modifier = Modifier.fillMaxWidth(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SoftTonalButton(stringResource(R.string.cancel), onClick = onCancel, enabled = !busy)
+            SoftButton(stringResource(R.string.issue_comment_save), onClick = onSave, enabled = text.isNotBlank() && !busy)
         }
     }
 }

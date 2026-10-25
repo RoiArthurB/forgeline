@@ -229,6 +229,11 @@ class ForgejoWriteLiveTest {
             val after = pulls.threads(token, ref).value("threads after")
             System.err.println("CODEBERG threads after reply: ${after.map { "${it.path}:${it.line} ${it.comments.size}" }}")
             assertWithMessage("reply joined the thread").that(after.single().comments.map { it.body }).containsExactly("Why this line?", "Answered by the live test.").inOrder()
+            // The reply is rewritten. Deleting one isn't offered: Forgejo answers 204 and keeps it (2026-10-25).
+            val answer = after.single().comments.last()
+            pulls.editThreadComment(token, ref, after.single(), answer, "Rewritten by the live test.").value("edit reply")
+            val rewritten = pulls.threads(token, ref).value("threads rewritten").single()
+            assertWithMessage("reply rewritten").that(rewritten.comments.map { it.body }).containsExactly("Why this line?", "Rewritten by the live test.").inOrder()
 
             // A suggestion on that line is committed to the pull request's branch; once made, the same one is a conflict.
             pulls.review(token, ref, ReviewVerdict.COMMENT, "", listOf(LineComment("NOTES.md", oldLine = null, newLine = 1, body = "```suggestion\nA line the pull request changes.\n```"))).value("suggest")

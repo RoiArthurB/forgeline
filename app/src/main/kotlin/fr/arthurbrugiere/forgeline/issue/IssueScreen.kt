@@ -243,6 +243,8 @@ fun IssueRoute(
             onUpdateBranch = { pull?.updateBranch() },
             onUpdateErrorShown = { pull?.updateErrorShown() },
             onReply = { thread, body -> pull?.reply(thread, body) },
+            onEditThreadComment = { thread, comment, body -> pull?.editThreadComment(thread, comment, body) },
+            onDeleteThreadComment = { thread, comment -> pull?.deleteThreadComment(thread, comment) },
             onSetResolved = { thread, resolved -> pull?.setResolved(thread, resolved) },
             onApplySuggestion = { thread, suggestion -> pull?.applySuggestion(thread, suggestion) },
             onDismissReview = { id, message -> pull?.dismissReview(id, message) },

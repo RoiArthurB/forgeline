@@ -177,6 +177,13 @@ class GitLabWriteLiveTest {
             System.err.println("GITLAB thread after: ${after.comments.size} comments, resolved=${after.resolved}")
             assertWithMessage("reply in thread").that(after.comments.map { it.body }).contains("Answered by the live test.")
             assertWithMessage("resolved").that(after.resolved).isTrue()
+            // The reply is rewritten, then taken back; the remark it answered stays.
+            val answer = after.comments.first { it.body == "Answered by the live test." }
+            pulls.editThreadComment(token, ref, after, answer, "Rewritten by the live test.").value("edit reply")
+            val rewritten = pulls.threads(token, ref).value("threads rewritten").single()
+            assertWithMessage("reply rewritten").that(rewritten.comments.map { it.body }).contains("Rewritten by the live test.")
+            pulls.deleteThreadComment(token, ref, rewritten, rewritten.comments.first { it.id == answer.id }).value("delete reply")
+            assertWithMessage("reply taken back").that(pulls.threads(token, ref).value("threads less").single().comments.none { it.id == answer.id }).isTrue()
             // Left to its thread, not repeated in the conversation.
             val said = GitLabIssueApi(http, ForgeInstance.GitLab).timeline(token, ref, 1).value("timeline before merge").items
             assertWithMessage("not in the conversation").that(said.filterIsInstance<fr.arthurbrugiere.forgeline.core.model.TimelineItem.Comment>().map { it.body }).doesNotContain("Why this line?")

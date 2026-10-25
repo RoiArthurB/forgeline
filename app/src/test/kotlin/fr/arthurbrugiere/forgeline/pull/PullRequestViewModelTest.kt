@@ -198,6 +198,35 @@ class PullRequestViewModelTest {
     }
 
     @Test
+    fun the_reader_s_own_remark_is_rewritten_and_taken_back_and_nobody_else_s() = test {
+        val mine = ThreadComment(2, ForgeUser("Me", null, null), "Because.", null)
+        api.reviewThreads = listOf(thread.copy(comments = thread.comments + mine))
+        signIn()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.me).isEqualTo("me")
+        assertThat(viewModel.state.value.editsThreadComments).isTrue()
+        val read = viewModel.state.value.threads!!.single()
+
+        viewModel.editThreadComment(read, mine, "  Because of flaky links.  ")
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.threadEdited?.first).isEqualTo(2L)
+        assertThat(viewModel.state.value.threads!!.single().comments.last().body).isEqualTo("Because of flaky links.")
+
+        viewModel.deleteThreadComment(viewModel.state.value.threads!!.single(), mine)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.threads!!.single().comments.map { it.id }).containsExactly(1L)
+
+        // Someone else's is left alone, whatever asks.
+        viewModel.editThreadComment(read, read.comments.first(), "Not mine.")
+        viewModel.deleteThreadComment(read, read.comments.first())
+        advanceUntilIdle()
+        assertThat(api.calls.filter { "ThreadComment:" in it }).containsExactly(
+            "editThreadComment:octo/tools#88:T1:2:Because of flaky links.", "deleteThreadComment:octo/tools#88:T1:2",
+        ).inOrder()
+    }
+
+    @Test
     fun a_thread_is_resolved_and_reopened() = test {
         api.reviewThreads = listOf(thread)
         signIn()

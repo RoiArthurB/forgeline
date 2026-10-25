@@ -111,6 +111,25 @@ class FakePullRequestApi(
         }
     }
 
+    override var editsThreadComments: Boolean = true
+
+    override var deletesThreadComments: Boolean = true
+
+    override suspend fun editThreadComment(token: String, ref: IssueRef, thread: ReviewThread, comment: ThreadComment, body: String) =
+        write("editThreadComment:${ref.name()}:${thread.id}:${comment.id}:$body") {
+            reviewThreads = reviewThreads.map { t ->
+                if (t.id == thread.id) t.copy(comments = t.comments.map { if (it.id == comment.id) it.copy(body = body) else it }) else t
+            }
+        }
+
+    /** A thread goes with its last remark, as on a forge. */
+    override suspend fun deleteThreadComment(token: String, ref: IssueRef, thread: ReviewThread, comment: ThreadComment) =
+        write("deleteThreadComment:${ref.name()}:${thread.id}:${comment.id}") {
+            reviewThreads = reviewThreads.mapNotNull { t ->
+                if (t.id == thread.id) t.copy(comments = t.comments.filterNot { it.id == comment.id }).takeIf { it.comments.isNotEmpty() } else t
+            }
+        }
+
     override suspend fun setResolved(token: String, ref: IssueRef, thread: ReviewThread, resolved: Boolean) = write("resolved:${ref.name()}:${thread.id}:$resolved") {
         reviewThreads = reviewThreads.map { if (it.id == thread.id) it.copy(resolved = resolved) else it }
     }

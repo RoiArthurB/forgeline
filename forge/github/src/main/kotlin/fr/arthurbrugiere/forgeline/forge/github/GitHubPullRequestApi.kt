@@ -212,6 +212,16 @@ class GitHubPullRequestApi(
         pull(token, ref, "comments", first.id.toString(), "replies", method = HttpMethod.Post, body = buildJsonObject { put("body", body) }).toResult { }
     }
 
+    override val editsThreadComments: Boolean = true
+
+    override suspend fun editThreadComment(token: String, ref: IssueRef, thread: ReviewThread, comment: ThreadComment, body: String): ForgeResult<Unit> = forgeCall {
+        repo(token, ref.repo, "pulls", "comments", comment.id.toString(), method = HttpMethod.Patch, body = buildJsonObject { put("body", body) }).toResult { }
+    }
+
+    override suspend fun deleteThreadComment(token: String, ref: IssueRef, thread: ReviewThread, comment: ThreadComment): ForgeResult<Unit> = forgeCall {
+        repo(token, ref.repo, "pulls", "comments", comment.id.toString(), method = HttpMethod.Delete).toResult { }
+    }
+
     override val resolvesThreads: Boolean = true
 
     override suspend fun setResolved(token: String, ref: IssueRef, thread: ReviewThread, resolved: Boolean): ForgeResult<Unit> {

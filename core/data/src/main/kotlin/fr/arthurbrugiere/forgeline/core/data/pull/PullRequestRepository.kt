@@ -23,6 +23,7 @@ import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
+import fr.arthurbrugiere.forgeline.core.model.ThreadComment
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -55,6 +56,15 @@ interface PullRequestRepository {
 
     /** Whether threads can be marked resolved on [forge]. */
     fun resolvesThreads(forge: ForgeInstance): Boolean
+
+    /** Whether the reader's own remarks on lines can be rewritten, and taken back, on [forge]. */
+    fun editsThreadComments(forge: ForgeInstance): Boolean
+
+    fun deletesThreadComments(forge: ForgeInstance): Boolean
+
+    suspend fun editThreadComment(ref: IssueRef, thread: ReviewThread, comment: ThreadComment, body: String): ForgeResult<Unit>
+
+    suspend fun deleteThreadComment(ref: IssueRef, thread: ReviewThread, comment: ThreadComment): ForgeResult<Unit>
 
     suspend fun setResolved(ref: IssueRef, thread: ReviewThread, resolved: Boolean): ForgeResult<Unit>
 
@@ -127,6 +137,16 @@ class DefaultPullRequestRepository @Inject constructor(
     override suspend fun reply(ref: IssueRef, thread: ReviewThread, body: String) = signedIn(ref.repo.forge) { reply(it, ref, thread, body) }
 
     override fun resolvesThreads(forge: ForgeInstance) = clients.pulls(forge).resolvesThreads
+
+    override fun editsThreadComments(forge: ForgeInstance) = clients.pulls(forge).editsThreadComments
+
+    override fun deletesThreadComments(forge: ForgeInstance) = clients.pulls(forge).deletesThreadComments
+
+    override suspend fun editThreadComment(ref: IssueRef, thread: ReviewThread, comment: ThreadComment, body: String) =
+        signedIn(ref.repo.forge) { editThreadComment(it, ref, thread, comment, body) }
+
+    override suspend fun deleteThreadComment(ref: IssueRef, thread: ReviewThread, comment: ThreadComment) =
+        signedIn(ref.repo.forge) { deleteThreadComment(it, ref, thread, comment) }
 
     override suspend fun setResolved(ref: IssueRef, thread: ReviewThread, resolved: Boolean) = signedIn(ref.repo.forge) { setResolved(it, ref, thread, resolved) }
 

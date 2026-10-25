@@ -148,6 +148,19 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
         return review(token, ref, ReviewVerdict.COMMENT, "", listOf(remark))
     }
 
+    override val editsThreadComments: Boolean = true
+
+    /** A remark on a line is an issue comment to Forgejo: its own endpoints rewrite it. */
+    override suspend fun editThreadComment(token: String, ref: IssueRef, thread: ReviewThread, comment: ThreadComment, body: String): ForgeResult<Unit> = forgeCall {
+        repo(token, ref.repo, "issues", "comments", comment.id.toString(), method = HttpMethod.Patch, body = buildJsonObject { put("body", body) }).toResult { }
+    }
+
+    /**
+     * Its comment endpoint answers 204 to deleting a remark on a line and leaves it (Codeberg, 2026-10-25): only a plain
+     * comment goes. Deleting the review it came in would take any other remark of it along, so it isn't offered.
+     */
+    override val deletesThreadComments: Boolean = false
+
     override val dismissesReviews: Boolean = true
 
     override suspend fun dismissReview(token: String, ref: IssueRef, reviewId: Long, message: String): ForgeResult<Unit> = forgeCall {

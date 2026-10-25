@@ -60,6 +60,7 @@ import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
+import fr.arthurbrugiere.forgeline.core.model.ThreadComment
 import fr.arthurbrugiere.forgeline.core.model.overall
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
@@ -91,6 +92,9 @@ class PullActions(
     /** Answers a thread on a line of the change. */
     val onReply: (ReviewThread, String) -> Unit = { _, _ -> },
     val onSetResolved: (ReviewThread, Boolean) -> Unit = { _, _ -> },
+    /** Rewrites, or takes back, one of the reader's own remarks on lines. */
+    val onEditThreadComment: (ReviewThread, ThreadComment, String) -> Unit = { _, _, _ -> },
+    val onDeleteThreadComment: (ReviewThread, ThreadComment) -> Unit = { _, _ -> },
     /** Commits a reviewer's suggestion, one of a thread's, to the pull request's branch. */
     val onApplySuggestion: (ReviewThread, List<String>) -> Unit = { _, _ -> },
     /** Dismisses a review by its id, saying why. */

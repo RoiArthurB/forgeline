@@ -3,13 +3,17 @@ package fr.arthurbrugiere.forgeline.pull
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
@@ -53,6 +57,8 @@ class ReviewThreadsTest {
         onReply = { thread, body -> events += "reply:${thread.id}:$body" },
         onSetResolved = { thread, resolved -> events += "resolved:${thread.id}:$resolved" },
         onApplySuggestion = { thread, suggestion -> events += "suggestion:${thread.id}:${suggestion.joinToString("|")}" },
+        onEditThreadComment = { thread, comment, body -> events += "edit:${thread.id}:${comment.id}:$body" },
+        onDeleteThreadComment = { thread, comment -> events += "delete:${thread.id}:${comment.id}" },
     )
 
     private fun setContent(
@@ -248,5 +254,44 @@ class ReviewThreadsTest {
         waitFor("Better:")
         composeRule.onNodeWithText("Suggested change · committed").assertIsDisplayed()
         composeRule.onNodeWithText("Commit suggestion").assertDoesNotExist()
+    }
+
+    private val mine = PullRequestUiState(resolvesThreads = true, me = "octocat", editsThreadComments = true, deletesThreadComments = true)
+
+    @Test
+    fun the_reader_s_own_remark_is_rewritten_in_its_place() {
+        setContent(listOf(open), state = mine)
+
+        // Only the reader's own remark has options: hubot's has none.
+        composeRule.onAllNodes(hasContentDescription("Comment options")).assertCountEquals(1)
+        composeRule.onNode(hasContentDescription("Comment options")).performClick()
+        composeRule.onNodeWithText("Edit").performClick()
+        composeRule.onNode(hasText("Flaky links.") and hasSetTextAction()).performTextReplacement("Flaky links, twice a day.")
+        composeRule.onNodeWithText("Save").performClick()
+
+        assertThat(events).containsExactly("edit:T1:2:Flaky links, twice a day.")
+    }
+
+    @Test
+    fun the_reader_s_own_remark_is_taken_back_once_they_say_so() {
+        setContent(listOf(open), state = mine)
+
+        composeRule.onNode(hasContentDescription("Comment options")).performClick()
+        composeRule.onNodeWithText("Delete").performClick()
+        composeRule.onNodeWithText("Delete this comment?").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Delete").onLast().performClick()
+
+        assertThat(events).containsExactly("delete:T1:2")
+    }
+
+    @Test
+    fun where_a_remark_can_only_be_rewritten_deleting_isn_t_offered() {
+        // Forgejo answers yes to deleting one and keeps it.
+        setContent(listOf(open), state = mine.copy(deletesThreadComments = false))
+
+        composeRule.onNode(hasContentDescription("Comment options")).performClick()
+
+        composeRule.onNodeWithText("Edit").assertIsDisplayed()
+        composeRule.onNodeWithText("Delete").assertDoesNotExist()
     }
 }

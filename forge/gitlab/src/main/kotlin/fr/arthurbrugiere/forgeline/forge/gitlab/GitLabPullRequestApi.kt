@@ -141,6 +141,16 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
         mergeRequest(token, ref, "discussions", thread.id, "notes", method = HttpMethod.Post, body = buildJsonObject { put("body", body) }).toResult { }
     }
 
+    override val editsThreadComments: Boolean = true
+
+    override suspend fun editThreadComment(token: String, ref: IssueRef, thread: ReviewThread, comment: ThreadComment, body: String): ForgeResult<Unit> = forgeCall {
+        mergeRequest(token, ref, "discussions", thread.id, "notes", comment.id.toString(), method = HttpMethod.Put, body = buildJsonObject { put("body", body) }).toResult { }
+    }
+
+    override suspend fun deleteThreadComment(token: String, ref: IssueRef, thread: ReviewThread, comment: ThreadComment): ForgeResult<Unit> = forgeCall {
+        mergeRequest(token, ref, "discussions", thread.id, "notes", comment.id.toString(), method = HttpMethod.Delete).toResult { }
+    }
+
     override val resolvesThreads: Boolean = true
 
     override suspend fun setResolved(token: String, ref: IssueRef, thread: ReviewThread, resolved: Boolean): ForgeResult<Unit> = forgeCall {

@@ -263,6 +263,24 @@ class ForgejoPullRequestApiTest {
     }
 
     @Test
+    fun a_remark_on_a_line_is_rewritten_as_the_comment_it_is_but_never_said_to_be_deleted() = runTest {
+        // Forgejo keeps a remark on a line as an issue comment: its endpoint rewrites it, and answers 204 to deleting
+        // it while keeping it (Codeberg, 2026-10-25).
+        val thread = threadedApi().threads("tok", threaded).value().first()
+        val comment = thread.comments.first()
+        codeberg.requests.clear()
+        val acting = with(codeberg) { api { json("""{"id":1}""") } }
+
+        assertThat(acting.editsThreadComments).isTrue()
+        assertThat(acting.deletesThreadComments).isFalse()
+        acting.editThreadComment("tok", threaded, thread, comment, "Thanks again!")
+        assertThat(acting.deleteThreadComment("tok", threaded, thread, comment)).isEqualTo(ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unsupported))
+
+        assertThat(codeberg.requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly("PATCH $base/issues/comments/${comment.id}")
+        assertThat((codeberg.requests[0].body as TextContent).text).isEqualTo("""{"body":"Thanks again!"}""")
+    }
+
+    @Test
     fun a_merge_says_how() = runTest {
         with(codeberg) { api { status(HttpStatusCode.OK) } }.merge("tok", pull, MergeMethod.REBASE)
 

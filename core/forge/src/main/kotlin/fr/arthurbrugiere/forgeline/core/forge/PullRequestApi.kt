@@ -64,6 +64,20 @@ interface PullRequestApi {
     /** The remarks on lines of [ref]'s change, each with its replies, oldest first. */
     suspend fun threads(token: String?, ref: IssueRef): ForgeResult<List<ReviewThread>> = ForgeResult.Success(emptyList())
 
+    /** Whether the reader's own remarks on lines can be rewritten and taken back here. */
+    val editsThreadComments: Boolean get() = false
+
+    /** Rewrites [comment], one of [thread]'s, as [body] (Markdown): the reader's own, which only its author may. */
+    suspend fun editThreadComment(token: String, ref: IssueRef, thread: ReviewThread, comment: ThreadComment, body: String): ForgeResult<Unit> =
+        ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Whether they can also be taken back: Forgejo answers yes to deleting one and keeps it (Codeberg, 2026-10-25). */
+    val deletesThreadComments: Boolean get() = editsThreadComments
+
+    /** Takes back [comment], one of [thread]'s; the thread goes with its last remark. */
+    suspend fun deleteThreadComment(token: String, ref: IssueRef, thread: ReviewThread, comment: ThreadComment): ForgeResult<Unit> =
+        ForgeResult.Failure(ForgeError.Unsupported)
+
     /** Answers [thread] of [ref] with [body], Markdown. */
     suspend fun reply(token: String, ref: IssueRef, thread: ReviewThread, body: String): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
 

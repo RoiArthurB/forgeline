@@ -434,6 +434,24 @@ class GitHubPullRequestApiTest {
     }
 
     @Test
+    fun a_remark_on_a_line_is_rewritten_and_taken_back_by_its_id() = runTest {
+        val thread = api { json(captured("review_threads.json")) }.threads("tok", gama).value().first()
+        val comment = thread.comments.first()
+        requests.clear()
+        val acting = api { request -> if (request.method == HttpMethod.Delete) respond("", HttpStatusCode.NoContent) else json("{}") }
+
+        assertThat(acting.editsThreadComments).isTrue()
+        assertThat(acting.editThreadComment("tok", gama, thread, comment, "Fixed in 7a1b, see there.")).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(acting.deleteThreadComment("tok", gama, thread, comment)).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(requests.map { "${it.method.value} ${it.path}" }).containsExactly(
+            "PATCH /repos/gama-platform/gama/pulls/comments/4355905017",
+            "DELETE /repos/gama-platform/gama/pulls/comments/4355905017",
+        ).inOrder()
+        assertThat(requests[0].sent).isEqualTo("""{"body":"Fixed in 7a1b, see there."}""")
+    }
+
+    @Test
     fun a_review_is_dismissed_with_why() = runTest {
         val result = api { json("""{"id":80,"state":"DISMISSED"}""") }.dismissReview("tok", pull, 80, "Outdated after the rewrite.")
 
