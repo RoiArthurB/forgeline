@@ -1,0 +1,30 @@
+[
+  {
+    "name": "bug_report.md",
+    "path": ".github/ISSUE_TEMPLATE/bug_report.md",
+    "sha": "e561f9d26154a9b6ab064f7c8cca17f7e7c89a31",
+    "size": 1067,
+    "type": "file"
+  },
+  {
+    "name": "compiler_bug_report.yml",
+    "path": ".github/ISSUE_TEMPLATE/compiler_bug_report.yml",
+    "sha": "a2c0e3d7aa388bf17e0a94ac795bfb2577b23a27",
+    "size": 2432,
+    "type": "file"
+  },
+  {
+    "name": "config.yml",
+    "path": ".github/ISSUE_TEMPLATE/config.yml",
+    "sha": "2b1404175e698467387d9960f7402029ace447c6",
+    "size": 468,
+    "type": "file"
+  },
+  {
+    "name": "devtools_bug_report.yml",
+    "path": ".github/ISSUE_TEMPLATE/devtools_bug_report.yml",
+    "sha": "f90209764681b7a9f38afaa3af75595a8f952839",
+    "size": 2418,
+    "type": "file"
+  }
+]

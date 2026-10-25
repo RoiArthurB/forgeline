@@ -1,7 +1,9 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.FormField
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
+import fr.arthurbrugiere.forgeline.core.forge.issueFormText
 import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
@@ -596,24 +598,15 @@ internal data class FormAttributesJson(
  * meant for the issue, then each field's label as a heading over its answer), each field's help as a comment above
  * where it is answered, a dropdown's choices as a list to keep one of, checkboxes as boxes to tick.
  */
-internal fun formToMarkdown(fields: List<FormFieldJson>): String = fields
-    .filter { field -> field.visible?.contains("content") ?: (field.type != "markdown") }
-    .joinToString("\n") { field ->
+internal fun formToMarkdown(fields: List<FormFieldJson>): String = issueFormText(
+    fields.map { field ->
         val attributes = field.attributes
-        if (field.type == "markdown") return@joinToString attributes.value.orEmpty().trimEnd() + "\n"
-        buildString {
-            append("### ").append(attributes.label.orEmpty().trim()).append("\n\n")
-            attributes.description?.trim()?.takeIf { it.isNotEmpty() }?.let { append("<!-- ").append(it.replace("-->", "→")).append(" -->\n") }
-            val options = attributes.options.mapNotNull { option ->
-                (option as? JsonObject)?.get("label")?.jsonPrimitive?.contentOrNull ?: (option as? JsonPrimitive)?.contentOrNull
-            }
-            when (field.type) {
-                "checkboxes" -> options.forEach { append("- [ ] ").append(it).append("\n") }
-                "dropdown" -> options.forEach { append("- ").append(it).append("\n") }
-                else -> append(attributes.value.orEmpty().trim()).append("\n")
-            }
+        val options = attributes.options.mapNotNull { option ->
+            (option as? JsonObject)?.get("label")?.jsonPrimitive?.contentOrNull ?: (option as? JsonPrimitive)?.contentOrNull
         }
-    }
+        FormField(field.type, attributes.label, attributes.description, attributes.value, options, inIssue = field.visible?.contains("content") ?: (field.type != "markdown"))
+    },
+)
 
 /** Whether the signed-in user hears of a conversation. */
 @Serializable

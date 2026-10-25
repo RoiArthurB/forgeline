@@ -4,6 +4,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.forge.map
+import fr.arthurbrugiere.forgeline.core.forge.parseIssueForm
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
@@ -38,6 +39,9 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonNull
@@ -54,6 +58,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import java.time.Instant
+import java.util.Base64
 
 class GitHubIssueApi(
     private val httpClient: HttpClient,
@@ -165,7 +170,35 @@ class GitHubIssueApi(
     }
 
     /** GitHub's GraphQL API lists a repository's Markdown templates, bodies and all; its forms are left out. */
-    override suspend fun issueTemplates(token: String, repo: RepoId): ForgeResult<List<IssueTemplate>> = graphQl(
+
+    /**
+     * GitHub's GraphQL API lists a repository's Markdown templates only: its issue forms, written in YAML, are read from
+     * `.github/ISSUE_TEMPLATE` beside them, in the same order of file names GitHub shows them in.
+     */
+    override suspend fun issueTemplates(token: String, repo: RepoId): ForgeResult<List<IssueTemplate>> = coroutineScope {
+        val forms = async { issueForms(token, repo) }
+        markdownTemplates(token, repo).map { templates -> (templates + forms.await()).sortedBy { it.key } }
+    }
+
+    /** The forms that read; none where the folder can't be listed, which is most repositories (404). */
+    private suspend fun issueForms(token: String, repo: RepoId): List<IssueTemplate> = coroutineScope {
+        val listed = forgeCall {
+            httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, "contents", ".github", "ISSUE_TEMPLATE").toResult { body<List<TemplateFileJson>>() }
+        }
+        // config.yml says what the chooser offers besides the templates: it is no form.
+        val files = (listed as? ForgeResult.Success)?.value.orEmpty()
+            .filter { it.type == "file" && it.name.substringAfterLast('.') in FORM_EXTENSIONS && it.name.substringBeforeLast('.') != "config" }
+        files.map { file ->
+            async {
+                val read = forgeCall {
+                    httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, "contents", *file.path.split('/').toTypedArray()).toResult { body<TemplateFileJson>().text() }
+                }
+                (read as? ForgeResult.Success)?.value?.let { parseIssueForm(file.name, it) }
+            }
+        }.awaitAll().filterNotNull()
+    }
+
+    private suspend fun markdownTemplates(token: String, repo: RepoId): ForgeResult<List<IssueTemplate>> = graphQl(
         token,
         "query(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { issueTemplates { filename name about title body labels(first: 20) { nodes { name } } } } }",
         buildJsonObject {
@@ -649,3 +682,12 @@ private data class TemplateLabelsJson(val nodes: List<TemplateLabelJson> = empty
 
 @Serializable
 private data class TemplateLabelJson(val name: String)
+
+/** A file of `.github/ISSUE_TEMPLATE`, as the contents API lists it, and sends it alone ([content], in base64). */
+@Serializable
+private data class TemplateFileJson(val name: String, val path: String, val type: String = "file", val content: String? = null, val encoding: String? = null) {
+    fun text(): String? = content?.takeIf { encoding == "base64" }?.let { Base64.getMimeDecoder().decode(it).decodeToString() }
+}
+
+/** The file names GitHub reads an issue form from. */
+private val FORM_EXTENSIONS = setOf("yml", "yaml")

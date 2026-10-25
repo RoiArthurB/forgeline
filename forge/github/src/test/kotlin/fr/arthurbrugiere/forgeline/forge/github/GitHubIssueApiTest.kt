@@ -571,12 +571,28 @@ class GitHubIssueApiTest {
         assertThat(bodies.single()).isEqualTo("""{"base":"release/2.0"}""")
     }
 
+    /**
+     * Templates as GitHub answers them: [markdown] from GraphQL, and the files of `.github/ISSUE_TEMPLATE` by path from
+     * the contents API, where a path not in [files] answers 404 (most repositories have no such folder).
+     */
+    private fun templates(markdown: String, files: Map<String, String> = emptyMap()) = api { request ->
+        val path = request.url.encodedPath
+        when {
+            path == "/graphql" -> json(markdown)
+            path.startsWith("/repos/paperclipai/paperclip/contents/") -> files[path.removePrefix("/repos/paperclipai/paperclip/contents/")]?.let { json(it) }
+                ?: json("""{"message":"Not Found"}""", status = HttpStatusCode.NotFound)
+            else -> error("unexpected $path")
+        }
+    }
+
+    private val graphQlBodies get() = requests.filter { it.url.encodedPath == "/graphql" }.map { (it.body as TextContent).text }
+
     @Test
     fun a_repository_s_markdown_templates_come_with_their_text() = runTest {
         // GitHub's answer for gama-platform/gama, 2026-10-24.
         val captured = requireNotNull(javaClass.getResource("/github/issue_templates.json")).readText()
 
-        val templates = graphQl { captured }.issueTemplates("tok", issue.repo).value()
+        val templates = templates(captured).issueTemplates("tok", issue.repo).value()
 
         assertThat(templates.map { it.name }).containsExactly("Report a problem in using GAMA", "Feature or enhancement request").inOrder()
         assertThat(templates[0].key).isEqualTo("bug_report.md")
@@ -584,7 +600,9 @@ class GitHubIssueApiTest {
         assertThat(templates[0].title).isEmpty()
         assertThat(templates[0].body).startsWith("**Describe the bug**")
         assertThat(templates[0].labels).isEmpty()
-        assertThat(bodies.single()).contains(""""variables":{"owner":"paperclipai","name":"paperclip"}""")
+        assertThat(graphQlBodies.single()).contains(""""variables":{"owner":"paperclipai","name":"paperclip"}""")
+        // No folder of forms beside them.
+        assertThat(requests.map { it.url.encodedPath }).contains("/repos/paperclipai/paperclip/contents/.github/ISSUE_TEMPLATE")
     }
 
     @Test
@@ -592,13 +610,53 @@ class GitHubIssueApiTest {
         // GitHub's answer for rust-lang/rust, 2026-10-24, cut to two templates: one with labels, one without.
         val captured = requireNotNull(javaClass.getResource("/github/issue_templates_labels.json")).readText()
 
-        val templates = graphQl { captured }.issueTemplates("tok", issue.repo).value()
+        val templates = templates(captured).issueTemplates("tok", issue.repo).value()
 
         assertThat(templates.map { it.key }).containsExactly("ice.md", "tracking_issue_future.md").inOrder()
         assertThat(templates[0].labels).containsExactly("I-ICE", "T-compiler", "C-bug").inOrder()
         assertThat(templates[0].title).isEqualTo("[ICE]: ")
         assertThat(templates[1].labels).isEmpty()
-        assertThat(bodies.single()).contains("labels(first: 20) { nodes { name } }")
+        assertThat(graphQlBodies.single()).contains("labels(first: 20) { nodes { name } }")
+    }
+
+    private fun resource(name: String) = requireNotNull(javaClass.getResource("/github/$name")) { name }.readText()
+
+    @Test
+    fun a_repository_s_issue_forms_come_beside_its_markdown_templates_in_file_order() = runTest {
+        // GitHub's answers for facebook/react, 2026-10-25: one Markdown template in GraphQL, two forms and config.yml in the folder.
+        val templates = templates(
+            resource("issue_templates_react.json"),
+            mapOf(
+                ".github/ISSUE_TEMPLATE" to resource("issue_template_folder_react.json"),
+                ".github/ISSUE_TEMPLATE/compiler_bug_report.yml" to resource("issue_form_compiler_bug_report.json"),
+                ".github/ISSUE_TEMPLATE/devtools_bug_report.yml" to resource("issue_form_devtools_bug_report.json"),
+            ),
+        ).issueTemplates("tok", issue.repo).value()
+
+        assertThat(templates.map { it.key }).containsExactly("bug_report.md", "compiler_bug_report.yml", "devtools_bug_report.yml").inOrder()
+        val compiler = templates[1]
+        assertThat(compiler.name).isEqualTo("⚛️ ✨ Compiler bug report")
+        assertThat(compiler.title).isEqualTo("[Compiler Bug]: ")
+        assertThat(compiler.labels).containsExactly("Component: Optimizing Compiler", "Type: Bug", "Status: Unconfirmed").inOrder()
+        assertThat(compiler.body).startsWith("### What kind of issue is this?\n\n")
+        assertThat(compiler.body).contains("- [ ] React Compiler core (the JS output is incorrect, or your app works incorrectly after optimization)\n")
+        assertThat(compiler.body).contains("### How often does this bug happen?\n\n<!-- Following the repro steps above, how easily are you able to reproduce this bug? -->\n- Every time\n")
+        assertThat(templates[2].labels).contains("Component: Developer Tools")
+        // config.yml isn't asked for: it is no form.
+        assertThat(requests.map { it.url.encodedPath }).doesNotContain("/repos/paperclipai/paperclip/contents/.github/ISSUE_TEMPLATE/config.yml")
+    }
+
+    @Test
+    fun a_form_that_can_t_be_read_is_left_out_and_the_rest_still_come() = runTest {
+        val templates = templates(
+            resource("issue_templates_react.json"),
+            mapOf(
+                ".github/ISSUE_TEMPLATE" to resource("issue_template_folder_react.json"),
+                ".github/ISSUE_TEMPLATE/devtools_bug_report.yml" to resource("issue_form_devtools_bug_report.json"),
+            ),
+        ).issueTemplates("tok", issue.repo).value()
+
+        assertThat(templates.map { it.key }).containsExactly("bug_report.md", "devtools_bug_report.yml").inOrder()
     }
 
     @Test

@@ -89,6 +89,21 @@ class GitHubLiveContractTest {
     }
 
     @Test
+    fun issue_forms_still_come_beside_markdown_templates() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+
+        // facebook/react keeps one Markdown template and its bug reports as forms.
+        val result = GitHubIssueApi(client).issueTemplates(pat, RepoId("facebook", "react"))
+
+        val templates = (result as? ForgeResult.Success)?.value
+        assertWithMessage("templates: $result").that(templates).isNotNull()
+        val forms = templates!!.filter { it.key.endsWith(".yml") || it.key.endsWith(".yaml") }
+        assertWithMessage("forms: ${templates.map { it.key }}").that(forms).isNotEmpty()
+        assertWithMessage("form bodies").that(forms.all { it.body.orEmpty().startsWith("### ") }).isTrue()
+        assertWithMessage("markdown templates").that(templates.any { it.key.endsWith(".md") }).isTrue()
+    }
+
+    @Test
     fun the_authenticated_user_endpoint_still_matches() = runBlocking {
         assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
 
