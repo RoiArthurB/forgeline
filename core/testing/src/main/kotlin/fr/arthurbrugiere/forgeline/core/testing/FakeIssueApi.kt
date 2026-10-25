@@ -230,6 +230,14 @@ class FakeIssueApi : IssueApi {
 
     override suspend fun labels(token: String, repo: RepoId) = read(token, "labels:${repo.fullName}", repoLabels)
 
+    /** The pull requests that close each issue once merged. */
+    val closers = mutableMapOf<IssueRef, List<LinkedIssue>>()
+
+    override suspend fun closingPulls(token: String?, ref: IssueRef): ForgeResult<List<LinkedIssue>> {
+        calls += "closingPulls:${ref.label}"
+        return ForgeResult.Success(closers[ref].orEmpty())
+    }
+
     override var hidesComments: Boolean = true
 
     /** Hides the comment in the pages kept, as a forge then tells it. */

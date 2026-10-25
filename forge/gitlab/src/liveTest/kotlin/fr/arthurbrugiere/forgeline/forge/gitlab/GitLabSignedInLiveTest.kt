@@ -59,6 +59,17 @@ class GitLabSignedInLiveTest {
         assertWithMessage("nested page").that(nested.body).isNotEmpty()
     }
 
+    /** fdroid/fdroidserver#1355 names !1848 as what closed it (2026-10-25). */
+    @Test
+    fun the_merge_requests_that_close_an_issue_are_still_told() = runBlocking {
+        assumeTrue("GITLAB_LIVE_TOKEN not set", token.isNotBlank())
+        val issue = fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("fdroid", "fdroidserver", ForgeInstance.GitLab), 1355, isPullRequest = false)
+
+        val closers = GitLabIssueApi(http).closingPulls(token, issue).value()
+
+        assertWithMessage("!1848").that(closers.map { it.ref.number to it.ref.repo.fullName }).contains(1848 to "fdroid/fdroidserver")
+    }
+
     /** fdroid/fdroidserver#1355 was closed by 38c3cbc on 2026-07-22, which gitlab.com tells twice. */
     @Test
     fun an_issue_closed_by_a_commit_says_which_once() = runBlocking {

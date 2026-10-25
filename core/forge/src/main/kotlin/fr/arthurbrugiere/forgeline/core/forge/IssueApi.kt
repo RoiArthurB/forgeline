@@ -99,6 +99,9 @@ interface IssueApi {
     /** Makes a label named [name] in [repo], of [color] (`#rrggbb`), for someone who may: it can then be set. */
     suspend fun createLabel(token: String, repo: RepoId, name: String, color: String): ForgeResult<Label> = unsupported
 
+    /** The pull requests that close the issue [ref] once merged, as the forge links them; none where it doesn't say. */
+    suspend fun closingPulls(token: String?, ref: IssueRef): ForgeResult<List<LinkedIssue>> = ForgeResult.Success(emptyList())
+
     /** Whether comments can be hidden here, saying why, by those who moderate the conversation. */
     val hidesComments: Boolean get() = false
 

@@ -520,6 +520,7 @@
     <string name="issue_comment_hide_title">Hide this comment as…</string>
     <string name="issue_comment_hidden">%1$s’s comment was hidden as %2$s</string>
     <string name="issue_comment_show">Show</string>
+    <string name="issue_closing_pulls">Closed by merging</string>
     <string name="hide_off_topic">Off-topic</string>
     <string name="hide_outdated">Outdated</string>
     <string name="hide_resolved">Resolved</string>

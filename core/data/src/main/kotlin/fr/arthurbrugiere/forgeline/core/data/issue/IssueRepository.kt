@@ -141,6 +141,9 @@ interface IssueRepository {
 
     suspend fun labels(repo: RepoId): ForgeResult<List<Label>>
 
+    /** The pull requests that close the issue [ref] once merged, where its forge links them. */
+    suspend fun closingPulls(ref: IssueRef): ForgeResult<List<LinkedIssue>>
+
     /** Whether comments can be hidden, saying why, on [forge]. */
     fun hidesComments(forge: ForgeInstance): Boolean
 
@@ -426,6 +429,8 @@ class DefaultIssueRepository @Inject constructor(
         signedIn(ref.repo.forge, call).also { if (it is ForgeResult.Success) changes.tryEmit(ref) }
 
     override suspend fun labels(repo: RepoId) = signedIn(repo.forge) { labels(it, repo) }
+
+    override suspend fun closingPulls(ref: IssueRef) = clients.issues(ref.repo.forge).closingPulls(accounts.tokenOn(ref.repo.forge), ref)
 
     override fun hidesComments(forge: ForgeInstance) = clients.issues(forge).hidesComments
 

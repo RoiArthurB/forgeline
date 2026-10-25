@@ -14,8 +14,8 @@ import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -797,5 +797,17 @@ class IssueScreenTest {
         composeRule.onNodeWithText("Off-topic").performClick()
 
         assertThat(events).contains("hide:1:OFF_TOPIC")
+    }
+
+    @Test
+    fun the_pull_requests_that_will_close_an_issue_are_listed_at_its_end_and_open() {
+        val fix = fr.arthurbrugiere.forgeline.core.model.LinkedIssue(IssueRef(ref.repo, 12, isPullRequest = true), "Fix the crash", IssueState.OPEN)
+        setContent(IssueUiState(ref, issueDetails(ref), closingPulls = listOf(fix)))
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Fix the crash", substring = true))
+        composeRule.onNodeWithText("Closed by merging", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("#12 Fix the crash", substring = true).performClick()
+
+        assertThat(events).contains("issue:octo/repo#12")
     }
 }

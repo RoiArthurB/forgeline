@@ -63,6 +63,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -615,6 +616,37 @@ fun IssueScreen(
                                             (state.access >= RepoAccess.WRITE || (state.me != null && issue.author?.login == state.me)),
                                         branch = issue?.pullRequest?.headRef.orEmpty(),
                                     )
+                                }
+                            }
+                            // What would close an issue once merged: the work that answers it, at its end.
+                            if (state.closingPulls.isNotEmpty()) {
+                                item(key = "closing-pulls") {
+                                    Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 24.dp)) {
+                                        Text(
+                                            stringResource(R.string.issue_closing_pulls),
+                                            style = Soft.type.name,
+                                            color = colors.ink,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp).semantics { heading() },
+                                        )
+                                        state.closingPulls.forEach { pull ->
+                                            Text(
+                                                listOfNotNull(
+                                                    "#${pull.ref.number} ${pull.title}",
+                                                    pull.ref.repo.fullName.takeIf { pull.ref.repo != state.ref.repo },
+                                                    stringResource(
+                                                        when (pull.state) {
+                                                            IssueState.MERGED -> R.string.feed_state_merged
+                                                            IssueState.CLOSED -> R.string.feed_state_closed
+                                                            else -> R.string.feed_state_open
+                                                        },
+                                                    ),
+                                                ).joinToString(" · "),
+                                                style = Soft.type.body,
+                                                color = colors.ink,
+                                                modifier = Modifier.fillMaxWidth().softPressable { onOpenIssue(pull.ref) }.padding(horizontal = 8.dp, vertical = 12.dp),
+                                            )
+                                        }
+                                    }
                                 }
                             }
                             // What ran on a pull request, right above the turn where it is merged or not.

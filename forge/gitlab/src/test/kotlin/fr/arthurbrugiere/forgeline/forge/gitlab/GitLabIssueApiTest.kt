@@ -7,6 +7,7 @@ import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
@@ -225,6 +226,19 @@ class GitLabIssueApiTest {
         assertThat(made.name).isEqualTo("needs repro")
         assertThat(requests.single().url.encodedPath).endsWith("/labels")
         assertThat((requests.single().body as TextContent).text).isEqualTo("""{"name":"needs repro","color":"#0e8a16"}""")
+    }
+
+    @Test
+    fun the_merge_requests_that_close_an_issue_are_the_project_s_closed_by() = runTest {
+        // fdroid/fdroidserver#1355 was closed by !1848 (gitlab.com, 2026-10-25), trimmed to what is read.
+        val closers = api {
+            json("""[{"iid":1848,"title":"Don't ignore errors in sign_jar","state":"merged","references":{"full":"fdroid/fdroidserver!1848"}}]""")
+        }.closingPulls("tok", IssueRef(RepoId("fdroid", "fdroidserver", ForgeInstance.GitLab), 1355, isPullRequest = false)).value()
+
+        assertThat(closers).containsExactly(
+            LinkedIssue(IssueRef(RepoId("fdroid", "fdroidserver", ForgeInstance.GitLab), 1848, isPullRequest = true), "Don't ignore errors in sign_jar", IssueState.MERGED),
+        )
+        assertThat(requests.single().url.encodedPath).isEqualTo("/api/v4/projects/fdroid%2Ffdroidserver/issues/1355/closed_by")
     }
 
     @Test

@@ -160,6 +160,17 @@ class GitHubLiveContractTest {
         assertWithMessage("may hide").that(comments.all { it.canHide }).isTrue()
     }
 
+    /** Read only: gama-platform/gama#999 names #1020 as the pull request that would close it (2026-10-25). */
+    @Test
+    fun the_pull_requests_that_close_an_issue_are_still_told() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+
+        val pulls = GitHubIssueApi(client).closingPulls(pat, fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("gama-platform", "gama"), 999))
+
+        assertWithMessage("closing: $pulls").that(pulls).isInstanceOf(ForgeResult.Success::class.java)
+        assertWithMessage("#1020").that((pulls as ForgeResult.Success).value.map { it.ref.number }).contains(1020)
+    }
+
     /** gama-platform/gama#1118 was closed by a commit: the timeline still names it, and the commit still reads. */
     @Test
     fun an_issue_closed_by_a_commit_still_says_which() = runBlocking {

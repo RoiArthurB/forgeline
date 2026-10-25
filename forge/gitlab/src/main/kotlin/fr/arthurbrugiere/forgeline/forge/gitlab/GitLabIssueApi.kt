@@ -11,8 +11,10 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
@@ -358,6 +360,12 @@ class GitLabIssueApi(
             .toResult { body<List<GitLabLabelJson>>().map { it.toModel() } }
     }
 
+    /** An issue's closers: merge requests that close it once merged, perhaps in another project, named in full. */
+    override suspend fun closingPulls(token: String?, ref: IssueRef): ForgeResult<List<LinkedIssue>> = forgeCall {
+        httpClient.gitlabApi(ref.repo.forge, token, "projects", ref.repo.fullName, "issues", ref.number.toString(), "closed_by")
+            .toResult { body<List<GitLabClosingMrJson>>().mapNotNull { it.toModel(ref.repo) } }
+    }
+
     override suspend fun createLabel(token: String, repo: RepoId, name: String, color: String): ForgeResult<Label> = forgeCall {
         httpClient.gitlabApi(
             repo.forge, token, "projects", repo.fullName, "labels", method = HttpMethod.Post,
@@ -539,3 +547,21 @@ internal fun GitLabProjectJson.toRights(): RepoRights {
 
 /** The marks a merge request's title starts with while it is a draft, as GitLab reads them, and the space after. */
 private val gitLabDraftMark = Regex("""^\s*(\[draft]|\(draft\)|draft:|draft\s+-|wip:|\[wip])\s*""", RegexOption.IGNORE_CASE)
+
+/** A merge request that closes an issue: "group/project!12" says where it is. */
+@kotlinx.serialization.Serializable
+private data class GitLabClosingMrJson(val iid: Int, val title: String = "", val state: String = "opened", val references: GitLabReferencesJson? = null) {
+    fun toModel(home: RepoId): LinkedIssue? {
+        val path = references?.full?.substringBeforeLast('!')?.takeIf { '/' in it }
+        val repo = path?.let { RepoId(it.substringBeforeLast('/'), it.substringAfterLast('/'), home.forge) } ?: home
+        val state = when (state) {
+            "merged" -> IssueState.MERGED
+            "closed" -> IssueState.CLOSED
+            else -> IssueState.OPEN
+        }
+        return LinkedIssue(IssueRef(repo, iid, isPullRequest = true), title, state)
+    }
+}
+
+@kotlinx.serialization.Serializable
+private data class GitLabReferencesJson(val full: String? = null)

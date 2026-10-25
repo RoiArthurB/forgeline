@@ -397,6 +397,18 @@ class IssueViewModelTest {
         assertThat(api.calls.filter { it.startsWith("manage:hide") }).containsExactly("manage:hide octo/repo#7 comment 1: OFF_TOPIC", "manage:hide octo/repo#7 comment 1: null").inOrder()
     }
 
+    @Test
+    fun the_pull_requests_that_will_close_an_issue_come_with_it() = test {
+        val fix = fr.arthurbrugiere.forgeline.core.model.LinkedIssue(IssueRef(ref.repo, 12, isPullRequest = true), "Fix the crash", fr.arthurbrugiere.forgeline.core.model.IssueState.OPEN)
+        api.closers[ref] = listOf(fix)
+        api.issues[ref] = issueDetails(ref)
+
+        val viewModel = IssueViewModel(ref, repository, SavedStateHandle(), drafts)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.closingPulls).containsExactly(fix)
+    }
+
     private val pullRequest = PullRequestInfo(false, false, "main", "fix/it", 12, 3, 2, 1)
 
     @Test

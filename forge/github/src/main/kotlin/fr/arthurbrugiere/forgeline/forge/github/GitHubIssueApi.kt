@@ -19,6 +19,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.PullRequestInfo
 import fr.arthurbrugiere.forgeline.core.model.Reaction
@@ -117,6 +118,25 @@ class GitHubIssueApi(
         return items.map { item ->
             val node = (item as? TimelineItem.Comment)?.nodeId?.let(nodes::get) ?: return@map item
             item.copy(hidden = node.reason.takeIf { node.isMinimized }, canHide = node.viewerCanMinimize)
+        }
+    }
+
+    /** GraphQL only, which takes an account: signed out, none are told. */
+    override suspend fun closingPulls(token: String?, ref: IssueRef): ForgeResult<List<LinkedIssue>> {
+        if (token == null) return ForgeResult.Success(emptyList())
+        val answer = forgeCall {
+            httpClient.gitHubGraphQl(
+                apiBaseUrl, token, CLOSING_QUERY,
+                buildJsonObject {
+                    put("owner", ref.repo.owner)
+                    put("name", ref.repo.name)
+                    put("number", ref.number)
+                },
+            )
+        }
+        return answer.map { data ->
+            val nodes = ((data["repository"] as? JsonObject)?.get("issue") as? JsonObject)?.get("closedByPullRequestsReferences")?.let { it as? JsonObject }?.get("nodes")
+            nodes?.let { runCatching { ForgeJson.decodeFromJsonElement<List<ClosingPullJson>>(it) }.getOrNull() }.orEmpty().map { it.toModel(ref.repo.forge) }
         }
     }
 
@@ -672,6 +692,29 @@ private data class RenameJson(val from: String, val to: String)
 private data class HiddenNodeJson(val id: String, val isMinimized: Boolean = false, val minimizedReason: String? = null, val viewerCanMinimize: Boolean = false) {
     val reason: HideReason? get() = HideReason.entries.firstOrNull { it.name.replace('_', '-').equals(minimizedReason, ignoreCase = true) }
 }
+
+private const val CLOSING_QUERY = "query Closing(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { issue(number: \$number) { " +
+    "closedByPullRequestsReferences(first: 10, includeClosedPrs: true) { nodes { number title state repository { name owner { login } } } } } } }"
+
+/** A pull request that closes an issue once merged, wherever it is. */
+@Serializable
+private data class ClosingPullJson(val number: Int, val title: String = "", val state: String = "OPEN", val repository: ClosingRepoJson) {
+    fun toModel(forge: ForgeInstance) = LinkedIssue(
+        IssueRef(RepoId(repository.owner.login, repository.name, forge), number, isPullRequest = true),
+        title,
+        when (state) {
+            "MERGED" -> IssueState.MERGED
+            "CLOSED" -> IssueState.CLOSED
+            else -> IssueState.OPEN
+        },
+    )
+}
+
+@Serializable
+private data class ClosingRepoJson(val name: String, val owner: ClosingOwnerJson)
+
+@Serializable
+private data class ClosingOwnerJson(val login: String)
 
 private const val HIDDEN_QUERY = "query Hidden(\$ids: [ID!]!) { nodes(ids: \$ids) { ... on IssueComment { id isMinimized minimizedReason viewerCanMinimize } } }"
 

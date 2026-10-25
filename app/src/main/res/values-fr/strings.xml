@@ -505,6 +505,7 @@
     <string name="issue_comment_hide_title">Masquer ce commentaire comme…</string>
     <string name="issue_comment_hidden">Le commentaire de %1$s a été masqué : %2$s</string>
     <string name="issue_comment_show">Voir</string>
+    <string name="issue_closing_pulls">Fermé en fusionnant</string>
     <string name="hide_off_topic">Hors sujet</string>
     <string name="hide_outdated">Obsolète</string>
     <string name="hide_resolved">Résolu</string>

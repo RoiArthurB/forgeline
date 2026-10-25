@@ -7,10 +7,12 @@ import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ClosingCommit
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.Label
+import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
@@ -227,6 +229,27 @@ class GitHubIssueApiTest {
         assertThat(sent[0]).contains("minimizeComment(input: {subjectId: \$id, classifier: OFF_TOPIC})")
         assertThat(sent[1]).contains("unminimizeComment(input: {subjectId: \$id})")
         assertThat(sent[1]).contains(""""variables":{"id":"IC_one"}""")
+    }
+
+    @Test
+    fun the_pull_requests_that_will_close_an_issue_are_told_by_graphql() = runTest {
+        // gama-platform/gama#999 is closed by #1020 once merged (2026-10-25); one in another repository too, here.
+        val answer = """{"data":{"repository":{"issue":{"closedByPullRequestsReferences":{"nodes":[""" +
+            """{"number":1020,"title":"Fix horizontal viewport jumping","state":"CLOSED","repository":{"name":"gama","owner":{"login":"gama-platform"}}},""" +
+            """{"number":7,"title":"Port the fix","state":"MERGED","repository":{"name":"gama.experimental","owner":{"login":"gama-platform"}}}]}}}}}"""
+        val api = api { json(answer) }
+
+        val pulls = api.closingPulls("tok", IssueRef(RepoId("gama-platform", "gama"), 999)).value()
+
+        assertThat(pulls).containsExactly(
+            LinkedIssue(IssueRef(RepoId("gama-platform", "gama"), 1020, isPullRequest = true), "Fix horizontal viewport jumping", IssueState.CLOSED),
+            LinkedIssue(IssueRef(RepoId("gama-platform", "gama.experimental"), 7, isPullRequest = true), "Port the fix", IssueState.MERGED),
+        ).inOrder()
+        assertThat((requests.single().body as io.ktor.http.content.TextContent).text).contains("closedByPullRequestsReferences(first: 10, includeClosedPrs: true)")
+        // Signed out, GraphQL can't be asked: none are told.
+        requests.clear()
+        assertThat(api.closingPulls(null, IssueRef(RepoId("gama-platform", "gama"), 999)).value()).isEmpty()
+        assertThat(requests).isEmpty()
     }
 
     @Test

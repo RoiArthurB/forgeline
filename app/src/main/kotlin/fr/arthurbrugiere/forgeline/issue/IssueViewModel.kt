@@ -104,6 +104,8 @@ data class IssueUiState(
     val isSubscribing: Boolean = false,
     /** The subscription couldn't be changed. */
     val subscriptionError: ForgeError? = null,
+    /** The pull requests that close the issue once merged, where its forge links them. */
+    val closingPulls: List<LinkedIssue> = emptyList(),
 ) {
     /** The comment being rewritten is among those shown, so it is rewritten where it stands, not in the reader's turn. */
     val isEditingInPlace: Boolean get() = editing != null && items.any { it is TimelineItem.Comment && it.id == editing }
@@ -325,6 +327,10 @@ class IssueViewModel @AssistedInject constructor(
                 )
             }
             checkPermissions()
+            // What would close it, for an issue: read after it, never holding it up.
+            if (ref.isPullRequest != true && _state.value.issue?.pullRequest == null) {
+                (repository.closingPulls(ref) as? ForgeResult.Success)?.let { read -> _state.update { it.copy(closingPulls = read.value) } }
+            }
         }
     }
 
