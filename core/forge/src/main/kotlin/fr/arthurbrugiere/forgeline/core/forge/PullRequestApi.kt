@@ -16,6 +16,7 @@ import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
+import fr.arthurbrugiere.forgeline.core.model.ThreadComment
 import fr.arthurbrugiere.forgeline.core.model.replaceLines
 
 /**
@@ -72,13 +73,14 @@ interface PullRequestApi {
     /** Marks [thread] of [ref] resolved, or not resolved again. */
     suspend fun setResolved(token: String, ref: IssueRef, thread: ReviewThread, resolved: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
 
-    /** Whether [applySuggestion] can be asked here: GitLab's threads don't carry the code they are on. */
+    /** Whether [applySuggestion] can be asked here. */
     val appliesSuggestions: Boolean get() = false
 
     /**
      * Commits [suggestion] to [ref]'s branch, in the repository it lives in (a fork's, where its owner lets the
-     * maintainers push), in place of the lines [thread] is on ([ReviewThread.suggestedOver]), saying [message].
-     * [ForgeError.Conflict] where those lines read otherwise there now.
+     * maintainers push), in place of the lines [thread] is on ([ReviewThread.suggestedOver]), saying [message]; or has
+     * the forge apply it, where it keeps the suggestion ([ThreadComment.suggestions]). [ForgeError.Conflict] where
+     * those lines read otherwise there now, or the forge no longer applies it.
      */
     suspend fun applySuggestion(token: String, ref: IssueRef, thread: ReviewThread, suggestion: List<String>, message: String): ForgeResult<Unit> =
         ForgeResult.Failure(ForgeError.Unsupported)

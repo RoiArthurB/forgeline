@@ -1034,6 +1034,7 @@
     <string name="thread_suggestion_confirm_title">Commit this suggestion?</string>
     <string name="thread_suggestion_confirm_body">The change goes onto the branch %1$s as a new commit.</string>
     <string name="thread_suggestion_confirm">Commit</string>
+    <string name="thread_suggestion_applied">committed</string>
     <string name="thread_suggestion_committed">Suggestion committed</string>
     <string name="thread_suggestion_conflict">Not committed: those lines have changed since the suggestion.</string>
     <string name="thread_suggestion_unsupported">Not committed: this file is too large to change from here.</string>

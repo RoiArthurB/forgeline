@@ -181,6 +181,21 @@ class GitLabWriteLiveTest {
             val said = GitLabIssueApi(http, ForgeInstance.GitLab).timeline(token, ref, 1).value("timeline before merge").items
             assertWithMessage("not in the conversation").that(said.filterIsInstance<fr.arthurbrugiere.forgeline.core.model.TimelineItem.Comment>().map { it.body }).doesNotContain("Why this line?")
 
+            // A suggestion on the same line, applied by GitLab itself; once applied it can't be again.
+            pulls.review(token, ref, ReviewVerdict.COMMENT, "", listOf(LineComment("README.md", added.oldNumber, added.newNumber, "Better:\n```suggestion:-0+0\nA line the suggestion wrote.\n```"))).value("suggestion")
+            val suggesting = pulls.threads(token, ref).value("threads with suggestion").single { it.comments.first().body.startsWith("Better:") }
+            val kept = suggesting.comments.first().suggestions.single()
+            System.err.println("GITLAB kept suggestion: $kept")
+            assertWithMessage("replaces").that(kept.over).containsExactly("A line the merge request adds.")
+            assertWithMessage("appliable").that(kept.appliable).isTrue()
+            pulls.applySuggestion(token, ref, suggesting, listOf("A line the suggestion wrote."), "Apply suggestion from code review").value("apply suggestion")
+            val readmeNow = http.get("$api/projects/$id/repository/files/README.md/raw?ref=change") { header("Authorization", "Bearer $token") }.bodyAsText()
+            assertWithMessage("README after the suggestion").that(readmeNow).isEqualTo("# $name\n\nA line the suggestion wrote.\n")
+            val again = pulls.applySuggestion(token, ref, suggesting, listOf("A line the suggestion wrote."), "Apply suggestion from code review")
+            assertWithMessage("applied twice").that(again).isEqualTo(ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Conflict))
+            val appliedNow = pulls.threads(token, ref).value("threads after suggestion").single { it.id == suggesting.id }.comments.first().suggestions.single()
+            assertWithMessage("applied").that(appliedNow.applied).isTrue()
+
             // main moves on: the merge request falls behind, and is rebased onto it.
             send(
                 "projects/$id/repository/commits",

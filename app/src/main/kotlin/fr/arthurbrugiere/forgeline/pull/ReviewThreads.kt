@@ -178,7 +178,16 @@ private fun Thread(
             Comment(comment.author, split.text, comment.createdAt, emptyMap(), context, nowMillis, onOpenUser, onLinkClick)
             split.suggestions.forEachIndexed { index, suggested ->
                 val key = "$at:$index"
-                SuggestedChange(suggested, over, thread.line, busy = busy, onCommit = { committing = key }.takeIf { commits })
+                // Where the forge keeps it (GitLab), it says itself what it replaces and whether it can still be made.
+                val kept = comment.suggestions.getOrNull(index)?.takeIf { it.lines == suggested }
+                SuggestedChange(
+                    suggested,
+                    kept?.let { k -> k.over.mapIndexed { i, text -> DiffLine(DiffLineKind.CONTEXT, text, oldNumber = null, newNumber = k.firstLine + i) } } ?: over,
+                    thread.line,
+                    busy = busy,
+                    onCommit = { committing = key }.takeIf { if (kept != null) canCommit && state.appliesSuggestions && kept.appliable else commits },
+                    applied = kept?.applied == true,
+                )
                 if (committing == key) {
                     SoftConfirmSheet(
                         title = stringResource(R.string.thread_suggestion_confirm_title),
@@ -232,14 +241,17 @@ private fun Thread(
 /**
  * A change a reviewer suggests, as it would read once made: the lines the remark is on taken away, where the forge
  * gave them ([over]), and the suggested ones in their place from [line]; or that the reviewer would take them away.
- * [onCommit] offers to make it, where the reader may.
+ * [onCommit] offers to make it, where the reader may; [applied] says it was made, where the forge tells.
  */
 @Composable
-private fun SuggestedChange(suggested: List<String>, over: List<DiffLine>, line: Int?, busy: Boolean, onCommit: (() -> Unit)?) {
+private fun SuggestedChange(suggested: List<String>, over: List<DiffLine>, line: Int?, busy: Boolean, onCommit: (() -> Unit)?, applied: Boolean = false) {
     val colors = Soft.colors
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
-            stringResource(if (suggested.isEmpty()) R.string.thread_suggestion_removes else R.string.thread_suggestion),
+            listOfNotNull(
+                stringResource(if (suggested.isEmpty()) R.string.thread_suggestion_removes else R.string.thread_suggestion),
+                stringResource(R.string.thread_suggestion_applied).takeIf { applied },
+            ).joinToString(" · "),
             style = Soft.type.meta,
             color = colors.inkMuted,
             modifier = Modifier.padding(horizontal = 8.dp),

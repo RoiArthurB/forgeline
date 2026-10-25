@@ -8,13 +8,16 @@ import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.KeptSuggestion
 import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeBlocker
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
+import fr.arthurbrugiere.forgeline.core.model.ThreadComment
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
 import io.ktor.client.engine.mock.respond
@@ -242,6 +245,59 @@ class GitLabPullRequestApiTest {
         assertThat(threads.all { it.path == "docs/executors/kubernetes/_index.md" && !it.onOldSide && it.resolved && it.canResolve }).isTrue()
         assertThat(threads.first().comments.single().body).isNotEmpty()
         assertThat(requests.single().url.encodedPath).isEqualTo("$base/merge_requests/7606/discussions")
+    }
+
+    @Test
+    fun a_note_s_suggestions_come_as_gitlab_keeps_them_with_what_they_replace() = runTest {
+        val threads = api { json(discussions) }.threads("tok", mr).value()
+
+        val kept = threads.first().comments.single().suggestions.single()
+        assertThat(kept.id).isEqualTo(23861986)
+        assertThat(kept.firstLine).isEqualTo(775)
+        // Three lines taken away, the last of them kept: a merged merge request's suggestions no longer apply.
+        assertThat(kept.over).hasSize(3)
+        assertThat(kept.over.first()).isEqualTo("   It is matched against the whole value of each variable, effect included,")
+        assertThat(kept.lines).containsExactly("   For more information, see [regular expressions in overwrite settings](#regular-expressions-in-overwrite-settings).")
+        assertThat(kept.appliable).isFalse()
+        assertThat(kept.applied).isFalse()
+    }
+
+    private val suggested = ReviewThread(
+        id = "d1", path = "README.md", line = 3, onOldSide = false, hunk = null, resolved = false, canResolve = true,
+        comments = listOf(
+            ThreadComment(
+                1, null, "```suggestion:-0+0\nNew.\n```", null,
+                listOf(
+                    KeptSuggestion(10, 3, listOf("Old."), listOf("Other."), appliable = true, applied = false),
+                    KeptSuggestion(11, 3, listOf("Old."), listOf("New."), appliable = false, applied = true),
+                    KeptSuggestion(12, 3, listOf("Old."), listOf("New."), appliable = true, applied = false),
+                ),
+            ),
+        ),
+    )
+
+    @Test
+    fun gitlab_applies_the_suggestion_that_says_the_same_and_still_can_be() = runTest {
+        val api = api { json("""{"id":12,"appliable":true,"applied":false}""") }
+
+        assertThat(api.appliesSuggestions).isTrue()
+        assertThat(api.applySuggestion("tok", mr, suggested, listOf("New."), "Apply suggestion from code review")).isEqualTo(ForgeResult.Success(Unit))
+
+        assertThat(requests.single().method.value).isEqualTo("PUT")
+        assertThat(requests.single().url.encodedPath).isEqualTo("/api/v4/suggestions/12/apply")
+        assertThat(requests.single().sent).isEqualTo("""{"commit_message":"Apply suggestion from code review"}""")
+    }
+
+    @Test
+    fun a_suggestion_gitlab_no_longer_applies_is_a_conflict() = runTest {
+        // Answered so when it was applied already, or the code moved on (seen on gitlab.com, 2026-10-25).
+        val refused = api { json("""{"message":"Can't apply this suggestion."}""", HttpStatusCode.BadRequest) }
+        assertThat(refused.applySuggestion("tok", mr, suggested, listOf("New."), "m")).isEqualTo(ForgeResult.Failure(ForgeError.Conflict))
+
+        // Nothing kept says so, or none can still be applied: not even asked.
+        requests.clear()
+        assertThat(refused.applySuggestion("tok", mr, suggested, listOf("Elsewhere."), "m")).isEqualTo(ForgeResult.Failure(ForgeError.Conflict))
+        assertThat(requests).isEmpty()
     }
 
     @Test

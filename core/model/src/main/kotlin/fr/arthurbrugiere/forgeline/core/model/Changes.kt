@@ -325,5 +325,15 @@ fun replaceLines(text: String, first: Int, expected: List<String>, replacement: 
     return if (text.endsWith("\n")) joined + breaks else joined
 }
 
-/** One comment of a [ReviewThread]: the remark that opened it, or a reply. */
-data class ThreadComment(val id: Long, val author: ForgeUser?, val body: String, val createdAt: Instant?)
+/**
+ * One comment of a [ReviewThread]: the remark that opened it, or a reply. [suggestions] are the ones written in it as
+ * its forge keeps them, where it does (GitLab), in the order they're written.
+ */
+data class ThreadComment(val id: Long, val author: ForgeUser?, val body: String, val createdAt: Instant?, val suggestions: List<KeptSuggestion> = emptyList())
+
+/**
+ * A suggestion as its forge keeps it: [over] the lines it replaces, from [firstLine] of the file as the change has
+ * it, and [lines] what it puts there (none to take them away). [appliable] is whether the forge would still apply it,
+ * [applied] whether it was.
+ */
+data class KeptSuggestion(val id: Long, val firstLine: Int, val over: List<String>, val lines: List<String>, val appliable: Boolean, val applied: Boolean)

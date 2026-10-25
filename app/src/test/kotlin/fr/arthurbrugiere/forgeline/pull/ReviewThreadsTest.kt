@@ -14,6 +14,7 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.KeptSuggestion
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ThreadComment
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
@@ -214,5 +215,38 @@ class ReviewThreadsTest {
         setContent(listOf(resolved))
 
         composeRule.onNodeWithText("1 thread, resolved").assertIsDisplayed()
+    }
+
+    // As GitLab keeps it (gitlab.com, 2026-10-25): no hunk on the thread, the suggestion says what it replaces itself.
+    private fun keptBy(appliable: Boolean, applied: Boolean) = ReviewThread(
+        "D1", "README.md", 3, onOldSide = false, hunk = null, resolved = false, canResolve = true,
+        comments = listOf(
+            ThreadComment(
+                1, ForgeUser("hubot", null, null), "Better:\n```suggestion:-0+0\nA line the suggestion wrote.\n```", at,
+                listOf(KeptSuggestion(23996652, 3, listOf("A line the merge request adds."), listOf("A line the suggestion wrote."), appliable, applied)),
+            ),
+        ),
+    )
+
+    @Test
+    fun a_suggestion_the_forge_keeps_shows_what_it_replaces_and_is_committed_by_it() {
+        setContent(listOf(keptBy(appliable = true, applied = false)), PullRequestUiState(appliesSuggestions = true), canCommit = true)
+
+        waitFor("Better:")
+        composeRule.onNodeWithContentDescription("Line 3, removed: A line the merge request adds.").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Line 3, added: A line the suggestion wrote.").assertIsDisplayed()
+        composeRule.onNodeWithText("Commit suggestion").performClick()
+        composeRule.onNodeWithText("Commit").performClick()
+
+        assertThat(events).containsExactly("suggestion:D1:A line the suggestion wrote.")
+    }
+
+    @Test
+    fun a_suggestion_the_forge_applied_already_says_so_and_offers_nothing() {
+        setContent(listOf(keptBy(appliable = false, applied = true)), PullRequestUiState(appliesSuggestions = true), canCommit = true)
+
+        waitFor("Better:")
+        composeRule.onNodeWithText("Suggested change · committed").assertIsDisplayed()
+        composeRule.onNodeWithText("Commit suggestion").assertDoesNotExist()
     }
 }

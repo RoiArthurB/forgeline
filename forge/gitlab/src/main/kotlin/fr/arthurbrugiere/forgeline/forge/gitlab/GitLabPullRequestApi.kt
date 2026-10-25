@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.PullRequestApi
 import fr.arthurbrugiere.forgeline.core.model.BlameRange
@@ -14,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
+import fr.arthurbrugiere.forgeline.core.model.KeptSuggestion
 import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeBlocker
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
@@ -143,6 +145,23 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
 
     override suspend fun setResolved(token: String, ref: IssueRef, thread: ReviewThread, resolved: Boolean): ForgeResult<Unit> = forgeCall {
         mergeRequest(token, ref, "discussions", thread.id, method = HttpMethod.Put, query = mapOf("resolved" to "$resolved")).toResult { }
+    }
+
+    override val appliesSuggestions: Boolean = true
+
+    /**
+     * GitLab applies a suggestion itself, by its id: the first of [thread]'s that puts [suggestion] there and can still
+     * be applied. One already applied, or on code that moved on, is refused with a 400.
+     */
+    override suspend fun applySuggestion(token: String, ref: IssueRef, thread: ReviewThread, suggestion: List<String>, message: String): ForgeResult<Unit> {
+        val kept = thread.comments.flatMap { it.suggestions }.firstOrNull { it.lines == suggestion && it.appliable } ?: return ForgeResult.Failure(ForgeError.Conflict)
+        return forgeCall {
+            val response = httpClient.gitlabApi(
+                ref.repo.forge, token, "suggestions", kept.id.toString(), "apply",
+                method = HttpMethod.Put, body = buildJsonObject { put("commit_message", message) },
+            )
+            if (response.status == HttpStatusCode.BadRequest) ForgeResult.Failure(ForgeError.Conflict) else response.toResult { }
+        }
     }
 
     /** GitLab's API only rebases a merge request onto its target, later: it answers 202 at once. */
@@ -412,7 +431,23 @@ private data class MrNoteJson(
     val position: MrPositionJson? = null,
     val resolvable: Boolean = false,
     val resolved: Boolean = false,
+    val suggestions: List<MrSuggestionJson> = emptyList(),
 )
+
+/** A suggestion GitLab read from a note, with what it replaces and what it puts there, each ending in a line break. */
+@Serializable
+private data class MrSuggestionJson(
+    val id: Long,
+    @SerialName("from_line") val fromLine: Int,
+    val appliable: Boolean = false,
+    val applied: Boolean = false,
+    @SerialName("from_content") val fromContent: String = "",
+    @SerialName("to_content") val toContent: String = "",
+) {
+    fun toModel() = KeptSuggestion(id, fromLine, fromContent.asLines(), toContent.asLines(), appliable, applied)
+
+    private fun String.asLines() = if (isEmpty()) emptyList() else removeSuffix("\n").split("\n")
+}
 
 /** A discussion: on a line of the change when its first note is a DiffNote, otherwise part of the conversation. */
 @Serializable
@@ -426,7 +461,7 @@ private data class MrDiscussionJson(val id: String, val notes: List<MrNoteJson> 
             line = position.newLine ?: position.oldLine,
             onOldSide = position.newLine == null,
             hunk = null,
-            comments = notes.map { ThreadComment(it.id, it.author?.toForgeUser(), it.body, gitlabInstant(it.createdAt)) },
+            comments = notes.map { ThreadComment(it.id, it.author?.toForgeUser(), it.body, gitlabInstant(it.createdAt), it.suggestions.map { s -> s.toModel() }) },
             resolved = first.resolved,
             canResolve = signedIn && first.resolvable,
         )
