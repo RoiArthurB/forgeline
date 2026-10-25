@@ -630,6 +630,8 @@
     <string name="manage_loading">Chargement des choix</string>
     <string name="manage_load_failed">Impossible de charger les choix</string>
     <string name="manage_no_labels">Ce dépôt n’a aucun label.</string>
+    <string name="manage_label_new">Nouveau label</string>
+    <string name="manage_label_create">Créer</string>
     <string name="manage_no_assignable">Personne ne peut être assigné ici.</string>
     <string name="manage_no_milestones">Ce dépôt n’a aucun jalon ouvert.</string>
     <string name="manage_error_refused">Vous ne pouvez pas faire cela ici : votre rôle dans ce dépôt ne le permet pas.</string>

@@ -140,6 +140,9 @@ interface IssueRepository {
 
     suspend fun labels(repo: RepoId): ForgeResult<List<Label>>
 
+    /** Makes a label named [name] in [repo], in a colour of its name ([labelColor]). */
+    suspend fun createLabel(repo: RepoId, name: String): ForgeResult<Label>
+
     suspend fun setLabels(ref: IssueRef, names: List<String>): ForgeResult<Unit>
 
     suspend fun assignable(repo: RepoId): ForgeResult<List<ForgeUser>>
@@ -417,6 +420,8 @@ class DefaultIssueRepository @Inject constructor(
 
     override suspend fun labels(repo: RepoId) = signedIn(repo.forge) { labels(it, repo) }
 
+    override suspend fun createLabel(repo: RepoId, name: String) = signedIn(repo.forge) { createLabel(it, repo, name, labelColor(name)) }
+
     override suspend fun setLabels(ref: IssueRef, names: List<String>) = changing(ref) { setLabels(it, ref, names) }
 
     override suspend fun assignable(repo: RepoId) = signedIn(repo.forge) { assignable(it, repo) }
@@ -502,3 +507,9 @@ class DefaultIssueRepository @Inject constructor(
 
 /** The kind as it is stored: only where it tells two conversations apart (GitLab), so the others keep one row each. */
 private val IssueRef.storedKind: Boolean get() = repo.forge.type.numbersMergeRequestsApart && isPullRequest == true
+
+/** The colours a label made here takes: GitHub's own suggestions, each readable with its text on it. */
+val LABEL_COLORS = listOf("#d73a4a", "#0075ca", "#a2eeef", "#7057ff", "#008672", "#e4e669", "#d876e3", "#0e8a16", "#fbca04", "#b60205", "#5319e7", "#c5def5")
+
+/** A colour of [name]'s own: the same name always takes the same one. */
+fun labelColor(name: String): String = LABEL_COLORS[Math.floorMod(name.trim().lowercase().hashCode(), LABEL_COLORS.size)]

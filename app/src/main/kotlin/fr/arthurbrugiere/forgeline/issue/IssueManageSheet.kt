@@ -98,6 +98,8 @@ class ManageActions(
     val onLoadAssignable: () -> Unit = {},
     val onLoadMilestones: () -> Unit = {},
     val onSetLabels: (List<String>) -> Unit = {},
+    /** Makes a label for the repository by its name. */
+    val onCreateLabel: (String) -> Unit = {},
     val onSetAssignees: (List<String>) -> Unit = {},
     val onSetReviewers: (List<String>) -> Unit = {},
     /** Marks the pull request a draft, or ready for review. */
@@ -402,12 +404,29 @@ private fun Save(working: Boolean, onSave: () -> Unit) {
 private fun LabelsPage(state: IssueUiState, actions: ManageActions, onBack: () -> Unit) {
     val current = state.issue?.labels.orEmpty().map { it.name }
     var chosen by rememberSaveable { mutableStateOf(current) }
+    var making by rememberSaveable { mutableStateOf("") }
+    // A label made here, or found already there by its name, comes ticked; its field empties.
+    LaunchedEffect(state.manage.labelMade) {
+        state.manage.labelMade?.first?.let { made ->
+            if (made !in chosen) chosen = chosen + made
+            making = ""
+        }
+    }
     PageTitle(stringResource(R.string.manage_labels), onBack)
     Choices(state.manage.labels, stringResource(R.string.manage_no_labels), actions.onLoadLabels) { labels ->
         labels.forEach { label ->
             ChoiceRow(label.name in chosen, !state.manage.isWorking, { chosen = if (label.name in chosen) chosen - label.name else chosen + label.name }) {
                 LabelChip(label)
             }
+        }
+    }
+    if (state.manage.labels is Loadable.Loaded) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            SoftTextField(
+                value = making, onValueChange = { making = it }, placeholder = stringResource(R.string.manage_label_new),
+                readOnly = state.manage.isWorking, modifier = Modifier.weight(1f),
+            )
+            SoftTonalButton(stringResource(R.string.manage_label_create), onClick = { actions.onCreateLabel(making) }, enabled = making.isNotBlank() && !state.manage.isWorking)
         }
         Save(state.manage.isWorking) { actions.onSetLabels(chosen) }
     }

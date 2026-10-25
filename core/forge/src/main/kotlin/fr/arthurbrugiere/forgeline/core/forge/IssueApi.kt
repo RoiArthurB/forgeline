@@ -95,6 +95,9 @@ interface IssueApi {
     /** The labels [repo]'s conversations can wear. */
     suspend fun labels(token: String, repo: RepoId): ForgeResult<List<Label>> = unsupported
 
+    /** Makes a label named [name] in [repo], of [color] (`#rrggbb`), for someone who may: it can then be set. */
+    suspend fun createLabel(token: String, repo: RepoId, name: String, color: String): ForgeResult<Label> = unsupported
+
     /** Makes [names] the labels of [ref], taking away any other. */
     suspend fun setLabels(token: String, ref: IssueRef, names: List<String>): ForgeResult<Unit> = unsupported
 

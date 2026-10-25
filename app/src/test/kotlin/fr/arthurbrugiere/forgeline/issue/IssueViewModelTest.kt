@@ -567,6 +567,36 @@ class IssueViewModelTest {
     }
 
     @Test
+    fun a_label_made_from_the_picker_joins_the_list_and_is_said_made_without_closing_it() = test {
+        val viewModel = managing(RepoAccess.TRIAGE)
+        viewModel.loadLabels()
+        advanceUntilIdle()
+
+        viewModel.createLabel("  needs repro  ")
+        advanceUntilIdle()
+
+        val labels = (viewModel.state.value.manage.labels as Loadable.Loaded).value
+        assertThat(labels.map { it.name }).containsExactly("bug", "enhancement", "question", "needs repro").inOrder()
+        assertThat(viewModel.state.value.manage.labelMade?.first).isEqualTo("needs repro")
+        // Made, not yet set: the picker stays open to save the choice.
+        assertThat(viewModel.state.value.manage.done).isFalse()
+        assertThat(api.calls).contains("manage:label made in octo/repo: needs repro")
+    }
+
+    @Test
+    fun a_label_already_there_is_not_made_twice() = test {
+        val viewModel = managing(RepoAccess.TRIAGE)
+        viewModel.loadLabels()
+        advanceUntilIdle()
+
+        viewModel.createLabel("Bug")
+        advanceUntilIdle()
+
+        assertThat(api.calls.none { it.startsWith("manage:label made") }).isTrue()
+        assertThat(viewModel.state.value.manage.labelMade?.first).isEqualTo("bug")
+    }
+
+    @Test
     fun choices_that_failed_to_load_are_asked_again() = test {
         val viewModel = managing(RepoAccess.TRIAGE)
         api.manageFailure = ForgeError.Network

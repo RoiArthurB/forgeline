@@ -164,6 +164,8 @@ data class ManageUiState(
     val error: ForgeError? = null,
     /** A change went through: the sheet closes on what it changed. */
     val done: Boolean = false,
+    /** The label just made, or found already there, by its name: the picker ticks it. Counted, so twice is told twice. */
+    val labelMade: Pair<String, Int>? = null,
 )
 
 @HiltViewModel(assistedFactory = IssueViewModel.Factory::class)
@@ -621,6 +623,33 @@ class IssueViewModel @AssistedInject constructor(
         manage({ repository.removeDependency(ref, on) }) { it.copy(manage = it.manage.copy(dependencies = Loadable.Idle)) }
 
     fun setLabels(names: List<String>) = manage({ repository.setLabels(ref, names) })
+
+    /**
+     * Makes the label [name] for the repository, and adds it to the picker's list; one already there by that name, in
+     * any case, is only ticked. The picker stays open: the label is set once the choice is saved.
+     */
+    fun createLabel(name: String) {
+        val wanted = name.trim()
+        val manage = _state.value.manage
+        if (wanted.isEmpty() || manage.isWorking) return
+        val listed = (manage.labels as? Loadable.Loaded)?.value.orEmpty()
+        listed.firstOrNull { it.name.equals(wanted, ignoreCase = true) }?.let { there ->
+            _state.update { it.copy(manage = it.manage.copy(labelMade = there.name to ++labelSerial)) }
+            return
+        }
+        _state.update { it.copy(manage = it.manage.copy(isWorking = true, error = null)) }
+        viewModelScope.launch {
+            when (val result = repository.createLabel(ref.repo, wanted)) {
+                is ForgeResult.Failure -> _state.update { it.copy(manage = it.manage.copy(isWorking = false, error = result.error)) }
+                is ForgeResult.Success -> _state.update { state ->
+                    val labels = (state.manage.labels as? Loadable.Loaded)?.value.orEmpty() + result.value
+                    state.copy(manage = state.manage.copy(isWorking = false, labels = Loadable.Loaded(labels), labelMade = result.value.name to ++labelSerial))
+                }
+            }
+        }
+    }
+
+    private var labelSerial = 0
 
     fun setAssignees(logins: List<String>) = manage({ repository.setAssignees(ref, logins) })
 

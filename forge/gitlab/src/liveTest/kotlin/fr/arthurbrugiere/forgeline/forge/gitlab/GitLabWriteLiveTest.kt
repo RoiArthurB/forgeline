@@ -160,6 +160,12 @@ class GitLabWriteLiveTest {
             issues.setBase(token, ref, "other").value("to other")
             assertWithMessage("into other").that(issues.issue(token, ref).value("moved").pullRequest?.baseRef).isEqualTo("other")
             issues.setBase(token, ref, "main").value("back to main")
+            // A label made from the picker: it is the repository's, and set on the pull request.
+            val made = issues.createLabel(token, repo, "made-by-the-live-test", "#0e8a16").value("label made")
+            assertWithMessage("label made").that(made.name).isEqualTo("made-by-the-live-test")
+            assertWithMessage("label listed").that(issues.labels(token, repo).value("labels").map { it.name }).contains("made-by-the-live-test")
+            issues.setLabels(token, ref, listOf("made-by-the-live-test")).value("label set")
+
             assertWithMessage("into main").that(issues.issue(token, ref).value("back").pullRequest?.baseRef).isEqualTo("main")
 
             pulls.review(token, ref, ReviewVerdict.COMMENT, "One remark.", listOf(LineComment("README.md", added.oldNumber, added.newNumber, "Why this line?"))).value("review")

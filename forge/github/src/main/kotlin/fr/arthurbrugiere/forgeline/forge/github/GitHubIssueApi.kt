@@ -240,6 +240,17 @@ class GitHubIssueApi(
             .toResult { body<List<LabelJson>>().map { it.toModel() } }
     }
 
+    /** GitHub writes a colour without its hash. */
+    override suspend fun createLabel(token: String, repo: RepoId, name: String, color: String): ForgeResult<Label> = forgeCall {
+        httpClient.gitHubApi(
+            apiBaseUrl, token, "repos", repo.owner, repo.name, "labels", method = HttpMethod.Post,
+            body = buildJsonObject {
+                put("name", name)
+                put("color", color.removePrefix("#"))
+            },
+        ).toResult { body<LabelJson>().toModel() }
+    }
+
     override suspend fun setLabels(token: String, ref: IssueRef, names: List<String>): ForgeResult<Unit> = forgeCall {
         httpClient.gitHubApi(
             apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "labels",

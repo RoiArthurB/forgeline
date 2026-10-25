@@ -71,6 +71,7 @@ class IssueManageSheetTest {
         onLoadAssignable = { events += "load-assignable" },
         onLoadMilestones = { events += "load-milestones" },
         onSetLabels = { events += "labels:${it.joinToString()}" },
+        onCreateLabel = { events += "make-label:$it" },
         onSetAssignees = { events += "assignees:${it.joinToString()}" },
         onSetReviewers = { events += "reviewers:${it.joinToString()}" },
         onSetDraft = { events += "draft:$it" },
@@ -479,6 +480,23 @@ class IssueManageSheetTest {
         composeRule.onNodeWithText("Retry").performClick()
 
         assertThat(events).containsExactly("load-labels")
+    }
+
+    @Test
+    fun a_new_label_is_made_from_the_picker_and_ticked_once_made() {
+        setContent(page = ManagePage.LABELS)
+
+        composeRule.onNode(hasSetTextAction()).performTextInput("needs repro")
+        composeRule.onNodeWithText("Create").performClick()
+        assertThat(events).containsExactly("make-label:needs repro")
+
+        // Made: the forge's answer adds it to the list, and it comes ticked, ready to save.
+        val made = owned.manage.copy(labels = Loadable.Loaded((owned.manage.labels as Loadable.Loaded).value + Label("needs repro", "0e8a16")), labelMade = "needs repro" to 1)
+        shown.value = owned.copy(manage = made)
+        composeRule.onNodeWithText("Save").performClick()
+
+        // Beside the label it already wore.
+        assertThat(events.last()).isEqualTo("labels:bug, needs repro")
     }
 
     @Test

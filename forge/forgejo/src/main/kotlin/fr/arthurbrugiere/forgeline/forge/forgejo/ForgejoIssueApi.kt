@@ -337,6 +337,18 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     }
 
     /** Forgejo takes names as well as ids here. */
+
+    /** In the repository itself, never its organisation's. */
+    override suspend fun createLabel(token: String, repo: RepoId, name: String, color: String): ForgeResult<Label> = forgeCall {
+        httpClient.forgejoApi(
+            forge, token, "repos", repo.owner, repo.name, "labels", method = HttpMethod.Post,
+            body = buildJsonObject {
+                put("name", name)
+                put("color", color)
+            },
+        ).toResult { body<LabelJson>().toModel() }
+    }
+
     override suspend fun setLabels(token: String, ref: IssueRef, names: List<String>): ForgeResult<Unit> = forgeCall {
         httpClient.forgejoApi(
             forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "labels",

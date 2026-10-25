@@ -477,6 +477,14 @@ class ForgejoIssueApiTest {
     }
 
     @Test
+    fun a_label_is_made_in_the_repository() = runTest {
+        val api = answering { with(codeberg) { json("""{"id":5,"name":"needs repro","color":"0e8a16"}""") } }
+
+        assertThat(api.createLabel("tok", pull.repo, "needs repro", "#0e8a16").value()).isEqualTo(Label("needs repro", "0e8a16"))
+        assertThat(sent).containsExactly("POST /api/v1/repos/forgejo/forgejo/labels")
+    }
+
+    @Test
     fun a_repository_s_labels_are_its_own_then_its_organisation_s() = runTest {
         val api = answering {
             with(codeberg) {

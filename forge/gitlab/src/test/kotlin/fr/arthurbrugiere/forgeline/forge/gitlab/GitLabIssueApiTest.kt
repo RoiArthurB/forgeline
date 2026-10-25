@@ -218,6 +218,16 @@ class GitLabIssueApiTest {
     }
 
     @Test
+    fun a_label_is_made_with_its_colour_as_gitlab_writes_it() = runTest {
+        val made = api { json("""{"id":7,"name":"needs repro","color":"#0e8a16","text_color":"#FFFFFF"}""", HttpStatusCode.Created) }
+            .createLabel("tok", repo, "needs repro", "#0e8a16").value()
+
+        assertThat(made.name).isEqualTo("needs repro")
+        assertThat(requests.single().url.encodedPath).endsWith("/labels")
+        assertThat((requests.single().body as TextContent).text).isEqualTo("""{"name":"needs repro","color":"#0e8a16"}""")
+    }
+
+    @Test
     fun an_issue_is_opened_with_its_labels_as_one_list() = runTest {
         val created = api {
             json("""{"id":101,"iid":11,"project_id":278964,"title":"Crash","description":"","state":"opened","created_at":"2026-10-24T09:43:33.630Z","labels":["bug","triage"]}""", HttpStatusCode.Created)

@@ -174,6 +174,7 @@ fun IssueRoute(
             onLoadAssignable = viewModel::loadAssignable,
             onLoadMilestones = viewModel::loadMilestones,
             onSetLabels = viewModel::setLabels,
+            onCreateLabel = viewModel::createLabel,
             onSetAssignees = viewModel::setAssignees,
             onSetReviewers = viewModel::setReviewers,
             onSetDraft = viewModel::setDraft,

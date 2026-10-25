@@ -358,6 +358,16 @@ class GitLabIssueApi(
             .toResult { body<List<GitLabLabelJson>>().map { it.toModel() } }
     }
 
+    override suspend fun createLabel(token: String, repo: RepoId, name: String, color: String): ForgeResult<Label> = forgeCall {
+        httpClient.gitlabApi(
+            repo.forge, token, "projects", repo.fullName, "labels", method = HttpMethod.Post,
+            body = buildJsonObject {
+                put("name", name)
+                put("color", color)
+            },
+        ).toResult { body<GitLabLabelJson>().toModel() }
+    }
+
     override suspend fun setLabels(token: String, ref: IssueRef, names: List<String>): ForgeResult<Unit> = forgeCall {
         val kind = targetKind(ref)
         val payload = buildJsonObject {

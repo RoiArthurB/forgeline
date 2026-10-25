@@ -196,6 +196,12 @@ class ForgejoWriteLiveTest {
             issues.setReviewers(token, ref, emptyList()).value("no reviewers")
             assertWithMessage("no reviewers").that(ready.pullRequest?.reviewers).isEmpty()
 
+            // A label made from the picker: it is the repository's, and set on the pull request.
+            val made = issues.createLabel(token, repo, "made-by-the-live-test", "#0e8a16").value("label made")
+            assertWithMessage("label made").that(made.name).isEqualTo("made-by-the-live-test")
+            assertWithMessage("label listed").that(issues.labels(token, repo).value("labels").map { it.name }).contains("made-by-the-live-test")
+            issues.setLabels(token, ref, listOf("made-by-the-live-test")).value("label set")
+
             // Subscribed in the owner's name and let go again.
             issues.setSubscribed(token, owner, ref, subscribed = true).value("subscribe")
             assertWithMessage("subscribed").that(issues.isSubscribed(token, owner, ref).value("subscribed?")).isTrue()

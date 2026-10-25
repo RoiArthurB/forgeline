@@ -434,6 +434,17 @@ class GitHubIssueApiTest {
     }
 
     @Test
+    fun a_label_is_made_with_its_colour_as_github_writes_it() = runTest {
+        val made = api { json("""{"id":9,"name":"needs repro","color":"0e8a16"}""", status = HttpStatusCode.Created) }
+            .createLabel("tok", repo, "needs repro", "#0e8a16").value()
+
+        assertThat(made).isEqualTo(Label("needs repro", "0e8a16"))
+        assertThat(requests.single().url.encodedPath).isEqualTo("/repos/paperclipai/paperclip/labels")
+        // Without its hash.
+        assertThat((requests.single().body as io.ktor.http.content.TextContent).text).isEqualTo("""{"name":"needs repro","color":"0e8a16"}""")
+    }
+
+    @Test
     fun the_repository_s_labels_assignable_people_and_open_milestones_are_listed() = runTest {
         val listing = api { request ->
             when (request.url.encodedPath.substringAfterLast('/')) {

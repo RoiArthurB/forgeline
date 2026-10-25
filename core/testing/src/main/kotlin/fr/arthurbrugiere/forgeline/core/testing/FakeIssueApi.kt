@@ -229,6 +229,10 @@ class FakeIssueApi : IssueApi {
 
     override suspend fun labels(token: String, repo: RepoId) = read(token, "labels:${repo.fullName}", repoLabels)
 
+    override suspend fun createLabel(token: String, repo: RepoId, name: String, color: String) = manage(token, "label made in ${repo.fullName}: $name") {
+        Label(name, color.removePrefix("#")).also { repoLabels = repoLabels + it }
+    }
+
     override suspend fun setLabels(token: String, ref: IssueRef, names: List<String>) = manage(token, "labels ${ref.label}: ${names.joinToString()}") {
         issues[ref]?.let { issue -> issues[ref] = issue.copy(labels = names.map { name -> repoLabels.firstOrNull { it.name == name } ?: Label(name, null) }) }
         Unit

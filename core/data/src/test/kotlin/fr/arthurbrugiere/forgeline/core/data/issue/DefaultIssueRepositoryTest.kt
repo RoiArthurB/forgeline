@@ -808,4 +808,16 @@ class DefaultIssueRepositoryTest {
 
         assertThat(repository.attachments(ref.repo)).isEqualTo(fr.arthurbrugiere.forgeline.core.model.AttachmentRule.AUTHOR_OR_WRITER)
     }
+
+    @Test
+    fun a_label_is_made_in_a_colour_of_its_own_name() = runTest {
+        signIn()
+
+        val first = (repository.createLabel(RepoId("octo", "repo"), "needs repro") as ForgeResult.Success).value
+        val again = labelColor("needs repro")
+
+        // The same name always takes the same colour, one of a few that read on any background.
+        assertThat(first.color).isEqualTo(again.removePrefix("#"))
+        assertThat(LABEL_COLORS).contains(again)
+    }
 }
