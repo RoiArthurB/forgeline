@@ -103,7 +103,13 @@ object FakeForgeModule {
 
     @Provides
     @Singleton
-    fun provideActionsApi(): ActionsApi = FakeActionsApi()
+    fun provideActionsApi(): ActionsApi = FakeActionsApi().apply {
+        // A finished run that kept a report, as RoiArthurB/GAMA-GC-Benchmark's do.
+        runs[77] = fr.arthurbrugiere.forgeline.core.testing.workflowRun(77)
+        jobs[77] = emptyList()
+        artifacts[77] = listOf(fr.arthurbrugiere.forgeline.core.model.RunArtifact(5, "report", 1_154_768, expired = false))
+        documents[5] = listOf(fr.arthurbrugiere.forgeline.core.model.ArtifactDocument("report/report.md", "# Benchmark report\n\nSerial wins."))
+    }
 
     @Provides
     @Singleton

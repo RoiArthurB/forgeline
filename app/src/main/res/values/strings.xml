@@ -845,6 +845,24 @@
         <item quantity="one">%d job</item>
         <item quantity="other">%d jobs</item>
     </plurals>
+    <plurals name="run_artifacts">
+        <item quantity="one">%d artifact</item>
+        <item quantity="other">%d artifacts</item>
+    </plurals>
+    <string name="run_artifact_expired">Expired</string>
+    <string name="artifact_of">Artifact of %1$s · %2$s</string>
+    <string name="artifact_loading">Reading the artifact</string>
+    <string name="artifact_sign_in_title">Sign in to read it</string>
+    <string name="artifact_sign_in_body">%1$s hands artifacts to signed-in accounts only.</string>
+    <string name="artifact_too_large_title">Too large to read here</string>
+    <string name="artifact_too_large_body">This artifact is %1$s; Forgeline reads the ones up to %2$s.</string>
+    <string name="artifact_empty_title">No Markdown in it</string>
+    <string name="artifact_empty_body">Forgeline shows the Markdown files an artifact holds, and this one has none.</string>
+    <string name="artifact_error_title">Couldn’t read the artifact</string>
+    <plurals name="artifact_documents">
+        <item quantity="one">%d Markdown file</item>
+        <item quantity="other">%d Markdown files</item>
+    </plurals>
     <plurals name="log_step_errors">
         <item quantity="one">%d error</item>
         <item quantity="other">%d errors</item>

@@ -1,15 +1,18 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
 import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
+import fr.arthurbrugiere.forgeline.core.forge.ArtifactArchive
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.JobLogReader
 import fr.arthurbrugiere.forgeline.core.forge.WorkflowDispatchParser
 import fr.arthurbrugiere.forgeline.core.forge.logPartOf
+import fr.arthurbrugiere.forgeline.core.model.ArtifactDocument
 import fr.arthurbrugiere.forgeline.core.model.DispatchInput
 import fr.arthurbrugiere.forgeline.core.model.LogFormat
 import fr.arthurbrugiere.forgeline.core.model.LogPart
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RunArtifact
 import fr.arthurbrugiere.forgeline.core.model.RunJob
 import fr.arthurbrugiere.forgeline.core.model.RunStep
 import fr.arthurbrugiere.forgeline.core.model.Workflow
@@ -32,6 +35,9 @@ import io.ktor.http.Url
 import io.ktor.http.appendPathSegments
 import io.ktor.http.isSuccess
 import io.ktor.http.takeFrom
+import io.ktor.utils.io.jvm.javaio.toInputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
@@ -159,6 +165,32 @@ class GitHubActionsApi(
             .toResult { }
     }
 
+    override suspend fun artifacts(token: String?, id: RepoId, runId: Long): ForgeResult<List<RunArtifact>> = forgeCall {
+        call(token, id, "actions", "runs", runId.toString(), "artifacts", query = mapOf("per_page" to "100"))
+            .toResult { body<ArtifactsResponse>().artifacts.map { RunArtifact(it.id, it.name, it.sizeInBytes, it.expired) } }
+    }
+
+    /** The archive comes from blob storage the API redirects to, as logs do; only its Markdown files are kept. */
+    override suspend fun artifactDocuments(token: String?, id: RepoId, artifact: RunArtifact): ForgeResult<List<ArtifactDocument>> = forgeCall {
+        when {
+            token == null -> return@forgeCall ForgeResult.Failure(ForgeError.Unauthorized)
+            artifact.expired -> return@forgeCall ForgeResult.Failure(ForgeError.Http(410, "Expired"))
+            artifact.sizeBytes > ArtifactArchive.MAX_ARCHIVE_BYTES -> return@forgeCall ForgeResult.Failure(ForgeError.Http(413, "Artifact too large to read"))
+        }
+        httpClient.prepareGet {
+            url {
+                takeFrom(apiBaseUrl)
+                appendPathSegments("repos", id.owner, id.name, "actions", "artifacts", artifact.id.toString(), "zip")
+            }
+            gitHubHeaders(token!!)
+            header(HttpHeaders.CacheControl, "no-store")
+        }.execute { response ->
+            if (!response.status.isSuccess()) return@execute response.failure()
+            // Unzipping blocks as it reads: off the caller's thread.
+            ForgeResult.Success(withContext(Dispatchers.IO) { ArtifactArchive.markdownIn(response.bodyAsChannel().toInputStream()) })
+        }
+    }
+
     override suspend fun cancel(token: String, id: RepoId, runId: Long): ForgeResult<Unit> = forgeCall {
         call(token, id, "actions", "runs", runId.toString(), "cancel", method = HttpMethod.Post).toResult { }
     }
@@ -172,6 +204,17 @@ class GitHubActionsApi(
         body: kotlinx.serialization.json.JsonObject? = null,
     ): HttpResponse = httpClient.gitHubApi(apiBaseUrl, token, "repos", id.owner, id.name, *segments, method = method, query = query, body = body)
 }
+
+@Serializable
+private data class ArtifactsResponse(val artifacts: List<ArtifactResponse> = emptyList())
+
+@Serializable
+private data class ArtifactResponse(
+    val id: Long,
+    val name: String,
+    @SerialName("size_in_bytes") val sizeInBytes: Long = 0,
+    val expired: Boolean = false,
+)
 
 @Serializable
 private data class JobsResponse(val jobs: List<JobResponse>)

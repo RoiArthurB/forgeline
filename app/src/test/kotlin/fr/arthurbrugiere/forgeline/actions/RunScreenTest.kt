@@ -1,10 +1,13 @@
 package fr.arthurbrugiere.forgeline.actions
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -49,6 +52,7 @@ class RunScreenTest {
                 onRefresh = { events += "refresh" },
                 onPerform = { events += "perform:$it" },
                 onOpenJob = { events += "job:${it.id}" },
+                onOpenArtifact = { events += "artifact:${it.name}" },
                 onOpenUser = { events += "user:$it" },
                 onOpenInBrowser = { events += "browser" },
                 onResultShown = { events += "shown" },
@@ -203,5 +207,31 @@ class RunScreenTest {
         } finally {
             android.provider.Settings.Global.putFloat(resolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f)
         }
+    }
+
+    @Test
+    fun a_run_s_artifacts_list_after_its_jobs_and_open_unless_expired() {
+        // As RoiArthurB/GAMA-GC-Benchmark's run keeps them (2026-10-23): a report, and logs already gone.
+        val artifacts = listOf(
+            fr.arthurbrugiere.forgeline.core.model.RunArtifact(1, "report", 1_154_768, expired = false),
+            fr.arthurbrugiere.forgeline.core.model.RunArtifact(2, "logs-traffic-r4", 5_428_234, expired = true),
+        )
+        setContent(RunUiState(repo, 7, run = workflowRun(7), jobs = emptyList(), artifacts = artifacts))
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("2 artifacts"))
+        composeRule.onNodeWithText("2 artifacts").assertIsDisplayed()
+        composeRule.onNodeWithText("1.1 MB", substring = true).assertExists()
+        composeRule.onNodeWithText("Expired", substring = true).assertExists()
+        composeRule.onNodeWithText("report").performClick()
+        composeRule.onNodeWithText("logs-traffic-r4").performClick()
+
+        assertThat(events).containsExactly("artifact:report")
+    }
+
+    @Test
+    fun a_run_without_artifacts_shows_no_such_section() {
+        setContent(RunUiState(repo, 7, run = workflowRun(7), jobs = emptyList(), artifacts = emptyList()))
+
+        composeRule.onNodeWithText("artifacts", substring = true).assertDoesNotExist()
     }
 }

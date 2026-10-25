@@ -834,6 +834,26 @@
         <item quantity="many">%d tâches</item>
         <item quantity="other">%d tâches</item>
     </plurals>
+    <plurals name="run_artifacts">
+        <item quantity="one">%d artefact</item>
+        <item quantity="many">%d artefacts</item>
+        <item quantity="other">%d artefacts</item>
+    </plurals>
+    <string name="run_artifact_expired">Expiré</string>
+    <string name="artifact_of">Artefact de %1$s · %2$s</string>
+    <string name="artifact_loading">Lecture de l’artefact</string>
+    <string name="artifact_sign_in_title">Connectez-vous pour le lire</string>
+    <string name="artifact_sign_in_body">%1$s ne remet les artefacts qu’aux comptes connectés.</string>
+    <string name="artifact_too_large_title">Trop gros pour être lu ici</string>
+    <string name="artifact_too_large_body">Cet artefact fait %1$s ; Forgeline lit ceux jusqu’à %2$s.</string>
+    <string name="artifact_empty_title">Aucun Markdown dedans</string>
+    <string name="artifact_empty_body">Forgeline montre les fichiers Markdown d’un artefact, et celui-ci n’en a aucun.</string>
+    <string name="artifact_error_title">Impossible de lire l’artefact</string>
+    <plurals name="artifact_documents">
+        <item quantity="one">%d fichier Markdown</item>
+        <item quantity="many">%d fichiers Markdown</item>
+        <item quantity="other">%d fichiers Markdown</item>
+    </plurals>
     <!-- Only offered when there is an error to go to: "one" is never none here. -->
     <plurals name="log_step_errors">
         <item quantity="one">%d erreur</item>

@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.data.actions.ActionsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RunArtifact
 import fr.arthurbrugiere.forgeline.core.model.RunJob
 import fr.arthurbrugiere.forgeline.core.model.RunStatus
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
@@ -40,6 +41,8 @@ data class RunUiState(
     val canRerun: Boolean = true,
     /** The server can't list the run's jobs (older Forgejo): they're only on the run's page. */
     val jobsUnlisted: Boolean = false,
+    /** The files the run kept; null until asked, empty where there are none or the forge can't list them. */
+    val artifacts: List<RunArtifact>? = null,
 ) {
     val isFinished: Boolean get() = run?.status == RunStatus.COMPLETED
 }
@@ -95,14 +98,18 @@ class RunViewModel @AssistedInject constructor(
         viewModelScope.launch {
             val run = async { actions.run(repo, runId) }
             val jobs = async { actions.jobs(repo, runId) }
+            val artifacts = async { actions.artifacts(repo, runId) }
             val runResult = run.await()
             val jobsResult = jobs.await()
+            val artifactsResult = artifacts.await()
             val unlisted = (jobsResult as? ForgeResult.Failure)?.error == ForgeError.Unsupported
             val jobsError = (jobsResult as? ForgeResult.Failure)?.error?.takeUnless { unlisted }
             _state.update { state ->
                 state.copy(
                     run = (runResult as? ForgeResult.Success)?.value ?: state.run,
                     jobs = (jobsResult as? ForgeResult.Success)?.value ?: state.jobs,
+                    // The artifacts come with the run: without them it still reads.
+                    artifacts = (artifactsResult as? ForgeResult.Success)?.value ?: state.artifacts ?: emptyList(),
                     jobsUnlisted = unlisted,
                     isRefreshing = false,
                     // A server that can't list jobs isn't failing.

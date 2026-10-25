@@ -4,10 +4,12 @@ import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.JobLogReader
+import fr.arthurbrugiere.forgeline.core.model.ArtifactDocument
 import fr.arthurbrugiere.forgeline.core.model.DispatchInput
 import fr.arthurbrugiere.forgeline.core.model.LogFormat
 import fr.arthurbrugiere.forgeline.core.model.LogPart
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RunArtifact
 import fr.arthurbrugiere.forgeline.core.model.RunJob
 import fr.arthurbrugiere.forgeline.core.model.Workflow
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
@@ -31,6 +33,10 @@ class FakeActionsApi(
     var partsRead = 0
     var bytesRead = 0L
     var workflows: List<Workflow> = emptyList()
+
+    /** Each run's artifacts, and the Markdown each artifact holds, by its id. */
+    val artifacts = mutableMapOf<Long, List<RunArtifact>>()
+    val documents = mutableMapOf<Long, List<ArtifactDocument>>()
     val inputs = mutableMapOf<Long, List<DispatchInput>?>()
     var writeFailure: ForgeError? = null
     val calls = mutableListOf<String>()
@@ -47,6 +53,16 @@ class FakeActionsApi(
     override suspend fun run(token: String?, id: RepoId, runId: Long) = found(runs[runId]).also { calls += "run:${id.fullName}:$runId" }
 
     override suspend fun jobs(token: String?, id: RepoId, runId: Long) = found(jobs[runId]).also { calls += "jobs:${id.fullName}:$runId" }
+
+    override suspend fun artifacts(token: String?, id: RepoId, runId: Long): ForgeResult<List<RunArtifact>> =
+        ForgeResult.Success(artifacts[runId].orEmpty()).also { calls += "artifacts:${id.fullName}:$runId" }
+
+    /** Like GitHub's: without a token, Unauthorized. */
+    override suspend fun artifactDocuments(token: String?, id: RepoId, artifact: RunArtifact): ForgeResult<List<ArtifactDocument>> {
+        calls += "artifactDocuments:${id.fullName}:${artifact.id}"
+        if (token == null) return ForgeResult.Failure(ForgeError.Unauthorized)
+        return found(documents[artifact.id])
+    }
 
     override suspend fun job(token: String?, id: RepoId, runId: Long, jobId: Long) =
         found(jobs[runId]?.lastOrNull { it.id == jobId }).also { calls += "job:${id.fullName}:$runId/$jobId" }

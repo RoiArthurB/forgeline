@@ -106,6 +106,27 @@ class GitHubLiveContractTest {
         assertWithMessage("chooser links: $chooser").that(chooser?.links).isNotEmpty()
     }
 
+    /**
+     * RoiArthurB/GAMA-GC-Benchmark writes its report to the run's summary, which no API gives, and keeps it in a "report"
+     * artifact: the latest one kept still lists, downloads and reads.
+     */
+    @Test
+    fun a_run_s_report_reads_from_its_artifact() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        val benchmark = RepoId("RoiArthurB", "GAMA-GC-Benchmark")
+        val actions = GitHubActionsApi(client)
+        val runs = (GitHubRepoApi(client).workflowRuns(pat, benchmark) as ForgeResult.Success).value.filter { it.conclusion == RunConclusion.SUCCESS }
+        val report = runs.firstNotNullOfOrNull { run -> (actions.artifacts(pat, benchmark, run.id) as? ForgeResult.Success)?.value?.firstOrNull { it.name == "report" && !it.expired } }
+        assumeTrue("no report artifact kept", report != null)
+
+        val documents = actions.artifactDocuments(pat, benchmark, report!!)
+
+        assertWithMessage("documents: $documents").that(documents).isInstanceOf(ForgeResult.Success::class.java)
+        val read = (documents as ForgeResult.Success).value
+        assertWithMessage("paths").that(read.map { it.path }).contains("report/report.md")
+        assertWithMessage("report").that(read.first { it.path == "report/report.md" }.markdown).startsWith("# GAMA garbage-collector benchmark")
+    }
+
     /** gama-platform/gama#1118 was closed by a commit: the timeline still names it, and the commit still reads. */
     @Test
     fun an_issue_closed_by_a_commit_still_says_which() = runBlocking {

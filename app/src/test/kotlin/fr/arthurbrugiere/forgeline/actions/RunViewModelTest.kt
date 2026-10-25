@@ -44,6 +44,19 @@ class RunViewModelTest {
     private suspend fun signIn() = accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "ghp_token")
 
     @Test
+    fun loads_the_run_s_artifacts_with_it() = test {
+        val report = fr.arthurbrugiere.forgeline.core.model.RunArtifact(1, "report", 1_000, expired = false)
+        api.runs[7] = workflowRun(7)
+        api.jobs[7] = listOf(job)
+        api.artifacts[7] = listOf(report)
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.artifacts).containsExactly(report)
+    }
+
+    @Test
     fun loads_the_run_and_its_jobs() = test {
         api.runs[7] = workflowRun(7, conclusion = RunConclusion.FAILURE)
         api.jobs[7] = listOf(job)

@@ -203,7 +203,15 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 session = session,
                 onBack = navigator::goBack,
                 onOpenJob = { repo, job -> navigator.navigate(JobLogKey(repo.forge.host, repo.owner, repo.name, key.runId, job.id, job.name)) },
+                onOpenArtifact = { repo, runId, artifact ->
+                    navigator.navigate(fr.arthurbrugiere.forgeline.navigation.ArtifactRoute(repo.forge.host, repo.owner, repo.name, runId, artifact.id, artifact.name, artifact.sizeBytes))
+                },
                 onOpenUser = { openUser(key.repo.forge, it) },
+            )
+        }
+        entry<fr.arthurbrugiere.forgeline.navigation.ArtifactRoute> { key ->
+            fr.arthurbrugiere.forgeline.actions.ArtifactRoute(
+                key, onBack = navigator::goBack, onSignIn = signIn, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.repo.forge, it) },
             )
         }
         entry<JobLogKey> { key -> JobLogDestination(key, onBack = navigator::goBack, onSignIn = signIn) }

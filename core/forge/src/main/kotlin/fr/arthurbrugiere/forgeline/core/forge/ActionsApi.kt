@@ -1,8 +1,10 @@
 package fr.arthurbrugiere.forgeline.core.forge
 
+import fr.arthurbrugiere.forgeline.core.model.ArtifactDocument
 import fr.arthurbrugiere.forgeline.core.model.DispatchInput
 import fr.arthurbrugiere.forgeline.core.model.LogFormat
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RunArtifact
 import fr.arthurbrugiere.forgeline.core.model.RunJob
 import fr.arthurbrugiere.forgeline.core.model.Workflow
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
@@ -38,6 +40,16 @@ interface ActionsApi {
 
     /** A finished job's whole log, written to [into] as it comes rather than held: logs run to tens of megabytes. */
     suspend fun downloadJobLog(token: String?, id: RepoId, jobId: Long, into: OutputStream): ForgeResult<Unit>
+
+    /** The files [runId] kept, to be had once it's done; none where the forge can't list them. */
+    suspend fun artifacts(token: String?, id: RepoId, runId: Long): ForgeResult<List<RunArtifact>> = ForgeResult.Success(emptyList())
+
+    /**
+     * The Markdown files in [artifact]'s archive ([ArtifactArchive]): the report a workflow wrote, where the forge can't
+     * give the run's summary. Unsupported where it can't hand an archive over.
+     */
+    suspend fun artifactDocuments(token: String?, id: RepoId, artifact: RunArtifact): ForgeResult<List<ArtifactDocument>> =
+        ForgeResult.Failure(ForgeError.Unsupported)
 
     /** Active workflows defined in the repository. */
     suspend fun workflows(token: String?, id: RepoId): ForgeResult<List<Workflow>>

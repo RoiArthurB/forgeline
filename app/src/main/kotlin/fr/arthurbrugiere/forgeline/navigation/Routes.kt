@@ -5,6 +5,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RunArtifact
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -148,6 +149,21 @@ data class NewPullRequestRoute(val host: String, val owner: String, val name: St
 @Serializable
 data class RunRoute(val host: String, val owner: String, val name: String, val runId: Long) : NavKey {
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
+}
+
+/** One artifact of a run, read for the Markdown it holds. */
+@Serializable
+data class ArtifactRoute(
+    val host: String,
+    val owner: String,
+    val name: String,
+    val runId: Long,
+    val artifactId: Long,
+    val artifactName: String,
+    val sizeBytes: Long,
+) : NavKey {
+    val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
+    val artifact: RunArtifact get() = RunArtifact(artifactId, artifactName, sizeBytes, expired = false)
 }
 
 /** What the owner of a repository sets on it. */

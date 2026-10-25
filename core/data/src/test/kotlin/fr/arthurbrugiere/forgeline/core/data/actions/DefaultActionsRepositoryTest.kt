@@ -46,6 +46,19 @@ class DefaultActionsRepositoryTest {
     }
 
     @Test
+    fun a_run_s_artifacts_list_to_anyone_and_read_to_the_account() = runTest {
+        val report = fr.arthurbrugiere.forgeline.core.model.RunArtifact(1, "report", 1_000, expired = false)
+        api.artifacts[7] = listOf(report)
+        api.documents[1] = listOf(fr.arthurbrugiere.forgeline.core.model.ArtifactDocument("report.md", "# Report"))
+
+        assertThat(repository.artifacts(repo, 7)).isEqualTo(ForgeResult.Success(listOf(report)))
+        assertThat(repository.artifactDocuments(repo, report)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "ghp_token")
+        assertThat((repository.artifactDocuments(repo, report) as ForgeResult.Success).value.single().markdown).isEqualTo("# Report")
+    }
+
+    @Test
     fun a_forge_without_actions_says_so() = runTest {
         val repository = DefaultActionsRepository(FakeForgeClients().apply { put(ForgeInstance.Codeberg, FakeForgeClients(actions = null)) }, accounts)
 

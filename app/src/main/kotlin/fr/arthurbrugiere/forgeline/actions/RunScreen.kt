@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -52,11 +53,13 @@ import androidx.lifecycle.repeatOnLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RunArtifact
 import fr.arthurbrugiere.forgeline.core.model.RunConclusion
 import fr.arthurbrugiere.forgeline.core.model.RunJob
 import fr.arthurbrugiere.forgeline.core.model.RunStatus
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 import fr.arthurbrugiere.forgeline.core.model.runUrl
+import fr.arthurbrugiere.forgeline.core.ui.format.formatBytes
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
@@ -89,6 +92,7 @@ fun RunRoute(
     session: SessionState,
     onBack: () -> Unit,
     onOpenJob: (RepoId, RunJob) -> Unit,
+    onOpenArtifact: (RepoId, Long, RunArtifact) -> Unit,
     onOpenUser: (String) -> Unit,
 ) {
     val repo = route.repo
@@ -113,6 +117,7 @@ fun RunRoute(
         onRefresh = viewModel::refresh,
         onPerform = viewModel::perform,
         onOpenJob = { onOpenJob(repo, it) },
+        onOpenArtifact = { onOpenArtifact(repo, route.runId, it) },
         onOpenUser = onOpenUser,
         // Forgejo's run pages go by the run's number, known once the run is.
         onOpenInBrowser = { openUrl(state.run?.webUrl ?: repo.runUrl(route.runId)) },
@@ -130,6 +135,7 @@ fun RunScreen(
     onRefresh: () -> Unit,
     onPerform: (RunAction) -> Unit,
     onOpenJob: (RunJob) -> Unit,
+    onOpenArtifact: (RunArtifact) -> Unit = {},
     onOpenUser: (String) -> Unit,
     onOpenInBrowser: () -> Unit,
     onResultShown: () -> Unit,
@@ -222,6 +228,14 @@ fun RunScreen(
                         items(jobs, key = { "job-${it.id}" }) { JobRow(it, nowMillis, onClick = { onOpenJob(it) }) }
                     }
                 }
+                // What the run kept: a report it wrote among them, which GitHub's API can't give as the run's summary.
+                val artifacts = state.artifacts.orEmpty()
+                if (artifacts.isNotEmpty()) {
+                    item(key = "artifacts-title") {
+                        SoftSectionTitle(pluralStringResource(R.plurals.run_artifacts, artifacts.size, artifacts.size))
+                    }
+                    items(artifacts, key = { "artifact-${it.id}" }) { ArtifactRow(it, onClick = { onOpenArtifact(it) }) }
+                }
             }
         }
         val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
@@ -291,6 +305,32 @@ private fun RunActions(run: WorkflowRun, pending: RunAction?, onPerform: (RunAct
                 SoftTonalButton(stringResource(R.string.run_rerun_all), onClick = { onPerform(RunAction.RERUN_ALL) })
             }
             else -> SoftTonalButton(stringResource(R.string.run_rerun), onClick = { onPerform(RunAction.RERUN_ALL) })
+        }
+    }
+}
+
+@Composable
+private fun ArtifactRow(artifact: RunArtifact, onClick: () -> Unit) {
+    val colors = Soft.colors
+    Row(
+        Modifier
+            .widthIn(max = SoftTokens.MaxReadingWidth)
+            .fillMaxWidth()
+            // An expired one can't be had any more: it only says so.
+            .then(if (artifact.expired) Modifier else Modifier.softPressable(onClick = onClick))
+            .rowHairline(start = 64.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RowIcon(Icons.Outlined.Inventory2, colors.surface, if (artifact.expired) colors.inkMuted else colors.ink)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(artifact.name, style = Soft.type.body, color = if (artifact.expired) colors.inkMuted else colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(
+                listOfNotNull(formatBytes(artifact.sizeBytes), stringResource(R.string.run_artifact_expired).takeIf { artifact.expired }).joinToString(" · "),
+                style = Soft.type.meta,
+                color = colors.inkMuted,
+            )
         }
     }
 }

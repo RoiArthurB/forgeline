@@ -26,6 +26,9 @@ fun RepoId.jobUrl(runId: Long, jobId: Long): String = when (forge.type) {
     ForgeType.FORGEJO -> runUrl(runId)
 }
 
+/** An artifact's page, from which it downloads: only GitHub lists a run's artifacts to the app. */
+fun RepoId.artifactUrl(runId: Long, artifactId: Long): String = "${runUrl(runId)}/artifacts/$artifactId"
+
 /** A release's page, by its tag: GitLab keeps it under `/-/releases`, the others under `/releases/tag`. */
 fun RepoId.releaseUrl(tag: String): String = when (forge.type) {
     ForgeType.GITLAB -> "$webUrl/-/releases/$tag"

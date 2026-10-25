@@ -6,8 +6,10 @@ import fr.arthurbrugiere.forgeline.core.forge.ActionsApi
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.ArtifactDocument
 import fr.arthurbrugiere.forgeline.core.model.DispatchInput
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RunArtifact
 import fr.arthurbrugiere.forgeline.core.model.RunJob
 import fr.arthurbrugiere.forgeline.core.model.Workflow
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
@@ -24,6 +26,12 @@ interface ActionsRepository {
     suspend fun jobs(id: RepoId, runId: Long): ForgeResult<List<RunJob>>
 
     suspend fun job(id: RepoId, runId: Long, jobId: Long): ForgeResult<RunJob>
+
+    /** The files [runId] kept: none where the forge can't list them. */
+    suspend fun artifacts(id: RepoId, runId: Long): ForgeResult<List<RunArtifact>>
+
+    /** The Markdown files in [artifact]: the account's to read (Unauthorized signed out, on GitHub). */
+    suspend fun artifactDocuments(id: RepoId, artifact: RunArtifact): ForgeResult<List<ArtifactDocument>>
 
     suspend fun workflows(id: RepoId): ForgeResult<List<Workflow>>
 
@@ -49,6 +57,10 @@ class DefaultActionsRepository @Inject constructor(
     override suspend fun jobs(id: RepoId, runId: Long) = on(id) { api, token -> api.jobs(token, id, runId) }
 
     override suspend fun job(id: RepoId, runId: Long, jobId: Long) = on(id) { api, token -> api.job(token, id, runId, jobId) }
+
+    override suspend fun artifacts(id: RepoId, runId: Long) = on(id) { api, token -> api.artifacts(token, id, runId) }
+
+    override suspend fun artifactDocuments(id: RepoId, artifact: RunArtifact) = on(id) { api, token -> api.artifactDocuments(token, id, artifact) }
 
     override suspend fun workflows(id: RepoId) = on(id) { api, token -> api.workflows(token, id) }
 

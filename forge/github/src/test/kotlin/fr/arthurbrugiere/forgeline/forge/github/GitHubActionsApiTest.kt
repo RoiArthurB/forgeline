@@ -1,10 +1,13 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.forge.ArtifactArchive
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.ArtifactDocument
 import fr.arthurbrugiere.forgeline.core.model.DispatchInputType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RunArtifact
 import fr.arthurbrugiere.forgeline.core.model.RunConclusion
 import fr.arthurbrugiere.forgeline.core.model.RunStatus
 import fr.arthurbrugiere.forgeline.core.model.Workflow
@@ -55,6 +58,63 @@ class GitHubActionsApiTest {
         assertThat(run.startedAt).isNotNull()
         assertThat(run.updatedAt).isNotNull()
         assertThat(requests.single().url.encodedPath).isEqualTo("/repos/paperclipai/paperclip/actions/runs/36539745670")
+    }
+
+    // RoiArthurB/GAMA-GC-Benchmark's run 39932423734 (2026-10-23), its "report" artifact and two of its 120 others,
+    // the last marked expired for the test.
+    private val benchmark = RepoId("RoiArthurB", "GAMA-GC-Benchmark")
+    private val report = RunArtifact(12520640926, "report", 1154768, expired = false)
+
+    @Test
+    fun lists_a_run_s_artifacts() = runTest {
+        val artifacts = api { json(fixture("run_artifacts.json")) }.artifacts(null, benchmark, 39932423734).value()
+
+        assertThat(artifacts).containsExactly(
+            report,
+            RunArtifact(12520435870, "logs-predprey-batch-r4", 5894814, expired = false),
+            RunArtifact(12519720324, "logs-traffic-batch-r4", 5428234, expired = true),
+        ).inOrder()
+        assertThat(requests.single().url.encodedPath).isEqualTo("/repos/RoiArthurB/GAMA-GC-Benchmark/actions/runs/39932423734/artifacts")
+        assertThat(requests.single().url.parameters["per_page"]).isEqualTo("100")
+    }
+
+    @Test
+    fun an_artifact_s_markdown_is_read_from_its_archive_where_github_sends_it() = runTest {
+        val archive = java.io.ByteArrayOutputStream().also { out ->
+            java.util.zip.ZipOutputStream(out).use { zip ->
+                zip.putNextEntry(java.util.zip.ZipEntry("report/report.md"))
+                zip.write("# GAMA garbage-collector benchmark".toByteArray())
+                zip.closeEntry()
+            }
+        }.toByteArray()
+        val api = api { request ->
+            when (request.url.host) {
+                // The API answers with a redirect to blob storage, as it does for logs.
+                "api.github.com" -> respond("", HttpStatusCode.Found, headersOf(HttpHeaders.Location, "https://blob.example/report.zip?sig=1"))
+                else -> respond(archive, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/zip"))
+            }
+        }
+
+        val documents = api.artifactDocuments("tok", benchmark, report).value()
+
+        assertThat(documents).containsExactly(ArtifactDocument("report/report.md", "# GAMA garbage-collector benchmark"))
+        assertThat(requests.first().url.encodedPath).isEqualTo("/repos/RoiArthurB/GAMA-GC-Benchmark/actions/artifacts/12520640926/zip")
+        assertThat(requests.first().headers[HttpHeaders.Authorization]).isEqualTo("Bearer tok")
+        // The signed address needs no token, and must not be handed one.
+        assertThat(requests.last().url.host).isEqualTo("blob.example")
+        assertThat(requests.last().headers[HttpHeaders.Authorization]).isNull()
+    }
+
+    @Test
+    fun an_artifact_is_read_only_signed_in_and_only_when_it_can_be() = runTest {
+        val api = api { json("{}") }
+
+        // GitHub hands an archive over to an account only (401 signed out, checked 2026-10-25).
+        assertThat(api.artifactDocuments(null, benchmark, report)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(api.artifactDocuments("tok", benchmark, report.copy(expired = true))).isEqualTo(ForgeResult.Failure(ForgeError.Http(410, "Expired")))
+        assertThat(api.artifactDocuments("tok", benchmark, report.copy(sizeBytes = ArtifactArchive.MAX_ARCHIVE_BYTES + 1L)))
+            .isEqualTo(ForgeResult.Failure(ForgeError.Http(413, "Artifact too large to read")))
+        assertThat(requests).isEmpty()
     }
 
     @Test
