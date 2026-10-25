@@ -219,6 +219,16 @@ class GitLabRepoApiTest {
     }
 
     @Test
+    fun a_project_nothing_was_pushed_to_says_so() = runTest {
+        // Its tree is "404 Tree Not Found", as a branch that isn't there (gitlab.com, 2026-10-25): only the flag tells.
+        fun project(empty: String) = """{"id":1,"name":"gitlab","path":"gitlab","path_with_namespace":"gitlab-org/gitlab","web_url":"https://gitlab.com/gitlab-org/gitlab"$empty}"""
+
+        assertThat(api { json(project(""","empty_repo":true""")) }.repo(null, repo).value().isEmpty).isTrue()
+        assertThat(api { json(project(""","empty_repo":false""")) }.repo(null, repo).value().isEmpty).isFalse()
+        assertThat(api { json(project("")) }.repo(null, repo).value().isEmpty).isFalse()
+    }
+
+    @Test
     fun languages_come_as_percentages_and_are_shares_all_the_same() = runTest {
         // gitlab-org/gitlab-runner's, on 2026-10-16.
         val languages = api { json("""{"Go":98.46,"Shell":0.83,"Makefile":0.44,"HCL":0.13,"PowerShell":0.06}""") }.languages(null, repo).value()

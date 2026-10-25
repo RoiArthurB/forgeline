@@ -341,6 +341,15 @@ class DefaultRepoRepositoryTest {
     }
 
     @Test
+    fun a_repository_nothing_was_pushed_to_is_kept_as_such() = runTest {
+        api.details[id] = repoDetails("octo/repo").copy(isEmpty = true)
+
+        repository.refresh(id)
+
+        assertThat(repository.observe(id).first().details?.isEmpty).isTrue()
+    }
+
+    @Test
     fun what_a_list_said_of_a_discussion_is_remembered_to_head_its_page() = runTest {
         val listed = fr.arthurbrugiere.forgeline.core.testing.discussionSummary(7, "How do I page?")
         api.discussionPages[null] = fr.arthurbrugiere.forgeline.core.model.DiscussionPage(listOf(listed), next = "c1")

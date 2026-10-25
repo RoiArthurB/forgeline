@@ -205,6 +205,20 @@ class RepoViewModelTest {
     }
 
     @Test
+    fun the_files_of_a_repository_nothing_was_pushed_to_are_not_asked_for() = test {
+        // Its forge would answer as for a missing branch, and the tab would say it failed.
+        cache(repo = repoDetails("octo/repo").copy(isEmpty = true))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.selectTab(RepoTab.CODE)
+        advanceUntilIdle()
+
+        assertThat(repos.calls.filter { it.startsWith("contents:") }).isEmpty()
+        assertThat(viewModel.state.value.code.entries).isEqualTo(Loadable.Loaded(emptyList<RepoFile>()))
+    }
+
+    @Test
     fun a_tab_opened_before_details_arrive_loads_once_they_do() = test {
         val viewModel = viewModel()
         viewModel.selectTab(RepoTab.PULLS)

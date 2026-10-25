@@ -328,6 +328,8 @@
     <string name="repo_archived">Archived</string>
     <string name="repo_fork">Fork</string>
     <string name="repo_no_readme">This repository has no README.</string>
+    <string name="repo_unpushed_title">Nothing pushed yet</string>
+    <string name="repo_unpushed_body">No commit has been pushed to this repository, so it has no files or README yet.</string>
     <string name="repo_list_open">Open</string>
     <string name="repo_list_closed">Closed</string>
     <string name="repo_search_issues">Search issues</string>

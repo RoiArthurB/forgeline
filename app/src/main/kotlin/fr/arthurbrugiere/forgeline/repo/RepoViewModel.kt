@@ -435,7 +435,8 @@ class RepoViewModel @AssistedInject constructor(
             val details = snapshot.map { it.details }.filterNotNull().first()
             val id = details.id
             val result: ForgeResult<Any> = when (tab) {
-                RepoTab.CODE -> repos.contents(id, path, ref ?: details.defaultBranch)
+                // Nothing pushed, no branch: the forge would answer as for one that isn't there.
+                RepoTab.CODE -> if (details.isEmpty) ForgeResult.Success(emptyList<RepoFile>()) else repos.contents(id, path, ref ?: details.defaultBranch)
                 RepoTab.ISSUES -> {
                     // The pinned issues head the plain list only, and are asked alongside it. Without them the list still shows.
                     if (query?.isDefault == true) launch { (repos.pinnedIssues(id) as? ForgeResult.Success)?.let { pinned -> local.update { it.copy(pinned = pinned.value) } } }

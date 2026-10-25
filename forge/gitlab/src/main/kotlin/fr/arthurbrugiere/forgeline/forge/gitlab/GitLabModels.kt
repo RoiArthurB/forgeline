@@ -60,6 +60,7 @@ internal data class GitLabProjectJson(
     @SerialName("merge_requests_enabled") val mergeRequestsEnabled: Boolean? = true,
     /** Open issues; merge requests are not among them, and the project doesn't count those. */
     @SerialName("open_issues_count") val openIssues: Int? = null,
+    @SerialName("empty_repo") val emptyRepo: Boolean? = false,
     val license: GitLabLicenseJson? = null,
     val permissions: GitLabPermissionsJson? = null,
 ) {
@@ -89,6 +90,7 @@ internal data class GitLabProjectJson(
             hasIssues = issuesEnabled ?: true,
             hasWiki = wikiEnabled ?: false,
             openIssues = openIssues,
+            isEmpty = emptyRepo ?: false,
         )
     }
 

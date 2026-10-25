@@ -51,6 +51,15 @@ class ForgejoClientLiveTest {
     }
 
     @Test
+    fun a_repository_nothing_was_pushed_to_says_so() = runBlocking<Unit> {
+        // A real one, found 2026-10-25; its tree answers "sha not found", as a missing branch's does.
+        val empty = RepoId("Scronglus", "empty", ForgeInstance.Codeberg)
+
+        assertThat(ForgejoRepoApi(http, ForgeInstance.Codeberg).repo(null, empty).value().isEmpty).isTrue()
+        assertThat(ForgejoRepoApi(http, ForgeInstance.Codeberg).repo(null, forgejo).value().isEmpty).isFalse()
+    }
+
+    @Test
     fun a_merged_pull_request_and_its_conversation_read() = runBlocking<Unit> {
         val api = ForgejoIssueApi(http, ForgeInstance.Codeberg)
         val pull = IssueRef(forgejo, 14597)

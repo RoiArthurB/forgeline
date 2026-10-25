@@ -395,6 +395,14 @@ class ForgejoRepoApiTest {
     }
 
     @Test
+    fun a_repository_nothing_was_pushed_to_says_so() = runTest {
+        // Its tree answers as a branch that isn't there does ("sha not found", Codeberg 2026-10-25): only the flag tells.
+        assertThat(with(codeberg) { api { json(fixture("repo.json")) } }.repo(null, forgejo).value().isEmpty).isFalse()
+        val empty = with(codeberg) { api { json(fixture("repo.json").replace("\"empty\":false", "\"empty\":true")) } }.repo(null, forgejo).value()
+        assertThat(empty.isEmpty).isTrue()
+    }
+
+    @Test
     fun languages_are_bytes_turned_into_shares() = runTest {
         // forgejo/forgejo's, cut short, on 2026-10-16.
         val languages = with(codeberg) {

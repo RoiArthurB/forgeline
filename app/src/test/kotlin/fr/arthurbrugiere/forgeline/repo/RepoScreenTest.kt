@@ -162,6 +162,26 @@ class RepoScreenTest {
         assertThat(events).contains("link:https://blob.example/octo/repo/main/docs/GUIDE.md")
     }
 
+    private val empty get() = loaded.copy(details = loaded.details!!.copy(isEmpty = true), readme = null)
+
+    @Test
+    fun a_repository_nothing_was_pushed_to_says_so_where_its_readme_would_be() {
+        setContent(empty)
+
+        composeRule.onNodeWithText("Nothing pushed yet").assertIsDisplayed()
+        composeRule.onNodeWithText("This repository has no README.").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_repository_nothing_was_pushed_to_says_so_where_its_files_would_be() {
+        setContent(empty.copy(tab = RepoTab.CODE, code = CodeState("", Loadable.Loaded(emptyList()))))
+
+        composeRule.onNodeWithText("Nothing pushed yet").assertIsDisplayed()
+        composeRule.onNodeWithText("This folder is empty.").assertDoesNotExist()
+        // Without a commit there is no history to open.
+        composeRule.onNodeWithText("History").assertDoesNotExist()
+    }
+
     @Test
     fun a_repo_without_readme_says_so() {
         setContent(loaded.copy(readme = null))

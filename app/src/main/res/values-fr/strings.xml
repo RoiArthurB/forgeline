@@ -320,6 +320,8 @@
     <string name="repo_archived">Archivé</string>
     <string name="repo_fork">Fork</string>
     <string name="repo_no_readme">Ce dépôt n’a pas de README.</string>
+    <string name="repo_unpushed_title">Rien de poussé pour l’instant</string>
+    <string name="repo_unpushed_body">Aucun commit n’a encore été poussé dans ce dépôt : il n’a ni fichiers ni README.</string>
     <string name="repo_list_open">Ouverts</string>
     <string name="repo_list_closed">Fermés</string>
     <string name="repo_search_issues">Chercher dans les tickets</string>

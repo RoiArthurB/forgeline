@@ -348,7 +348,9 @@ fun RepoScreen(
                             )
                         }
                         val browsedRef = state.browsedRef
-                        if (browsedRef != null && (state.tab == RepoTab.README || state.tab == RepoTab.CODE)) {
+                        // Nothing pushed: no branch to pick, no history, no files; the tabs that would show them say so.
+                        val unpushed = details.isEmpty && (state.tab == RepoTab.README || state.tab == RepoTab.CODE)
+                        if (browsedRef != null && !unpushed && (state.tab == RepoTab.README || state.tab == RepoTab.CODE)) {
                             item(key = "ref") {
                                 RefPill(browsedRef, state.refs, onClick = {
                                     onLoadRefs()
@@ -356,14 +358,16 @@ fun RepoScreen(
                                 })
                             }
                         }
-                        if (state.tab == RepoTab.CODE) {
+                        if (state.tab == RepoTab.CODE && !unpushed) {
                             item(key = "history") {
                                 Row(RowModifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
                                     SoftTonalButton(stringResource(R.string.history_open), onClick = onOpenHistory)
                                 }
                             }
                         }
-                        when (state.tab) {
+                        if (unpushed) {
+                            item(key = "unpushed") { SoftNotice(stringResource(R.string.repo_unpushed_title), stringResource(R.string.repo_unpushed_body)) }
+                        } else when (state.tab) {
                             RepoTab.README -> when (val refReadme = state.refReadme) {
                                 // Another ref's README loads on demand; the default branch's comes from the cache.
                                 Loadable.Loading -> item(key = "readme-loading") { SoftLoadingRows(stringResource(R.string.repo_loading), rows = 3, leadingDot = false) }

@@ -92,6 +92,8 @@ data class RepoDetails(
     val openIssues: Int? = null,
     /** How many pull requests are open; null where the forge didn't say. */
     val openPulls: Int? = null,
+    /** Whether nothing has been pushed to the repository yet, so it has no files, branch or README. */
+    val isEmpty: Boolean = false,
 )
 
 data class Readme(val path: String, val markdown: String)
