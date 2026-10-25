@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.data.pull
 
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.account.accountOn
 import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -20,6 +21,7 @@ import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
@@ -56,6 +58,12 @@ interface PullRequestRepository {
 
     /** Whether threads can be marked resolved on [forge]. */
     fun resolvesThreads(forge: ForgeInstance): Boolean
+
+    /** Whether remarks on lines take reactions on [forge]. */
+    fun reactsToThreadComments(forge: ForgeInstance): Boolean
+
+    /** Gives [reaction] to [comment], or takes it back, as the account signed in on the forge. */
+    suspend fun toggleThreadReaction(ref: IssueRef, thread: ReviewThread, comment: ThreadComment, reaction: Reaction): ForgeResult<Map<Reaction, Int>>
 
     /** Whether the reader's own remarks on lines can be rewritten, and taken back, on [forge]. */
     fun editsThreadComments(forge: ForgeInstance): Boolean
@@ -137,6 +145,13 @@ class DefaultPullRequestRepository @Inject constructor(
     override suspend fun reply(ref: IssueRef, thread: ReviewThread, body: String) = signedIn(ref.repo.forge) { reply(it, ref, thread, body) }
 
     override fun resolvesThreads(forge: ForgeInstance) = clients.pulls(forge).resolvesThreads
+
+    override fun reactsToThreadComments(forge: ForgeInstance) = clients.pulls(forge).reactsToThreadComments
+
+    override suspend fun toggleThreadReaction(ref: IssueRef, thread: ReviewThread, comment: ThreadComment, reaction: Reaction): ForgeResult<Map<Reaction, Int>> {
+        val account = accounts.accountOn(ref.repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return signedIn(ref.repo.forge) { toggleThreadReaction(it, account.user.login, ref, thread, comment, reaction) }
+    }
 
     override fun editsThreadComments(forge: ForgeInstance) = clients.pulls(forge).editsThreadComments
 

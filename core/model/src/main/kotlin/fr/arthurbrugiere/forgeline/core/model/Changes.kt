@@ -329,7 +329,16 @@ fun replaceLines(text: String, first: Int, expected: List<String>, replacement: 
  * One comment of a [ReviewThread]: the remark that opened it, or a reply. [suggestions] are the ones written in it as
  * its forge keeps them, where it does (GitLab), in the order they're written.
  */
-data class ThreadComment(val id: Long, val author: ForgeUser?, val body: String, val createdAt: Instant?, val suggestions: List<KeptSuggestion> = emptyList())
+
+/** A remark on a line, or a reply to one: [reactions] counts everyone's, where the forge keeps them. */
+data class ThreadComment(
+    val id: Long,
+    val author: ForgeUser?,
+    val body: String,
+    val createdAt: Instant?,
+    val suggestions: List<KeptSuggestion> = emptyList(),
+    val reactions: Map<Reaction, Int> = emptyMap(),
+)
 
 /**
  * A suggestion as its forge keeps it: [over] the lines it replaces, from [firstLine] of the file as the change has

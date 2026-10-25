@@ -23,6 +23,7 @@ import fr.arthurbrugiere.forgeline.core.model.MergeBlocker
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
@@ -211,6 +212,11 @@ class GitHubPullRequestApi(
         val first = thread.comments.firstOrNull() ?: return@forgeCall ForgeResult.Failure(ForgeError.Http(404, null))
         pull(token, ref, "comments", first.id.toString(), "replies", method = HttpMethod.Post, body = buildJsonObject { put("body", body) }).toResult { }
     }
+
+    override val reactsToThreadComments: Boolean = true
+
+    override suspend fun toggleThreadReaction(token: String, login: String, ref: IssueRef, thread: ReviewThread, comment: ThreadComment, reaction: Reaction): ForgeResult<Map<Reaction, Int>> =
+        forgeCall { httpClient.toggleGitHubReaction(apiBaseUrl, token, ref.repo, arrayOf("pulls", "comments", comment.id.toString()), reaction) }
 
     override val editsThreadComments: Boolean = true
 
@@ -402,7 +408,7 @@ class GitHubPullRequestApi(
 
         const val THREADS_QUERY = "query Threads(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { " +
             "pullRequest(number: \$number) { reviewThreads(first: 100) { nodes { id isResolved isOutdated path line originalLine startLine diffSide " +
-            "viewerCanResolve viewerCanUnresolve comments(first: 100) { nodes { databaseId body createdAt diffHunk author { login avatarUrl } } } } } } } }"
+            "viewerCanResolve viewerCanUnresolve comments(first: 100) { nodes { databaseId body createdAt diffHunk author { login avatarUrl } reactionGroups { content reactors { totalCount } } } } } } } } }"
 
         const val BLOCKERS_QUERY = "query Standing(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { " +
             "pullRequest(number: \$number) { reviewDecision commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } }"
@@ -661,7 +667,27 @@ private fun threadsOf(comments: List<PrReviewCommentJson>): List<ReviewThread> {
 private data class PrGraphAuthorJson(val login: String, val avatarUrl: String? = null)
 
 @Serializable
-private data class PrGraphCommentJson(val databaseId: Long, val body: String = "", val createdAt: String? = null, val diffHunk: String? = null, val author: PrGraphAuthorJson? = null)
+private data class PrGraphCommentJson(
+    val databaseId: Long,
+    val body: String = "",
+    val createdAt: String? = null,
+    val diffHunk: String? = null,
+    val author: PrGraphAuthorJson? = null,
+    val reactionGroups: List<PrReactionGroupJson> = emptyList(),
+) {
+    /** The kinds anyone gave, by how many: GraphQL lists every kind, most at zero. */
+    val reactions: Map<Reaction, Int>
+        get() = reactionGroups.mapNotNull { group ->
+            val kind = Reaction.entries.firstOrNull { it.name == group.content } ?: return@mapNotNull null
+            group.reactors.totalCount.takeIf { it > 0 }?.let { kind to it }
+        }.toMap()
+}
+
+@Serializable
+private data class PrReactionGroupJson(val content: String, val reactors: PrCountJson = PrCountJson())
+
+@Serializable
+private data class PrCountJson(val totalCount: Int = 0)
 
 @Serializable
 private data class PrGraphCommentsJson(val nodes: List<PrGraphCommentJson> = emptyList())
@@ -687,7 +713,7 @@ private data class PrThreadJson(
         onOldSide = diffSide == "LEFT",
         hunk = comments.nodes.firstOrNull()?.diffHunk,
         comments = comments.nodes.map { comment ->
-            ThreadComment(comment.databaseId, comment.author?.let { ForgeUser(it.login, null, it.avatarUrl) }, comment.body, comment.createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() })
+            ThreadComment(comment.databaseId, comment.author?.let { ForgeUser(it.login, null, it.avatarUrl) }, comment.body, comment.createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() }, reactions = comment.reactions)
         },
         resolved = isResolved,
         canResolve = if (isResolved) viewerCanUnresolve else viewerCanResolve,

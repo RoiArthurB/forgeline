@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.model.Check
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import fr.arthurbrugiere.forgeline.core.model.ThreadComment
@@ -70,6 +71,8 @@ data class PullRequestUiState(
     val replied: Pair<String, Int>? = null,
     /** The login the reader is signed in with on its forge; null signed out. Their own remarks can be rewritten. */
     val me: String? = null,
+    /** Whether remarks on lines take reactions on this forge. */
+    val reactsToThreadComments: Boolean = false,
     /** Whether the reader's own remarks on lines can be rewritten, and taken back, on this forge. */
     val editsThreadComments: Boolean = false,
     val deletesThreadComments: Boolean = false,
@@ -105,6 +108,7 @@ class PullRequestViewModel @AssistedInject constructor(
             resolvesThreads = repository.resolvesThreads(ref.repo.forge),
             dismissesReviews = repository.dismissesReviews(ref.repo.forge),
             appliesSuggestions = repository.appliesSuggestions(ref.repo.forge),
+            reactsToThreadComments = repository.reactsToThreadComments(ref.repo.forge),
             editsThreadComments = repository.editsThreadComments(ref.repo.forge),
             deletesThreadComments = repository.deletesThreadComments(ref.repo.forge),
         ),
@@ -182,6 +186,23 @@ class PullRequestViewModel @AssistedInject constructor(
     fun deleteThreadComment(thread: ReviewThread, comment: ThreadComment) {
         if (!wrote(comment) || !_state.value.deletesThreadComments) return
         threadWork(thread.id) { repository.deleteThreadComment(ref, thread, comment) }
+    }
+
+    /** Gives [reaction] to [comment] of [thread], or takes it back: the counts the forge answers replace the old. */
+    fun toggleThreadReaction(thread: ReviewThread, comment: ThreadComment, reaction: Reaction) {
+        if (!_state.value.signedIn) return
+        viewModelScope.launch {
+            when (val result = repository.toggleThreadReaction(ref, thread, comment, reaction)) {
+                is ForgeResult.Failure -> _state.update { it.copy(threadError = result.error) }
+                is ForgeResult.Success -> _state.update { state ->
+                    state.copy(
+                        threads = state.threads?.map { t ->
+                            if (t.id != thread.id) t else t.copy(comments = t.comments.map { if (it.id == comment.id) it.copy(reactions = result.value) else it })
+                        },
+                    )
+                }
+            }
+        }
     }
 
     private fun wrote(comment: ThreadComment): Boolean = _state.value.me?.let { comment.author?.login.equals(it, ignoreCase = true) } == true

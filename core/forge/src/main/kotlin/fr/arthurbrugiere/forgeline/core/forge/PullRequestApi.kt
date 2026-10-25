@@ -13,6 +13,7 @@ import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
@@ -76,6 +77,16 @@ interface PullRequestApi {
 
     /** Takes back [comment], one of [thread]'s; the thread goes with its last remark. */
     suspend fun deleteThreadComment(token: String, ref: IssueRef, thread: ReviewThread, comment: ThreadComment): ForgeResult<Unit> =
+        ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Whether remarks on lines take reactions here. */
+    val reactsToThreadComments: Boolean get() = false
+
+    /**
+     * Gives [reaction] to [comment], one of [thread]'s, as [login]; takes it back when they had given it. Answers the
+     * reactions it then has, everyone's.
+     */
+    suspend fun toggleThreadReaction(token: String, login: String, ref: IssueRef, thread: ReviewThread, comment: ThreadComment, reaction: Reaction): ForgeResult<Map<Reaction, Int>> =
         ForgeResult.Failure(ForgeError.Unsupported)
 
     /** Answers [thread] of [ref] with [body], Markdown. */

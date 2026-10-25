@@ -39,6 +39,7 @@ import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.DiffLine
 import fr.arthurbrugiere.forgeline.core.model.DiffLineKind
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.parsePatch
 import fr.arthurbrugiere.forgeline.core.model.splitSuggestions
@@ -185,16 +186,18 @@ private fun Thread(
         thread.comments.forEachIndexed { at, comment ->
             val split = remember(comment.body) { splitSuggestions(comment.body) }
             val own = canReply && state.editsThreadComments && state.me != null && comment.author?.login.equals(state.me, ignoreCase = true)
+            val reacts = canReply && state.reactsToThreadComments
             Comment(
-                comment.author, split.text, comment.createdAt, emptyMap(), context, nowMillis, onOpenUser, onLinkClick,
+                comment.author, split.text, comment.createdAt, comment.reactions, context, nowMillis, onOpenUser, onLinkClick,
                 menu = CommentMenu(
                     onQuote = null,
                     onEdit = {
                         edited = comment.body
                         editing = comment.id
-                    },
-                    onDelete = { deleting = comment.id }.takeIf { state.deletesThreadComments },
-                ).takeIf { own },
+                    }.takeIf { own },
+                    onDelete = { deleting = comment.id }.takeIf { own && state.deletesThreadComments },
+                    onReact = { reaction: Reaction -> actions.onToggleThreadReaction(thread, comment, reaction) }.takeIf { reacts },
+                ).takeUnless { it.isEmpty },
                 editor = if (editing == comment.id) {
                     {
                         ThreadCommentEditor(

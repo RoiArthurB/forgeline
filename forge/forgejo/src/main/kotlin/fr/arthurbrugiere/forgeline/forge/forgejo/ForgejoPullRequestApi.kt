@@ -17,6 +17,7 @@ import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
@@ -30,6 +31,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -137,7 +139,11 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
             }.map { it.await() }
             answers.firstOrNull { it.status != HttpStatusCode.OK }?.let { return@coroutineScope it.failure() }
             val remarks = answers.flatMap { it.body<List<PrRemarkJson>>() }.sortedBy { instant(it.createdAt) }
-            ForgeResult.Success(remarks.groupBy { Triple(it.path, it.position, it.originalPosition) }.values.map { it.toThread() })
+            val threads = remarks.groupBy { Triple(it.path, it.position, it.originalPosition) }.values.map { it.toThread() }
+            // Each remark's reactions are an issue comment's, asked of each alongside the others.
+            val reactions = threads.flatMap { it.comments }.map { comment -> async { comment.id to httpClient.forgejoCommentReactions(forge, token, ref.repo, comment.id) } }
+                .awaitAll().toMap()
+            ForgeResult.Success(threads.map { thread -> thread.copy(comments = thread.comments.map { it.copy(reactions = reactions[it.id].orEmpty()) }) })
         }
     }
 
@@ -147,6 +153,12 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
         val remark = LineComment(thread.path, oldLine = line.takeIf { thread.onOldSide }, newLine = line.takeUnless { thread.onOldSide }, body = body)
         return review(token, ref, ReviewVerdict.COMMENT, "", listOf(remark))
     }
+
+    override val reactsToThreadComments: Boolean = true
+
+    /** As an issue comment's: Forgejo keeps a remark on a line as one. */
+    override suspend fun toggleThreadReaction(token: String, login: String, ref: IssueRef, thread: ReviewThread, comment: ThreadComment, reaction: Reaction): ForgeResult<Map<Reaction, Int>> =
+        ForgejoIssueApi(httpClient, forge).toggleReaction(token, login, ref, comment.id, reaction)
 
     override val editsThreadComments: Boolean = true
 

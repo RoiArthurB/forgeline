@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.model.MergeBlocker
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
@@ -449,6 +450,49 @@ class GitHubPullRequestApiTest {
             "DELETE /repos/gama-platform/gama/pulls/comments/4355905017",
         ).inOrder()
         assertThat(requests[0].sent).isEqualTo("""{"body":"Fixed in 7a1b, see there."}""")
+    }
+
+    @Test
+    fun a_remark_on_a_line_carries_its_reactions_and_takes_one_where_review_comments_keep_them() = runTest {
+        // The counts as GraphQL groups them: every kind, most at zero (gama-platform/gama#1265, counts set for the test).
+        val thread = api { json(captured("review_threads.json")) }.threads("tok", gama).value().first()
+        val comment = thread.comments.first()
+        assertThat(comment.reactions).containsExactly(Reaction.THUMBS_UP, 2, Reaction.EYES, 1)
+        requests.clear()
+        val acting = api { request ->
+            when {
+                request.method == HttpMethod.Post -> json("""{"id":9,"content":"heart"}""", HttpStatusCode.Created)
+                else -> json("""{"id":4355905017,"reactions":{"+1":2,"-1":0,"laugh":0,"hooray":0,"confused":0,"heart":1,"rocket":0,"eyes":1}}""")
+            }
+        }
+
+        assertThat(acting.reactsToThreadComments).isTrue()
+        val counts = acting.toggleThreadReaction("tok", "octocat", gama, thread, comment, Reaction.HEART).value()
+
+        assertThat(counts).containsExactly(Reaction.THUMBS_UP, 2, Reaction.HEART, 1, Reaction.EYES, 1)
+        assertThat(requests.map { "${it.method.value} ${it.path}" }).containsExactly(
+            "POST /repos/gama-platform/gama/pulls/comments/4355905017/reactions",
+            "GET /repos/gama-platform/gama/pulls/comments/4355905017",
+        ).inOrder()
+        assertThat(requests[0].sent).isEqualTo("""{"content":"heart"}""")
+    }
+
+    @Test
+    fun a_reaction_already_given_to_a_remark_is_taken_back() = runTest {
+        val thread = api { json(captured("review_threads.json")) }.threads("tok", gama).value().first()
+        requests.clear()
+        // GitHub answers 200, not 201, for one the reader had given: it is then deleted by its id.
+        val acting = api { request ->
+            when (request.method) {
+                HttpMethod.Post -> json("""{"id":9,"content":"+1"}""")
+                HttpMethod.Delete -> respond("", HttpStatusCode.NoContent)
+                else -> json("""{"id":4355905017,"reactions":{"+1":1}}""")
+            }
+        }
+
+        acting.toggleThreadReaction("tok", "octocat", gama, thread, thread.comments.first(), Reaction.THUMBS_UP)
+
+        assertThat(requests.map { "${it.method.value} ${it.path}" }).contains("DELETE /repos/gama-platform/gama/pulls/comments/4355905017/reactions/9")
     }
 
     @Test

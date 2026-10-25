@@ -12,6 +12,7 @@ import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
@@ -278,6 +279,33 @@ class ForgejoPullRequestApiTest {
 
         assertThat(codeberg.requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly("PATCH $base/issues/comments/${comment.id}")
         assertThat((codeberg.requests[0].body as TextContent).text).isEqualTo("""{"body":"Thanks again!"}""")
+    }
+
+    @Test
+    fun a_remark_on_a_line_carries_its_reactions_and_takes_one_as_the_comment_it_is() = runTest {
+        // Forgejo keeps a remark's reactions as an issue comment's: asked of each, none answering null.
+        val reacted = with(codeberg) {
+            api { path ->
+                when {
+                    path.endsWith("/reactions") ->
+                        json("""[{"user":{"id":1,"login":"a"},"content":"+1"},{"user":{"id":2,"login":"b"},"content":"+1"},{"user":{"id":3,"login":"c"},"content":"heart"}]""")
+                    path.endsWith("/reviews") -> json(fixture("threads/reviews.json"))
+                    path.endsWith("/comments") -> json(fixture("threads/review_${path.split('/').dropLast(1).last()}.json"))
+                    else -> json("{}")
+                }
+            }
+        }
+        val thread = reacted.threads("tok", threaded).value().first()
+        assertThat(thread.comments.first().reactions).containsExactly(Reaction.THUMBS_UP, 2, Reaction.HEART, 1)
+        assertThat(reacted.reactsToThreadComments).isTrue()
+        codeberg.requests.clear()
+
+        val counts = reacted.toggleThreadReaction("tok", "a", threaded, thread, thread.comments.first(), Reaction.THUMBS_UP).value()
+
+        // The reader's own was there: it is taken back.
+        assertThat(counts).containsExactly(Reaction.THUMBS_UP, 1, Reaction.HEART, 1)
+        assertThat(codeberg.requests.last().method).isEqualTo(HttpMethod.Delete)
+        assertThat(codeberg.requests.last().url.encodedPath).isEqualTo("$base/issues/comments/${thread.comments.first().id}/reactions")
     }
 
     @Test

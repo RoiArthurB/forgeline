@@ -19,6 +19,7 @@ import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
@@ -110,6 +111,29 @@ class FakePullRequestApi(
             if (it.id == thread.id) it.copy(comments = it.comments + ThreadComment(it.comments.size + 1000L, ForgeUser("octocat", null, null), body, null)) else it
         }
     }
+
+    override var reactsToThreadComments: Boolean = true
+
+    /** Counts the reaction once, and takes it back the second time, as the same reader. */
+    override suspend fun toggleThreadReaction(token: String, login: String, ref: IssueRef, thread: ReviewThread, comment: ThreadComment, reaction: Reaction) =
+        write("threadReaction:${ref.name()}:${comment.id}:$reaction:$login") {
+            val mine = "${comment.id}:$reaction:$login"
+            val had = mine in givenReactions
+            if (had) givenReactions -= mine else givenReactions += mine
+            var counts = emptyMap<Reaction, Int>()
+            reviewThreads = reviewThreads.map { t ->
+                t.copy(
+                    comments = t.comments.map { c ->
+                        if (c.id != comment.id) return@map c
+                        val now = (c.reactions[reaction] ?: 0) + if (had) -1 else 1
+                        c.copy(reactions = if (now > 0) c.reactions + (reaction to now) else c.reactions - reaction).also { counts = it.reactions }
+                    },
+                )
+            }
+            counts
+        }
+
+    private val givenReactions = mutableSetOf<String>()
 
     override var editsThreadComments: Boolean = true
 

@@ -234,6 +234,14 @@ class ForgejoWriteLiveTest {
             pulls.editThreadComment(token, ref, after.single(), answer, "Rewritten by the live test.").value("edit reply")
             val rewritten = pulls.threads(token, ref).value("threads rewritten").single()
             assertWithMessage("reply rewritten").that(rewritten.comments.map { it.body }).containsExactly("Why this line?", "Rewritten by the live test.").inOrder()
+            // A reaction on the remark is given, read back with the threads, and taken back.
+            val remark = rewritten.comments.first()
+            val given = pulls.toggleThreadReaction(token, owner, ref, rewritten, remark, fr.arthurbrugiere.forgeline.core.model.Reaction.HEART).value("react")
+            assertWithMessage("reaction given").that(given).containsExactly(fr.arthurbrugiere.forgeline.core.model.Reaction.HEART, 1)
+            val reacted = pulls.threads(token, ref).value("threads reacted").single().comments.first()
+            assertWithMessage("reaction read").that(reacted.reactions).containsExactly(fr.arthurbrugiere.forgeline.core.model.Reaction.HEART, 1)
+            pulls.toggleThreadReaction(token, owner, ref, rewritten, remark, fr.arthurbrugiere.forgeline.core.model.Reaction.HEART).value("unreact")
+            assertWithMessage("reaction taken back").that(pulls.threads(token, ref).value("threads unreacted").single().comments.first().reactions).isEmpty()
 
             // A suggestion on that line is committed to the pull request's branch; once made, the same one is a conflict.
             pulls.review(token, ref, ReviewVerdict.COMMENT, "", listOf(LineComment("NOTES.md", oldLine = null, newLine = 1, body = "```suggestion\nA line the pull request changes.\n```"))).value("suggest")

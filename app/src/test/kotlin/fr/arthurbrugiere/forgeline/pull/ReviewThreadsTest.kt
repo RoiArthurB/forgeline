@@ -19,6 +19,7 @@ import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.KeptSuggestion
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ThreadComment
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
@@ -59,6 +60,7 @@ class ReviewThreadsTest {
         onApplySuggestion = { thread, suggestion -> events += "suggestion:${thread.id}:${suggestion.joinToString("|")}" },
         onEditThreadComment = { thread, comment, body -> events += "edit:${thread.id}:${comment.id}:$body" },
         onDeleteThreadComment = { thread, comment -> events += "delete:${thread.id}:${comment.id}" },
+        onToggleThreadReaction = { thread, comment, reaction -> events += "react:${thread.id}:${comment.id}:$reaction" },
     )
 
     private fun setContent(
@@ -293,5 +295,20 @@ class ReviewThreadsTest {
 
         composeRule.onNodeWithText("Edit").assertIsDisplayed()
         composeRule.onNodeWithText("Delete").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_remark_shows_its_reactions_and_takes_one_from_anyone_signed_in() {
+        val reacted = open.copy(comments = listOf(open.comments.first().copy(reactions = mapOf(Reaction.THUMBS_UP to 2)), open.comments.last()))
+        setContent(listOf(reacted), state = PullRequestUiState(resolvesThreads = true, me = "someone", reactsToThreadComments = true))
+
+        // Tappable, it says what it is and how many gave it.
+        composeRule.onNode(hasContentDescription("Thumbs up, 2")).assertIsDisplayed()
+        // Not the reader's own, yet a reaction can be given to either.
+        composeRule.onAllNodes(hasContentDescription("Comment options")).assertCountEquals(2)
+        composeRule.onAllNodes(hasContentDescription("Comment options"))[0].performClick()
+        composeRule.onNode(hasContentDescription("Heart")).performClick()
+
+        assertThat(events).containsExactly("react:T1:1:HEART")
     }
 }

@@ -9,6 +9,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
@@ -224,6 +225,27 @@ class PullRequestViewModelTest {
         assertThat(api.calls.filter { "ThreadComment:" in it }).containsExactly(
             "editThreadComment:octo/tools#88:T1:2:Because of flaky links.", "deleteThreadComment:octo/tools#88:T1:2",
         ).inOrder()
+    }
+
+    @Test
+    fun a_reaction_on_a_remark_is_given_and_taken_back_in_place() = test {
+        api.reviewThreads = listOf(thread)
+        signIn()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.reactsToThreadComments).isTrue()
+        val remark = viewModel.state.value.threads!!.single().comments.single()
+
+        viewModel.toggleThreadReaction(viewModel.state.value.threads!!.single(), remark, Reaction.HEART)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.threads!!.single().comments.single().reactions).containsExactly(Reaction.HEART, 1)
+
+        viewModel.toggleThreadReaction(viewModel.state.value.threads!!.single(), remark, Reaction.HEART)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.threads!!.single().comments.single().reactions).isEmpty()
+        assertThat(api.calls.filter { it.startsWith("threadReaction:") }).containsExactly(
+            "threadReaction:octo/tools#88:1:HEART:me", "threadReaction:octo/tools#88:1:HEART:me",
+        )
     }
 
     @Test

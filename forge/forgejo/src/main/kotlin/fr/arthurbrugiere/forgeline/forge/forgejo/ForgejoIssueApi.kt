@@ -726,6 +726,26 @@ private data class PullJson(
     val commits: Int? = null,
 )
 
+/** The reactions on comment [commentId] of [repo], counted; none where they can't be read (null answers none too). */
+internal suspend fun HttpClient.forgejoCommentReactions(forge: ForgeInstance, token: String?, repo: RepoId, commentId: Long): Map<Reaction, Int> {
+    val response = runCatching { forgejoApi(forge, token, "repos", repo.owner, repo.name, "issues", "comments", commentId.toString(), "reactions") }.getOrNull()
+    if (response?.status != HttpStatusCode.OK) return emptyMap()
+    val given = runCatching { response.body<List<ReactionJson>?>() }.getOrNull().orEmpty()
+    return given.mapNotNull { forgejoReaction(it.content) }.groupingBy { it }.eachCount()
+}
+
+internal fun forgejoReaction(content: String): Reaction? = when (content) {
+    "+1" -> Reaction.THUMBS_UP
+    "-1" -> Reaction.THUMBS_DOWN
+    "laugh" -> Reaction.LAUGH
+    "hooray" -> Reaction.HOORAY
+    "confused" -> Reaction.CONFUSED
+    "heart" -> Reaction.HEART
+    "rocket" -> Reaction.ROCKET
+    "eyes" -> Reaction.EYES
+    else -> null
+}
+
 @Serializable
 private data class ReactionJson(val content: String, val user: UserJson? = null)
 

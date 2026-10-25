@@ -127,6 +127,20 @@ class GitHubLiveContractTest {
         assertWithMessage("report").that(read.first { it.path == "report/report.md" }.markdown).startsWith("# GAMA garbage-collector benchmark")
     }
 
+    /** Read only: gama-platform/gama#1265's review threads still read, the reactions on their remarks with them. */
+    @Test
+    fun a_pull_request_s_review_threads_still_read() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        val pull = fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("gama-platform", "gama"), 1265, isPullRequest = true)
+
+        val threads = GitHubPullRequestApi(client).threads(pat, pull)
+
+        assertWithMessage("threads: $threads").that(threads).isInstanceOf(ForgeResult.Success::class.java)
+        val read = (threads as ForgeResult.Success).value
+        assertWithMessage("threads").that(read.size).isAtLeast(5)
+        assertWithMessage("remarks").that(read.flatMap { it.comments }.all { it.id > 0 && it.body.isNotBlank() }).isTrue()
+    }
+
     /** gama-platform/gama#1118 was closed by a commit: the timeline still names it, and the commit still reads. */
     @Test
     fun an_issue_closed_by_a_commit_still_says_which() = runBlocking {

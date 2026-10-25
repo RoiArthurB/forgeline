@@ -147,33 +147,8 @@ class GitHubIssueApi(
      */
     override suspend fun toggleReaction(token: String, login: String, ref: IssueRef, commentId: Long?, reaction: Reaction): ForgeResult<Map<Reaction, Int>> = forgeCall {
         val target = if (commentId == null) arrayOf("issues", ref.number.toString()) else arrayOf("issues", "comments", commentId.toString())
-        val given = httpClient.gitHubApi(
-            apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, *target, "reactions",
-            method = HttpMethod.Post, body = buildJsonObject { put("content", reaction.content) },
-        )
-        if (!given.status.isSuccess()) return@forgeCall given.failure()
-        if (given.status.value == 200) {
-            val taken = httpClient.gitHubApi(
-                apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, *target, "reactions", given.body<ReactionJson>().id.toString(),
-                method = HttpMethod.Delete,
-            )
-            if (!taken.status.isSuccess()) return@forgeCall taken.failure()
-        }
-        httpClient.gitHubApi(apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, *target)
-            .toResult { body<ReactedJson>().reactions?.toModel().orEmpty() }
+        httpClient.toggleGitHubReaction(apiBaseUrl, token, ref.repo, target, reaction)
     }
-
-    private val Reaction.content: String
-        get() = when (this) {
-            Reaction.THUMBS_UP -> "+1"
-            Reaction.THUMBS_DOWN -> "-1"
-            Reaction.LAUGH -> "laugh"
-            Reaction.HOORAY -> "hooray"
-            Reaction.CONFUSED -> "confused"
-            Reaction.HEART -> "heart"
-            Reaction.ROCKET -> "rocket"
-            Reaction.EYES -> "eyes"
-        }
 
     /** GitHub drops [labels] without a word for a reader who can't push to [repo]. */
     override suspend fun create(token: String, repo: RepoId, title: String, body: String, labels: List<String>): ForgeResult<IssueDetails> = forgeCall {
@@ -513,6 +488,37 @@ private data class LabelJson(val name: String, val color: String? = null) {
 }
 
 /** One reaction, as GitHub answers the one made or already there. */
+
+/**
+ * Gives [reaction] to what [target] names in [repo] (an issue, an issue comment or a review comment), or takes it back
+ * when the reader had given it: GitHub answers 200 instead of 201 then, with its id to delete it by. Answers what it
+ * then counts, everyone's.
+ */
+internal suspend fun HttpClient.toggleGitHubReaction(apiBaseUrl: String, token: String, repo: RepoId, target: Array<String>, reaction: Reaction): ForgeResult<Map<Reaction, Int>> {
+    val given = gitHubApi(
+        apiBaseUrl, token, "repos", repo.owner, repo.name, *target, "reactions",
+        method = HttpMethod.Post, body = buildJsonObject { put("content", reaction.gitHubContent) },
+    )
+    if (!given.status.isSuccess()) return given.failure()
+    if (given.status.value == 200) {
+        val taken = gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, *target, "reactions", given.body<ReactionJson>().id.toString(), method = HttpMethod.Delete)
+        if (!taken.status.isSuccess()) return taken.failure()
+    }
+    return gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, *target).toResult { body<ReactedJson>().reactions?.toModel().orEmpty() }
+}
+
+private val Reaction.gitHubContent: String
+    get() = when (this) {
+        Reaction.THUMBS_UP -> "+1"
+        Reaction.THUMBS_DOWN -> "-1"
+        Reaction.LAUGH -> "laugh"
+        Reaction.HOORAY -> "hooray"
+        Reaction.CONFUSED -> "confused"
+        Reaction.HEART -> "heart"
+        Reaction.ROCKET -> "rocket"
+        Reaction.EYES -> "eyes"
+    }
+
 @Serializable
 private data class ReactionJson(val id: Long)
 
