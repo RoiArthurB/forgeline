@@ -72,6 +72,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -241,6 +242,7 @@ fun IssueRoute(
             onUpdateErrorShown = { pull?.updateErrorShown() },
             onReply = { thread, body -> pull?.reply(thread, body) },
             onSetResolved = { thread, resolved -> pull?.setResolved(thread, resolved) },
+            onApplySuggestion = { thread, suggestion -> pull?.applySuggestion(thread, suggestion) },
             onDismissReview = { id, message -> pull?.dismissReview(id, message) },
             onThreadErrorShown = { pull?.threadErrorShown() },
             onReview = { verdict, body -> pull?.submitReview(verdict, body) },
@@ -370,6 +372,7 @@ fun IssueScreen(
     // Nor does bringing its branch up to date: the forge may still be at it.
     val scheduled = stringResource(R.string.merge_scheduled)
     val updating = stringResource(R.string.pull_branch_updating)
+    val committed = stringResource(R.string.thread_suggestion_committed)
     // The review being dismissed, until the forge took it or the reader called it off.
     var dismissing by rememberSaveable { mutableStateOf<Long?>(null) }
     // Dismissing someone's verdict is for whoever can write to the repository, where the forge can.
@@ -380,10 +383,22 @@ fun IssueScreen(
             PullDone.DISMISSED -> dismissing = null
             PullDone.SCHEDULED -> snackbar.showSnackbar(scheduled)
             PullDone.UPDATED -> snackbar.showSnackbar(updating)
+            PullDone.SUGGESTION_COMMITTED -> snackbar.showSnackbar(committed)
             else -> Unit
         }
     }
-    SayOnce(stringResource(R.string.issue_state_error).takeIf { pull?.threadError != null }, snackbar, pullActions.onThreadErrorShown)
+    val threadFailed = pull?.threadError?.let { error ->
+        stringResource(
+            when {
+                // A suggestion whose lines have changed since, or a file too large for the forge to send.
+                error == ForgeError.Conflict -> R.string.thread_suggestion_conflict
+                error == ForgeError.Unsupported -> R.string.thread_suggestion_unsupported
+                error is ForgeError.Http && (error.status == 403 || error.status == 404) -> R.string.issue_state_error_refused
+                else -> R.string.issue_state_error
+            },
+        )
+    }
+    SayOnce(threadFailed, snackbar, pullActions.onThreadErrorShown)
     // A refused update has no sheet to say it in.
     SayOnce(stringResource(R.string.pull_branch_update_failed).takeIf { pull?.updateError != null }, snackbar, pullActions.onUpdateErrorShown)
     // The comment the reader asked to delete, until they have said yes or no.
@@ -567,6 +582,10 @@ fun IssueScreen(
                                     ReviewThreads(
                                         pull.threads, pull, pullActions, canReply = canWrite, context, nowMillis, onOpenUser, onLinkClick,
                                         Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 24.dp),
+                                        // Its branch takes a commit from whoever may push to the repository, or opened it.
+                                        canCommit = canWrite && issue?.state == IssueState.OPEN &&
+                                            (state.access >= RepoAccess.WRITE || (state.me != null && issue.author?.login == state.me)),
+                                        branch = issue?.pullRequest?.headRef.orEmpty(),
                                     )
                                 }
                             }

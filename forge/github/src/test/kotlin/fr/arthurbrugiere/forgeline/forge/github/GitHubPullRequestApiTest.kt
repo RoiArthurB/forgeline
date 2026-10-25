@@ -15,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -29,6 +30,7 @@ import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import java.time.Instant
+import java.util.Base64
 
 /** Answers are cut down from api.github.com's, in the shape its documentation gives (REST, version 2022-11-28). */
 class GitHubPullRequestApiTest {
@@ -573,5 +575,81 @@ class GitHubPullRequestApiTest {
         val templates = api { json("""{"data":{"repository":{"pullRequestTemplates":[]}}}""") }.pullRequestTemplates("tok", repo, "main").value()
 
         assertThat(templates).isEmpty()
+    }
+
+    /** A remark on lines 2 and 3 of `src/Upload.kt`, with the change around them. */
+    private val suggestedOn = ReviewThread(
+        id = "PRRT_1", path = "src/Upload.kt", line = 3, onOldSide = false, hunk = "@@ -1,2 +1,3 @@\n val a = 1\n-val b = 2\n+val b = 3\n+val c = 4",
+        comments = emptyList(), resolved = false, canResolve = true, startLine = 2,
+    )
+
+    /** GitHub wraps a file's base64 every 60 characters. */
+    private fun encoded(text: String) = Base64.getEncoder().encodeToString(text.encodeToByteArray()).chunked(60).joinToString("\\n")
+
+    private fun decoded(sent: String) = Base64.getDecoder().decode(Regex("\"content\":\"([^\"]*)\"").find(sent)!!.groupValues[1]).decodeToString()
+
+    private val forkedPullJson = """{"head":{"sha":"abc","ref":"fix/upload","repo":{"full_name":"ana/tools"}},"base":{"sha":"def","ref":"main","repo":{"full_name":"octo/tools"}}}"""
+
+    @Test
+    fun a_suggestion_is_committed_to_the_branch_where_the_pull_request_lives() = runTest {
+        val file = "val a = 1\nval b = 3\nval c = 4\nval d = 5\n"
+        val result = api { request ->
+            when {
+                request.path == "/repos/octo/tools/pulls/88" -> json(forkedPullJson)
+                request.method == HttpMethod.Get -> json("""{"sha":"blob1","encoding":"base64","content":"${encoded(file)}"}""")
+                else -> json("""{"commit":{"sha":"new"}}""")
+            }
+        }.applySuggestion("tok", pull, suggestedOn, listOf("val bc = 34"), "Apply suggestion from code review")
+
+        assertThat(result).isEqualTo(ForgeResult.Success(Unit))
+        // Read and written in the fork, on the pull request's branch.
+        assertThat(requests[1].path).isEqualTo("/repos/ana/tools/contents/src/Upload.kt")
+        assertThat(requests[1].url.parameters["ref"]).isEqualTo("fix/upload")
+        val write = requests[2]
+        assertThat(write.method).isEqualTo(HttpMethod.Put)
+        assertThat(write.path).isEqualTo("/repos/ana/tools/contents/src/Upload.kt")
+        assertThat(write.sent).contains("\"sha\":\"blob1\"")
+        assertThat(write.sent).contains("\"branch\":\"fix/upload\"")
+        assertThat(write.sent).contains("\"message\":\"Apply suggestion from code review\"")
+        assertThat(decoded(write.sent)).isEqualTo("val a = 1\nval bc = 34\nval d = 5\n")
+    }
+
+    @Test
+    fun a_suggestion_on_lines_that_changed_since_commits_nothing() = runTest {
+        val result = api { request ->
+            when (request.path) {
+                "/repos/octo/tools/pulls/88" -> json(forkedPullJson)
+                else -> json("""{"sha":"blob1","encoding":"base64","content":"${encoded("val a = 1\nval b = 30\nval c = 4\n")}"}""")
+            }
+        }.applySuggestion("tok", pull, suggestedOn, listOf("val bc = 34"), "Apply")
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Conflict))
+        assertThat(requests.map { it.method }).doesNotContain(HttpMethod.Put)
+    }
+
+    @Test
+    fun a_push_between_reading_and_writing_the_file_is_a_conflict() = runTest {
+        val result = api { request ->
+            when {
+                request.path == "/repos/octo/tools/pulls/88" -> json(forkedPullJson)
+                request.method == HttpMethod.Get -> json("""{"sha":"blob1","encoding":"base64","content":"${encoded("val a = 1\nval b = 3\nval c = 4\n")}"}""")
+                else -> json("""{"message":"src/Upload.kt does not match blob1"}""", HttpStatusCode.Conflict)
+            }
+        }.applySuggestion("tok", pull, suggestedOn, listOf("val bc = 34"), "Apply")
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Conflict))
+    }
+
+    @Test
+    fun a_file_too_large_for_the_contents_api_is_not_changed() = runTest {
+        val result = api { request ->
+            when (request.path) {
+                "/repos/octo/tools/pulls/88" -> json(forkedPullJson)
+                else -> json("""{"sha":"blob1","encoding":"none","content":""}""")
+            }
+        }.applySuggestion("tok", pull, suggestedOn, listOf("x"), "Apply")
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+        assertThat(requests.map { it.method }).doesNotContain(HttpMethod.Put)
     }
 }

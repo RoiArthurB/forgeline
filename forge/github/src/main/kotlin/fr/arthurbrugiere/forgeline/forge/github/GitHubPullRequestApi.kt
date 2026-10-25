@@ -4,6 +4,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.PullRequestApi
 import fr.arthurbrugiere.forgeline.core.forge.map
+import fr.arthurbrugiere.forgeline.core.forge.suggestionApplied
 import fr.arthurbrugiere.forgeline.core.model.BlameRange
 import fr.arthurbrugiere.forgeline.core.model.ChangedFile
 import fr.arthurbrugiere.forgeline.core.model.ChangedFiles
@@ -45,6 +46,7 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
 import java.time.Instant
+import java.util.Base64
 
 class GitHubPullRequestApi(
     private val httpClient: HttpClient,
@@ -227,6 +229,39 @@ class GitHubPullRequestApi(
                 put("event", "DISMISS")
             },
         ).toResult { }
+    }
+
+    override val appliesSuggestions: Boolean = true
+
+    /** The file is read and written whole through the contents API, by its blob's sha: a push in between answers 409. */
+    override suspend fun applySuggestion(token: String, ref: IssueRef, thread: ReviewThread, suggestion: List<String>, message: String): ForgeResult<Unit> = forgeCall {
+        val pull = pull(token, ref)
+        if (pull.status != HttpStatusCode.OK) return@forgeCall pull.failure()
+        val head = pull.body<PrPullJson>().head
+        val (owner, name) = head.repo?.fullName?.split('/')?.takeIf { it.size == 2 } ?: return@forgeCall ForgeResult.Failure(ForgeError.Http(404, null))
+        val branch = head.ref ?: return@forgeCall ForgeResult.Failure(ForgeError.Http(404, null))
+        val at = RepoId(owner, name, ref.repo.forge)
+        val path = thread.path.split('/').toTypedArray()
+        val read = repo(token, at, "contents", *path, query = mapOf("ref" to branch))
+        if (read.status != HttpStatusCode.OK) return@forgeCall read.failure()
+        val file = read.body<PrContentJson>()
+        // Past 1 MB GitHub sends no content: such a file isn't changed from here.
+        val text = file.content?.takeIf { file.encoding == "base64" }?.let { Base64.getMimeDecoder().decode(it).decodeToString() }
+            ?: return@forgeCall ForgeResult.Failure(ForgeError.Unsupported)
+        val changed = when (val replaced = suggestionApplied(text, thread, suggestion)) {
+            is ForgeResult.Failure -> return@forgeCall replaced
+            is ForgeResult.Success -> replaced.value
+        }
+        val write = repo(
+            token, at, "contents", *path, method = HttpMethod.Put,
+            body = buildJsonObject {
+                put("message", message)
+                put("content", Base64.getEncoder().encodeToString(changed.encodeToByteArray()))
+                put("sha", file.sha)
+                put("branch", branch)
+            },
+        )
+        if (write.status == HttpStatusCode.Conflict) ForgeResult.Failure(ForgeError.Conflict) else write.toResult { }
     }
 
     /** GitHub merges the branch it goes into in, later: it answers 202 at once. */
@@ -414,6 +449,10 @@ private data class PrCommitJson(val sha: String, val commit: PrGitCommitJson, va
 
 @Serializable
 private data class PrBranchRepoJson(@SerialName("full_name") val fullName: String? = null)
+
+/** A file as the contents API sends it: [content] in base64, wrapped, up to 1 MB. */
+@Serializable
+private data class PrContentJson(val sha: String, val content: String? = null, val encoding: String? = null)
 
 /** Where a pull request's change is ([PullJson.head]) or goes ([PullJson.base]); a deleted fork has no repository. */
 @Serializable

@@ -215,6 +215,48 @@ class PullRequestViewModelTest {
     }
 
     @Test
+    fun a_suggestion_is_committed_in_english_told_and_its_thread_read_again() = test {
+        api.reviewThreads = listOf(thread)
+        signIn()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.appliesSuggestions).isTrue()
+
+        viewModel.applySuggestion(thread, listOf("val retries = 3", "val delay = 2"))
+        assertThat(viewModel.state.value.busyThread).isEqualTo("T1")
+        advanceUntilIdle()
+
+        assertThat(api.calls).contains("suggestion:octo/tools#88:T1:val retries = 3|val delay = 2:Apply suggestion from code review")
+        assertThat(viewModel.state.value.done?.first).isEqualTo(PullDone.SUGGESTION_COMMITTED)
+        assertThat(viewModel.state.value.busyThread).isNull()
+        // Read again: the code it was on has moved on.
+        assertThat(viewModel.state.value.threads!!.single().outdated).isTrue()
+    }
+
+    @Test
+    fun a_suggestion_on_lines_that_changed_since_is_refused_and_said() = test {
+        api.reviewThreads = listOf(thread)
+        signIn()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        api.writeFailure = ForgeError.Conflict
+        viewModel.applySuggestion(thread, listOf("x"))
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.threadError).isEqualTo(ForgeError.Conflict)
+        assertThat(viewModel.state.value.done).isNull()
+        assertThat(viewModel.state.value.threads!!.single().outdated).isFalse()
+    }
+
+    @Test
+    fun a_forge_that_cannot_commit_suggestions_says_so() = test {
+        api.appliesSuggestions = false
+
+        assertThat(viewModel().state.value.appliesSuggestions).isFalse()
+    }
+
+    @Test
     fun a_dismissed_review_has_the_conversation_read_again_and_a_refusal_is_said() = test {
         signIn()
         val viewModel = viewModel()

@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
 import com.google.common.truth.Truth.assertWithMessage
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.LineComment
@@ -228,6 +229,17 @@ class ForgejoWriteLiveTest {
             val after = pulls.threads(token, ref).value("threads after")
             System.err.println("CODEBERG threads after reply: ${after.map { "${it.path}:${it.line} ${it.comments.size}" }}")
             assertWithMessage("reply joined the thread").that(after.single().comments.map { it.body }).containsExactly("Why this line?", "Answered by the live test.").inOrder()
+
+            // A suggestion on that line is committed to the pull request's branch; once made, the same one is a conflict.
+            pulls.review(token, ref, ReviewVerdict.COMMENT, "", listOf(LineComment("NOTES.md", oldLine = null, newLine = 1, body = "```suggestion\nA line the pull request changes.\n```"))).value("suggest")
+            val suggested = pulls.threads(token, ref).value("suggested threads").single()
+            System.err.println("CODEBERG suggested over: ${suggested.suggestedOver}")
+            assertWithMessage("lines suggested over").that(suggested.suggestedOver.map { it.text }).containsExactly("A line the pull request adds.")
+            pulls.applySuggestion(token, ref, suggested, listOf("A line the pull request changes."), "Apply suggestion from code review").value("apply suggestion")
+            val notes = ForgejoRepoApi(http, forge).fileText(token, repo, "NOTES.md", "change").value("notes after suggestion")
+            assertWithMessage("suggestion committed").that(notes).isEqualTo("A line the pull request changes.\n")
+            val again = pulls.applySuggestion(token, ref, suggested, listOf("Something else."), "Apply suggestion from code review")
+            assertWithMessage("stale suggestion").that(again).isEqualTo(ForgeResult.Failure(ForgeError.Conflict))
 
             // main moves on: the pull request falls behind, and main is merged into its branch.
             val onMain = http.post("$api/repos/$owner/$name/contents/OTHER.md") {

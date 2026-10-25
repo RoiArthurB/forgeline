@@ -469,11 +469,16 @@ class PullRequestPanelTest {
         resolved = false, canResolve = true,
     )
 
-    private fun setScreen(access: fr.arthurbrugiere.forgeline.core.model.RepoAccess, pullState: PullRequestUiState = failing.copy(threads = listOf(thread), dismissesReviews = true)) =
+    private fun setScreen(
+        access: fr.arthurbrugiere.forgeline.core.model.RepoAccess,
+        pullState: PullRequestUiState = failing.copy(threads = listOf(thread), dismissesReviews = true),
+        me: String? = null,
+        issue: IssueDetails = open,
+    ) =
         composeRule.setContent {
             ForgelineTheme {
                 IssueScreen(
-                    state = IssueUiState(ref, open, listOf(comment(1, "Looks good", login = "octocat"), approval), access = access),
+                    state = IssueUiState(ref, issue, listOf(comment(1, "Looks good", login = "octocat"), approval), access = access, me = me),
                     pull = pullState,
                     pullActions = actions,
                     canComment = true, onDraftChange = {}, onSendComment = {}, onToggleOpen = {}, onSignIn = {}, onCommentNoticeShown = {},
@@ -517,5 +522,53 @@ class PullRequestPanelTest {
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Looks good")).fetchSemanticsNodes().isNotEmpty() }
 
         composeRule.onNodeWithText("Dismiss review").assertDoesNotExist()
+    }
+
+    /** A remark on line 2 of the change, suggesting another line in its place. */
+    private val suggesting = thread.copy(
+        line = 2, hunk = "@@ -1,2 +1,2 @@\n fun upload() {\n-    send(file)\n+    retry { send(file) }",
+        comments = listOf(fr.arthurbrugiere.forgeline.core.model.ThreadComment(1, fr.arthurbrugiere.forgeline.core.model.ForgeUser("hubot", null, null), "```suggestion\n    retry(3) { send(file) }\n```", null)),
+    )
+
+    private fun waitForSuggestion() =
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Suggested change")).fetchSemanticsNodes().isNotEmpty() }
+
+    @Test
+    fun whoever_can_push_commits_a_suggestion_to_the_pull_request_branch() {
+        setScreen(fr.arthurbrugiere.forgeline.core.model.RepoAccess.WRITE, failing.copy(threads = listOf(suggesting), appliesSuggestions = true))
+        waitForSuggestion()
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Commit suggestion"))
+        composeRule.onNodeWithText("Commit suggestion").performClick()
+        // Its branch is named before anything is committed.
+        composeRule.onNodeWithText("The change goes onto the branch retry as a new commit.").assertIsDisplayed()
+    }
+
+    @Test
+    fun whoever_opened_the_pull_request_commits_a_suggestion_to_it_too() {
+        setScreen(fr.arthurbrugiere.forgeline.core.model.RepoAccess.NONE, failing.copy(threads = listOf(suggesting), appliesSuggestions = true), me = "octocat")
+        waitForSuggestion()
+
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Commit suggestion"))
+        composeRule.onNodeWithText("Commit suggestion").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_reader_who_can_not_push_is_offered_no_commit() {
+        setScreen(fr.arthurbrugiere.forgeline.core.model.RepoAccess.NONE, failing.copy(threads = listOf(suggesting), appliesSuggestions = true), me = "someone")
+        waitForSuggestion()
+
+        composeRule.onNodeWithText("Commit suggestion").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_closed_pull_request_takes_no_suggestion() {
+        setScreen(
+            fr.arthurbrugiere.forgeline.core.model.RepoAccess.ADMIN, failing.copy(threads = listOf(suggesting), appliesSuggestions = true),
+            issue = open.copy(state = fr.arthurbrugiere.forgeline.core.model.IssueState.CLOSED),
+        )
+        waitForSuggestion()
+
+        composeRule.onNodeWithText("Commit suggestion").assertDoesNotExist()
     }
 }

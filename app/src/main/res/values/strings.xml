@@ -1016,6 +1016,13 @@
     </plurals>
     <string name="thread_suggestion">Suggested change</string>
     <string name="thread_suggestion_removes">Suggests removing these lines</string>
+    <string name="thread_suggestion_commit">Commit suggestion</string>
+    <string name="thread_suggestion_confirm_title">Commit this suggestion?</string>
+    <string name="thread_suggestion_confirm_body">The change goes onto the branch %1$s as a new commit.</string>
+    <string name="thread_suggestion_confirm">Commit</string>
+    <string name="thread_suggestion_committed">Suggestion committed</string>
+    <string name="thread_suggestion_conflict">Not committed: those lines have changed since the suggestion.</string>
+    <string name="thread_suggestion_unsupported">Not committed: this file is too large to change from here.</string>
     <string name="thread_outdated">Outdated</string>
     <string name="thread_resolved">Resolved</string>
     <string name="thread_reply">Reply</string>

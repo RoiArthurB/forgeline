@@ -51,14 +51,24 @@ class ReviewThreadsTest {
     private val actions = PullActions(
         onReply = { thread, body -> events += "reply:${thread.id}:$body" },
         onSetResolved = { thread, resolved -> events += "resolved:${thread.id}:$resolved" },
+        onApplySuggestion = { thread, suggestion -> events += "suggestion:${thread.id}:${suggestion.joinToString("|")}" },
     )
 
-    private fun setContent(threads: List<ReviewThread>, state: PullRequestUiState = PullRequestUiState(resolvesThreads = true), canReply: Boolean = true) =
-        composeRule.setContent {
-            ForgelineTheme {
-                ReviewThreads(threads, state, actions, canReply, ReadmeContext("https://raw.example/", "https://blob.example/"), at.toEpochMilli(), onOpenUser = {}, onLinkClick = {})
-            }
+    private fun setContent(
+        threads: List<ReviewThread>,
+        state: PullRequestUiState = PullRequestUiState(resolvesThreads = true),
+        canReply: Boolean = true,
+        canCommit: Boolean = false,
+    ) = composeRule.setContent {
+        ForgelineTheme {
+            ReviewThreads(
+                threads, state, actions, canReply, ReadmeContext("https://raw.example/", "https://blob.example/"), at.toEpochMilli(), onOpenUser = {}, onLinkClick = {},
+                canCommit = canCommit, branch = "fix/retry",
+            )
         }
+    }
+
+    private val suggesting = open.copy(line = 2, comments = listOf(ThreadComment(1, ForgeUser("hubot", null, null), "Three times:\n```suggestion\n    retry(3) { send(file) }\n```", at)))
 
     private fun waitFor(text: String) =
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
@@ -82,7 +92,6 @@ class ReviewThreadsTest {
 
     @Test
     fun a_suggestion_shows_as_the_change_it_would_make() {
-        val suggesting = open.copy(line = 2, comments = listOf(ThreadComment(1, ForgeUser("hubot", null, null), "Three times:\n```suggestion\n    retry(3) { send(file) }\n```", at)))
         setContent(listOf(suggesting))
 
         waitFor("Three times:")
@@ -91,6 +100,59 @@ class ReviewThreadsTest {
         composeRule.onNodeWithContentDescription("Line 2, added:     retry(3) { send(file) }").assertIsDisplayed()
         // The fence itself isn't shown as code.
         composeRule.onAllNodes(hasText("suggestion", substring = true)).assertCountEquals(0)
+    }
+
+    @Test
+    fun a_suggestion_is_committed_to_the_branch_once_the_reader_says_yes() {
+        setContent(listOf(suggesting), PullRequestUiState(appliesSuggestions = true), canCommit = true)
+
+        composeRule.onNodeWithText("Commit suggestion").performClick()
+        composeRule.onNodeWithText("The change goes onto the branch fix/retry as a new commit.").assertIsDisplayed()
+        composeRule.onNodeWithText("Commit").performClick()
+
+        assertThat(events).containsExactly("suggestion:T1:    retry(3) { send(file) }")
+        composeRule.onNodeWithText("Commit this suggestion?").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_suggestion_called_off_commits_nothing() {
+        setContent(listOf(suggesting), PullRequestUiState(appliesSuggestions = true), canCommit = true)
+
+        composeRule.onNodeWithText("Commit suggestion").performClick()
+        composeRule.onNodeWithText("Cancel").performClick()
+
+        assertThat(events).isEmpty()
+    }
+
+    @Test
+    fun a_suggestion_is_not_offered_to_commit_where_its_lines_moved_on_or_are_not_known() {
+        // Code that moved on since, and lines the forge didn't give (GitLab's threads).
+        setContent(listOf(suggesting.copy(id = "A", outdated = true), suggesting.copy(id = "B", hunk = null)), PullRequestUiState(appliesSuggestions = true), canCommit = true)
+
+        composeRule.onAllNodes(hasText("Suggested change")).assertCountEquals(2)
+        composeRule.onNodeWithText("Commit suggestion").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_suggestion_is_not_offered_to_commit_to_a_reader_who_may_not_push() {
+        setContent(listOf(suggesting), PullRequestUiState(appliesSuggestions = true), canCommit = false)
+
+        composeRule.onNodeWithText("Suggested change").assertIsDisplayed()
+        composeRule.onNodeWithText("Commit suggestion").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_suggestion_is_not_offered_to_commit_where_the_forge_cannot() {
+        setContent(listOf(suggesting), PullRequestUiState(appliesSuggestions = false), canCommit = true)
+
+        composeRule.onNodeWithText("Commit suggestion").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_suggestion_being_committed_can_t_be_pressed_again() {
+        setContent(listOf(suggesting), PullRequestUiState(appliesSuggestions = true, busyThread = "T1"), canCommit = true)
+
+        composeRule.onNodeWithText("Commit suggestion").assertIsNotEnabled()
     }
 
     @Test

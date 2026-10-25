@@ -1014,6 +1014,13 @@
     </plurals>
     <string name="thread_suggestion">Modification suggérée</string>
     <string name="thread_suggestion_removes">Suggère de retirer ces lignes</string>
+    <string name="thread_suggestion_commit">Appliquer la suggestion</string>
+    <string name="thread_suggestion_confirm_title">Appliquer cette suggestion ?</string>
+    <string name="thread_suggestion_confirm_body">La modification part sur la branche %1$s dans un nouveau commit.</string>
+    <string name="thread_suggestion_confirm">Appliquer</string>
+    <string name="thread_suggestion_committed">Suggestion appliquée</string>
+    <string name="thread_suggestion_conflict">Non appliquée : ces lignes ont changé depuis la suggestion.</string>
+    <string name="thread_suggestion_unsupported">Non appliquée : ce fichier est trop gros pour être modifié d’ici.</string>
     <string name="thread_outdated">Obsolète</string>
     <string name="thread_resolved">Résolu</string>
     <string name="thread_reply">Répondre</string>

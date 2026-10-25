@@ -43,6 +43,7 @@ import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.parsePatch
 import fr.arthurbrugiere.forgeline.core.model.splitSuggestions
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHairline
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSendButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
@@ -54,6 +55,7 @@ import fr.arthurbrugiere.forgeline.issue.Comment
  * The remarks on lines of a pull request's change, near its end, after its conversation: the open threads each with
  * the code it is on, what was said, and a way to answer or resolve it; the resolved ones folded behind one row.
  * [canReply] is whether the reader may write here at all; resolving also takes the forge's say ([ReviewThread.canResolve]).
+ * [branch] is where a suggestion goes once committed, for whoever may push there ([canCommit]).
  */
 @Composable
 fun ReviewThreads(
@@ -66,6 +68,8 @@ fun ReviewThreads(
     onOpenUser: (String) -> Unit,
     onLinkClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    canCommit: Boolean = false,
+    branch: String = "",
 ) {
     if (threads.isEmpty()) return
     val colors = Soft.colors
@@ -84,14 +88,14 @@ fun ReviewThreads(
         )
         open.forEach { thread ->
             SoftHairline()
-            Thread(thread, state, actions, canReply, context, nowMillis, onOpenUser, onLinkClick)
+            Thread(thread, state, actions, canReply, canCommit, branch, context, nowMillis, onOpenUser, onLinkClick)
         }
         if (resolved.isNotEmpty()) {
             SoftHairline()
             if (showResolved) {
                 resolved.forEachIndexed { index, thread ->
                     if (index > 0) SoftHairline()
-                    Thread(thread, state, actions, canReply, context, nowMillis, onOpenUser, onLinkClick)
+                    Thread(thread, state, actions, canReply, canCommit, branch, context, nowMillis, onOpenUser, onLinkClick)
                 }
             } else {
                 Row(
@@ -128,12 +132,16 @@ private fun Thread(
     state: PullRequestUiState,
     actions: PullActions,
     canReply: Boolean,
+    canCommit: Boolean,
+    branch: String,
     context: ReadmeContext,
     nowMillis: Long,
     onOpenUser: (String) -> Unit,
     onLinkClick: (String) -> Unit,
 ) {
     val colors = Soft.colors
+    // The suggestion asked to be committed, as "comment:suggestion", until the reader has said yes or no.
+    var committing by rememberSaveable(thread.id) { mutableStateOf<String?>(null) }
     var replying by rememberSaveable(thread.id) { mutableStateOf(false) }
     var reply by rememberSaveable(thread.id) { mutableStateOf("") }
     // A reply that went through empties its field and puts it away.
@@ -163,10 +171,28 @@ private fun Thread(
             Column(Modifier.fillMaxWidth().clip(SoftTokens.RowCorner)) { lines.forEach { LineRow(it, onClick = null) } }
         }
         val over = remember(thread) { thread.suggestedOver }
-        thread.comments.forEach { comment ->
+        // Only where the lines it replaces are known, and still where the remark was made.
+        val commits = canCommit && state.appliesSuggestions && over.isNotEmpty() && !thread.outdated
+        thread.comments.forEachIndexed { at, comment ->
             val split = remember(comment.body) { splitSuggestions(comment.body) }
             Comment(comment.author, split.text, comment.createdAt, emptyMap(), context, nowMillis, onOpenUser, onLinkClick)
-            split.suggestions.forEach { SuggestedChange(it, over, thread.line) }
+            split.suggestions.forEachIndexed { index, suggested ->
+                val key = "$at:$index"
+                SuggestedChange(suggested, over, thread.line, busy = busy, onCommit = { committing = key }.takeIf { commits })
+                if (committing == key) {
+                    SoftConfirmSheet(
+                        title = stringResource(R.string.thread_suggestion_confirm_title),
+                        body = stringResource(R.string.thread_suggestion_confirm_body, branch),
+                        confirm = stringResource(R.string.thread_suggestion_confirm),
+                        cancel = stringResource(R.string.cancel),
+                        onConfirm = {
+                            committing = null
+                            actions.onApplySuggestion(thread, suggested)
+                        },
+                        onDismiss = { committing = null },
+                    )
+                }
+            }
         }
         if (replying) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -206,9 +232,10 @@ private fun Thread(
 /**
  * A change a reviewer suggests, as it would read once made: the lines the remark is on taken away, where the forge
  * gave them ([over]), and the suggested ones in their place from [line]; or that the reviewer would take them away.
+ * [onCommit] offers to make it, where the reader may.
  */
 @Composable
-private fun SuggestedChange(suggested: List<String>, over: List<DiffLine>, line: Int?) {
+private fun SuggestedChange(suggested: List<String>, over: List<DiffLine>, line: Int?, busy: Boolean, onCommit: (() -> Unit)?) {
     val colors = Soft.colors
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
@@ -221,6 +248,9 @@ private fun SuggestedChange(suggested: List<String>, over: List<DiffLine>, line:
             over.forEach { LineRow(DiffLine(DiffLineKind.REMOVED, it.text, oldNumber = it.newNumber, newNumber = null), onClick = null) }
             val first = over.firstOrNull()?.newNumber ?: line ?: 1
             suggested.forEachIndexed { index, text -> LineRow(DiffLine(DiffLineKind.ADDED, text, oldNumber = null, newNumber = first + index), onClick = null) }
+        }
+        if (onCommit != null) {
+            SoftTonalButton(stringResource(R.string.thread_suggestion_commit), onClick = onCommit, enabled = !busy, modifier = Modifier.padding(horizontal = 8.dp))
         }
     }
 }

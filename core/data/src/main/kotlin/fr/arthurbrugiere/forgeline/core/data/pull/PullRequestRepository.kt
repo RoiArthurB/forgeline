@@ -58,6 +58,12 @@ interface PullRequestRepository {
 
     suspend fun setResolved(ref: IssueRef, thread: ReviewThread, resolved: Boolean): ForgeResult<Unit>
 
+    /** Whether a reviewer's suggestion can be committed from here on [forge]. */
+    fun appliesSuggestions(forge: ForgeInstance): Boolean
+
+    /** Commits [suggestion] in place of the lines [thread] is on, to [ref]'s branch, saying [message]. */
+    suspend fun applySuggestion(ref: IssueRef, thread: ReviewThread, suggestion: List<String>, message: String): ForgeResult<Unit>
+
     /** Whether a review can be dismissed on [forge]. */
     fun dismissesReviews(forge: ForgeInstance): Boolean
 
@@ -123,6 +129,11 @@ class DefaultPullRequestRepository @Inject constructor(
     override fun resolvesThreads(forge: ForgeInstance) = clients.pulls(forge).resolvesThreads
 
     override suspend fun setResolved(ref: IssueRef, thread: ReviewThread, resolved: Boolean) = signedIn(ref.repo.forge) { setResolved(it, ref, thread, resolved) }
+
+    override fun appliesSuggestions(forge: ForgeInstance) = clients.pulls(forge).appliesSuggestions
+
+    override suspend fun applySuggestion(ref: IssueRef, thread: ReviewThread, suggestion: List<String>, message: String) =
+        signedIn(ref.repo.forge) { applySuggestion(it, ref, thread, suggestion, message) }
 
     override fun dismissesReviews(forge: ForgeInstance) = clients.pulls(forge).dismissesReviews
 

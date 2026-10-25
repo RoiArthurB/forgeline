@@ -115,6 +115,14 @@ class FakePullRequestApi(
         reviewThreads = reviewThreads.map { if (it.id == thread.id) it.copy(resolved = resolved) else it }
     }
 
+    override var appliesSuggestions: Boolean = true
+
+    /** A suggestion committed leaves its thread on code that has moved on, as on a forge. */
+    override suspend fun applySuggestion(token: String, ref: IssueRef, thread: ReviewThread, suggestion: List<String>, message: String) =
+        write("suggestion:${ref.name()}:${thread.id}:${suggestion.joinToString("|")}:$message") {
+            reviewThreads = reviewThreads.map { if (it.id == thread.id) it.copy(outdated = true) else it }
+        }
+
     override suspend fun dismissReview(token: String, ref: IssueRef, reviewId: Long, message: String) = write("dismiss:${ref.name()}:$reviewId:$message") { }
 
     override suspend fun updateBranch(token: String, ref: IssueRef) = write("updateBranch:${ref.name()}") {

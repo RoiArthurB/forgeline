@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo
 
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Check
 import fr.arthurbrugiere.forgeline.core.model.CheckState
@@ -12,6 +13,7 @@ import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -19,6 +21,7 @@ import io.ktor.http.content.TextContent
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import java.time.Instant
+import java.util.Base64
 
 /** Answers are cut down from codeberg.org's for forgejo/forgejo#14792, read on 2026-10-10. */
 class ForgejoPullRequestApiTest {
@@ -425,5 +428,48 @@ class ForgejoPullRequestApiTest {
 
         assertThat(template.body).isEqualTo("---\nnot front matter, a rule\n")
         assertThat(template.name).isEqualTo("pull_request_template.md")
+    }
+
+    private val suggestedOn = ReviewThread(
+        id = "9", path = "docs/README.md", line = 2, onOldSide = false, hunk = "@@ -1,2 +1,2 @@\n # Title\n-teh text\n+the txet",
+        comments = emptyList(), resolved = false, canResolve = false,
+    )
+
+    private fun fileJson(text: String) = """{"sha":"blob7","encoding":"base64","content":"${Base64.getEncoder().encodeToString(text.encodeToByteArray())}"}"""
+
+    @Test
+    fun a_suggestion_is_committed_to_the_pull_request_branch_by_the_contents_api() = runTest {
+        val result = with(codeberg) {
+            api { path ->
+                when {
+                    path == "$base/pulls/14792" -> json("""{"head":{"sha":"abc","ref":"typo","repo":{"full_name":"ana/forgejo"}},"base":{"sha":"def","ref":"forgejo"}}""")
+                    requests.last().method == HttpMethod.Get -> json(fileJson("# Title\nthe txet\n"))
+                    else -> json("""{"commit":{"sha":"new"}}""", HttpStatusCode.Created)
+                }
+            }
+        }.applySuggestion("tok", pull, suggestedOn, listOf("the text"), "Apply suggestion from code review")
+
+        assertThat(result).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(codeberg.requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly(
+            "GET $base/pulls/14792", "GET /api/v1/repos/ana/forgejo/contents/docs/README.md", "PUT /api/v1/repos/ana/forgejo/contents/docs/README.md",
+        ).inOrder()
+        assertThat(codeberg.requests[1].url.parameters["ref"]).isEqualTo("typo")
+        val sent = (codeberg.requests[2].body as TextContent).text
+        assertThat(sent).contains(""""sha":"blob7"""")
+        assertThat(sent).contains(""""branch":"typo"""")
+        val content = Regex(""""content":"([^"]*)"""").find(sent)!!.groupValues[1]
+        assertThat(Base64.getDecoder().decode(content).decodeToString()).isEqualTo("# Title\nthe text\n")
+    }
+
+    @Test
+    fun a_suggestion_on_lines_someone_has_changed_since_commits_nothing() = runTest {
+        val result = with(codeberg) {
+            api { path ->
+                if (path == "$base/pulls/14792") json("""{"head":{"sha":"abc","ref":"typo","repo":{"full_name":"ana/forgejo"}}}""") else json(fileJson("# Title\nthe text\n"))
+            }
+        }.applySuggestion("tok", pull, suggestedOn, listOf("the text"), "Apply")
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Conflict))
+        assertThat(codeberg.requests.map { it.method }).doesNotContain(HttpMethod.Put)
     }
 }

@@ -16,6 +16,7 @@ import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
+import fr.arthurbrugiere.forgeline.core.model.replaceLines
 
 /**
  * What stands behind a pull request's numbers (its files, commits and checks), what can be done to one (review it,
@@ -71,6 +72,17 @@ interface PullRequestApi {
     /** Marks [thread] of [ref] resolved, or not resolved again. */
     suspend fun setResolved(token: String, ref: IssueRef, thread: ReviewThread, resolved: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
 
+    /** Whether [applySuggestion] can be asked here: GitLab's threads don't carry the code they are on. */
+    val appliesSuggestions: Boolean get() = false
+
+    /**
+     * Commits [suggestion] to [ref]'s branch, in the repository it lives in (a fork's, where its owner lets the
+     * maintainers push), in place of the lines [thread] is on ([ReviewThread.suggestedOver]), saying [message].
+     * [ForgeError.Conflict] where those lines read otherwise there now.
+     */
+    suspend fun applySuggestion(token: String, ref: IssueRef, thread: ReviewThread, suggestion: List<String>, message: String): ForgeResult<Unit> =
+        ForgeResult.Failure(ForgeError.Unsupported)
+
     /** Whether this forge's API dismisses someone's review: GitLab's can't take back another's approval. */
     val dismissesReviews: Boolean get() = false
 
@@ -107,4 +119,14 @@ interface PullRequestApi {
      */
     suspend fun blame(token: String?, repo: RepoId, ref: String, path: String): ForgeResult<List<BlameRange>> =
         ForgeResult.Failure(ForgeError.Unsupported)
+}
+
+/**
+ * The file [text] with the lines [thread] is on replaced by [suggestion], for [PullRequestApi.applySuggestion]:
+ * [ForgeError.Conflict] where the forge didn't give those lines, or they read otherwise now.
+ */
+fun suggestionApplied(text: String, thread: ReviewThread, suggestion: List<String>): ForgeResult<String> {
+    val over = thread.suggestedOver
+    val first = over.firstOrNull()?.newNumber ?: return ForgeResult.Failure(ForgeError.Conflict)
+    return replaceLines(text, first, over.map { it.text }, suggestion)?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Conflict)
 }

@@ -182,4 +182,28 @@ class ChangesTest {
         assertThat(thread(3, outdated = true).suggestedOver).isEmpty()
         assertThat(thread(2, onOldSide = true).suggestedOver).isEmpty()
     }
+
+    @Test
+    fun `lines are replaced where they still read as expected`() {
+        val text = "one\ntwo\nthree\n"
+        assertThat(replaceLines(text, 2, listOf("two"), listOf("2", "deux"))).isEqualTo("one\n2\ndeux\nthree\n")
+        assertThat(replaceLines(text, 1, listOf("one", "two"), listOf("1"))).isEqualTo("1\nthree\n")
+        // An empty suggestion takes the lines away.
+        assertThat(replaceLines(text, 3, listOf("three"), emptyList())).isEqualTo("one\ntwo\n")
+    }
+
+    @Test
+    fun `a file's line breaks and its missing last one are kept`() {
+        assertThat(replaceLines("one\r\ntwo\r\n", 2, listOf("two"), listOf("2", "3"))).isEqualTo("one\r\n2\r\n3\r\n")
+        assertThat(replaceLines("one\ntwo", 2, listOf("two"), listOf("2"))).isEqualTo("one\n2")
+    }
+
+    @Test
+    fun `lines that changed or aren't there replace nothing`() {
+        val text = "one\ntwo\nthree\n"
+        assertThat(replaceLines(text, 2, listOf("TWO"), listOf("2"))).isNull()
+        assertThat(replaceLines(text, 3, listOf("three", "four"), listOf("3"))).isNull()
+        assertThat(replaceLines(text, 0, listOf("one"), listOf("1"))).isNull()
+        assertThat(replaceLines(text, 1, emptyList(), listOf("1"))).isNull()
+    }
 }

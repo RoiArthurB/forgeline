@@ -40,6 +40,9 @@ enum class PullDone {
 
     /** Its branch is being brought up to date with the one it goes into. */
     UPDATED,
+
+    /** A reviewer's suggestion was committed to its branch. */
+    SUGGESTION_COMMITTED,
 }
 
 /** How a merge is asked for: the way, whether its branch goes with it, and whether it waits for the checks. */
@@ -58,6 +61,8 @@ data class PullRequestUiState(
     val threads: List<ReviewThread>? = null,
     val resolvesThreads: Boolean = false,
     val dismissesReviews: Boolean = false,
+    /** Whether a reviewer's suggestion can be committed from here, on this forge. */
+    val appliesSuggestions: Boolean = false,
     /** The thread a reply or a change is on its way to. */
     val busyThread: String? = null,
     /** The thread a reply was just added to, counted like [done]: its field empties. */
@@ -91,6 +96,7 @@ class PullRequestViewModel @AssistedInject constructor(
             verdicts = repository.verdicts(ref.repo.forge),
             resolvesThreads = repository.resolvesThreads(ref.repo.forge),
             dismissesReviews = repository.dismissesReviews(ref.repo.forge),
+            appliesSuggestions = repository.appliesSuggestions(ref.repo.forge),
         ),
     )
     val state: StateFlow<PullRequestUiState> = _state.asStateFlow()
@@ -155,6 +161,15 @@ class PullRequestViewModel @AssistedInject constructor(
 
     fun setResolved(thread: ReviewThread, resolved: Boolean) = threadWork(thread.id) { repository.setResolved(ref, thread, resolved) }
 
+    /**
+     * Commits [suggestion] to the pull request's branch in place of the lines [thread] is on, as GitHub's own button
+     * words it; refused ([ForgeError.Conflict]) where those lines have changed since.
+     */
+    fun applySuggestion(thread: ReviewThread, suggestion: List<String>) =
+        threadWork(thread.id, onDone = { it.copy(done = PullDone.SUGGESTION_COMMITTED to ++serial) }) {
+            repository.applySuggestion(ref, thread, suggestion, SUGGESTION_MESSAGE)
+        }
+
     /** Dismisses a review, saying why: the conversation is read again to show it ([PullDone.DISMISSED]). */
     fun dismissReview(reviewId: Long, message: String) = threadWork("review-$reviewId", onDone = { it.copy(done = PullDone.DISMISSED to ++serial) }) {
         repository.dismissReview(ref, reviewId, message.trim())
@@ -211,4 +226,9 @@ class PullRequestViewModel @AssistedInject constructor(
     }
 
     fun reviewErrorShown() = _state.update { it.copy(reviewError = null) }
+
+    private companion object {
+        /** A commit message is the repository's, not the reader's: it is in English, whatever the app's language. */
+        const val SUGGESTION_MESSAGE = "Apply suggestion from code review"
+    }
 }

@@ -24,6 +24,9 @@ sealed interface ForgeError {
     /** The forge answered, but not with what its API promises: a page instead of data, a field missing, a date that isn't one. */
     data object Unreadable : ForgeError
 
+    /** What was to be changed reads otherwise now than when it was read: nothing was changed. */
+    data object Conflict : ForgeError
+
     /** The forge has no API for this (Actions on a Forgejo instance, for example). */
     data object Unsupported : ForgeError
 }

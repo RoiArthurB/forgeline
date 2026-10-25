@@ -312,7 +312,7 @@ class SignInViewModel @Inject constructor(
                 is ForgeError.Http -> if (error.status == 404 && _state.value.usesHost) SignInError.NOT_A_FORGE else SignInError.UNKNOWN
                 // A server that isn't a forge can also answer them with a web page.
                 ForgeError.Unreadable -> if (_state.value.usesHost) SignInError.NOT_A_FORGE else SignInError.UNKNOWN
-                ForgeError.Unsupported -> SignInError.UNKNOWN
+                ForgeError.Unsupported, ForgeError.Conflict -> SignInError.UNKNOWN
             },
         ),
     )

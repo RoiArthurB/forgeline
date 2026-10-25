@@ -310,5 +310,20 @@ fun splitSuggestions(body: String): Suggesting {
     return Suggesting(kept.joinToString("\n").trim(), suggestions)
 }
 
+/**
+ * [text] with its lines from [first] on (counting from 1), which should read [expected], replaced by [replacement];
+ * null where they no longer read so. The file's line breaks, `\n` or `\r\n`, are kept, and so is a last one.
+ */
+fun replaceLines(text: String, first: Int, expected: List<String>, replacement: List<String>): String? {
+    val crlf = text.contains("\r\n")
+    val breaks = if (crlf) "\r\n" else "\n"
+    val lines = text.removeSuffix("\n").removeSuffix("\r").split("\n").map { it.removeSuffix("\r") }
+    val start = first - 1
+    if (start < 0 || expected.isEmpty() || start + expected.size > lines.size) return null
+    if (lines.subList(start, start + expected.size) != expected) return null
+    val joined = (lines.subList(0, start) + replacement + lines.subList(start + expected.size, lines.size)).joinToString(breaks)
+    return if (text.endsWith("\n")) joined + breaks else joined
+}
+
 /** One comment of a [ReviewThread]: the remark that opened it, or a reply. */
 data class ThreadComment(val id: Long, val author: ForgeUser?, val body: String, val createdAt: Instant?)
