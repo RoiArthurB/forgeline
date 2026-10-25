@@ -37,6 +37,20 @@ class ForgejoClientLiveTest {
     }
 
     @Test
+    fun a_symlink_and_a_submodule_read_as_what_they_are() = runBlocking<Unit> {
+        // Real ones, found 2026-10-25: localsend's CHANGELOG.md is a link, fuzzel keeps wlr-protocols as a submodule.
+        val api = ForgejoRepoApi(http, ForgeInstance.Codeberg)
+        val localsend = RepoId("localsend", "localsend", ForgeInstance.Codeberg)
+        val fuzzel = RepoId("dnkl", "fuzzel", ForgeInstance.Codeberg)
+        val type = { files: List<fr.arthurbrugiere.forgeline.core.model.RepoFile>, path: String -> files.single { it.path == path }.type }
+
+        val root = api.contents(null, localsend, "", api.repo(null, localsend).value().defaultBranch).value()
+        assertThat(type(root, "CHANGELOG.md")).isEqualTo(fr.arthurbrugiere.forgeline.core.model.RepoFileType.SYMLINK)
+        val external = api.contents(null, fuzzel, "external", api.repo(null, fuzzel).value().defaultBranch).value()
+        assertThat(type(external, "external/wlr-protocols")).isEqualTo(fr.arthurbrugiere.forgeline.core.model.RepoFileType.SUBMODULE)
+    }
+
+    @Test
     fun a_merged_pull_request_and_its_conversation_read() = runBlocking<Unit> {
         val api = ForgejoIssueApi(http, ForgeInstance.Codeberg)
         val pull = IssueRef(forgejo, 14597)
@@ -68,11 +82,10 @@ class ForgejoClientLiveTest {
         val log = java.io.ByteArrayOutputStream().also { api.downloadJobLog(null, website, job.id, it).value() }.toByteArray()
         val steps = fr.arthurbrugiere.forgeline.core.forge.JobLogSteps.index(log.inputStream(), api.logFormat)
         assertWithMessage("steps of job ${job.id}").that(steps.count { it.title != null }).isAtLeast(1)
-        // Parts or not, the log is readable: read in parts, a part is the log's own bytes.
-        when (val opened = api.openJobLog(null, website, job.id)) {
-            is ForgeResult.Success -> assertThat(opened.value.read(0L..99L).value().bytes).isEqualTo(log.copyOfRange(0, 100))
-            is ForgeResult.Failure -> assertThat(opened.error).isEqualTo(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unsupported)
-        }
+        // Codeberg serves a log in parts (206 with its Content-Range, seen 2026-10-25): a part is the log's own bytes.
+        val opened = api.openJobLog(null, website, job.id).value()
+        assertThat(opened.size).isEqualTo(log.size.toLong())
+        assertThat(opened.read(0L..99L).value().bytes).isEqualTo(log.copyOfRange(0, 100))
         assertThat(api.workflows(null, website).value()).isNotEmpty()
     }
 
