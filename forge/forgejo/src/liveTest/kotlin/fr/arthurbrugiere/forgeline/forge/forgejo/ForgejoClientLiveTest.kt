@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
@@ -48,6 +49,19 @@ class ForgejoClientLiveTest {
         assertThat(type(root, "CHANGELOG.md")).isEqualTo(fr.arthurbrugiere.forgeline.core.model.RepoFileType.SYMLINK)
         val external = api.contents(null, fuzzel, "external", api.repo(null, fuzzel).value().defaultBranch).value()
         assertThat(type(external, "external/wlr-protocols")).isEqualTo(fr.arthurbrugiere.forgeline.core.model.RepoFileType.SUBMODULE)
+    }
+
+    @Test
+    fun an_issue_closed_by_a_commit_says_which() = runBlocking<Unit> {
+        // dnkl/foot#2467 was closed by f3226bc on 2026-09-18.
+        val issue = IssueRef(RepoId("dnkl", "foot", ForgeInstance.Codeberg), 2467)
+
+        val items = ForgejoIssueApi(http, ForgeInstance.Codeberg).timeline(null, issue, page = 1).value().items
+
+        val commit = items.filterIsInstance<TimelineItem.StateChanged>().firstNotNullOf { it.commit }
+        assertThat(commit.sha).startsWith("f3226bc")
+        assertThat(commit.message).isEqualTo("ime: ignore enter events with a NULL surface")
+        assertThat(commit.webUrl).isEqualTo("https://codeberg.org/dnkl/foot/commit/${commit.sha}")
     }
 
     @Test

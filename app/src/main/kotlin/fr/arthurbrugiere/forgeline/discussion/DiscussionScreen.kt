@@ -77,6 +77,7 @@ import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.ui.Avatar
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
+import fr.arthurbrugiere.forgeline.ui.LocalOpenCommit
 import fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion
 import fr.arthurbrugiere.forgeline.ui.LocalOpenRelease
 import fr.arthurbrugiere.forgeline.ui.LocalOpenWiki
@@ -108,6 +109,7 @@ fun DiscussionRoute(
     val openRelease = LocalOpenRelease.current
     val openDiscussion = LocalOpenDiscussion.current
     val openWiki = LocalOpenWiki.current
+    val openCommit = LocalOpenCommit.current
     DiscussionScreen(
         state = state,
         signedIn = session.signedInOn(repo.forge),
@@ -116,7 +118,7 @@ fun DiscussionRoute(
         onOpenRepo = onOpenRepo,
         onOpenUser = onOpenUser,
         onOpenInBrowser = openUrl,
-        onLinkClick = { url -> openForgeLink(url, repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion, onOpenWiki = openWiki) },
+        onLinkClick = { url -> openForgeLink(url, repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion, onOpenWiki = openWiki, onOpenCommit = openCommit) },
         onSignIn = onSignIn,
         onErrorShown = viewModel::errorShown,
         onSend = viewModel::send,

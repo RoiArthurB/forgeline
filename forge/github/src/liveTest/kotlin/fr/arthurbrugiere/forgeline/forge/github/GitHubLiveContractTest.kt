@@ -106,6 +106,20 @@ class GitHubLiveContractTest {
         assertWithMessage("chooser links: $chooser").that(chooser?.links).isNotEmpty()
     }
 
+    /** gama-platform/gama#1118 was closed by a commit: the timeline still names it, and the commit still reads. */
+    @Test
+    fun an_issue_closed_by_a_commit_still_says_which() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        val issue = fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("gama-platform", "gama"), 1118)
+
+        val page = GitHubIssueApi(client).timeline(pat, issue, 1)
+
+        assertWithMessage("timeline: $page").that(page).isInstanceOf(ForgeResult.Success::class.java)
+        val closed = (page as ForgeResult.Success).value.items.filterIsInstance<fr.arthurbrugiere.forgeline.core.model.TimelineItem.StateChanged>().mapNotNull { it.commit }
+        assertWithMessage("closing commit").that(closed.map { it.sha.take(7) }).contains("c2a0103")
+        assertWithMessage("its message").that(closed.first { it.sha.startsWith("c2a0103") }.message).startsWith("Detect duplicate default facet definitions")
+    }
+
     /** Read only: what commenting needs (the discussion's id) and what the reader may pick as its answer still come. */
     @Test
     fun a_discussion_still_says_what_it_is_named_by_and_what_the_reader_may_do() = runBlocking {

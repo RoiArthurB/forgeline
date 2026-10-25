@@ -115,6 +115,15 @@ internal fun TimelineEntry(
                 StateChange.CLOSED -> Icons.Outlined.CheckCircleOutline to colors.fields[0]
             }
             EventLine(icon, text, badge = badge)
+            // The commit that closed it, as a pushed commit reads in a pull request.
+            item.commit?.let { commit ->
+                EventLine(
+                    Icons.Outlined.Commit,
+                    listOfNotNull(commit.sha.take(7), commit.message?.lineSequence()?.first()).joinToString("  "),
+                    monospace = true,
+                    onClick = { onLinkClick(commit.webUrl) },
+                )
+            }
         }
         is TimelineItem.Labeled -> {
             val who = item.actor?.login ?: stringResource(R.string.deleted_account)

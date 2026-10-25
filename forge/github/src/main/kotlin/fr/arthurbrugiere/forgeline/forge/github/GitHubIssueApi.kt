@@ -7,6 +7,7 @@ import fr.arthurbrugiere.forgeline.core.forge.map
 import fr.arthurbrugiere.forgeline.core.forge.parseIssueChooser
 import fr.arthurbrugiere.forgeline.core.forge.parseIssueForm
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
+import fr.arthurbrugiere.forgeline.core.model.ClosingCommit
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -93,7 +94,23 @@ class GitHubIssueApi(
             apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "timeline",
             query = mapOf("per_page" to "100", "page" to page.toString()),
         )
-        response.toResult { TimelinePage(body<List<EventJson>>().mapNotNull { it.toModel() }, nextPage(), lastPage()) }
+        response.toResult { TimelinePage(withCommitMessages(token, body<List<EventJson>>().mapNotNull { it.toModel() }), nextPage(), lastPage()) }
+    }
+
+    /** A closing event names its commit only: each one's message is asked of it, all at once. */
+    private suspend fun withCommitMessages(token: String?, items: List<TimelineItem>): List<TimelineItem> = coroutineScope {
+        items.map { item ->
+            val commit = (item as? TimelineItem.StateChanged)?.commit ?: return@map async { item }
+            async { item.copy(commit = commit.copy(message = commitMessage(token, commit) ?: return@async item)) }
+        }.awaitAll()
+    }
+
+    /** The commit's message, or null when it can't be read (gone since, or in a repository the reader can't see). */
+    private suspend fun commitMessage(token: String?, commit: ClosingCommit): String? {
+        val (owner, name) = commit.webUrl.removePrefix("https://github.com/").split('/').takeIf { it.size >= 2 } ?: return null
+        val response = runCatching { httpClient.gitHubApi(apiBaseUrl, token, "repos", owner, name, "commits", commit.sha) }.getOrNull() ?: return null
+        if (!response.status.isSuccess()) return null
+        return runCatching { response.body<CommitDetailJson>().commit?.message }.getOrNull()
     }
 
     override suspend fun comment(token: String, ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment> = forgeCall {
@@ -599,6 +616,12 @@ private data class SourceJson(val issue: SourceIssueJson? = null)
 private data class RenameJson(val from: String, val to: String)
 
 @Serializable
+private data class CommitDetailJson(val commit: CommitMessageJson? = null)
+
+@Serializable
+private data class CommitMessageJson(val message: String? = null)
+
+@Serializable
 private data class CommitAuthorJson(val name: String? = null, val date: String? = null)
 
 @Serializable
@@ -621,7 +644,16 @@ private data class EventJson(
     val author: CommitAuthorJson? = null,
     val assignee: UserJson? = null,
     val milestone: MilestoneJson? = null,
+    @SerialName("commit_id") val commitId: String? = null,
+    @SerialName("commit_url") val commitUrl: String? = null,
 ) {
+    /** The commit a closing event names, its page made from the API's address for it. */
+    private fun closingCommit(): ClosingCommit? {
+        val sha = commitId ?: return null
+        val repo = commitUrl?.substringAfter("/repos/", "")?.substringBefore("/commits/")?.takeIf { it.count { c -> c == '/' } == 1 } ?: return null
+        return ClosingCommit(sha, message = null, webUrl = "https://github.com/$repo/commit/$sha")
+    }
+
     private fun event(event: ConversationEvent, at: Instant?, subject: String? = null): TimelineItem? =
         at?.let { TimelineItem.Event(event, actor?.toModel(), subject, it) }
 
@@ -648,7 +680,7 @@ private data class EventJson(
                 body = body?.ifBlank { null },
                 createdAt = submittedAt?.let(Instant::parse),
             )
-            "closed" -> TimelineItem.StateChanged(StateChange.CLOSED, actor?.toModel(), stateReason, at ?: return null)
+            "closed" -> TimelineItem.StateChanged(StateChange.CLOSED, actor?.toModel(), stateReason, at ?: return null, closingCommit())
             "reopened" -> TimelineItem.StateChanged(StateChange.REOPENED, actor?.toModel(), stateReason, at ?: return null)
             "merged" -> TimelineItem.StateChanged(StateChange.MERGED, actor?.toModel(), null, at ?: return null)
             "labeled", "unlabeled" -> TimelineItem.Labeled(event == "labeled", label?.toModel() ?: return null, actor?.toModel(), at ?: return null)

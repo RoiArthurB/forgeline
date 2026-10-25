@@ -246,6 +246,34 @@ class ForgeLinksTest {
         assertThat(events).containsExactly("wiki:dnkl/foot/Home", "browser:$url").inOrder()
     }
 
+    @Test
+    fun a_commit_s_url_opens_its_changes() {
+        // Regression: a commit's link, a closing commit's among them, opened its repository.
+        val sha = "c2a01032c89c63026099bacb814e8786fce8e9a8"
+        assertThat(ForgeLinks.routeFor("https://github.com/gama-platform/gama/commit/$sha")).isEqualTo(ChangesRoute("github.com", "gama-platform", "gama", sha = sha))
+        assertThat(ForgeLinks.routeFor("https://github.com/gama-platform/gama/commit/$sha#diff-1")).isEqualTo(ChangesRoute("github.com", "gama-platform", "gama", sha = sha))
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/dnkl/foot/commit/abc1234")).isEqualTo(ChangesRoute("codeberg.org", "dnkl", "foot", sha = "abc1234"))
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/fdroid/fdroidclient/-/commit/1b899d29")).isEqualTo(ChangesRoute("gitlab.com", "fdroid", "fdroidclient", sha = "1b899d29"))
+        // A commit's own history, or a word where a commit would be, are not a commit.
+        assertThat(ForgeLinks.routeFor("https://github.com/gama-platform/gama/commits/main")).isEqualTo(RepoRoute("github.com", "gama-platform", "gama"))
+        assertThat(ForgeLinks.routeFor("https://github.com/gama-platform/gama/commit/not-a-sha")).isEqualTo(RepoRoute("github.com", "gama-platform", "gama"))
+    }
+
+    @Test
+    fun a_commit_s_link_opens_in_the_app_where_it_can_and_on_its_forge_otherwise() {
+        val events = mutableListOf<String>()
+        val url = "https://github.com/gama-platform/gama/commit/c2a0103"
+        fun open(inApp: Boolean) = openForgeLink(
+            url, ForgeInstance.GitHub, onOpenRepo = { events += "repo" }, onOpenIssue = { events += "issue" }, onOpenUser = { events += "user" },
+            openUrl = { events += "browser:$it" }, onOpenCommit = if (inApp) ({ repo, sha -> events += "commit:${repo.fullName}@$sha" }) else null,
+        )
+
+        open(inApp = true)
+        open(inApp = false)
+
+        assertThat(events).containsExactly("commit:gama-platform/gama@c2a0103", "browser:$url").inOrder()
+    }
+
     @org.junit.After
     fun forgetServers() = KnownForges.clear()
 

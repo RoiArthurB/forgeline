@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
+import fr.arthurbrugiere.forgeline.core.model.ClosingCommit
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
@@ -320,17 +321,24 @@ internal data class GitLabStateEventJson(
     val user: GitLabUserJson? = null,
     val state: String,
     @SerialName("created_at") val createdAt: String,
+    /** The commit that closed the conversation, by its hash; null when someone closed it by hand. */
+    @SerialName("source_commit") val sourceCommit: String? = null,
 ) {
-    fun toTimelineItem(): TimelineItem.StateChanged? {
+    fun toTimelineItem(repo: RepoId): TimelineItem.StateChanged? {
         val change = when (state) {
             "closed" -> StateChange.CLOSED
             "reopened" -> StateChange.REOPENED
             "merged" -> StateChange.MERGED
             else -> return null
         }
-        return TimelineItem.StateChanged(change, user?.toForgeUser(), null, gitlabInstant(createdAt) ?: return null)
+        val commit = sourceCommit?.ifEmpty { null }?.let { ClosingCommit(it, message = null, webUrl = "${repo.webUrl}/-/commit/$it") }
+        return TimelineItem.StateChanged(change, user?.toForgeUser(), null, gitlabInstant(createdAt) ?: return null, commit)
     }
 }
+
+/** A commit as `repository/commits/:sha` answers it; only its message is read. */
+@Serializable
+internal data class GitLabCommitMessageJson(val message: String? = null)
 
 /** A file uploaded to a project, as GitLab answered on 2026-10-07: [fullPath] is "/-/project/<id>/uploads/<hash>/<name>". */
 @Serializable

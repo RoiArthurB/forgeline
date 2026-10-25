@@ -23,6 +23,7 @@ import androidx.compose.ui.test.performTouchInput
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.ClosingCommit
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -140,6 +141,28 @@ class IssueScreenTest {
         composeRule.onNodeWithText("rev approved these changes", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("maint closed this as completed", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("maint changed the title from “Old” to “New”").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_conversation_closed_by_a_commit_shows_the_commit_s_first_line_and_opens_it() {
+        // Regression: only "closed this as completed" showed, never the commit that did it.
+        val url = "https://github.com/gama-platform/gama/commit/c2a01032c89c63026099bacb814e8786fce8e9a8"
+        val commit = ClosingCommit("c2a01032c89c63026099bacb814e8786fce8e9a8", "Detect duplicate default facet definitions\n\nFixes #1118", url)
+        val items = listOf(TimelineItem.StateChanged(StateChange.CLOSED, ForgeUser("AlexisDrogoul", null, null), "completed", at, commit))
+        setContent(IssueUiState(ref, issueDetails(ref), items))
+
+        composeRule.onNodeWithText("AlexisDrogoul closed this as completed", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("c2a0103  Detect duplicate default facet definitions").performClick()
+
+        assertThat(events).containsExactly("link:$url")
+    }
+
+    @Test
+    fun a_closing_commit_whose_message_couldn_t_be_read_still_shows_its_name() {
+        val commit = ClosingCommit("abc1234def", null, "https://github.com/other/repo/commit/abc1234def")
+        setContent(IssueUiState(ref, issueDetails(ref), listOf(TimelineItem.StateChanged(StateChange.CLOSED, null, null, at, commit))))
+
+        composeRule.onNodeWithText("abc1234").assertIsDisplayed()
     }
 
     @Test

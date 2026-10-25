@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
+import fr.arthurbrugiere.forgeline.core.model.ClosingCommit
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -55,6 +56,42 @@ class ForgejoIssueApiTest {
     }
 
     private fun <T> ForgeResult<T>.value(): T = (this as ForgeResult.Success).value
+
+    @Test
+    fun an_issue_closed_by_a_commit_says_which_and_what_it_said() = runTest {
+        // dnkl/foot#2467 (2026-09-18): the commit's reference, then the close, in the same second; and a commit that
+        // only mentioned the issue, earlier, which stays out as GitHub's "referenced" events do.
+        val entries = """[
+          {"id":1,"type":"commit_ref","body":"<a href=\"/dnkl/foot/commit/0123456789abcdef\">Mention it &amp; move on</a>","ref_commit_sha":"0123456789abcdef","user":{"id":1,"login":"dnkl"},"created_at":"2026-09-17T10:00:00+02:00"},
+          {"id":2,"type":"commit_ref","body":"<a href=\"/dnkl/foot/commit/f3226bc5eba53ce4b0306546e99f5928198526c3\">ime: ignore enter events with a NULL surface</a>","ref_commit_sha":"f3226bc5eba53ce4b0306546e99f5928198526c3","user":{"id":1,"login":"dnkl"},"created_at":"2026-09-18T07:51:39+02:00"},
+          {"id":3,"type":"close","body":"","ref_commit_sha":"","user":{"id":1,"login":"dnkl"},"created_at":"2026-09-18T07:51:39+02:00"}
+        ]"""
+        val foot = IssueRef(RepoId("dnkl", "foot", ForgeInstance.Codeberg), 2467)
+        val api = with(codeberg) { ForgejoIssueApi(client { json(entries) }, ForgeInstance.Codeberg) }
+
+        val items = api.timeline(null, foot, page = 1).value().items
+
+        assertThat((items.single() as TimelineItem.StateChanged).commit).isEqualTo(
+            ClosingCommit(
+                "f3226bc5eba53ce4b0306546e99f5928198526c3",
+                "ime: ignore enter events with a NULL surface",
+                "https://codeberg.org/dnkl/foot/commit/f3226bc5eba53ce4b0306546e99f5928198526c3",
+            ),
+        )
+    }
+
+    @Test
+    fun a_closing_commit_s_first_line_reads_as_written() = runTest {
+        val entries = """[
+          {"id":2,"type":"commit_ref","body":"<a href=\"/o/r/commit/abc1234\">Fix &lt;br&gt; &amp; &quot;quotes&quot; &#39;here&#39;</a>","ref_commit_sha":"abc1234","user":{"id":1,"login":"a"},"created_at":"2026-09-18T07:51:39+02:00"},
+          {"id":3,"type":"close","user":{"id":1,"login":"a"},"created_at":"2026-09-18T07:51:39+02:00"}
+        ]"""
+        val api = with(codeberg) { ForgejoIssueApi(client { json(entries) }, ForgeInstance.Codeberg) }
+
+        val closed = api.timeline(null, IssueRef(RepoId("o", "r", ForgeInstance.Codeberg), 1), page = 1).value().items.single() as TimelineItem.StateChanged
+
+        assertThat(closed.commit?.message).isEqualTo("Fix <br> & \"quotes\" 'here'")
+    }
 
     @Test
     fun a_merged_pull_request_carries_its_branches_and_size() = runTest {

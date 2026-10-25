@@ -62,6 +62,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.navigation.WikiRoute
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
+import fr.arthurbrugiere.forgeline.ui.LocalOpenCommit
 import fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion
 import fr.arthurbrugiere.forgeline.ui.LocalOpenRelease
 import fr.arthurbrugiere.forgeline.ui.LocalOpenWiki
@@ -89,6 +90,7 @@ fun WikiRoute(
     val openRelease = LocalOpenRelease.current
     val openDiscussion = LocalOpenDiscussion.current
     val openWiki = LocalOpenWiki.current
+    val openCommit = LocalOpenCommit.current
     WikiScreen(
         state = state,
         onBack = onBack,
@@ -96,7 +98,7 @@ fun WikiRoute(
         onOpenRepo = onOpenRepo,
         onOpenPage = { onOpenPage(repo, it) },
         onOpenInBrowser = openUrl,
-        onLinkClick = { url -> openForgeLink(url, repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion, onOpenWiki = openWiki) },
+        onLinkClick = { url -> openForgeLink(url, repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion, onOpenWiki = openWiki, onOpenCommit = openCommit) },
         onErrorShown = viewModel::errorShown,
     )
 }

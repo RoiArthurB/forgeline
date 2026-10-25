@@ -167,6 +167,8 @@ sealed interface TimelineItem {
         val actor: ForgeUser?,
         val stateReason: String?,
         override val createdAt: Instant,
+        /** The commit that closed the conversation, when one did ("Fixes #12" pushed to the default branch). */
+        val commit: ClosingCommit? = null,
     ) : TimelineItem
 
     data class Labeled(val added: Boolean, val label: Label, val actor: ForgeUser?, override val createdAt: Instant) : TimelineItem
@@ -189,6 +191,9 @@ sealed interface TimelineItem {
 
     data class Committed(val sha: String, val message: String, val authorName: String?, override val createdAt: Instant?) : TimelineItem
 }
+
+/** A commit that closed a conversation: its [message] is null when the forge couldn't give it, and [webUrl] its page. */
+data class ClosingCommit(val sha: String, val message: String?, val webUrl: String)
 
 /**
  * One page of a conversation. [lastPage] is the last one there is, when the forge says: the pages up to it can then be

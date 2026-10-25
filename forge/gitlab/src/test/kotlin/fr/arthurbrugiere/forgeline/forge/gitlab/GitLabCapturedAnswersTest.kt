@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.forge.gitlab
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.ClosingCommit
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -270,6 +271,46 @@ class GitLabCapturedAnswersTest {
 
         val states = requests.filter { it.url.encodedPath.endsWith("/merge_requests") }.map { it.url.parameters["state"] }
         assertThat(states).containsExactly("merged", "closed")
+    }
+
+    @Test
+    fun an_issue_closed_by_a_commit_says_which_and_what_it_said_once() = runTest {
+        // fdroid/fdroidserver#1355 (gitlab.com, 2026-07-22): the close is told twice, with its commit and a second
+        // later without it; the commit's message is asked of it.
+        val fdroid = IssueRef(RepoId("fdroid", "fdroidserver", ForgeInstance.GitLab), 1355, isPullRequest = false)
+        val events = """[
+          {"id":1,"user":{"id":1,"username":"eighthave","name":"Hans"},"created_at":"2026-07-22T09:36:58.000Z","resource_type":"Issue","resource_id":1,"state":"closed","source_commit":"38c3cbc896d22f2adfb8108b0c245d0157c5e33f","source_merge_request":null},
+          {"id":2,"user":{"id":1,"username":"eighthave","name":"Hans"},"created_at":"2026-07-22T09:36:58.970Z","resource_type":"Issue","resource_id":1,"state":"closed","source_commit":null,"source_merge_request":null}
+        ]"""
+        val commit = """{"id":"38c3cbc896d22f2adfb8108b0c245d0157c5e33f","title":"Don't ignore errors in sign_jar with use_old_algos",
+          "message":"Don't ignore errors in sign_jar with use_old_algos\n\nFixes https://gitlab.com/fdroid/fdroidserver/-/work_items/1355\n",
+          "web_url":"https://gitlab.com/fdroid/fdroidserver/-/commit/38c3cbc896d22f2adfb8108b0c245d0157c5e33f"}"""
+        val api = GitLabIssueApi(
+            gitlabHttpClient(
+                MockEngine { request ->
+                    requests += request
+                    val path = request.url.encodedPath
+                    val body = when {
+                        path.endsWith("/resource_state_events") -> events
+                        "/repository/commits/" in path -> commit
+                        else -> "[]"
+                    }
+                    respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                },
+            ),
+        )
+
+        val changes = api.timeline("tok", fdroid, page = 1).value().items.filterIsInstance<TimelineItem.StateChanged>()
+
+        assertThat(changes).hasSize(1)
+        assertThat(changes.single().commit).isEqualTo(
+            ClosingCommit(
+                "38c3cbc896d22f2adfb8108b0c245d0157c5e33f",
+                "Don't ignore errors in sign_jar with use_old_algos\n\nFixes https://gitlab.com/fdroid/fdroidserver/-/work_items/1355\n",
+                "https://gitlab.com/fdroid/fdroidserver/-/commit/38c3cbc896d22f2adfb8108b0c245d0157c5e33f",
+            ),
+        )
+        assertThat(requests.map { it.url.encodedPath }).contains("/api/v4/projects/fdroid%2Ffdroidserver/repository/commits/38c3cbc896d22f2adfb8108b0c245d0157c5e33f")
     }
 
     @Test

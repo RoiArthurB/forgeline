@@ -104,6 +104,7 @@ fun ForgelineApp(
             LocalOpenSearch provides { navigator.navigate(SearchKey) },
             LocalOpenRelease provides { repo, tag -> navigator.navigate(repo.releaseRoute(tag)) },
             LocalOpenDiscussion provides { repo, number -> navigator.navigate(DiscussionRoute(repo.forge.host, repo.owner, repo.name, number)) },
+            LocalOpenCommit provides { repo, sha -> navigator.navigate(repo.commitRoute(sha)) },
             LocalOpenWiki provides { repo, page -> navigator.navigate(fr.arthurbrugiere.forgeline.navigation.WikiRoute(repo.forge.host, repo.owner, repo.name, page)) },
             LocalOpenPicture provides { url, description -> navigator.navigate(PictureRoute(url, description)) },
             LocalOpenPictureLabel provides stringResource(R.string.picture_view),

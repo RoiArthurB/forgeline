@@ -75,6 +75,7 @@ object ForgeLinks {
                         if (runId != null) return RunRoute(forge.host, owner, name, runId)
                     }
                     "wikis" -> return wikiRoute(forge, owner, name, uri, after = dashIndex + 2)
+                    "commit" -> subSegments.getOrNull(1)?.takeIf(::isSha)?.let { return ChangesRoute(forge.host, owner, name, sha = it) }
                     "releases" -> {
                         val tag = if (subSegments.size > 2 && subSegments[1] == "tag") {
                             subSegments.drop(2).joinToString("/")
@@ -93,6 +94,7 @@ object ForgeLinks {
         val number = segments.getOrNull(3)?.toIntOrNull()
         if (number != null && segments[2] in setOf("issues", "pull", "pulls")) return IssueRoute(forge.host, owner, name, number)
         if (segments.getOrNull(2) == "wiki") return wikiRoute(forge, owner, name, uri, after = 3)
+        if (segments.getOrNull(2) == "commit") segments.getOrNull(3)?.takeIf(::isSha)?.let { return ChangesRoute(forge.host, owner, name, sha = it) }
         // Only GitHub has discussions.
         if (number != null && segments[2] == "discussions" && forge.type == ForgeType.GITHUB) return DiscussionRoute(forge.host, owner, name, number)
         // A release's page, on both forges: /owner/name/releases/tag/<tag>, where the tag may hold slashes.
@@ -107,6 +109,9 @@ object ForgeLinks {
         }
         return RepoRoute(forge.host, owner, name)
     }
+
+    /** A commit as its page names it: its full or shortened hash. */
+    private fun isSha(text: String) = text.length in 7..64 && text.all { it in '0'..'9' || it in 'a'..'f' }
 
     /**
      * A wiki's page, named by the path [after] that many segments; its first page for the wiki itself, and for its own

@@ -59,6 +59,20 @@ class GitLabSignedInLiveTest {
         assertWithMessage("nested page").that(nested.body).isNotEmpty()
     }
 
+    /** fdroid/fdroidserver#1355 was closed by 38c3cbc on 2026-07-22, which gitlab.com tells twice. */
+    @Test
+    fun an_issue_closed_by_a_commit_says_which_once() = runBlocking {
+        assumeTrue("GITLAB_LIVE_TOKEN not set", token.isNotBlank())
+        val issue = fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("fdroid", "fdroidserver", ForgeInstance.GitLab), 1355, isPullRequest = false)
+
+        val changes = GitLabIssueApi(http).timeline(token, issue, page = 1).value().items.filterIsInstance<fr.arthurbrugiere.forgeline.core.model.TimelineItem.StateChanged>()
+
+        assertWithMessage("closes").that(changes.count { it.change == fr.arthurbrugiere.forgeline.core.model.StateChange.CLOSED }).isEqualTo(1)
+        val commit = changes.firstNotNullOf { it.commit }
+        assertWithMessage("sha").that(commit.sha).startsWith("38c3cbc")
+        assertWithMessage("message").that(commit.message).startsWith("Don't ignore errors in sign_jar with use_old_algos")
+    }
+
     /**
      * fdroid/fdroidclient: a finished job's trace reads into steps named as GitLab names them, whether or not its runner
      * stamps each line (gitlab.com's did on 2026-10-23, and wrote each header on the line after its section's marker).

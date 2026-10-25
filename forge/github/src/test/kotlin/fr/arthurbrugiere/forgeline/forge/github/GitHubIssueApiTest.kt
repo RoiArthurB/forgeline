@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
+import fr.arthurbrugiere.forgeline.core.model.ClosingCommit
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -148,6 +149,46 @@ class GitHubIssueApiTest {
 
         assertThat(items.map { it::class.simpleName }).containsExactly("Labeled", "Labeled", "Renamed", "StateChanged").inOrder()
         assertThat((items[1] as TimelineItem.Labeled).added).isFalse()
+    }
+
+    @Test
+    fun an_issue_closed_by_a_commit_says_which_and_what_it_said() = runTest {
+        // gama-platform/gama#1118 (2026-06-30): the event names the commit only; its message is asked of it.
+        val events = """[
+          {"event":"closed","actor":{"login":"AlexisDrogoul"},"created_at":"2026-06-30T13:13:16Z","state_reason":"completed",
+           "commit_id":"c2a01032c89c63026099bacb814e8786fce8e9a8",
+           "commit_url":"https://api.github.com/repos/gama-platform/gama/commits/c2a01032c89c63026099bacb814e8786fce8e9a8"},
+          {"event":"reopened","actor":{"login":"a"},"created_at":"2026-07-01T00:00:00Z"},
+          {"event":"closed","actor":{"login":"a"},"created_at":"2026-07-02T00:00:00Z"}
+        ]"""
+        val commit = """{"sha":"c2a01032c89c63026099bacb814e8786fce8e9a8","html_url":"https://github.com/gama-platform/gama/commit/c2a01032c89c63026099bacb814e8786fce8e9a8",
+          "commit":{"message":"Detect duplicate default facet definitions\n\nFixes #1118 -- Add validation to check if a default facet has already been defined."}}"""
+
+        val items = api { if ("/commits/" in it.url.encodedPath) json(commit) else json(events) }.timeline(null, issue, 1).value().items
+
+        val closed = items.filterIsInstance<TimelineItem.StateChanged>()
+        assertThat(closed[0].commit).isEqualTo(
+            ClosingCommit(
+                "c2a01032c89c63026099bacb814e8786fce8e9a8",
+                "Detect duplicate default facet definitions\n\nFixes #1118 -- Add validation to check if a default facet has already been defined.",
+                "https://github.com/gama-platform/gama/commit/c2a01032c89c63026099bacb814e8786fce8e9a8",
+            ),
+        )
+        // Closed by hand: nothing more to ask.
+        assertThat(closed[2].commit).isNull()
+        assertThat(requests.map { it.url.encodedPath })
+            .containsExactly("/repos/paperclipai/paperclip/issues/5462/timeline", "/repos/gama-platform/gama/commits/c2a01032c89c63026099bacb814e8786fce8e9a8")
+    }
+
+    @Test
+    fun a_closing_commit_that_can_t_be_read_still_names_itself() = runTest {
+        // A commit since force-pushed away, or in a repository the reader can't see.
+        val events = """[{"event":"closed","actor":{"login":"a"},"created_at":"2026-07-02T00:00:00Z","commit_id":"abc1234def",
+          "commit_url":"https://api.github.com/repos/other/repo/commits/abc1234def"}]"""
+
+        val items = api { if ("/commits/" in it.url.encodedPath) json("{}", status = HttpStatusCode.NotFound) else json(events) }.timeline(null, issue, 1).value().items
+
+        assertThat((items.single() as TimelineItem.StateChanged).commit).isEqualTo(ClosingCommit("abc1234def", null, "https://github.com/other/repo/commit/abc1234def"))
     }
 
     @Test

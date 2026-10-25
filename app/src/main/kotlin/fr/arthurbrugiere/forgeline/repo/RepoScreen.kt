@@ -100,6 +100,7 @@ fun RepoRoute(
     val openUrl = rememberCustomTabOpener()
     val openDiscussion = fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion.current
     val openWiki = fr.arthurbrugiere.forgeline.ui.LocalOpenWiki.current
+    val openCommit = fr.arthurbrugiere.forgeline.ui.LocalOpenCommit.current
     val openRelease = LocalOpenRelease.current
     val signedIn = session.signedInOn(id.forge)
     var dispatching by rememberSaveable { mutableStateOf(false) }
@@ -150,7 +151,7 @@ fun RepoRoute(
         onOpenRelease = { tag -> state.details?.let { openRelease?.invoke(it.id, tag) } },
         onOpenRun = { runId -> state.details?.let { onOpenRun(it.id, runId) } },
         onOpenUser = onOpenUser,
-        onLinkClick = { url -> openForgeLink(url, id.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRun, openRelease, openDiscussion, openWiki) },
+        onLinkClick = { url -> openForgeLink(url, id.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRun, openRelease, openDiscussion, openWiki, openCommit) },
         onOpenInBrowser = openUrl,
         onLoadRefs = viewModel::loadRefs,
         onRunWorkflow = if (signedIn) ({ dispatching = true }) else null,

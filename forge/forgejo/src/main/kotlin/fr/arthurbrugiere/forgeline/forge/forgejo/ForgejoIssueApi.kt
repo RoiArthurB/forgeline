@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.forge.issueFormText
 import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
+import fr.arthurbrugiere.forgeline.core.model.ClosingCommit
 import fr.arthurbrugiere.forgeline.core.model.ContactLink
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
@@ -479,7 +480,17 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         if (response.status != HttpStatusCode.OK) return response.failure()
         val entries = response.body<List<TimelineJson>>()
         val reviewStates = reviews(entries)
-        val items = entries.mapNotNull { it.toItem(reviewStates, ref.repo) }
+        val items = entries.mapIndexedNotNull { index, entry ->
+            val before = entries.getOrNull(index - 1)
+            when {
+                // A commit that closed the conversation is told with the close, not apart from it.
+                entry.closesWith(entries.getOrNull(index + 1)) -> null
+                before != null && before.closesWith(entry) -> entry.toItem(reviewStates, ref.repo)?.let { item ->
+                    (item as? TimelineItem.StateChanged)?.copy(commit = before.commit()) ?: item
+                }
+                else -> entry.toItem(reviewStates, ref.repo)
+            }
+        }
         val next = response.nextPage() ?: (page + 1).takeIf { entries.size == PAGE_SIZE }
         // The count covers every entry, shown or not: it gives the number of pages, not of items.
         val last = response.totalCount()?.let { (it + PAGE_SIZE - 1) / PAGE_SIZE }
@@ -501,6 +512,22 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
 
     private suspend fun get(token: String?, ref: IssueRef, vararg segments: String, query: Map<String, String> = emptyMap()): HttpResponse =
         httpClient.forgejoApi(forge, token, "repos", ref.repo.owner, ref.repo.name, *segments, query = query)
+
+    /**
+     * Whether this is the reference of a commit that closed the conversation: Forgejo writes it, then the close, by the
+     * same person in the same second (dnkl/foot#2467 on Codeberg, 2026-09-18).
+     */
+    private fun TimelineJson.closesWith(next: TimelineJson?) =
+        type == "commit_ref" && next?.type == "close" && next.createdAt == createdAt && next.user?.login == user?.login && commit() != null
+
+    /** The commit a reference names: its body is a link to the commit, its words the commit's first line. */
+    private fun TimelineJson.commit(): ClosingCommit? {
+        val sha = refCommitSha?.ifEmpty { null } ?: return null
+        val link = COMMIT_LINK.find(body.orEmpty())
+        val path = link?.groupValues?.get(1)?.takeIf { it.startsWith("/") }
+        val message = link?.groupValues?.get(2)?.let(::withoutEntities)?.ifBlank { null }
+        return ClosingCommit(sha, message, "https://${forge.host}${path ?: "/commit/$sha"}")
+    }
 
     private fun TimelineJson.toItem(reviewStates: Map<Long, ReviewState>, home: RepoId): TimelineItem? {
         val at = instant(createdAt) ?: return null
@@ -745,7 +772,15 @@ private data class TimelineJson(
     val milestone: MilestoneJson? = null,
     @SerialName("old_milestone") val oldMilestone: MilestoneJson? = null,
     @SerialName("dependent_issue") val dependentIssue: RefIssueJson? = null,
+    @SerialName("ref_commit_sha") val refCommitSha: String? = null,
 )
+
+/** A commit reference's body: `<a href="/owner/name/commit/sha">its first line</a>`. */
+private val COMMIT_LINK = Regex("""<a href="([^"]*)">(.*?)</a>""", RegexOption.DOT_MATCHES_ALL)
+
+/** HTML's escapes back to what they stand for, `&amp;` last so it never makes another. */
+private fun withoutEntities(html: String) =
+    html.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'").replace("&amp;", "&")
 
 /** The marks a pull request's title starts with while it is a draft, by Forgejo's default, and the space after. */
 private val forgejoDraftMark = Regex("""^\s*(wip:|\[wip])\s*""", RegexOption.IGNORE_CASE)

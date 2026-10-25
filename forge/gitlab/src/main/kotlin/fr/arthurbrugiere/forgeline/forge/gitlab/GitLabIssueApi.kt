@@ -36,9 +36,11 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.appendPathSegments
 import io.ktor.http.takeFrom
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 
@@ -114,6 +116,33 @@ class GitLabIssueApi(
         return counts
     }
 
+    /**
+     * GitLab tells a close by commit twice: with its commit, then within a second without it (fdroid/fdroidserver#1355
+     * on gitlab.com, 2026-07-22). The second says nothing more.
+     */
+    private fun withoutEchoes(changes: List<TimelineItem.StateChanged>): List<TimelineItem.StateChanged> =
+        changes.filterIndexed { index, change ->
+            val before = changes.getOrNull(index - 1)
+            !(
+                change.commit == null && before?.commit != null && before.change == change.change &&
+                    before.actor?.login == change.actor?.login && Duration.between(before.createdAt, change.createdAt) <= ECHO_WINDOW
+                )
+        }
+
+    /** Each closing commit's message, asked of it, all at once: GitLab names the commit only. */
+    private suspend fun withCommitMessages(token: String?, repo: RepoId, changes: List<TimelineItem.StateChanged>): List<TimelineItem.StateChanged> = coroutineScope {
+        changes.map { change ->
+            val commit = change.commit ?: return@map async { change }
+            async {
+                val message = runCatching {
+                    val response = httpClient.gitlabApi(repo.forge, token, "projects", repo.fullName, "repository", "commits", commit.sha)
+                    if (response.status == HttpStatusCode.OK) response.body<GitLabCommitMessageJson>().message else null
+                }.getOrNull()
+                if (message == null) change else change.copy(commit = commit.copy(message = message))
+            }
+        }.awaitAll()
+    }
+
     override suspend fun timeline(token: String?, ref: IssueRef, page: Int): ForgeResult<TimelinePage> = forgeCall {
         coroutineScope {
             val kind = targetKind(ref)
@@ -140,8 +169,9 @@ class GitLabIssueApi(
             val events = stateEvents.await()
             // The notes are the conversation: state changes that can't be had or read only leave it without them.
             val changes = if (events.status == HttpStatusCode.OK) {
-                runCatching { events.body<List<GitLabStateEventJson>>() }.getOrDefault(emptyList())
-                    .mapNotNull { it.toTimelineItem() }.filter { it.createdAt >= from && it.createdAt <= until }
+                val read = runCatching { events.body<List<GitLabStateEventJson>>() }.getOrDefault(emptyList())
+                    .mapNotNull { it.toTimelineItem(ref.repo) }.filter { it.createdAt >= from && it.createdAt <= until }
+                withCommitMessages(token, ref.repo, withoutEchoes(read))
             } else {
                 emptyList()
             }
@@ -478,6 +508,9 @@ class GitLabIssueApi(
 
     private companion object {
         const val NOTES_PER_PAGE = 30
+
+        /** How soon after a close by commit GitLab tells it again, without the commit. */
+        val ECHO_WINDOW: Duration = Duration.ofSeconds(2)
     }
 }
 
