@@ -911,6 +911,7 @@
     <string name="changes_remark_title">%1$s, line %2$d</string>
     <string name="changes_remark_body">What do you want to say about this line?</string>
     <string name="changes_remark_add">Add to the review</string>
+    <string name="changes_remark_suggest">Suggest a change</string>
     <string name="review_title">Review</string>
     <string name="review_body">What the review says (optional)</string>
     <string name="review_failed">The forge refused the review: %1$s</string>

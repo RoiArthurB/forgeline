@@ -908,6 +908,7 @@
     <string name="changes_remark_title">%1$s, ligne %2$d</string>
     <string name="changes_remark_body">Que voulez-vous dire de cette ligne ?</string>
     <string name="changes_remark_add">Ajouter à la relecture</string>
+    <string name="changes_remark_suggest">Suggérer une modification</string>
     <string name="review_title">Relecture</string>
     <string name="review_body">Ce que dit la relecture (facultatif)</string>
     <string name="review_failed">La forge a refusé la relecture : %1$s</string>

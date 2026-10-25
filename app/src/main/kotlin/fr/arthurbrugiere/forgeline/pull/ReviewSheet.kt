@@ -26,12 +26,14 @@ import androidx.compose.ui.unit.dp
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.DiffLine
+import fr.arthurbrugiere.forgeline.core.model.DiffLineKind
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceRow
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.ui.message
 
 /**
@@ -128,9 +130,20 @@ fun LineRemarkSheet(target: LineTarget, onAdd: (String) -> Unit, onDismiss: () -
                 modifier = Modifier.fillMaxWidth().clip(SoftTokens.RowCorner).background(colors.surface).padding(12.dp),
             )
             SoftTextField(value = body, onValueChange = { body = it }, placeholder = stringResource(R.string.changes_remark_body), singleLine = false, minLines = 3, maxLines = 8)
+            // The line as it is, to be rewritten into what it should say: a reviewer's suggestion, committed from the thread.
+            // Only on a line the change keeps; one it takes away has nothing to replace.
+            if (target.line.kind != DiffLineKind.REMOVED) {
+                SoftTonalButton(stringResource(R.string.changes_remark_suggest), onClick = { body = withSuggestion(body, target.line.text) })
+            }
             SoftButton(stringResource(R.string.changes_remark_add), onClick = { onAdd(body) }, enabled = body.isNotBlank(), modifier = Modifier.fillMaxWidth())
         }
     }
+}
+
+/** [written] with a suggestion block holding [line] after it, on a line of its own. */
+internal fun withSuggestion(written: String, line: String): String {
+    val before = if (written.isEmpty() || written.endsWith("\n")) written else "$written\n"
+    return "$before```suggestion\n$line\n```\n"
 }
 
 /** The line's number as a reader knows it: in the file after the change, or before it for a line the change removes. */
