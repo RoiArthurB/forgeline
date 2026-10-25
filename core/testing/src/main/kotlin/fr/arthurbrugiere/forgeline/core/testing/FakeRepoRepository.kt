@@ -96,6 +96,22 @@ class FakeRepoRepository : RepoRepository {
 
     override fun rememberedDiscussion(id: RepoId, number: Int) = seenDiscussions[number]
 
+    /** A wiki's pages, and each page by its key; a 404 for a page not given. */
+    var wikiPages: ForgeResult<List<fr.arthurbrugiere.forgeline.core.model.WikiPageSummary>> = ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unsupported)
+    val wikiPageByKey = mutableMapOf<String, ForgeResult<fr.arthurbrugiere.forgeline.core.model.WikiPage>>()
+
+    override suspend fun wikiPages(id: RepoId): ForgeResult<List<fr.arthurbrugiere.forgeline.core.model.WikiPageSummary>> {
+        calls += "wikiPages:${id.fullName}"
+        gate?.await()
+        return wikiPages
+    }
+
+    override suspend fun wikiPage(id: RepoId, key: String): ForgeResult<fr.arthurbrugiere.forgeline.core.model.WikiPage> {
+        calls += "wikiPage:${id.fullName}:$key"
+        gate?.await()
+        return wikiPageByKey[key] ?: ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http(404, "Not Found"))
+    }
+
     /** What a write to a discussion answers, once recorded in [calls]; it goes through when null. */
     var discussionWriteFailure: fr.arthurbrugiere.forgeline.core.forge.ForgeError? = null
 

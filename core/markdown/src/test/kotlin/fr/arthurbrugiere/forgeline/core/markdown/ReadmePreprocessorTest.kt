@@ -89,6 +89,17 @@ class ReadmePreprocessorTest {
     }
 
     @Test
+    fun a_wiki_page_s_relative_links_point_at_its_other_pages_and_its_pictures_at_the_wiki_s_files() {
+        // As gama-platform/gama's wiki links its pages (2026-10-25).
+        val wiki = ReadmeContext(rawBaseUrl = "https://raw.githubusercontent.com/wiki/gama-platform/gama/", blobBaseUrl = "https://github.com/gama-platform/gama/wiki/")
+
+        assertThat(ReadmePreprocessor.prepare("Any [application domain](projects).", wiki, darkTheme = false))
+            .isEqualTo("Any [application domain](https://github.com/gama-platform/gama/wiki/projects).")
+        assertThat(ReadmePreprocessor.prepare("![Shot](images/run.png)", wiki, darkTheme = false))
+            .isEqualTo("![Shot](https://raw.githubusercontent.com/wiki/gama-platform/gama/images/run.png)")
+    }
+
+    @Test
     fun relative_links_point_at_the_repo_files() {
         assertThat(prepare("See [the guide](docs/GUIDE.md)."))
             .isEqualTo("See [the guide](https://github.com/octo/repo/blob/main/docs/GUIDE.md).")

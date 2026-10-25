@@ -78,6 +78,12 @@ object FakeForgeModule {
             listOf(fr.arthurbrugiere.forgeline.core.testing.discussionComment("c1", "Use the cursor the list gives back.", isAnswer = true)),
         )
         readmes[paperclip] = Readme("README.md", "# Paperclip\n\nOpen-source orchestration for teams of AI agents.")
+        wikiPageList = listOf(
+            fr.arthurbrugiere.forgeline.core.model.WikiPageSummary("Home", "Home"),
+            fr.arthurbrugiere.forgeline.core.model.WikiPageSummary("Install", "Install"),
+        )
+        wikiPageByKey["Home"] = fr.arthurbrugiere.forgeline.core.model.WikiPage("Home", "Home", "Welcome to the Paperclip wiki.", "https://github.com/paperclipai/paperclip/wiki/Home")
+        wikiPageByKey["Install"] = fr.arthurbrugiere.forgeline.core.model.WikiPage("Install", "Install", "Run the installer, then sign in.", "https://github.com/paperclipai/paperclip/wiki/Install")
         issues = listOf(
             issueSummary(14127, "Heartbeat recovery escalates too early"),
             issueSummary(13990, "Installer ignores the proxy setting", state = fr.arthurbrugiere.forgeline.core.model.IssueState.CLOSED),

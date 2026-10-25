@@ -209,6 +209,8 @@ fun RepoScreen(
     onForkErrorShown: () -> Unit = {},
     nowMillis: Long = rememberNow(state.issues, state.pulls, state.pinned, state.releases, state.runs),
 ) {
+    // Outside the app shell (previews, tests) the wiki opens on its forge.
+    val openWiki = fr.arthurbrugiere.forgeline.ui.LocalOpenWiki.current
     val colors = Soft.colors
     val snackbar = remember { SnackbarHostState() }
     val refreshFailed = stringResource(R.string.trending_refresh_failed)
@@ -310,7 +312,7 @@ fun RepoScreen(
                         },
                     ) {
                         if (details != null) {
-                            RepoHeader(details, state.starred, signedIn, onToggleStar, onLinkClick, onOpenUser, state.watching, onToggleWatch, state.isForking, onFork = { forking = true }, onOpenWiki = { onOpenInBrowser(details.id.wikiUrl) }, languages = state.languages)
+                            RepoHeader(details, state.starred, signedIn, onToggleStar, onLinkClick, onOpenUser, state.watching, onToggleWatch, state.isForking, onFork = { forking = true }, onOpenWiki = { openWiki?.invoke(details.id, null) ?: onOpenInBrowser(details.id.wikiUrl) }, languages = state.languages)
                         } else {
                             Text(id.name, style = Soft.type.title, color = Soft.colors.ink)
                         }

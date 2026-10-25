@@ -313,4 +313,13 @@ class GitHubLiveContractTest {
             assertWithMessage("step at $start: $line").that(JobLogSteps.opening(ActionsLogParser.contentOf(line), LogFormat.GITHUB)).isNotNull()
         }
     }
+
+    /** A GitHub wiki page written in Markdown still reads as a file of the wiki's repository, with no token. */
+    @Test
+    fun a_wiki_page_still_reads_from_the_wiki_s_repository() = runBlocking {
+        val page = GitHubRepoApi(client).wikiPage(null, RepoId("gama-platform", "gama"), "Home")
+
+        assertWithMessage("page: $page").that(page).isInstanceOf(ForgeResult.Success::class.java)
+        assertThat((page as ForgeResult.Success).value.body).contains("GAMA")
+    }
 }

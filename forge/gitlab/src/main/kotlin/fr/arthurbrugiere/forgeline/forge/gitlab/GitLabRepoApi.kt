@@ -17,8 +17,11 @@ import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.WikiPage
+import fr.arthurbrugiere.forgeline.core.model.WikiPageSummary
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 import fr.arthurbrugiere.forgeline.core.model.languageShares
+import fr.arthurbrugiere.forgeline.core.model.wikiBaseUrl
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -166,6 +169,22 @@ class GitLabRepoApi(
     override suspend fun pinnedIssues(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> =
         ForgeResult.Success(emptyList())
 
+    /** GitLab names a wiki's first page "home", in lower case. */
+    override val wikiHome: String = "home"
+
+    override suspend fun wikiPages(token: String?, id: RepoId): ForgeResult<List<WikiPageSummary>> = forgeCall {
+        httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "wikis")
+            .toResult { body<List<GitLabWikiPageJson>>().map { WikiPageSummary(it.slug, it.title) } }
+    }
+
+    /** A page's words as written, in Markdown or another format GitLab renders (AsciiDoc, Org, RDoc): shown as Markdown. */
+    override suspend fun wikiPage(token: String?, id: RepoId, key: String): ForgeResult<WikiPage> = forgeCall {
+        httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "wikis", key).toResult {
+            val page = body<GitLabWikiPageJson>()
+            WikiPage(page.slug, page.title, page.content.orEmpty().replace("\r\n", "\n"), "${id.wikiBaseUrl}${page.slug}")
+        }
+    }
+
     override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = forgeCall {
         httpClient.gitlabApi(id.forge, token, "projects", id.fullName, "releases", query = mapOf("per_page" to "50"))
             .toResult { body<List<GitLabReleaseJson>>().map { it.toModel() } }
@@ -185,3 +204,6 @@ class GitLabRepoApi(
 
     override fun blobBaseUrl(id: RepoId, ref: String): String = "${id.forge.webUrl}/${id.fullName}/-/blob/$ref/"
 }
+
+@kotlinx.serialization.Serializable
+private data class GitLabWikiPageJson(val slug: String, val title: String, val content: String? = null)

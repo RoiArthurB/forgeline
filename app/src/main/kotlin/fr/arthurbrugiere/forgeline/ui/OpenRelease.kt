@@ -8,3 +8,6 @@ val LocalOpenRelease = compositionLocalOf<((RepoId, String) -> Unit)?> { null }
 
 /** Opens a discussion's page from anywhere a link or a row names one; null outside the app shell, where it opens on its forge. */
 val LocalOpenDiscussion = compositionLocalOf<((RepoId, Int) -> Unit)?> { null }
+
+/** Opens a page of a repository's wiki (its first when null); null outside the app shell, where the wiki opens on its forge. */
+val LocalOpenWiki = compositionLocalOf<((RepoId, String?) -> Unit)?> { null }

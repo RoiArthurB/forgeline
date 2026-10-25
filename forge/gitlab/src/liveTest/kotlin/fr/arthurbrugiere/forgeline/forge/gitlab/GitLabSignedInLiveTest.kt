@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertWithMessage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.runBlocking
@@ -36,5 +37,21 @@ class GitLabSignedInLiveTest {
             assertWithMessage("$kind forge").that(found.value().all { it.repo.forge == ForgeInstance.GitLab && it.repo.name.isNotBlank() }).isTrue()
             if (kind != WorkKind.ASSIGNED) assertWithMessage("$kind merge requests").that(found.value().all { it.issue.isPullRequest }).isTrue()
         }
+    }
+
+    /** fdroid/wiki: gitlab.com answers a wiki's pages to someone signed in, and its home in Markdown. */
+    @Test
+    fun a_wiki_lists_its_pages_and_reads_its_home() = runBlocking {
+        assumeTrue("GITLAB_LIVE_TOKEN not set", token.isNotBlank())
+        val fdroid = RepoId("fdroid", "wiki", ForgeInstance.GitLab)
+        val api = GitLabRepoApi(http)
+
+        val pages = api.wikiPages(token, fdroid).value()
+        assertWithMessage("pages").that(pages.size).isGreaterThan(10)
+        assertWithMessage("a page in a folder").that(pages.any { '/' in it.key }).isTrue()
+        val home = api.wikiPage(token, fdroid, api.wikiHome).value()
+        assertWithMessage("home").that(home.body).contains("F-Droid")
+        val nested = api.wikiPage(token, fdroid, pages.first { '/' in it.key }.key).value()
+        assertWithMessage("nested page").that(nested.body).isNotEmpty()
     }
 }

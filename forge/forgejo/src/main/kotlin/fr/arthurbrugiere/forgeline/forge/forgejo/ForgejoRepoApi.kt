@@ -17,10 +17,13 @@ import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.WikiPage
+import fr.arthurbrugiere.forgeline.core.model.WikiPageSummary
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
 import fr.arthurbrugiere.forgeline.core.model.languageShares
 import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
+import fr.arthurbrugiere.forgeline.core.model.wikiBaseUrl
 import fr.arthurbrugiere.forgeline.core.model.withLatest
 import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
@@ -112,6 +115,20 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
         get(token, id, "issues", "pinned").toResult { body<List<IssueJson>>().filterNot { it.isPullRequest }.map { it.toSummary() } }
     }
 
+    /** Forgejo lists `_Sidebar` and `_Footer` among the pages: shown on every page on its site, never on their own. */
+    override suspend fun wikiPages(token: String?, id: RepoId): ForgeResult<List<WikiPageSummary>> = forgeCall {
+        get(token, id, "wiki", "pages", query = mapOf("limit" to "50"))
+            .toResult { body<List<WikiPageJson>>().filterNot { it.title.startsWith("_") }.map { WikiPageSummary(it.subUrl, it.title) } }
+    }
+
+    override suspend fun wikiPage(token: String?, id: RepoId, key: String): ForgeResult<WikiPage> = forgeCall {
+        get(token, id, "wiki", "page", key).toResult {
+            val page = body<WikiPageJson>()
+            val text = page.contentBase64?.let { String(java.util.Base64.getMimeDecoder().decode(it), Charsets.UTF_8) }.orEmpty()
+            WikiPage(page.subUrl, page.title, text, page.htmlUrl ?: "${id.wikiBaseUrl}$key")
+        }
+    }
+
     override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = forgeCall {
         get(token, id, "releases", query = mapOf("limit" to "30"))
             .toResult { body<List<ReleaseJson>>().filterNot { it.draft }.map { it.toModel() }.withLatest() }
@@ -156,3 +173,12 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
         }
     }
 }
+
+/** A page of a wiki: listed without its words, read with them in base64. */
+@kotlinx.serialization.Serializable
+private data class WikiPageJson(
+    val title: String,
+    @kotlinx.serialization.SerialName("sub_url") val subUrl: String,
+    @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
+    @kotlinx.serialization.SerialName("content_base64") val contentBase64: String? = null,
+)

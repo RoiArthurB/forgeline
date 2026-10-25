@@ -12,6 +12,8 @@ import fr.arthurbrugiere.forgeline.core.model.RepoFile
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.WikiPage
+import fr.arthurbrugiere.forgeline.core.model.WikiPageSummary
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 
 /**
@@ -65,6 +67,18 @@ interface RepoApi {
     /** Comments on [discussion], or replies under its comment [replyTo]: a comment, never a reply, which has none of its own. */
     suspend fun commentOnDiscussion(token: String, discussion: Discussion, body: String, replyTo: String? = null): ForgeResult<Unit> =
         ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** The key of a wiki's first page, which opens it. */
+    val wikiHome: String get() = "Home"
+
+    /**
+     * The pages of [id]'s wiki, by title, without the parts every page shows (a sidebar, a footer); Unsupported where
+     * its forge can't list them (GitHub, whose wikis have no API).
+     */
+    suspend fun wikiPages(token: String?, id: RepoId): ForgeResult<List<WikiPageSummary>> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** The wiki page [key] of [id]; 404 where there is none, or no wiki. */
+    suspend fun wikiPage(token: String?, id: RepoId, key: String): ForgeResult<WikiPage> = ForgeResult.Failure(ForgeError.Unsupported)
 
     /** Picks the comment [commentId] as the answer to its discussion, or takes that back. */
     suspend fun setDiscussionAnswer(token: String, commentId: String, answer: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)

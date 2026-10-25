@@ -290,6 +290,13 @@
     <string name="discussion_no_text">No description.</string>
     <string name="discussion_no_comments">No comments yet.</string>
     <string name="discussion_partial">Only the first comments and replies are shown here.</string>
+    <string name="wiki_of">Wiki of %1$s</string>
+    <string name="wiki_missing_title">No such page</string>
+    <string name="wiki_missing_body">This wiki has no page by that name, or it is written in a format only %1$s shows.</string>
+    <string name="wiki_error_title">Couldn’t load this page</string>
+    <string name="wiki_empty">This page is empty.</string>
+    <string name="wiki_pages_show">All pages (%1$d)</string>
+    <string name="wiki_pages_hide">Hide the pages</string>
     <string name="discussion_locked">This discussion is locked: only those who look after the repository can still comment.</string>
     <string name="discussion_comment_placeholder">Comment on this discussion</string>
     <string name="discussion_comment_send">Send comment</string>

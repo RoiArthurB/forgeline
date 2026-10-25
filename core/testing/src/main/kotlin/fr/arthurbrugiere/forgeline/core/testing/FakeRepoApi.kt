@@ -97,6 +97,20 @@ class FakeRepoApi : RepoApi {
 
     override suspend fun discussion(token: String?, id: RepoId, number: Int) = answer("discussion:${id.fullName}#$number", token) { discussions[number] }
 
+    /** A wiki's pages, listed where non-null, and each page by its key; a 404 for a page not given. */
+    var wikiPageList: List<fr.arthurbrugiere.forgeline.core.model.WikiPageSummary>? = null
+    val wikiPageByKey = mutableMapOf<String, fr.arthurbrugiere.forgeline.core.model.WikiPage>()
+
+    override suspend fun wikiPages(token: String?, id: RepoId): ForgeResult<List<fr.arthurbrugiere.forgeline.core.model.WikiPageSummary>> =
+        wikiPageList?.let { pages -> answer("wikiPages:${id.fullName}", token) { pages } } ?: ForgeResult.Failure(ForgeError.Unsupported)
+
+    override suspend fun wikiPage(token: String?, id: RepoId, key: String): ForgeResult<fr.arthurbrugiere.forgeline.core.model.WikiPage> {
+        calls += "wikiPage:${id.fullName}:$key"
+        tokens += token
+        failure?.let { return ForgeResult.Failure(it) }
+        return wikiPageByKey[key]?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Http(404, "Not Found"))
+    }
+
     override fun rawBaseUrl(id: RepoId, ref: String) = "https://raw.example/${id.fullName}/$ref/"
 
     override fun blobBaseUrl(id: RepoId, ref: String) = "https://blob.example/${id.fullName}/$ref/"

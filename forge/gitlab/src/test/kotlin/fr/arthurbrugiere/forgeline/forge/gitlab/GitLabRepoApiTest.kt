@@ -227,4 +227,33 @@ class GitLabRepoApiTest {
         assertThat(languages.first().name).isEqualTo("Go")
         assertThat(languages.first().share).isWithin(1e-3).of(0.9846)
     }
+
+    // fdroid/wiki on gitlab.com, read on 2026-10-25 (the list cut to ten pages).
+    private val fdroid = RepoId("fdroid", "wiki", ForgeInstance.GitLab)
+
+    private fun captured(name: String) = requireNotNull(javaClass.getResource("/gitlab/captured/$name")).readText()
+
+    @Test
+    fun a_wiki_lists_its_pages_by_slug_and_opens_on_home() = runTest {
+        val api = api { json(captured("wiki_pages_fdroid.json")) }
+
+        val pages = api.wikiPages("tok", fdroid).value()
+
+        assertThat(api.wikiHome).isEqualTo("home")
+        assertThat(pages).hasSize(10)
+        assertThat(pages[3].key).isEqualTo("Build-System/Buildserver")
+        assertThat(pages[3].title).isEqualTo("Buildserver")
+        assertThat(requests.single().url.encodedPath).isEqualTo("/api/v4/projects/fdroid%2Fwiki/wikis")
+    }
+
+    @Test
+    fun a_wiki_page_s_slug_is_asked_for_as_one_segment() = runTest {
+        val page = api { json(captured("wiki_page_fdroid_home.json")) }.wikiPage("tok", fdroid, "Build-System/CI").value()
+
+        // Line breaks as GitLab keeps them (\r\n) read as plain ones.
+        assertThat(page.body).startsWith("Welcome to the F-Droid wiki!\n\n\n# Getting edit access")
+        assertThat(page.body).doesNotContain("\r")
+        assertThat(page.webUrl).isEqualTo("https://gitlab.com/fdroid/wiki/-/wikis/home")
+        assertThat(requests.single().url.encodedPath).isEqualTo("/api/v4/projects/fdroid%2Fwiki/wikis/Build-System%2FCI")
+    }
 }

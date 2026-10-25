@@ -650,4 +650,28 @@ class GitHubRepoApiTest {
         assertThat(languages.map { it.name }).containsExactly("TypeScript", "Dart", "Svelte").inOrder()
         assertThat(languages.first().share).isWithin(1e-3).of(0.565)
     }
+
+    // gama-platform/gama's wiki home, read on 2026-10-25 and cut to its first lines.
+    private val gama = RepoId("gama-platform", "gama")
+
+    @Test
+    fun a_wiki_page_is_read_as_a_markdown_file_of_the_wiki_s_repository() = runTest {
+        val home = requireNotNull(javaClass.getResource("/github/wiki_home_gama.md")).readText()
+
+        val page = api { respond(home, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "text/plain")) }.wikiPage("tok", gama, "Getting-Started").value()
+
+        assertThat(page.title).isEqualTo("Getting Started")
+        assertThat(page.body).startsWith("# GAMA\n\nGAMA is an easy-to-use open source modeling")
+        assertThat(page.webUrl).isEqualTo("https://github.com/gama-platform/gama/wiki/Getting-Started")
+        assertThat(requests.single().url.toString()).isEqualTo("https://raw.githubusercontent.com/wiki/gama-platform/gama/Getting-Started.md")
+        assertThat(requests.single().headers[HttpHeaders.Authorization]).isEqualTo("Bearer tok")
+    }
+
+    @Test
+    fun a_github_wiki_can_t_list_its_pages_and_a_page_not_in_markdown_is_not_found() = runTest {
+        val api = api { respond("404: Not Found", HttpStatusCode.NotFound) }
+
+        assertThat(api.wikiPages("tok", gama)).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+        assertThat((api.wikiPage("tok", gama, "Written-in-AsciiDoc") as ForgeResult.Failure).error).isInstanceOf(ForgeError.Http::class.java)
+    }
 }

@@ -50,6 +50,12 @@ data class DiscussionRoute(val host: String, val owner: String, val name: String
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
 }
 
+/** A page of a repository's wiki; its first page when [page] is null. */
+@Serializable
+data class WikiRoute(val host: String, val owner: String, val name: String, val page: String? = null) : NavKey {
+    val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
+}
+
 /** A picture of a README, a comment or a release's notes, shown on its own. */
 @Serializable
 data class PictureRoute(val url: String, val description: String? = null) : NavKey {

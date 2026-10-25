@@ -403,4 +403,36 @@ class ForgejoRepoApiTest {
 
         assertThat(languages.map { it.name }).containsExactly("Go", "go-html-template", "TypeScript").inOrder()
     }
+
+    // dnkl/foot's wiki on Codeberg, read on 2026-10-25 (committers' addresses taken out, the page cut to 40 lines).
+    private val foot = RepoId("dnkl", "foot", ForgeInstance.Codeberg)
+
+    @Test
+    fun a_wiki_lists_its_pages_without_the_sidebar_and_footer() = runTest {
+        val asked = mutableListOf<String>()
+        val pages = with(codeberg) { api { path -> asked += path; json(fixture("wiki_pages_foot.json")) } }.wikiPages(null, foot).value()
+
+        assertThat(pages.map { it.title }).containsExactly("Home", "Joypixels", "Performance").inOrder()
+        assertThat(pages.first().key).isEqualTo("Home")
+        assertThat(asked.single()).isEqualTo("/api/v1/repos/dnkl/foot/wiki/pages")
+    }
+
+    @Test
+    fun a_wiki_page_is_read_from_its_base64() = runTest {
+        val asked = mutableListOf<String>()
+        val page = with(codeberg) { api { path -> asked += path; json(fixture("wiki_page_foot_home.json")) } }.wikiPage(null, foot, "Home").value()
+
+        assertThat(page.title).isEqualTo("Home")
+        assertThat(page.body).startsWith("# Index\n\n1. [Troubleshooting](#troubleshooting)")
+        assertThat(page.webUrl).isEqualTo("https://codeberg.org/dnkl/foot/wiki/Home")
+        assertThat(asked.single()).isEqualTo("/api/v1/repos/dnkl/foot/wiki/page/Home")
+    }
+
+    @Test
+    fun a_repository_without_a_wiki_has_no_page() = runTest {
+        // Codeberg's answer for forgejo/forgejo, which has none (2026-10-25).
+        val none = with(codeberg) { api { json("""{"message":"The target couldn't be found.","url":"https://codeberg.org/api/swagger","errors":[]}""", io.ktor.http.HttpStatusCode.NotFound) } }
+
+        assertThat((none.wikiPage(null, forgejo, "Home") as ForgeResult.Failure).error).isInstanceOf(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http::class.java)
+    }
 }

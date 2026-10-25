@@ -151,7 +151,7 @@ internal fun RepoHeader(
                     onToggle = onToggleWatch,
                 )
             }
-            // The app has no wiki pages of its own yet: where a repository has a wiki, it opens on its forge.
+            // Where a repository has a wiki, its first page opens.
             if (details.hasWiki) {
                 HeaderAction(icon = Icons.AutoMirrored.Outlined.MenuBook, label = stringResource(R.string.repo_wiki), onClick = onOpenWiki)
             }

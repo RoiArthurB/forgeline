@@ -28,14 +28,18 @@ import fr.arthurbrugiere.forgeline.core.model.RepoLanguage
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
 import fr.arthurbrugiere.forgeline.core.model.RunConclusion
 import fr.arthurbrugiere.forgeline.core.model.RunStatus
+import fr.arthurbrugiere.forgeline.core.model.WikiPage
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 import fr.arthurbrugiere.forgeline.core.model.languageShares
+import fr.arthurbrugiere.forgeline.core.model.wikiBaseUrl
+import fr.arthurbrugiere.forgeline.core.model.wikiTitleOf
 import fr.arthurbrugiere.forgeline.core.model.withLatest
 import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -44,6 +48,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import io.ktor.http.encodeURLPathPart
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -225,6 +230,15 @@ class GitHubRepoApi(
         return forgeCall {
             httpClient.gitHubGraphQl(apiBaseUrl, token, "mutation(\$id: ID!) { $mutation(input: {id: \$id}) { clientMutationId } }", buildJsonObject { put("id", commentId) }).map { }
         }
+    }
+
+    /**
+     * GitHub's wikis have no API: a page written in Markdown is read as a file, from the wiki's own repository. One
+     * written otherwise (AsciiDoc, MediaWiki) isn't found there: 404, and its forge's site has it.
+     */
+    override suspend fun wikiPage(token: String?, id: RepoId, key: String): ForgeResult<WikiPage> = forgeCall {
+        httpClient.get("https://raw.githubusercontent.com/wiki/${id.owner}/${id.name}/${key.encodeURLPathPart()}.md") { if (token != null) bearerAuth(token) }
+            .toResult { WikiPage(key, wikiTitleOf(key), bodyAsText(), "${id.wikiBaseUrl}$key") }
     }
 
     override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = forgeCall {

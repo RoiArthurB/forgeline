@@ -283,6 +283,13 @@
     <string name="discussion_no_text">Aucune description.</string>
     <string name="discussion_no_comments">Aucun commentaire pour l’instant.</string>
     <string name="discussion_partial">Seuls les premiers commentaires et réponses sont affichés ici.</string>
+    <string name="wiki_of">Wiki de %1$s</string>
+    <string name="wiki_missing_title">Page introuvable</string>
+    <string name="wiki_missing_body">Ce wiki n’a pas de page de ce nom, ou elle est écrite dans un format que seul %1$s affiche.</string>
+    <string name="wiki_error_title">Impossible de charger cette page</string>
+    <string name="wiki_empty">Cette page est vide.</string>
+    <string name="wiki_pages_show">Toutes les pages (%1$d)</string>
+    <string name="wiki_pages_hide">Masquer les pages</string>
     <string name="discussion_locked">Cette discussion est verrouillée : seuls ceux qui s’occupent du dépôt peuvent encore commenter.</string>
     <string name="discussion_comment_placeholder">Commenter cette discussion</string>
     <string name="discussion_comment_send">Envoyer le commentaire</string>

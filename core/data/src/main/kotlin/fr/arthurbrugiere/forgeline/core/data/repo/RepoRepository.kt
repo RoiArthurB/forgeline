@@ -77,6 +77,15 @@ interface RepoRepository {
 
     suspend fun discussion(id: RepoId, number: Int): ForgeResult<Discussion> = ForgeResult.Failure(ForgeError.Unsupported)
 
+    /** The key of the first page of a wiki on [forge], which opens it. */
+    fun wikiHome(forge: fr.arthurbrugiere.forgeline.core.model.ForgeInstance): String = "Home"
+
+    /** The pages of [id]'s wiki, by title; Unsupported where its forge can't list them. */
+    suspend fun wikiPages(id: RepoId): ForgeResult<List<fr.arthurbrugiere.forgeline.core.model.WikiPageSummary>> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** The wiki page [key] of [id]. */
+    suspend fun wikiPage(id: RepoId, key: String): ForgeResult<fr.arthurbrugiere.forgeline.core.model.WikiPage> = ForgeResult.Failure(ForgeError.Unsupported)
+
     /** Comments on [discussion] of [id], or replies under its comment [replyTo], as the account signed in on its forge. */
     suspend fun commentOnDiscussion(id: RepoId, discussion: Discussion, body: String, replyTo: String? = null): ForgeResult<Unit> =
         ForgeResult.Failure(ForgeError.Unsupported)
@@ -224,6 +233,12 @@ class DefaultRepoRepository @Inject constructor(
     override suspend fun discussion(id: RepoId, number: Int) = clients.repos(id.forge).discussion(accounts.tokenOn(id.forge), id, number).also { result ->
         if (result is ForgeResult.Success) seenDiscussions[id to number] = result.value.summary
     }
+
+    override fun wikiHome(forge: fr.arthurbrugiere.forgeline.core.model.ForgeInstance) = clients.repos(forge).wikiHome
+
+    override suspend fun wikiPages(id: RepoId) = clients.repos(id.forge).wikiPages(accounts.tokenOn(id.forge), id)
+
+    override suspend fun wikiPage(id: RepoId, key: String) = clients.repos(id.forge).wikiPage(accounts.tokenOn(id.forge), id, key)
 
     override suspend fun commentOnDiscussion(id: RepoId, discussion: Discussion, body: String, replyTo: String?) =
         accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).commentOnDiscussion(it, discussion, body, replyTo) } ?: ForgeResult.Failure(ForgeError.Unauthorized)

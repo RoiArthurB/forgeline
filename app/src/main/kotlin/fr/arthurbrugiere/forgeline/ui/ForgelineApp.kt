@@ -104,6 +104,7 @@ fun ForgelineApp(
             LocalOpenSearch provides { navigator.navigate(SearchKey) },
             LocalOpenRelease provides { repo, tag -> navigator.navigate(repo.releaseRoute(tag)) },
             LocalOpenDiscussion provides { repo, number -> navigator.navigate(DiscussionRoute(repo.forge.host, repo.owner, repo.name, number)) },
+            LocalOpenWiki provides { repo, page -> navigator.navigate(fr.arthurbrugiere.forgeline.navigation.WikiRoute(repo.forge.host, repo.owner, repo.name, page)) },
             LocalOpenPicture provides { url, description -> navigator.navigate(PictureRoute(url, description)) },
             LocalOpenPictureLabel provides stringResource(R.string.picture_view),
         ) {
@@ -140,6 +141,13 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
         entry<DiscussionRoute> { key ->
             fr.arthurbrugiere.forgeline.discussion.DiscussionRoute(
                 key, session, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.repo.forge, it) }, onSignIn = signIn,
+            )
+        }
+        entry<fr.arthurbrugiere.forgeline.navigation.WikiRoute> { key ->
+            fr.arthurbrugiere.forgeline.wiki.WikiRoute(
+                key, onBack = navigator::goBack,
+                onOpenPage = { repo, page -> navigator.navigate(fr.arthurbrugiere.forgeline.navigation.WikiRoute(repo.forge.host, repo.owner, repo.name, page)) },
+                onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.repo.forge, it) },
             )
         }
         entry<PictureRoute> { key -> PictureScreen(key, onBack = navigator::goBack, onOpenInBrowser = rememberCustomTabOpener()) }

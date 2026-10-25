@@ -101,4 +101,22 @@ class ForgejoClientLiveTest {
         assertWithMessage("files of ${commit.commit.shortSha}").that(commit.files.map { it.path }).contains("go.mod")
         System.err.println("CODEBERG #${ref.number}: ${files.files.size} files, ${checks.size} checks")
     }
+
+    /** dnkl/foot's wiki: its pages listed without the sidebar and footer, its first page read. */
+    @Test
+    fun a_wiki_lists_its_pages_and_reads_one() = runBlocking<Unit> {
+        val foot = RepoId("dnkl", "foot", ForgeInstance.Codeberg)
+        val api = ForgejoRepoApi(http, ForgeInstance.Codeberg)
+
+        val pages = api.wikiPages(null, foot)
+        assertWithMessage("pages: $pages").that(pages).isInstanceOf(fr.arthurbrugiere.forgeline.core.forge.ForgeResult.Success::class.java)
+        val listed = (pages as fr.arthurbrugiere.forgeline.core.forge.ForgeResult.Success).value
+        assertWithMessage("Home listed").that(listed.map { it.key }).contains("Home")
+        assertWithMessage("no sidebar").that(listed.none { it.title.startsWith("_") }).isTrue()
+
+        val home = api.wikiPage(null, foot, "Home")
+        // Not in the message: a page holds `%s`, which the message would read as placeholders.
+        assertWithMessage("home: ${(home as? fr.arthurbrugiere.forgeline.core.forge.ForgeResult.Failure)?.error}").that(home).isInstanceOf(fr.arthurbrugiere.forgeline.core.forge.ForgeResult.Success::class.java)
+        assertWithMessage("home text").that((home as fr.arthurbrugiere.forgeline.core.forge.ForgeResult.Success).value.body).contains("Troubleshooting")
+    }
 }
