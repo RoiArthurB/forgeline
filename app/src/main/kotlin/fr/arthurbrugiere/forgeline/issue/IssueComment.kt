@@ -73,8 +73,16 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 
 /** What one comment's menu offers; a null entry is not offered. [onReact] also makes the reactions shown tappable. */
-internal class CommentMenu(val onQuote: (() -> Unit)?, val onEdit: (() -> Unit)?, val onDelete: (() -> Unit)?, val onReact: ((Reaction) -> Unit)? = null) {
-    val isEmpty: Boolean get() = onQuote == null && onEdit == null && onDelete == null && onReact == null
+internal class CommentMenu(
+    val onQuote: (() -> Unit)?,
+    val onEdit: (() -> Unit)?,
+    val onDelete: (() -> Unit)?,
+    val onReact: ((Reaction) -> Unit)? = null,
+    /** Hides the comment (asking why), or shows a hidden one again. */
+    val onHide: (() -> Unit)? = null,
+    val onUnhide: (() -> Unit)? = null,
+) {
+    val isEmpty: Boolean get() = onQuote == null && onEdit == null && onDelete == null && onReact == null && onHide == null && onUnhide == null
 }
 
 /** One comment as a conversation turn: the author and when, then their words; unboxed, the reading is the point. */
@@ -292,6 +300,8 @@ private fun CommentDropdown(menu: CommentMenu, expanded: Boolean, onDismiss: () 
         }
         choice(R.string.issue_comment_quote, menu.onQuote)
         choice(R.string.issue_comment_edit, menu.onEdit)
+        choice(R.string.issue_comment_hide, menu.onHide)
+        choice(R.string.issue_comment_unhide, menu.onUnhide)
         choice(R.string.issue_comment_delete, menu.onDelete)
     }
 }

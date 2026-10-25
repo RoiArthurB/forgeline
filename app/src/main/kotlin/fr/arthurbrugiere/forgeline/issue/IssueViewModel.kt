@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
@@ -433,6 +434,23 @@ class IssueViewModel @AssistedInject constructor(
         if (_state.value.editing == null || _state.value.isCommenting) return
         _state.update { it.copy(editing = null, draft = setAside, commentError = null, draftPlaced = it.draftPlaced + 1) }
         setAside = ""
+    }
+
+    /**
+     * Hides the comment [id] for [reason], or shows it again when that is null: once the forge took it, the comment
+     * says so where it stands. A refusal is said as a deletion's is.
+     */
+    fun setCommentHidden(id: Long, reason: HideReason?) {
+        val comment = _state.value.items.firstOrNull { it is TimelineItem.Comment && it.id == id } as? TimelineItem.Comment ?: return
+        if (!comment.canHide) return
+        viewModelScope.launch {
+            when (val result = repository.setCommentHidden(ref, comment, reason)) {
+                is ForgeResult.Failure -> _state.update { it.copy(deleteError = result.error) }
+                is ForgeResult.Success -> _state.update { state ->
+                    state.copy(items = state.items.map { if (it is TimelineItem.Comment && it.id == id) it.copy(hidden = reason) else it })
+                }
+            }
+        }
     }
 
     /** Deletes the comment [id]. It stays in the list until the forge has let it go. */

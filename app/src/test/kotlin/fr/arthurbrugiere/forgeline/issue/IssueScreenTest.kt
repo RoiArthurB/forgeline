@@ -13,7 +13,9 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -28,6 +30,7 @@ import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.Label
@@ -77,6 +80,7 @@ class IssueScreenTest {
                 nowMillis = at.toEpochMilli(),
                 onToEnd = { events += "end" },
                 onToggleSubscribed = { events += "subscription" },
+                comments = CommentActions(onSetHidden = { id, reason -> events += "hide:$id:$reason" }),
                 onScrolled = {
                     events += "scrolled"
                     shown.value = shown.value.copy(scrollTo = null)
@@ -768,5 +772,30 @@ class IssueScreenTest {
 
         // Regression: it read "ghost", GitHub's own login for such accounts, untranslated and unexplained.
         composeRule.onNode(androidx.compose.ui.test.hasText("A deleted account opened this", substring = true)).assertIsDisplayed()
+    }
+
+    @Test
+    fun a_hidden_comment_shows_folded_saying_why_and_opens_when_asked() {
+        val hidden = TimelineItem.Comment(1, ForgeUser("spammer", null, null), "Buy now!", at, emptyMap(), nodeId = "IC_1", hidden = HideReason.SPAM)
+        setContent(IssueUiState(ref, issueDetails(ref), listOf(hidden)))
+
+        composeRule.onNodeWithText("Buy now!").assertDoesNotExist()
+        composeRule.onNodeWithText("spammer’s comment was hidden as spam").assertIsDisplayed()
+        composeRule.onNodeWithText("Show").performClick()
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithText("Buy now!").fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test
+    fun who_may_hide_a_comment_hides_it_for_a_reason() {
+        val comment = TimelineItem.Comment(1, ForgeUser("someone", null, null), "Off on a tangent", at, emptyMap(), nodeId = "IC_1", canHide = true)
+        setContent(IssueUiState(ref, issueDetails(ref), listOf(comment)))
+
+        // The comment's, after the conversation's own text.
+        composeRule.onAllNodes(hasContentDescription("Comment options")).onLast().performClick()
+        composeRule.onNodeWithText("Hide").performClick()
+        composeRule.onNodeWithText("Off-topic").performClick()
+
+        assertThat(events).contains("hide:1:OFF_TOPIC")
     }
 }

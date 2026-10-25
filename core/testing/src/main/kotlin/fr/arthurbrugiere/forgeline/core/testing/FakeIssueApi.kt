@@ -8,6 +8,7 @@ import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueChooser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -228,6 +229,16 @@ class FakeIssueApi : IssueApi {
     private val IssueRef.label get() = "${repo.fullName}#$number"
 
     override suspend fun labels(token: String, repo: RepoId) = read(token, "labels:${repo.fullName}", repoLabels)
+
+    override var hidesComments: Boolean = true
+
+    /** Hides the comment in the pages kept, as a forge then tells it. */
+    override suspend fun setCommentHidden(token: String, ref: IssueRef, comment: TimelineItem.Comment, reason: HideReason?) =
+        manage(token, "hide ${ref.label} comment ${comment.id}: $reason") {
+            pages.replaceAll { key, page ->
+                if (key.first != ref) page else page.copy(items = page.items.map { if (it is TimelineItem.Comment && it.id == comment.id) it.copy(hidden = reason) else it })
+            }
+        }
 
     override suspend fun createLabel(token: String, repo: RepoId, name: String, color: String) = manage(token, "label made in ${repo.fullName}: $name") {
         Label(name, color.removePrefix("#")).also { repoLabels = repoLabels + it }

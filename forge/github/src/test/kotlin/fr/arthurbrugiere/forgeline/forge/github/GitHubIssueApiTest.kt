@@ -7,6 +7,7 @@ import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ClosingCommit
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
+import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.Label
@@ -189,6 +190,43 @@ class GitHubIssueApiTest {
         val items = api { if ("/commits/" in it.url.encodedPath) json("{}", status = HttpStatusCode.NotFound) else json(events) }.timeline(null, issue, 1).value().items
 
         assertThat((items.single() as TimelineItem.StateChanged).commit).isEqualTo(ClosingCommit("abc1234def", null, "https://github.com/other/repo/commit/abc1234def"))
+    }
+
+    @Test
+    fun a_hidden_comment_says_why_and_who_may_hide_one_is_told_by_graphql() = runTest {
+        // The REST timeline names each comment's node; GraphQL says which are hidden (gama-platform/gama, 2026-10-25).
+        val events = """[
+          {"event":"commented","id":1,"node_id":"IC_one","user":{"login":"a"},"body":"Spam here","created_at":"2026-10-20T10:00:00Z"},
+          {"event":"commented","id":2,"node_id":"IC_two","user":{"login":"b"},"body":"Useful","created_at":"2026-10-20T11:00:00Z"}
+        ]"""
+        val nodes = """{"data":{"nodes":[{"id":"IC_one","isMinimized":true,"minimizedReason":"spam","viewerCanMinimize":true},""" +
+            """{"id":"IC_two","isMinimized":false,"minimizedReason":null,"viewerCanMinimize":true}]}}"""
+        val api = api { if (it.url.encodedPath == "/graphql") json(nodes) else json(events) }
+
+        val comments = api.timeline("tok", issue, 1).value().items.filterIsInstance<TimelineItem.Comment>()
+
+        assertThat(comments.map { it.hidden }).containsExactly(HideReason.SPAM, null).inOrder()
+        assertThat(comments.all { it.canHide }).isTrue()
+        assertThat(api.hidesComments).isTrue()
+        // Signed out, GraphQL can't be asked: nothing is said hidden, and nobody may hide.
+        requests.clear()
+        val signedOut = api.timeline(null, issue, 1).value().items.filterIsInstance<TimelineItem.Comment>()
+        assertThat(signedOut.none { it.canHide || it.hidden != null }).isTrue()
+        assertThat(requests.map { it.url.encodedPath }).doesNotContain("/graphql")
+    }
+
+    @Test
+    fun a_comment_is_hidden_with_its_reason_and_shown_again_by_its_node() = runTest {
+        val comment = TimelineItem.Comment(1, null, "Off topic", java.time.Instant.EPOCH, emptyMap(), nodeId = "IC_one", canHide = true)
+        val api = api { json("""{"data":{"done":{"clientMutationId":null}}}""") }
+
+        assertThat(api.setCommentHidden("tok", issue, comment, HideReason.OFF_TOPIC)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.setCommentHidden("tok", issue, comment, null)).isEqualTo(ForgeResult.Success(Unit))
+
+        val sent = requests.map { (it.body as io.ktor.http.content.TextContent).text }
+        assertThat(sent[0]).contains("minimizeComment(input: {subjectId: \$id, classifier: OFF_TOPIC})")
+        assertThat(sent[1]).contains("unminimizeComment(input: {subjectId: \$id})")
+        assertThat(sent[1]).contains(""""variables":{"id":"IC_one"}""")
     }
 
     @Test

@@ -146,12 +146,19 @@ enum class StateChange { CLOSED, REOPENED, MERGED }
 sealed interface TimelineItem {
     val createdAt: Instant?
 
+    /**
+     * [hidden] says why it was hidden, when someone who may hid it ([canHide] tells whether the reader may), by its
+     * [nodeId] on forges that hide comments.
+     */
     data class Comment(
         val id: Long,
         val author: ForgeUser?,
         val body: String,
         override val createdAt: Instant,
         val reactions: Map<Reaction, Int>,
+        val nodeId: String? = null,
+        val hidden: HideReason? = null,
+        val canHide: Boolean = false,
     ) : TimelineItem
 
     data class Review(
@@ -191,6 +198,9 @@ sealed interface TimelineItem {
 
     data class Committed(val sha: String, val message: String, val authorName: String?, override val createdAt: Instant?) : TimelineItem
 }
+
+/** Why a comment was hidden, as GitHub names it. */
+enum class HideReason { OFF_TOPIC, OUTDATED, RESOLVED, DUPLICATE, SPAM, ABUSE }
 
 /** A commit that closed a conversation: its [message] is null when the forge couldn't give it, and [webUrl] its page. */
 data class ClosingCommit(val sha: String, val message: String?, val webUrl: String)

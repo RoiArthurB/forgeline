@@ -12,6 +12,7 @@ import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueChooser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -94,7 +95,41 @@ class GitHubIssueApi(
             apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "timeline",
             query = mapOf("per_page" to "100", "page" to page.toString()),
         )
-        response.toResult { TimelinePage(withCommitMessages(token, body<List<EventJson>>().mapNotNull { it.toModel() }), nextPage(), lastPage()) }
+        response.toResult {
+            val items = withCommitMessages(token, body<List<EventJson>>().mapNotNull { it.toModel() })
+            TimelinePage(if (token == null) items else withHiddenState(token, items), nextPage(), lastPage())
+        }
+    }
+
+    /**
+     * Which comments are hidden, and whether the reader may hide them: GraphQL tells, by their nodes, all at once. A
+     * timeline that can't be told so reads as it was.
+     */
+    private suspend fun withHiddenState(token: String, items: List<TimelineItem>): List<TimelineItem> {
+        val ids = items.mapNotNull { (it as? TimelineItem.Comment)?.nodeId }.take(100)
+        if (ids.isEmpty()) return items
+        val answer = runCatching {
+            httpClient.gitHubGraphQl(apiBaseUrl, token, HIDDEN_QUERY, buildJsonObject { putJsonArray("ids") { ids.forEach { add(it) } } }, partial = true)
+        }.getOrNull() as? ForgeResult.Success ?: return items
+        val nodes = (answer.value["nodes"] as? kotlinx.serialization.json.JsonArray).orEmpty()
+            .mapNotNull { node -> runCatching { ForgeJson.decodeFromJsonElement<HiddenNodeJson>(node) }.getOrNull() }
+            .associateBy { it.id }
+        return items.map { item ->
+            val node = (item as? TimelineItem.Comment)?.nodeId?.let(nodes::get) ?: return@map item
+            item.copy(hidden = node.reason.takeIf { node.isMinimized }, canHide = node.viewerCanMinimize)
+        }
+    }
+
+    override val hidesComments: Boolean = true
+
+    override suspend fun setCommentHidden(token: String, ref: IssueRef, comment: TimelineItem.Comment, reason: HideReason?): ForgeResult<Unit> {
+        val id = comment.nodeId ?: return ForgeResult.Failure(ForgeError.Unsupported)
+        val mutation = if (reason == null) {
+            "mutation(\$id: ID!) { done: unminimizeComment(input: {subjectId: \$id}) { clientMutationId } }"
+        } else {
+            "mutation(\$id: ID!) { done: minimizeComment(input: {subjectId: \$id, classifier: ${reason.name}}) { clientMutationId } }"
+        }
+        return forgeCall { httpClient.gitHubGraphQl(apiBaseUrl, token, mutation, buildJsonObject { put("id", id) }) }.map { }
     }
 
     /** A closing event names its commit only: each one's message is asked of it, all at once. */
@@ -632,6 +667,14 @@ private data class SourceJson(val issue: SourceIssueJson? = null)
 @Serializable
 private data class RenameJson(val from: String, val to: String)
 
+/** A comment's node, as GraphQL tells whether it is hidden and why ("off-topic", "spam"...). */
+@Serializable
+private data class HiddenNodeJson(val id: String, val isMinimized: Boolean = false, val minimizedReason: String? = null, val viewerCanMinimize: Boolean = false) {
+    val reason: HideReason? get() = HideReason.entries.firstOrNull { it.name.replace('_', '-').equals(minimizedReason, ignoreCase = true) }
+}
+
+private const val HIDDEN_QUERY = "query Hidden(\$ids: [ID!]!) { nodes(ids: \$ids) { ... on IssueComment { id isMinimized minimizedReason viewerCanMinimize } } }"
+
 @Serializable
 private data class CommitDetailJson(val commit: CommitMessageJson? = null)
 
@@ -661,6 +704,7 @@ private data class EventJson(
     val author: CommitAuthorJson? = null,
     val assignee: UserJson? = null,
     val milestone: MilestoneJson? = null,
+    @SerialName("node_id") val nodeId: String? = null,
     @SerialName("commit_id") val commitId: String? = null,
     @SerialName("commit_url") val commitUrl: String? = null,
 ) {
@@ -684,6 +728,7 @@ private data class EventJson(
                 body = body.orEmpty(),
                 createdAt = at ?: return null,
                 reactions = reactions?.toModel().orEmpty(),
+                nodeId = nodeId,
             )
             "reviewed" -> TimelineItem.Review(
                 id = id ?: 0,

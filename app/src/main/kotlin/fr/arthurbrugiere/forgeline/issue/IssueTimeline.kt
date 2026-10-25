@@ -30,10 +30,13 @@ import androidx.compose.material.icons.outlined.RateReview
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
+import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.core.model.StateChange
@@ -82,7 +86,20 @@ internal fun TimelineEntry(
     val colors = Soft.colors
     val time = item.createdAt?.let { relative(it, nowMillis) }.orEmpty()
     when (item) {
-        is TimelineItem.Comment -> Comment(item.author, item.body, item.createdAt, item.reactions, context, nowMillis, onOpenUser, onLinkClick, menu = menuFor(item), editor = editor)
+        is TimelineItem.Comment -> {
+            // A hidden comment folds to a line that says why, and opens when asked; its menu still offers to unhide it.
+            var shown by rememberSaveable(item.id) { mutableStateOf(false) }
+            val reason = item.hidden
+            if (reason != null && !shown) {
+                EventLine(
+                    Icons.Outlined.VisibilityOff,
+                    stringResource(R.string.issue_comment_hidden, item.author?.login ?: stringResource(R.string.deleted_account), stringResource(reason.label).lowercase()),
+                    trailing = { SoftTonalButton(stringResource(R.string.issue_comment_show), onClick = { shown = true }) },
+                )
+            } else {
+                Comment(item.author, item.body, item.createdAt, item.reactions, context, nowMillis, onOpenUser, onLinkClick, menu = menuFor(item), editor = editor)
+            }
+        }
         is TimelineItem.Review -> Column {
             val who = item.author?.login ?: stringResource(R.string.deleted_account)
             val (text, icon) = when (item.state) {
@@ -223,3 +240,14 @@ internal fun TimelineItem.key(index: Int): String = when (this) {
     is TimelineItem.Committed -> "commit-$sha"
     else -> "event-$index"
 }
+
+/** How a reason to hide a comment reads. */
+internal val HideReason.label: Int
+    get() = when (this) {
+        HideReason.OFF_TOPIC -> R.string.hide_off_topic
+        HideReason.OUTDATED -> R.string.hide_outdated
+        HideReason.RESOLVED -> R.string.hide_resolved
+        HideReason.DUPLICATE -> R.string.hide_duplicate
+        HideReason.SPAM -> R.string.hide_spam
+        HideReason.ABUSE -> R.string.hide_abuse
+    }

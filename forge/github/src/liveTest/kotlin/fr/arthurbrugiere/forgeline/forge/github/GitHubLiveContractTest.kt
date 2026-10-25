@@ -144,6 +144,22 @@ class GitHubLiveContractTest {
         assertWithMessage("viewed: $viewed").that(viewed).isInstanceOf(ForgeResult.Success::class.java)
     }
 
+    /**
+     * gama-platform/gama#765's comments say, through GraphQL, whether they are hidden and whether the reader may hide
+     * them: the owner's account is a member of gama-platform, which may (checked 2026-10-25).
+     */
+    @Test
+    fun a_conversation_s_comments_still_say_whether_they_can_be_hidden() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        val page = GitHubIssueApi(client).timeline(pat, fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("gama-platform", "gama"), 765), 1)
+
+        assertWithMessage("timeline: $page").that(page).isInstanceOf(ForgeResult.Success::class.java)
+        val comments = (page as ForgeResult.Success).value.items.filterIsInstance<fr.arthurbrugiere.forgeline.core.model.TimelineItem.Comment>()
+        assertWithMessage("comments").that(comments).isNotEmpty()
+        assertWithMessage("comment nodes").that(comments.all { it.nodeId != null }).isTrue()
+        assertWithMessage("may hide").that(comments.all { it.canHide }).isTrue()
+    }
+
     /** gama-platform/gama#1118 was closed by a commit: the timeline still names it, and the commit still reads. */
     @Test
     fun an_issue_closed_by_a_commit_still_says_which() = runBlocking {

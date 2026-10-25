@@ -380,6 +380,23 @@ class IssueViewModelTest {
         return IssueViewModel(ref, repository, SavedStateHandle(), drafts).also { advanceUntilIdle() }
     }
 
+    @Test
+    fun a_comment_is_hidden_for_a_reason_and_shown_again() = test {
+        val viewModel = managing(RepoAccess.TRIAGE)
+        api.pages[ref to 1] = TimelinePage(listOf(comment(1, "First").copy(nodeId = "IC_1", canHide = true)), nextPage = null)
+        viewModel.refresh()
+        advanceUntilIdle()
+
+        viewModel.setCommentHidden(1, fr.arthurbrugiere.forgeline.core.model.HideReason.OFF_TOPIC)
+        advanceUntilIdle()
+        assertThat((viewModel.state.value.items.single() as TimelineItem.Comment).hidden).isEqualTo(fr.arthurbrugiere.forgeline.core.model.HideReason.OFF_TOPIC)
+
+        viewModel.setCommentHidden(1, null)
+        advanceUntilIdle()
+        assertThat((viewModel.state.value.items.single() as TimelineItem.Comment).hidden).isNull()
+        assertThat(api.calls.filter { it.startsWith("manage:hide") }).containsExactly("manage:hide octo/repo#7 comment 1: OFF_TOPIC", "manage:hide octo/repo#7 comment 1: null").inOrder()
+    }
+
     private val pullRequest = PullRequestInfo(false, false, "main", "fix/it", 12, 3, 2, 1)
 
     @Test

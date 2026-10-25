@@ -515,6 +515,17 @@
     <string name="issue_comment_quote">Quote reply</string>
     <string name="issue_comment_edit">Edit</string>
     <string name="issue_comment_delete">Delete</string>
+    <string name="issue_comment_hide">Hide</string>
+    <string name="issue_comment_unhide">Unhide</string>
+    <string name="issue_comment_hide_title">Hide this comment as…</string>
+    <string name="issue_comment_hidden">%1$s’s comment was hidden as %2$s</string>
+    <string name="issue_comment_show">Show</string>
+    <string name="hide_off_topic">Off-topic</string>
+    <string name="hide_outdated">Outdated</string>
+    <string name="hide_resolved">Resolved</string>
+    <string name="hide_duplicate">Duplicate</string>
+    <string name="hide_spam">Spam</string>
+    <string name="hide_abuse">Abuse</string>
     <string name="issue_comment_delete_title">Delete this comment?</string>
     <string name="issue_comment_delete_body">It is deleted for good, for everyone.</string>
     <string name="issue_comment_delete_failed">The comment wasn\'t deleted. Try again.</string>

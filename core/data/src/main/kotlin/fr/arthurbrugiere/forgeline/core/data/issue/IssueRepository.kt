@@ -13,6 +13,7 @@ import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueChooser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -139,6 +140,12 @@ interface IssueRepository {
     // Each change is announced on [changed]; the conversation kept is brought up to date by loading it again.
 
     suspend fun labels(repo: RepoId): ForgeResult<List<Label>>
+
+    /** Whether comments can be hidden, saying why, on [forge]. */
+    fun hidesComments(forge: ForgeInstance): Boolean
+
+    /** Hides [comment] of [ref] for [reason], or shows it again when that is null. */
+    suspend fun setCommentHidden(ref: IssueRef, comment: TimelineItem.Comment, reason: HideReason?): ForgeResult<Unit>
 
     /** Makes a label named [name] in [repo], in a colour of its name ([labelColor]). */
     suspend fun createLabel(repo: RepoId, name: String): ForgeResult<Label>
@@ -419,6 +426,11 @@ class DefaultIssueRepository @Inject constructor(
         signedIn(ref.repo.forge, call).also { if (it is ForgeResult.Success) changes.tryEmit(ref) }
 
     override suspend fun labels(repo: RepoId) = signedIn(repo.forge) { labels(it, repo) }
+
+    override fun hidesComments(forge: ForgeInstance) = clients.issues(forge).hidesComments
+
+    override suspend fun setCommentHidden(ref: IssueRef, comment: TimelineItem.Comment, reason: HideReason?) =
+        changing(ref) { setCommentHidden(it, ref, comment, reason) }
 
     override suspend fun createLabel(repo: RepoId, name: String) = signedIn(repo.forge) { createLabel(it, repo, name, labelColor(name)) }
 

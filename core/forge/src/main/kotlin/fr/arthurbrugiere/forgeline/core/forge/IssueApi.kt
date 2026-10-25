@@ -4,6 +4,7 @@ import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueChooser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -97,6 +98,12 @@ interface IssueApi {
 
     /** Makes a label named [name] in [repo], of [color] (`#rrggbb`), for someone who may: it can then be set. */
     suspend fun createLabel(token: String, repo: RepoId, name: String, color: String): ForgeResult<Label> = unsupported
+
+    /** Whether comments can be hidden here, saying why, by those who moderate the conversation. */
+    val hidesComments: Boolean get() = false
+
+    /** Hides [comment] of [ref] for [reason], or shows it again when that is null. */
+    suspend fun setCommentHidden(token: String, ref: IssueRef, comment: TimelineItem.Comment, reason: HideReason?): ForgeResult<Unit> = unsupported
 
     /** Makes [names] the labels of [ref], taking away any other. */
     suspend fun setLabels(token: String, ref: IssueRef, names: List<String>): ForgeResult<Unit> = unsupported

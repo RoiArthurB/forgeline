@@ -71,6 +71,7 @@ import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
+import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.Reaction
@@ -210,6 +211,7 @@ fun IssueRoute(
             onEdit = viewModel::startEditing,
             onCancelEdit = viewModel::cancelEditing,
             onDelete = viewModel::deleteComment,
+            onSetHidden = viewModel::setCommentHidden,
             onDeleteErrorShown = viewModel::deleteErrorShown,
             onReact = viewModel::react,
             onReactionErrorShown = viewModel::reactionErrorShown,
@@ -302,6 +304,8 @@ class CommentActions(
     val onAttachErrorShown: () -> Unit = {},
     /** Told the reference being typed at the cursor (`#12`, `#crash`), or null when there is none. */
     val onReferenceTyped: (TypedReference?) -> Unit = {},
+    /** Hides a comment, by its id, for a reason; or shows it again (null). */
+    val onSetHidden: (Long, HideReason?) -> Unit = { _, _ -> },
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -422,6 +426,22 @@ fun IssueScreen(
             },
             onDismiss = { deleting = null },
         )
+    }
+    // The comment the reader asked to hide, until they have said why.
+    var hiding by rememberSaveable { mutableStateOf<Long?>(null) }
+    hiding?.let { id ->
+        SoftSheet(stringResource(R.string.issue_comment_hide_title), onDismiss = { hiding = null }) {
+            HideReason.entries.forEach { reason ->
+                SoftTonalButton(
+                    stringResource(reason.label),
+                    onClick = {
+                        hiding = null
+                        comments.onSetHidden(id, reason)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
     }
     // A reply needs the reader's turn: signed in, and let in when the conversation is locked.
     val canWrite = canComment && !(issue?.isLocked == true && state.access < RepoAccess.WRITE)
@@ -568,6 +588,8 @@ fun IssueScreen(
                                         onEdit = if (canWrite && state.canEdit(comment)) ({ comments.onEdit(comment.id) }) else null,
                                         onDelete = if (state.canDelete(comment)) ({ deleting = comment.id }) else null,
                                         onReact = if (canComment) ({ reaction -> comments.onReact(comment.id, reaction) }) else null,
+                                        onHide = if (comment.canHide && comment.hidden == null) ({ hiding = comment.id }) else null,
+                                        onUnhide = if (comment.canHide && comment.hidden != null) ({ comments.onSetHidden(comment.id, null) }) else null,
                                     )
                                 }
                             }

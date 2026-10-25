@@ -500,6 +500,17 @@
     <string name="issue_comment_quote">Répondre en citant</string>
     <string name="issue_comment_edit">Modifier</string>
     <string name="issue_comment_delete">Supprimer</string>
+    <string name="issue_comment_hide">Masquer</string>
+    <string name="issue_comment_unhide">Afficher à nouveau</string>
+    <string name="issue_comment_hide_title">Masquer ce commentaire comme…</string>
+    <string name="issue_comment_hidden">Le commentaire de %1$s a été masqué : %2$s</string>
+    <string name="issue_comment_show">Voir</string>
+    <string name="hide_off_topic">Hors sujet</string>
+    <string name="hide_outdated">Obsolète</string>
+    <string name="hide_resolved">Résolu</string>
+    <string name="hide_duplicate">Doublon</string>
+    <string name="hide_spam">Spam</string>
+    <string name="hide_abuse">Abus</string>
     <string name="issue_comment_delete_title">Supprimer ce commentaire ?</string>
     <string name="issue_comment_delete_body">Il est supprimé pour de bon, pour tout le monde.</string>
     <string name="issue_comment_delete_failed">Le commentaire n’a pas été supprimé. Réessayez.</string>
