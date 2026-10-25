@@ -6,8 +6,10 @@ import fr.arthurbrugiere.forgeline.core.data.inbox.SyncResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.Hint
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
+import fr.arthurbrugiere.forgeline.core.model.SwipeAction
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeInboxRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository
@@ -579,5 +581,61 @@ class InboxViewModelTest {
         runCurrent()
 
         assertThat(inbox.actions).containsExactly("done:1")
+    }
+
+    @Test
+    fun the_swipes_are_told_of_once_there_is_a_thread_to_swipe_until_the_hint_is_put_away() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        // Nothing listed: nothing to swipe yet.
+        assertThat(viewModel.state.value.hint).isNull()
+
+        inbox.set(mention)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.hint).isEqualTo(Hint.INBOX_SWIPES)
+
+        viewModel.hintSeen(Hint.INBOX_SWIPES)
+        // Written from the app's scope, which outlives the screen: advanceUntilIdle leaves it alone.
+        runCurrent()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.hint).isNull()
+        assertThat(settings.settings.value.hintsSeen).containsExactly(Hint.INBOX_SWIPES)
+    }
+
+    @Test
+    fun no_swipe_hint_when_neither_swipe_does_anything() = test {
+        settings.update { it.copy(inboxSwipeRight = SwipeAction.NONE, inboxSwipeLeft = SwipeAction.NONE) }
+        inbox.set(mention)
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.hint).isNull()
+    }
+
+    @Test
+    fun participating_and_yours_say_what_they_list_the_first_time_they_are_picked() = test {
+        settings.update { it.copy(hintsSeen = setOf(Hint.INBOX_SWIPES)) }
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.selectFilter(InboxFilter.PARTICIPATING)
+        advanceUntilIdle()
+        // Shown even with nothing listed: that is when what the filter means matters most.
+        assertThat(viewModel.state.value.hint).isEqualTo(Hint.INBOX_PARTICIPATING)
+
+        viewModel.selectFilter(InboxFilter.YOURS)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.hint).isEqualTo(Hint.INBOX_YOURS)
+
+        viewModel.hintSeen(Hint.INBOX_YOURS)
+        runCurrent()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.hint).isNull()
+
+        viewModel.selectFilter(InboxFilter.PARTICIPATING)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.hint).isEqualTo(Hint.INBOX_PARTICIPATING)
     }
 }

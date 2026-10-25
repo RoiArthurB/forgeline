@@ -111,6 +111,7 @@ class DataStoreUserSettingsRepositoryTest {
         openAtUnread = false,
         readingMarks = false,
         feedPictures = false,
+        hintsSeen = setOf(fr.arthurbrugiere.forgeline.core.model.Hint.INBOX_SWIPES, fr.arthurbrugiere.forgeline.core.model.Hint.INBOX_YOURS),
     )
 
     @Test
@@ -140,6 +141,7 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(changed.readingMarks).isNotEqualTo(defaults.readingMarks)
         assertThat(changed.feedPictures).isNotEqualTo(defaults.feedPictures)
         assertThat(changed.headerStyle).isNotEqualTo(defaults.headerStyle)
+        assertThat(changed.hintsSeen).isNotEqualTo(defaults.hintsSeen)
     }
 
     @Test
@@ -182,5 +184,18 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(settings.startTab).isEqualTo(fr.arthurbrugiere.forgeline.core.model.StartTab.AUTOMATIC)
         assertThat(settings.undoDelay).isEqualTo(fr.arthurbrugiere.forgeline.core.model.UndoDelay.SEC_5)
         assertThat(settings.headerStyle).isEqualTo(fr.arthurbrugiere.forgeline.core.model.HeaderStyle.INK)
+    }
+
+    @Test
+    fun a_hint_this_version_does_not_know_is_skipped_but_kept_for_the_version_that_does() = runTest {
+        val store = dataStore()
+        store.edit { it[stringSetPreferencesKey("hints_seen")] = setOf("INBOX_SWIPES", "SOME_FUTURE_HINT") }
+        val repository = DataStoreUserSettingsRepository(store)
+
+        assertThat(repository.settings.first().hintsSeen).containsExactly(fr.arthurbrugiere.forgeline.core.model.Hint.INBOX_SWIPES)
+
+        repository.update { it.copy(hintsSeen = it.hintsSeen + fr.arthurbrugiere.forgeline.core.model.Hint.INBOX_YOURS) }
+
+        assertThat(store.data.first()[stringSetPreferencesKey("hints_seen")]).containsExactly("INBOX_SWIPES", "INBOX_YOURS", "SOME_FUTURE_HINT")
     }
 }

@@ -20,6 +20,9 @@ enum class UndoDelay(val millis: Long) { OFF(0), SEC_3(3_000), SEC_5(5_000), SEC
 /** What a tap on a share button does; a long press does the other. */
 enum class ShareTap { SHARE, COPY }
 
+/** A word of help shown the first time something is met, until it is put away. */
+enum class Hint { INBOX_SWIPES, INBOX_PARTICIPATING, INBOX_YOURS }
+
 /**
  * Every default is how Forgeline behaved before the choice was offered: someone who never opens Settings sees no change.
  */
@@ -61,4 +64,6 @@ data class UserSettings(
     val readingMarks: Boolean = true,
     /** Feed releases show their project's picture; off, they're text only and load no images. */
     val feedPictures: Boolean = true,
+    /** The hints put away, never shown again. Not a choice offered in Settings: what has been read. */
+    val hintsSeen: Set<Hint> = emptySet(),
 )

@@ -13,10 +13,13 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.Hint
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SwipeAction
 import fr.arthurbrugiere.forgeline.core.model.UndoDelay
+import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -98,6 +101,8 @@ data class InboxUiState(
     val showForge: Boolean = false,
     /** The threads picked to be acted on together, by [NotificationThread.key]; empty when none is being picked. */
     val selected: Set<String> = emptySet(),
+    /** The word of help shown above the list, the first time it applies; null once put away. */
+    val hint: Hint? = null,
 ) {
     val threads: List<NotificationThread> get() = groups.flatMap { it.threads }
 
@@ -108,7 +113,7 @@ data class InboxUiState(
 class InboxViewModel @Inject constructor(
     private val savedState: SavedStateHandle,
     private val inbox: InboxRepository,
-    settings: UserSettingsRepository,
+    private val settings: UserSettingsRepository,
     accounts: AccountRepository,
     @param:BackgroundScope private val appScope: CoroutineScope,
 ) : ViewModel() {
@@ -118,8 +123,8 @@ class InboxViewModel @Inject constructor(
 
     private data class Split(val tabs: List<Account>, val selected: String?, val showForge: Boolean)
 
-    private val split = combine(accounts.accounts, settings.settings, selectedAccount) { signedIn, settings, selected ->
-        val tabs = if (settings.separateInboxPerForge && signedIn.size > 1) signedIn else emptyList()
+    private val split = combine(accounts.accounts, settings.settings, selectedAccount) { signedIn, chosen, selected ->
+        val tabs = if (chosen.separateInboxPerForge && signedIn.size > 1) signedIn else emptyList()
         // Nothing selected is "All": the unified list stays the default, even split.
         Split(tabs, selected?.takeIf { id -> tabs.any { it.id == id } }, signedIn.map { it.forge }.distinct().size > 1)
     }
@@ -149,13 +154,15 @@ class InboxViewModel @Inject constructor(
         combine(inbox.observe(), pending, refreshes) { snapshot, pending, _ -> snapshot to pending },
         filter,
         status,
-        combine(settings.settings.map { it.inboxCheckInterval != InboxCheckInterval.OFF }, split) { checks, split -> checks to split },
+        combine(settings.settings, split) { chosen, split -> chosen to split },
         combine(undo, selected) { undo, selected -> undo to selected },
-    ) { (snapshot, pending), filter, status, (backgroundChecks, split), (undo, selected) ->
+    ) { (snapshot, pending), filter, status, (chosen, split), (undo, selected) ->
         val groups = snapshot.threads.applying(pending)
             .filter { filter.matches(it) && (split.selected == null || it.accountId == split.selected) }
             .bySection(placed.getOrPut(filter to split.selected) { StableOrder<Pair<ForgeInstance, String>>() to StableOrder() })
         InboxUiState(
+            hint = hintFor(filter, chosen, listed = groups.isNotEmpty()),
+            backgroundChecks = chosen.inboxCheckInterval != InboxCheckInterval.OFF,
             filter = filter,
             groups = groups,
             // Only what is listed can be picked: a thread that left the list (done elsewhere, another filter) is let go.
@@ -167,13 +174,17 @@ class InboxViewModel @Inject constructor(
             isRefreshing = status.isRefreshing,
             error = status.error,
             actionFailed = status.actionFailed,
-            backgroundChecks = backgroundChecks,
             undo = undo,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), InboxUiState(filter = filter.value))
 
     init {
         sync(force = false)
+    }
+
+    /** The hint shown is read: it's never shown again. */
+    fun hintSeen(hint: Hint) {
+        appScope.launch { settings.update { it.copy(hintsSeen = it.hintsSeen + hint) } }
     }
 
     fun selectFilter(filter: InboxFilter) {
@@ -326,6 +337,17 @@ class InboxViewModel @Inject constructor(
                 InboxAction.DONE, InboxAction.UNSUBSCRIBE -> null
             }
         }
+
+    /**
+     * Swipes are told of once there is a thread to swipe and a swipe does something; each filter that isn't plain
+     * notifications says what it lists the first time it is picked.
+     */
+    private fun hintFor(filter: InboxFilter, chosen: UserSettings, listed: Boolean): Hint? = when (filter) {
+        InboxFilter.UNREAD, InboxFilter.ALL ->
+            Hint.INBOX_SWIPES.takeIf { listed && (chosen.inboxSwipeRight != SwipeAction.NONE || chosen.inboxSwipeLeft != SwipeAction.NONE) }
+        InboxFilter.PARTICIPATING -> Hint.INBOX_PARTICIPATING
+        InboxFilter.YOURS -> Hint.INBOX_YOURS
+    }?.takeIf { it !in chosen.hintsSeen }
 
     private fun InboxFilter.matches(thread: NotificationThread) = when (this) {
         InboxFilter.UNREAD -> thread.unread

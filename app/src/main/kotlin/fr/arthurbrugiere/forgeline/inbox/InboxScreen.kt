@@ -50,6 +50,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.Hint
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
@@ -125,6 +126,7 @@ fun InboxRoute(
         onActOnSelected = viewModel::actOnSelected,
         onErrorShown = viewModel::errorShown,
         onActionFailureShown = viewModel::actionFailureShown,
+        onDismissHint = viewModel::hintSeen,
     )
 }
 
@@ -209,6 +211,8 @@ fun InboxScreen(
     onRefreshWork: () -> Unit = {},
     onWorkErrorShown: () -> Unit = {},
     onOpenIssue: (IssueRef) -> Unit = {},
+    /** The hint shown was put away. */
+    onDismissHint: (Hint) -> Unit = {},
     nowMillis: Long = rememberNow(state.groups),
 ) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
     val colors = Soft.colors
@@ -338,6 +342,15 @@ fun InboxScreen(
                             notificationPrompt,
                             onAllowNotifications,
                             Modifier.widthIn(max = SoftTokens.MaxReadingWidth).padding(start = 16.dp, end = 16.dp, top = 16.dp),
+                        )
+                    }
+                }
+                state.hint?.let { hint ->
+                    item(key = "hint-$hint") {
+                        InboxHintCard(
+                            hint,
+                            onDismiss = { onDismissHint(hint) },
+                            Modifier.widthIn(max = SoftTokens.MaxReadingWidth).padding(start = 16.dp, end = 16.dp, top = 8.dp).animateItem(),
                         )
                     }
                 }

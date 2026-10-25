@@ -26,6 +26,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.Hint
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.SubjectState
@@ -74,6 +75,7 @@ class InboxScreenTest {
                     onClearSelection = { events += "pick-none" },
                     onActOnSelected = { events += "selected:$it" },
                     onMarkAllDone = { threads -> events += "all-done:" + threads.joinToString(",") { it.id } },
+                    onDismissHint = { events += "hint:$it" },
                     nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
                 )
             }
@@ -604,5 +606,59 @@ class InboxScreenTest {
     fun every_target_is_48dp_at_least() {
         setContent(grouped)
         composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    @Test
+    fun the_swipe_hint_says_what_each_side_does_and_is_put_away_with_got_it() {
+        setContent(InboxUiState(groups = listOf(SectionGroup(InboxSection.NEEDS_YOU, listOf(mention))), syncedAtMillis = 1, hint = Hint.INBOX_SWIPES))
+
+        composeRule.onNodeWithText("Sort with a swipe").assertIsDisplayed()
+        composeRule.onNodeWithText(
+            "Swipe a thread right to mark it read, or unread again. Swipe a thread left once you’re done with it. " +
+                "Swipe a repository’s name the same way to be done with all of it. " +
+                "Press and hold a thread to pick several. Swipes can be changed in Settings.",
+        ).assertIsDisplayed()
+        composeRule.onNodeWithText("Got it").performClick()
+
+        assertThat(events).containsExactly("hint:INBOX_SWIPES")
+    }
+
+    @Test
+    fun the_swipe_hint_follows_the_swipes_chosen_in_settings() {
+        userSettings = userSettings.copy(inboxSwipeRight = fr.arthurbrugiere.forgeline.core.model.SwipeAction.DONE, inboxSwipeLeft = fr.arthurbrugiere.forgeline.core.model.SwipeAction.NONE)
+        setContent(InboxUiState(groups = listOf(SectionGroup(InboxSection.NEEDS_YOU, listOf(mention))), syncedAtMillis = 1, hint = Hint.INBOX_SWIPES))
+
+        composeRule.onNodeWithText("Swipe a thread right once you’re done with it.", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Swipe a repository’s name the same way", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Swipe a thread left", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun a_swipe_hint_without_a_done_side_says_nothing_of_repositories() {
+        userSettings = userSettings.copy(inboxSwipeLeft = fr.arthurbrugiere.forgeline.core.model.SwipeAction.NONE)
+        setContent(InboxUiState(groups = listOf(SectionGroup(InboxSection.NEEDS_YOU, listOf(mention))), syncedAtMillis = 1, hint = Hint.INBOX_SWIPES))
+
+        composeRule.onNodeWithText("Swipe a thread right to mark it read", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("repository’s name", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun participating_and_yours_say_what_they_list() {
+        var state by mutableStateOf(InboxUiState(filter = InboxFilter.PARTICIPATING, syncedAtMillis = 1, hint = Hint.INBOX_PARTICIPATING))
+        composeRule.setContent {
+            InboxScreen(
+                state = state, onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
+                onErrorShown = {}, onActionFailureShown = {}, onDismissHint = { events += "hint:$it" },
+            )
+        }
+
+        composeRule.onNodeWithText("Only what you take part in").assertIsDisplayed()
+        composeRule.onNodeWithText("News from repositories you only watch stays under All.", substring = true).assertIsDisplayed()
+
+        state = InboxUiState(filter = InboxFilter.YOURS, syncedAtMillis = 1, hint = Hint.INBOX_YOURS)
+        composeRule.onNodeWithText("What waits on you").assertIsDisplayed()
+        composeRule.onNodeWithText("Got it").performClick()
+
+        assertThat(events).containsExactly("hint:INBOX_YOURS")
     }
 }
