@@ -7,7 +7,8 @@ import org.junit.Test
 
 /**
  * Fixtures are real logs: this repository's own CI job of 2026-10-17 (github_ci_job), a failed paperclipai/paperclip
- * job (github_failed_job) and a failed Codeberg one (forgejo_failed_job).
+ * job (github_failed_job), a failed Codeberg one (forgejo_failed_job) and a timed-out fdroid/fdroidclient job on
+ * gitlab.com of 2026-10-23, its first 60 and last 15 lines (gitlab_failed_job).
  */
 class JobLogStepsTest {
     private fun bytes(name: String) = requireNotNull(javaClass.getResource("/logs/$name")) { name }.readBytes()
@@ -97,5 +98,19 @@ class JobLogStepsTest {
         // The header GitLab shows, or the section's name when it shows none; a section within another isn't a step.
         assertThat(steps.map { it.title }).containsExactly(null, "Preparing the \"docker\" executor", "step script", "Cleaning up project directory").inOrder()
         assertThat(steps.map { it.errors }).containsExactly(0, 0, 1, 0).inOrder()
+    }
+
+    @Test
+    fun a_gitlab_trace_stamped_line_by_line_is_read_into_its_sections_by_their_headers() {
+        // Regression: gitlab.com's runners stamp each line "<time> 00O " and write a section's header on the next line,
+        // marked "+"; the steps were named by their sections' names and the job's failure went uncounted.
+        val steps = JobLogSteps.index(bytes("gitlab_failed_job.txt").inputStream(), LogFormat.GITLAB)
+
+        assertThat(steps.map { it.title }).containsExactly(
+            null, "Preparing the \"docker\" executor", "Preparing environment", "Getting source from Git repository",
+            "Downloading artifacts", "Executing \"step_script\" stage of the job script",
+        ).inOrder()
+        assertThat(steps.last().errors).isEqualTo(1)
+        assertThat(steps.sumOf { it.lines!! }).isEqualTo(75)
     }
 }

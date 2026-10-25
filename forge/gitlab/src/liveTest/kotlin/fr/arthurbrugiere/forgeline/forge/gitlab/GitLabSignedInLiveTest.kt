@@ -2,14 +2,18 @@ package fr.arthurbrugiere.forgeline.forge.gitlab
 
 import com.google.common.truth.Truth.assertWithMessage
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.forge.JobLogSteps
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.LogFormat
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.RunConclusion
 import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
 import org.junit.Test
+import java.io.ByteArrayOutputStream
 
 /**
  * Forgeline's GitLab client against the real gitlab.com, signed in. It only ever reads, and is skipped without
@@ -53,5 +57,25 @@ class GitLabSignedInLiveTest {
         assertWithMessage("home").that(home.body).contains("F-Droid")
         val nested = api.wikiPage(token, fdroid, pages.first { '/' in it.key }.key).value()
         assertWithMessage("nested page").that(nested.body).isNotEmpty()
+    }
+
+    /**
+     * fdroid/fdroidclient: a finished job's trace reads into steps named as GitLab names them, whether or not its runner
+     * stamps each line (gitlab.com's did on 2026-10-23, and wrote each header on the line after its section's marker).
+     */
+    @Test
+    fun a_real_job_s_trace_reads_into_its_steps() = runBlocking {
+        assumeTrue("GITLAB_LIVE_TOKEN not set", token.isNotBlank())
+        val fdroid = RepoId("fdroid", "fdroidclient", ForgeInstance.GitLab)
+        val actions = GitLabActionsApi(http)
+        val run = GitLabRepoApi(http).workflowRuns(token, fdroid).value().first { it.conclusion == RunConclusion.SUCCESS }
+        val job = actions.jobs(token, fdroid, run.id).value().first { it.conclusion == RunConclusion.SUCCESS }
+
+        val log = ByteArrayOutputStream().also { actions.downloadJobLog(token, fdroid, job.id, it).value() }.toByteArray()
+        val steps = JobLogSteps.index(log.inputStream(), LogFormat.GITLAB)
+
+        System.err.println("GITLAB job ${job.id}: ${steps.map { it.title }}")
+        assertWithMessage("steps").that(steps.map { it.title }).contains("Getting source from Git repository")
+        assertWithMessage("lines").that(steps.sumOf { it.lines ?: 0 }).isEqualTo(String(log).count { it == '\n' } + if (log.last() == '\n'.code.toByte()) 0 else 1)
     }
 }

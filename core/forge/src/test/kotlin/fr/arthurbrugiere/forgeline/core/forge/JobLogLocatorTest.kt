@@ -79,6 +79,22 @@ class JobLogLocatorTest {
         assertThat(texts(last.entries).last()).isEqualTo("Configuration cache entry stored.")
     }
 
+    @Test
+    fun a_gitlab_step_reads_without_its_lines_stamps_and_with_its_split_lines_joined() = runTest {
+        // Regression: each line showed its stream ("00O "), and a section's header stood apart from it.
+        val log = bytes("gitlab_failed_job.txt")
+        val prepare = JobLogSteps.index(log.inputStream(), LogFormat.GITLAB)[1]
+
+        val read = JobLogWindow.before(Storage(log).reader, prepare, prepare.end, LogFormat.GITLAB).value()
+
+        val texts = read.entries.map { JobLogSteps.stripAnsi((it as LogEntry.Line).text) }
+        assertThat(texts.first()).isEqualTo("Preparing the \"docker\" executor")
+        assertThat(texts[1]).isEqualTo("Using Docker executor with image briar/ci-image-android-emulator:trixie ...")
+        assertThat(texts).hasSize(5)
+        // As the log counts them: the header's line is still one of the step's.
+        assertThat(read.lines).isEqualTo(prepare.lines)
+    }
+
     /** 60,000 lines: a short setup, a three-minute build, and two post steps in the build's last second. */
     private fun longLog(): ByteArray {
         val out = StringBuilder()

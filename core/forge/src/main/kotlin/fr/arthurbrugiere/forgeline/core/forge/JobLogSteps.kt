@@ -49,10 +49,17 @@ object JobLogSteps {
         val steps = mutableListOf<LogStep>()
         var current = LogStep(title = null, start = 0, end = 0, lines = 0, errors = 0)
         var depth = 0
+        var awaitingHeader = false
         val splitter = LineSplitter { start, raw ->
-            val content = ActionsLogParser.contentOf(raw)
+            val stamped = if (format == LogFormat.GITLAB) GitLabLines.read(raw) else null
+            val content = stamped?.text ?: ActionsLogParser.contentOf(raw)
+            // A stamping runner writes the header of the section just opened on the line after, going on with it.
+            if (awaitingHeader && stamped?.continues == true) {
+                stripAnsi(content).trim().takeIf { it.isNotEmpty() && "section_" !in it }?.let { current = current.copy(title = it) }
+            }
+            awaitingHeader = false
             val opens = when (format) {
-                LogFormat.GITLAB -> GitLabSections.read(raw, depth).also { depth = it.depth }.opens
+                LogFormat.GITLAB -> GitLabSections.read(content, depth).also { depth = it.depth; awaitingHeader = it.opens != null && !it.headed }.opens
                 else -> opening(content, format)
             }
             if (opens != null) {
@@ -119,11 +126,13 @@ object JobLogSteps {
 internal object GitLabSections {
     private val marker = Regex("""section_(start|end):\d+:([A-Za-z0-9_.\-]+)(?:\[[^\]]*])?\r?(?:\u001B\[0K)?""")
 
-    data class Read(val depth: Int, val opens: String?)
+    /** [headed] when the section [opens] was named by a header on its own line, not by its name for want of one. */
+    data class Read(val depth: Int, val opens: String?, val headed: Boolean = false)
 
     fun read(raw: String, depthBefore: Int): Read {
         var depth = depthBefore
         var opens: String? = null
+        var headed = false
         val markers = marker.findAll(raw).toList()
         markers.forEachIndexed { index, match ->
             if (match.groupValues[1] == "end") {
@@ -133,10 +142,26 @@ internal object GitLabSections {
                     val headerEnd = markers.getOrNull(index + 1)?.range?.first ?: raw.length
                     val header = JobLogSteps.stripAnsi(raw.substring(match.range.last + 1, headerEnd)).trim()
                     opens = header.ifEmpty { match.groupValues[2].replace('_', ' ') }
+                    headed = header.isNotEmpty()
                 }
                 depth++
             }
         }
-        return Read(depth, opens)
+        return Read(depth, opens, headed)
+    }
+}
+
+/**
+ * GitLab's runners may stamp each line `<time> <stream><O or E><+ or space>` (gitlab.com's do, 2026-10-23): a `+` line
+ * goes on with the line before it, which the runner cut.
+ */
+internal object GitLabLines {
+    private val stamp = Regex("""^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z [0-9a-f]{2}[OE]([ +])""")
+
+    data class Line(val text: String, val continues: Boolean)
+
+    fun read(raw: String): Line {
+        val found = stamp.find(raw) ?: return Line(raw, continues = false)
+        return Line(raw.substring(found.range.last + 1), continues = found.groupValues[1] == "+")
     }
 }

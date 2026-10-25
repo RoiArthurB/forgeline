@@ -1,0 +1,75 @@
+2026-10-23T22:10:01.537366Z 00O [0KRunning with gitlab-runner 19.5.0 (70f5c12d)[0;m
+2026-10-23T22:10:01.537423Z 00O [0K  on fdroid-gitlab-runner-fdroid 6a4bcc785, system ID: s_d04cedb6c8ec[0;m
+2026-10-23T22:10:01.537428Z 00O [0K  UUID: 019f35bb-4d33-7b46-8873-18196617cfd2[0;m
+2026-10-23T22:10:01.537495Z 00O [0K[36;1mResolving secrets[0;m[0;m
+2026-10-23T22:10:01.537809Z 00O section_start:1792793401:prepare_executor[0K
+2026-10-23T22:10:01.537817Z 00O+[0K[36;1mPreparing the "docker" executor[0;m[0;m
+2026-10-23T22:10:01.567920Z 00O [0KUsing Docker executor with image briar/ci-image-android-emulator:trixie ...[0;m
+2026-10-23T22:10:08.837488Z 00O [0KUsing effective pull policy of [always] for container briar/ci-image-android-emulator:trixie[0;m
+2026-10-23T22:10:08.852361Z 00O [0KPulling docker image briar/ci-image-android-emulator:trixie ...[0;m
+2026-10-23T22:10:09.584708Z 00O [0KUsing docker image sha256:ffdb513d20fc4ac317e363ee45905559232de14026e0198e3158bbeb16f99101 for briar/ci-image-android-emulator:trixie with digest briar/ci-image-android-emulator@sha256:dc0f4eb5cc24379adbbfcdf2e3ce3ce79ea7066d791edd9f1c99dc220a613967 ...[0;m
+2026-10-23T22:10:09.584729Z 00O section_end:1792793409:prepare_executor[0K
+2026-10-23T22:10:09.584954Z 00O+section_start:1792793409:prepare_script[0K
+2026-10-23T22:10:09.584962Z 00O+[0K[36;1mPreparing environment[0;m[0;m
+2026-10-23T22:10:09.585757Z 00O [0KUsing effective pull policy of [always] for container sha256:43d281ad679ea287f49de76177ef70bb864dfdd81c6b67823b0505265c6054b8[0;m
+2026-10-23T22:10:09.956556Z 01O Running on runner-6a4bcc785-project-36189-concurrent-0 via gitlab-runner-01...
+2026-10-23T22:10:09.962710Z 01O Running on CPU: Intel Xeon Processor (Cascadelake) (avx, avx2, avx512f)
+2026-10-23T22:10:10.402160Z 00O section_end:1792793410:prepare_script[0K
+2026-10-23T22:10:10.403534Z 00O+section_start:1792793410:get_sources[0K
+2026-10-23T22:10:10.403549Z 00O+[0K[36;1mGetting source from Git repository[0;m[0;m
+2026-10-23T22:10:10.771589Z 01O [32;1mGitaly correlation ID: a4f411c20bea45f7-SEA[0;m
+2026-10-23T22:10:10.778309Z 01O [32;1mFetching changes...[0;m
+2026-10-23T22:10:10.783031Z 01O Reinitialized existing Git repository in /builds/fdroid/fdroidclient/.git/
+2026-10-23T22:10:10.788323Z 01O [32;1mCreated fresh repository.[0;m
+2026-10-23T22:10:12.007446Z 01O [32;1mChecking out 1b899d29 as detached HEAD (ref is master)...[0;m
+2026-10-23T22:10:27.182439Z 01O Removing .gradle/
+2026-10-23T22:10:27.627465Z 01O Removing .kotlin/
+2026-10-23T22:10:27.627479Z 01O Removing app/build/
+2026-10-23T22:10:27.627480Z 01O Removing build/
+2026-10-23T22:10:27.627481Z 01O Removing kernel.log
+2026-10-23T22:10:27.627482Z 01O Removing libs/core/build/
+2026-10-23T22:10:27.627483Z 01O Removing libs/database/build/
+2026-10-23T22:10:27.627484Z 01O Removing libs/download/build/
+2026-10-23T22:10:27.627485Z 01O Removing libs/index/build/
+2026-10-23T22:10:27.627486Z 01O Removing libs/sharedTest/build/
+2026-10-23T22:10:27.627487Z 01O Removing logcat.txt
+2026-10-23T22:10:27.627649Z 01O [32;1mSkipping Git submodules setup[0;m
+2026-10-23T22:10:28.206691Z 00O section_end:1792793428:get_sources[0K
+2026-10-23T22:10:28.214156Z 00O+section_start:1792793428:download_artifacts[0K
+2026-10-23T22:10:28.214174Z 00O+[0K[36;1mDownloading artifacts[0;m[0;m
+2026-10-23T22:10:28.597702Z 01O [32;1mDownloading artifacts for app screenshots (17429981178)...[0;m
+2026-10-23T22:10:29.203542Z 01E Direct download from cdn.artifacts.gitlab-static.net[0;m  correlation_id[0;m=a4f41272aa2d7584-SEA id[0;m=17429981178 status[0;m=302 token[0;m=REDACTED
+2026-10-23T22:10:29.696057Z 01E Downloading artifacts from coordinator... ok      [0;m  correlation_id[0;m=a4f41272aa2d7584-SEA id[0;m=17429981178 status[0;m=302 token[0;m=REDACTED
+2026-10-23T22:10:30.572712Z 00O section_end:1792793430:download_artifacts[0K
+2026-10-23T22:10:30.574445Z 00O+section_start:1792793430:step_script[0K
+2026-10-23T22:10:30.574466Z 00O+[0K[36;1mExecuting "step_script" stage of the job script[0;m[0;m
+2026-10-23T22:10:30.574490Z 00O [0KUsing effective pull policy of [always] for container briar/ci-image-android-emulator:trixie[0;m
+2026-10-23T22:10:30.577660Z 00O [0KUsing docker image sha256:ffdb513d20fc4ac317e363ee45905559232de14026e0198e3158bbeb16f99101 for briar/ci-image-android-emulator:trixie with digest briar/ci-image-android-emulator@sha256:dc0f4eb5cc24379adbbfcdf2e3ce3ce79ea7066d791edd9f1c99dc220a613967 ...[0;m
+2026-10-23T22:10:31.158343Z 01O [32;1m$ test -e /etc/apt/sources.list.d/trixie-backports.list || echo "deb http://deb.debian.org/debian trixie-backports main" >> /etc/apt/sources.list[0;m
+2026-10-23T22:10:31.158545Z 01O [32;1m$ apt update[0;m
+2026-10-23T22:10:31.270842Z 01E 
+2026-10-23T22:10:31.270857Z 01E WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
+2026-10-23T22:10:31.270859Z 01E 
+2026-10-23T22:10:31.437616Z 01O Get:1 http://deb.debian.org/debian trixie-backports InRelease [54.0 kB]
+2026-10-23T22:10:31.469775Z 01O Get:2 http://deb.debian.org/debian trixie InRelease [140 kB]
+2026-10-23T22:10:31.541717Z 01O Get:3 http://deb.debian.org/debian trixie-updates InRelease [47.3 kB]
+2026-10-23T22:10:31.575696Z 01O Get:4 http://deb.debian.org/debian-security trixie-security InRelease [43.4 kB]
+2026-10-23T22:10:31.613921Z 01O Get:5 http://deb.debian.org/debian trixie-backports/main amd64 Packages [289 kB]
+2026-10-23T22:10:31.697703Z 01O Get:6 http://deb.debian.org/debian trixie/main amd64 Packages [9678 kB]
+2026-10-23T22:10:31.854852Z 01O Get:7 http://deb.debian.org/debian trixie-updates/main amd64 Packages [720 B]
+2026-10-23T22:10:31.854870Z 01O Get:8 http://deb.debian.org/debian-security trixie-security/main amd64 Packages [270 kB]
+2026-10-23T23:10:08.081724Z 01O DEBUG   | Exited a RenderThread @0x5628a1b96340 early
+2026-10-23T23:10:08.100658Z 01O DEBUG   | User configuration saved to /root/.android/avd/../avd/ci_test.avd/emulator-user.ini
+2026-10-23T23:10:16.178341Z 01O 
+2026-10-23T23:10:16.180747Z 01O > Configure project :app
+2026-10-23T23:10:16.181249Z 01O WARNING: The option setting 'android.experimental.enableScreenshotTest=true' is experimental.
+2026-10-23T23:10:16.181447Z 01O The current default is 'false'.
+2026-10-23T23:10:16.181803Z 01O Add android.sync.suppressAgpWarnings=UNSUPPORTED_PROJECT_OPTION_USE to the gradle.properties file to suppress this warning.
+2026-10-23T23:10:16.182133Z 01O WARNING: The option setting 'android.experimental.androidTest.useUnifiedTestPlatform=false' is deprecated.
+2026-10-23T23:10:16.182376Z 01O The current default is 'true'.
+2026-10-23T23:10:16.182648Z 01O It will be removed in version 9.0 of the Android Gradle plugin.
+2026-10-23T23:10:16.182918Z 01O Add android.sync.suppressAgpWarnings=UNSUPPORTED_PROJECT_OPTION_USE to the gradle.properties file to suppress this warning.
+2026-10-23T23:10:17.278402Z 01O Only including these translations for stable release: [en-rUS, ar, be, bg, bn, ca, cs, de, el, en-rGB, eo, es, et, eu, fa, fi, fr, ga, gl, he, hr, hu, id, in, it, iw, ja, kk, ko, lt, lv, nb, nl, nn, pl, pt, pt-rBR, pt-rPT, ro, ru, sk, sl, sq, sr, sv, tr, uk, vi, zh-rCN, zh-rTW]
+2026-10-23T23:10:21.922492Z 00O section_end:1792797021:step_script[0K
+2026-10-23T23:10:21.922519Z 00O+[0;33mWARNING: step_script could not run to completion because the timeout was exceeded. For more control over job and script timeouts see: https://docs.gitlab.com/ci/runners/configure_runners/#set-script-and-after_script-timeouts[0;m
+2026-10-23T23:10:22.546978Z 00O [31;1mERROR: Job failed: execution took longer than 1h0m0s seconds[0;m
