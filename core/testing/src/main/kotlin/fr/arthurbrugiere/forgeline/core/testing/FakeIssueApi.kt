@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
+import fr.arthurbrugiere.forgeline.core.model.IssueType
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
@@ -230,6 +231,17 @@ class FakeIssueApi : IssueApi {
     private val IssueRef.label get() = "${repo.fullName}#$number"
 
     override suspend fun labels(token: String, repo: RepoId) = read(token, "labels:${repo.fullName}", repoLabels)
+
+    override var typesIssues: Boolean = true
+
+    var repoTypes = listOf(IssueType("Task", "YELLOW"), IssueType("Bug", "RED"), IssueType("Feature", "BLUE"))
+
+    override suspend fun issueTypes(token: String, repo: RepoId) = read(token, "types:${repo.fullName}", repoTypes)
+
+    override suspend fun setIssueType(token: String, ref: IssueRef, name: String?) = manage(token, "type ${ref.label}: $name") {
+        issues[ref]?.let { issue -> issues[ref] = issue.copy(type = repoTypes.firstOrNull { it.name == name }) }
+        Unit
+    }
 
     override var tracksSubIssues: Boolean = true
 

@@ -9,6 +9,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueChooser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
+import fr.arthurbrugiere.forgeline.core.model.IssueType
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
@@ -99,6 +100,15 @@ interface IssueApi {
 
     /** Makes a label named [name] in [repo], of [color] (`#rrggbb`), for someone who may: it can then be set. */
     suspend fun createLabel(token: String, repo: RepoId, name: String, color: String): ForgeResult<Label> = unsupported
+
+    /** Whether issues have a type here, among those the repository's owner named. */
+    val typesIssues: Boolean get() = false
+
+    /** The kinds of issue [repo]'s owner named; none where the forge has none. */
+    suspend fun issueTypes(token: String, repo: RepoId): ForgeResult<List<IssueType>> = ForgeResult.Success(emptyList())
+
+    /** Sets the issue [ref]'s type by its name, or none when that is null. */
+    suspend fun setIssueType(token: String, ref: IssueRef, name: String?): ForgeResult<Unit> = unsupported
 
     /** Whether issues are split into sub-issues here. */
     val tracksSubIssues: Boolean get() = false

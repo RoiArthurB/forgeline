@@ -56,7 +56,12 @@ data class IssueDetails(
     val milestone: Milestone? = null,
     /** The day it is due, on forges that keep one. */
     val dueDate: java.time.LocalDate? = null,
+    /** What kind of issue it is (a bug, a task...), on forges whose owners name kinds. */
+    val type: IssueType? = null,
 )
+
+/** A kind of issue its repository's owner named: [color] as GitHub names it ("RED", "blue"). */
+data class IssueType(val name: String, val color: String? = null, val description: String? = null)
 
 /**
  * What the signed-in user may do in a repository beyond reading it, least to most. Triage manages its conversations
@@ -79,6 +84,9 @@ enum class AttachmentRule {
 /** What can be done to a conversation beyond commenting on it and closing it; a forge's API offers some of them. */
 enum class ConversationAction {
     LABELS, ASSIGNEES, MILESTONE, CLOSE_REASON, LOCK, PIN, TRANSFER, DELETE, DUE_DATE, TIME_TRACKING, DEPENDENCIES,
+
+    /** What kind of issue it is, among those its repository's owner named. */
+    TYPE,
 
     /** Asking for a pull request's review, and taking the ask back: only pull requests have it. */
     REVIEWERS,

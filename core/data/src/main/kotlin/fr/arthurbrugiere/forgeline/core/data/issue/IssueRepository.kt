@@ -19,6 +19,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
+import fr.arthurbrugiere.forgeline.core.model.IssueType
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
@@ -141,6 +142,11 @@ interface IssueRepository {
     // Each change is announced on [changed]; the conversation kept is brought up to date by loading it again.
 
     suspend fun labels(repo: RepoId): ForgeResult<List<Label>>
+
+    /** The kinds of issue [repo]'s owner named, and setting one on an issue by its name (none when null). */
+    suspend fun issueTypes(repo: RepoId): ForgeResult<List<IssueType>>
+
+    suspend fun setIssueType(ref: IssueRef, name: String?): ForgeResult<Unit>
 
     /** Whether issues are split into sub-issues on [forge]. */
     fun tracksSubIssues(forge: ForgeInstance): Boolean
@@ -440,6 +446,10 @@ class DefaultIssueRepository @Inject constructor(
         signedIn(ref.repo.forge, call).also { if (it is ForgeResult.Success) changes.tryEmit(ref) }
 
     override suspend fun labels(repo: RepoId) = signedIn(repo.forge) { labels(it, repo) }
+
+    override suspend fun issueTypes(repo: RepoId) = signedIn(repo.forge) { issueTypes(it, repo) }
+
+    override suspend fun setIssueType(ref: IssueRef, name: String?) = changing(ref) { setIssueType(it, ref, name) }
 
     override fun tracksSubIssues(forge: ForgeInstance) = clients.issues(forge).tracksSubIssues
 

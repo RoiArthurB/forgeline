@@ -410,6 +410,28 @@ class IssueViewModelTest {
     }
 
     @Test
+    fun an_issue_s_type_is_chosen_among_those_the_repository_names() = test {
+        val viewModel = managing(RepoAccess.TRIAGE)
+        assertThat(viewModel.state.value.actions).contains(ConversationAction.TYPE)
+
+        viewModel.loadTypes()
+        advanceUntilIdle()
+        assertThat((viewModel.state.value.manage.types as Loadable.Loaded).value.map { it.name }).containsExactly("Task", "Bug", "Feature").inOrder()
+        viewModel.setIssueType("Bug")
+        advanceUntilIdle()
+
+        assertThat(api.calls).contains("manage:type octo/repo#7: Bug")
+        assertThat(viewModel.state.value.issue?.type?.name).isEqualTo("Bug")
+    }
+
+    @Test
+    fun a_pull_request_has_no_type_to_choose() = test {
+        val viewModel = managing(RepoAccess.TRIAGE, issueDetails(ref).copy(pullRequest = pullRequest))
+
+        assertThat(viewModel.state.value.actions).doesNotContain(ConversationAction.TYPE)
+    }
+
+    @Test
     fun sub_issues_are_read_with_an_issue_and_added_and_taken_out_by_whoever_triages() = test {
         val parent = fr.arthurbrugiere.forgeline.core.model.LinkedIssue(IssueRef(ref.repo, 1, isPullRequest = false), "Epic", fr.arthurbrugiere.forgeline.core.model.IssueState.OPEN)
         api.subs[ref] = fr.arthurbrugiere.forgeline.core.model.SubIssues(parent, emptyList())
@@ -446,7 +468,7 @@ class IssueViewModelTest {
         val anyone = setOf(ConversationAction.TIME_TRACKING)
         val triage = anyone + setOf(
             ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.CLOSE_REASON,
-            ConversationAction.DUE_DATE, ConversationAction.DEPENDENCIES,
+            ConversationAction.DUE_DATE, ConversationAction.DEPENDENCIES, ConversationAction.TYPE,
         )
         val write = triage + setOf(ConversationAction.LOCK, ConversationAction.PIN, ConversationAction.TRANSFER)
 

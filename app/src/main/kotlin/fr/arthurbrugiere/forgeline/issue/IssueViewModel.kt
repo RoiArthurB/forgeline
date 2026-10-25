@@ -18,6 +18,7 @@ import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.IssueType
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
@@ -148,6 +149,8 @@ data class IssueUiState(
                     ConversationAction.PIN, ConversationAction.TRANSFER -> isIssue && access >= RepoAccess.WRITE
                     ConversationAction.DELETE -> isIssue && access == RepoAccess.ADMIN
                     ConversationAction.DUE_DATE, ConversationAction.DEPENDENCIES -> access >= RepoAccess.TRIAGE
+                    // A pull request has no type.
+                    ConversationAction.TYPE -> isIssue && access >= RepoAccess.TRIAGE
                     // Only pull requests are reviewed, and only open ones are drafts or ready: their author's to say,
                     // and whoever can write to the repository's.
                     ConversationAction.REVIEWERS -> !isIssue && access >= RepoAccess.TRIAGE
@@ -164,6 +167,7 @@ data class ManageUiState(
     val labels: Loadable<List<Label>> = Loadable.Idle,
     val assignable: Loadable<List<ForgeUser>> = Loadable.Idle,
     val milestones: Loadable<List<Milestone>> = Loadable.Idle,
+    val types: Loadable<List<IssueType>> = Loadable.Idle,
     val tracking: Loadable<TimeTracking> = Loadable.Idle,
     val dependencies: Loadable<List<LinkedIssue>> = Loadable.Idle,
     /** Null until the forge has said. */
@@ -633,6 +637,10 @@ class IssueViewModel @AssistedInject constructor(
     fun loadLabels() = load({ it.labels }, { repository.labels(ref.repo) }) { manage, value -> manage.copy(labels = value) }
 
     fun loadAssignable() = load({ it.assignable }, { repository.assignable(ref.repo) }) { manage, value -> manage.copy(assignable = value) }
+
+    fun loadTypes() = load({ it.types }, { repository.issueTypes(ref.repo) }) { manage, value -> manage.copy(types = value) }
+
+    fun setIssueType(name: String?) = manage({ repository.setIssueType(ref, name) })
 
     fun loadMilestones() = load({ it.milestones }, { repository.milestones(ref.repo) }) { manage, value -> manage.copy(milestones = value) }
 

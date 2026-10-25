@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
+import fr.arthurbrugiere.forgeline.core.model.IssueType
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
@@ -306,6 +307,33 @@ class GitHubIssueApiTest {
         ).inOrder()
         assertThat((requests[1].body as io.ktor.http.content.TextContent).text).isEqualTo("""{"sub_issue_id":5552791308}""")
         assertThat((requests[3].body as io.ktor.http.content.TextContent).text).isEqualTo("""{"sub_issue_id":5552791308}""")
+    }
+
+    @Test
+    fun an_issue_says_its_type_the_repository_names_its_types_and_one_is_set_by_name() = runTest {
+        // gama-platform/gama's types and gama#1239's, as GitHub answered (2026-10-25), trimmed.
+        val types = """{"data":{"repository":{"issueTypes":{"nodes":[{"name":"Task","color":"YELLOW","description":"A specific piece of work"},""" +
+            """{"name":"Bug","color":"RED","description":"An unexpected problem or behavior"}]}}}}"""
+        val issueJson = """{"number":1239,"title":"Crash","state":"open","created_at":"2026-10-01T10:00:00Z","type":{"id":208386,"name":"Bug","color":"red"}}"""
+        val api = api { request ->
+            when (request.url.encodedPath) {
+                "/graphql" -> json(types)
+                else -> json(issueJson)
+            }
+        }
+        val gama = IssueRef(RepoId("gama-platform", "gama"), 1239)
+
+        assertThat(api.typesIssues).isTrue()
+        assertThat(api.issue("tok", gama).value().type).isEqualTo(IssueType("Bug", "red"))
+        assertThat(api.issueTypes("tok", gama.repo).value()).containsExactly(
+            IssueType("Task", "YELLOW", "A specific piece of work"), IssueType("Bug", "RED", "An unexpected problem or behavior"),
+        ).inOrder()
+        requests.clear()
+        api.setIssueType("tok", gama, "Task").value()
+        api.setIssueType("tok", gama, null).value()
+
+        assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly("PATCH /repos/gama-platform/gama/issues/1239", "PATCH /repos/gama-platform/gama/issues/1239")
+        assertThat(requests.map { (it.body as io.ktor.http.content.TextContent).text }).containsExactly("""{"type":"Task"}""", """{"type":null}""").inOrder()
     }
 
     @Test

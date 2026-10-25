@@ -835,4 +835,11 @@ class IssueScreenTest {
 
         assertThat(events).containsAtLeast("sub-:13", "sub+:14").inOrder()
     }
+
+    @Test
+    fun an_issue_s_type_shows_in_its_header_without_labels_too() {
+        setContent(IssueUiState(ref, issueDetails(ref).copy(labels = emptyList(), type = fr.arthurbrugiere.forgeline.core.model.IssueType("Bug", "RED"))))
+
+        composeRule.onNodeWithText("Bug").assertIsDisplayed()
+    }
 }

@@ -45,6 +45,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.pull.PullActions
 import fr.arthurbrugiere.forgeline.pull.PullRequestPanel
@@ -152,8 +153,10 @@ internal fun Header(
             )
             if (pull != null) PullRequestPanel(issue, pullActions)
         }
-        if (issue.labels.isNotEmpty()) {
+        if (issue.labels.isNotEmpty() || issue.type != null) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Its kind first, then its labels: GitHub shows it the same way.
+                issue.type?.let { SoftTag(it.name, background = Soft.colors.surface) }
                 issue.labels.forEach { LabelChip(it) }
             }
         }

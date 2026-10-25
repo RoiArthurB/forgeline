@@ -160,6 +160,20 @@ class GitHubLiveContractTest {
         assertWithMessage("may hide").that(comments.all { it.canHide }).isTrue()
     }
 
+    /** Read only: gama-platform/gama names Task, Bug and Feature, and #1239 is a Bug (2026-10-25). */
+    @Test
+    fun issue_types_still_read() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        val api = GitHubIssueApi(client)
+        val gama = RepoId("gama-platform", "gama")
+
+        val types = api.issueTypes(pat, gama)
+        val issue = api.issue(pat, fr.arthurbrugiere.forgeline.core.model.IssueRef(gama, 1239))
+
+        assertWithMessage("types: $types").that((types as ForgeResult.Success).value.map { it.name }).containsAtLeast("Task", "Bug", "Feature")
+        assertWithMessage("type of #1239").that((issue as ForgeResult.Success).value.type?.name).isEqualTo("Bug")
+    }
+
     /** Read only: cli/cli#10093 is split into sub-issues, #14512 among them, which names it as its parent (2026-10-25). */
     @Test
     fun sub_issues_and_their_parent_still_read() = runBlocking {

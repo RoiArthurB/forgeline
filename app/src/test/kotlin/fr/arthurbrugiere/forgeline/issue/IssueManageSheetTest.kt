@@ -72,6 +72,8 @@ class IssueManageSheetTest {
         onLoadMilestones = { events += "load-milestones" },
         onSetLabels = { events += "labels:${it.joinToString()}" },
         onCreateLabel = { events += "make-label:$it" },
+        onLoadTypes = { events += "load-types" },
+        onSetType = { events += "type:$it" },
         onSetAssignees = { events += "assignees:${it.joinToString()}" },
         onSetReviewers = { events += "reviewers:${it.joinToString()}" },
         onSetDraft = { events += "draft:$it" },
@@ -379,8 +381,8 @@ class IssueManageSheetTest {
     fun nothing_set_reads_none() {
         setContent(owned.copy(issue = issueDetails(ref, "Crash on start")))
 
-        // Labels, assignees, milestone and due date.
-        assertThat(composeRule.onAllNodes(hasText("None")).fetchSemanticsNodes()).hasSize(4)
+        // Labels, assignees, type, milestone and due date.
+        assertThat(composeRule.onAllNodes(hasText("None")).fetchSemanticsNodes()).hasSize(5)
     }
 
     @Test
@@ -497,6 +499,17 @@ class IssueManageSheetTest {
 
         // Beside the label it already wore.
         assertThat(events.last()).isEqualTo("labels:bug, needs repro")
+    }
+
+    @Test
+    fun an_issue_s_type_is_picked_from_the_repository_s() {
+        val types = Loadable.Loaded(listOf(fr.arthurbrugiere.forgeline.core.model.IssueType("Task", "YELLOW"), fr.arthurbrugiere.forgeline.core.model.IssueType("Bug", "RED")))
+        setContent(owned.copy(manage = owned.manage.copy(types = types)), page = ManagePage.TYPE)
+
+        choice("Bug").performClick()
+        choice("No type").performClick()
+
+        assertThat(events).containsExactly("type:Bug", "type:null").inOrder()
     }
 
     @Test

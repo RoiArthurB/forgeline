@@ -668,6 +668,9 @@
     <string name="manage_no_labels">This repository has no labels.</string>
     <string name="manage_label_new">New label</string>
     <string name="manage_label_create">Create</string>
+    <string name="manage_type">Type</string>
+    <string name="manage_no_types">This repository names no issue types.</string>
+    <string name="manage_no_type">No type</string>
     <string name="manage_no_assignable">Nobody can be assigned here.</string>
     <string name="manage_no_milestones">This repository has no open milestone.</string>
     <string name="manage_error_refused">You can\'t do that here: your role in this repository doesn\'t allow it.</string>

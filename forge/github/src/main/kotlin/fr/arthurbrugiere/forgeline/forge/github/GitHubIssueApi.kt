@@ -18,6 +18,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
+import fr.arthurbrugiere.forgeline.core.model.IssueType
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
@@ -120,6 +121,29 @@ class GitHubIssueApi(
             val node = (item as? TimelineItem.Comment)?.nodeId?.let(nodes::get) ?: return@map item
             item.copy(hidden = node.reason.takeIf { node.isMinimized }, canHide = node.viewerCanMinimize)
         }
+    }
+
+    override val typesIssues: Boolean = true
+
+    /** Through GraphQL: its REST list is the organisation's, and asks for its administration. */
+    override suspend fun issueTypes(token: String, repo: RepoId): ForgeResult<List<IssueType>> = forgeCall {
+        httpClient.gitHubGraphQl(
+            apiBaseUrl, token, TYPES_QUERY,
+            buildJsonObject {
+                put("owner", repo.owner)
+                put("name", repo.name)
+            },
+        )
+    }.map { data ->
+        val nodes = ((data["repository"] as? JsonObject)?.get("issueTypes") as? JsonObject)?.get("nodes")
+        nodes?.let { runCatching { ForgeJson.decodeFromJsonElement<List<IssueTypeJson>>(it) }.getOrNull() }.orEmpty().map { it.toModel() }
+    }
+
+    override suspend fun setIssueType(token: String, ref: IssueRef, name: String?): ForgeResult<Unit> = forgeCall {
+        httpClient.gitHubApi(
+            apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(),
+            method = HttpMethod.Patch, body = buildJsonObject { put("type", name) },
+        ).toResult { }
     }
 
     override val tracksSubIssues: Boolean = true
@@ -317,7 +341,7 @@ class GitHubIssueApi(
     override val actions: Set<ConversationAction> = setOf(
         ConversationAction.LABELS, ConversationAction.ASSIGNEES, ConversationAction.MILESTONE, ConversationAction.CLOSE_REASON,
         ConversationAction.LOCK, ConversationAction.PIN, ConversationAction.TRANSFER, ConversationAction.DELETE,
-        ConversationAction.REVIEWERS, ConversationAction.DRAFT,
+        ConversationAction.REVIEWERS, ConversationAction.DRAFT, ConversationAction.TYPE,
     )
 
     // The lists below stop at their first hundred: a repository with more is rare, and none needs them all to triage.
@@ -676,6 +700,7 @@ private data class IssueJson(
     val locked: Boolean = false,
     val assignees: List<UserJson> = emptyList(),
     val milestone: MilestoneJson? = null,
+    val type: IssueTypeJson? = null,
 ) {
     fun toModel(ref: IssueRef, pull: PullJson?) = IssueDetails(
         ref = ref,
@@ -699,7 +724,13 @@ private data class IssueJson(
         isLocked = locked,
         assignees = assignees.map { it.toModel() },
         milestone = milestone?.toModel(),
+        type = type?.toModel(),
     )
+}
+
+@Serializable
+private data class IssueTypeJson(val name: String, val color: String? = null, val description: String? = null) {
+    fun toModel() = IssueType(name, color, description?.ifBlank { null })
 }
 
 @Serializable
@@ -734,6 +765,9 @@ private data class SubIssueJson(val id: Long, val number: Int, val title: String
         return LinkedIssue(IssueRef(repo, number, isPullRequest = false), title, if (state == "closed") IssueState.CLOSED else IssueState.OPEN)
     }
 }
+
+private const val TYPES_QUERY =
+    "query Types(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { issueTypes(first: 25) { nodes { name color description } } } }"
 
 private const val CLOSING_QUERY = "query Closing(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { issue(number: \$number) { " +
     "closedByPullRequestsReferences(first: 10, includeClosedPrs: true) { nodes { number title state repository { name owner { login } } } } } } }"

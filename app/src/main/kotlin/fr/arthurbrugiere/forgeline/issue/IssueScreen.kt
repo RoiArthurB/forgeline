@@ -184,6 +184,8 @@ fun IssueRoute(
             onSetReviewers = viewModel::setReviewers,
             onSetDraft = viewModel::setDraft,
             onSetMilestone = viewModel::setMilestone,
+            onLoadTypes = viewModel::loadTypes,
+            onSetType = viewModel::setIssueType,
             onClose = viewModel::close,
             onToggleLocked = viewModel::toggleLocked,
             onTogglePinned = viewModel::togglePinned,

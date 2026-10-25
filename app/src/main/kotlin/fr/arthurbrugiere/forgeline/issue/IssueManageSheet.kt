@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -97,6 +98,9 @@ class ManageActions(
     val onLoadLabels: () -> Unit = {},
     val onLoadAssignable: () -> Unit = {},
     val onLoadMilestones: () -> Unit = {},
+    /** Lists the kinds of issue the repository names, and sets one by its name (none when null). */
+    val onLoadTypes: () -> Unit = {},
+    val onSetType: (String?) -> Unit = {},
     val onSetLabels: (List<String>) -> Unit = {},
     /** Makes a label for the repository by its name. */
     val onCreateLabel: (String) -> Unit = {},
@@ -122,7 +126,7 @@ class ManageActions(
     val onOpenOnForge: () -> Unit = {},
 )
 
-enum class ManagePage { MENU, LABELS, ASSIGNEES, REVIEWERS, MILESTONE, DUE_DATE, TIME, DEPENDENCIES, TRANSFER, DELETE }
+enum class ManagePage { MENU, LABELS, ASSIGNEES, REVIEWERS, MILESTONE, TYPE, DUE_DATE, TIME, DEPENDENCIES, TRANSFER, DELETE }
 
 /** Whether there is anything to manage: an action the reader may take, or an issue to start another from. */
 fun IssueUiState.canManage(signedIn: Boolean): Boolean = signedIn && issue != null && (actions.isNotEmpty() || issue.pullRequest == null)
@@ -169,6 +173,7 @@ fun IssueManageContent(
             ManagePage.ASSIGNEES -> PeoplePage(R.string.manage_assignees, state.issue?.assignees.orEmpty(), state, actions, actions.onSetAssignees) { page = ManagePage.MENU }
             ManagePage.REVIEWERS -> PeoplePage(R.string.manage_reviewers, state.issue?.pullRequest?.reviewers.orEmpty(), state, actions, actions.onSetReviewers) { page = ManagePage.MENU }
             ManagePage.MILESTONE -> MilestonePage(state, actions) { page = ManagePage.MENU }
+            ManagePage.TYPE -> TypePage(state, actions) { page = ManagePage.MENU }
             ManagePage.DUE_DATE -> DueDatePage(state, actions) { page = ManagePage.MENU }
             ManagePage.TIME -> TimePage(state, actions, nowMillis) { page = ManagePage.MENU }
             ManagePage.DEPENDENCIES -> DependenciesPage(state, actions) { page = ManagePage.MENU }
@@ -225,6 +230,12 @@ private fun Menu(state: IssueUiState, actions: ManageActions, onOpen: (ManagePag
             MenuRow(Icons.Outlined.RateReview, stringResource(R.string.manage_reviewers), reviewers.joinToString(", ") { it.login }.ifEmpty { none }, enabled) {
                 actions.onLoadAssignable()
                 onOpen(ManagePage.REVIEWERS)
+            }
+        }
+        if (ConversationAction.TYPE in can) add {
+            MenuRow(Icons.Outlined.Category, stringResource(R.string.manage_type), issue.type?.name ?: none, enabled) {
+                actions.onLoadTypes()
+                onOpen(ManagePage.TYPE)
             }
         }
         if (ConversationAction.MILESTONE in can) add {
@@ -463,6 +474,27 @@ private fun MilestonePage(state: IssueUiState, actions: ManageActions, onBack: (
         milestones.forEach { milestone ->
             ChoiceRow(current?.id == milestone.id, !state.manage.isWorking, { actions.onSetMilestone(milestone) }) {
                 Text(milestone.title, style = Soft.type.body, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+/** What kind of issue it is, among those the repository's owner named; or none. */
+@Composable
+private fun TypePage(state: IssueUiState, actions: ManageActions, onBack: () -> Unit) {
+    val colors = Soft.colors
+    val current = state.issue?.type
+    PageTitle(stringResource(R.string.manage_type), onBack)
+    Choices(state.manage.types, stringResource(R.string.manage_no_types), actions.onLoadTypes) { types ->
+        ChoiceRow(current == null, !state.manage.isWorking, { actions.onSetType(null) }) {
+            Text(stringResource(R.string.manage_no_type), style = Soft.type.body, color = colors.inkMuted)
+        }
+        types.forEach { type ->
+            ChoiceRow(current?.name == type.name, !state.manage.isWorking, { actions.onSetType(type.name) }) {
+                Column {
+                    Text(type.name, style = Soft.type.body, color = colors.ink)
+                    type.description?.let { Text(it, style = Soft.type.meta, color = colors.inkMuted, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                }
             }
         }
     }
