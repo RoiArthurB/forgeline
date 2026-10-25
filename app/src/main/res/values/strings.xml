@@ -626,6 +626,8 @@
     <string name="new_issue_title">New issue</string>
     <string name="new_issue_templates">Start from a template</string>
     <string name="new_issue_templates_blank">Or write it from scratch below.</string>
+    <string name="new_issue_templates_asked">This repository asks for issues to start from one of these.</string>
+    <string name="new_issue_links">Not an issue? Go here instead</string>
     <string name="new_issue_template_failed">That template couldn\'t be loaded. Try again.</string>
     <string name="new_issue_labels">Labels</string>
     <string name="new_issue_labels_drop">Remove</string>

@@ -38,6 +38,21 @@ class ForgejoSignedInLiveTest {
     }
 
     @Test
+    fun a_repository_s_templates_and_what_it_says_beside_them_read() = runBlocking {
+        assumeTrue("CODEBERG_LIVE_TOKEN not set", token.isNotBlank())
+        val forge = ForgeInstance.Codeberg
+        val forgejo = fr.arthurbrugiere.forgeline.core.model.RepoId("forgejo", "forgejo", forge)
+        val issues = ForgejoIssueApi(http, forge)
+
+        val chooser = issues.issueChooser(token, forgejo).value()
+        System.err.println("CODEBERG chooser: blank=${chooser.blankIssues} links=${chooser.links.map { it.name }}")
+        assertWithMessage("forgejo/forgejo's links").that(chooser.links).isNotEmpty()
+        assertWithMessage("every link has an address").that(chooser.links.all { it.url.isNotBlank() }).isTrue()
+        val templates = issues.issueTemplates(token, forgejo).value()
+        assertWithMessage("forgejo/forgejo's forms").that(templates.all { it.body.orEmpty().isNotBlank() }).isTrue()
+    }
+
+    @Test
     fun the_feed_and_the_starred_repositories_read() = runBlocking {
         assumeTrue("CODEBERG_LIVE_TOKEN not set", token.isNotBlank())
         val me = ForgejoAuthApi(http, ForgeInstance.Codeberg).fetchAuthenticatedUser(token).value()

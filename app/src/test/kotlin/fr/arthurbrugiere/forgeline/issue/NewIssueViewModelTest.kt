@@ -65,8 +65,8 @@ class NewIssueViewModelTest {
         viewModel.send()
         advanceUntilIdle()
 
-        // Only what the form opened with: the repository's templates.
-        assertThat(api.calls).containsExactly("templates:octo/repo")
+        // Only what the form opened with: the repository's templates, and what it says beside them.
+        assertThat(api.calls).containsExactly("templates:octo/repo", "chooser:octo/repo")
     }
 
     @Test
@@ -268,6 +268,31 @@ class NewIssueViewModelTest {
 
         assertThat(viewModel.state.value.offersTemplates).isFalse()
         assertThat(api.calls).doesNotContain("templates:octo/repo")
+        assertThat(api.calls).doesNotContain("chooser:octo/repo")
+    }
+
+    @Test
+    fun where_else_the_repository_sends_people_is_offered_until_something_is_written() = test {
+        val links = listOf(fr.arthurbrugiere.forgeline.core.model.ContactLink("Questions", "https://forum.example", "Ask here"))
+        api.chooser = fr.arthurbrugiere.forgeline.core.model.IssueChooser(blankIssues = false, links = links)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.chooser.blankIssues).isFalse()
+        assertThat(viewModel.state.value.chooser.links).isEqualTo(links)
+        assertThat(viewModel.state.value.offersLinks).isTrue()
+        viewModel.titleChanged("Crash")
+        assertThat(viewModel.state.value.offersLinks).isFalse()
+    }
+
+    @Test
+    fun a_chooser_that_can_t_be_read_allows_blank_issues_and_offers_no_link() = test {
+        api.failure = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Network
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.chooser).isEqualTo(fr.arthurbrugiere.forgeline.core.model.IssueChooser())
+        assertThat(viewModel.state.value.offersLinks).isFalse()
     }
 
     private val pull = fr.arthurbrugiere.forgeline.core.model.IssueRef(repo, 8, isPullRequest = true)

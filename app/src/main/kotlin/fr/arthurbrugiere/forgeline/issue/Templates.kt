@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,6 +30,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.ContactLink
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHairline
@@ -76,5 +78,36 @@ internal fun Templates(
         }
         if (error != null) Text(stringResource(R.string.new_issue_template_failed), style = Soft.type.secondary, color = colors.accent, modifier = Modifier.padding(top = 8.dp))
         hint?.let { Text(it, style = Soft.type.secondary, color = colors.inkMuted, modifier = Modifier.padding(top = 12.dp)) }
+    }
+}
+
+/**
+ * Where the repository sends people instead of its issues (a forum, a chat room, its documentation), each its name and
+ * what it is for: picked, it opens out of the app.
+ */
+@Composable
+internal fun ContactLinks(links: List<ContactLink>, onOpen: (String) -> Unit) {
+    val colors = Soft.colors
+    Column {
+        Text(stringResource(R.string.new_issue_links), style = Soft.type.name, color = colors.ink, modifier = Modifier.padding(bottom = 8.dp).semantics { heading() })
+        links.forEachIndexed { index, link ->
+            if (index > 0) SoftHairline()
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(SoftTokens.RowCorner)
+                    .clickable(role = Role.Button) { onOpen(link.url) }
+                    .heightIn(min = 48.dp)
+                    .padding(horizontal = 8.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(link.name, style = Soft.type.control, color = colors.ink)
+                    link.about?.let { Text(it, style = Soft.type.meta, color = colors.inkMuted, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                }
+                Spacer(Modifier.width(8.dp))
+                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp))
+            }
+        }
     }
 }

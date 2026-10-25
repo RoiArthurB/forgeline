@@ -610,6 +610,30 @@ class ForgejoIssueApiTest {
     }
 
     @Test
+    fun a_repository_s_issue_config_says_blank_issues_are_off_and_where_else_to_go() = runTest {
+        // forgejo/forgejo's issue_config, 2026-10-25.
+        val captured = requireNotNull(javaClass.getResource("/codeberg/issue_config.json")).readText()
+
+        val chooser = answering { with(codeberg) { json(captured) } }.issueChooser("tok", seven.repo).value()
+
+        assertThat(chooser.blankIssues).isFalse()
+        assertThat(chooser.links.map { it.name }).containsExactly(
+            "🔓 Security Reports", "💬 Matrix Chat Room", "💬 Matrix Space", "📚 Documentation", "❓ Frequently Asked Questions",
+        ).inOrder()
+        // An address to write to is a link too.
+        assertThat(chooser.links[0].url).isEqualTo("mailto:security@forgejo.org")
+        assertThat(chooser.links[3].about).isEqualTo("Documentation about Forgejo.")
+        assertThat(sent).containsExactly("GET /api/v1/repos/forgejo/forgejo/issue_config")
+    }
+
+    @Test
+    fun a_repository_without_an_issue_config_allows_blank_issues() = runTest {
+        val chooser = answering { with(codeberg) { json("""{"blank_issues_enabled":true,"contact_links":[]}""") } }.issueChooser("tok", seven.repo).value()
+
+        assertThat(chooser).isEqualTo(fr.arthurbrugiere.forgeline.core.model.IssueChooser())
+    }
+
+    @Test
     fun checkboxes_become_boxes_to_tick_and_a_field_keeps_its_default_answer() {
         val fields = listOf(
             FormFieldJson("checkboxes", FormAttributesJson(label = "Before", options = listOf(buildJsonObject { put("label", "I searched") }))),

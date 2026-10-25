@@ -101,6 +101,9 @@ class GitHubLiveContractTest {
         assertWithMessage("forms: ${templates.map { it.key }}").that(forms).isNotEmpty()
         assertWithMessage("form bodies").that(forms.all { it.body.orEmpty().startsWith("### ") }).isTrue()
         assertWithMessage("markdown templates").that(templates.any { it.key.endsWith(".md") }).isTrue()
+        // Its config.yml sends support questions elsewhere.
+        val chooser = (GitHubIssueApi(client).issueChooser(pat, RepoId("facebook", "react")) as? ForgeResult.Success)?.value
+        assertWithMessage("chooser links: $chooser").that(chooser?.links).isNotEmpty()
     }
 
     @Test

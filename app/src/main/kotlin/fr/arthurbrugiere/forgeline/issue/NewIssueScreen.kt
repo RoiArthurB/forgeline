@@ -69,6 +69,7 @@ import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.ui.LabelChip
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
+import fr.arthurbrugiere.forgeline.ui.rememberLinkOpener
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
 
@@ -91,6 +92,7 @@ fun NewIssueRoute(route: NewIssueRoute, session: SessionState, onBack: () -> Uni
         onTitleChange = viewModel::titleChanged,
         onUseTemplate = viewModel::useTemplate,
         onDropLabels = viewModel::dropLabels,
+        onOpenLink = rememberLinkOpener(),
         onBaseChange = viewModel::baseChanged,
         onBodyChange = viewModel::bodyChanged,
         onSend = viewModel::send,
@@ -118,6 +120,8 @@ fun NewIssueScreen(
     onReferenceTyped: (TypedReference?) -> Unit = {},
     onUseTemplate: (IssueTemplate) -> Unit = {},
     onDropLabels: () -> Unit = {},
+    /** Opens where the repository sends people instead: a page, or a mail to write. */
+    onOpenLink: (String) -> Unit = {},
     onBaseChange: (String) -> Unit = {},
 ) {
     val colors = Soft.colors
@@ -163,8 +167,11 @@ fun NewIssueScreen(
                     return@Column
                 }
                 if (state.offersTemplates) {
-                    Templates(state.templates, state.pickingTemplate, state.templateError, onUseTemplate, hint = stringResource(R.string.new_issue_templates_blank))
+                    // A repository that turned blank issues off asks for one of its templates; the API still takes either.
+                    val hint = if (state.chooser.blankIssues) R.string.new_issue_templates_blank else R.string.new_issue_templates_asked
+                    Templates(state.templates, state.pickingTemplate, state.templateError, onUseTemplate, hint = stringResource(hint))
                 }
+                if (state.offersLinks) ContactLinks(state.chooser.links, onOpenLink)
                 // Where a pull request goes, said the way the form that opens one says it.
                 if (state.offersBase) {
                     val names = state.branches.let { if (state.base in it) it else listOfNotNull(state.base) + it }

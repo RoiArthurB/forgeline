@@ -609,6 +609,8 @@
     <string name="new_issue_title">Nouveau ticket</string>
     <string name="new_issue_templates">Partir d’un modèle</string>
     <string name="new_issue_templates_blank">Ou écrivez-le de zéro ci-dessous.</string>
+    <string name="new_issue_templates_asked">Ce dépôt demande que les tickets partent de l’un de ces modèles.</string>
+    <string name="new_issue_links">Pas un ticket ? Allez plutôt ici</string>
     <string name="new_issue_template_failed">Ce modèle n’a pas pu être chargé. Réessayez.</string>
     <string name="new_issue_labels">Étiquettes</string>
     <string name="new_issue_labels_drop">Retirer</string>

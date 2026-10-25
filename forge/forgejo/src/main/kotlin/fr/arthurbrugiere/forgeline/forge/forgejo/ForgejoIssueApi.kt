@@ -6,10 +6,12 @@ import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.forge.issueFormText
 import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
+import fr.arthurbrugiere.forgeline.core.model.ContactLink
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.IssueChooser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
@@ -207,6 +209,11 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             is ForgeResult.Success -> ForgeResult.Success(created.value.copy(labels = labels.map { Label(it, null) }))
             is ForgeResult.Failure -> created
         }
+    }
+
+    /** Forgejo reads its templates' `config.yml` itself, and answers what it says. */
+    override suspend fun issueChooser(token: String, repo: RepoId): ForgeResult<IssueChooser> = forgeCall {
+        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "issue_config").toResult { body<IssueConfigJson>().toModel() }
     }
 
     /**
@@ -579,6 +586,17 @@ private data class IssueTemplateJson(
     @SerialName("file_name") val fileName: String? = null,
     val labels: List<String>? = null,
 )
+
+@Serializable
+private data class IssueConfigJson(
+    @SerialName("blank_issues_enabled") val blankIssuesEnabled: Boolean = true,
+    @SerialName("contact_links") val contactLinks: List<ContactLinkJson>? = null,
+) {
+    fun toModel() = IssueChooser(blankIssuesEnabled, contactLinks.orEmpty().filter { it.name.isNotBlank() && it.url.isNotBlank() }.map { ContactLink(it.name, it.url, it.about?.ifBlank { null }) })
+}
+
+@Serializable
+private data class ContactLinkJson(val name: String = "", val url: String = "", val about: String? = null)
 
 /** One field of an issue form: [visible] says whether it shows in the form, in the issue it writes, or both. */
 @Serializable

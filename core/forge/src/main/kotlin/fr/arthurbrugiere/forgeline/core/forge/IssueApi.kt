@@ -4,6 +4,7 @@ import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.IssueChooser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
@@ -72,6 +73,9 @@ interface IssueApi {
 
     /** [template] with its body, for a forge that lists its templates without them. */
     suspend fun issueTemplate(token: String, repo: RepoId, template: IssueTemplate): ForgeResult<IssueTemplate> = ForgeResult.Success(template)
+
+    /** What [repo] says beside its templates: whether an issue may start blank, and where else to go. GitLab keeps none. */
+    suspend fun issueChooser(token: String, repo: RepoId): ForgeResult<IssueChooser> = ForgeResult.Success(IssueChooser())
 
     /**
      * Closes the issue or pull request [ref], or reopens it. A merged pull request can't be reopened. [reason] says

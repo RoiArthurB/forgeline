@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.forge
 
+import fr.arthurbrugiere.forgeline.core.model.ContactLink
+import fr.arthurbrugiere.forgeline.core.model.IssueChooser
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import org.snakeyaml.engine.v2.api.Load
 import org.snakeyaml.engine.v2.api.LoadSettings
@@ -62,4 +64,19 @@ fun parseIssueForm(key: String, yaml: String): IssueTemplate? {
         else -> emptyList()
     }.map { it.trim() }.filter { it.isNotEmpty() }
     return IssueTemplate(key, name, form["description"]?.toString()?.trim()?.ifBlank { null }, form["title"]?.toString().orEmpty(), issueFormText(fields), labels)
+}
+
+/**
+ * GitHub's `.github/ISSUE_TEMPLATE/config.yml`: blank issues are allowed unless it says otherwise, and a link without a
+ * name or an address is left out. YAML that doesn't read says nothing: everything is allowed.
+ */
+fun parseIssueChooser(yaml: String): IssueChooser {
+    val config = runCatching { Load(LoadSettings.builder().build()).loadFromString(yaml) }.getOrNull() as? Map<*, *> ?: return IssueChooser()
+    val links = (config["contact_links"] as? List<*>).orEmpty().mapNotNull { element ->
+        val link = element as? Map<*, *> ?: return@mapNotNull null
+        val name = link["name"]?.toString()?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+        val url = link["url"]?.toString()?.trim()?.takeIf { it.isNotEmpty() } ?: return@mapNotNull null
+        ContactLink(name, url, link["about"]?.toString()?.trim()?.ifBlank { null })
+    }
+    return IssueChooser(blankIssues = config["blank_issues_enabled"] != false, links = links)
 }

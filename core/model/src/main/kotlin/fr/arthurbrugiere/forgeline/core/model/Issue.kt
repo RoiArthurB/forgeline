@@ -114,6 +114,15 @@ data class IssueTemplate(
     val labels: List<String> = emptyList(),
 )
 
+/**
+ * What a repository says beside its templates about opening an issue: whether one may start blank ([blankIssues]),
+ * and where to go instead for what its issues aren't for ([links]: a forum, a chat room, its documentation).
+ */
+data class IssueChooser(val blankIssues: Boolean = true, val links: List<ContactLink> = emptyList())
+
+/** A place a repository sends people to instead of its issues: [url] may be a web page or a `mailto:` address. */
+data class ContactLink(val name: String, val url: String, val about: String? = null)
+
 /** Why an issue is closed, where the forge keeps that. */
 enum class CloseReason { COMPLETED, NOT_PLANNED, DUPLICATE }
 

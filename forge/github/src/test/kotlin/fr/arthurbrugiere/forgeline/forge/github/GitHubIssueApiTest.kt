@@ -647,6 +647,25 @@ class GitHubIssueApiTest {
     }
 
     @Test
+    fun a_repository_s_config_turns_blank_issues_off_and_sends_people_elsewhere() = runTest {
+        // facebook/react's config.yml through the contents API, 2026-10-25.
+        val chooser = templates("{}", mapOf(".github/ISSUE_TEMPLATE/config.yml" to resource("issue_config_react.json"))).issueChooser("tok", issue.repo).value()
+
+        assertThat(chooser.blankIssues).isFalse()
+        assertThat(chooser.links.map { it.name }).containsExactly("📃 Documentation Issue", "🤔 Questions and Help").inOrder()
+        assertThat(chooser.links[1].url).isEqualTo("https://reactjs.org/community/support.html")
+    }
+
+    @Test
+    fun a_repository_without_a_config_allows_blank_issues() = runTest {
+        val chooser = templates("{}").issueChooser("tok", issue.repo).value()
+
+        assertThat(chooser.blankIssues).isTrue()
+        assertThat(chooser.links).isEmpty()
+        assertThat(requests.single().url.encodedPath).isEqualTo("/repos/paperclipai/paperclip/contents/.github/ISSUE_TEMPLATE/config.yml")
+    }
+
+    @Test
     fun a_form_that_can_t_be_read_is_left_out_and_the_rest_still_come() = runTest {
         val templates = templates(
             resource("issue_templates_react.json"),

@@ -1,6 +1,8 @@
 package fr.arthurbrugiere.forgeline.core.forge
 
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.model.ContactLink
+import fr.arthurbrugiere.forgeline.core.model.IssueChooser
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import org.junit.Test
 
@@ -101,5 +103,38 @@ class IssueFormsTest {
         val text = issueFormText(listOf(FormField("markdown", value = "Filed from the app.\n", inIssue = true), FormField("input", label = "Version", value = "1.0")))
 
         assertThat(text).isEqualTo("Filed from the app.\n\n### Version\n\n1.0\n")
+    }
+
+    @Test
+    fun a_config_says_whether_issues_may_start_blank_and_where_else_to_go() {
+        // facebook/react's `.github/ISSUE_TEMPLATE/config.yml`, read on 2026-10-25.
+        val config = """
+            blank_issues_enabled: false
+            contact_links:
+                - name: 📃 Documentation Issue
+                  url: https://github.com/reactjs/react.dev/issues/new/choose
+                  about: This issue tracker is not for documentation issues. Please file documentation issues here.
+                - name: 🤔 Questions and Help
+                  url: https://reactjs.org/community/support.html
+                  about: This issue tracker is not for support questions. Please refer to the React community's help and discussion forums.
+        """.trimIndent()
+
+        val chooser = parseIssueChooser(config)
+
+        assertThat(chooser.blankIssues).isFalse()
+        assertThat(chooser.links.map { it.name to it.url }).containsExactly(
+            "📃 Documentation Issue" to "https://github.com/reactjs/react.dev/issues/new/choose",
+            "🤔 Questions and Help" to "https://reactjs.org/community/support.html",
+        ).inOrder()
+        assertThat(chooser.links[0].about).startsWith("This issue tracker is not for documentation issues.")
+    }
+
+    @Test
+    fun a_config_that_says_nothing_allows_blank_issues_and_a_link_without_an_address_is_left_out() {
+        assertThat(parseIssueChooser("contact_links:\n  - name: Chat\n  - name: Forum\n    url: https://forum.example\n")).isEqualTo(
+            IssueChooser(blankIssues = true, links = listOf(ContactLink("Forum", "https://forum.example"))),
+        )
+        assertThat(parseIssueChooser("blank_issues_enabled: [nonsense\n")).isEqualTo(IssueChooser())
+        assertThat(parseIssueChooser("")).isEqualTo(IssueChooser())
     }
 }

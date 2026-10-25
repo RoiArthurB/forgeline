@@ -13,6 +13,7 @@ import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.IssueChooser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
@@ -103,6 +104,9 @@ interface IssueRepository {
 
     /** [template] with its text, asked for where the forge lists its templates without it. */
     suspend fun issueTemplate(repo: RepoId, template: IssueTemplate): ForgeResult<IssueTemplate>
+
+    /** Whether [repo] lets an issue start blank, and where else it sends people; Unauthorized signed out. */
+    suspend fun issueChooser(repo: RepoId): ForgeResult<IssueChooser>
 
     /**
      * What the account signed in on [repo]'s forge may do there beyond reading. Asked once per repository and
@@ -365,6 +369,8 @@ class DefaultIssueRepository @Inject constructor(
     override suspend fun issueTemplates(repo: RepoId) = signedIn(repo.forge) { issueTemplates(it, repo) }
 
     override suspend fun issueTemplate(repo: RepoId, template: IssueTemplate) = signedIn(repo.forge) { issueTemplate(it, repo, template) }
+
+    override suspend fun issueChooser(repo: RepoId) = signedIn(repo.forge) { issueChooser(it, repo) }
 
     override suspend fun create(repo: RepoId, title: String, body: String, labels: List<String>): ForgeResult<IssueDetails> {
         val token = accounts.tokenOn(repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)

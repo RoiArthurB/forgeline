@@ -4,12 +4,14 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.forge.map
+import fr.arthurbrugiere.forgeline.core.forge.parseIssueChooser
 import fr.arthurbrugiere.forgeline.core.forge.parseIssueForm
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.IssueChooser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
@@ -196,6 +198,13 @@ class GitHubIssueApi(
                 (read as? ForgeResult.Success)?.value?.let { parseIssueForm(file.name, it) }
             }
         }.awaitAll().filterNotNull()
+    }
+
+    /** GitHub reads `config.yml` from the templates' folder; most repositories keep none (404), which allows everything. */
+    override suspend fun issueChooser(token: String, repo: RepoId): ForgeResult<IssueChooser> = forgeCall {
+        val read = httpClient.gitHubApi(apiBaseUrl, token, "repos", repo.owner, repo.name, "contents", ".github", "ISSUE_TEMPLATE", "config.yml")
+        if (read.status == HttpStatusCode.NotFound) return@forgeCall ForgeResult.Success(IssueChooser())
+        read.toResult { body<TemplateFileJson>().text()?.let(::parseIssueChooser) ?: IssueChooser() }
     }
 
     private suspend fun markdownTemplates(token: String, repo: RepoId): ForgeResult<List<IssueTemplate>> = graphQl(

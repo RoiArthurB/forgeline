@@ -8,6 +8,7 @@ import fr.arthurbrugiere.forgeline.core.model.AttachmentRule
 import fr.arthurbrugiere.forgeline.core.model.CloseReason
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.IssueChooser
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
@@ -153,7 +154,12 @@ class FakeIssueApi : IssueApi {
     var templates = emptyList<IssueTemplate>()
     var templateTexts = emptyMap<String, String>()
 
+    /** What every repository says beside its templates. */
+    var chooser = IssueChooser()
+
     override suspend fun issueTemplates(token: String, repo: RepoId) = read(token, "templates:${repo.fullName}", templates)
+
+    override suspend fun issueChooser(token: String, repo: RepoId) = read(token, "chooser:${repo.fullName}", chooser)
 
     override suspend fun issueTemplate(token: String, repo: RepoId, template: IssueTemplate) =
         read(token, "template:${template.key}", template.copy(body = template.body ?: templateTexts[template.key]))

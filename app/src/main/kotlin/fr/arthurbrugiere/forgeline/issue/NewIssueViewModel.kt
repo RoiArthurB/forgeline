@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.data.draft.issueDraftKey
 import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.IssueChooser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
@@ -76,6 +77,8 @@ data class NewIssueUiState(
     val pickingTemplate: String? = null,
     /** A template's text couldn't be had. */
     val templateError: ForgeError? = null,
+    /** Whether the repository lets an issue start blank, and where else it sends people. */
+    val chooser: IssueChooser = IssueChooser(),
     /** The labels the template picked puts on the issue, by name, unless the reader takes them off. */
     val labels: List<String> = emptyList(),
     /** The branch an open pull request being edited goes into, as picked, and as it was; null for anything else. */
@@ -89,6 +92,9 @@ data class NewIssueUiState(
 
     /** Templates are offered while nothing is written yet: picking one fills the form, it doesn't overwrite it. */
     val offersTemplates: Boolean get() = editing == null && templates.isNotEmpty() && title.isEmpty() && body.isEmpty() && !isSending
+
+    /** Where else the repository sends people, offered before anything is written, like the templates. */
+    val offersLinks: Boolean get() = editing == null && chooser.links.isNotEmpty() && title.isEmpty() && body.isEmpty() && !isSending
 
     /** An issue needs a title; its description can stay empty. */
     val canSend: Boolean get() = title.isNotBlank() && !isSending
@@ -131,6 +137,10 @@ class NewIssueViewModel @AssistedInject constructor(
             viewModelScope.launch {
                 val templates = (repository.issueTemplates(repo) as? ForgeResult.Success)?.value.orEmpty()
                 _state.update { it.copy(templates = templates) }
+            }
+            viewModelScope.launch {
+                val chooser = (repository.issueChooser(repo) as? ForgeResult.Success)?.value ?: return@launch
+                _state.update { it.copy(chooser = chooser) }
             }
         }
         // What an open pull request could go into instead.

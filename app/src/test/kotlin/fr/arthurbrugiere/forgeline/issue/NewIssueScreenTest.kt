@@ -17,7 +17,9 @@ import androidx.compose.ui.test.performTextInputSelection
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.ContactLink
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.IssueChooser
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.issueSummary
@@ -53,6 +55,7 @@ class NewIssueScreenTest {
                 onReferenceTyped = { typedReferences += it },
                 onUseTemplate = { events += "template:${it.key}" },
                 onDropLabels = { events += "dropLabels" },
+                onOpenLink = { events += "link:$it" },
             )
         }
     }
@@ -73,6 +76,42 @@ class NewIssueScreenTest {
         composeRule.onNodeWithText("Feature request").performClick()
 
         assertThat(events).containsExactly("template:feature.md")
+    }
+
+    private val chooser = IssueChooser(
+        blankIssues = false,
+        links = listOf(ContactLink("💬 Matrix Chat Room", "https://matrix.to/#/#forgejo-chat:matrix.org", "Please ask questions here."), ContactLink("🔓 Security Reports", "mailto:security@forgejo.org")),
+    )
+
+    @Test
+    fun a_repository_that_turned_blank_issues_off_asks_for_a_template() {
+        setContent(empty.copy(templates = templates, chooser = chooser))
+
+        composeRule.onNodeWithText("This repository asks for issues to start from one of these.").assertIsDisplayed()
+        composeRule.onNodeWithText("Or write it from scratch below.").assertDoesNotExist()
+    }
+
+    @Test
+    fun where_else_the_repository_sends_people_opens_out_of_the_app() {
+        setContent(empty.copy(templates = templates, chooser = chooser))
+
+        composeRule.onNodeWithText("Not an issue? Go here instead").assertIsDisplayed()
+        composeRule.onNodeWithText("Please ask questions here.").assertIsDisplayed()
+        composeRule.assertEveryTargetIsAtLeast48dp()
+        composeRule.onNodeWithText("💬 Matrix Chat Room").performClick()
+        composeRule.onNodeWithText("🔓 Security Reports").performClick()
+
+        assertThat(events).containsExactly("link:https://matrix.to/#/#forgejo-chat:matrix.org", "link:mailto:security@forgejo.org").inOrder()
+    }
+
+    @Test
+    fun links_show_without_templates_and_step_aside_once_something_is_written() {
+        setContent(empty.copy(chooser = chooser))
+        composeRule.onNodeWithText("Not an issue? Go here instead").assertIsDisplayed()
+        composeRule.onNodeWithText("Start from a template").assertDoesNotExist()
+
+        shown.value = empty.copy(chooser = chooser, title = "Crash")
+        composeRule.onNodeWithText("Not an issue? Go here instead").assertDoesNotExist()
     }
 
     @Test
