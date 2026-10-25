@@ -909,6 +909,12 @@
     <string name="changes_remark_body">Que voulez-vous dire de cette ligne ?</string>
     <string name="changes_remark_add">Ajouter à la relecture</string>
     <string name="changes_remark_suggest">Suggérer une modification</string>
+    <string name="changes_remark_file_title">%1$s, le fichier entier</string>
+    <string name="changes_remark_file_body">Que voulez-vous dire de ce fichier ?</string>
+    <string name="changes_remark_lines">Lignes %1$d à %2$d</string>
+    <string name="changes_remark_more">Une ligne de plus au-dessus</string>
+    <string name="changes_remark_fewer">Une ligne de moins</string>
+    <string name="changes_file_remark">Remarque sur %1$s</string>
     <string name="review_title">Relecture</string>
     <string name="review_body">Ce que dit la relecture (facultatif)</string>
     <string name="review_failed">La forge a refusé la relecture : %1$s</string>
@@ -1074,6 +1080,7 @@
     <string name="thread_suggestion_conflict">Non appliquée : ces lignes ont changé depuis la suggestion.</string>
     <string name="thread_suggestion_unsupported">Non appliquée : ce fichier est trop gros pour être modifié d’ici.</string>
     <string name="thread_outdated">Obsolète</string>
+    <string name="thread_on_file">Fichier entier</string>
     <string name="thread_resolved">Résolu</string>
     <string name="thread_reply">Répondre</string>
     <string name="thread_reply_placeholder">Répondre…</string>

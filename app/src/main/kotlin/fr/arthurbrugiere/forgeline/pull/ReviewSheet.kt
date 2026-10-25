@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.pull
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -13,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -106,9 +108,15 @@ internal val ReviewVerdict.label: Int
 /** What is said of one line of a change, kept until the review is sent. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LineRemarkSheet(target: LineTarget, onAdd: (String) -> Unit, onDismiss: () -> Unit) {
+fun LineRemarkSheet(target: LineTarget, onAdd: (String, DiffLine?) -> Unit, onDismiss: () -> Unit) {
     val colors = Soft.colors
     var body by rememberSaveable(target) { mutableStateOf("") }
+    // How many of the lines above it the remark reaches up over.
+    var reach by rememberSaveable(target) { mutableIntStateOf(0) }
+    val line = target.line
+    val start = target.above.getOrNull(reach - 1)
+    // The lines it covers, top to bottom.
+    val covered = target.above.take(reach).reversed() + listOfNotNull(line)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -116,26 +124,40 @@ fun LineRemarkSheet(target: LineTarget, onAdd: (String) -> Unit, onDismiss: () -
         contentColor = colors.ink,
     ) {
         Column(Modifier.padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val file = target.path.substringAfterLast('/')
             Text(
-                stringResource(R.string.changes_remark_title, target.path.substringAfterLast('/'), target.line.number),
+                if (line == null) stringResource(R.string.changes_remark_file_title, file) else stringResource(R.string.changes_remark_title, file, line.number),
                 style = Soft.type.name,
                 color = colors.ink,
                 modifier = Modifier.semantics { heading() },
             )
-            Text(
-                target.line.text.trim(),
-                style = Soft.type.meta.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
-                color = colors.inkMuted,
-                maxLines = 3,
-                modifier = Modifier.fillMaxWidth().clip(SoftTokens.RowCorner).background(colors.surface).padding(12.dp),
-            )
-            SoftTextField(value = body, onValueChange = { body = it }, placeholder = stringResource(R.string.changes_remark_body), singleLine = false, minLines = 3, maxLines = 8)
-            // The line as it is, to be rewritten into what it should say: a reviewer's suggestion, committed from the thread.
-            // Only on a line the change keeps; one it takes away has nothing to replace.
-            if (target.line.kind != DiffLineKind.REMOVED) {
-                SoftTonalButton(stringResource(R.string.changes_remark_suggest), onClick = { body = withSuggestion(body, target.line.text) })
+            if (covered.isNotEmpty()) {
+                Text(
+                    covered.joinToString("\n") { it.text.trimEnd() }.trimIndent(),
+                    style = Soft.type.meta.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
+                    color = colors.inkMuted,
+                    maxLines = 6,
+                    modifier = Modifier.fillMaxWidth().clip(SoftTokens.RowCorner).background(colors.surface).padding(12.dp),
+                )
             }
-            SoftButton(stringResource(R.string.changes_remark_add), onClick = { onAdd(body) }, enabled = body.isNotBlank(), modifier = Modifier.fillMaxWidth())
+            if (line != null && target.above.isNotEmpty()) {
+                if (start != null) Text(stringResource(R.string.changes_remark_lines, start.number, line.number), style = Soft.type.meta, color = colors.inkMuted)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SoftTonalButton(stringResource(R.string.changes_remark_more), onClick = { reach++ }, enabled = reach < target.above.size)
+                    if (reach > 0) SoftTonalButton(stringResource(R.string.changes_remark_fewer), onClick = { reach-- })
+                }
+            }
+            SoftTextField(
+                value = body, onValueChange = { body = it },
+                placeholder = stringResource(if (line == null) R.string.changes_remark_file_body else R.string.changes_remark_body),
+                singleLine = false, minLines = 3, maxLines = 8,
+            )
+            // The lines as they are, to be rewritten into what they should say: a reviewer's suggestion, committed from the
+            // thread. Only on lines the change keeps; one it takes away has nothing to replace.
+            if (line != null && covered.none { it.kind == DiffLineKind.REMOVED }) {
+                SoftTonalButton(stringResource(R.string.changes_remark_suggest), onClick = { body = withSuggestion(body, covered.joinToString("\n") { it.text }) })
+            }
+            SoftButton(stringResource(R.string.changes_remark_add), onClick = { onAdd(body, start) }, enabled = body.isNotBlank(), modifier = Modifier.fillMaxWidth())
         }
     }
 }

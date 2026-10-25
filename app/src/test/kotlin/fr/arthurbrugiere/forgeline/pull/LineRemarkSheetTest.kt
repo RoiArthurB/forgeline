@@ -25,8 +25,19 @@ class LineRemarkSheetTest {
 
     private val added = mutableListOf<String>()
 
-    private fun setContent(line: DiffLine) = composeRule.setContent {
-        ForgelineTheme { LineRemarkSheet(LineTarget("src/Upload.kt", line), onAdd = { added += it }, onDismiss = {}) }
+    private val starts = mutableListOf<DiffLine?>()
+
+    private fun setContent(line: DiffLine?, above: List<DiffLine> = emptyList()) = composeRule.setContent {
+        ForgelineTheme {
+            LineRemarkSheet(
+                LineTarget("src/Upload.kt", line, above),
+                onAdd = { body, start ->
+                    added += body
+                    starts += start
+                },
+                onDismiss = {},
+            )
+        }
     }
 
     @Test
@@ -47,5 +58,35 @@ class LineRemarkSheetTest {
 
         composeRule.onNodeWithText("Upload.kt, line 2").assertIsDisplayed()
         composeRule.onNodeWithText("Suggest a change").assertDoesNotExist()
+    }
+
+    private val first = DiffLine(DiffLineKind.CONTEXT, "fun upload() {", oldNumber = 1, newNumber = 1)
+    private val second = DiffLine(DiffLineKind.ADDED, "    retry {", oldNumber = null, newNumber = 2)
+    private val third = DiffLine(DiffLineKind.ADDED, "        send(file)", oldNumber = null, newNumber = 3)
+
+    @Test
+    fun a_remark_reaches_up_over_the_lines_above_and_its_suggestion_holds_them_all() {
+        // The lines above, nearest first.
+        setContent(third, above = listOf(second, first))
+
+        composeRule.onNodeWithText("One more line above").performClick()
+        composeRule.onNodeWithText("One more line above").performClick()
+        composeRule.onNodeWithText("Lines 1 to 3").assertIsDisplayed()
+        composeRule.onNodeWithText("One line fewer").performClick()
+        composeRule.onNodeWithText("Lines 2 to 3").assertIsDisplayed()
+        composeRule.onNodeWithText("Suggest a change").performClick()
+        composeRule.onNodeWithText("Add to the review").performClick()
+
+        assertThat(added).containsExactly("```suggestion\n    retry {\n        send(file)\n```\n")
+        assertThat(starts).containsExactly(second)
+    }
+
+    @Test
+    fun a_remark_on_the_whole_file_says_so_and_suggests_nothing() {
+        setContent(null)
+
+        composeRule.onNodeWithText("Upload.kt, the whole file").assertIsDisplayed()
+        composeRule.onNodeWithText("Suggest a change").assertDoesNotExist()
+        composeRule.onNodeWithText("One more line above").assertDoesNotExist()
     }
 }

@@ -64,6 +64,7 @@ fun ChangesRoute(route: ChangesRoute, onBack: () -> Unit) {
             onStartComment = viewModel::startComment,
             onCancelComment = viewModel::cancelComment,
             onAddComment = viewModel::addComment,
+            onStartFileComment = viewModel::startFileComment,
             onRemoveComment = viewModel::removeComment,
             onOpen = viewModel::openReview,
             onClose = viewModel::closeReview,
@@ -77,7 +78,10 @@ fun ChangesRoute(route: ChangesRoute, onBack: () -> Unit) {
 class ReviewActions(
     val onStartComment: (String, DiffLine) -> Unit = { _, _ -> },
     val onCancelComment: () -> Unit = {},
-    val onAddComment: (String) -> Unit = {},
+    /** Keeps a remark, from the line above it it starts at when it covers several. */
+    val onAddComment: (String, DiffLine?) -> Unit = { _, _ -> },
+    /** Starts a remark on a whole file, by its path. */
+    val onStartFileComment: (String) -> Unit = {},
     val onRemoveComment: (LineComment) -> Unit = {},
     val onOpen: () -> Unit = {},
     val onClose: () -> Unit = {},
@@ -163,6 +167,7 @@ fun ChangesScreen(
                         isExpanded = state::isExpanded,
                         onToggle = onToggle,
                         onLineClick = review.onStartComment.takeIf { state.canReview },
+                        onFileRemark = review.onStartFileComment.takeIf { state.canReview && state.remarksOnFiles },
                         comments = state.comments,
                         onRemoveComment = review.onRemoveComment,
                     )

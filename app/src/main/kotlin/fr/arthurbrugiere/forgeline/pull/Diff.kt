@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AddComment
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -60,10 +61,18 @@ internal fun LazyListScope.fileDiffItems(
     onLineClick: ((String, DiffLine) -> Unit)? = null,
     comments: List<LineComment> = emptyList(),
     onRemoveComment: (LineComment) -> Unit = {},
+    /** Starts a remark on a whole file, by its path; null where none can be written. */
+    onFileRemark: ((String) -> Unit)? = null,
 ) {
     files.forEachIndexed { index, diff ->
         val expanded = isExpanded(diff)
-        item(key = "file-$index", contentType = "file") { FileHeading(diff, expanded, onToggle = { onToggle(diff.file.path) }) }
+        item(key = "file-$index", contentType = "file") {
+            Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
+                FileHeading(diff, expanded, onToggle = { onToggle(diff.file.path) }, onRemark = onFileRemark?.let { remark -> { remark(diff.file.path) } })
+                // A remark on the whole file waits under its heading, folded or not.
+                comments.filter { it.onFile && it.path == diff.file.path }.forEach { remark -> PendingRemark(remark, onRemove = { onRemoveComment(remark) }) }
+            }
+        }
         if (!expanded) return@forEachIndexed
         if (diff.hunks.isEmpty()) {
             item(key = "file-$index-none", contentType = "none") {
@@ -99,7 +108,7 @@ internal fun LazyListScope.fileDiffItems(
 }
 
 @Composable
-private fun FileHeading(diff: FileDiff, expanded: Boolean, onToggle: () -> Unit) {
+private fun FileHeading(diff: FileDiff, expanded: Boolean, onToggle: () -> Unit, onRemark: (() -> Unit)? = null) {
     val colors = Soft.colors
     val file = diff.file
     val state = stringResource(if (expanded) R.string.changes_file_shown else R.string.changes_file_folded)
@@ -135,6 +144,11 @@ private fun FileHeading(diff: FileDiff, expanded: Boolean, onToggle: () -> Unit)
         Row(Modifier.clearAndSetSemantics { contentDescription = counts }, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             if (file.additions > 0) SoftTag("+${file.additions}", background = colors.fields[2])
             if (file.deletions > 0) SoftTag("−${file.deletions}", background = colors.fields[0])
+        }
+        if (onRemark != null) {
+            SoftIconButton(onClick = onRemark) {
+                Icon(Icons.Outlined.AddComment, contentDescription = stringResource(R.string.changes_file_remark, file.path), tint = colors.inkMuted, modifier = Modifier.size(20.dp))
+            }
         }
     }
 }

@@ -309,6 +309,14 @@ class ForgejoPullRequestApiTest {
     }
 
     @Test
+    fun forgejo_takes_remarks_on_one_line_only() = runTest {
+        val api = with(codeberg) { api { json("{}") } }
+
+        assertThat(api.commentsOnRanges).isFalse()
+        assertThat(api.commentsOnFiles).isFalse()
+    }
+
+    @Test
     fun a_merge_says_how() = runTest {
         with(codeberg) { api { status(HttpStatusCode.OK) } }.merge("tok", pull, MergeMethod.REBASE)
 

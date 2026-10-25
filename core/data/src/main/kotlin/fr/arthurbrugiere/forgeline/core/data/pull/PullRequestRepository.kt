@@ -59,6 +59,11 @@ interface PullRequestRepository {
     /** Whether threads can be marked resolved on [forge]. */
     fun resolvesThreads(forge: ForgeInstance): Boolean
 
+    /** Whether a remark can cover several lines, and be on a whole file, on [forge]. */
+    fun commentsOnRanges(forge: ForgeInstance): Boolean
+
+    fun commentsOnFiles(forge: ForgeInstance): Boolean
+
     /** Whether remarks on lines take reactions on [forge]. */
     fun reactsToThreadComments(forge: ForgeInstance): Boolean
 
@@ -147,6 +152,10 @@ class DefaultPullRequestRepository @Inject constructor(
     override fun resolvesThreads(forge: ForgeInstance) = clients.pulls(forge).resolvesThreads
 
     override fun reactsToThreadComments(forge: ForgeInstance) = clients.pulls(forge).reactsToThreadComments
+
+    override fun commentsOnRanges(forge: ForgeInstance) = clients.pulls(forge).commentsOnRanges
+
+    override fun commentsOnFiles(forge: ForgeInstance) = clients.pulls(forge).commentsOnFiles
 
     override suspend fun toggleThreadReaction(ref: IssueRef, thread: ReviewThread, comment: ThreadComment, reaction: Reaction): ForgeResult<Map<Reaction, Int>> {
         val account = accounts.accountOn(ref.repo.forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)

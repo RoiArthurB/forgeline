@@ -59,6 +59,12 @@ interface PullRequestApi {
     /** The verdicts a review can give here: GitLab's API can't ask for changes. */
     val verdicts: Set<ReviewVerdict> get() = ReviewVerdict.entries.toSet()
 
+    /** Whether a remark can cover several lines ([LineComment.isRange]) here. */
+    val commentsOnRanges: Boolean get() = false
+
+    /** Whether a remark can be on a whole file ([LineComment.onFile]) here. */
+    val commentsOnFiles: Boolean get() = false
+
     /** Reviews [ref]: a verdict, what it says ([body], Markdown, possibly empty) and remarks on lines of the change. */
     suspend fun review(token: String, ref: IssueRef, verdict: ReviewVerdict, body: String, comments: List<LineComment>): ForgeResult<Unit>
 

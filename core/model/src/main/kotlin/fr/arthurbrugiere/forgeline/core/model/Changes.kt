@@ -239,10 +239,28 @@ enum class ReviewVerdict { COMMENT, APPROVE, REQUEST_CHANGES }
  * A remark on one line of a pull request's change, told as the change tells it: [newLine] is its number in the file
  * after the change, [oldLine] before it. A line the change adds has only the first, one it removes only the second,
  * one it leaves alone both. [previousPath] is where the file was, when the change moved it.
+ *
+ * On several lines, [startOldLine] and [startNewLine] tell the first the same way, and the line is the last. [onFile]
+ * puts it on the whole file instead, on no line.
  */
-data class LineComment(val path: String, val oldLine: Int?, val newLine: Int?, val body: String, val previousPath: String? = null) {
+data class LineComment(
+    val path: String,
+    val oldLine: Int?,
+    val newLine: Int?,
+    val body: String,
+    val previousPath: String? = null,
+    val startOldLine: Int? = null,
+    val startNewLine: Int? = null,
+    val onFile: Boolean = false,
+) {
     /** Whether the line is only in the file before the change: one it removes. */
     val onOldSide: Boolean get() = newLine == null
+
+    /** Whether it covers several lines, from the one [startOldLine] and [startNewLine] tell. */
+    val isRange: Boolean get() = !onFile && (startOldLine != null || startNewLine != null)
+
+    /** Whether the first line of the range is only in the file before the change. */
+    val startsOnOldSide: Boolean get() = startNewLine == null
 }
 
 /** A pull request to open: [head] is the branch that holds the change, [base] the one it goes into. */

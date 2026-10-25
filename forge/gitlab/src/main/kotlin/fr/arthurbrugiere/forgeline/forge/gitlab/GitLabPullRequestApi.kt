@@ -190,6 +190,29 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
      * GitLab has no review to send as one: the remarks on lines go first, each a discussion of its own, then what the
      * review says, then the approval, so that an approval is never left standing without what came with it.
      */
+    override val commentsOnRanges: Boolean = true
+
+    override val commentsOnFiles: Boolean = true
+
+    /**
+     * Both ends of a remark on several lines, each by its line code: the file's SHA-1, then the line's number before and
+     * after the change, blank where it has none (taken so by gitlab.com, 2026-10-25), and the side it is on.
+     */
+    private fun lineRange(comment: LineComment) = buildJsonObject {
+        val file = java.security.MessageDigest.getInstance("SHA-1").digest(comment.path.toByteArray()).joinToString("") { "%02x".format(it) }
+        fun end(name: String, old: Int?, new: Int?) = put(
+            name,
+            buildJsonObject {
+                put("line_code", "${file}_${old ?: ""}_${new ?: ""}")
+                put("type", if (new == null) "old" else "new")
+                new?.let { put("new_line", it) }
+                old?.let { put("old_line", it) }
+            },
+        )
+        end("start", comment.startOldLine, comment.startNewLine)
+        end("end", comment.oldLine, comment.newLine)
+    }
+
     override suspend fun review(token: String, ref: IssueRef, verdict: ReviewVerdict, body: String, comments: List<LineComment>): ForgeResult<Unit> = forgeCall {
         if (verdict == ReviewVerdict.REQUEST_CHANGES) return@forgeCall ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unsupported)
         if (comments.isNotEmpty()) {
@@ -204,15 +227,18 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
                         put(
                             "position",
                             buildJsonObject {
-                                put("position_type", "text")
+                                put("position_type", if (comment.onFile) "file" else "text")
                                 put("base_sha", refs.baseSha)
                                 put("start_sha", refs.startSha)
                                 put("head_sha", refs.headSha)
                                 put("new_path", comment.path)
                                 put("old_path", comment.previousPath ?: comment.path)
-                                // A line the change leaves alone is told by both its numbers.
-                                comment.newLine?.let { put("new_line", it) }
-                                comment.oldLine?.let { put("old_line", it) }
+                                if (!comment.onFile) {
+                                    // A line the change leaves alone is told by both its numbers.
+                                    comment.newLine?.let { put("new_line", it) }
+                                    comment.oldLine?.let { put("old_line", it) }
+                                }
+                                if (comment.isRange) put("line_range", lineRange(comment))
                             },
                         )
                     },
@@ -429,7 +455,12 @@ private data class MrPositionJson(
     @SerialName("old_path") val oldPath: String? = null,
     @SerialName("new_line") val newLine: Int? = null,
     @SerialName("old_line") val oldLine: Int? = null,
+    @SerialName("line_range") val lineRange: MrLineRangeJson? = null,
 )
+
+/** Where a remark on several lines starts and ends. */
+@Serializable
+private data class MrLineRangeJson(val start: MrPositionJson? = null, val end: MrPositionJson? = null)
 
 @Serializable
 private data class MrNoteJson(
@@ -474,6 +505,8 @@ private data class MrDiscussionJson(val id: String, val notes: List<MrNoteJson> 
             comments = notes.map { ThreadComment(it.id, it.author?.toForgeUser(), it.body, gitlabInstant(it.createdAt), it.suggestions.map { s -> s.toModel() }) },
             resolved = first.resolved,
             canResolve = signedIn && first.resolvable,
+            // A remark on several lines: its first, unless it is the line itself.
+            startLine = position.lineRange?.start?.let { it.newLine ?: it.oldLine }?.takeIf { it != (position.newLine ?: position.oldLine) },
         )
     }
 }

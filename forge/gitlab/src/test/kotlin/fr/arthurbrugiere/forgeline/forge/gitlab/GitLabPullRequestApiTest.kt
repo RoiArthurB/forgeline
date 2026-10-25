@@ -387,6 +387,42 @@ class GitLabPullRequestApiTest {
     }
 
     @Test
+    fun a_remark_on_several_lines_names_both_ends_and_one_on_the_file_is_placed_on_it() = runTest {
+        // As gitlab.com took them on a scratch merge request (2026-10-25): each end by its line code, the file by its type.
+        val api = api { path -> if (path.endsWith("/7606")) json(mrJson) else json("{}", HttpStatusCode.Created) }
+        assertThat(api.commentsOnRanges).isTrue()
+        assertThat(api.commentsOnFiles).isTrue()
+
+        api.review(
+            "tok", mr, ReviewVerdict.COMMENT, "",
+            listOf(
+                LineComment("NOTES.md", oldLine = null, newLine = 4, body = "These three", startOldLine = null, startNewLine = 2),
+                LineComment("NOTES.md", oldLine = null, newLine = null, body = "Split it?", onFile = true),
+            ),
+        )
+
+        val code = "47f26c59234b6f71b0fb251a9c37288acb1e2493"
+        assertThat(requests[1].sent).contains(
+            """"new_line":4,"line_range":{"start":{"line_code":"${code}__2","type":"new","new_line":2},"end":{"line_code":"${code}__4","type":"new","new_line":4}}""",
+        )
+        assertThat(requests[2].sent).isEqualTo(
+            """{"body":"Split it?","position":{"position_type":"file","base_sha":"4718911","start_sha":"a278fd0","head_sha":"cb7511a","new_path":"NOTES.md","old_path":"NOTES.md"}}""",
+        )
+    }
+
+    @Test
+    fun a_remark_on_several_lines_reads_where_it_starts() = runTest {
+        // The position gitlab.com answered for a remark on lines 2 to 4 of a scratch merge request (2026-10-25).
+        val discussion = """[{"id":"d1","notes":[{"id":5,"type":"DiffNote","body":"These three","resolvable":true,"position":{"new_path":"NOTES.md","old_path":"NOTES.md","new_line":4,"position_type":"text",""" +
+            """"line_range":{"start":{"line_code":"47f2_2_2","type":"new","new_line":2},"end":{"line_code":"47f2_2_4","type":"new","new_line":4}}}}]}]"""
+
+        val thread = api { json(discussion) }.threads("tok", mr).value().single()
+
+        assertThat(thread.line).isEqualTo(4)
+        assertThat(thread.startLine).isEqualTo(2)
+    }
+
+    @Test
     fun a_comment_with_nothing_on_lines_is_one_note() = runTest {
         api { json("{}", HttpStatusCode.Created) }.review("tok", mr, ReviewVerdict.COMMENT, "Hm.", emptyList())
 

@@ -35,6 +35,7 @@ import io.ktor.client.call.body
 import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.isSuccess
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
@@ -304,22 +305,35 @@ class GitHubPullRequestApi(
     private suspend fun graphQl(token: String, query: String, variables: JsonObject): ForgeResult<JsonObject> =
         forgeCall { httpClient.gitHubGraphQl(apiBaseUrl, token, query, variables) }
 
+    override val commentsOnRanges: Boolean = true
+
+    override val commentsOnFiles: Boolean = true
+
+    /**
+     * One review with its remarks on lines; a remark on a whole file can't be one of them, so each goes as a review
+     * comment of its own after it, on the commit the change ends at.
+     */
     override suspend fun review(token: String, ref: IssueRef, verdict: ReviewVerdict, body: String, comments: List<LineComment>): ForgeResult<Unit> = forgeCall {
-        pull(
+        val (onFiles, onLines) = comments.partition { it.onFile }
+        val reviewed = pull(
             token, ref, "reviews", method = HttpMethod.Post,
             body = buildJsonObject {
                 put("event", verdict.name)
                 if (body.isNotBlank()) put("body", body)
-                if (comments.isNotEmpty()) {
+                if (onLines.isNotEmpty()) {
                     put(
                         "comments",
                         buildJsonArray {
-                            comments.forEach { comment ->
+                            onLines.forEach { comment ->
                                 add(
                                     buildJsonObject {
                                         put("path", comment.path)
                                         put("line", comment.newLine ?: comment.oldLine ?: 1)
                                         put("side", if (comment.onOldSide) "LEFT" else "RIGHT")
+                                        if (comment.isRange) {
+                                            put("start_line", comment.startNewLine ?: comment.startOldLine ?: 1)
+                                            put("start_side", if (comment.startsOnOldSide) "LEFT" else "RIGHT")
+                                        }
                                         put("body", comment.body)
                                     },
                                 )
@@ -328,7 +342,24 @@ class GitHubPullRequestApi(
                     )
                 }
             },
-        ).toResult { }
+        )
+        if (!reviewed.status.isSuccess() || onFiles.isEmpty()) return@forgeCall reviewed.toResult { }
+        val head = pull(token, ref)
+        if (!head.status.isSuccess()) return@forgeCall head.failure()
+        val sha = head.body<PrPullJson>().head.sha
+        onFiles.forEach { comment ->
+            val sent = pull(
+                token, ref, "comments", method = HttpMethod.Post,
+                body = buildJsonObject {
+                    put("body", comment.body)
+                    put("commit_id", sha)
+                    put("path", comment.path)
+                    put("subject_type", "file")
+                },
+            )
+            if (!sent.status.isSuccess()) return@forgeCall sent.failure()
+        }
+        ForgeResult.Success(Unit)
     }
 
     override suspend fun create(token: String, repo: RepoId, request: NewPullRequest): ForgeResult<IssueRef> = forgeCall {

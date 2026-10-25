@@ -62,7 +62,8 @@ class ChangesScreenTest {
                 review = ReviewActions(
                     onStartComment = { path, line -> events += "remark:$path:${line.number}" },
                     onCancelComment = { events += "remark-cancel" },
-                    onAddComment = { events += "remark-add:$it" },
+                    onAddComment = { body, start -> events += "remark-add:$body${start?.let { " from ${it.number}" }.orEmpty()}" },
+                    onStartFileComment = { events += "remark-file:$it" },
                     onRemoveComment = { events += "remark-remove:${it.body}" },
                     onOpen = { events += "review-open" },
                     onClose = { events += "review-close" },
@@ -233,5 +234,29 @@ class ChangesScreenTest {
         // As a reviewer: every line of the change is then something to press.
         setContent(loaded(upload, diff("docs/retry.md", "@@ -0,0 +1 @@\n+Retries three times.", FileChange.ADDED)).copy(canReview = true))
         composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    @Test
+    fun a_file_takes_a_remark_on_the_whole_of_it_where_the_forge_allows() {
+        setContent(loaded(upload).copy(canReview = true, remarksOnFiles = true))
+
+        composeRule.onNodeWithContentDescription("Remark on src/Upload.kt").performClick()
+
+        assertThat(events).containsExactly("remark-file:src/Upload.kt")
+    }
+
+    @Test
+    fun a_remark_on_the_whole_file_waits_under_its_heading() {
+        val remark = LineComment("src/Upload.kt", oldLine = null, newLine = null, body = "Split this file?", onFile = true)
+        setContent(loaded(upload).copy(canReview = true, remarksOnFiles = true, comments = listOf(remark)))
+
+        composeRule.onNodeWithText("Split this file?").assertIsDisplayed()
+    }
+
+    @Test
+    fun without_files_to_remark_on_no_such_button_shows() {
+        setContent(loaded(upload).copy(canReview = true, remarksOnFiles = false))
+
+        composeRule.onNodeWithContentDescription("Remark on src/Upload.kt").assertDoesNotExist()
     }
 }

@@ -166,7 +166,9 @@ private fun Thread(
         // Where it is: the file and the line, and whether the code it was on has moved on since.
         Text(
             listOfNotNull(
-                "${thread.path}${thread.line?.let { ":$it" }.orEmpty()}",
+                // On several lines, from the first to the last; on no line, the whole file.
+                "${thread.path}${thread.line?.let { line -> ":" + (thread.startLine?.let { "$it–" }.orEmpty()) + line }.orEmpty()}",
+                stringResource(R.string.thread_on_file).takeIf { thread.line == null },
                 stringResource(R.string.thread_outdated).takeIf { thread.outdated },
                 stringResource(R.string.thread_resolved).takeIf { thread.resolved },
             ).joinToString(" · "),

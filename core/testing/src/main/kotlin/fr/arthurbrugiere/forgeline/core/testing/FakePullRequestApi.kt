@@ -135,6 +135,10 @@ class FakePullRequestApi(
 
     private val givenReactions = mutableSetOf<String>()
 
+    override var commentsOnRanges: Boolean = true
+
+    override var commentsOnFiles: Boolean = true
+
     override var editsThreadComments: Boolean = true
 
     override var deletesThreadComments: Boolean = true

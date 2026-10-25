@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.model.ChangedFile
 import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.DiffHunk
 import fr.arthurbrugiere.forgeline.core.model.DiffLine
+import fr.arthurbrugiere.forgeline.core.model.DiffLineKind
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -49,7 +50,12 @@ data class FileDiff(val file: ChangedFile, val hunks: List<DiffHunk>) {
 }
 
 /** The line a remark is being written on. */
-data class LineTarget(val path: String, val line: DiffLine)
+
+/**
+ * What a remark is being written about: [line] of the file at [path], or the whole file when it is null. [above] are the
+ * lines it can reach up over, nearest first: those of its hunk above it, on its side of the change.
+ */
+data class LineTarget(val path: String, val line: DiffLine?, val above: List<DiffLine> = emptyList())
 
 data class ChangesUiState(
     val target: ChangesTarget,
@@ -66,6 +72,9 @@ data class ChangesUiState(
     /** Whether a review can be written: a pull request's change, by someone signed in on its forge. */
     val canReview: Boolean = false,
     val verdicts: Set<ReviewVerdict> = emptySet(),
+    /** Whether a remark can cover several lines, and be on a whole file, on this forge. */
+    val remarksOnRanges: Boolean = false,
+    val remarksOnFiles: Boolean = false,
     /** The remarks on lines written so far; they go with the review. */
     val comments: List<LineComment> = emptyList(),
     val drafting: LineTarget? = null,
@@ -90,7 +99,14 @@ class ChangesViewModel @AssistedInject constructor(
         fun create(target: ChangesTarget): ChangesViewModel
     }
 
-    private val _state = MutableStateFlow(ChangesUiState(target, verdicts = repository.verdicts(target.repo.forge)))
+    private val _state = MutableStateFlow(
+        ChangesUiState(
+            target,
+            verdicts = repository.verdicts(target.repo.forge),
+            remarksOnRanges = repository.commentsOnRanges(target.repo.forge),
+            remarksOnFiles = repository.commentsOnFiles(target.repo.forge),
+        ),
+    )
     val state: StateFlow<ChangesUiState> = _state.asStateFlow()
 
     init {
@@ -146,17 +162,41 @@ class ChangesViewModel @AssistedInject constructor(
 
     /** Starts a remark on [line] of the file at [path]. */
     fun startComment(path: String, line: DiffLine) {
-        if (_state.value.canReview) _state.update { it.copy(drafting = LineTarget(path, line)) }
+        val state = _state.value
+        if (!state.canReview) return
+        _state.update { it.copy(drafting = LineTarget(path, line, if (state.remarksOnRanges) linesAbove(path, line) else emptyList())) }
+    }
+
+    /** Starts a remark on the whole file at [path], where the forge takes one. */
+    fun startFileComment(path: String) {
+        val state = _state.value
+        if (state.canReview && state.remarksOnFiles) _state.update { it.copy(drafting = LineTarget(path, null)) }
+    }
+
+    /** The lines of [line]'s hunk above it, nearest first, that are on its side: the file it is in has them too. */
+    private fun linesAbove(path: String, line: DiffLine): List<DiffLine> {
+        val hunk = _state.value.files.orEmpty().firstOrNull { it.file.path == path }?.hunks?.firstOrNull { line in it.lines } ?: return emptyList()
+        val other = if (line.kind == DiffLineKind.REMOVED) DiffLineKind.ADDED else DiffLineKind.REMOVED
+        return hunk.lines.subList(0, hunk.lines.indexOf(line)).filter { it.kind != other }.reversed()
     }
 
     fun cancelComment() = _state.update { it.copy(drafting = null) }
 
-    /** Keeps what was written about the line being remarked on: it is sent with the review, not before. */
-    fun addComment(body: String) {
+    /**
+     * Keeps what was written about the line being remarked on, from [start] when it covers lines above it, or about the
+     * whole file: it is sent with the review, not before.
+     */
+    fun addComment(body: String, start: DiffLine? = null) {
         val drafting = _state.value.drafting ?: return
         if (body.isBlank()) return
         val file = _state.value.files.orEmpty().firstOrNull { it.file.path == drafting.path }?.file
-        val comment = LineComment(drafting.path, drafting.line.oldNumber, drafting.line.newNumber, body.trim(), file?.previousPath)
+        val line = drafting.line
+        val comment = if (line == null) {
+            LineComment(drafting.path, oldLine = null, newLine = null, body = body.trim(), previousPath = file?.previousPath, onFile = true)
+        } else {
+            val from = start?.takeIf { it in drafting.above }
+            LineComment(drafting.path, line.oldNumber, line.newNumber, body.trim(), file?.previousPath, startOldLine = from?.oldNumber, startNewLine = from?.newNumber)
+        }
         _state.update { it.copy(drafting = null, comments = it.comments + comment) }
     }
 

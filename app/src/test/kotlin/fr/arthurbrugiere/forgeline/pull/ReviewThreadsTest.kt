@@ -311,4 +311,12 @@ class ReviewThreadsTest {
 
         assertThat(events).containsExactly("react:T1:1:HEART")
     }
+
+    @Test
+    fun a_thread_on_several_lines_says_from_where_and_one_on_the_file_says_so() {
+        setContent(listOf(open.copy(startLine = 1), resolved.copy(id = "T3", line = null, resolved = false)))
+
+        composeRule.onNodeWithText("src/Upload.kt:1–3").assertIsDisplayed()
+        composeRule.onNodeWithText("docs/retry.md · Whole file").assertIsDisplayed()
+    }
 }

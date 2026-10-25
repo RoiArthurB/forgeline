@@ -188,6 +188,24 @@ class GitLabWriteLiveTest {
             val said = GitLabIssueApi(http, ForgeInstance.GitLab).timeline(token, ref, 1).value("timeline before merge").items
             assertWithMessage("not in the conversation").that(said.filterIsInstance<fr.arthurbrugiere.forgeline.core.model.TimelineItem.Comment>().map { it.body }).doesNotContain("Why this line?")
 
+            // A remark from the line the change leaves above the one it adds to that one, and one on the whole file.
+            val newSide = parsePatch(readme.patch!!).flatMap { it.lines }.filter { it.kind != DiffLineKind.REMOVED }
+            val last = added
+            val first = newSide[newSide.indexOf(added) - 1]
+            pulls.review(
+                token, ref, ReviewVerdict.COMMENT, "",
+                listOf(
+                    LineComment("README.md", last.oldNumber, last.newNumber, "These lines.", startOldLine = first.oldNumber, startNewLine = first.newNumber),
+                    LineComment("README.md", null, null, "On the whole file.", onFile = true),
+                ),
+            ).value("range and file")
+            val placed = pulls.threads(token, ref).value("threads placed")
+            System.err.println("GITLAB range and file threads: ${placed.map { "${it.comments.first().body}@${it.startLine}-${it.line}" }}")
+            val range = placed.single { it.comments.first().body == "These lines." }
+            assertWithMessage("range ends").that(range.line).isEqualTo(last.newNumber)
+            assertWithMessage("range starts").that(range.startLine).isEqualTo(first.newNumber)
+            assertWithMessage("file remark").that(placed.map { it.comments.first().body }).contains("On the whole file.")
+
             // A suggestion on the same line, applied by GitLab itself; once applied it can't be again.
             pulls.review(token, ref, ReviewVerdict.COMMENT, "", listOf(LineComment("README.md", added.oldNumber, added.newNumber, "Better:\n```suggestion:-0+0\nA line the suggestion wrote.\n```"))).value("suggestion")
             val suggesting = pulls.threads(token, ref).value("threads with suggestion").single { it.comments.first().body.startsWith("Better:") }

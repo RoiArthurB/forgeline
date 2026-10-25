@@ -528,6 +528,29 @@ class GitHubPullRequestApiTest {
     }
 
     @Test
+    fun a_remark_on_several_lines_says_where_it_starts_and_one_on_the_file_goes_on_its_own() = runTest {
+        val sent = api { request -> if (request.path == "/repos/octo/tools/pulls/88") json("""{"number":88,"head":{"sha":"cb7511a","ref":"fix"}}""") else json("""{"id":1}""") }
+        assertThat(sent.commentsOnRanges).isTrue()
+        assertThat(sent.commentsOnFiles).isTrue()
+
+        sent.review(
+            "tok", pull, ReviewVerdict.COMMENT, "",
+            listOf(
+                LineComment("src/Upload.kt", oldLine = null, newLine = 14, body = "These three", startOldLine = null, startNewLine = 12),
+                LineComment("src/Upload.kt", oldLine = null, newLine = null, body = "Split this file?", onFile = true),
+            ),
+        )
+
+        assertThat(requests.map { "${it.method.value} ${it.path}" }).containsExactly(
+            "POST /repos/octo/tools/pulls/88/reviews", "GET /repos/octo/tools/pulls/88", "POST /repos/octo/tools/pulls/88/comments",
+        ).inOrder()
+        assertThat(requests[0].sent).contains("""{"path":"src/Upload.kt","line":14,"side":"RIGHT","start_line":12,"start_side":"RIGHT","body":"These three"}""")
+        // A review's remarks are on lines only: the one on the file is its own comment, on the commit the change ends at.
+        assertThat(requests[0].sent).doesNotContain("Split this file?")
+        assertThat(requests[2].sent).isEqualTo("""{"body":"Split this file?","commit_id":"cb7511a","path":"src/Upload.kt","subject_type":"file"}""")
+    }
+
+    @Test
     fun an_approval_can_go_with_nothing_said() = runTest {
         api { json("""{"id":1}""") }.review("tok", pull, ReviewVerdict.APPROVE, "", emptyList())
 

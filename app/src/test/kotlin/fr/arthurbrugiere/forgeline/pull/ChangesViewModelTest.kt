@@ -148,6 +148,43 @@ class ChangesViewModelTest {
     }
 
     @Test
+    fun a_remark_covers_lines_above_it_on_its_side_and_another_the_whole_file() = test {
+        signIn()
+        api.files = listOf(listOf(changedFile("a.kt")))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.remarksOnRanges).isTrue()
+        assertThat(viewModel.state.value.remarksOnFiles).isTrue()
+        val lines = viewModel.state.value.files!![0].hunks[0].lines
+
+        // On the line it adds, the lines above that the new file has: the removed one isn't, the one left alone is.
+        viewModel.startComment("a.kt", lines[2])
+        assertThat(viewModel.state.value.drafting?.above).containsExactly(lines[0])
+        viewModel.addComment("Both of these", start = lines[0])
+        viewModel.startFileComment("a.kt")
+        assertThat(viewModel.state.value.drafting).isEqualTo(LineTarget("a.kt", null))
+        viewModel.addComment("Split this file?")
+
+        assertThat(viewModel.state.value.comments).containsExactly(
+            LineComment("a.kt", oldLine = null, newLine = 2, body = "Both of these", startOldLine = 1, startNewLine = 1),
+            LineComment("a.kt", oldLine = null, newLine = null, body = "Split this file?", onFile = true),
+        ).inOrder()
+    }
+
+    @Test
+    fun where_the_forge_takes_one_line_only_no_line_above_is_offered() = test {
+        signIn()
+        api.commentsOnRanges = false
+        api.files = listOf(listOf(changedFile("a.kt")))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.startComment("a.kt", viewModel.state.value.files!![0].hunks[0].lines[2])
+
+        assertThat(viewModel.state.value.drafting?.above).isEmpty()
+    }
+
+    @Test
     fun remarks_on_lines_wait_for_the_review_and_go_with_it() = test {
         signIn()
         api.files = listOf(listOf(changedFile("new/a.kt", change = FileChange.RENAMED, previousPath = "old/a.kt")))
