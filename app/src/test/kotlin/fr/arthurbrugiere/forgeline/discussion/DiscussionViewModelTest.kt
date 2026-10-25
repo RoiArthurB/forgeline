@@ -92,4 +92,73 @@ class DiscussionViewModelTest {
         viewModel.errorShown()
         assertThat(viewModel.state.value.error).isNull()
     }
+
+    @Test
+    fun a_comment_goes_to_the_discussion_and_it_is_read_again() = test {
+        val commentable = read.copy(id = "D_1")
+        repos.discussions[7] = ForgeResult.Success(commentable)
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.canComment).isTrue()
+
+        viewModel.send("  Found it.  ")
+        assertThat(viewModel.state.value.sending).isEqualTo(DiscussionViewModel.COMMENT)
+        advanceUntilIdle()
+
+        assertThat(repos.calls).containsExactly("discussion:octo/repo#7", "discussionComment:octo/repo#7:Found it.", "discussion:octo/repo#7").inOrder()
+        assertThat(viewModel.state.value.sending).isNull()
+        assertThat(viewModel.state.value.sent?.first).isEqualTo(DiscussionViewModel.COMMENT)
+    }
+
+    @Test
+    fun a_reply_goes_under_its_comment_and_an_answer_is_picked() = test {
+        repos.discussions[7] = ForgeResult.Success(read.copy(id = "D_1"))
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        advanceUntilIdle()
+
+        viewModel.send("Did it help?", replyTo = read.comments[0])
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.sent?.first).isEqualTo("c1")
+        viewModel.setAnswer(read.comments[0], answer = true)
+        advanceUntilIdle()
+
+        assertThat(repos.calls).containsAtLeast("discussionComment:octo/repo#7 under c1:Did it help?", "discussionAnswer:octo/repo:c1:true").inOrder()
+        assertThat(viewModel.state.value.sent?.first).isEqualTo("answer:c1")
+    }
+
+    @Test
+    fun a_comment_refused_says_why_and_nothing_is_read_again() = test {
+        repos.discussions[7] = ForgeResult.Success(read.copy(id = "D_1"))
+        repos.discussionWriteFailure = ForgeError.Http(403, "Discussion is locked")
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        advanceUntilIdle()
+
+        viewModel.send("Hello")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.sendError).isEqualTo(ForgeError.Http(403, "Discussion is locked"))
+        assertThat(viewModel.state.value.sent).isNull()
+        assertThat(repos.calls.count { it.startsWith("discussion:") }).isEqualTo(1)
+        viewModel.sendErrorShown()
+        assertThat(viewModel.state.value.sendError).isNull()
+    }
+
+    @Test
+    fun one_write_at_a_time_and_none_on_a_locked_discussion() = test {
+        repos.discussions[7] = ForgeResult.Success(read.copy(id = "D_1"))
+        repos.gate = CompletableDeferred()
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        repos.gate!!.complete(Unit)
+        advanceUntilIdle()
+        repos.gate = CompletableDeferred()
+
+        viewModel.send("One")
+        viewModel.send("Two")
+        repos.gate!!.complete(Unit)
+        advanceUntilIdle()
+        assertThat(repos.calls.filter { it.startsWith("discussionComment") }).containsExactly("discussionComment:octo/repo#7:One")
+
+        assertThat(viewModel.state.value.copy(discussion = read.copy(id = "D_1", locked = true)).canComment).isFalse()
+        assertThat(viewModel.state.value.copy(discussion = read).canComment).isFalse()
+    }
 }

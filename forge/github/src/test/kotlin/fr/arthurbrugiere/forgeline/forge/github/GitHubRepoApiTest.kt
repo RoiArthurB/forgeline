@@ -510,10 +510,10 @@ class GitHubRepoApiTest {
         {"number":99836,"title":"App Router PDF downloads","createdAt":"2026-10-07T22:12:26Z","upvoteCount":4,"isAnswered":false,"category":{"name":"Help"},"author":null,"comments":{"totalCount":12}}]}}}}"""
 
     private val oneDiscussion = """{"data":{"repository":{"discussion":{"number":7,"title":"How do I page?","body":"I can't find it.","createdAt":"2026-10-01T10:00:00Z","upvoteCount":3,"isAnswered":true,
-        "category":{"name":"Q&A"},"author":{"login":"alice","avatarUrl":null},"comments":{"totalCount":2,"nodes":[
-        {"id":"c1","body":"Use the cursor.","createdAt":"2026-10-01T11:00:00Z","upvoteCount":5,"isAnswer":true,"author":{"login":"bob","avatarUrl":null},
+        "category":{"name":"Q&A"},"author":{"login":"alice","avatarUrl":null},"id":"D_kwDOA","locked":false,"comments":{"totalCount":2,"nodes":[
+        {"id":"c1","body":"Use the cursor.","createdAt":"2026-10-01T11:00:00Z","upvoteCount":5,"isAnswer":true,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":true,"author":{"login":"bob","avatarUrl":null},
          "replies":{"totalCount":40,"nodes":[{"id":"r1","body":"Thanks!","createdAt":"2026-10-01T12:00:00Z","upvoteCount":0,"isAnswer":false,"author":{"login":"alice","avatarUrl":null}}]}},
-        {"id":"c2","body":"Same question.","createdAt":"2026-10-02T11:00:00Z","upvoteCount":0,"isAnswer":false,"author":null,"replies":{"totalCount":0,"nodes":[]}}]}}}}}"""
+        {"id":"c2","body":"Same question.","createdAt":"2026-10-02T11:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":true,"viewerCanUnmarkAsAnswer":false,"author":null,"replies":{"totalCount":0,"nodes":[]}}]}}}}}"""
 
     private fun body() = (requests.last().body as io.ktor.http.content.TextContent).text
 
@@ -562,6 +562,47 @@ class GitHubRepoApiTest {
         assertThat(discussion.comments[0].replyCount).isEqualTo(40)
         assertThat(discussion.isPartial).isTrue()
         assertThat(body()).contains("\"number\":7")
+        // What it is named by, to comment on it, and what the reader may pick as its answer.
+        assertThat(discussion.id).isEqualTo("D_kwDOA")
+        assertThat(discussion.locked).isFalse()
+        assertThat(discussion.comments.map { it.canMarkAnswer to it.canUnmarkAnswer }).containsExactly(false to true, true to false).inOrder()
+        assertThat(discussion.comments[0].replies.single().canMarkAnswer).isFalse()
+    }
+
+    @Test
+    fun a_comment_and_a_reply_are_added_to_the_discussion_by_its_id() = runTest {
+        val discussion = api { json(oneDiscussion) }.discussion("tok", paperclip, 7).value()
+        requests.clear()
+        val writing = api { json("""{"data":{"addDiscussionComment":{"comment":{"id":"c3"}}}}""") }
+
+        assertThat(writing.commentOnDiscussion("tok", discussion, "Thanks all.")).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(body()).contains("addDiscussionComment(input: {discussionId: \$discussion, body: \$body, replyToId: \$replyTo})")
+        assertThat(body()).contains("\"variables\":{\"discussion\":\"D_kwDOA\",\"body\":\"Thanks all.\"}")
+
+        writing.commentOnDiscussion("tok", discussion, "Under yours.", replyTo = "c1")
+        assertThat(body()).contains("\"replyTo\":\"c1\"")
+        assertThat(requests.map { it.url.encodedPath }).containsExactly("/graphql", "/graphql")
+    }
+
+    @Test
+    fun an_answer_is_picked_and_taken_back() = runTest {
+        val writing = api { json("""{"data":{"markDiscussionCommentAsAnswer":{"clientMutationId":null}}}""") }
+
+        writing.setDiscussionAnswer("tok", "c2", answer = true)
+        assertThat(body()).contains("markDiscussionCommentAsAnswer(input: {id: \$id})")
+        assertThat(body()).contains("\"id\":\"c2\"")
+
+        writing.setDiscussionAnswer("tok", "c1", answer = false)
+        assertThat(body()).contains("unmarkDiscussionCommentAsAnswer(input: {id: \$id})")
+    }
+
+    @Test
+    fun a_comment_github_refuses_says_why() = runTest {
+        val discussion = api { json(oneDiscussion) }.discussion("tok", paperclip, 7).value()
+        // A locked discussion, as GitHub words it (an error with no data).
+        val refused = api { json("""{"data":{"addDiscussionComment":null},"errors":[{"type":"FORBIDDEN","message":"Discussion is locked"}]}""") }
+
+        assertThat(refused.commentOnDiscussion("tok", discussion, "Hello")).isEqualTo(ForgeResult.Failure(ForgeError.Http(403, "Discussion is locked")))
     }
 
     @Test

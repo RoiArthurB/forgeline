@@ -203,9 +203,29 @@ class GitHubRepoApi(
     override suspend fun discussion(token: String?, id: RepoId, number: Int): ForgeResult<Discussion> =
         discussionsQuery(token, id, DISCUSSION_QUERY, { put("number", number) }) { repository ->
             repository.discussion?.let { json ->
-                Discussion(json.toSummary(), json.body.orEmpty(), json.comments.nodes.map { comment -> comment.toModel(comment.replies?.nodes.orEmpty().map { it.toModel() }) })
+                Discussion(
+                    json.toSummary(), json.body.orEmpty(), json.comments.nodes.map { comment -> comment.toModel(comment.replies?.nodes.orEmpty().map { it.toModel() }) },
+                    id = json.id, locked = json.locked,
+                )
             }
         }
+
+    override suspend fun commentOnDiscussion(token: String, discussion: Discussion, body: String, replyTo: String?): ForgeResult<Unit> {
+        val id = discussion.id ?: return ForgeResult.Failure(ForgeError.Unsupported)
+        val variables = buildJsonObject {
+            put("discussion", id)
+            put("body", body)
+            replyTo?.let { put("replyTo", it) }
+        }
+        return forgeCall { httpClient.gitHubGraphQl(apiBaseUrl, token, ADD_DISCUSSION_COMMENT, variables).map { } }
+    }
+
+    override suspend fun setDiscussionAnswer(token: String, commentId: String, answer: Boolean): ForgeResult<Unit> {
+        val mutation = if (answer) "markDiscussionCommentAsAnswer" else "unmarkDiscussionCommentAsAnswer"
+        return forgeCall {
+            httpClient.gitHubGraphQl(apiBaseUrl, token, "mutation(\$id: ID!) { $mutation(input: {id: \$id}) { clientMutationId } }", buildJsonObject { put("id", commentId) }).map { }
+        }
+    }
 
     override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = forgeCall {
         get(token, "repos", id.owner, id.name, "releases", query = mapOf("per_page" to "30"))
@@ -355,7 +375,10 @@ private data class MergedResponse(@SerialName("merged_at") val mergedAt: String?
 private data class SearchResponse(val items: List<IssueResponse>)
 
 private const val DISCUSSION_FIELDS = "number title createdAt upvoteCount isAnswered category { name } author { login avatarUrl }"
-private const val DISCUSSION_COMMENT_FIELDS = "id body createdAt upvoteCount isAnswer author { login avatarUrl }"
+private const val DISCUSSION_COMMENT_FIELDS = "id body createdAt upvoteCount isAnswer viewerCanMarkAsAnswer viewerCanUnmarkAsAnswer author { login avatarUrl }"
+
+private const val ADD_DISCUSSION_COMMENT = "mutation(\$discussion: ID!, \$body: String!, \$replyTo: ID) { " +
+    "addDiscussionComment(input: {discussionId: \$discussion, body: \$body, replyToId: \$replyTo}) { comment { id } } }"
 
 /** How many comments of a discussion are read, and how many replies to each: the forge's site has the rest. */
 internal const val DISCUSSION_COMMENTS = 50
@@ -366,7 +389,7 @@ private const val DISCUSSIONS_QUERY = "query(\$owner: String!, \$name: String!, 
     "nodes { $DISCUSSION_FIELDS comments { totalCount } } } } }"
 
 private const val DISCUSSION_QUERY = "query(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { " +
-    "discussion(number: \$number) { $DISCUSSION_FIELDS body comments(first: $DISCUSSION_COMMENTS) { totalCount nodes { $DISCUSSION_COMMENT_FIELDS " +
+    "discussion(number: \$number) { $DISCUSSION_FIELDS id locked body comments(first: $DISCUSSION_COMMENTS) { totalCount nodes { $DISCUSSION_COMMENT_FIELDS " +
     "replies(first: $DISCUSSION_REPLIES) { totalCount nodes { $DISCUSSION_COMMENT_FIELDS } } } } } } }"
 
 @Serializable
@@ -402,6 +425,8 @@ private data class DiscussionJson(
     val category: DiscussionCategoryJson? = null,
     val author: DiscussionAuthorJson? = null,
     val comments: DiscussionCommentsJson = DiscussionCommentsJson(),
+    val id: String? = null,
+    val locked: Boolean = false,
 ) {
     fun toSummary() = DiscussionSummary(
         number, title, author?.let { ForgeUser(it.login, null, it.avatarUrl) }, createdAt?.let(Instant::parse), category?.name, comments.totalCount, upvoteCount, isAnswered,
@@ -417,10 +442,14 @@ private data class DiscussionCommentJson(
     val isAnswer: Boolean = false,
     val author: DiscussionAuthorJson? = null,
     val replies: DiscussionCommentsJson? = null,
+    val viewerCanMarkAsAnswer: Boolean = false,
+    val viewerCanUnmarkAsAnswer: Boolean = false,
 ) {
     fun toModel(replies: List<DiscussionComment> = emptyList()) = DiscussionComment(
         id, author?.let { ForgeUser(it.login, null, it.avatarUrl) }, body, createdAt?.let(Instant::parse), upvoteCount, isAnswer, replies,
         replyCount = this.replies?.totalCount ?: replies.size,
+        canMarkAnswer = viewerCanMarkAsAnswer,
+        canUnmarkAnswer = viewerCanUnmarkAsAnswer,
     )
 }
 

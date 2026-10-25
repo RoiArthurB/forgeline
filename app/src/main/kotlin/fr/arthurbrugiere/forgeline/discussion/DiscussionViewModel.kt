@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Discussion
+import fr.arthurbrugiere.forgeline.core.model.DiscussionComment
 import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +27,16 @@ data class DiscussionUiState(
     val discussion: Discussion? = null,
     val isLoading: Boolean = true,
     val error: ForgeError? = null,
+    /** What is being sent: [DiscussionViewModel.COMMENT] for a comment on the discussion, a comment's id for a reply under it, `answer:` and its id for an answer picked or taken back. */
+    val sending: String? = null,
+    /** What was last sent and went through, with a count that tells two alike apart: its field is emptied. */
+    val sent: Pair<String, Long>? = null,
+    /** Why the last comment, reply or answer didn't go through. */
+    val sendError: ForgeError? = null,
 ) {
+    /** Whether the reader may comment: the discussion is read (only signed in) and not locked. */
+    val canComment: Boolean get() = discussion?.id != null && !discussion.locked
+
     val webUrl: String get() = "${repo.webUrl}/discussions/$number"
 }
 
@@ -64,4 +74,37 @@ class DiscussionViewModel @AssistedInject constructor(
     }
 
     fun errorShown() = _state.update { it.copy(error = null) }
+
+    private var serial = 0L
+
+    /** Comments on the discussion, or replies under [replyTo]; once it went through, the discussion is read again. */
+    fun send(body: String, replyTo: DiscussionComment? = null) {
+        val discussion = state.value.discussion ?: return
+        write(replyTo?.id ?: COMMENT) { repos.commentOnDiscussion(repo, discussion, body.trim(), replyTo?.id) }
+    }
+
+    /** Picks [comment] as the discussion's answer, or takes that back. */
+    fun setAnswer(comment: DiscussionComment, answer: Boolean) = write("answer:${comment.id}") { repos.setDiscussionAnswer(repo, comment.id, answer) }
+
+    fun sendErrorShown() = _state.update { it.copy(sendError = null) }
+
+    /** One write at a time. */
+    private fun write(key: String, call: suspend () -> ForgeResult<Unit>) {
+        if (state.value.sending != null) return
+        _state.update { it.copy(sending = key, sendError = null) }
+        viewModelScope.launch {
+            when (val result = call()) {
+                is ForgeResult.Success -> {
+                    _state.update { it.copy(sending = null, sent = key to ++serial) }
+                    refresh()
+                }
+                is ForgeResult.Failure -> _state.update { it.copy(sending = null, sendError = result.error) }
+            }
+        }
+    }
+
+    companion object {
+        /** What [DiscussionUiState.sending] holds while a comment on the discussion itself is sent. */
+        const val COMMENT = "comment"
+    }
 }

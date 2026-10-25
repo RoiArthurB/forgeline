@@ -62,6 +62,13 @@ interface RepoApi {
     /** The discussion [number] with its first comments and their replies; 404 when there is none. */
     suspend fun discussion(token: String?, id: RepoId, number: Int): ForgeResult<Discussion> = ForgeResult.Failure(ForgeError.Unsupported)
 
+    /** Comments on [discussion], or replies under its comment [replyTo]: a comment, never a reply, which has none of its own. */
+    suspend fun commentOnDiscussion(token: String, discussion: Discussion, body: String, replyTo: String? = null): ForgeResult<Unit> =
+        ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Picks the comment [commentId] as the answer to its discussion, or takes that back. */
+    suspend fun setDiscussionAnswer(token: String, commentId: String, answer: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
     /** Where raw file bytes live, ending with `/`: README images resolve against it. */
     fun rawBaseUrl(id: RepoId, ref: String): String
 

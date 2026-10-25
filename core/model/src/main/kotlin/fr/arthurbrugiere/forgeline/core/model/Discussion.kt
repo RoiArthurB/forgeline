@@ -31,6 +31,9 @@ data class DiscussionComment(
     val replies: List<DiscussionComment> = emptyList(),
     /** How many replies the forge holds, which may be more than [replies]. */
     val replyCount: Int = replies.size,
+    /** Whether the reader may pick it as the answer, or take that back: the discussion's author and maintainers may. */
+    val canMarkAnswer: Boolean = false,
+    val canUnmarkAnswer: Boolean = false,
 )
 
 /** A discussion with its text and its comments. */
@@ -39,6 +42,10 @@ data class Discussion(
     val body: String,
     /** The first comments, oldest first; [DiscussionSummary.comments] may count more. */
     val comments: List<DiscussionComment>,
+    /** What the forge names it by, to comment on it; null where it can't be commented on from here. */
+    val id: String? = null,
+    /** Locked: only those who look after the repository may still comment. */
+    val locked: Boolean = false,
 ) {
     /** Whether comments or replies were left out: the forge's site has them all. */
     val isPartial: Boolean get() = comments.size < summary.comments || comments.any { it.replies.size < it.replyCount }

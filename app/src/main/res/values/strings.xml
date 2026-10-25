@@ -290,7 +290,14 @@
     <string name="discussion_no_text">No description.</string>
     <string name="discussion_no_comments">No comments yet.</string>
     <string name="discussion_partial">Only the first comments and replies are shown here.</string>
-    <string name="discussion_read_only">Reading only for now: comment on %1$s.</string>
+    <string name="discussion_locked">This discussion is locked: only those who look after the repository can still comment.</string>
+    <string name="discussion_comment_placeholder">Comment on this discussion</string>
+    <string name="discussion_comment_send">Send comment</string>
+    <string name="discussion_reply">Reply</string>
+    <string name="discussion_reply_placeholder">Reply to %1$s</string>
+    <string name="discussion_reply_send">Send reply</string>
+    <string name="discussion_mark_answer">Mark as answer</string>
+    <string name="discussion_unmark_answer">No longer the answer</string>
     <string name="repo_tab_releases">Releases</string>
     <string name="repo_tab_actions">Actions</string>
     <string name="repo_open_on_forge">Open on %1$s</string>

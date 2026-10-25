@@ -77,6 +77,13 @@ interface RepoRepository {
 
     suspend fun discussion(id: RepoId, number: Int): ForgeResult<Discussion> = ForgeResult.Failure(ForgeError.Unsupported)
 
+    /** Comments on [discussion] of [id], or replies under its comment [replyTo], as the account signed in on its forge. */
+    suspend fun commentOnDiscussion(id: RepoId, discussion: Discussion, body: String, replyTo: String? = null): ForgeResult<Unit> =
+        ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Picks the comment [commentId] of a discussion of [id] as its answer, or takes that back. */
+    suspend fun setDiscussionAnswer(id: RepoId, commentId: String, answer: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
     /** What a discussion's list said of it this session, to head its page while it loads. */
     fun rememberedDiscussion(id: RepoId, number: Int): DiscussionSummary? = null
 
@@ -217,6 +224,12 @@ class DefaultRepoRepository @Inject constructor(
     override suspend fun discussion(id: RepoId, number: Int) = clients.repos(id.forge).discussion(accounts.tokenOn(id.forge), id, number).also { result ->
         if (result is ForgeResult.Success) seenDiscussions[id to number] = result.value.summary
     }
+
+    override suspend fun commentOnDiscussion(id: RepoId, discussion: Discussion, body: String, replyTo: String?) =
+        accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).commentOnDiscussion(it, discussion, body, replyTo) } ?: ForgeResult.Failure(ForgeError.Unauthorized)
+
+    override suspend fun setDiscussionAnswer(id: RepoId, commentId: String, answer: Boolean) =
+        accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).setDiscussionAnswer(it, commentId, answer) } ?: ForgeResult.Failure(ForgeError.Unauthorized)
 
     override fun rememberedDiscussion(id: RepoId, number: Int): DiscussionSummary? = seenDiscussions[id to number]
 

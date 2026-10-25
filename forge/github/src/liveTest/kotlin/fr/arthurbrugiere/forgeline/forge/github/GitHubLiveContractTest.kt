@@ -106,6 +106,24 @@ class GitHubLiveContractTest {
         assertWithMessage("chooser links: $chooser").that(chooser?.links).isNotEmpty()
     }
 
+    /** Read only: what commenting needs (the discussion's id) and what the reader may pick as its answer still come. */
+    @Test
+    fun a_discussion_still_says_what_it_is_named_by_and_what_the_reader_may_do() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        val api = GitHubRepoApi(client)
+        val next = RepoId("vercel", "next.js")
+        val listed = (api.discussions(pat, next) as? ForgeResult.Success)?.value?.items?.firstOrNull { it.comments > 0 }
+        assertWithMessage("a discussion with comments").that(listed).isNotNull()
+
+        val read = api.discussion(pat, next, listed!!.number)
+
+        assertWithMessage("discussion: $read").that(read).isInstanceOf(ForgeResult.Success::class.java)
+        val discussion = (read as ForgeResult.Success).value
+        assertWithMessage("id").that(discussion.id).isNotEmpty()
+        // Someone else's discussion: nothing of it is the reader's to pick.
+        assertWithMessage("answers to pick").that(discussion.comments.none { it.canMarkAnswer || it.canUnmarkAnswer }).isTrue()
+    }
+
     @Test
     fun the_authenticated_user_endpoint_still_matches() = runBlocking {
         assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())

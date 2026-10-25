@@ -29,9 +29,13 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,9 +64,11 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSendButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.navigation.DiscussionRoute
@@ -111,6 +117,9 @@ fun DiscussionRoute(
         onLinkClick = { url -> openForgeLink(url, repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion) },
         onSignIn = onSignIn,
         onErrorShown = viewModel::errorShown,
+        onSend = viewModel::send,
+        onSetAnswer = viewModel::setAnswer,
+        onSendErrorShown = viewModel::sendErrorShown,
     )
 }
 
@@ -118,8 +127,9 @@ fun DiscussionRoute(
 private val ReplyInset = 40.dp
 
 /**
- * A discussion, to read: what was asked or said, then the comments in the order they came, each with the replies it
- * drew. The answer that was picked wears a tag. Writing there is the forge's for now.
+ * A discussion: what was asked or said, then the comments in the order they came, each with the replies it drew and
+ * what the reader may do with it (reply, pick it as the answer), then a field to comment at the end. The answer that
+ * was picked wears a tag.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -135,6 +145,10 @@ fun DiscussionScreen(
     onSignIn: () -> Unit,
     onErrorShown: () -> Unit,
     modifier: Modifier = Modifier,
+    /** A comment to send: on the discussion, or a reply under the comment given. */
+    onSend: (String, DiscussionComment?) -> Unit = { _, _ -> },
+    onSetAnswer: (DiscussionComment, Boolean) -> Unit = { _, _ -> },
+    onSendErrorShown: () -> Unit = {},
     nowMillis: Long = rememberNow(state.discussion),
 ) {
     val colors = Soft.colors
@@ -145,6 +159,34 @@ fun DiscussionScreen(
     val snackbar = remember { SnackbarHostState() }
     // With the discussion on screen, a refresh that failed is only said; without it, it is the screen.
     SayOnce(stringResource(R.string.trending_refresh_failed).takeIf { state.error != null && discussion != null }, snackbar, onErrorShown)
+    // What was written stays in its field when it didn't go through.
+    val sendError = state.sendError
+    SayOnce(
+        sendError?.let {
+            when {
+                it == ForgeError.Unauthorized -> stringResource(R.string.issue_comment_error_expired, forge)
+                it == ForgeError.Network -> stringResource(R.string.issue_comment_error_offline)
+                it is ForgeError.Http && it.status in setOf(403, 404, 422) -> stringResource(R.string.issue_comment_error_refused)
+                else -> stringResource(R.string.issue_comment_error)
+            }
+        },
+        snackbar,
+        onSendErrorShown,
+    )
+    var draft by rememberSaveable { mutableStateOf("") }
+    // The comment a reply is being written under, by its id, and that reply.
+    var replyingTo by rememberSaveable { mutableStateOf<String?>(null) }
+    var reply by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(state.sent) {
+        when (state.sent?.first) {
+            null -> Unit
+            DiscussionViewModel.COMMENT -> draft = ""
+            replyingTo -> {
+                reply = ""
+                replyingTo = null
+            }
+        }
+    }
     val listState = rememberLazyListState()
     Box(modifier.fillMaxSize().background(colors.ground)) {
         val pullState = rememberPullToRefreshState()
@@ -248,6 +290,24 @@ fun DiscussionScreen(
                         discussion.comments.forEach { comment ->
                             item(key = comment.id) { Entry(comment, context, nowMillis, onOpenUser, onLinkClick) }
                             items(comment.replies, key = { it.id }) { reply -> Entry(reply, context, nowMillis, onOpenUser, onLinkClick, isReply = true) }
+                            if (state.canComment || comment.canMarkAnswer || comment.canUnmarkAnswer) {
+                                item(key = "actions-${comment.id}") {
+                                    CommentActions(
+                                        comment,
+                                        canReply = state.canComment,
+                                        replying = replyingTo == comment.id,
+                                        reply = reply,
+                                        onReplyChange = { reply = it },
+                                        onStartReply = {
+                                            if (replyingTo != comment.id) reply = ""
+                                            replyingTo = comment.id
+                                        },
+                                        onSendReply = { onSend(reply, comment) },
+                                        onSetAnswer = { onSetAnswer(comment, it) },
+                                        sending = state.sending,
+                                    )
+                                }
+                            }
                         }
                         item(key = "end") {
                             Column(
@@ -255,7 +315,27 @@ fun DiscussionScreen(
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
                                 if (discussion.isPartial) Text(stringResource(R.string.discussion_partial), style = Soft.type.secondary, color = colors.inkMuted)
-                                Text(stringResource(R.string.discussion_read_only, forge), style = Soft.type.secondary, color = colors.inkMuted)
+                                if (discussion.locked) Text(stringResource(R.string.discussion_locked), style = Soft.type.secondary, color = colors.inkMuted)
+                                if (state.canComment) {
+                                    val sendingComment = state.sending == DiscussionViewModel.COMMENT
+                                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        SoftTextField(
+                                            value = draft,
+                                            onValueChange = { draft = it },
+                                            placeholder = stringResource(R.string.discussion_comment_placeholder),
+                                            singleLine = false,
+                                            maxLines = 8,
+                                            readOnly = sendingComment,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        SoftSendButton(
+                                            onClick = { onSend(draft, null) },
+                                            description = stringResource(R.string.discussion_comment_send),
+                                            enabled = draft.isNotBlank() && state.sending == null,
+                                            busy = sendingComment,
+                                        )
+                                    }
+                                }
                                 SoftTonalButton(stringResource(R.string.repo_open_on_forge, forge), { onOpenInBrowser(state.webUrl) })
                             }
                         }
@@ -266,6 +346,59 @@ fun DiscussionScreen(
         val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
         SoftStatusBarScrim(scrolled)
         SoftSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = LocalBottomBarSpace.current))
+    }
+}
+
+/**
+ * Under a comment and its replies: a reply to it, written in place, and picking it as the answer or taking that back,
+ * where the reader may.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun CommentActions(
+    comment: DiscussionComment,
+    canReply: Boolean,
+    replying: Boolean,
+    reply: String,
+    onReplyChange: (String) -> Unit,
+    onStartReply: () -> Unit,
+    onSendReply: () -> Unit,
+    onSetAnswer: (Boolean) -> Unit,
+    sending: String?,
+) {
+    val sendingReply = sending == comment.id
+    Column(
+        Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp + ReplyInset, end = 20.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        if (replying) {
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SoftTextField(
+                    value = reply,
+                    onValueChange = onReplyChange,
+                    placeholder = stringResource(R.string.discussion_reply_placeholder, comment.author?.login ?: stringResource(R.string.deleted_account)),
+                    singleLine = false,
+                    maxLines = 8,
+                    readOnly = sendingReply,
+                    modifier = Modifier.weight(1f),
+                )
+                SoftSendButton(
+                    onClick = onSendReply,
+                    description = stringResource(R.string.discussion_reply_send),
+                    enabled = reply.isNotBlank() && sending == null,
+                    busy = sendingReply,
+                )
+            }
+        }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (canReply && !replying) SoftTonalButton(stringResource(R.string.discussion_reply), onClick = onStartReply)
+            if (comment.canMarkAnswer && !comment.isAnswer) {
+                SoftTonalButton(stringResource(R.string.discussion_mark_answer), onClick = { onSetAnswer(true) }, enabled = sending == null)
+            }
+            if (comment.canUnmarkAnswer && comment.isAnswer) {
+                SoftTonalButton(stringResource(R.string.discussion_unmark_answer), onClick = { onSetAnswer(false) }, enabled = sending == null)
+            }
+        }
     }
 }
 

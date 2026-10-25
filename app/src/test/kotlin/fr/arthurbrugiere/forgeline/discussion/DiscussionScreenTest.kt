@@ -1,14 +1,17 @@
 package fr.arthurbrugiere.forgeline.discussion
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTextInput
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -43,14 +46,19 @@ class DiscussionScreenTest {
     )
     private val loaded = DiscussionUiState(repo, 7, summary, read, isLoading = false)
 
-    private fun setContent(state: DiscussionUiState, signedIn: Boolean = true) {
+    private fun setContent(state: DiscussionUiState, signedIn: Boolean = true) = setContent(mutableStateOf(state), signedIn)
+
+    private fun setContent(state: androidx.compose.runtime.State<DiscussionUiState>, signedIn: Boolean = true) {
         composeRule.setContent {
             ForgelineTheme {
                 DiscussionScreen(
-                    state = state, signedIn = signedIn,
+                    state = state.value, signedIn = signedIn,
                     onBack = { events += "back" }, onRefresh = { events += "refresh" }, onOpenRepo = { events += "repo:${it.fullName}" },
                     onOpenUser = { events += "user:$it" }, onOpenInBrowser = { events += "browser:$it" }, onLinkClick = { events += "link:$it" },
                     onSignIn = { events += "sign-in" }, onErrorShown = { events += "error-shown" },
+                    onSend = { body, under -> events += "send:${under?.id ?: "discussion"}:$body" },
+                    onSetAnswer = { comment, answer -> events += "answer:${comment.id}:$answer" },
+                    onSendErrorShown = { events += "send-error-shown" },
                     nowMillis = Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
                 )
             }
@@ -112,10 +120,10 @@ class DiscussionScreenTest {
     }
 
     @Test
-    fun a_whole_discussion_does_not_say_some_is_missing_but_says_where_to_write() {
+    fun a_whole_discussion_does_not_say_some_is_missing() {
         setContent(loaded)
 
-        reach("Reading only for now: comment on GitHub.")
+        reach("Open on GitHub")
         assertThat(shown("Only the first comments")).isFalse()
     }
 
@@ -197,5 +205,86 @@ class DiscussionScreenTest {
         composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Share link")).performClick()
 
         com.google.common.truth.Truth.assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()).isEqualTo("https://github.com/octo/repo/discussions/7" to "How do I page?")
+    }
+
+    private val writable = loaded.copy(
+        discussion = read.copy(
+            id = "D_1",
+            comments = listOf(read.comments[0].copy(canUnmarkAnswer = true), read.comments[1].copy(canMarkAnswer = true)),
+        ),
+    )
+
+    @Test
+    fun a_comment_is_written_at_the_end_and_its_field_emptied_once_sent() {
+        val state = mutableStateOf(writable)
+        setContent(state)
+
+        reach("Comment on this discussion")
+        composeRule.onNodeWithText("Comment on this discussion").performTextInput("Found it, thanks.")
+        composeRule.onNodeWithContentDescription("Send comment").performClick()
+        assertThat(events).containsExactly("send:discussion:Found it, thanks.")
+
+        state.value = writable.copy(sent = DiscussionViewModel.COMMENT to 1)
+        composeRule.waitForIdle()
+        assertThat(shown("Found it, thanks.")).isFalse()
+    }
+
+    @Test
+    fun a_reply_is_written_under_the_comment_it_answers() {
+        setContent(writable)
+
+        reach("Same question here.")
+        composeRule.onAllNodesWithText("Reply")[1].performClick()
+        composeRule.onNodeWithText("Reply to carol").performTextInput("Did the cursor help?")
+        composeRule.onNodeWithContentDescription("Send reply").performClick()
+
+        assertThat(events).containsExactly("send:c2:Did the cursor help?")
+    }
+
+    @Test
+    fun an_answer_is_picked_or_taken_back_where_the_reader_may() {
+        setContent(writable)
+
+        reach("No longer the answer")
+        composeRule.onNodeWithText("No longer the answer").performClick()
+        reach("Mark as answer")
+        composeRule.onNodeWithText("Mark as answer").performClick()
+
+        assertThat(events).containsExactly("answer:c1:false", "answer:c2:true").inOrder()
+    }
+
+    @Test
+    fun a_locked_discussion_says_so_and_offers_no_field_nor_reply() {
+        setContent(writable.copy(discussion = writable.discussion!!.copy(locked = true)))
+
+        reach("This discussion is locked")
+        assertThat(shown("Comment on this discussion")).isFalse()
+        assertThat(shown("Reply")).isFalse()
+        // Picking the answer is still the author's.
+        assertThat(shown("Mark as answer")).isTrue()
+    }
+
+    @Test
+    fun a_discussion_that_can_t_be_commented_on_from_here_offers_no_field() {
+        // Read without what the forge names it by.
+        setContent(loaded)
+
+        reach("Open on GitHub")
+        assertThat(shown("Comment on this discussion")).isFalse()
+        assertThat(shown("Reply")).isFalse()
+    }
+
+    @Test
+    fun a_comment_that_didn_t_go_through_says_why_and_stays_written() {
+        val state = mutableStateOf(writable)
+        setContent(state)
+        reach("Comment on this discussion")
+        composeRule.onNodeWithText("Comment on this discussion").performTextInput("Hello")
+
+        state.value = writable.copy(sendError = ForgeError.Http(403, "Discussion is locked"))
+
+        composeRule.waitUntil(5_000) { shown("You can't comment here.") }
+        assertThat(events).contains("send-error-shown")
+        assertThat(shown("Hello")).isTrue()
     }
 }

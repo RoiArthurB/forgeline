@@ -1963,7 +1963,9 @@ class ScreenshotTest {
                         ),
                         fr.arthurbrugiere.forgeline.core.testing.discussionComment("c2", "Same question here.", login = "carol"),
                     ),
-                ),
+                    // Read by its author: it can be commented on, and its answer taken back.
+                    id = "D_412",
+                ).let { it.copy(comments = listOf(it.comments[0].copy(canUnmarkAnswer = true), it.comments[1])) },
                 isLoading = false,
             ),
             signedIn = true, onBack = {}, onRefresh = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {}, onLinkClick = {}, onSignIn = {}, onErrorShown = {},

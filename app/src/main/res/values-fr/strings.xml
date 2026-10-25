@@ -283,7 +283,14 @@
     <string name="discussion_no_text">Aucune description.</string>
     <string name="discussion_no_comments">Aucun commentaire pour l’instant.</string>
     <string name="discussion_partial">Seuls les premiers commentaires et réponses sont affichés ici.</string>
-    <string name="discussion_read_only">Lecture seule pour l’instant : commentez sur %1$s.</string>
+    <string name="discussion_locked">Cette discussion est verrouillée : seuls ceux qui s’occupent du dépôt peuvent encore commenter.</string>
+    <string name="discussion_comment_placeholder">Commenter cette discussion</string>
+    <string name="discussion_comment_send">Envoyer le commentaire</string>
+    <string name="discussion_reply">Répondre</string>
+    <string name="discussion_reply_placeholder">Répondre à %1$s</string>
+    <string name="discussion_reply_send">Envoyer la réponse</string>
+    <string name="discussion_mark_answer">Marquer comme réponse</string>
+    <string name="discussion_unmark_answer">Ce n’est plus la réponse</string>
     <string name="repo_tab_releases">Versions</string>
     <string name="repo_tab_actions">Actions</string>
     <string name="repo_open_on_forge">Ouvrir sur %1$s</string>

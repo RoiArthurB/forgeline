@@ -96,6 +96,21 @@ class FakeRepoRepository : RepoRepository {
 
     override fun rememberedDiscussion(id: RepoId, number: Int) = seenDiscussions[number]
 
+    /** What a write to a discussion answers, once recorded in [calls]; it goes through when null. */
+    var discussionWriteFailure: fr.arthurbrugiere.forgeline.core.forge.ForgeError? = null
+
+    override suspend fun commentOnDiscussion(id: RepoId, discussion: fr.arthurbrugiere.forgeline.core.model.Discussion, body: String, replyTo: String?): ForgeResult<Unit> {
+        calls += "discussionComment:${id.fullName}#${discussion.summary.number}${replyTo?.let { " under $it" }.orEmpty()}:$body"
+        gate?.await()
+        return discussionWriteFailure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(Unit)
+    }
+
+    override suspend fun setDiscussionAnswer(id: RepoId, commentId: String, answer: Boolean): ForgeResult<Unit> {
+        calls += "discussionAnswer:${id.fullName}:$commentId:$answer"
+        gate?.await()
+        return discussionWriteFailure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(Unit)
+    }
+
     /** What the session remembers of each list, by the call that would ask for it. */
     val remembered = mutableMapOf<String, Any>()
 
