@@ -215,6 +215,37 @@ class ForgeLinksTest {
         assertThat(events).containsExactly("discussion:vercel/next.js#7", "browser:$url").inOrder()
     }
 
+    @Test
+    fun a_wiki_s_url_opens_the_page_it_names() {
+        // Regression: a link to a wiki opened its repository, or the browser.
+        assertThat(ForgeLinks.routeFor("https://github.com/gama-platform/gama/wiki")).isEqualTo(WikiRoute("github.com", "gama-platform", "gama"))
+        assertThat(ForgeLinks.routeFor("https://github.com/gama-platform/gama/wiki/Installation#linux"))
+            .isEqualTo(WikiRoute("github.com", "gama-platform", "gama", "Installation"))
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/dnkl/foot/wiki/Home")).isEqualTo(WikiRoute("codeberg.org", "dnkl", "foot", "Home"))
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/fdroid/wiki/-/wikis/home")).isEqualTo(WikiRoute("gitlab.com", "fdroid", "wiki", "home"))
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/fdroid/wiki/-/wikis/sub/page")).isEqualTo(WikiRoute("gitlab.com", "fdroid", "wiki", "sub/page"))
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/fdroid/wiki/-/wikis")).isEqualTo(WikiRoute("gitlab.com", "fdroid", "wiki"))
+        // The wiki's own lists and files are not pages: its first page stands in for them.
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/dnkl/foot/wiki/?action=_pages")).isEqualTo(WikiRoute("codeberg.org", "dnkl", "foot"))
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/fdroid/wiki/-/wikis/pages")).isEqualTo(WikiRoute("gitlab.com", "fdroid", "wiki"))
+        assertThat(ForgeLinks.routeFor("https://github.com/gama-platform/gama/wiki/_history")).isEqualTo(WikiRoute("github.com", "gama-platform", "gama"))
+    }
+
+    @Test
+    fun a_wiki_s_link_opens_in_the_app_where_it_can_and_on_its_forge_otherwise() {
+        val events = mutableListOf<String>()
+        val url = "https://codeberg.org/dnkl/foot/wiki/Home"
+        fun open(inApp: Boolean) = openForgeLink(
+            url, ForgeInstance.Codeberg, onOpenRepo = { events += "repo" }, onOpenIssue = { events += "issue" }, onOpenUser = { events += "user" },
+            openUrl = { events += "browser:$it" }, onOpenWiki = if (inApp) ({ repo, page -> events += "wiki:${repo.fullName}/$page" }) else null,
+        )
+
+        open(inApp = true)
+        open(inApp = false)
+
+        assertThat(events).containsExactly("wiki:dnkl/foot/Home", "browser:$url").inOrder()
+    }
+
     @org.junit.After
     fun forgetServers() = KnownForges.clear()
 

@@ -110,6 +110,7 @@ fun ReleaseRoute(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
     val openDiscussion = fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion.current
+    val openWiki = fr.arthurbrugiere.forgeline.ui.LocalOpenWiki.current
     ReleaseScreen(
         state = state,
         onBack = onBack,
@@ -119,7 +120,7 @@ fun ReleaseRoute(
         // A file to download is the browser's to fetch and keep.
         onDownload = openUrl,
         onOpenInBrowser = openUrl,
-        onLinkClick = { url -> openForgeLink(url, repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = onOpenRelease, onOpenDiscussion = openDiscussion) },
+        onLinkClick = { url -> openForgeLink(url, repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = onOpenRelease, onOpenDiscussion = openDiscussion, onOpenWiki = openWiki) },
         onErrorShown = viewModel::errorShown,
     )
 }

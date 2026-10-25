@@ -23,7 +23,11 @@ val RepoId.wikiRawBaseUrl: String
 /** The page a link to [url] opens in [this] wiki, by its key; null for a link elsewhere, or to the wiki's own lists. */
 fun RepoId.wikiPageOf(url: String): String? {
     val key = url.substringBefore('#').substringBefore('?').takeIf { it.startsWith(wikiBaseUrl) }?.removePrefix(wikiBaseUrl)?.trimEnd('/')
-    return key?.takeIf { it.isNotEmpty() && !it.startsWith("_") && it != "raw" && !it.startsWith("raw/") && !it.startsWith("-/") }
+    // GitLab lists its pages at "pages".
+    return key?.takeIf {
+        it.isNotEmpty() && !it.startsWith("_") && it != "raw" && !it.startsWith("raw/") && !it.startsWith("-/") &&
+            !(forge.type == ForgeType.GITLAB && it == "pages")
+    }
 }
 
 /** A page's title from its key, where the forge gives none: "Getting-started" reads "Getting started". */

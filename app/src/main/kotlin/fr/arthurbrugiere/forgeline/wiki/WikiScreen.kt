@@ -64,6 +64,7 @@ import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion
 import fr.arthurbrugiere.forgeline.ui.LocalOpenRelease
+import fr.arthurbrugiere.forgeline.ui.LocalOpenWiki
 import fr.arthurbrugiere.forgeline.ui.Markdown
 import fr.arthurbrugiere.forgeline.ui.SayOnce
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
@@ -87,6 +88,7 @@ fun WikiRoute(
     val openUrl = rememberCustomTabOpener()
     val openRelease = LocalOpenRelease.current
     val openDiscussion = LocalOpenDiscussion.current
+    val openWiki = LocalOpenWiki.current
     WikiScreen(
         state = state,
         onBack = onBack,
@@ -94,7 +96,7 @@ fun WikiRoute(
         onOpenRepo = onOpenRepo,
         onOpenPage = { onOpenPage(repo, it) },
         onOpenInBrowser = openUrl,
-        onLinkClick = { url -> openForgeLink(url, repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion) },
+        onLinkClick = { url -> openForgeLink(url, repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion, onOpenWiki = openWiki) },
         onErrorShown = viewModel::errorShown,
     )
 }

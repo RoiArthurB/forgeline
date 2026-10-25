@@ -4,6 +4,9 @@ import androidx.navigation3.runtime.NavKey
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.KnownForges
+import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.wikiBaseUrl
+import fr.arthurbrugiere.forgeline.core.model.wikiPageOf
 import java.net.URI
 
 /** Maps forge web URLs to in-app destinations; anything unrecognized stays on the web. */
@@ -71,6 +74,7 @@ object ForgeLinks {
                         val runId = subSegments.getOrNull(1)?.toLongOrNull()
                         if (runId != null) return RunRoute(forge.host, owner, name, runId)
                     }
+                    "wikis" -> return wikiRoute(forge, owner, name, uri, after = dashIndex + 2)
                     "releases" -> {
                         val tag = if (subSegments.size > 2 && subSegments[1] == "tag") {
                             subSegments.drop(2).joinToString("/")
@@ -88,6 +92,7 @@ object ForgeLinks {
         val name = segments[1].removeSuffix(".git")
         val number = segments.getOrNull(3)?.toIntOrNull()
         if (number != null && segments[2] in setOf("issues", "pull", "pulls")) return IssueRoute(forge.host, owner, name, number)
+        if (segments.getOrNull(2) == "wiki") return wikiRoute(forge, owner, name, uri, after = 3)
         // Only GitHub has discussions.
         if (number != null && segments[2] == "discussions" && forge.type == ForgeType.GITHUB) return DiscussionRoute(forge.host, owner, name, number)
         // A release's page, on both forges: /owner/name/releases/tag/<tag>, where the tag may hold slashes.
@@ -101,6 +106,16 @@ object ForgeLinks {
             return if (forge.type == ForgeType.GITHUB) RunRoute(forge.host, owner, name, runId) else null
         }
         return RepoRoute(forge.host, owner, name)
+    }
+
+    /**
+     * A wiki's page, named by the path [after] that many segments; its first page for the wiki itself, and for its own
+     * lists and files. The key is read as the page's own links write it, still escaped, so either way finds it.
+     */
+    private fun wikiRoute(forge: ForgeInstance, owner: String, name: String, uri: URI, after: Int): WikiRoute {
+        val repo = RepoId(owner, name, forge)
+        val rest = uri.rawPath.split('/').filter { it.isNotEmpty() }.drop(after).joinToString("/")
+        return WikiRoute(forge.host, owner, name, repo.wikiPageOf(repo.wikiBaseUrl + rest))
     }
 }
 

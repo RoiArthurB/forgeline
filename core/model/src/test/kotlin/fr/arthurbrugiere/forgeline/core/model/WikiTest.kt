@@ -26,6 +26,7 @@ class WikiTest {
         assertThat(gama.wikiPageOf("https://github.com/gama-platform/gama/wiki/")).isNull()
         assertThat(gama.wikiPageOf("https://github.com/gama-platform/gama/wiki/_pages")).isNull()
         assertThat(foot.wikiPageOf("https://codeberg.org/dnkl/foot/wiki/raw/shot.png")).isNull()
+        assertThat(fdroid.wikiPageOf("https://gitlab.com/fdroid/wiki/-/wikis/pages")).isNull()
         assertThat(gama.wikiPageOf("https://github.com/other/gama/wiki/Home")).isNull()
         assertThat(gama.wikiPageOf("https://github.com/gama-platform/gama/issues/1")).isNull()
     }
