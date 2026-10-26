@@ -325,6 +325,12 @@ class DefaultFeedRepositoryTest {
     private fun release(repo: String, tag: String, at: String, id: String = "starred-release:$repo:$tag") =
         feedEvent(id, actor = "maintainer", repo = repo, createdAt = at, action = FeedAction.Released(tag, null, prerelease = false))
 
+    /**
+     * A refresh on real time: the starred activity (instant here) then joins it, where under the test's virtual time
+     * the refresh's short wait for it would run out at once.
+     */
+    private suspend fun refreshNow(force: Boolean = true) = withContext(Dispatchers.Default) { repository.refresh(force) }
+
     @Test
     fun starred_repositories_join_the_feed_and_survive_a_refresh() = runTest {
         // The owner's case: Immich (starred, not watched) released, and it showed on github.com but not here.
@@ -334,11 +340,10 @@ class DefaultFeedRepositoryTest {
             release("immich-app/immich", "v3.3.0", "2026-09-27T09:30:00Z"),
             feedEvent("announcement:immich-app/immich:880", actor = "alextran", repo = "immich-app/immich", createdAt = "2026-09-27T08:00:00Z", action = FeedAction.Announced(880, "Immich turns three")),
         )
-        repository.refresh(force = true)
-        repository.syncStarred()
+        refreshNow()
 
         // A refresh replaces the account's own events: the starred ones must stay.
-        repository.refresh(force = true)
+        refreshNow()
 
         val events = repository.observe().first().events
         assertThat(events.map { it.repo.fullName to it.action }).containsExactly(
@@ -355,8 +360,7 @@ class DefaultFeedRepositoryTest {
         signIn()
         api.pages[1] = listOf(feedEvent("77", actor = "maintainer", repo = "octo/tools", createdAt = "2026-09-27T09:00:02Z", action = FeedAction.Released("v2", "Tools 2", prerelease = false)))
         api.starred = listOf(release("octo/tools", "v2", "2026-09-27T09:00:00Z"))
-        repository.refresh(force = true)
-        repository.syncStarred()
+        refreshNow()
 
         assertThat(repository.observe().first().events.map { it.action }).containsExactly(FeedAction.Released("v2", "Tools 2", prerelease = false))
     }
@@ -368,8 +372,7 @@ class DefaultFeedRepositoryTest {
         api.starred = listOf(
             feedEvent("new-repo:lfpoulain/wakeword-generator", actor = "lfpoulain", repo = "LFPoulain/wakeword-generator", createdAt = "2026-09-27T09:00:00Z", action = FeedAction.CreatedRepo("Wake words")),
         )
-        repository.refresh(force = true)
-        repository.syncStarred()
+        refreshNow()
 
         assertThat(repository.observe().first().events.map { it.action }).containsExactly(FeedAction.CreatedRepo("Wake words"))
     }
@@ -381,8 +384,7 @@ class DefaultFeedRepositoryTest {
         api.pages[1] = listOf(feedEvent("2", createdAt = "2026-09-27T09:00:00Z"))
         api.pages[2] = listOf(feedEvent("1", createdAt = "2026-09-20T09:00:00Z"))
         api.starred = listOf(release("old/news", "v1", "2026-09-22T09:00:00Z"))
-        repository.refresh(force = true)
-        repository.syncStarred()
+        refreshNow()
 
         assertThat(repository.observe().first().events.map { it.repo.fullName }).containsExactly("acme/rocket")
 
@@ -393,20 +395,20 @@ class DefaultFeedRepositoryTest {
     @Test
     fun starred_repositories_are_asked_at_most_every_half_hour() = runTest {
         signIn()
-        repository.syncStarred()
-        repository.syncStarred()
+        refreshNow(force = false)
+        refreshNow(force = false)
         assertThat(api.starredCalls).hasSize(1)
 
         // A pull-to-refresh may ask sooner, but not within five minutes: each ask costs many seconds of the forge's time.
         now = now.plusSeconds(4 * 60)
-        repository.syncStarred(force = true)
+        refreshNow(force = true)
         assertThat(api.starredCalls).hasSize(1)
         now = now.plusSeconds(2 * 60)
-        repository.syncStarred(force = true)
+        refreshNow(force = true)
         assertThat(api.starredCalls).hasSize(2)
 
         now = now.plusSeconds(31 * 60)
-        repository.syncStarred()
+        refreshNow(force = false)
         assertThat(api.starredCalls).hasSize(3)
     }
 
@@ -414,12 +416,12 @@ class DefaultFeedRepositoryTest {
     fun starred_repositories_that_cannot_be_read_keep_what_was_shown_and_are_asked_again() = runTest {
         signIn()
         api.starred = listOf(release("octo/tools", "v2", "2026-09-27T09:00:00Z"))
-        repository.syncStarred()
+        refreshNow(force = false)
         api.starred = null
         now = now.plusSeconds(31 * 60)
 
-        repository.syncStarred()
-        repository.syncStarred()
+        refreshNow(force = false)
+        refreshNow(force = false)
 
         assertThat(repository.observe().first().events.map { it.repo.fullName }).containsExactly("octo/tools")
         // A failure isn't a sync: the next visit asks again instead of waiting half an hour.
@@ -427,17 +429,44 @@ class DefaultFeedRepositoryTest {
     }
 
     @Test
-    fun a_refresh_never_waits_for_the_starred_repositories() = runTest {
+    fun a_first_load_shows_the_starred_activity_with_the_rest_not_after_it() = runTest {
+        // Regression: the account's own events showed, then the starred releases a few seconds later, moving the rows.
         signIn()
         api.pages[1] = listOf(feedEvent("1", createdAt = "2026-09-27T09:00:00Z"))
+        api.starred = listOf(release("octo/tools", "v2", "2026-09-27T09:30:00Z"))
         val slow = CompletableDeferred<Unit>()
         api.starredGate = slow
 
-        val result = withContext(Dispatchers.Default) { withTimeout(5_000) { repository.refresh(force = true) } }
-
-        assertThat(result).isEqualTo(ForgeResult.Success(Unit))
-        // It was started, in the background, and the refresh came back without it.
-        withContext(Dispatchers.Default) { withTimeout(5_000) { while (api.starredCalls.isEmpty()) delay(10) } }
+        val refresh = async(Dispatchers.Default) { repository.refresh(force = true) }
+        withContext(Dispatchers.Default) { withTimeout(5_000) { while (api.calls.isEmpty() || api.starredCalls.isEmpty()) delay(10) } }
+        // The account's events have arrived, but they wait for the starred activity.
+        assertThat(repository.observe().first().events).isEmpty()
         slow.complete(Unit)
+
+        assertThat(refresh.await()).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(repository.observe().first().events.map { it.repo.fullName }).containsExactly("octo/tools", "acme/rocket").inOrder()
+    }
+
+    @Test
+    fun a_refresh_waits_only_briefly_for_the_starred_repositories_and_the_next_one_shows_them() = runTest {
+        signIn()
+        api.pages[1] = listOf(feedEvent("1", createdAt = "2026-09-27T09:00:00Z"))
+        refreshNow()
+        now = now.plusSeconds(31 * 60)
+        api.pages[1] = listOf(feedEvent("2", createdAt = "2026-09-27T09:20:00Z"))
+        api.starred = listOf(release("octo/tools", "v2", "2026-09-27T09:30:00Z"))
+        val slow = CompletableDeferred<Unit>()
+        api.starredGate = slow
+
+        // Rows are on screen: the refresh shows its own events without the starred activity, still being read.
+        assertThat(repository.refresh(force = true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(repository.observe().first().events.map { it.id }).containsExactly("2")
+
+        // It lands at the next refresh, with whatever that one brings, and isn't asked for again.
+        slow.complete(Unit)
+        now = now.plusSeconds(10)
+        refreshNow(force = false)
+        assertThat(repository.observe().first().events.map { it.repo.fullName }).containsExactly("octo/tools", "acme/rocket").inOrder()
+        assertThat(api.starredCalls).hasSize(2)
     }
 }
