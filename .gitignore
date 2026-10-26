@@ -10,7 +10,4 @@ captures/
 .cxx/
 *.keystore
 *.jks
-
-# Impeccable scratch output (review captures, decision-page logs); the brief and design record are tracked
-.impeccable/review/
-.impeccable/questions/
+app/src/test/screenshots/

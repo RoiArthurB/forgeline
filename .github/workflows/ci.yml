@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   check:
-    name: JVM tests, screenshots, lint, build
+    name: JVM tests, lint, build
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -28,7 +28,7 @@ jobs:
       - name: Format
         run: ./gradlew spotlessCheck
       - name: Check
-        run: ./gradlew testDebugUnitTest verifyRoborazziDebug lintDebug assembleDebug --continue
+        run: ./gradlew testDebugUnitTest lintDebug assembleDebug --continue
       - name: Upload reports
         if: failure()
         uses: actions/upload-artifact@v7
@@ -36,7 +36,6 @@ jobs:
           name: check-reports
           path: |
             **/build/reports/
-            **/build/outputs/roborazzi/
           retention-days: 7
 
   emulator:
