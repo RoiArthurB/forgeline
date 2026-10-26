@@ -1,5 +1,7 @@
 # Forgeline
 
+![All your code forges. One fast native Android app.](.github/hero-readme.webp)
+
 A fast, discovery-first Android client for code forges.
 
 Forgeline brings your forges to your phone as a timeline: an **Inbox** for what needs you, a **Feed** of what the people you follow are doing, and a **Trending** page for the daily discovery ritual. It opens in about a second and renders everything natively, so you never get bounced to a mobile web page.
