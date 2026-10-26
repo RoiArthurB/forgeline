@@ -814,6 +814,8 @@ private fun SubIssuesSection(
 ) {
     val colors = Soft.colors
     var typed by rememberSaveable { mutableStateOf("") }
+    // The field waits behind its button: it isn't one more box under every issue.
+    var adding by rememberSaveable { mutableStateOf(false) }
     fun line(issue: LinkedIssue) = listOfNotNull("#${issue.ref.number} ${issue.title}", issue.ref.repo.fullName.takeIf { issue.ref.repo != home }).joinToString(" · ")
     Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 24.dp)) {
         subs.parent?.let { parent ->
@@ -824,9 +826,9 @@ private fun SubIssuesSection(
                 modifier = Modifier.fillMaxWidth().softPressable { onOpenIssue(parent.ref) }.padding(horizontal = 8.dp, vertical = 12.dp),
             )
         }
-        if (subs.children.isNotEmpty() || mayChange) {
+        if (subs.children.isNotEmpty()) {
             Text(
-                if (subs.children.isEmpty()) stringResource(R.string.issue_sub_issues) else stringResource(R.string.issue_sub_issues_done, subs.done, subs.children.size),
+                stringResource(R.string.issue_sub_issues_done, subs.done, subs.children.size),
                 style = Soft.type.name,
                 color = colors.ink,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp).semantics { heading() },
@@ -848,7 +850,10 @@ private fun SubIssuesSection(
                 }
             }
         }
-        if (mayChange) {
+        if (mayChange && !adding) {
+            SoftTonalButton(stringResource(R.string.issue_sub_issue_start), onClick = { adding = true }, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp))
+        }
+        if (mayChange && adding) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SoftTextField(value = typed, onValueChange = { typed = it }, placeholder = stringResource(R.string.issue_sub_issue_number), modifier = Modifier.weight(1f))
                 SoftTonalButton(
@@ -856,6 +861,7 @@ private fun SubIssuesSection(
                     onClick = {
                         onAdd(typed)
                         typed = ""
+                        adding = false
                     },
                     enabled = typed.trim().removePrefix("#").toIntOrNull() != null,
                 )

@@ -833,6 +833,9 @@ class IssueScreenTest {
         composeRule.onNodeWithText("Part of #1 Epic", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("Sub-issues · 1 of 2 done").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Take #13 out of the sub-issues").performClick()
+        // The field waits behind its button: it isn't one more box under every issue.
+        composeRule.onNode(hasText("#number") and hasSetTextAction()).assertDoesNotExist()
+        composeRule.onNodeWithText("Add a sub-issue").performClick()
         composeRule.onNode(hasText("#number") and hasSetTextAction()).performTextInput("14")
         composeRule.onNodeWithText("Add").performClick()
 

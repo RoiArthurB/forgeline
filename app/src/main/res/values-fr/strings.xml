@@ -507,11 +507,11 @@
     <string name="issue_comment_show">Voir</string>
     <string name="issue_closing_pulls">Fermé en fusionnant</string>
     <string name="issue_part_of">Fait partie de %1$s</string>
-    <string name="issue_sub_issues">Sous-tickets</string>
     <string name="issue_sub_issues_done">Sous-tickets · %1$d sur %2$d faits</string>
     <string name="issue_sub_issue_remove">Retirer #%1$d des sous-tickets</string>
     <string name="issue_sub_issue_number">#numéro</string>
     <string name="issue_sub_issue_add">Ajouter</string>
+    <string name="issue_sub_issue_start">Ajouter un sous-ticket</string>
     <string name="issue_sub_issues_failed">Les sous-tickets n’ont pas été modifiés. Réessayez.</string>
     <string name="hide_off_topic">Hors sujet</string>
     <string name="hide_outdated">Obsolète</string>
