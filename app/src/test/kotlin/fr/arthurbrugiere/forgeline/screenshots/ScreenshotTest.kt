@@ -110,6 +110,7 @@ import fr.arthurbrugiere.forgeline.issue.ManagePage
 import fr.arthurbrugiere.forgeline.issue.ManageUiState
 import fr.arthurbrugiere.forgeline.issue.NewIssueScreen
 import fr.arthurbrugiere.forgeline.issue.NewIssueUiState
+import fr.arthurbrugiere.forgeline.navigation.TopLevelDestination
 import fr.arthurbrugiere.forgeline.navigation.rememberAppNavigator
 import fr.arthurbrugiere.forgeline.pull.BlameBlock
 import fr.arthurbrugiere.forgeline.pull.BlameScreen
@@ -134,6 +135,7 @@ import fr.arthurbrugiere.forgeline.trending.TrendingUiState
 import fr.arthurbrugiere.forgeline.ui.ForgelineApp
 import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
 import fr.arthurbrugiere.forgeline.ui.MARKDOWN_PENDING_TAG
+import fr.arthurbrugiere.forgeline.ui.SoftNavigation
 import fr.arthurbrugiere.forgeline.user.UserScreen
 import fr.arthurbrugiere.forgeline.user.UserTab
 import fr.arthurbrugiere.forgeline.user.UserUiState
@@ -161,6 +163,20 @@ class ScreenshotTest {
         }
     }
 
+    private fun defaultTabFor(name: String): TopLevelDestination? = when {
+        name.startsWith("app_shell_") ||
+            name.startsWith("dispatch_form_") ||
+            name.startsWith("issue_manage_") ||
+            name.startsWith("merge_") -> null
+        name.startsWith("inbox_") -> TopLevelDestination.INBOX
+        name.startsWith("feed_") -> TopLevelDestination.FEED
+        name.startsWith("you_") ||
+            name.startsWith("settings_") ||
+            name.startsWith("credits_") ||
+            name.startsWith("sign_in_") -> TopLevelDestination.YOU
+        else -> TopLevelDestination.TRENDING
+    }
+
     private fun snapshot(
         name: String,
         darkTheme: Boolean,
@@ -171,12 +187,19 @@ class ScreenshotTest {
         beforeCapture: () -> Unit = {},
         // Sheets and dialogs live in their own window, which only a whole-screen capture includes.
         wholeScreen: Boolean = false,
+        tab: TopLevelDestination? = defaultTabFor(name),
         content: @Composable () -> Unit,
     ) {
         composeRule.setContent {
-            // Top-level screens get their search action as they do inside the app shell.
+            // Top-level screens get their search action and bottom navigation bar as they do inside the app shell.
             CompositionLocalProvider(LocalOpenSearch provides {}) {
-                ForgelineTheme(darkTheme = darkTheme, amoledBlack = amoledBlack, content = content)
+                ForgelineTheme(darkTheme = darkTheme, amoledBlack = amoledBlack) {
+                    if (tab != null) {
+                        SoftNavigation(selected = tab, onSelect = {}, content = content)
+                    } else {
+                        content()
+                    }
+                }
             }
         }
         // Content parsed off the main thread (READMEs) must be on screen before capturing.
@@ -354,20 +377,24 @@ class ScreenshotTest {
     private val trendingState = TrendingUiState(
         items = listOf(
             TrendingItem(
-                trendingRepo("paperclipai/paperclip", stars = 85_955, periodStars = 2_109)
+                trendingRepo("zed-industries/zed", stars = 58_420, periodStars = 1_420)
                     .copy(
-                        description = "Open-source orchestration for teams of AI agents: plans, budgets and a shared memory.",
-                        language = "TypeScript", languageColor = "#3178c6", forks = 4_210,
-                        builtBy = listOf("cryppadotta", "devinfoley", "nickyleach").map { ForgeUser(it, null, null) },
+                        description = "High-performance, multiplayer code editor from the creators of Atom and Tree-sitter.",
+                        language = "Rust", languageColor = "#dea584", forks = 4_120,
+                        builtBy = listOf("nathansobo", "as-cii", "maxbrunsfeld").map { ForgeUser(it, null, null) },
                     ),
                 starred = true,
             ),
             TrendingItem(
-                trendingRepo("vectorize-io/hindsight", stars = 30_641, periodStars = 1_653)
-                    .copy(description = "Agent memory that learns from every run and forgets what stopped mattering.", language = "Python", languageColor = "#3572A5", forks = 1_122),
+                trendingRepo("forgejo/forgejo", stars = 14_280, periodStars = 684)
+                    .copy(description = "Beyond coding. We forge. Community-driven self-hosted software forge.", language = "Go", languageColor = "#00ADD8", forks = 1_340),
                 starred = false,
             ),
-            TrendingItem(trendingRepo("anthropics/claude-code-action", stars = 8_970, periodStars = 415, description = null).copy(language = "TypeScript", languageColor = "#3178c6", forks = 612), starred = false),
+            TrendingItem(
+                trendingRepo("immich-app/immich", stars = 64_810, periodStars = 512)
+                    .copy(description = "High performance self-hosted photo and video management solution.", language = "TypeScript", languageColor = "#3178c6", forks = 3_540),
+                starred = true,
+            ),
             TrendingItem(
                 trendingRepo("tokio-rs/tokio-console", stars = 3_812, periodStars = 208)
                     .copy(description = "A debugger for async Rust programs.", language = "Rust", languageColor = "#dea584", forks = 164),
@@ -382,6 +409,19 @@ class ScreenshotTest {
         updatedAtMillis = 0L,
     )
 
+    private val mixedTrendingState by lazy {
+        val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab)
+        val items = trendingState.items.mapIndexed { index, item ->
+            val forge = when (index) {
+                1 -> ForgeInstance.Codeberg
+                3 -> ForgeInstance.GitLab
+                else -> ForgeInstance.GitHub
+            }
+            item.copy(repo = item.repo.copy(id = item.repo.id.copy(forge = forge)))
+        }
+        trendingState.copy(items = items, showForge = true, forges = forges)
+    }
+
     @Test
     fun trending_light() = snapshot("trending_light", darkTheme = false) { TrendingPreview() }
 
@@ -390,12 +430,12 @@ class ScreenshotTest {
 
     @Test
     fun trending_resume_dark_amoled() = snapshot("trending_resume_dark_amoled", darkTheme = true, amoledBlack = true) {
-        TrendingPreview(trendingState.copy(resumeAt = 1))
+        TrendingPreview(mixedTrendingState.copy(resumeAt = 1))
     }
 
     private fun pressHindsight() {
         composeRule.mainClock.autoAdvance = false
-        composeRule.onNodeWithText("hindsight").performTouchInput { down(center) }
+        composeRule.onNodeWithText("forgejo").performTouchInput { down(center) }
         composeRule.mainClock.advanceTimeBy(300)
     }
 
@@ -406,15 +446,12 @@ class ScreenshotTest {
     fun trending_row_pressed_dark() = snapshot("trending_row_pressed_dark", darkTheme = true, beforeCapture = ::pressHindsight) { TrendingPreview() }
 
     @Test
-    fun trending_resume_light() = snapshot("trending_resume_light", darkTheme = false) { TrendingPreview(trendingState.copy(resumeAt = 1)) }
+    fun trending_resume_light() = snapshot("trending_resume_light", darkTheme = false) { TrendingPreview(mixedTrendingState.copy(resumeAt = 1)) }
 
     @Test
     fun trending_mixed_forges_light() = snapshot("trending_mixed_forges_light", darkTheme = false) {
         // GitHub and Codeberg on one page: every row wears its forge's logo, and one forge can be picked.
-        val items = trendingState.items.mapIndexed { index, item ->
-            if (index % 2 == 1) item.copy(repo = item.repo.copy(id = item.repo.id.copy(forge = ForgeInstance.Codeberg))) else item
-        }
-        TrendingPreview(trendingState.copy(items = items, showForge = true, forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)))
+        TrendingPreview(mixedTrendingState)
     }
 
     @Test
@@ -540,11 +577,11 @@ class ScreenshotTest {
                 composeRule.mainClock.advanceTimeByFrame()
                 composeRule.mainClock.advanceTimeBy(120)
             },
-        ) { TrendingPreview(trendingState.copy(period = period.value)) }
+        ) { TrendingPreview(mixedTrendingState.copy(period = period.value)) }
     }
 
     @Composable
-    private fun TrendingPreview(state: TrendingUiState = trendingState) {
+    private fun TrendingPreview(state: TrendingUiState = mixedTrendingState) {
         TrendingScreen(
             state = state, onPeriodChange = {}, onRefresh = {}, onToggleStar = {}, onOpenRepo = {},
             onErrorShown = {}, onStarFailureShown = {}, nowMillis = 12 * 60_000L,
@@ -620,18 +657,18 @@ class ScreenshotTest {
     private fun RunFailedShot() {
         RunScreen(
             state = RunUiState(
-                repo = RepoId("paperclipai", "paperclip"),
+                repo = RepoId("gama-platform", "gama"),
                 runId = 36539745670,
-                run = workflowRun(36539745670, title = "fix: keep the blocked inbox reason and action", conclusion = RunConclusion.FAILURE)
-                    .copy(workflowName = "PR", branch = "fix/blocked-inbox-reason-and-action", event = "pull_request", runNumber = 39953, attempt = 2),
+                run = workflowRun(36539745670, title = "Fix headless socket binding on container startup", conclusion = RunConclusion.FAILURE)
+                    .copy(workflowName = "Build & Test", branch = "fix/headless-socket-bind", event = "pull_request", runNumber = 3988, attempt = 2),
                 jobs = listOf(
-                    RunJob(1, "ci / Select trusted runner", RunStatus.COMPLETED, RunConclusion.SUCCESS, runStart, runStart.plusSeconds(4), emptyList()),
+                    RunJob(1, "build / Compile GAMA Core", RunStatus.COMPLETED, RunConclusion.SUCCESS, runStart, runStart.plusSeconds(142), emptyList()),
                     RunJob(
-                        2, "ci / Verify Paperclip Runner (vitest 1/2)", RunStatus.COMPLETED, RunConclusion.FAILURE, runStart, runStart.plusSeconds(361),
-                        listOf(RunStep(10, "Verify Paperclip Runner", RunStatus.COMPLETED, RunConclusion.FAILURE)),
+                        2, "test / Verify GAMA Headless (1/2)", RunStatus.COMPLETED, RunConclusion.FAILURE, runStart, runStart.plusSeconds(361),
+                        listOf(RunStep(10, "Run headless model test suite", RunStatus.COMPLETED, RunConclusion.FAILURE)),
                     ),
-                    RunJob(3, "ci / e2e shard (5/8)", RunStatus.IN_PROGRESS, null, runStart, null, emptyList()),
-                    RunJob(4, "ci / verify", RunStatus.QUEUED, null, null, null, emptyList()),
+                    RunJob(3, "test / Verify GAMA Headless (2/2)", RunStatus.IN_PROGRESS, null, runStart, null, emptyList()),
+                    RunJob(4, "package / Build JDK Product", RunStatus.QUEUED, null, null, null, emptyList()),
                 ),
             ),
             signedIn = true, onBack = {}, onRefresh = {}, onPerform = {}, onOpenJob = {}, onOpenUser = {}, onOpenInBrowser = {},
@@ -1465,30 +1502,33 @@ class ScreenshotTest {
         SectionGroup(
             InboxSection.NEEDS_YOU,
             listOf(
-                notificationThread("42", repo = "acme/rocket", title = "Launch fails on cold start", updatedAt = "2026-09-27T09:30:00Z"),
                 notificationThread(
-                    "43", repo = "acme/rocket", title = "Add retry to the fuel pump", type = SubjectType.PULL_REQUEST,
-                    reason = NotificationReason.REVIEW_REQUESTED, updatedAt = "2026-09-27T09:00:00Z",
-                ),
+                    "3988", repo = "gama-platform/gama", title = "Fix headless socket binding on container startup",
+                    type = SubjectType.PULL_REQUEST, reason = NotificationReason.REVIEW_REQUESTED, updatedAt = "2026-09-27T09:45:00Z",
+                ).copy(state = fr.arthurbrugiere.forgeline.core.model.SubjectState.OPEN),
+                notificationThread(
+                    "512", repo = "forgejo/forgejo", title = "Runner ignores the label filter on retry",
+                    reason = NotificationReason.MENTION, updatedAt = "2026-09-27T09:20:00Z",
+                ).let { it.copy(repo = it.repo.copy(forge = ForgeInstance.Codeberg), state = fr.arthurbrugiere.forgeline.core.model.SubjectState.OPEN) },
             ),
         ),
         SectionGroup(
             InboxSection.OTHERS,
             listOf(
                 notificationThread(
-                    "44", repo = "acme/rocket", title = "Cold start docs are out of date", reason = NotificationReason.COMMENT,
-                    updatedAt = "2026-09-27T08:00:00Z",
+                    "3984", repo = "gama-platform/gama", title = "Batch runner: flush stdout before exit",
+                    type = SubjectType.PULL_REQUEST, reason = NotificationReason.COMMENT, updatedAt = "2026-09-27T08:00:00Z",
+                ).copy(state = fr.arthurbrugiere.forgeline.core.model.SubjectState.MERGED),
+                notificationThread(
+                    "41", repo = "gama-platform/gama", title = "Verify GAMA Headless", type = SubjectType.CHECK_SUITE, number = null,
+                    reason = NotificationReason.CI_ACTIVITY, unread = false, updatedAt = "2026-09-27T05:00:00Z",
                 ),
                 notificationThread(
-                    "41", repo = "acme/rocket", title = "Nightly build", type = SubjectType.CHECK_SUITE, number = null,
-                    reason = NotificationReason.CI_ACTIVITY, unread = false, updatedAt = "2026-09-26T20:00:00Z",
-                ),
+                    "58", repo = "gama-platform/gama.docker", title = "Bump Eclipse Temurin JDK to 21.0.4",
+                    type = SubjectType.PULL_REQUEST, reason = NotificationReason.SUBSCRIBED, unread = false, updatedAt = "2026-09-26T22:00:00Z",
+                ).copy(state = fr.arthurbrugiere.forgeline.core.model.SubjectState.OPEN),
                 notificationThread(
-                    "7", repo = "acme/satellite", title = "Orbit maths drift after a week", reason = NotificationReason.SUBSCRIBED,
-                    unread = false, updatedAt = "2026-09-26T19:00:00Z",
-                ),
-                notificationThread(
-                    "9", repo = "octo/tools", title = "v2.0.0", type = SubjectType.RELEASE, number = null,
+                    "9", repo = "zed-industries/zed", title = "v0.156.2 — Faster multibuffer search", type = SubjectType.RELEASE, number = null,
                     reason = NotificationReason.SUBSCRIBED, unread = false, updatedAt = "2026-09-26T18:00:00Z",
                 ),
             ),
@@ -1498,7 +1538,7 @@ class ScreenshotTest {
     @Test
     fun inbox_light() = snapshot("inbox_light", darkTheme = false) {
         InboxScreen(
-            state = InboxUiState(filter = InboxFilter.ALL, groups = inboxSections, syncedAtMillis = 1),
+            state = InboxUiState(filter = InboxFilter.ALL, groups = inboxSections, showForge = true, syncedAtMillis = 1),
             onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
             onErrorShown = {}, onActionFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
         )
@@ -1508,8 +1548,8 @@ class ScreenshotTest {
     fun inbox_selection_light() = snapshot("inbox_selection_light", darkTheme = false) {
         InboxScreen(
             state = InboxUiState(
-                filter = InboxFilter.ALL, groups = inboxSections, syncedAtMillis = 1,
-                selected = inboxSections.flatMap { it.threads }.filter { it.id in setOf("44", "7") }.mapTo(HashSet()) { it.key },
+                filter = InboxFilter.ALL, groups = inboxSections, showForge = true, syncedAtMillis = 1,
+                selected = inboxSections.flatMap { it.threads }.filter { it.id in setOf("3984", "58") }.mapTo(HashSet()) { it.key },
             ),
             onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
             onErrorShown = {}, onActionFailureShown = {}, nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
@@ -1529,16 +1569,30 @@ class ScreenshotTest {
 
     @Composable
     private fun InboxAccountsPreview() {
-        val codeberg = Account(Account.idFor(ForgeInstance.Codeberg, "octocat"), ForgeInstance.Codeberg, ForgeUser("octocat", "The Octocat", null))
-        val onCodeberg = notificationThread("51", repo = "forgejo/forgejo", title = "Runner ignores the label filter", reason = NotificationReason.REVIEW_REQUESTED, updatedAt = "2026-09-27T09:20:00Z")
-            .let { it.copy(repo = it.repo.copy(forge = ForgeInstance.Codeberg), accountId = codeberg.id) }
-        val onGitHub = notificationThread("42", repo = "acme/rocket", title = "Launch fails on cold start", updatedAt = "2026-09-27T09:30:00Z")
         val octocatOnGitHub = Account(Account.idFor(ForgeInstance.GitHub, "octocat"), ForgeInstance.GitHub, ForgeUser("octocat", "The Octocat", null))
+        val codeberg = Account(Account.idFor(ForgeInstance.Codeberg, "octocat"), ForgeInstance.Codeberg, ForgeUser("octocat", "The Octocat", null))
+        val gitlab = Account(Account.idFor(ForgeInstance.GitLab, "octocat"), ForgeInstance.GitLab, ForgeUser("octocat", "The Octocat", null))
+        val onGitHub = notificationThread(
+            "3988", repo = "gama-platform/gama", title = "Fix headless socket binding on container startup",
+            type = SubjectType.PULL_REQUEST, reason = NotificationReason.REVIEW_REQUESTED, updatedAt = "2026-09-27T09:45:00Z",
+        ).copy(accountId = octocatOnGitHub.id, state = fr.arthurbrugiere.forgeline.core.model.SubjectState.OPEN)
+        val onCodeberg = notificationThread(
+            "512", repo = "forgejo/forgejo", title = "Runner ignores the label filter on retry",
+            reason = NotificationReason.MENTION, updatedAt = "2026-09-27T09:20:00Z",
+        ).let { it.copy(repo = it.repo.copy(forge = ForgeInstance.Codeberg), accountId = codeberg.id, state = fr.arthurbrugiere.forgeline.core.model.SubjectState.OPEN) }
+        val onGitLab = notificationThread(
+            "108", repo = "gitlab-org/gitlab-runner", title = "Honour custom CA bundle in Docker executor",
+            type = SubjectType.PULL_REQUEST, reason = NotificationReason.ASSIGN, updatedAt = "2026-09-27T09:00:00Z",
+        ).let { it.copy(repo = it.repo.copy(forge = ForgeInstance.GitLab), accountId = gitlab.id, state = fr.arthurbrugiere.forgeline.core.model.SubjectState.OPEN) }
+        val others = inboxSections[1].threads
         InboxScreen(
             state = InboxUiState(
                 filter = InboxFilter.ALL,
-                groups = listOf(SectionGroup(InboxSection.NEEDS_YOU, listOf(onGitHub, onCodeberg))),
-                accountTabs = listOf(octocatOnGitHub, codeberg),
+                groups = listOf(
+                    SectionGroup(InboxSection.NEEDS_YOU, listOf(onGitHub, onCodeberg, onGitLab)),
+                    SectionGroup(InboxSection.OTHERS, others),
+                ),
+                accountTabs = listOf(octocatOnGitHub, codeberg, gitlab),
                 showForge = true,
                 syncedAtMillis = 1,
             ),
@@ -1744,7 +1798,10 @@ class ScreenshotTest {
     }
 
     @Test
-    fun feed_mixed_forges_light() = snapshot("feed_mixed_forges_light", darkTheme = false) { FeedMixedPreview() }
+    fun feed_mixed_forges_light() = withFeedPictures { snapshot("feed_mixed_forges_light", darkTheme = false) { FeedMixedPreview() } }
+
+    @Test
+    fun feed_resume_light() = withFeedPictures { snapshot("feed_resume_light", darkTheme = false) { FeedMixedPreview(leftOffBefore = "19") } }
 
     @Test
     @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
@@ -1771,10 +1828,10 @@ class ScreenshotTest {
     }
 
     @Composable
-    private fun FeedMixedPreview() {
-        val onCodeberg = feedEvent("21", actor = "alice", repo = "forgejo/forgejo", createdAt = "2026-09-27T09:50:00Z", action = FeedAction.PullRequest(PullRequestAction.MERGED, 43))
+    private fun FeedMixedPreview(leftOffBefore: String? = null) {
+        val onGitHub = feedEvent("21", actor = "alice", repo = "gama-platform/gama", createdAt = "2026-09-27T09:50:00Z", action = FeedAction.PullRequest(PullRequestAction.MERGED, 43, "Runner: honour the label filter on retry"))
+        val onCodeberg = feedEvent("20", actor = "bob", repo = "forgejo/forgejo", createdAt = "2026-09-27T09:45:00Z", action = FeedAction.Issue(IssueAction.CLOSED, 42, "Launch fails on cold start"))
             .let { it.copy(repo = it.repo.copy(forge = ForgeInstance.Codeberg)) }
-        val onGitHub = feedEvent("20", actor = "bob", repo = "acme/rocket", createdAt = "2026-09-27T09:45:00Z", action = FeedAction.Issue(IssueAction.CLOSED, 42, "Launch fails on cold start"))
         val onSelfHosted = feedEvent("19", actor = "carol", repo = "octo/tools", createdAt = "2026-09-27T09:40:00Z", action = FeedAction.Released("v2.0.0", "Tools 2.0: faster everything", prerelease = false))
             .let { it.copy(repo = it.repo.copy(forge = ForgeInstance(ForgeType.FORGEJO, "git.example.org"))) }
         // On gitlab.com, in a nested group as its projects often are, and what a real account's Feed is made of: a push.
@@ -1785,9 +1842,37 @@ class ScreenshotTest {
         // As seen on a phone: an owner and a name, long enough to take the line by themselves.
         val longOnGitLab = feedEvent("16", actor = "erin", repo = "x/y", createdAt = "2026-09-27T09:25:00Z", action = FeedAction.Issue(IssueAction.OPENED, 1, "Heartbeat recovery escalates too early"))
             .let { it.copy(repo = RepoId("RoiArthurB", "forgeline-scratch-deletion_scheduled-87209551", ForgeInstance.GitLab)) }
-        val longOnGitHub = feedEvent("15", actor = "frank", repo = "project-SIMPLE/simple.BeDev.AEDES.UnityVR", createdAt = "2026-09-27T09:20:00Z", action = FeedAction.PullRequest(PullRequestAction.OPENED, 58, "Fix the headset pairing"))
+        val longOnGitHub = feedEvent("15", actor = "frank", repo = "gama-platform/gama.docker", createdAt = "2026-09-27T09:20:00Z", action = FeedAction.PullRequest(PullRequestAction.OPENED, 58, "Fix the headless container startup"))
         FeedScreen(
-            state = FeedUiState(items = feedItems(listOf(onCodeberg, onGitHub, onSelfHosted, onGitLab, pushedOnGitLab, longOnGitLab, longOnGitHub), fr.arthurbrugiere.forgeline.core.model.FeedKind.entries.toSet()), showForge = true, syncedAtMillis = 1),
+            state = FeedUiState(
+                items = feedItems(listOf(onGitHub, onCodeberg, onSelfHosted, onGitLab, pushedOnGitLab, longOnGitLab, longOnGitHub), fr.arthurbrugiere.forgeline.core.model.FeedKind.entries.toSet()),
+                showForge = true,
+                syncedAtMillis = 1,
+                leftOffBefore = leftOffBefore,
+                previews = fr.arthurbrugiere.forgeline.core.model.FeedPreviews(
+                    releases = mapOf(
+                        fr.arthurbrugiere.forgeline.core.model.ReleaseRef(onSelfHosted.repo, "v2.0.0") to fr.arthurbrugiere.forgeline.core.model.ReleasePreview(
+                            "Every command starts twice as fast, and the config file finally has a schema.",
+                            "v1.9.2",
+                            null,
+                            "https://example.org/logo/octo",
+                            mapOf(fr.arthurbrugiere.forgeline.core.model.Reaction.HOORAY to 31, fr.arthurbrugiere.forgeline.core.model.Reaction.ROCKET to 12),
+                        ),
+                    ),
+                    conversations = mapOf(
+                        fr.arthurbrugiere.forgeline.core.model.IssueRef(onGitHub.repo, 43, isPullRequest = true) to
+                            fr.arthurbrugiere.forgeline.core.model.ConversationPreview("Runner: honour the label filter on retry", additions = 84, deletions = 19, changedFiles = 3),
+                        fr.arthurbrugiere.forgeline.core.model.IssueRef(onCodeberg.repo, 42, isPullRequest = false) to
+                            fr.arthurbrugiere.forgeline.core.model.ConversationPreview(
+                                "Launch fails on cold start",
+                                labels = listOf(fr.arthurbrugiere.forgeline.core.model.Label("bug", "d73a4a"), fr.arthurbrugiere.forgeline.core.model.Label("needs-triage", "fbca04")),
+                                comments = 4,
+                            ),
+                        fr.arthurbrugiere.forgeline.core.model.IssueRef(longOnGitHub.repo, 58, isPullRequest = true) to
+                            fr.arthurbrugiere.forgeline.core.model.ConversationPreview("Fix the headless container startup", additions = 36, deletions = 12, changedFiles = 2),
+                    ),
+                ),
+            ),
             onRefresh = {}, onLoadMore = {}, onOpenRepo = {}, onOpenIssue = {}, onOpenUser = { _, _ -> }, onErrorShown = {},
             nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
             zone = java.time.ZoneOffset.UTC,
@@ -1798,7 +1883,7 @@ class ScreenshotTest {
     private fun FeedPreview() {
         val events = listOf(
             feedEvent("9", actor = "alice", createdAt = "2026-09-27T09:50:00Z"),
-            feedEvent("8", actor = "bob", repo = "acme/rocket", createdAt = "2026-09-27T09:45:00Z", action = FeedAction.PullRequest(PullRequestAction.MERGED, 43)),
+            feedEvent("8", actor = "bob", repo = "gama-platform/gama", createdAt = "2026-09-27T09:45:00Z", action = FeedAction.PullRequest(PullRequestAction.MERGED, 43)),
             feedEvent("7", actor = "carol", createdAt = "2026-09-27T09:40:00Z", action = FeedAction.Issue(IssueAction.CLOSED, 42, "Launch fails on cold start")),
             feedEvent("6", actor = "bob", createdAt = "2026-09-27T09:30:00Z"),
             feedEvent("5", actor = "dave", createdAt = "2026-09-27T09:20:00Z"),
@@ -1826,7 +1911,7 @@ class ScreenshotTest {
                         ),
                     ),
                     conversations = mapOf(
-                        fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("acme", "rocket"), 43, isPullRequest = true) to
+                        fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("gama-platform", "gama"), 43, isPullRequest = true) to
                             fr.arthurbrugiere.forgeline.core.model.ConversationPreview("Retry the fuel pump handshake on cold start", additions = 212, deletions = 40, changedFiles = 7),
                         fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("acme", "rocket"), 42, isPullRequest = false) to
                             fr.arthurbrugiere.forgeline.core.model.ConversationPreview(
@@ -1975,10 +2060,31 @@ class ScreenshotTest {
 
     @Test
     fun inbox_yours_light() = snapshot("inbox_yours_light", darkTheme = false, awaitText = "Assigned to you") {
-        val tools = RepoId("octo", "tools")
-        val notes = RepoId("alice", "notes", ForgeInstance.Codeberg)
-        fun found(repo: RepoId, number: Int, title: String, pull: Boolean = true) =
-            fr.arthurbrugiere.forgeline.core.model.IssueSearchResult(repo, fr.arthurbrugiere.forgeline.core.testing.issueSummary(number, title, isPullRequest = pull))
+        val gama = RepoId("gama-platform", "gama")
+        val gamaDocker = RepoId("gama-platform", "gama.docker")
+        val forgejo = RepoId("forgejo", "forgejo", ForgeInstance.Codeberg)
+        val runner = RepoId("gitlab-org", "gitlab-runner", ForgeInstance.GitLab)
+        val webPlayer = RepoId("ACROSS-Lab", "GamaWebPlayer")
+        fun found(
+            repo: RepoId,
+            number: Int,
+            title: String,
+            author: String,
+            createdAt: String,
+            labels: List<Label>,
+            comments: Int? = null,
+            pull: Boolean = true,
+            draft: Boolean = false,
+        ) = fr.arthurbrugiere.forgeline.core.model.IssueSearchResult(
+            repo,
+            fr.arthurbrugiere.forgeline.core.testing.issueSummary(number, title, isPullRequest = pull).copy(
+                author = ForgeUser(author, null, null),
+                createdAt = java.time.Instant.parse(createdAt),
+                labels = labels,
+                comments = comments,
+                isDraft = draft,
+            ),
+        )
         InboxScreen(
             state = InboxUiState(filter = InboxFilter.YOURS, syncedAtMillis = 1),
             onSelectFilter = {}, onRefresh = {}, onOpen = {}, onMarkRead = {}, onMarkDone = {}, onUnsubscribe = {},
@@ -1986,11 +2092,44 @@ class ScreenshotTest {
             work = fr.arthurbrugiere.forgeline.work.WorkUiState(
                 fr.arthurbrugiere.forgeline.core.data.work.Work(
                     mapOf(
-                        fr.arthurbrugiere.forgeline.core.model.WorkKind.REVIEW_REQUESTED to listOf(found(tools, 88, "Retry uploads on slow links")),
-                        fr.arthurbrugiere.forgeline.core.model.WorkKind.OWN_PULL_REQUESTS to listOf(found(notes, 12, "Add a dark theme"), found(tools, 91, "Bump the SDK")),
-                        fr.arthurbrugiere.forgeline.core.model.WorkKind.ASSIGNED to listOf(found(notes, 9, "Crash on start", pull = false)),
+                        fr.arthurbrugiere.forgeline.core.model.WorkKind.REVIEW_REQUESTED to listOf(
+                            found(
+                                gama, 3988, "Fix headless socket binding on container startup",
+                                author = "AlexisDrogoul", createdAt = "2026-09-26T09:25:00Z",
+                                labels = listOf(Label("headless", "0e8a16"), Label("server", "1d76db")), comments = 4,
+                            ),
+                            found(
+                                forgejo, 512, "Runner: honour the label filter on retry",
+                                author = "earl-warren", createdAt = "2026-09-26T07:00:00Z",
+                                labels = listOf(Label("actions", "5319e7")), comments = 2,
+                            ),
+                        ),
+                        fr.arthurbrugiere.forgeline.core.model.WorkKind.OWN_PULL_REQUESTS to listOf(
+                            found(
+                                gamaDocker, 58, "Bump Eclipse Temurin JDK to 21.0.4",
+                                author = "RoiArthurB", createdAt = "2026-09-25T16:00:00Z",
+                                labels = listOf(Label("docker", "0075ca")), comments = 1,
+                            ),
+                            found(
+                                runner, 108, "Honour custom CA bundle in Docker executor",
+                                author = "RoiArthurB", createdAt = "2026-09-24T12:00:00Z",
+                                labels = listOf(Label("security", "d93f0b")), draft = true,
+                            ),
+                        ),
+                        fr.arthurbrugiere.forgeline.core.model.WorkKind.ASSIGNED to listOf(
+                            found(
+                                gama, 3971, "Wayland: OpenGL display flickers on resize",
+                                author = "benoitgaudou", createdAt = "2026-09-23T10:00:00Z",
+                                labels = listOf(Label("bug", "d73a4a"), Label("linux", "fbca04")), comments = 6, pull = false,
+                            ),
+                            found(
+                                webPlayer, 19, "Reconnect WebSocket automatically after sleep",
+                                author = "PatrickTaillandier", createdAt = "2026-09-21T10:00:00Z",
+                                labels = listOf(Label("enhancement", "a2eeef")), comments = 3, pull = false,
+                            ),
+                        ),
                     ),
-                    forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg),
+                    forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab),
                 ),
                 isLoading = false,
             ),
@@ -2000,20 +2139,20 @@ class ScreenshotTest {
 
     private val changedFiles = listOf(
         fr.arthurbrugiere.forgeline.core.testing.changedFile(
-            "src/main/kotlin/Upload.kt",
-            "@@ -12,6 +12,8 @@ class Upload(private val client: Client) {\n     fun send(file: File): Result {\n         val tries = 1\n-        return client.put(file)\n+        return retry(times = 3) {\n+            client.put(file) // a slow link drops the first try more often than not\n+        }\n     }\n }",
+            "gama.headless/src/gama/headless/server/GamaWebSocketServer.java",
+            "@@ -48,6 +48,8 @@ public class GamaWebSocketServer extends WebSocketServer {\n     public void startServer(int port) {\n         setReuseAddr(true);\n-        start();\n+        if (!awaitSocketBind(port, 3)) {\n+            GAMA.reportError(\"Socket bind failed on port \" + port);\n+        }\n     }\n }",
         ),
-        fr.arthurbrugiere.forgeline.core.testing.changedFile("docs/retry.md", "@@ -0,0 +1,2 @@\n+# Retries\n+Uploads are tried three times.", fr.arthurbrugiere.forgeline.core.model.FileChange.ADDED),
-        fr.arthurbrugiere.forgeline.core.testing.changedFile("assets/logo.png", null),
+        fr.arthurbrugiere.forgeline.core.testing.changedFile("gama.product/extraresources/headless/gama-headless.sh", "@@ -0,0 +1,2 @@\n+# Wait for socket readiness before launching batch jobs\n+export GAMA_HEADLESS_BIND_RETRIES=3", fr.arthurbrugiere.forgeline.core.model.FileChange.ADDED),
+        fr.arthurbrugiere.forgeline.core.testing.changedFile("gama.ui.application/icons/gama.png", null),
     ).map { fr.arthurbrugiere.forgeline.pull.FileDiff(it, it.patch?.let { patch -> fr.arthurbrugiere.forgeline.core.model.parsePatch(patch) }.orEmpty()) }
 
     @Composable
     private fun ChangesPreview() {
         fr.arthurbrugiere.forgeline.pull.ChangesScreen(
             state = fr.arthurbrugiere.forgeline.pull.ChangesUiState(
-                fr.arthurbrugiere.forgeline.pull.ChangesTarget.Pull(IssueRef(RepoId("octo", "tools"), 88, isPullRequest = true)),
+                fr.arthurbrugiere.forgeline.pull.ChangesTarget.Pull(IssueRef(RepoId("gama-platform", "gama"), 3988, isPullRequest = true)),
                 files = changedFiles, isLoading = false, canReview = true,
-                comments = listOf(fr.arthurbrugiere.forgeline.core.model.LineComment("src/main/kotlin/Upload.kt", oldLine = null, newLine = 14, body = "Why three?")),
+                comments = listOf(fr.arthurbrugiere.forgeline.core.model.LineComment("gama.headless/src/gama/headless/server/GamaWebSocketServer.java", oldLine = null, newLine = 50, body = "Should we read the retry count from GAMA_HEADLESS_BIND_RETRIES?")),
             ),
             onBack = {}, onRefresh = {}, onLoadMore = {}, onErrorShown = {}, onToggle = {},
             nowMillis = java.time.Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
@@ -2032,7 +2171,7 @@ class ScreenshotTest {
 
     @Test
     fun issue_pull_request_light() = snapshot("issue_pull_request_light", darkTheme = false, awaitText = "Body of #88", awaitGoneTag = MARKDOWN_PENDING_TAG) {
-        val ref = IssueRef(RepoId("octo", "tools"), 88, isPullRequest = true)
+        val ref = IssueRef(RepoId("gama-platform", "gama"), 88, isPullRequest = true)
         IssueScreen(
             state = IssueUiState(
                 ref = ref,
@@ -2055,7 +2194,7 @@ class ScreenshotTest {
 
     @Composable
     private fun PullPanelPreview(vararg states: fr.arthurbrugiere.forgeline.core.model.CheckState) {
-        val ref = IssueRef(RepoId("octo", "tools"), 88, isPullRequest = true)
+        val ref = IssueRef(RepoId("gama-platform", "gama"), 88, isPullRequest = true)
         val issue = issueDetails(ref, "Retry uploads on slow links")
             .copy(pullRequest = fr.arthurbrugiere.forgeline.core.model.PullRequestInfo(false, false, "main", "retry-uploads", 5, 1, 3, 2))
         androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize().background(fr.arthurbrugiere.forgeline.core.ui.soft.Soft.colors.ground).padding(androidx.compose.ui.unit.Dp(20f))) {
@@ -2173,7 +2312,7 @@ class ScreenshotTest {
     private fun NewPullRequestShot() {
         fr.arthurbrugiere.forgeline.pull.NewPullRequestScreen(
             fr.arthurbrugiere.forgeline.pull.NewPullRequestUiState(
-                RepoId("octo", "tools"),
+                RepoId("gama-platform", "gama"),
                 Loadable.Loaded(listOf("main", "fix/slow-uploads", "release")),
                 base = "main",
                 head = "fix/slow-uploads",

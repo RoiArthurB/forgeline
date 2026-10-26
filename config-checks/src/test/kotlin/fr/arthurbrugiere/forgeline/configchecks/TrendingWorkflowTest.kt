@@ -36,4 +36,12 @@ class TrendingWorkflowTest {
         assertThat(workflow).containsMatch("""path:\s*site""")
         assertThat(workflow).contains("${'$'}base/state.json")
     }
+
+    @Test
+    fun landing_page_lives_in_site_and_deploys_without_losing_trending_history() {
+        val index = Repo.text("site/index.html")
+        assertThat(index).contains("Forgeline")
+        assertThat(workflow).contains("site/**")
+        assertThat(workflow).contains("""if [ "${'$'}{{ github.event_name }}" = "push" ]; then""")
+    }
 }
