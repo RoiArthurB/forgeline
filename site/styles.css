@@ -1,0 +1,1092 @@
+/* ==========================================================================
+   Forgeline — Traditional Product Landing Page in Ink Compact Palette
+   ========================================================================== */
+
+@font-face {
+  font-family: "Geist";
+  src: url("./fonts/geist_regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist";
+  src: url("./fonts/geist_semibold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ==========================================================================
+   Palette Tokens (Light & Dark)
+   ========================================================================== */
+:root,
+[data-theme="light"] {
+  --ground: #F5F4F6;
+  --surface-alt: #ECEBEF;
+  --raised: #FFFFFF;
+  --ink: #16181A;
+  --ink-muted: #606065;
+  --ink-accent: var(--ink);
+  --accent: #8F5600;
+  --thumb: #F5A524;
+  --on-thumb: #16181A;
+  --surface: #E8E7EB;
+  --hairline: #DCDADF;
+  --accent-soft: #FCE9C0;
+
+  /* Dark Hero & Header Band */
+  --band: #16181A;
+  --band-ink: #EDEDF0;
+  --band-muted: #A6A5AB;
+  --band-surface: #232429;
+  --band-hairline: #2E2F36;
+  --band-amber: #FFC062;
+
+  /* Typography */
+  --font-sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  /* Radii */
+  --r-xs: 4px;
+  --r-tag: 6px;
+  --r-control: 8px;
+  --r-tile: 10px;
+  --r-panel: 14px;
+  --r-device: 28px;
+
+  --spring: cubic-bezier(0.22, 1, 0.36, 1);
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --ground: #111113;
+  --surface-alt: #16161A;
+  --raised: #1B1B20;
+  --ink: #EDEDF0;
+  --ink-muted: #9C9BA3;
+  --ink-accent: #FFAB00;
+  --accent: #FFC062;
+  --thumb: #F5A524;
+  --on-thumb: #16181A;
+  --surface: #232329;
+  --hairline: #2A2A32;
+  --accent-soft: #3A2C12;
+  --band: #16161A;
+  --band-ink: #EDEDF0;
+  --band-muted: #A6A5AB;
+  --band-surface: #24242B;
+  --band-hairline: #303038;
+  --band-amber: #FFC062;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+html {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  background-color: var(--ground);
+  color: var(--ink);
+  caret-color: var(--accent);
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scrollbar-color: var(--ink-muted) var(--surface);
+}
+
+body {
+  min-height: 100vh;
+  background-color: var(--ground);
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 25px;
+  overflow-x: hidden;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--thumb);
+  outline-offset: 2px;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 10px;
+  z-index: 200;
+  background: var(--thumb);
+  color: var(--on-thumb);
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: var(--r-control);
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  left: 16px;
+}
+
+.container {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 28px;
+}
+
+/* ==========================================================================
+   Sticky Top Navigation Bar
+   ========================================================================== */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: rgba(22, 24, 26, 0.94);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--band-hairline);
+  color: var(--band-ink);
+}
+
+.nav-container {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 28px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--band-ink);
+}
+
+.brand-tile {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background-color: var(--band-surface);
+  border: 1px solid var(--band-hairline);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-name {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--band-ink);
+}
+
+.version-pill {
+  font-size: 11.5px;
+  line-height: 16px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--r-xs);
+  background-color: var(--band-surface);
+  color: var(--band-muted);
+  border: 1px solid var(--band-hairline);
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 100%;
+}
+
+.nav-link {
+  position: relative;
+  height: 64px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--band-muted);
+  text-decoration: none;
+  transition: color 140ms ease;
+}
+
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background-color: var(--thumb);
+  transform: scaleX(0);
+  transition: transform 160ms var(--spring);
+}
+
+.nav-link:hover {
+  color: var(--band-ink);
+}
+
+.nav-link.is-active {
+  color: var(--band-ink);
+  font-weight: 600;
+}
+
+.nav-link.is-active::after {
+  transform: scaleX(1);
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: var(--r-control);
+  background-color: var(--band-surface);
+  color: var(--band-ink);
+  border: 1px solid var(--band-hairline);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.theme-toggle-btn:hover {
+  border-color: #464752;
+  background-color: #2A2B32;
+}
+
+.nav-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: var(--r-control);
+  background-color: var(--band-surface);
+  border: 1px solid var(--band-hairline);
+  color: var(--band-ink);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.nav-github:hover {
+  border-color: #464752;
+}
+
+.btn-nav-cta {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 13px;
+  border-radius: var(--r-control);
+  background-color: var(--thumb);
+  color: var(--on-thumb);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: filter 140ms ease;
+}
+
+.btn-nav-cta:hover {
+  filter: brightness(1.06);
+}
+
+/* ==========================================================================
+   Hero Section (Two-Column Traditional Layout)
+   ========================================================================== */
+.hero-band {
+  background-color: var(--band);
+  color: var(--band-ink);
+  padding: 64px 0 76px;
+  border-bottom: 1px solid var(--band-hairline);
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+  gap: 56px;
+  align-items: center;
+}
+
+.hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 22px;
+}
+
+.hero-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.badge-amber {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: var(--r-tag);
+  background-color: rgba(245, 165, 36, 0.16);
+  color: var(--band-amber);
+}
+
+.badge-outline {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: var(--r-tag);
+  background-color: var(--band-surface);
+  color: var(--band-ink);
+  border: 1px solid var(--band-hairline);
+}
+
+.hero-title {
+  font-size: 46px;
+  line-height: 54px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--band-ink);
+}
+
+.hero-lead {
+  font-size: 18px;
+  line-height: 28px;
+  color: var(--band-muted);
+  max-width: 58ch;
+}
+
+.hero-lead strong {
+  color: var(--band-ink);
+  font-weight: 600;
+}
+
+.hero-cta-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 46px;
+  padding: 0 20px;
+  border-radius: var(--r-control);
+  background-color: var(--thumb);
+  color: var(--on-thumb);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 140ms var(--spring), filter 140ms ease;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  height: 46px;
+  padding: 0 18px;
+  border-radius: var(--r-control);
+  background-color: var(--band-surface);
+  color: var(--band-ink);
+  border: 1px solid var(--band-hairline);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.btn-secondary:hover {
+  background-color: #2E2F37;
+  border-color: #464854;
+}
+
+.hero-highlights {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  font-size: 13.5px;
+  color: var(--band-muted);
+}
+
+.hero-highlights li {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* ==========================================================================
+   Realistic Android Phone Hardware Frame (Crops bottom test whitespace cleanly)
+   ========================================================================== */
+.device-frame {
+  background-color: #1E1F24;
+  border: 2px solid #353740;
+  border-radius: var(--r-device);
+  padding: 10px;
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  user-select: none;
+}
+
+.device-statusbar {
+  height: 22px;
+  padding: 0 14px;
+  background-color: #16181A;
+  color: #EDEDF0;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 18px 18px 0 0;
+}
+
+.device-camera {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background-color: #0B0B0D;
+  border: 1px solid #2E2F36;
+}
+
+.device-viewport {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 9 / 20;
+  overflow: hidden;
+  border-radius: 0 0 18px 18px;
+  background-color: #16181A;
+}
+
+.device-viewport img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  display: block;
+}
+
+/* Hero Overlapping Dual Phone Showcase */
+.hero-stage {
+  display: flex;
+  justify-content: center;
+}
+
+.phone-duo {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  height: 610px;
+}
+
+.device-front {
+  position: absolute;
+  left: 0;
+  top: 20px;
+  width: 262px;
+  z-index: 2;
+}
+
+.device-back {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 248px;
+  z-index: 1;
+  opacity: 0.94;
+}
+
+/* ==========================================================================
+   Section Scaffolding & Headers
+   ========================================================================== */
+.section-block {
+  padding: 84px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.section-surface {
+  background-color: var(--surface-alt);
+}
+
+.section-header-centered {
+  max-width: 720px;
+  margin: 0 auto 48px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.section-title {
+  font-size: 34px;
+  line-height: 42px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+}
+
+.section-subtitle {
+  font-size: 17px;
+  line-height: 26px;
+  color: var(--ink-muted);
+}
+
+/* ==========================================================================
+   Section 1: 4-Column Supported Forges Grid
+   ========================================================================== */
+.forge-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.forge-item {
+  background-color: var(--raised);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-panel);
+  padding: 24px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.forge-item-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.forge-icon-tile {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--r-tile);
+  background-color: var(--surface);
+  color: var(--ink-accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.forge-item-title {
+  font-size: 18px;
+  line-height: 23px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.forge-item-domain {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ink-muted);
+}
+
+.forge-item-body {
+  font-size: 14.5px;
+  line-height: 22px;
+  color: var(--ink-muted);
+  flex: 1;
+}
+
+/* ==========================================================================
+   Section 2: Alternating Two-Column Feature Spotlights
+   ========================================================================== */
+.spotlight-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 64px;
+  align-items: center;
+}
+
+.spotlight-reverse {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+}
+
+.spotlight-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.spotlight-title {
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.spotlight-lead {
+  font-size: 16.5px;
+  line-height: 26px;
+  color: var(--ink-muted);
+}
+
+.feature-points {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 4px;
+}
+
+.feature-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--ink-muted);
+}
+
+.feature-points strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.point-marker {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Spotlight Phone Stage */
+.spotlight-visual {
+  display: flex;
+  justify-content: center;
+}
+
+.visual-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.stage-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--r-control);
+  background-color: var(--raised);
+  border: 1px solid var(--hairline);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.stage-pill {
+  height: 32px;
+  padding: 0 11px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-muted);
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.stage-pill:hover {
+  color: var(--ink);
+}
+
+.stage-pill[aria-pressed="true"] {
+  background-color: var(--band);
+  color: var(--band-ink);
+  font-weight: 600;
+}
+
+.device-single {
+  width: 274px;
+}
+
+.stage-caption {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ink-muted);
+  text-align: center;
+}
+
+/* ==========================================================================
+   Section 3: Interactive 3-Phone Theme Gallery
+   ========================================================================== */
+.gallery-mode-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px;
+  border-radius: var(--r-tile);
+  background-color: var(--raised);
+  border: 1px solid var(--hairline);
+  margin-top: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.gallery-mode-btn {
+  height: 36px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--r-control);
+  background: transparent;
+  color: var(--ink-muted);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.gallery-mode-btn:hover {
+  color: var(--ink);
+}
+
+.gallery-mode-btn[aria-pressed="true"] {
+  background-color: var(--band);
+  color: var(--band-ink);
+  font-weight: 600;
+}
+
+.three-phone-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 32px;
+  justify-items: center;
+}
+
+.gallery-phone-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 286px;
+}
+
+.device-gallery {
+  width: 100%;
+}
+
+.gallery-caption {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: center;
+}
+
+/* ==========================================================================
+   Section 4: 3-Column Speed, Privacy & Architecture Grid
+   ========================================================================== */
+.pillars-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.pillar-item {
+  background-color: var(--raised);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-panel);
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.pillar-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-tile);
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pillar-title {
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pillar-desc {
+  font-size: 15px;
+  line-height: 23px;
+  color: var(--ink-muted);
+}
+
+/* ==========================================================================
+   Bottom CTA Banner & Footer
+   ========================================================================== */
+.cta-banner {
+  background-color: var(--band);
+  color: var(--band-ink);
+  padding: 64px 0;
+  border-top: 1px solid var(--band-hairline);
+}
+
+.cta-banner-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.cta-banner-copy {
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cta-banner-title {
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--band-ink);
+}
+
+.cta-banner-sub {
+  font-size: 16px;
+  line-height: 25px;
+  color: var(--band-muted);
+}
+
+.cta-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.footer-band {
+  background-color: #111214;
+  color: var(--band-muted);
+  border-top: 1px solid var(--band-hairline);
+  padding: 32px 0;
+  font-size: 13.5px;
+}
+
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.footer-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.footer-brand strong {
+  color: var(--band-ink);
+  font-weight: 600;
+}
+
+.footer-brand a {
+  color: var(--band-amber);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.footer-disclosure {
+  font-size: 12.5px;
+  line-height: 18px;
+  color: var(--band-muted);
+}
+
+.footer-links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.footer-links a {
+  color: var(--band-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   Responsive Breakpoints & Reduced Motion
+   ========================================================================== */
+@media (max-width: 1024px) {
+  .nav-links {
+    display: none;
+  }
+
+  .hero-grid,
+  .spotlight-grid,
+  .spotlight-reverse {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 44px;
+  }
+
+  .spotlight-reverse .spotlight-visual {
+    order: 2;
+  }
+
+  .spotlight-reverse .spotlight-copy {
+    order: 1;
+  }
+
+  .forge-cards-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .three-phone-grid,
+  .pillars-grid {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 460px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .container,
+  .nav-container {
+    padding: 0 18px;
+  }
+
+  .version-pill,
+  .nav-github span,
+  .btn-nav-cta {
+    display: none;
+  }
+
+  .hero-band {
+    padding: 40px 0 52px;
+  }
+
+  .hero-title {
+    font-size: 32px;
+    line-height: 39px;
+  }
+
+  .hero-lead {
+    font-size: 16px;
+    line-height: 25px;
+  }
+
+  .phone-duo {
+    height: 500px;
+    max-width: 340px;
+  }
+
+  .device-front {
+    width: 210px;
+  }
+
+  .device-back {
+    width: 198px;
+  }
+
+  .section-block {
+    padding: 56px 0;
+  }
+
+  .section-title,
+  .spotlight-title,
+  .cta-banner-title {
+    font-size: 26px;
+    line-height: 33px;
+  }
+
+  .forge-cards-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
