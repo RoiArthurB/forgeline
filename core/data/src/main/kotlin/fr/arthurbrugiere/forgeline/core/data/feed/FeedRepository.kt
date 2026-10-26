@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.model.FeedEvent
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
@@ -45,8 +47,9 @@ interface FeedRepository {
 
     /**
      * Replaces each account's Feed with its latest page. Unless [force]d, waits for each forge's poll interval and asks
-     * only for changes. Returns once every forge has answered; [onFirstFresh] is called earlier, as soon as the first
-     * forge's answer is saved, so a refresh indicator needn't wait for the slowest forge.
+     * only for changes. What starred repositories published, when due, is saved in the same change as the account's own
+     * events, so the timeline changes once per refresh. Returns once every forge has answered; [onFirstFresh] is called
+     * earlier, as soon as the first forge's answer is saved, so a refresh indicator needn't wait for the slowest forge.
      */
     suspend fun refresh(force: Boolean = false, onFirstFresh: () -> Unit = {}): ForgeResult<Unit>
 
@@ -122,13 +125,15 @@ class DefaultFeedRepository @Inject constructor(
     override suspend fun refresh(force: Boolean, onFirstFresh: () -> Unit): ForgeResult<Unit> {
         val signedIn = accounts.accounts.first()
         if (signedIn.isEmpty()) return ForgeResult.Failure(ForgeError.Unauthorized)
-        // Starred repositories take many seconds to read: in the background, never part of the refresh.
-        scope.launch { syncStarred(force) }
+        // Starred repositories take many seconds to read: in the background, and each account's refresh waits for them
+        // only a little.
+        val starred = signedIn.associate { account -> account.id to scope.launch { readStarred(account, force) } }
         val reported = AtomicBoolean(false)
         val results = coroutineScope {
             signedIn.map { account ->
                 async {
-                    refresh(account, force).also { if (it is ForgeResult.Success && reported.compareAndSet(false, true)) onFirstFresh() }
+                    refresh(account, force, starred.getValue(account.id))
+                        .also { if (it is ForgeResult.Success && reported.compareAndSet(false, true)) onFirstFresh() }
                 }
             }.awaitAll()
         }
@@ -136,56 +141,63 @@ class DefaultFeedRepository @Inject constructor(
         return results.firstOrNull { it is ForgeResult.Success } ?: results.first()
     }
 
-    private suspend fun refresh(account: Account, force: Boolean): ForgeResult<Unit> = lockOf(account).withLock {
+    private suspend fun refresh(account: Account, force: Boolean, starred: Job): ForgeResult<Unit> = lockOf(account).withLock {
         val token = accounts.token(account.id) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
         val state = dao.sync(account.id)
         val interval = (state?.pollIntervalSeconds ?: DEFAULT_POLL_SECONDS) * 1_000L
-        if (!force && state != null && clock.millis() - state.syncedAtMillis < interval) return ForgeResult.Success(Unit)
-        val api = clients.feed(account.forge)
-        when (val result = api.receivedEvents(token, account.user.login, page = 1, ifModifiedSince = if (force) null else state?.lastModified)) {
-            is ForgeResult.Failure -> {
-                // The forge turned the token down: nothing will sync for this account until it signs in again.
-                if (result.error == ForgeError.Unauthorized) accounts.markSignInEnded(account.id)
-                result
-            }
-            is ForgeResult.Success -> {
-                val page = result.value
-                page.events?.let { events -> dao.replace(account.id, events.map { it.on(account).toEntity(account.id) }) }
-                dao.upsertSync(
-                    FeedSyncEntity(
-                        accountId = account.id,
-                        lastModified = page.lastModified,
-                        pollIntervalSeconds = page.pollIntervalSeconds,
-                        syncedAtMillis = clock.millis(),
-                        // Unchanged: the pages already loaded are still valid.
-                        nextPage = if (page.events == null) state?.nextPage else page.nextPage,
-                    ),
-                )
-                ForgeResult.Success(Unit)
-            }
+        val result = if (!force && state != null && clock.millis() - state.syncedAtMillis < interval) {
+            null
+        } else {
+            clients.feed(account.forge).receivedEvents(token, account.user.login, page = 1, ifModifiedSince = if (force) null else state?.lastModified)
         }
+        // The forge turned the token down: nothing will sync for this account until it signs in again.
+        if ((result as? ForgeResult.Failure)?.error == ForgeError.Unauthorized) accounts.markSignInEnded(account.id)
+        // Regression: the starred activity landed seconds after the account's own events, so the Feed loaded twice and
+        // rows moved under the reader. It now joins in the same change. A first load waits for it (there's nothing on
+        // screen to keep); later ones only briefly, and what comes after that waits for the next refresh.
+        withTimeoutOrNull(if (state == null) FIRST_STARRED_WAIT_MILLIS else STARRED_WAIT_MILLIS) { starred.join() }
+        val events = mutableMapOf<String, List<FeedEventEntity>>()
+        val syncs = mutableListOf<FeedSyncEntity>()
+        (result as? ForgeResult.Success)?.value?.let { page ->
+            page.events?.let { events[account.id] = it.map { event -> event.on(account).toEntity(account.id) } }
+            syncs += FeedSyncEntity(
+                accountId = account.id,
+                lastModified = page.lastModified,
+                pollIntervalSeconds = page.pollIntervalSeconds,
+                syncedAtMillis = clock.millis(),
+                // Unchanged: the pages already loaded are still valid.
+                nextPage = if (page.events == null) state?.nextPage else page.nextPage,
+            )
+        }
+        pendingStarred.remove(account.id)?.let { read ->
+            val key = STARRED + account.id
+            events[key] = read.events
+            syncs += FeedSyncEntity(key, lastModified = null, pollIntervalSeconds = null, syncedAtMillis = read.atMillis, nextPage = null)
+        }
+        if (events.isNotEmpty() || syncs.isNotEmpty()) dao.commit(events, syncs)
+        if (result is ForgeResult.Failure) result else ForgeResult.Success(Unit)
     }
+
+    /** Starred activity read but not shown yet: it's shown with the account's own events, at its next refresh. */
+    private class StarredRead(val events: List<FeedEventEntity>, val atMillis: Long)
+
+    private val pendingStarred = ConcurrentHashMap<String, StarredRead>()
 
     /**
-     * Reads what each account's starred repositories published in the last [STARRED_WINDOW_DAYS] days (releases and,
-     * on GitHub, announcements) and keeps it beside the account's own Feed. At most every half hour, or every five
-     * minutes when [force]d: one ask is several slow requests. A failure keeps what was there and is asked again next time.
+     * Reads what [account]'s starred repositories published in the last [STARRED_WINDOW_DAYS] days (releases and, on
+     * GitHub, announcements) for the account's refresh to show beside its own Feed. At most every half hour, or every
+     * five minutes when [force]d: one ask is several slow requests. A failure keeps what was there and is asked again
+     * next time.
      */
-    suspend fun syncStarred(force: Boolean = false) {
-        coroutineScope { accounts.accounts.first().forEach { account -> launch { syncStarred(account, force) } } }
-    }
-
-    private suspend fun syncStarred(account: Account, force: Boolean) = starredLocks.getOrPut(account.id) { Mutex() }.withLock {
+    private suspend fun readStarred(account: Account, force: Boolean) = starredLocks.getOrPut(account.id) { Mutex() }.withLock {
         val key = STARRED + account.id
         val wait = if (force) STARRED_FORCED_MILLIS else STARRED_INTERVAL_MILLIS
-        dao.sync(key)?.let { if (clock.millis() - it.syncedAtMillis < wait) return@withLock }
+        val last = pendingStarred[account.id]?.atMillis ?: dao.sync(key)?.syncedAtMillis
+        if (last != null && clock.millis() - last < wait) return@withLock
         val token = accounts.token(account.id) ?: return@withLock
         val since = clock.instant().minus(Duration.ofDays(STARRED_WINDOW_DAYS))
         val result = clients.feed(account.forge).starredActivity(token, since)
-        if (result is ForgeResult.Success) {
-            dao.replace(key, result.value.map { it.on(account).toEntity(key) })
-            dao.upsertSync(FeedSyncEntity(key, lastModified = null, pollIntervalSeconds = null, syncedAtMillis = clock.millis(), nextPage = null))
-        }
+        if (result is ForgeResult.Success) pendingStarred[account.id] = StarredRead(result.value.map { it.on(account).toEntity(key) }, clock.millis())
     }
 
     private val starredLocks = ConcurrentHashMap<String, Mutex>()
@@ -226,6 +238,12 @@ class DefaultFeedRepository @Inject constructor(
         const val STARRED_WINDOW_DAYS = 30L
         const val STARRED_INTERVAL_MILLIS = 30 * 60_000L
         const val STARRED_FORCED_MILLIS = 5 * 60_000L
+
+        /** How long a refresh holds its own events for the starred activity once they've arrived. */
+        const val STARRED_WAIT_MILLIS = 3_000L
+
+        /** The same on an account's first load: GitHub takes about 10 s per 100 stars. */
+        const val FIRST_STARRED_WAIT_MILLIS = 20_000L
 
         /** One Feed across accounts, so one reading mark. */
         const val MARK_LIST = "feed"

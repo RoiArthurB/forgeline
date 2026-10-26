@@ -78,6 +78,13 @@ interface FeedDao {
         insert(entities)
     }
 
+    /** Replaces the rows kept under each key of [events] and records [syncs] as one change, so the Feed redraws once. */
+    @Transaction
+    suspend fun commit(events: Map<String, List<FeedEventEntity>>, syncs: List<FeedSyncEntity>) {
+        events.forEach { (key, entities) -> replace(key, entities) }
+        syncs.forEach { upsertSync(it) }
+    }
+
     @Query("DELETE FROM feed_events WHERE accountId NOT IN (:accountIds)")
     suspend fun keepEventsOf(accountIds: List<String>)
 
