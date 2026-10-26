@@ -28,6 +28,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
+import fr.arthurbrugiere.forgeline.core.model.SavedReply
 import fr.arthurbrugiere.forgeline.core.model.StateChange
 import fr.arthurbrugiere.forgeline.core.model.SubIssues
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
@@ -121,6 +122,16 @@ class GitHubIssueApi(
             val node = (item as? TimelineItem.Comment)?.nodeId?.let(nodes::get) ?: return@map item
             item.copy(hidden = node.reason.takeIf { node.isMinimized }, canHide = node.viewerCanMinimize)
         }
+    }
+
+    override val keepsSavedReplies: Boolean = true
+
+    /** The account's own, read with its read:user scope, which Forgeline's sign-in asks for. */
+    override suspend fun savedReplies(token: String): ForgeResult<List<SavedReply>> = forgeCall {
+        httpClient.gitHubGraphQl(apiBaseUrl, token, "query { viewer { savedReplies(first: 50) { nodes { title body } } } }")
+    }.map { data ->
+        val nodes = ((data["viewer"] as? JsonObject)?.get("savedReplies") as? JsonObject)?.get("nodes")
+        nodes?.let { runCatching { ForgeJson.decodeFromJsonElement<List<SavedReplyJson>>(it) }.getOrNull() }.orEmpty().map { SavedReply(it.title, it.body) }
     }
 
     override val typesIssues: Boolean = true
@@ -765,6 +776,9 @@ private data class SubIssueJson(val id: Long, val number: Int, val title: String
         return LinkedIssue(IssueRef(repo, number, isPullRequest = false), title, if (state == "closed") IssueState.CLOSED else IssueState.OPEN)
     }
 }
+
+@Serializable
+private data class SavedReplyJson(val title: String, val body: String = "")
 
 private const val TYPES_QUERY =
     "query Types(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { issueTypes(first: 25) { nodes { name color description } } } }"

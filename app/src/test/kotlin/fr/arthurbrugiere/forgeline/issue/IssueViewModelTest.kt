@@ -461,6 +461,22 @@ class IssueViewModelTest {
         assertThat(api.calls.none { it.startsWith("manage:sub-issue") }).isTrue()
     }
 
+    @Test
+    fun a_saved_reply_is_read_once_asked_for_and_goes_after_what_was_written() = test {
+        api.replies = listOf(fr.arthurbrugiere.forgeline.core.model.SavedReply("Needs repro", "Could you share the steps?"))
+        val viewModel = managing(RepoAccess.NONE)
+        assertThat(viewModel.state.value.offersSavedReplies).isTrue()
+        assertThat(api.calls).doesNotContain("savedReplies")
+        viewModel.draftChanged("Thanks!")
+
+        viewModel.loadSavedReplies()
+        advanceUntilIdle()
+        viewModel.useSavedReply(api.replies.single())
+
+        assertThat((viewModel.state.value.savedReplies as Loadable.Loaded).value.single().title).isEqualTo("Needs repro")
+        assertThat(viewModel.state.value.draft).isEqualTo("Thanks!\n\nCould you share the steps?")
+    }
+
     private val pullRequest = PullRequestInfo(false, false, "main", "fix/it", 12, 3, 2, 1)
 
     @Test

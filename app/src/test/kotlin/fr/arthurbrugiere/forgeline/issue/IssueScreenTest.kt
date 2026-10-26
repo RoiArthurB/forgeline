@@ -44,6 +44,7 @@ import fr.arthurbrugiere.forgeline.core.model.StateChange
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.testing.comment
 import fr.arthurbrugiere.forgeline.core.testing.issueDetails
+import fr.arthurbrugiere.forgeline.repo.Loadable
 import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 import org.junit.Rule
 import org.junit.Test
@@ -84,6 +85,8 @@ class IssueScreenTest {
                     onSetHidden = { id, reason -> events += "hide:$id:$reason" },
                     onAddSubIssue = { events += "sub+:$it" },
                     onRemoveSubIssue = { events += "sub-:${it.number}" },
+                    onLoadSavedReplies = { events += "load-replies" },
+                    onUseSavedReply = { events += "reply:${it.title}" },
                 ),
                 onScrolled = {
                     events += "scrolled"
@@ -841,5 +844,18 @@ class IssueScreenTest {
         setContent(IssueUiState(ref, issueDetails(ref).copy(labels = emptyList(), type = fr.arthurbrugiere.forgeline.core.model.IssueType("Bug", "RED"))))
 
         composeRule.onNodeWithText("Bug").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_saved_reply_is_picked_into_the_comment() {
+        val replies = Loadable.Loaded(listOf(fr.arthurbrugiere.forgeline.core.model.SavedReply("Needs repro", "Could you share the steps?")))
+        setContent(IssueUiState(ref, issueDetails(ref), offersSavedReplies = true, savedReplies = replies))
+
+        // An icon beside the picture one, named by what it does.
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasContentDescription("Saved replies"))
+        composeRule.onNode(hasContentDescription("Saved replies")).performClick()
+        composeRule.onNodeWithText("Needs repro").performClick()
+
+        assertThat(events).containsAtLeast("load-replies", "reply:Needs repro").inOrder()
     }
 }

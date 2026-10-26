@@ -59,6 +59,16 @@ class GitLabSignedInLiveTest {
         assertWithMessage("nested page").that(nested.body).isNotEmpty()
     }
 
+    /** The signed-in person's saved replies still read through GraphQL (none on the test account, 2026-10-25). */
+    @Test
+    fun saved_replies_still_read() = runBlocking {
+        assumeTrue("GITLAB_LIVE_TOKEN not set", token.isNotBlank())
+
+        val replies = GitLabIssueApi(http).savedReplies(token)
+
+        assertWithMessage("saved replies: $replies").that(replies).isInstanceOf(ForgeResult.Success::class.java)
+    }
+
     /** fdroid/fdroidserver#1355 names !1848 as what closed it (2026-10-25). */
     @Test
     fun the_merge_requests_that_close_an_issue_are_still_told() = runBlocking {

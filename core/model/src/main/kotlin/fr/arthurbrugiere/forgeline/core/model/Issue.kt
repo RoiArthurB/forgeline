@@ -213,6 +213,9 @@ sealed interface TimelineItem {
     data class Committed(val sha: String, val message: String, val authorName: String?, override val createdAt: Instant?) : TimelineItem
 }
 
+/** A reply the reader saved on their forge, to say again in a comment. */
+data class SavedReply(val title: String, val body: String)
+
 /** Why a comment was hidden, as GitHub names it. */
 enum class HideReason { OFF_TOPIC, OUTDATED, RESOLVED, DUPLICATE, SPAM, ABUSE }
 

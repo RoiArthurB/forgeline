@@ -27,6 +27,7 @@ import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.SavedReply
 import fr.arthurbrugiere.forgeline.core.model.SubIssues
 import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
@@ -142,6 +143,11 @@ interface IssueRepository {
     // Each change is announced on [changed]; the conversation kept is brought up to date by loading it again.
 
     suspend fun labels(repo: RepoId): ForgeResult<List<Label>>
+
+    /** Whether [forge] keeps replies its users saved, and the signed-in reader's. */
+    fun keepsSavedReplies(forge: ForgeInstance): Boolean
+
+    suspend fun savedReplies(forge: ForgeInstance): ForgeResult<List<SavedReply>>
 
     /** The kinds of issue [repo]'s owner named, and setting one on an issue by its name (none when null). */
     suspend fun issueTypes(repo: RepoId): ForgeResult<List<IssueType>>
@@ -446,6 +452,10 @@ class DefaultIssueRepository @Inject constructor(
         signedIn(ref.repo.forge, call).also { if (it is ForgeResult.Success) changes.tryEmit(ref) }
 
     override suspend fun labels(repo: RepoId) = signedIn(repo.forge) { labels(it, repo) }
+
+    override fun keepsSavedReplies(forge: ForgeInstance) = clients.issues(forge).keepsSavedReplies
+
+    override suspend fun savedReplies(forge: ForgeInstance) = signedIn(forge) { savedReplies(it) }
 
     override suspend fun issueTypes(repo: RepoId) = signedIn(repo.forge) { issueTypes(it, repo) }
 

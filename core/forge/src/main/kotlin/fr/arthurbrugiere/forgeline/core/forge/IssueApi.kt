@@ -17,6 +17,7 @@ import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
+import fr.arthurbrugiere.forgeline.core.model.SavedReply
 import fr.arthurbrugiere.forgeline.core.model.SubIssues
 import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
@@ -100,6 +101,12 @@ interface IssueApi {
 
     /** Makes a label named [name] in [repo], of [color] (`#rrggbb`), for someone who may: it can then be set. */
     suspend fun createLabel(token: String, repo: RepoId, name: String, color: String): ForgeResult<Label> = unsupported
+
+    /** Whether the forge keeps replies its users saved, to say again in comments. */
+    val keepsSavedReplies: Boolean get() = false
+
+    /** The replies the reader saved on the forge, to put in a comment; none where it keeps none. */
+    suspend fun savedReplies(token: String): ForgeResult<List<SavedReply>> = ForgeResult.Success(emptyList())
 
     /** Whether issues have a type here, among those the repository's owner named. */
     val typesIssues: Boolean get() = false

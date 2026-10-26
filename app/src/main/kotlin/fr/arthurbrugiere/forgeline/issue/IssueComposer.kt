@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.CallMerge
 import androidx.compose.material.icons.outlined.Adjust
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.NotificationsActive
@@ -60,17 +61,23 @@ import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SavedReply
 import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
 import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSendButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
+import fr.arthurbrugiere.forgeline.repo.Loadable
 import fr.arthurbrugiere.forgeline.ui.Markdown
 import fr.arthurbrugiere.forgeline.ui.label
+import fr.arthurbrugiere.forgeline.ui.message
 import fr.arthurbrugiere.forgeline.ui.referenceLinks
 import fr.arthurbrugiere.forgeline.ui.relative
 import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
@@ -97,9 +104,19 @@ internal fun Composer(
     /** What else can be decided here (a pull request's review and merge), on the row of actions before closing. */
     decisions: @Composable () -> Unit = {},
     onToggleSubscribed: () -> Unit = {},
+    /** Asks for the reader's saved replies, and puts the one picked in the comment. */
+    onSavedReplies: () -> Unit = {},
+    onUseSavedReply: (SavedReply) -> Unit = {},
 ) {
     val colors = Soft.colors
     val forge = state.ref.repo.forge.displayName
+    var pickingReply by rememberSaveable { mutableStateOf(false) }
+    if (pickingReply) {
+        SavedRepliesSheet(state.savedReplies, forge, onRetry = onSavedReplies, onPick = { reply ->
+            pickingReply = false
+            onUseSavedReply(reply)
+        }, onDismiss = { pickingReply = false })
+    }
     val isEditing = state.editing != null
     val focus = remember { FocusRequester() }
     // Nothing to focus while the rewrite is previewed: the field is not there.
@@ -186,6 +203,12 @@ internal fun Composer(
                     busy = state.isAttaching,
                     onClick = onPickPicture,
                 )
+            }
+            if (state.offersSavedReplies && canComment) {
+                WritingAction(Icons.Outlined.BookmarkBorder, stringResource(R.string.issue_saved_replies), busy = false) {
+                    onSavedReplies()
+                    pickingReply = true
+                }
             }
             if (state.draft.isNotBlank()) PreviewToggle(showPreview) { previewing = !showPreview }
             if (isEditing) SoftTonalButton(stringResource(R.string.cancel), onCancelEdit, enabled = !state.isCommenting)
@@ -376,6 +399,28 @@ internal fun WritingAction(icon: ImageVector, label: String, busy: Boolean = fal
             CircularProgressIndicator(Modifier.size(20.dp), color = colors.accent, trackColor = colors.ground, strokeWidth = 2.5.dp)
         } else {
             Icon(icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(22.dp))
+        }
+    }
+}
+
+/** The reader's saved replies, each by its title and how it starts: the one picked goes in the comment. */
+@Composable
+private fun SavedRepliesSheet(replies: Loadable<List<SavedReply>>, forge: String, onRetry: () -> Unit, onPick: (SavedReply) -> Unit, onDismiss: () -> Unit) {
+    val colors = Soft.colors
+    SoftSheet(stringResource(R.string.issue_saved_replies), onDismiss) {
+        when (replies) {
+            Loadable.Idle, Loadable.Loading -> SoftLoadingRows(stringResource(R.string.manage_loading), rows = 2, leadingDot = false)
+            is Loadable.Failed -> SoftNotice(stringResource(R.string.manage_load_failed), stringResource(replies.error.message), action = stringResource(R.string.retry), onAction = onRetry)
+            is Loadable.Loaded -> if (replies.value.isEmpty()) {
+                Text(stringResource(R.string.issue_saved_replies_none, forge), style = Soft.type.body, color = colors.inkMuted, modifier = Modifier.padding(vertical = 12.dp))
+            } else {
+                replies.value.forEach { reply ->
+                    Column(Modifier.fillMaxWidth().softPressable { onPick(reply) }.padding(vertical = 10.dp)) {
+                        Text(reply.title, style = Soft.type.body, color = colors.ink)
+                        Text(reply.body.lineSequence().firstOrNull().orEmpty(), style = Soft.type.meta, color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
         }
     }
 }

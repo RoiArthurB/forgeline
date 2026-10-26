@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SavedReply
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -239,6 +240,16 @@ class GitLabIssueApiTest {
             LinkedIssue(IssueRef(RepoId("fdroid", "fdroidserver", ForgeInstance.GitLab), 1848, isPullRequest = true), "Don't ignore errors in sign_jar", IssueState.MERGED),
         )
         assertThat(requests.single().url.encodedPath).isEqualTo("/api/v4/projects/fdroid%2Ffdroidserver/issues/1355/closed_by")
+    }
+
+    @Test
+    fun the_reader_s_saved_replies_are_read_by_graphql() = runTest {
+        // gitlab.com names them name and content (2026-10-25).
+        val replies = api { json("""{"data":{"currentUser":{"savedReplies":{"nodes":[{"id":"gid://gitlab/Users::SavedReply/1","name":"Duplicate","content":"Closing as a duplicate."}]}}}}""") }
+            .savedReplies("tok").value()
+
+        assertThat(replies).containsExactly(SavedReply("Duplicate", "Closing as a duplicate."))
+        assertThat(requests.single().url.encodedPath).isEqualTo("/api/graphql")
     }
 
     @Test

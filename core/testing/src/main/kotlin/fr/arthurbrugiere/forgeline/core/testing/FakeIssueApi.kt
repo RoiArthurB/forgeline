@@ -23,6 +23,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
+import fr.arthurbrugiere.forgeline.core.model.SavedReply
 import fr.arthurbrugiere.forgeline.core.model.SubIssues
 import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
@@ -231,6 +232,13 @@ class FakeIssueApi : IssueApi {
     private val IssueRef.label get() = "${repo.fullName}#$number"
 
     override suspend fun labels(token: String, repo: RepoId) = read(token, "labels:${repo.fullName}", repoLabels)
+
+    override var keepsSavedReplies: Boolean = true
+
+    /** The reader's saved replies. */
+    var replies: List<SavedReply> = emptyList()
+
+    override suspend fun savedReplies(token: String) = read(token, "savedReplies", replies)
 
     override var typesIssues: Boolean = true
 

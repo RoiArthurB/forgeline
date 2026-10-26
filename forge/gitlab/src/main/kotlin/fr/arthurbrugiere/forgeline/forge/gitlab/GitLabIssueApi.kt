@@ -20,9 +20,11 @@ import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
+import fr.arthurbrugiere.forgeline.core.model.SavedReply
 import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
+import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -31,6 +33,7 @@ import io.ktor.client.request.forms.formData
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -41,6 +44,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.put
 import java.time.Duration
 import java.time.Instant
@@ -360,6 +364,20 @@ class GitLabIssueApi(
             .toResult { body<List<GitLabLabelJson>>().map { it.toModel() } }
     }
 
+    override val keepsSavedReplies: Boolean = true
+
+    /** The reader's own, as GitLab names them (name and content): only its GraphQL API tells them. */
+    override suspend fun savedReplies(token: String): ForgeResult<List<SavedReply>> = forgeCall {
+        httpClient.gitlabGraphQl(forge, token, "{ currentUser { savedReplies(first: 50) { nodes { name content } } } }").toResult {
+            val nodes = ForgeJson.parseToJsonElement(bodyAsText()).let { it as? kotlinx.serialization.json.JsonObject }
+                ?.get("data")?.let { it as? kotlinx.serialization.json.JsonObject }
+                ?.get("currentUser")?.let { it as? kotlinx.serialization.json.JsonObject }
+                ?.get("savedReplies")?.let { it as? kotlinx.serialization.json.JsonObject }
+                ?.get("nodes")
+            nodes?.let { runCatching { ForgeJson.decodeFromJsonElement<List<GitLabSavedReplyJson>>(it) }.getOrNull() }.orEmpty().map { SavedReply(it.name, it.content) }
+        }
+    }
+
     /** An issue's closers: merge requests that close it once merged, perhaps in another project, named in full. */
     override suspend fun closingPulls(token: String?, ref: IssueRef): ForgeResult<List<LinkedIssue>> = forgeCall {
         httpClient.gitlabApi(ref.repo.forge, token, "projects", ref.repo.fullName, "issues", ref.number.toString(), "closed_by")
@@ -565,3 +583,6 @@ private data class GitLabClosingMrJson(val iid: Int, val title: String = "", val
 
 @kotlinx.serialization.Serializable
 private data class GitLabReferencesJson(val full: String? = null)
+
+@kotlinx.serialization.Serializable
+private data class GitLabSavedReplyJson(val name: String, val content: String = "")

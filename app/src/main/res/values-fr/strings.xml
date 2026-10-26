@@ -535,6 +535,8 @@
     <string name="reaction_rocket">Fusée</string>
     <string name="reaction_eyes">Yeux</string>
     <string name="issue_attach">Joindre une image</string>
+    <string name="issue_saved_replies">Réponses enregistrées</string>
+    <string name="issue_saved_replies_none">Vous n’avez aucune réponse enregistrée sur %1$s.</string>
     <string name="issue_attaching">Ajout de l’image</string>
     <string name="issue_attach_too_large">Cette image est trop volumineuse : 10 Mo au plus.</string>
     <string name="issue_attach_refused">Vous ne pouvez pas joindre d’image ici.</string>

@@ -49,6 +49,16 @@ internal suspend fun HttpClient.gitlabApi(
     patienceMillis: Long? = null,
 ): HttpResponse = request { gitlab(forge, token, segments, method, query, body, patienceMillis) }
 
+/** A GraphQL [query] to the forge, for what its REST API doesn't tell (a reader's saved replies). */
+internal suspend fun HttpClient.gitlabGraphQl(forge: ForgeInstance, token: String, query: String): HttpResponse = request {
+    method = HttpMethod.Post
+    url { takeFrom("${forge.webUrl}/api/graphql") }
+    header(HttpHeaders.Accept, "application/json")
+    header(HttpHeaders.Authorization, "Bearer $token")
+    contentType(ContentType.Application.Json)
+    setBody(kotlinx.serialization.json.buildJsonObject { put("query", kotlinx.serialization.json.JsonPrimitive(query)) })
+}
+
 /** Like [gitlabApi], for an answer read as it comes (a job's trace): run it with `execute`. */
 internal suspend fun HttpClient.gitlabStatement(
     forge: ForgeInstance,

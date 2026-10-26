@@ -19,6 +19,7 @@ import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
+import fr.arthurbrugiere.forgeline.core.model.SavedReply
 import fr.arthurbrugiere.forgeline.core.model.StateChange
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import io.ktor.client.engine.mock.MockEngine
@@ -334,6 +335,16 @@ class GitHubIssueApiTest {
 
         assertThat(requests.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly("PATCH /repos/gama-platform/gama/issues/1239", "PATCH /repos/gama-platform/gama/issues/1239")
         assertThat(requests.map { (it.body as io.ktor.http.content.TextContent).text }).containsExactly("""{"type":"Task"}""", """{"type":null}""").inOrder()
+    }
+
+    @Test
+    fun the_reader_s_saved_replies_are_read_by_graphql() = runTest {
+        val api = api { json("""{"data":{"viewer":{"savedReplies":{"nodes":[{"title":"Duplicate","body":"Thanks! This is a duplicate of #%."},{"title":"Needs repro","body":"Could you share steps?"}]}}}}""") }
+
+        assertThat(api.savedReplies("tok").value()).containsExactly(
+            SavedReply("Duplicate", "Thanks! This is a duplicate of #%."), SavedReply("Needs repro", "Could you share steps?"),
+        ).inOrder()
+        assertThat((requests.single().body as io.ktor.http.content.TextContent).text).contains("viewer { savedReplies(first: 50)")
     }
 
     @Test

@@ -551,6 +551,8 @@
     <string name="reaction_rocket">Rocket</string>
     <string name="reaction_eyes">Eyes</string>
     <string name="issue_attach">Attach a picture</string>
+    <string name="issue_saved_replies">Saved replies</string>
+    <string name="issue_saved_replies_none">You have no saved replies on %1$s.</string>
     <string name="issue_attaching">Attaching the picture</string>
     <string name="issue_attach_too_large">That picture is too large: 10 MB at most.</string>
     <string name="issue_attach_refused">You can\'t attach a picture here.</string>

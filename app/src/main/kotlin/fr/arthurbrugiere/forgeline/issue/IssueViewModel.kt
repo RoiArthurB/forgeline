@@ -25,6 +25,7 @@ import fr.arthurbrugiere.forgeline.core.model.Milestone
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SavedReply
 import fr.arthurbrugiere.forgeline.core.model.SubIssues
 import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
@@ -112,6 +113,9 @@ data class IssueUiState(
     val subIssues: SubIssues? = null,
     /** Why a sub-issue couldn't be added or taken out, said once. */
     val subIssueError: ForgeError? = null,
+    /** Whether the forge keeps the reader's saved replies, and those replies, read once asked for. */
+    val offersSavedReplies: Boolean = false,
+    val savedReplies: Loadable<List<SavedReply>> = Loadable.Idle,
 ) {
     /** The comment being rewritten is among those shown, so it is rewritten where it stands, not in the reader's turn. */
     val isEditingInPlace: Boolean get() = editing != null && items.any { it is TimelineItem.Comment && it.id == editing }
@@ -258,7 +262,12 @@ class IssueViewModel @AssistedInject constructor(
             // What the forge only does to issues is not offered on a pull request.
             val supported = repository.actions(ref.repo) - if (issue.pullRequest != null) repository.issueOnly(ref.repo) else emptySet()
             val me = repository.me(ref.repo.forge)
-            _state.update { it.copy(canChangeState = allowed, access = access, supported = supported, me = me, attachments = repository.attachments(ref.repo)) }
+            _state.update {
+                it.copy(
+                    canChangeState = allowed, access = access, supported = supported, me = me, attachments = repository.attachments(ref.repo),
+                    offersSavedReplies = me != null && repository.keepsSavedReplies(ref.repo.forge),
+                )
+            }
             // Whether the reader hears of it, once there is someone signed in to ask for.
             val subscribed = if (me != null) (repository.isSubscribed(ref) as? ForgeResult.Success)?.value else null
             _state.update { it.copy(subscribed = subscribed) }
@@ -448,6 +457,24 @@ class IssueViewModel @AssistedInject constructor(
             drafts.keepComment(ref, text)
         }
         _state.update { it.copy(draft = text, commentError = null) }
+    }
+
+    /** Reads the reader's saved replies, once: they are theirs, and change rarely. */
+    fun loadSavedReplies() {
+        val now = _state.value.savedReplies
+        if (now is Loadable.Loaded || now == Loadable.Loading) return
+        _state.update { it.copy(savedReplies = Loadable.Loading) }
+        viewModelScope.launch {
+            val read = repository.savedReplies(ref.repo.forge)
+            _state.update { it.copy(savedReplies = if (read is ForgeResult.Success) Loadable.Loaded(read.value) else Loadable.Failed((read as ForgeResult.Failure).error)) }
+        }
+    }
+
+    /** Puts [reply] in the comment being written, after what is there. */
+    fun useSavedReply(reply: SavedReply) {
+        val written = _state.value.draft.trimEnd()
+        draftChanged(if (written.isEmpty()) reply.body else "$written\n\n${reply.body}")
+        _state.update { it.copy(draftPlaced = it.draftPlaced + 1) }
     }
 
     /** Starts a reply to [text]: quoted at the end of the comment being written, which the list then goes to. */

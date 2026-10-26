@@ -80,6 +80,7 @@ import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SavedReply
 import fr.arthurbrugiere.forgeline.core.model.SubIssues
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
@@ -221,6 +222,8 @@ fun IssueRoute(
             onAddSubIssue = viewModel::addSubIssue,
             onRemoveSubIssue = viewModel::removeSubIssue,
             onSubIssueErrorShown = viewModel::subIssueErrorShown,
+            onLoadSavedReplies = viewModel::loadSavedReplies,
+            onUseSavedReply = viewModel::useSavedReply,
             onDeleteErrorShown = viewModel::deleteErrorShown,
             onReact = viewModel::react,
             onReactionErrorShown = viewModel::reactionErrorShown,
@@ -319,6 +322,9 @@ class CommentActions(
     val onAddSubIssue: (String) -> Unit = {},
     val onRemoveSubIssue: (IssueRef) -> Unit = {},
     val onSubIssueErrorShown: () -> Unit = {},
+    /** Reads the reader's saved replies, and puts one in the comment being written. */
+    val onLoadSavedReplies: () -> Unit = {},
+    val onUseSavedReply: (SavedReply) -> Unit = {},
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -688,6 +694,7 @@ fun IssueScreen(
                                     Composer(
                                         state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture,
                                         suggestions = suggestions, onReferenceTyped = comments.onReferenceTyped, onToggleSubscribed = onToggleSubscribed,
+                                        onSavedReplies = { comments.onLoadSavedReplies() }, onUseSavedReply = comments.onUseSavedReply,
                                         decisions = {
                                             if (pull != null) {
                                                 PullRequestDecisions(
