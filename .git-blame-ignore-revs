@@ -1,5 +1,0 @@
-# Commits that only reformatted the code: `git blame` and GitHub skip them.
-# git config blame.ignoreRevsFile .git-blame-ignore-revs
-
-# Format the code with ktlint
-d9aea33a6020355519e0a435c2dff016ef2576e0
