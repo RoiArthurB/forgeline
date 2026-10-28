@@ -62,6 +62,18 @@ class CommitsScreenTest {
     }
 
     @Test
+    fun a_commit_written_together_names_its_co_authors() {
+        val together = listOf(
+            commit("1a2b3c4d5e", "Retry uploads\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"),
+            commit("9f8e7d6c5b", "Fix typo\n\nCo-authored-by: Jane <j@example.com>\nCo-authored-by: Bob <b@example.com>", author = "hubot"),
+        )
+        setContent(CommitsUiState(CommitsTarget.Pull(IssueRef(tools, 88, isPullRequest = true)), commits = together, isLoading = false))
+
+        composeRule.onNodeWithText("octocat and Claude Opus 5.5 · 2 hours ago · 1a2b3c4").assertIsDisplayed()
+        composeRule.onNodeWithText("hubot and 2 others", substring = true).assertIsDisplayed()
+    }
+
+    @Test
     fun a_file_s_history_names_the_file_and_where_it_is_read_from() {
         setContent(CommitsUiState(CommitsTarget.History(tools, ref = "main", path = "src/Upload.kt"), commits = commits, isLoading = false))
 

@@ -142,7 +142,21 @@ data class Commit(
     val description: String? get() = message.substringAfter('\n', "").trim().ifEmpty { null }
 
     val shortSha: String get() = sha.take(7)
+
+    /**
+     * Who wrote it with its author, by name, as its `Co-authored-by:` lines say (git's own convention, which every
+     * forge shows). The author is not named again, nor anyone twice.
+     */
+    val coAuthors: List<String>
+        get() = message.lineSequence()
+            .mapNotNull { CO_AUTHORED_BY.matchEntire(it.trim())?.groupValues?.get(1)?.trim() }
+            .filter { it.isNotEmpty() && !it.equals(authorName, ignoreCase = true) }
+            .distinctBy { it.lowercase() }
+            .toList()
 }
+
+/** `Co-authored-by: Name <email>`, written in any case; the address may be missing. */
+private val CO_AUTHORED_BY = Regex("""(?i)co-authored-by:\s*([^<]*?)\s*(?:<[^>]*>)?""")
 
 data class CommitDetails(val commit: Commit, val files: List<ChangedFile>)
 

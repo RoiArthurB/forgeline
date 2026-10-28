@@ -1193,6 +1193,11 @@
     <string name="review_dismiss_placeholder">Why it no longer counts</string>
     <string name="review_dismiss_confirm">Dismiss</string>
     <string name="pull_update_branch">Update branch</string>
+    <string name="commit_authors_two">%1$s and %2$s</string>
+    <plurals name="commit_authors_more">
+        <item quantity="one">%1$s and %2$d other</item>
+        <item quantity="other">%1$s and %2$d others</item>
+    </plurals>
     <string name="pull_restore_branch">Restore branch</string>
     <string name="pull_branch_restored">Branch %1$s restored</string>
     <string name="pull_restore_failed">The branch couldn\'t be restored. A branch of that name may be there already, or not yours to make.</string>

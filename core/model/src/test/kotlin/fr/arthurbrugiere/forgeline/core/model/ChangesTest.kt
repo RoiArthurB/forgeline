@@ -130,6 +130,28 @@ class ChangesTest {
     }
 
     @Test
+    fun a_commit_names_who_wrote_it_with_its_author() {
+        // As the commits of this repository end (#27).
+        val message = """
+            Follow a pull request's checks while they run
+
+            They were read once.
+
+            Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+            co-authored-by: Jane Doe <jane@example.com>
+            Co-authored-by: jane doe <jane@example.org>
+            Co-authored-by: Octo <octo@example.com>
+            Claude-Session: https://claude.ai/code/x
+        """.trimIndent()
+
+        // Named once each, the author left out, other trailers too.
+        assertThat(Commit("a", message, "Octo", null, null).coAuthors).containsExactly("Claude Opus 5.5", "Jane Doe").inOrder()
+        assertThat(Commit("a", "Fix it\n\nCo-authored-by: Bot", null, null, null).coAuthors).containsExactly("Bot")
+        // Only a line of its own counts.
+        assertThat(Commit("a", "Explain how Co-authored-by: works", null, null, null).coAuthors).isEmpty()
+    }
+
+    @Test
     fun checks_as_a_whole_fail_if_one_did_and_run_while_one_does() {
         fun check(state: CheckState) = Check("c", state, null, null)
 

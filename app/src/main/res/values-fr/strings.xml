@@ -1199,6 +1199,12 @@
     <string name="review_dismiss_placeholder">Pourquoi elle ne compte plus</string>
     <string name="review_dismiss_confirm">Écarter</string>
     <string name="pull_update_branch">Mettre à jour la branche</string>
+    <string name="commit_authors_two">%1$s et %2$s</string>
+    <plurals name="commit_authors_more">
+        <item quantity="one">%1$s et %2$d autre</item>
+        <item quantity="many">%1$s et %2$d autres</item>
+        <item quantity="other">%1$s et %2$d autres</item>
+    </plurals>
     <string name="pull_restore_branch">Restaurer la branche</string>
     <string name="pull_branch_restored">Branche %1$s restaurée</string>
     <string name="pull_restore_failed">La branche n\'a pas pu être restaurée. Une branche de ce nom existe peut-être déjà, ou vous ne pouvez pas la créer.</string>

@@ -215,7 +215,15 @@ private fun CommitFacts(commit: Commit, nowMillis: Long) {
     }
 }
 
-/** "octocat · 2 hours ago · 1a2b3c4". */
+/** "octocat · 2 hours ago · 1a2b3c4", or "octocat and hubot · …" for a commit written together. */
 @Composable
-internal fun Commit.byline(nowMillis: Long): String =
-    listOfNotNull(author?.login ?: authorName, date?.let { relative(it, nowMillis) }, shortSha).joinToString(" · ")
+internal fun Commit.byline(nowMillis: Long): String {
+    val author = author?.login ?: authorName
+    val others = coAuthors
+    val authors = when {
+        author == null || others.isEmpty() -> author
+        others.size == 1 -> stringResource(R.string.commit_authors_two, author, others.single())
+        else -> pluralStringResource(R.plurals.commit_authors_more, others.size, author, others.size)
+    }
+    return listOfNotNull(authors, date?.let { relative(it, nowMillis) }, shortSha).joinToString(" · ")
+}
