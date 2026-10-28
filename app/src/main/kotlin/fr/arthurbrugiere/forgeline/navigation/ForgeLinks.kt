@@ -55,7 +55,7 @@ object ForgeLinks {
                 query["q"].takeIf { segments == listOf("explore", "repos") && query["topic"] in setOf("1", "true") }
             }
         }
-        return topic?.let { java.net.URLDecoder.decode(it, Charsets.UTF_8) }?.takeIf { it.isNotBlank() }?.let(::TopicRoute)
+        return topic?.let { java.net.URLDecoder.decode(it, "UTF-8") }?.takeIf { it.isNotBlank() }?.let(::TopicRoute)
     }
 
     fun routeFor(url: String): NavKey? {

@@ -18,6 +18,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -36,7 +37,6 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
-import java.util.Locale
 
 /** How many weeks the graph spans: a year, ending with the current one. */
 private const val WEEKS = 53
@@ -52,7 +52,8 @@ private val Gap = 3.dp
 @Composable
 internal fun ContributionGraph(contributions: Contributions, today: LocalDate, modifier: Modifier = Modifier) {
     val colors = Soft.colors
-    val locale = Locale.getDefault()
+    // The app's own language when it has one (Android 13 and later), else the phone's.
+    val locale = LocalConfiguration.current.locales[0]
     // Weeks start on Monday, as in most of the world; the last column is the current week.
     val lastWeek = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     val firstWeek = lastWeek.minusWeeks(WEEKS - 1L)
