@@ -56,14 +56,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
-import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.SavedReply
-import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
-import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
@@ -76,9 +73,9 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import fr.arthurbrugiere.forgeline.ui.Markdown
+import fr.arthurbrugiere.forgeline.ui.conversationContext
 import fr.arthurbrugiere.forgeline.ui.label
 import fr.arthurbrugiere.forgeline.ui.message
-import fr.arthurbrugiere.forgeline.ui.referenceLinks
 import fr.arthurbrugiere.forgeline.ui.relative
 import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
 
@@ -303,7 +300,7 @@ private fun commentErrorText(error: ForgeError, forge: String): String = when {
 @Composable
 internal fun WritingPreview(text: String, repo: RepoId, modifier: Modifier = Modifier) {
     // Links and pictures relative to the repository resolve as they will in the conversation.
-    val context = remember(repo) { ReadmeContext(rawBaseUrl = repo.rawBaseUrl("HEAD"), blobBaseUrl = repo.blobBaseUrl("HEAD"), references = repo.referenceLinks()) }
+    val context = remember(repo) { repo.conversationContext() }
     Box(
         modifier
             .fillMaxWidth()

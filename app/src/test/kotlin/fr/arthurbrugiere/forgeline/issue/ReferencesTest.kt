@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.issueSummary
+import fr.arthurbrugiere.forgeline.ui.conversationContext
 import fr.arthurbrugiere.forgeline.ui.referenceLinks
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceTimeBy
@@ -109,6 +110,16 @@ class ReferencesTest {
         assertThat(repo.referenceLinks()).isEqualTo(ReferenceLinks("https://github.com", "octo/repo", "/issues/"))
         assertThat(RepoId("forgejo", "forgejo", ForgeInstance.Codeberg).referenceLinks()).isEqualTo(ReferenceLinks("https://codeberg.org", "forgejo/forgejo", "/issues/"))
         assertThat(gitlab.referenceLinks()).isEqualTo(ReferenceLinks("https://gitlab.com", "group/tool", "/-/issues/", "/-/merge_requests/"))
+    }
+
+    @Test
+    fun a_line_ends_where_it_was_written_except_on_gitlab() {
+        assertThat(repo.conversationContext().lineBreaks).isTrue()
+        assertThat(RepoId("forgejo", "forgejo", ForgeInstance.Codeberg).conversationContext().lineBreaks).isTrue()
+        assertThat(gitlab.conversationContext().lineBreaks).isFalse()
+        // Read from where it is told, with its numbers linked.
+        assertThat(repo.conversationContext("v1.0").rawBaseUrl).contains("v1.0")
+        assertThat(repo.conversationContext().references).isEqualTo(repo.referenceLinks())
     }
 
     // --- what is suggested

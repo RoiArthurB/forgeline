@@ -65,8 +65,6 @@ import fr.arthurbrugiere.forgeline.core.markdown.rememberReadmeState
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.ReleaseAsset
 import fr.arthurbrugiere.forgeline.core.model.RepoId
-import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
-import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
 import fr.arthurbrugiere.forgeline.core.model.releaseUrl
 import fr.arthurbrugiere.forgeline.core.ui.format.compactCount
 import fr.arthurbrugiere.forgeline.core.ui.format.formatBytes
@@ -87,10 +85,10 @@ import fr.arthurbrugiere.forgeline.ui.Avatar
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import fr.arthurbrugiere.forgeline.ui.Message
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
+import fr.arthurbrugiere.forgeline.ui.conversationContext
 import fr.arthurbrugiere.forgeline.ui.emoji
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import fr.arthurbrugiere.forgeline.ui.message
-import fr.arthurbrugiere.forgeline.ui.referenceLinks
 import fr.arthurbrugiere.forgeline.ui.relative
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import fr.arthurbrugiere.forgeline.ui.rememberNow
@@ -156,7 +154,7 @@ fun ReleaseScreen(
         }
     }
     // Relative links in the notes resolve against the repository at this tag.
-    val context = ReadmeContext(rawBaseUrl = state.repo.rawBaseUrl(state.tag), blobBaseUrl = state.repo.blobBaseUrl(state.tag), references = state.repo.referenceLinks())
+    val context = state.repo.conversationContext(state.tag)
     val webUrl = release?.webUrl ?: state.repo.releaseUrl(state.tag)
     val listState = rememberLazyListState()
     Box(modifier.fillMaxSize().background(colors.ground)) {

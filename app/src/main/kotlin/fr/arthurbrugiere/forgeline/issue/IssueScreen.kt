@@ -71,7 +71,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
-import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
 import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -83,8 +82,6 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.SavedReply
 import fr.arthurbrugiere.forgeline.core.model.SubIssues
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
-import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
-import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
 import fr.arthurbrugiere.forgeline.core.model.webUrl
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
@@ -117,11 +114,11 @@ import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.Markdown
 import fr.arthurbrugiere.forgeline.ui.SayOnce
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
+import fr.arthurbrugiere.forgeline.ui.conversationContext
 import fr.arthurbrugiere.forgeline.ui.label
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import fr.arthurbrugiere.forgeline.ui.message
 import fr.arthurbrugiere.forgeline.ui.readPicture
-import fr.arthurbrugiere.forgeline.ui.referenceLinks
 import fr.arthurbrugiere.forgeline.ui.relative
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import fr.arthurbrugiere.forgeline.ui.rememberNow
@@ -369,12 +366,7 @@ fun IssueScreen(
     val isPullRequest = issue?.pullRequest != null
     val webUrl = state.ref.webUrl(isPullRequest)
     // Comments may link relative to the repo; HEAD resolves to the default branch on GitHub.
-    val context = ReadmeContext(
-        rawBaseUrl = state.ref.repo.rawBaseUrl("HEAD"),
-        blobBaseUrl = state.ref.repo.blobBaseUrl("HEAD"),
-        // A number alone names another conversation of the repository.
-        references = state.ref.repo.referenceLinks(),
-    )
+    val context = state.ref.repo.conversationContext()
     val snackbar = remember { SnackbarHostState() }
     val refreshFailed = stringResource(R.string.trending_refresh_failed)
     LaunchedEffect(state.error, issue != null) {

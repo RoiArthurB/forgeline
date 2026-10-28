@@ -19,6 +19,31 @@ class ReadmePreprocessorTest {
     }
 
     @Test
+    fun a_conversation_ends_its_lines_where_they_were_written() {
+        // As PR #24's description was written: GitHub shows three lines, which read as one (#26).
+        val body = "Every Gradle run failed without it since 01c59d8.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nClaude-Session: https://claude.ai/code/x"
+
+        val prepared = ReadmePreprocessor.prepare(body, context.copy(lineBreaks = true), darkTheme = false)
+
+        assertThat(prepared).isEqualTo("Every Gradle run failed without it since 01c59d8.\n\nCo-Authored-By: Claude <noreply@anthropic.com>  \nClaude-Session: https://claude.ai/code/x")
+    }
+
+    @Test
+    fun line_breaks_leave_code_and_written_breaks_alone() {
+        val body = "Run:\n```\na\nb\n```\nthen\nmore  \nand\\\nlast"
+
+        val prepared = ReadmePreprocessor.prepare(body, context.copy(lineBreaks = true), darkTheme = false)
+
+        // Nothing breaks into or out of the fence; a line already ending in a break keeps the one it has.
+        assertThat(prepared).isEqualTo("Run:\n```\na\nb\n```\nthen  \nmore  \nand\\\nlast")
+    }
+
+    @Test
+    fun a_file_joins_its_lines_as_markdown_does() {
+        assertThat(prepare("one\ntwo")).isEqualTo("one\ntwo")
+    }
+
+    @Test
     fun html_images_become_markdown_images() {
         assertThat(prepare("""<img src="https://example.com/logo.png" alt="Logo" width="200">"""))
             .isEqualTo("![Logo](https://example.com/logo.png)")

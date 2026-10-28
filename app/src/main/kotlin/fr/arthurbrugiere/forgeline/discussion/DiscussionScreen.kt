@@ -57,8 +57,6 @@ import fr.arthurbrugiere.forgeline.core.model.DiscussionComment
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.RepoId
-import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
-import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
@@ -84,8 +82,8 @@ import fr.arthurbrugiere.forgeline.ui.LocalOpenWiki
 import fr.arthurbrugiere.forgeline.ui.Markdown
 import fr.arthurbrugiere.forgeline.ui.SayOnce
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
+import fr.arthurbrugiere.forgeline.ui.conversationContext
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
-import fr.arthurbrugiere.forgeline.ui.referenceLinks
 import fr.arthurbrugiere.forgeline.ui.relative
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import fr.arthurbrugiere.forgeline.ui.rememberNow
@@ -159,7 +157,7 @@ fun DiscussionScreen(
     val discussion = state.discussion
     val summary = state.summary
     val forge = state.repo.forge.displayName
-    val context = ReadmeContext(rawBaseUrl = state.repo.rawBaseUrl("HEAD"), blobBaseUrl = state.repo.blobBaseUrl("HEAD"), references = state.repo.referenceLinks())
+    val context = state.repo.conversationContext()
     val snackbar = remember { SnackbarHostState() }
     // With the discussion on screen, a refresh that failed is only said; without it, it is the screen.
     SayOnce(stringResource(R.string.trending_refresh_failed).takeIf { state.error != null && discussion != null }, snackbar, onErrorShown)

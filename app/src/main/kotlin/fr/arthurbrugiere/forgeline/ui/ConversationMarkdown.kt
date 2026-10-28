@@ -16,6 +16,8 @@ import fr.arthurbrugiere.forgeline.core.markdown.ReferenceLinks
 import fr.arthurbrugiere.forgeline.core.markdown.rememberReadmeState
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
+import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 
 // The Markdown people write in conversations, discussions and releases: how it is read, and what its #12s point to.
@@ -25,6 +27,13 @@ fun RepoId.referenceLinks(): ReferenceLinks = when (forge.type) {
     ForgeType.GITLAB -> ReferenceLinks(forge.webUrl, fullName, issuePath = "/-/issues/", mergeRequestPath = "/-/merge_requests/")
     else -> ReferenceLinks(forge.webUrl, fullName, issuePath = "/issues/")
 }
+
+/**
+ * Where what people write in [this] repository's conversations, discussions and releases leads, read from [ref]: its
+ * numbers name its conversations, and its lines end where they were written except on GitLab, as each forge shows them.
+ */
+fun RepoId.conversationContext(ref: String = "HEAD"): ReadmeContext =
+    ReadmeContext(rawBaseUrl = rawBaseUrl(ref), blobBaseUrl = blobBaseUrl(ref), references = referenceLinks(), lineBreaks = forge.type != ForgeType.GITLAB)
 
 /** On a comment body still being parsed; lets tests wait until every body is rendered. */
 const val MARKDOWN_PENDING_TAG = "markdown-pending"

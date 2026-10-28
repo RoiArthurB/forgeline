@@ -13,6 +13,11 @@ data class ReadmeContext(
     val directory: String = "",
     /** Set for a conversation's text, where a number alone names another conversation; null for files, which link none. */
     val references: ReferenceLinks? = null,
+    /**
+     * Whether a line of prose ends where it was written, as GitHub and Forgejo read a conversation; Markdown files, and
+     * GitLab, join it to the next.
+     */
+    val lineBreaks: Boolean = false,
 )
 
 /**
@@ -39,7 +44,25 @@ object ReadmePreprocessor {
     fun prepare(markdown: String, context: ReadmeContext, darkTheme: Boolean): String =
         splitCode(markdown).joinToString("") { segment ->
             if (segment.isCode) segment.text else convertProse(segment.text, context, darkTheme)
-        }
+        }.let { if (context.lineBreaks) breakLines(it) else it }
+
+    /**
+     * Ends each line of prose that another follows with a hard break. Fenced code is left alone; elsewhere a break
+     * before a new block (a list item, a heading) changes nothing, Markdown dropping it at a block's end.
+     */
+    private fun breakLines(markdown: String): String {
+        if ('\n' !in markdown) return markdown
+        val lines = markdown.split('\n')
+        var inFence: String? = null
+        return lines.mapIndexed { i, line ->
+            val marker = fence.find(line)?.groupValues?.get(1)
+            val prose = inFence == null && marker == null
+            if (inFence == null && marker != null) inFence = marker else if (inFence != null && marker == inFence) inFence = null
+            val next = lines.getOrNull(i + 1)
+            val breaks = prose && line.isNotBlank() && !next.isNullOrBlank() && fence.find(next) == null && !line.endsWith("  ") && !line.endsWith("\\")
+            if (breaks) "$line  " else line
+        }.joinToString("\n")
+    }
 
     private data class Segment(val text: String, val isCode: Boolean)
 
