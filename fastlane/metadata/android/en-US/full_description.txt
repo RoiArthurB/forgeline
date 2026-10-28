@@ -8,8 +8,9 @@ GitHub, GitLab (gitlab.com or your own server), Codeberg and any self-hosted For
 • Your work: the reviews asked of you, your open pull requests and what is assigned to you, across every account.
 • Feed: what the people you follow and the repositories you watch are doing, in order, grouped by day.
 • Trending: today, this week or this month, without signing in.
-• Repositories: README, code browser with syntax highlighting, issues, pull requests, releases, discussions and CI runs with their logs. Star, watch and fork.
-• Conversations: read, comment, edit, react, attach pictures, close and reopen, triage with labels, assignees and milestones.
+• Discover: topic pages across forges, first issues to contribute to, collections of repositories (your GitHub lists can be imported), and a year of activity on profiles.
+• Repositories: README, code browser with syntax highlighting, issues, pull requests, releases, wiki, discussions and CI runs with their logs. Star, watch and fork.
+• Conversations: read, comment, edit, react, attach pictures, close and reopen, triage with labels, assignees and milestones. Review pull requests line by line, commit suggestions and merge.
 • Search across your forges, share or copy the link of anything, and open forge links in the app.
 
 <b>Principles</b>

@@ -8,8 +8,9 @@ GitHub, GitLab (gitlab.com ou votre propre serveur), Codeberg et tout serveur Fo
 • Votre travail : les relectures qu’on vous demande, vos pull requests ouvertes et ce qui vous est assigné, tous comptes confondus.
 • Fil : ce que font les personnes que vous suivez et les dépôts que vous surveillez, dans l’ordre, regroupé par jour.
 • Tendances : aujourd’hui, cette semaine ou ce mois-ci, sans se connecter.
-• Dépôts : README, navigateur de code avec coloration syntaxique, tickets, pull requests, versions, discussions et exécutions de CI avec leurs journaux. Étoilez, surveillez et forkez.
-• Conversations : lisez, commentez, modifiez, réagissez, joignez des images, fermez et rouvrez, triez avec les labels, les personnes assignées et les jalons.
+• Découvrir : des pages de sujets sur toutes les forges, des premiers tickets où contribuer, des collections de dépôts (vos listes GitHub s’importent), et une année d’activité sur les profils.
+• Dépôts : README, navigateur de code avec coloration syntaxique, tickets, pull requests, versions, wiki, discussions et exécutions de CI avec leurs journaux. Étoilez, surveillez et forkez.
+• Conversations : lisez, commentez, modifiez, réagissez, joignez des images, fermez et rouvrez, triez avec les labels, les personnes assignées et les jalons. Relisez les pull requests ligne par ligne, validez les suggestions et fusionnez.
 • Recherchez sur toutes vos forges, partagez ou copiez le lien de n’importe quoi, et ouvrez les liens des forges dans l’application.
 
 <b>Principes</b>
