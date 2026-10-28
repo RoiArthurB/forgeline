@@ -80,6 +80,40 @@ class PullRequestViewModelTest {
     }
 
     @Test
+    fun running_checks_are_read_again_and_once_settled_the_merge_too() = test {
+        // As PR #24 stood when it was merged: everything still running (#26).
+        api.checks = listOf(Check("build", CheckState.PENDING, null, null), Check("lint", CheckState.SUCCESS, null, null))
+        signIn()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.checksRunning).isTrue()
+
+        api.calls.clear()
+        viewModel.pollChecks()
+        advanceUntilIdle()
+        // Still running: only the checks are asked.
+        assertThat(api.calls).containsExactly("checks:octo/tools#88")
+
+        api.checks = listOf(Check("build", CheckState.SUCCESS, null, null), Check("lint", CheckState.SUCCESS, null, null))
+        api.calls.clear()
+        viewModel.pollChecks()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.checksRunning).isFalse()
+        assertThat(viewModel.state.value.checks!!.map { it.state }).containsExactly(CheckState.SUCCESS, CheckState.SUCCESS)
+        // A check can be what stood in a merge's way.
+        assertThat(api.calls).containsExactly("checks:octo/tools#88", "mergeInfo:octo/tools#88")
+    }
+
+    @Test
+    fun checks_that_all_settled_are_not_followed() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.checksRunning).isFalse()
+    }
+
+    @Test
     fun a_merge_is_told_once_it_went_through() = test {
         signIn()
         val viewModel = viewModel()

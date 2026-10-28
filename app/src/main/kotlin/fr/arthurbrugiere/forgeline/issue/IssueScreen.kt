@@ -68,7 +68,10 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.ConversationAction
@@ -124,6 +127,7 @@ import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import fr.arthurbrugiere.forgeline.ui.rememberNow
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
@@ -242,6 +246,17 @@ fun IssueRoute(
     val pullState = pull?.state?.collectAsStateWithLifecycle()?.value
     // Merged or reviewed from here: the conversation is read again, to show it.
     LaunchedEffect(pullState?.done) { if (pullState?.done != null) viewModel.refresh() }
+    // Checks still running are followed while the conversation is in sight, as on the forge's own page.
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(pull, pullState?.checksRunning) {
+        if (pull == null || pullState?.checksRunning != true) return@LaunchedEffect
+        lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            while (true) {
+                delay(PullRequestViewModel.POLL_MILLIS)
+                pull.pollChecks()
+            }
+        }
+    }
     val pullActions = remember(pull, openUrl) {
         PullActions(
             onOpenChanges = { onOpenChanges(pullRef) },

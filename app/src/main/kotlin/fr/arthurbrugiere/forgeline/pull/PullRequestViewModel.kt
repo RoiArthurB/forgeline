@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.data.pull.PullRequestRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Check
+import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.MergeInfo
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
@@ -87,7 +88,10 @@ data class PullRequestUiState(
     val reviewError: ForgeError? = null,
     /** Counts what was done, so that doing the same thing twice is told twice. */
     val done: Pair<PullDone, Int>? = null,
-)
+) {
+    /** Whether a check still runs: they are then read again now and then, while the conversation is in sight. */
+    val checksRunning: Boolean get() = checks?.any { it.state == CheckState.PENDING } == true
+}
 
 /** A pull request beside its conversation: its checks, and merging or reviewing it for someone signed in on its forge. */
 @HiltViewModel(assistedFactory = PullRequestViewModel.Factory::class)
@@ -135,6 +139,22 @@ class PullRequestViewModel @AssistedInject constructor(
         loadThreads()
         if (_state.value.signedIn) {
             viewModelScope.launch {
+                val info = (repository.mergeInfo(ref) as? ForgeResult.Success)?.value
+                _state.update { it.copy(mergeInfo = info ?: it.mergeInfo) }
+            }
+        }
+    }
+
+    /**
+     * Reads the checks again while some still run. Once none does, whether it can be merged is read again too: a check
+     * can be what stood in the way.
+     */
+    fun pollChecks() {
+        viewModelScope.launch {
+            val checks = (repository.checks(ref) as? ForgeResult.Success)?.value ?: return@launch
+            val settled = _state.value.checksRunning && checks.none { it.state == CheckState.PENDING }
+            _state.update { it.copy(checks = checks) }
+            if (settled && _state.value.signedIn) {
                 val info = (repository.mergeInfo(ref) as? ForgeResult.Success)?.value
                 _state.update { it.copy(mergeInfo = info ?: it.mergeInfo) }
             }
@@ -273,8 +293,11 @@ class PullRequestViewModel @AssistedInject constructor(
 
     fun reviewErrorShown() = _state.update { it.copy(reviewError = null) }
 
-    private companion object {
+    companion object {
+        /** How often running checks are read again: GitHub's own page follows them about as often. */
+        const val POLL_MILLIS = 30_000L
+
         /** A commit message is the repository's, not the reader's: it is in English, whatever the app's language. */
-        const val SUGGESTION_MESSAGE = "Apply suggestion from code review"
+        private const val SUGGESTION_MESSAGE = "Apply suggestion from code review"
     }
 }
