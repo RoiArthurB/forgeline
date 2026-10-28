@@ -34,4 +34,20 @@ class ScrollBenchmark {
         readTrending()
         search("kotlin")
     }
+
+    /** The discovery screens of 0.10: First issues, the collections, a topic's page. */
+    @Test
+    fun discoverWithBaselineProfile() = rule.measureRepeated(
+        packageName = PACKAGE_NAME,
+        metrics = listOf(FrameTimingMetric()),
+        compilationMode = CompilationMode.Partial(BaselineProfileMode.Require),
+        startupMode = StartupMode.WARM,
+        iterations = 3,
+        setupBlock = {
+            pressHome()
+            startActivityAndWait()
+        },
+    ) {
+        discover()
+    }
 }

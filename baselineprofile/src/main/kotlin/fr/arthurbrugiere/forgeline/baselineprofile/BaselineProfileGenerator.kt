@@ -30,5 +30,6 @@ class BaselineProfileGenerator {
         browseTabs()
         readTrending()
         search("kotlin")
+        discover()
     }
 }

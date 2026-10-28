@@ -61,3 +61,33 @@ fun MacrobenchmarkScope.search(query: String) {
     device.pressBack()
     device.waitForIdle()
 }
+
+/** Opens a header button by its description, waits for its screen, and comes back. */
+private fun MacrobenchmarkScope.visit(description: String, until: androidx.test.uiautomator.BySelector) {
+    check(device.wait(Until.hasObject(By.desc(description)), TIMEOUT_MS)) { "No \"$description\" button on screen" }
+    device.findObject(By.desc(description)).click()
+    device.wait(Until.hasObject(until), NETWORK_TIMEOUT_MS)
+    device.findObject(By.scrollable(true))?.fling(Direction.DOWN)
+    device.pressBack()
+    device.waitForIdle()
+}
+
+/**
+ * The discovery screens added in 0.10, as someone signed out meets them: First issues from Trending's header, the
+ * collections from the You tab's, and a topic's page from a link to it (the app is the link's target).
+ */
+fun MacrobenchmarkScope.discover() {
+    openTab("Trending")
+    visit("First issues", By.text("First issues"))
+    openTab("You")
+    visit("Collections", By.text("Collections"))
+    device.executeShellCommand("am start -a android.intent.action.VIEW -d https://github.com/topics/kotlin $PACKAGE_NAME")
+    device.wait(Until.hasObject(By.textContains("repositories")), NETWORK_TIMEOUT_MS)
+    device.findObject(By.scrollable(true))?.let { list ->
+        list.setGestureMargin(device.displayWidth / 5)
+        list.fling(Direction.DOWN)
+        list.fling(Direction.UP)
+    }
+    device.pressBack()
+    device.waitForIdle()
+}
