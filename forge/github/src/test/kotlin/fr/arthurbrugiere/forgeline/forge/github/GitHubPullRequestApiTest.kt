@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Check
 import fr.arthurbrugiere.forgeline.core.model.CheckReport
 import fr.arthurbrugiere.forgeline.core.model.CheckState
+import fr.arthurbrugiere.forgeline.core.model.DeletedBranch
 import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -243,6 +244,76 @@ class GitHubPullRequestApiTest {
         val info = api { request -> if (request.path.endsWith("/pulls/88")) json(armed) else json("""{"allow_auto_merge":true,"permissions":{"push":true}}""") }.mergeInfo("tok", pull).value()
 
         assertThat(info.mergesWhenChecksPass).isTrue()
+    }
+
+    @Test
+    fun a_merged_pull_request_offers_its_deleted_branch_back_and_a_revert() = runTest {
+        val merged = ownBranch.replace(""""node_id":"PR_88"}""", """"node_id":"PR_88","state":"closed","merged":true}""")
+        val info = api { request ->
+            when {
+                request.path.endsWith("/pulls/88") -> json(merged)
+                "/branches/" in request.path -> json("""{"message":"Branch not found"}""", HttpStatusCode.NotFound)
+                else -> json("""{"permissions":{"push":true}}""")
+            }
+        }.mergeInfo("tok", pull).value()
+
+        assertThat(info.deletedBranch).isEqualTo(DeletedBranch("fix/retry", "abc123"))
+        assertThat(info.canRevert).isTrue()
+        assertThat(requests.map { it.path }).contains("/repos/octo/tools/branches/fix/retry")
+    }
+
+    @Test
+    fun a_branch_still_there_or_a_reader_who_cannot_push_is_offered_nothing() = runTest {
+        val merged = ownBranch.replace(""""node_id":"PR_88"}""", """"node_id":"PR_88","state":"closed","merged":true}""")
+        val branchThere = api { request ->
+            when {
+                request.path.endsWith("/pulls/88") -> json(merged)
+                "/branches/" in request.path -> json("""{"name":"fix/retry"}""")
+                else -> json("""{"permissions":{"push":true}}""")
+            }
+        }.mergeInfo("tok", pull).value()
+        requests.clear()
+        val reader = api { request -> if (request.path.endsWith("/pulls/88")) json(merged) else json("""{"permissions":{"push":false}}""") }.mergeInfo("tok", pull).value()
+
+        assertThat(branchThere.deletedBranch).isNull()
+        assertThat(reader.deletedBranch).isNull()
+        assertThat(reader.canRevert).isFalse()
+        // Nobody asked after a branch they couldn't make again.
+        assertThat(requests.map { it.path }).doesNotContain("/repos/octo/tools/branches/fix/retry")
+        // An open pull request has nothing to restore: its branch isn't asked after.
+        requests.clear()
+        api { request -> if (request.path.endsWith("/pulls/88")) json(ownBranch) else json("""{"permissions":{"push":true}}""") }.mergeInfo("tok", pull)
+        assertThat(requests.map { it.path }).doesNotContain("/repos/octo/tools/branches/fix/retry")
+    }
+
+    @Test
+    fun a_deleted_branch_is_made_again_where_it_stood() = runTest {
+        val result = api { json("""{"ref":"refs/heads/fix/retry"}""", HttpStatusCode.Created) }.restoreBranch("tok", pull, DeletedBranch("fix/retry", "abc123"))
+
+        assertThat(result).isEqualTo(ForgeResult.Success(Unit))
+        val request = requests.single()
+        assertThat("${request.method.value} ${request.path}").isEqualTo("POST /repos/octo/tools/git/refs")
+        assertThat(request.sent).isEqualTo("""{"ref":"refs/heads/fix/retry","sha":"abc123"}""")
+    }
+
+    @Test
+    fun a_revert_opens_a_pull_request_and_answers_it() = runTest {
+        val result = api { request ->
+            if (request.path == "/graphql") json("""{"data":{"revertPullRequest":{"revertPullRequest":{"number":89}}}}""") else json(ownBranch)
+        }.revert("tok", pull)
+
+        assertThat(result).isEqualTo(ForgeResult.Success(IssueRef(pull.repo, 89, isPullRequest = true)))
+        assertThat(requests.last().sent).contains("revertPullRequest(input: {pullRequestId: \$id})")
+        assertThat(requests.last().sent).contains("\"PR_88\"")
+    }
+
+    @Test
+    fun a_revert_github_refuses_is_said() = runTest {
+        val result = api { request ->
+            if (request.path == "/graphql") json("""{"data":{"revertPullRequest":null},"errors":[{"type":"UNPROCESSABLE","message":"Could not revert"}]}""") else json(ownBranch)
+        }.revert("tok", pull)
+
+        assertThat(result).isInstanceOf(ForgeResult.Failure::class.java)
     }
 
     @Test

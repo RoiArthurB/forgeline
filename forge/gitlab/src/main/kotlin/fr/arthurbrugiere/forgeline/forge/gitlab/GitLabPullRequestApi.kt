@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
+import fr.arthurbrugiere.forgeline.core.model.DeletedBranch
 import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -114,9 +115,22 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
                     mergesWhenChecksPass = details.mergeWhenPipelineSucceeds,
                     behind = (details.divergedCommitsCount ?: 0) > 0 || details.detailedMergeStatus == "need_rebase",
                     blockers = listOfNotNull(mergeBlockerOf(details.detailedMergeStatus)),
+                    deletedBranch = if (ownBranch && project.canPush && details.state in ENDED) deletedBranch(token, ref.repo, details) else null,
                 ),
             )
         }
+    }
+
+    /** [mr]'s branch, when it is no longer there: asked for by its name, it is not found. */
+    private suspend fun deletedBranch(token: String, repo: RepoId, mr: MrJson): DeletedBranch? {
+        val name = mr.sourceBranch ?: return null
+        val sha = mr.sha?.ifEmpty { null } ?: return null
+        val branch = project(token, repo, "repository", "branches", name)
+        return DeletedBranch(name, sha).takeIf { branch.status == HttpStatusCode.NotFound }
+    }
+
+    override suspend fun restoreBranch(token: String, ref: IssueRef, branch: DeletedBranch): ForgeResult<Unit> = forgeCall {
+        project(token, ref.repo, "repository", "branches", method = HttpMethod.Post, query = mapOf("branch" to branch.name, "ref" to branch.sha)).toResult { }
     }
 
     override suspend fun merge(token: String, ref: IssueRef, method: MergeMethod, deleteBranch: Boolean, whenChecksPass: Boolean): ForgeResult<Unit> = forgeCall {
@@ -324,6 +338,9 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
     ): HttpResponse = project(token, ref.repo, "merge_requests", ref.number.toString(), *segments, method = method, query = query, body = body)
 
     private companion object {
+        /** A merge request's states once it is over. */
+        val ENDED = setOf("merged", "closed")
+
         const val FILES_PER_PAGE = 50
         const val HISTORY_PER_PAGE = 30
         const val MAX_PAGES = 5
@@ -400,13 +417,33 @@ private data class MrJson(
     @SerialName("force_remove_source_branch") val forceRemoveSourceBranch: Boolean? = null,
     @SerialName("merge_when_pipeline_succeeds") val mergeWhenPipelineSucceeds: Boolean = false,
     @SerialName("diverged_commits_count") val divergedCommitsCount: Int? = null,
+    val state: String? = null,
+    val sha: String? = null,
+    @SerialName("source_branch") val sourceBranch: String? = null,
 )
 
 @Serializable
 private data class MrProjectJson(
     @SerialName("squash_option") val squashOption: String? = null,
     @SerialName("remove_source_branch_after_merge") val removeSourceBranchAfterMerge: Boolean? = null,
+    val permissions: MrPermissionsJson? = null,
+) {
+    /** Whether the reader may push here: a developer or more, by the project or its group. */
+    val canPush: Boolean
+        get() = maxOf(permissions?.projectAccess?.accessLevel ?: 0, permissions?.groupAccess?.accessLevel ?: 0) >= DEVELOPER
+}
+
+@Serializable
+private data class MrPermissionsJson(
+    @SerialName("project_access") val projectAccess: MrAccessJson? = null,
+    @SerialName("group_access") val groupAccess: MrAccessJson? = null,
 )
+
+@Serializable
+private data class MrAccessJson(@SerialName("access_level") val accessLevel: Int = 0)
+
+/** GitLab's access level from which one may push. */
+private const val DEVELOPER = 30
 
 /** A pipeline's states while there is still something to wait for. */
 

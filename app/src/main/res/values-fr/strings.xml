@@ -1199,6 +1199,14 @@
     <string name="review_dismiss_placeholder">Pourquoi elle ne compte plus</string>
     <string name="review_dismiss_confirm">Écarter</string>
     <string name="pull_update_branch">Mettre à jour la branche</string>
+    <string name="pull_restore_branch">Restaurer la branche</string>
+    <string name="pull_branch_restored">Branche %1$s restaurée</string>
+    <string name="pull_restore_failed">La branche n\'a pas pu être restaurée. Une branche de ce nom existe peut-être déjà, ou vous ne pouvez pas la créer.</string>
+    <string name="pull_revert">Annuler les changements</string>
+    <string name="pull_reverting">Annulation…</string>
+    <string name="pull_revert_title">Annuler cette pull request ?</string>
+    <string name="pull_revert_body">Une nouvelle pull request qui défait ses changements est ouverte, à relire et fusionner comme les autres.</string>
+    <string name="pull_revert_failed">Cette pull request n\'a pas pu être annulée. Ses changements ne se défont peut-être plus proprement.</string>
     <string name="pull_updating_branch">Mise à jour…</string>
     <string name="pull_branch_updating">Mise à jour de la branche en cours</string>
     <string name="pull_branch_update_failed">La branche n\'a pas pu être mise à jour. Elle est peut-être en conflit, ou pas modifiable par vous.</string>

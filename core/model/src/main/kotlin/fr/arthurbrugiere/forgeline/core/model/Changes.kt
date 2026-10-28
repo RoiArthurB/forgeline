@@ -196,6 +196,9 @@ enum class MergeMethod { MERGE, SQUASH, REBASE }
  * [canMergeWhenChecksPass] is whether the forge can be told to merge it once its checks pass rather than now, and
  * [mergesWhenChecksPass] whether it already was. [behind] is whether the branch it goes into moved on since: its
  * branch can be brought up to date.
+ *
+ * Once it is closed or merged: [deletedBranch] is its branch of the repository itself, deleted since, which whoever may
+ * push can make again; [canRevert] whether a merged one can be undone by a new pull request (GitHub).
  */
 data class MergeInfo(
     val mergeable: Boolean?,
@@ -206,7 +209,12 @@ data class MergeInfo(
     val mergesWhenChecksPass: Boolean = false,
     val behind: Boolean = false,
     val blockers: List<MergeBlocker> = emptyList(),
+    val deletedBranch: DeletedBranch? = null,
+    val canRevert: Boolean = false,
 )
+
+/** A branch a pull request came from, deleted since: [name], and [sha], the commit it last stood at. */
+data class DeletedBranch(val name: String, val sha: String)
 
 /** What a forge says stands between a pull request and its merge, a draft aside (that is the pull request's own say). */
 enum class MergeBlocker {

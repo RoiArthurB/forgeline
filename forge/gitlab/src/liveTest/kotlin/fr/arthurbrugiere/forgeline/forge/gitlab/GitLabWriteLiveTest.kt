@@ -258,6 +258,15 @@ class GitLabWriteLiveTest {
             System.err.println("GITLAB merged branch: $branch")
             assertWithMessage("branch deleted").that(branch.value).isEqualTo(404)
 
+            // Offered back, made again where it stood, then no longer offered.
+            val deleted = pulls.mergeInfo(token, ref).value("merged info").deletedBranch
+            System.err.println("GITLAB deleted branch: $deleted")
+            assertWithMessage("deleted branch").that(deleted?.name).isEqualTo("change")
+            pulls.restoreBranch(token, ref, deleted!!).value("restore")
+            val restored = http.get("$api/projects/${repo.owner}%2F${repo.name}/repository/branches/change") { header("Authorization", "Bearer $token") }.bodyAsText()
+            assertWithMessage("restored where it stood").that(restored).contains(deleted.sha)
+            assertWithMessage("no longer offered").that(pulls.mergeInfo(token, ref).value("restored info").deletedBranch).isNull()
+
             val merged = GitLabIssueApi(http, ForgeInstance.GitLab).issue(token, ref).value("merged conversation")
             assertWithMessage("state").that(merged.pullRequest?.isMerged).isTrue()
             // What was said went with it: the note and the remark on the line.

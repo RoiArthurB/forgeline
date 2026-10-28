@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
+import fr.arthurbrugiere.forgeline.core.model.DeletedBranch
 import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -132,8 +133,44 @@ class GitHubPullRequestApi(
                     mergesWhenChecksPass = details.autoMerge != null,
                     behind = details.mergeableState == "behind",
                     blockers = blockers,
+                    deletedBranch = if (ownBranch && canMerge && details.state == "closed") deletedBranch(token, ref.repo, details.head) else null,
+                    canRevert = canMerge && details.merged,
                 ),
             )
+        }
+    }
+
+    /** [head], when its branch is no longer there: asked for by its name, it is not found. */
+    private suspend fun deletedBranch(token: String, repo: RepoId, head: PrHeadJson): DeletedBranch? {
+        val name = head.ref ?: return null
+        if (head.sha.isEmpty()) return null
+        val branch = repo(token, repo, "branches", *name.split('/').toTypedArray())
+        return DeletedBranch(name, head.sha).takeIf { branch.status == HttpStatusCode.NotFound }
+    }
+
+    override suspend fun restoreBranch(token: String, ref: IssueRef, branch: DeletedBranch): ForgeResult<Unit> = forgeCall {
+        repo(
+            token, ref.repo, "git", "refs", method = HttpMethod.Post,
+            body = buildJsonObject {
+                put("ref", "refs/heads/${branch.name}")
+                put("sha", branch.sha)
+            },
+        ).toResult { }
+    }
+
+    /** GitHub's own Revert button: a branch undoing the merge, and a pull request of it into the same branch. */
+    override suspend fun revert(token: String, ref: IssueRef): ForgeResult<IssueRef> {
+        val id = when (val node = pullNode(token, ref)) {
+            is ForgeResult.Failure -> return node
+            is ForgeResult.Success -> node.value
+        }
+        return when (val answer = graphQl(token, REVERT_MUTATION, buildJsonObject { put("id", id) })) {
+            is ForgeResult.Failure -> answer
+            is ForgeResult.Success -> {
+                val pull = (answer.value["revertPullRequest"] as? JsonObject)?.get("revertPullRequest")
+                val number = pull?.let { runCatching { ForgeJson.decodeFromJsonElement<PrCreatedJson>(it).number }.getOrNull() }
+                number?.let { ForgeResult.Success(IssueRef(ref.repo, it, isPullRequest = true)) } ?: ForgeResult.Failure(ForgeError.Unreadable)
+            }
         }
     }
 
@@ -290,12 +327,15 @@ class GitHubPullRequestApi(
         graphQl(token, "mutation(\$id: ID!) { disablePullRequestAutoMerge(input: {pullRequestId: \$id}) { clientMutationId } }", buildJsonObject { put("id", id) })
     }
 
+    /** [ref]'s id in GraphQL, read from the REST API, which names it. */
+    private suspend fun pullNode(token: String, ref: IssueRef): ForgeResult<String> = forgeCall {
+        val pull = pull(token, ref)
+        if (pull.status != HttpStatusCode.OK) return@forgeCall pull.failure()
+        pull.body<PrPullJson>().nodeId?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Http(404, null))
+    }
+
     private suspend fun onPullNode(token: String, ref: IssueRef, act: suspend (id: String) -> ForgeResult<JsonObject>): ForgeResult<Unit> {
-        val node = forgeCall {
-            val pull = pull(token, ref)
-            if (pull.status != HttpStatusCode.OK) return@forgeCall pull.failure()
-            pull.body<PrPullJson>().nodeId?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Http(404, null))
-        }
+        val node = pullNode(token, ref)
         return when (node) {
             is ForgeResult.Failure -> node
             is ForgeResult.Success -> act(node.value).map { }
@@ -481,6 +521,8 @@ class GitHubPullRequestApi(
     ): HttpResponse = repo(token, ref.repo, "pulls", ref.number.toString(), *segments, method = method, query = query, body = body)
 
     private companion object {
+        const val REVERT_MUTATION = "mutation(\$id: ID!) { revertPullRequest(input: {pullRequestId: \$id}) { revertPullRequest { number } } }"
+
         const val FILES_PER_PAGE = 50
         const val HISTORY_PER_PAGE = 30
 
@@ -564,6 +606,8 @@ private data class PrPullJson(
     val base: PrHeadJson? = null,
     val mergeable: Boolean? = null,
     @SerialName("node_id") val nodeId: String? = null,
+    val state: String? = null,
+    val merged: Boolean = false,
     // "behind" when the branch it goes into moved on: one of GitHub's words for what stands in a merge's way.
     @SerialName("mergeable_state") val mergeableState: String? = null,
     // Set while GitHub is to merge it once its checks pass.

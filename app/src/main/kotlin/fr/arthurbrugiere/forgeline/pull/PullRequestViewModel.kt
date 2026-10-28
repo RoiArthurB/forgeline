@@ -46,6 +46,9 @@ enum class PullDone {
 
     /** A reviewer's suggestion was committed to its branch. */
     SUGGESTION_COMMITTED,
+
+    /** Its deleted branch was made again. */
+    BRANCH_RESTORED,
 }
 
 /** How a merge is asked for: the way, whether its branch goes with it, and whether it waits for the checks. */
@@ -88,6 +91,10 @@ data class PullRequestUiState(
     val reviewError: ForgeError? = null,
     /** Counts what was done, so that doing the same thing twice is told twice. */
     val done: Pair<PullDone, Int>? = null,
+    /** The pull request just opened to undo this one, to go to; and why that was refused, said once. */
+    val reverted: IssueRef? = null,
+    val isReverting: Boolean = false,
+    val revertError: ForgeError? = null,
 ) {
     /** Whether a check still runs: they are then read again now and then, while the conversation is in sight. */
     val checksRunning: Boolean get() = checks?.any { it.state == CheckState.PENDING } == true
@@ -164,6 +171,28 @@ class PullRequestViewModel @AssistedInject constructor(
     fun merge(choice: MergeChoice) = mergeWork(if (choice.whenChecksPass) PullDone.SCHEDULED else PullDone.MERGED) {
         repository.merge(ref, choice.method, choice.deleteBranch, choice.whenChecksPass)
     }
+
+    /** Makes its deleted branch again, where it last stood ([MergeInfo.deletedBranch]). */
+    fun restoreBranch() {
+        val branch = _state.value.mergeInfo?.deletedBranch ?: return
+        mergeWork(PullDone.BRANCH_RESTORED) { repository.restoreBranch(ref, branch) }
+    }
+
+    /** Opens a pull request undoing this merged one; once open, it is gone to ([PullRequestUiState.reverted]). */
+    fun revert() {
+        if (_state.value.isReverting || _state.value.mergeInfo?.canRevert != true) return
+        _state.update { it.copy(isReverting = true, revertError = null) }
+        viewModelScope.launch {
+            when (val result = repository.revert(ref)) {
+                is ForgeResult.Failure -> _state.update { it.copy(isReverting = false, revertError = result.error) }
+                is ForgeResult.Success -> _state.update { it.copy(isReverting = false, reverted = result.value) }
+            }
+        }
+    }
+
+    fun revertedShown() = _state.update { it.copy(reverted = null) }
+
+    fun revertErrorShown() = _state.update { it.copy(revertError = null) }
 
     fun cancelMergeWhenChecksPass() = mergeWork(PullDone.UNSCHEDULED) { repository.cancelMergeWhenChecksPass(ref) }
 

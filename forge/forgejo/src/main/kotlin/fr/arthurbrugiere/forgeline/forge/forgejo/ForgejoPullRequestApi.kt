@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
+import fr.arthurbrugiere.forgeline.core.model.DeletedBranch
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
@@ -110,9 +111,29 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
                     // Forgejo schedules a merge for when the checks succeed, and doesn't say afterwards that it did.
                     canMergeWhenChecksPass = canMerge,
                     behind = behind,
+                    deletedBranch = if (ownBranch && canMerge && details.state == "closed") deletedBranch(token, ref.repo, details.head) else null,
                 ),
             )
         }
+    }
+
+    /** [head], when its branch is no longer there: asked for by its name, it is not found. */
+    private suspend fun deletedBranch(token: String, repo: RepoId, head: PrHeadJson): DeletedBranch? {
+        val name = head.branch ?: return null
+        if (head.sha.isEmpty()) return null
+        val branch = repo(token, repo, "branches", *name.split('/').toTypedArray())
+        return DeletedBranch(name, head.sha).takeIf { branch.status == HttpStatusCode.NotFound }
+    }
+
+    /** A new branch made from the commit the old one stood at. */
+    override suspend fun restoreBranch(token: String, ref: IssueRef, branch: DeletedBranch): ForgeResult<Unit> = forgeCall {
+        repo(
+            token, ref.repo, "branches", method = HttpMethod.Post,
+            body = buildJsonObject {
+                put("new_branch_name", branch.name)
+                put("old_ref_name", branch.sha)
+            },
+        ).toResult { }
     }
 
     override suspend fun merge(token: String, ref: IssueRef, method: MergeMethod, deleteBranch: Boolean, whenChecksPass: Boolean): ForgeResult<Unit> = forgeCall {
@@ -360,7 +381,19 @@ private data class PrCommitJson(val sha: String, val commit: PrGitCommitJson? = 
 }
 
 @Serializable
-private data class PrHeadJson(val sha: String = "", val ref: String? = null, @SerialName("repo_id") val repoId: Long? = null, val repo: PrBranchRepoJson? = null)
+private data class PrHeadJson(
+    val sha: String = "",
+    val ref: String? = null,
+    @SerialName("repo_id") val repoId: Long? = null,
+    val repo: PrBranchRepoJson? = null,
+    val label: String? = null,
+) {
+    /**
+     * The branch's name: once it is deleted, Forgejo names the pull request's own ref instead (`refs/pull/1/head`),
+     * and only its label keeps the branch's (seen on Codeberg, 2026-10-29).
+     */
+    val branch: String? get() = if (ref?.startsWith("refs/pull/") == true) label else ref
+}
 
 /** Where a pull request's branch lives; a deleted fork has none. */
 @Serializable
@@ -374,7 +407,7 @@ private data class PrContentJson(val sha: String, val content: String? = null, v
 private data class PrCompareJson(@SerialName("total_commits") val totalCommits: Int = 0)
 
 @Serializable
-private data class PrPullJson(val head: PrHeadJson, val base: PrHeadJson? = null, val mergeable: Boolean? = null)
+private data class PrPullJson(val head: PrHeadJson, val base: PrHeadJson? = null, val mergeable: Boolean? = null, val state: String? = null)
 
 @Serializable
 private data class PrPermissionsJson(val push: Boolean = false)

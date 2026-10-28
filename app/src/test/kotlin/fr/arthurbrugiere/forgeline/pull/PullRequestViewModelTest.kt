@@ -5,6 +5,7 @@ import fr.arthurbrugiere.forgeline.core.data.pull.DefaultPullRequestRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.Check
 import fr.arthurbrugiere.forgeline.core.model.CheckState
+import fr.arthurbrugiere.forgeline.core.model.DeletedBranch
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -111,6 +112,43 @@ class PullRequestViewModelTest {
         advanceUntilIdle()
 
         assertThat(viewModel.state.value.checksRunning).isFalse()
+    }
+
+    @Test
+    fun a_deleted_branch_is_made_again_and_said() = test {
+        api.mergeInfo = api.mergeInfo.copy(deletedBranch = DeletedBranch("fix/retry", "abc123"))
+        signIn()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.restoreBranch()
+        advanceUntilIdle()
+
+        assertThat(api.calls).contains("restoreBranch:octo/tools#88:fix/retry@abc123")
+        assertThat(viewModel.state.value.done?.first).isEqualTo(PullDone.BRANCH_RESTORED)
+        // Read again: it is there now, nothing more to restore.
+        assertThat(viewModel.state.value.mergeInfo?.deletedBranch).isNull()
+    }
+
+    @Test
+    fun a_revert_goes_to_the_pull_request_it_opened_or_says_why_not() = test {
+        api.mergeInfo = api.mergeInfo.copy(canRevert = true)
+        api.created = 89
+        signIn()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.revert()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.reverted).isEqualTo(IssueRef(pull.repo, 89, isPullRequest = true))
+        viewModel.revertedShown()
+        assertThat(viewModel.state.value.reverted).isNull()
+
+        api.writeFailure = ForgeError.Http(422, "Could not revert")
+        viewModel.revert()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.revertError).isEqualTo(ForgeError.Http(422, "Could not revert"))
+        assertThat(viewModel.state.value.isReverting).isFalse()
     }
 
     @Test

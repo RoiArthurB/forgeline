@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.model.CheckReport
 import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
+import fr.arthurbrugiere.forgeline.core.model.DeletedBranch
 import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -187,6 +188,13 @@ class FakePullRequestApi(
     override suspend fun updateBranch(token: String, ref: IssueRef) = write("updateBranch:${ref.name()}") {
         mergeInfo = mergeInfo.copy(behind = false)
     }
+
+    override suspend fun restoreBranch(token: String, ref: IssueRef, branch: DeletedBranch) = write("restoreBranch:${ref.name()}:${branch.name}@${branch.sha}") {
+        mergeInfo = mergeInfo.copy(deletedBranch = null)
+    }
+
+    /** The pull request a revert opens is numbered [created]. */
+    override suspend fun revert(token: String, ref: IssueRef) = write("revert:${ref.name()}") { IssueRef(ref.repo, created, isPullRequest = true) }
 
     override suspend fun cancelMergeWhenChecksPass(token: String, ref: IssueRef) = write("cancelMergeWhenChecksPass:${ref.name()}") {
         mergeInfo = mergeInfo.copy(mergesWhenChecksPass = false)

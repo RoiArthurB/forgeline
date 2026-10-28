@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.model.CheckReport
 import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
+import fr.arthurbrugiere.forgeline.core.model.DeletedBranch
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
@@ -51,6 +52,12 @@ interface PullRequestRepository {
     suspend fun cancelMergeWhenChecksPass(ref: IssueRef): ForgeResult<Unit>
 
     suspend fun updateBranch(ref: IssueRef): ForgeResult<Unit>
+
+    /** Makes a closed pull request's deleted [branch] again where it last stood. */
+    suspend fun restoreBranch(ref: IssueRef, branch: DeletedBranch): ForgeResult<Unit>
+
+    /** Opens a pull request undoing merged [ref], and answers it. */
+    suspend fun revert(ref: IssueRef): ForgeResult<IssueRef>
 
     suspend fun threads(ref: IssueRef): ForgeResult<List<ReviewThread>>
 
@@ -151,6 +158,10 @@ class DefaultPullRequestRepository @Inject constructor(
     override suspend fun cancelMergeWhenChecksPass(ref: IssueRef) = signedIn(ref.repo.forge) { cancelMergeWhenChecksPass(it, ref) }
 
     override suspend fun updateBranch(ref: IssueRef) = signedIn(ref.repo.forge) { updateBranch(it, ref) }
+
+    override suspend fun restoreBranch(ref: IssueRef, branch: DeletedBranch) = signedIn(ref.repo.forge) { restoreBranch(it, ref, branch) }
+
+    override suspend fun revert(ref: IssueRef) = signedIn(ref.repo.forge) { revert(it, ref) }
 
     override suspend fun threads(ref: IssueRef) = read(ref.repo.forge) { threads(it, ref) }
 

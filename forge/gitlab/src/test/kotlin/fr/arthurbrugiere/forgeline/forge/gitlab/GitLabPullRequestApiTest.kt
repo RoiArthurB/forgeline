@@ -5,6 +5,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Check
 import fr.arthurbrugiere.forgeline.core.model.CheckState
+import fr.arthurbrugiere.forgeline.core.model.DeletedBranch
 import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -155,6 +156,35 @@ class GitLabPullRequestApiTest {
         assertThat(deleting(own, "{}")).isFalse()
         // A fork's branch isn't the project's.
         assertThat(deleting(own.replace(""""source_project_id":250833""", """"source_project_id":99"""), """{"remove_source_branch_after_merge":true}""")).isNull()
+    }
+
+    @Test
+    fun a_merged_merge_request_whose_branch_is_gone_offers_it_back_to_a_developer() = runTest {
+        val merged = mrJson.replace(""""user":{"can_merge":true}}""", """"user":{"can_merge":false},"state":"merged","sha":"cb7511a","source_branch":"fix/retry","source_project_id":250833,"target_project_id":250833}""")
+        suspend fun deleted(branchStatus: HttpStatusCode, level: Int = 30) = api { path ->
+            when {
+                path.endsWith("/7606") -> json(merged)
+                "/repository/branches/" in path -> json("{}", branchStatus)
+                else -> json("""{"permissions":{"project_access":null,"group_access":{"access_level":$level}}}""")
+            }
+        }.mergeInfo("tok", mr).value().deletedBranch
+
+        assertThat(deleted(HttpStatusCode.NotFound)).isEqualTo(DeletedBranch("fix/retry", "cb7511a"))
+        assertThat(requests.map { it.url.encodedPath }).contains("$base/repository/branches/fix%2Fretry")
+        assertThat(deleted(HttpStatusCode.OK)).isNull()
+        // A reporter can't push.
+        assertThat(deleted(HttpStatusCode.NotFound, level = 20)).isNull()
+    }
+
+    @Test
+    fun a_deleted_branch_is_made_again_from_the_commit_it_stood_at() = runTest {
+        val result = api { json("""{"name":"fix/retry"}""", HttpStatusCode.Created) }.restoreBranch("tok", mr, DeletedBranch("fix/retry", "cb7511a"))
+
+        assertThat(result).isEqualTo(ForgeResult.Success(Unit))
+        val request = requests.single()
+        assertThat("${request.method.value} ${request.url.encodedPath}").isEqualTo("POST $base/repository/branches")
+        assertThat(request.url.parameters["branch"]).isEqualTo("fix/retry")
+        assertThat(request.url.parameters["ref"]).isEqualTo("cb7511a")
     }
 
     @Test

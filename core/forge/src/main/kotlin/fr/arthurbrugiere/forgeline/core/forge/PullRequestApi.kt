@@ -7,6 +7,7 @@ import fr.arthurbrugiere.forgeline.core.model.CheckReport
 import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
+import fr.arthurbrugiere.forgeline.core.model.DeletedBranch
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueTemplate
 import fr.arthurbrugiere.forgeline.core.model.LineComment
@@ -55,6 +56,12 @@ interface PullRequestApi {
 
     /** Takes back [merge]'s "once its checks pass": the pull request stays open, unmerged. */
     suspend fun cancelMergeWhenChecksPass(token: String, ref: IssueRef): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Makes [branch] again where it last stood, in [ref]'s repository ([MergeInfo.deletedBranch]). */
+    suspend fun restoreBranch(token: String, ref: IssueRef, branch: DeletedBranch): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Opens a pull request undoing merged [ref] ([MergeInfo.canRevert]), and answers it. */
+    suspend fun revert(token: String, ref: IssueRef): ForgeResult<IssueRef> = ForgeResult.Failure(ForgeError.Unsupported)
 
     /** The verdicts a review can give here: GitLab's API can't ask for changes. */
     val verdicts: Set<ReviewVerdict> get() = ReviewVerdict.entries.toSet()

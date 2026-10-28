@@ -246,6 +246,12 @@ fun IssueRoute(
     val pullState = pull?.state?.collectAsStateWithLifecycle()?.value
     // Merged or reviewed from here: the conversation is read again, to show it.
     LaunchedEffect(pullState?.done) { if (pullState?.done != null) viewModel.refresh() }
+    // A revert opened a pull request of its own: it is gone to.
+    LaunchedEffect(pullState?.reverted) {
+        val reverted = pullState?.reverted ?: return@LaunchedEffect
+        pull?.revertedShown()
+        onOpenIssue(reverted)
+    }
     // Checks still running are followed while the conversation is in sight, as on the forge's own page.
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(pull, pullState?.checksRunning) {
@@ -269,6 +275,9 @@ fun IssueRoute(
             onCancelMergeWhenChecksPass = { pull?.cancelMergeWhenChecksPass() },
             onUpdateBranch = { pull?.updateBranch() },
             onUpdateErrorShown = { pull?.updateErrorShown() },
+            onRestoreBranch = { pull?.restoreBranch() },
+            onRevert = { pull?.revert() },
+            onRevertErrorShown = { pull?.revertErrorShown() },
             onReply = { thread, body -> pull?.reply(thread, body) },
             onEditThreadComment = { thread, comment, body -> pull?.editThreadComment(thread, comment, body) },
             onDeleteThreadComment = { thread, comment -> pull?.deleteThreadComment(thread, comment) },
@@ -410,6 +419,7 @@ fun IssueScreen(
     val scheduled = stringResource(R.string.merge_scheduled)
     val updating = stringResource(R.string.pull_branch_updating)
     val committed = stringResource(R.string.thread_suggestion_committed)
+    val restored = stringResource(R.string.pull_branch_restored, issue?.pullRequest?.headRef.orEmpty())
     // The review being dismissed, until the forge took it or the reader called it off.
     var dismissing by rememberSaveable { mutableStateOf<Long?>(null) }
     // Dismissing someone's verdict is for whoever can write to the repository, where the forge can.
@@ -421,6 +431,7 @@ fun IssueScreen(
             PullDone.SCHEDULED -> snackbar.showSnackbar(scheduled)
             PullDone.UPDATED -> snackbar.showSnackbar(updating)
             PullDone.SUGGESTION_COMMITTED -> snackbar.showSnackbar(committed)
+            PullDone.BRANCH_RESTORED -> snackbar.showSnackbar(restored)
             else -> Unit
         }
     }
@@ -436,6 +447,9 @@ fun IssueScreen(
         )
     }
     SayOnce(threadFailed, snackbar, pullActions.onThreadErrorShown)
+    // Neither has a refused restore, once the pull request is over, nor a refused revert once its sheet closed.
+    SayOnce(stringResource(R.string.pull_restore_failed).takeIf { pull?.mergeError != null && issue?.state != IssueState.OPEN }, snackbar, pullActions.onMergeErrorShown)
+    SayOnce(stringResource(R.string.pull_revert_failed).takeIf { pull?.revertError != null }, snackbar, pullActions.onRevertErrorShown)
     // A refused update has no sheet to say it in.
     SayOnce(stringResource(R.string.pull_branch_update_failed).takeIf { pull?.updateError != null }, snackbar, pullActions.onUpdateErrorShown)
     // The comment the reader asked to delete, until they have said yes or no.

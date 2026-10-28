@@ -1193,6 +1193,14 @@
     <string name="review_dismiss_placeholder">Why it no longer counts</string>
     <string name="review_dismiss_confirm">Dismiss</string>
     <string name="pull_update_branch">Update branch</string>
+    <string name="pull_restore_branch">Restore branch</string>
+    <string name="pull_branch_restored">Branch %1$s restored</string>
+    <string name="pull_restore_failed">The branch couldn\'t be restored. A branch of that name may be there already, or not yours to make.</string>
+    <string name="pull_revert">Revert</string>
+    <string name="pull_reverting">Reverting…</string>
+    <string name="pull_revert_title">Revert this pull request?</string>
+    <string name="pull_revert_body">A new pull request undoing its changes is opened, to review and merge like any other.</string>
+    <string name="pull_revert_failed">This pull request couldn\'t be reverted. Its changes may no longer undo cleanly.</string>
     <string name="pull_updating_branch">Updating…</string>
     <string name="pull_branch_updating">Bringing the branch up to date</string>
     <string name="pull_branch_update_failed">The branch couldn\'t be brought up to date. It may conflict, or not be yours to change.</string>

@@ -68,6 +68,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftCheckRow
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceRow
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDangerButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
@@ -90,6 +91,11 @@ class PullActions(
     /** Brings the pull request's branch up to date with the one it goes into. */
     val onUpdateBranch: () -> Unit = {},
     val onUpdateErrorShown: () -> Unit = {},
+    /** Makes a closed pull request's deleted branch again. */
+    val onRestoreBranch: () -> Unit = {},
+    /** Opens a pull request undoing a merged one. */
+    val onRevert: () -> Unit = {},
+    val onRevertErrorShown: () -> Unit = {},
     /** Answers a thread on a line of the change. */
     val onReply: (ReviewThread, String) -> Unit = { _, _ -> },
     val onSetResolved: (ReviewThread, Boolean) -> Unit = { _, _ -> },
@@ -131,7 +137,11 @@ fun PullRequestPanel(issue: IssueDetails, actions: PullActions, modifier: Modifi
 @Composable
 fun PullRequestDecisions(issue: IssueDetails, state: PullRequestUiState, actions: PullActions, onReady: (() -> Unit)? = null, isMarkingReady: Boolean = false) {
     val pr = issue.pullRequest ?: return
-    if (!state.signedIn || issue.state != IssueState.OPEN) return
+    if (!state.signedIn) return
+    if (issue.state != IssueState.OPEN) {
+        PullRequestAfterwards(state, actions)
+        return
+    }
     var reviewing by rememberSaveable { mutableStateOf(false) }
     var merging by rememberSaveable { mutableStateOf(false) }
     // Each sheet closes on what it did.
@@ -171,6 +181,33 @@ fun PullRequestDecisions(issue: IssueDetails, state: PullRequestUiState, actions
             SoftButton(stringResource(R.string.merge_start), onClick = { merging = true })
         }
     }
+}
+
+/**
+ * What a closed or merged pull request still offers whoever may push, as GitHub's own page does: its deleted branch
+ * made again where it stood, and a merged one undone by a new pull request, once asked twice (GitHub).
+ */
+@Composable
+private fun PullRequestAfterwards(state: PullRequestUiState, actions: PullActions) {
+    val info = state.mergeInfo ?: return
+    var confirming by rememberSaveable { mutableStateOf(false) }
+    // The sheet closes on what came of it: the new pull request is gone to, or a refusal is said.
+    LaunchedEffect(state.reverted, state.revertError) { if (state.reverted != null || state.revertError != null) confirming = false }
+    if (confirming) {
+        SoftConfirmSheet(
+            title = stringResource(R.string.pull_revert_title),
+            body = stringResource(R.string.pull_revert_body),
+            confirm = stringResource(if (state.isReverting) R.string.pull_reverting else R.string.pull_revert),
+            cancel = stringResource(R.string.cancel),
+            confirmEnabled = !state.isReverting,
+            onConfirm = actions.onRevert,
+            onDismiss = { confirming = false },
+        )
+    }
+    if (info.deletedBranch != null) {
+        SoftTonalButton(stringResource(R.string.pull_restore_branch), onClick = actions.onRestoreBranch, enabled = !state.isMerging)
+    }
+    if (info.canRevert) SoftTonalButton(stringResource(R.string.pull_revert), onClick = { confirming = true })
 }
 
 /**

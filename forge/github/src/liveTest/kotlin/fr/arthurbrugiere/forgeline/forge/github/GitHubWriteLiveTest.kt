@@ -2,6 +2,8 @@ package fr.arthurbrugiere.forgeline.forge.github
 
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.PagesBuild
 import fr.arthurbrugiere.forgeline.core.model.PagesChange
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
@@ -13,15 +15,18 @@ import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.request.header
 import io.ktor.client.request.post
+import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.junit.Assume.assumeTrue
@@ -109,6 +114,81 @@ class GitHubWriteLiveTest {
             System.err.println("GITHUB deletion: $deletion")
             // A token never given `delete_repo` is told to sign in again, not that the forge failed.
             check(deletion == ForgeResult.Success(RepoDeletion.DELETED) || deletion == ForgeResult.Failure(ForgeError.Unauthorized)) { "deletion: $deletion" }
+            left = deletion is ForgeResult.Failure
+        } finally {
+            if (left) System.err.println("GITHUB scratch repository LEFT, delete it by hand: ${repo.fullName}")
+        }
+    }
+
+    /**
+     * A pull request in a private scratch repository: merged with its branch deleted, the branch offered back and made
+     * again where it stood, then the merge reverted by a new pull request.
+     */
+    @Test
+    fun a_merged_pull_request_s_branch_is_restored_and_the_merge_reverted() = runBlocking<Unit> {
+        assumeTrue("LIVE_TEST_PAT not set", token.isNotBlank())
+        assumeTrue("GITHUB_LIVE_WRITES not set", System.getenv("GITHUB_LIVE_WRITES") == "1")
+        val api = "https://api.github.com"
+        val name = "forgeline-scratch-${System.currentTimeMillis()}"
+        suspend fun send(method: HttpMethod, path: String, body: JsonObject? = null): JsonObject {
+            val response = http.request("$api$path") {
+                this.method = method
+                header("Authorization", "Bearer $token")
+                if (body != null) {
+                    contentType(ContentType.Application.Json)
+                    setBody(body)
+                }
+            }
+            check(response.status.isSuccess()) { "$method $path: ${response.status} ${response.bodyAsText().take(300)}" }
+            return response.body()
+        }
+        val created = send(
+            HttpMethod.Post, "/user/repos",
+            buildJsonObject {
+                put("name", name)
+                put("private", true)
+                put("auto_init", true)
+                put("description", "Scratch repository for Forgeline API tests. Safe to delete.")
+            },
+        )
+        val repo = RepoId(created.getValue("owner").jsonObject.getValue("login").jsonPrimitive.content, name)
+        val path = "/repos/${repo.fullName}"
+        var left = true
+        try {
+            val base = created.getValue("default_branch").jsonPrimitive.content
+            val start = send(HttpMethod.Get, "$path/git/ref/heads/$base").getValue("object").jsonObject.getValue("sha").jsonPrimitive.content
+            send(HttpMethod.Post, "$path/git/refs", buildJsonObject { put("ref", "refs/heads/change"); put("sha", start) })
+            send(
+                HttpMethod.Put, "$path/contents/NOTES.md",
+                buildJsonObject {
+                    put("message", "Add notes")
+                    put("content", java.util.Base64.getEncoder().encodeToString("A line the pull request adds.\n".toByteArray()))
+                    put("branch", "change")
+                },
+            )
+            val number = send(HttpMethod.Post, "$path/pulls", buildJsonObject { put("title", "Add notes"); put("head", "change"); put("base", base) })
+                .getValue("number").jsonPrimitive.content.toInt()
+            val ref = IssueRef(repo, number, isPullRequest = true)
+            val pulls = GitHubPullRequestApi(http)
+
+            var info = pulls.mergeInfo(token, ref).value("merge info")
+            repeat(10) { if (info.mergeable != true) { delay(1_000); info = pulls.mergeInfo(token, ref).value("merge info") } }
+            pulls.merge(token, ref, MergeMethod.MERGE, deleteBranch = true).value("merge")
+
+            val merged = pulls.mergeInfo(token, ref).value("merged info")
+            System.err.println("GITHUB merged info: $merged")
+            check(merged.deletedBranch?.name == "change" && merged.canRevert) { "merged: $merged" }
+            pulls.restoreBranch(token, ref, merged.deletedBranch!!).value("restore")
+            val restored = send(HttpMethod.Get, "$path/branches/change").getValue("commit").jsonObject.getValue("sha").jsonPrimitive.content
+            check(restored == merged.deletedBranch!!.sha) { "restored at $restored" }
+            check(pulls.mergeInfo(token, ref).value("restored info").deletedBranch == null) { "still offered once restored" }
+
+            val revert = pulls.revert(token, ref).value("revert")
+            System.err.println("GITHUB revert: $revert")
+            check(revert.number > number) { "revert: $revert" }
+
+            val deletion = GitHubRepoSettingsApi(http).delete(token, repo)
+            System.err.println("GITHUB deletion: $deletion")
             left = deletion is ForgeResult.Failure
         } finally {
             if (left) System.err.println("GITHUB scratch repository LEFT, delete it by hand: ${repo.fullName}")

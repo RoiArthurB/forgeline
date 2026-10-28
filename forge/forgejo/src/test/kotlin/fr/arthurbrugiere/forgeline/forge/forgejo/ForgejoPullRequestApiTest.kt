@@ -5,6 +5,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Check
 import fr.arthurbrugiere.forgeline.core.model.CheckState
+import fr.arthurbrugiere.forgeline.core.model.DeletedBranch
 import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -162,6 +163,36 @@ class ForgejoPullRequestApiTest {
 
         assertThat(deleting(headRepo = 1)).isTrue()
         assertThat(deleting(headRepo = 2)).isNull()
+    }
+
+    @Test
+    fun a_merged_pull_request_whose_branch_is_gone_offers_it_back() = runTest {
+        // As Codeberg tells forgejo/forgejo#15069 once merged, its branch deleted (2026-10-28).
+        suspend fun deleted(branchStatus: HttpStatusCode, push: Boolean = true) = with(codeberg) {
+            api { path ->
+                when {
+                    // Its branch deleted, the head names the pull request's own ref, and only the label the branch.
+                    path.endsWith("/pulls/14792") -> json("""{"head":{"sha":"cb7511ae","ref":"refs/pull/14792/head","label":"bp-v17.0/forgejo-cff8e88","repo_id":1},"base":{"sha":"aa","ref":"v17.0/forgejo","repo_id":1},"state":"closed","merged":true}""")
+                    "/branches/" in path -> status(branchStatus)
+                    else -> json("""{"permissions":{"push":$push}}""")
+                }
+            }
+        }.mergeInfo("tok", pull).value().deletedBranch
+
+        assertThat(deleted(HttpStatusCode.NotFound)).isEqualTo(DeletedBranch("bp-v17.0/forgejo-cff8e88", "cb7511ae"))
+        assertThat(codeberg.requests.map { it.url.encodedPath }).contains("$base/branches/bp-v17.0/forgejo-cff8e88")
+        assertThat(deleted(HttpStatusCode.OK)).isNull()
+        assertThat(deleted(HttpStatusCode.NotFound, push = false)).isNull()
+    }
+
+    @Test
+    fun a_deleted_branch_is_made_again_from_the_commit_it_stood_at() = runTest {
+        val result = with(codeberg) { api { json("""{"name":"fix/retry"}""", HttpStatusCode.Created) } }.restoreBranch("tok", pull, DeletedBranch("fix/retry", "cb7511ae"))
+
+        assertThat(result).isEqualTo(ForgeResult.Success(Unit))
+        val request = codeberg.requests.single()
+        assertThat("${request.method.value} ${request.url.encodedPath}").isEqualTo("POST $base/branches")
+        assertThat((request.body as TextContent).text).isEqualTo("""{"new_branch_name":"fix/retry","old_ref_name":"cb7511ae"}""")
     }
 
     @Test

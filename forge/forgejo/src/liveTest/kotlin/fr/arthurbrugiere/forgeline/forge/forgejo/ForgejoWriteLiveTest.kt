@@ -291,6 +291,15 @@ class ForgejoWriteLiveTest {
             val branch = http.get("$api/repos/$owner/$name/branches/change") { header("Authorization", "token $token") }.status
             System.err.println("CODEBERG merged branch: $branch")
             assertWithMessage("branch deleted").that(branch.value).isEqualTo(404)
+
+            // Offered back, made again where it stood, then no longer offered.
+            val deleted = pulls.mergeInfo(token, ref).value("merged info").deletedBranch
+            System.err.println("CODEBERG deleted branch: $deleted")
+            assertWithMessage("deleted branch").that(deleted?.name).isEqualTo("change")
+            pulls.restoreBranch(token, ref, deleted!!).value("restore")
+            val restored = http.get("$api/repos/$owner/$name/branches/change") { header("Authorization", "token $token") }.body<JsonObject>()
+            assertWithMessage("restored where it stood").that(restored["commit"].toString()).contains(deleted.sha)
+            assertWithMessage("no longer offered").that(pulls.mergeInfo(token, ref).value("restored info").deletedBranch).isNull()
         } finally {
             val deleted = http.delete("$api/repos/$owner/$name") { header("Authorization", "token $token") }
             System.err.println("CODEBERG scratch repository $owner/$name deleted: ${deleted.status}")

@@ -11,6 +11,8 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
@@ -20,6 +22,7 @@ import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.Check
 import fr.arthurbrugiere.forgeline.core.model.CheckState
+import fr.arthurbrugiere.forgeline.core.model.DeletedBranch
 import fr.arthurbrugiere.forgeline.core.model.IssueDetails
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
@@ -71,6 +74,8 @@ class PullRequestPanelTest {
         onMerge = { events += "merge:${it.method}${if (it.deleteBranch) ":delete-branch" else ""}${if (it.whenChecksPass) ":when-checks-pass" else ""}" },
         onCancelMergeWhenChecksPass = { events += "unschedule" },
         onUpdateBranch = { events += "update" },
+        onRestoreBranch = { events += "restore" },
+        onRevert = { events += "revert" },
         onDismissReview = { id, message -> events += "dismiss:$id:$message" },
         onReview = { verdict, body -> events += "review:$verdict:$body" },
     )
@@ -294,6 +299,33 @@ class PullRequestPanelTest {
 
         composeRule.onNodeWithText("Review").assertDoesNotExist()
         composeRule.onNodeWithText("Merge").assertDoesNotExist()
+        // Nor anything else, while its branch is there and it can't be undone.
+        composeRule.onNodeWithText("Restore branch").assertDoesNotExist()
+        composeRule.onNodeWithText("Revert").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_merged_pull_request_offers_its_deleted_branch_back_and_a_revert_asked_twice() {
+        val after = signedIn.copy(mergeInfo = mergeable.copy(deletedBranch = DeletedBranch("retry", "abc123"), canRevert = true))
+        setContent(after, open.copy(state = IssueState.MERGED))
+
+        composeRule.assertEveryTargetIsAtLeast48dp()
+        composeRule.onNodeWithText("Restore branch").performClick()
+        composeRule.onNodeWithText("Revert").performClick()
+        // A new pull request is opened on the forge: asked again, saying so.
+        assertThat(events).containsExactly("restore")
+        composeRule.onNodeWithText("A new pull request undoing its changes is opened, to review and merge like any other.").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Revert").onLast().performClick()
+
+        assertThat(events).containsExactly("restore", "revert").inOrder()
+    }
+
+    @Test
+    fun a_closed_pull_request_is_not_reverted() {
+        setContent(signedIn.copy(mergeInfo = mergeable.copy(deletedBranch = DeletedBranch("retry", "abc123"))), open.copy(state = IssueState.CLOSED))
+
+        composeRule.onNodeWithText("Restore branch").assertIsDisplayed()
+        composeRule.onNodeWithText("Revert").assertDoesNotExist()
     }
 
     @Test
