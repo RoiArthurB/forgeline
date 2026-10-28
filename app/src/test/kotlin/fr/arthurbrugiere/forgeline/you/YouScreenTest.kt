@@ -287,4 +287,18 @@ class YouScreenTest {
         // Not "can't reach any of its repositories", which was said of everyone at once.
         composeRule.onNodeWithText("You can't reach any of its repositories.").assertDoesNotExist()
     }
+
+    @Test
+    fun collections_are_a_tap_away_signed_in_or_not() {
+        var opened = 0
+        composeRule.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalOpenCollections provides { opened++ }) {
+                YouScreen(SessionState.SignedOut, onSignIn = {}, onOpenSettings = {})
+            }
+        }
+
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Collections")).performClick()
+
+        com.google.common.truth.Truth.assertThat(opened).isEqualTo(1)
+    }
 }

@@ -1474,6 +1474,35 @@ class ScreenshotTest {
     fun user_light() = snapshot("user_light", darkTheme = false) { UserShot() }
 
     @Test
+    fun collections_light() = snapshot("collections_light", darkTheme = false) {
+        fr.arthurbrugiere.forgeline.collections.CollectionsScreen(
+            state = fr.arthurbrugiere.forgeline.collections.CollectionsUiState(
+                collections = listOf(
+                    fr.arthurbrugiere.forgeline.core.model.RepoCollection("c1", "⛓️ Matrix tools", 4),
+                    fr.arthurbrugiere.forgeline.core.model.RepoCollection("c2", "📱 Used on my Android", 8),
+                    fr.arthurbrugiere.forgeline.core.model.RepoCollection("c3", "Reading list", 0),
+                ),
+                importable = listOf(fr.arthurbrugiere.forgeline.core.model.Account("github:github.com:octocat", fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitHub, ForgeUser("octocat", null, null))),
+            ),
+            onBack = {}, onOpenCollection = {}, onCreate = {}, onImport = {}, onImportShown = {},
+        )
+    }
+
+    @Test
+    fun collection_dark() = snapshot("collection_dark", darkTheme = true) {
+        fr.arthurbrugiere.forgeline.collections.CollectionScreen(
+            state = fr.arthurbrugiere.forgeline.collections.CollectionUiState(
+                "c1", "⛓️ Matrix tools",
+                listOf(
+                    RepoSummary(RepoId("matrix-org", "synapse"), "Synapse: Matrix homeserver written in Python", "Python", 12_000, 2_000, false, null),
+                    RepoSummary(RepoId("forgejo", "forgejo", fr.arthurbrugiere.forgeline.core.model.ForgeInstance.Codeberg), "Beyond coding. We forge.", "Go", 4_100, 500, false, null),
+                ),
+            ),
+            onBack = {}, onOpenRepo = {}, onRename = {}, onRemove = {}, onRestore = {}, onDelete = {},
+        )
+    }
+
+    @Test
     fun user_readme_light() = snapshot("user_readme_light", darkTheme = false, awaitText = "Hi, I'm Mona") {
         UserScreen(
             state = UserUiState(

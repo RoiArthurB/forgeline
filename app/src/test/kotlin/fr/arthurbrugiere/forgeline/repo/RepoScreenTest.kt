@@ -51,6 +51,10 @@ class RepoScreenTest {
 
     private val events = mutableListOf<String>()
 
+    /** What the bookmark does, and whether the repository is in a collection; none outside the app shell. */
+    private var collect: (() -> Unit)? = null
+    private var collected = false
+
     /** For each conversation opened, whether the row said it was a pull request. */
     private val openedAsPullRequest = mutableListOf<Boolean>()
     private val id = RepoId("octo", "repo")
@@ -108,9 +112,29 @@ class RepoScreenTest {
                 onFork = { events += "fork" },
                 onWatchFailureShown = { events += "watch-failure-shown" },
                 onForkErrorShown = { events += "fork-error-shown" },
+                onCollect = collect,
+                collected = collected,
                 nowMillis = 0,
             )
         }
+    }
+
+    @Test
+    fun the_bookmark_puts_the_repository_in_a_collection_and_says_when_it_is_in_one() {
+        collect = { events += "collect" }
+        collected = true
+        setContent(loaded)
+
+        composeRule.onNodeWithContentDescription("Put in a collection").performClick()
+
+        assertThat(events).containsExactly("collect")
+    }
+
+    @Test
+    fun without_collections_there_is_no_bookmark() {
+        setContent(loaded)
+
+        composeRule.onNodeWithContentDescription("Put in a collection").assertDoesNotExist()
     }
 
     @Test

@@ -196,4 +196,27 @@ class GitHubUserApiTest {
         assertThat(api { json("{}") }.contributions(null, "octocat")).isEqualTo(ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unauthorized))
         assertThat(requests).isEmpty()
     }
+
+    @Test
+    fun star_lists_read_with_their_repositories_and_a_long_one_is_read_on() = runTest {
+        val first = """{"data": {"viewer": {"lists": {"nodes": [
+            {"id": "UL_1", "name": "⛓️ Matrix tools", "description": "", "items": {"totalCount": 2, "nodes": [
+                {"__typename": "Repository", "nameWithOwner": "matrix-org/synapse", "description": "Homeserver", "stargazerCount": 12000, "forkCount": 2000, "isFork": false, "isPrivate": false, "primaryLanguage": {"name": "Python"}, "owner": {"avatarUrl": "https://a/m"}},
+                {"__typename": "Gist"}
+            ], "pageInfo": {"hasNextPage": true, "endCursor": "c1"}}}
+        ]}}}}"""
+        val more = """{"data": {"node": {"items": {"totalCount": 2, "nodes": [
+            {"__typename": "Repository", "nameWithOwner": "maunium/stickerpicker", "stargazerCount": 500}
+        ], "pageInfo": {"hasNextPage": false, "endCursor": null}}}}}"""
+        var asked = 0
+
+        val lists = api { json(if (asked++ == 0) first else more) }.starLists("tok").value()
+
+        val list = lists.single()
+        assertThat(list.name).isEqualTo("⛓️ Matrix tools")
+        assertThat(list.description).isNull()
+        assertThat(list.repos.map { it.id.fullName }).containsExactly("matrix-org/synapse", "maunium/stickerpicker").inOrder()
+        assertThat(list.repos.first().language).isEqualTo("Python")
+        assertThat(requests).hasSize(2)
+    }
 }

@@ -305,6 +305,15 @@ class GitHubLiveContractTest {
     }
 
     @Test
+    fun the_signed_in_person_s_star_lists_still_read() = runBlocking {
+        org.junit.Assume.assumeTrue("needs LIVE_TEST_PAT", pat.isNotBlank())
+        val lists = GitHubUserApi(client).starLists(pat)
+        // Whoever the token is may have no list: a success says the query is still accepted.
+        assertWithMessage("lists: $lists").that(lists).isInstanceOf(ForgeResult.Success::class.java)
+        (lists as ForgeResult.Success).value.forEach { list -> assertThat(list.repos.all { it.id.forge == fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitHub }).isTrue() }
+    }
+
+    @Test
     fun a_person_s_contribution_calendar_still_reads() = runBlocking {
         org.junit.Assume.assumeTrue("needs LIVE_TEST_PAT", pat.isNotBlank())
         val contributions = GitHubUserApi(client).contributions(pat, "torvalds")

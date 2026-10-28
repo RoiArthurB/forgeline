@@ -78,6 +78,10 @@ class UserStateDatabaseTest {
         assertThat(state.keptUnreadDao().of("github:github.com:me")).containsExactly("8")
         // And the table the version after added.
         assertThat(state.baselineDao().count("github:github.com:me")).isEqualTo(0)
+        // And the collections, which came at version 4.
+        assertThat(state.collectionDao().observeAll().first()).isEmpty()
+        state.collectionDao().upsert(fr.arthurbrugiere.forgeline.core.data.collections.CollectionEntity("c1", "Tools", 1))
+        assertThat(state.collectionDao().observeAll().first().single().name).isEqualTo("Tools")
         state.close()
     }
 

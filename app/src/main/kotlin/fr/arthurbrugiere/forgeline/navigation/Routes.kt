@@ -191,6 +191,14 @@ data class UserRoute(val host: String, val login: String) : NavKey {
 @Serializable
 data object SearchRoute : NavKey
 
+/** The reader's collections of repositories. */
+@Serializable
+data object CollectionsRoute : NavKey
+
+/** One collection, by its id. */
+@Serializable
+data class CollectionRoute(val id: String) : NavKey
+
 /** Open issues marked for a first contribution, in one's stars and in today's Trending. */
 @Serializable
 data object FirstIssuesRoute : NavKey

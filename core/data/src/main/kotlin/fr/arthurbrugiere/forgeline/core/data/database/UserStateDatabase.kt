@@ -8,6 +8,9 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
+import fr.arthurbrugiere.forgeline.core.data.collections.CollectionDao
+import fr.arthurbrugiere.forgeline.core.data.collections.CollectionEntity
+import fr.arthurbrugiere.forgeline.core.data.collections.CollectionRepoEntity
 import fr.arthurbrugiere.forgeline.core.data.inbox.BaselineDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.BaselineEntity
 import fr.arthurbrugiere.forgeline.core.data.inbox.DoneDao
@@ -25,11 +28,15 @@ import fr.arthurbrugiere.forgeline.core.data.trending.TrendingMeasurementEntity
  * every change to its schema needs a migration.
  */
 @Database(
-    entities = [ReadingMarkEntity::class, DoneEntity::class, TrendingMeasurementEntity::class, KeptUnreadEntity::class, BaselineEntity::class],
-    version = 3,
+    entities = [
+        ReadingMarkEntity::class, DoneEntity::class, TrendingMeasurementEntity::class, KeptUnreadEntity::class, BaselineEntity::class,
+        CollectionEntity::class, CollectionRepoEntity::class,
+    ],
+    version = 4,
     exportSchema = true,
     // 2: the threads kept unread, a table of their own. 3: the accounts whose Inbox has followed the forge's site.
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
+    // 4: the reader's collections of repositories.
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
 )
 abstract class UserStateDatabase : RoomDatabase() {
     abstract fun readingMarkDao(): ReadingMarkDao
@@ -41,6 +48,8 @@ abstract class UserStateDatabase : RoomDatabase() {
     abstract fun baselineDao(): BaselineDao
 
     abstract fun trendingMeasurementDao(): TrendingMeasurementDao
+
+    abstract fun collectionDao(): CollectionDao
 }
 
 const val CACHE_DATABASE = "forgeline.db"

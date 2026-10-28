@@ -80,6 +80,9 @@ abstract class DataModule {
     abstract fun bindSignedOutData(impl: AccountDataCleaner): SignedOutData
 
     @Binds
+    abstract fun bindCollectionsRepository(impl: fr.arthurbrugiere.forgeline.core.data.collections.DefaultCollectionsRepository): fr.arthurbrugiere.forgeline.core.data.collections.CollectionsRepository
+
+    @Binds
     abstract fun bindFirstIssuesRepository(impl: fr.arthurbrugiere.forgeline.core.data.firstissues.DefaultFirstIssuesRepository): fr.arthurbrugiere.forgeline.core.data.firstissues.FirstIssuesRepository
 
     @Binds
@@ -176,6 +179,9 @@ abstract class DataModule {
 
         @Provides
         fun provideTrendingMeasurementDao(database: UserStateDatabase): TrendingMeasurementDao = database.trendingMeasurementDao()
+
+        @Provides
+        fun provideCollectionDao(database: UserStateDatabase): fr.arthurbrugiere.forgeline.core.data.collections.CollectionDao = database.collectionDao()
 
         @Provides
         fun provideClock(): Clock = Clock.systemUTC()

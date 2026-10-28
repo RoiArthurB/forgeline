@@ -747,6 +747,32 @@
     <string name="search_scope_repositories">Repositories</string>
     <string name="search_yours">Yours</string>
     <string name="topic_kicker">Topic</string>
+    <string name="collections_title">Collections</string>
+    <string name="collections_summary">Repositories from any forge, sorted your way and kept on this phone.</string>
+    <string name="collections_loading">Opening your collections</string>
+    <string name="collections_empty_title">No collection yet</string>
+    <string name="collections_empty_body">Name one above, or bring your GitHub lists over below. A repository goes in one from the bookmark at the top of its page.</string>
+    <string name="collections_new">Name a new collection</string>
+    <string name="collections_create">Make the collection</string>
+    <string name="collections_import_title">Bring your lists over</string>
+    <string name="collections_import">Import your %1$s lists</string>
+    <string name="collections_importing">Importing your %1$s lists…</string>
+    <string name="collections_import_summary">As @%1$s. Importing again adds what the lists gained, and leaves your changes here alone.</string>
+    <string name="collections_imported_none">You have no list there yet.</string>
+    <string name="collections_import_failed">The lists didn\'t come: %1$s</string>
+    <string name="collection_edit">Edit the collection</string>
+    <string name="collection_done">Done</string>
+    <string name="collection_name">Name</string>
+    <string name="collection_rename">Rename</string>
+    <string name="collection_remove">Take %1$s out of the collection</string>
+    <string name="collection_removed">%1$s taken out</string>
+    <string name="collection_delete">Delete the collection</string>
+    <string name="collection_delete_title">Delete “%1$s”?</string>
+    <string name="collection_delete_body">Its repositories stay where they are; only this list of them goes.</string>
+    <string name="collection_empty_title">Nothing in it yet</string>
+    <string name="collection_empty_body">Open a repository and tap the bookmark at the top of its page to put it here.</string>
+    <string name="collection_pick">Put in a collection</string>
+    <string name="collection_pick_title">Collections for %1$s</string>
     <string name="user_contributions_busiest">The busiest day was %1$s, with %2$d</string>
     <string name="first_issues_title">First issues</string>
     <string name="first_issues_summary">Open issues marked for a first contribution, in your latest stars and today\'s Trending.</string>
@@ -887,6 +913,18 @@
     <plurals name="user_contributions">
         <item quantity="one">%1$s contribution in the last year</item>
         <item quantity="other">%1$s contributions in the last year</item>
+    </plurals>
+    <plurals name="collections_count">
+        <item quantity="one">%1$d repository</item>
+        <item quantity="other">%1$d repositories</item>
+    </plurals>
+    <plurals name="collections_imported_lists">
+        <item quantity="one">%1$d list imported,</item>
+        <item quantity="other">%1$d lists imported,</item>
+    </plurals>
+    <plurals name="collections_imported_repos">
+        <item quantity="one">%1$d repository added.</item>
+        <item quantity="other">%1$d repositories added.</item>
     </plurals>
     <plurals name="topic_repositories">
         <item quantity="one">%1$s repository</item>

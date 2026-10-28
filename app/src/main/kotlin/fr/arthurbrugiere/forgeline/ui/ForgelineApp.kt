@@ -102,6 +102,7 @@ fun ForgelineApp(
     SoftNavigation(selected = navigator.currentTab, onSelect = navigator::selectTab) {
         CompositionLocalProvider(
             LocalOpenSearch provides { navigator.navigate(SearchKey) },
+            LocalOpenCollections provides { navigator.navigate(fr.arthurbrugiere.forgeline.navigation.CollectionsRoute) },
             LocalOpenFirstIssues provides { navigator.navigate(fr.arthurbrugiere.forgeline.navigation.FirstIssuesRoute) },
             LocalOpenTopic provides { topic -> navigator.navigate(fr.arthurbrugiere.forgeline.navigation.TopicRoute(topic)) },
             LocalOpenRelease provides { repo, tag -> navigator.navigate(repo.releaseRoute(tag)) },
@@ -284,6 +285,15 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
         }
         entry<SignInKey> {
             SignInRoute(onBack = navigator::goBack, onSignedIn = navigator::goBack)
+        }
+        entry<fr.arthurbrugiere.forgeline.navigation.CollectionsRoute> {
+            fr.arthurbrugiere.forgeline.collections.CollectionsRoute(
+                onBack = navigator::goBack,
+                onOpenCollection = { navigator.navigate(fr.arthurbrugiere.forgeline.navigation.CollectionRoute(it)) },
+            )
+        }
+        entry<fr.arthurbrugiere.forgeline.navigation.CollectionRoute> { key ->
+            fr.arthurbrugiere.forgeline.collections.CollectionRoute(key, onBack = navigator::goBack, onOpenRepo = openRepo)
         }
         entry<fr.arthurbrugiere.forgeline.navigation.FirstIssuesRoute> {
             fr.arthurbrugiere.forgeline.firstissues.FirstIssuesRoute(onBack = navigator::goBack, onOpenIssue = openIssue)

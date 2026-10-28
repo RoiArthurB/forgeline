@@ -33,6 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.PersonAdd
@@ -90,6 +91,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.ui.Avatar
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
+import fr.arthurbrugiere.forgeline.ui.LocalOpenCollections
 import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
 import fr.arthurbrugiere.forgeline.ui.RepoSummaryRow
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
@@ -187,9 +189,15 @@ fun YouScreen(
             ) {
                 item(key = "header") {
                     val openSearch = LocalOpenSearch.current
+                    val openCollections = LocalOpenCollections.current
                     SoftHeader(
                         title = stringResource(R.string.tab_you),
                         actions = {
+                            if (openCollections != null) {
+                                SoftIconButton(onClick = openCollections) {
+                                    Icon(Icons.Outlined.Bookmarks, contentDescription = stringResource(R.string.collections_title), tint = Soft.colors.ink)
+                                }
+                            }
                             if (openSearch != null) {
                                 SoftIconButton(onClick = openSearch) {
                                     Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = Soft.colors.ink)

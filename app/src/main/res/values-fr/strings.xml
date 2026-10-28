@@ -732,6 +732,32 @@
     <string name="search_scope_repositories">Dépôts</string>
     <string name="search_yours">Les vôtres</string>
     <string name="topic_kicker">Sujet</string>
+    <string name="collections_title">Collections</string>
+    <string name="collections_summary">Des dépôts de n’importe quelle forge, rangés à votre façon et gardés sur ce téléphone.</string>
+    <string name="collections_loading">Ouverture de vos collections</string>
+    <string name="collections_empty_title">Pas encore de collection</string>
+    <string name="collections_empty_body">Nommez-en une ci-dessus, ou importez vos listes GitHub ci-dessous. Un dépôt y entre depuis le signet en haut de sa page.</string>
+    <string name="collections_new">Nommer une nouvelle collection</string>
+    <string name="collections_create">Créer la collection</string>
+    <string name="collections_import_title">Importer vos listes</string>
+    <string name="collections_import">Importer vos listes %1$s</string>
+    <string name="collections_importing">Import de vos listes %1$s…</string>
+    <string name="collections_import_summary">En tant que @%1$s. Importer à nouveau ajoute ce que les listes ont gagné, sans toucher à vos changements ici.</string>
+    <string name="collections_imported_none">Vous n’avez encore aucune liste là-bas.</string>
+    <string name="collections_import_failed">Les listes ne sont pas venues : %1$s</string>
+    <string name="collection_edit">Modifier la collection</string>
+    <string name="collection_done">Terminé</string>
+    <string name="collection_name">Nom</string>
+    <string name="collection_rename">Renommer</string>
+    <string name="collection_remove">Retirer %1$s de la collection</string>
+    <string name="collection_removed">%1$s retiré</string>
+    <string name="collection_delete">Supprimer la collection</string>
+    <string name="collection_delete_title">Supprimer « %1$s » ?</string>
+    <string name="collection_delete_body">Ses dépôts restent où ils sont ; seule cette liste disparaît.</string>
+    <string name="collection_empty_title">Rien dedans pour l’instant</string>
+    <string name="collection_empty_body">Ouvrez un dépôt et touchez le signet en haut de sa page pour le mettre ici.</string>
+    <string name="collection_pick">Mettre dans une collection</string>
+    <string name="collection_pick_title">Collections pour %1$s</string>
     <string name="user_contributions_busiest">Le jour le plus actif était le %1$s, avec %2$d</string>
     <string name="first_issues_title">Premiers tickets</string>
     <string name="first_issues_summary">Les tickets ouverts marqués pour une première contribution, dans vos dernières étoiles et les Tendances du jour.</string>
@@ -875,6 +901,21 @@
         <item quantity="one">%1$s contribution cette dernière année</item>
         <item quantity="many">%1$s contributions cette dernière année</item>
         <item quantity="other">%1$s contributions cette dernière année</item>
+    </plurals>
+    <plurals name="collections_count">
+        <item quantity="one">%1$d dépôt</item>
+        <item quantity="many">%1$d dépôts</item>
+        <item quantity="other">%1$d dépôts</item>
+    </plurals>
+    <plurals name="collections_imported_lists">
+        <item quantity="one">%1$d liste importée,</item>
+        <item quantity="many">%1$d listes importées,</item>
+        <item quantity="other">%1$d listes importées,</item>
+    </plurals>
+    <plurals name="collections_imported_repos">
+        <item quantity="one">%1$d dépôt ajouté.</item>
+        <item quantity="many">%1$d dépôts ajoutés.</item>
+        <item quantity="other">%1$d dépôts ajoutés.</item>
     </plurals>
     <plurals name="topic_repositories">
         <item quantity="one">%1$s dépôt</item>

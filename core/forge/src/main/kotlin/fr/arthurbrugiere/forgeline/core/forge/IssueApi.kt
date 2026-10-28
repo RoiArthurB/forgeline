@@ -216,6 +216,9 @@ interface UserApi {
 
     suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>>
 
+    /** The lists the person [token] signs in sorted their stars into; only GitHub has them. */
+    suspend fun starLists(token: String): ForgeResult<List<fr.arthurbrugiere.forgeline.core.model.StarList>> = ForgeResult.Failure(ForgeError.Unsupported)
+
     /** What [login] did each day of the last year; unsupported where the forge doesn't tell (or not to [token]). */
     suspend fun contributions(token: String?, login: String): ForgeResult<fr.arthurbrugiere.forgeline.core.model.Contributions> =
         ForgeResult.Failure(ForgeError.Unsupported)

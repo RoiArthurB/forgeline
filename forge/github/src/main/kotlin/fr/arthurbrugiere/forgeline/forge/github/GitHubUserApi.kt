@@ -8,9 +8,11 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ProfileLink
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
+import fr.arthurbrugiere.forgeline.core.model.StarList
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.distinctPlaces
+import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -22,6 +24,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -34,6 +37,33 @@ class GitHubUserApi(
     private val httpClient: HttpClient,
     private val apiBaseUrl: String = "https://api.github.com",
 ) : UserApi {
+
+    // Only GraphQL has the lists. A list's repositories come a hundred at a time; one holding more is read on, to
+    // a thousand.
+    override suspend fun starLists(token: String): ForgeResult<List<StarList>> = forgeCall {
+        httpClient.gitHubGraphQl(apiBaseUrl, token, LISTS_QUERY).map { data ->
+            val lists = data["viewer"]?.jsonObject?.get("lists")?.jsonObject?.get("nodes")?.jsonArray.orEmpty()
+                .map { ForgeJson.decodeFromJsonElement<StarListJson>(it) }
+            lists.map { list ->
+                val repos = list.items.nodes.mapNotNull { it.toSummary() }.toMutableList()
+                var page = list.items.pageInfo
+                var pages = 1
+                while (page.hasNextPage && page.endCursor != null && pages < MAX_LIST_PAGES) {
+                    val variables = buildJsonObject {
+                        put("id", list.id)
+                        put("after", page.endCursor)
+                    }
+                    val more = httpClient.gitHubGraphQl(apiBaseUrl, token, LIST_ITEMS_QUERY, variables)
+                    val items = (more as? ForgeResult.Success)?.value?.get("node")?.jsonObject?.get("items") ?: break
+                    val read = ForgeJson.decodeFromJsonElement<StarListItemsJson>(items)
+                    repos += read.nodes.mapNotNull { it.toSummary() }
+                    page = read.pageInfo
+                    pages++
+                }
+                StarList(list.id, list.name, list.description?.takeIf { it.isNotBlank() }, repos)
+            }
+        }
+    }
 
     // Only GraphQL has the calendar, and GraphQL wants a token: signed out, GitHub's profiles show none.
     override suspend fun contributions(token: String?, login: String): ForgeResult<Contributions> {
@@ -200,3 +230,49 @@ private data class RepoJson(
 
 private const val CONTRIBUTIONS_QUERY =
     "query Contributions(\$login: String!) { user(login: \$login) { contributionsCollection { contributionCalendar { weeks { contributionDays { date contributionCount } } } } } }"
+
+private const val LIST_ITEM_FIELDS =
+    "totalCount nodes { __typename ... on Repository { nameWithOwner description stargazerCount forkCount isFork isPrivate primaryLanguage { name } owner { avatarUrl } } } pageInfo { hasNextPage endCursor }"
+
+private const val LISTS_QUERY = "query StarLists { viewer { lists(first: 100) { nodes { id name description items(first: 100) { $LIST_ITEM_FIELDS } } } } }"
+
+private const val LIST_ITEMS_QUERY =
+    "query StarListItems(\$id: ID!, \$after: String) { node(id: \$id) { ... on UserList { items(first: 100, after: \$after) { $LIST_ITEM_FIELDS } } } }"
+
+/** Ten pages of a hundred: a list longer than that is cut there. */
+private const val MAX_LIST_PAGES = 10
+
+@Serializable
+private data class StarListJson(val id: String, val name: String, val description: String? = null, val items: StarListItemsJson)
+
+@Serializable
+private data class StarListItemsJson(val nodes: List<StarListItemJson> = emptyList(), val pageInfo: PageInfoJson = PageInfoJson())
+
+@Serializable
+private data class PageInfoJson(val hasNextPage: Boolean = false, val endCursor: String? = null)
+
+@Serializable
+private data class NamedJson(val name: String? = null)
+
+@Serializable
+private data class AvatarJson(val avatarUrl: String? = null)
+
+/** A list holds repositories (and, one day perhaps, more): anything else is left out. */
+@Serializable
+private data class StarListItemJson(
+    @SerialName("__typename") val type: String,
+    val nameWithOwner: String? = null,
+    val description: String? = null,
+    val stargazerCount: Int = 0,
+    val forkCount: Int = 0,
+    val isFork: Boolean = false,
+    val isPrivate: Boolean = false,
+    val primaryLanguage: NamedJson? = null,
+    val owner: AvatarJson? = null,
+) {
+    fun toSummary(): RepoSummary? {
+        if (type != "Repository") return null
+        val (owner, name) = nameWithOwner?.split('/')?.takeIf { it.size == 2 } ?: return null
+        return RepoSummary(RepoId(owner, name, ForgeInstance.GitHub), description, primaryLanguage?.name, stargazerCount, forkCount, isFork, null, this.owner?.avatarUrl, isPrivate)
+    }
+}

@@ -449,6 +449,11 @@ class FakeUserApi : UserApi {
 
     override suspend fun starred(token: String?, login: String) = answer(token) { starred[login] ?: emptyList() }
 
+    /** The lists the signed-in person sorted their stars into. */
+    var lists: List<fr.arthurbrugiere.forgeline.core.model.StarList> = emptyList()
+
+    override suspend fun starLists(token: String) = answer(token) { lists }
+
     /** Each person's contributions; one missing is a forge that doesn't tell. */
     val contributions = mutableMapOf<String, fr.arthurbrugiere.forgeline.core.model.Contributions>()
 

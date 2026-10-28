@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -106,6 +108,21 @@ fun RepoRoute(
     val signedIn = session.signedInOn(id.forge)
     var dispatching by rememberSaveable { mutableStateOf(false) }
     val details = state.details
+    val picker = hiltViewModel<fr.arthurbrugiere.forgeline.collections.CollectionPickerViewModel, fr.arthurbrugiere.forgeline.collections.CollectionPickerViewModel.Factory>(
+        key = "collect/${id.key}",
+    ) { it.create(id) }
+    val collections by picker.state.collectAsStateWithLifecycle()
+    var collecting by rememberSaveable { mutableStateOf(false) }
+    if (collecting && details != null) {
+        val summary = details.toSummary()
+        fr.arthurbrugiere.forgeline.collections.CollectionPickerSheet(
+            repoName = details.id.fullName,
+            state = collections,
+            onToggle = { picker.toggle(it, summary) },
+            onCreate = { picker.createWith(it, summary) },
+            onDismiss = { collecting = false },
+        )
+    }
     if (dispatching && details != null) {
         WorkflowDispatchSheet(
             repo = details.id,
@@ -160,8 +177,14 @@ fun RepoRoute(
         onSelectRef = viewModel::selectRef,
         onErrorShown = viewModel::errorShown,
         onStarFailureShown = viewModel::starFailureShown,
+        onCollect = { collecting = true },
+        collected = collections.holding.isNotEmpty(),
     )
 }
+
+/** What a collection keeps of a repository to show its row. */
+private fun fr.arthurbrugiere.forgeline.core.model.RepoDetails.toSummary() =
+    fr.arthurbrugiere.forgeline.core.model.RepoSummary(id, description, language, stars, forks, isFork, null, ownerAvatarUrl)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -210,6 +233,10 @@ fun RepoScreen(
     onFork: () -> Unit = {},
     onWatchFailureShown: () -> Unit = {},
     onForkErrorShown: () -> Unit = {},
+    /** Puts the repository in a collection or out of one; null where collections aren't offered. */
+    onCollect: (() -> Unit)? = null,
+    /** Whether the repository is in at least one collection: its bookmark is filled. */
+    collected: Boolean = false,
     nowMillis: Long = rememberNow(state.issues, state.pulls, state.pinned, state.releases, state.runs),
 ) {
     // Outside the app shell (previews, tests) the wiki opens on its forge.
@@ -302,6 +329,15 @@ fun RepoScreen(
                             if (state.canAdminister && details != null) {
                                 SoftIconButton(onClick = onOpenSettings) {
                                     Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.repo_settings_title), tint = Soft.colors.ink)
+                                }
+                            }
+                            if (onCollect != null && details != null) {
+                                SoftIconButton(onClick = onCollect) {
+                                    Icon(
+                                        if (collected) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                                        contentDescription = stringResource(R.string.collection_pick),
+                                        tint = if (collected) Soft.colors.accent else Soft.colors.ink,
+                                    )
                                 }
                             }
                             ShareLinkButton(id.webUrl, id.fullName)
