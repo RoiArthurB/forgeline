@@ -1,7 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.data.database
 
 import android.content.Context
-import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.flow.first
@@ -18,15 +17,23 @@ import org.robolectric.RobolectricTestRunner
 class UserStateDatabaseTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
-    /** The cache database as versions up to 0.3.0 left it, holding what the reader did. */
-    private fun cacheDatabaseWithState() {
-        val cache = Room.databaseBuilder(context, ForgelineDatabase::class.java, CACHE_DATABASE).allowMainThreadQueries().build()
-        cache.openHelper.writableDatabase.apply {
-            execSQL("INSERT INTO reading_marks (list, itemKey, position, markedAtMillis) VALUES ('feed', 'e42', 1000, 2000)")
-            execSQL("INSERT INTO inbox_done (accountId, threadId, updatedAtMillis) VALUES ('forgejo:codeberg.org:me', '7', 3000)")
-            execSQL("INSERT INTO trending_measurements (host, state, measuredAtMillis) VALUES ('codeberg.org', '{\"days\":3}', 4000)")
+    /**
+     * The cache database as versions up to 0.3.0 left it, holding what the reader did: those tables, written as they
+     * were then (the cache database no longer declares them).
+     */
+    private fun oldCacheDatabase(vararg tables: String = arrayOf("reading_marks", "inbox_done", "trending_measurements")): android.database.sqlite.SQLiteDatabase =
+        android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(context.getDatabasePath(CACHE_DATABASE).apply { parentFile!!.mkdirs() }, null).apply {
+            tables.forEach { execSQL(OLD_TABLES.getValue(it)) }
         }
-        cache.close()
+
+    private fun cacheDatabaseWithState() {
+        oldCacheDatabase().use { cache ->
+            cache.apply {
+                execSQL("INSERT INTO reading_marks (list, itemKey, position, markedAtMillis) VALUES ('feed', 'e42', 1000, 2000)")
+                execSQL("INSERT INTO inbox_done (accountId, threadId, updatedAtMillis) VALUES ('forgejo:codeberg.org:me', '7', 3000)")
+                execSQL("INSERT INTO trending_measurements (host, state, measuredAtMillis) VALUES ('codeberg.org', '{\"days\":3}', 4000)")
+            }
+        }
     }
 
     @Test
@@ -96,14 +103,10 @@ class UserStateDatabaseTest {
 
     @Test
     fun handles_partial_or_missing_tables_in_cache_database_without_failing() = runTest {
-        // Create cache database with only reading_marks table (inbox_done and trending_measurements missing)
-        val cache = Room.databaseBuilder(context, ForgelineDatabase::class.java, CACHE_DATABASE).allowMainThreadQueries().build()
-        cache.openHelper.writableDatabase.apply {
-            execSQL("INSERT INTO reading_marks (list, itemKey, position, markedAtMillis) VALUES ('feed', 'e100', 300, 400)")
-            // Intentionally drop the other table
-            execSQL("DROP TABLE IF EXISTS inbox_done")
+        // A cache database holding reading_marks alone: inbox_done and trending_measurements are missing.
+        oldCacheDatabase("reading_marks").use { cache ->
+            cache.execSQL("INSERT INTO reading_marks (list, itemKey, position, markedAtMillis) VALUES ('feed', 'e100', 300, 400)")
         }
-        cache.close()
 
         val state = userStateDatabase(context) { allowMainThreadQueries() }
 
@@ -116,5 +119,12 @@ class UserStateDatabaseTest {
     private companion object {
         /** Room's exported schemas, one file per version, next to the module's sources. */
         const val SCHEMAS = "schemas/fr.arthurbrugiere.forgeline.core.data.database.UserStateDatabase"
+
+        /** The three tables as the cache database held them until 0.3.0 (its schema 21, the last to declare them). */
+        val OLD_TABLES = mapOf(
+            "reading_marks" to "CREATE TABLE IF NOT EXISTS `reading_marks` (`list` TEXT NOT NULL, `itemKey` TEXT NOT NULL, `position` INTEGER NOT NULL, `markedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`list`))",
+            "inbox_done" to "CREATE TABLE IF NOT EXISTS `inbox_done` (`accountId` TEXT NOT NULL, `threadId` TEXT NOT NULL, `updatedAtMillis` INTEGER NOT NULL, PRIMARY KEY(`accountId`, `threadId`))",
+            "trending_measurements" to "CREATE TABLE IF NOT EXISTS `trending_measurements` (`host` TEXT NOT NULL, `state` TEXT NOT NULL, `measuredAtMillis` INTEGER NOT NULL, PRIMARY KEY(`host`))",
+        )
     }
 }
