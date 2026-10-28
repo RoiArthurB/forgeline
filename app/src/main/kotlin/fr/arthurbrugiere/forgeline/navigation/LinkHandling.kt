@@ -25,6 +25,8 @@ fun openForgeLink(
     onOpenWiki: ((RepoId, String?) -> Unit)? = null,
     /** Null outside the app shell: a commit then opens on its forge. */
     onOpenCommit: ((RepoId, String) -> Unit)? = null,
+    /** Null where a topic's page isn't offered: it then opens on its forge. */
+    onOpenTopic: ((String) -> Unit)? = null,
 ) {
     when (val target = ForgeLinks.routeFor(url)) {
         is RepoRoute -> onOpenRepo(target.repo)
@@ -35,6 +37,7 @@ fun openForgeLink(
         is WikiRoute -> if (onOpenWiki != null) onOpenWiki(target.repo, target.page) else openUrl(url)
         is RunRoute -> if (onOpenRun != null) onOpenRun(target.repo, target.runId) else onOpenRepo(target.repo)
         is UserRoute -> if (target.forge == here) onOpenUser(target.login) else openUrl(url)
+        is TopicRoute -> if (onOpenTopic != null) onOpenTopic(target.topic) else openUrl(url)
         // In-page anchors stay put.
         else -> if (!url.startsWith("#")) openUrl(url)
     }

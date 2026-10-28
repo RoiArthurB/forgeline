@@ -12,5 +12,8 @@ val LocalOpenDiscussion = compositionLocalOf<((RepoId, Int) -> Unit)?> { null }
 /** Opens a page of a repository's wiki (its first when null); null outside the app shell, where the wiki opens on its forge. */
 val LocalOpenWiki = compositionLocalOf<((RepoId, String?) -> Unit)?> { null }
 
+/** Opens a topic's page from a repository's tags; null outside the app shell, where tags aren't tappable. */
+val LocalOpenTopic = compositionLocalOf<((String) -> Unit)?> { null }
+
 /** Opens one commit's changes from anywhere a link names it; null outside the app shell, where it opens on its forge. */
 val LocalOpenCommit = compositionLocalOf<((RepoId, String) -> Unit)?> { null }

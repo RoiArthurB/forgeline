@@ -59,7 +59,8 @@ class ForgeLinksTest {
             "https://github.com/settings/tokens",
             "https://github.com/orgs/square/repositories",
             "https://github.com/marketplace/actions/checkout",
-            "https://github.com/topics/android",
+            // A topic is the exception: it has a page in the app (below).
+            "https://github.com/topics",
             "https://github.com/user-attachments/assets/abc",
             "https://github.com",
         )) {
@@ -323,5 +324,15 @@ class ForgeLinksTest {
         assertThat(ForgeLinks.addressIn(null)).isNull()
         assertThat(ForgeLinks.addressIn("")).isNull()
         assertThat(ForgeLinks.addressIn("just words, and github.com/square/okhttp without its scheme")).isNull()
+    }
+
+    @Test
+    fun a_topic_page_on_each_forge_opens_the_topic() {
+        assertThat(ForgeLinks.routeFor("https://github.com/topics/self-hosted")).isEqualTo(TopicRoute("self-hosted"))
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/explore/projects/topics/selfhosted")).isEqualTo(TopicRoute("selfhosted"))
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/explore/repos?q=self%20hosted&topic=1")).isEqualTo(TopicRoute("self hosted"))
+        // A plain search of Codeberg's, and GitHub's list of topics, aren't one topic.
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/explore/repos?q=selfhosted")).isNull()
+        assertThat(ForgeLinks.routeFor("https://github.com/topics")).isNull()
     }
 }

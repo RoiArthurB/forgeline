@@ -746,6 +746,12 @@
     <string name="search_clear">Clear</string>
     <string name="search_scope_repositories">Repositories</string>
     <string name="search_yours">Yours</string>
+    <string name="topic_kicker">Topic</string>
+    <string name="topic_loading">Finding the topic\'s repositories</string>
+    <string name="topic_error_title">The topic didn\'t load</string>
+    <string name="topic_empty_title">Nothing tagged yet</string>
+    <string name="topic_empty_body">No repository is tagged “%1$s” on these forges.</string>
+    <string name="topic_open">Open the topic %1$s</string>
     <string name="search_everywhere">Everywhere</string>
     <string name="search_scope_issues">Issues &amp; PRs</string>
     <string name="search_scope_users">People</string>
@@ -866,6 +872,10 @@
     <plurals name="issue_pr_commits">
         <item quantity="one">%d commit</item>
         <item quantity="other">%d commits</item>
+    </plurals>
+    <plurals name="topic_repositories">
+        <item quantity="one">%1$s repository</item>
+        <item quantity="other">%1$s repositories</item>
     </plurals>
     <plurals name="search_yours_more">
         <item quantity="one">%1$d more of yours</item>

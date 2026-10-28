@@ -191,6 +191,10 @@ data class UserRoute(val host: String, val login: String) : NavKey {
 @Serializable
 data object SearchRoute : NavKey
 
+/** The repositories tagged [topic], on every forge that can be asked. */
+@Serializable
+data class TopicRoute(val topic: String) : NavKey
+
 fun RepoId.route() = RepoRoute(forge.host, owner, name)
 
 fun RepoId.releaseRoute(tag: String) = ReleaseRoute(forge.host, owner, name, tag)

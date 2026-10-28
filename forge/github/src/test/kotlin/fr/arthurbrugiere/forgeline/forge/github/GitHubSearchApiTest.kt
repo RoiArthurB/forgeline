@@ -138,4 +138,17 @@ class GitHubSearchApiTest {
 
         assertThat(requests.single().url.parameters.contains("sort")).isFalse()
     }
+
+    @Test
+    fun a_topic_is_its_repositories_the_most_starred_first() = runTest {
+        val page = api { json(fixture("repositories"), next) }.topic(null, "Self Hosted").value()
+
+        assertThat(page.items.first().id).isEqualTo(RepoId("evokelektrique", "tunnel-forge"))
+        assertThat(page.nextPage).isEqualTo(2)
+        val url = requests.single().url
+        assertThat(url.encodedPath).isEqualTo("/search/repositories")
+        // Written as GitHub writes its topics.
+        assertThat(url.parameters["q"]).isEqualTo("topic:self-hosted")
+        assertThat(url.parameters["sort"]).isEqualTo("stars")
+    }
 }

@@ -123,6 +123,22 @@ class ForgejoUserApiTest {
     }
 
     @Test
+    fun a_topic_asks_for_repositories_tagged_with_it_the_most_starred_first() = runTest {
+        val api = with(codeberg) { ForgejoSearchApi(client { json(fixture("search_repos.json"), headers = mapOf("X-Total-Count" to "75")) }, ForgeInstance.Codeberg) }
+
+        val page = api.topic(null, "SelfHosted").value()
+
+        assertThat(page.items.first().id.forge).isEqualTo(ForgeInstance.Codeberg)
+        assertThat(page.totalCount).isEqualTo(75)
+        val url = codeberg.requests.single().url
+        assertThat(url.encodedPath).isEqualTo("/api/v1/repos/search")
+        assertThat(url.parameters["q"]).isEqualTo("selfhosted")
+        assertThat(url.parameters["topic"]).isEqualTo("true")
+        assertThat(url.parameters["sort"]).isEqualTo("stars")
+        assertThat(url.parameters["order"]).isEqualTo("desc")
+    }
+
+    @Test
     fun issue_search_results_carry_their_repository() = runTest {
         // The search answers issues like a repository's list, plus each one's repository.
         val issue = """[{"number":3,"title":"Crash","state":"open","created_at":"2026-09-29T15:09:06+02:00","repository":{"owner":"alice","name":"tool"}}]"""

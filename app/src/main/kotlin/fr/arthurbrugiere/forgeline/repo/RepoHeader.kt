@@ -57,6 +57,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.ui.Avatar
+import fr.arthurbrugiere.forgeline.ui.LocalOpenTopic
 
 @Composable
 internal fun RepoHeader(
@@ -103,7 +104,14 @@ internal fun RepoHeader(
         }
         if (details.topics.isNotEmpty()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                details.topics.forEach { SoftTag(it, background = colors.surface) }
+                // Each opens its topic: what else is tagged so, on every forge.
+                val openTopic = LocalOpenTopic.current
+                details.topics.forEach { topic ->
+                    val tap = openTopic?.let { open ->
+                        Modifier.clip(SoftTokens.TagCorner).clickable(role = Role.Button, onClickLabel = stringResource(R.string.topic_open, topic)) { open(topic) }
+                    }
+                    SoftTag(topic, modifier = tap ?: Modifier, background = colors.surface)
+                }
             }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {

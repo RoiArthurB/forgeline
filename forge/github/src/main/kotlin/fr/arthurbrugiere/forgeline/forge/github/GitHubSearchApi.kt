@@ -44,6 +44,13 @@ class GitHubSearchApi(
         }
     }
 
+    // GitHub's topics are lowercase words joined by hyphens; anything else would find nothing.
+    override suspend fun topic(token: String?, topic: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
+        search(token, "repositories", "topic:${topic.trim().lowercase().replace(' ', '-')}", page, sort = "stars").toResult {
+            body<SearchJson<SearchRepoJson>>().toPage(nextPage()) { it.toModel() }
+        }
+    }
+
     // "@me" is whoever the token signs in. Archived repositories are left out: nothing can be done there.
     override suspend fun work(token: String, login: String, kind: WorkKind): ForgeResult<List<IssueSearchResult>> = forgeCall {
         val mine = when (kind) {

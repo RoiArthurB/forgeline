@@ -32,6 +32,11 @@ class FakeSearchApi(private val pageSize: Int = 30) : SearchApi {
 
     override suspend fun users(token: String?, query: String, page: Int) = page("users", token, query, page, users)
 
+    /** What a topic answers, whichever it is. */
+    var topicRepositories: List<RepoSummary> = emptyList()
+
+    override suspend fun topic(token: String?, topic: String, page: Int) = page("topic", token, topic, page, topicRepositories)
+
     /** What each kind of work answers; a kind in [workFailures] fails instead. */
     val work = mutableMapOf<WorkKind, List<IssueSearchResult>>()
     val workFailures = mutableMapOf<WorkKind, ForgeError>()

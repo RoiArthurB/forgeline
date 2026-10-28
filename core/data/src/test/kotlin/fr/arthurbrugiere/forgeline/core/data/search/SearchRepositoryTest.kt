@@ -101,4 +101,34 @@ class SearchRepositoryTest {
         assertThat(api.calls).isEmpty()
         assertThat(repository.forges.first()).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg).inOrder()
     }
+
+    @Test
+    fun a_topic_is_looked_for_on_the_three_public_forges_signed_out() = runTest {
+        val gitlabApi = FakeSearchApi(pageSize = 2).apply { topicRepositories = listOf(repoSummary("c/gl1", forge = ForgeInstance.GitLab)) }
+        clients.put(ForgeInstance.GitLab, FakeForgeClients(search = gitlabApi))
+        api.topicRepositories = listOf(repoSummary("a/gh1"), repoSummary("a/gh2"))
+        codebergApi.topicRepositories = listOf(repoSummary("b/cb1", forge = ForgeInstance.Codeberg))
+
+        val page = (repository.topic("selfhosted") as ForgeResult.Success).value
+
+        assertThat(page.forges).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab).inOrder()
+        assertThat(page.items.map { it.id.fullName }).containsExactly("a/gh1", "b/cb1", "c/gl1", "a/gh2").inOrder()
+        assertThat(codebergApi.tokens).containsExactly(null)
+        assertThat(codebergApi.calls).containsExactly("topic:selfhosted@1")
+    }
+
+    @Test
+    fun a_topic_is_looked_for_on_a_server_signed_in_to_and_on_one_forge_alone() = runTest {
+        val server = ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.FORGEJO, "git.example.org")
+        val serverApi = FakeSearchApi().apply { topicRepositories = listOf(repoSummary("d/mine", forge = server)) }
+        clients.put(server, FakeForgeClients(search = serverApi))
+        accounts.signIn(server, ForgeUser("me", null, null), "t-server")
+
+        assertThat(repository.topicForges.first()).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab, server).inOrder()
+        val page = (repository.topic("selfhosted", only = server) as ForgeResult.Success).value
+
+        assertThat(page.items.map { it.id.fullName }).containsExactly("d/mine")
+        assertThat(serverApi.tokens).containsExactly("t-server")
+        assertThat(api.calls).isEmpty()
+    }
 }

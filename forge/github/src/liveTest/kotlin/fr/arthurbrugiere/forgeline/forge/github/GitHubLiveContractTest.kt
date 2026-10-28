@@ -305,6 +305,15 @@ class GitHubLiveContractTest {
     }
 
     @Test
+    fun a_topic_still_lists_its_repositories_most_starred_first() = runBlocking {
+        val topic = GitHubSearchApi(client).topic(pat.ifBlank { null }, "kotlin")
+        assertWithMessage("topic: $topic").that(topic).isInstanceOf(ForgeResult.Success::class.java)
+        val stars = (topic as ForgeResult.Success).value.items.map { it.stars }
+        assertThat(stars.size).isAtLeast(10)
+        assertThat(stars).isInOrder(Comparator.reverseOrder<Int>())
+    }
+
+    @Test
     fun the_starred_repositories_queries_are_still_accepted() = runBlocking {
         assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
         // The stars are listed over REST, then asked about in aliased GraphQL batches: a query GitHub stops accepting

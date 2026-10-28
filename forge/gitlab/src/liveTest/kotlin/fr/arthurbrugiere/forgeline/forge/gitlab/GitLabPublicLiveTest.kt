@@ -24,6 +24,14 @@ class GitLabPublicLiveTest {
     private fun <T> ForgeResult<T>.value(): T = (this as? ForgeResult.Success)?.value ?: error("$this")
 
     @Test
+    fun a_topic_lists_gitlab_s_projects_tagged_with_it_most_starred_first_signed_out() = runBlocking<Unit> {
+        val page = GitLabSearchApi(http).topic(null, "selfhosted").value()
+
+        assertWithMessage("projects").that(page.items.size).isAtLeast(2)
+        assertWithMessage("stars").that(page.items.map { it.stars }).isInOrder(Comparator.reverseOrder<Int>())
+    }
+
+    @Test
     fun a_merge_request_s_files_commits_and_checks_read_signed_out() = runBlocking<Unit> {
         val pulls = GitLabPullRequestApi(http)
         val open = GitLabRepoApi(http).pullRequests(null, runner, IssueQuery()).value()

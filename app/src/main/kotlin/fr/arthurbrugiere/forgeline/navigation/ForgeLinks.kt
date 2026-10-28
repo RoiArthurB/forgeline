@@ -45,11 +45,25 @@ object ForgeLinks {
 
     private val ADDRESS = Regex("""https?://[^\s<>"]+""", RegexOption.IGNORE_CASE)
 
+    /** A topic's page, as each forge writes it: GitHub's /topics/x, GitLab's /explore/projects/topics/x, Forgejo's explore search. */
+    private fun topicRoute(forge: ForgeInstance, segments: List<String>, uri: URI): TopicRoute? {
+        val topic = when (forge.type) {
+            ForgeType.GITHUB -> segments.getOrNull(1).takeIf { segments.size == 2 && segments[0] == "topics" }
+            ForgeType.GITLAB -> segments.getOrNull(3).takeIf { segments.size == 4 && segments.take(3) == listOf("explore", "projects", "topics") }
+            ForgeType.FORGEJO -> {
+                val query = uri.rawQuery.orEmpty().split('&').mapNotNull { part -> part.split('=', limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] } }.toMap()
+                query["q"].takeIf { segments == listOf("explore", "repos") && query["topic"] in setOf("1", "true") }
+            }
+        }
+        return topic?.let { java.net.URLDecoder.decode(it, Charsets.UTF_8) }?.takeIf { it.isNotBlank() }?.let(::TopicRoute)
+    }
+
     fun routeFor(url: String): NavKey? {
         val uri = runCatching { URI(url) }.getOrNull() ?: return null
         if (uri.scheme !in setOf("http", "https")) return null
         val forge = forgeOf(uri.host) ?: return null
         val segments = uri.path.orEmpty().split('/').filter { it.isNotEmpty() }
+        topicRoute(forge, segments, uri)?.let { return it }
         if (segments.isEmpty() || segments[0].lowercase() in reserved.getValue(forge.type)) return null
         if (segments.size == 1) return UserRoute(forge.host, segments[0])
 

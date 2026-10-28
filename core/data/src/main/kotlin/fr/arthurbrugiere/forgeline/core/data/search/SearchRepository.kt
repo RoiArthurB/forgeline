@@ -40,6 +40,14 @@ class SearchRepository @Inject constructor(
         .map { signedIn -> (listOf(ForgeInstance.GitHub) + signedIn.map { it.forge }).distinct() }
         .distinctUntilChanged()
 
+    /**
+     * The forges a topic is looked for on: the three public ones, which answer signed out, then each other server an
+     * account is signed in to.
+     */
+    val topicForges: Flow<List<ForgeInstance>> = accounts.accounts
+        .map { signedIn -> (PUBLIC_FORGES + signedIn.map { it.forge }).distinct() }
+        .distinctUntilChanged()
+
     // [only] narrows a search to one forge; null searches them all.
 
     suspend fun repositories(query: String, cursor: SearchCursor? = null, only: ForgeInstance? = null): ForgeResult<MergedSearchPage<RepoSummary>> =
@@ -51,6 +59,10 @@ class SearchRepository @Inject constructor(
     suspend fun users(query: String, cursor: SearchCursor? = null, only: ForgeInstance? = null): ForgeResult<MergedSearchPage<UserSummary>> =
         search(cursor, only) { token, page -> users(token, query, page) }
 
+    /** The repositories tagged [topic], each forge's most starred first, interleaved as a search's are. */
+    suspend fun topic(topic: String, cursor: SearchCursor? = null, only: ForgeInstance? = null): ForgeResult<MergedSearchPage<RepoSummary>> =
+        search(cursor, only, topicForges) { token, page -> topic(token, topic, page) }
+
     /**
      * Reads the next page of every forge in [cursor], or the first of every forge. A forge that fails is left out of
      * what follows, so one forge down doesn't stop the others; the search only fails when every forge did.
@@ -58,9 +70,10 @@ class SearchRepository @Inject constructor(
     private suspend fun <T> search(
         cursor: SearchCursor?,
         only: ForgeInstance?,
+        among: Flow<List<ForgeInstance>> = forges,
         fetch: suspend SearchApi.(token: String?, page: Int) -> ForgeResult<SearchPage<T>>,
     ): ForgeResult<MergedSearchPage<T>> {
-        val searched = forges.first().filter { only == null || it == only }.ifEmpty { listOfNotNull(only) }
+        val searched = among.first().filter { only == null || it == only }.ifEmpty { listOfNotNull(only) }
         val pages = cursor?.pages ?: searched.associateWith { 1 }
         val results = coroutineScope {
             pages.map { (forge, page) -> async { forge to clients.search(forge).fetch(accounts.tokenOn(forge), page) } }.awaitAll()
@@ -76,6 +89,10 @@ class SearchRepository @Inject constructor(
                 forges = searched,
             ),
         )
+    }
+
+    private companion object {
+        val PUBLIC_FORGES = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab)
     }
 
     private fun <T> interleave(lists: List<List<T>>): List<T> = buildList {

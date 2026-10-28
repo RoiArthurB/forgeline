@@ -15,6 +15,9 @@ interface SearchApi {
 
     suspend fun users(token: String?, query: String, page: Int = 1): ForgeResult<SearchPage<UserSummary>>
 
+    /** The repositories tagged [topic], the most starred first. */
+    suspend fun topic(token: String?, topic: String, page: Int = 1): ForgeResult<SearchPage<RepoSummary>>
+
     /**
      * The open conversations that are [kind] to the account [token] signs in, known there as [login]: the first
      * page of them, most recently touched first.

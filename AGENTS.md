@@ -3,7 +3,7 @@
 - setup: Android SDK (API 37) in `local.properties` (`sdk.dir=...`); Gradle fetches its own JDK 21
 - build: `./gradlew assembleDebug`
 - test all (what CI runs): `./gradlew spotlessCheck testDebugUnitTest lintDebug assembleDebug --continue`
-- test one module: `./gradlew :core:data:testDebugUnitTest` (or `:app:`, `:forge:github:`, ...)
+- test one module: `./gradlew :core:data:testDebugUnitTest` (or `:app:`, `:core:ui:`, ...); the `forge/*` modules are plain JVM ones: `./gradlew :forge:github:test`
 - test one class or case: `./gradlew :app:testDebugUnitTest --tests "fr.arthurbrugiere.forgeline.feed.FeedViewModelTest"` (append `.methodName` for one case)
 - emulator tests: `./gradlew :app:connectedDebugAndroidTest :core:data:connectedDebugAndroidTest`
 - live contract tests (real forges): `./gradlew :forge:github:liveTest :forge:forgejo:liveTest :forge:gitlab:liveTest --continue`, with `LIVE_TEST_PAT`, `CODEBERG_LIVE_TOKEN`, `GITLAB_LIVE_TOKEN` in the environment; checks without a token are skipped

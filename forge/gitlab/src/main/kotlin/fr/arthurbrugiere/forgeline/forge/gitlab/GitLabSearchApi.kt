@@ -32,6 +32,17 @@ class GitLabSearchApi(
         }
     }
 
+    override suspend fun topic(token: String?, topic: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
+        val response = httpClient.gitlabApi(
+            forge, token, "projects",
+            query = mapOf("topic" to topic.trim(), "order_by" to "star_count", "sort" to "desc", "page" to page.toString(), "per_page" to "$PAGE_SIZE"),
+        )
+        response.toResult {
+            val items = body<List<GitLabProjectJson>>().map { it.toSummary(forge) }
+            SearchPage(items, totalCount() ?: items.size, nextPage())
+        }
+    }
+
     // Through the search endpoint: listing every merge request of gitlab.com that matches (`/merge_requests?scope=all`)
     // times out there (408 after 15 s, measured 2026-10-04), where the search answers in a second or two.
     override suspend fun issues(token: String?, query: String, page: Int): ForgeResult<SearchPage<IssueSearchResult>> = forgeCall {

@@ -48,6 +48,20 @@ class GitLabSearchApiTest {
     }
 
     @Test
+    fun a_topic_lists_the_projects_tagged_with_it_the_most_starred_first() = runTest {
+        val json = """[{"id": 1, "name": "HomelabOS", "path": "HomelabOS", "path_with_namespace": "NickBusey/HomelabOS", "web_url": "https://gitlab.com/NickBusey/HomelabOS", "star_count": 1290}]"""
+
+        val results = api { json(json) }.topic(null, "selfhosted").value()
+
+        assertThat(results.items.single().id.fullName).isEqualTo("NickBusey/HomelabOS")
+        val url = requests.single().url
+        assertThat(url.encodedPath).isEqualTo("/api/v4/projects")
+        assertThat(url.parameters["topic"]).isEqualTo("selfhosted")
+        assertThat(url.parameters["order_by"]).isEqualTo("star_count")
+        assertThat(url.parameters["sort"]).isEqualTo("desc")
+    }
+
+    @Test
     fun searches_issues_and_merge_requests() = runTest {
         val api = api { req ->
             if (req.url.parameters["scope"] == "merge_requests") {

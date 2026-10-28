@@ -165,6 +165,16 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
         }
     }
 
+    // With topic=true, q is matched against topics alone, and whole: "go" doesn't find "golang".
+    override suspend fun topic(token: String?, topic: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
+        val query = params(topic.trim().lowercase(), page) + mapOf("topic" to "true", "sort" to "stars", "order" to "desc")
+        val response = httpClient.forgejoApi(forge, token, "repos", "search", query = query)
+        response.toResult {
+            val items = body<SearchJson<RepoJson>>().data.map { it.toSummary(forge) }
+            SearchPage(items, totalCount() ?: items.size, nextPage())
+        }
+    }
+
     /** Codeberg answered 500 to anonymous issue searches (2026-09-29), so this needs an account there. */
     override suspend fun issues(token: String?, query: String, page: Int): ForgeResult<SearchPage<IssueSearchResult>> = forgeCall {
         val response = httpClient.forgejoApi(forge, token, "repos", "issues", "search", query = params(query, page))

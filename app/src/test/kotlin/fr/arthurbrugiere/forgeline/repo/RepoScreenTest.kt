@@ -62,8 +62,15 @@ class RepoScreenTest {
         readmeContext = context,
     )
 
-    private fun setContent(state: RepoUiState, signedIn: Boolean = true) {
+    private fun setContent(state: RepoUiState, signedIn: Boolean = true, openTopic: ((String) -> Unit)? = null) {
         composeRule.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalOpenTopic provides openTopic) { RepoScreenUnderTest(state, signedIn) }
+        }
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun RepoScreenUnderTest(state: RepoUiState, signedIn: Boolean) {
+        run {
             RepoScreen(
                 state = state,
                 signedIn = signedIn,
@@ -104,6 +111,15 @@ class RepoScreenTest {
                 nowMillis = 0,
             )
         }
+    }
+
+    @Test
+    fun a_topic_tag_opens_its_topic() {
+        setContent(loaded, openTopic = { events += "topic:$it" })
+
+        composeRule.onNodeWithText("kotlin").performClick()
+
+        assertThat(events).containsExactly("topic:kotlin")
     }
 
     @Test

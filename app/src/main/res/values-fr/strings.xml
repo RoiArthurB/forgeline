@@ -731,6 +731,12 @@
     <string name="search_clear">Effacer</string>
     <string name="search_scope_repositories">Dépôts</string>
     <string name="search_yours">Les vôtres</string>
+    <string name="topic_kicker">Sujet</string>
+    <string name="topic_loading">Recherche des dépôts du sujet</string>
+    <string name="topic_error_title">Le sujet ne s’est pas chargé</string>
+    <string name="topic_empty_title">Rien d’étiqueté pour l’instant</string>
+    <string name="topic_empty_body">Aucun dépôt n’est étiqueté « %1$s » sur ces forges.</string>
+    <string name="topic_open">Ouvrir le sujet %1$s</string>
     <string name="search_everywhere">Partout</string>
     <string name="search_scope_issues">Tickets &amp; PR</string>
     <string name="search_scope_users">Personnes</string>
@@ -853,6 +859,11 @@
         <item quantity="one">%d commit</item>
         <item quantity="many">%d commits</item>
         <item quantity="other">%d commits</item>
+    </plurals>
+    <plurals name="topic_repositories">
+        <item quantity="one">%1$s dépôt</item>
+        <item quantity="many">%1$s dépôts</item>
+        <item quantity="other">%1$s dépôts</item>
     </plurals>
     <plurals name="search_yours_more">
         <item quantity="one">%1$d autre des vôtres</item>

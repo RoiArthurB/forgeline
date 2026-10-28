@@ -19,6 +19,15 @@ class ForgejoClientLiveTest {
     private fun <T> ForgeResult<T>.value(): T = (this as? ForgeResult.Success)?.value ?: error("$this")
 
     @Test
+    fun a_topic_lists_codeberg_s_repositories_tagged_with_it_most_starred_first() = runBlocking<Unit> {
+        val page = ForgejoSearchApi(http, ForgeInstance.Codeberg).topic(null, "selfhosted").value()
+
+        assertThat(page.items.size).isAtLeast(2)
+        assertThat(page.items.map { it.stars }).isInOrder(Comparator.reverseOrder<Int>())
+        assertThat(page.nextPage).isEqualTo(2)
+    }
+
+    @Test
     fun a_repository_its_readme_and_refs_read() = runBlocking<Unit> {
         val api = ForgejoRepoApi(http, ForgeInstance.Codeberg)
 
