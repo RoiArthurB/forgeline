@@ -305,6 +305,18 @@ class GitHubLiveContractTest {
     }
 
     @Test
+    fun first_issues_of_several_repositories_come_from_one_search() = runBlocking {
+        val repos = listOf(RepoId("home-assistant", "core"), RepoId("godotengine", "godot"), RepoId("rust-lang", "rust"))
+        val found = GitHubSearchApi(client).firstIssues(pat.ifBlank { null }, repos)
+        assertWithMessage("first issues: $found").that(found).isInstanceOf(ForgeResult.Success::class.java)
+        val issues = (found as ForgeResult.Success).value
+        assertThat(issues).isNotEmpty()
+        assertThat(issues.map { it.repo }.toSet()).isNotEmpty()
+        assertThat(repos).containsAtLeastElementsIn(issues.map { it.repo }.toSet())
+        assertThat(issues.all { result -> result.issue.labels.any { fr.arthurbrugiere.forgeline.core.model.FirstIssueLabels.matches(it.name) } }).isTrue()
+    }
+
+    @Test
     fun a_topic_still_lists_its_repositories_most_starred_first() = runBlocking {
         val topic = GitHubSearchApi(client).topic(pat.ifBlank { null }, "kotlin")
         assertWithMessage("topic: $topic").that(topic).isInstanceOf(ForgeResult.Success::class.java)

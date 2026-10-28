@@ -151,4 +151,29 @@ class GitHubSearchApiTest {
         assertThat(url.parameters["q"]).isEqualTo("topic:self-hosted")
         assertThat(url.parameters["sort"]).isEqualTo("stars")
     }
+
+    @Test
+    fun first_issues_ask_one_search_per_twenty_repositories_newest_first() = runTest {
+        val repos = (1..25).map { RepoId("owner", "repo$it") }
+
+        val found = api { json(fixture("issues")) }.firstIssues(null, repos).value()
+
+        assertThat(requests).hasSize(2)
+        val first = requests[0].url.parameters["q"]!!
+        assertThat(first).startsWith("is:issue is:open archived:false label:\"good first issue\",\"good-first-issue\"")
+        assertThat(Regex("repo:").findAll(first).count()).isEqualTo(20)
+        assertThat(Regex("repo:").findAll(requests[1].url.parameters["q"]!!).count()).isEqualTo(5)
+        assertThat(requests[0].url.parameters["sort"]).isEqualTo("created")
+        assertThat(found.map { it.issue.createdAt }).isInOrder(Comparator.reverseOrder<java.time.Instant>())
+    }
+
+    @Test
+    fun first_issues_keep_what_one_search_found_when_the_other_failed() = runTest {
+        val repos = (1..25).map { RepoId("owner", "repo$it") }
+        var asked = 0
+
+        val found = api { if (asked++ == 0) json(fixture("issues")) else json("{}", status = HttpStatusCode.UnprocessableEntity) }.firstIssues(null, repos)
+
+        assertThat(found).isInstanceOf(ForgeResult.Success::class.java)
+    }
 }

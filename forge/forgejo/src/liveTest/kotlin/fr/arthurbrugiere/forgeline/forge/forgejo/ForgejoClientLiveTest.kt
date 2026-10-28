@@ -19,6 +19,16 @@ class ForgejoClientLiveTest {
     private fun <T> ForgeResult<T>.value(): T = (this as? ForgeResult.Success)?.value ?: error("$this")
 
     @Test
+    fun first_issues_read_under_forgejo_s_own_labels_and_nothing_else() = runBlocking<Unit> {
+        val found = ForgejoSearchApi(http, ForgeInstance.Codeberg).firstIssues(null, listOf(forgejo, RepoId("Codeberg", "Community", ForgeInstance.Codeberg))).value()
+
+        assertThat(found).isNotEmpty()
+        // Codeberg/Community has no such label: none of its issues may slip in.
+        assertThat(found.map { it.repo }.toSet()).containsExactly(forgejo)
+        assertThat(found.all { result -> result.issue.labels.any { fr.arthurbrugiere.forgeline.core.model.FirstIssueLabels.matches(it.name) } }).isTrue()
+    }
+
+    @Test
     fun a_topic_lists_codeberg_s_repositories_tagged_with_it_most_starred_first() = runBlocking<Unit> {
         val page = ForgejoSearchApi(http, ForgeInstance.Codeberg).topic(null, "selfhosted").value()
 

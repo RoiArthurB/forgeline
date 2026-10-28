@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.forge.github
 
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.SearchApi
+import fr.arthurbrugiere.forgeline.core.model.FirstIssueLabels
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
@@ -44,6 +45,22 @@ class GitHubSearchApi(
         }
     }
 
+    // One search for many repositories: the repo: qualifiers don't count toward the query's 256 characters, and twenty
+    // of them answered in under a second (2026-10-28). Asking for no assignee left out 26 of 27: maintainers often
+    // assign a first issue to whoever said they'd take it, and leave it open for the next one.
+    override suspend fun firstIssues(token: String?, repos: List<RepoId>): ForgeResult<List<IssueSearchResult>> = forgeCall {
+        val labels = FirstIssueLabels.searched.joinToString(",") { "\"$it\"" }
+        val answers = repos.distinct().chunked(REPOS_PER_SEARCH).map { chunk ->
+            val query = "is:issue is:open archived:false label:$labels " + chunk.joinToString(" ") { "repo:${it.fullName}" }
+            search(token, "issues", query, page = 1, sort = "created", perPage = FIRST_ISSUES_PER_SEARCH).toResult {
+                body<SearchJson<SearchIssueJson>>().items.mapNotNull { it.toModel() }
+            }
+        }
+        answers.firstOrNull { it is ForgeResult.Success }?.let {
+            ForgeResult.Success(answers.flatMap { answer -> (answer as? ForgeResult.Success)?.value.orEmpty() }.sortedByDescending { it.issue.createdAt })
+        } ?: answers.firstOrNull() ?: ForgeResult.Success(emptyList())
+    }
+
     // GitHub's topics are lowercase words joined by hyphens; anything else would find nothing.
     override suspend fun topic(token: String?, topic: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
         search(token, "repositories", "topic:${topic.trim().lowercase().replace(' ', '-')}", page, sort = "stars").toResult {
@@ -63,11 +80,16 @@ class GitHubSearchApi(
         }
     }
 
-    private suspend fun search(token: String?, what: String, query: String, page: Int, sort: String? = null): HttpResponse =
+    private suspend fun search(token: String?, what: String, query: String, page: Int, sort: String? = null, perPage: Int = 30): HttpResponse =
         httpClient.gitHubApi(
             apiBaseUrl, token, "search", what,
-            query = mapOf("q" to query, "per_page" to "30", "page" to page.toString()) + listOfNotNull(sort?.let { "sort" to it }),
+            query = mapOf("q" to query, "per_page" to "$perPage", "page" to page.toString()) + listOfNotNull(sort?.let { "sort" to it }),
         )
+
+    private companion object {
+        const val REPOS_PER_SEARCH = 20
+        const val FIRST_ISSUES_PER_SEARCH = 50
+    }
 }
 
 @Serializable

@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.StarBorder
+import androidx.compose.material.icons.outlined.VolunteerActivism
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
@@ -107,6 +108,7 @@ import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.ui.Avatar
 import fr.arthurbrugiere.forgeline.ui.LeftOffMark
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
+import fr.arthurbrugiere.forgeline.ui.LocalOpenFirstIssues
 import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
 import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.ReportReading
@@ -240,9 +242,15 @@ fun TrendingScreen(
                 ) {
                     item(key = "header", contentType = "header") {
                         val openSearch = LocalOpenSearch.current
+                        val openFirstIssues = LocalOpenFirstIssues.current
                         SoftHeader(
                             title = stringResource(R.string.tab_trending),
                             actions = {
+                                if (openFirstIssues != null) {
+                                    SoftIconButton(onClick = openFirstIssues) {
+                                        Icon(Icons.Outlined.VolunteerActivism, contentDescription = stringResource(R.string.first_issues_title), tint = Soft.colors.ink)
+                                    }
+                                }
                                 if (openSearch != null) {
                                     SoftIconButton(onClick = openSearch) {
                                         Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.search), tint = Soft.colors.ink)

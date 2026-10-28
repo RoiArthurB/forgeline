@@ -7,6 +7,8 @@ import fr.arthurbrugiere.forgeline.core.data.feed.FeedEventEntity
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewDao
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedPreviewEntity
 import fr.arthurbrugiere.forgeline.core.data.feed.FeedSyncEntity
+import fr.arthurbrugiere.forgeline.core.data.firstissues.FirstIssuesDao
+import fr.arthurbrugiere.forgeline.core.data.firstissues.FirstIssuesEntity
 import fr.arthurbrugiere.forgeline.core.data.inbox.DoneEntity
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxSyncEntity
@@ -39,8 +41,9 @@ import fr.arthurbrugiere.forgeline.core.data.yours.YourReposEntity
         ConversationEntity::class,
         DoneEntity::class,
         YourReposEntity::class,
+        FirstIssuesEntity::class,
     ],
-    version = 20,
+    version = 21,
     exportSchema = true,
 )
 abstract class ForgelineDatabase : RoomDatabase() {
@@ -57,4 +60,6 @@ abstract class ForgelineDatabase : RoomDatabase() {
     abstract fun conversationDao(): ConversationDao
 
     abstract fun yourReposDao(): YourReposDao
+
+    abstract fun firstIssuesDao(): FirstIssuesDao
 }

@@ -24,6 +24,17 @@ class GitLabPublicLiveTest {
     private fun <T> ForgeResult<T>.value(): T = (this as? ForgeResult.Success)?.value ?: error("$this")
 
     @Test
+    fun first_issues_read_under_a_project_s_own_label() = runBlocking<Unit> {
+        // Inkscape marks them "easy-fix".
+        val inkscape = RepoId("inkscape", "inkscape", ForgeInstance.GitLab)
+        val found = GitLabSearchApi(http).firstIssues(token.ifBlank { null }, listOf(inkscape)).value()
+
+        // Its label is on the second page of the project's labels: found, the paging works.
+        assertWithMessage("first issues of inkscape").that(found).isNotEmpty()
+        assertWithMessage("labels").that(found.all { result -> result.issue.labels.any { fr.arthurbrugiere.forgeline.core.model.FirstIssueLabels.matches(it.name) } }).isTrue()
+    }
+
+    @Test
     fun a_topic_lists_gitlab_s_projects_tagged_with_it_most_starred_first_signed_out() = runBlocking<Unit> {
         val page = GitLabSearchApi(http).topic(null, "selfhosted").value()
 

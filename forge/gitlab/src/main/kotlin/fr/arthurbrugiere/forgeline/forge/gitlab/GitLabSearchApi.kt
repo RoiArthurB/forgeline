@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.forge.gitlab
 
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.SearchApi
+import fr.arthurbrugiere.forgeline.core.model.FirstIssueLabels
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -14,7 +15,10 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 
 class GitLabSearchApi(
     private val httpClient: HttpClient,
@@ -30,6 +34,35 @@ class GitLabSearchApi(
             val items = body<List<GitLabProjectJson>>().map { it.toSummary(forge) }
             SearchPage(items, totalCount() ?: items.size, nextPage())
         }
+    }
+
+    // GitLab can't ask for any of several labels (its labels= wants them all), and projects name theirs every way:
+    // each project's labels are read first, then its issues under the first two that mark a first contribution.
+    override suspend fun firstIssues(token: String?, repos: List<RepoId>): ForgeResult<List<IssueSearchResult>> = coroutineScope {
+        val gate = Semaphore(CONCURRENCY)
+        val answers = repos.distinct().map { repo -> async { gate.withPermit { firstIssues(token, repo) } } }.awaitAll()
+        val read = answers.filterIsInstance<ForgeResult.Success<List<IssueSearchResult>>>()
+        if (read.isEmpty() && answers.isNotEmpty()) answers.first() else ForgeResult.Success(read.flatMap { it.value }.sortedByDescending { it.issue.createdAt })
+    }
+
+    private suspend fun firstIssues(token: String?, repo: RepoId): ForgeResult<List<IssueSearchResult>> = forgeCall {
+        // A project inherits its groups' labels, so they can run to pages: Inkscape's "easy-fix" is on the second of two.
+        val names = mutableListOf<String>()
+        var page: Int? = 1
+        while (page != null && page <= MAX_LABEL_PAGES) {
+            val labels = httpClient.gitlabApi(forge, token, "projects", repo.fullName, "labels", query = mapOf("per_page" to "100", "page" to "$page"))
+            if (!labels.status.isSuccess()) return@forgeCall labels.failure()
+            names += labels.body<List<GitLabLabelJson>>().map { it.name }
+            page = labels.nextPage()
+        }
+        val marking = names.filter(FirstIssueLabels::matches).take(2)
+        val found = marking.map { label ->
+            httpClient.gitlabApi(
+                forge, token, "projects", repo.fullName, "issues",
+                query = mapOf("labels" to label, "state" to "opened", "order_by" to "created_at", "sort" to "desc", "per_page" to "$FIRST_ISSUES_PER_REPO"),
+            ).toResult { body<List<GitLabIssueJson>>().map { IssueSearchResult(repo, it.toSummary(repo)) } }
+        }
+        ForgeResult.Success(found.flatMap { (it as? ForgeResult.Success)?.value.orEmpty() }.distinctBy { it.issue.number })
     }
 
     override suspend fun topic(token: String?, topic: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
@@ -143,6 +176,9 @@ class GitLabSearchApi(
     private companion object {
         const val PAGE_SIZE = 30
         const val HALF_PAGE_SIZE = 15
+        const val CONCURRENCY = 4
+        const val FIRST_ISSUES_PER_REPO = 10
+        const val MAX_LABEL_PAGES = 3
         val OPEN = mapOf("state" to "opened", "order_by" to "updated_at", "per_page" to "$PAGE_SIZE")
     }
 }

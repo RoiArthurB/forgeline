@@ -32,6 +32,16 @@ class FakeSearchApi(private val pageSize: Int = 30) : SearchApi {
 
     override suspend fun users(token: String?, query: String, page: Int) = page("users", token, query, page, users)
 
+    /** The first issues each repository has; one missing has none. */
+    val firstIssues = mutableMapOf<fr.arthurbrugiere.forgeline.core.model.RepoId, List<IssueSearchResult>>()
+
+    override suspend fun firstIssues(token: String?, repos: List<fr.arthurbrugiere.forgeline.core.model.RepoId>): ForgeResult<List<IssueSearchResult>> {
+        calls += "first:" + repos.joinToString(",") { it.fullName }
+        tokens += token
+        failure?.let { return ForgeResult.Failure(it) }
+        return ForgeResult.Success(repos.flatMap { firstIssues[it].orEmpty() }.sortedByDescending { it.issue.createdAt })
+    }
+
     /** What a topic answers, whichever it is. */
     var topicRepositories: List<RepoSummary> = emptyList()
 

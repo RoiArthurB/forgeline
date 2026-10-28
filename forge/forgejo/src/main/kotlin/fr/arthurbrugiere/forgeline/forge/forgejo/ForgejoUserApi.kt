@@ -4,6 +4,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.SearchApi
 import fr.arthurbrugiere.forgeline.core.forge.StarApi
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
+import fr.arthurbrugiere.forgeline.core.model.FirstIssueLabels
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
 import fr.arthurbrugiere.forgeline.core.model.ProfileLink
@@ -165,6 +166,34 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
         }
     }
 
+    // A repository's labels are read first (its own and its organisation's): asked for labels it doesn't have, Forgejo
+    // drops them from the filter and lists every issue (seen on Codeberg/Community, 2026-10-28). It takes any of
+    // several, so one request then asks for all those marking a first contribution; what comes is checked again.
+    override suspend fun firstIssues(token: String?, repos: List<RepoId>): ForgeResult<List<IssueSearchResult>> = coroutineScope {
+        val gate = Semaphore(FIRST_ISSUES_CONCURRENCY)
+        val answers = repos.distinct().map { repo -> async { gate.withPermit { firstIssues(token, repo) } } }.awaitAll()
+        val read = answers.filterIsInstance<ForgeResult.Success<List<IssueSearchResult>>>()
+        if (read.isEmpty() && answers.isNotEmpty()) answers.first() else ForgeResult.Success(read.flatMap { it.value }.sortedByDescending { it.issue.createdAt })
+    }
+
+    private suspend fun firstIssues(token: String?, repo: RepoId): ForgeResult<List<IssueSearchResult>> = forgeCall {
+        coroutineScope {
+            val shared = async { httpClient.forgejoApi(forge, token, "orgs", repo.owner, "labels", query = mapOf("limit" to "$PAGE_SIZE")) }
+            val own = httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "labels", query = mapOf("limit" to "$PAGE_SIZE"))
+            if (own.status != HttpStatusCode.OK) {
+                shared.cancel()
+                return@coroutineScope own.failure()
+            }
+            val fromOrganisation = shared.await().takeIf { it.status == HttpStatusCode.OK }?.body<List<LabelJson>>().orEmpty()
+            val marking = (own.body<List<LabelJson>>() + fromOrganisation).map { it.name }.filter(FirstIssueLabels::matches).distinct()
+            if (marking.isEmpty()) return@coroutineScope ForgeResult.Success(emptyList())
+            val query = mapOf("labels" to marking.joinToString(","), "state" to "open", "type" to "issues", "limit" to "$FIRST_ISSUES_PER_REPO")
+            httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "issues", query = query).toResult {
+                body<List<IssueJson>>().map { IssueSearchResult(repo, it.toSummary()) }.filter { found -> found.issue.labels.any { FirstIssueLabels.matches(it.name) } }
+            }
+        }
+    }
+
     // With topic=true, q is matched against topics alone, and whole: "go" doesn't find "golang".
     override suspend fun topic(token: String?, topic: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
         val query = params(topic.trim().lowercase(), page) + mapOf("topic" to "true", "sort" to "stars", "order" to "desc")
@@ -213,6 +242,8 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
 
     private companion object {
         const val PAGE_SIZE = 30
+        const val FIRST_ISSUES_CONCURRENCY = 4
+        const val FIRST_ISSUES_PER_REPO = 10
 
         // Codeberg takes 7 to 11 s to search across every repository for one person's (measured 2026-10-09), which
         // is past the 10 s any other call is given.

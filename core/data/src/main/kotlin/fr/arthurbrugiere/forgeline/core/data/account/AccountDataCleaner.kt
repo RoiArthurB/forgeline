@@ -46,6 +46,7 @@ class AccountDataCleaner @Inject constructor(
     private val users: UserRepository,
     private val drafts: DraftStore,
     private val yourRepos: fr.arthurbrugiere.forgeline.core.data.yours.YourReposDao,
+    private val firstIssues: fr.arthurbrugiere.forgeline.core.data.firstissues.FirstIssuesDao,
     private val responses: ResponseCache = ResponseCache {},
 ) : SignedOutData {
 
@@ -58,6 +59,8 @@ class AccountDataCleaner @Inject constructor(
         conversations.forget(account.forge)
         users.forget(account.forge)
         drafts.forget(account.forge)
+        // Found among the account's stars, some private: looked for again without them.
+        firstIssues.clear()
         // Kept by address, not by account: all of it goes, and what is still wanted is asked again in full.
         responses.clear()
     }

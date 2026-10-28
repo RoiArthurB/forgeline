@@ -747,6 +747,16 @@
     <string name="search_scope_repositories">Repositories</string>
     <string name="search_yours">Yours</string>
     <string name="topic_kicker">Topic</string>
+    <string name="first_issues_title">First issues</string>
+    <string name="first_issues_summary">Open issues marked for a first contribution, in your latest stars and today\'s Trending.</string>
+    <string name="first_issues_all">All</string>
+    <string name="first_issues_starred">Your stars</string>
+    <string name="first_issues_trending">Trending</string>
+    <string name="first_issues_loading">Looking for first issues</string>
+    <string name="first_issues_error_title">First issues didn\'t load</string>
+    <string name="first_issues_refresh_failed">Couldn\'t look again for first issues</string>
+    <string name="first_issues_empty_title">No first issue right now</string>
+    <string name="first_issues_empty_body">None of these repositories has an open issue marked for a first contribution. Star a few projects you like, or look again tomorrow.</string>
     <string name="topic_loading">Finding the topic\'s repositories</string>
     <string name="topic_error_title">The topic didn\'t load</string>
     <string name="topic_empty_title">Nothing tagged yet</string>

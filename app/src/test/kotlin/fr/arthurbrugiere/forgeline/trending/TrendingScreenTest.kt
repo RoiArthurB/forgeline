@@ -62,6 +62,23 @@ class TrendingScreenTest {
     }
 
     @Test
+    fun first_issues_are_a_tap_away_from_the_header() {
+        composeRule.setContent {
+            androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalOpenFirstIssues provides { events += "first-issues" }) {
+                TrendingScreen(
+                    state = TrendingUiState(items = listOf(TrendingItem(paperclip, starred = null))),
+                    onPeriodChange = {}, onRefresh = {}, onToggleStar = {}, onOpenRepo = {}, onErrorShown = {}, onStarFailureShown = {},
+                    nowMillis = 0,
+                )
+            }
+        }
+
+        composeRule.onNode(hasContentDescription("First issues")).performClick()
+
+        assertThat(events).containsExactly("first-issues")
+    }
+
+    @Test
     fun shows_each_repo_with_its_stats() {
         setContent(TrendingUiState(items = listOf(TrendingItem(paperclip, starred = null)), updatedAtMillis = 5 * 60_000L))
 

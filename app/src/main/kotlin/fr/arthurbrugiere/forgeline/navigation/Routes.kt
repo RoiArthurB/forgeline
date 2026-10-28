@@ -191,6 +191,10 @@ data class UserRoute(val host: String, val login: String) : NavKey {
 @Serializable
 data object SearchRoute : NavKey
 
+/** Open issues marked for a first contribution, in one's stars and in today's Trending. */
+@Serializable
+data object FirstIssuesRoute : NavKey
+
 /** The repositories tagged [topic], on every forge that can be asked. */
 @Serializable
 data class TopicRoute(val topic: String) : NavKey

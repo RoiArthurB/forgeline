@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.forge.gitlab
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -45,6 +46,49 @@ class GitLabSearchApiTest {
         assertThat(results.items).hasSize(1)
         assertThat(results.items[0].id.fullName).isEqualTo("group/project-a")
         assertThat(results.items[0].stars).isEqualTo(10)
+    }
+
+    @Test
+    fun first_issues_are_asked_under_the_labels_each_project_gives_them() = runTest {
+        val repo = RepoId("inkscape", "inkscape", fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitLab)
+        val labels = """[{"name": "bug"}, {"name": "easy-fix"}, {"name": "help wanted"}]"""
+        val issues = """[{"id": 9, "iid": 42, "project_id": 3, "title": "Fix a typo", "state": "opened", "created_at": "2026-10-20T10:00:00Z", "web_url": "https://gitlab.com/inkscape/inkscape/-/issues/42", "labels": ["easy-fix"]}]"""
+
+        val found = api { if (it.url.encodedPath.endsWith("/labels")) json(labels) else json(issues) }.firstIssues(null, listOf(repo)).value()
+
+        assertThat(found.single().issue.number).isEqualTo(42)
+        assertThat(found.single().repo).isEqualTo(repo)
+        val asked = requests.single { it.url.encodedPath.endsWith("/issues") }.url
+        assertThat(asked.parameters["labels"]).isEqualTo("easy-fix")
+        assertThat(asked.parameters["state"]).isEqualTo("opened")
+    }
+
+    @Test
+    fun a_project_s_labels_are_read_page_after_page() = runTest {
+        val repo = RepoId("inkscape", "inkscape", fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitLab)
+        val engine = MockEngine { request ->
+            requests += request
+            val page = request.url.parameters["page"]
+            when {
+                request.url.encodedPath.endsWith("/issues") -> respond("[]", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                page == "1" -> respond("""[{"name": "bug"}]""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType to listOf("application/json"), "X-Next-Page" to listOf("2")))
+                else -> respond("""[{"name": "easy-fix"}]""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+            }
+        }
+
+        GitLabSearchApi(gitlabHttpClient(engine)).firstIssues(null, listOf(repo)).value()
+
+        assertThat(requests.single { it.url.encodedPath.endsWith("/issues") }.url.parameters["labels"]).isEqualTo("easy-fix")
+    }
+
+    @Test
+    fun a_project_without_a_first_issue_label_is_asked_nothing_more() = runTest {
+        val repo = RepoId("group", "project", fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitLab)
+
+        val found = api { json("""[{"name": "bug"}]""") }.firstIssues(null, listOf(repo)).value()
+
+        assertThat(found).isEmpty()
+        assertThat(requests).hasSize(1)
     }
 
     @Test

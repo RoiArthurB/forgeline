@@ -123,6 +123,45 @@ class ForgejoUserApiTest {
     }
 
     @Test
+    fun first_issues_ask_for_the_labels_the_repository_and_its_organisation_have() = runTest {
+        val repo = RepoId("forgejo", "forgejo", ForgeInstance.Codeberg)
+        val api = with(codeberg) {
+            ForgejoSearchApi(
+                client {
+                    val path = it.url.encodedPath
+                    when {
+                        path == "/api/v1/orgs/forgejo/labels" -> json("""[{"name": "good first issue"}]""")
+                        path.endsWith("/labels") -> json("""[{"name": "bug/confirmed"}, {"name": "Kind/Good First Issue"}]""")
+                        // A label Forgejo didn't know would have been dropped, and every issue listed: those are left out.
+                        else -> json(
+                            """[
+                            {"number": 1, "title": "Easy one", "state": "open", "created_at": "2026-10-20T10:00:00Z", "labels": [{"name": "good first issue"}]},
+                            {"number": 2, "title": "Unrelated", "state": "open", "created_at": "2026-10-21T10:00:00Z", "labels": [{"name": "bug/confirmed"}]}
+                        ]"""
+                        )
+                    }
+                },
+                ForgeInstance.Codeberg,
+            )
+        }
+
+        val found = api.firstIssues(null, listOf(repo)).value()
+
+        assertThat(found.map { it.issue.number }).containsExactly(1)
+        val asked = codeberg.requests.single { it.url.encodedPath.endsWith("/issues") }.url
+        assertThat(asked.parameters["labels"]).isEqualTo("Kind/Good First Issue,good first issue")
+        assertThat(asked.parameters["type"]).isEqualTo("issues")
+    }
+
+    @Test
+    fun a_repository_without_a_first_issue_label_lists_no_issues() = runTest {
+        val api = with(codeberg) { ForgejoSearchApi(client { if (it.url.encodedPath.startsWith("/api/v1/orgs")) status(HttpStatusCode.NotFound) else json("""[{"name": "bug"}]""") }, ForgeInstance.Codeberg) }
+
+        assertThat(api.firstIssues(null, listOf(RepoId("me", "tool", ForgeInstance.Codeberg))).value()).isEmpty()
+        assertThat(codeberg.requests.none { it.url.encodedPath.endsWith("/issues") }).isTrue()
+    }
+
+    @Test
     fun a_topic_asks_for_repositories_tagged_with_it_the_most_starred_first() = runTest {
         val api = with(codeberg) { ForgejoSearchApi(client { json(fixture("search_repos.json"), headers = mapOf("X-Total-Count" to "75")) }, ForgeInstance.Codeberg) }
 

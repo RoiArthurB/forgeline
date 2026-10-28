@@ -732,6 +732,16 @@
     <string name="search_scope_repositories">Dépôts</string>
     <string name="search_yours">Les vôtres</string>
     <string name="topic_kicker">Sujet</string>
+    <string name="first_issues_title">Premiers tickets</string>
+    <string name="first_issues_summary">Les tickets ouverts marqués pour une première contribution, dans vos dernières étoiles et les Tendances du jour.</string>
+    <string name="first_issues_all">Tous</string>
+    <string name="first_issues_starred">Vos étoiles</string>
+    <string name="first_issues_trending">Tendances</string>
+    <string name="first_issues_loading">Recherche des premiers tickets</string>
+    <string name="first_issues_error_title">Les premiers tickets ne se sont pas chargés</string>
+    <string name="first_issues_refresh_failed">Impossible de chercher à nouveau les premiers tickets</string>
+    <string name="first_issues_empty_title">Aucun premier ticket pour l’instant</string>
+    <string name="first_issues_empty_body">Aucun de ces dépôts n’a de ticket ouvert marqué pour une première contribution. Étoilez quelques projets qui vous plaisent, ou revenez demain.</string>
     <string name="topic_loading">Recherche des dépôts du sujet</string>
     <string name="topic_error_title">Le sujet ne s’est pas chargé</string>
     <string name="topic_empty_title">Rien d’étiqueté pour l’instant</string>

@@ -59,7 +59,7 @@ class AccountDataCleanerTest {
     private val users = DefaultUserRepository(clients, accounts)
     private val drafts = InMemoryDraftStore()
     private val cleaner = AccountDataCleaner(
-        accounts, database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), database.feedDao(), database.repoDao(), database.feedPreviewDao(), conversations, users, drafts, database.yourReposDao(),
+        accounts, database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), database.feedDao(), database.repoDao(), database.feedPreviewDao(), conversations, users, drafts, database.yourReposDao(), database.firstIssuesDao(),
     )
 
     private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)
@@ -110,7 +110,7 @@ class AccountDataCleanerTest {
         var cleared = 0
         val withResponses = AccountDataCleaner(
             accounts, database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), database.feedDao(), database.repoDao(),
-            database.feedPreviewDao(), conversations, users, drafts, database.yourReposDao(), ResponseCache { cleared++ },
+            database.feedPreviewDao(), conversations, users, drafts, database.yourReposDao(), database.firstIssuesDao(), ResponseCache { cleared++ },
         )
         val (_, codeberg) = signInEverywhere()
 
@@ -118,6 +118,16 @@ class AccountDataCleanerTest {
         withResponses.forget(codeberg)
 
         assertThat(cleared).isEqualTo(1)
+    }
+
+    @Test
+    fun signing_out_forgets_the_first_issues_found_among_its_stars() = runTest {
+        val (_, codeberg) = signInEverywhere()
+        database.firstIssuesDao().upsert(fr.arthurbrugiere.forgeline.core.data.firstissues.FirstIssuesEntity(json = "{}", fetchedAtMillis = 1_000))
+
+        signOut(codeberg)
+
+        assertThat(database.firstIssuesDao().get()).isNull()
     }
 
     @Test
