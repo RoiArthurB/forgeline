@@ -41,6 +41,21 @@ class GitHubUserApi(
     // Only GraphQL has the lists. A list's repositories come a hundred at a time; one holding more is read on, to
     // a thousand.
     override suspend fun starLists(token: String): ForgeResult<List<StarList>> = forgeCall {
+        readStarLists(token).map { lists ->
+            // A list's name keeps the emoji codes it was typed with (":goggles: Oculus Quest stuff"); GitHub's site
+            // draws them, so they are written here as the emoji they stand for.
+            if (lists.none { EMOJI_CODE.containsMatchIn(it.name) }) return@map lists
+            val emojis = emojis(token)
+            lists.map { it.copy(name = withEmojis(it.name, emojis)) }
+        }
+    }
+
+    /** GitHub's emoji codes and the characters they stand for; empty when they can't be read now. */
+    private suspend fun emojis(token: String): Map<String, String> = runCatching {
+        httpClient.gitHubApi(apiBaseUrl, token, "emojis").takeIf { it.status == HttpStatusCode.OK }?.body<Map<String, String>>()
+    }.getOrNull().orEmpty().mapNotNull { (code, image) -> emojiOfImage(image)?.let { code to it } }.toMap()
+
+    private suspend fun readStarLists(token: String): ForgeResult<List<StarList>> = forgeCall {
         httpClient.gitHubGraphQl(apiBaseUrl, token, LISTS_QUERY).map { data ->
             val lists = data["viewer"]?.jsonObject?.get("lists")?.jsonObject?.get("nodes")?.jsonArray.orEmpty()
                 .map { ForgeJson.decodeFromJsonElement<StarListJson>(it) }
@@ -275,4 +290,22 @@ private data class StarListItemJson(
         val (owner, name) = nameWithOwner?.split('/')?.takeIf { it.size == 2 } ?: return null
         return RepoSummary(RepoId(owner, name, ForgeInstance.GitHub), description, primaryLanguage?.name, stargazerCount, forkCount, isFork, null, this.owner?.avatarUrl, isPrivate)
     }
+}
+
+private val EMOJI_CODE = Regex(":([a-z0-9_+-]+):")
+
+/** [name] with each emoji code GitHub knows written as its emoji; a code it doesn't know (or its own, like `:octocat:`) stays. */
+internal fun withEmojis(name: String, emojis: Map<String, String>): String =
+    EMOJI_CODE.replace(name) { match -> emojis[match.groupValues[1]] ?: match.value }
+
+/**
+ * The emoji an image of GitHub's names in its file (`.../unicode/1f9d1-1f3ed.png`): its code points, which GitHub
+ * writes without the zero-width joiner a sequence needs. Flags, keycaps and skin tones join without one; any other
+ * sequence (a person and a job, a heart on fire) gets it back. An image of GitHub's own (`octocat.png`) is no emoji.
+ */
+internal fun emojiOfImage(image: String): String? {
+    val name = image.substringAfter("/unicode/", "").substringBefore('.').takeIf { it.isNotEmpty() } ?: return null
+    val points = name.split('-').map { it.toIntOrNull(16) ?: return null }
+    val plain = points.all { it in 0x1F1E6..0x1F1FF } || points.any { it == 0x20E3 || it in 0x1F3FB..0x1F3FF } || points.size == 1
+    return points.joinToString(if (plain) "" else "\u200D") { String(Character.toChars(it)) }
 }

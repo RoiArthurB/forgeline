@@ -219,4 +219,30 @@ class GitHubUserApiTest {
         assertThat(list.repos.first().language).isEqualTo("Python")
         assertThat(requests).hasSize(2)
     }
+
+    @Test
+    fun a_list_s_emoji_codes_are_written_as_the_emoji_they_stand_for() = runTest {
+        val lists = """{"data": {"viewer": {"lists": {"nodes": [
+            {"id": "UL_1", "name": ":goggles: Oculus Quest stuff", "items": {"nodes": [], "pageInfo": {"hasNextPage": false}}},
+            {"id": "UL_2", "name": ":octocat: and :not_an_emoji: stay", "items": {"nodes": [], "pageInfo": {"hasNextPage": false}}}
+        ]}}}}"""
+        val emojis = """{"goggles": "https://github.githubassets.com/images/icons/emoji/unicode/1f97d.png?v8",
+            "octocat": "https://github.githubassets.com/images/icons/emoji/octocat.png?v8"}"""
+
+        val read = api { if (it.url.encodedPath == "/emojis") json(emojis) else json(lists) }.starLists("tok").value()
+
+        assertThat(read.map { it.name }).containsExactly("\uD83E\uDD7D Oculus Quest stuff", ":octocat: and :not_an_emoji: stay").inOrder()
+        assertThat(requests.map { it.url.encodedPath }).containsExactly("/graphql", "/emojis").inOrder()
+    }
+
+    @Test
+    fun an_emoji_is_read_from_the_name_of_github_s_picture_of_it() {
+        assertThat(emojiOfImage("https://github.githubassets.com/images/icons/emoji/unicode/1f97d.png?v8")).isEqualTo("\uD83E\uDD7D")
+        // A flag joins its two letters as they are.
+        assertThat(emojiOfImage("https://github.githubassets.com/images/icons/emoji/unicode/1f1eb-1f1f7.png?v8")).isEqualTo("\uD83C\uDDEB\uD83C\uDDF7")
+        // A sequence gets back the joiner GitHub's file name leaves out.
+        assertThat(emojiOfImage("https://github.githubassets.com/images/icons/emoji/unicode/1f9d1-1f3ed.png?v8")).isEqualTo("\uD83E\uDDD1\u200D\uD83C\uDFED")
+        assertThat(emojiOfImage("https://github.githubassets.com/images/icons/emoji/octocat.png?v8")).isNull()
+        assertThat(withEmojis("⛓️ Matrix tools, no code", emptyMap())).isEqualTo("⛓️ Matrix tools, no code")
+    }
 }
