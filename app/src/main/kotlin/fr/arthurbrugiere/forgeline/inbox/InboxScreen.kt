@@ -6,8 +6,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -26,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -40,6 +43,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -64,6 +68,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSnackbarHost
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSwitch
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
@@ -118,6 +123,7 @@ fun InboxRoute(
         onMarkUnread = viewModel::markUnread,
         onMarkDone = viewModel::markDone,
         onMarkAllDone = viewModel::markAllDone,
+        onMarkFinishedDone = viewModel::markFinishedDone,
         onUnsubscribe = viewModel::unsubscribe,
         onUndo = viewModel::undo,
         onToggleSelected = viewModel::toggleSelected,
@@ -150,6 +156,23 @@ private fun InboxSignedOut(session: SessionState, onSignIn: () -> Unit, onBrowse
 }
 
 /** The Inbox's tinted field: the title, search and, once signed in, the filter switch (each filter its own tint). */
+
+/** How many listed threads are about a conversation that is over, and the way to be done with them all. */
+@Composable
+private fun FinishedRow(count: Int, onMarkDone: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier.fillMaxWidth().padding(start = 20.dp, end = 12.dp, top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            pluralStringResource(R.plurals.inbox_finished, count, count),
+            style = Soft.type.secondary,
+            color = Soft.colors.inkMuted,
+            modifier = Modifier.weight(1f),
+        )
+        SoftTonalButton(stringResource(R.string.inbox_finished_done), onClick = onMarkDone)
+    }
+}
 
 /** Whether rows name their forge: only when accounts span more than one. */
 internal val LocalShowForge = staticCompositionLocalOf { false }
@@ -199,6 +222,8 @@ fun InboxScreen(
     onUndo: (PendingUndo) -> Unit = {},
     /** A repository's heading was swiped away: every thread listed under it is done. */
     onMarkAllDone: (List<NotificationThread>) -> Unit = {},
+    /** Every thread listed about a conversation that is over is done. */
+    onMarkFinishedDone: () -> Unit = {},
     onSelectAccount: (String?) -> Unit = {},
     onMarkUnread: (NotificationThread) -> Unit = {},
     /** A long press picks a thread; from then on a tap picks or lets go, and the bar at the bottom acts on them all. */
@@ -352,6 +377,13 @@ fun InboxScreen(
                             onDismiss = { onDismissHint(hint) },
                             Modifier.widthIn(max = SoftTokens.MaxReadingWidth).padding(start = 16.dp, end = 16.dp, top = 8.dp).animateItem(),
                         )
+                    }
+                }
+                // The threads about what is over, done at once: not while some are being picked, one thing at a time.
+                val finished = state.finished.size
+                if (!yours && finished > 0 && state.selected.isEmpty()) {
+                    item(key = "finished") {
+                        FinishedRow(finished, onMarkFinishedDone, Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem())
                     }
                 }
                 when {

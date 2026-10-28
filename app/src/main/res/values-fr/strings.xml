@@ -40,6 +40,12 @@
     <string name="inbox_undo_read">Marquée comme lue</string>
     <string name="inbox_undo_unread">Marquée comme non lue</string>
     <string name="inbox_undo_done">Marquée comme terminée</string>
+    <plurals name="inbox_finished">
+        <item quantity="one">%d fermée ou fusionnée</item>
+        <item quantity="many">%d fermées ou fusionnées</item>
+        <item quantity="other">%d fermées ou fusionnées</item>
+    </plurals>
+    <string name="inbox_finished_done">Les marquer terminées</string>
     <plurals name="inbox_undo_done_many">
         <item quantity="one">%d marquée comme terminée</item>
         <item quantity="many">%d marquées comme terminées</item>

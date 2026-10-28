@@ -43,6 +43,11 @@
     <string name="inbox_undo_read">Marked as read</string>
     <string name="inbox_undo_unread">Marked as unread</string>
     <string name="inbox_undo_done">Marked as done</string>
+    <plurals name="inbox_finished">
+        <item quantity="one">%d closed or merged</item>
+        <item quantity="other">%d closed or merged</item>
+    </plurals>
+    <string name="inbox_finished_done">Mark them done</string>
     <plurals name="inbox_undo_done_many">
         <item quantity="one">Marked %d as done</item>
         <item quantity="other">Marked %d as done</item>

@@ -75,6 +75,7 @@ class InboxScreenTest {
                     onClearSelection = { events += "pick-none" },
                     onActOnSelected = { events += "selected:$it" },
                     onMarkAllDone = { threads -> events += "all-done:" + threads.joinToString(",") { it.id } },
+                    onMarkFinishedDone = { events += "finished-done" },
                     onDismissHint = { events += "hint:$it" },
                     nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
                 )
@@ -126,6 +127,33 @@ class InboxScreenTest {
         composeRule.onNodeWithText("Open pull request", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("Closed issue", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("Pull request").assertDoesNotExist()
+    }
+
+    @Test
+    fun what_is_over_is_counted_and_done_in_one_tap() {
+        val merged = notificationThread("7", repo = "octo/tools", type = SubjectType.PULL_REQUEST, reason = NotificationReason.SUBSCRIBED).copy(state = SubjectState.MERGED)
+        val open = notificationThread("8", repo = "octo/tools", type = SubjectType.PULL_REQUEST, reason = NotificationReason.SUBSCRIBED).copy(state = SubjectState.OPEN)
+        val closed = notificationThread("9", repo = "octo/tools", type = SubjectType.ISSUE, reason = NotificationReason.SUBSCRIBED).copy(state = SubjectState.CLOSED)
+        setContent(grouped.copy(groups = listOf(SectionGroup(InboxSection.OTHERS, listOf(merged, open, closed)))))
+
+        composeRule.onNodeWithText("2 closed or merged").assertIsDisplayed()
+        composeRule.assertEveryTargetIsAtLeast48dp()
+        composeRule.onNodeWithText("Mark them done").performClick()
+
+        assertThat(events).containsExactly("finished-done")
+    }
+
+    @Test
+    fun nothing_over_says_nothing() {
+        setContent(grouped)
+        composeRule.onNodeWithText("Mark them done").assertDoesNotExist()
+    }
+
+    @Test
+    fun threads_being_picked_leave_what_is_over_for_later() {
+        val merged = notificationThread("7", repo = "octo/tools", reason = NotificationReason.SUBSCRIBED).copy(state = SubjectState.MERGED)
+        setContent(grouped.copy(groups = listOf(SectionGroup(InboxSection.OTHERS, listOf(merged))), selected = setOf(merged.key)))
+        composeRule.onNodeWithText("Mark them done").assertDoesNotExist()
     }
 
     @Test

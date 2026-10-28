@@ -17,6 +17,7 @@ import fr.arthurbrugiere.forgeline.core.model.Hint
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import fr.arthurbrugiere.forgeline.core.model.SwipeAction
 import fr.arthurbrugiere.forgeline.core.model.UndoDelay
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
@@ -107,7 +108,13 @@ data class InboxUiState(
     val threads: List<NotificationThread> get() = groups.flatMap { it.threads }
 
     val selectedThreads: List<NotificationThread> get() = if (selected.isEmpty()) emptyList() else threads.filter { it.key in selected }
+
+    /** What is listed about an issue or a pull request that is over: closed, merged or not planned. */
+    val finished: List<NotificationThread> get() = threads.filter { it.state in FINISHED }
 }
+
+/** The states of a conversation that is over. */
+private val FINISHED = setOf(SubjectState.MERGED, SubjectState.CLOSED, SubjectState.NOT_PLANNED)
 
 @HiltViewModel
 class InboxViewModel @Inject constructor(
@@ -225,6 +232,12 @@ class InboxViewModel @Inject constructor(
 
     /** Marks [threads] done in one go: a repository's, swiped away by its heading. */
     fun markAllDone(threads: List<NotificationThread>) = hold(threads, InboxAction.DONE)
+
+    /**
+     * Marks done every thread listed about a conversation that is over, in one go with one Undo: the forge's own
+     * inbox keeps them, and they have nothing left to ask (#29).
+     */
+    fun markFinishedDone() = hold(state.value.finished, InboxAction.DONE)
 
     fun unsubscribe(thread: NotificationThread) = hold(listOf(thread), InboxAction.UNSUBSCRIBE)
 

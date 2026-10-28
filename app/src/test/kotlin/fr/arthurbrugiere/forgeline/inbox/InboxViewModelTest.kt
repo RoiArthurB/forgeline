@@ -9,6 +9,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.Hint
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
+import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import fr.arthurbrugiere.forgeline.core.model.SwipeAction
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeInboxRepository
@@ -468,6 +469,46 @@ class InboxViewModelTest {
 
         assertThat(inbox.actions).containsExactly("done:10", "done:11")
         assertThat(viewModel.state.value.undo).isNull()
+    }
+
+    @Test
+    fun what_is_about_a_conversation_that_is_over_is_done_at_once() = test {
+        // GitHub's own inbox keeps these: in Forgeline they go in one tap (#29).
+        val merged = mention.copy(state = SubjectState.MERGED)
+        val closed = read.copy(state = SubjectState.CLOSED)
+        val notPlanned = notificationThread("8", repo = "octo/tools", reason = NotificationReason.SUBSCRIBED, updatedAt = "2026-09-27T07:00:00Z").copy(state = SubjectState.NOT_PLANNED)
+        val open = watching.copy(state = SubjectState.OPEN)
+        inbox.set(merged, open, closed, notPlanned)
+        val viewModel = viewModel()
+        viewModel.selectFilter(InboxFilter.ALL)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.finished.map { it.id }).containsExactly("1", "3", "8")
+
+        viewModel.markFinishedDone()
+        runCurrent()
+
+        assertThat(viewModel.state.value.threads.map { it.id }).containsExactly("2")
+        assertThat(viewModel.state.value.finished).isEmpty()
+        // One way back for all of them.
+        assertThat(viewModel.state.value.undo?.keys).containsExactly(merged.key, closed.key, notPlanned.key)
+        advanceTimeBy(InboxViewModel.UNDO_MILLIS + 1)
+        runCurrent()
+        assertThat(inbox.actions).containsExactly("done:1", "done:3", "done:8")
+    }
+
+    @Test
+    fun only_what_is_listed_is_done_with_the_finished() = test {
+        // Unread only: a read one that is over stays, not seen.
+        inbox.set(mention.copy(state = SubjectState.MERGED), read.copy(state = SubjectState.CLOSED))
+        val viewModel = viewModel()
+        viewModel.selectFilter(InboxFilter.UNREAD)
+        advanceUntilIdle()
+
+        viewModel.markFinishedDone()
+        advanceTimeBy(InboxViewModel.UNDO_MILLIS + 1)
+        runCurrent()
+
+        assertThat(inbox.actions).containsExactly("done:1")
     }
 
     @Test
