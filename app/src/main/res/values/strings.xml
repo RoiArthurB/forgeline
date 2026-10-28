@@ -745,6 +745,8 @@
     <string name="search_hint_all">Search your forges</string>
     <string name="search_clear">Clear</string>
     <string name="search_scope_repositories">Repositories</string>
+    <string name="search_yours">Yours</string>
+    <string name="search_everywhere">Everywhere</string>
     <string name="search_scope_issues">Issues &amp; PRs</string>
     <string name="search_scope_users">People</string>
     <string name="search_intro_title">Find anything on %1$s</string>
@@ -864,6 +866,10 @@
     <plurals name="issue_pr_commits">
         <item quantity="one">%d commit</item>
         <item quantity="other">%d commits</item>
+    </plurals>
+    <plurals name="search_yours_more">
+        <item quantity="one">%1$d more of yours</item>
+        <item quantity="other">%1$d more of yours</item>
     </plurals>
     <plurals name="search_results">
         <item quantity="one">%1$s result</item>

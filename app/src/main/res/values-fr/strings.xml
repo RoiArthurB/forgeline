@@ -730,6 +730,8 @@
     <string name="search_hint_all">Rechercher sur vos forges</string>
     <string name="search_clear">Effacer</string>
     <string name="search_scope_repositories">Dépôts</string>
+    <string name="search_yours">Les vôtres</string>
+    <string name="search_everywhere">Partout</string>
     <string name="search_scope_issues">Tickets &amp; PR</string>
     <string name="search_scope_users">Personnes</string>
     <string name="search_intro_title">Trouvez tout sur %1$s</string>
@@ -851,6 +853,11 @@
         <item quantity="one">%d commit</item>
         <item quantity="many">%d commits</item>
         <item quantity="other">%d commits</item>
+    </plurals>
+    <plurals name="search_yours_more">
+        <item quantity="one">%1$d autre des vôtres</item>
+        <item quantity="many">%1$d autres des vôtres</item>
+        <item quantity="other">%1$d autres des vôtres</item>
     </plurals>
     <plurals name="search_results">
         <item quantity="one">%1$s résultat</item>

@@ -8,9 +8,11 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.SearchScope
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
+import fr.arthurbrugiere.forgeline.core.model.YourRepos
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import fr.arthurbrugiere.forgeline.core.testing.FakeSearchApi
+import fr.arthurbrugiere.forgeline.core.testing.FakeYourReposRepository
 import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
 import fr.arthurbrugiere.forgeline.core.testing.repoSummary
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -32,10 +34,21 @@ class SearchViewModelTest {
         users = listOf(UserSummary("octocat", null, isOrganization = false))
     }
 
+    private val yours = FakeYourReposRepository()
+
+    private fun TestScope.signedInWith(vararg repos: String) {
+        yours.stored.value = YourRepos.of(
+            listOf(ForgeUser("me", null, null) to ForgeInstance.GitHub),
+            repos.map { it.split('@').let { parts -> repoSummary(parts[0], forge = if (parts.size > 1) ForgeInstance.Codeberg else ForgeInstance.GitHub) } },
+            emptyList(),
+            1L,
+        )
+    }
+
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
     private fun TestScope.viewModel(saved: SavedStateHandle = SavedStateHandle()) =
-        SearchViewModel(saved, SearchRepository(FakeForgeClients(search = api), FakeAccountRepository())).also { it.state.launchIn(backgroundScope) }
+        SearchViewModel(saved, SearchRepository(FakeForgeClients(search = api), FakeAccountRepository()), yours).also { it.state.launchIn(backgroundScope) }
 
     @Test
     fun nothing_is_searched_until_submitted() = test {
@@ -165,7 +178,7 @@ class SearchViewModelTest {
         }
         val clients = FakeForgeClients(search = api).also { it.put(ForgeInstance.Codeberg, FakeForgeClients(search = codebergApi)) }
         val accounts = FakeAccountRepository().apply { signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "t") }
-        val viewModel = SearchViewModel(SavedStateHandle(), SearchRepository(clients, accounts)).also { it.state.launchIn(backgroundScope) }
+        val viewModel = SearchViewModel(SavedStateHandle(), SearchRepository(clients, accounts), yours).also { it.state.launchIn(backgroundScope) }
         viewModel.onQueryChange("tool")
 
         viewModel.submit()
@@ -194,7 +207,7 @@ class SearchViewModelTest {
         val clients = FakeForgeClients(search = api).also { it.put(ForgeInstance.Codeberg, FakeForgeClients(search = codebergApi)) }
         val accounts = FakeAccountRepository().apply { signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "t") }
         val saved = SavedStateHandle()
-        val viewModel = SearchViewModel(saved, SearchRepository(clients, accounts)).also { it.state.launchIn(backgroundScope) }
+        val viewModel = SearchViewModel(saved, SearchRepository(clients, accounts), yours).also { it.state.launchIn(backgroundScope) }
         viewModel.onQueryChange("tool")
         viewModel.submit()
         advanceUntilIdle()
@@ -212,5 +225,56 @@ class SearchViewModelTest {
         advanceUntilIdle()
         assertThat(viewModel.state.value.results.items).hasSize(3)
         assertThat(api.calls).containsExactly("repos:tool@1", "repos:tool@1")
+    }
+
+    @Test
+    fun one_s_own_repositories_match_as_it_is_typed_without_asking_the_forge() = test {
+        signedInWith("me/rocket-site", "me/notes", "acme/rocket")
+        val viewModel = viewModel()
+
+        viewModel.onQueryChange("r")
+        advanceUntilIdle()
+        // A single letter matches too much to be worth it.
+        assertThat(viewModel.state.value.yours).isEmpty()
+
+        viewModel.onQueryChange("rocket")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.yours.map { it.id.fullName }).containsExactly("me/rocket-site", "acme/rocket")
+        assertThat(api.calls).isEmpty()
+    }
+
+    @Test
+    fun the_forge_s_results_leave_out_what_was_already_shown_as_one_s_own() = test {
+        signedInWith("acme/rocket")
+        val viewModel = viewModel()
+        viewModel.onQueryChange("rocket")
+
+        viewModel.submit()
+        advanceUntilIdle()
+
+        val state = viewModel.state.value
+        assertThat(state.results.items.map { (it as SearchResult.Repository).repo.id.fullName }).contains("acme/rocket")
+        assertThat(state.forgeItems.map { (it as SearchResult.Repository).repo.id.fullName }).doesNotContain("acme/rocket")
+        assertThat(state.yours.map { it.id.fullName }).containsExactly("acme/rocket")
+    }
+
+    @Test
+    fun one_s_own_show_only_for_repositories_and_the_forge_picked() = test {
+        signedInWith("me/rocket", "me/rocket-mirror@codeberg")
+        val accounts = FakeAccountRepository().apply { signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "t") }
+        val clients = FakeForgeClients(search = api).also { it.put(ForgeInstance.Codeberg, FakeForgeClients(search = FakeSearchApi())) }
+        val viewModel = SearchViewModel(SavedStateHandle(), SearchRepository(clients, accounts), yours).also { it.state.launchIn(backgroundScope) }
+        viewModel.onQueryChange("rocket")
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.yours).hasSize(2)
+
+        viewModel.selectForge(ForgeInstance.Codeberg)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.yours.map { it.id.fullName }).containsExactly("me/rocket-mirror")
+
+        viewModel.selectScope(SearchScope.USERS)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.yours).isEmpty()
     }
 }

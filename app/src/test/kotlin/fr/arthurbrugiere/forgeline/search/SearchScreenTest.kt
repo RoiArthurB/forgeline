@@ -263,4 +263,27 @@ class SearchScreenTest {
         setContent(loaded(SearchResult.Repository(repoSummary("acme/rocket")), SearchResult.Repository(repoSummary("octo/tools")), total = 40, more = true))
         composeRule.assertEveryTargetIsAtLeast48dp()
     }
+
+    @Test
+    fun one_s_own_come_first_a_few_then_the_rest_when_asked() {
+        val yours = listOf("me/rocket-site", "me/rocket-docs", "me/rocket-app", "me/rocket-old").map { repoSummary(it) }
+        setContent(SearchUiState("rocket", yours = yours))
+
+        composeRule.onNodeWithText("Yours").assertIsDisplayed()
+        composeRule.onNodeWithText("me/rocket-old", substring = true).assertDoesNotExist()
+        // Before submit, the forges aren't asked: no "how to search" notice under one's own.
+        composeRule.onNodeWithText("Everywhere").assertDoesNotExist()
+        composeRule.onNodeWithText("1 more of yours").performClick()
+        composeRule.onNodeWithText("me/rocket-old", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun after_submit_the_forges_results_follow_one_s_own() {
+        setContent(loaded(SearchResult.Repository(repoSummary("acme/rocket"))).copy(yours = listOf(repoSummary("me/rocket-site"))))
+
+        composeRule.onNodeWithText("Yours").assertIsDisplayed()
+        composeRule.onNodeWithText("Everywhere").assertIsDisplayed()
+        composeRule.onNodeWithText("me/rocket-site", substring = true).performClick()
+        assertThat(events).containsExactly("repo:me/rocket-site")
+    }
 }

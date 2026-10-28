@@ -7,6 +7,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.search.MergedSearchPage
 import fr.arthurbrugiere.forgeline.core.data.search.SearchCursor
 import fr.arthurbrugiere.forgeline.core.data.search.SearchRepository
+import fr.arthurbrugiere.forgeline.core.data.yours.YourReposRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -14,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.SearchScope
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
+import fr.arthurbrugiere.forgeline.core.model.matches
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -56,12 +58,25 @@ data class SearchUiState(
     val forges: List<ForgeInstance> = emptyList(),
     /** The one forge searched, or null for all of them. */
     val onlyForge: ForgeInstance? = null,
-)
+    /**
+     * The repositories one's accounts reach that match what is typed, found on the phone as it is typed: shown before
+     * the forges' results, which then leave them out.
+     */
+    val yours: List<RepoSummary> = emptyList(),
+) {
+    /** What the forges found, less the repositories already shown as one's own. */
+    val forgeItems: List<SearchResult> by lazy {
+        if (yours.isEmpty()) return@lazy results.items
+        val ids = yours.mapTo(HashSet()) { it.id }
+        results.items.filterNot { it is SearchResult.Repository && it.repo.id in ids }
+    }
+}
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
     private val savedState: SavedStateHandle,
     private val search: SearchRepository,
+    yourRepos: YourReposRepository,
 ) : ViewModel() {
 
     private val query = savedState.getStateFlow(QUERY_KEY, "")
@@ -76,9 +91,15 @@ class SearchViewModel @Inject constructor(
     private val forges = search.forges.stateIn(viewModelScope, SharingStarted.Eagerly, listOf(ForgeInstance.GitHub))
     private val onlyForge: ForgeInstance? get() = onlyHost.value?.let { host -> forges.value.firstOrNull { it.host == host } }
 
+    // Matched on the phone as it is typed: a search of the forges waits for submit, these cost nothing.
+    private val yours = combine(query, scope, yourRepos.observe(), onlyHost) { query, scope, yours, host ->
+        if (scope != SearchScope.REPOSITORIES || query.trim().length < MIN_YOURS_QUERY || yours == null) return@combine emptyList()
+        yours.repos.filter { (host == null || it.id.forge.host == host) && it.matches(query) }
+    }
+
     val state: StateFlow<SearchUiState> = combine(query, scope, results, forges, onlyHost) { query, scope, results, forges, host ->
         SearchUiState(query, scope, results[scope] ?: ScopeResults(), forges, forges.firstOrNull { it.host == host })
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchUiState(query.value, scope.value))
+    }.combine(yours) { state, yours -> state.copy(yours = yours) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchUiState(query.value, scope.value))
 
     init {
         if (submitted != null) load(scope.value, cursor = null)
@@ -160,6 +181,8 @@ class SearchViewModel @Inject constructor(
         }
 
     private companion object {
+        /** One letter matches half of everything: one's own show from the second. */
+        const val MIN_YOURS_QUERY = 2
         const val QUERY_KEY = "query"
         const val SUBMITTED_KEY = "submitted"
         const val SCOPE_KEY = "scope"

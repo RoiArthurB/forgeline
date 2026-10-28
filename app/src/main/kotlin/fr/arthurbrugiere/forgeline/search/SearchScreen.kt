@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicTextField
@@ -28,6 +29,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SearchOff
@@ -39,7 +41,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,6 +77,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftNotice
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSectionTitle
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSwitch
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
@@ -204,9 +210,13 @@ fun SearchScreen(
                     NavigationRow(Icons.Outlined.Link, stringResource(R.string.search_open_link), { onOpenLink(link) }, summary = state.query.trim())
                 }
             }
+            if (state.yours.isNotEmpty() && link == null) yours(state, onOpenRepo)
+            val items = state.forgeItems
             when {
                 // The address stands for itself: nothing more to explain under it.
                 !results.submitted && link != null -> Unit
+                // One's own repositories answer already: the forges are asked on submit.
+                !results.submitted && state.yours.isNotEmpty() -> Unit
                 !results.submitted -> item(key = "intro") {
                     val target = state.searchTarget()
                     SoftNotice(
@@ -215,10 +225,10 @@ fun SearchScreen(
                         stringResource(if (target == ForgeInstance.GitHub) R.string.search_intro_body else R.string.search_intro_body_forgejo),
                     )
                 }
-                results.items.isEmpty() && results.isLoading -> item(key = "loading") {
+                items.isEmpty() && results.isLoading -> item(key = "loading") {
                     SoftLoadingRows(stringResource(R.string.search_loading), rows = 4)
                 }
-                results.items.isEmpty() && results.error != null -> item(key = "error") {
+                items.isEmpty() && results.error != null -> item(key = "error") {
                     SoftNotice(
                         stringResource(R.string.search_error_title),
                         stringResource(results.error.message),
@@ -226,10 +236,13 @@ fun SearchScreen(
                         onAction = onRetry,
                     )
                 }
-                results.items.isEmpty() -> item(key = "empty") {
+                // Everything found was one's own, already shown.
+                items.isEmpty() && state.yours.isNotEmpty() -> Unit
+                items.isEmpty() -> item(key = "empty") {
                     SoftNotice(stringResource(R.string.search_empty_title), stringResource(R.string.search_empty_body, results.query.orEmpty()), icon = Icons.Outlined.SearchOff)
                 }
                 else -> {
+                    if (state.yours.isNotEmpty()) item(key = "everywhere") { SoftSectionTitle(stringResource(R.string.search_everywhere)) }
                     results.totalCount?.let { total ->
                         item(key = "count") {
                             Text(
@@ -241,7 +254,7 @@ fun SearchScreen(
                         }
                     }
                     // Keyed by position: GitHub search pages can repeat an item across pages.
-                    itemsIndexed(results.items, key = { index, _ -> index }, contentType = { _, item -> item::class }) { _, item ->
+                    itemsIndexed(items, key = { index, _ -> index }, contentType = { _, item -> item::class }) { _, item ->
                         // Which forge, once more than one is searched.
                         fun ForgeInstance.named() = takeIf { results.showForge }
                         when (item) {
@@ -275,6 +288,25 @@ fun SearchScreen(
         SoftStatusBarScrim(scrolled)
     }
 }
+
+/** One's own repositories matching what is typed: a few, and the rest when asked. */
+private fun LazyListScope.yours(state: SearchUiState, onOpenRepo: (RepoId) -> Unit) {
+    item(key = "yours-title") { SoftSectionTitle(stringResource(R.string.search_yours)) }
+    item(key = "yours") {
+        // A new query folds them again.
+        var expanded by rememberSaveable(state.query) { mutableStateOf(false) }
+        val shown = if (expanded) state.yours else state.yours.take(YOURS_FOLDED)
+        val showForge = state.forges.size > 1
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            shown.forEach { repo -> RepoSummaryRow(repo, onOpenRepo, forge = repo.id.forge.takeIf { showForge }, highlight = state.query) }
+            val more = state.yours.size - shown.size
+            if (more > 0) NavigationRow(Icons.Outlined.ExpandMore, pluralStringResource(R.plurals.search_yours_more, more, more), { expanded = true })
+        }
+    }
+}
+
+/** How many of one's own repositories show before "more". */
+private const val YOURS_FOLDED = 3
 
 /** The query in the one text field, on the ground over the lilac field: a search glyph and a clear button. */
 @Composable
