@@ -150,6 +150,10 @@ enum class ConversationEvent {
 
     /** GitHub moved the issue to Discussions: the conversation goes on there. */
     CONVERTED_TO_DISCUSSION,
+
+    /** The branch a pull request came from was deleted, or made again where it was. */
+    BRANCH_DELETED,
+    BRANCH_RESTORED,
 }
 
 enum class ReviewState { APPROVED, CHANGES_REQUESTED, COMMENTED, DISMISSED }
@@ -206,7 +210,7 @@ sealed interface TimelineItem {
 
     /**
      * [subject] is who was assigned or unassigned, the milestone's title, the day it is due (ISO), or the conversation
-     * depended on ("#12 Its title"); null for the other events.
+     * depended on ("#12 Its title"), the branch deleted or restored where the forge names it; null for the other events.
      */
     data class Event(val event: ConversationEvent, val actor: ForgeUser?, val subject: String?, override val createdAt: Instant) : TimelineItem
 

@@ -604,6 +604,25 @@ class IssueScreenTest {
         ).forEach { sentence -> reach(hasText(sentence, substring = true)) }
     }
 
+    @Test
+    fun a_deleted_branch_is_named_even_where_the_forge_does_not_name_it() {
+        fun event(event: ConversationEvent, subject: String? = null) = TimelineItem.Event(event, ForgeUser("maintainer", null, null), subject, at)
+        val pull = issueDetails(ref, "Fix it").copy(pullRequest = PullRequestInfo(false, true, "main", "fix/it", 12, 3, 2, 1))
+        setContent(
+            opened.copy(
+                issue = pull,
+                // GitHub names no branch: the pull request's own is meant. Forgejo names it.
+                items = listOf(event(ConversationEvent.BRANCH_DELETED), event(ConversationEvent.BRANCH_RESTORED), event(ConversationEvent.BRANCH_DELETED, "fix/old-name")),
+            ),
+        )
+
+        listOf(
+            "maintainer deleted the branch fix/it",
+            "maintainer restored the branch fix/it",
+            "maintainer deleted the branch fix/old-name",
+        ).forEach { sentence -> reach(hasText(sentence, substring = true)) }
+    }
+
     /**
      * Lets [millis] pass frame by frame and no faster than a real clock, the main thread taking what other threads
      * have finished in between, as on a device. Comments are read off the main thread: a test clock that runs ahead

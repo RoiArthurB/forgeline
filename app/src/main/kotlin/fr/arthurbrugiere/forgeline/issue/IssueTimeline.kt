@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.CallMerge
+import androidx.compose.material.icons.automirrored.outlined.CallSplit
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.Check
@@ -81,6 +82,8 @@ internal fun TimelineEntry(
     editor: (@Composable () -> Unit)? = null,
     /** Dismisses a review that gave a verdict, by its id; null for whoever may not. */
     onDismissReview: ((Long) -> Unit)? = null,
+    /** The branch a pull request came from, for the events that don't name it. */
+    headRef: String? = null,
     menuFor: (TimelineItem.Comment) -> CommentMenu? = { null },
 ) {
     val colors = Soft.colors
@@ -187,6 +190,8 @@ internal fun TimelineEntry(
                 ConversationEvent.DEPENDENCY_ADDED -> Icons.Outlined.AccountTree to stringResource(R.string.issue_dependency_added_event, who, subject, time)
                 ConversationEvent.DEPENDENCY_REMOVED -> Icons.Outlined.AccountTree to stringResource(R.string.issue_dependency_removed_event, who, subject, time)
                 ConversationEvent.CONVERTED_TO_DISCUSSION -> Icons.Outlined.Forum to stringResource(R.string.issue_converted_event, who, time)
+                ConversationEvent.BRANCH_DELETED -> Icons.AutoMirrored.Outlined.CallSplit to stringResource(R.string.issue_branch_deleted_event, who, item.subject ?: headRef.orEmpty(), time)
+                ConversationEvent.BRANCH_RESTORED -> Icons.AutoMirrored.Outlined.CallSplit to stringResource(R.string.issue_branch_restored_event, who, item.subject ?: headRef.orEmpty(), time)
             }
             EventLine(icon, text)
         }

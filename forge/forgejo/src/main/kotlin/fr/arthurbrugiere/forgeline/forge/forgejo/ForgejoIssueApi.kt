@@ -601,7 +601,9 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
                     at,
                 )
             }
-            // Review requests, pushes, branch deletions... are noise in a conversation, as on GitHub.
+            // The comment of a deleted branch names it.
+            "delete_branch" -> TimelineItem.Event(ConversationEvent.BRANCH_DELETED, actor, oldRef?.ifBlank { null }, at)
+            // Review requests, pushes... are noise in a conversation, as on GitHub.
             else -> null
         }
     }
@@ -818,6 +820,7 @@ private data class TimelineJson(
     @SerialName("old_milestone") val oldMilestone: MilestoneJson? = null,
     @SerialName("dependent_issue") val dependentIssue: RefIssueJson? = null,
     @SerialName("ref_commit_sha") val refCommitSha: String? = null,
+    @SerialName("old_ref") val oldRef: String? = null,
 )
 
 /** A commit reference's body: `<a href="/owner/name/commit/sha">its first line</a>`. */

@@ -133,11 +133,33 @@ class GitHubIssueApiTest {
         assertThat(review.state).isEqualTo(ReviewState.COMMENTED)
         assertThat(review.body).isNull()
         assertThat(review.createdAt).isEqualTo(Instant.parse("2026-09-27T02:03:32Z"))
-        assertThat(items.filterIsInstance<TimelineItem.StateChanged>().map { it.change })
-            .containsExactly(StateChange.MERGED, StateChange.CLOSED).inOrder()
+        // GitHub writes a close a second after the merge: only the merge is told, as on GitHub's page (#26).
+        assertThat(items.filterIsInstance<TimelineItem.StateChanged>().map { it.change }).containsExactly(StateChange.MERGED)
+        // Then the branch deleted, which GitHub doesn't name.
+        val deleted = items.filterIsInstance<TimelineItem.Event>().single()
+        assertThat(deleted.event).isEqualTo(ConversationEvent.BRANCH_DELETED)
+        assertThat(deleted.subject).isNull()
+        assertThat(deleted.actor?.login).isEqualTo("cryppadotta")
         val commit = items.filterIsInstance<TimelineItem.Committed>().first()
         assertThat(commit.message).startsWith("fix(runner): acquire reusable leases")
         assertThat(commit.createdAt).isNotNull()
+    }
+
+    @Test
+    fun a_pull_request_closed_then_reopened_and_merged_keeps_its_close() = runTest {
+        val events = """[
+          {"event":"closed","actor":{"login":"a"},"created_at":"2026-01-01T00:00:00Z"},
+          {"event":"reopened","actor":{"login":"a"},"created_at":"2026-01-02T00:00:00Z"},
+          {"event":"merged","actor":{"login":"a"},"created_at":"2026-01-03T00:00:00Z"},
+          {"event":"closed","actor":{"login":"a"},"created_at":"2026-01-03T00:00:01Z"},
+          {"event":"head_ref_restored","actor":{"login":"a"},"created_at":"2026-01-04T00:00:00Z"}
+        ]"""
+
+        val items = api { json(events) }.timeline(null, pr, 1).value().items
+
+        assertThat(items.filterIsInstance<TimelineItem.StateChanged>().map { it.change })
+            .containsExactly(StateChange.CLOSED, StateChange.REOPENED, StateChange.MERGED).inOrder()
+        assertThat((items.last() as TimelineItem.Event).event).isEqualTo(ConversationEvent.BRANCH_RESTORED)
     }
 
     @Test

@@ -581,6 +581,8 @@
     <string name="issue_demilestoned_event">%1$s removed this from the %2$s milestone %3$s</string>
     <string name="issue_transferred_event">%1$s transferred this from another repository %2$s</string>
     <string name="issue_converted_event">%1$s converted this to a discussion %2$s</string>
+    <string name="issue_branch_deleted_event">%1$s deleted the branch %2$s %3$s</string>
+    <string name="issue_branch_restored_event">%1$s restored the branch %2$s %3$s</string>
     <string name="issue_subscribed">You hear of every reply here.</string>
     <string name="issue_not_subscribed">You hear of this only when you are mentioned.</string>
     <string name="issue_subscribe">Subscribe</string>

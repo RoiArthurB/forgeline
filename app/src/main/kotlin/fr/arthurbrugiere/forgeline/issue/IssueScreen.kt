@@ -602,7 +602,7 @@ fun IssueScreen(
                                 val editor: (@Composable () -> Unit)? = if (item is TimelineItem.Comment && item.id == state.editing) {
                                     { Composer(state, canComment, onDraftChange, onSendComment, onToggleOpen, onSignIn, comments.onCancelEdit, comments.onPickPicture, inPlace = true, suggestions = suggestions, onReferenceTyped = comments.onReferenceTyped) }
                                 } else null
-                                TimelineEntry(item, context, nowMillis, onOpenUser, onOpenIssue, onLinkClick, editor, onDismissReview = if (canDismiss) ({ dismissing = it }) else null) { comment ->
+                                TimelineEntry(item, context, nowMillis, onOpenUser, onOpenIssue, onLinkClick, editor, onDismissReview = if (canDismiss) ({ dismissing = it }) else null, headRef = issue.pullRequest?.headRef) { comment ->
                                     CommentMenu(
                                         onQuote = if (canWrite) ({ comments.onQuote(comment.body) }) else null,
                                         onEdit = if (canWrite && state.canEdit(comment)) ({ comments.onEdit(comment.id) }) else null,

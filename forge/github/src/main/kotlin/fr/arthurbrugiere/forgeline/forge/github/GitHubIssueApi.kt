@@ -100,9 +100,19 @@ class GitHubIssueApi(
             query = mapOf("per_page" to "100", "page" to page.toString()),
         )
         response.toResult {
-            val items = withCommitMessages(token, body<List<EventJson>>().mapNotNull { it.toModel() })
+            val items = withCommitMessages(token, body<List<EventJson>>().mapNotNull { it.toModel() }.withoutCloseOfMerge())
             TimelinePage(if (token == null) items else withHiddenState(token, items), nextPage(), lastPage())
         }
+    }
+
+    /**
+     * GitHub writes a merge, then a close a second later: the merge says it all, as GitHub's own page tells it. A merged
+     * pull request can't be reopened, so any close after a merge is that one.
+     */
+    private fun List<TimelineItem>.withoutCloseOfMerge(): List<TimelineItem> {
+        val merge = indexOfFirst { it is TimelineItem.StateChanged && it.change == StateChange.MERGED }
+        if (merge < 0) return this
+        return filterIndexed { i, item -> i < merge || !(item is TimelineItem.StateChanged && item.change == StateChange.CLOSED) }
     }
 
     /**
@@ -851,7 +861,7 @@ private data class EventJson(
     private fun event(event: ConversationEvent, at: Instant?, subject: String? = null): TimelineItem? =
         at?.let { TimelineItem.Event(event, actor?.toModel(), subject, it) }
 
-    /** Null for events that are noise in a conversation (subscribed, mentioned, head_ref_deleted...). */
+    /** Null for events that are noise in a conversation (subscribed, mentioned, review_requested...). */
     fun toModel(): TimelineItem? {
         val at = createdAt?.let(Instant::parse)
         return when (event) {
@@ -897,6 +907,9 @@ private data class EventJson(
             "demilestoned" -> event(ConversationEvent.DEMILESTONED, at, milestone?.title ?: return null)
             "transferred" -> event(ConversationEvent.TRANSFERRED, at)
             "converted_to_discussion" -> event(ConversationEvent.CONVERTED_TO_DISCUSSION, at)
+            // GitHub doesn't name the branch here: it is the pull request's own.
+            "head_ref_deleted" -> event(ConversationEvent.BRANCH_DELETED, at)
+            "head_ref_restored" -> event(ConversationEvent.BRANCH_RESTORED, at)
             "committed" -> TimelineItem.Committed(sha ?: return null, message.orEmpty(), author?.name, author?.date?.let(Instant::parse))
             else -> null
         }

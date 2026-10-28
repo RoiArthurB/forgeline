@@ -136,13 +136,15 @@ class ForgejoIssueApiTest {
     fun the_timeline_keeps_the_conversation_and_drops_the_noise() = runTest {
         val items = api.timeline(null, pull, page = 1).value().items
 
-        // Review requests, pushes, branch deletions and commit references are left out.
-        assertThat(items.map { it::class.simpleName }).containsExactly("Labeled", "Review", "Comment", "StateChanged", "Event").inOrder()
-        // After the merge, the release bot filed it under the release it shipped in.
-        assertThat(items[4]).isEqualTo(
-            TimelineItem.Event(ConversationEvent.MILESTONED, (items[4] as TimelineItem.Event).actor, "Forgejo v17.0.0", (items[4] as TimelineItem.Event).createdAt),
+        // Review requests, pushes and commit references are left out.
+        assertThat(items.map { it::class.simpleName }).containsExactly("Labeled", "Review", "Comment", "StateChanged", "Event", "Event").inOrder()
+        // After the merge, its branch was deleted, then the release bot filed it under the release it shipped in.
+        assertThat((items[4] as TimelineItem.Event).event).isEqualTo(ConversationEvent.BRANCH_DELETED)
+        assertThat((items[4] as TimelineItem.Event).subject).isEqualTo("bp-v17.0/forgejo-5175a75")
+        assertThat(items[5]).isEqualTo(
+            TimelineItem.Event(ConversationEvent.MILESTONED, (items[5] as TimelineItem.Event).actor, "Forgejo v17.0.0", (items[5] as TimelineItem.Event).createdAt),
         )
-        assertThat((items[4] as TimelineItem.Event).actor?.login).isEqualTo("forgejo-release-notes-assistant")
+        assertThat((items[5] as TimelineItem.Event).actor?.login).isEqualTo("forgejo-release-notes-assistant")
         assertThat((items[0] as TimelineItem.Labeled).added).isTrue()
         assertThat((items[0] as TimelineItem.Labeled).label.name).isEqualTo("test/present")
         // The review entry doesn't say it approved: the pull request's reviews do.
@@ -882,6 +884,18 @@ class ForgejoIssueApiTest {
         ).inOrder()
         // A changed date names the new one; a dependency in another repository names it.
         assertThat(events.map { it.subject }).containsExactly("2026-10-10", "2026-10-12", null, null, null, null, "#3 Schema first", "dzeuros/website#106 Website copy").inOrder()
+    }
+
+    @Test
+    fun a_deleted_branch_is_part_of_the_conversation_by_its_name() = runTest {
+        // As Codeberg sent it after a merge (forgejo/forgejo#15069, 2026-10-28).
+        val timeline = """[{"id":1,"type":"delete_branch","user":{"login":"mfenniak"},"created_at":"2026-10-28T17:55:08+01:00","old_ref":"bp-v17.0/forgejo-cff8e88","new_ref":""}]"""
+
+        val event = triaged("", timeline).timeline(null, seven, 1).value().items.single() as TimelineItem.Event
+
+        assertThat(event.event).isEqualTo(ConversationEvent.BRANCH_DELETED)
+        assertThat(event.subject).isEqualTo("bp-v17.0/forgejo-cff8e88")
+        assertThat(event.actor?.login).isEqualTo("mfenniak")
     }
 
     @Test
