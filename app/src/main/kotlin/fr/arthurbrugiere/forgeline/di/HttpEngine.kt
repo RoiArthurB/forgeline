@@ -93,10 +93,16 @@ private const val IDLE_CONNECTIONS = 16
  * SVG is decoded too: a README's badges are all SVG, and Android reads none on its own. Their size is in CSS pixels,
  * drawn as as many dp, so a 20-pixel badge is as tall on a phone as on the forge's site.
  */
-fun forgeImageLoader(context: Context, engine: HttpClientEngine = forgeEngine()): ImageLoader {
+fun forgeImageLoader(
+    context: Context,
+    engine: HttpClientEngine = forgeEngine(),
+    /** The forges signed in to, for a private repository's pictures; none outside the app. */
+    access: suspend () -> List<PictureAccess> = { emptyList() },
+): ImageLoader {
     val client = lazy { HttpClient(engine) }
     return ImageLoader.Builder(context)
         .components {
+            add(PrivatePictureInterceptor(access))
             add(KtorNetworkFetcherFactory(httpClient = { client.value }))
             add(SvgDecoder.Factory(parser = SizedSvgParser, density = SvgDecoder.PLATFORM_DENSITY, useViewBoundsAsIntrinsicSize = false))
         }

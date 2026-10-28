@@ -10,19 +10,28 @@ import dagger.hilt.android.HiltAndroidApp
 import fr.arthurbrugiere.forgeline.core.data.account.AccountDataCleaner
 import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import fr.arthurbrugiere.forgeline.core.model.KnownForges
+import fr.arthurbrugiere.forgeline.di.PictureAccess
 import fr.arthurbrugiere.forgeline.di.forgeImageLoader
 import fr.arthurbrugiere.forgeline.notifications.InboxSyncScheduler
 import fr.arthurbrugiere.forgeline.signin.ForgeHosts
 import fr.arthurbrugiere.forgeline.trending.TrendingMeasureScheduler
 import fr.arthurbrugiere.forgeline.widget.InboxWidgetUpdater
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltAndroidApp
 class ForgelineApplication : Application(), Configuration.Provider, SingletonImageLoader.Factory {
     // Built on first use, off the launch path.
-    override fun newImageLoader(context: PlatformContext): ImageLoader = forgeImageLoader(context)
+    override fun newImageLoader(context: PlatformContext): ImageLoader = forgeImageLoader(context) {
+        // Only when a picture was refused: never on the launch path.
+        val repository = accounts.get()
+        repository.accounts.first().mapNotNull { account -> repository.token(account.id)?.let { PictureAccess(account.forge, it) } }
+    }
+
+    @Inject
+    lateinit var accounts: Lazy<fr.arthurbrugiere.forgeline.core.data.account.AccountRepository>
 
     // WorkManager starts on first use instead of at launch (its initializer is removed in the manifest).
     override val workManagerConfiguration: Configuration get() = Configuration.Builder().build()
