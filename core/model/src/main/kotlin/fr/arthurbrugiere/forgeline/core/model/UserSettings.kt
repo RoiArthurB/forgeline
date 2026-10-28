@@ -64,6 +64,8 @@ data class UserSettings(
     val readingMarks: Boolean = true,
     /** Feed releases show their project's picture; off, they're text only and load no images. */
     val feedPictures: Boolean = true,
+    /** A failed job opens on the step it failed at, unfolded, instead of on its folded steps. */
+    val openFailedStep: Boolean = false,
     /** The hints put away, never shown again. Not a choice offered in Settings: what has been read. */
     val hintsSeen: Set<Hint> = emptySet(),
 )

@@ -813,6 +813,8 @@
     <string name="share_tap_shares">Un appui partage, un appui long copie le lien</string>
     <string name="share_tap_copies">Un appui copie le lien, un appui long partage</string>
     <string name="settings_open_at_unread">Ouvrir à ce qui est nouveau</string>
+    <string name="settings_open_failed_step">Ouvrir une tâche échouée à son échec</string>
+    <string name="settings_open_failed_step_summary">Une tâche échouée s’ouvre sur l’étape où elle a échoué, dépliée</string>
     <string name="settings_open_at_unread_summary">Une conversation non lue s’ouvre là où vous vous étiez arrêté, pas à son titre</string>
     <string name="settings_reading_marks">Marquer là où vous en étiez</string>
     <string name="settings_reading_marks_summary">Les tendances et le fil montrent où votre dernière visite s’est arrêtée</string>

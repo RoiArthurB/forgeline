@@ -13,9 +13,11 @@ import fr.arthurbrugiere.forgeline.core.model.RunConclusion
 import fr.arthurbrugiere.forgeline.core.model.RunJob
 import fr.arthurbrugiere.forgeline.core.model.RunStatus
 import fr.arthurbrugiere.forgeline.core.model.RunStep
+import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeActionsApi
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
+import fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -39,6 +41,7 @@ class JobLogViewModelTest {
     private val api = FakeActionsApi()
     private val accounts = FakeAccountRepository()
     private val repo = RepoId("octo", "repo")
+    private val settings = FakeUserSettingsRepository()
 
     private fun at(time: String) = Instant.parse("2026-10-17T${time}Z")
 
@@ -71,7 +74,7 @@ class JobLogViewModelTest {
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
     private fun viewModel(repo: RepoId = this.repo) = FakeForgeClients(actions = api).also { it.put(ForgeInstance.Codeberg, FakeForgeClients(actions = api)) }.let { clients ->
-        JobLogViewModel(repo, 1, 3, "test", DefaultActionsRepository(clients, accounts), DefaultJobLogRepository(clients, accounts, folder.root, mainDispatcherRule.testDispatcher))
+        JobLogViewModel(repo, 1, 3, "test", DefaultActionsRepository(clients, accounts), DefaultJobLogRepository(clients, accounts, folder.root, mainDispatcherRule.testDispatcher), settings)
     }
 
     private suspend fun signedInWithFailedJob() {
@@ -161,6 +164,44 @@ class JobLogViewModelTest {
     }
 
     @Test
+    fun with_the_setting_on_a_failed_job_opens_on_its_failure_once() = test {
+        signedInWithFailedJob()
+        settings.update { it.copy(openFailedStep = true) }
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.opened).containsExactly(1)
+        assertThat(viewModel.lines().map { it.line.text }).contains("Process completed with exit code 1.")
+        assertThat(viewModel.state.value.scrollToStep).isEqualTo(1)
+
+        viewModel.scrolledToStep()
+        assertThat(viewModel.state.value.scrollToStep).isNull()
+    }
+
+    @Test
+    fun by_default_a_failed_job_opens_on_its_folded_steps() = test {
+        signedInWithFailedJob()
+        assertThat(UserSettings().openFailedStep).isFalse()
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.opened).isEmpty()
+        assertThat(viewModel.state.value.scrollToStep).isNull()
+    }
+
+    @Test
+    fun with_the_setting_on_a_job_that_passed_opens_folded() = test {
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "ghp_token")
+        api.jobs[1] = listOf(job(RunStatus.COMPLETED, RunConclusion.SUCCESS))
+        api.logs[3] = log
+        settings.update { it.copy(openFailedStep = true) }
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.opened).isEmpty()
+    }
+
+    @Test
     fun a_running_job_shows_its_steps_without_asking_for_a_log() = test {
         accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "ghp_token")
         api.jobs[1] = listOf(job(RunStatus.IN_PROGRESS))
@@ -230,7 +271,7 @@ class JobLogViewModelTest {
         }
         val codeberg = RepoId("forgejo", "website", ForgeInstance.Codeberg)
         val clients = FakeForgeClients().also { it.put(ForgeInstance.Codeberg, FakeForgeClients(actions = forgejo)) }
-        val viewModel = JobLogViewModel(codeberg, 1, 3, "publish", DefaultActionsRepository(clients, accounts), DefaultJobLogRepository(clients, accounts, folder.root, mainDispatcherRule.testDispatcher))
+        val viewModel = JobLogViewModel(codeberg, 1, 3, "publish", DefaultActionsRepository(clients, accounts), DefaultJobLogRepository(clients, accounts, folder.root, mainDispatcherRule.testDispatcher), settings)
         advanceUntilIdle()
 
         val steps = (viewModel.state.value.steps as Loadable.Loaded).value

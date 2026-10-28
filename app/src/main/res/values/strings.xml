@@ -828,6 +828,8 @@
     <string name="share_tap_shares">A tap shares, a long press copies the link</string>
     <string name="share_tap_copies">A tap copies the link, a long press shares</string>
     <string name="settings_open_at_unread">Open at what is new</string>
+    <string name="settings_open_failed_step">Open a failed job at its failure</string>
+    <string name="settings_open_failed_step_summary">A failed job opens on the step it failed at, unfolded</string>
     <string name="settings_open_at_unread_summary">An unread conversation opens where you stopped reading, not at its title</string>
     <string name="settings_reading_marks">Mark where you left off</string>
     <string name="settings_reading_marks_summary">Trending and the Feed show where your last visit stopped</string>

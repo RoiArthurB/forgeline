@@ -334,6 +334,14 @@ fun SettingsScreen(
                         onCheckedChange = { on -> onChange { it.copy(readingMarks = on) } },
                     )
                 }
+                item {
+                    SwitchItem(
+                        title = stringResource(R.string.settings_open_failed_step),
+                        summary = stringResource(R.string.settings_open_failed_step_summary),
+                        checked = settings.openFailedStep,
+                        onCheckedChange = { on -> onChange { it.copy(openFailedStep = on) } },
+                    )
+                }
             }
             if (section == SettingsSection.TRENDING) item {
                 ChoiceItem(

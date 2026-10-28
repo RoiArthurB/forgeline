@@ -111,6 +111,7 @@ class DataStoreUserSettingsRepositoryTest {
         openAtUnread = false,
         readingMarks = false,
         feedPictures = false,
+        openFailedStep = true,
         hintsSeen = setOf(fr.arthurbrugiere.forgeline.core.model.Hint.INBOX_SWIPES, fr.arthurbrugiere.forgeline.core.model.Hint.INBOX_YOURS),
     )
 
@@ -140,6 +141,7 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(changed.openAtUnread).isNotEqualTo(defaults.openAtUnread)
         assertThat(changed.readingMarks).isNotEqualTo(defaults.readingMarks)
         assertThat(changed.feedPictures).isNotEqualTo(defaults.feedPictures)
+        assertThat(changed.openFailedStep).isNotEqualTo(defaults.openFailedStep)
         assertThat(changed.headerStyle).isNotEqualTo(defaults.headerStyle)
         assertThat(changed.hintsSeen).isNotEqualTo(defaults.hintsSeen)
     }
@@ -168,6 +170,8 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(defaults.shareTap).isEqualTo(fr.arthurbrugiere.forgeline.core.model.ShareTap.SHARE)
         assertThat(defaults.headerStyle).isEqualTo(fr.arthurbrugiere.forgeline.core.model.HeaderStyle.INK)
         assertThat(listOf(defaults.loadConversationsAhead, defaults.readElsewhereIsDone, defaults.doubleTapReaction, defaults.swipeToReply, defaults.openAtUnread, defaults.readingMarks, defaults.feedPictures)).doesNotContain(false)
+        // Offered later: a failed job still opens on its folded steps.
+        assertThat(defaults.openFailedStep).isFalse()
     }
 
     @Test

@@ -123,6 +123,7 @@ fun JobLogRoute(route: JobLogRoute, onBack: () -> Unit, onSignIn: () -> Unit) {
         onRetryStep = viewModel::retryStep,
         onLoadEarlier = viewModel::loadEarlier,
         onToggleGroup = viewModel::toggleGroup,
+        onScrolledToStep = viewModel::scrolledToStep,
         onSignIn = onSignIn,
         onOpenInBrowser = { openUrl(repo.jobUrl(route.runId, route.jobId)) },
         nowMillis = nowMillis,
@@ -146,6 +147,7 @@ fun JobLogScreen(
     onSignIn: () -> Unit,
     onOpenInBrowser: () -> Unit,
     modifier: Modifier = Modifier,
+    onScrolledToStep: () -> Unit = {},
     nowMillis: Long = rememberNow(state.job),
 ) {
     val colors = Soft.colors
@@ -157,6 +159,13 @@ fun JobLogScreen(
     val steps = (state.steps as? Loadable.Loaded)?.value.orEmpty()
     // Each tap jumps to the next error, round and round.
     var nextError by rememberSaveable { mutableIntStateOf(0) }
+    // A failed job opened on its failure (a setting): brought into view once.
+    LaunchedEffect(state.scrollToStep) {
+        val index = state.scrollToStep ?: return@LaunchedEffect
+        val row = rows.indexOfFirst { it is LogRow.Step && it.step == index }
+        if (row >= 0) listState.scrollToItem(row + 1)
+        onScrolledToStep()
+    }
     Box(modifier.fillMaxSize().background(colors.ground)) {
         SelectionContainer(modifier = Modifier.fillMaxSize()) {
             LazyColumn(

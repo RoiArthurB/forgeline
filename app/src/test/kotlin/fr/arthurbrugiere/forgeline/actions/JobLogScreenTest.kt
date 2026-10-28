@@ -64,6 +64,7 @@ class JobLogScreenTest {
                 onToggleGroup = { step, fromEnd -> events += "group:$step:$fromEnd" },
                 onSignIn = { events += "sign-in" },
                 onOpenInBrowser = {},
+                onScrolledToStep = { events += "scrolled" },
             )
         }
     }
@@ -88,6 +89,14 @@ class JobLogScreenTest {
         composeRule.onNodeWithText("Failed at Run tests").performClick()
 
         assertThat(events).containsExactly("failed")
+    }
+
+    @Test
+    fun a_step_opened_by_itself_is_scrolled_to_once() {
+        setContent(folded.copy(opened = setOf(1), read = mapOf(1 to read), scrollToStep = 1))
+
+        composeRule.onNodeWithText("Process completed with exit code 1.").assertIsDisplayed()
+        assertThat(events).containsExactly("scrolled")
     }
 
     @Test

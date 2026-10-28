@@ -8,6 +8,7 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.actions.ActionsRepository
 import fr.arthurbrugiere.forgeline.core.data.actions.JobLogRepository
+import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.StepLines
@@ -22,6 +23,7 @@ import fr.arthurbrugiere.forgeline.repo.Loadable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Duration
@@ -53,6 +55,8 @@ data class JobLogUiState(
     val opened: Set<Int> = emptySet(),
     /** What has been read of each step, kept while it is folded again. */
     val read: Map<Int, StepRead> = emptyMap(),
+    /** The step opened by itself as the log came, for the screen to scroll to once. */
+    val scrollToStep: Int? = null,
 ) {
     /** The job is still going: the screen shows its steps live instead of a log. */
     val isRunning: Boolean get() = job != null && job.status != RunStatus.COMPLETED
@@ -158,6 +162,7 @@ class JobLogViewModel @AssistedInject constructor(
     @Assisted jobName: String,
     private val actions: ActionsRepository,
     private val logs: JobLogRepository,
+    private val settings: UserSettingsRepository,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -195,9 +200,15 @@ class JobLogViewModel @AssistedInject constructor(
         _state.update { it.copy(logAttempts = it.logAttempts + 1) }
         when (val result = logs.steps(repo, job)) {
             is ForgeResult.Failure -> _state.update { it.copy(steps = Loadable.Failed(result.error)) }
-            is ForgeResult.Success -> _state.update { it.copy(steps = Loadable.Loaded(result.value)) }
+            is ForgeResult.Success -> {
+                _state.update { it.copy(steps = Loadable.Loaded(result.value)) }
+                if (settings.settings.first().openFailedStep) openFailed()?.let { failed -> _state.update { it.copy(scrollToStep = failed) } }
+            }
         }
     }
+
+    /** The screen scrolled to [JobLogUiState.scrollToStep]: it isn't done again. */
+    fun scrolledToStep() = _state.update { it.copy(scrollToStep = null) }
 
     /** Opens step [index], reading its last lines the first time; folds it when open. */
     fun toggleStep(index: Int) {
