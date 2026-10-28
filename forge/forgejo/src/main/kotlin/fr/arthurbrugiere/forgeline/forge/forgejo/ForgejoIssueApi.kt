@@ -509,7 +509,20 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         return ForgeResult.Success(TimelinePage(items, next, last))
     }
 
-    private suspend fun reviewStates(token: String?, ref: IssueRef): Map<Long, ReviewState> {
+    /**
+     * Whether each review approved: a detail of the timeline, so failing never takes the timeline with it.
+     * Regression: asked alongside, an answer that couldn't be read (or a dropped connection) failed the whole
+     * conversation whenever it came before the timeline did; a test failed now and then on a busy machine.
+     */
+    private suspend fun reviewStates(token: String?, ref: IssueRef): Map<Long, ReviewState> = try {
+        readReviewStates(token, ref)
+    } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        emptyMap()
+    }
+
+    private suspend fun readReviewStates(token: String?, ref: IssueRef): Map<Long, ReviewState> {
         val response = get(token, ref, "pulls", ref.number.toString(), "reviews")
         if (response.status != HttpStatusCode.OK) return emptyMap()
         return response.body<List<ReviewJson>>().mapNotNull { review ->

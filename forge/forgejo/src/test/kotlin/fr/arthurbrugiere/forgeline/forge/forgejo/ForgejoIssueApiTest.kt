@@ -58,6 +58,31 @@ class ForgejoIssueApiTest {
     private fun <T> ForgeResult<T>.value(): T = (this as ForgeResult.Success).value
 
     @Test
+    fun reviews_that_can_t_be_read_never_take_the_timeline_with_them() = runTest {
+        // Regression: the reviews are asked alongside the timeline; an unreadable answer arriving first failed the
+        // whole conversation. Here it always arrives first: the timeline's answer waits for it.
+        val reviewsAnswered = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val api = with(codeberg) {
+            ForgejoIssueApi(
+                client {
+                    val path = it.url.encodedPath
+                    if (path.endsWith("/reviews")) {
+                        json("not json").also { reviewsAnswered.complete(Unit) }
+                    } else {
+                        reviewsAnswered.await()
+                        // Let the failed reviews reach their scope before the timeline comes back.
+                        kotlinx.coroutines.yield()
+                        if (path.endsWith("/timeline")) json(fixture("timeline.json")) else json("null")
+                    }
+                },
+                ForgeInstance.Codeberg,
+            )
+        }
+
+        assertThat(api.timeline(null, pull, page = 1)).isInstanceOf(ForgeResult.Success::class.java)
+    }
+
+    @Test
     fun an_issue_closed_by_a_commit_says_which_and_what_it_said() = runTest {
         // dnkl/foot#2467 (2026-09-18): the commit's reference, then the close, in the same second; and a commit that
         // only mentioned the issue, earlier, which stays out as GitHub's "referenced" events do.
