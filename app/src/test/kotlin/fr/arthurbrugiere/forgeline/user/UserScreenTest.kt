@@ -161,4 +161,22 @@ class UserScreenTest {
 
         com.google.common.truth.Truth.assertThat(fr.arthurbrugiere.forgeline.ui.sharedLink()?.first).isEqualTo("https://git.example.org/octocat")
     }
+
+    @Test
+    fun a_year_of_activity_says_how_much_and_when_the_most() {
+        val year = fr.arthurbrugiere.forgeline.core.model.Contributions(
+            mapOf(java.time.LocalDate.now().minusDays(3) to 12, java.time.LocalDate.now().minusDays(40) to 1_230),
+        )
+        setContent(base.copy(contributions = year))
+
+        composeRule.onNodeWithText("1.2k contributions in the last year", useUnmergedTree = true).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("The busiest day was", substring = true)).assertExists()
+    }
+
+    @Test
+    fun without_activity_there_is_no_graph() {
+        setContent(base)
+
+        composeRule.onNodeWithText("contributions in the last year", substring = true, useUnmergedTree = true).assertDoesNotExist()
+    }
 }

@@ -226,4 +226,12 @@ class GitLabUserApiTest {
         assertThat(repos.single().ownerIsOrganization).isTrue()
         assertThat(groups.single().login).isEqualTo("acme")
     }
+
+    @Test
+    fun contributions_read_from_the_profile_s_own_calendar() = runTest {
+        val contributions = userApi { json("""{"2026-10-26": 14, "2026-10-27": 3}""") }.contributions(null, "dzaporozhets").value()
+
+        assertThat(contributions.total).isEqualTo(17)
+        assertThat(requests.single().url.toString()).isEqualTo("https://gitlab.com/users/dzaporozhets/calendar.json")
+    }
 }

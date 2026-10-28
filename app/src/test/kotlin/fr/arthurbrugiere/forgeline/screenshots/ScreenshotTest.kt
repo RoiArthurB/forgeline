@@ -1449,11 +1449,29 @@ class ScreenshotTest {
                     ),
                 ),
                 following = false,
+                contributions = shotContributions,
             ),
             signedIn = true, onBack = {}, onSelectTab = {}, onRetry = {}, onToggleFollow = {}, onSignIn = {}, onOpenRepo = {},
             onOpenUrl = {}, onFollowFailureShown = {},
         )
     }
+
+    /** A year of weekdays busier than weekends, and a quiet August, the same at every run. */
+    private val shotContributions = run {
+        val random = java.util.Random(7)
+        val today = java.time.LocalDate.now()
+        fr.arthurbrugiere.forgeline.core.model.Contributions(
+            (0L until 371L).associate { back ->
+                val day = today.minusDays(back)
+                val weekend = day.dayOfWeek.value >= 6
+                val quiet = day.monthValue == 8
+                day to if (quiet || random.nextInt(10) < (if (weekend) 7 else 2)) 0 else random.nextInt(if (weekend) 4 else 14)
+            },
+        )
+    }
+
+    @Test
+    fun user_light() = snapshot("user_light", darkTheme = false) { UserShot() }
 
     @Test
     fun user_readme_light() = snapshot("user_readme_light", darkTheme = false, awaitText = "Hi, I'm Mona") {

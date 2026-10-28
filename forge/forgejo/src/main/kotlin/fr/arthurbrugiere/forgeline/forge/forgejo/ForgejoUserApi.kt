@@ -4,6 +4,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.SearchApi
 import fr.arthurbrugiere.forgeline.core.forge.StarApi
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
+import fr.arthurbrugiere.forgeline.core.model.Contributions
 import fr.arthurbrugiere.forgeline.core.model.FirstIssueLabels
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
@@ -27,8 +28,22 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
+import java.time.Instant
+import java.time.ZoneId
 
-class ForgejoUserApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : UserApi {
+class ForgejoUserApi(
+    private val httpClient: HttpClient,
+    private val forge: ForgeInstance,
+    /** Where the reader's days begin and end: the heatmap counts in quarters of an hour, not days. */
+    private val zone: ZoneId = ZoneId.systemDefault(),
+) : UserApi {
+
+    override suspend fun contributions(token: String?, login: String): ForgeResult<Contributions> = forgeCall {
+        httpClient.forgejoApi(forge, token, "users", login, "heatmap").toResult {
+            val days = body<List<HeatmapJson>>().groupBy { Instant.ofEpochSecond(it.timestamp).atZone(zone).toLocalDate() }
+            Contributions(days.mapValues { (_, quarters) -> quarters.sumOf { it.contributions } })
+        }
+    }
 
     override suspend fun user(token: String?, login: String): ForgeResult<UserProfile> = forgeCall {
         coroutineScope {
@@ -281,3 +296,6 @@ private data class ForgejoForkJson(val name: String, val owner: ForgejoForkOwner
 
 @Serializable
 private data class ForgejoForkOwnerJson(val login: String)
+
+@Serializable
+private data class HeatmapJson(val timestamp: Long, val contributions: Int = 0)

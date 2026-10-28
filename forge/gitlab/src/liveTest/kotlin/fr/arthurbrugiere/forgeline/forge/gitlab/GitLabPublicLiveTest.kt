@@ -24,6 +24,14 @@ class GitLabPublicLiveTest {
     private fun <T> ForgeResult<T>.value(): T = (this as? ForgeResult.Success)?.value ?: error("$this")
 
     @Test
+    fun a_profile_s_calendar_still_reads_signed_out() = runBlocking<Unit> {
+        // GitLab's co-founder: a public profile that pushes now and then.
+        val contributions = GitLabUserApi(http).contributions(null, "dzaporozhets").value()
+
+        assertWithMessage("total").that(contributions.total).isGreaterThan(0)
+    }
+
+    @Test
     fun first_issues_read_under_a_project_s_own_label() = runBlocking<Unit> {
         // Inkscape marks them "easy-fix".
         val inkscape = RepoId("inkscape", "inkscape", ForgeInstance.GitLab)

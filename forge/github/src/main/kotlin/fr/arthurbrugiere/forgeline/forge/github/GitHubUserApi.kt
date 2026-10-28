@@ -2,6 +2,8 @@ package fr.arthurbrugiere.forgeline.forge.github
 
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
+import fr.arthurbrugiere.forgeline.core.forge.map
+import fr.arthurbrugiere.forgeline.core.model.Contributions
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ProfileLink
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -19,12 +21,35 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import java.time.Instant
+import java.time.LocalDate
 
 class GitHubUserApi(
     private val httpClient: HttpClient,
     private val apiBaseUrl: String = "https://api.github.com",
 ) : UserApi {
+
+    // Only GraphQL has the calendar, and GraphQL wants a token: signed out, GitHub's profiles show none.
+    override suspend fun contributions(token: String?, login: String): ForgeResult<Contributions> {
+        if (token == null) return ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unauthorized)
+        val variables = buildJsonObject { put("login", login) }
+        return forgeCall {
+            httpClient.gitHubGraphQl(apiBaseUrl, token, CONTRIBUTIONS_QUERY, variables).map { data ->
+                val weeks = data["user"]?.jsonObject?.get("contributionsCollection")?.jsonObject?.get("contributionCalendar")?.jsonObject?.get("weeks")?.jsonArray.orEmpty()
+                Contributions(
+                    weeks.flatMap { it.jsonObject["contributionDays"]?.jsonArray.orEmpty() }.associate { day ->
+                        LocalDate.parse(day.jsonObject.getValue("date").jsonPrimitive.content) to day.jsonObject.getValue("contributionCount").jsonPrimitive.int
+                    },
+                )
+            }
+        }
+    }
 
     /** The profile, and beside it the social accounts the person listed (organisations have none to list). */
     override suspend fun user(token: String?, login: String): ForgeResult<UserProfile> = forgeCall {
@@ -172,3 +197,6 @@ private data class RepoJson(
         return RepoSummary(RepoId(owner, name, ForgeInstance.GitHub), description, language, stars, forks, fork, updatedAt?.let(Instant::parse), this.owner?.avatarUrl, private, pushedAt?.let(Instant::parse), this.owner?.type?.let { it == "Organization" })
     }
 }
+
+private const val CONTRIBUTIONS_QUERY =
+    "query Contributions(\$login: String!) { user(login: \$login) { contributionsCollection { contributionCalendar { weeks { contributionDays { date contributionCount } } } } } }"

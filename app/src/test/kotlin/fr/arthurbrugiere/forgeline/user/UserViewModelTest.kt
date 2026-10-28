@@ -140,4 +140,34 @@ class UserViewModelTest {
 
         assertThat(viewModel.state.value.error).isEqualTo(ForgeError.Http(404, "Not Found"))
     }
+
+    @Test
+    fun a_person_s_year_of_activity_comes_with_their_profile_and_an_organisation_s_never() = test {
+        val year = fr.arthurbrugiere.forgeline.core.model.Contributions(mapOf(java.time.LocalDate.parse("2026-10-27") to 4))
+        api.users["octocat"] = userProfile("octocat")
+        api.users["ACROSS-Lab"] = userProfile("ACROSS-Lab").copy(isOrganization = true)
+        api.contributions["octocat"] = year
+        api.contributions["ACROSS-Lab"] = year
+
+        val person = UserViewModel(ForgeInstance.GitHub, "octocat", repository)
+        val organisation = UserViewModel(ForgeInstance.GitHub, "ACROSS-Lab", repository)
+        advanceUntilIdle()
+
+        assertThat(person.state.value.contributions).isEqualTo(year)
+        assertThat(organisation.state.value.contributions).isNull()
+    }
+
+    @Test
+    fun an_empty_year_or_a_forge_that_doesn_t_tell_shows_no_graph() = test {
+        api.users["octocat"] = userProfile("octocat")
+        api.contributions["octocat"] = fr.arthurbrugiere.forgeline.core.model.Contributions(emptyMap())
+        api.users["hubot"] = userProfile("hubot")
+
+        val quiet = UserViewModel(ForgeInstance.GitHub, "octocat", repository)
+        val unknown = UserViewModel(ForgeInstance.GitHub, "hubot", repository)
+        advanceUntilIdle()
+
+        assertThat(quiet.state.value.contributions).isNull()
+        assertThat(unknown.state.value.contributions).isNull()
+    }
 }

@@ -305,6 +305,16 @@ class GitHubLiveContractTest {
     }
 
     @Test
+    fun a_person_s_contribution_calendar_still_reads() = runBlocking {
+        org.junit.Assume.assumeTrue("needs LIVE_TEST_PAT", pat.isNotBlank())
+        val contributions = GitHubUserApi(client).contributions(pat, "torvalds")
+        assertWithMessage("contributions: $contributions").that(contributions).isInstanceOf(ForgeResult.Success::class.java)
+        val days = (contributions as ForgeResult.Success).value.days
+        assertThat(days.size).isAtLeast(360)
+        assertThat(days.values.sum()).isGreaterThan(0)
+    }
+
+    @Test
     fun first_issues_of_several_repositories_come_from_one_search() = runBlocking {
         val repos = listOf(RepoId("home-assistant", "core"), RepoId("godotengine", "godot"), RepoId("rust-lang", "rust"))
         val found = GitHubSearchApi(client).firstIssues(pat.ifBlank { null }, repos)

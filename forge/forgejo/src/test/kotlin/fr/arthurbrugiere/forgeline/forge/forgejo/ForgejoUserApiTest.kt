@@ -342,4 +342,20 @@ class ForgejoUserApiTest {
         assertThat(repos.map { it.id.name }).containsExactly("r2", "r1").inOrder()
         assertThat(api.organizations("tok").value().map { it.login }).containsExactly("forgejo")
     }
+
+    @Test
+    fun the_heatmap_s_quarters_of_an_hour_add_up_to_days_where_the_reader_is() = runTest {
+        // 23:30 and 00:15 UTC fall on two days in UTC, on one in Paris (UTC+2 on 2026-10-20).
+        val heatmap = """[{"timestamp": 1792452600, "contributions": 2}, {"timestamp": 1792455300, "contributions": 3}, {"timestamp": 1792540800, "contributions": 1}]"""
+        val paris = with(codeberg) { ForgejoUserApi(client { json(heatmap) }, ForgeInstance.Codeberg, java.time.ZoneId.of("Europe/Paris")) }
+        val utc = with(Codeberg()) { ForgejoUserApi(client { json(heatmap) }, ForgeInstance.Codeberg, java.time.ZoneOffset.UTC) }
+
+        val inParis = paris.contributions(null, "earl-warren").value()
+        val inUtc = utc.contributions(null, "earl-warren").value()
+
+        assertThat(inParis.total).isEqualTo(6)
+        assertThat(inParis.days.size).isEqualTo(2)
+        assertThat(inUtc.days.size).isEqualTo(3)
+        assertThat(codeberg.requests.single().url.encodedPath).isEqualTo("/api/v1/users/earl-warren/heatmap")
+    }
 }

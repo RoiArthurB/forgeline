@@ -216,6 +216,10 @@ interface UserApi {
 
     suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>>
 
+    /** What [login] did each day of the last year; unsupported where the forge doesn't tell (or not to [token]). */
+    suspend fun contributions(token: String?, login: String): ForgeResult<fr.arthurbrugiere.forgeline.core.model.Contributions> =
+        ForgeResult.Failure(ForgeError.Unsupported)
+
     /**
      * Every repository the signed-in person can reach: their own, their organisations', and those shared with them,
      * most recently pushed first. Up to a thousand or so: past that, the ones left alone longest are left out.

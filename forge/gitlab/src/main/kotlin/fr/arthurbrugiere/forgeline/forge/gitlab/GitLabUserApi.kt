@@ -4,6 +4,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.StarApi
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
+import fr.arthurbrugiere.forgeline.core.model.Contributions
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
@@ -12,8 +13,12 @@ import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.request.get
+import io.ktor.client.request.header
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.encodeURLPathPart
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -23,6 +28,7 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import java.time.LocalDate
 
 class GitLabUserApi(
     private val httpClient: HttpClient,
@@ -102,6 +108,12 @@ class GitLabUserApi(
     override suspend fun organizations(token: String): ForgeResult<List<UserSummary>> = forgeCall {
         httpClient.gitlabApi(forge, token, "groups", query = mapOf("min_access_level" to "10", "per_page" to "100"))
             .toResult { body<List<GitLabGroupJson>>().map { it.toSummary(forge) } }
+    }
+
+    // Not in the API: the profile page's own calendar, public for a public profile (a private one answers 404).
+    override suspend fun contributions(token: String?, login: String): ForgeResult<Contributions> = forgeCall {
+        val response = httpClient.get("${forge.webUrl}/users/${login.encodeURLPathPart()}/calendar.json") { header(HttpHeaders.Accept, "application/json") }
+        response.toResult { Contributions(body<Map<String, Int>>().mapKeys { LocalDate.parse(it.key) }) }
     }
 
     override suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>> = forgeCall {

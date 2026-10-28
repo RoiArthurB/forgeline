@@ -19,6 +19,14 @@ class ForgejoClientLiveTest {
     private fun <T> ForgeResult<T>.value(): T = (this as? ForgeResult.Success)?.value ?: error("$this")
 
     @Test
+    fun a_person_s_heatmap_reads_into_days() = runBlocking<Unit> {
+        val contributions = ForgejoUserApi(http, ForgeInstance.Codeberg).contributions(null, "earl-warren").value()
+
+        assertThat(contributions.total).isGreaterThan(0)
+        assertThat(contributions.days.keys.max()).isAtLeast(java.time.LocalDate.now().minusDays(400))
+    }
+
+    @Test
     fun first_issues_read_under_forgejo_s_own_labels_and_nothing_else() = runBlocking<Unit> {
         val found = ForgejoSearchApi(http, ForgeInstance.Codeberg).firstIssues(null, listOf(forgejo, RepoId("Codeberg", "Community", ForgeInstance.Codeberg))).value()
 

@@ -162,6 +162,9 @@ fun UserScreen(
                     }
                 }
             }
+            state.contributions?.takeIf { profile != null }?.let { contributions ->
+                item(key = "contributions") { ContributionGraph(contributions, today = remember { java.time.LocalDate.now() }) }
+            }
             when {
                 profile == null && state.error != null -> item(key = "error") {
                     SoftNotice(

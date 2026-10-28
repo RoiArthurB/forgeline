@@ -449,6 +449,12 @@ class FakeUserApi : UserApi {
 
     override suspend fun starred(token: String?, login: String) = answer(token) { starred[login] ?: emptyList() }
 
+    /** Each person's contributions; one missing is a forge that doesn't tell. */
+    val contributions = mutableMapOf<String, fr.arthurbrugiere.forgeline.core.model.Contributions>()
+
+    override suspend fun contributions(token: String?, login: String) =
+        contributions[login]?.let { found -> answer(token) { found } } ?: ForgeResult.Failure(ForgeError.Unsupported)
+
     /** Every repository the token reaches, and its organisations; each ask counted in [reachableAsked]. */
     var reachable: List<RepoSummary> = emptyList()
     var organizations: List<fr.arthurbrugiere.forgeline.core.model.UserSummary> = emptyList()

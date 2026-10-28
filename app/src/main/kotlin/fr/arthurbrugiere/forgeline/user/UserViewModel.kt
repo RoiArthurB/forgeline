@@ -37,6 +37,8 @@ data class UserUiState(
     /** Null when following isn't possible or unknown (signed out, own profile, lookup failed). */
     val following: Boolean? = null,
     val followFailed: Boolean = false,
+    /** A year of what the person did, once read; null while reading, for an organisation, and where the forge doesn't tell. */
+    val contributions: fr.arthurbrugiere.forgeline.core.model.Contributions? = null,
 )
 
 @HiltViewModel(assistedFactory = UserViewModel.Factory::class)
@@ -65,6 +67,14 @@ class UserViewModel @AssistedInject constructor(
             // and where its README is kept.
             loadTab(UserTab.REPOS)
             val organization = _state.value.profile?.isOrganization == true
+            // Organisations do nothing themselves: their members do.
+            if (!organization) {
+                launch {
+                    (repository.contributions(forge, login) as? ForgeResult.Success)?.value?.takeIf { it.total > 0 }?.let { found ->
+                        _state.update { it.copy(contributions = found) }
+                    }
+                }
+            }
             repository.profileReadme(forge, login, organization)?.let { readme ->
                 // Opened on the README, as on the forge, unless a tab was picked meanwhile.
                 _state.update { it.copy(readme = readme, tab = if (tabPicked) it.tab else UserTab.README) }

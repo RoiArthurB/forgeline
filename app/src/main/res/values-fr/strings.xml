@@ -732,6 +732,7 @@
     <string name="search_scope_repositories">Dépôts</string>
     <string name="search_yours">Les vôtres</string>
     <string name="topic_kicker">Sujet</string>
+    <string name="user_contributions_busiest">Le jour le plus actif était le %1$s, avec %2$d</string>
     <string name="first_issues_title">Premiers tickets</string>
     <string name="first_issues_summary">Les tickets ouverts marqués pour une première contribution, dans vos dernières étoiles et les Tendances du jour.</string>
     <string name="first_issues_all">Tous</string>
@@ -869,6 +870,11 @@
         <item quantity="one">%d commit</item>
         <item quantity="many">%d commits</item>
         <item quantity="other">%d commits</item>
+    </plurals>
+    <plurals name="user_contributions">
+        <item quantity="one">%1$s contribution cette dernière année</item>
+        <item quantity="many">%1$s contributions cette dernière année</item>
+        <item quantity="other">%1$s contributions cette dernière année</item>
     </plurals>
     <plurals name="topic_repositories">
         <item quantity="one">%1$s dépôt</item>

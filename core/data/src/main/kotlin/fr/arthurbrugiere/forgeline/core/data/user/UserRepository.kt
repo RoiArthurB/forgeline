@@ -27,6 +27,9 @@ interface UserRepository {
 
     suspend fun starred(forge: ForgeInstance, login: String): ForgeResult<List<RepoSummary>>
 
+    /** What [login] did each day of the last year, as [forge] counts it. */
+    suspend fun contributions(forge: ForgeInstance, login: String): ForgeResult<fr.arthurbrugiere.forgeline.core.model.Contributions>
+
     /** The README [login] shows on their profile, null when they have none (or it can't be read now). */
     suspend fun profileReadme(forge: ForgeInstance, login: String, organization: Boolean): ProfileReadme?
 
@@ -71,6 +74,8 @@ class DefaultUserRepository @Inject constructor(
     }
 
     override suspend fun starred(forge: ForgeInstance, login: String) = clients.users(forge).starred(accounts.tokenOn(forge), login)
+
+    override suspend fun contributions(forge: ForgeInstance, login: String) = clients.users(forge).contributions(accounts.tokenOn(forge), login)
 
     /**
      * Where each forge keeps a profile's README, tried in order: on GitHub a person's `login/login` and an

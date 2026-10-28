@@ -747,6 +747,7 @@
     <string name="search_scope_repositories">Repositories</string>
     <string name="search_yours">Yours</string>
     <string name="topic_kicker">Topic</string>
+    <string name="user_contributions_busiest">The busiest day was %1$s, with %2$d</string>
     <string name="first_issues_title">First issues</string>
     <string name="first_issues_summary">Open issues marked for a first contribution, in your latest stars and today\'s Trending.</string>
     <string name="first_issues_all">All</string>
@@ -882,6 +883,10 @@
     <plurals name="issue_pr_commits">
         <item quantity="one">%d commit</item>
         <item quantity="other">%d commits</item>
+    </plurals>
+    <plurals name="user_contributions">
+        <item quantity="one">%1$s contribution in the last year</item>
+        <item quantity="other">%1$s contributions in the last year</item>
     </plurals>
     <plurals name="topic_repositories">
         <item quantity="one">%1$s repository</item>

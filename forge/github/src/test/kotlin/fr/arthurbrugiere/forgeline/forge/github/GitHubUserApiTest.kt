@@ -176,4 +176,24 @@ class GitHubUserApiTest {
         assertThat(orgs.single().login).isEqualTo("ACROSS-Lab")
         assertThat(orgs.single().isOrganization).isTrue()
     }
+
+    @Test
+    fun a_year_of_contributions_reads_from_the_calendar_day_by_day() = runTest {
+        val answer = """{"data": {"user": {"contributionsCollection": {"contributionCalendar": {"weeks": [
+            {"contributionDays": [{"date": "2026-10-25", "contributionCount": 0}, {"date": "2026-10-26", "contributionCount": 7}]},
+            {"contributionDays": [{"date": "2026-10-27", "contributionCount": 2}]}
+        ]}}}}}"""
+
+        val contributions = api { json(answer) }.contributions("tok", "octocat").value()
+
+        assertThat(contributions.total).isEqualTo(9)
+        assertThat(contributions.days[java.time.LocalDate.parse("2026-10-26")]).isEqualTo(7)
+        assertThat(requests.single().url.encodedPath).isEqualTo("/graphql")
+    }
+
+    @Test
+    fun signed_out_github_tells_no_contributions() = runTest {
+        assertThat(api { json("{}") }.contributions(null, "octocat")).isEqualTo(ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unauthorized))
+        assertThat(requests).isEmpty()
+    }
 }
