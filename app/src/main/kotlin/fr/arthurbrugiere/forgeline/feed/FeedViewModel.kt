@@ -124,8 +124,8 @@ class FeedViewModel @Inject constructor(
     private fun load(force: Boolean) {
         status.value = status.value.copy(isRefreshing = true, error = null)
         viewModelScope.launch {
-            // The indicator stops at the first forge with fresh activity: a slower forge's rows join when it answers.
-            val result = feed.refresh(force) { status.update { it.copy(isRefreshing = false) } }
+            // The indicator stays until every forge has answered: the rows change once, when it stops.
+            val result = feed.refresh(force)
             status.update { it.copy(isRefreshing = false, error = (result as? ForgeResult.Failure)?.error) }
         }
     }

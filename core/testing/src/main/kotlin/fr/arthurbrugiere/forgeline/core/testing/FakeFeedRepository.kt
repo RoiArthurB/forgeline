@@ -25,14 +25,13 @@ class FakeFeedRepository : FeedRepository {
 
     override fun observe(): Flow<FeedSnapshot> = snapshot
 
-    /** When set, a refresh reports its first fresh forge, then waits for this: a slow second forge. */
-    var afterFirstFresh: CompletableDeferred<Unit>? = null
+    /** When set, a refresh waits for this: a slow forge. */
+    var gate: CompletableDeferred<Unit>? = null
 
-    override suspend fun refresh(force: Boolean, onFirstFresh: () -> Unit): ForgeResult<Unit> {
+    override suspend fun refresh(force: Boolean): ForgeResult<Unit> {
         refreshes += force
+        gate?.await()
         failure?.let { return ForgeResult.Failure(it) }
-        onFirstFresh()
-        afterFirstFresh?.await()
         return ForgeResult.Success(Unit)
     }
 

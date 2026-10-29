@@ -21,15 +21,13 @@ import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import fr.arthurbrugiere.forgeline.core.testing.RecordingDispatcher
 import fr.arthurbrugiere.forgeline.core.testing.feedEvent
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -59,16 +57,13 @@ class DefaultFeedRepositoryTest {
         override fun withZone(zone: ZoneId?) = this
     }
     private val clients = FakeForgeClients(feed = api)
-    private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val computation = RecordingDispatcher()
-    private val repository = DefaultFeedRepository(database.feedDao(), clients, accounts, state.readingMarkDao(), clock, background, computation)
+    private val repository = DefaultFeedRepository(database.feedDao(), clients, accounts, state.readingMarkDao(), clock, computation)
 
     private suspend fun signIn(login: String = "me") = accounts.signIn(ForgeInstance.GitHub, ForgeUser(login, null, null), "t-$login")
 
     @After
     fun closeDatabase() {
-        // Background work must stop before the database closes under it.
-        runBlocking { background.coroutineContext[Job]!!.cancelAndJoin() }
         database.close()
         state.close()
     }
@@ -289,47 +284,56 @@ class DefaultFeedRepositoryTest {
     }
 
     @Test
-    fun the_first_forge_to_answer_is_reported_while_a_slow_one_is_still_loading() = runTest {
-        // Regression: a pull-to-refresh waited for every forge, so a slow one (Codeberg's feed takes 3 to 8 s from far
-        // away) held the indicator although GitHub's news had already arrived.
+    fun nothing_shows_until_every_forge_has_answered() = runTest {
+        // Regression: each forge's rows landed as it answered, so a slow one (Codeberg's feed takes 3 to 8 s from far
+        // away) changed the Feed under the reader, and its rows could arrive below "Where you left off".
         accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "g")
-        api.pages[1] = listOf(feedEvent("1", createdAt = "2026-09-27T09:00:00Z"))
-        val codeberg = FakeFeedApi()
+        api.pages[1] = listOf(feedEvent("g1", createdAt = "2026-09-27T09:00:00Z"))
+        val codeberg = FakeFeedApi().apply { pages[1] = listOf(feedEvent("c1", repo = "forgejo/forgejo", createdAt = "2026-09-27T08:00:00Z")) }
         clients.put(ForgeInstance.Codeberg, FakeForgeClients(feed = codeberg))
         accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "c")
         val slow = CompletableDeferred<Unit>()
         codeberg.gate = slow
-        val fresh = CompletableDeferred<Unit>()
 
-        val refresh = async { repository.refresh(force = true) { fresh.complete(Unit) } }
-        withContext(Dispatchers.Default) { withTimeout(5_000) { fresh.await() } }
+        val refresh = async(Dispatchers.Default) { repository.refresh(force = true) }
+        withContext(Dispatchers.Default) { withTimeout(5_000) { while (api.calls.isEmpty() || codeberg.calls.isEmpty()) delay(10) } }
 
-        // GitHub's events are saved and reported; Codeberg hasn't answered and the refresh is still running.
-        assertThat(refresh.isCompleted).isFalse()
-        assertThat(repository.observe().first().events.map { it.id }).containsExactly("1")
+        // GitHub has answered; Codeberg hasn't, and GitHub's rows wait for it.
+        delay(100)
+        assertThat(repository.observe().first().events).isEmpty()
         slow.complete(Unit)
         assertThat(refresh.await()).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(repository.observe().first().events.map { it.id }).containsExactly("g1", "c1").inOrder()
     }
 
     @Test
-    fun nothing_fresh_is_reported_when_every_forge_fails() = runTest {
+    fun a_refresh_changes_the_feed_once() = runTest {
         signIn()
-        api.failure = ForgeError.Network
-        var fresh = 0
+        api.pages[1] = listOf(feedEvent("1", createdAt = "2026-09-27T09:00:00Z"))
+        val codeberg = FakeFeedApi()
+        clients.put(ForgeInstance.Codeberg, FakeForgeClients(feed = codeberg))
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "c")
+        repository.refresh(force = true)
+        val seen = java.util.concurrent.CopyOnWriteArrayList<List<String>>()
+        val watching = launch(Dispatchers.Default) {
+            repository.observe().map { snapshot -> snapshot.events.map { it.id } }.distinctUntilChanged().collect { seen += it }
+        }
+        withContext(Dispatchers.Default) { withTimeout(5_000) { while (seen.isEmpty()) delay(10) } }
+        api.pages[1] = listOf(feedEvent("2", createdAt = "2026-09-27T09:30:00Z"))
+        api.starred = listOf(release("octo/tools", "v2", "2026-09-27T09:40:00Z"))
+        codeberg.pages[1] = listOf(feedEvent("c1", repo = "forgejo/forgejo", createdAt = "2026-09-27T09:20:00Z"))
 
-        repository.refresh(force = true) { fresh++ }
+        repository.refresh(force = true)
+        withContext(Dispatchers.Default) { withTimeout(5_000) { while (seen.size < 2) delay(10) } }
+        delay(100)
+        watching.cancel()
 
-        assertThat(fresh).isEqualTo(0)
+        // From what was there straight to everything new: no step with only some of it.
+        assertThat(seen).containsExactly(listOf("1"), listOf("starred-release:octo/tools:v2", "2", "c1")).inOrder()
     }
 
     private fun release(repo: String, tag: String, at: String, id: String = "starred-release:$repo:$tag") =
         feedEvent(id, actor = "maintainer", repo = repo, createdAt = at, action = FeedAction.Released(tag, null, prerelease = false))
-
-    /**
-     * A refresh on real time: the starred activity (instant here) then joins it, where under the test's virtual time
-     * the refresh's short wait for it would run out at once.
-     */
-    private suspend fun refreshNow(force: Boolean = true) = withContext(Dispatchers.Default) { repository.refresh(force) }
 
     @Test
     fun starred_repositories_join_the_feed_and_survive_a_refresh() = runTest {
@@ -340,10 +344,10 @@ class DefaultFeedRepositoryTest {
             release("immich-app/immich", "v3.3.0", "2026-09-27T09:30:00Z"),
             feedEvent("announcement:immich-app/immich:880", actor = "alextran", repo = "immich-app/immich", createdAt = "2026-09-27T08:00:00Z", action = FeedAction.Announced(880, "Immich turns three")),
         )
-        refreshNow()
+        repository.refresh(force = true)
 
         // A refresh replaces the account's own events: the starred ones must stay.
-        refreshNow()
+        repository.refresh(force = true)
 
         val events = repository.observe().first().events
         assertThat(events.map { it.repo.fullName to it.action }).containsExactly(
@@ -352,7 +356,7 @@ class DefaultFeedRepositoryTest {
             "immich-app/immich" to FeedAction.Announced(880, "Immich turns three"),
         ).inOrder()
         // Asked for the last 30 days only.
-        assertThat(api.starredCalls.single()).isEqualTo(now.minus(java.time.Duration.ofDays(30)))
+        assertThat(api.starredCalls.toSet()).containsExactly(now.minus(java.time.Duration.ofDays(30)))
     }
 
     @Test
@@ -360,7 +364,7 @@ class DefaultFeedRepositoryTest {
         signIn()
         api.pages[1] = listOf(feedEvent("77", actor = "maintainer", repo = "octo/tools", createdAt = "2026-09-27T09:00:02Z", action = FeedAction.Released("v2", "Tools 2", prerelease = false)))
         api.starred = listOf(release("octo/tools", "v2", "2026-09-27T09:00:00Z"))
-        refreshNow()
+        repository.refresh(force = true)
 
         assertThat(repository.observe().first().events.map { it.action }).containsExactly(FeedAction.Released("v2", "Tools 2", prerelease = false))
     }
@@ -372,7 +376,7 @@ class DefaultFeedRepositoryTest {
         api.starred = listOf(
             feedEvent("new-repo:lfpoulain/wakeword-generator", actor = "lfpoulain", repo = "LFPoulain/wakeword-generator", createdAt = "2026-09-27T09:00:00Z", action = FeedAction.CreatedRepo("Wake words")),
         )
-        refreshNow()
+        repository.refresh(force = true)
 
         assertThat(repository.observe().first().events.map { it.action }).containsExactly(FeedAction.CreatedRepo("Wake words"))
     }
@@ -384,7 +388,7 @@ class DefaultFeedRepositoryTest {
         api.pages[1] = listOf(feedEvent("2", createdAt = "2026-09-27T09:00:00Z"))
         api.pages[2] = listOf(feedEvent("1", createdAt = "2026-09-20T09:00:00Z"))
         api.starred = listOf(release("old/news", "v1", "2026-09-22T09:00:00Z"))
-        refreshNow()
+        repository.refresh(force = true)
 
         assertThat(repository.observe().first().events.map { it.repo.fullName }).containsExactly("acme/rocket")
 
@@ -393,22 +397,22 @@ class DefaultFeedRepositoryTest {
     }
 
     @Test
-    fun starred_repositories_are_asked_at_most_every_half_hour() = runTest {
+    fun starred_repositories_are_asked_every_half_hour_unless_pulled() = runTest {
         signIn()
-        refreshNow(force = false)
-        refreshNow(force = false)
+        repository.refresh(force = false)
+        repository.refresh(force = false)
         assertThat(api.starredCalls).hasSize(1)
 
-        // A pull-to-refresh may ask sooner, but not within five minutes: each ask costs many seconds of the forge's time.
-        now = now.plusSeconds(4 * 60)
-        refreshNow(force = true)
-        assertThat(api.starredCalls).hasSize(1)
-        now = now.plusSeconds(2 * 60)
-        refreshNow(force = true)
+        // A pull-to-refresh reads everything, whenever it's asked.
+        now = now.plusSeconds(60)
+        repository.refresh(force = true)
+        assertThat(api.starredCalls).hasSize(2)
+        now = now.plusSeconds(29 * 60)
+        repository.refresh(force = false)
         assertThat(api.starredCalls).hasSize(2)
 
-        now = now.plusSeconds(31 * 60)
-        refreshNow(force = false)
+        now = now.plusSeconds(2 * 60)
+        repository.refresh(force = false)
         assertThat(api.starredCalls).hasSize(3)
     }
 
@@ -416,12 +420,12 @@ class DefaultFeedRepositoryTest {
     fun starred_repositories_that_cannot_be_read_keep_what_was_shown_and_are_asked_again() = runTest {
         signIn()
         api.starred = listOf(release("octo/tools", "v2", "2026-09-27T09:00:00Z"))
-        refreshNow(force = false)
+        repository.refresh(force = false)
         api.starred = null
         now = now.plusSeconds(31 * 60)
 
-        refreshNow(force = false)
-        refreshNow(force = false)
+        repository.refresh(force = false)
+        repository.refresh(force = false)
 
         assertThat(repository.observe().first().events.map { it.repo.fullName }).containsExactly("octo/tools")
         // A failure isn't a sync: the next visit asks again instead of waiting half an hour.
@@ -448,25 +452,25 @@ class DefaultFeedRepositoryTest {
     }
 
     @Test
-    fun a_refresh_waits_only_briefly_for_the_starred_repositories_and_the_next_one_shows_them() = runTest {
+    fun a_refresh_waits_for_the_starred_repositories_however_long_they_take() = runTest {
+        // Regression: with rows on screen, a refresh waited for them only briefly and the next one showed them, below
+        // where the reader had already read.
         signIn()
         api.pages[1] = listOf(feedEvent("1", createdAt = "2026-09-27T09:00:00Z"))
-        refreshNow()
-        now = now.plusSeconds(31 * 60)
+        repository.refresh(force = true)
         api.pages[1] = listOf(feedEvent("2", createdAt = "2026-09-27T09:20:00Z"))
-        api.starred = listOf(release("octo/tools", "v2", "2026-09-27T09:30:00Z"))
+        api.starred = listOf(release("octo/tools", "v2", "2026-09-27T09:10:00Z"))
         val slow = CompletableDeferred<Unit>()
         api.starredGate = slow
 
-        // Rows are on screen: the refresh shows its own events without the starred activity, still being read.
-        assertThat(repository.refresh(force = true)).isEqualTo(ForgeResult.Success(Unit))
-        assertThat(repository.observe().first().events.map { it.id }).containsExactly("2")
-
-        // It lands at the next refresh, with whatever that one brings, and isn't asked for again.
+        val refresh = async(Dispatchers.Default) { repository.refresh(force = true) }
+        withContext(Dispatchers.Default) { withTimeout(5_000) { while (api.starredCalls.size < 2) delay(10) } }
+        withContext(Dispatchers.Default) { delay(3_500) }
+        assertThat(repository.observe().first().events.map { it.id }).containsExactly("1")
         slow.complete(Unit)
-        now = now.plusSeconds(10)
-        refreshNow(force = false)
-        assertThat(repository.observe().first().events.map { it.repo.fullName }).containsExactly("octo/tools", "acme/rocket").inOrder()
+
+        assertThat(refresh.await()).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(repository.observe().first().events.map { it.id }).containsExactly("2", "starred-release:octo/tools:v2").inOrder()
         assertThat(api.starredCalls).hasSize(2)
     }
 }
