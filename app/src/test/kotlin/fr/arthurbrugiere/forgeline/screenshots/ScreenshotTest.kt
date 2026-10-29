@@ -47,6 +47,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
+import fr.arthurbrugiere.forgeline.core.model.InboxAction
 import fr.arthurbrugiere.forgeline.core.model.IssueAction
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
@@ -94,7 +95,6 @@ import fr.arthurbrugiere.forgeline.file.FileContent
 import fr.arthurbrugiere.forgeline.file.FileScreen
 import fr.arthurbrugiere.forgeline.file.FileTarget
 import fr.arthurbrugiere.forgeline.file.FileUiState
-import fr.arthurbrugiere.forgeline.inbox.InboxAction
 import fr.arthurbrugiere.forgeline.inbox.InboxFilter
 import fr.arthurbrugiere.forgeline.inbox.InboxScreen
 import fr.arthurbrugiere.forgeline.inbox.InboxSection

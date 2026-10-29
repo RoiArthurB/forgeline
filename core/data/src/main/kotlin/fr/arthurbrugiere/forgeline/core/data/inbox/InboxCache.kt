@@ -82,6 +82,15 @@ data class DoneEntity(val accountId: String, val threadId: String, val updatedAt
 data class KeptUnreadEntity(val accountId: String, val threadId: String)
 
 /**
+ * An action ([fr.arthurbrugiere.forgeline.core.model.InboxAction], by name) shown as done to a thread but not yet
+ * answered by the forge: still undoable, or cut short by the app closing, when it is sent at the next sync.
+ */
+@Entity(tableName = "inbox_held", primaryKeys = ["accountId", "threadId"])
+data class HeldActionEntity(val accountId: String, val threadId: String, val action: String, val heldAtMillis: Long) {
+    val key: String get() = "$accountId|$threadId"
+}
+
+/**
  * An account whose Inbox has followed the forge's site at least once. Until then, the threads kept as read can't be
  * told from the done ones an earlier version let back in, so the first such sync takes them all as dealt with.
  */
@@ -182,6 +191,9 @@ interface DoneDao {
     @Query("DELETE FROM inbox_done WHERE accountId = :accountId AND threadId NOT IN (:threadIds)")
     suspend fun prune(accountId: String, threadIds: List<String>)
 
+    @Query("DELETE FROM inbox_done WHERE accountId = :accountId AND threadId = :threadId")
+    suspend fun delete(accountId: String, threadId: String)
+
     /** Deletes what was done by accounts other than [accountIds]: those that signed out. */
     @Query("DELETE FROM inbox_done WHERE accountId NOT IN (:accountIds)")
     suspend fun keepOnly(accountIds: List<String>)
@@ -199,6 +211,22 @@ interface BaselineDao {
     /** Deletes the mark of accounts other than [accountIds]: those that signed out. */
     @Query("DELETE FROM inbox_baseline WHERE accountId NOT IN (:accountIds)")
     suspend fun keepOnly(accountIds: List<String>)
+}
+
+/** Kept in the reader's own database, like [DoneDao]'s: an update must not lose what was about to be sent. */
+@Dao
+interface HeldActionDao {
+    @Query("SELECT * FROM inbox_held")
+    fun observe(): Flow<List<HeldActionEntity>>
+
+    @Query("SELECT * FROM inbox_held")
+    suspend fun all(): List<HeldActionEntity>
+
+    @Upsert
+    suspend fun upsert(entities: List<HeldActionEntity>)
+
+    @Query("DELETE FROM inbox_held WHERE accountId = :accountId AND threadId = :threadId")
+    suspend fun delete(accountId: String, threadId: String)
 }
 
 /** Kept in the reader's own database, like [DoneDao]'s. */

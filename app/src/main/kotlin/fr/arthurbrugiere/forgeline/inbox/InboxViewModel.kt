@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.Hint
+import fr.arthurbrugiere.forgeline.core.model.InboxAction
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -67,9 +69,6 @@ internal class StableOrder<K> {
 }
 
 data class SectionGroup(val section: InboxSection, val threads: List<NotificationThread>)
-
-/** What a swipe or the menu did to a thread; it waits [InboxViewModel.UNDO_MILLIS] before reaching the forge. */
-enum class InboxAction { READ, UNREAD, DONE, UNSUBSCRIBE }
 
 /** The latest action that can still be undone. [serial] tells two identical actions apart. */
 
@@ -142,6 +141,9 @@ class InboxViewModel @Inject constructor(
     /** Actions shown as done but still undoable, by thread, with the timer that sends them. */
     private val pending = MutableStateFlow<Map<String, InboxAction>>(emptyMap())
     private val timers = mutableMapOf<String, Job>()
+
+    /** The repository keeping each held action, by thread: what is sent or undone waits for it. */
+    private val holding = mutableMapOf<String, Job>()
     private val undo = MutableStateFlow<PendingUndo?>(null)
     private var serial = 0L
 
@@ -272,6 +274,11 @@ class InboxViewModel @Inject constructor(
         val held = undo.keys.filter { timers.remove(it)?.apply { cancel() } != null }
         if (held.isEmpty()) return
         pending.update { it - held.toSet() }
+        val kept = held.mapNotNull { holding.remove(it) }
+        appScope.launch {
+            kept.joinAll()
+            inbox.release(held)
+        }
         this.undo.update { if (it == undo) null else it }
     }
 
@@ -299,6 +306,10 @@ class InboxViewModel @Inject constructor(
     private fun hold(threads: List<NotificationThread>, action: InboxAction) {
         val keys = threads.map { it.key }.distinct()
         if (keys.isEmpty()) return
+        // Kept by the repository too: an app closed before the forge was told tells it at its next sync. Regression:
+        // threads marked done in the last seconds before the app was swiped away came back at the next start.
+        val kept = appScope.launch { inbox.hold(keys, action) }
+        keys.forEach { holding[it] = kept }
         val wait = undoDelay.value.millis
         if (wait == 0L) {
             // Nothing to take back: each one goes to the forge now, shown as done until the forge has answered.
@@ -325,7 +336,9 @@ class InboxViewModel @Inject constructor(
     private fun send(key: String, action: InboxAction) {
         val accountId = key.substringBefore('|')
         val threadId = key.substringAfter('|')
+        val kept = holding.remove(key)
         appScope.launch {
+            kept?.join()
             val result = when (action) {
                 InboxAction.READ -> inbox.markRead(accountId, threadId)
                 InboxAction.UNREAD -> inbox.markUnread(accountId, threadId)

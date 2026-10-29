@@ -15,6 +15,8 @@ import fr.arthurbrugiere.forgeline.core.data.inbox.BaselineDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.BaselineEntity
 import fr.arthurbrugiere.forgeline.core.data.inbox.DoneDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.DoneEntity
+import fr.arthurbrugiere.forgeline.core.data.inbox.HeldActionDao
+import fr.arthurbrugiere.forgeline.core.data.inbox.HeldActionEntity
 import fr.arthurbrugiere.forgeline.core.data.inbox.KeptUnreadDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.KeptUnreadEntity
 import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkDao
@@ -30,13 +32,13 @@ import fr.arthurbrugiere.forgeline.core.data.trending.TrendingMeasurementEntity
 @Database(
     entities = [
         ReadingMarkEntity::class, DoneEntity::class, TrendingMeasurementEntity::class, KeptUnreadEntity::class, BaselineEntity::class,
-        CollectionEntity::class, CollectionRepoEntity::class,
+        CollectionEntity::class, CollectionRepoEntity::class, HeldActionEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
     // 2: the threads kept unread, a table of their own. 3: the accounts whose Inbox has followed the forge's site.
-    // 4: the reader's collections of repositories.
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
+    // 4: the reader's collections of repositories. 5: the Inbox actions not yet answered by the forge.
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4), AutoMigration(from = 4, to = 5)],
 )
 abstract class UserStateDatabase : RoomDatabase() {
     abstract fun readingMarkDao(): ReadingMarkDao
@@ -44,6 +46,8 @@ abstract class UserStateDatabase : RoomDatabase() {
     abstract fun doneDao(): DoneDao
 
     abstract fun keptUnreadDao(): KeptUnreadDao
+
+    abstract fun heldActionDao(): HeldActionDao
 
     abstract fun baselineDao(): BaselineDao
 

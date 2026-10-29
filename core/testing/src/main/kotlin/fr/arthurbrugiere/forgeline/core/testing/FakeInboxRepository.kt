@@ -5,6 +5,7 @@ import fr.arthurbrugiere.forgeline.core.data.inbox.InboxSnapshot
 import fr.arthurbrugiere.forgeline.core.data.inbox.SyncResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.InboxAction
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,7 @@ class FakeInboxRepository : InboxRepository {
     }
 
     private fun act(name: String, id: String, apply: (List<NotificationThread>) -> List<NotificationThread>): ForgeResult<Unit> {
+        held.keys.removeIf { it.substringAfter('|') == id }
         actions += "$name:$id"
         actionFailure?.let { return ForgeResult.Failure(it) }
         snapshot.update { it.copy(threads = apply(it.threads)) }
@@ -58,6 +60,17 @@ class FakeInboxRepository : InboxRepository {
 
     override suspend fun unsubscribe(accountId: String, threadId: String) =
         act("unsubscribe", threadId) { list -> list.filterNot { it.isThread(accountId, threadId) } }
+
+    /** The actions held and not yet answered or undone, by thread key. */
+    val held = java.util.concurrent.ConcurrentHashMap<String, InboxAction>()
+
+    override suspend fun hold(keys: List<String>, action: InboxAction) {
+        keys.forEach { held[it] = action }
+    }
+
+    override suspend fun release(keys: List<String>) {
+        keys.forEach { held.remove(it) }
+    }
 
     override suspend fun takeThreadsToNotify(): List<NotificationThread> = toNotify.also { toNotify = emptyList() }
 }

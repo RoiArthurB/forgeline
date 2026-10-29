@@ -59,3 +59,6 @@ private val NEEDS_YOU = setOf(
     NotificationReason.REVIEW_REQUESTED, NotificationReason.MENTION, NotificationReason.TEAM_MENTION,
     NotificationReason.ASSIGN, NotificationReason.SECURITY_ALERT,
 )
+
+/** What a swipe or the menu does to an Inbox thread. */
+enum class InboxAction { READ, UNREAD, DONE, UNSUBSCRIBE }

@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.InboxAction
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -78,6 +79,15 @@ interface InboxRepository {
     suspend fun unsubscribe(accountId: String, threadId: String): ForgeResult<Unit>
 
     /**
+     * Shows [action] done to the threads of [keys] ([NotificationThread.key]) before the forge is told, which
+     * [markRead] and the others then do. Kept across a restart: an app closed first tells the forge at its next sync.
+     */
+    suspend fun hold(keys: List<String>, action: InboxAction)
+
+    /** Takes back what [hold] showed for [keys], before the forge was told: an Undo. */
+    suspend fun release(keys: List<String>)
+
+    /**
      * Unread threads with activity newer than anything notified before, and marks them notified.
      * The first sync for an account only sets that baseline, so signing in never floods the phone.
      */
@@ -91,6 +101,7 @@ class DefaultInboxRepository @Inject constructor(
     private val doneDao: DoneDao,
     private val keptUnreadDao: KeptUnreadDao,
     private val baselineDao: BaselineDao,
+    private val heldDao: HeldActionDao,
     private val clients: ForgeClients,
     private val accounts: AccountRepository,
     private val conversations: IssueRepository,
@@ -119,14 +130,24 @@ class DefaultInboxRepository @Inject constructor(
             flowOf(InboxSnapshot(emptyList(), null))
         } else {
             val ids = signedIn.map { it.id }.toSet()
-            combine(dao.observeAll(), dao.observeSyncs(), dao.observeStates(), doneDao.observe()) { threads, syncs, states, done ->
+            combine(dao.observeAll(), dao.observeSyncs(), dao.observeStates(), doneDao.observe(), heldDao.observe()) { threads, syncs, states, done, held ->
                 val byRef = states.associateBy { it.ref() }
                 val doneKeys = done.mapTo(HashSet()) { it.accountId to it.threadId }
+                val heldActions = held.associate { (it.accountId to it.threadId) to InboxAction.entries.firstOrNull { action -> action.name == it.action } }
                 InboxSnapshot(
                     threads.filter { it.accountId in ids }
                         // Done where the forge couldn't: gone until something new happens on it, which is when it
                         // is unread again. Not by its date: marking it read moves that too.
                         .filterNot { entity -> !entity.unread && (entity.accountId to entity.id) in doneKeys }
+                        .mapNotNull { entity ->
+                            // What the reader did and the forge hasn't answered yet shows as done.
+                            when (heldActions[entity.accountId to entity.id]) {
+                                InboxAction.DONE, InboxAction.UNSUBSCRIBE -> return@mapNotNull null
+                                InboxAction.READ -> entity.copy(unread = false)
+                                InboxAction.UNREAD -> entity.copy(unread = true)
+                                null -> entity
+                            }
+                        }
                         .map { entity ->
                             val thread = entity.toModel()
                             val state = thread.subject?.let { byRef[it] }?.state?.let { name -> SubjectState.entries.firstOrNull { it.name == name } }
@@ -143,6 +164,8 @@ class DefaultInboxRepository @Inject constructor(
     override suspend fun sync(force: Boolean, waitForFollowUps: Boolean, onlyIfNew: Boolean): SyncResult {
         val signedIn = accounts.accounts.first()
         if (signedIn.isEmpty()) return SyncResult.SignedOut
+        // Before the list is asked for: it then says what they did.
+        sendLeftOver()
         val results = coroutineScope { signedIn.map { account -> async { syncAccount(account, force, onlyIfNew) } }.awaitAll() }
         // Threads first, on screen at once; where their issues and pull requests stand follows, off the refresh.
         val synced = signedIn.zip(results).filter { (_, result) -> result is SyncResult.Updated || result is SyncResult.NotModified }.map { it.first }
@@ -298,6 +321,7 @@ class DefaultInboxRepository @Inject constructor(
         handledHere["${account.id}|$threadId"] = clock.millis()
         return clients.notifications(account.forge).markRead(token, threadId)
             .also { if (it is ForgeResult.Failure) dao.setUnread(account.id, threadId, true) }
+            .also { answered(account.id, threadId) }
     }
 
     override suspend fun markUnread(accountId: String, threadId: String): ForgeResult<Unit> {
@@ -310,6 +334,7 @@ class DefaultInboxRepository @Inject constructor(
                 dao.setUnread(account.id, threadId, false)
                 keptUnreadDao.delete(account.id, threadId)
             }
+            answered(account.id, threadId)
         }
     }
 
@@ -318,29 +343,78 @@ class DefaultInboxRepository @Inject constructor(
         val api = clients.notifications(account.forge)
         val removed = dao.get(account.id, threadId)
         handledHere["${account.id}|$threadId"] = clock.millis()
+        // Remembered on every forge: GitHub goes on listing a done thread among the read ones, and nothing in its
+        // answer says it was done. It stays away until it is unread again. Remembered before the forge answers: a
+        // sync meanwhile lists it still, unread where it was. Regression: such a thread came back.
+        if (removed != null) doneDao.upsert(DoneEntity(account.id, threadId, removed.updatedAtMillis))
         // Gone at once where the forge takes it away; where it only marks it read (Forgejo), once it has.
         if (api.supportsDone) dao.delete(account.id, threadId)
         val result = api.markDone(token, threadId)
         if (result is ForgeResult.Failure) {
             if (api.supportsDone && removed != null) dao.insert(listOf(removed))
+            if (removed != null) doneDao.delete(account.id, threadId)
+            answered(account.id, threadId)
             return result
         }
         keptUnreadDao.delete(account.id, threadId)
-        if (removed != null) {
-            if (!api.supportsDone) dao.setUnread(account.id, threadId, false)
-            // Remembered on every forge: GitHub goes on listing a done thread among the read ones, and nothing in
-            // its answer says it was done. It stays away until it is unread again.
-            doneDao.upsert(DoneEntity(account.id, threadId, removed.updatedAtMillis))
-        }
+        if (removed != null && !api.supportsDone) dao.setUnread(account.id, threadId, false)
+        answered(account.id, threadId)
         return result
     }
 
     override suspend fun unsubscribe(accountId: String, threadId: String): ForgeResult<Unit> {
         val (account, token) = session(accountId) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
         return when (val result = clients.notifications(account.forge).unsubscribe(token, threadId)) {
-            is ForgeResult.Failure -> result
+            is ForgeResult.Failure -> result.also { answered(account.id, threadId) }
             is ForgeResult.Success -> markDone(accountId, threadId)
         }
+    }
+
+    /** The keys of the actions held by this run of the app, which its screens send or undo themselves. */
+    private val heldHere: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    override suspend fun hold(keys: List<String>, action: InboxAction) {
+        heldHere += keys
+        val at = clock.millis()
+        heldDao.upsert(keys.map { HeldActionEntity(it.substringBefore('|'), it.substringAfter('|'), action.name, at) })
+    }
+
+    override suspend fun release(keys: List<String>) {
+        keys.forEach { key ->
+            heldDao.delete(key.substringBefore('|'), key.substringAfter('|'))
+            heldHere -= key
+        }
+    }
+
+    /** The forge answered the action on [threadId], whatever it said: it no longer waits to be sent. */
+    private suspend fun answered(accountId: String, threadId: String) {
+        heldDao.delete(accountId, threadId)
+        heldHere -= "$accountId|$threadId"
+    }
+
+    /**
+     * Sends what an earlier run of the app held and never sent, closed before the forge was told. Unreachable, it waits
+     * for the next sync; refused, it is let go (the forge has its reasons), and so is one of an account signed out.
+     */
+    private suspend fun sendLeftOver() = coroutineScope {
+        // Claimed by this sync: another one running meanwhile leaves them, and so does it those of the screens.
+        heldDao.all().filter { heldHere.add(it.key) }.map { held ->
+            async {
+                val result = when (InboxAction.entries.firstOrNull { it.name == held.action }) {
+                    InboxAction.READ -> markRead(held.accountId, held.threadId)
+                    InboxAction.UNREAD -> markUnread(held.accountId, held.threadId)
+                    InboxAction.DONE -> markDone(held.accountId, held.threadId)
+                    InboxAction.UNSUBSCRIBE -> unsubscribe(held.accountId, held.threadId)
+                    null -> null
+                }
+                if ((result as? ForgeResult.Failure)?.error == ForgeError.Network) {
+                    heldDao.upsert(listOf(held))
+                } else if (result == null || result is ForgeResult.Failure) {
+                    heldDao.delete(held.accountId, held.threadId)
+                }
+                heldHere -= held.key
+            }
+        }.awaitAll()
     }
 
     override suspend fun takeThreadsToNotify(): List<NotificationThread> = accounts.accounts.first().flatMap { account ->

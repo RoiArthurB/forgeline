@@ -7,6 +7,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.Hint
+import fr.arthurbrugiere.forgeline.core.model.InboxAction
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.SubjectState
@@ -240,6 +241,27 @@ class InboxViewModelTest {
         runCurrent()
         assertThat(inbox.actions).containsExactly("done:1", "unsubscribe:2").inOrder()
         assertThat(viewModel.state.value.undo).isNull()
+    }
+
+    @Test
+    fun a_held_action_is_kept_until_the_forge_is_told_or_it_is_undone() = test {
+        // Regression: held only in memory, an action the app closed on was lost, and its thread came back.
+        inbox.set(mention, watching)
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.markDone(mention)
+        viewModel.markDone(watching)
+        runCurrent()
+        assertThat(inbox.held).containsExactly(mention.key, InboxAction.DONE, watching.key, InboxAction.DONE)
+
+        viewModel.undo(viewModel.state.value.undo!!)
+        runCurrent()
+        assertThat(inbox.held).containsExactly(mention.key, InboxAction.DONE)
+        advanceTimeBy(InboxViewModel.UNDO_MILLIS + 1)
+        runCurrent()
+        assertThat(inbox.actions).containsExactly("done:1")
+        assertThat(inbox.held).isEmpty()
     }
 
     @Test

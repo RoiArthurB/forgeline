@@ -12,6 +12,7 @@ import fr.arthurbrugiere.forgeline.core.forge.IssueApi
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.InboxAction
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -71,7 +72,7 @@ class DefaultInboxRepositoryTest {
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val computation = RecordingDispatcher()
     private val userSettings = fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository()
-    private val repository = DefaultInboxRepository(database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), clients, accounts, conversations, clock, background, computation, userSettings)
+    private val repository = DefaultInboxRepository(database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), state.heldActionDao(), clients, accounts, conversations, clock, background, computation, userSettings)
 
     private val me = Account.idFor(ForgeInstance.GitHub, "me")
 
@@ -271,6 +272,86 @@ class DefaultInboxRepositoryTest {
         api.threads = listOf(notificationThread("1", updatedAt = "2026-09-27T11:00:00Z"), notificationThread("2"))
         repository.sync(force = true, waitForFollowUps = true)
         assertThat(repository.observe().first().threads.map { it.id to it.unread }).containsExactly("1" to true, "2" to true)
+    }
+
+    /** The app as it starts again: the same databases, nothing remembered in memory. */
+    private fun restarted() = DefaultInboxRepository(
+        database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), state.heldActionDao(), clients, accounts, conversations, clock, background, computation, userSettings,
+    )
+
+    @Test
+    fun a_thread_held_done_when_the_app_closed_stays_away_and_is_sent_at_the_next_sync() = runTest {
+        // Regression: threads marked done in the last seconds before the app was swiped away (Undo still offered, or
+        // the forge not yet answered) were never sent, and came back at the next start.
+        signIn()
+        api.threads = listOf(notificationThread("1"), notificationThread("2"))
+        repository.sync(force = true, waitForFollowUps = true)
+        repository.hold(listOf("$me|1"), InboxAction.DONE)
+
+        val next = restarted()
+        assertThat(next.observe().first().threads.map { it.id }).containsExactly("2")
+        now = now.plusSeconds(120)
+        next.sync(force = true, waitForFollowUps = true)
+
+        assertThat(api.calls).contains("done:1")
+        assertThat(state.heldActionDao().all()).isEmpty()
+        assertThat(next.observe().first().threads.map { it.id }).containsExactly("2")
+    }
+
+    @Test
+    fun what_the_screens_still_hold_is_left_to_them() = runTest {
+        // Undo is still offered: a sync meanwhile mustn't send it.
+        signIn()
+        api.threads = listOf(notificationThread("1"))
+        repository.sync(force = true, waitForFollowUps = true)
+        repository.hold(listOf("$me|1"), InboxAction.DONE)
+
+        repository.sync(force = true, waitForFollowUps = true)
+        assertThat(api.calls).doesNotContain("done:1")
+
+        // Undone: back, and nothing is sent at the next start either.
+        repository.release(listOf("$me|1"))
+        assertThat(repository.observe().first().threads.map { it.id }).containsExactly("1")
+        restarted().sync(force = true, waitForFollowUps = true)
+        assertThat(api.calls).doesNotContain("done:1")
+    }
+
+    @Test
+    fun a_held_action_the_forge_cannot_be_reached_for_waits_for_the_next_sync() = runTest {
+        signIn()
+        api.threads = listOf(notificationThread("1"), notificationThread("2"))
+        repository.sync(force = true, waitForFollowUps = true)
+        repository.hold(listOf("$me|1"), InboxAction.READ)
+        val next = restarted()
+
+        api.failure = ForgeError.Network
+        next.sync(force = true, waitForFollowUps = true)
+        assertThat(next.observe().first().threads.map { it.id to it.unread }).containsExactly("1" to false, "2" to true)
+
+        api.failure = null
+        next.sync(force = true, waitForFollowUps = true)
+        assertThat(api.calls.filter { it == "read:1" }).hasSize(2)
+        assertThat(state.heldActionDao().all()).isEmpty()
+    }
+
+    @Test
+    fun a_thread_being_marked_done_stays_done_when_a_sync_lists_it_meanwhile() = runTest {
+        // Regression: a sync while the forge was still answering put the thread back, unread, until the next one.
+        signIn()
+        api.threads = listOf(notificationThread("1"), notificationThread("2"))
+        repository.sync(force = true, waitForFollowUps = true)
+        val slow = CompletableDeferred<Unit>()
+        api.actionGate = slow
+
+        val done = async(Dispatchers.Default) { repository.markDone(me, "1") }
+        withContext(Dispatchers.Default) { withTimeout(5_000) { while ("done:1" !in api.calls) delay(10) } }
+        now = now.plusSeconds(120)
+        api.actionGate = null
+        repository.sync(force = true, waitForFollowUps = true)
+        slow.complete(Unit)
+        done.await()
+
+        assertThat(repository.observe().first().threads.map { it.id }).containsExactly("2")
     }
 
     @Test
@@ -744,7 +825,7 @@ class DefaultInboxRepositoryTest {
             override suspend fun issue(token: String?, ref: IssueRef) = together.arrive("#${ref.number}").let { issueApi.issue(token, ref) }
         }
         val ahead = DefaultIssueRepository(FakeForgeClients(issues = meeting), accounts, database.conversationDao(), clock)
-        val inbox = DefaultInboxRepository(database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), clients, accounts, ahead, clock, background, computation, userSettings)
+        val inbox = DefaultInboxRepository(database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), state.heldActionDao(), clients, accounts, ahead, clock, background, computation, userSettings)
 
         realTime { inbox.sync(force = true, waitForFollowUps = true) }
 

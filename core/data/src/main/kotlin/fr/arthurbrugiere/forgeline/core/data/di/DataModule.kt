@@ -37,6 +37,7 @@ import fr.arthurbrugiere.forgeline.core.data.feed.FeedRepository
 import fr.arthurbrugiere.forgeline.core.data.inbox.BaselineDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.DefaultInboxRepository
 import fr.arthurbrugiere.forgeline.core.data.inbox.DoneDao
+import fr.arthurbrugiere.forgeline.core.data.inbox.HeldActionDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxDao
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxRepository
 import fr.arthurbrugiere.forgeline.core.data.inbox.KeptUnreadDao
@@ -170,6 +171,9 @@ abstract class DataModule {
 
         @Provides
         fun provideDoneDao(database: UserStateDatabase): DoneDao = database.doneDao()
+
+        @Provides
+        fun provideHeldActionDao(database: UserStateDatabase): HeldActionDao = database.heldActionDao()
 
         @Provides
         fun provideBaselineDao(database: UserStateDatabase): BaselineDao = database.baselineDao()

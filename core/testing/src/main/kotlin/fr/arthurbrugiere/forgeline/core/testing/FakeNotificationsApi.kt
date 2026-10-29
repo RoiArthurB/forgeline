@@ -38,8 +38,12 @@ class FakeNotificationsApi(override val supportsDone: Boolean = true) : Notifica
         return ForgeResult.Success(NotificationsSync(threads, "modified-${calls.size}", pollIntervalSeconds))
     }
 
-    private fun action(name: String): ForgeResult<Unit> {
+    /** When set, actions wait for it once asked: a forge slow to answer. */
+    var actionGate: CompletableDeferred<Unit>? = null
+
+    private suspend fun action(name: String): ForgeResult<Unit> {
         calls += name
+        actionGate?.await()
         return failure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(Unit)
     }
 

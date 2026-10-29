@@ -89,6 +89,9 @@ class UserStateDatabaseTest {
         assertThat(state.collectionDao().observeAll().first()).isEmpty()
         state.collectionDao().upsert(fr.arthurbrugiere.forgeline.core.data.collections.CollectionEntity("c1", "Tools", 1))
         assertThat(state.collectionDao().observeAll().first().single().name).isEqualTo("Tools")
+        // And the Inbox actions not yet sent, at version 5.
+        state.heldActionDao().upsert(listOf(fr.arthurbrugiere.forgeline.core.data.inbox.HeldActionEntity("github:github.com:me", "9", "DONE", 1)))
+        assertThat(state.heldActionDao().all().single().threadId).isEqualTo("9")
         state.close()
     }
 
