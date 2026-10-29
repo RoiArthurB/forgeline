@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.forge.OAuthTokens
 import fr.arthurbrugiere.forgeline.core.model.Account
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -26,6 +27,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class DataStoreAccountRepositoryTest {
     @get:Rule
     val tmp = TemporaryFolder()

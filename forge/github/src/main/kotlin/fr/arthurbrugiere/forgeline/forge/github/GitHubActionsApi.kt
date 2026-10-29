@@ -182,7 +182,7 @@ class GitHubActionsApi(
                 takeFrom(apiBaseUrl)
                 appendPathSegments("repos", id.owner, id.name, "actions", "artifacts", artifact.id.toString(), "zip")
             }
-            gitHubHeaders(token!!)
+            gitHubHeaders(token)
             header(HttpHeaders.CacheControl, "no-store")
         }.execute { response ->
             if (!response.status.isSuccess()) return@execute response.failure()

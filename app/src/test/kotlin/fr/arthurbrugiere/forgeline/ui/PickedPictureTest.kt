@@ -26,7 +26,6 @@ class PickedPictureTest {
 
     @Test
     fun a_picture_is_read_whole_with_a_name_a_forge_can_tell_its_kind_from() {
-        shadowOf(android.webkit.MimeTypeMap.getSingleton()).addExtensionMimeTypeMapping("png", "image/png")
         val uri = picked("file:///pictures/shot.png", byteArrayOf(1, 2, 3))
 
         val picture = readPicture(resolver, uri)!!

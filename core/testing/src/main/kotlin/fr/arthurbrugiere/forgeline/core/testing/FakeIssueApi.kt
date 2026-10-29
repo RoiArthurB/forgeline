@@ -351,7 +351,6 @@ class FakeIssueApi : IssueApi {
         val set = this.subscribed ?: return ForgeResult.Failure(ForgeError.Unsupported)
         return manage(token, "${if (subscribed) "subscribe" else "unsubscribe"} $login ${ref.label}") {
             if (subscribed) set += ref else set -= ref
-            Unit
         }
     }
 

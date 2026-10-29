@@ -249,7 +249,7 @@ fun IssueRoute(
     // A revert opened a pull request of its own: it is gone to.
     LaunchedEffect(pullState?.reverted) {
         val reverted = pullState?.reverted ?: return@LaunchedEffect
-        pull?.revertedShown()
+        pull.revertedShown()
         onOpenIssue(reverted)
     }
     // Checks still running are followed while the conversation is in sight, as on the forge's own page.
@@ -652,9 +652,9 @@ fun IssueScreen(
                                         pull.threads, pull, pullActions, canReply = canWrite, context, nowMillis, onOpenUser, onLinkClick,
                                         Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 24.dp),
                                         // Its branch takes a commit from whoever may push to the repository, or opened it.
-                                        canCommit = canWrite && issue?.state == IssueState.OPEN &&
+                                        canCommit = canWrite && issue.state == IssueState.OPEN &&
                                             (state.access >= RepoAccess.WRITE || (state.me != null && issue.author?.login == state.me)),
-                                        branch = issue?.pullRequest?.headRef.orEmpty(),
+                                        branch = issue.pullRequest?.headRef.orEmpty(),
                                     )
                                 }
                             }

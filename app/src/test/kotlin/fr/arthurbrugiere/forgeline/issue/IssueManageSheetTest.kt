@@ -357,7 +357,7 @@ class IssueManageSheetTest {
 
     @Test
     fun a_draft_is_not_offered_to_become_one_again_nor_an_issue_reviewers() {
-        setContent(reviewed.copy(issue = reviewed.issue!!.copy(pullRequest = reviewed.issue!!.pullRequest!!.copy(isDraft = true))))
+        setContent(reviewed.copy(issue = reviewed.issue!!.copy(pullRequest = reviewed.issue.pullRequest!!.copy(isDraft = true))))
         composeRule.onNodeWithText("Convert to draft").assertDoesNotExist()
     }
 

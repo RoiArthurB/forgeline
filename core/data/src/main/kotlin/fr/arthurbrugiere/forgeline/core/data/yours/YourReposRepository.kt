@@ -105,7 +105,7 @@ class DefaultYourReposRepository @Inject constructor(
         val kept = dao.get(account.id)
         // A list written by an earlier version lacks what this one shows (whose each repository is): read again.
         val current = kept?.let { runCatching { Stored.decode(it.json).version }.getOrNull() } == Stored.VERSION
-        if (!force && current && kept != null && now - kept.fetchedAtMillis < YourReposRepository.MAX_AGE_MILLIS) return ForgeResult.Success(Unit)
+        if (!force && current && now - kept.fetchedAtMillis < YourReposRepository.MAX_AGE_MILLIS) return ForgeResult.Success(Unit)
         val token = accounts.token(account.id) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
         val users = clients.users(account.forge)
         return coroutineScope {

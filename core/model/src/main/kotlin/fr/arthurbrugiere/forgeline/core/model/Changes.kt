@@ -115,7 +115,7 @@ fun parseUnifiedDiff(text: String): List<ChangedFile> {
                 patch = null
             }
             !started -> Unit
-            patch != null -> patch!!.append(line).append('\n')
+            patch != null -> patch.append(line).append('\n')
             line.startsWith("@@") -> patch = StringBuilder(line).append('\n')
             line.startsWith("new file mode") -> change = FileChange.ADDED
             line.startsWith("deleted file mode") -> change = FileChange.REMOVED

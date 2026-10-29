@@ -97,7 +97,7 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
             val ownBranch = details.head.repoId != null && details.head.repoId == details.base?.repoId
             // Forgejo doesn't say whether the target moved on: what it has that the change's branch lacks is compared,
             // for a branch of the repository itself. Unknown counts as up to date.
-            val behind = if (ownBranch && canMerge && details.head.ref != null && details.base?.ref != null) {
+            val behind = if (ownBranch && canMerge && details.head.ref != null && details.base.ref != null) {
                 // The comparison is the rest of the path, slashes in branch names and all.
                 val compared = repo(token, ref.repo, "compare", *"${details.head.ref}...${details.base.ref}".split('/').toTypedArray())
                 compared.status == HttpStatusCode.OK && compared.body<PrCompareJson>().totalCommits > 0

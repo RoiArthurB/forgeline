@@ -23,6 +23,7 @@ import fr.arthurbrugiere.forgeline.core.testing.FakeIssueApi
 import fr.arthurbrugiere.forgeline.core.testing.Rendezvous
 import fr.arthurbrugiere.forgeline.core.testing.comment
 import fr.arthurbrugiere.forgeline.core.testing.issueDetails
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -35,6 +36,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 
 @RunWith(RobolectricTestRunner::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class DefaultIssueRepositoryTest {
     private val database = Room.inMemoryDatabaseBuilder(ApplicationProvider.getApplicationContext(), ForgelineDatabase::class.java)
         .allowMainThreadQueries()

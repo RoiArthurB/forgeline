@@ -56,9 +56,9 @@ class ChangesViewModelTest {
         val state = viewModel.state.value
         assertThat(state.isLoading).isFalse()
         assertThat(state.files!!.map { it.file.path }).containsExactly("a.kt", "logo.png").inOrder()
-        assertThat(state.files!![0].hunks.single().lines.map { it.kind }).containsExactly(DiffLineKind.CONTEXT, DiffLineKind.REMOVED, DiffLineKind.ADDED).inOrder()
+        assertThat(state.files[0].hunks.single().lines.map { it.kind }).containsExactly(DiffLineKind.CONTEXT, DiffLineKind.REMOVED, DiffLineKind.ADDED).inOrder()
         // Nothing to read for a file that isn't text.
-        assertThat(state.files!![1].hunks).isEmpty()
+        assertThat(state.files[1].hunks).isEmpty()
         assertThat(state.nextPage).isNull()
     }
 

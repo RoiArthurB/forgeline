@@ -33,7 +33,10 @@ class ForgejoResetContentTest {
                 server.accept().use { socket ->
                     val reader = socket.getInputStream().bufferedReader()
                     requests += reader.readLine().orEmpty()
-                    while (reader.readLine().orEmpty().isNotEmpty()) Unit
+                    // Past the headers, to the blank line that ends them.
+                    do {
+                        val header = reader.readLine().orEmpty()
+                    } while (header.isNotEmpty())
                     socket.getOutputStream().apply { write(answer.toByteArray()) }.flush()
                 }
             }
