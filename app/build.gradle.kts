@@ -59,6 +59,14 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
+
+    packaging {
+        jniLibs {
+            // AndroidX's two native libraries come built (one stripped, the other ~10 KB): stripping them again needs
+            // the NDK installed for a few KB, so they are packed as they come, without the warning at every build.
+            keepDebugSymbols += setOf("**/libandroidx.graphics.path.so", "**/libdatastore_shared_counter.so")
+        }
+    }
 }
 
 dependencies {
