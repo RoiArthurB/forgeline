@@ -8,7 +8,6 @@
     <string name="sign_in">Se connecter</string>
     <string name="sign_out">Se déconnecter</string>
     <string name="cancel">Annuler</string>
-    <string name="done">Terminé</string>
     <string name="inbox_signed_out_title">Vos notifications, au même endroit</string>
     <string name="inbox_signed_out_body">Connectez-vous à GitHub, GitLab, Codeberg ou votre propre Forgejo pour lire et traiter ce qui vous attend.</string>
     <string name="inbox_filter_unread">Non lues</string>
@@ -155,7 +154,6 @@
     <string name="feed_state_approved">Approuvé</string>
     <string name="feed_state_changes">Modifications demandées</string>
     <string name="feed_state_reviewed">Relu</string>
-    <string name="feed_pull_untitled">Pull request nº %1$d</string>
     <string name="feed_day_today">Aujourd’hui</string>
     <string name="feed_day_yesterday">Hier</string>
     <string name="feed_day_week">Cette semaine</string>
@@ -167,7 +165,6 @@
     <string name="sign_in_github_access">GitHub demandera l’accès à vos dépôts, privés compris, et la permission de les supprimer. Forgeline s’en sert pour les afficher et pour y commenter, étoiler et lancer des workflows ; il ne supprime un dépôt que si vous le demandez, depuis les paramètres de ce dépôt.</string>
     <string name="you_signed_out_title">Connecter un compte</string>
     <string name="you_signed_out_body">GitHub, GitLab, Codeberg ou votre propre Forgejo. La boîte de réception et le fil demandent un compte ; les tendances et la navigation fonctionnent sans.</string>
-    <string name="sign_in_title">Se connecter</string>
     <string name="sign_in_headline">Se connecter à %1$s</string>
     <string name="sign_in_headline_other">Se connecter à votre serveur</string>
     <string name="sign_in_privacy">Forgeline parle à %1$s directement depuis votre téléphone. Votre jeton est chiffré sur cet appareil et n’est envoyé que là-bas.</string>
@@ -549,7 +546,6 @@
     <string name="issue_attach_failed">L’image n’a pas été jointe. Réessayez.</string>
     <string name="write_preview">Aperçu</string>
     <string name="write_preview_back">Retour à l’écriture</string>
-    <string name="issue_edit">Modifier le titre et la description</string>
     <string name="edit_issue_title">Modifier le ticket</string>
     <string name="edit_pull_title">Modifier la pull request</string>
     <string name="edit_issue_send">Enregistrer les modifications</string>
@@ -614,7 +610,6 @@
     <string name="manage_dependency_open">%1$s · ouvert</string>
     <string name="manage_dependency_closed">%1$s · fermé</string>
     <string name="manage_dependency_remove">Retirer la dépendance envers %1$s</string>
-    <string name="manage_dependency_placeholder">Numéro de ticket, comme 12</string>
     <string name="manage_dependency_add">Ajouter la dépendance</string>
     <string name="manage_on_forge">Sur le site de %1$s : son API ne sait pas le faire</string>
     <string name="manage_title">Gérer</string>

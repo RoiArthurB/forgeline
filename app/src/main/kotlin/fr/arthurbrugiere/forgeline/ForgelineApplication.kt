@@ -50,7 +50,7 @@ class ForgelineApplication : Application(), Configuration.Provider, SingletonIma
 
     /** Off the main thread: reading settings and accounts must never delay the first frame. */
     @Inject
-    @field:BackgroundScope
+    @BackgroundScope
     lateinit var background: CoroutineScope
 
     // Lazy: it opens the database, which must not happen on the main thread at launch.

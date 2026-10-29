@@ -135,12 +135,12 @@ fun RunScreen(
     onRefresh: () -> Unit,
     onPerform: (RunAction) -> Unit,
     onOpenJob: (RunJob) -> Unit,
-    onOpenArtifact: (RunArtifact) -> Unit = {},
     onOpenUser: (String) -> Unit,
     onOpenInBrowser: () -> Unit,
     onResultShown: () -> Unit,
     onErrorShown: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenArtifact: (RunArtifact) -> Unit = {},
     nowMillis: Long = rememberNow(state.run, state.jobs),
 ) {
     val colors = Soft.colors
@@ -322,7 +322,7 @@ private fun ArtifactRow(artifact: RunArtifact, onClick: () -> Unit) {
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RowIcon(Icons.Outlined.Inventory2, colors.surface, if (artifact.expired) colors.inkMuted else colors.ink)
+        RowIcon(Icons.Outlined.Inventory2, colors.surface, tint = if (artifact.expired) colors.inkMuted else colors.ink)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(artifact.name, style = Soft.type.body, color = if (artifact.expired) colors.inkMuted else colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)

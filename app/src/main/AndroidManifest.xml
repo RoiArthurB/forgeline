@@ -14,6 +14,7 @@
         </intent>
     </queries>
 
+    <!-- The language list for the system's per-app setting, which Android 13 brought: older ones skip it. -->
     <application
         android:name=".ForgelineApplication"
         android:allowBackup="true"
@@ -23,7 +24,8 @@
         android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Forgeline.Starting">
+        android:theme="@style/Theme.Forgeline.Starting"
+        tools:ignore="UnusedAttribute">
         <activity
             android:name=".MainActivity"
             android:exported="true"

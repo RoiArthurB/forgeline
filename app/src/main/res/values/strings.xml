@@ -10,7 +10,6 @@
     <string name="sign_in">Sign in</string>
     <string name="sign_out">Sign out</string>
     <string name="cancel">Cancel</string>
-    <string name="done">Done</string>
 
     <string name="inbox_signed_out_title">Your notifications, in one place</string>
     <string name="inbox_signed_out_body">Sign in to GitHub, GitLab, Codeberg or your own Forgejo to read and clear what needs you.</string>
@@ -151,7 +150,6 @@
     <string name="feed_state_approved">Approved</string>
     <string name="feed_state_changes">Changes requested</string>
     <string name="feed_state_reviewed">Reviewed</string>
-    <string name="feed_pull_untitled">Pull request #%1$d</string>
     <string name="feed_day_today">Today</string>
     <string name="feed_day_yesterday">Yesterday</string>
     <string name="feed_day_week">This week</string>
@@ -164,7 +162,6 @@
     <string name="you_signed_out_title">Connect an account</string>
     <string name="you_signed_out_body">GitHub, GitLab, Codeberg or your own Forgejo. Your inbox and feed need an account; Trending and browsing work without one.</string>
 
-    <string name="sign_in_title">Sign in</string>
     <string name="sign_in_headline">Connect to %1$s</string>
     <string name="sign_in_headline_other">Connect to your server</string>
     <string name="sign_in_privacy">Forgeline talks to %1$s directly from your phone. Your token is encrypted on this device and only ever sent there.</string>
@@ -526,8 +523,8 @@
     <string name="issue_comment_show">Show</string>
     <string name="issue_closing_pulls">Closed by merging</string>
     <string name="issue_part_of">Part of %1$s</string>
-    <string name="issue_sub_issues_done">Sub-issues · %1$d of %2$d done</string>
-    <string name="issue_sub_issue_remove">Take #%1$d out of the sub-issues</string>
+    <string name="issue_sub_issues_done" tools:ignore="PluralsCandidate">Sub-issues · %1$d of %2$d done</string>
+    <string name="issue_sub_issue_remove" tools:ignore="PluralsCandidate">Take #%1$d out of the sub-issues</string>
     <string name="issue_sub_issue_number">#number</string>
     <string name="issue_sub_issue_add">Add</string>
     <string name="issue_sub_issue_start">Add a sub-issue</string>
@@ -564,7 +561,6 @@
     <string name="issue_attach_failed">The picture wasn\'t attached. Try again.</string>
     <string name="write_preview">Preview</string>
     <string name="write_preview_back">Back to writing</string>
-    <string name="issue_edit">Edit title and description</string>
     <string name="edit_issue_title">Edit issue</string>
     <string name="edit_pull_title">Edit pull request</string>
     <string name="edit_issue_send">Save changes</string>
@@ -629,7 +625,6 @@
     <string name="manage_dependency_open">%1$s · open</string>
     <string name="manage_dependency_closed">%1$s · closed</string>
     <string name="manage_dependency_remove">Remove the dependency on %1$s</string>
-    <string name="manage_dependency_placeholder">Issue number, like 12</string>
     <string name="manage_dependency_add">Add dependency</string>
     <string name="manage_on_forge">On %1$s\'s site: its API can\'t do this</string>
     <string name="manage_title">Manage</string>

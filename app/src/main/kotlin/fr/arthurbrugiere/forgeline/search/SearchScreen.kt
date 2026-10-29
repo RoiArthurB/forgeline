@@ -128,7 +128,6 @@ fun SearchScreen(
     onQueryChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onSelectScope: (SearchScope) -> Unit,
-    onSelectForge: (ForgeInstance?) -> Unit = {},
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
     onOpenRepo: (RepoId) -> Unit,
@@ -136,6 +135,7 @@ fun SearchScreen(
     onOpenUser: (ForgeInstance, String) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onSelectForge: (ForgeInstance?) -> Unit = {},
     nowMillis: Long = rememberNow(state.results),
     /** Opens what an address typed or pasted in the field names. */
     onOpenLink: (NavKey) -> Unit = {},

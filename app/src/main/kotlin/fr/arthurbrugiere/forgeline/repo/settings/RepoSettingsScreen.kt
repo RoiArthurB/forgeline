@@ -174,6 +174,9 @@ fun RepoSettingsScreen(
     onChange: (RepoSettingsChange) -> Unit,
     onLoadBranches: () -> Unit,
     onOpenUrl: (String) -> Unit,
+    onRefusalShown: () -> Unit,
+    onErrorShown: () -> Unit,
+    modifier: Modifier = Modifier,
     onChangePages: (PagesChange) -> Unit = {},
     /** Takes the change just said back. */
     onUndo: () -> Unit = {},
@@ -185,9 +188,6 @@ fun RepoSettingsScreen(
     onSignIn: () -> Unit = {},
     onRenamed: (RepoId) -> Unit = {},
     onDeleted: () -> Unit = {},
-    onRefusalShown: () -> Unit,
-    onErrorShown: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val colors = Soft.colors
     val settings = state.settings

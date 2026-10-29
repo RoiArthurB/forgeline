@@ -202,12 +202,6 @@ fun RepoScreen(
     onOpenIssue: (number: Int, isPullRequest: Boolean) -> Unit,
     onNewIssue: () -> Unit,
     onOpenUser: (String) -> Unit,
-    /** Opens the page of the release under a tag. */
-    onOpenRelease: (String) -> Unit = {},
-    /** Lists the open (true) or the closed issues or pull requests. */
-    onShowOpen: (Boolean) -> Unit = {},
-    /** Looks for words among the issues or pull requests. */
-    onSearch: (String) -> Unit = {},
     onLinkClick: (String) -> Unit,
     onOpenRun: (Long) -> Unit,
     onOpenInBrowser: (String) -> Unit,
@@ -219,6 +213,12 @@ fun RepoScreen(
     onErrorShown: () -> Unit,
     onStarFailureShown: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens the page of the release under a tag. */
+    onOpenRelease: (String) -> Unit = {},
+    /** Lists the open (true) or the closed issues or pull requests. */
+    onShowOpen: (Boolean) -> Unit = {},
+    /** Looks for words among the issues or pull requests. */
+    onSearch: (String) -> Unit = {},
     /** Opens the history of what the Code tab shows: the ref browsed, and the folder it is in. */
     onOpenHistory: () -> Unit = {},
     /** Opens the repository's settings; only offered to who administers it. */

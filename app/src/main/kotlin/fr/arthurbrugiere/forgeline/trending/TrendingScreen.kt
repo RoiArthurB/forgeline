@@ -324,7 +324,7 @@ fun TrendingScreen(
                         ) { index, item ->
                             val rise = animations && index < 8 &&
                                 (periodJustChanged || SystemClock.uptimeMillis() - changedAt < 600)
-                            Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().then(riseIn(item.repo.id, state.period, index, rise))) {
+                            Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().riseIn(item.repo.id, state.period, index, rise)) {
                                 RepoRow(
                                     rank = index + 1,
                                     item = item,
@@ -348,8 +348,8 @@ fun TrendingScreen(
 
 /** Rows shown right after a period change rise in softly, staggered down the list. They start visible. */
 @Composable
-private fun riseIn(id: RepoId, period: TrendingPeriod, index: Int, enabled: Boolean): Modifier {
-    if (!enabled) return Modifier
+private fun Modifier.riseIn(id: RepoId, period: TrendingPeriod, index: Int, enabled: Boolean): Modifier {
+    if (!enabled) return this
     val progress = remember(id, period) { Animatable(0f) }
     LaunchedEffect(progress) {
         if (progress.value < 1f) {
@@ -358,7 +358,7 @@ private fun riseIn(id: RepoId, period: TrendingPeriod, index: Int, enabled: Bool
         }
     }
     val rise = with(LocalDensity.current) { 16.dp.toPx() }
-    return Modifier.graphicsLayer {
+    return graphicsLayer {
         val currentProgress = progress.value
         alpha = 0.35f + 0.65f * currentProgress
         translationY = (1f - currentProgress) * rise
