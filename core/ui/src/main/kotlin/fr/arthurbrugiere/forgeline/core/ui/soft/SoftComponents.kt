@@ -96,6 +96,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -385,7 +386,8 @@ private fun SoftTabRow(
             Box(
                 Modifier
                     .align(Alignment.BottomStart)
-                    .offset(x = lineX)
+                    // Read while placing, not composing: the underline slides without recomposing the tabs.
+                    .offset { IntOffset(lineX.roundToPx(), 0) }
                     .width(lineWidth)
                     .height(3.dp)
                     .background(colors.thumb),

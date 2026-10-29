@@ -28,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -260,7 +261,9 @@ fun NewIssueScreen(
             }
             Spacer(Modifier.height(listBottomPadding()))
         }
-        SoftStatusBarScrim(scroll.value > 0)
+        // Read as a flag: the scroll position itself changes at every frame of a fling.
+        val scrolled by remember { derivedStateOf { scroll.value > 0 } }
+        SoftStatusBarScrim(scrolled)
     }
 }
 
