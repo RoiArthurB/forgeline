@@ -92,6 +92,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.animationsEnabled
 import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
+import fr.arthurbrugiere.forgeline.pull.spokenLineCounts
 import fr.arthurbrugiere.forgeline.ui.Avatar
 import fr.arthurbrugiere.forgeline.ui.LocalOpenRelease
 import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
@@ -383,7 +384,7 @@ private fun ConversationMarks(conversation: ConversationPreview?) {
 private fun SizeMark(added: Int, removed: Int) {
     val colors = Soft.colors
     val (red, _, green) = colors.fieldInks
-    val said = stringResource(R.string.feed_size, added, removed)
+    val said = spokenLineCounts(added, removed)
     val greens = if (added + removed == 0) 0 else ((5f * added / (added + removed)) + 0.5f).toInt().coerceIn(if (added > 0) 1 else 0, if (removed > 0) 4 else 5)
     Row(Modifier.clearAndSetSemantics { contentDescription = said }, verticalAlignment = Alignment.CenterVertically) {
         Text(

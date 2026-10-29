@@ -121,7 +121,6 @@
     <string name="feed_jump_minor">Minor</string>
     <string name="feed_jump_patch">Patch</string>
     <string name="feed_release_notes">Notes</string>
-    <string name="feed_size">%1$d lines added, %2$d removed</string>
     <string name="feed_updated">Updated %1$s</string>
     <plurals name="feed_files">
         <item quantity="one">%d file</item>
@@ -1005,7 +1004,16 @@
     <string name="changes_file_added">Added</string>
     <string name="changes_file_removed">Removed</string>
     <string name="changes_file_renamed">Moved from %1$s</string>
-    <string name="changes_counts_spoken">%1$d lines added, %2$d removed</string>
+    <!-- A change's size read out: "12 lines added, 3 removed". -->
+    <string name="lines_changed_spoken">%1$s, %2$s</string>
+    <plurals name="lines_added_spoken">
+        <item quantity="one">%d line added</item>
+        <item quantity="other">%d lines added</item>
+    </plurals>
+    <plurals name="lines_removed_spoken">
+        <item quantity="one">%d removed</item>
+        <item quantity="other">%d removed</item>
+    </plurals>
     <string name="changes_line_added">Line %1$d, added: %2$s</string>
     <string name="changes_line_removed">Line %1$d, removed: %2$s</string>
     <string name="changes_line_same">Line %1$d: %2$s</string>

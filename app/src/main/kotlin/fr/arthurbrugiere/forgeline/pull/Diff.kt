@@ -28,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -157,7 +158,7 @@ private fun FileHeading(
         }
         Spacer(Modifier.width(8.dp))
         // Read out in words: "+3 −1" alone says little to a screen reader.
-        val counts = stringResource(R.string.changes_counts_spoken, file.additions, file.deletions)
+        val counts = spokenLineCounts(file.additions, file.deletions)
         Row(Modifier.clearAndSetSemantics { contentDescription = counts }, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             if (file.additions > 0) SoftTag("+${file.additions}", background = colors.fields[2])
             if (file.deletions > 0) SoftTag("−${file.deletions}", background = colors.fields[0])
@@ -249,3 +250,11 @@ private fun PendingRemark(remark: LineComment, onRemove: () -> Unit) {
         }
     }
 }
+
+/** Lines added and removed in words, as a screen reader says a change's size: "1 line added, 3 removed". */
+@Composable
+internal fun spokenLineCounts(added: Int, removed: Int): String = stringResource(
+    R.string.lines_changed_spoken,
+    pluralStringResource(R.plurals.lines_added_spoken, added, added),
+    pluralStringResource(R.plurals.lines_removed_spoken, removed, removed),
+)

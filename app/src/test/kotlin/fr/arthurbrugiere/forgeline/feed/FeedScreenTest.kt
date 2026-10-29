@@ -473,6 +473,17 @@ class FeedScreenTest {
     }
 
     @Test
+    fun a_one_line_change_is_read_out_as_one_line() {
+        // Regression: a screen reader said "1 lines added".
+        setContent(
+            state(feedEvent("2", actor = "bob", action = FeedAction.PullRequest(PullRequestAction.MERGED, 43))),
+            FeedPreviews(conversations = mapOf(IssueRef(RepoId("acme", "rocket"), 43, isPullRequest = true) to ConversationPreview("Typo", additions = 1, deletions = 1, changedFiles = 1))),
+        )
+
+        composeRule.onNode(hasContentDescription("1 line added, 1 removed")).assertExists()
+    }
+
+    @Test
     fun a_pull_request_shows_its_size_and_an_issue_its_labels_and_comments() {
         setContent(
             state(

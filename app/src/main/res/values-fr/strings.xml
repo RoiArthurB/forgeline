@@ -123,7 +123,6 @@
     <string name="feed_jump_minor">Mineure</string>
     <string name="feed_jump_patch">Correctif</string>
     <string name="feed_release_notes">Notes</string>
-    <string name="feed_size">%1$d lignes ajoutées, %2$d retirées</string>
     <string name="feed_updated">Mis à jour %1$s</string>
     <plurals name="feed_files">
         <item quantity="one">%d fichier</item>
@@ -1009,7 +1008,17 @@
     <string name="changes_file_added">Ajouté</string>
     <string name="changes_file_removed">Supprimé</string>
     <string name="changes_file_renamed">Déplacé depuis %1$s</string>
-    <string name="changes_counts_spoken">%1$d lignes ajoutées, %2$d supprimées</string>
+    <string name="lines_changed_spoken">%1$s, %2$s</string>
+    <plurals name="lines_added_spoken">
+        <item quantity="one">%d ligne ajoutée</item>
+        <item quantity="many">%d lignes ajoutées</item>
+        <item quantity="other">%d lignes ajoutées</item>
+    </plurals>
+    <plurals name="lines_removed_spoken">
+        <item quantity="one">%d supprimée</item>
+        <item quantity="many">%d supprimées</item>
+        <item quantity="other">%d supprimées</item>
+    </plurals>
     <string name="changes_line_added">Ligne %1$d, ajoutée : %2$s</string>
     <string name="changes_line_removed">Ligne %1$d, supprimée : %2$s</string>
     <string name="changes_line_same">Ligne %1$d : %2$s</string>
