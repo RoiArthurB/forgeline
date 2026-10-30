@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   release:
@@ -52,3 +53,10 @@ jobs:
           # Hand-written: GitHub's generated notes list pull requests, and Forgeline commits straight to main.
           body_path: docs/release-notes/${{ github.ref_name }}.md
           prerelease: ${{ contains(github.ref_name, '-') }}
+      - name: Republish the landing page
+        # A release made with this workflow's token doesn't start other workflows, so the landing page is
+        # asked for directly, to name the new version.
+        if: ${{ !contains(github.ref_name, '-') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run trending.yml --repo "$GITHUB_REPOSITORY" --ref main -f republish=true

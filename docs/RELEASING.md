@@ -41,6 +41,7 @@ Android only lets an update install over an existing app if **both are signed wi
 - The tag (without the `v`) becomes `versionName`; the workflow run number becomes `versionCode`, so it always increases.
 - Tags containing a `-` (e.g. `v0.2.0-beta1`) are published as pre-releases.
 - GitHub's generated release notes aren't used: they list pull requests, and Forgeline commits straight to `main`.
+- Once the release is up, the workflow republishes the landing page, which names the latest release wherever `site/index.html` marks an element `data-version`. Nothing to bump by hand; pre-releases leave it as it is.
 
 ## Signing a build locally
 
