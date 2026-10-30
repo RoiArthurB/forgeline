@@ -26,6 +26,15 @@ class ReleaseWorkflowTest {
     }
 
     @Test
+    fun a_release_republishes_the_landing_page_once_it_is_up() {
+        // A release made with the workflow's own token starts no other workflow, so the page has to be asked for.
+        val republish = release.indexOf("gh workflow run trending.yml")
+        assertThat(republish).isGreaterThan(release.indexOf("action-gh-release"))
+        assertThat(release).contains("-f republish=true")
+        assertThat(release).containsMatch("""actions:\s*write""")
+    }
+
+    @Test
     fun every_notes_file_is_named_after_a_version_tag_and_says_something() {
         val notes = File(Repo.root, "docs/release-notes").listFiles().orEmpty()
         assertThat(notes.map(File::getName)).contains("v0.2.0.md")

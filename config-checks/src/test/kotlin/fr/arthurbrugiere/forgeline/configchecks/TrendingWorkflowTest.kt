@@ -42,6 +42,17 @@ class TrendingWorkflowTest {
         val index = Repo.text("site/index.html")
         assertThat(index).contains("Forgeline")
         assertThat(workflow).contains("site/**")
-        assertThat(workflow).contains("""if [ "${'$'}{{ github.event_name }}" = "push" ]; then""")
+        assertThat(workflow).contains("""REPUBLISH: ${'$'}{{ github.event_name == 'push' || inputs.republish == true }}""")
+        assertThat(workflow).contains("""if [ "${'$'}REPUBLISH" = "true" ]; then""")
+    }
+
+    @Test
+    fun landing_page_names_the_latest_release() {
+        // The page said v0.9.0 for days after v0.10.0 came out: the version is filled in at each deployment.
+        assertThat(Regex("""data-version>v[^<]+<""").findAll(Repo.text("site/index.html")).count()).isAtLeast(1)
+        val stamp = workflow.indexOf("gh release view")
+        assertThat(stamp).isAtLeast(0)
+        assertThat(stamp).isLessThan(workflow.indexOf("upload-pages-artifact"))
+        assertThat(workflow).contains("data-version")
     }
 }
