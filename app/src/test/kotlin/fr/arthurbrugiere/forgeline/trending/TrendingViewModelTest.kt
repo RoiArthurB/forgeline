@@ -247,6 +247,25 @@ class TrendingViewModelTest {
     }
 
     @Test
+    fun one_forge_alone_shows_its_whole_list_not_its_share_of_the_mixed_page() = test {
+        val zig = trendingRepo("ziglang/zig", forge = ForgeInstance.Codeberg)
+        trending.snapshots.getValue(TrendingPeriod.DAILY).value = TrendingSnapshot(
+            repos = listOf(paperclip, zig),
+            fetchedAtMillis = 1_000,
+            forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg),
+            unbalanced = listOf(paperclip, zig, hindsight),
+        )
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.items.map { it.repo }).containsExactly(paperclip, zig).inOrder()
+
+        viewModel.selectForge(ForgeInstance.GitHub)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.items.map { it.repo }).containsExactly(paperclip, hindsight).inOrder()
+    }
+
+    @Test
     fun trending_opens_on_the_period_chosen_in_settings() = test {
         settings.update { it.copy(trendingPeriod = TrendingPeriod.WEEKLY) }
 

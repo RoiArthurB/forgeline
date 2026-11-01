@@ -126,7 +126,7 @@ Anything gaining stars quickly climbs into the top 1,400, so tracking that ranki
 
 New forks are summed from the stored daily counts, so weekly and monthly forks don't need more pages. On launch, the lists fill in over the first 1, 7 and 30 days; after that the history is always there, for everyone.
 
-Each list is ordered by stars gained in the period, then new forks in the period, and holds at most 25 repositories with at least 2 stars gained, so a lone star doesn't make a repository "trending". `language` comes from the forge; `languageColor` comes from the app's own table; `builtBy` is left empty, since Forgejo has nothing like it.
+Each list is ordered by stars gained in the period, then new forks in the period, and holds at most 25 repositories with at least 2 stars gained, so a lone star doesn't make a repository "trending". The app then applies its own, higher floor (see [below](#what-makes-the-page-a-floor-then-an-even-share-per-forge)). `language` comes from the forge; `languageColor` comes from the app's own table; `builtBy` is left empty, since Forgejo has nothing like it.
 
 ### Ranking GitHub and Codeberg together: share of the forge's stars
 
@@ -157,6 +157,16 @@ What checking the ratio turned up:
 - **One standout wins.** A forge with one repository far ahead of the rest gives it a big share and puts it near the top of the merged page. That's intended: it is the story of the day on that forge.
 
 The same merge works for any number of forges, so a self-hosted Forgejo instance could join later if someone ran the same job for it.
+
+### What makes the page: a floor, then an even share per forge
+
+Before merging, the app drops every repository that gained fewer than **5 stars today, 10 this week or 20 this month**, on every forge, GitHub included (`TrendingPeriod.minStars` in `core/data`). The published lists keep their own 2-star floor, so they still hold everything the app might show; the app applies the stricter one, which also covers lists published before it existed. Why an absolute floor and these numbers:
+
+- **It matches where GitHub's own page ends.** GitHub's daily Trending runs down to about +10 to +15 a day (the recorded `trending_daily.html` ends at +13). Five a day is under that, so in practice nothing GitHub lists is dropped, and over the noise of "every project that got one or two stars".
+- **It leaves the small forges a real list.** On 2026-10-01 Codeberg's daily list went 14, 12, 8, 7, 6, 6, 6, 5, 5, 4, … down to 2s, and gitlab.com's whole list was a 3 and 2s. A floor of 5 keeps Codeberg's nine that moved and empties gitlab.com's that day, which is right: nothing there was trending. A floor of 10 would have left Codeberg two.
+- **A share of the forge's stars doesn't work as a floor.** On a quiet forge it's too low (5% of 30 stars is one and a half), and on GitHub far too high (5% of a 7,000-star day is 350, half its page). The share stays what it is good for: ordering the merge.
+
+Then the mixed page is shared out (`balanceForges`): each forge shows its first **10**, plus one more for every 5 repositories its list has beyond that, at most **2** more. So GitHub's 25 show as 12, a Codeberg day with 15 qualifying shows 11, and a forge with 3 shows its 3; the page isn't padded with another forge's tail. Picking one forge alone shows its whole list above the floor.
 
 **Measured on the phone.** A self-hosted Forgejo server has nobody publishing its list, so Settings → Trending offers to measure it on the phone, and Codeberg (and gitlab.com, once GitLab accounts arrive) too for anyone signed in who'd rather not use the shared list. It's the same measurement as the daily job, and the same code (`forge:forgejo`'s `trending` package): once a day, a background task reads the server's repositories by stars, then its newest forks, with the account's token, and keeps a month of star counts in the app's database. Reading stops as soon as the server runs out or repositories fall under 2 stars, so a small server costs a couple of requests; at most 20 pages (1,000 repositories), 28 for Codeberg. It's off by default: nothing is read from a server unless asked. Turning it on measures at once, so the history starts that day.
 
