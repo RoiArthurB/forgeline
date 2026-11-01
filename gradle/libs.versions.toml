@@ -22,7 +22,9 @@ coil = "3.6.3"
 jsoup = "1.23.2"
 snakeyaml-engine = "3.2"
 markdownRenderer = "0.46.0"
-highlights = "1.1.0"
+# TextMate highlighting (tm4e with joni) for the file viewer and Markdown code blocks; grammars in tools/textmate.
+soraEditor = "0.24.7"
+gson = "2.14.0"
 aboutLibraries = "15.3.0"
 profileinstaller = "1.4.1"
 splashscreen = "1.2.0"
@@ -89,8 +91,12 @@ kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 
 markdown-renderer-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-m3", version.ref = "markdownRenderer" }
 markdown-renderer-coil3 = { module = "com.mikepenz:multiplatform-markdown-renderer-coil3", version.ref = "markdownRenderer" }
-markdown-renderer-code = { module = "com.mikepenz:multiplatform-markdown-renderer-code", version.ref = "markdownRenderer" }
-highlights = { module = "dev.snipme:highlights", version.ref = "highlights" }
+sora-language-textmate = { module = "io.github.rosemoe:language-textmate", version.ref = "soraEditor" }
+# language-textmate's tm4e logs through the editor's Logger; nothing else of the editor is used, so R8 drops it.
+sora-editor = { module = "io.github.rosemoe:editor", version.ref = "soraEditor" }
+# Oniguruma itself, the regex engine VS Code's grammars are written for; tm4e falls back to joni where it isn't packed.
+sora-oniguruma-native = { module = "io.github.rosemoe:oniguruma-native", version.ref = "soraEditor" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutLibraries" }
 
 junit = { module = "junit:junit", version.ref = "junit" }

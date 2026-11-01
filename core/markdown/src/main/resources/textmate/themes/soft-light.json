@@ -1,0 +1,180 @@
+{
+ "name": "soft-light",
+ "comment": "The Soft palette for code; CodeContrastTest holds every color to 4.5:1 on its ground.",
+ "tokenColors": [
+  {
+   "settings": {
+    "foreground": "#16181A"
+   }
+  },
+  {
+   "scope": [
+    "punctuation.separator",
+    "punctuation.terminator",
+    "punctuation.accessor",
+    "punctuation.section",
+    "punctuation.bracket",
+    "punctuation.parenthesis",
+    "punctuation.squarebracket",
+    "punctuation.curlybrace",
+    "punctuation.definition.tag",
+    "meta.brace",
+    "meta.delimiter",
+    "keyword.operator"
+   ],
+   "settings": {
+    "foreground": "#3D3A4F"
+   }
+  },
+  {
+   "scope": [
+    "keyword",
+    "storage",
+    "storage.type",
+    "storage.modifier",
+    "keyword.control",
+    "entity.name.tag",
+    "support.type.property-name.css"
+   ],
+   "settings": {
+    "foreground": "#8F5600"
+   }
+  },
+  {
+   "scope": [
+    "string",
+    "string.quoted",
+    "string.template",
+    "string.unquoted",
+    "string.regexp",
+    "markup.inline.raw",
+    "markup.fenced_code",
+    "markup.raw",
+    "constant.character.escape",
+    "support.constant.property-value.css"
+   ],
+   "settings": {
+    "foreground": "#2E7550"
+   }
+  },
+  {
+   "scope": [
+    "constant",
+    "constant.numeric",
+    "constant.language",
+    "constant.character",
+    "constant.other",
+    "support.constant",
+    "variable.other.constant",
+    "variable.language",
+    "markup.underline.link"
+   ],
+   "settings": {
+    "foreground": "#1F5FB8"
+   }
+  },
+  {
+   "scope": [
+    "meta.annotation",
+    "storage.type.annotation",
+    "punctuation.definition.annotation",
+    "entity.name.function.decorator",
+    "meta.decorator",
+    "meta.preprocessor",
+    "keyword.control.directive",
+    "entity.other.attribute-name",
+    "support.type.property-name",
+    "meta.object-literal.key",
+    "entity.name.tag.yaml",
+    "keyword.other.unit",
+    "markup.quote"
+   ],
+   "settings": {
+    "foreground": "#7A45B0"
+   }
+  },
+  {
+   "scope": [
+    "comment",
+    "punctuation.definition.comment",
+    "comment.block.documentation"
+   ],
+   "settings": {
+    "foreground": "#606065"
+   }
+  },
+  {
+   "scope": [
+    "markup.heading",
+    "entity.name.section"
+   ],
+   "settings": {
+    "foreground": "#8F5600",
+    "fontStyle": "bold"
+   }
+  },
+  {
+   "scope": [
+    "markup.bold"
+   ],
+   "settings": {
+    "foreground": "#16181A",
+    "fontStyle": "bold"
+   }
+  },
+  {
+   "scope": [
+    "markup.italic"
+   ],
+   "settings": {
+    "foreground": "#16181A",
+    "fontStyle": "italic"
+   }
+  },
+  {
+   "scope": [
+    "markup.strikethrough"
+   ],
+   "settings": {
+    "foreground": "#16181A",
+    "fontStyle": "strikethrough"
+   }
+  },
+  {
+   "scope": [
+    "markup.inserted",
+    "meta.diff.header.to-file"
+   ],
+   "settings": {
+    "foreground": "#2E7550"
+   }
+  },
+  {
+   "scope": [
+    "markup.deleted",
+    "meta.diff.header.from-file"
+   ],
+   "settings": {
+    "foreground": "#8F5600"
+   }
+  },
+  {
+   "scope": [
+    "meta.diff.range",
+    "meta.diff.index",
+    "meta.separator"
+   ],
+   "settings": {
+    "foreground": "#1F5FB8"
+   }
+  },
+  {
+   "scope": [
+    "meta.diff.header"
+   ],
+   "settings": {
+    "foreground": "#606065"
+   }
+  }
+ ]
+}

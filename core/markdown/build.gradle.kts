@@ -11,9 +11,11 @@ dependencies {
     api(projects.core.ui)
     api(libs.markdown.renderer.m3)
     implementation(libs.markdown.renderer.coil3)
-    implementation(libs.markdown.renderer.code)
     implementation(libs.coil.compose)
-    implementation(libs.highlights)
+    implementation(libs.sora.language.textmate)
+    implementation(libs.sora.editor)
+    implementation(libs.sora.oniguruma.native)
+    implementation(libs.gson)
 
     testImplementation(projects.core.testing)
     testImplementation(libs.robolectric)

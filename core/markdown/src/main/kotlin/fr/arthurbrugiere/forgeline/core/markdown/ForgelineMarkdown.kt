@@ -1,7 +1,12 @@
 package fr.arthurbrugiere.forgeline.core.markdown
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -14,18 +19,26 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.dp
+import com.mikepenz.markdown.compose.LocalMarkdownColors
+import com.mikepenz.markdown.compose.LocalMarkdownDimens
+import com.mikepenz.markdown.compose.LocalMarkdownPadding
 import com.mikepenz.markdown.compose.LocalReferenceLinkHandler
 import com.mikepenz.markdown.compose.components.MarkdownComponentModel
 import com.mikepenz.markdown.compose.components.markdownComponents
+import com.mikepenz.markdown.compose.elements.MarkdownCodeBackground
+import com.mikepenz.markdown.compose.elements.MarkdownCodeBlock
+import com.mikepenz.markdown.compose.elements.MarkdownCodeFence
 import com.mikepenz.markdown.compose.elements.MarkdownImage
 import com.mikepenz.markdown.compose.elements.MarkdownInlineImage
-import com.mikepenz.markdown.compose.elements.highlightedCodeBlock
-import com.mikepenz.markdown.compose.elements.highlightedCodeFence
+import com.mikepenz.markdown.compose.elements.material.MarkdownBasicText
 import com.mikepenz.markdown.m3.Markdown
 import com.mikepenz.markdown.m3.markdownColor
 import com.mikepenz.markdown.m3.markdownTypography
@@ -137,11 +150,36 @@ fun ForgelineMarkdown(
             ),
             imageTransformer = ForgelineImageTransformer,
             components = markdownComponents(
-                codeBlock = highlightedCodeBlock,
-                codeFence = highlightedCodeFence,
+                codeBlock = { MarkdownCodeBlock(it.content, it.node, it.typography.code) { code, language, style -> HighlightedCode(code, language, style) } },
+                codeFence = { MarkdownCodeFence(it.content, it.node, it.typography.code) { code, language, style -> HighlightedCode(code, language, style) } },
                 image = { BlockPicture(it) },
                 inlineImage = { InlinePicture(it) },
             ),
+        )
+    }
+}
+
+/**
+ * A code block, colored like the file viewer colors code (see [CodeHighlighter]) for the language its fence names and
+ * in the app's theme. Highlighting runs off the main thread; the plain code shows meanwhile.
+ */
+@Composable
+private fun HighlightedCode(code: String, language: String?, style: TextStyle) {
+    val darkTheme = Soft.colors.isDark
+    val highlighted by produceState(AnnotatedString(code), code, language, darkTheme) {
+        value = withContext(Dispatchers.Default) { CodeHighlighter.highlightFence(code, language, darkTheme) }
+    }
+    MarkdownCodeBackground(
+        color = LocalMarkdownColors.current.codeBackground,
+        shape = RoundedCornerShape(LocalMarkdownDimens.current.codeBackgroundCornerSize),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        language = language,
+        code = code,
+    ) {
+        MarkdownBasicText(
+            text = highlighted,
+            style = style,
+            modifier = Modifier.horizontalScroll(rememberScrollState()).padding(LocalMarkdownPadding.current.codeBlock),
         )
     }
 }
