@@ -85,8 +85,9 @@ class TrendingViewModel @Inject constructor(
     ) { (period, host), snapshot, starred, flags ->
         // A forge no longer on the page (signed out of it) falls back to the mixed page.
         val only = snapshot.forges.firstOrNull { it.host == host }?.takeIf { snapshot.forges.size > 1 }
-        // Filtering the merged page keeps each forge's own order.
-        val repos = snapshot.repos.filter { only == null || it.id.forge == only }
+        // Narrowed to one forge, its whole list (the balancing only shares out the mixed page); filtering the merged
+        // page keeps each forge's own order.
+        val repos = if (only == null) snapshot.repos else snapshot.unbalanced.filter { it.id.forge == only }
         TrendingUiState(
             period = period,
             items = repos.map { TrendingItem(it, starred[it.id]) },
@@ -117,7 +118,8 @@ class TrendingViewModel @Inject constructor(
         }
         viewModelScope.launch {
             combine(
-                snapshot.map { snapshot -> snapshot.repos.map { it.id } }.distinctUntilChanged(),
+                // Every row either view can show, so narrowing to one forge needs no new lookup.
+                snapshot.map { snapshot -> snapshot.unbalanced.map { it.id } }.distinctUntilChanged(),
                 accounts.activeAccount.map { it?.id }.distinctUntilChanged(),
             ) { ids, accountId -> ids to accountId }
                 .collect { (ids, accountId) ->

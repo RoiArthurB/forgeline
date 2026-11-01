@@ -31,10 +31,17 @@ import javax.inject.Singleton
 import kotlin.time.Duration.Companion.hours
 
 /**
- * One page mixing every forge's ranking, [repos] already merged. [fetchedAtMillis] is the oldest of the forges' fetches,
- * and [forges] lists the forges on the page, for showing each row's forge when there are several.
+ * One page mixing every forge's ranking, [repos] already merged and balanced between forges (see [balanceForges]).
+ * [fetchedAtMillis] is the oldest of the forges' fetches, and [forges] lists the forges on the page, for showing each
+ * row's forge when there are several. [unbalanced] is the same merge before balancing, every repository above the
+ * period's floor: a page narrowed to one forge shows that forge's whole list.
  */
-data class TrendingSnapshot(val repos: List<TrendingRepo>, val fetchedAtMillis: Long?, val forges: List<ForgeInstance> = emptyList())
+data class TrendingSnapshot(
+    val repos: List<TrendingRepo>,
+    val fetchedAtMillis: Long?,
+    val forges: List<ForgeInstance> = emptyList(),
+    val unbalanced: List<TrendingRepo> = repos,
+)
 
 sealed interface RefreshResult {
     data object Refreshed : RefreshResult
@@ -107,9 +114,10 @@ class DefaultTrendingRepository @Inject constructor(
 
     override fun observe(period: TrendingPeriod): Flow<TrendingSnapshot> =
         combine(forges, dao.observeRepos(period.name), dao.observeFetches(period.name)) { forges, repos, fetches ->
-            val byForge = repos.map { it.toModel() }.groupBy { it.id.forge }
+            val byForge = repos.map { it.toModel() }.filter { it.periodStars >= period.minStars }.groupBy { it.id.forge }
             val times = fetches.filter { fetch -> forges.any { it.host == fetch.host } }.map { it.fetchedAtMillis }
-            TrendingSnapshot(mergeByShare(forges.map { byForge[it].orEmpty() }), times.minOrNull(), forges)
+            val merged = mergeByShare(forges.map { byForge[it].orEmpty() })
+            TrendingSnapshot(balanceForges(merged), times.minOrNull(), forges, merged)
         }.flowOn(computation)
 
     /** Refreshes every forge's ranking at once. Fails only when none could be read: one forge down keeps the others. */
@@ -187,6 +195,45 @@ class DefaultTrendingRepository @Inject constructor(
 
         /** A daily browse: yesterday evening's place still counts this morning, last week's doesn't. */
         val MARK_MAX_AGE = 20.hours
+    }
+}
+
+/**
+ * The stars a repository must have gained over the period to be on the page at all, whichever forge it is on. Below
+ * it, a list is "every project that got a star or two": on 2026-10-01, Codeberg's daily list ran down to +2 and
+ * gitlab.com's whole list was +3 and +2s. GitHub's own Trending ends around +10 to +15 a day, so 5 a day keeps what
+ * would stand on GitHub's page while leaving room for smaller forges (Codeberg's top ten that day gained 14 to 4).
+ * An absolute floor rather than a share of the forge's stars: a share is meaningless on a quiet forge (5% of 30 stars
+ * is one and a half) and far too strict on GitHub (5% of 7,000 is 350, which would empty its page).
+ */
+val TrendingPeriod.minStars: Int
+    get() = when (this) {
+        TrendingPeriod.DAILY -> 5
+        TrendingPeriod.WEEKLY -> 10
+        TrendingPeriod.MONTHLY -> 20
+    }
+
+/** The repositories each forge shows on a mixed page, before [balanceForges]' extra for an active forge. */
+const val PER_FORGE = 10
+
+/** The most a forge can show beyond [PER_FORGE], one more for each [ACTIVE_STEP] repositories its list has beyond it. */
+const val MAX_ACTIVE_EXTRA = 2
+const val ACTIVE_STEP = 5
+
+/**
+ * Gives each forge about the same room on a mixed page, so neither GitHub's 25 nor a small forge's long tail fills it:
+ * each shows its first [PER_FORGE] of [page], plus one for every [ACTIVE_STEP] more it has (at most [MAX_ACTIVE_EXTRA]).
+ * A forge with fewer shows what it has; the page isn't padded with another forge's tail. Keeps [page]'s order, and
+ * leaves a page with a single forge on it as it is: there's nothing to balance it against.
+ */
+fun balanceForges(page: List<TrendingRepo>): List<TrendingRepo> {
+    val sizes = page.groupingBy { it.id.forge }.eachCount()
+    if (sizes.size < 2) return page
+    val quotas = sizes.mapValues { (_, size) -> PER_FORGE + ((size - PER_FORGE) / ACTIVE_STEP).coerceIn(0, MAX_ACTIVE_EXTRA) }
+    val shown = mutableMapOf<ForgeInstance, Int>()
+    return page.filter { repo ->
+        val rank = shown.merge(repo.id.forge, 1, Int::plus)!!
+        rank <= quotas.getValue(repo.id.forge)
     }
 }
 

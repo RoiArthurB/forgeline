@@ -221,6 +221,42 @@ class DefaultTrendingRepositoryTest {
     }
 
     @Test
+    fun repositories_under_the_periods_floor_stay_off_the_page() = runTest {
+        // Regression: Codeberg's and gitlab.com's daily lists ran down to every project that got a star or two.
+        val big = trendingRepo("b/big", periodStars = 14, forge = ForgeInstance.Codeberg)
+        val floor = trendingRepo("b/floor", periodStars = TrendingPeriod.DAILY.minStars, forge = ForgeInstance.Codeberg)
+        val lone = trendingRepo("b/lone", periodStars = 2, forge = ForgeInstance.Codeberg)
+        api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
+        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(big, floor, lone))
+        // Weekly asks for more: ten stars over a week.
+        codebergApi.results[TrendingPeriod.WEEKLY] = ForgeResult.Success(listOf(big, floor))
+
+        repository.refresh(TrendingPeriod.DAILY)
+        repository.refresh(TrendingPeriod.WEEKLY)
+
+        val daily = repository.observe(TrendingPeriod.DAILY).first()
+        assertThat(daily.repos).containsAtLeast(big, floor)
+        assertThat(daily.repos).doesNotContain(lone)
+        assertThat(daily.unbalanced).doesNotContain(lone)
+        assertThat(repository.observe(TrendingPeriod.WEEKLY).first().repos.filter { it.id.forge == ForgeInstance.Codeberg }).containsExactly(big)
+    }
+
+    @Test
+    fun the_mixed_page_is_shared_out_between_forges_and_keeps_every_list_whole_aside() = runTest {
+        val gitHub = (1..25).map { trendingRepo("a/gh$it", periodStars = 3000 - it * 100) }
+        val codeberg = (1..8).map { trendingRepo("b/cb$it", periodStars = 20 - it, forge = ForgeInstance.Codeberg) }
+        api.results[TrendingPeriod.DAILY] = ForgeResult.Success(gitHub)
+        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(codeberg)
+
+        repository.refresh(TrendingPeriod.DAILY)
+
+        val snapshot = repository.observe(TrendingPeriod.DAILY).first()
+        assertThat(snapshot.repos.count { it.id.forge == ForgeInstance.GitHub }).isEqualTo(PER_FORGE + MAX_ACTIVE_EXTRA)
+        assertThat(snapshot.repos.count { it.id.forge == ForgeInstance.Codeberg }).isEqualTo(8)
+        assertThat(snapshot.unbalanced.filter { it.id.forge == ForgeInstance.GitHub }).isEqualTo(gitHub)
+    }
+
+    @Test
     fun one_forge_failing_keeps_the_other_and_the_page_doesnt_fail() = runTest {
         signInToCodeberg()
         api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
