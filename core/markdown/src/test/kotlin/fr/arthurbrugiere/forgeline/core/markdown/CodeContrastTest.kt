@@ -7,8 +7,11 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLight
 import fr.arthurbrugiere.forgeline.core.ui.soft.amoled
 import fr.arthurbrugiere.forgeline.core.ui.soft.contrastRatio
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /** Highlighted code is text: every token color must read at 4.5:1 on the ground it's shown on. */
+@RunWith(RobolectricTestRunner::class)
 class CodeContrastTest {
     private val sample = """
         package demo
