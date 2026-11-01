@@ -51,6 +51,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.BuildConfig
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.model.Account
+import fr.arthurbrugiere.forgeline.core.model.CodeTheme
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
@@ -222,6 +223,18 @@ fun SettingsScreen(
                         options = HeaderStyle.entries.map { stringResource(it.label) },
                         selected = settings.headerStyle.ordinal,
                         onSelect = { picked -> onChange { it.copy(headerStyle = HeaderStyle.entries[picked]) } },
+                        modifier = Modifier.padding(top = 10.dp),
+                    )
+                }
+            }
+            if (section == SettingsSection.APPEARANCE) item {
+                // Code in the file viewer and in READMEs: in the app's theme by default, or always light or dark.
+                Column(SettingModifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                    Text(stringResource(R.string.settings_code_theme), style = Soft.type.body, color = colors.ink)
+                    SoftSwitch(
+                        options = CodeTheme.entries.map { stringResource(it.label) },
+                        selected = settings.codeTheme.ordinal,
+                        onSelect = { picked -> onChange { it.copy(codeTheme = CodeTheme.entries[picked]) } },
                         modifier = Modifier.padding(top = 10.dp),
                     )
                 }
@@ -638,6 +651,13 @@ private val ThemeMode.label: Int
         ThemeMode.SYSTEM -> R.string.theme_system
         ThemeMode.LIGHT -> R.string.theme_light
         ThemeMode.DARK -> R.string.theme_dark
+    }
+
+private val CodeTheme.label: Int
+    get() = when (this) {
+        CodeTheme.APP -> R.string.settings_code_theme_app
+        CodeTheme.LIGHT -> R.string.theme_light
+        CodeTheme.DARK -> R.string.theme_dark
     }
 
 private val HeaderStyle.label: Int

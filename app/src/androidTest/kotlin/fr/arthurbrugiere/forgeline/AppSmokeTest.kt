@@ -9,6 +9,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
@@ -139,11 +140,12 @@ class AppSmokeTest {
         tab("You").performClick()
         composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Settings")).performClick()
         composeRule.onNodeWithText("Appearance").performClick()
-        composeRule.onNodeWithText("Dark").performClick()
+        // The app's theme comes first; the code theme below says Dark too.
+        composeRule.onAllNodesWithText("Dark").onFirst().performClick()
 
         composeRule.activityRule.scenario.recreate()
 
-        composeRule.onNodeWithText("Dark").assertIsSelected()
+        composeRule.onAllNodesWithText("Dark").onFirst().assertIsSelected()
         // Restore the default so test order doesn't matter.
         composeRule.onNodeWithText("System").performClick()
     }

@@ -19,6 +19,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
 import dagger.hilt.android.AndroidEntryPoint
+import fr.arthurbrugiere.forgeline.core.markdown.LocalCodeDarkTheme
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import fr.arthurbrugiere.forgeline.core.ui.soft.bandIsDark
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
@@ -67,7 +68,7 @@ class MainActivity : ComponentActivity() {
                 headerStyle = settings.headerStyle,
             ) {
                 val session by sessionViewModel.session.collectAsStateWithLifecycle()
-                CompositionLocalProvider(LocalUserSettings provides settings) {
+                CompositionLocalProvider(LocalUserSettings provides settings, LocalCodeDarkTheme provides settings.codeTheme.dark) {
                     ForgelineApp(
                         session = session,
                         onSignOut = sessionViewModel::signOut,

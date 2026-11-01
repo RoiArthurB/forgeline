@@ -815,6 +815,8 @@
     <string name="settings_header_ink">Ink</string>
     <string name="settings_header_black">True black</string>
     <string name="settings_header_white">White</string>
+    <string name="settings_code_theme">Code theme</string>
+    <string name="settings_code_theme_app">Same as app</string>
     <string name="settings_amoled">Pure black</string>
     <string name="settings_amoled_summary">Use a pure black background in dark theme</string>
     <string name="settings_section_notifications">Inbox &amp; notifications</string>
