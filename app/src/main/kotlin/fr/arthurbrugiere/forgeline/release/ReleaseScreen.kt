@@ -110,6 +110,7 @@ fun ReleaseRoute(
     val openDiscussion = fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion.current
     val openWiki = fr.arthurbrugiere.forgeline.ui.LocalOpenWiki.current
     val openCommit = fr.arthurbrugiere.forgeline.ui.LocalOpenCommit.current
+    val openFile = fr.arthurbrugiere.forgeline.ui.LocalOpenFile.current
     ReleaseScreen(
         state = state,
         onBack = onBack,
@@ -119,7 +120,7 @@ fun ReleaseRoute(
         // A file to download is the browser's to fetch and keep.
         onDownload = openUrl,
         onOpenInBrowser = openUrl,
-        onLinkClick = { url -> openForgeLink(url, repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = onOpenRelease, onOpenDiscussion = openDiscussion, onOpenWiki = openWiki, onOpenCommit = openCommit) },
+        onLinkClick = { url -> openForgeLink(url, repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = onOpenRelease, onOpenDiscussion = openDiscussion, onOpenWiki = openWiki, onOpenCommit = openCommit, onOpenFile = openFile) },
         onErrorShown = viewModel::errorShown,
     )
 }

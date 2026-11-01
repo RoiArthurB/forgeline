@@ -169,7 +169,7 @@ fun RepoRoute(
         onOpenRelease = { tag -> state.details?.let { openRelease?.invoke(it.id, tag) } },
         onOpenRun = { runId -> state.details?.let { onOpenRun(it.id, runId) } },
         onOpenUser = onOpenUser,
-        onLinkClick = { url -> openForgeLink(url, id.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRun, openRelease, openDiscussion, openWiki, openCommit, openTopic) },
+        onLinkClick = { url -> openForgeLink(url, id.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRun, openRelease, openDiscussion, openWiki, openCommit, openTopic, onOpenFile) },
         onOpenInBrowser = openUrl,
         onLoadRefs = viewModel::loadRefs,
         onRunWorkflow = if (signedIn) ({ dispatching = true }) else null,

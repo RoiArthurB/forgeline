@@ -19,10 +19,46 @@ class ForgeLinksTest {
 
     @Test
     fun deeper_repository_pages_open_the_repo_for_now() {
-        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/blob/master/README.md"))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/tree/master/docs"))
             .isEqualTo(RepoRoute("github.com", "square", "okhttp"))
         assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/issues"))
             .isEqualTo(RepoRoute("github.com", "square", "okhttp"))
+    }
+
+    // Regression: a README's link to another of the repository's files opened the repository it was already on.
+    @Test
+    fun file_pages_open_the_file_at_its_ref() {
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/blob/master/README.md"))
+            .isEqualTo(FileRoute("github.com", "square", "okhttp", path = "README.md", ref = "master"))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/blob/master/docs/src/Main.kt#L10"))
+            .isEqualTo(FileRoute("github.com", "square", "okhttp", path = "docs/src/Main.kt", ref = "master"))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/blob/master/docs/My%20Guide.md"))
+            .isEqualTo(FileRoute("github.com", "square", "okhttp", path = "docs/My Guide.md", ref = "master"))
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/forgejo/src/branch/forgejo/CONTRIBUTING.md"))
+            .isEqualTo(FileRoute("codeberg.org", "forgejo", "forgejo", path = "CONTRIBUTING.md", ref = "forgejo"))
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/forgejo/src/tag/v9.0.0/docs/a.md"))
+            .isEqualTo(FileRoute("codeberg.org", "forgejo", "forgejo", path = "docs/a.md", ref = "v9.0.0"))
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/group/subgroup/project/-/blob/main/docs/GUIDE.md"))
+            .isEqualTo(FileRoute("gitlab.com", "group/subgroup", "project", path = "docs/GUIDE.md", ref = "main"))
+    }
+
+    @Test
+    fun a_folder_or_a_ref_alone_opens_the_repo() {
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/blob/master/docs/"))
+            .isEqualTo(RepoRoute("github.com", "square", "okhttp"))
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/blob/master"))
+            .isEqualTo(RepoRoute("github.com", "square", "okhttp"))
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/group/project/-/blob/main/"))
+            .isEqualTo(RepoRoute("gitlab.com", "group", "project"))
+    }
+
+    @Test
+    fun a_tapped_file_link_opens_the_file_in_app_and_on_its_forge_outside_the_shell() {
+        val opened = mutableListOf<String>()
+        val url = "https://github.com/octo/repo/blob/main/docs/GUIDE.md"
+        openForgeLink(url, ForgeInstance.GitHub, { opened += "repo" }, { opened += "issue" }, { opened += "user" }, { opened += "browser:$it" }, onOpenFile = { repo, path, ref -> opened += "file:${repo.fullName}@$ref:$path" })
+        openForgeLink(url, ForgeInstance.GitHub, { opened += "repo" }, { opened += "issue" }, { opened += "user" }, { opened += "browser:$it" })
+        assertThat(opened).containsExactly("file:octo/repo@main:docs/GUIDE.md", "browser:$url").inOrder()
     }
 
     @Test

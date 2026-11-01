@@ -108,6 +108,7 @@ fun DiscussionRoute(
     val openDiscussion = LocalOpenDiscussion.current
     val openWiki = LocalOpenWiki.current
     val openCommit = LocalOpenCommit.current
+    val openFile = fr.arthurbrugiere.forgeline.ui.LocalOpenFile.current
     DiscussionScreen(
         state = state,
         signedIn = session.signedInOn(repo.forge),
@@ -116,7 +117,7 @@ fun DiscussionRoute(
         onOpenRepo = onOpenRepo,
         onOpenUser = onOpenUser,
         onOpenInBrowser = openUrl,
-        onLinkClick = { url -> openForgeLink(url, repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion, onOpenWiki = openWiki, onOpenCommit = openCommit) },
+        onLinkClick = { url -> openForgeLink(url, repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion, onOpenWiki = openWiki, onOpenCommit = openCommit, onOpenFile = openFile) },
         onSignIn = onSignIn,
         onErrorShown = viewModel::errorShown,
         onSend = viewModel::send,
