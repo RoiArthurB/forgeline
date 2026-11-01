@@ -70,6 +70,13 @@ internal data class GitLabProjectJson(
         return RepoId(owner, path, forge)
     }
 
+    /**
+     * The project's own avatar, else its group's or person's, as GitLab itself shows it. Uploaded avatars can come as
+     * paths on the forge.
+     */
+    fun logoUrl(forge: ForgeInstance): String? =
+        (avatarUrl?.ifBlank { null } ?: namespace?.avatarUrl?.ifBlank { null })?.let { if (it.startsWith("/")) forge.webUrl + it else it }
+
     fun toDetails(forge: ForgeInstance): RepoDetails {
         val allTopics = (topics + tagList).distinct()
         return RepoDetails(
@@ -83,7 +90,7 @@ internal data class GitLabProjectJson(
             language = null,
             license = license?.name ?: license?.key,
             defaultBranch = defaultBranch ?: "main",
-            ownerAvatarUrl = avatarUrl,
+            ownerAvatarUrl = logoUrl(forge),
             isFork = false,
             isArchived = archived,
             pushedAt = gitlabInstant(lastActivityAt),
@@ -103,7 +110,7 @@ internal data class GitLabProjectJson(
         forks = forksCount,
         isFork = false,
         updatedAt = gitlabInstant(lastActivityAt) ?: gitlabInstant(createdAt) ?: Instant.EPOCH,
-        ownerAvatarUrl = avatarUrl,
+        ownerAvatarUrl = logoUrl(forge),
         isPrivate = visibility == "private",
         ownerIsOrganization = namespace?.kind?.let { it == "group" },
     )
@@ -445,9 +452,9 @@ internal data class GitLabUserJson(
     )
 }
 
-/** Whose a project is: `user` or `group`. */
+/** Whose a project is: `user` or `group`, and their avatar. */
 @Serializable
-internal data class GitLabNamespaceJson(val kind: String? = null)
+internal data class GitLabNamespaceJson(val kind: String? = null, @SerialName("avatar_url") val avatarUrl: String? = null)
 
 @Serializable
 internal data class GitLabGroupJson(

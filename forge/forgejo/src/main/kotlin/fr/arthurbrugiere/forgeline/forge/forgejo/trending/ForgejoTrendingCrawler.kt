@@ -68,7 +68,7 @@ class ForgejoTrendingCrawler(
     }
 
     private fun SearchRepoJson.toCrawled() = instant(createdAt)?.let {
-        CrawledRepo(id, owner.login, name, description?.ifBlank { null }, language?.ifBlank { null }, stars, forks, it, owner.avatarUrl)
+        CrawledRepo(id, owner.login, name, description?.ifBlank { null }, language?.ifBlank { null }, stars, forks, it, avatarUrl?.ifBlank { null } ?: owner.avatarUrl)
     }
 
     private fun instant(value: String?) = value?.let { runCatching { OffsetDateTime.parse(it).toInstant() }.getOrNull() }
@@ -108,4 +108,6 @@ private data class SearchRepoJson(
     @SerialName("forks_count") val forks: Int = 0,
     @SerialName("created_at") val createdAt: String? = null,
     val parent: ParentJson? = null,
+    /** The repository's own avatar, shown before its owner's; empty when it has none. */
+    @SerialName("avatar_url") val avatarUrl: String? = null,
 )
