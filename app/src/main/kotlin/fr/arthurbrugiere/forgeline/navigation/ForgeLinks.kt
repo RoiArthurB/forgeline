@@ -90,6 +90,7 @@ object ForgeLinks {
                     }
                     "wikis" -> return wikiRoute(forge, owner, name, uri, after = dashIndex + 2)
                     "commit" -> subSegments.getOrNull(1)?.takeIf(::isSha)?.let { return ChangesRoute(forge.host, owner, name, sha = it) }
+                    "blob" -> fileRoute(forge.host, owner, name, uri, subSegments.drop(1))?.let { return it }
                     "releases" -> {
                         val tag = if (subSegments.size > 2 && subSegments[1] == "tag") {
                             subSegments.drop(2).joinToString("/")
@@ -109,6 +110,13 @@ object ForgeLinks {
         if (number != null && segments[2] in setOf("issues", "pull", "pulls")) return IssueRoute(forge.host, owner, name, number)
         if (segments.getOrNull(2) == "wiki") return wikiRoute(forge, owner, name, uri, after = 3)
         if (segments.getOrNull(2) == "commit") segments.getOrNull(3)?.takeIf(::isSha)?.let { return ChangesRoute(forge.host, owner, name, sha = it) }
+        // A file's page: GitHub's /blob/<ref>/<path>, Forgejo's /src/{branch,tag,commit}/<ref>/<path>.
+        when {
+            forge.type == ForgeType.GITHUB && segments.getOrNull(2) == "blob" -> fileRoute(forge.host, owner, name, uri, segments.drop(3))
+            forge.type == ForgeType.FORGEJO && segments.getOrNull(2) == "src" && segments.getOrNull(3) in setOf("branch", "tag", "commit") ->
+                fileRoute(forge.host, owner, name, uri, segments.drop(4))
+            else -> null
+        }?.let { return it }
         // Only GitHub has discussions.
         if (number != null && segments[2] == "discussions" && forge.type == ForgeType.GITHUB) return DiscussionRoute(forge.host, owner, name, number)
         // A release's page, on both forges: /owner/name/releases/tag/<tag>, where the tag may hold slashes.
@@ -122,6 +130,15 @@ object ForgeLinks {
             return if (forge.type == ForgeType.GITHUB) RunRoute(forge.host, owner, name, runId) else null
         }
         return RepoRoute(forge.host, owner, name)
+    }
+
+    /**
+     * A file at a ref, from what follows the forge's file marker: the ref, then the path. The ref is taken as one segment,
+     * as README links resolve against the branch's name; a page ending in `/` is a folder, which opens the repository.
+     */
+    private fun fileRoute(host: String, owner: String, name: String, uri: URI, rest: List<String>): FileRoute? {
+        if (rest.size < 2 || uri.path.orEmpty().endsWith("/")) return null
+        return FileRoute(host, owner, name, path = rest.drop(1).joinToString("/"), ref = rest[0])
     }
 
     /** A commit as its page names it: its full or shortened hash. */

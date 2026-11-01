@@ -91,6 +91,7 @@ fun WikiRoute(
     val openDiscussion = LocalOpenDiscussion.current
     val openWiki = LocalOpenWiki.current
     val openCommit = LocalOpenCommit.current
+    val openFile = fr.arthurbrugiere.forgeline.ui.LocalOpenFile.current
     WikiScreen(
         state = state,
         onBack = onBack,
@@ -98,7 +99,7 @@ fun WikiRoute(
         onOpenRepo = onOpenRepo,
         onOpenPage = { onOpenPage(repo, it) },
         onOpenInBrowser = openUrl,
-        onLinkClick = { url -> openForgeLink(url, repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion, onOpenWiki = openWiki, onOpenCommit = openCommit) },
+        onLinkClick = { url -> openForgeLink(url, repo.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion, onOpenWiki = openWiki, onOpenCommit = openCommit, onOpenFile = openFile) },
         onErrorShown = viewModel::errorShown,
     )
 }
