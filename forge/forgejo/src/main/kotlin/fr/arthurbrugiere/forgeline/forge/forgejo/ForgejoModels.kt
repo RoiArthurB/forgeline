@@ -53,8 +53,13 @@ internal data class RepoJson(
     @SerialName("open_issues_count") val openIssues: Int? = null,
     @SerialName("open_pr_counter") val openPulls: Int? = null,
     val empty: Boolean = false,
+    /** The repository's own avatar; empty when it has none. */
+    @SerialName("avatar_url") val avatarUrl: String? = null,
 ) {
     fun id(forge: ForgeInstance) = RepoId(owner.login, name, forge)
+
+    /** The repository's own avatar, else its owner's, as Forgejo itself shows it. */
+    val logoUrl: String? get() = avatarUrl?.ifBlank { null } ?: owner.avatarUrl
 
     fun toDetails(forge: ForgeInstance) = RepoDetails(
         id = id(forge),
@@ -68,7 +73,7 @@ internal data class RepoJson(
         // Forgejo's API doesn't name a repository's license.
         license = null,
         defaultBranch = defaultBranch,
-        ownerAvatarUrl = owner.avatarUrl,
+        ownerAvatarUrl = logoUrl,
         isFork = fork,
         isArchived = archived,
         pushedAt = instant(updatedAt),
@@ -88,7 +93,7 @@ internal data class RepoJson(
         forks = forks,
         isFork = fork,
         updatedAt = instant(updatedAt),
-        ownerAvatarUrl = owner.avatarUrl,
+        ownerAvatarUrl = logoUrl,
         isPrivate = private,
     )
 }

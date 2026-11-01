@@ -229,6 +229,18 @@ class GitLabRepoApiTest {
     }
 
     @Test
+    fun a_project_shows_its_own_avatar_before_its_group_s() = runTest {
+        fun project(avatars: String) = """{"id":1,"name":"gitlab","path":"gitlab","path_with_namespace":"gitlab-org/gitlab","web_url":"https://gitlab.com/gitlab-org/gitlab"$avatars}"""
+        val own = ""","avatar_url":"https://gitlab.com/uploads/-/system/project/avatar/1/logo.png""""
+        val group = ""","namespace":{"kind":"group","avatar_url":"/uploads/-/system/group/avatar/9/group.png"}"""
+
+        assertThat(api { json(project(own + group)) }.repo(null, repo).value().ownerAvatarUrl).isEqualTo("https://gitlab.com/uploads/-/system/project/avatar/1/logo.png")
+        // Without one, its group's, made a full address as GitLab sends it as a path.
+        assertThat(api { json(project(""","avatar_url":null""" + group)) }.repo(null, repo).value().ownerAvatarUrl).isEqualTo("https://gitlab.com/uploads/-/system/group/avatar/9/group.png")
+        assertThat(api { json(project("")) }.repo(null, repo).value().ownerAvatarUrl).isNull()
+    }
+
+    @Test
     fun languages_come_as_percentages_and_are_shares_all_the_same() = runTest {
         // gitlab-org/gitlab-runner's, on 2026-10-16.
         val languages = api { json("""{"Go":98.46,"Shell":0.83,"Makefile":0.44,"HCL":0.13,"PowerShell":0.06}""") }.languages(null, repo).value()

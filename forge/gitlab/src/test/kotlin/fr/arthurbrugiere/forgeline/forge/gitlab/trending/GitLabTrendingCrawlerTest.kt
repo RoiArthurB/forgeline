@@ -71,7 +71,8 @@ class GitLabTrendingCrawlerTest {
         assertThat(foss.stars).isEqualTo(7176)
         assertThat(foss.forks).isEqualTo(8276)
         assertThat(foss.createdAt).isEqualTo(Instant.parse("2013-09-26T06:02:36Z"))
-        assertThat(foss.ownerAvatarUrl).startsWith("https://gitlab.com/uploads/")
+        // The project's own avatar, not its group's.
+        assertThat(foss.ownerAvatarUrl).isEqualTo("https://gitlab.com/uploads/-/system/project/avatar/13083/project_avatar.png?v=1790858833")
         assertThat(crawl.forks).isEmpty()
         // Two projects: fewer than a page, so one request tells everything.
         assertThat(requests).hasSize(1)

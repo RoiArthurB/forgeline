@@ -60,7 +60,7 @@ data class TrendingRepo(
     /** Stars gained during the trending period. */
     val periodStars: Int,
     val builtBy: List<ForgeUser>,
-    /** The owner's (user or organisation) avatar. */
+    /** The repository's own avatar where it has one (GitLab, Forgejo), else its owner's (user or organisation). */
     val ownerAvatarUrl: String? = null,
 )
 
@@ -76,6 +76,7 @@ data class RepoDetails(
     /** SPDX id when known (e.g. `MIT`), else the license name. */
     val license: String?,
     val defaultBranch: String,
+    /** The repository's own avatar where it has one (GitLab, Forgejo), else its owner's. */
     val ownerAvatarUrl: String?,
     val isFork: Boolean,
     val isArchived: Boolean,

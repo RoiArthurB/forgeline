@@ -22,7 +22,7 @@ data class NotificationThread(
     val reason: NotificationReason,
     val unread: Boolean,
     val updatedAt: Instant,
-    /** The repository owner's (user or organisation) avatar, when the forge sends it. */
+    /** The repository's own avatar where it has one (Forgejo), else its owner's (user or organisation), when the forge sends it. */
     val ownerAvatarUrl: String? = null,
     /** Null until known, and for subjects that have no state (releases, commits...). */
     val state: SubjectState? = null,

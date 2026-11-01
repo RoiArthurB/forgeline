@@ -155,7 +155,7 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
             reason = number?.let { reasons["${repo.owner.login}/${repo.name}#$it".lowercase()] } ?: NotificationReason.SUBSCRIBED,
             unread = unread,
             updatedAt = instant(updatedAt) ?: java.time.Instant.EPOCH,
-            ownerAvatarUrl = repo.owner.avatarUrl,
+            ownerAvatarUrl = repo.avatarUrl?.ifBlank { null } ?: repo.owner.avatarUrl,
             state = when (subject.state) {
                 "open" -> SubjectState.OPEN
                 "merged" -> SubjectState.MERGED
@@ -192,7 +192,7 @@ private data class SubjectJson(
 )
 
 @Serializable
-private data class ThreadRepoJson(val name: String, val owner: UserJson)
+private data class ThreadRepoJson(val name: String, val owner: UserJson, @SerialName("avatar_url") val avatarUrl: String? = null)
 
 @Serializable
 private data class ThreadJson(

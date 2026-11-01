@@ -78,6 +78,8 @@ class ForgejoTrendingCrawlerTest {
         assertThat(zig.owner to zig.name).isEqualTo("ziglang" to "zig")
         assertThat(zig.stars).isEqualTo(6712)
         assertThat(zig.createdAt).isEqualTo(Instant.parse("2025-11-25T17:51:45Z"))
+        // The repository's own avatar, not its owner's.
+        assertThat(zig.ownerAvatarUrl).isEqualTo("https://codeberg.org/repo-avatars/8677caaced7db8ce91931b218bc501ea93bcb5c4ff0eec299f9326528fe26e2e")
         assertThat(crawl.forks.map { it.parentId }.toSet()).containsExactly(263748L, 463034L)
     }
 

@@ -82,7 +82,7 @@ class GitLabTrendingCrawler(
     }
 
     private fun ProjectJson.toCrawled() = runCatching { OffsetDateTime.parse(createdAt).toInstant() }.getOrNull()?.let {
-        CrawledRepo(id, namespace.fullPath, path, description?.ifBlank { null }, null, stars, forks, it, namespace.avatarUrl?.let(::absolute))
+        CrawledRepo(id, namespace.fullPath, path, description?.ifBlank { null }, null, stars, forks, it, (avatarUrl?.ifBlank { null } ?: namespace.avatarUrl?.ifBlank { null })?.let(::absolute))
     }
 
     // Uploaded avatars come as paths on the forge; Gravatar ones as full addresses.
@@ -110,4 +110,6 @@ private data class ProjectJson(
     @SerialName("star_count") val stars: Int = 0,
     @SerialName("forks_count") val forks: Int = 0,
     @SerialName("created_at") val createdAt: String,
+    /** The project's own avatar, shown before its group's or person's. */
+    @SerialName("avatar_url") val avatarUrl: String? = null,
 )

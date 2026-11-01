@@ -53,6 +53,16 @@ class ForgejoRepoApiTest {
     }
 
     @Test
+    fun a_repository_shows_its_own_avatar_before_its_owner_s() = runTest {
+        val own = with(codeberg) { api { json(fixture("repo.json")) } }.repo(null, forgejo).value()
+        assertThat(own.ownerAvatarUrl).isEqualTo("https://codeberg.org/repo-avatars/73144-c883a242dec5299fbc06bbe3ee71d8c6")
+
+        // Forgejo sends an empty address for a repository without one: its owner's then.
+        val none = with(codeberg) { fixture("repo.json") }.replace("https://codeberg.org/repo-avatars/73144-c883a242dec5299fbc06bbe3ee71d8c6", "")
+        assertThat(with(codeberg) { api { json(none) } }.repo(null, forgejo).value().ownerAvatarUrl).isEqualTo("https://codeberg.org/avatars/dae8ab126a96f6fbd6942cf08ab92382")
+    }
+
+    @Test
     fun reads_a_repository_on_its_forge() = runTest {
         val repo = with(codeberg) { api { json(fixture("repo.json")) } }.repo(null, forgejo).value()
 
