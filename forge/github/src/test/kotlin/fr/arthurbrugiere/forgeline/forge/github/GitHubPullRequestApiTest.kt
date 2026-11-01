@@ -703,6 +703,50 @@ class GitHubPullRequestApiTest {
         assertThat(requests.single().path).isEqualTo("/repos/octo/tools/commits/1111111aaaaaaa")
     }
 
+    private val coAuthored = "3333333333333333333333333333333333333333"
+    private val coAuthoredJson = """[
+        {"sha":"$coAuthored","commit":{"message":"Retry uploads\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nCo-authored-by: Jane <jane@example.com>",
+         "author":{"name":"The Octocat","date":"2026-09-26T08:00:00Z"}},"author":{"login":"octocat","avatar_url":"https://a/octocat"}},
+        {"sha":"4444444444444444444444444444444444444444","commit":{"message":"Fix typo","author":{"name":"The Octocat","date":"2026-09-27T08:00:00Z"}},"author":{"login":"octocat"}}
+    ]"""
+
+    @Test
+    fun co_authors_come_with_the_accounts_github_matched_to_their_addresses() = runTest {
+        val page = api { request ->
+            if (request.path == "/graphql") {
+                json(
+                    """{"data":{"repository":{"c0":{"authors":{"nodes":[
+                        {"email":"octocat@github.com","avatarUrl":"https://a/octocat","user":{"login":"octocat"}},
+                        {"email":"noreply@anthropic.com","avatarUrl":"https://a/claude","user":{"login":"claude"}},
+                        {"email":"jane@example.com","avatarUrl":"https://a/jane","user":null}
+                    ]}}}}}""",
+                )
+            } else {
+                json(coAuthoredJson)
+            }
+        }.history("tok", repo, ref = null, path = null).value()
+
+        val coAuthors = page.commits.first().coAuthors
+        assertThat(coAuthors.map { it.label to it.avatarUrl }).containsExactly("claude" to "https://a/claude", "Jane" to "https://a/jane").inOrder()
+        assertThat(page.commits.last().coAuthors).isEmpty()
+        // Asked once, for the one commit written together.
+        val asked = requests.filter { it.path == "/graphql" }
+        assertThat(asked).hasSize(1)
+        assertThat(asked.single().sent).contains("""c0: object(oid: \"$coAuthored\")""")
+        assertThat(asked.single().sent).doesNotContain("4444444")
+    }
+
+    @Test
+    fun co_authors_are_named_without_accounts_signed_out_or_when_github_fails() = runTest {
+        val signedOut = api { json(coAuthoredJson) }.history(null, repo, ref = null, path = null).value()
+        assertThat(signedOut.commits.first().coAuthors.map { it.label }).containsExactly("Claude Opus 5.5", "Jane").inOrder()
+        assertThat(requests.none { it.path == "/graphql" }).isTrue()
+
+        val failing = api { request -> if (request.path == "/graphql") json("""{"message":"Bad gateway"}""", HttpStatusCode.BadGateway) else json(coAuthoredJson) }
+            .history("tok", repo, ref = null, path = null).value()
+        assertThat(failing.commits.first().coAuthors.map { it.avatarUrl }).containsExactly(null, null)
+    }
+
     @Test
     fun a_pull_request_that_is_not_there_is_an_http_404() = runTest {
         val result = api { json("""{"message":"Not Found"}""", HttpStatusCode.NotFound) }.files(null, pull)

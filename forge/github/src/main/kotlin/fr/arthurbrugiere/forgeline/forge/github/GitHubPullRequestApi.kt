@@ -12,6 +12,7 @@ import fr.arthurbrugiere.forgeline.core.model.Check
 import fr.arthurbrugiere.forgeline.core.model.CheckReport
 import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.Commit
+import fr.arthurbrugiere.forgeline.core.model.CommitAccount
 import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
 import fr.arthurbrugiere.forgeline.core.model.DeletedBranch
@@ -37,6 +38,7 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.SerialName
@@ -73,7 +75,7 @@ class GitHubPullRequestApi(
             commits += more.body<List<PrCommitJson>>()
             next = more.nextPage()
         }
-        ForgeResult.Success(commits.map { it.toModel() })
+        ForgeResult.Success(withCoAuthors(token, ref.repo, commits.map { it.toModel() }))
     }
 
     /**
@@ -487,10 +489,42 @@ class GitHubPullRequestApi(
         }
         val response = repo(token, repo, "commits", query = query)
         response.toResult { CommitPage(body<List<PrCommitJson>>().map { it.toModel() }, nextPage()) }
+            .map { page -> page.copy(commits = withCoAuthors(token, repo, page.commits)) }
     }
 
     override suspend fun commit(token: String?, repo: RepoId, sha: String): ForgeResult<CommitDetails> = forgeCall {
         repo(token, repo, "commits", sha).toResult { body<PrCommitJson>().let { CommitDetails(it.toModel(), it.files.map { file -> file.toModel() }) } }
+            .map { details -> details.copy(commit = withCoAuthors(token, repo, listOf(details.commit)).single()) }
+    }
+
+    /**
+     * [commits] with the accounts GitHub matched to their co-authors' addresses, and so their avatars: REST names a
+     * commit's author only, GraphQL all of them. One request for the commits that name co-authors, none for the others;
+     * signed in only, as GitHub's GraphQL API wants an account. Should it fail, they're named without their accounts.
+     */
+    private suspend fun withCoAuthors(token: String?, repo: RepoId, commits: List<Commit>): List<Commit> {
+        if (token == null) return commits
+        val shas = commits.filter { it.coAuthors.isNotEmpty() && SHA.matches(it.sha) }.map { it.sha }.distinct().take(CO_AUTHORED_PER_REQUEST)
+        if (shas.isEmpty()) return commits
+        val fields = shas.mapIndexed { index, sha -> "c$index: object(oid: \"$sha\") { ... on Commit { authors(first: 10) { nodes { email avatarUrl user { login } } } } }" }
+        val query = "query CoAuthors(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { ${fields.joinToString(" ")} } }"
+        val variables = buildJsonObject {
+            put("owner", repo.owner)
+            put("name", repo.name)
+        }
+        val data = try {
+            httpClient.gitHubGraphQl(apiBaseUrl, token, query, variables, partial = true)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            return commits
+        }
+        val repository = (data as? ForgeResult.Success)?.value?.get("repository") as? JsonObject ?: return commits
+        val accounts = shas.withIndex().associate { (index, sha) ->
+            val authors = (repository["c$index"] as? JsonObject)?.let { runCatching { ForgeJson.decodeFromJsonElement<PrAuthorsCommitJson>(it) }.getOrNull() }
+            sha to authors?.authors?.nodes.orEmpty().mapNotNull { node -> node.email?.lowercase()?.let { it to CommitAccount(node.user?.login, node.avatarUrl) } }.toMap()
+        }
+        return commits.map { commit -> accounts[commit.sha]?.takeIf { it.isNotEmpty() }?.let { commit.copy(coAuthorAccounts = it) } ?: commit }
     }
 
     override val supportsBlame: Boolean = true
@@ -522,6 +556,12 @@ class GitHubPullRequestApi(
 
     private companion object {
         const val REVERT_MUTATION = "mutation(\$id: ID!) { revertPullRequest(input: {pullRequestId: \$id}) { revertPullRequest { number } } }"
+
+        /** A commit's full id, the only thing written into the co-authors' query rather than passed to it. */
+        val SHA = Regex("[0-9a-f]{40}")
+
+        /** A page of history is 30 commits; a pull request's 250 at most, seldom many of them written together. */
+        const val CO_AUTHORED_PER_REQUEST = 100
 
         const val FILES_PER_PAGE = 50
         const val HISTORY_PER_PAGE = 30
@@ -726,6 +766,19 @@ private data class PrBlameTarget(val blame: PrBlame? = null)
 
 @Serializable
 private data class PrBlame(val ranges: List<PrBlameRangeJson> = emptyList())
+
+@Serializable
+private data class PrAuthorUserJson(val login: String)
+
+@Serializable
+private data class PrAuthorJson(val email: String? = null, val avatarUrl: String? = null, val user: PrAuthorUserJson? = null)
+
+@Serializable
+private data class PrAuthorsJson(val nodes: List<PrAuthorJson> = emptyList())
+
+/** A commit's authors, as GitHub's GraphQL API lists them: its author first, then whoever it says wrote it with them. */
+@Serializable
+private data class PrAuthorsCommitJson(val authors: PrAuthorsJson = PrAuthorsJson())
 
 @Serializable
 private data class PrBlameUser(val login: String, val avatarUrl: String? = null)
