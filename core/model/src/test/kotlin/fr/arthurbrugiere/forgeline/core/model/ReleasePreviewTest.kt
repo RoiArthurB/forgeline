@@ -11,13 +11,22 @@ class ReleasePreviewTest {
         assertThat(releaseJump("v1.25.0-pre", "v1.24.2")).isEqualTo(ReleaseJump.MINOR)
         assertThat(releaseJump("v2.0.0", "v1.9.4")).isEqualTo(ReleaseJump.MAJOR)
         assertThat(releaseJump("12.2", "v12.1")).isEqualTo(ReleaseJump.MINOR)
-        assertThat(releaseJump("0.13.1", "0.13.0")).isEqualTo(ReleaseJump.PATCH)
         // A calendar version: a new month reads as minor, a fix within it as a patch.
         assertThat(releaseJump("2026.11.0", "2026.10.3")).isEqualTo(ReleaseJump.MINOR)
         assertThat(releaseJump("2026.10.1", "2026.10.0")).isEqualTo(ReleaseJump.PATCH)
         // A missing trailing number is a zero.
         assertThat(releaseJump("v1.3", "v1.2.9")).isEqualTo(ReleaseJump.MINOR)
         assertThat(releaseJump("release-4.1", "release-4.0")).isEqualTo(ReleaseJump.MINOR)
+    }
+
+    @Test
+    fun under_major_version_zero_each_number_counts_one_place_higher() {
+        assertThat(releaseJump("v0.14.0", "v0.13.2")).isEqualTo(ReleaseJump.MAJOR)
+        assertThat(releaseJump("0.13.1", "0.13.0")).isEqualTo(ReleaseJump.MINOR)
+        assertThat(releaseJump("v0.81.1", "v0.81.0")).isEqualTo(ReleaseJump.MINOR)
+        assertThat(releaseJump("v0.13", "v0.12.6")).isEqualTo(ReleaseJump.MAJOR)
+        // Leaving 0 is the first stable release, a major one.
+        assertThat(releaseJump("v1.0.0", "v0.13.2")).isEqualTo(ReleaseJump.MAJOR)
     }
 
     @Test
