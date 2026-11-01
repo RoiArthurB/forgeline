@@ -3,7 +3,11 @@ package fr.arthurbrugiere.forgeline.core.markdown
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+// tm4e logs through android.util.Log, which a plain JVM test only has as a stub that throws: Robolectric gives the real one.
+@RunWith(RobolectricTestRunner::class)
 class TextMateLanguagesTest {
     private val languages = TextMateLanguages.bundled
 
