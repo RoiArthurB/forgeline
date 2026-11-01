@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -210,7 +211,10 @@ internal fun IssueRef.label(): String = "${repo.fullName}${if (repo.forge.type.n
 private fun CommitFacts(commit: Commit, nowMillis: Long) {
     val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(commit.byline(nowMillis), style = Soft.type.secondary, color = colors.inkMuted)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            CommitAvatars(commit, size = 20.dp)
+            Text(commit.byline(nowMillis), style = Soft.type.secondary, color = colors.inkMuted)
+        }
         commit.description?.let { Text(it, style = Soft.type.secondary.copy(fontFamily = FontFamily.Monospace), color = colors.ink) }
     }
 }
@@ -219,7 +223,7 @@ private fun CommitFacts(commit: Commit, nowMillis: Long) {
 @Composable
 internal fun Commit.byline(nowMillis: Long): String {
     val author = author?.login ?: authorName
-    val others = coAuthors
+    val others = coAuthors.map { it.label }
     val authors = when {
         author == null || others.isEmpty() -> author
         others.size == 1 -> stringResource(R.string.commit_authors_two, author, others.single())

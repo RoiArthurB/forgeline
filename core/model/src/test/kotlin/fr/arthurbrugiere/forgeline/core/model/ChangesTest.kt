@@ -145,10 +145,46 @@ class ChangesTest {
         """.trimIndent()
 
         // Named once each, the author left out, other trailers too.
-        assertThat(Commit("a", message, "Octo", null, null).coAuthors).containsExactly("Claude Opus 5.5", "Jane Doe").inOrder()
-        assertThat(Commit("a", "Fix it\n\nCo-authored-by: Bot", null, null, null).coAuthors).containsExactly("Bot")
+        assertThat(Commit("a", message, "Octo", null, null).coAuthors.map { it.name }).containsExactly("Claude Opus 5.5", "Jane Doe").inOrder()
+        assertThat(Commit("a", "Fix it\n\nCo-authored-by: Bot", null, null, null).coAuthors.map { it.name }).containsExactly("Bot")
         // Only a line of its own counts.
         assertThat(Commit("a", "Explain how Co-authored-by: works", null, null, null).coAuthors).isEmpty()
+    }
+
+    @Test
+    fun a_co_author_has_the_account_the_forge_matched_to_their_address() {
+        val message = "Fix it\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\nCo-authored-by: Jane <jane@example.com>"
+        val claude = CommitAccount("claude", "https://avatars.githubusercontent.com/u/81847?v=4")
+
+        val coAuthors = Commit("a", message, "Octo", null, null, mapOf("noreply@anthropic.com" to claude)).coAuthors
+
+        assertThat(coAuthors).containsExactly(
+            CoAuthor("Claude Opus 5.5", "noreply@anthropic.com", claude),
+            CoAuthor("Jane", "jane@example.com"),
+        ).inOrder()
+        // Named by login, as an author is.
+        assertThat(coAuthors.map { it.label }).containsExactly("claude", "Jane").inOrder()
+    }
+
+    @Test
+    fun a_no_reply_address_names_its_account_without_asking_the_forge() {
+        fun coAuthor(email: String) = Commit("a", "Fix it\n\nCo-authored-by: Someone <$email>", "Octo", null, null).coAuthors.single()
+
+        assertThat(coAuthor("583231+octocat@users.noreply.github.com").account)
+            .isEqualTo(CommitAccount("octocat", "https://avatars.githubusercontent.com/u/583231"))
+        assertThat(coAuthor("octocat@users.noreply.github.com").account).isEqualTo(CommitAccount("octocat", "https://avatars.githubusercontent.com/octocat"))
+        assertThat(coAuthor("41898282+github-actions[bot]@users.noreply.github.com").account)
+            .isEqualTo(CommitAccount("github-actions[bot]", "https://avatars.githubusercontent.com/u/41898282"))
+        assertThat(coAuthor("123-jdoe@users.noreply.gitlab.com").account).isEqualTo(CommitAccount("jdoe", null))
+        assertThat(coAuthor("jdoe@noreply.codeberg.org").account).isEqualTo(CommitAccount("jdoe", null))
+        assertThat(coAuthor("jane@example.com").account).isNull()
+    }
+
+    @Test
+    fun the_author_is_not_named_again_under_their_login() {
+        val message = "Fix it\n\nCo-authored-by: Mona Lisa <583231+octocat@users.noreply.github.com>"
+
+        assertThat(Commit("a", message, "Octo Cat", ForgeUser("octocat", null, null), null).coAuthors).isEmpty()
     }
 
     @Test

@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.pull
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,12 +10,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,9 +28,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -131,11 +137,38 @@ internal fun CommitRow(commit: Commit, nowMillis: Long, onClick: () -> Unit, mod
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        Avatar(commit.author?.avatarUrl, commit.author?.login ?: commit.authorName ?: "?", size = 32.dp)
+        CommitAvatars(commit, size = 32.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(commit.title, style = Soft.type.body, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(commit.byline(nowMillis), style = Soft.type.meta, color = colors.inkMuted)
+        }
+    }
+}
+
+/** How many faces a commit shows at most: the byline names, or counts, everyone. */
+private const val MAX_FACES = 3
+
+/**
+ * Who wrote [commit], as GitHub shows it: its author's avatar in front and its co-authors' tucked behind, each ringed
+ * in the [ring] colour (the ground it sits on) so the overlap reads.
+ */
+@Composable
+internal fun CommitAvatars(commit: Commit, size: Dp, modifier: Modifier = Modifier, ring: Color = Soft.colors.ground) {
+    val faces = remember(commit) {
+        listOf(commit.author?.avatarUrl to (commit.author?.login ?: commit.authorName ?: "?")) +
+            commit.coAuthors.take(MAX_FACES - 1).map { it.avatarUrl to it.label }
+    }
+    if (faces.size == 1) {
+        Avatar(faces[0].first, faces[0].second, size = size, modifier = modifier)
+        return
+    }
+    val step = size * 0.6f
+    Box(modifier.size(width = size + step * (faces.size - 1), height = size)) {
+        // Back to front, so the author's stays whole.
+        for (index in faces.indices.reversed()) {
+            val (url, login) = faces[index]
+            Avatar(url, login, size = size, modifier = Modifier.offset(x = step * index).border(1.5.dp, ring, CircleShape))
         }
     }
 }

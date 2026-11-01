@@ -127,13 +127,17 @@ fun parseUnifiedDiff(text: String): List<ChangedFile> {
     return files
 }
 
-/** A commit. [author] is their account on the forge, when the forge knows one for the commit's email. */
+/**
+ * A commit. [author] is their account on the forge, when the forge knows one for the commit's email.
+ * [coAuthorAccounts] are the accounts behind its co-authors' addresses (lowercased), where the forge matched them.
+ */
 data class Commit(
     val sha: String,
     val message: String,
     val authorName: String?,
     val author: ForgeUser?,
     val date: Instant?,
+    val coAuthorAccounts: Map<String, CommitAccount> = emptyMap(),
 ) {
     /** The message's first line. */
     val title: String get() = message.lineSequence().firstOrNull().orEmpty()
@@ -144,19 +148,58 @@ data class Commit(
     val shortSha: String get() = sha.take(7)
 
     /**
-     * Who wrote it with its author, by name, as its `Co-authored-by:` lines say (git's own convention, which every
-     * forge shows). The author is not named again, nor anyone twice.
+     * Who wrote it with its author, as its `Co-authored-by:` lines say (git's own convention, which every forge
+     * shows), with their account where the forge matched their address, or the address itself names one (a forge's
+     * no-reply address). The author is not named again, nor anyone twice.
      */
-    val coAuthors: List<String>
+    val coAuthors: List<CoAuthor>
         get() = message.lineSequence()
-            .mapNotNull { CO_AUTHORED_BY.matchEntire(it.trim())?.groupValues?.get(1)?.trim() }
-            .filter { it.isNotEmpty() && !it.equals(authorName, ignoreCase = true) }
-            .distinctBy { it.lowercase() }
+            .mapNotNull { CO_AUTHORED_BY.matchEntire(it.trim()) }
+            .map { match ->
+                val email = match.groupValues[2].trim().ifEmpty { null }
+                CoAuthor(match.groupValues[1].trim(), email, email?.let { coAuthorAccounts[it.lowercase()] ?: noReplyAccount(it) })
+            }
+            .filter { it.name.isNotEmpty() && !it.name.equals(authorName, ignoreCase = true) && !(it.login != null && it.login.equals(author?.login, ignoreCase = true)) }
+            .distinctBy { it.label.lowercase() }
             .toList()
 }
 
+/** An account a forge matched to an address in a commit: its [login] (an address may match no account) and avatar. */
+data class CommitAccount(val login: String?, val avatarUrl: String?)
+
+/** Someone who wrote a commit with its author: [name] and [email] as the commit says, and their [account] when known. */
+data class CoAuthor(val name: String, val email: String?, val account: CommitAccount? = null) {
+    val login: String? get() = account?.login
+
+    /** Their login where known, as an author is named, else the name the commit gives. */
+    val label: String get() = login ?: name
+
+    val avatarUrl: String? get() = account?.avatarUrl
+}
+
 /** `Co-authored-by: Name <email>`, written in any case; the address may be missing. */
-private val CO_AUTHORED_BY = Regex("""(?i)co-authored-by:\s*([^<]*?)\s*(?:<[^>]*>)?""")
+private val CO_AUTHORED_BY = Regex("""(?i)co-authored-by:\s*([^<]*?)\s*(?:<([^>]*)>)?""")
+
+/** GitHub's no-reply address: `12345+login@…` since 2017, `login@…` before. */
+private val GITHUB_NO_REPLY = Regex("""(?i)(?:(\d+)\+)?([a-z0-9-]+(?:\[bot])?)@users\.noreply\.github\.com""")
+
+/** GitLab's (`12345-login@users.noreply.host`) and Forgejo's (`login@noreply.host`) no-reply addresses. */
+private val GITLAB_NO_REPLY = Regex("""(?i)\d+-([^@]+)@users\.noreply\..+""")
+private val FORGEJO_NO_REPLY = Regex("""(?i)([^@]+)@noreply\..+""")
+
+/**
+ * The account a forge's no-reply address stands for, read from the address alone: no request, so co-authors are named
+ * by login even where the forge matched nothing. Only GitHub's avatars can be addressed this way.
+ */
+internal fun noReplyAccount(email: String): CommitAccount? {
+    GITHUB_NO_REPLY.matchEntire(email)?.let { match ->
+        val (id, login) = match.destructured
+        return CommitAccount(login, if (id.isNotEmpty()) "https://avatars.githubusercontent.com/u/$id" else "https://avatars.githubusercontent.com/$login".takeUnless { login.endsWith("[bot]") })
+    }
+    GITLAB_NO_REPLY.matchEntire(email)?.let { return CommitAccount(it.groupValues[1], null) }
+    FORGEJO_NO_REPLY.matchEntire(email)?.let { return CommitAccount(it.groupValues[1], null) }
+    return null
+}
 
 data class CommitDetails(val commit: Commit, val files: List<ChangedFile>)
 
