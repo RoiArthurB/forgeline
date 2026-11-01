@@ -153,12 +153,17 @@ enum class ReleaseJump { MAJOR, MINOR, PATCH }
  * The step from [previous] to [tag]: the first of their numbers that differs says it (the first a major release,
  * the second a minor one, any later a patch). Null when either has no number to read, or nothing differs.
  * Calendar versions (2026.10.1) read the same way, a new month as minor.
+ *
+ * While both are still on major version 0 (0.13.0), every number moves up one place, as semantic versioning reads
+ * them: the second number is the major one (0.14.0 after 0.13.2) and the third the minor one (0.13.1 after 0.13.0).
+ * Leaving 0 (1.0.0 after 0.13.2) is a major release.
  */
 fun releaseJump(tag: String, previous: String?): ReleaseJump? {
     val now = versionNumbers(tag) ?: return null
     val before = previous?.let(::versionNumbers) ?: return null
     val index = (0 until maxOf(now.size, before.size)).firstOrNull { now.getOrElse(it) { 0 } != before.getOrElse(it) { 0 } } ?: return null
-    return when (index) {
+    val initialDevelopment = now.first() == 0L && before.first() == 0L
+    return when (if (initialDevelopment) index - 1 else index) {
         0 -> ReleaseJump.MAJOR
         1 -> ReleaseJump.MINOR
         else -> ReleaseJump.PATCH
