@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.markdown
 
+import androidx.compose.ui.graphics.Color
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
 import org.junit.Test
@@ -7,43 +8,44 @@ import org.junit.Test
 class CodeHighlighterTest {
     @Test
     fun detects_languages_from_file_names() {
-        assertThat(CodeHighlighter.languageName("Main.kt")).isEqualTo("KOTLIN")
-        assertThat(CodeHighlighter.languageName("build.gradle.kts")).isEqualTo("KOTLIN")
-        assertThat(CodeHighlighter.languageName("app.tsx")).isEqualTo("TYPESCRIPT")
-        assertThat(CodeHighlighter.languageName("script.sh")).isEqualTo("SHELL")
-        assertThat(CodeHighlighter.languageName("lib.rs")).isEqualTo("RUST")
-        assertThat(CodeHighlighter.languageName("notes.txt")).isNull()
-        assertThat(CodeHighlighter.languageName("LICENSE")).isNull()
-        assertThat(CodeHighlighter.languageName(".gitignore")).isNull()
+        mapOf(
+            "Main.kt" to "kotlin",
+            "build.gradle.kts" to "kotlin",
+            "app.tsx" to "typescriptreact",
+            "script.sh" to "shellscript",
+            "lib.rs" to "rust",
+            "a.py" to "python",
+            "notes.txt" to null,
+            "LICENSE" to null,
+        ).forEach { (name, language) -> assertWithMessage(name).that(CodeHighlighter.languageName(name)).isEqualTo(language) }
     }
 
     // Regression: only 17 languages were known, so JSON, YAML, XML, Gradle, Makefiles and the like showed no color at all.
     @Test
-    fun files_of_other_languages_get_the_generic_colors() {
-        listOf("package.json", "ci.yml", "AndroidManifest.xml", "libs.versions.toml", "style.css", "query.sql", "model.gaml").forEach {
-            assertWithMessage(it).that(CodeHighlighter.languageName(it)).isEqualTo("DEFAULT")
-        }
-        val json = "{\n  \"name\": \"forgeline\",\n  \"version\": 42\n}\n"
-        assertThat(CodeHighlighter.highlight(json, "package.json", darkTheme = false).spanStyles).isNotEmpty()
-    }
-
-    @Test
-    fun well_known_names_and_more_extensions_get_their_language() {
-        assertThat(CodeHighlighter.languageName("Makefile")).isEqualTo("SHELL")
-        assertThat(CodeHighlighter.languageName("docker/Dockerfile")).isEqualTo("SHELL")
-        assertThat(CodeHighlighter.languageName("Dockerfile.release")).isEqualTo("SHELL")
-        assertThat(CodeHighlighter.languageName("Gemfile")).isEqualTo("RUBY")
-        assertThat(CodeHighlighter.languageName("build.gradle")).isEqualTo("JAVA")
-        assertThat(CodeHighlighter.languageName("stubs.pyi")).isEqualTo("PYTHON")
-        assertThat(CodeHighlighter.languageName("lib.hh")).isEqualTo("CPP")
+    fun the_grammars_index_knows_far_more_than_a_handful_of_languages() {
+        mapOf(
+            "package.json" to "json",
+            "tsconfig.json" to "jsonc",
+            "ci.yml" to "yaml",
+            "AndroidManifest.xml" to "xml",
+            "libs.versions.toml" to "toml",
+            "style.css" to "css",
+            "query.sql" to "sql",
+            "build.gradle" to "groovy",
+            "index.html" to "html",
+            "Makefile" to "makefile",
+            "docker/Dockerfile" to "dockerfile",
+            "Gemfile" to "ruby",
+            ".bashrc" to "shellscript",
+            ".gitignore" to "ignore",
+        ).forEach { (name, language) -> assertWithMessage(name).that(CodeHighlighter.languageName(name)).isEqualTo(language) }
     }
 
     @Test
     fun scripts_without_an_extension_are_told_by_their_first_line() {
-        assertThat(CodeHighlighter.languageName("gradlew", "#!/bin/sh\n\necho hi\n")).isEqualTo("SHELL")
-        assertThat(CodeHighlighter.languageName("tool", "#!/usr/bin/env python3\nprint(1)\n")).isEqualTo("PYTHON")
-        assertThat(CodeHighlighter.languageName("run", "#!/usr/bin/env -S node --flag\n")).isEqualTo("JAVASCRIPT")
-        assertThat(CodeHighlighter.languageName("deploy", "#!/bin/bash -e\n")).isEqualTo("SHELL")
+        assertThat(CodeHighlighter.languageName("gradlew", "#!/bin/sh\n\necho hi\n")).isEqualTo("shellscript")
+        assertThat(CodeHighlighter.languageName("tool", "#!/usr/bin/env python3\nprint(1)\n")).isEqualTo("python")
+        assertThat(CodeHighlighter.languageName("run", "#!/usr/bin/env node\n")).isEqualTo("javascript")
         assertThat(CodeHighlighter.languageName("README", "Just words\n")).isNull()
     }
 
@@ -61,14 +63,37 @@ class CodeHighlighterTest {
     }
 
     @Test
-    fun keywords_get_colored_and_the_text_is_untouched() {
+    fun tokens_take_the_theme_colors_and_the_text_is_untouched() {
         val code = "fun main() {\n    val answer = 42\n}\n"
 
-        val highlighted = CodeHighlighter.highlight(code, "Main.kt", darkTheme = false)
+        val light = CodeHighlighter.highlight(code, "Main.kt", darkTheme = false)
+        val dark = CodeHighlighter.highlight(code, "Main.kt", darkTheme = true)
 
-        assertThat(highlighted.text).isEqualTo(code)
-        val funStyles = highlighted.spanStyles.filter { it.start == 0 && it.end == 3 }
-        assertThat(funStyles.map { it.item.color }.distinct()).hasSize(1)
+        assertThat(light.text).isEqualTo(code)
+        assertThat(light.colorOf(code, "fun")).isEqualTo(Color(0xFF8F5600))
+        assertThat(light.colorOf(code, "42")).isEqualTo(Color(0xFF1F5FB8))
+        assertThat(dark.colorOf(code, "fun")).isEqualTo(Color(0xFFFFC062))
+        // What is in the theme's own ink needs no span: the text is drawn in it already.
+        assertThat(light.spanStyles.none { code.substring(it.start, it.end).contains("main") }).isTrue()
+    }
+
+    @Test
+    fun json_keys_and_values_are_told_apart() {
+        val json = "{\n  \"name\": \"forgeline\",\n  \"version\": 42\n}\n"
+
+        val highlighted = CodeHighlighter.highlight(json, "package.json", darkTheme = false)
+
+        assertThat(highlighted.colorOf(json, "\"name\"")).isNotEqualTo(highlighted.colorOf(json, "\"forgeline\""))
+        assertThat(highlighted.colorOf(json, "42")).isNotNull()
+    }
+
+    @Test
+    fun markdown_code_fences_are_colored_by_the_language_they_name() {
+        listOf("kotlin" to "val x = \"s\"", "kt" to "val x = 1", "js" to "const x = 1", "sh" to "echo \"hi\"", "Python" to "def f(): pass").forEach { (fence, code) ->
+            assertWithMessage(fence).that(CodeHighlighter.highlightFence(code, fence, darkTheme = false).spanStyles).isNotEmpty()
+        }
+        assertThat(CodeHighlighter.highlightFence("val x = 1", null, darkTheme = false).spanStyles).isEmpty()
+        assertThat(CodeHighlighter.highlightFence("val x = 1", "not-a-language", darkTheme = false).spanStyles).isEmpty()
     }
 
     @Test
@@ -81,6 +106,13 @@ class CodeHighlighterTest {
         val big = "val x = 1\n".repeat(30_000)
 
         assertThat(CodeHighlighter.highlight(big, "Big.kt", darkTheme = false).spanStyles).isEmpty()
+    }
+
+    @Test
+    fun windows_line_ends_keep_tokens_in_place() {
+        val code = "fun a()\r\nval b = 1\r\n"
+
+        assertThat(CodeHighlighter.highlight(code, "A.kt", darkTheme = false).colorOf(code, "val")).isEqualTo(Color(0xFF8F5600))
     }
 
     @Test
@@ -97,5 +129,10 @@ class CodeHighlighterTest {
     fun a_trailing_newline_does_not_add_an_empty_last_line() {
         assertThat(CodeHighlighter.lines(CodeHighlighter.highlight("a\nb\n", "x.txt", false)).map { it.text })
             .containsExactly("a", "b").inOrder()
+    }
+
+    private fun androidx.compose.ui.text.AnnotatedString.colorOf(code: String, token: String): Color? {
+        val start = code.indexOf(token)
+        return spanStyles.firstOrNull { it.start == start && it.end == start + token.length }?.item?.color
     }
 }

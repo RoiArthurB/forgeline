@@ -62,9 +62,12 @@ android {
 
     packaging {
         jniLibs {
-            // AndroidX's two native libraries come built (one stripped, the other ~10 KB): stripping them again needs
+            // AndroidX's two native libraries and Oniguruma's come built (stripped, or ~10 KB): stripping them again needs
             // the NDK installed for a few KB, so they are packed as they come, without the warning at every build.
-            keepDebugSymbols += setOf("**/libandroidx.graphics.path.so", "**/libdatastore_shared_counter.so")
+            keepDebugSymbols += setOf("**/libandroidx.graphics.path.so", "**/libdatastore_shared_counter.so", "**/libonig.so", "**/liboniguruma-binding.so")
+            // Native Oniguruma colors code exactly as VS Code does, at about 1 MB an ABI (native code isn't compressed):
+            // it ships for 64-bit devices only. 32-bit ones fall back to joni, where a few grammar rules don't apply.
+            excludes += listOf("armeabi-v7a", "x86").flatMap { abi -> listOf("lib/$abi/libonig.so", "lib/$abi/liboniguruma-binding.so") }
         }
     }
 }

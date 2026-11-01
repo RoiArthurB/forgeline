@@ -197,10 +197,11 @@ fun FileScreen(
                         action = stringResource(R.string.repo_open_on_forge, state.target.id.forge.displayName),
                         onAction = { onOpenInBrowser(state.webUrl) },
                     )
-                    is FileContent.Text -> if (CodeHighlighter.isMarkdown(state.target.name)) {
+                    // The whole path, since some languages are told by where a file sits (.github/workflows/*.yml).
+                    is FileContent.Text -> if (CodeHighlighter.isMarkdown(state.target.path)) {
                         MarkdownFile(file.text, state, onLinkClick)
                     } else {
-                        CodeFile(file.text, state.target.name)
+                        CodeFile(file.text, state.target.path)
                     }
                 }
             }
@@ -225,12 +226,12 @@ private fun MarkdownFile(text: String, state: FileUiState, onLinkClick: (String)
 }
 
 @Composable
-private fun CodeFile(text: String, fileName: String) {
+private fun CodeFile(text: String, path: String) {
     val colors = Soft.colors
     val darkTheme = colors.isDark
     // Highlighting runs off the main thread; plain text shows meanwhile, so nothing waits on it.
-    val highlighted by produceState<List<AnnotatedString>?>(initialValue = null, text, fileName, darkTheme) {
-        value = withContext(Dispatchers.Default) { CodeHighlighter.lines(CodeHighlighter.highlight(text, fileName, darkTheme)) }
+    val highlighted by produceState<List<AnnotatedString>?>(initialValue = null, text, path, darkTheme) {
+        value = withContext(Dispatchers.Default) { CodeHighlighter.lines(CodeHighlighter.highlight(text, path, darkTheme)) }
     }
     val lines = highlighted ?: remember(text) { CodeHighlighter.lines(AnnotatedString(text)) }
     val gutter = (lines.size.toString().length * 9 + 20).dp

@@ -4,141 +4,142 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import dev.snipme.highlights.Highlights
-import dev.snipme.highlights.model.BoldHighlight
-import dev.snipme.highlights.model.ColorHighlight
-import dev.snipme.highlights.model.SyntaxLanguage
-import dev.snipme.highlights.model.SyntaxTheme
+import androidx.compose.ui.text.style.TextDecoration
+import org.eclipse.tm4e.core.grammar.IGrammar
+import org.eclipse.tm4e.core.grammar.IStateStack
+import org.eclipse.tm4e.core.internal.grammar.tokenattrs.EncodedTokenAttributes
+import org.eclipse.tm4e.core.registry.IGrammarSource
+import org.eclipse.tm4e.core.registry.IRegistryOptions
+import org.eclipse.tm4e.core.registry.IThemeSource
+import org.eclipse.tm4e.core.registry.Registry
+import java.time.Duration
 
-/** Syntax highlighting for the file viewer. Pure and thread-safe: run it off the main thread. */
+/**
+ * Syntax highlighting for the file viewer and Markdown's code blocks, with the TextMate grammars VS Code colors code
+ * with (see [TextMateLanguages]) and the Soft palette's themes (`textmate/themes`). Pure and thread-safe: run it off
+ * the main thread.
+ */
 object CodeHighlighter {
     /** Past this size highlighting takes too long for the "instant" budget; show plain text. */
     private const val MAX_HIGHLIGHT_LENGTH = 200_000
 
-    private val languages = mapOf(
-        "kt" to SyntaxLanguage.KOTLIN, "kts" to SyntaxLanguage.KOTLIN,
-        "java" to SyntaxLanguage.JAVA, "groovy" to SyntaxLanguage.JAVA, "gradle" to SyntaxLanguage.JAVA,
-        "py" to SyntaxLanguage.PYTHON, "pyi" to SyntaxLanguage.PYTHON, "pyw" to SyntaxLanguage.PYTHON,
-        "js" to SyntaxLanguage.JAVASCRIPT, "mjs" to SyntaxLanguage.JAVASCRIPT, "cjs" to SyntaxLanguage.JAVASCRIPT, "jsx" to SyntaxLanguage.JAVASCRIPT,
-        "ts" to SyntaxLanguage.TYPESCRIPT, "tsx" to SyntaxLanguage.TYPESCRIPT, "mts" to SyntaxLanguage.TYPESCRIPT,
-        "rs" to SyntaxLanguage.RUST,
-        "go" to SyntaxLanguage.GO,
-        "c" to SyntaxLanguage.C, "h" to SyntaxLanguage.C,
-        "cc" to SyntaxLanguage.CPP, "cpp" to SyntaxLanguage.CPP, "cxx" to SyntaxLanguage.CPP, "c++" to SyntaxLanguage.CPP,
-        "hpp" to SyntaxLanguage.CPP, "hh" to SyntaxLanguage.CPP, "hxx" to SyntaxLanguage.CPP, "ino" to SyntaxLanguage.CPP,
-        "cs" to SyntaxLanguage.CSHARP,
-        "swift" to SyntaxLanguage.SWIFT,
-        "rb" to SyntaxLanguage.RUBY, "rake" to SyntaxLanguage.RUBY, "gemspec" to SyntaxLanguage.RUBY,
-        "php" to SyntaxLanguage.PHP,
-        "sh" to SyntaxLanguage.SHELL, "bash" to SyntaxLanguage.SHELL, "zsh" to SyntaxLanguage.SHELL, "fish" to SyntaxLanguage.SHELL,
-        "ksh" to SyntaxLanguage.SHELL, "bats" to SyntaxLanguage.SHELL, "mk" to SyntaxLanguage.SHELL,
-        "dart" to SyntaxLanguage.DART,
-        "coffee" to SyntaxLanguage.COFFEESCRIPT,
-        "pl" to SyntaxLanguage.PERL, "pm" to SyntaxLanguage.PERL,
-    )
+    /** A line a grammar can't finish in this time (a minified bundle) is left plain from there on. */
+    private val LINE_TIME_LIMIT = Duration.ofSeconds(1)
 
-    /** Files known by their whole name, most without an extension. */
-    private val namedFiles = mapOf(
-        "makefile" to SyntaxLanguage.SHELL, "gnumakefile" to SyntaxLanguage.SHELL,
-        "dockerfile" to SyntaxLanguage.SHELL, "containerfile" to SyntaxLanguage.SHELL, "pkgbuild" to SyntaxLanguage.SHELL,
-        ".bashrc" to SyntaxLanguage.SHELL, ".bash_profile" to SyntaxLanguage.SHELL, ".zshrc" to SyntaxLanguage.SHELL, ".profile" to SyntaxLanguage.SHELL,
-        "gemfile" to SyntaxLanguage.RUBY, "rakefile" to SyntaxLanguage.RUBY, "podfile" to SyntaxLanguage.RUBY,
-        "fastfile" to SyntaxLanguage.RUBY, "brewfile" to SyntaxLanguage.RUBY, "vagrantfile" to SyntaxLanguage.RUBY,
-        "jenkinsfile" to SyntaxLanguage.JAVA,
-    )
+    private val languages get() = TextMateLanguages.bundled
 
-    /** Scripts without an extension say what runs them on their first line, as `#!/usr/bin/env python3`. */
-    private val interpreters = listOf(
-        "python" to SyntaxLanguage.PYTHON, "node" to SyntaxLanguage.JAVASCRIPT, "ruby" to SyntaxLanguage.RUBY,
-        "perl" to SyntaxLanguage.PERL, "php" to SyntaxLanguage.PHP, "bash" to SyntaxLanguage.SHELL,
-        "zsh" to SyntaxLanguage.SHELL, "fish" to SyntaxLanguage.SHELL, "sh" to SyntaxLanguage.SHELL,
-    )
+    /** One registry per theme: a grammar's tokens carry the colors of the theme it was loaded with. */
+    private class Engine(theme: String) {
+        private val registry = Registry(
+            object : IRegistryOptions {
+                override fun getGrammarSource(scopeName: String): IGrammarSource? = languages.grammars[scopeName]?.let { grammar ->
+                    resource("/textmate/${grammar.file}")?.let { IGrammarSource.fromInputStream(it, grammar.file, Charsets.UTF_8) }
+                }
 
-    /** Prose and tables: strings, numbers and comments mean nothing there, so they are left plain. */
-    private val plainExtensions = setOf("txt", "text", "log", "csv", "tsv", "rst", "adoc", "asciidoc", "org")
-
-    // Token colors from the Soft palette, each readable at 4.5:1 on its ground (CodeContrastTest holds them to it).
-    private val SoftLightSyntax = SyntaxTheme(
-        key = "soft-light",
-        code = 0x16181A,
-        keyword = 0x8F5600,
-        string = 0x2E7550,
-        literal = 0x1F5FB8,
-        comment = 0x606065,
-        metadata = 0x7A45B0,
-        multilineComment = 0x606065,
-        punctuation = 0x3D3A4F,
-        mark = 0x16181A,
-    )
-    private val SoftDarkSyntax = SyntaxTheme(
-        key = "soft-dark",
-        code = 0xEDEDF0,
-        keyword = 0xFFC062,
-        string = 0x8FD6A8,
-        literal = 0x8CB8FF,
-        comment = 0x9C9BA3,
-        metadata = 0xC9A7F5,
-        multilineComment = 0x9C9BA3,
-        punctuation = 0xC9C4D6,
-        mark = 0xEDEDF0,
-    )
-
-    /**
-     * The language to color [fileName] as, [code] telling a script by its first line. Files of a language the
-     * highlighter has no grammar for (JSON, YAML, XML, TOML, CSS, SQL…) still get its generic one, which colors
-     * strings, numbers and comments. Prose, and files nothing is known of, stay plain.
-     */
-    private fun language(fileName: String, code: String? = null): SyntaxLanguage? {
-        val name = fileName.substringAfterLast('/').lowercase()
-        namedFiles[name]?.let { return it }
-        if (name.startsWith("dockerfile.") || name.endsWith(".dockerfile")) return SyntaxLanguage.SHELL
-        val extension = name.substringAfterLast('.', "").takeIf { name.lastIndexOf('.') > 0 }
-        if (extension != null) {
-            languages[extension]?.let { return it }
-            if (extension in plainExtensions) return null
-            return SyntaxLanguage.DEFAULT
+                override fun getInjections(scopeName: String): Collection<String> = languages.injectionsInto(scopeName)
+            },
+        ).apply {
+            setTheme(IThemeSource.fromInputStream(checkNotNull(resource("/textmate/themes/$theme.json")), "$theme.json", Charsets.UTF_8))
         }
-        return code?.let(::shebangLanguage)
+        private val colors: List<Color?> = registry.colorMap.map { hex -> hex?.removePrefix("#")?.take(6)?.toLongOrNull(16)?.let { Color(0xFF000000 or it) } }
+
+        /** The theme's own ink, which tm4e lists first: the text is drawn in it already, so it needs no span. */
+        private val defaultColor = colors.firstOrNull()
+        private val grammars = HashMap<String, IGrammar?>()
+
+        /**
+         * Grammars compile their rules as they meet them, so one file is colored at a time per theme. A grammar that
+         * fails (a pattern its regex engine can't read) leaves its files plain rather than taking the screen down.
+         */
+        @Synchronized
+        fun highlight(code: String, scopeName: String): AnnotatedString = tryHighlight(code, scopeName) ?: AnnotatedString(code)
+
+        /** [code] colored with [scopeName]'s grammar, or null when that grammar can't be loaded or fails. */
+        @Synchronized
+        fun tryHighlight(code: String, scopeName: String): AnnotatedString? {
+            val grammar = grammars.getOrPut(scopeName) { runCatching { registry.loadGrammar(scopeName) }.getOrNull() } ?: return null
+            return runCatching { tokenize(code, grammar) }.getOrElse {
+                grammars[scopeName] = null
+                null
+            }
+        }
+
+        private fun tokenize(code: String, grammar: IGrammar): AnnotatedString = buildAnnotatedString {
+            append(code)
+            var state: IStateStack? = null
+            var lineStart = 0
+            while (lineStart <= code.length) {
+                val lineEnd = code.indexOf('\n', lineStart).let { if (it < 0) code.length else it }
+                val line = code.substring(lineStart, lineEnd).removeSuffix("\r")
+                val result = grammar.tokenizeLine2(line, state, LINE_TIME_LIMIT)
+                val tokens = result.tokens
+                for (i in tokens.indices step 2) {
+                    val start = tokens[i]
+                    val end = if (i + 2 < tokens.size) tokens[i + 2] else line.length
+                    if (start >= end) continue
+                    style(tokens[i + 1])?.let { addStyle(it, lineStart + start, lineStart + end) }
+                }
+                state = result.ruleStack
+                lineStart = lineEnd + 1
+            }
+        }
+
+        private fun style(metadata: Int): SpanStyle? {
+            val color = colors.getOrNull(EncodedTokenAttributes.getForeground(metadata))?.takeIf { it != defaultColor }
+            val fontStyle = EncodedTokenAttributes.getFontStyle(metadata).takeIf { it > 0 } ?: 0
+            if (color == null && fontStyle == 0) return null
+            val decorations = listOfNotNull(
+                TextDecoration.Underline.takeIf { fontStyle and UNDERLINE != 0 },
+                TextDecoration.LineThrough.takeIf { fontStyle and STRIKETHROUGH != 0 },
+            )
+            return SpanStyle(
+                color = color ?: Color.Unspecified,
+                fontWeight = FontWeight.Bold.takeIf { fontStyle and BOLD != 0 },
+                fontStyle = FontStyle.Italic.takeIf { fontStyle and ITALIC != 0 },
+                textDecoration = decorations.takeIf { it.isNotEmpty() }?.let { TextDecoration.combine(it) },
+            )
+        }
+
+        private companion object {
+            // TextMate's font style bits.
+            const val ITALIC = 1
+            const val BOLD = 2
+            const val UNDERLINE = 4
+            const val STRIKETHROUGH = 8
+        }
     }
 
-    private fun shebangLanguage(code: String): SyntaxLanguage? {
-        if (!code.startsWith("#!")) return null
-        val words = code.substringBefore('\n').removePrefix("#!").trim().split(' ', '\t').filter { it.isNotEmpty() }
-        val command = words.firstOrNull()?.substringAfterLast('/') ?: return null
-        // `#!/usr/bin/env python3` names the program after env, maybe past flags such as -S.
-        val program = if (command == "env") words.drop(1).firstOrNull { !it.startsWith("-") } ?: return null else command
-        return interpreters.firstOrNull { (prefix, _) -> program.startsWith(prefix) }?.second
-    }
+    private val light by lazy { Engine("soft-light") }
+    private val dark by lazy { Engine("soft-dark") }
 
-    fun languageName(fileName: String, code: String? = null): String? = language(fileName, code)?.name
+    private fun resource(path: String) = CodeHighlighter::class.java.getResourceAsStream(path)
 
-    fun isMarkdown(fileName: String): Boolean =
-        fileName.substringAfterLast('.', "").lowercase() in setOf("md", "markdown", "mdown", "mkd")
+    /** The language [path] (a file name or its path in the repository) is colored as, or null when it stays plain. */
+    fun languageName(path: String, code: String? = null): String? = languages.forFile(path, code)?.id
+
+    /** Whether [path] is Markdown, shown as a document rather than as code. */
+    fun isMarkdown(path: String): Boolean = languages.forFile(path)?.scopeName?.startsWith("text.html.markdown") == true
 
     fun isBinary(text: String): Boolean = text.take(8_000).contains('\u0000')
 
-    fun highlight(code: String, fileName: String, darkTheme: Boolean): AnnotatedString {
-        val language = language(fileName, code)
+    /** [code] from the file at [path], colored for its language; plain when none is known. */
+    fun highlight(code: String, path: String, darkTheme: Boolean): AnnotatedString =
+        highlight(code, languages.forFile(path, code), darkTheme)
+
+    /** A Markdown code block, colored for the language its fence names (```kotlin); plain without one. */
+    fun highlightFence(code: String, fenceLanguage: String?, darkTheme: Boolean): AnnotatedString =
+        highlight(code, fenceLanguage?.let(languages::forFence), darkTheme)
+
+    private fun highlight(code: String, language: TextMateLanguages.Language?, darkTheme: Boolean): AnnotatedString {
         if (language == null || code.length > MAX_HIGHLIGHT_LENGTH) return AnnotatedString(code)
-        val highlights = Highlights.Builder()
-            .code(code)
-            .language(language)
-            .theme(if (darkTheme) SoftDarkSyntax else SoftLightSyntax)
-            .build()
-            .getHighlights()
-        return buildAnnotatedString {
-            append(code)
-            for (highlight in highlights) {
-                val location = highlight.location
-                if (location.start < 0 || location.end > code.length || location.start >= location.end) continue
-                when (highlight) {
-                    is ColorHighlight -> addStyle(SpanStyle(color = Color(0xFF000000 or highlight.rgb.toLong())), location.start, location.end)
-                    is BoldHighlight -> addStyle(SpanStyle(fontWeight = FontWeight.Bold), location.start, location.end)
-                }
-            }
-        }
+        return (if (darkTheme) dark else light).highlight(code, language.scopeName)
     }
+
+    /** Whether [scopeName]'s grammar loads and colors [code] in both themes without failing; for tests. */
+    internal fun grammarWorks(scopeName: String, code: String): Boolean =
+        light.tryHighlight(code, scopeName) != null && dark.tryHighlight(code, scopeName) != null
 
     /** One entry per line, styles kept; used to render big files lazily with line numbers. */
     fun lines(text: AnnotatedString): List<AnnotatedString> {
