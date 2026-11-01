@@ -1,0 +1,26 @@
+{
+  "comment": "Where the file viewer's TextMate grammars come from. Each source is a git repository at a pinned commit; every folder matched by `extensions` is a VS Code extension whose package.json says which languages it knows (file extensions, names, first lines) and which grammar colors them. Run import_grammars.py after changing this file.",
+  "sources": [
+    {
+      "name": "Visual Studio Code",
+      "repository": "https://github.com/microsoft/vscode",
+      "commit": "1306698e328e5e531f5e632301d30020aa994eff",
+      "extensions": "extensions/*",
+      "license": "MIT; each grammar's own origin and license is in its extension's cgmanifest.json"
+    },
+    {
+      "name": "Kotlin for VS Code",
+      "repository": "https://github.com/fwcd/vscode-kotlin",
+      "commit": "4a7c1538754828c1d22a8bee8ff3400045b4352a",
+      "extensions": ".",
+      "license": "MIT"
+    },
+    {
+      "name": "Even Better TOML (Taplo)",
+      "repository": "https://github.com/tamasfe/taplo",
+      "commit": "08f343be02ce1b20296470396a42f0fa47820449",
+      "extensions": "editors/vscode",
+      "license": "MIT"
+    }
+  ]
+}
