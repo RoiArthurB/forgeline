@@ -96,6 +96,7 @@ class DataStoreUserSettingsRepositoryTest {
         themeMode = ThemeMode.DARK,
         amoledBlack = true,
         headerStyle = fr.arthurbrugiere.forgeline.core.model.HeaderStyle.WHITE,
+        codeTheme = fr.arthurbrugiere.forgeline.core.model.CodeTheme.DARK,
         inboxCheckInterval = InboxCheckInterval.HOUR_6,
         separateInboxPerForge = true,
         startTab = fr.arthurbrugiere.forgeline.core.model.StartTab.FEED,
@@ -143,6 +144,7 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(changed.feedPictures).isNotEqualTo(defaults.feedPictures)
         assertThat(changed.openFailedStep).isNotEqualTo(defaults.openFailedStep)
         assertThat(changed.headerStyle).isNotEqualTo(defaults.headerStyle)
+        assertThat(changed.codeTheme).isNotEqualTo(defaults.codeTheme)
         assertThat(changed.hintsSeen).isNotEqualTo(defaults.hintsSeen)
     }
 
@@ -169,6 +171,8 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(defaults.undoDelay.millis).isEqualTo(5_000)
         assertThat(defaults.shareTap).isEqualTo(fr.arthurbrugiere.forgeline.core.model.ShareTap.SHARE)
         assertThat(defaults.headerStyle).isEqualTo(fr.arthurbrugiere.forgeline.core.model.HeaderStyle.INK)
+        // Code followed the app's theme before it could be chosen.
+        assertThat(defaults.codeTheme).isEqualTo(fr.arthurbrugiere.forgeline.core.model.CodeTheme.APP)
         assertThat(listOf(defaults.loadConversationsAhead, defaults.readElsewhereIsDone, defaults.doubleTapReaction, defaults.swipeToReply, defaults.openAtUnread, defaults.readingMarks, defaults.feedPictures)).doesNotContain(false)
         // Offered later: a failed job still opens on its folded steps.
         assertThat(defaults.openFailedStep).isFalse()
@@ -181,6 +185,7 @@ class DataStoreUserSettingsRepositoryTest {
             it[stringPreferencesKey("start_tab")] = "DASHBOARD"
             it[stringPreferencesKey("undo_delay")] = "SEC_60"
             it[stringPreferencesKey("header_style")] = "RAINBOW"
+            it[stringPreferencesKey("code_theme")] = "SOLARIZED"
         }
 
         val settings = DataStoreUserSettingsRepository(store).settings.first()
@@ -188,6 +193,7 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(settings.startTab).isEqualTo(fr.arthurbrugiere.forgeline.core.model.StartTab.AUTOMATIC)
         assertThat(settings.undoDelay).isEqualTo(fr.arthurbrugiere.forgeline.core.model.UndoDelay.SEC_5)
         assertThat(settings.headerStyle).isEqualTo(fr.arthurbrugiere.forgeline.core.model.HeaderStyle.INK)
+        assertThat(settings.codeTheme).isEqualTo(fr.arthurbrugiere.forgeline.core.model.CodeTheme.APP)
     }
 
     @Test

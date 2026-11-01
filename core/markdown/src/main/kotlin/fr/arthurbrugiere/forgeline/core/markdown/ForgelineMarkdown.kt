@@ -161,16 +161,18 @@ fun ForgelineMarkdown(
 
 /**
  * A code block, colored like the file viewer colors code (see [CodeHighlighter]) for the language its fence names and
- * in the app's theme. Highlighting runs off the main thread; the plain code shows meanwhile.
+ * in the code theme (see [currentCodeColors]). Highlighting runs off the main thread; the plain code shows meanwhile.
  */
 @Composable
 private fun HighlightedCode(code: String, language: String?, style: TextStyle) {
-    val darkTheme = Soft.colors.isDark
+    val colors = currentCodeColors
+    val darkTheme = colors.isDark
     val highlighted by produceState(AnnotatedString(code), code, language, darkTheme) {
         value = withContext(Dispatchers.Default) { CodeHighlighter.highlightFence(code, language, darkTheme) }
     }
     MarkdownCodeBackground(
-        color = LocalMarkdownColors.current.codeBackground,
+        // The Markdown's own code ground, unless the Code theme setting shows code in the other theme.
+        color = if (colors == Soft.colors) LocalMarkdownColors.current.codeBackground else colors.surface,
         shape = RoundedCornerShape(LocalMarkdownDimens.current.codeBackgroundCornerSize),
         modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         language = language,
@@ -179,6 +181,7 @@ private fun HighlightedCode(code: String, language: String?, style: TextStyle) {
         MarkdownBasicText(
             text = highlighted,
             style = style,
+            color = colors.ink,
             modifier = Modifier.horizontalScroll(rememberScrollState()).padding(LocalMarkdownPadding.current.codeBlock),
         )
     }

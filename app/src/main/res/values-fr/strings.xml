@@ -801,6 +801,8 @@
     <string name="settings_header_ink">Encre</string>
     <string name="settings_header_black">Noir pur</string>
     <string name="settings_header_white">Blanc</string>
+    <string name="settings_code_theme">Thème du code</string>
+    <string name="settings_code_theme_app">Comme l’application</string>
     <string name="settings_amoled">Noir pur</string>
     <string name="settings_amoled_summary">Utiliser un fond noir pur avec le thème sombre</string>
     <string name="settings_section_notifications">Réception &amp; notifications</string>

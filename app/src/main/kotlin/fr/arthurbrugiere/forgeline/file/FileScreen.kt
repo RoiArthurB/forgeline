@@ -49,6 +49,7 @@ import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.markdown.CodeHighlighter
 import fr.arthurbrugiere.forgeline.core.markdown.ForgelineMarkdown
+import fr.arthurbrugiere.forgeline.core.markdown.currentCodeColors
 import fr.arthurbrugiere.forgeline.core.markdown.rememberReadmeState
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -227,7 +228,8 @@ private fun MarkdownFile(text: String, state: FileUiState, onLinkClick: (String)
 
 @Composable
 private fun CodeFile(text: String, path: String) {
-    val colors = Soft.colors
+    // The code theme's colors, page included: the Code theme setting may show code light in a dark app, or dark in a light one.
+    val colors = currentCodeColors
     val darkTheme = colors.isDark
     // Highlighting runs off the main thread; plain text shows meanwhile, so nothing waits on it.
     val highlighted by produceState<List<AnnotatedString>?>(initialValue = null, text, path, darkTheme) {
@@ -237,7 +239,7 @@ private fun CodeFile(text: String, path: String) {
     val gutter = (lines.size.toString().length * 9 + 20).dp
     val code = Soft.type.code
     LazyColumn(
-        Modifier.fillMaxSize().testTag(if (highlighted != null) CODE_HIGHLIGHTED_TAG else CODE_PLAIN_TAG),
+        Modifier.fillMaxSize().background(colors.ground).testTag(if (highlighted != null) CODE_HIGHLIGHTED_TAG else CODE_PLAIN_TAG),
         contentPadding = PaddingValues(top = 12.dp, bottom = listBottomPadding()),
     ) {
         itemsIndexed(lines) { index, line ->

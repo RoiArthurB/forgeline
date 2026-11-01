@@ -9,6 +9,7 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -17,6 +18,7 @@ import androidx.compose.ui.test.performScrollToNode
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.model.Account
+import fr.arthurbrugiere.forgeline.core.model.CodeTheme
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
@@ -110,7 +112,8 @@ class SettingsScreenTest {
     fun shows_current_settings() {
         setContent(UserSettings(themeMode = ThemeMode.DARK, amoledBlack = true), section = SettingsSection.APPEARANCE)
 
-        composeRule.onNodeWithText("Dark").assertIsSelected()
+        // The app's theme comes first; the code theme below says Light and Dark too.
+        composeRule.onAllNodesWithText("Dark").onFirst().assertIsSelected()
         composeRule.onNodeWithText("Pure black").assertIsOn()
     }
 
@@ -118,9 +121,22 @@ class SettingsScreenTest {
     fun selecting_a_theme_reports_it() {
         setContent(section = SettingsSection.APPEARANCE)
 
-        composeRule.onNodeWithText("Light").performClick()
+        composeRule.onAllNodesWithText("Light").onFirst().performClick()
 
         assertThat(themeMode).isEqualTo(ThemeMode.LIGHT)
+        assertThat(changed).isNull()
+    }
+
+    @Test
+    fun code_follows_the_app_s_theme_until_one_is_chosen_for_it() {
+        setContent(section = SettingsSection.APPEARANCE)
+        reach("Code theme")
+
+        composeRule.onNodeWithText("Same as app").assertIsSelected()
+        composeRule.onAllNodesWithText("Dark").onLast().performClick()
+
+        assertThat(changed).isEqualTo(UserSettings(codeTheme = CodeTheme.DARK))
+        assertThat(themeMode).isNull()
     }
 
     @Test
