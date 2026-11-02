@@ -20,6 +20,12 @@ enum class ForgeType {
     /** Whether the forge answers Forgejo's API (`/api/v1`) and lays out its web pages the same way: Forgejo and Gitea. */
     val speaksForgejo: Boolean get() = this == FORGEJO || this == GITEA
 
+    /**
+     * Whether the forge picks its own Trending: Tangled's is a handful of repositories its own ranking chose, shown as it
+     * gives them, while the other lists are every repository that gained stars and go through the page's star floor.
+     */
+    val curatesTrending: Boolean get() = this == TANGLED
+
     /** Whether people star, watch and fork repositories and follow each other there: SourceHut has none of it. */
     val isSocial: Boolean get() = this != SOURCEHUT
 }

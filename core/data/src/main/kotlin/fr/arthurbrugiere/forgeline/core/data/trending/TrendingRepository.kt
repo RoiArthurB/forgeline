@@ -114,7 +114,7 @@ class DefaultTrendingRepository @Inject constructor(
 
     override fun observe(period: TrendingPeriod): Flow<TrendingSnapshot> =
         combine(forges, dao.observeRepos(period.name), dao.observeFetches(period.name)) { forges, repos, fetches ->
-            val byForge = repos.map { it.toModel() }.filter { it.periodStars >= period.minStars }.groupBy { it.id.forge }
+            val byForge = repos.map { it.toModel() }.filter { it.id.forge.type.curatesTrending || it.periodStars >= period.minStars }.groupBy { it.id.forge }
             val times = fetches.filter { fetch -> forges.any { it.host == fetch.host } }.map { it.fetchedAtMillis }
             val merged = mergeByShare(forges.map { byForge[it].orEmpty() })
             TrendingSnapshot(balanceForges(merged), times.minOrNull(), forges, merged)
@@ -205,6 +205,8 @@ class DefaultTrendingRepository @Inject constructor(
  * would stand on GitHub's page while leaving room for smaller forges (Codeberg's top ten that day gained 14 to 4).
  * An absolute floor rather than a share of the forge's stars: a share is meaningless on a quiet forge (5% of 30 stars
  * is one and a half) and far too strict on GitHub (5% of 7,000 is 350, which would empty its page).
+ * A forge that picks its own Trending ([fr.arthurbrugiere.forgeline.core.model.ForgeType.curatesTrending], Tangled) is
+ * shown whole: its few repositories were already chosen, and a floor on stars counted here left one of five.
  */
 val TrendingPeriod.minStars: Int
     get() = when (this) {

@@ -242,6 +242,21 @@ class DefaultTrendingRepositoryTest {
     }
 
     @Test
+    fun tangled_s_own_pick_is_shown_whole_whatever_stars_it_gained() = runTest {
+        // Regression: Tangled's Trending showed one repository of the five on its site, the others under the floor.
+        val tangledApi = FakeTrendingApi(ForgeInstance.Tangled).also { clients.put(ForgeInstance.Tangled, FakeForgeClients(trending = it)) }
+        val picked = listOf(12, 3, 1, 0, 0).mapIndexed { i, stars -> trendingRepo("t/pick$i", periodStars = stars, forge = ForgeInstance.Tangled) }
+        api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
+        tangledApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(picked)
+
+        repository.refresh(TrendingPeriod.DAILY)
+
+        val daily = repository.observe(TrendingPeriod.DAILY).first()
+        assertThat(daily.repos.filter { it.id.forge == ForgeInstance.Tangled }).containsExactlyElementsIn(picked).inOrder()
+        assertThat(daily.unbalanced.filter { it.id.forge == ForgeInstance.Tangled }).containsExactlyElementsIn(picked).inOrder()
+    }
+
+    @Test
     fun the_mixed_page_is_shared_out_between_forges_and_keeps_every_list_whole_aside() = runTest {
         val gitHub = (1..25).map { trendingRepo("a/gh$it", periodStars = 3000 - it * 100) }
         val codeberg = (1..8).map { trendingRepo("b/cb$it", periodStars = 20 - it, forge = ForgeInstance.Codeberg) }
