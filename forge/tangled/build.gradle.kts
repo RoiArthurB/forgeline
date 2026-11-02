@@ -80,11 +80,13 @@ val preparedLexicons = layout.buildDirectory.dir("lexicons")
 // (org.tangled.git.defs#diffHunk): those bounds are dropped from the copy it reads. They only check what the server
 // sends.
 val prepareLexicons by tasks.registering {
+    // Only plain values are taken into the action, never the script's own: the configuration cache can't keep those.
     val sources = neededLexicons.associateWith(::lexiconFile)
+    val target = preparedLexicons
     inputs.files(sources.values)
-    outputs.dir(preparedLexicons)
+    outputs.dir(target)
     doLast {
-        val out = preparedLexicons.get().asFile.apply {
+        val out = target.get().asFile.apply {
             deleteRecursively()
             mkdirs()
         }
