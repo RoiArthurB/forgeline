@@ -1,0 +1,42 @@
+name: API specs
+
+# Refreshes the API descriptions the forge clients are generated from (tools/specs/fetch.py) and commits
+# what changed to the branch it ran on. Run it by hand to pick up a forge's new API; a push that changes
+# the script runs it too, so a new source lands with the change that asks for it.
+on:
+  workflow_dispatch:
+    inputs:
+      sources:
+        description: "Which to refresh, space-separated (tangled atproto forgejo sourcehut github); empty for all"
+        required: false
+        default: ""
+  push:
+    paths:
+      - "tools/specs/**"
+      - ".github/workflows/specs.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: specs-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Fetch
+        run: python3 tools/specs/fetch.py ${{ inputs.sources }}
+      - name: Commit
+        run: |
+          git add -A forge
+          if git diff --cached --quiet; then
+            echo "Nothing changed."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "Refresh the forges' API descriptions"
+          git push
