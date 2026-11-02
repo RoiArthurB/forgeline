@@ -185,6 +185,11 @@
     <string name="sign_in_create_token">Créer un jeton sur %1$s</string>
     <string name="sign_in_token_label">Jeton d’accès personnel</string>
     <string name="sign_in_with_token">Se connecter avec le jeton</string>
+    <string name="sign_in_password_title">Utiliser un mot de passe d’application</string>
+    <string name="sign_in_password_body_tangled">Les comptes Tangled sont des comptes AT Protocol, dont ceux de Bluesky. Créez un mot de passe d’application là où vit votre compte (sur Bluesky : Paramètres, Confidentialité et sécurité, Mots de passe d’application), puis connectez-vous avec votre identifiant et ce mot de passe. Forgeline garde la session ouverte, jamais le mot de passe.</string>
+    <string name="sign_in_create_app_password">Créer un mot de passe d’application sur Bluesky</string>
+    <string name="sign_in_handle_label">Identifiant</string>
+    <string name="sign_in_app_password_label">Mot de passe d’application</string>
     <string name="sign_in_enter_code">Saisissez ce code sur GitHub</string>
     <string name="sign_in_copy_and_open">Copier le code et ouvrir GitHub</string>
     <string name="sign_in_waiting">En attente de votre autorisation de Forgeline sur GitHub…</string>
@@ -192,6 +197,7 @@
     <string name="sign_in_browser_open_again">Rouvrir %1$s</string>
     <string name="sign_in_verifying">Vérification auprès de %1$s…</string>
     <string name="sign_in_error_network">%1$s est injoignable. Vérifiez votre connexion et réessayez.</string>
+    <string name="sign_in_error_invalid_password">%1$s n’a pas accepté cet identifiant et ce mot de passe. Vérifiez les deux, et utilisez un mot de passe d’application plutôt que celui de votre compte.</string>
     <string name="sign_in_error_invalid_token">%1$s n’a pas accepté ce jeton. Vérifiez qu’il a été copié en entier et qu’il n’a pas expiré.</string>
     <string name="sign_in_error_rate_limited">%1$s limite les requêtes en ce moment. Réessayez dans quelques minutes.</string>
     <string name="sign_in_error_denied">L’autorisation a été refusée sur %1$s.</string>

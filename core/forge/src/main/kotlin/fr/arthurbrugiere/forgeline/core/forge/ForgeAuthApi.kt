@@ -58,6 +58,16 @@ interface ForgeAuthApi {
     suspend fun exchangeCode(code: String, redirectUri: String, codeVerifier: String): ForgeResult<OAuthTokens> =
         ForgeResult.Failure(ForgeError.Unsupported)
 
+    /**
+     * Whether the forge signs in with an account name and a password made for the app: Tangled, whose accounts are
+     * AT Protocol ones, signed in with an app password. The session it opens is renewed with [refresh].
+     */
+    val supportsPasswordSignIn: Boolean get() = false
+
+    /** Signs in as [identifier] with [password]: the tokens of the session it opens. */
+    suspend fun signInWithPassword(identifier: String, password: String): ForgeResult<OAuthTokens> =
+        ForgeResult.Failure(ForgeError.Unsupported)
+
     /** A new access token for an expired one. */
     suspend fun refresh(refreshToken: String): ForgeResult<OAuthTokens> = ForgeResult.Failure(ForgeError.Unsupported)
 }

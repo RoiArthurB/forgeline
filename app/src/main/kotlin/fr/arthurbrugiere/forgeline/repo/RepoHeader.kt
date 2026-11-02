@@ -142,9 +142,8 @@ internal fun RepoHeader(
         val isStarred = starred == true && signedIn
         // Side by side while they fit; at large text or on a narrow screen they go one under another.
         FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            // Where the app can't sign in (Tangled), there's nothing to ask of a passer-by.
-            // Nor where no one stars (SourceHut).
-            if ((signedIn || details.id.forge.type.signsIn) && details.id.forge.type.isSocial) {
+            // Not where no one stars (SourceHut).
+            if (details.id.forge.type.isSocial) {
                 HeaderAction(
                     icon = if (isStarred) Icons.Filled.Star else Icons.Outlined.StarBorder,
                     label = stringResource(if (isStarred) R.string.repo_starred else R.string.repo_star),

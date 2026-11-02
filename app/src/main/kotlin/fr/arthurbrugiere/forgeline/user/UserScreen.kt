@@ -156,7 +156,7 @@ fun UserScreen(
                     },
                 ) {
                     if (profile != null) {
-                        Header(profile, state.following, signedIn, onToggleFollow, onSignIn.takeIf { state.forge.type.signsIn }, onOpenUrl, social = state.forge.type.isSocial)
+                        Header(profile, state.following, signedIn, onToggleFollow, onSignIn, onOpenUrl, social = state.forge.type.isSocial)
                     } else {
                         Text("@${state.login}", style = Soft.type.hero, color = Soft.colors.ink, modifier = Modifier.semantics { heading() })
                     }
