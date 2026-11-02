@@ -34,11 +34,13 @@ class DefaultForgeClientsTest {
         codebergTrendingUrl: String = "https://example.org/codeberg/trending.json",
         gitlabTrendingUrl: String = "https://example.org/gitlab/trending.json",
         gitlabClientId: String = "gitlab-client",
+        giteaClientId: String = "gitea-client",
     ) = DefaultForgeClients(
         forgejoHttp = forgejoHttpClient(OkHttp.create()),
         gitlabHttp = gitlabHttpClient(OkHttp.create()),
         codebergClientId = "codeberg-client",
         gitlabClientId = gitlabClientId,
+        giteaClientId = giteaClientId,
         hosts = hosts,
         codebergTrendingUrl = codebergTrendingUrl,
         gitlabTrendingUrl = gitlabTrendingUrl,
@@ -77,10 +79,21 @@ class DefaultForgeClientsTest {
     }
 
     @Test
-    fun only_codeberg_signs_in_through_the_browser() {
+    fun only_codeberg_and_gitea_com_sign_in_through_the_browser() {
         assertThat(clients.auth(ForgeInstance.Codeberg).supportsBrowserSignIn).isTrue()
         assertThat(clients.auth(ForgeInstance(ForgeType.FORGEJO, "git.example.org")).supportsBrowserSignIn).isFalse()
+        assertThat(clients.auth(ForgeInstance(ForgeType.GITEA, "gitea.example.org")).supportsBrowserSignIn).isFalse()
         assertThat(clients.auth(ForgeInstance.Codeberg).forge).isEqualTo(ForgeInstance.Codeberg)
+    }
+
+    @Test
+    fun gitea_com_signs_in_through_forgelines_own_application() {
+        val auth = clients.auth(ForgeInstance.Gitea)
+
+        assertThat(auth.supportsBrowserSignIn).isTrue()
+        assertThat(auth.authorizationUrl("http://127.0.0.1:1/oauth/gitea", "s", "c"))
+            .startsWith("https://gitea.com/login/oauth/authorize?client_id=gitea-client&")
+        assertThat(clients(giteaClientId = "").auth(ForgeInstance.Gitea).supportsBrowserSignIn).isFalse()
     }
 
     @Test

@@ -33,8 +33,14 @@ class LoopbackRedirects @Inject constructor() : BrowserRedirects {
         /** GitLab's applications are registered with `http://127.0.0.1/oauth/gitlab`: it ignores a loopback's port too. */
         const val GITLAB_PATH = "/oauth/gitlab"
 
-        fun pathFor(type: fr.arthurbrugiere.forgeline.core.model.ForgeType): String =
-            if (type == fr.arthurbrugiere.forgeline.core.model.ForgeType.GITLAB) GITLAB_PATH else PATH
+        /** gitea.com's application is registered with `http://127.0.0.1/oauth/gitea`: Gitea ignores a loopback's port as Forgejo does. */
+        const val GITEA_PATH = "/oauth/gitea"
+
+        fun pathFor(type: fr.arthurbrugiere.forgeline.core.model.ForgeType): String = when (type) {
+            fr.arthurbrugiere.forgeline.core.model.ForgeType.GITLAB -> GITLAB_PATH
+            fr.arthurbrugiere.forgeline.core.model.ForgeType.GITEA -> GITEA_PATH
+            else -> PATH
+        }
     }
 }
 

@@ -55,6 +55,7 @@ class DefaultForgeClients @Inject constructor(
     @GitLab private val gitlabHttp: HttpClient,
     @CodebergClientId private val codebergClientId: String,
     @GitLabClientId private val gitlabClientId: String,
+    @GiteaClientId private val giteaClientId: String,
     private val hosts: ForgeHosts,
     @CodebergTrendingUrl private val codebergTrendingUrl: String,
     @GitLabTrendingUrl private val gitlabTrendingUrl: String,
@@ -103,8 +104,12 @@ class DefaultForgeClients @Inject constructor(
         ForgeType.FORGEJO, ForgeType.GITEA -> instances.getOrPut(forge) {
             ForgejoApis(
                 forgejoHttp, forge,
-                // Only Codeberg has a registered OAuth application: gitea.com and self-hosted servers sign in with a token.
-                clientId = if (forge == ForgeInstance.Codeberg) codebergClientId else "",
+                // Codeberg and gitea.com have Forgeline's registered OAuth application; self-hosted servers sign in with a token.
+                clientId = when (forge) {
+                    ForgeInstance.Codeberg -> codebergClientId
+                    ForgeInstance.Gitea -> giteaClientId
+                    else -> ""
+                },
                 // Forgejo has no Trending: only Codeberg's is measured, by the daily job that publishes it.
                 trending = codebergTrendingUrl.takeIf { forge == ForgeInstance.Codeberg && it.isNotBlank() }?.let { ForgejoTrendingApi(forgejoHttp, forge, it) },
             )
@@ -157,6 +162,11 @@ annotation class CodebergClientId
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class GitLabClientId
+
+/** gitea.com's OAuth client ID, from `forgeline.giteaClientId`; blank without one. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class GiteaClientId
 
 /** Where Codeberg's Trending is published, from `forgeline.codebergTrendingUrl`; blank leaves Codeberg out. */
 @Qualifier
@@ -216,6 +226,10 @@ abstract class ForgeClientsModule {
         @Provides
         @GitLabClientId
         fun provideGitLabClientId(): String = BuildConfig.GITLAB_CLIENT_ID
+
+        @Provides
+        @GiteaClientId
+        fun provideGiteaClientId(): String = BuildConfig.GITEA_CLIENT_ID
     }
 }
 
