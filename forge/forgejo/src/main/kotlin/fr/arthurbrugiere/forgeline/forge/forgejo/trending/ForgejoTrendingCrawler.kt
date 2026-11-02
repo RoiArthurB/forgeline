@@ -1,6 +1,9 @@
 package fr.arthurbrugiere.forgeline.forge.forgejo.trending
 
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Repository
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.SearchResults
+import fr.arthurbrugiere.forgeline.forge.forgejo.count
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.header
@@ -8,8 +11,6 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.delay
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.time.Clock
@@ -32,13 +33,13 @@ class ForgejoTrendingCrawler(
 ) {
     suspend fun crawl(): Crawl {
         val at = clock.instant()
-        val top = mutableListOf<SearchRepoJson>()
+        val top = mutableListOf<Repository>()
         for (page in 1..topPages) {
             val repos = page("source", "stars", page)
             top += repos
-            if (repos.size < PAGE_SIZE || (repos.lastOrNull()?.stars ?: 0) < MIN_PERIOD_STARS) break
+            if (repos.size < PAGE_SIZE || (repos.lastOrNull()?.starsCount ?: 0) < MIN_PERIOD_STARS) break
         }
-        val forks = mutableListOf<SearchRepoJson>()
+        val forks = mutableListOf<Repository>()
         for (page in 1..forkPages) {
             val batch = page("fork", "created", page)
             forks += batch
@@ -47,18 +48,18 @@ class ForgejoTrendingCrawler(
         return Crawl(
             at = at,
             top = top.distinctBy { it.id }.mapNotNull { it.toCrawled() },
-            forks = forks.mapNotNull { fork -> fork.parent?.let { parent -> instant(fork.createdAt)?.let { CrawledFork(it, parent.id) } } },
+            forks = forks.mapNotNull { fork -> fork.parent?.id?.let { parent -> instant(fork.createdAt)?.let { CrawledFork(it, parent) } } },
         )
     }
 
-    private suspend fun page(mode: String, sort: String, page: Int): List<SearchRepoJson> {
+    private suspend fun page(mode: String, sort: String, page: Int): List<Repository> {
         val url = "${forge.webUrl}/api/v1/repos/search?mode=$mode&sort=$sort&order=desc&limit=$PAGE_SIZE&page=$page"
         var failure: String? = null
         repeat(ATTEMPTS) { attempt ->
             if (attempt > 0) delay(retryDelayMillis)
             try {
                 val response = http.get(url) { token?.let { header(HttpHeaders.Authorization, "token $it") } }
-                if (response.status.isSuccess()) return json.decodeFromString<SearchJson>(response.bodyAsText()).data
+                if (response.status.isSuccess()) return json.decodeFromString<SearchResults>(response.bodyAsText()).`data`.orEmpty()
                 failure = "HTTP ${response.status.value}"
             } catch (e: IOException) {
                 failure = e.toString()
@@ -67,8 +68,13 @@ class ForgejoTrendingCrawler(
         throw IOException("Couldn't read $url: $failure")
     }
 
-    private fun SearchRepoJson.toCrawled() = instant(createdAt)?.let {
-        CrawledRepo(id, owner.login, name, description?.ifBlank { null }, language?.ifBlank { null }, stars, forks, it, avatarUrl?.ifBlank { null } ?: owner.avatarUrl)
+    /** A repository the search names without its id, owner or name can't be followed: it is left out. */
+    private fun Repository.toCrawled(): CrawledRepo? {
+        val created = instant(createdAt) ?: return null
+        val owner = owner?.login ?: return null
+        // The repository's own avatar is shown before its owner's; empty when it has none.
+        val avatar = avatarUrl?.ifBlank { null } ?: this.owner?.avatarUrl
+        return CrawledRepo(id ?: return null, owner, name ?: return null, description?.ifBlank { null }, language?.ifBlank { null }, starsCount.count(), forksCount.count(), created, avatar)
     }
 
     private fun instant(value: String?) = value?.let { runCatching { OffsetDateTime.parse(it).toInstant() }.getOrNull() }
@@ -87,27 +93,3 @@ internal val json = Json {
     ignoreUnknownKeys = true
     explicitNulls = false
 }
-
-@Serializable
-private data class SearchJson(val data: List<SearchRepoJson> = emptyList())
-
-@Serializable
-private data class OwnerJson(val login: String, @SerialName("avatar_url") val avatarUrl: String? = null)
-
-@Serializable
-private data class ParentJson(val id: Long)
-
-@Serializable
-private data class SearchRepoJson(
-    val id: Long,
-    val name: String,
-    val owner: OwnerJson,
-    val description: String? = null,
-    val language: String? = null,
-    @SerialName("stars_count") val stars: Int = 0,
-    @SerialName("forks_count") val forks: Int = 0,
-    @SerialName("created_at") val createdAt: String? = null,
-    val parent: ParentJson? = null,
-    /** The repository's own avatar, shown before its owner's; empty when it has none. */
-    @SerialName("avatar_url") val avatarUrl: String? = null,
-)

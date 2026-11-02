@@ -3,6 +3,8 @@ package fr.arthurbrugiere.forgeline.forge.forgejo
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.GitEntry
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.GitTreeResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpStatusCode
@@ -12,10 +14,10 @@ import io.ktor.http.HttpStatusCode
  * folder's contents listing works out each file's last commit instead, and takes up to 31 s there, or answers 504
  * (2026-10-20). Null when [ref] has no folder at [path], or no files at all.
  */
-internal suspend fun HttpClient.forgejoTree(forge: ForgeInstance, token: String?, id: RepoId, ref: String, path: String): ForgeResult<List<TreeJson.Entry>?> {
+internal suspend fun HttpClient.forgejoTree(forge: ForgeInstance, token: String?, id: RepoId, ref: String, path: String): ForgeResult<List<GitEntry>?> {
     val folder = path.trim('/')
     val treeish = if (folder.isEmpty()) ref else "$ref:$folder"
-    val entries = mutableListOf<TreeJson.Entry>()
+    val entries = mutableListOf<GitEntry>()
     for (page in 1..MAX_TREE_PAGES) {
         val response = forgejoApi(forge, token, "repos", id.owner, id.name, "git", "trees", treeish, query = mapOf("per_page" to "$TREE_PAGE_SIZE", "page" to "$page"))
         when (response.status) {
@@ -24,10 +26,11 @@ internal suspend fun HttpClient.forgejoTree(forge: ForgeInstance, token: String?
             HttpStatusCode.BadRequest, HttpStatusCode.NotFound -> return ForgeResult.Success(null)
             else -> return response.failure()
         }
-        val tree = response.body<TreeJson>()
-        entries += tree.tree
+        val tree = response.body<GitTreeResponse>()
+        val level = tree.tree.orEmpty()
+        entries += level
         // Every page says "truncated", the last one too: the total is what tells.
-        if (tree.tree.isEmpty() || entries.size >= tree.totalCount) break
+        if (level.isEmpty() || entries.size >= (tree.totalCount ?: 0)) break
     }
     return ForgeResult.Success(entries)
 }

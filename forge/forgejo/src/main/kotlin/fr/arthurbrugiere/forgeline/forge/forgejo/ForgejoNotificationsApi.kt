@@ -11,6 +11,9 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Issue
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.NotificationCount
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.User
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
@@ -18,10 +21,9 @@ import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import java.io.IOException
 import java.net.ProtocolException
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.NotificationThread as ApiThread
 
 /**
  * A Forgejo instance's notifications. Unlike GitHub, Forgejo (checked against Codeberg's API description, 2026-09-29):
@@ -44,19 +46,19 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
         if (checks != null && checks + 1 < FULL_EVERY) {
             val count = httpClient.forgejoApi(forge, token, "notifications", "new")
             if (count.status != HttpStatusCode.OK && count.status != HttpStatusCode.NoContent) return@forgeCall count.failure()
-            val new = if (count.status == HttpStatusCode.NoContent) 0 else count.body<CountJson>().new
+            val new = if (count.status == HttpStatusCode.NoContent) 0 else count.body<NotificationCount>().new.count()
             if (new == 0) return@forgeCall ForgeResult.Success(NotificationsSync(null, "$MARKER${checks + 1}", POLL_SECONDS))
         }
         // The first page says how many threads there are: the others are asked all at once, not one after another.
         val first = page(token, 1)
         if (first.status != HttpStatusCode.OK) return@forgeCall first.failure()
-        val firstBatch = first.body<List<ThreadJson>>()
+        val firstBatch = first.body<List<ApiThread>>()
         val pages = first.totalCount()?.let { (it + PAGE_SIZE - 1) / PAGE_SIZE }
             ?: first.nextPage()?.let { 2 }
             ?: if (firstBatch.size == PAGE_SIZE) 2 else 1
         val rest = coroutineScope { (2..minOf(pages, maxPages)).map { number -> async { page(token, number) } }.awaitAll() }
         rest.firstOrNull { it.status != HttpStatusCode.OK }?.let { return@forgeCall it.failure() }
-        val threads = firstBatch + rest.flatMap { it.body<List<ThreadJson>>() }
+        val threads = firstBatch + rest.flatMap { it.body<List<ApiThread>>() }
         val reasons = reasons(token, threads)
         ForgeResult.Success(NotificationsSync(threads.mapNotNull { it.toModel(reasons) }, "${MARKER}0", POLL_SECONDS))
     }
@@ -91,13 +93,13 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
         // Subscriptions belong to issues here: find the thread's issue, and who "me" is.
         val thread = httpClient.forgejoApi(forge, token, "notifications", "threads", threadId)
         if (thread.status != HttpStatusCode.OK) return@forgeCall thread.failure()
-        val subject = thread.body<ThreadJson>()
-        val repo = subject.repository ?: return@forgeCall ForgeResult.Success(Unit)
+        val subject = thread.body<ApiThread>()
+        val repo = subject.repository?.id(forge) ?: return@forgeCall ForgeResult.Success(Unit)
         val number = subject.number() ?: return@forgeCall ForgeResult.Success(Unit)
         val me = httpClient.forgejoApi(forge, token, "user")
         if (me.status != HttpStatusCode.OK) return@forgeCall me.failure()
         httpClient.forgejoApi(
-            forge, token, "repos", repo.owner.login, repo.name, "issues", number.toString(), "subscriptions", me.body<UserJson>().login,
+            forge, token, "repos", repo.owner, repo.name, "issues", number.toString(), "subscriptions", me.body<User>().name,
             method = HttpMethod.Delete,
         ).toResult { }
     }
@@ -107,7 +109,7 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
         ForgeResult.Success(emptyMap())
 
     /** Each conversation's strongest reason, from searches that mirror GitHub's reasons. */
-    private suspend fun reasons(token: String, threads: List<ThreadJson>): Map<String, NotificationReason> {
+    private suspend fun reasons(token: String, threads: List<ApiThread>): Map<String, NotificationReason> {
         if (threads.none { it.number() != null }) return emptyMap()
         val since = threads.mapNotNull { it.updatedAt }.minOrNull()
         val searches = listOf(
@@ -128,7 +130,7 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
                         return@async emptyList()
                     }
                     if (response.status != HttpStatusCode.OK) return@async emptyList()
-                    response.body<List<IssueJson>>().mapNotNull { issue -> issue.repository?.let { "${it.owner}/${it.name}#${issue.number}".lowercase() to reason } }
+                    response.body<List<Issue>>().mapNotNull { issue -> issue.repository?.let { repo -> "${repo.owner ?: return@mapNotNull null}/${repo.name ?: return@mapNotNull null}#${issue.number}".lowercase() to reason } }
                 }
             }.awaitAll().flatten()
         }
@@ -136,8 +138,9 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
         return found.groupBy({ it.first }, { it.second }).mapValues { (_, reasons) -> reasons.first() }
     }
 
-    private fun ThreadJson.toModel(reasons: Map<String, NotificationReason>): NotificationThread? {
-        val repo = repository ?: return null
+    private fun ApiThread.toModel(reasons: Map<String, NotificationReason>): NotificationThread? {
+        val repository = repository ?: return null
+        val repo = repository.id(forge)
         val subject = subject ?: return null
         val number = number()
         val type = when (subject.type) {
@@ -147,15 +150,15 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
             else -> SubjectType.OTHER
         }
         return NotificationThread(
-            id = id.toString(),
-            repo = RepoId(repo.owner.login, repo.name, forge),
-            title = subject.title,
+            id = required(id, "a thread's id").toString(),
+            repo = repo,
+            title = required(subject.title, "a thread's title"),
             type = type,
             number = number,
-            reason = number?.let { reasons["${repo.owner.login}/${repo.name}#$it".lowercase()] } ?: NotificationReason.SUBSCRIBED,
-            unread = unread,
+            reason = number?.let { reasons["${repo.fullName}#$it".lowercase()] } ?: NotificationReason.SUBSCRIBED,
+            unread = unread == true,
             updatedAt = instant(updatedAt) ?: java.time.Instant.EPOCH,
-            ownerAvatarUrl = repo.avatarUrl?.ifBlank { null } ?: repo.owner.avatarUrl,
+            ownerAvatarUrl = repository.logoUrl,
             state = when (subject.state) {
                 "open" -> SubjectState.OPEN
                 "merged" -> SubjectState.MERGED
@@ -180,28 +183,5 @@ class ForgejoNotificationsApi(private val httpClient: HttpClient, private val fo
     }
 }
 
-@Serializable
-private data class CountJson(val new: Int = 0)
-
-@Serializable
-private data class SubjectJson(
-    val title: String,
-    val type: String? = null,
-    val state: String? = null,
-    @SerialName("html_url") val htmlUrl: String? = null,
-)
-
-@Serializable
-private data class ThreadRepoJson(val name: String, val owner: UserJson, @SerialName("avatar_url") val avatarUrl: String? = null)
-
-@Serializable
-private data class ThreadJson(
-    val id: Long,
-    val unread: Boolean = false,
-    @SerialName("updated_at") val updatedAt: String? = null,
-    val repository: ThreadRepoJson? = null,
-    val subject: SubjectJson? = null,
-) {
-    /** The issue or pull request number, from the subject's page (`.../issues/12`, `.../pulls/7`). */
-    fun number(): Int? = subject?.takeIf { it.type == "Issue" || it.type == "Pull" }?.htmlUrl?.substringAfterLast('/')?.toIntOrNull()
-}
+/** The issue or pull request number, from the subject's page (`.../issues/12`, `.../pulls/7`). */
+private fun ApiThread.number(): Int? = subject?.takeIf { it.type == "Issue" || it.type == "Pull" }?.htmlUrl?.substringAfterLast('/')?.toIntOrNull()

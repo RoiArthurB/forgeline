@@ -25,6 +25,15 @@ import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import fr.arthurbrugiere.forgeline.core.model.ThreadComment
 import fr.arthurbrugiere.forgeline.core.model.parseUnifiedDiff
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.CombinedStatus
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.CommitStatus
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Compare
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.ContentsResponse
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.PRBranchInfo
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.PullRequest
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.PullReview
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.PullReviewComment
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Repository
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.statement.HttpResponse
@@ -34,13 +43,12 @@ import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import java.util.Base64
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Commit as ApiCommit
 
 /**
  * A Forgejo instance's pull requests and history. Its API lists the files of a change without their changes, so those
@@ -56,12 +64,12 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
     }
 
     override suspend fun commits(token: String?, ref: IssueRef): ForgeResult<List<Commit>> = forgeCall {
-        val commits = mutableListOf<PrCommitJson>()
+        val commits = mutableListOf<ApiCommit>()
         var page: Int? = 1
         while (page != null && page <= MAX_COMMIT_PAGES) {
             val response = repo(token, ref.repo, "pulls", ref.number.toString(), "commits", query = mapOf("limit" to "50", "page" to "$page") + LIGHT)
             if (response.status != HttpStatusCode.OK) return@forgeCall response.failure()
-            commits += response.body<List<PrCommitJson>>()
+            commits += response.body<List<ApiCommit>>()
             page = response.nextPage()
         }
         ForgeResult.Success(commits.map { it.toModel() })
@@ -71,8 +79,8 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
     override suspend fun checks(token: String?, ref: IssueRef): ForgeResult<List<Check>> = forgeCall {
         val pull = repo(token, ref.repo, "pulls", ref.number.toString())
         if (pull.status != HttpStatusCode.OK) return@forgeCall pull.failure()
-        val sha = pull.body<PrPullJson>().head.sha
-        repo(token, ref.repo, "commits", sha, "status").toResult { body<PrCombinedStatusJson>().statuses.orEmpty().map { it.toModel(forge) } }
+        val sha = pull.body<PullRequest>().head?.sha.orEmpty()
+        repo(token, ref.repo, "commits", sha, "status").toResult { body<CombinedStatus>().statuses.orEmpty().map { it.toModel(forge) } }
     }
 
     override suspend fun mergeInfo(token: String, ref: IssueRef): ForgeResult<MergeInfo> = forgeCall {
@@ -83,46 +91,48 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
             if (pullResponse.status != HttpStatusCode.OK) return@coroutineScope pullResponse.failure()
             val repoResponse = settings.await()
             if (repoResponse.status != HttpStatusCode.OK) return@coroutineScope repoResponse.failure()
-            val repo = repoResponse.body<PrRepoJson>()
+            val repo = repoResponse.body<Repository>()
             val methods = listOfNotNull(
-                MergeMethod.MERGE.takeIf { repo.allowMergeCommits },
-                MergeMethod.SQUASH.takeIf { repo.allowSquashMerge },
-                MergeMethod.REBASE.takeIf { repo.allowRebase },
+                MergeMethod.MERGE.takeIf { repo.allowMergeCommits != false },
+                MergeMethod.SQUASH.takeIf { repo.allowSquashMerge == true },
+                MergeMethod.REBASE.takeIf { repo.allowRebase == true },
             )
             // The repository's own choice first, when it names one of these.
             val preferred = MergeMethod.entries.firstOrNull { it.name.lowercase() == repo.defaultMergeStyle }
-            val details = pullResponse.body<PrPullJson>()
+            val details = pullResponse.body<PullRequest>()
+            val head = required(details.head, "a pull request's head")
+            val base = details.base
             val canMerge = repo.permissions?.push == true
             // A branch of the repository itself can go with the merge; a fork's isn't the repository's to delete.
-            val ownBranch = details.head.repoId != null && details.head.repoId == details.base?.repoId
+            val ownBranch = head.repoId != null && head.repoId == base?.repoId
             // Forgejo doesn't say whether the target moved on: what it has that the change's branch lacks is compared,
             // for a branch of the repository itself. Unknown counts as up to date.
-            val behind = if (ownBranch && canMerge && details.head.ref != null && details.base.ref != null) {
+            val behind = if (ownBranch && canMerge && head.ref != null && base?.ref != null) {
                 // The comparison is the rest of the path, slashes in branch names and all.
-                val compared = repo(token, ref.repo, "compare", *"${details.head.ref}...${details.base.ref}".split('/').toTypedArray())
-                compared.status == HttpStatusCode.OK && compared.body<PrCompareJson>().totalCommits > 0
+                val compared = repo(token, ref.repo, "compare", *"${head.ref}...${base.ref}".split('/').toTypedArray())
+                compared.status == HttpStatusCode.OK && compared.body<Compare>().totalCommits.count() > 0
             } else {
                 false
             }
             ForgeResult.Success(
                 MergeInfo(
                     details.mergeable, canMerge, methods.sortedByDescending { it == preferred },
-                    deleteBranch = repo.defaultDeleteBranchAfterMerge.takeIf { ownBranch },
+                    deleteBranch = (repo.defaultDeleteBranchAfterMerge == true).takeIf { ownBranch },
                     // Forgejo schedules a merge for when the checks succeed, and doesn't say afterwards that it did.
                     canMergeWhenChecksPass = canMerge,
                     behind = behind,
-                    deletedBranch = if (ownBranch && canMerge && details.state == "closed") deletedBranch(token, ref.repo, details.head) else null,
+                    deletedBranch = if (ownBranch && canMerge && details.state == "closed") deletedBranch(token, ref.repo, head) else null,
                 ),
             )
         }
     }
 
     /** [head], when its branch is no longer there: asked for by its name, it is not found. */
-    private suspend fun deletedBranch(token: String, repo: RepoId, head: PrHeadJson): DeletedBranch? {
+    private suspend fun deletedBranch(token: String, repo: RepoId, head: PRBranchInfo): DeletedBranch? {
         val name = head.branch ?: return null
-        if (head.sha.isEmpty()) return null
+        val sha = head.sha?.ifEmpty { null } ?: return null
         val branch = repo(token, repo, "branches", *name.split('/').toTypedArray())
-        return DeletedBranch(name, head.sha).takeIf { branch.status == HttpStatusCode.NotFound }
+        return DeletedBranch(name, sha).takeIf { branch.status == HttpStatusCode.NotFound }
     }
 
     /** A new branch made from the commit the old one stood at. */
@@ -155,12 +165,12 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
         coroutineScope {
             val reviews = repo(token, ref.repo, "pulls", ref.number.toString(), "reviews")
             if (reviews.status != HttpStatusCode.OK) return@coroutineScope reviews.failure()
-            val answers = reviews.body<List<PrReviewJson>>().filter { it.commentsCount > 0 }.map { review ->
-                async { repo(token, ref.repo, "pulls", ref.number.toString(), "reviews", review.id.toString(), "comments") }
+            val answers = reviews.body<List<PullReview>>().filter { it.commentsCount.count() > 0 }.map { review ->
+                async { repo(token, ref.repo, "pulls", ref.number.toString(), "reviews", required(review.id, "a review's id").toString(), "comments") }
             }.map { it.await() }
             answers.firstOrNull { it.status != HttpStatusCode.OK }?.let { return@coroutineScope it.failure() }
-            val remarks = answers.flatMap { it.body<List<PrRemarkJson>>() }.sortedBy { instant(it.createdAt) }
-            val threads = remarks.groupBy { Triple(it.path, it.position, it.originalPosition) }.values.map { it.toThread() }
+            val remarks = answers.flatMap { it.body<List<PullReviewComment>>() }.sortedBy { instant(it.createdAt) }
+            val threads = remarks.groupBy { Triple(it.path, it.position ?: 0, it.originalPosition ?: 0) }.values.map { it.toThread() }
             // Each remark's reactions are an issue comment's, asked of each alongside the others.
             val reactions = threads.flatMap { it.comments }.map { comment -> async { comment.id to httpClient.forgejoCommentReactions(forge, token, ref.repo, comment.id) } }
                 .awaitAll().toMap()
@@ -209,14 +219,14 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
     override suspend fun applySuggestion(token: String, ref: IssueRef, thread: ReviewThread, suggestion: List<String>, message: String): ForgeResult<Unit> = forgeCall {
         val pull = repo(token, ref.repo, "pulls", ref.number.toString())
         if (pull.status != HttpStatusCode.OK) return@forgeCall pull.failure()
-        val head = pull.body<PrPullJson>().head
+        val head = required(pull.body<PullRequest>().head, "a pull request's head")
         val (owner, name) = head.repo?.fullName?.split('/')?.takeIf { it.size == 2 } ?: return@forgeCall ForgeResult.Failure(ForgeError.Http(404, null))
         val branch = head.ref ?: return@forgeCall ForgeResult.Failure(ForgeError.Http(404, null))
         val at = RepoId(owner, name, ref.repo.forge)
         val path = thread.path.split('/').toTypedArray()
         val read = repo(token, at, "contents", *path, query = mapOf("ref" to branch))
         if (read.status != HttpStatusCode.OK) return@forgeCall read.failure()
-        val file = read.body<PrContentJson>()
+        val file = read.body<ContentsResponse>()
         val text = file.content?.takeIf { file.encoding == "base64" }?.let { Base64.getMimeDecoder().decode(it).decodeToString() }
             ?: return@forgeCall ForgeResult.Failure(ForgeError.Unsupported)
         val changed = when (val replaced = suggestionApplied(text, thread, suggestion)) {
@@ -287,7 +297,7 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
                 put("head", request.head)
                 put("base", request.base)
             },
-        ).toResult { IssueRef(repo, body<PrCreatedJson>().number, isPullRequest = true) }
+        ).toResult { IssueRef(repo, required(body<PullRequest>().number, "a pull request's number").toInt(), isPullRequest = true) }
     }
 
     /**
@@ -328,7 +338,7 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
         }
         val response = repo(token, repo, "commits", query = query)
         response.toResult {
-            val commits = body<List<PrCommitJson>>()
+            val commits = body<List<ApiCommit>>()
             // Older servers send no Link header: a full page may have another after it.
             CommitPage(commits.map { it.toModel() }, nextPage() ?: (page + 1).takeIf { commits.size == HISTORY_PER_PAGE && headers["Link"] == null })
         }
@@ -341,7 +351,7 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
             if (commit.status != HttpStatusCode.OK) return@coroutineScope commit.failure()
             val diffResponse = diff.await()
             if (diffResponse.status != HttpStatusCode.OK) return@coroutineScope diffResponse.failure()
-            ForgeResult.Success(CommitDetails(commit.body<PrCommitJson>().toModel(), parseUnifiedDiff(diffResponse.bodyAsText())))
+            ForgeResult.Success(CommitDetails(commit.body<ApiCommit>().toModel(), parseUnifiedDiff(diffResponse.bodyAsText())))
         }
     }
 
@@ -363,116 +373,47 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
     }
 }
 
-@Serializable
-private data class PrGitPersonJson(val name: String? = null, val date: String? = null)
-
-@Serializable
-private data class PrGitCommitJson(val message: String = "", val author: PrGitPersonJson? = null, val committer: PrGitPersonJson? = null)
-
-@Serializable
-private data class PrCommitJson(val sha: String, val commit: PrGitCommitJson? = null, val author: UserJson? = null, val created: String? = null) {
-    fun toModel() = Commit(
-        sha = sha,
-        message = commit?.message.orEmpty(),
-        authorName = commit?.author?.name,
-        author = author?.toModel(),
-        date = instant(commit?.author?.date ?: commit?.committer?.date ?: created),
-    )
-}
-
-@Serializable
-private data class PrHeadJson(
-    val sha: String = "",
-    val ref: String? = null,
-    @SerialName("repo_id") val repoId: Long? = null,
-    val repo: PrBranchRepoJson? = null,
-    val label: String? = null,
-) {
-    /**
-     * The branch's name: once it is deleted, Forgejo names the pull request's own ref instead (`refs/pull/1/head`),
-     * and only its label keeps the branch's (seen on Codeberg, 2026-10-29).
-     */
-    val branch: String? get() = if (ref?.startsWith("refs/pull/") == true) label else ref
-}
-
-/** Where a pull request's branch lives; a deleted fork has none. */
-@Serializable
-private data class PrBranchRepoJson(@SerialName("full_name") val fullName: String? = null)
-
-/** A file as the contents API sends it: [content] in base64. */
-@Serializable
-private data class PrContentJson(val sha: String, val content: String? = null, val encoding: String? = null)
-
-@Serializable
-private data class PrCompareJson(@SerialName("total_commits") val totalCommits: Int = 0)
-
-@Serializable
-private data class PrPullJson(val head: PrHeadJson, val base: PrHeadJson? = null, val mergeable: Boolean? = null, val state: String? = null)
-
-@Serializable
-private data class PrPermissionsJson(val push: Boolean = false)
-
-@Serializable
-private data class PrRepoJson(
-    @SerialName("allow_merge_commits") val allowMergeCommits: Boolean = true,
-    @SerialName("allow_squash_merge") val allowSquashMerge: Boolean = false,
-    @SerialName("allow_rebase") val allowRebase: Boolean = false,
-    @SerialName("default_merge_style") val defaultMergeStyle: String? = null,
-    @SerialName("default_delete_branch_after_merge") val defaultDeleteBranchAfterMerge: Boolean = false,
-    val permissions: PrPermissionsJson? = null,
+private fun ApiCommit.toModel() = Commit(
+    sha = required(sha, "a commit's sha"),
+    message = commit?.message.orEmpty(),
+    authorName = commit?.author?.name,
+    author = author?.toModel(),
+    date = instant(commit?.author?.date ?: commit?.committer?.date ?: created),
 )
-
-@Serializable
-private data class PrCombinedStatusJson(val statuses: List<PrStatusJson>? = null)
-
-@Serializable
-private data class PrStatusJson(val context: String = "", val status: String = "", val description: String? = null, @SerialName("target_url") val targetUrl: String? = null) {
-    fun toModel(forge: ForgeInstance) = Check(
-        name = context,
-        state = when (status) {
-            "success" -> CheckState.SUCCESS
-            "pending" -> CheckState.PENDING
-            "skipped" -> CheckState.SKIPPED
-            else -> CheckState.FAILURE
-        },
-        description = description?.ifBlank { null },
-        // Forgejo's own Actions point to their page without saying the host.
-        url = targetUrl?.ifBlank { null }?.let { if (it.startsWith("/")) forge.webUrl + it else it },
-    )
-}
-
-@Serializable
-private data class PrCreatedJson(val number: Int)
-
-@Serializable
-private data class PrReviewJson(val id: Long, @SerialName("comments_count") val commentsCount: Int = 0)
 
 /**
- * A remark on a line: [position] is its line in the file after the change, [originalPosition] before it, the other 0.
- * Only a thread's first remark says who resolved it.
+ * The branch's name: once it is deleted, Forgejo names the pull request's own ref instead (`refs/pull/1/head`), and
+ * only its label keeps the branch's (seen on Codeberg, 2026-10-29).
  */
-@Serializable
-private data class PrRemarkJson(
-    val id: Long,
-    val body: String = "",
-    val user: UserJson? = null,
-    val path: String,
-    val position: Int = 0,
-    @SerialName("original_position") val originalPosition: Int = 0,
-    @SerialName("diff_hunk") val diffHunk: String? = null,
-    @SerialName("created_at") val createdAt: String? = null,
-    val resolver: UserJson? = null,
+private val PRBranchInfo.branch: String? get() = if (ref?.startsWith("refs/pull/") == true) label else ref
+
+private fun CommitStatus.toModel(forge: ForgeInstance) = Check(
+    name = context.orEmpty(),
+    state = when (status) {
+        "success" -> CheckState.SUCCESS
+        "pending" -> CheckState.PENDING
+        "skipped" -> CheckState.SKIPPED
+        else -> CheckState.FAILURE
+    },
+    description = description?.ifBlank { null },
+    // Forgejo's own Actions point to their page without saying the host.
+    url = targetUrl?.ifBlank { null }?.let { if (it.startsWith("/")) forge.webUrl + it else it },
 )
 
-private fun List<PrRemarkJson>.toThread(): ReviewThread {
+/**
+ * Remarks on one line, oldest first: a remark's `position` is its line in the file after the change,
+ * `original_position` before it, the other 0. Only a thread's first remark says who resolved it.
+ */
+private fun List<PullReviewComment>.toThread(): ReviewThread {
     val first = first()
+    val position = first.position ?: 0
     return ReviewThread(
-        id = first.id.toString(),
-        path = first.path,
-        line = first.position.takeIf { it > 0 } ?: first.originalPosition.takeIf { it > 0 },
-        onOldSide = first.position == 0,
+        id = required(first.id, "a remark's id").toString(),
+        path = required(first.path, "a remark's file"),
+        line = position.takeIf { it > 0 } ?: first.originalPosition?.takeIf { it > 0 },
+        onOldSide = position == 0,
         hunk = first.diffHunk,
-        comments = map { ThreadComment(it.id, it.user?.toModel(), it.body, instant(it.createdAt)) },
+        comments = map { ThreadComment(required(it.id, "a remark's id"), it.user?.toModel(), it.body.orEmpty(), instant(it.createdAt)) },
         resolved = first.resolver != null,
         canResolve = false,
     )

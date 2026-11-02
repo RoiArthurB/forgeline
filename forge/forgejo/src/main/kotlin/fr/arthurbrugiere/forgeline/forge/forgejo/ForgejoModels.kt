@@ -12,199 +12,146 @@ import fr.arthurbrugiere.forgeline.core.model.RepoDetails
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
-import kotlinx.serialization.SerialName
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Attachment
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.GitEntry
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Issue
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.PullRequest
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Repository
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.User
 import kotlinx.serialization.Serializable
+import java.time.Instant
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Label as LabelJson
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Milestone as MilestoneJson
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Release as ReleaseJson
 
-// The shapes of Forgejo's API answers Forgeline reads (checked against codeberg.org on 2026-09-29).
+// The shapes of Forgejo's answers are generated from its OpenAPI description (forge/forgejo/spec, refreshed by
+// tools/specs/fetch.py) by OpenAPI Generator, in the `api` package. Every field there may be missing, as the description
+// promises nothing: what follows is how the app reads them, with the defaults it always had, and a field the app can't
+// do without missing makes the answer unreadable rather than a blank screen.
 
-@Serializable
-internal data class UserJson(
-    val login: String,
-    @SerialName("full_name") val fullName: String? = null,
-    @SerialName("avatar_url") val avatarUrl: String? = null,
-) {
-    fun toModel() = ForgeUser(login, fullName?.ifBlank { null }, avatarUrl)
+/** [value], which an answer the app can read always has: its absence makes the answer [ForgeError.Unreadable]. */
+internal fun <T : Any> required(value: T?, field: String): T = requireNotNull(value) { "Forgejo answered without $field" }
 
-    fun toSummary(forge: ForgeInstance) = UserSummary(login, avatarUrl, isOrganization = false, forge = forge)
+internal val User.name: String get() = required(login, "a user's login")
+
+internal fun User.toModel() = ForgeUser(name, fullName?.ifBlank { null }, avatarUrl)
+
+internal fun User.toSummary(forge: ForgeInstance) = UserSummary(name, avatarUrl, isOrganization = false, forge = forge)
+
+internal fun Repository.id(forge: ForgeInstance) = RepoId(required(owner, "a repository's owner").name, required(name, "a repository's name"), forge)
+
+/** The repository's own avatar, else its owner's, as Forgejo itself shows it; its own is empty when it has none. */
+internal val Repository.logoUrl: String? get() = avatarUrl?.ifBlank { null } ?: owner?.avatarUrl
+
+internal fun Repository.toDetails(forge: ForgeInstance) = RepoDetails(
+    id = id(forge),
+    description = description?.ifBlank { null },
+    homepage = website?.ifBlank { null },
+    topics = topics.orEmpty(),
+    stars = starsCount.count(),
+    forks = forksCount.count(),
+    watchers = watchersCount.count(),
+    language = language?.ifBlank { null },
+    // Forgejo's API doesn't name a repository's license.
+    license = null,
+    defaultBranch = defaultBranch ?: "main",
+    ownerAvatarUrl = logoUrl,
+    isFork = fork == true,
+    isArchived = archived == true,
+    pushedAt = instant(updatedAt),
+    hasActions = hasActions == true,
+    hasIssues = hasIssues != false,
+    hasWiki = hasWiki == true,
+    // Open issues, pull requests apart: Forgejo counts the two separately.
+    openIssues = openIssuesCount?.toInt(),
+    openPulls = openPrCounter?.toInt(),
+    isEmpty = empty == true,
+)
+
+internal fun Repository.toSummary(forge: ForgeInstance) = RepoSummary(
+    id = id(forge),
+    description = description?.ifBlank { null },
+    language = language?.ifBlank { null },
+    stars = starsCount.count(),
+    forks = forksCount.count(),
+    isFork = fork == true,
+    updatedAt = instant(updatedAt),
+    ownerAvatarUrl = logoUrl,
+    isPrivate = private == true,
+)
+
+/** A count Forgejo leaves out is none. */
+internal fun Long?.count(): Int = this?.toInt() ?: 0
+
+internal fun LabelJson.toModel() = Label(required(name, "a label's name"), color?.removePrefix("#"))
+
+internal fun MilestoneJson.toModel() = Milestone(id ?: 0, title.orEmpty())
+
+/** An issue, or a pull request as the issue list shows it (`pull_request` set). */
+internal val Issue.isPullRequest: Boolean get() = pullRequest != null
+
+internal fun Issue.state(): IssueState = when {
+    pullRequest?.merged == true -> IssueState.MERGED
+    state == "closed" -> IssueState.CLOSED
+    else -> IssueState.OPEN
 }
 
-@Serializable
-internal data class RepoJson(
-    val name: String,
-    val owner: UserJson,
-    val private: Boolean = false,
-    val description: String? = null,
-    val website: String? = null,
-    val topics: List<String>? = null,
-    @SerialName("stars_count") val stars: Int = 0,
-    @SerialName("forks_count") val forks: Int = 0,
-    @SerialName("watchers_count") val watchers: Int = 0,
-    val language: String? = null,
-    @SerialName("default_branch") val defaultBranch: String = "main",
-    val fork: Boolean = false,
-    val archived: Boolean = false,
-    @SerialName("updated_at") val updatedAt: String? = null,
-    @SerialName("has_actions") val hasActions: Boolean = false,
-    @SerialName("has_issues") val hasIssues: Boolean = true,
-    @SerialName("has_wiki") val hasWiki: Boolean = false,
-    /** How many releases the repository has; null on servers too old to say. */
-    @SerialName("release_counter") val releaseCounter: Int? = null,
-    /** Open issues, pull requests apart: Forgejo counts the two separately. */
-    @SerialName("open_issues_count") val openIssues: Int? = null,
-    @SerialName("open_pr_counter") val openPulls: Int? = null,
-    val empty: Boolean = false,
-    /** The repository's own avatar; empty when it has none. */
-    @SerialName("avatar_url") val avatarUrl: String? = null,
-) {
-    fun id(forge: ForgeInstance) = RepoId(owner.login, name, forge)
+internal fun Issue.toSummary() = IssueSummary(
+    number = required(number, "an issue's number").toInt(),
+    title = required(title, "an issue's title"),
+    state = state(),
+    author = user?.toModel(),
+    comments = comments.count(),
+    createdAt = instant(required(createdAt, "an issue's creation time")) ?: Instant.EPOCH,
+    labels = labels.orEmpty().map { it.toModel() },
+    isPullRequest = isPullRequest,
+    isDraft = pullRequest?.draft == true,
+)
 
-    /** The repository's own avatar, else its owner's, as Forgejo itself shows it. */
-    val logoUrl: String? get() = avatarUrl?.ifBlank { null } ?: owner.avatarUrl
-
-    fun toDetails(forge: ForgeInstance) = RepoDetails(
-        id = id(forge),
-        description = description?.ifBlank { null },
-        homepage = website?.ifBlank { null },
-        topics = topics.orEmpty(),
-        stars = stars,
-        forks = forks,
-        watchers = watchers,
-        language = language?.ifBlank { null },
-        // Forgejo's API doesn't name a repository's license.
-        license = null,
-        defaultBranch = defaultBranch,
-        ownerAvatarUrl = logoUrl,
-        isFork = fork,
-        isArchived = archived,
-        pushedAt = instant(updatedAt),
-        hasActions = hasActions,
-        hasIssues = hasIssues,
-        hasWiki = hasWiki,
-        openIssues = openIssues,
-        openPulls = openPulls,
-        isEmpty = empty,
-    )
-
-    fun toSummary(forge: ForgeInstance) = RepoSummary(
-        id = id(forge),
-        description = description?.ifBlank { null },
-        language = language?.ifBlank { null },
-        stars = stars,
-        forks = forks,
-        isFork = fork,
-        updatedAt = instant(updatedAt),
-        ownerAvatarUrl = logoUrl,
-        isPrivate = private,
-    )
-}
-
-@Serializable
-internal data class LabelJson(val name: String, val color: String? = null) {
-    fun toModel() = Label(name, color?.removePrefix("#"))
-}
-
-@Serializable
-internal data class IssuePullJson(val merged: Boolean = false, val draft: Boolean = false)
-
-@Serializable
-internal data class IssueRepoJson(val owner: String, val name: String)
-
-@Serializable
-internal data class MilestoneJson(val id: Long = 0, val title: String = "") {
-    fun toModel() = Milestone(id, title)
-}
-
-@Serializable
-internal data class IssueJson(
-    val number: Int,
-    val title: String,
-    val body: String? = null,
-    val state: String,
-    val user: UserJson? = null,
-    val comments: Int = 0,
-    @SerialName("created_at") val createdAt: String,
-    @SerialName("closed_at") val closedAt: String? = null,
-    val labels: List<LabelJson> = emptyList(),
-    @SerialName("pull_request") val pullRequest: IssuePullJson? = null,
-    // Only in cross-repository search results.
-    val repository: IssueRepoJson? = null,
-    // Pull request lists carry these at the top level.
-    val merged: Boolean? = null,
-    val draft: Boolean? = null,
-    @SerialName("is_locked") val isLocked: Boolean = false,
-    // Nobody assigned answers null, not an empty list.
-    val assignees: List<UserJson>? = null,
-    val milestone: MilestoneJson? = null,
-    @SerialName("due_date") val dueDate: String? = null,
-) {
-    val isPullRequest: Boolean get() = pullRequest != null || merged != null
-
-    fun state(): IssueState = when {
-        merged == true || pullRequest?.merged == true -> IssueState.MERGED
+/** A pull request as the pull request list shows it, with whether it is merged or a draft at the top level. */
+internal fun PullRequest.toSummary() = IssueSummary(
+    number = required(number, "a pull request's number").toInt(),
+    title = required(title, "a pull request's title"),
+    state = when {
+        merged == true -> IssueState.MERGED
         state == "closed" -> IssueState.CLOSED
         else -> IssueState.OPEN
-    }
+    },
+    author = user?.toModel(),
+    comments = comments.count(),
+    createdAt = instant(required(createdAt, "a pull request's creation time")) ?: Instant.EPOCH,
+    labels = labels.orEmpty().map { it.toModel() },
+    isPullRequest = true,
+    isDraft = draft == true,
+)
 
-    fun toSummary() = IssueSummary(
-        number = number,
-        title = title,
-        state = state(),
-        author = user?.toModel(),
-        comments = comments,
-        createdAt = instant(createdAt) ?: java.time.Instant.EPOCH,
-        labels = labels.map { it.toModel() },
-        isPullRequest = isPullRequest,
-        isDraft = draft == true || pullRequest?.draft == true,
-    )
-}
+internal val ReleaseJson.isDraft: Boolean get() = draft == true
 
-@Serializable
-internal data class ReleaseJson(
-    @SerialName("tag_name") val tag: String,
-    val name: String? = null,
-    val body: String? = null,
-    @SerialName("published_at") val publishedAt: String? = null,
-    val prerelease: Boolean = false,
-    val draft: Boolean = false,
-    val author: UserJson? = null,
-    val assets: List<AssetJson> = emptyList(),
-    @SerialName("html_url") val htmlUrl: String? = null,
-    @SerialName("zipball_url") val zipUrl: String? = null,
-    @SerialName("tarball_url") val tarUrl: String? = null,
-    /** A release can leave out the source archives Forgejo makes for its tag. */
-    @SerialName("hide_archive_links") val hideArchives: Boolean = false,
-) {
-    fun toModel() = Release(
-        tag = tag,
+internal fun ReleaseJson.toModel(): Release {
+    // A release can leave out the source archives Forgejo makes for its tag.
+    val archives = hideArchiveLinks != true
+    return Release(
+        tag = required(tagName, "a release's tag"),
         name = name?.ifBlank { null },
         body = body?.ifBlank { null },
         publishedAt = instant(publishedAt),
-        isPrerelease = prerelease,
+        isPrerelease = prerelease == true,
         author = author?.toModel(),
-        assets = assets.map { ReleaseAsset(it.name, it.size, it.downloads, it.url) },
-        zipUrl = zipUrl?.takeUnless { hideArchives },
-        tarUrl = tarUrl?.takeUnless { hideArchives },
+        assets = assets.orEmpty().map { it.toAsset() },
+        zipUrl = zipballUrl?.takeIf { archives },
+        tarUrl = tarballUrl?.takeIf { archives },
         webUrl = htmlUrl,
     )
 }
 
-@Serializable
-internal data class AssetJson(
-    val name: String,
-    val size: Long = 0,
-    @SerialName("download_count") val downloads: Int? = null,
-    @SerialName("browser_download_url") val url: String,
-)
+private fun Attachment.toAsset() =
+    ReleaseAsset(required(name, "an asset's name"), propertySize ?: 0, downloadCount?.toInt(), required(browserDownloadUrl, "an asset's address"))
 
-/** One level of a git tree: an entry's path is its name; `type` is blob, tree or commit (a submodule). */
-@Serializable
-internal data class TreeJson(val tree: List<Entry> = emptyList(), @SerialName("total_count") val totalCount: Int = 0) {
-    @Serializable
-    data class Entry(val path: String, val type: String, val mode: String = "", val size: Long = 0)
-}
+/** One entry of a git tree level: its path is its name; `type` is blob, tree or commit (a submodule). */
+internal val GitEntry.entryPath: String get() = required(path, "a tree entry's path")
 
-@Serializable
-internal data class GitRefJson(val ref: String)
+internal val GitEntry.entryType: String get() = required(type, "a tree entry's type")
 
+/** Forgejo's search answers: `{"ok": true, "data": [...]}`, of repositories or users. */
 @Serializable
 internal data class SearchJson<T>(val data: List<T> = emptyList())

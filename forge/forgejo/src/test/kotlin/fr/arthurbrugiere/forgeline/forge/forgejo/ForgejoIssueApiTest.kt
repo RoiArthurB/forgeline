@@ -19,6 +19,7 @@ import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.core.model.StateChange
 import fr.arthurbrugiere.forgeline.core.model.TimeTracking
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.IssueFormField
 import io.ktor.client.engine.mock.toByteArray
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -29,6 +30,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.junit.Test
@@ -708,8 +711,11 @@ class ForgejoIssueApiTest {
     @Test
     fun checkboxes_become_boxes_to_tick_and_a_field_keeps_its_default_answer() {
         val fields = listOf(
-            FormFieldJson("checkboxes", FormAttributesJson(label = "Before", options = listOf(buildJsonObject { put("label", "I searched") }))),
-            FormFieldJson("input", FormAttributesJson(label = "Version", value = "1.0")),
+            IssueFormField(
+                type = "checkboxes",
+                attributes = mapOf("label" to JsonPrimitive("Before"), "options" to JsonArray(listOf(buildJsonObject { put("label", "I searched") }))),
+            ),
+            IssueFormField(type = "input", attributes = mapOf("label" to JsonPrimitive("Version"), "value" to JsonPrimitive("1.0"))),
         )
 
         assertThat(formToMarkdown(fields)).isEqualTo("### Before\n\n- [ ] I searched\n\n### Version\n\n1.0\n")
