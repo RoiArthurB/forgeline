@@ -1,0 +1,67 @@
+# What the app asks GitHub's GraphQL API of a person, checked against schema.graphqls when it builds.
+
+query Contributions($login: String!) {
+  user(login: $login) {
+    contributionsCollection {
+      contributionCalendar {
+        weeks {
+          contributionDays {
+            date
+            contributionCount
+          }
+        }
+      }
+    }
+  }
+}
+
+# A list holds repositories (and, one day perhaps, more): anything else is left out.
+fragment ListItems on UserListItemsConnection {
+  totalCount
+  nodes {
+    __typename
+    ... on Repository {
+      nameWithOwner
+      description
+      stargazerCount
+      forkCount
+      isFork
+      isPrivate
+      primaryLanguage {
+        name
+      }
+      owner {
+        avatarUrl
+      }
+    }
+  }
+  pageInfo {
+    hasNextPage
+    endCursor
+  }
+}
+
+query StarLists {
+  viewer {
+    lists(first: 100) {
+      nodes {
+        id
+        name
+        description
+        items(first: 100) {
+          ...ListItems
+        }
+      }
+    }
+  }
+}
+
+query StarListItems($id: ID!, $after: String) {
+  node(id: $id) {
+    ... on UserList {
+      items(first: 100, after: $after) {
+        ...ListItems
+      }
+    }
+  }
+}

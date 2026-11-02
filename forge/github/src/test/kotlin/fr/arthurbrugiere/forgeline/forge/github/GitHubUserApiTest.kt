@@ -192,6 +192,16 @@ class GitHubUserApiTest {
     }
 
     @Test
+    fun a_calendar_day_without_its_count_makes_the_calendar_unreadable() = runTest {
+        val answer = """{"data": {"user": {"contributionsCollection": {"contributionCalendar": {"weeks": [{"contributionDays": [{"date": "2026-10-25"}]}]}}}}}"""
+
+        val result = api { json(answer) }.contributions("tok", "octocat")
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unreadable))
+        assertThat((requests.single().body as io.ktor.http.content.TextContent).text).contains(""""operationName":"Contributions","variables":{"login":"octocat"}""")
+    }
+
+    @Test
     fun signed_out_github_tells_no_contributions() = runTest {
         assertThat(api { json("{}") }.contributions(null, "octocat")).isEqualTo(ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unauthorized))
         assertThat(requests).isEmpty()
@@ -200,13 +210,13 @@ class GitHubUserApiTest {
     @Test
     fun star_lists_read_with_their_repositories_and_a_long_one_is_read_on() = runTest {
         val first = """{"data": {"viewer": {"lists": {"nodes": [
-            {"id": "UL_1", "name": "⛓️ Matrix tools", "description": "", "items": {"totalCount": 2, "nodes": [
+            {"id": "UL_1", "name": "⛓️ Matrix tools", "description": "", "items": {"__typename": "UserListItemsConnection", "totalCount": 2, "nodes": [
                 {"__typename": "Repository", "nameWithOwner": "matrix-org/synapse", "description": "Homeserver", "stargazerCount": 12000, "forkCount": 2000, "isFork": false, "isPrivate": false, "primaryLanguage": {"name": "Python"}, "owner": {"avatarUrl": "https://a/m"}},
                 {"__typename": "Gist"}
             ], "pageInfo": {"hasNextPage": true, "endCursor": "c1"}}}
         ]}}}}"""
-        val more = """{"data": {"node": {"items": {"totalCount": 2, "nodes": [
-            {"__typename": "Repository", "nameWithOwner": "maunium/stickerpicker", "stargazerCount": 500}
+        val more = """{"data": {"node": {"__typename": "UserList", "items": {"__typename": "UserListItemsConnection", "totalCount": 2, "nodes": [
+            {"__typename": "Repository", "nameWithOwner": "maunium/stickerpicker", "description": null, "stargazerCount": 500, "forkCount": 40, "isFork": false, "isPrivate": false, "primaryLanguage": null, "owner": {"avatarUrl": "https://a/s"}}
         ], "pageInfo": {"hasNextPage": false, "endCursor": null}}}}}"""
         var asked = 0
 
@@ -218,13 +228,14 @@ class GitHubUserApiTest {
         assertThat(list.repos.map { it.id.fullName }).containsExactly("matrix-org/synapse", "maunium/stickerpicker").inOrder()
         assertThat(list.repos.first().language).isEqualTo("Python")
         assertThat(requests).hasSize(2)
+        assertThat((requests[1].body as io.ktor.http.content.TextContent).text).contains(""""operationName":"StarListItems","variables":{"id":"UL_1","after":"c1"}""")
     }
 
     @Test
     fun a_list_s_emoji_codes_are_written_as_the_emoji_they_stand_for() = runTest {
         val lists = """{"data": {"viewer": {"lists": {"nodes": [
-            {"id": "UL_1", "name": ":goggles: Oculus Quest stuff", "items": {"nodes": [], "pageInfo": {"hasNextPage": false}}},
-            {"id": "UL_2", "name": ":octocat: and :not_an_emoji: stay", "items": {"nodes": [], "pageInfo": {"hasNextPage": false}}}
+            {"id": "UL_1", "name": ":goggles: Oculus Quest stuff", "description": null, "items": {"__typename": "UserListItemsConnection", "totalCount": 0, "nodes": [], "pageInfo": {"hasNextPage": false, "endCursor": null}}},
+            {"id": "UL_2", "name": ":octocat: and :not_an_emoji: stay", "description": null, "items": {"__typename": "UserListItemsConnection", "totalCount": 0, "nodes": [], "pageInfo": {"hasNextPage": false, "endCursor": null}}}
         ]}}}}"""
         val emojis = """{"goggles": "https://github.githubassets.com/images/icons/emoji/unicode/1f97d.png?v8",
             "octocat": "https://github.githubassets.com/images/icons/emoji/octocat.png?v8"}"""

@@ -31,6 +31,7 @@ apollo {
         mapScalarToKotlinString("GitObjectID")
         // Sent as a string, as it can be past what an Int holds.
         mapScalarToKotlinString("BigInt")
+        mapScalarToKotlinString("Date")
     }
 }
 
