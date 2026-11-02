@@ -150,7 +150,7 @@ class SignInScreenTest {
 
         composeRule.onNode(hasContentDescription("Server address") and hasSetTextAction()).assertIsDisplayed()
         composeRule.onNodeWithText("git.example.org").assertIsDisplayed()
-        composeRule.onNodeWithText("Any Forgejo server works with an access token.").assertIsDisplayed()
+        composeRule.onNodeWithText("Any Forgejo or Gitea server, gitea.com included, works with an access token.").assertIsDisplayed()
         composeRule.onNode(hasContentDescription("Application ID (optional)")).assertDoesNotExist()
         // The choice between gitlab.com and one's own server belongs under GitLab.
         composeRule.onNodeWithText("Your own server").assertDoesNotExist()
