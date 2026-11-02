@@ -1,0 +1,173 @@
+# What the app asks GitHub's GraphQL API of an issue, checked against schema.graphqls when it builds.
+
+# Which comments are hidden, and whether the reader may hide them, by their nodes.
+query Hidden($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    ... on IssueComment {
+      id
+      isMinimized
+      minimizedReason
+      viewerCanMinimize
+    }
+  }
+}
+
+mutation HideComment($id: ID!, $classifier: ReportedContentClassifiers!) {
+  minimizeComment(input: {subjectId: $id, classifier: $classifier}) {
+    clientMutationId
+  }
+}
+
+mutation UnhideComment($id: ID!) {
+  unminimizeComment(input: {subjectId: $id}) {
+    clientMutationId
+  }
+}
+
+query SavedReplies {
+  viewer {
+    savedReplies(first: 50) {
+      nodes {
+        title
+        body
+      }
+    }
+  }
+}
+
+query Types($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    issueTypes(first: 25) {
+      nodes {
+        name
+        color
+        description
+      }
+    }
+  }
+}
+
+query Closing($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    issue(number: $number) {
+      closedByPullRequestsReferences(first: 10, includeClosedPrs: true) {
+        nodes {
+          number
+          title
+          state
+          repository {
+            name
+            owner {
+              login
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+# GitHub reads them from the default branch itself.
+query IssueTemplates($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    issueTemplates {
+      filename
+      name
+      about
+      title
+      body
+      labels(first: 20) {
+        nodes {
+          name
+        }
+      }
+    }
+  }
+}
+
+mutation ConvertToDraft($id: ID!) {
+  convertPullRequestToDraft(input: {pullRequestId: $id}) {
+    clientMutationId
+  }
+}
+
+mutation MarkReady($id: ID!) {
+  markPullRequestReadyForReview(input: {pullRequestId: $id}) {
+    clientMutationId
+  }
+}
+
+# The issue's node: its id and whether it is pinned.
+query IssueNode($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    issue(number: $number) {
+      id
+      isPinned
+    }
+  }
+}
+
+mutation PinIssue($id: ID!) {
+  pinIssue(input: {issueId: $id}) {
+    clientMutationId
+  }
+}
+
+mutation UnpinIssue($id: ID!) {
+  unpinIssue(input: {issueId: $id}) {
+    clientMutationId
+  }
+}
+
+# An issue or a pull request alike.
+query Subscribable($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    issueOrPullRequest(number: $number) {
+      ... on Issue {
+        id
+        viewerSubscription
+      }
+      ... on PullRequest {
+        id
+        viewerSubscription
+      }
+    }
+  }
+}
+
+mutation UpdateSubscription($id: ID!, $state: SubscriptionState!) {
+  updateSubscription(input: {subscribableId: $id, state: $state}) {
+    clientMutationId
+  }
+}
+
+mutation DeleteIssue($id: ID!) {
+  deleteIssue(input: {issueId: $id}) {
+    clientMutationId
+  }
+}
+
+query TransferIds($owner: String!, $name: String!, $number: Int!, $toOwner: String!, $toName: String!) {
+  from: repository(owner: $owner, name: $name) {
+    issue(number: $number) {
+      id
+    }
+  }
+  to: repository(owner: $toOwner, name: $toName) {
+    id
+  }
+}
+
+mutation TransferIssue($issue: ID!, $repository: ID!) {
+  transferIssue(input: {issueId: $issue, repositoryId: $repository}) {
+    issue {
+      number
+      repository {
+        name
+        owner {
+          login
+        }
+      }
+    }
+  }
+}

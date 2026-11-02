@@ -225,8 +225,8 @@ class GitHubIssueApiTest {
           {"event":"commented","id":1,"node_id":"IC_one","user":{"login":"a"},"body":"Spam here","created_at":"2026-10-20T10:00:00Z"},
           {"event":"commented","id":2,"node_id":"IC_two","user":{"login":"b"},"body":"Useful","created_at":"2026-10-20T11:00:00Z"}
         ]"""
-        val nodes = """{"data":{"nodes":[{"id":"IC_one","isMinimized":true,"minimizedReason":"spam","viewerCanMinimize":true},""" +
-            """{"id":"IC_two","isMinimized":false,"minimizedReason":null,"viewerCanMinimize":true}]}}"""
+        val nodes = """{"data":{"nodes":[{"__typename":"IssueComment","id":"IC_one","isMinimized":true,"minimizedReason":"spam","viewerCanMinimize":true},""" +
+            """{"__typename":"IssueComment","id":"IC_two","isMinimized":false,"minimizedReason":null,"viewerCanMinimize":true}]}}"""
         val api = api { if (it.url.encodedPath == "/graphql") json(nodes) else json(events) }
 
         val comments = api.timeline("tok", issue, 1).value().items.filterIsInstance<TimelineItem.Comment>()
@@ -250,8 +250,8 @@ class GitHubIssueApiTest {
         assertThat(api.setCommentHidden("tok", issue, comment, null)).isEqualTo(ForgeResult.Success(Unit))
 
         val sent = requests.map { (it.body as io.ktor.http.content.TextContent).text }
-        assertThat(sent[0]).contains("minimizeComment(input: {subjectId: \$id, classifier: OFF_TOPIC})")
-        assertThat(sent[1]).contains("unminimizeComment(input: {subjectId: \$id})")
+        assertThat(sent[0]).contains(""""operationName":"HideComment","variables":{"id":"IC_one","classifier":"OFF_TOPIC"}""")
+        assertThat(sent[1]).contains(""""operationName":"UnhideComment"""")
         assertThat(sent[1]).contains(""""variables":{"id":"IC_one"}""")
     }
 
@@ -724,8 +724,8 @@ class GitHubIssueApiTest {
         assertThat(acting.setDraft("tok", pr, draft = false)).isEqualTo(ForgeResult.Success(Unit))
 
         val mutations = bodies.filterNotNull().filter { "mutation" in it }
-        assertThat(mutations[0]).contains("convertPullRequestToDraft(input: {pullRequestId: \$id})")
-        assertThat(mutations[1]).contains("markPullRequestReadyForReview(input: {pullRequestId: \$id})")
+        assertThat(mutations[0]).contains(""""operationName":"ConvertToDraft"""")
+        assertThat(mutations[1]).contains(""""operationName":"MarkReady"""")
         mutations.forEach { assertThat(it).contains(""""variables":{"id":"PR_kwDORclPyM8AAAABFTkt9A"}""") }
     }
 
@@ -768,14 +768,14 @@ class GitHubIssueApiTest {
 
         val mutations = bodies.filterNotNull().filter { "mutation" in it }
         assertThat(mutations).hasSize(3)
-        assertThat(mutations[0]).contains("pinIssue(input: {issueId: \$id})")
-        assertThat(mutations[1]).contains("unpinIssue(input: {issueId: \$id})")
-        assertThat(mutations[2]).contains("deleteIssue(input: {issueId: \$id})")
+        assertThat(mutations[0]).contains(""""operationName":"PinIssue"""")
+        assertThat(mutations[1]).contains(""""operationName":"UnpinIssue"""")
+        assertThat(mutations[2]).contains(""""operationName":"DeleteIssue"""")
         mutations.forEach { assertThat(it).contains(""""variables":{"id":"I_abc"}""") }
     }
 
     // GitHub's answer for gama-platform/gama#1265, 2026-10-24: a pull request, found by its number as an issue is.
-    private val subscribable = """{"data":{"repository":{"issueOrPullRequest":{"id":"PR_kwDOLUle7M8AAAABKK38FQ","viewerSubscription":"UNSUBSCRIBED"}}}}"""
+    private val subscribable = """{"data":{"repository":{"issueOrPullRequest":{"__typename":"PullRequest","id":"PR_kwDOLUle7M8AAAABKK38FQ","viewerSubscription":"UNSUBSCRIBED"}}}}"""
 
     @Test
     fun a_subscription_is_read_and_changed_on_an_issue_or_a_pull_request_alike() = runTest {
@@ -789,6 +789,16 @@ class GitHubIssueApiTest {
         val mutations = bodies.filterNotNull().filter { "mutation" in it }
         assertThat(mutations[0]).contains(""""variables":{"id":"PR_kwDOLUle7M8AAAABKK38FQ","state":"SUBSCRIBED"}""")
         assertThat(mutations[1]).contains(""""variables":{"id":"PR_kwDOLUle7M8AAAABKK38FQ","state":"UNSUBSCRIBED"}""")
+    }
+
+    @Test
+    fun an_issue_s_subscription_is_read_from_the_issue_and_a_number_that_is_neither_is_not_found() = runTest {
+        val issueNode = """{"data":{"repository":{"issueOrPullRequest":{"__typename":"Issue","id":"I_kwDOAbc","viewerSubscription":"SUBSCRIBED"}}}}"""
+
+        assertThat(graphQl { issueNode }.isSubscribed("tok", "me", issue).value()).isTrue()
+
+        val missing = graphQl { """{"data":{"repository":{"issueOrPullRequest":null}}}""" }.isSubscribed("tok", "me", issue)
+        assertThat(missing).isEqualTo(ForgeResult.Failure(ForgeError.Http(404, null)))
     }
 
     @Test
