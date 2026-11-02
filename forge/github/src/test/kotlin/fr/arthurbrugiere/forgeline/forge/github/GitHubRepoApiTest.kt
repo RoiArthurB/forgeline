@@ -506,14 +506,14 @@ class GitHubRepoApiTest {
 
     // The shapes GitHub's GraphQL API answered on 2026-10-08 (vercel/next.js), shortened.
     private val discussionList = """{"data":{"repository":{"discussions":{"pageInfo":{"hasNextPage":true,"endCursor":"Y3Vyc29y"},"nodes":[
-        {"number":99839,"title":"Turbopack Error","createdAt":"2026-10-08T02:05:19Z","upvoteCount":1,"isAnswered":null,"category":{"name":"Turbopack Error Report"},"author":{"login":"Shaffan23","avatarUrl":"https://avatars.example/1"},"comments":{"totalCount":0}},
-        {"number":99836,"title":"App Router PDF downloads","createdAt":"2026-10-07T22:12:26Z","upvoteCount":4,"isAnswered":false,"category":{"name":"Help"},"author":null,"comments":{"totalCount":12}}]}}}}"""
+        {"__typename":"Discussion","number":99839,"title":"Turbopack Error","createdAt":"2026-10-08T02:05:19Z","upvoteCount":1,"isAnswered":null,"category":{"name":"Turbopack Error Report"},"author":{"login":"Shaffan23","avatarUrl":"https://avatars.example/1"},"comments":{"totalCount":0}},
+        {"__typename":"Discussion","number":99836,"title":"App Router PDF downloads","createdAt":"2026-10-07T22:12:26Z","upvoteCount":4,"isAnswered":false,"category":{"name":"Help"},"author":null,"comments":{"totalCount":12}}]}}}}"""
 
-    private val oneDiscussion = """{"data":{"repository":{"discussion":{"number":7,"title":"How do I page?","body":"I can't find it.","createdAt":"2026-10-01T10:00:00Z","upvoteCount":3,"isAnswered":true,
-        "category":{"name":"Q&A"},"author":{"login":"alice","avatarUrl":null},"id":"D_kwDOA","locked":false,"comments":{"totalCount":2,"nodes":[
-        {"id":"c1","body":"Use the cursor.","createdAt":"2026-10-01T11:00:00Z","upvoteCount":5,"isAnswer":true,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":true,"author":{"login":"bob","avatarUrl":null},
-         "replies":{"totalCount":40,"nodes":[{"id":"r1","body":"Thanks!","createdAt":"2026-10-01T12:00:00Z","upvoteCount":0,"isAnswer":false,"author":{"login":"alice","avatarUrl":null}}]}},
-        {"id":"c2","body":"Same question.","createdAt":"2026-10-02T11:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":true,"viewerCanUnmarkAsAnswer":false,"author":null,"replies":{"totalCount":0,"nodes":[]}}]}}}}}"""
+    private val oneDiscussion = """{"data":{"repository":{"discussion":{"__typename":"Discussion","number":7,"title":"How do I page?","body":"I can't find it.","createdAt":"2026-10-01T10:00:00Z","upvoteCount":3,"isAnswered":true,
+        "category":{"name":"Q&A"},"author":{"login":"alice","avatarUrl":"https://avatars.example/2"},"id":"D_kwDOA","locked":false,"comments":{"totalCount":2,"nodes":[
+        {"__typename":"DiscussionComment","id":"c1","body":"Use the cursor.","createdAt":"2026-10-01T11:00:00Z","upvoteCount":5,"isAnswer":true,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":true,"author":{"login":"bob","avatarUrl":"https://avatars.example/2"},
+         "replies":{"totalCount":40,"nodes":[{"__typename":"DiscussionComment","id":"r1","body":"Thanks!","createdAt":"2026-10-01T12:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":false,"author":{"login":"alice","avatarUrl":"https://avatars.example/2"}}]}},
+        {"__typename":"DiscussionComment","id":"c2","body":"Same question.","createdAt":"2026-10-02T11:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":true,"viewerCanUnmarkAsAnswer":false,"author":null,"replies":{"totalCount":0,"nodes":[]}}]}}}}}"""
 
     private fun body() = (requests.last().body as io.ktor.http.content.TextContent).text
 
@@ -576,7 +576,7 @@ class GitHubRepoApiTest {
         val writing = api { json("""{"data":{"addDiscussionComment":{"comment":{"id":"c3"}}}}""") }
 
         assertThat(writing.commentOnDiscussion("tok", discussion, "Thanks all.")).isEqualTo(ForgeResult.Success(Unit))
-        assertThat(body()).contains("addDiscussionComment(input: {discussionId: \$discussion, body: \$body, replyToId: \$replyTo})")
+        assertThat(body()).contains("\"operationName\":\"AddDiscussionComment\"")
         assertThat(body()).contains("\"variables\":{\"discussion\":\"D_kwDOA\",\"body\":\"Thanks all.\"}")
 
         writing.commentOnDiscussion("tok", discussion, "Under yours.", replyTo = "c1")
@@ -589,11 +589,11 @@ class GitHubRepoApiTest {
         val writing = api { json("""{"data":{"markDiscussionCommentAsAnswer":{"clientMutationId":null}}}""") }
 
         writing.setDiscussionAnswer("tok", "c2", answer = true)
-        assertThat(body()).contains("markDiscussionCommentAsAnswer(input: {id: \$id})")
+        assertThat(body()).contains("\"operationName\":\"MarkDiscussionAnswer\"")
         assertThat(body()).contains("\"id\":\"c2\"")
 
         writing.setDiscussionAnswer("tok", "c1", answer = false)
-        assertThat(body()).contains("unmarkDiscussionCommentAsAnswer(input: {id: \$id})")
+        assertThat(body()).contains("\"operationName\":\"UnmarkDiscussionAnswer\"")
     }
 
     @Test

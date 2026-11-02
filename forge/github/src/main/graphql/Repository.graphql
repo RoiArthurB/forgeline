@@ -1,0 +1,127 @@
+# What the app asks GitHub's GraphQL API of a repository, checked against schema.graphqls when it builds. Queries put
+# together at run time (one alias per repository asked at once) are written in Kotlin instead.
+
+query Viewer($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    viewerHasStarred
+    viewerSubscription
+  }
+}
+
+query Pinned($owner: String!, $name: String!) {
+  repository(owner: $owner, name: $name) {
+    pinnedIssues(first: 3) {
+      nodes {
+        issue {
+          number
+          title
+          state
+          createdAt
+          author {
+            login
+            avatarUrl
+          }
+          comments {
+            totalCount
+          }
+          labels(first: 10) {
+            nodes {
+              name
+              color
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+query Discussions($owner: String!, $name: String!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    discussions(first: 30, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        ...DiscussionFields
+        comments {
+          totalCount
+        }
+      }
+    }
+  }
+}
+
+# Up to 50 comments, and 30 replies to each: the forge's site has the rest.
+query Discussion($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    discussion(number: $number) {
+      ...DiscussionFields
+      id
+      locked
+      body
+      comments(first: 50) {
+        totalCount
+        nodes {
+          ...DiscussionCommentFields
+          replies(first: 30) {
+            totalCount
+            nodes {
+              ...DiscussionCommentFields
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+fragment DiscussionFields on Discussion {
+  number
+  title
+  createdAt
+  upvoteCount
+  isAnswered
+  category {
+    name
+  }
+  author {
+    login
+    avatarUrl
+  }
+}
+
+fragment DiscussionCommentFields on DiscussionComment {
+  id
+  body
+  createdAt
+  upvoteCount
+  isAnswer
+  viewerCanMarkAsAnswer
+  viewerCanUnmarkAsAnswer
+  author {
+    login
+    avatarUrl
+  }
+}
+
+mutation AddDiscussionComment($discussion: ID!, $body: String!, $replyTo: ID) {
+  addDiscussionComment(input: {discussionId: $discussion, body: $body, replyToId: $replyTo}) {
+    comment {
+      id
+    }
+  }
+}
+
+mutation MarkDiscussionAnswer($id: ID!) {
+  markDiscussionCommentAsAnswer(input: {id: $id}) {
+    clientMutationId
+  }
+}
+
+mutation UnmarkDiscussionAnswer($id: ID!) {
+  unmarkDiscussionCommentAsAnswer(input: {id: $id}) {
+    clientMutationId
+  }
+}

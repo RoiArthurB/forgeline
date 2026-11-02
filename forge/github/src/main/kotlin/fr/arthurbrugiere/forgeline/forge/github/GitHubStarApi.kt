@@ -6,6 +6,8 @@ import fr.arthurbrugiere.forgeline.core.forge.StarApi
 import fr.arthurbrugiere.forgeline.core.forge.map
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.github.graphql.ViewerQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.type.SubscriptionState
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
@@ -51,15 +53,11 @@ class GitHubStarApi(
      * IGNORED repository, or one followed only for what involves the account (UNSUBSCRIBED), isn't watched.
      */
     override suspend fun viewer(token: String, repo: RepoId): RepoViewer {
-        val variables = buildJsonObject {
-            put("owner", repo.owner)
-            put("name", repo.name)
-        }
-        val answer = forgeCall { httpClient.gitHubGraphQl(apiBaseUrl, token, VIEWER_QUERY, variables) }
-        val node = ((answer as? ForgeResult.Success)?.value?.get("repository") as? JsonObject) ?: return RepoViewer(starred = null, watching = null)
+        val answer = forgeCall { httpClient.gitHubOperation(apiBaseUrl, token, ViewerQuery(repo.owner, repo.name)) }
+        val node = (answer as? ForgeResult.Success)?.value?.repository ?: return RepoViewer(starred = null, watching = null)
         return RepoViewer(
-            starred = node["viewerHasStarred"]?.jsonPrimitive?.booleanOrNull,
-            watching = node["viewerSubscription"]?.jsonPrimitive?.contentOrNull?.let { it == "SUBSCRIBED" },
+            starred = node.viewerHasStarred,
+            watching = node.viewerSubscription?.let { it == SubscriptionState.SUBSCRIBED },
         )
     }
 
@@ -89,8 +87,6 @@ class GitHubStarApi(
         }
     }
 }
-
-private const val VIEWER_QUERY = "query Viewer(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { viewerHasStarred viewerSubscription } }"
 
 @Serializable
 private data class SubscriptionJson(val subscribed: Boolean = false)
