@@ -140,6 +140,30 @@ class SignInScreenTest {
         composeRule.onNodeWithText("Generate a personal access token on meta.sr.ht", substring = true).assertExists()
     }
 
+    @Test
+    fun tangled_signs_in_with_a_handle_and_an_app_password() {
+        val submitted = mutableListOf<String>()
+        composeRule.setContent {
+            SignInScreen(
+                state = SignInUiState(
+                    deviceFlowAvailable = false, personalAccessTokenUrl = "https://bsky.app/settings/app-passwords", forge = SignInForge.TANGLED,
+                    passwordSignInAvailable = true, forgeName = "Tangled",
+                ),
+                onStartDeviceFlow = {}, onContinueOnGitHub = { _, _ -> }, onSubmitToken = { submitted += "token:$it" }, onOpenUrl = {},
+                onCancel = {}, onDismissError = {}, onBack = {}, onSubmitPassword = { handle, password -> submitted += "$handle $password" },
+            )
+        }
+
+        // No token field: a handle, an app password, and where to make one.
+        composeRule.onNodeWithText("Personal access token").assertDoesNotExist()
+        composeRule.onNodeWithText("Create an app password on Bluesky").assertExists()
+        composeRule.onNode(hasContentDescription("Handle") and hasSetTextAction()).performTextInput("me.bsky.social")
+        composeRule.onNode(hasContentDescription("App password") and hasSetTextAction()).performTextInput("abcd-efgh")
+        composeRule.onNodeWithText("Sign in with Tangled").performScrollTo().performClick()
+
+        assertThat(submitted).containsExactly("me.bsky.social abcd-efgh")
+    }
+
     private val other = SignInUiState(
         deviceFlowAvailable = false, personalAccessTokenUrl = null, forge = SignInForge.OTHER, host = "gitlab.example.org", forgeName = "gitlab.example.org",
     )
@@ -274,6 +298,6 @@ class SignInScreenTest {
     fun at_large_text_every_forge_is_named_whole() {
         setContent()
 
-        for (forge in listOf("GitHub", "GitLab", "Codeberg", "SourceHut", "Forgejo")) composeRule.assertTextFits(forge)
+        for (forge in listOf("GitHub", "GitLab", "Codeberg", "SourceHut", "Tangled", "Forgejo")) composeRule.assertTextFits(forge)
     }
 }

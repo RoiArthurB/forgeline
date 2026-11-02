@@ -11,17 +11,69 @@ import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.serialization.json.JsonObject
 
 /**
- * A person or organisation on Tangled, by handle: their profile record, how many follow them and they follow, and their
- * repositories. Who they star, their activity and following them need what Tangled doesn't serve yet: Unsupported.
+ * A person or organisation on Tangled, by handle: their profile record, how many follow them and they follow, their
+ * repositories and those they starred; and following them, once signed in ([follows]). Their activity isn't served yet:
+ * Unsupported.
  */
-class TangledUserApi(
+class TangledUserApi internal constructor(
     private val httpClient: HttpClient,
     private val identity: TangledIdentity,
+    private val follows: TangledFollows?,
     private val forge: ForgeInstance = ForgeInstance.Tangled,
 ) : UnsupportedUserApi() {
+
+    /** Read-only: without an account, following answers Unsupported. */
+    constructor(httpClient: HttpClient, identity: TangledIdentity) : this(httpClient, identity, null)
+
+    override suspend fun isFollowing(token: String, login: String): ForgeResult<Boolean> =
+        follows?.isFollowing(token, login) ?: super.isFollowing(token, login)
+
+    override suspend fun setFollowing(token: String, login: String, follow: Boolean): ForgeResult<Unit> =
+        follows?.setFollowing(token, login, follow) ?: super.setFollowing(token, login, follow)
+
+    /**
+     * Newest first, up to [STARRED]. A star names the repository by its DID: each is looked up for its owner and name,
+     * and one that is gone is left out.
+     */
+    override suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>> = forgeCall {
+        val did = when (val result = identity.did(login)) {
+            is ForgeResult.Failure -> return@forgeCall result
+            is ForgeResult.Success -> result.value
+        }
+        val stars = when (
+            val page = httpClient.xrpc("org.tangled.feed.listStarsBy", "subject" to did, "limit" to "$STARRED", "order" to "desc")
+                .toResult { body<RecordListJson<JsonObject>>().items }
+        ) {
+            is ForgeResult.Failure -> return@forgeCall page
+            is ForgeResult.Success -> page.value
+        }
+        val repoDids = stars.mapNotNull { it.value.starredRepo }.distinct()
+        val repos = coroutineScope { repoDids.map { async { starredRepo(it) } }.awaitAll() }
+        ForgeResult.Success(repos.filterNotNull())
+    }
+
+    private suspend fun starredRepo(repoDid: String): RepoSummary? {
+        val repo = (
+            forgeCall { httpClient.xrpc("org.tangled.repo.getRepoByRepoDid", "repoDid" to repoDid).toResult { body<RecordJson<RepoRecordJson>>() } }
+                as? ForgeResult.Success
+            )?.value ?: return null
+        val ownerDid = repo.uri.removePrefix("at://").substringBefore('/')
+        val owner = (identity.handle(ownerDid) as? ForgeResult.Success)?.value ?: ownerDid
+        return RepoSummary(
+            id = RepoId(owner, repo.value.name ?: repo.uri.recordKey, forge),
+            description = repo.value.description?.takeIf { it.isNotBlank() },
+            language = null,
+            stars = 0,
+            forks = 0,
+            isFork = repo.value.source != null,
+            updatedAt = instant(repo.value.createdAt),
+        )
+    }
 
     override suspend fun user(token: String?, login: String): ForgeResult<UserProfile> = forgeCall {
         val did = when (val result = identity.did(login)) {
@@ -75,6 +127,10 @@ class TangledUserApi(
                 )
             }
         }
+    }
+
+    private companion object {
+        const val STARRED = 50
     }
 
     private suspend fun count(nsid: String, subject: String): Int =

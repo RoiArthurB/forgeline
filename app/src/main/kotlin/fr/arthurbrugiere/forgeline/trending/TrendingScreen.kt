@@ -522,7 +522,7 @@ private fun RepoRow(rank: Int, item: TrendingItem, period: TrendingPeriod, onTog
                     }
                 },
                 // Nothing to star with on a forge the app can't sign in to; the layout still needs its slot.
-                toggle = { if (repo.id.forge.isBrowsable && repo.id.forge.type.signsIn) StarToggle(item.starred == true, repo.id.fullName, onToggleStar) else Spacer(Modifier) },
+                toggle = { if (repo.id.forge.isBrowsable) StarToggle(item.starred == true, repo.id.fullName, onToggleStar) else Spacer(Modifier) },
             )
         }
     }

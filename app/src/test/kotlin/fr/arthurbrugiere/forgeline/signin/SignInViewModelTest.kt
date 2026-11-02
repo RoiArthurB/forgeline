@@ -321,6 +321,52 @@ class SignInViewModelTest {
         assertThat(redirect.closed).isTrue()
     }
 
+    private val tangledAuth = FakeForgeAuthApi(supportsDeviceFlow = false, forge = ForgeInstance.Tangled, supportsPasswordSignIn = true)
+        .apply { users["access"] = ForgeUser("me.bsky.social", null, null) }
+
+    private fun tangledViewModel(): SignInViewModel {
+        clients.put(ForgeInstance.Tangled, FakeForgeClients(auth = tangledAuth))
+        return viewModel().also { it.selectForge(SignInForge.TANGLED) }
+    }
+
+    @Test
+    fun tangled_asks_for_a_handle_and_an_app_password() {
+        val state = tangledViewModel().state.value
+
+        assertThat(state.forgeName).isEqualTo("Tangled")
+        assertThat(state.passwordSignInAvailable).isTrue()
+        assertThat(state.deviceFlowAvailable).isFalse()
+        assertThat(state.browserSignInAvailable).isFalse()
+    }
+
+    @Test
+    fun tangled_keeps_the_session_and_its_refresh_token_not_the_password() = test {
+        val viewModel = tangledViewModel()
+
+        viewModel.signInWithPassword("  me.bsky.social ", "abcd-efgh-ijkl-mnop ")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.SignedIn)
+        assertThat(tangledAuth.passwordSignIns.single()).isEqualTo("me.bsky.social abcd-efgh-ijkl-mnop")
+        val account = accounts.activeAccount.first()!!
+        assertThat(account.forge).isEqualTo(ForgeInstance.Tangled)
+        assertThat(account.user.login).isEqualTo("me.bsky.social")
+        assertThat(accounts.token(account.id)).isEqualTo("access")
+        assertThat(accounts.refreshTokens[account.id]).isEqualTo("refresh" to now + 7_200_000)
+    }
+
+    @Test
+    fun a_refused_app_password_says_so() = test {
+        val viewModel = tangledViewModel()
+        tangledAuth.passwordResult = ForgeResult.Failure(ForgeError.Unauthorized)
+
+        viewModel.signInWithPassword("me.bsky.social", "wrong")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.Failed(SignInError.INVALID_TOKEN))
+        assertThat(accounts.activeAccount.first()).isNull()
+    }
+
     @Test
     fun a_redirect_from_another_sign_in_is_refused() = test {
         val viewModel = codebergViewModel()

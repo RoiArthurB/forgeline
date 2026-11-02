@@ -30,7 +30,7 @@ import kotlin.time.Duration.Companion.minutes
 enum class SignInError { NETWORK, INVALID_TOKEN, RATE_LIMITED, DENIED, EXPIRED, NOT_A_FORGE, UNKNOWN }
 
 /**
- * Where to sign in: GitHub, GitLab (gitlab.com or a server of one's own), Codeberg, SourceHut, or a Forgejo server of one's own.
+ * Where to sign in: GitHub, GitLab (gitlab.com or a server of one's own), Codeberg, SourceHut, Tangled, or a Forgejo server of one's own.
  * A server of one's own is given by its address, and says itself what it runs.
  */
 enum class SignInForge {
@@ -38,6 +38,7 @@ enum class SignInForge {
     GITLAB,
     CODEBERG,
     SOURCEHUT,
+    TANGLED,
     OTHER;
 
     /** Whose logo the choice shows. */
@@ -47,6 +48,7 @@ enum class SignInForge {
             GITLAB -> ForgeInstance.GitLab
             CODEBERG -> ForgeInstance.Codeberg
             SOURCEHUT -> ForgeInstance.SourceHut
+            TANGLED -> ForgeInstance.Tangled
             OTHER -> ForgeInstance(ForgeType.FORGEJO, "")
         }
 }
@@ -80,6 +82,8 @@ data class SignInUiState(
     /** The ID typed for the OAuth application of a self-hosted GitLab, which is what lets it sign in through the browser. */
     val oauthClientId: String = "",
     val browserSignInAvailable: Boolean = false,
+    /** Whether the forge signs in with an account name and an app password (Tangled) instead of a token. */
+    val passwordSignInAvailable: Boolean = false,
     /** The forge's name, for "Sign in with ...". */
     val forgeName: String = ForgeInstance.GitHub.displayName,
 ) {
@@ -168,6 +172,25 @@ class SignInViewModel @Inject constructor(
         }
     }
 
+    /** Tangled: the account's handle and an app password, which open a session renewed on its own afterwards. */
+    fun signInWithPassword(identifier: String, password: String) {
+        val auth = auth()?.takeIf { it.supportsPasswordSignIn } ?: return
+        val name = identifier.trim()
+        if (name.isEmpty() || password.isBlank()) return show(SignInStep.Failed(SignInError.INVALID_TOKEN))
+        launchExclusive {
+            show(SignInStep.Verifying)
+            when (val tokens = auth.signInWithPassword(name, password.trim())) {
+                is ForgeResult.Failure -> fail(tokens.error)
+                is ForgeResult.Success -> completeSignIn(
+                    auth,
+                    tokens.value.accessToken,
+                    tokens.value.refreshToken,
+                    tokens.value.expiresInSeconds?.let { clock.millis() + it * 1_000 },
+                )
+            }
+        }
+    }
+
     fun startDeviceFlow() {
         val auth = auth() ?: return
         launchExclusive {
@@ -230,6 +253,7 @@ class SignInViewModel @Inject constructor(
         SignInForge.GITLAB -> if (own) normalizedHost(host)?.let { ForgeInstance(type ?: ForgeType.GITLAB, it) } else ForgeInstance.GitLab
         SignInForge.CODEBERG -> ForgeInstance.Codeberg
         SignInForge.SOURCEHUT -> ForgeInstance.SourceHut
+        SignInForge.TANGLED -> ForgeInstance.Tangled
         // Until the server says what it runs, it is taken for a Forgejo: that is what this choice is for.
         SignInForge.OTHER -> normalizedHost(host)?.let { ForgeInstance(type ?: ForgeType.FORGEJO, it) }
     }
@@ -261,6 +285,7 @@ class SignInViewModel @Inject constructor(
             oauthClientId = if (usesHost && kind == ForgeType.GITLAB) clientId else "",
             // A self-hosted GitLab signs in through the browser once its application's ID is typed.
             browserSignInAvailable = if (usesHost && kind == ForgeType.GITLAB) clientId.isNotBlank() else auth?.supportsBrowserSignIn == true,
+            passwordSignInAvailable = auth?.supportsPasswordSignIn == true,
             forgeName = auth?.forge?.displayName ?: host,
         )
     }

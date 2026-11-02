@@ -97,7 +97,8 @@ class DefaultForgeClients @Inject constructor(
 
     private fun apis(forge: ForgeInstance): ForgeApis = when (forge.type) {
         ForgeType.GITHUB -> gitHub
-        // Tangled's index is read without an account, by the same plain client as a Forgejo server's API.
+        // Tangled's index is read without an account, and the person's own AT Protocol server written to with their
+        // session, by the same plain client as a Forgejo server's API.
         ForgeType.TANGLED -> instances.getOrPut(forge) { TangledApis(forgejoHttp) }
         // So is git.sr.ht's GraphQL API, with the person's token on each call.
         ForgeType.SOURCEHUT -> instances.getOrPut(forge) { SourceHutApis(forgejoHttp) }

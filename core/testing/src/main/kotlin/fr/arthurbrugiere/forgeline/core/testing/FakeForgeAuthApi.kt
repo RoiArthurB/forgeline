@@ -14,6 +14,7 @@ class FakeForgeAuthApi(
     override val supportsDeviceFlow: Boolean = true,
     override val forge: ForgeInstance = ForgeInstance.GitHub,
     override val supportsBrowserSignIn: Boolean = false,
+    override val supportsPasswordSignIn: Boolean = false,
     var deviceCodeResult: ForgeResult<DeviceCode> = ForgeResult.Success(
         DeviceCode("device-123", "ABCD-1234", "https://github.com/login/device", expiresInSeconds = 900, intervalSeconds = 5),
     ),
@@ -30,6 +31,15 @@ class FakeForgeAuthApi(
     override suspend fun exchangeCode(code: String, redirectUri: String, codeVerifier: String): ForgeResult<OAuthTokens> {
         exchanges += "$code $codeVerifier $redirectUri"
         return exchangeResult
+    }
+
+    /** What a password sign-in answers, and each one as "identifier password". */
+    var passwordResult: ForgeResult<OAuthTokens> = ForgeResult.Success(OAuthTokens("access", "refresh", 7200))
+    val passwordSignIns = mutableListOf<String>()
+
+    override suspend fun signInWithPassword(identifier: String, password: String): ForgeResult<OAuthTokens> {
+        passwordSignIns += "$identifier $password"
+        return passwordResult
     }
 
     val users = mutableMapOf<String, ForgeUser>()

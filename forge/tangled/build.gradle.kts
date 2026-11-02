@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
-// tangled.org, read without an account from its index (api.tangled.org): see docs/TANGLED.md.
+// tangled.org: read without an account from its index (api.tangled.org), stars and follows written to the person's AT Protocol server: see docs/TANGLED.md.
 dependencies {
     api(projects.forge.common)
     api(libs.ktor.client.core)

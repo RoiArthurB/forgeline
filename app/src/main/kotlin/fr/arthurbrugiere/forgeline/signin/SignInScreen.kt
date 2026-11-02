@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -100,6 +101,7 @@ fun SignInRoute(
             openUrl(uri)
         },
         onSubmitToken = viewModel::signInWithToken,
+        onSubmitPassword = viewModel::signInWithPassword,
         onOpenUrl = openUrl,
         onCancel = viewModel::cancel,
         onDismissError = viewModel::dismissError,
@@ -124,6 +126,7 @@ fun SignInScreen(
     onClientIdChange: (String) -> Unit = {},
     onSelectGitLabServer: (Boolean) -> Unit = {},
     onStartBrowserSignIn: () -> Unit = {},
+    onSubmitPassword: (identifier: String, password: String) -> Unit = { _, _ -> },
 ) {
     val colors = Soft.colors
     val forgeName = state.forgeName
@@ -173,6 +176,7 @@ fun SignInScreen(
                     onStartDeviceFlow = onStartDeviceFlow,
                     onStartBrowserSignIn = onStartBrowserSignIn,
                     onSubmitToken = onSubmitToken,
+                    onSubmitPassword = onSubmitPassword,
                     onOpenUrl = onOpenUrl,
                     onDismissError = onDismissError,
                 )
@@ -192,6 +196,7 @@ private fun ChooseMethod(
     onStartDeviceFlow: () -> Unit,
     onStartBrowserSignIn: () -> Unit,
     onSubmitToken: (String) -> Unit,
+    onSubmitPassword: (identifier: String, password: String) -> Unit,
     onOpenUrl: (String) -> Unit,
     onDismissError: () -> Unit,
 ) {
@@ -204,6 +209,7 @@ private fun ChooseMethod(
             stringResource(R.string.sign_in_forge_gitlab),
             stringResource(R.string.sign_in_forge_codeberg),
             stringResource(R.string.sign_in_forge_sourcehut),
+            stringResource(R.string.sign_in_forge_tangled),
             stringResource(R.string.sign_in_forge_other),
         ),
         selected = state.forge.ordinal,
@@ -261,7 +267,13 @@ private fun ChooseMethod(
         }
     }
     if (error != null) {
-        Text(stringResource(error.message, state.forgeName.ifBlank { state.host }), color = colors.accent, style = Soft.type.body)
+        // A refused app password isn't a token.
+        val message = if (state.passwordSignInAvailable && error == SignInError.INVALID_TOKEN) R.string.sign_in_error_invalid_password else error.message
+        Text(stringResource(message, state.forgeName.ifBlank { state.host }), color = colors.accent, style = Soft.type.body)
+    }
+    if (state.passwordSignInAvailable) {
+        PasswordSignIn(state, onSubmitPassword, onOpenUrl, onEdit = { if (error != null) onDismissError() })
+        return
     }
     val quickSignIn = state.deviceFlowAvailable || state.browserSignInAvailable
     if (quickSignIn) {
@@ -327,6 +339,59 @@ private fun ChooseMethod(
     } else {
         SoftButton(submit, { onSubmitToken(token) }, Modifier.fillMaxWidth())
     }
+}
+
+/** Tangled: an AT Protocol account, signed in with its handle and an app password made where the account lives. */
+@Composable
+private fun PasswordSignIn(
+    state: SignInUiState,
+    onSubmit: (identifier: String, password: String) -> Unit,
+    onOpenUrl: (String) -> Unit,
+    onEdit: () -> Unit,
+) {
+    val colors = Soft.colors
+    var handle by rememberSaveable { mutableStateOf("") }
+    // Not kept across process death: a password has no business in saved state.
+    var password by remember { mutableStateOf("") }
+    Text(stringResource(R.string.sign_in_password_title), style = Soft.type.section, color = colors.ink)
+    Text(stringResource(R.string.sign_in_password_body_tangled), style = Soft.type.body, color = colors.inkMuted)
+    state.personalAccessTokenUrl?.let { url ->
+        Text(
+            stringResource(R.string.sign_in_create_app_password),
+            style = Soft.type.label,
+            color = colors.accent,
+            modifier = Modifier
+                .clip(SoftTokens.Pill)
+                .clickable(role = Role.Button) { onOpenUrl(url) }
+                .heightIn(min = 48.dp)
+                .wrapContentHeight(Alignment.CenterVertically),
+        )
+    }
+    SoftTextField(
+        value = handle,
+        onValueChange = {
+            handle = it
+            onEdit()
+        },
+        label = stringResource(R.string.sign_in_handle_label),
+        placeholder = stringResource(R.string.sign_in_handle_example),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    SoftTextField(
+        value = password,
+        onValueChange = {
+            password = it
+            onEdit()
+        },
+        label = stringResource(R.string.sign_in_app_password_label),
+        placeholder = "",
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { onSubmit(handle, password) }),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    SoftButton(stringResource(R.string.sign_in_with_forge, state.forgeName), { onSubmit(handle, password) }, Modifier.fillMaxWidth())
 }
 
 @Composable
