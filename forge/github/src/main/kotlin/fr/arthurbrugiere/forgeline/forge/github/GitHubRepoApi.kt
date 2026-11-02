@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import com.apollographql.apollo.api.Operation
+import com.apollographql.apollo.api.Optional
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.RepoApi
@@ -36,6 +38,14 @@ import fr.arthurbrugiere.forgeline.core.model.wikiTitleOf
 import fr.arthurbrugiere.forgeline.core.model.withLatest
 import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.github.graphql.AddDiscussionCommentMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionsQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.MarkDiscussionAnswerMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.PinnedQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.UnmarkDiscussionAnswerMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.DiscussionCommentFields
+import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.DiscussionFields
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
@@ -63,6 +73,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import java.time.Instant
 import java.util.Base64
+import fr.arthurbrugiere.forgeline.forge.github.graphql.type.IssueState as GraphQlIssueState
 
 class GitHubRepoApi(
     private val httpClient: HttpClient,
@@ -169,66 +180,64 @@ class GitHubRepoApi(
     /** Only GitHub's GraphQL API knows which issues are pinned, and it answers nobody signed out. */
     override suspend fun pinnedIssues(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> {
         if (token == null) return ForgeResult.Success(emptyList())
-        val variables = buildJsonObject {
-            put("owner", id.owner)
-            put("name", id.name)
-        }
         // A repository the token can't see has nothing pinned for it.
         return forgeCall {
-            httpClient.gitHubGraphQl(apiBaseUrl, token, PINNED_QUERY, variables, partial = true).map { data ->
-                ForgeJson.decodeFromJsonElement<PinnedData>(data).repository?.pinnedIssues?.nodes.orEmpty().map { it.issue.toModel() }
+            httpClient.gitHubOperation(apiBaseUrl, token, PinnedQuery(id.owner, id.name), partial = true).map { data ->
+                data.repository?.pinnedIssues?.nodes.orEmpty().filterNotNull().map { it.issue.toModel() }
             }
         }
     }
 
     /** Discussions are in GitHub's GraphQL API only, which answers nobody signed out. */
-    private suspend fun <T> discussionsQuery(token: String?, id: RepoId, query: String, more: JsonObjectBuilder.() -> Unit, read: (DiscussionsRepository) -> T?): ForgeResult<T> {
+    private suspend fun <D : Operation.Data, T> discussionsQuery(token: String?, operation: Operation<D>, read: (D) -> T?): ForgeResult<T> {
         if (token == null) return ForgeResult.Failure(ForgeError.Unauthorized)
-        val variables = buildJsonObject {
-            put("owner", id.owner)
-            put("name", id.name)
-            more()
-        }
         return forgeCall {
-            when (val answer = httpClient.gitHubGraphQl(apiBaseUrl, token, query, variables)) {
+            when (val answer = httpClient.gitHubOperation(apiBaseUrl, token, operation)) {
                 is ForgeResult.Failure -> answer
-                is ForgeResult.Success -> {
-                    val value = ForgeJson.decodeFromJsonElement<DiscussionsData>(answer.value).repository?.let(read)
-                    if (value == null) ForgeResult.Failure(ForgeError.Http(404, "Not Found")) else ForgeResult.Success(value)
-                }
+                is ForgeResult.Success -> read(answer.value)?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Http(404, "Not Found"))
             }
         }
     }
 
     override suspend fun discussions(token: String?, id: RepoId, after: String?): ForgeResult<DiscussionPage> =
-        discussionsQuery(token, id, DISCUSSIONS_QUERY, { after?.let { put("after", it) } }) { repository ->
-            repository.discussions?.let { list -> DiscussionPage(list.nodes.map { it.toSummary() }, list.pageInfo.endCursor.takeIf { list.pageInfo.hasNextPage }) }
+        discussionsQuery(token, DiscussionsQuery(id.owner, id.name, Optional.presentIfNotNull(after))) { data ->
+            data.repository?.discussions?.let { list ->
+                DiscussionPage(
+                    list.nodes.orEmpty().filterNotNull().map { it.discussionFields.toSummary(it.comments.totalCount) },
+                    list.pageInfo.endCursor.takeIf { list.pageInfo.hasNextPage },
+                )
+            }
         }
 
     override suspend fun discussion(token: String?, id: RepoId, number: Int): ForgeResult<Discussion> =
-        discussionsQuery(token, id, DISCUSSION_QUERY, { put("number", number) }) { repository ->
-            repository.discussion?.let { json ->
+        discussionsQuery(token, DiscussionQuery(id.owner, id.name, number)) { data ->
+            data.repository?.discussion?.let { found ->
                 Discussion(
-                    json.toSummary(), json.body.orEmpty(), json.comments.nodes.map { comment -> comment.toModel(comment.replies?.nodes.orEmpty().map { it.toModel() }) },
-                    id = json.id, locked = json.locked,
+                    found.discussionFields.toSummary(found.comments.totalCount),
+                    found.body,
+                    found.comments.nodes.orEmpty().filterNotNull().map { comment ->
+                        comment.discussionCommentFields.toModel(
+                            replies = comment.replies.nodes.orEmpty().filterNotNull().map { it.discussionCommentFields.toModel() },
+                            replyCount = comment.replies.totalCount,
+                        )
+                    },
+                    id = found.id,
+                    locked = found.locked,
                 )
             }
         }
 
     override suspend fun commentOnDiscussion(token: String, discussion: Discussion, body: String, replyTo: String?): ForgeResult<Unit> {
         val id = discussion.id ?: return ForgeResult.Failure(ForgeError.Unsupported)
-        val variables = buildJsonObject {
-            put("discussion", id)
-            put("body", body)
-            replyTo?.let { put("replyTo", it) }
-        }
-        return forgeCall { httpClient.gitHubGraphQl(apiBaseUrl, token, ADD_DISCUSSION_COMMENT, variables).map { } }
+        val mutation = AddDiscussionCommentMutation(id, body, Optional.presentIfNotNull(replyTo))
+        return forgeCall { httpClient.gitHubOperation(apiBaseUrl, token, mutation).map { } }
     }
 
-    override suspend fun setDiscussionAnswer(token: String, commentId: String, answer: Boolean): ForgeResult<Unit> {
-        val mutation = if (answer) "markDiscussionCommentAsAnswer" else "unmarkDiscussionCommentAsAnswer"
-        return forgeCall {
-            httpClient.gitHubGraphQl(apiBaseUrl, token, "mutation(\$id: ID!) { $mutation(input: {id: \$id}) { clientMutationId } }", buildJsonObject { put("id", commentId) }).map { }
+    override suspend fun setDiscussionAnswer(token: String, commentId: String, answer: Boolean): ForgeResult<Unit> = forgeCall {
+        if (answer) {
+            httpClient.gitHubOperation(apiBaseUrl, token, MarkDiscussionAnswerMutation(commentId)).map { }
+        } else {
+            httpClient.gitHubOperation(apiBaseUrl, token, UnmarkDiscussionAnswerMutation(commentId)).map { }
         }
     }
 
@@ -388,131 +397,30 @@ private data class MergedResponse(@SerialName("merged_at") val mergedAt: String?
 @Serializable
 private data class SearchResponse(val items: List<IssueResponse>)
 
-private const val DISCUSSION_FIELDS = "number title createdAt upvoteCount isAnswered category { name } author { login avatarUrl }"
-private const val DISCUSSION_COMMENT_FIELDS = "id body createdAt upvoteCount isAnswer viewerCanMarkAsAnswer viewerCanUnmarkAsAnswer author { login avatarUrl }"
-
-private const val ADD_DISCUSSION_COMMENT = "mutation(\$discussion: ID!, \$body: String!, \$replyTo: ID) { " +
-    "addDiscussionComment(input: {discussionId: \$discussion, body: \$body, replyToId: \$replyTo}) { comment { id } } }"
-
-/** How many comments of a discussion are read, and how many replies to each: the forge's site has the rest. */
-internal const val DISCUSSION_COMMENTS = 50
-internal const val DISCUSSION_REPLIES = 30
-
-private const val DISCUSSIONS_QUERY = "query(\$owner: String!, \$name: String!, \$after: String) { repository(owner: \$owner, name: \$name) { " +
-    "discussions(first: 30, after: \$after, orderBy: {field: UPDATED_AT, direction: DESC}) { pageInfo { hasNextPage endCursor } " +
-    "nodes { $DISCUSSION_FIELDS comments { totalCount } } } } }"
-
-private const val DISCUSSION_QUERY = "query(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { " +
-    "discussion(number: \$number) { $DISCUSSION_FIELDS id locked body comments(first: $DISCUSSION_COMMENTS) { totalCount nodes { $DISCUSSION_COMMENT_FIELDS " +
-    "replies(first: $DISCUSSION_REPLIES) { totalCount nodes { $DISCUSSION_COMMENT_FIELDS } } } } } } }"
-
-@Serializable
-private data class DiscussionsData(val repository: DiscussionsRepository? = null)
-
-@Serializable
-private data class DiscussionsRepository(val discussions: DiscussionList? = null, val discussion: DiscussionJson? = null)
-
-@Serializable
-private data class DiscussionList(val pageInfo: DiscussionPageInfo = DiscussionPageInfo(), val nodes: List<DiscussionJson> = emptyList())
-
-@Serializable
-private data class DiscussionPageInfo(val hasNextPage: Boolean = false, val endCursor: String? = null)
-
-@Serializable
-private data class DiscussionAuthorJson(val login: String, val avatarUrl: String? = null)
-
-@Serializable
-private data class DiscussionCategoryJson(val name: String? = null)
-
-@Serializable
-private data class DiscussionCommentsJson(val totalCount: Int = 0, val nodes: List<DiscussionCommentJson> = emptyList())
-
-@Serializable
-private data class DiscussionJson(
-    val number: Int,
-    val title: String,
-    val body: String? = null,
-    val createdAt: String? = null,
-    val upvoteCount: Int = 0,
+private fun DiscussionFields.toSummary(comments: Int) = DiscussionSummary(
+    number, title, author?.let { ForgeUser(it.login, null, it.avatarUrl) }, Instant.parse(createdAt), category.name, comments, upvoteCount,
     // Null where the category takes no answer.
-    val isAnswered: Boolean? = null,
-    val category: DiscussionCategoryJson? = null,
-    val author: DiscussionAuthorJson? = null,
-    val comments: DiscussionCommentsJson = DiscussionCommentsJson(),
-    val id: String? = null,
-    val locked: Boolean = false,
-) {
-    fun toSummary() = DiscussionSummary(
-        number, title, author?.let { ForgeUser(it.login, null, it.avatarUrl) }, createdAt?.let(Instant::parse), category?.name, comments.totalCount, upvoteCount, isAnswered,
-    )
-}
+    isAnswered,
+)
 
-@Serializable
-private data class DiscussionCommentJson(
-    val id: String,
-    val body: String = "",
-    val createdAt: String? = null,
-    val upvoteCount: Int = 0,
-    val isAnswer: Boolean = false,
-    val author: DiscussionAuthorJson? = null,
-    val replies: DiscussionCommentsJson? = null,
-    val viewerCanMarkAsAnswer: Boolean = false,
-    val viewerCanUnmarkAsAnswer: Boolean = false,
-) {
-    fun toModel(replies: List<DiscussionComment> = emptyList()) = DiscussionComment(
-        id, author?.let { ForgeUser(it.login, null, it.avatarUrl) }, body, createdAt?.let(Instant::parse), upvoteCount, isAnswer, replies,
-        replyCount = this.replies?.totalCount ?: replies.size,
-        canMarkAnswer = viewerCanMarkAsAnswer,
-        canUnmarkAnswer = viewerCanUnmarkAsAnswer,
-    )
-}
+private fun DiscussionCommentFields.toModel(replies: List<DiscussionComment> = emptyList(), replyCount: Int = replies.size) = DiscussionComment(
+    id, author?.let { ForgeUser(it.login, null, it.avatarUrl) }, body, Instant.parse(createdAt), upvoteCount, isAnswer, replies,
+    replyCount = replyCount,
+    canMarkAnswer = viewerCanMarkAsAnswer,
+    canUnmarkAnswer = viewerCanUnmarkAsAnswer,
+)
 
-private const val PINNED_QUERY = "query(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { pinnedIssues(first: 3) { nodes { issue { " +
-    "number title state createdAt author { login avatarUrl } comments { totalCount } labels(first: 10) { nodes { name color } } } } } } }"
-
-@Serializable
-private data class PinnedData(val repository: PinnedRepository? = null)
-
-@Serializable
-private data class PinnedRepository(val pinnedIssues: PinnedIssues = PinnedIssues())
-
-@Serializable
-private data class PinnedIssues(val nodes: List<PinnedNode> = emptyList())
-
-@Serializable
-private data class PinnedNode(val issue: PinnedIssue)
-
-@Serializable
-private data class PinnedAuthor(val login: String, val avatarUrl: String? = null)
-
-@Serializable
-private data class PinnedCount(val totalCount: Int = 0)
-
-@Serializable
-private data class PinnedLabels(val nodes: List<LabelResponse> = emptyList())
-
-@Serializable
-private data class PinnedIssue(
-    val number: Int,
-    val title: String,
-    val state: String,
-    val createdAt: String,
-    val author: PinnedAuthor? = null,
-    val comments: PinnedCount = PinnedCount(),
-    val labels: PinnedLabels = PinnedLabels(),
-) {
-    fun toModel() = IssueSummary(
-        number = number,
-        title = title,
-        state = if (state == "CLOSED") IssueState.CLOSED else IssueState.OPEN,
-        author = author?.let { ForgeUser(it.login, null, it.avatarUrl) },
-        comments = comments.totalCount,
-        createdAt = Instant.parse(createdAt),
-        labels = labels.nodes.map { Label(it.name, it.color) },
-        isPullRequest = false,
-        isDraft = false,
-    )
-}
+private fun PinnedQuery.Issue.toModel() = IssueSummary(
+    number = number,
+    title = title,
+    state = if (state == GraphQlIssueState.CLOSED) IssueState.CLOSED else IssueState.OPEN,
+    author = author?.let { ForgeUser(it.login, null, it.avatarUrl) },
+    comments = comments.totalCount,
+    createdAt = Instant.parse(createdAt),
+    labels = labels?.nodes.orEmpty().filterNotNull().map { Label(it.name, it.color) },
+    isPullRequest = false,
+    isDraft = false,
+)
 
 @Serializable
 private data class ReleaseResponse(

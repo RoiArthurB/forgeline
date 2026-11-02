@@ -1,7 +1,14 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import com.apollographql.apollo.api.Error
+import com.apollographql.apollo.api.Operation
+import com.apollographql.apollo.api.composeJsonRequest
+import com.apollographql.apollo.api.json.buildJsonString
+import com.apollographql.apollo.api.json.jsonReader
+import com.apollographql.apollo.api.parseResponse
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.lastLinkedPage
 import fr.arthurbrugiere.forgeline.forge.common.nextLinkedPage
 import io.ktor.client.HttpClient
@@ -12,6 +19,7 @@ import io.ktor.client.request.header
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.appendPathSegments
@@ -21,7 +29,9 @@ import io.ktor.http.takeFrom
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.put
+import okio.Buffer
 
 /** A REST call to the GitHub API; path segments are encoded one by one. Anonymous when [token] is null. */
 internal suspend fun HttpClient.gitHubApi(
@@ -84,6 +94,41 @@ internal suspend fun HttpClient.gitHubGraphQl(
         )
     }
 }
+
+/**
+ * A GraphQL [operation] written in src/main/graphql, checked against GitHub's schema when the app builds, its answer
+ * read as Apollo Kotlin generated it. It fails and keeps what came back as [gitHubGraphQl] does; an answer the schema
+ * doesn't allow (a field missing, of another type) is [ForgeError.Unreadable].
+ */
+internal suspend fun <D : Operation.Data> HttpClient.gitHubOperation(
+    apiBaseUrl: String,
+    token: String,
+    operation: Operation<D>,
+    partial: Boolean = false,
+): ForgeResult<D> {
+    val request = ForgeJson.parseToJsonElement(buildJsonString { operation.composeJsonRequest(this) }).jsonObject
+    val response = gitHubApi(apiBaseUrl, token, "graphql", method = HttpMethod.Post, body = request)
+    if (!response.status.isSuccess()) return response.failure()
+    val answer = operation.parseResponse(Buffer().writeUtf8(response.bodyAsText()).jsonReader())
+    val errors = answer.errors.orEmpty()
+    val error = errors.firstOrNull { it.type == "RATE_LIMITED" } ?: errors.firstOrNull()
+    val data = answer.data
+    return when {
+        error == null -> data?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Unreadable)
+        partial && data != null && error.type != "RATE_LIMITED" -> ForgeResult.Success(data)
+        else -> ForgeResult.Failure(
+            when (error.type) {
+                "RATE_LIMITED" -> ForgeError.RateLimited(response.headers["x-ratelimit-reset"]?.toLongOrNull())
+                "FORBIDDEN" -> ForgeError.Http(403, error.message)
+                "NOT_FOUND" -> ForgeError.Http(404, error.message)
+                else -> ForgeError.Http(422, error.message)
+            },
+        )
+    }
+}
+
+/** GitHub names what went wrong in a `type` beside the message, outside GraphQL's own fields. */
+private val Error.type: String? get() = nonStandardFields?.get("type") as? String
 
 @Serializable
 private data class GraphQlErrorJson(val type: String? = null, val message: String? = null)
