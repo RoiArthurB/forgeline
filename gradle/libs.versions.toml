@@ -20,6 +20,8 @@ serialization = "1.12.0"
 ktor = "3.6.0"
 # AT Protocol clients generated from lexicons (Tangled): https://github.com/christiandeange/ozone
 ozone = "0.3.4"
+# Forgejo/Gitea models generated from their OpenAPI description: https://openapi-generator.tech
+openapi-generator = "7.27.0"
 coil = "3.6.3"
 jsoup = "1.23.2"
 snakeyaml-engine = "3.2"
@@ -137,6 +139,7 @@ baselineprofile = { id = "androidx.baselineprofile", version.ref = "baselineprof
 room = { id = "androidx.room", version.ref = "room" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 ozone = { id = "sh.christian.ozone.generator", version.ref = "ozone" }
+openapi-generator = { id = "org.openapi.generator", version.ref = "openapi-generator" }
 
 # Convention plugins (build-logic)
 forgeline-android-application = { id = "forgeline.android.application" }

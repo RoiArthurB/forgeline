@@ -11,6 +11,9 @@ import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Activity
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Repository
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.User
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpStatusCode
@@ -19,14 +22,13 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.Clock
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Release as ApiRelease
 
 /**
  * A Forgejo account's Feed. Forgejo's own feed only holds your actions, the repositories you watch and your
@@ -57,18 +59,18 @@ class ForgejoFeedApi(
         }
     }
 
-    private suspend fun feedPage(own: io.ktor.client.statement.HttpResponse, page: Int, followed: List<ActivityJson>): ForgeResult<FeedPage> {
-        val activities = own.body<List<ActivityJson>>().toMutableList()
+    private suspend fun feedPage(own: io.ktor.client.statement.HttpResponse, page: Int, followed: List<Activity>): ForgeResult<FeedPage> {
+        val activities = own.body<List<Activity>>().toMutableList()
         val hasMore = own.nextPage() != null || (own.totalCount()?.let { it > page * PAGE_SIZE } ?: (activities.size == PAGE_SIZE))
         activities += followed
         val events = activities.distinctBy { it.sameAction() }.mapNotNull { it.toModel() }.sortedByDescending { it.createdAt }
         return ForgeResult.Success(FeedPage(events, nextPage = (page + 1).takeIf { hasMore }))
     }
 
-    private suspend fun followedActivity(token: String): List<ActivityJson> {
+    private suspend fun followedActivity(token: String): List<Activity> {
         val following = httpClient.forgejoApi(forge, token, "user", "following", query = mapOf("limit" to "50"))
         if (following.status != HttpStatusCode.OK) return emptyList()
-        val people = following.body<List<UserJson>>().map { it.login }
+        val people = following.body<List<User>>().map { it.name }
             .sortedBy { lastRead[it] ?: 0L }
             .take(FOLLOWED_PER_REFRESH)
         val gate = Semaphore(CONCURRENCY)
@@ -81,7 +83,7 @@ class ForgejoFeedApi(
                             query = mapOf("only-performed-by" to "true", "limit" to "$PER_PERSON"),
                         )
                         lastRead[person] = clock.millis()
-                        if (response.status == HttpStatusCode.OK) response.body<List<ActivityJson>>() else emptyList()
+                        if (response.status == HttpStatusCode.OK) response.body<List<Activity>>() else emptyList()
                     }
                 }
             }.awaitAll().flatten()
@@ -94,36 +96,36 @@ class ForgejoFeedApi(
      * once. Repositories with no release, archived, or untouched since [since] are skipped unasked.
      */
     override suspend fun starredActivity(token: String, since: Instant): ForgeResult<List<FeedEvent>> = forgeCall {
-        val starred = mutableListOf<RepoJson>()
+        val starred = mutableListOf<Repository>()
         for (page in 1..MAX_STARRED_PAGES) {
             val response = httpClient.forgejoApi(forge, token, "user", "starred", query = mapOf("limit" to "$STARRED_PAGE_SIZE", "page" to page.toString()))
             if (response.status != HttpStatusCode.OK) {
                 if (page == 1) return@forgeCall response.failure()
                 break
             }
-            val repos = response.body<List<RepoJson>>()
+            val repos = response.body<List<Repository>>()
             starred += repos
             if (repos.size < STARRED_PAGE_SIZE) break
         }
         val candidates = starred.filter { repo ->
-            !repo.archived && repo.releaseCounter != 0 && (instant(repo.updatedAt)?.let { it >= since } ?: true)
+            repo.archived != true && repo.releaseCounter != 0L && (instant(repo.updatedAt)?.let { it >= since } ?: true)
         }
         val gate = Semaphore(RELEASES_AT_ONCE)
         val events = coroutineScope {
             candidates.map { repo ->
                 async {
                     gate.withPermit {
-                        val response = httpClient.forgejoApi(forge, token, "repos", repo.owner.login, repo.name, "releases", query = mapOf("limit" to "1"))
-                        if (response.status != HttpStatusCode.OK) return@withPermit null
-                        val release = response.body<List<ReleaseJson>>().firstOrNull()?.takeIf { !it.draft } ?: return@withPermit null
-                        val at = instant(release.publishedAt)?.takeIf { it >= since } ?: return@withPermit null
                         val id = repo.id(forge)
+                        val response = httpClient.forgejoApi(forge, token, "repos", id.owner, id.name, "releases", query = mapOf("limit" to "1"))
+                        if (response.status != HttpStatusCode.OK) return@withPermit null
+                        val release = response.body<List<ApiRelease>>().firstOrNull()?.takeIf { !it.isDraft }?.toModel() ?: return@withPermit null
+                        val at = release.publishedAt?.takeIf { it >= since } ?: return@withPermit null
                         FeedEvent(
                             "starred-release:${id.fullName}:${release.tag}",
                             // A release made by automation has no author: the repository's owner signs it.
-                            (release.author ?: repo.owner).toModel(),
+                            release.author ?: required(repo.owner, "a repository's owner").toModel(),
                             id,
-                            FeedAction.Released(release.tag, release.name?.ifBlank { null }, release.prerelease),
+                            FeedAction.Released(release.tag, release.name, release.isPrerelease),
                             at,
                         )
                     }
@@ -133,17 +135,17 @@ class ForgejoFeedApi(
         ForgeResult.Success(events)
     }
 
-    private fun ActivityJson.toModel(): FeedEvent? {
+    private fun Activity.toModel(): FeedEvent? {
         val repo = repo ?: return null
         val actor = actUser?.toModel() ?: return null
-        val id = RepoId(repo.owner.login, repo.name, forge)
+        val id = repo.id(forge)
         // Issue and pull request activity carries a JSON array: the number, then the title (or the comment's text).
         val parts = runCatching { Json.parseToJsonElement(content.orEmpty()) as? JsonArray }.getOrNull()?.map { it.jsonPrimitive.content }
         val number = parts?.getOrNull(0)?.toIntOrNull()
         val title = parts?.getOrNull(1)?.takeIf { it.isNotBlank() }
         val ref = refName.orEmpty()
-        val action: FeedAction = when (opType) {
-            "create_repo" -> if (repo.fork && repo.parent != null) FeedAction.Forked(id) else FeedAction.CreatedRepo(repo.description?.ifBlank { null })
+        val action: FeedAction = when (required(opType, "an activity's kind")) {
+            "create_repo" -> if (repo.fork == true && repo.parent != null) FeedAction.Forked(id) else FeedAction.CreatedRepo(repo.description?.ifBlank { null })
             "create_issue" -> number?.let { FeedAction.Issue(IssueAction.OPENED, it, title.orEmpty()) }
             "close_issue" -> number?.let { FeedAction.Issue(IssueAction.CLOSED, it, title.orEmpty()) }
             "reopen_issue" -> number?.let { FeedAction.Issue(IssueAction.REOPENED, it, title.orEmpty()) }
@@ -165,8 +167,8 @@ class ForgejoFeedApi(
             else -> null
         } ?: return null
         // A fork is news about the repository it came from.
-        val subject = if (action is FeedAction.Forked) repo.parent!!.let { RepoId(it.owner.login, it.name, forge) } else id
-        return FeedEvent(this.id.toString(), actor, subject, action, instant(created) ?: return null)
+        val subject = if (action is FeedAction.Forked) repo.parent!!.id(forge) else id
+        return FeedEvent(required(this.id, "an activity's id").toString(), actor, subject, action, instant(created) ?: return null)
     }
 
     private companion object {
@@ -190,27 +192,5 @@ class ForgejoFeedApi(
     }
 }
 
-@Serializable
-private data class ActivityRepoJson(
-    val name: String,
-    val owner: UserJson,
-    val description: String? = null,
-    val fork: Boolean = false,
-    val parent: ActivityRepoJson? = null,
-)
-
-@Serializable
-private data class ActivityJson(
-    val id: Long,
-    @SerialName("op_type") val opType: String,
-    @SerialName("act_user") val actUser: UserJson? = null,
-    @SerialName("act_user_id") val actUserId: Long = 0,
-    @SerialName("repo_id") val repoId: Long = 0,
-    val repo: ActivityRepoJson? = null,
-    @SerialName("ref_name") val refName: String? = null,
-    val content: String? = null,
-    val created: String? = null,
-) {
-    /** Forgejo stores one row per receiver, so one action has several ids: this is what makes it the same. */
-    fun sameAction() = listOf(actUserId, opType, repoId, refName, content, created)
-}
+/** Forgejo stores one row per receiver, so one action has several ids: this is what makes it the same. */
+private fun Activity.sameAction() = listOf(actUserId ?: 0L, opType, repoId ?: 0L, refName, content, created)

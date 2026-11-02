@@ -27,12 +27,20 @@ import fr.arthurbrugiere.forgeline.core.model.wikiBaseUrl
 import fr.arthurbrugiere.forgeline.core.model.withLatest
 import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.GitEntry
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Issue
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.PullRequest
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Reference
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Repository
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.WikiPageMetaData
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Release as ApiRelease
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.WikiPage as ApiWikiPage
 
 class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : RepoApi {
 
@@ -40,8 +48,8 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
 
     override suspend fun repoAndRights(token: String?, id: RepoId): ForgeResult<Pair<RepoDetails, RepoRights?>> = forgeCall {
         get(token, id).toResult {
-            val answer = bodyAsText()
-            ForgeJson.decodeFromString<RepoJson>(answer).toDetails(forge) to token?.let { forgejoRights(answer) }
+            val repo = body<Repository>()
+            repo.toDetails(forge) to token?.let { forgejoRights(repo) }
         }
     }
 
@@ -56,7 +64,7 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
             is ForgeResult.Failure -> return@forgeCall tree
             is ForgeResult.Success -> tree.value ?: return@forgeCall ForgeResult.Success(null)
         }
-        val path = readmeOf(root.filter { it.type == "blob" }.map { it.path }) ?: return@forgeCall ForgeResult.Success(null)
+        val path = readmeOf(root.filter { it.entryType == "blob" }.map { it.entryPath }) ?: return@forgeCall ForgeResult.Success(null)
         val text = raw(token, id, path, ref)
         if (text.status != HttpStatusCode.OK) return@forgeCall text.failure()
         ForgeResult.Success(Readme(path, text.bodyAsText()))
@@ -67,7 +75,7 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
         val names = listOf("heads", "tags").map { kind ->
             val response = get(token, id, "git", "refs", kind)
             when (response.status) {
-                HttpStatusCode.OK -> response.body<List<GitRefJson>>().map { it.ref.removePrefix("refs/$kind/") }
+                HttpStatusCode.OK -> response.body<List<Reference>>().map { required(it.ref, "a ref's name").removePrefix("refs/$kind/") }
                 // An empty repository has no refs yet.
                 HttpStatusCode.NotFound, HttpStatusCode.Conflict -> emptyList()
                 else -> return@forgeCall response.failure()
@@ -84,7 +92,7 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
         val folder = path.trim('/')
         ForgeResult.Success(
             entries
-                .map { RepoFile(if (folder.isEmpty()) it.path else "$folder/${it.path}", it.path, it.toFileType(), it.size) }
+                .map { RepoFile(if (folder.isEmpty()) it.entryPath else "$folder/${it.entryPath}", it.entryPath, it.toFileType(), it.propertySize ?: 0) }
                 .sortedWith(compareBy<RepoFile> { it.type != RepoFileType.DIR }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.name }),
         )
     }
@@ -99,44 +107,49 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
         // The pulls endpoint can't look for words: those go through the issue list, which lists pull requests too.
         if (query.text.isNotBlank()) return@forgeCall list(token, id, "pulls", query)
         get(token, id, "pulls", query = mapOf("state" to query.state, "sort" to "newest", "limit" to "${IssueQuery.PAGE_SIZE}", "page" to "${query.page}"), patienceMillis = PULLS_PATIENCE_MILLIS)
-            .toResult { body<List<IssueJson>>().map { it.toSummary() } }
+            .toResult { body<List<PullRequest>>().map { it.toSummary() } }
     }
 
     private suspend fun list(token: String?, id: RepoId, type: String, query: IssueQuery): ForgeResult<List<IssueSummary>> {
         val words = query.text.trim()
         val parameters = mapOf("state" to query.state, "type" to type, "limit" to "${IssueQuery.PAGE_SIZE}", "page" to "${query.page}") + if (words.isEmpty()) emptyMap() else mapOf("q" to words)
-        return get(token, id, "issues", query = parameters).toResult { body<List<IssueJson>>().map { it.toSummary() } }
+        return get(token, id, "issues", query = parameters).toResult { body<List<Issue>>().map { it.toSummary() } }
     }
 
     private val IssueQuery.state get() = if (open) "open" else "closed"
 
     /** Forgejo pins pull requests apart: only the issues are asked for. */
     override suspend fun pinnedIssues(token: String?, id: RepoId): ForgeResult<List<IssueSummary>> = forgeCall {
-        get(token, id, "issues", "pinned").toResult { body<List<IssueJson>>().filterNot { it.isPullRequest }.map { it.toSummary() } }
+        get(token, id, "issues", "pinned").toResult { body<List<Issue>>().filterNot { it.isPullRequest }.map { it.toSummary() } }
     }
 
     /** Forgejo lists `_Sidebar` and `_Footer` among the pages: shown on every page on its site, never on their own. */
     override suspend fun wikiPages(token: String?, id: RepoId): ForgeResult<List<WikiPageSummary>> = forgeCall {
         get(token, id, "wiki", "pages", query = mapOf("limit" to "50"))
-            .toResult { body<List<WikiPageJson>>().filterNot { it.title.startsWith("_") }.map { WikiPageSummary(it.subUrl, it.title) } }
+            .toResult {
+                body<List<WikiPageMetaData>>()
+                    .map { required(it.subUrl, "a wiki page's address") to required(it.title, "a wiki page's title") }
+                    .filterNot { (_, title) -> title.startsWith("_") }
+                    .map { (key, title) -> WikiPageSummary(key, title) }
+            }
     }
 
     override suspend fun wikiPage(token: String?, id: RepoId, key: String): ForgeResult<WikiPage> = forgeCall {
         get(token, id, "wiki", "page", key).toResult {
-            val page = body<WikiPageJson>()
+            val page = body<ApiWikiPage>()
             val text = page.contentBase64?.let { String(java.util.Base64.getMimeDecoder().decode(it), Charsets.UTF_8) }.orEmpty()
-            WikiPage(page.subUrl, page.title, text, page.htmlUrl ?: "${id.wikiBaseUrl}$key")
+            WikiPage(required(page.subUrl, "a wiki page's address"), required(page.title, "a wiki page's title"), text, page.htmlUrl ?: "${id.wikiBaseUrl}$key")
         }
     }
 
     override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = forgeCall {
         get(token, id, "releases", query = mapOf("limit" to "30"))
-            .toResult { body<List<ReleaseJson>>().filterNot { it.draft }.map { it.toModel() }.withLatest() }
+            .toResult { body<List<ApiRelease>>().filterNot { it.isDraft }.map { it.toModel() }.withLatest() }
     }
 
     override suspend fun release(token: String?, id: RepoId, tag: String): ForgeResult<Release> = forgeCall {
         // A tag may hold slashes: each part is its own path segment.
-        get(token, id, "releases", "tags", *tag.split('/').filter { it.isNotEmpty() }.toTypedArray()).toResult { body<ReleaseJson>().toModel() }
+        get(token, id, "releases", "tags", *tag.split('/').filter { it.isNotEmpty() }.toTypedArray()).toResult { body<ApiRelease>().toModel() }
     }
 
     // Forgejo Actions come with Codeberg sign-in: its run endpoints answer 404 without a token.
@@ -154,9 +167,9 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
 
     private fun String.segments(): Array<String> = split('/').filter { it.isNotEmpty() }.toTypedArray()
 
-    private fun TreeJson.Entry.toFileType() = when {
-        type == "tree" -> RepoFileType.DIR
-        type == "commit" -> RepoFileType.SUBMODULE
+    private fun GitEntry.toFileType() = when {
+        entryType == "tree" -> RepoFileType.DIR
+        entryType == "commit" -> RepoFileType.SUBMODULE
         mode == "120000" -> RepoFileType.SYMLINK
         else -> RepoFileType.FILE
     }
@@ -173,12 +186,3 @@ class ForgejoRepoApi(private val httpClient: HttpClient, private val forge: Forg
         }
     }
 }
-
-/** A page of a wiki: listed without its words, read with them in base64. */
-@kotlinx.serialization.Serializable
-private data class WikiPageJson(
-    val title: String,
-    @kotlinx.serialization.SerialName("sub_url") val subUrl: String,
-    @kotlinx.serialization.SerialName("html_url") val htmlUrl: String? = null,
-    @kotlinx.serialization.SerialName("content_base64") val contentBase64: String? = null,
-)

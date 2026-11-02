@@ -19,6 +19,9 @@ import fr.arthurbrugiere.forgeline.core.model.Workflow
 import fr.arthurbrugiere.forgeline.core.model.WorkflowRun
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.forge.common.writeTo
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.ActionRun
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.ActionRunJob
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.ListActionRunResponse
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.HttpRequestBuilder
@@ -31,8 +34,6 @@ import io.ktor.client.statement.readRawBytes
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -59,7 +60,7 @@ class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: F
     override val supportsCancel: Boolean = !gitea
 
     override suspend fun run(token: String?, id: RepoId, runId: Long): ForgeResult<WorkflowRun> = forgeCall {
-        call(token, id, "actions", "runs", runId.toString()).toResult { body<RunJson>().toModel() }
+        call(token, id, "actions", "runs", runId.toString()).toResult { body<ActionRun>().toModel() }
     }
 
     /**
@@ -70,9 +71,9 @@ class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: F
         val response = call(token, id, "actions", "runs", runId.toString(), "jobs")
         if (response.status == HttpStatusCode.NotFound) return@forgeCall ForgeResult.Failure(ForgeError.Unsupported)
         response.toResult {
-            val jobs = body<List<JobJson>>()
-            val latest = jobs.maxOfOrNull { it.attempt } ?: 0
-            jobs.filter { it.attempt == latest }.map { it.toModel() }
+            val jobs = body<List<ActionRunJob>>()
+            val latest = jobs.maxOfOrNull { it.tries } ?: 0
+            jobs.filter { it.tries == latest }.map { it.toModel() }
         }
     }
 
@@ -117,8 +118,8 @@ class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: F
             }
             return@forgeCall ForgeResult.Success(
                 files
-                    .filter { it.type == "blob" && (it.path.endsWith(".yml") || it.path.endsWith(".yaml")) }
-                    .map { "$folder/${it.path}".let { path -> Workflow(path.hashCode().toLong(), it.path, path) } },
+                    .filter { it.entryType == "blob" && (it.entryPath.endsWith(".yml") || it.entryPath.endsWith(".yaml")) }
+                    .map { "$folder/${it.entryPath}".let { path -> Workflow(path.hashCode().toLong(), it.entryPath, path) } },
             )
         }
         ForgeResult.Success(emptyList())
@@ -159,7 +160,7 @@ class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: F
     /** The newest runs. `page` must be sent: without it Codeberg ignores `limit` and answers every run (56 MB, 2026-09-30). */
     suspend fun runs(token: String?, id: RepoId): ForgeResult<List<WorkflowRun>> = forgeCall {
         call(token, id, "actions", "runs", query = mapOf("page" to "1", "limit" to "$RUNS")).toResult {
-            body<RunsJson>().runs.map { it.toModel() }
+            body<ListActionRunResponse>().workflowRuns.orEmpty().map { it.toModel() }
         }
     }
 
@@ -189,50 +190,30 @@ internal fun runState(value: String?): Pair<RunStatus, RunConclusion?> = when (v
     else -> RunStatus.OTHER to null
 }
 
-@Serializable
-private data class RunsJson(@SerialName("workflow_runs") val runs: List<RunJson> = emptyList())
-
-@Serializable
-private data class RunJson(
-    val id: Long,
-    val title: String = "",
-    @SerialName("workflow_id") val workflowId: String = "",
-    @SerialName("index_in_repo") val number: Int = 0,
-    val prettyref: String? = null,
-    val event: String? = null,
-    @SerialName("trigger_event") val triggerEvent: String? = null,
-    val status: String? = null,
-    val created: String? = null,
-    val started: String? = null,
-    val updated: String? = null,
-    @SerialName("trigger_user") val triggerUser: UserJson? = null,
-    @SerialName("html_url") val htmlUrl: String? = null,
-) {
-    fun toModel(): WorkflowRun {
-        val (status, conclusion) = runState(status)
-        return WorkflowRun(
-            id = id,
-            workflowName = workflowId,
-            title = title,
-            status = status,
-            conclusion = conclusion,
-            // A pull request's run is on "#12", not on a branch.
-            branch = prettyref?.takeUnless { it.startsWith("#") || it.isBlank() },
-            event = triggerEvent ?: event.orEmpty(),
-            runNumber = number,
-            createdAt = instant(created) ?: Instant.EPOCH,
-            actor = triggerUser?.toModel(),
-            startedAt = instant(started),
-            updatedAt = instant(updated),
-            webUrl = htmlUrl,
-        )
-    }
+private fun ActionRun.toModel(): WorkflowRun {
+    val (status, conclusion) = runState(status)
+    return WorkflowRun(
+        id = required(id, "a run's id"),
+        workflowName = workflowId.orEmpty(),
+        title = title.orEmpty(),
+        status = status,
+        conclusion = conclusion,
+        // A pull request's run is on "#12", not on a branch.
+        branch = prettyref?.takeUnless { it.startsWith("#") || it.isBlank() },
+        event = triggerEvent ?: event.orEmpty(),
+        runNumber = indexInRepo.count(),
+        createdAt = instant(created) ?: Instant.EPOCH,
+        actor = triggerUser?.toModel(),
+        startedAt = instant(started),
+        updatedAt = instant(updated),
+        webUrl = htmlUrl,
+    )
 }
 
-@Serializable
-private data class JobJson(val id: Long, val name: String, val status: String? = null, val attempt: Int = 1) {
-    fun toModel(): RunJob {
-        val (status, conclusion) = runState(status)
-        return RunJob(id, name, status, conclusion, startedAt = null, completedAt = null, steps = emptyList())
-    }
+/** Which attempt at its run a job is: the first when Forgejo doesn't say. */
+private val ActionRunJob.tries: Long get() = attempt ?: 1
+
+private fun ActionRunJob.toModel(): RunJob {
+    val (status, conclusion) = runState(status)
+    return RunJob(required(id, "a job's id"), required(name, "a job's name"), status, conclusion, startedAt = null, completedAt = null, steps = emptyList())
 }

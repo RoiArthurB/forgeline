@@ -16,6 +16,15 @@ import fr.arthurbrugiere.forgeline.core.model.UserProfile
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Issue
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Organization
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Repository
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.RepositoryMeta
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.SearchResults
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.User
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.UserHeatmapData
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.UserSearchResults
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.WatchInfo
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
@@ -25,11 +34,10 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.buildJsonObject
 import java.time.Instant
 import java.time.ZoneId
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Label as ApiLabel
 
 class ForgejoUserApi(
     private val httpClient: HttpClient,
@@ -40,8 +48,8 @@ class ForgejoUserApi(
 
     override suspend fun contributions(token: String?, login: String): ForgeResult<Contributions> = forgeCall {
         httpClient.forgejoApi(forge, token, "users", login, "heatmap").toResult {
-            val days = body<List<HeatmapJson>>().groupBy { Instant.ofEpochSecond(it.timestamp).atZone(zone).toLocalDate() }
-            Contributions(days.mapValues { (_, quarters) -> quarters.sumOf { it.contributions } })
+            val days = body<List<UserHeatmapData>>().groupBy { Instant.ofEpochSecond(required(it.timestamp, "a heatmap time")).atZone(zone).toLocalDate() }
+            Contributions(days.mapValues { (_, quarters) -> quarters.sumOf { it.contributions.count() } })
         }
     }
 
@@ -52,18 +60,18 @@ class ForgejoUserApi(
             val repos = async { httpClient.forgejoApi(forge, token, "users", login, "repos", query = mapOf("limit" to "1")).totalCount() }
             val response = httpClient.forgejoApi(forge, token, "users", login)
             if (response.status != HttpStatusCode.OK) return@coroutineScope response.failure()
-            val user = response.body<ProfileJson>()
+            val user = response.body<User>()
             ForgeResult.Success(
                 UserProfile(
-                    login = user.login,
+                    login = user.name,
                     name = user.fullName?.ifBlank { null },
                     avatarUrl = user.avatarUrl,
                     bio = user.description?.ifBlank { null },
                     company = null,
                     location = user.location?.ifBlank { null },
                     website = user.website?.ifBlank { null },
-                    followers = user.followers,
-                    following = user.following,
+                    followers = user.followersCount.count(),
+                    following = user.followingCount.count(),
                     publicRepos = repos.await() ?: 0,
                     isOrganization = org.await(),
                     links = listOfNotNull(ProfileLink.email(user.email)),
@@ -76,7 +84,7 @@ class ForgejoUserApi(
     /** Forgejo's list already holds the private repositories the token may see, one's own and an organisation's. */
     override suspend fun repos(token: String?, login: String, mine: Boolean, organization: Boolean): ForgeResult<List<RepoSummary>> = forgeCall {
         httpClient.forgejoApi(forge, token, "users", login, "repos", query = mapOf("limit" to "30"))
-            .toResult { body<List<RepoJson>>().map { it.toSummary(forge) }.sortedByDescending { it.updatedAt } }
+            .toResult { body<List<Repository>>().map { it.toSummary(forge) }.sortedByDescending { it.updatedAt } }
     }
 
     /** Fifty at a time, Forgejo's largest page: the pages after the first are asked all at once, then sorted by update. */
@@ -89,23 +97,23 @@ class ForgejoUserApi(
                 async {
                     runCatching {
                         httpClient.forgejoApi(forge, token, "user", "repos", query = mapOf("limit" to "$PAGE", "page" to "$page"))
-                            .takeIf { it.status == HttpStatusCode.OK }?.body<List<RepoJson>>()
+                            .takeIf { it.status == HttpStatusCode.OK }?.body<List<Repository>>()
                     }.getOrNull().orEmpty()
                 }
             }.awaitAll().flatten()
         }
-        ForgeResult.Success((first.body<List<RepoJson>>() + rest).map { it.toSummary(forge) }.distinctBy { it.id }.sortedByDescending { it.updatedAt })
+        ForgeResult.Success((first.body<List<Repository>>() + rest).map { it.toSummary(forge) }.distinctBy { it.id }.sortedByDescending { it.updatedAt })
     }
 
     override suspend fun organizations(token: String): ForgeResult<List<UserSummary>> = forgeCall {
         httpClient.forgejoApi(forge, token, "user", "orgs", query = mapOf("limit" to "$PAGE"))
-            .toResult { body<List<OrgJson>>().map { UserSummary(it.username ?: it.name.orEmpty(), it.avatarUrl, isOrganization = true, forge = forge) }.filter { it.login.isNotEmpty() } }
+            .toResult { body<List<Organization>>().map { UserSummary(it.username ?: it.name.orEmpty(), it.avatarUrl, isOrganization = true, forge = forge) }.filter { it.login.isNotEmpty() } }
     }
 
     /** Codeberg only shows a person's stars to signed-in callers (401 anonymously, 2026-09-29). */
     override suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>> = forgeCall {
         httpClient.forgejoApi(forge, token, "users", login, "starred", query = mapOf("limit" to "30"))
-            .toResult { body<List<RepoJson>>().map { it.toSummary(forge) } }
+            .toResult { body<List<Repository>>().map { it.toSummary(forge) } }
     }
 
     override suspend fun isFollowing(token: String, login: String): ForgeResult<Boolean> = forgeCall {
@@ -153,7 +161,7 @@ class ForgejoStarApi(private val httpClient: HttpClient, private val forge: Forg
     /** Forgejo answers 404 for a repository the account doesn't watch: that is a no, not a failure. */
     override suspend fun isWatching(token: String, repo: RepoId): ForgeResult<Boolean> = forgeCall {
         val response = httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "subscription")
-        if (response.status == HttpStatusCode.NotFound) ForgeResult.Success(false) else response.toResult { body<ForgejoSubscriptionJson>().subscribed }
+        if (response.status == HttpStatusCode.NotFound) ForgeResult.Success(false) else response.toResult { body<WatchInfo>().subscribed == true }
     }
 
     override suspend fun setWatching(token: String, repo: RepoId, watching: Boolean): ForgeResult<Unit> = forgeCall {
@@ -163,7 +171,7 @@ class ForgejoStarApi(private val httpClient: HttpClient, private val forge: Forg
 
     override suspend fun fork(token: String, repo: RepoId): ForgeResult<RepoId> = forgeCall {
         val response = httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "forks", method = HttpMethod.Post, body = buildJsonObject { })
-        response.toResult { body<ForgejoForkJson>().let { RepoId(it.owner.login, it.name, forge) } }
+        response.toResult { body<Repository>().id(forge) }
     }
 
     private companion object {
@@ -176,7 +184,7 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
     override suspend fun repositories(token: String?, query: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
         val response = httpClient.forgejoApi(forge, token, "repos", "search", query = params(query, page))
         response.toResult {
-            val items = body<SearchJson<RepoJson>>().data.map { it.toSummary(forge) }
+            val items = body<SearchResults>().`data`.orEmpty().map { it.toSummary(forge) }
             SearchPage(items, totalCount() ?: items.size, nextPage())
         }
     }
@@ -199,12 +207,12 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
                 shared.cancel()
                 return@coroutineScope own.failure()
             }
-            val fromOrganisation = shared.await().takeIf { it.status == HttpStatusCode.OK }?.body<List<LabelJson>>().orEmpty()
-            val marking = (own.body<List<LabelJson>>() + fromOrganisation).map { it.name }.filter(FirstIssueLabels::matches).distinct()
+            val fromOrganisation = shared.await().takeIf { it.status == HttpStatusCode.OK }?.body<List<ApiLabel>>().orEmpty()
+            val marking = (own.body<List<ApiLabel>>() + fromOrganisation).mapNotNull { it.name }.filter(FirstIssueLabels::matches).distinct()
             if (marking.isEmpty()) return@coroutineScope ForgeResult.Success(emptyList())
             val query = mapOf("labels" to marking.joinToString(","), "state" to "open", "type" to "issues", "limit" to "$FIRST_ISSUES_PER_REPO")
             httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "issues", query = query).toResult {
-                body<List<IssueJson>>().map { IssueSearchResult(repo, it.toSummary()) }.filter { found -> found.issue.labels.any { FirstIssueLabels.matches(it.name) } }
+                body<List<Issue>>().map { IssueSearchResult(repo, it.toSummary()) }.filter { found -> found.issue.labels.any { FirstIssueLabels.matches(it.name) } }
             }
         }
     }
@@ -214,7 +222,7 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
         val query = params(topic.trim().lowercase(), page) + mapOf("topic" to "true", "sort" to "stars", "order" to "desc")
         val response = httpClient.forgejoApi(forge, token, "repos", "search", query = query)
         response.toResult {
-            val items = body<SearchJson<RepoJson>>().data.map { it.toSummary(forge) }
+            val items = body<SearchResults>().`data`.orEmpty().map { it.toSummary(forge) }
             SearchPage(items, totalCount() ?: items.size, nextPage())
         }
     }
@@ -223,8 +231,8 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
     override suspend fun issues(token: String?, query: String, page: Int): ForgeResult<SearchPage<IssueSearchResult>> = forgeCall {
         val response = httpClient.forgejoApi(forge, token, "repos", "issues", "search", query = params(query, page))
         response.toResult {
-            val items = body<List<IssueJson>>().mapNotNull { issue ->
-                issue.repository?.let { IssueSearchResult(RepoId(it.owner, it.name, forge), issue.toSummary()) }
+            val items = body<List<Issue>>().mapNotNull { issue ->
+                issue.repository?.repoId(forge)?.let { IssueSearchResult(it, issue.toSummary()) }
             }
             SearchPage(items, totalCount() ?: items.size, nextPage())
         }
@@ -233,7 +241,7 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
     override suspend fun users(token: String?, query: String, page: Int): ForgeResult<SearchPage<UserSummary>> = forgeCall {
         val response = httpClient.forgejoApi(forge, token, "users", "search", query = params(query, page))
         response.toResult {
-            val items = body<SearchJson<UserJson>>().data.map { it.toSummary(forge) }
+            val items = body<UserSearchResults>().`data`.orEmpty().map { it.toSummary(forge) }
             SearchPage(items, totalCount() ?: items.size, nextPage())
         }
     }
@@ -247,8 +255,8 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
         }
         val response = httpClient.forgejoApi(forge, token, "repos", "issues", "search", query = mapOf("state" to "open", "limit" to "$PAGE_SIZE", "sort" to "recentupdate") + mine, patienceMillis = WORK_PATIENCE_MILLIS)
         response.toResult {
-            body<List<IssueJson>>().mapNotNull { issue ->
-                issue.repository?.let { IssueSearchResult(RepoId(it.owner, it.name, forge), issue.toSummary()) }
+            body<List<Issue>>().mapNotNull { issue ->
+                issue.repository?.repoId(forge)?.let { IssueSearchResult(it, issue.toSummary()) }
             }
         }
     }
@@ -266,36 +274,13 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
     }
 }
 
-@Serializable
-private data class ProfileJson(
-    val login: String,
-    @SerialName("full_name") val fullName: String? = null,
-    @SerialName("avatar_url") val avatarUrl: String? = null,
-    val description: String? = null,
-    val location: String? = null,
-    val website: String? = null,
-    /** The person's address when they made it public, else one on the server's noreply domain. */
-    val email: String? = null,
-    @SerialName("followers_count") val followers: Int = 0,
-    @SerialName("following_count") val following: Int = 0,
-    val created: String? = null,
-)
-
-@Serializable
-private data class OrgJson(val username: String? = null, val name: String? = null, @SerialName("avatar_url") val avatarUrl: String? = null)
-
 /** Forgejo's largest page, and twenty of them at most: a thousand repositories. */
 private const val PAGE = 50
 private const val MAX_PAGES = 20
 
-@Serializable
-private data class ForgejoSubscriptionJson(val subscribed: Boolean = false)
-
-@Serializable
-private data class ForgejoForkJson(val name: String, val owner: ForgejoForkOwnerJson)
-
-@Serializable
-private data class ForgejoForkOwnerJson(val login: String)
-
-@Serializable
-private data class HeatmapJson(val timestamp: Long, val contributions: Int = 0)
+/** Where an issue found across repositories lives. */
+private fun RepositoryMeta.repoId(forge: ForgeInstance): RepoId? {
+    val owner = owner ?: return null
+    val name = name ?: return null
+    return RepoId(owner, name, forge)
+}

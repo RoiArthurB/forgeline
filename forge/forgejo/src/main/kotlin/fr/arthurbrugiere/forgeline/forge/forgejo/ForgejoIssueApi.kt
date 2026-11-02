@@ -31,6 +31,19 @@ import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
 import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Attachment
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Comment
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Issue
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.IssueConfig
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.IssueFormField
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.PullRequest
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.PullReview
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Repository
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.StopWatch
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.TimelineComment
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.TrackedTime
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.User
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.WatchInfo
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.forms.MultiPartFormDataContent
@@ -50,8 +63,7 @@ import io.ktor.http.isSuccess
 import io.ktor.http.takeFrom
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
@@ -65,6 +77,10 @@ import kotlinx.serialization.json.putJsonArray
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.IssueTemplate as ApiIssueTemplate
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Label as ApiLabel
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Milestone as ApiMilestone
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.Reaction as ApiReaction
 
 class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : IssueApi {
 
@@ -76,11 +92,11 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             val pullAnswer = async { get(token, ref, "pulls", ref.number.toString()) }
             val response = get(token, ref, "issues", ref.number.toString())
             if (response.status != HttpStatusCode.OK) return@coroutineScope response.failure()
-            val issue = response.body<IssueJson>()
+            val issue = response.body<Issue>()
             val pull = if (issue.isPullRequest) {
                 val details = pullAnswer.await()
                 if (details.status != HttpStatusCode.OK) return@coroutineScope details.failure()
-                details.body<PullJson>()
+                details.body<PullRequest>()
             } else {
                 // Not a pull request: don't wait for the 404.
                 pullAnswer.cancel()
@@ -88,7 +104,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             }
             // No reactions answers null, not an empty list (Codeberg, 2026-09-29).
             val counts = reactions.await().takeIf { it.status == HttpStatusCode.OK }
-                ?.let { runCatching { it.body<List<ReactionJson>?>() }.getOrNull() }.orEmpty()
+                ?.let { runCatching { it.body<List<ApiReaction>?>() }.getOrNull() }.orEmpty()
                 .mapNotNull { reaction(it.content) }.groupingBy { it }.eachCount()
             ForgeResult.Success(issue.toDetails(ref, pull, counts))
         }
@@ -96,7 +112,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
 
     /** The issue endpoint names pull requests too: no second call for the title. */
     override suspend fun title(token: String?, ref: IssueRef): ForgeResult<String> = forgeCall {
-        get(token, ref, "issues", ref.number.toString()).toResult { body<IssueJson>().title }
+        get(token, ref, "issues", ref.number.toString()).toResult { required(body<Issue>().title, "an issue's title") }
     }
 
     override suspend fun timeline(token: String?, ref: IssueRef, page: Int): ForgeResult<TimelinePage> = forgeCall {
@@ -104,7 +120,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             // A review entry doesn't say whether it approved; the pull request's reviews do. Asked alongside the
             // timeline, before knowing there are reviews: one round trip instead of two.
             val reviews = async { reviewStates(token, ref) }
-            timelinePage(token, ref, page) { entries -> if (entries.any { it.type == "review" }) reviews.await() else emptyMap() }
+            timelinePage(token, ref, page) { entries -> if (entries.any { it.kind == "review" }) reviews.await() else emptyMap() }
                 .also { reviews.cancel() }
         }
     }
@@ -114,8 +130,8 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             forge, token, "repos", ref.repo.owner, ref.repo.name, "issues", ref.number.toString(), "comments",
             method = HttpMethod.Post, body = buildJsonObject { put("body", body) },
         ).toResult {
-            val created = body<TimelineJson>()
-            TimelineItem.Comment(created.id, created.user?.toModel(), created.body.orEmpty(), instant(created.createdAt) ?: Instant.now(), emptyMap())
+            val created = body<Comment>()
+            TimelineItem.Comment(required(created.id, "a comment's id"), created.user?.toModel(), created.body.orEmpty(), instant(created.createdAt) ?: Instant.now(), emptyMap())
         }
     }
 
@@ -148,7 +164,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         val listed = get(token, ref, *target)
         if (listed.status != HttpStatusCode.OK) return@forgeCall listed.failure()
         // No reactions answers null, not an empty list.
-        val given = listed.body<List<ReactionJson>?>().orEmpty()
+        val given = listed.body<List<ApiReaction>?>().orEmpty()
         val mine = given.any { reaction(it.content) == reaction && it.user?.login.equals(login, ignoreCase = true) }
         val name = given.firstOrNull { reaction(it.content) == reaction }?.content ?: reaction.content
         val changed = httpClient.forgejoApi(
@@ -187,8 +203,8 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             header(HttpHeaders.Authorization, "token $token")
             setBody(MultiPartFormDataContent(formData { append("attachment", bytes, fileHeaders(name, mimeType)) }))
         }.toResult {
-            val kept = body<AttachmentJson>()
-            "![${altText(kept.name ?: name)}](${kept.url})"
+            val kept = body<Attachment>()
+            "![${altText(kept.name ?: name)}](${required(kept.browserDownloadUrl, "a file's address")})"
         }
     }
 
@@ -204,7 +220,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
                 put("title", title)
                 put("body", body)
             },
-        ).toResult { body<IssueJson>().let { it.toDetails(IssueRef(repo, it.number), pull = null, reactions = emptyMap()) } }
+        ).toResult { body<Issue>().let { it.toDetails(IssueRef(repo, required(it.number, "an issue's number").toInt()), pull = null, reactions = emptyMap()) } }
         if (created !is ForgeResult.Success || labels.isEmpty()) return@forgeCall created
         when (setLabels(token, created.value.ref, labels)) {
             is ForgeResult.Success -> ForgeResult.Success(created.value.copy(labels = labels.map { Label(it, null) }))
@@ -214,7 +230,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
 
     /** Forgejo reads its templates' `config.yml` itself, and answers what it says. */
     override suspend fun issueChooser(token: String, repo: RepoId): ForgeResult<IssueChooser> = forgeCall {
-        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "issue_config").toResult { body<IssueConfigJson>().toModel() }
+        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "issue_config").toResult { body<IssueConfig>().toModel() }
     }
 
     /**
@@ -223,10 +239,11 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
      */
     override suspend fun issueTemplates(token: String, repo: RepoId): ForgeResult<List<IssueTemplate>> = forgeCall {
         httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "issue_templates").toResult {
-            body<List<IssueTemplateJson>>().map { template ->
+            body<List<ApiIssueTemplate>>().map { template ->
+                val name = required(template.name, "a template's name")
                 IssueTemplate(
-                    key = template.fileName ?: template.name,
-                    name = template.name,
+                    key = template.fileName ?: name,
+                    name = name,
                     about = template.about?.ifBlank { null },
                     title = template.title.orEmpty(),
                     body = template.content?.ifBlank { null } ?: formToMarkdown(template.body.orEmpty()),
@@ -273,9 +290,9 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
                 timers.cancel()
                 return@coroutineScope times.failure()
             }
-            val running = timers.await().takeIf { it.status == HttpStatusCode.OK }?.body<List<StopwatchJson>>().orEmpty()
-                .firstOrNull { it.issue == ref.number && it.repo.equals(ref.repo.name, ignoreCase = true) && it.owner.equals(ref.repo.owner, ignoreCase = true) }
-            ForgeResult.Success(TimeTracking(times.body<List<TrackedTimeJson>>().sumOf { it.time }, running?.let { instant(it.created) }))
+            val running = timers.await().takeIf { it.status == HttpStatusCode.OK }?.body<List<StopWatch>>().orEmpty()
+                .firstOrNull { it.issueIndex == ref.number.toLong() && it.repoName.equals(ref.repo.name, ignoreCase = true) && it.repoOwnerName.equals(ref.repo.owner, ignoreCase = true) }
+            ForgeResult.Success(TimeTracking(times.body<List<TrackedTime>>().sumOf { it.time ?: 0 }, running?.let { instant(it.created) }))
         }
     }
 
@@ -295,10 +312,10 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
 
     override suspend fun dependencies(token: String, ref: IssueRef): ForgeResult<List<LinkedIssue>> = forgeCall {
         get(token, ref, "issues", ref.number.toString(), "dependencies").toResult {
-            body<List<IssueJson>>().map { issue ->
+            body<List<Issue>>().map { issue ->
                 // A dependency can live in another repository, which it then names.
-                val repo = issue.repository?.let { RepoId(it.owner, it.name, forge) } ?: ref.repo
-                LinkedIssue(IssueRef(repo, issue.number), issue.title, issue.state())
+                val repo = issue.repository?.let { RepoId(required(it.owner, "a repository's owner"), required(it.name, "a repository's name"), forge) } ?: ref.repo
+                LinkedIssue(IssueRef(repo, required(issue.number, "an issue's number").toInt()), required(issue.title, "an issue's title"), issue.state())
             }
         }
     }
@@ -331,8 +348,8 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
                 return@coroutineScope own.failure()
             }
             // An owner that is a person has no organisation labels: that answers 404.
-            val fromOrganisation = shared.await().takeIf { it.status == HttpStatusCode.OK }?.body<List<LabelJson>>().orEmpty()
-            ForgeResult.Success((own.body<List<LabelJson>>() + fromOrganisation).map { it.toModel() }.distinctBy { it.name })
+            val fromOrganisation = shared.await().takeIf { it.status == HttpStatusCode.OK }?.body<List<ApiLabel>>().orEmpty()
+            ForgeResult.Success((own.body<List<ApiLabel>>() + fromOrganisation).map { it.toModel() }.distinctBy { it.name })
         }
     }
 
@@ -346,7 +363,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
                 put("name", name)
                 put("color", color)
             },
-        ).toResult { body<LabelJson>().toModel() }
+        ).toResult { body<ApiLabel>().toModel() }
     }
 
     override suspend fun setLabels(token: String, ref: IssueRef, names: List<String>): ForgeResult<Unit> = forgeCall {
@@ -357,7 +374,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     }
 
     override suspend fun assignable(token: String, repo: RepoId): ForgeResult<List<ForgeUser>> = forgeCall {
-        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "assignees").toResult { body<List<UserJson>>().map { it.toModel() } }
+        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "assignees").toResult { body<List<User>>().map { it.toModel() } }
     }
 
     override suspend fun setAssignees(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> =
@@ -367,7 +384,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     override suspend fun setReviewers(token: String, ref: IssueRef, logins: List<String>): ForgeResult<Unit> = forgeCall {
         val pull = get(token, ref, "pulls", ref.number.toString())
         if (pull.status != HttpStatusCode.OK) return@forgeCall pull.failure()
-        val asked = pull.body<PullJson>().requestedReviewers.orEmpty().map { it.login }
+        val asked = pull.body<PullRequest>().requestedReviewers.orEmpty().map { it.name }
         val added = logins.filter { login -> asked.none { it.equals(login, ignoreCase = true) } }
         val removed = asked.filter { login -> logins.none { it.equals(login, ignoreCase = true) } }
         for ((who, method) in listOf(added to HttpMethod.Post, removed to HttpMethod.Delete)) {
@@ -390,20 +407,21 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         val pull = forgeCall {
             val answer = get(token, ref, "pulls", ref.number.toString())
             if (answer.status != HttpStatusCode.OK) return@forgeCall answer.failure()
-            ForgeResult.Success(answer.body<PullJson>())
+            ForgeResult.Success(answer.body<PullRequest>())
         }
         val current = when (pull) {
             is ForgeResult.Failure -> return pull
             is ForgeResult.Success -> pull.value
         }
-        if (current.draft == draft) return ForgeResult.Success(Unit)
-        val title = if (draft) "WIP: ${current.title}" else current.title.replace(forgejoDraftMark, "")
+        if ((current.draft == true) == draft) return ForgeResult.Success(Unit)
+        val currentTitle = current.title.orEmpty()
+        val title = if (draft) "WIP: $currentTitle" else currentTitle.replace(forgejoDraftMark, "")
         return edit(token, ref) { put("title", title) }
     }
 
     override suspend fun milestones(token: String, repo: RepoId): ForgeResult<List<Milestone>> = forgeCall {
         httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name, "milestones", query = FIRST_PAGE + ("state" to "open"))
-            .toResult { body<List<MilestoneJson>>().map { it.toModel() } }
+            .toResult { body<List<ApiMilestone>>().map { it.toModel() } }
     }
 
     /** No milestone is said with 0. */
@@ -420,7 +438,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     }
 
     override suspend fun isPinned(token: String, ref: IssueRef): ForgeResult<Boolean> = forgeCall {
-        get(token, ref, "issues", ref.number.toString()).toResult { body<PinnedJson>().pinOrder > 0 }
+        get(token, ref, "issues", ref.number.toString()).toResult { (body<Issue>().pinOrder ?: 0) > 0 }
     }
 
     override suspend fun setPinned(token: String, ref: IssueRef, pinned: Boolean): ForgeResult<Unit> = forgeCall {
@@ -431,7 +449,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     }
 
     override suspend fun isSubscribed(token: String, login: String, ref: IssueRef): ForgeResult<Boolean> = forgeCall {
-        get(token, ref, "issues", ref.number.toString(), "subscriptions", "check").toResult { body<WatchJson>().subscribed }
+        get(token, ref, "issues", ref.number.toString(), "subscriptions", "check").toResult { body<WatchInfo>().subscribed == true }
     }
 
     override suspend fun setSubscribed(token: String, login: String, ref: IssueRef, subscribed: Boolean): ForgeResult<Unit> = forgeCall {
@@ -446,37 +464,40 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     }
 
     override suspend fun access(token: String, repo: RepoId): ForgeResult<RepoRights> = forgeCall {
-        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name).toResult { forgejoRights(bodyAsText()) }
+        httpClient.forgejoApi(forge, token, "repos", repo.owner, repo.name).toResult { forgejoRights(body<Repository>()) }
     }
 
-    private fun IssueJson.toDetails(ref: IssueRef, pull: PullJson?, reactions: Map<Reaction, Int>) = IssueDetails(
+    private fun Issue.toDetails(ref: IssueRef, pull: PullRequest?, reactions: Map<Reaction, Int>) = IssueDetails(
         ref = ref,
-        title = title,
+        title = required(title, "an issue's title"),
         body = body?.ifBlank { null },
         state = state(),
         stateReason = null,
         author = user?.toModel(),
-        labels = labels.map { it.toModel() },
-        createdAt = instant(createdAt) ?: Instant.EPOCH,
+        labels = labels.orEmpty().map { it.toModel() },
+        createdAt = instant(required(createdAt, "an issue's creation time")) ?: Instant.EPOCH,
         closedAt = instant(closedAt),
-        comments = comments,
+        comments = comments.count(),
         reactions = reactions,
-        isLocked = isLocked,
+        isLocked = isLocked == true,
         assignees = assignees.orEmpty().map { it.toModel() },
-        milestone = milestone?.takeIf { it.id > 0 }?.toModel(),
+        milestone = milestone?.takeIf { (it.id ?: 0) > 0 }?.toModel(),
         // Kept as the end of a day; read in UTC, where it was sent as that day.
         dueDate = instant(dueDate)?.atOffset(ZoneOffset.UTC)?.toLocalDate(),
         pullRequest = pull?.let {
+            val head = required(it.head, "a pull request's head")
+            val headRef = required(head.ref, "a pull request's head branch")
             PullRequestInfo(
-                isDraft = it.draft,
-                isMerged = it.merged,
-                baseRef = it.base.ref,
+                isDraft = it.draft == true,
+                isMerged = it.merged == true,
+                baseRef = required(required(it.base, "a pull request's base").ref, "a pull request's base branch"),
                 // A pull request from another repository only names a pull ref; its label says owner:branch.
-                headRef = it.head.label?.takeIf { _ -> it.head.ref.startsWith("refs/pull/") } ?: it.head.ref,
-                additions = it.additions ?: 0,
-                deletions = it.deletions ?: 0,
-                changedFiles = it.changedFiles ?: 0,
-                commits = it.commits ?: 0,
+                headRef = head.label?.takeIf { headRef.startsWith("refs/pull/") } ?: headRef,
+                additions = it.additions.count(),
+                deletions = it.deletions.count(),
+                changedFiles = it.changedFiles.count(),
+                // Forgejo's pull request doesn't count its commits (not in its API description, nor in Codeberg's answers).
+                commits = 0,
                 reviewers = it.requestedReviewers.orEmpty().map { user -> user.toModel() },
             )
         },
@@ -486,11 +507,11 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         token: String?,
         ref: IssueRef,
         page: Int,
-        reviews: suspend (List<TimelineJson>) -> Map<Long, ReviewState>,
+        reviews: suspend (List<TimelineComment>) -> Map<Long, ReviewState>,
     ): ForgeResult<TimelinePage> {
         val response = get(token, ref, "issues", ref.number.toString(), "timeline", query = mapOf("page" to page.toString(), "limit" to "$PAGE_SIZE"))
         if (response.status != HttpStatusCode.OK) return response.failure()
-        val entries = response.body<List<TimelineJson>>()
+        val entries = response.body<List<TimelineComment>>()
         val reviewStates = reviews(entries)
         val items = entries.mapIndexedNotNull { index, entry ->
             val before = entries.getOrNull(index - 1)
@@ -525,13 +546,13 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     private suspend fun readReviewStates(token: String?, ref: IssueRef): Map<Long, ReviewState> {
         val response = get(token, ref, "pulls", ref.number.toString(), "reviews")
         if (response.status != HttpStatusCode.OK) return emptyMap()
-        return response.body<List<ReviewJson>>().mapNotNull { review ->
+        return response.body<List<PullReview>>().mapNotNull { review ->
             when (review.state) {
                 "APPROVED" -> ReviewState.APPROVED
                 "REQUEST_CHANGES" -> ReviewState.CHANGES_REQUESTED
                 "COMMENT" -> ReviewState.COMMENTED
                 else -> null
-            }?.let { review.id to it }
+            }?.let { required(review.id, "a review's id") to it }
         }.toMap()
     }
 
@@ -542,11 +563,11 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
      * Whether this is the reference of a commit that closed the conversation: Forgejo writes it, then the close, by the
      * same person in the same second (dnkl/foot#2467 on Codeberg, 2026-09-18).
      */
-    private fun TimelineJson.closesWith(next: TimelineJson?) =
-        type == "commit_ref" && next?.type == "close" && next.createdAt == createdAt && next.user?.login == user?.login && commit() != null
+    private fun TimelineComment.closesWith(next: TimelineComment?) =
+        kind == "commit_ref" && next?.kind == "close" && next.createdAt == createdAt && next.user?.login == user?.login && commit() != null
 
     /** The commit a reference names: its body is a link to the commit, its words the commit's first line. */
-    private fun TimelineJson.commit(): ClosingCommit? {
+    private fun TimelineComment.commit(): ClosingCommit? {
         val sha = refCommitSha?.ifEmpty { null } ?: return null
         val link = COMMIT_LINK.find(body.orEmpty())
         val path = link?.groupValues?.get(1)?.takeIf { it.startsWith("/") }
@@ -554,11 +575,13 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         return ClosingCommit(sha, message, "https://${forge.host}${path ?: "/commit/$sha"}")
     }
 
-    private fun TimelineJson.toItem(reviewStates: Map<Long, ReviewState>, home: RepoId): TimelineItem? {
+    private fun TimelineComment.toItem(reviewStates: Map<Long, ReviewState>, home: RepoId): TimelineItem? {
         val at = instant(createdAt) ?: return null
         val actor = user?.toModel()
-        return when (type) {
-            "comment" -> TimelineItem.Comment(id, actor, body.orEmpty(), at, emptyMap())
+        val oldTitle = oldTitle
+        val newTitle = newTitle
+        return when (kind) {
+            "comment" -> TimelineItem.Comment(required(id, "a comment's id"), actor, body.orEmpty(), at, emptyMap())
             "review" -> reviewId?.let { reviewStates[it] }?.let { TimelineItem.Review(reviewId, actor, it, body?.ifBlank { null }, at) }
             "close" -> TimelineItem.StateChanged(StateChange.CLOSED, actor, null, at)
             "reopen" -> TimelineItem.StateChanged(StateChange.REOPENED, actor, null, at)
@@ -569,8 +592,8 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             "issue_ref", "pull_ref", "comment_ref" -> refIssue?.let { source ->
                 val repo = source.repository?.fullName?.split('/')?.takeIf { it.size == 2 } ?: return null
                 TimelineItem.CrossReferenced(
-                    IssueRef(RepoId(repo[0], repo[1], forge), source.number),
-                    source.title,
+                    IssueRef(RepoId(repo[0], repo[1], forge), required(source.number, "an issue's number").toInt()),
+                    required(source.title, "an issue's title"),
                     source.pullRequest != null,
                     actor,
                     at,
@@ -581,11 +604,11 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             "pin" -> TimelineItem.Event(ConversationEvent.PINNED, actor, null, at)
             "unpin" -> TimelineItem.Event(ConversationEvent.UNPINNED, actor, null, at)
             "assignees" -> assignee?.let {
-                TimelineItem.Event(if (removedAssignee) ConversationEvent.UNASSIGNED else ConversationEvent.ASSIGNED, actor, it.login, at)
+                TimelineItem.Event(if (removedAssignee == true) ConversationEvent.UNASSIGNED else ConversationEvent.ASSIGNED, actor, it.name, at)
             }
             // Setting one names it; taking it away names the one that was there.
-            "milestone" -> milestone?.takeIf { it.id > 0 }?.let { TimelineItem.Event(ConversationEvent.MILESTONED, actor, it.title, at) }
-                ?: oldMilestone?.takeIf { it.id > 0 }?.let { TimelineItem.Event(ConversationEvent.DEMILESTONED, actor, it.title, at) }
+            "milestone" -> milestone?.takeIf { (it.id ?: 0) > 0 }?.let { TimelineItem.Event(ConversationEvent.MILESTONED, actor, it.title, at) }
+                ?: oldMilestone?.takeIf { (it.id ?: 0) > 0 }?.let { TimelineItem.Event(ConversationEvent.DEMILESTONED, actor, it.title, at) }
             // A new date is written alone, a changed one as "new|old", a removed one as the date it was.
             "added_deadline", "modified_deadline" -> TimelineItem.Event(ConversationEvent.DEADLINE_SET, actor, body?.substringBefore('|')?.ifBlank { null }, at)
             "removed_deadline" -> TimelineItem.Event(ConversationEvent.DEADLINE_REMOVED, actor, null, at)
@@ -594,7 +617,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             "add_time_manual" -> TimelineItem.Event(ConversationEvent.TIME_ADDED, actor, null, at)
             "add_dependency", "remove_dependency" -> dependentIssue?.let {
                 TimelineItem.Event(
-                    if (type == "add_dependency") ConversationEvent.DEPENDENCY_ADDED else ConversationEvent.DEPENDENCY_REMOVED,
+                    if (kind == "add_dependency") ConversationEvent.DEPENDENCY_ADDED else ConversationEvent.DEPENDENCY_REMOVED,
                     actor,
                     // One in another repository names it.
                     it.repository?.fullName?.takeUnless { name -> name.equals(home.fullName, ignoreCase = true) }.orEmpty() + "#${it.number} ${it.title}",
@@ -613,7 +636,7 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
 
         val FIRST_PAGE = mapOf("limit" to "$PAGE_SIZE")
 
-        fun reaction(content: String): Reaction? = when (content) {
+        fun reaction(content: String?): Reaction? = when (content) {
             "+1" -> Reaction.THUMBS_UP
             "-1" -> Reaction.THUMBS_DOWN
             "laugh" -> Reaction.LAUGH
@@ -627,77 +650,29 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
     }
 }
 
-@Serializable
-private data class PinnedJson(@SerialName("pin_order") val pinOrder: Int = 0)
-
-@Serializable
-private data class IssueTemplateJson(
-    val name: String,
-    val title: String? = null,
-    val about: String? = null,
-    val content: String? = null,
-    val body: List<FormFieldJson>? = null,
-    @SerialName("file_name") val fileName: String? = null,
-    val labels: List<String>? = null,
-)
-
-@Serializable
-private data class IssueConfigJson(
-    @SerialName("blank_issues_enabled") val blankIssuesEnabled: Boolean = true,
-    @SerialName("contact_links") val contactLinks: List<ContactLinkJson>? = null,
-) {
-    fun toModel() = IssueChooser(blankIssuesEnabled, contactLinks.orEmpty().filter { it.name.isNotBlank() && it.url.isNotBlank() }.map { ContactLink(it.name, it.url, it.about?.ifBlank { null }) })
-}
-
-@Serializable
-private data class ContactLinkJson(val name: String = "", val url: String = "", val about: String? = null)
-
-/** One field of an issue form: [visible] says whether it shows in the form, in the issue it writes, or both. */
-@Serializable
-internal data class FormFieldJson(val type: String, val attributes: FormAttributesJson = FormAttributesJson(), val visible: List<String>? = null)
-
-@Serializable
-internal data class FormAttributesJson(
-    val label: String? = null,
-    val description: String? = null,
-    val value: String? = null,
-    // Plain words for a dropdown, a label each for checkboxes.
-    val options: List<JsonElement> = emptyList(),
+private fun IssueConfig.toModel() = IssueChooser(
+    blankIssuesEnabled != false,
+    contactLinks.orEmpty()
+        .mapNotNull { link -> link.name?.takeIf { it.isNotBlank() }?.let { name -> link.url?.takeIf { it.isNotBlank() }?.let { ContactLink(name, it, link.about?.ifBlank { null }) } } },
 )
 
 /**
  * The Markdown an issue form writes, with its answers still to give: what Forgejo itself puts in the issue (its markdown
  * meant for the issue, then each field's label as a heading over its answer), each field's help as a comment above
- * where it is answered, a dropdown's choices as a list to keep one of, checkboxes as boxes to tick.
+ * where it is answered, a dropdown's choices as a list to keep one of, checkboxes as boxes to tick. A field's
+ * `visible` says whether it shows in the form, in the issue it writes, or both.
  */
-internal fun formToMarkdown(fields: List<FormFieldJson>): String = issueFormText(
-    fields.map { field ->
-        val attributes = field.attributes
-        val options = attributes.options.mapNotNull { option ->
+internal fun formToMarkdown(fields: List<IssueFormField>): String = issueFormText(
+    fields.mapNotNull { field ->
+        val type = field.type ?: return@mapNotNull null
+        val attributes = field.attributes.orEmpty()
+        fun text(name: String) = (attributes[name] as? JsonPrimitive)?.contentOrNull
+        // Plain words for a dropdown, a label each for checkboxes.
+        val options = (attributes["options"] as? JsonArray).orEmpty().mapNotNull { option ->
             (option as? JsonObject)?.get("label")?.jsonPrimitive?.contentOrNull ?: (option as? JsonPrimitive)?.contentOrNull
         }
-        FormField(field.type, attributes.label, attributes.description, attributes.value, options, inIssue = field.visible?.contains("content") ?: (field.type != "markdown"))
+        FormField(type, text("label"), text("description"), text("value"), options, inIssue = field.visible?.contains("content") ?: (type != "markdown"))
     },
-)
-
-/** Whether the signed-in user hears of a conversation. */
-@Serializable
-private data class WatchJson(val subscribed: Boolean = false)
-
-@Serializable
-private data class PermissionsJson(val admin: Boolean = false, val push: Boolean = false)
-
-@Serializable
-private data class TrackerJson(
-    @SerialName("enable_time_tracker") val timeTracker: Boolean = false,
-    @SerialName("allow_only_contributors_to_track_time") val contributorsOnly: Boolean = false,
-    @SerialName("enable_issue_dependencies") val dependencies: Boolean = false,
-)
-
-@Serializable
-private data class PermittedRepoJson(
-    val permissions: PermissionsJson = PermissionsJson(),
-    @SerialName("internal_tracker") val tracker: TrackerJson? = null,
 )
 
 /**
@@ -705,63 +680,34 @@ private data class PermittedRepoJson(
  * manages the conversations too. A repository's own settings switch time tracking and dependencies on, and may keep
  * tracking to those who can push.
  */
-internal fun forgejoRights(repoAnswer: String): RepoRights {
-    val answer = ForgeJson.decodeFromString<PermittedRepoJson>(repoAnswer)
-    val permissions = answer.permissions
+internal fun forgejoRights(repo: Repository): RepoRights {
+    val admin = repo.permissions?.admin == true
+    val push = repo.permissions?.push == true
     // Without its own tracker (issues kept elsewhere), neither applies.
-    val tracker = answer.tracker
-    val tracksTime = tracker != null && tracker.timeTracker && (permissions.push || !tracker.contributorsOnly)
+    val tracker = repo.internalTracker
+    val tracksTime = tracker != null && tracker.enableTimeTracker == true && (push || tracker.allowOnlyContributorsToTrackTime != true)
     return RepoRights(
         access = when {
-            permissions.admin -> RepoAccess.ADMIN
-            permissions.push -> RepoAccess.WRITE
+            admin -> RepoAccess.ADMIN
+            push -> RepoAccess.WRITE
             else -> RepoAccess.NONE
         },
         switchedOff = setOfNotNull(
             ConversationAction.TIME_TRACKING.takeUnless { tracksTime },
-            ConversationAction.DEPENDENCIES.takeUnless { tracker?.dependencies == true },
+            ConversationAction.DEPENDENCIES.takeUnless { tracker?.enableIssueDependencies == true },
         ),
     )
 }
-
-@Serializable
-private data class TrackedTimeJson(val time: Long = 0)
-
-@Serializable
-private data class StopwatchJson(
-    val created: String? = null,
-    @SerialName("issue_index") val issue: Int = 0,
-    @SerialName("repo_owner_name") val owner: String = "",
-    @SerialName("repo_name") val repo: String = "",
-)
-
-@Serializable
-private data class BranchJson(val ref: String, val label: String? = null)
-
-@Serializable
-private data class PullJson(
-    val title: String = "",
-    val draft: Boolean = false,
-    val merged: Boolean = false,
-    // Null rather than empty when nobody was ever asked.
-    @SerialName("requested_reviewers") val requestedReviewers: List<UserJson>? = null,
-    val base: BranchJson,
-    val head: BranchJson,
-    val additions: Int? = null,
-    val deletions: Int? = null,
-    @SerialName("changed_files") val changedFiles: Int? = null,
-    val commits: Int? = null,
-)
 
 /** The reactions on comment [commentId] of [repo], counted; none where they can't be read (null answers none too). */
 internal suspend fun HttpClient.forgejoCommentReactions(forge: ForgeInstance, token: String?, repo: RepoId, commentId: Long): Map<Reaction, Int> {
     val response = runCatching { forgejoApi(forge, token, "repos", repo.owner, repo.name, "issues", "comments", commentId.toString(), "reactions") }.getOrNull()
     if (response?.status != HttpStatusCode.OK) return emptyMap()
-    val given = runCatching { response.body<List<ReactionJson>?>() }.getOrNull().orEmpty()
+    val given = runCatching { response.body<List<ApiReaction>?>() }.getOrNull().orEmpty()
     return given.mapNotNull { forgejoReaction(it.content) }.groupingBy { it }.eachCount()
 }
 
-internal fun forgejoReaction(content: String): Reaction? = when (content) {
+internal fun forgejoReaction(content: String?): Reaction? = when (content) {
     "+1" -> Reaction.THUMBS_UP
     "-1" -> Reaction.THUMBS_DOWN
     "laugh" -> Reaction.LAUGH
@@ -773,12 +719,6 @@ internal fun forgejoReaction(content: String): Reaction? = when (content) {
     else -> null
 }
 
-@Serializable
-private data class ReactionJson(val content: String, val user: UserJson? = null)
-
-@Serializable
-private data class AttachmentJson(val name: String? = null, @SerialName("browser_download_url") val url: String)
-
 private fun fileHeaders(name: String, mimeType: String) = Headers.build {
     append(HttpHeaders.ContentType, mimeType)
     append(HttpHeaders.ContentDisposition, "filename=\"${name.replace("\"", "")}\"")
@@ -787,41 +727,8 @@ private fun fileHeaders(name: String, mimeType: String) = Headers.build {
 /** A file's name as the text that stands for its picture: without what would end the Markdown early. */
 private fun altText(name: String): String = name.substringBeforeLast('.').replace(Regex("""[\[\]\\]"""), "").ifBlank { "image" }
 
-@Serializable
-private data class ReviewJson(val id: Long, val state: String)
-
-@Serializable
-private data class RefRepoJson(@SerialName("full_name") val fullName: String)
-
-@Serializable
-private data class RefIssueJson(
-    val number: Int,
-    val title: String,
-    @SerialName("pull_request") val pullRequest: IssuePullJson? = null,
-    val repository: RefRepoJson? = null,
-)
-
-@Serializable
-private data class TimelineJson(
-    val id: Long,
-    // A created comment comes back without a type.
-    val type: String = "comment",
-    val body: String? = null,
-    val user: UserJson? = null,
-    @SerialName("created_at") val createdAt: String? = null,
-    val label: LabelJson? = null,
-    @SerialName("old_title") val oldTitle: String? = null,
-    @SerialName("new_title") val newTitle: String? = null,
-    @SerialName("ref_issue") val refIssue: RefIssueJson? = null,
-    @SerialName("review_id") val reviewId: Long? = null,
-    val assignee: UserJson? = null,
-    @SerialName("removed_assignee") val removedAssignee: Boolean = false,
-    val milestone: MilestoneJson? = null,
-    @SerialName("old_milestone") val oldMilestone: MilestoneJson? = null,
-    @SerialName("dependent_issue") val dependentIssue: RefIssueJson? = null,
-    @SerialName("ref_commit_sha") val refCommitSha: String? = null,
-    @SerialName("old_ref") val oldRef: String? = null,
-)
+/** What a timeline entry is; a created comment comes back without a type. */
+private val TimelineComment.kind: String get() = type ?: "comment"
 
 /** A commit reference's body: `<a href="/owner/name/commit/sha">its first line</a>`. */
 private val COMMIT_LINK = Regex("""<a href="([^"]*)">(.*?)</a>""", RegexOption.DOT_MATCHES_ALL)

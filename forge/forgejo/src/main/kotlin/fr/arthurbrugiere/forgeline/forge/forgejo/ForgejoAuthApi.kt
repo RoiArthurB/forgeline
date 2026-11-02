@@ -9,6 +9,7 @@ import fr.arthurbrugiere.forgeline.core.forge.OAuthTokens
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.forgejo.api.User
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.accept
@@ -41,7 +42,7 @@ class ForgejoAuthApi(
     override suspend fun pollDeviceToken(deviceCode: String): ForgeResult<DeviceTokenPoll> = ForgeResult.Failure(ForgeError.Unsupported)
 
     override suspend fun fetchAuthenticatedUser(token: String): ForgeResult<ForgeUser> = forgeCall {
-        httpClient.forgejoApi(forge, token, "user").toResult { body<UserJson>().toModel() }
+        httpClient.forgejoApi(forge, token, "user").toResult { body<User>().toModel() }
     }
 
     override fun authorizationUrl(redirectUri: String, state: String, codeChallenge: String): String =
