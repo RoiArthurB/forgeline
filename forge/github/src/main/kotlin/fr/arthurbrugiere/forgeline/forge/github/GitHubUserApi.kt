@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import com.apollographql.apollo.api.Optional
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
 import fr.arthurbrugiere.forgeline.core.forge.map
@@ -14,6 +15,10 @@ import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.distinctPlaces
 import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.github.graphql.ContributionsQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.StarListItemsQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.StarListsQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.ListItems
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
@@ -56,22 +61,15 @@ class GitHubUserApi(
     }.getOrNull().orEmpty().mapNotNull { (code, image) -> emojiOfImage(image)?.let { code to it } }.toMap()
 
     private suspend fun readStarLists(token: String): ForgeResult<List<StarList>> = forgeCall {
-        httpClient.gitHubGraphQl(apiBaseUrl, token, LISTS_QUERY).map { data ->
-            val lists = data["viewer"]?.jsonObject?.get("lists")?.jsonObject?.get("nodes")?.jsonArray.orEmpty()
-                .map { ForgeJson.decodeFromJsonElement<StarListJson>(it) }
-            lists.map { list ->
-                val repos = list.items.nodes.mapNotNull { it.toSummary() }.toMutableList()
-                var page = list.items.pageInfo
+        httpClient.gitHubOperation(apiBaseUrl, token, StarListsQuery()).map { data ->
+            data.viewer.lists.nodes.orEmpty().filterNotNull().map { list ->
+                val repos = list.items.listItems.repos().toMutableList()
+                var page = list.items.listItems.pageInfo
                 var pages = 1
                 while (page.hasNextPage && page.endCursor != null && pages < MAX_LIST_PAGES) {
-                    val variables = buildJsonObject {
-                        put("id", list.id)
-                        put("after", page.endCursor)
-                    }
-                    val more = httpClient.gitHubGraphQl(apiBaseUrl, token, LIST_ITEMS_QUERY, variables)
-                    val items = (more as? ForgeResult.Success)?.value?.get("node")?.jsonObject?.get("items") ?: break
-                    val read = ForgeJson.decodeFromJsonElement<StarListItemsJson>(items)
-                    repos += read.nodes.mapNotNull { it.toSummary() }
+                    val more = httpClient.gitHubOperation(apiBaseUrl, token, StarListItemsQuery(list.id, Optional.presentIfNotNull(page.endCursor)))
+                    val read = (more as? ForgeResult.Success)?.value?.node?.onUserList?.items?.listItems ?: break
+                    repos += read.repos()
                     page = read.pageInfo
                     pages++
                 }
@@ -83,15 +81,10 @@ class GitHubUserApi(
     // Only GraphQL has the calendar, and GraphQL wants a token: signed out, GitHub's profiles show none.
     override suspend fun contributions(token: String?, login: String): ForgeResult<Contributions> {
         if (token == null) return ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unauthorized)
-        val variables = buildJsonObject { put("login", login) }
         return forgeCall {
-            httpClient.gitHubGraphQl(apiBaseUrl, token, CONTRIBUTIONS_QUERY, variables).map { data ->
-                val weeks = data["user"]?.jsonObject?.get("contributionsCollection")?.jsonObject?.get("contributionCalendar")?.jsonObject?.get("weeks")?.jsonArray.orEmpty()
-                Contributions(
-                    weeks.flatMap { it.jsonObject["contributionDays"]?.jsonArray.orEmpty() }.associate { day ->
-                        LocalDate.parse(day.jsonObject.getValue("date").jsonPrimitive.content) to day.jsonObject.getValue("contributionCount").jsonPrimitive.int
-                    },
-                )
+            httpClient.gitHubOperation(apiBaseUrl, token, ContributionsQuery(login)).map { data ->
+                val weeks = data.user?.contributionsCollection?.contributionCalendar?.weeks.orEmpty()
+                Contributions(weeks.flatMap { it.contributionDays }.associate { day -> LocalDate.parse(day.date) to day.contributionCount })
             }
         }
     }
@@ -243,53 +236,16 @@ private data class RepoJson(
     }
 }
 
-private const val CONTRIBUTIONS_QUERY =
-    "query Contributions(\$login: String!) { user(login: \$login) { contributionsCollection { contributionCalendar { weeks { contributionDays { date contributionCount } } } } } }"
-
-private const val LIST_ITEM_FIELDS =
-    "totalCount nodes { __typename ... on Repository { nameWithOwner description stargazerCount forkCount isFork isPrivate primaryLanguage { name } owner { avatarUrl } } } pageInfo { hasNextPage endCursor }"
-
-private const val LISTS_QUERY = "query StarLists { viewer { lists(first: 100) { nodes { id name description items(first: 100) { $LIST_ITEM_FIELDS } } } } }"
-
-private const val LIST_ITEMS_QUERY =
-    "query StarListItems(\$id: ID!, \$after: String) { node(id: \$id) { ... on UserList { items(first: 100, after: \$after) { $LIST_ITEM_FIELDS } } } }"
-
 /** Ten pages of a hundred: a list longer than that is cut there. */
 private const val MAX_LIST_PAGES = 10
 
-@Serializable
-private data class StarListJson(val id: String, val name: String, val description: String? = null, val items: StarListItemsJson)
-
-@Serializable
-private data class StarListItemsJson(val nodes: List<StarListItemJson> = emptyList(), val pageInfo: PageInfoJson = PageInfoJson())
-
-@Serializable
-private data class PageInfoJson(val hasNextPage: Boolean = false, val endCursor: String? = null)
-
-@Serializable
-private data class NamedJson(val name: String? = null)
-
-@Serializable
-private data class AvatarJson(val avatarUrl: String? = null)
-
-/** A list holds repositories (and, one day perhaps, more): anything else is left out. */
-@Serializable
-private data class StarListItemJson(
-    @SerialName("__typename") val type: String,
-    val nameWithOwner: String? = null,
-    val description: String? = null,
-    val stargazerCount: Int = 0,
-    val forkCount: Int = 0,
-    val isFork: Boolean = false,
-    val isPrivate: Boolean = false,
-    val primaryLanguage: NamedJson? = null,
-    val owner: AvatarJson? = null,
-) {
-    fun toSummary(): RepoSummary? {
-        if (type != "Repository") return null
-        val (owner, name) = nameWithOwner?.split('/')?.takeIf { it.size == 2 } ?: return null
-        return RepoSummary(RepoId(owner, name, ForgeInstance.GitHub), description, primaryLanguage?.name, stargazerCount, forkCount, isFork, null, this.owner?.avatarUrl, isPrivate)
-    }
+/** A list's repositories, the only things a list holds today. */
+private fun ListItems.repos(): List<RepoSummary> = nodes.orEmpty().mapNotNull { it?.onRepository }.mapNotNull { repo ->
+    val (owner, name) = repo.nameWithOwner.split('/').takeIf { it.size == 2 } ?: return@mapNotNull null
+    RepoSummary(
+        RepoId(owner, name, ForgeInstance.GitHub), repo.description, repo.primaryLanguage?.name, repo.stargazerCount, repo.forkCount, repo.isFork, null,
+        repo.owner.avatarUrl, repo.isPrivate,
+    )
 }
 
 private val EMOJI_CODE = Regex(":([a-z0-9_+-]+):")
