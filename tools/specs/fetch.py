@@ -74,7 +74,8 @@ def tangled() -> None:
         folder = pending.pop()
         for entry in tangled_tree(folder):
             child = f"{folder}/{entry['name']}"
-            if not entry.get("is_file", True) or str(entry.get("mode", "")).startswith("04") or entry.get("mode") == "tree":
+            # Git modes, in octal: 040000 is a folder (Tangled writes it 0040000).
+            if int(str(entry.get("mode", "0")), 8) & 0o170000 == 0o040000:
                 pending.append(child)
             elif child.endswith(".json"):
                 data = tangled_blob(child)
