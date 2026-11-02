@@ -12,6 +12,7 @@ plugins {
     alias(libs.plugins.roborazzi) apply false
     alias(libs.plugins.baselineprofile) apply false
     alias(libs.plugins.room) apply false
+    alias(libs.plugins.ozone) apply false
     alias(libs.plugins.spotless)
 }
 

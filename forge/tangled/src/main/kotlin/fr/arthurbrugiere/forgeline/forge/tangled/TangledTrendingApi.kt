@@ -8,11 +8,11 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import fr.arthurbrugiere.forgeline.core.model.TrendingRepo
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import org.tangled.feed.ListStarsOrder
+import org.tangled.feed.ListStarsQueryParams
 import java.time.Clock
 import java.time.Duration
 
@@ -23,32 +23,34 @@ import java.time.Duration
  * already picked them.
  */
 class TangledTrendingApi(
-    private val httpClient: HttpClient,
+    private val xrpc: TangledXrpc,
     private val identity: TangledIdentity,
     private val clock: Clock = Clock.systemUTC(),
 ) : TrendingApi {
     override val forge: ForgeInstance = ForgeInstance.Tangled
 
     override suspend fun trending(period: TrendingPeriod): ForgeResult<List<TrendingRepo>> = forgeCall {
-        val repos = when (val result = httpClient.xrpc("org.tangled.actor.getTrending").toResult { body<TrendingJson>().repos }) {
+        val repos = when (val result = xrpc.index.getTrending().toResult { it.repos }) {
             is ForgeResult.Failure -> return@forgeCall result
             is ForgeResult.Success -> result.value
         }
         val since = clock.instant().minus(period.length)
-        val gained = coroutineScope { repos.map { async { starsSince(it.did, since) } }.awaitAll() }
+        val gained = coroutineScope { repos.map { async { starsSince(it.did.did, since) } }.awaitAll() }
         ForgeResult.Success(
             repos.zip(gained).map { (repo, periodStars) ->
-                identity.remember(repo.owner.handle, repo.owner.did)
+                val owner = repo.owner.handle.handle
+                val avatar = repo.owner.avatar?.uri
+                identity.remember(owner, repo.owner.did.did)
                 TrendingRepo(
-                    id = RepoId(repo.owner.handle, repo.slug, forge),
+                    id = RepoId(owner, repo.slug, forge),
                     description = repo.description?.takeIf { it.isNotBlank() },
                     language = repo.primaryLanguage,
                     languageColor = null,
-                    stars = repo.starCount ?: 0,
-                    forks = repo.forkCount ?: 0,
+                    stars = repo.starCount?.toInt() ?: 0,
+                    forks = repo.forkCount?.toInt() ?: 0,
                     periodStars = periodStars,
-                    builtBy = listOf(ForgeUser(repo.owner.handle, null, repo.owner.avatar)),
-                    ownerAvatarUrl = repo.owner.avatar,
+                    builtBy = listOf(ForgeUser(owner, null, avatar)),
+                    ownerAvatarUrl = avatar,
                 )
             },
         )
@@ -60,11 +62,13 @@ class TangledTrendingApi(
         var cursor: String? = null
         repeat(MAX_STAR_PAGES) {
             val page = (
-                httpClient.xrpc("org.tangled.feed.listStars", "subject" to repoDid, "limit" to "$STARS_PAGE", "order" to "desc", "cursor" to cursor)
-                    .toResult { body<RecordListJson<StarRecordJson>>() } as? ForgeResult.Success
+                forgeCall {
+                    xrpc.index.listStars(ListStarsQueryParams(repoDid, cursor = cursor, limit = STARS_PAGE.toLong(), order = ListStarsOrder.Desc))
+                        .toResult { it }
+                } as? ForgeResult.Success
                 )?.value ?: return count
             for (star in page.items) {
-                val at = instant(star.value.createdAt) ?: continue
+                val at = instant(star.value.decodeAs<StarRecordJson>().createdAt) ?: continue
                 if (at < since) return count
                 count++
             }

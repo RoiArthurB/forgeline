@@ -15,7 +15,7 @@ class TangledRepoApiTest {
 
     private fun <T> ForgeResult<T>.value(): T = (this as? ForgeResult.Success)?.value ?: error("$this")
 
-    private fun api(fake: FakeTangled) = TangledRepoApi(fake.client, TangledIdentity(fake.client))
+    private fun api(fake: FakeTangled) = TangledRepoApi(fake.xrpc, TangledIdentity(fake.client, fake.xrpc))
 
     @Test
     fun a_repository_is_found_by_its_owner_s_did_and_counted_by_its_own() = runTest {
@@ -24,7 +24,7 @@ class TangledRepoApiTest {
                 "com.atproto.identity.resolveHandle" to resolved,
                 "org.tangled.temp.repo.getRepoByName" to coreRepo,
                 "org.tangled.feed.countStars" to { """{"count":412,"distinctAuthors":412}""" },
-                "org.tangled.repo.countForks" to { """{"count":37}""" },
+                "org.tangled.repo.countForks" to { """{"count":37,"distinctAuthors":30}""" },
             ),
         )
 
@@ -106,7 +106,7 @@ class TangledRepoApiTest {
 
         assertThat(readme?.path).isEqualTo("README.md")
         assertThat(readme?.markdown).isEqualTo("# Tangled\n")
-        assertThat(fake.asked.last()).isEqualTo("org.tangled.temp.git.getBlob?path=README.md&repo=$REPO_DID")
+        assertThat(fake.asked.last()).isEqualTo("org.tangled.temp.git.getBlob?download=false&path=README.md&ref=HEAD&repo=$REPO_DID")
     }
 
     @Test
@@ -117,12 +117,12 @@ class TangledRepoApiTest {
                 "org.tangled.temp.repo.getRepoByName" to coreRepo,
                 "org.tangled.temp.git.listBranches" to { request ->
                     if (request.url.parameters["cursor"] == null) {
-                        """{"branches":[{"name":"master","oid":"a","message":"m","author":{},"committer":{}}],"cursor":"next","total":2,"defaultBranch":"master"}"""
+                        """{"branches":[{"name":"master","oid":"a","message":"m","author":$SIGNATURE,"committer":$SIGNATURE}],"cursor":"next","total":2,"defaultBranch":"master"}"""
                     } else {
-                        """{"branches":[{"name":"dev","oid":"b","message":"m","author":{},"committer":{}}],"total":2}"""
+                        """{"branches":[{"name":"dev","oid":"b","message":"m","author":$SIGNATURE,"committer":$SIGNATURE}],"total":2}"""
                     }
                 },
-                "org.tangled.temp.git.listTags" to { """{"tags":[{"name":"v1.9.0","oid":"c","message":""},{"name":"v1.10.0","oid":"d","message":""}],"total":2}""" },
+                "org.tangled.temp.git.listTags" to { """{"tags":[{"name":"v1.9.0","oid":"c","message":"","author":$SIGNATURE},{"name":"v1.10.0","oid":"d","message":"","author":$SIGNATURE}],"total":2}""" },
             ),
         )
 

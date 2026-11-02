@@ -6,18 +6,18 @@ import fr.arthurbrugiere.forgeline.core.forge.StarApi
 import fr.arthurbrugiere.forgeline.core.forge.map
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import org.tangled.feed.GetStarQueryParams
+import org.tangled.graph.GetFollowQueryParams
+import sh.christian.ozone.api.response.AtpResponse
 import java.time.Clock
 import java.time.temporal.ChronoUnit
 
@@ -32,7 +32,7 @@ internal const val FOLLOW_COLLECTION = "org.tangled.graph.follow"
 
 /** Starring a Tangled repository, as the person signed in. */
 class TangledStarApi(
-    private val httpClient: HttpClient,
+    private val xrpc: TangledXrpc,
     private val account: TangledAccount,
     private val repos: TangledRepoApi,
     private val clock: Clock = Clock.systemUTC(),
@@ -91,7 +91,11 @@ class TangledStarApi(
     }
 
     private suspend fun starOf(me: String, repoDid: String): ForgeResult<String?> = forgeCall {
-        httpClient.xrpc("org.tangled.feed.getStar", "actor" to me, "subject" to repoDid).uriOrNone()
+        val actor = when (val did = asDid(me)) {
+            is ForgeResult.Failure -> return@forgeCall did
+            is ForgeResult.Success -> did.value
+        }
+        xrpc.index.getStar(GetStarQueryParams(actor, repoDid)).uriOrNone { it.uri.atUri }
     }
 
     /** [me]'s star on [repoDid] as their server keeps it, looked for among their newest stars. */
@@ -99,15 +103,15 @@ class TangledStarApi(
         var cursor: String? = null
         repeat(MAX_OWN_PAGES) {
             val page = (account.listRecords(me, STAR_COLLECTION, cursor) as? ForgeResult.Success)?.value ?: return null
-            page.items.firstOrNull { it.value.starredRepo == repoDid }?.let { return it.uri }
-            cursor = page.cursor?.takeIf { it.isNotBlank() && page.items.isNotEmpty() } ?: return null
+            page.records.firstOrNull { (_, record) -> record.starredRepo == repoDid }?.let { return it.first }
+            cursor = page.cursor?.takeIf { it.isNotBlank() && page.records.isNotEmpty() } ?: return null
         }
         return null
     }
 
     private suspend fun repoDid(repo: RepoId): ForgeResult<String> = when (val found = repos.lookUp(repo)) {
         is ForgeResult.Failure -> found
-        is ForgeResult.Success -> found.value.value.repoDid?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Unsupported)
+        is ForgeResult.Success -> found.value.record.repoDid?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Unsupported)
     }
 
     private fun now(): String = clock.instant().truncatedTo(ChronoUnit.MILLIS).toString()
@@ -125,7 +129,7 @@ internal val JsonObject.starredRepo: String?
 
 /** Following people on Tangled, as the person signed in. */
 internal class TangledFollows(
-    private val httpClient: HttpClient,
+    private val xrpc: TangledXrpc,
     private val account: TangledAccount,
     private val identity: TangledIdentity,
     private val clock: Clock = Clock.systemUTC(),
@@ -169,7 +173,11 @@ internal class TangledFollows(
             is ForgeResult.Failure -> return did
             is ForgeResult.Success -> did.value
         }
-        return when (val uri = httpClient.xrpc("org.tangled.graph.getFollow", "actor" to me, "subject" to subject).uriOrNone()) {
+        val (actor, followed) = when (val dids = asDid(me).zip(asDid(subject))) {
+            is ForgeResult.Failure -> return dids
+            is ForgeResult.Success -> dids.value
+        }
+        return when (val uri = xrpc.index.getFollow(GetFollowQueryParams(actor, followed)).uriOrNone { it.uri.atUri }) {
             is ForgeResult.Failure -> uri
             is ForgeResult.Success -> ForgeResult.Success(Triple(me, subject, uri.value))
         }
@@ -177,10 +185,15 @@ internal class TangledFollows(
 }
 
 /** What `getStar` and `getFollow` answer: the record's URI, or `…NotFound` when there's none, which is no failure. */
-private suspend fun io.ktor.client.statement.HttpResponse.uriOrNone(): ForgeResult<String?> = when (val result = toResult { body<UriJson>().uri }) {
+private inline fun <T : Any> AtpResponse<T>.uriOrNone(uri: (T) -> String): ForgeResult<String?> = when (val result = toResult(uri)) {
     is ForgeResult.Success -> result
     is ForgeResult.Failure -> if ((result.error as? ForgeError.Http)?.status == 404) ForgeResult.Success(null) else result
 }
 
-@Serializable
-private data class UriJson(val uri: String)
+private fun <A, B> ForgeResult<A>.zip(other: ForgeResult<B>): ForgeResult<Pair<A, B>> = when (this) {
+    is ForgeResult.Failure -> this
+    is ForgeResult.Success -> when (other) {
+        is ForgeResult.Failure -> other
+        is ForgeResult.Success -> ForgeResult.Success(value to other.value)
+    }
+}

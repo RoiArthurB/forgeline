@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.forge.tangled
 
+import com.atproto.identity.ResolveHandleQueryParams
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
@@ -15,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap
  * too, but its API asks for their DID: the handle is resolved once, and remembered. A DID given instead of a handle is
  * taken as it is. A DID's document says the rest: the handle it goes by, and the server that keeps its records.
  */
-class TangledIdentity(private val httpClient: HttpClient) {
+class TangledIdentity(private val httpClient: HttpClient, private val xrpc: TangledXrpc = TangledXrpc(httpClient)) {
     private val dids = ConcurrentHashMap<String, String>()
     private val documents = ConcurrentHashMap<String, DidDocument>()
 
@@ -23,9 +24,12 @@ class TangledIdentity(private val httpClient: HttpClient) {
         val name = handle.removePrefix("@").lowercase()
         if (name.startsWith("did:")) return ForgeResult.Success(name)
         dids[name]?.let { return ForgeResult.Success(it) }
+        val valid = when (val result = asHandle(name)) {
+            is ForgeResult.Failure -> return result
+            is ForgeResult.Success -> result.value
+        }
         return forgeCall {
-            httpClient.xrpc("com.atproto.identity.resolveHandle", "handle" to name, base = HANDLE_RESOLVER)
-                .toResult { body<DidJson>().did.also { dids[name] = it } }
+            xrpc.handles.resolveHandle(ResolveHandleQueryParams(valid)).toResult { it.did.did.also { did -> dids[name] = did } }
         }
     }
 
@@ -70,9 +74,6 @@ class TangledIdentity(private val httpClient: HttpClient) {
 
 /** Where `did:plc` documents are kept. */
 internal const val PLC_DIRECTORY = "https://plc.directory"
-
-@Serializable
-private data class DidJson(val did: String)
 
 @Serializable
 internal data class DidDocument(val alsoKnownAs: List<String> = emptyList(), val service: List<DidService> = emptyList())

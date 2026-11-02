@@ -19,7 +19,7 @@ class TangledTrendingApiTest {
         {"people":[],"repos":[
           {"did":"$REPO_DID","owner":{"did":"$OWNER_DID","handle":"tangled.org","avatar":"https://avatar.example/t.jpg"},
            "slug":"core","createdAt":"2025-03-01T10:00:00Z","description":"Monorepo for Tangled","forkCount":37,"starCount":412,"primaryLanguage":"Go"},
-          {"did":"did:plc:other","owner":{"did":"did:plc:oppi","handle":"oppi.li"},"slug":"tools","starCount":9}
+          {"did":"did:plc:other","owner":{"did":"did:plc:oppi","handle":"oppi.li"},"slug":"tools","createdAt":"2025-06-01T10:00:00Z","starCount":9}
         ]}
     """.trimIndent()
 
@@ -39,7 +39,7 @@ class TangledTrendingApiTest {
                 },
             ),
         )
-        val api = TangledTrendingApi(fake.client, TangledIdentity(fake.client), clock)
+        val api = TangledTrendingApi(fake.xrpc, TangledIdentity(fake.client, fake.xrpc), clock)
 
         val daily = (api.trending(TrendingPeriod.DAILY) as ForgeResult.Success).value
         val weekly = (api.trending(TrendingPeriod.WEEKLY) as ForgeResult.Success).value
@@ -64,10 +64,10 @@ class TangledTrendingApiTest {
                 "org.tangled.temp.repo.getRepoByName" to coreRepo,
             ),
         )
-        val identity = TangledIdentity(fake.client)
-        TangledTrendingApi(fake.client, identity, clock).trending(TrendingPeriod.DAILY)
+        val identity = TangledIdentity(fake.client, fake.xrpc)
+        TangledTrendingApi(fake.xrpc, identity, clock).trending(TrendingPeriod.DAILY)
 
-        val repo = TangledRepoApi(fake.client, identity).repo(null, RepoId("tangled.org", "core", ForgeInstance.Tangled))
+        val repo = TangledRepoApi(fake.xrpc, identity).repo(null, RepoId("tangled.org", "core", ForgeInstance.Tangled))
 
         assertThat(repo).isInstanceOf(ForgeResult.Success::class.java)
         assertThat(fake.asked.none { it.startsWith("com.atproto.identity.resolveHandle") }).isTrue()

@@ -25,16 +25,17 @@ import io.ktor.client.HttpClient
  * Protocol server ([TangledAccount]). The rest answers Unsupported (docs/TANGLED.md says why).
  */
 class TangledApis(http: HttpClient) : ForgeApis {
-    private val identity = TangledIdentity(http)
-    private val account = TangledAccount(http, identity)
+    private val xrpc = TangledXrpc(http)
+    private val identity = TangledIdentity(http, xrpc)
+    private val account = TangledAccount(xrpc, identity)
 
-    override val repos = TangledRepoApi(http, identity)
-    override val users = TangledUserApi(http, identity, TangledFollows(http, account, identity))
-    override val trending = TangledTrendingApi(http, identity)
+    override val repos = TangledRepoApi(xrpc, identity)
+    override val users = TangledUserApi(xrpc, identity, TangledFollows(xrpc, account, identity))
+    override val trending = TangledTrendingApi(xrpc, identity)
     override val issues = UnsupportedIssueApi()
     override val pulls = UnsupportedPullRequestApi()
     override val repoSettings = UnsupportedRepoSettingsApi()
-    override val stars = TangledStarApi(http, account, repos)
+    override val stars = TangledStarApi(xrpc, account, repos)
     override val search = UnsupportedSearchApi()
     override val feed = UnsupportedFeedApi()
     override val notifications = UnsupportedNotificationsApi()

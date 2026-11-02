@@ -37,6 +37,7 @@ ATPROTO_LEXICONS = [
     "com/atproto/server/createSession.json",
     "com/atproto/server/refreshSession.json",
     "com/atproto/server/getSession.json",
+    "com/atproto/label/defs.json",
 ]
 
 

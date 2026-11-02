@@ -50,10 +50,10 @@ class TangledAccountTest {
     )
 
     private fun apis(fake: FakeTangled): Triple<TangledAccount, TangledStarApi, TangledUserApi> {
-        val identity = TangledIdentity(fake.client)
-        val account = TangledAccount(fake.client, identity, clock)
-        val repos = TangledRepoApi(fake.client, identity)
-        return Triple(account, TangledStarApi(fake.client, account, repos, clock), TangledUserApi(fake.client, identity, TangledFollows(fake.client, account, identity, clock)))
+        val identity = TangledIdentity(fake.client, fake.xrpc)
+        val account = TangledAccount(fake.xrpc, identity, clock)
+        val repos = TangledRepoApi(fake.xrpc, identity)
+        return Triple(account, TangledStarApi(fake.xrpc, account, repos, clock), TangledUserApi(fake.xrpc, identity, TangledFollows(fake.xrpc, account, identity, clock)))
     }
 
     @Test
@@ -103,7 +103,7 @@ class TangledAccountTest {
             status = { if (it == "com.atproto.server.createSession") 401 else null },
         )
 
-        val result = TangledAccount(fake.client, TangledIdentity(fake.client), clock).createSession("me.example", "nope")
+        val result = TangledAccount(fake.xrpc, TangledIdentity(fake.client, fake.xrpc), clock).createSession("me.example", "nope")
 
         assertThat((result as ForgeResult.Failure).error).isEqualTo(ForgeError.Unauthorized)
     }

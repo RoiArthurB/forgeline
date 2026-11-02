@@ -19,13 +19,13 @@ class TangledUserApiTest {
                     """{"uri":"at://$OWNER_DID/org.tangled.actor.profile/self","value":{"description":"Git, on the AT Protocol","location":"Helsinki",
                         "links":["https://blog.tangled.org","https://bsky.app/profile/tangled.org"],"isOrganization":true}}"""
                 },
-                "org.tangled.graph.countFollows" to { """{"count":1200}""" },
-                "org.tangled.graph.countFollowsBy" to { """{"count":3}""" },
-                "org.tangled.repo.countRepos" to { """{"count":14}""" },
+                "org.tangled.graph.countFollows" to { """{"count":1200,"distinctAuthors":1200}""" },
+                "org.tangled.graph.countFollowsBy" to { """{"count":3,"distinctAuthors":3}""" },
+                "org.tangled.repo.countRepos" to { """{"count":14,"distinctAuthors":1}""" },
             ),
         )
 
-        val profile = TangledUserApi(fake.client, TangledIdentity(fake.client)).user(null, "tangled.org").value()
+        val profile = TangledUserApi(fake.xrpc, TangledIdentity(fake.client, fake.xrpc)).user(null, "tangled.org").value()
 
         assertThat(profile.login).isEqualTo("tangled.org")
         assertThat(profile.bio).isEqualTo("Git, on the AT Protocol")
@@ -42,7 +42,7 @@ class TangledUserApiTest {
     fun someone_without_a_profile_record_is_still_someone() = runTest {
         val fake = FakeTangled(mapOf("com.atproto.identity.resolveHandle" to resolved))
 
-        val profile = TangledUserApi(fake.client, TangledIdentity(fake.client)).user(null, "@quiet.example").value()
+        val profile = TangledUserApi(fake.xrpc, TangledIdentity(fake.client, fake.xrpc)).user(null, "@quiet.example").value()
 
         assertThat(profile.login).isEqualTo("quiet.example")
         assertThat(profile.bio).isNull()
@@ -63,7 +63,7 @@ class TangledUserApiTest {
             ),
         )
 
-        val repos = TangledUserApi(fake.client, TangledIdentity(fake.client)).repos(null, "tangled.org").value()
+        val repos = TangledUserApi(fake.xrpc, TangledIdentity(fake.client, fake.xrpc)).repos(null, "tangled.org").value()
 
         assertThat(repos.map { it.id }).containsExactly(RepoId("tangled.org", "core", ForgeInstance.Tangled), RepoId("tangled.org", "website", ForgeInstance.Tangled)).inOrder()
         assertThat(repos.map { it.isFork }).containsExactly(false, true).inOrder()
