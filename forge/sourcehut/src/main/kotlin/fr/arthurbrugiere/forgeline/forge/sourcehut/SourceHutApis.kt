@@ -19,6 +19,7 @@ import fr.arthurbrugiere.forgeline.forge.common.UnsupportedRepoSettingsApi
 import fr.arthurbrugiere.forgeline.forge.common.UnsupportedSearchApi
 import fr.arthurbrugiere.forgeline.forge.common.UnsupportedStarApi
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.sourcehut.graphql.MeQuery
 import io.ktor.client.HttpClient
 
 /**
@@ -56,9 +57,9 @@ class SourceHutAuthApi(private val httpClient: HttpClient) : ForgeAuthApi {
     override suspend fun pollDeviceToken(deviceCode: String): ForgeResult<DeviceTokenPoll> = ForgeResult.Failure(ForgeError.Unsupported)
 
     override suspend fun fetchAuthenticatedUser(token: String): ForgeResult<ForgeUser> = forgeCall {
-        when (val result = httpClient.srht(token, "{ me { canonicalName } }", emptyMap(), MeData.serializer())) {
+        when (val result = httpClient.srht(token, MeQuery())) {
             is ForgeResult.Failure -> result
-            is ForgeResult.Success -> result.value.me.canonicalName?.let { ForgeResult.Success(ForgeUser(it, null, null)) } ?: ForgeResult.Failure(ForgeError.Unreadable)
+            is ForgeResult.Success -> ForgeResult.Success(ForgeUser(result.value.me.canonicalName, null, null))
         }
     }
 }

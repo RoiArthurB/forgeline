@@ -1,0 +1,138 @@
+# What the app asks git.sr.ht of a repository, checked against schema.graphqls when it builds.
+
+query Repo($owner: String!, $name: String!) {
+  user(username: $owner) {
+    repository(name: $name) {
+      name
+      description
+      visibility
+      updated
+      HEAD {
+        name
+      }
+    }
+  }
+}
+
+query RepoReferences($owner: String!, $name: String!, $cursor: Cursor) {
+  user(username: $owner) {
+    repository(name: $name) {
+      references(cursor: $cursor) {
+        results {
+          name
+        }
+        cursor
+      }
+    }
+  }
+}
+
+query RepoReleases($owner: String!, $name: String!, $cursor: Cursor) {
+  user(username: $owner) {
+    repository(name: $name) {
+      references(cursor: $cursor) {
+        results {
+          ...TagRelease
+        }
+        cursor
+      }
+    }
+  }
+}
+
+query RepoRelease($owner: String!, $name: String!, $ref: String!) {
+  user(username: $owner) {
+    repository(name: $name) {
+      reference(name: $ref) {
+        ...TagRelease
+      }
+    }
+  }
+}
+
+# A tag as a release: an annotated tag carries a message and its tagger's time, a light one only points at a commit.
+fragment TagRelease on Reference {
+  name
+  follow {
+    type
+    ... on Tag {
+      message
+      tagger {
+        time
+      }
+    }
+    ... on Commit {
+      committer {
+        time
+      }
+    }
+  }
+  artifacts {
+    results {
+      filename
+      size
+      url
+    }
+  }
+}
+
+query RootEntries($owner: String!, $name: String!, $rev: String!, $cursor: Cursor) {
+  user(username: $owner) {
+    repository(name: $name) {
+      revparse_single(revspec: $rev) {
+        tree {
+          entries(cursor: $cursor) {
+            ...EntryPage
+          }
+        }
+      }
+    }
+  }
+}
+
+query PathEntries($owner: String!, $name: String!, $rev: String!, $path: String!, $cursor: Cursor) {
+  user(username: $owner) {
+    repository(name: $name) {
+      path(revspec: $rev, path: $path) {
+        object {
+          type
+          ... on Tree {
+            entries(cursor: $cursor) {
+              ...EntryPage
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+fragment EntryPage on TreeEntryCursor {
+  results {
+    name
+    mode
+  }
+  cursor
+}
+
+# A file: up to 128 KiB of a text blob's text inline, and the address of its whole content.
+query Blob($owner: String!, $name: String!, $rev: String!, $path: String!) {
+  user(username: $owner) {
+    repository(name: $name) {
+      path(revspec: $rev, path: $path) {
+        object {
+          type
+          ... on TextBlob {
+            size
+            text
+            content
+          }
+          ... on BinaryBlob {
+            size
+            content
+          }
+        }
+      }
+    }
+  }
+}

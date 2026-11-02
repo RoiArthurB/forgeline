@@ -22,6 +22,8 @@ ktor = "3.6.0"
 ozone = "0.3.4"
 # Forgejo/Gitea models generated from their OpenAPI description: https://openapi-generator.tech
 openapi-generator = "7.27.0"
+# GraphQL operations generated from SourceHut's and GitHub's schemas: https://github.com/apollographql/apollo-kotlin
+apollo = "5.2.0"
 coil = "3.6.3"
 jsoup = "1.23.2"
 snakeyaml-engine = "3.2"
@@ -47,6 +49,7 @@ robolectric = "4.17"
 roborazzi = "1.77.0"
 
 [libraries]
+apollo-api = { module = "com.apollographql.apollo:apollo-api", version.ref = "apollo" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
@@ -140,6 +143,7 @@ room = { id = "androidx.room", version.ref = "room" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 ozone = { id = "sh.christian.ozone.generator", version.ref = "ozone" }
 openapi-generator = { id = "org.openapi.generator", version.ref = "openapi-generator" }
+apollo = { id = "com.apollographql.apollo", version.ref = "apollo" }
 
 # Convention plugins (build-logic)
 forgeline-android-application = { id = "forgeline.android.application" }
