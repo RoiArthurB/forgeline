@@ -195,7 +195,7 @@
     <string name="sign_in_token_label">Personal access token</string>
     <string name="sign_in_with_token">Sign in with token</string>
     <string name="sign_in_password_title">Use an app password</string>
-    <string name="sign_in_password_body_tangled">Tangled accounts are AT Protocol accounts, Bluesky's among them. Create an app password where your account lives (on Bluesky: Settings, Privacy and security, App passwords), then sign in with your handle and that password. Forgeline keeps the session it opens, never the password.</string>
+    <string name="sign_in_password_body_tangled">Tangled accounts are AT Protocol accounts, Bluesky\'s among them. Create an app password where your account lives (on Bluesky: Settings, Privacy and security, App passwords), then sign in with your handle and that password. Forgeline keeps the session it opens, never the password.</string>
     <string name="sign_in_create_app_password">Create an app password on Bluesky</string>
     <string name="sign_in_handle_label">Handle</string>
     <string name="sign_in_handle_example" translatable="false">you.bsky.social</string>
@@ -207,7 +207,7 @@
     <string name="sign_in_browser_open_again">Open %1$s again</string>
     <string name="sign_in_verifying">Checking with %1$s…</string>
     <string name="sign_in_error_network">Can\'t reach %1$s. Check your connection and try again.</string>
-    <string name="sign_in_error_invalid_password">%1$s didn't accept this handle and password. Check both, and use an app password rather than your account's own.</string>
+    <string name="sign_in_error_invalid_password">%1$s didn\'t accept this handle and password. Check both, and use an app password rather than your account\'s own.</string>
     <string name="sign_in_error_invalid_token">%1$s didn\'t accept this token. Check that it was copied entirely and hasn\'t expired.</string>
     <string name="sign_in_error_rate_limited">%1$s is limiting requests right now. Try again in a few minutes.</string>
     <string name="sign_in_error_denied">Authorization was declined on %1$s.</string>
