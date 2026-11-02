@@ -4,8 +4,9 @@ Everything the app can do, and where forges differ. For a gentler tour, start wi
 
 ## Every forge at once
 
-- **Several forges at once:** GitHub, GitLab (gitlab.com and self-hosted), Codeberg, gitea.com and any self-hosted Forgejo or Gitea server share one Inbox, Feed, Trending page and search. Each row names its forge, and one forge can be picked alone. Codeberg's and gitlab.com's Trending are measured daily, shown to everyone without signing in, and mixed in by share of stars.
+- **Several forges at once:** GitHub, GitLab (gitlab.com and self-hosted), Codeberg, gitea.com, SourceHut (git.sr.ht) and any self-hosted Forgejo or Gitea server share one Inbox, Feed, Trending page and search. Each row names its forge, and one forge can be picked alone. Codeberg's and gitlab.com's Trending are measured daily, shown to everyone without signing in, and mixed in by share of stars.
 - **Tangled, to browse:** Tangled's Trending, its repositories (README, files, branches and tags) and people, without an account. Signing in, issues and pull requests aren't there yet: see [TANGLED.md](TANGLED.md).
+- **SourceHut:** sign in with a personal access token, then browse git.sr.ht repositories (README, files, branches) with their tags as releases, and people's profiles. Tickets, patches and builds are SourceHut services of their own and open in the browser: see [SOURCEHUT.md](SOURCEHUT.md).
 
 ## Inbox, Feed and Trending
 

@@ -84,6 +84,20 @@ class RepoIdTest {
     }
 
     @Test
+    fun sourcehut_is_known_by_name_and_its_owners_keep_their_tilde() {
+        assertThat(ForgeInstance.of("git.sr.ht")).isEqualTo(ForgeInstance.SourceHut)
+        assertThat(ForgeInstance.SourceHut.displayName).isEqualTo("SourceHut")
+        assertThat(ForgeType.SOURCEHUT.isSocial).isFalse()
+        assertThat(ForgeType.SOURCEHUT.signsIn).isTrue()
+        val scdoc = RepoId("~sircmpwn", "scdoc", ForgeInstance.SourceHut)
+        assertThat(scdoc.webUrl).isEqualTo("https://git.sr.ht/~sircmpwn/scdoc")
+        assertThat(scdoc.rawBaseUrl("master")).isEqualTo("https://git.sr.ht/~sircmpwn/scdoc/blob/master/")
+        assertThat(scdoc.blobBaseUrl("master")).isEqualTo("https://git.sr.ht/~sircmpwn/scdoc/tree/master/item/")
+        assertThat(scdoc.releaseUrl("1.11.3")).isEqualTo("https://git.sr.ht/~sircmpwn/scdoc/refs/1.11.3")
+        assertThat(IssueRef(scdoc, 4).webUrl(isPullRequest = false)).isEqualTo("https://todo.sr.ht/~sircmpwn/scdoc/4")
+    }
+
+    @Test
     fun repositories_are_equal_and_hash_identically_regardless_of_case() {
         val uppercase = RepoId("RoiArthurB", "Forgeline", ForgeInstance.GitHub)
         val lowercase = RepoId("roiarthurb", "forgeline", ForgeInstance.GitHub)

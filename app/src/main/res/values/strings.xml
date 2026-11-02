@@ -168,6 +168,7 @@
     <string name="sign_in_forge_github" translatable="false">GitHub</string>
     <string name="sign_in_forge_gitlab" translatable="false">GitLab</string>
     <string name="sign_in_forge_codeberg" translatable="false">Codeberg</string>
+    <string name="sign_in_forge_sourcehut" translatable="false">SourceHut</string>
     <string name="sign_in_forge_other" translatable="false">Forgejo</string>
     <string name="sign_in_gitlab_com" translatable="false">gitlab.com</string>
     <string name="sign_in_gitlab_own">Your own server</string>
@@ -186,6 +187,7 @@
     <string name="sign_in_or">or</string>
     <string name="sign_in_token_title">Use a personal access token</string>
     <string name="sign_in_token_body">Create a classic token with the notifications, read:user, user:follow and repo scopes, plus delete_repo to delete repositories from Forgeline, then paste it here.</string>
+    <string name="sign_in_token_body_sourcehut">Generate a personal access token on meta.sr.ht (read access to git.sr.ht is enough), then paste it here. SourceHut has no sign-in through the browser for apps, and shows nothing without a token.</string>
     <string name="sign_in_token_body_gitlab">Create a personal access token with the api and read_user scopes, then paste it here.</string>
     <string name="sign_in_token_body_forgejo">Create an access token that reaches all your repositories (public, private and limited), with read and write access to notifications, repositories, issues and your user, then paste it here.</string>
     <string name="sign_in_create_token">Create a token on %1$s</string>
@@ -257,7 +259,7 @@
     <string name="settings_trending_none_title">Nothing to measure yet</string>
     <string name="settings_trending_none_body">GitHub has its own Trending, and Codeberg\'s and GitLab\'s are published for everyone each day. Sign in to Codeberg or another Forgejo server to measure theirs on this phone instead.</string>
     <string name="settings_version_summary">Credits, source code, version %1$s</string>
-    <string name="settings_add_account_summary">GitHub, GitLab, Codeberg, or a Forgejo or Gitea server</string>
+    <string name="settings_add_account_summary">GitHub, GitLab, Codeberg, SourceHut, or a Forgejo or Gitea server</string>
     <string name="error_unauthorized">The forge no longer accepts your sign-in. Sign in again from the You tab.</string>
     <string name="you_ended_title">Your sign-in to %1$s ended</string>
     <string name="you_ended_body">Forgeline can no longer use the sign-in of %2$s on %1$s: %1$s refused it, or it can\'t be read on this device. Nothing syncs for it until you sign in again.</string>

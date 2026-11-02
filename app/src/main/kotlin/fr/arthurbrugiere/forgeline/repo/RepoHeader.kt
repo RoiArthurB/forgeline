@@ -143,7 +143,8 @@ internal fun RepoHeader(
         // Side by side while they fit; at large text or on a narrow screen they go one under another.
         FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // Where the app can't sign in (Tangled), there's nothing to ask of a passer-by.
-            if (signedIn || details.id.forge.type.signsIn) {
+            // Nor where no one stars (SourceHut).
+            if ((signedIn || details.id.forge.type.signsIn) && details.id.forge.type.isSocial) {
                 HeaderAction(
                     icon = if (isStarred) Icons.Filled.Star else Icons.Outlined.StarBorder,
                     label = stringResource(if (isStarred) R.string.repo_starred else R.string.repo_star),
@@ -154,7 +155,7 @@ internal fun RepoHeader(
                 )
             }
             // Watching and forking are an account's: nothing is offered before the forge has said where it stands.
-            if (signedIn && watching != null) {
+            if (signedIn && watching != null && details.id.forge.type.isSocial) {
                 HeaderAction(
                     icon = if (watching) Icons.Filled.Visibility else Icons.Outlined.Visibility,
                     label = stringResource(if (watching) R.string.repo_watching else R.string.repo_watch),
@@ -166,7 +167,7 @@ internal fun RepoHeader(
             if (details.hasWiki) {
                 HeaderAction(icon = Icons.AutoMirrored.Outlined.MenuBook, label = stringResource(R.string.repo_wiki), onClick = onOpenWiki)
             }
-            if (signedIn) {
+            if (signedIn && details.id.forge.type.isSocial) {
                 HeaderAction(
                     icon = Icons.AutoMirrored.Outlined.CallSplit,
                     label = stringResource(if (isForking) R.string.repo_forking else R.string.repo_fork_action),

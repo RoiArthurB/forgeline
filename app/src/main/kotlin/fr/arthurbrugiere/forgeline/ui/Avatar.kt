@@ -42,7 +42,8 @@ fun Avatar(
                 // Sized from the avatar (dp-based, so font scaling can't make it overflow its shape).
                 val fontSize = with(LocalDensity.current) { (size * 0.45f).toSp() }
                 Text(
-                    login.take(1).uppercase(),
+                    // SourceHut writes people as ~name: the initial is the name's.
+                    login.trimStart('~', '@').take(1).uppercase(),
                     style = MaterialTheme.typography.titleMedium.copy(fontSize = fontSize, lineHeight = fontSize),
                     color = placeholderContentColor,
                 )

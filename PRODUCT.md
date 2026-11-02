@@ -26,7 +26,7 @@ In order of importance:
 
 1. **Fast, above everything else.** Cache-first: every screen renders from the local database instantly, then refreshes. The app opens in about a second. Speed is the reason the project exists, and it wins any trade-off.
 2. **Discovery-first.** Built around the timeline and the daily Trending browse, not a port of desktop GitHub's layout.
-3. **Multi-forge.** GitHub, GitLab, Codeberg, Gitea and self-hosted Forgejo or Gitea instances work side-by-side in one unified inbox, feed and search.
+3. **Multi-forge.** GitHub, GitLab, Codeberg, Gitea, SourceHut and self-hosted Forgejo or Gitea instances work side-by-side in one unified inbox, feed and search.
 4. **Free and private.** GPL-3.0, no backend, no analytics, no trackers. The app talks directly to the forge.
 
 ## Operating Context
