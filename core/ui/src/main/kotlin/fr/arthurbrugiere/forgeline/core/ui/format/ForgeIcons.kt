@@ -26,8 +26,8 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.ui.R
 
-// A forge is shown by its logo (Simple Icons, CC0) and its name wherever a list mixes forges: "GitHub", "Codeberg", "GitLab"
-// or a self-hosted server's host. A 14dp monochrome mark alone leaves two same-named rows to be told apart by decoding a
+// A forge is shown by its logo (Simple Icons, CC0) and its name wherever a list mixes forges: "GitHub", "Codeberg", "GitLab",
+// "Gitea" or a self-hosted server's host. A 14dp monochrome mark alone leaves two same-named rows to be told apart by decoding a
 // glyph. Where the name is written the logo is decoration, so screen readers hear it once.
 
 @get:DrawableRes
@@ -36,6 +36,7 @@ val ForgeInstance.iconRes: Int
         this == ForgeInstance.Codeberg -> R.drawable.ic_forge_codeberg
         type == ForgeType.GITHUB -> R.drawable.ic_forge_github
         type == ForgeType.GITLAB -> R.drawable.ic_forge_gitlab
+        type == ForgeType.GITEA -> R.drawable.ic_forge_gitea
         else -> R.drawable.ic_forge_forgejo
     }
 

@@ -26,9 +26,24 @@ class HttpForgeProbeTest {
     private val notFound = HttpStatusCode.NotFound to "Not found."
 
     @Test
-    fun a_forgejo_or_gitea_tells_its_version_to_anyone() = runTest {
+    fun a_forgejo_tells_its_version_to_anyone() = runTest {
         // codeberg.org, and a self-hosted Forgejo 15.
         assertThat(probe(HttpStatusCode.OK to """{"version":"16.0.0-dev-753-6bcc6da0+gitea-1.22.0"}""", notFound).typeOf("codeberg.org")).isEqualTo(ForgeType.FORGEJO)
+    }
+
+    @Test
+    fun a_gitea_is_told_from_a_forgejo_by_its_version() = runTest {
+        // gitea.com, and a build of Gitea's main branch.
+        assertThat(probe(HttpStatusCode.OK to """{"version":"1.26.1"}""", notFound).typeOf("gitea.com")).isEqualTo(ForgeType.GITEA)
+        assertThat(probe(HttpStatusCode.OK to """{"version":"1.27.0+dev-12-gabcdef0"}""", notFound).typeOf("gitea.example.org")).isEqualTo(ForgeType.GITEA)
+    }
+
+    @Test
+    fun an_old_forgejo_numbered_like_gitea_is_still_a_forgejo() {
+        // Forgejo's 1.x releases added a release number of their own.
+        assertThat(forgejoOrGitea("1.21.11-1")).isEqualTo(ForgeType.FORGEJO)
+        assertThat(forgejoOrGitea("7.0.0+gitea-1.22.0")).isEqualTo(ForgeType.FORGEJO)
+        assertThat(forgejoOrGitea(null)).isEqualTo(ForgeType.FORGEJO)
     }
 
     @Test

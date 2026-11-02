@@ -94,10 +94,10 @@ class DefaultForgeClients @Inject constructor(
 
     private fun apis(forge: ForgeInstance): ForgeApis = when (forge.type) {
         ForgeType.GITHUB -> gitHub
-        ForgeType.FORGEJO -> instances.getOrPut(forge) {
+        ForgeType.FORGEJO, ForgeType.GITEA -> instances.getOrPut(forge) {
             ForgejoApis(
                 forgejoHttp, forge,
-                // Only Codeberg has a registered OAuth application: self-hosted instances sign in with a token.
+                // Only Codeberg has a registered OAuth application: gitea.com and self-hosted servers sign in with a token.
                 clientId = if (forge == ForgeInstance.Codeberg) codebergClientId else "",
                 // Forgejo has no Trending: only Codeberg's is measured, by the daily job that publishes it.
                 trending = codebergTrendingUrl.takeIf { forge == ForgeInstance.Codeberg && it.isNotBlank() }?.let { ForgejoTrendingApi(forgejoHttp, forge, it) },

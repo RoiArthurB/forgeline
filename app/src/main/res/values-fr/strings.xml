@@ -170,7 +170,7 @@
     <string name="sign_in_privacy">Forgeline parle à %1$s directement depuis votre téléphone. Votre jeton est chiffré sur cet appareil et n’est envoyé que là-bas.</string>
     <string name="sign_in_gitlab_own">Votre propre serveur</string>
     <string name="sign_in_host">Adresse du serveur</string>
-    <string name="sign_in_host_hint">Tout serveur Forgejo fonctionne avec un jeton d’accès.</string>
+    <string name="sign_in_host_hint">Tout serveur Forgejo ou Gitea, gitea.com compris, fonctionne avec un jeton d’accès.</string>
     <string name="sign_in_host_hint_gitlab">Tout serveur GitLab fonctionne avec un jeton d’accès.</string>
     <string name="sign_in_host_is">C’est un serveur %1$s.</string>
     <string name="sign_in_client_id">ID de l’application (facultatif)</string>
@@ -195,7 +195,7 @@
     <string name="sign_in_error_rate_limited">%1$s limite les requêtes en ce moment. Réessayez dans quelques minutes.</string>
     <string name="sign_in_error_denied">L’autorisation a été refusée sur %1$s.</string>
     <string name="sign_in_error_expired">La connexion a pris trop de temps. Recommencez.</string>
-    <string name="sign_in_error_not_a_forge">Aucun serveur Forgejo ou GitLab n’a répondu à cette adresse.</string>
+    <string name="sign_in_error_not_a_forge">Aucun serveur Forgejo, Gitea ou GitLab n’a répondu à cette adresse.</string>
     <string name="sign_in_error_unknown">Quelque chose s’est mal passé. Réessayez.</string>
     <string name="trending_period_daily">Aujourd’hui</string>
     <string name="trending_period_weekly">Cette semaine</string>
@@ -250,7 +250,7 @@
     <string name="settings_trending_none_title">Rien à mesurer pour l’instant</string>
     <string name="settings_trending_none_body">GitHub a ses propres tendances, et celles de Codeberg et de GitLab sont publiées chaque jour pour tout le monde. Connectez-vous à Codeberg ou à un autre serveur Forgejo pour mesurer les leurs sur ce téléphone.</string>
     <string name="settings_version_summary">Crédits, code source, version %1$s</string>
-    <string name="settings_add_account_summary">GitHub, Codeberg ou un autre serveur Forgejo</string>
+    <string name="settings_add_account_summary">GitHub, GitLab, Codeberg, ou un serveur Forgejo ou Gitea</string>
     <string name="error_unauthorized">La forge n’accepte plus votre connexion. Reconnectez-vous depuis l’onglet Vous.</string>
     <string name="you_ended_title">Votre connexion à %1$s a pris fin</string>
     <string name="you_ended_body">Forgeline ne peut plus utiliser la connexion de %2$s sur %1$s : %1$s l’a refusée, ou elle ne peut plus être lue sur cet appareil. Rien ne se synchronise pour ce compte tant que vous ne vous reconnectez pas.</string>

@@ -132,6 +132,16 @@ class ForgeLinksTest {
     }
 
     @Test
+    fun gitea_com_links_open_in_app_as_a_forgejo_would() {
+        assertThat(ForgeLinks.routeFor("https://gitea.com/gitea/tea")).isEqualTo(RepoRoute("gitea.com", "gitea", "tea"))
+        assertThat(ForgeLinks.routeFor("https://gitea.com/gitea/tea/pulls/7")).isEqualTo(IssueRoute("gitea.com", "gitea", "tea", 7))
+        assertThat(ForgeLinks.routeFor("https://gitea.com/gitea/tea/src/branch/main/README.md"))
+            .isEqualTo(FileRoute("gitea.com", "gitea", "tea", path = "README.md", ref = "main"))
+        assertThat(ForgeLinks.routeFor("https://gitea.com/explore/repos")).isNull()
+        assertThat(ForgeLinks.forgeOf("gitea.com")).isEqualTo(ForgeInstance.Gitea)
+    }
+
+    @Test
     fun codeberg_links_open_in_app_on_codeberg() {
         assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/forgejo")).isEqualTo(RepoRoute("codeberg.org", "forgejo", "forgejo"))
         assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/forgejo/issues/42")).isEqualTo(IssueRoute("codeberg.org", "forgejo", "forgejo", 42))

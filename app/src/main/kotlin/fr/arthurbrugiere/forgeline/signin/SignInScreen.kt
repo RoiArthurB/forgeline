@@ -234,6 +234,7 @@ private fun ChooseMethod(
         val kind = when (state.otherType) {
             ForgeType.GITLAB -> stringResource(R.string.sign_in_kind_gitlab)
             ForgeType.FORGEJO -> stringResource(R.string.sign_in_kind_forgejo)
+            ForgeType.GITEA -> stringResource(R.string.sign_in_kind_gitea)
             else -> null
         }
         Text(
@@ -285,7 +286,7 @@ private fun ChooseMethod(
         stringResource(
             when {
                 state.forge == SignInForge.GITHUB -> R.string.sign_in_token_body
-                state.otherType == ForgeType.FORGEJO -> R.string.sign_in_token_body_forgejo
+                state.otherType?.speaksForgejo == true -> R.string.sign_in_token_body_forgejo
                 state.forge == SignInForge.GITLAB || state.otherType == ForgeType.GITLAB -> R.string.sign_in_token_body_gitlab
                 else -> R.string.sign_in_token_body_forgejo
             }

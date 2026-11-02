@@ -3,14 +3,20 @@ package fr.arthurbrugiere.forgeline.core.model
 enum class ForgeType {
     GITHUB,
     FORGEJO,
-    GITLAB;
+    GITLAB,
+
+    /** Gitea, which Forgejo forked from: the same API, with a few calls one has and the other lacks. */
+    GITEA;
 
     /** Whether merge requests have their own numbering, so that one can share its number with an issue. */
     val numbersMergeRequestsApart: Boolean get() = this == GITLAB
+
+    /** Whether the forge answers Forgejo's API (`/api/v1`) and lays out its web pages the same way: Forgejo and Gitea. */
+    val speaksForgejo: Boolean get() = this == FORGEJO || this == GITEA
 }
 
 /**
- * A forge server: github.com, codeberg.org, a self-hosted Forgejo instance, or gitlab.com. [host]
+ * A forge server: github.com, codeberg.org, gitlab.com, gitea.com, or a self-hosted Forgejo, Gitea or GitLab. [host]
  * is lowercase.
  */
 data class ForgeInstance(val type: ForgeType, val host: String) {
@@ -23,6 +29,7 @@ data class ForgeInstance(val type: ForgeType, val host: String) {
             GitHub -> "GitHub"
             Codeberg -> "Codeberg"
             GitLab -> "GitLab"
+            Gitea -> "Gitea"
             else -> host
         }
 
@@ -33,9 +40,10 @@ data class ForgeInstance(val type: ForgeType, val host: String) {
         val GitHub = ForgeInstance(ForgeType.GITHUB, "github.com")
         val Codeberg = ForgeInstance(ForgeType.FORGEJO, "codeberg.org")
         val GitLab = ForgeInstance(ForgeType.GITLAB, "gitlab.com")
+        val Gitea = ForgeInstance(ForgeType.GITEA, "gitea.com")
 
         /**
-         * The forge at [host]: GitHub for github.com, GitLab for gitlab.com, Codeberg for codeberg.org, and for any
+         * The forge at [host]: GitHub for github.com, GitLab for gitlab.com, Codeberg for codeberg.org, Gitea for gitea.com, and for any
          * other host what [KnownForges] was told it runs, Forgejo otherwise (a self-hosted server never signed in to).
          */
         fun of(host: String): ForgeInstance {
@@ -44,6 +52,7 @@ data class ForgeInstance(val type: ForgeType, val host: String) {
                 GitHub.host -> GitHub
                 GitLab.host -> GitLab
                 Codeberg.host -> Codeberg
+                Gitea.host -> Gitea
                 else -> ForgeInstance(KnownForges.typeOf(lower) ?: ForgeType.FORGEJO, lower)
             }
         }
