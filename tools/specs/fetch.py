@@ -54,7 +54,11 @@ def write(path: pathlib.Path, data: bytes) -> None:
 
 def tangled_tree(path: str) -> list:
     query = urllib.parse.urlencode({"repo": TANGLED_CORE_DID, "ref": TANGLED_REF, "path": path})
-    return json.loads(get(f"{TANGLED_INDEX}/org.tangled.temp.git.getTree?{query}", "application/json")).get("entries", [])
+    body = get(f"{TANGLED_INDEX}/org.tangled.temp.git.getTree?{query}", "application/json")
+    entries = json.loads(body).get("entries") or json.loads(body).get("files") or []
+    if not entries:
+        raise SystemExit(f"No entries under {path}: {body[:600]!r}")
+    return entries
 
 
 def tangled_blob(path: str) -> bytes:
@@ -70,7 +74,7 @@ def tangled() -> None:
         folder = pending.pop()
         for entry in tangled_tree(folder):
             child = f"{folder}/{entry['name']}"
-            if entry.get("mode", "").startswith("04") or entry.get("mode") == "tree":
+            if not entry.get("is_file", True) or str(entry.get("mode", "")).startswith("04") or entry.get("mode") == "tree":
                 pending.append(child)
             elif child.endswith(".json"):
                 data = tangled_blob(child)
