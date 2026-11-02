@@ -2,11 +2,11 @@ package fr.arthurbrugiere.forgeline.core.model
 
 // Where things live on each forge's website, for "open in browser" and for resolving relative links.
 
-/** The conversation's page: GitHub says `pull`, Forgejo `pulls`, GitLab `merge_requests` with `/-/`. */
+/** The conversation's page: GitHub says `pull`, Forgejo, Gitea and Tangled `pulls`, GitLab `merge_requests` with `/-/`. */
 fun IssueRef.webUrl(isPullRequest: Boolean): String = when (repo.forge.type) {
     ForgeType.GITLAB -> "${repo.webUrl}/-/${if (isPullRequest) "merge_requests" else "issues"}/$number"
     ForgeType.GITHUB -> "${repo.webUrl}/${if (isPullRequest) "pull" else "issues"}/$number"
-    ForgeType.FORGEJO, ForgeType.GITEA -> "${repo.webUrl}/${if (isPullRequest) "pulls" else "issues"}/$number"
+    ForgeType.FORGEJO, ForgeType.GITEA, ForgeType.TANGLED -> "${repo.webUrl}/${if (isPullRequest) "pulls" else "issues"}/$number"
 }
 
 /**
@@ -17,13 +17,14 @@ fun RepoId.runUrl(runId: Long): String = when (forge.type) {
     ForgeType.GITHUB -> "$webUrl/actions/runs/$runId"
     ForgeType.GITLAB -> "$webUrl/-/pipelines/$runId"
     ForgeType.FORGEJO, ForgeType.GITEA -> "$webUrl/actions"
+    ForgeType.TANGLED -> "$webUrl/pipelines"
 }
 
 /** A job's page on GitHub or GitLab; on Forgejo, as for [runUrl], the repository's Actions page. */
 fun RepoId.jobUrl(runId: Long, jobId: Long): String = when (forge.type) {
     ForgeType.GITHUB -> "${runUrl(runId)}/job/$jobId"
     ForgeType.GITLAB -> "$webUrl/-/jobs/$jobId"
-    ForgeType.FORGEJO, ForgeType.GITEA -> runUrl(runId)
+    ForgeType.FORGEJO, ForgeType.GITEA, ForgeType.TANGLED -> runUrl(runId)
 }
 
 /** An artifact's page, from which it downloads: only GitHub lists a run's artifacts to the app. */
@@ -33,6 +34,8 @@ fun RepoId.artifactUrl(runId: Long, artifactId: Long): String = "${runUrl(runId)
 fun RepoId.releaseUrl(tag: String): String = when (forge.type) {
     ForgeType.GITLAB -> "$webUrl/-/releases/$tag"
     ForgeType.GITHUB, ForgeType.FORGEJO, ForgeType.GITEA -> "$webUrl/releases/tag/$tag"
+    // Tangled's releases are its tags, with the files attached to them.
+    ForgeType.TANGLED -> "$webUrl/tags/$tag"
 }
 
 /** Where raw files at [ref] live, ending with `/`. */
@@ -40,6 +43,7 @@ fun RepoId.rawBaseUrl(ref: String): String = when (forge.type) {
     ForgeType.GITHUB -> "https://raw.githubusercontent.com/$fullName/$ref/"
     ForgeType.GITLAB -> "$webUrl/-/raw/$ref/"
     ForgeType.FORGEJO, ForgeType.GITEA -> "$webUrl/raw/branch/$ref/"
+    ForgeType.TANGLED -> "$webUrl/raw/$ref/"
 }
 
 /** Where file pages at [ref] live, ending with `/`. */
@@ -47,6 +51,7 @@ fun RepoId.blobBaseUrl(ref: String): String = when (forge.type) {
     ForgeType.GITHUB -> "$webUrl/blob/$ref/"
     ForgeType.GITLAB -> "$webUrl/-/blob/$ref/"
     ForgeType.FORGEJO, ForgeType.GITEA -> "$webUrl/src/branch/$ref/"
+    ForgeType.TANGLED -> "$webUrl/blob/$ref/"
 }
 
 /** The page of the forge's website where the repository's owner sets everything about it. */

@@ -29,7 +29,7 @@ jobs:
           CODEBERG_LIVE_TOKEN: ${{ secrets.CODEBERG_LIVE_TOKEN }}
           # Optional too: a read-only gitlab.com token (read_api). Without it the GitLab checks are skipped.
           GITLAB_LIVE_TOKEN: ${{ secrets.GITLAB_LIVE_TOKEN }}
-        run: ./gradlew :forge:github:liveTest :forge:forgejo:liveTest :forge:gitlab:liveTest --continue
+        run: ./gradlew :forge:github:liveTest :forge:forgejo:liveTest :forge:gitlab:liveTest :forge:tangled:liveTest --continue
       - name: Upload report
         if: failure()
         uses: actions/upload-artifact@v7
@@ -39,3 +39,4 @@ jobs:
             forge/github/build/reports/tests/liveTest/
             forge/forgejo/build/reports/tests/liveTest/
             forge/gitlab/build/reports/tests/liveTest/
+            forge/tangled/build/reports/tests/liveTest/

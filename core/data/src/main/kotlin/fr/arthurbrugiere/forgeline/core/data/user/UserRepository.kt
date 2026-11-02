@@ -101,6 +101,8 @@ class DefaultUserRepository @Inject constructor(
             }
             ForgeType.FORGEJO, ForgeType.GITEA -> root(".profile")
             ForgeType.GITLAB -> root(if (organization) "gitlab-profile" else login)
+            // Tangled has no profile README.
+            ForgeType.TANGLED -> null
         }
     }
 

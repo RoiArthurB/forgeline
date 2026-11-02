@@ -4,7 +4,7 @@
 
 **All your code forges, in one fast Android app.**
 
-GitHub, GitLab, Codeberg, Gitea and your own Forgejo or Gitea server, side by side. See what needs you, follow what people are building, and find something new to love every day, without being sent off to a mobile web page.
+GitHub, GitLab, Codeberg, Gitea and your own Forgejo or Gitea server, side by side, with Tangled to browse. See what needs you, follow what people are building, and find something new to love every day, without being sent off to a mobile web page.
 
 [**Download the latest APK**](https://github.com/RoiArthurB/forgeline/releases/latest) · [Website](https://arthurbrugiere.fr/forgeline/) · [What's new](docs/release-notes)
 

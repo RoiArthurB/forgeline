@@ -94,6 +94,10 @@ data class RepoDetails(
     val openPulls: Int? = null,
     /** Whether nothing has been pushed to the repository yet, so it has no files, branch or README. */
     val isEmpty: Boolean = false,
+    /** Whether the forge's API lists the repository's issues and pull requests: Tangled's doesn't yet. */
+    val listsConversations: Boolean = true,
+    /** Whether the forge's API lists the repository's releases: Tangled's and SourceHut's don't. */
+    val listsReleases: Boolean = true,
 )
 
 data class Readme(val path: String, val markdown: String)

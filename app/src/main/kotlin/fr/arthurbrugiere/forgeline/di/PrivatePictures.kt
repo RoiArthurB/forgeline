@@ -36,6 +36,8 @@ fun authenticatedPicture(url: String, access: List<PictureAccess>): Authenticate
                 return AuthenticatedPicture(url, AUTHORIZATION, "token $token")
             }
             ForgeType.GITLAB -> if (host == forge.host) gitLabApiFile(forge, path)?.let { return AuthenticatedPicture(it, AUTHORIZATION, "Bearer $token") }
+            // No one signs in to Tangled yet: its pictures are all public.
+            ForgeType.TANGLED -> Unit
         }
     }
     return null
