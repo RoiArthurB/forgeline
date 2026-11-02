@@ -303,7 +303,7 @@ class GitHubPullRequestApiTest {
         }.revert("tok", pull)
 
         assertThat(result).isEqualTo(ForgeResult.Success(IssueRef(pull.repo, 89, isPullRequest = true)))
-        assertThat(requests.last().sent).contains("revertPullRequest(input: {pullRequestId: \$id})")
+        assertThat(requests.last().sent).contains(""""operationName":"Revert"""")
         assertThat(requests.last().sent).contains("\"PR_88\"")
     }
 
@@ -347,9 +347,9 @@ class GitHubPullRequestApiTest {
         assertThat(acting.cancelMergeWhenChecksPass("tok", pull)).isEqualTo(ForgeResult.Success(Unit))
 
         val mutations = requests.filter { it.path == "/graphql" }.map { it.sent }
-        assertThat(mutations[0]).contains("enablePullRequestAutoMerge(input: {pullRequestId: \$id, mergeMethod: \$method})")
+        assertThat(mutations[0]).contains(""""operationName":"EnableAutoMerge"""")
         assertThat(mutations[0]).contains(""""variables":{"id":"PR_88","method":"SQUASH"}""")
-        assertThat(mutations[1]).contains("disablePullRequestAutoMerge(input: {pullRequestId: \$id})")
+        assertThat(mutations[1]).contains(""""operationName":"DisableAutoMerge"""")
         // Nothing merged now.
         assertThat(requests.none { it.path.endsWith("/merge") }).isTrue()
     }
@@ -454,6 +454,8 @@ class GitHubPullRequestApiTest {
         assertThat(first.onOldSide).isFalse()
         assertThat(first.hunk).startsWith("@@")
         assertThat(first.comments.map { it.author?.login }).containsExactly("copilot-pull-request-reviewer", "copilot-swe-agent").inOrder()
+        // Past what a 32-bit id holds, as GitHub's comment ids now are: read from fullDatabaseId, which carries them whole.
+        assertThat(first.comments.first().id).isEqualTo(4355905017)
         assertThat(first.canResolve).isTrue()
         assertThat(threads.map { it.resolved }).containsExactly(false, true, true, false, true).inOrder()
         assertThat(requests.single().path).isEqualTo("/graphql")
@@ -466,13 +468,25 @@ class GitHubPullRequestApiTest {
             json(
                 """{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_1","isResolved":false,"isOutdated":false,
                 "path":"src/Upload.kt","line":12,"originalLine":12,"startLine":10,"diffSide":"RIGHT","viewerCanResolve":true,"viewerCanUnresolve":false,
-                "comments":{"nodes":[{"databaseId":1,"body":"```suggestion\nretry()\n```","createdAt":"2026-10-24T10:00:00Z","diffHunk":"@@ -1 +1 @@","author":{"login":"hubot"}}]}}]}}}}}""",
+                "comments":{"nodes":[{"fullDatabaseId":"1","body":"```suggestion\nretry()\n```","createdAt":"2026-10-24T10:00:00Z","diffHunk":"@@ -1 +1 @@","author":{"login":"hubot","avatarUrl":"https://a/h"}}]}}]}}}}}""",
             )
         }.threads("tok", gama).value()
 
         assertThat(threads.single().startLine).isEqualTo(10)
         assertThat(threads.single().line).isEqualTo(12)
         assertThat(requests.single().sent).contains("originalLine startLine diffSide")
+    }
+
+    @Test
+    fun a_thread_without_whether_it_is_resolved_makes_the_answer_unreadable() = runTest {
+        val result = api {
+            json(
+                """{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_1","isOutdated":false,"path":"a.kt","diffSide":"RIGHT",
+                "viewerCanResolve":true,"viewerCanUnresolve":false,"comments":{"nodes":[]}}]}}}}}"""
+            )
+        }.threads("tok", gama)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unreadable))
     }
 
     @Test
@@ -500,8 +514,8 @@ class GitHubPullRequestApiTest {
 
         assertThat(requests[0].path).isEqualTo("/repos/gama-platform/gama/pulls/1265/comments/4355905017/replies")
         assertThat(requests[0].sent).isEqualTo("""{"body":"Fixed in 7a1b."}""")
-        assertThat(requests[1].sent).contains("resolveReviewThread(input: {threadId: \$id})")
-        assertThat(requests[2].sent).contains("unresolveReviewThread(input: {threadId: \$id})")
+        assertThat(requests[1].sent).contains(""""operationName":"ResolveThread"""")
+        assertThat(requests[2].sent).contains(""""operationName":"UnresolveThread"""")
         assertThat(requests[1].sent).contains(""""variables":{"id":"PRRT_kwDOLUle7M6vdxgm"}""")
     }
 
@@ -590,7 +604,7 @@ class GitHubPullRequestApiTest {
 
         assertThat(requests.map { it.sent }.filter { "FileAsViewed" in it }.map { it.substringAfter("mutation").substringBefore("(input").trim() })
             .hasSize(2)
-        assertThat(requests.last().sent).contains("unmarkFileAsViewed(input: {pullRequestId: \$id, path: \$path})")
+        assertThat(requests.last().sent).contains(""""operationName":"UnmarkFileViewed"""")
         assertThat(requests.last().sent).contains(""""variables":{"id":"PR_kwDOLUle7M8AAAABKK38FQ","path":"a/GamaQuadTree.java"}""")
     }
 
@@ -758,7 +772,7 @@ class GitHubPullRequestApiTest {
     fun blame_is_asked_of_the_graphql_api_and_says_who_last_left_each_run_of_lines() = runTest {
         val api = api {
             json(
-                """{"data":{"repository":{"target":{"blame":{"ranges":[
+                """{"data":{"repository":{"target":{"__typename":"Commit","blame":{"ranges":[
                     {"startingLine":1,"endingLine":3,"commit":{"oid":"1111111aaaaaaa","message":"Retry uploads\n\nOn slow links.","authoredDate":"2026-09-26T08:00:00Z","author":{"name":"The Octocat","user":{"login":"octocat","avatarUrl":"https://a/1"}}}},
                     {"startingLine":4,"endingLine":4,"commit":{"oid":"2222222bbbbbbb","message":"Fix typo","authoredDate":"2026-09-27T08:00:00Z","author":{"name":"Someone Else","user":null}}}
                 ]}}}}}""",

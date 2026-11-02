@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.github
 
+import com.apollographql.apollo.api.Operation
+import com.apollographql.apollo.api.Optional
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.PullRequestApi
@@ -32,6 +34,23 @@ import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import fr.arthurbrugiere.forgeline.core.model.ThreadComment
 import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.github.graphql.BlameQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.DisableAutoMergeMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.EnableAutoMergeMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.MarkFileViewedMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.PullRequestTemplatesQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.ResolveThreadMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.RevertMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.StandingQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.ThreadsQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.UnmarkFileViewedMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.UnresolveThreadMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.ViewedQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.type.DiffSide
+import fr.arthurbrugiere.forgeline.forge.github.graphql.type.FileViewedState
+import fr.arthurbrugiere.forgeline.forge.github.graphql.type.PullRequestMergeMethod
+import fr.arthurbrugiere.forgeline.forge.github.graphql.type.PullRequestReviewDecision
+import fr.arthurbrugiere.forgeline.forge.github.graphql.type.StatusState
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.statement.HttpResponse
@@ -166,13 +185,12 @@ class GitHubPullRequestApi(
             is ForgeResult.Failure -> return node
             is ForgeResult.Success -> node.value
         }
-        return when (val answer = graphQl(token, REVERT_MUTATION, buildJsonObject { put("id", id) })) {
+        return when (val answer = operation(token, RevertMutation(id))) {
             is ForgeResult.Failure -> answer
-            is ForgeResult.Success -> {
-                val pull = (answer.value["revertPullRequest"] as? JsonObject)?.get("revertPullRequest")
-                val number = pull?.let { runCatching { ForgeJson.decodeFromJsonElement<PrCreatedJson>(it).number }.getOrNull() }
-                number?.let { ForgeResult.Success(IssueRef(ref.repo, it, isPullRequest = true)) } ?: ForgeResult.Failure(ForgeError.Unreadable)
-            }
+            is ForgeResult.Success ->
+                answer.value.revertPullRequest?.revertPullRequest?.number
+                    ?.let { ForgeResult.Success(IssueRef(ref.repo, it, isPullRequest = true)) }
+                    ?: ForgeResult.Failure(ForgeError.Unreadable)
         }
     }
 
@@ -182,19 +200,14 @@ class GitHubPullRequestApi(
      * resolve) is told as one the forge doesn't name.
      */
     private suspend fun blockersOf(token: String, ref: IssueRef): List<MergeBlocker> {
-        val variables = buildJsonObject {
-            put("owner", ref.repo.owner)
-            put("name", ref.repo.name)
-            put("number", ref.number)
-        }
-        val pull = (graphQl(token, BLOCKERS_QUERY, variables) as? ForgeResult.Success)?.value
-            ?.get("repository")?.jsonObject?.get("pullRequest")?.jsonObject
-            ?.let { ForgeJson.decodeFromJsonElement<PrStandingJson>(it) }
+        val pull = (operation(token, StandingQuery(ref.repo.owner, ref.repo.name, ref.number)) as? ForgeResult.Success)?.value
+            ?.repository?.pullRequest
             ?: return listOf(MergeBlocker.OTHER)
+        val checks = pull.commits.nodes?.lastOrNull()?.commit?.statusCheckRollup?.state
         return listOfNotNull(
-            MergeBlocker.CHANGES_REQUESTED.takeIf { pull.reviewDecision == "CHANGES_REQUESTED" },
-            MergeBlocker.REVIEWS.takeIf { pull.reviewDecision == "REVIEW_REQUIRED" },
-            MergeBlocker.CHECKS.takeIf { pull.commits.nodes.lastOrNull()?.commit?.statusCheckRollup?.state.let { it != null && it != "SUCCESS" } },
+            MergeBlocker.CHANGES_REQUESTED.takeIf { pull.reviewDecision == PullRequestReviewDecision.CHANGES_REQUESTED },
+            MergeBlocker.REVIEWS.takeIf { pull.reviewDecision == PullRequestReviewDecision.REVIEW_REQUIRED },
+            MergeBlocker.CHECKS.takeIf { checks != null && checks != StatusState.SUCCESS },
         ).ifEmpty { listOf(MergeBlocker.OTHER) }
     }
 
@@ -204,16 +217,7 @@ class GitHubPullRequestApi(
      */
     override suspend fun merge(token: String, ref: IssueRef, method: MergeMethod, deleteBranch: Boolean, whenChecksPass: Boolean): ForgeResult<Unit> {
         if (whenChecksPass) {
-            return onPullNode(token, ref) { id ->
-                graphQl(
-                    token,
-                    "mutation(\$id: ID!, \$method: PullRequestMergeMethod!) { enablePullRequestAutoMerge(input: {pullRequestId: \$id, mergeMethod: \$method}) { clientMutationId } }",
-                    buildJsonObject {
-                        put("id", id)
-                        put("method", method.name)
-                    },
-                )
-            }
+            return onPullNode(token, ref) { id -> operation(token, EnableAutoMergeMutation(id, PullRequestMergeMethod.safeValueOf(method.name))).map { } }
         }
         return forgeCall {
             val merged = pull(token, ref, "merge", method = HttpMethod.Put, body = buildJsonObject { put("merge_method", method.name.lowercase()) })
@@ -236,14 +240,8 @@ class GitHubPullRequestApi(
                 pull(null, ref, "comments", query = mapOf("per_page" to "100")).toResult { threadsOf(body<List<PrReviewCommentJson>>()) }
             }
         }
-        val variables = buildJsonObject {
-            put("owner", ref.repo.owner)
-            put("name", ref.repo.name)
-            put("number", ref.number)
-        }
-        return graphQl(token, THREADS_QUERY, variables).map { data ->
-            val nodes = data["repository"]?.jsonObject?.get("pullRequest")?.jsonObject?.get("reviewThreads")?.jsonObject?.get("nodes") ?: return@map emptyList()
-            ForgeJson.decodeFromJsonElement<List<PrThreadJson>>(nodes).map { it.toModel() }
+        return operation(token, ThreadsQuery(ref.repo.owner, ref.repo.name, ref.number)).map { data ->
+            data.repository?.pullRequest?.reviewThreads?.nodes.orEmpty().filterNotNull().map { it.toModel() }
         }
     }
 
@@ -270,10 +268,7 @@ class GitHubPullRequestApi(
 
     override val resolvesThreads: Boolean = true
 
-    override suspend fun setResolved(token: String, ref: IssueRef, thread: ReviewThread, resolved: Boolean): ForgeResult<Unit> {
-        val mutation = if (resolved) "resolveReviewThread" else "unresolveReviewThread"
-        return graphQl(token, "mutation(\$id: ID!) { $mutation(input: {threadId: \$id}) { thread { id } } }", buildJsonObject { put("id", thread.id) }).map { }
-    }
+    override suspend fun setResolved(token: String, ref: IssueRef, thread: ReviewThread, resolved: Boolean): ForgeResult<Unit> = if (resolved) operation(token, ResolveThreadMutation(thread.id)).map { } else operation(token, UnresolveThreadMutation(thread.id)).map { }
 
     override val dismissesReviews: Boolean = true
 
@@ -326,7 +321,7 @@ class GitHubPullRequestApi(
     }
 
     override suspend fun cancelMergeWhenChecksPass(token: String, ref: IssueRef): ForgeResult<Unit> = onPullNode(token, ref) { id ->
-        graphQl(token, "mutation(\$id: ID!) { disablePullRequestAutoMerge(input: {pullRequestId: \$id}) { clientMutationId } }", buildJsonObject { put("id", id) })
+        operation(token, DisableAutoMergeMutation(id)).map { }
     }
 
     /** [ref]'s id in GraphQL, read from the REST API, which names it. */
@@ -336,11 +331,11 @@ class GitHubPullRequestApi(
         pull.body<PrPullJson>().nodeId?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Http(404, null))
     }
 
-    private suspend fun onPullNode(token: String, ref: IssueRef, act: suspend (id: String) -> ForgeResult<JsonObject>): ForgeResult<Unit> {
+    private suspend fun onPullNode(token: String, ref: IssueRef, act: suspend (id: String) -> ForgeResult<Unit>): ForgeResult<Unit> {
         val node = pullNode(token, ref)
         return when (node) {
             is ForgeResult.Failure -> node
-            is ForgeResult.Success -> act(node.value).map { }
+            is ForgeResult.Success -> act(node.value)
         }
     }
 
@@ -351,11 +346,11 @@ class GitHubPullRequestApi(
         val viewed = mutableSetOf<String>()
         var after: String? = null
         repeat(VIEWED_PAGES) {
-            val page = when (val read = graphQl(token, VIEWED_QUERY, buildJsonObject { putPull(ref); put("after", after) })) {
+            val page = when (val read = operation(token, ViewedQuery(ref.repo.owner, ref.repo.name, ref.number, Optional.presentIfNotNull(after)))) {
                 is ForgeResult.Failure -> return read
-                is ForgeResult.Success -> read.value.pullRequestFiles() ?: return ForgeResult.Failure(ForgeError.Unreadable)
+                is ForgeResult.Success -> read.value.repository?.pullRequest?.files ?: return ForgeResult.Failure(ForgeError.Unreadable)
             }
-            viewed += page.nodes.filter { it.viewerViewedState == "VIEWED" }.map { it.path }
+            viewed += page.nodes.orEmpty().filterNotNull().filter { it.viewerViewedState == FileViewedState.VIEWED }.map { it.path }
             after = page.pageInfo.endCursor?.takeIf { page.pageInfo.hasNextPage } ?: return ForgeResult.Success(viewed)
         }
         return ForgeResult.Success(viewed)
@@ -363,36 +358,15 @@ class GitHubPullRequestApi(
 
     /** By the pull request's own id, which is asked first. */
     override suspend fun setFileViewed(token: String, ref: IssueRef, path: String, viewed: Boolean): ForgeResult<Unit> {
-        val id = when (val read = graphQl(token, VIEWED_QUERY, buildJsonObject { putPull(ref); put("after", null as String?) })) {
+        val id = when (val read = operation(token, ViewedQuery(ref.repo.owner, ref.repo.name, ref.number))) {
             is ForgeResult.Failure -> return read
-            is ForgeResult.Success -> read.value.pullRequestId() ?: return ForgeResult.Failure(ForgeError.Unreadable)
+            is ForgeResult.Success -> read.value.repository?.pullRequest?.id ?: return ForgeResult.Failure(ForgeError.Unreadable)
         }
-        val mutation = if (viewed) "markFileAsViewed" else "unmarkFileAsViewed"
-        return graphQl(
-            token, "mutation(\$id: ID!, \$path: String!) { done: $mutation(input: {pullRequestId: \$id, path: \$path}) { clientMutationId } }",
-            buildJsonObject {
-                put("id", id)
-                put("path", path)
-            },
-        ).map { }
+        return if (viewed) operation(token, MarkFileViewedMutation(id, path)).map { } else operation(token, UnmarkFileViewedMutation(id, path)).map { }
     }
 
-    private fun kotlinx.serialization.json.JsonObjectBuilder.putPull(ref: IssueRef) {
-        put("owner", ref.repo.owner)
-        put("name", ref.repo.name)
-        put("number", ref.number)
-    }
-
-    private fun JsonObject.pullRequest(): JsonObject? =
-        (get("repository") as? JsonObject)?.get("pullRequest") as? JsonObject
-
-    private fun JsonObject.pullRequestId(): String? = (pullRequest()?.get("id") as? kotlinx.serialization.json.JsonPrimitive)?.content
-
-    private fun JsonObject.pullRequestFiles(): PrViewedFilesJson? =
-        pullRequest()?.get("files")?.let { runCatching { ForgeJson.decodeFromJsonElement<PrViewedFilesJson>(it) }.getOrNull() }
-
-    private suspend fun graphQl(token: String, query: String, variables: JsonObject): ForgeResult<JsonObject> =
-        forgeCall { httpClient.gitHubGraphQl(apiBaseUrl, token, query, variables) }
+    private suspend fun <D : Operation.Data> operation(token: String, operation: Operation<D>): ForgeResult<D> =
+        forgeCall { httpClient.gitHubOperation(apiBaseUrl, token, operation) }
 
     override val commentsOnRanges: Boolean = true
 
@@ -465,20 +439,13 @@ class GitHubPullRequestApi(
     }
 
     /** GitHub reads them from the default branch itself, wherever they are kept (the root, `.github`, `docs`). */
-    override suspend fun pullRequestTemplates(token: String, repo: RepoId, branch: String): ForgeResult<List<IssueTemplate>> = graphQl(
-        token,
-        "query(\$owner: String!, \$name: String!) { repository(owner: \$owner, name: \$name) { pullRequestTemplates { filename body } } }",
-        buildJsonObject {
-            put("owner", repo.owner)
-            put("name", repo.name)
-        },
-    ).map { data ->
-        val templates = (data["repository"] as? JsonObject)?.get("pullRequestTemplates") as? JsonArray ?: return@map emptyList()
-        ForgeJson.decodeFromJsonElement<List<PrTemplateJson>>(templates).mapNotNull { template ->
-            val file = template.filename ?: return@mapNotNull null
-            IssueTemplate(file, file.substringAfterLast('/'), body = template.body.orEmpty())
+    override suspend fun pullRequestTemplates(token: String, repo: RepoId, branch: String): ForgeResult<List<IssueTemplate>> =
+        operation(token, PullRequestTemplatesQuery(repo.owner, repo.name)).map { data ->
+            data.repository?.pullRequestTemplates.orEmpty().mapNotNull { template ->
+                val file = template.filename ?: return@mapNotNull null
+                IssueTemplate(file, file.substringAfterLast('/'), body = template.body.orEmpty())
+            }
         }
-    }
 
     override suspend fun history(token: String?, repo: RepoId, ref: String?, path: String?, page: Int): ForgeResult<CommitPage> = forgeCall {
         val query = buildMap {
@@ -532,15 +499,9 @@ class GitHubPullRequestApi(
     /** GitHub's REST API has no blame: its GraphQL one does, for signed-in users only. */
     override suspend fun blame(token: String?, repo: RepoId, ref: String, path: String): ForgeResult<List<BlameRange>> = forgeCall {
         if (token == null) return@forgeCall ForgeResult.Failure(ForgeError.Unauthorized)
-        val variables = buildJsonObject {
-            put("owner", repo.owner)
-            put("name", repo.name)
-            put("ref", ref)
-            put("path", path)
-        }
-        httpClient.gitHubGraphQl(apiBaseUrl, token, BLAME_QUERY, variables).map { data ->
+        httpClient.gitHubOperation(apiBaseUrl, token, BlameQuery(repo.owner, repo.name, ref, path)).map { data ->
             // A ref or a path that isn't there answers with nothing under it, not with an error.
-            val ranges = ForgeJson.decodeFromJsonElement<PrBlameData>(data).repository?.target?.blame?.ranges
+            val ranges = data.repository?.target?.onCommit?.blame?.ranges
                 ?: return@forgeCall ForgeResult.Failure(ForgeError.Http(404, null))
             ranges.map { it.toModel() }
         }
@@ -555,8 +516,6 @@ class GitHubPullRequestApi(
     ): HttpResponse = repo(token, ref.repo, "pulls", ref.number.toString(), *segments, method = method, query = query, body = body)
 
     private companion object {
-        const val REVERT_MUTATION = "mutation(\$id: ID!) { revertPullRequest(input: {pullRequestId: \$id}) { revertPullRequest { number } } }"
-
         /** A commit's full id, the only thing written into the co-authors' query rather than passed to it. */
         val SHA = Regex("[0-9a-f]{40}")
 
@@ -568,20 +527,6 @@ class GitHubPullRequestApi(
 
         /** How many pages of a hundred files are read for which were viewed: a change of more is past reviewing on a phone. */
         const val VIEWED_PAGES = 30
-
-        const val VIEWED_QUERY = "query Viewed(\$owner: String!, \$name: String!, \$number: Int!, \$after: String) { repository(owner: \$owner, name: \$name) { " +
-            "pullRequest(number: \$number) { id files(first: 100, after: \$after) { pageInfo { hasNextPage endCursor } nodes { path viewerViewedState } } } } }"
-
-        const val THREADS_QUERY = "query Threads(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { " +
-            "pullRequest(number: \$number) { reviewThreads(first: 100) { nodes { id isResolved isOutdated path line originalLine startLine diffSide " +
-            "viewerCanResolve viewerCanUnresolve comments(first: 100) { nodes { databaseId body createdAt diffHunk author { login avatarUrl } reactionGroups { content reactors { totalCount } } } } } } } } }"
-
-        const val BLOCKERS_QUERY = "query Standing(\$owner: String!, \$name: String!, \$number: Int!) { repository(owner: \$owner, name: \$name) { " +
-            "pullRequest(number: \$number) { reviewDecision commits(last: 1) { nodes { commit { statusCheckRollup { state } } } } } } }"
-
-        const val BLAME_QUERY = "query Blame(\$owner: String!, \$name: String!, \$ref: String!, \$path: String!) { " +
-            "repository(owner: \$owner, name: \$name) { target: object(expression: \$ref) { ... on Commit { blame(path: \$path) { ranges { " +
-            "startingLine endingLine commit { oid message authoredDate author { name user { login avatarUrl } } } } } } } } }"
     }
 }
 
@@ -653,22 +598,6 @@ private data class PrPullJson(
     // Set while GitHub is to merge it once its checks pass.
     @SerialName("auto_merge") val autoMerge: JsonObject? = null,
 )
-
-/** What GitHub's GraphQL API says of a blocked pull request: whether its reviews are in, and its last commit's checks. */
-@Serializable
-private data class PrStandingJson(val reviewDecision: String? = null, val commits: PrStandingCommitsJson = PrStandingCommitsJson())
-
-@Serializable
-private data class PrStandingCommitsJson(val nodes: List<PrStandingNodeJson> = emptyList())
-
-@Serializable
-private data class PrStandingNodeJson(val commit: PrStandingCommitJson? = null)
-
-@Serializable
-private data class PrStandingCommitJson(val statusCheckRollup: PrRollupJson? = null)
-
-@Serializable
-private data class PrRollupJson(val state: String? = null)
 
 @Serializable
 private data class PrPermissionsJson(val push: Boolean = false)
@@ -756,18 +685,6 @@ private data class PrStatusJson(val context: String, val state: String, val desc
 }
 
 @Serializable
-private data class PrBlameData(val repository: PrBlameRepository? = null)
-
-@Serializable
-private data class PrBlameRepository(val target: PrBlameTarget? = null)
-
-@Serializable
-private data class PrBlameTarget(val blame: PrBlame? = null)
-
-@Serializable
-private data class PrBlame(val ranges: List<PrBlameRangeJson> = emptyList())
-
-@Serializable
 private data class PrAuthorUserJson(val login: String)
 
 @Serializable
@@ -779,33 +696,6 @@ private data class PrAuthorsJson(val nodes: List<PrAuthorJson> = emptyList())
 /** A commit's authors, as GitHub's GraphQL API lists them: its author first, then whoever it says wrote it with them. */
 @Serializable
 private data class PrAuthorsCommitJson(val authors: PrAuthorsJson = PrAuthorsJson())
-
-@Serializable
-private data class PrBlameUser(val login: String, val avatarUrl: String? = null)
-
-@Serializable
-private data class PrBlameAuthor(val name: String? = null, val user: PrBlameUser? = null)
-
-@Serializable
-private data class PrBlameCommit(val oid: String, val message: String = "", val authoredDate: String? = null, val author: PrBlameAuthor? = null)
-
-@Serializable
-private data class PrBlameRangeJson(val startingLine: Int, val endingLine: Int, val commit: PrBlameCommit) {
-    fun toModel() = BlameRange(
-        startingLine,
-        endingLine,
-        Commit(
-            sha = commit.oid,
-            message = commit.message,
-            authorName = commit.author?.name,
-            author = commit.author?.user?.let { ForgeUser(it.login, null, it.avatarUrl) },
-            date = commit.authoredDate?.let { runCatching { Instant.parse(it) }.getOrNull() },
-        ),
-    )
-}
-
-@Serializable
-private data class PrCreatedJson(val number: Int)
 
 /** A comment on a line, as GitHub's REST API lists them: a reply names the comment it answers. */
 @Serializable
@@ -845,65 +735,19 @@ private fun threadsOf(comments: List<PrReviewCommentJson>): List<ReviewThread> {
 }
 
 @Serializable
-private data class PrGraphAuthorJson(val login: String, val avatarUrl: String? = null)
+private data class PrCreatedJson(val number: Int)
 
-@Serializable
-private data class PrViewedFilesJson(val pageInfo: PrPageInfoJson = PrPageInfoJson(), val nodes: List<PrViewedFileJson> = emptyList())
-
-@Serializable
-private data class PrPageInfoJson(val hasNextPage: Boolean = false, val endCursor: String? = null)
-
-@Serializable
-private data class PrViewedFileJson(val path: String, val viewerViewedState: String? = null)
-
-@Serializable
-private data class PrGraphCommentJson(
-    val databaseId: Long,
-    val body: String = "",
-    val createdAt: String? = null,
-    val diffHunk: String? = null,
-    val author: PrGraphAuthorJson? = null,
-    val reactionGroups: List<PrReactionGroupJson> = emptyList(),
-) {
-    /** The kinds anyone gave, by how many: GraphQL lists every kind, most at zero. */
-    val reactions: Map<Reaction, Int>
-        get() = reactionGroups.mapNotNull { group ->
-            val kind = Reaction.entries.firstOrNull { it.name == group.content } ?: return@mapNotNull null
-            group.reactors.totalCount.takeIf { it > 0 }?.let { kind to it }
-        }.toMap()
-}
-
-@Serializable
-private data class PrReactionGroupJson(val content: String, val reactors: PrCountJson = PrCountJson())
-
-@Serializable
-private data class PrCountJson(val totalCount: Int = 0)
-
-@Serializable
-private data class PrGraphCommentsJson(val nodes: List<PrGraphCommentJson> = emptyList())
-
-@Serializable
-private data class PrThreadJson(
-    val id: String,
-    val isResolved: Boolean = false,
-    val isOutdated: Boolean = false,
-    val path: String,
-    val line: Int? = null,
-    val originalLine: Int? = null,
-    val startLine: Int? = null,
-    val diffSide: String? = null,
-    val viewerCanResolve: Boolean = false,
-    val viewerCanUnresolve: Boolean = false,
-    val comments: PrGraphCommentsJson = PrGraphCommentsJson(),
-) {
-    fun toModel() = ReviewThread(
+private fun ThreadsQuery.Node.toModel(): ReviewThread {
+    val remarks = comments.nodes.orEmpty().filterNotNull()
+    return ReviewThread(
         id = id,
         path = path,
         line = line ?: originalLine,
-        onOldSide = diffSide == "LEFT",
-        hunk = comments.nodes.firstOrNull()?.diffHunk,
-        comments = comments.nodes.map { comment ->
-            ThreadComment(comment.databaseId, comment.author?.let { ForgeUser(it.login, null, it.avatarUrl) }, comment.body, comment.createdAt?.let { runCatching { Instant.parse(it) }.getOrNull() }, reactions = comment.reactions)
+        onOldSide = diffSide == DiffSide.LEFT,
+        hunk = remarks.firstOrNull()?.diffHunk,
+        comments = remarks.mapNotNull { comment ->
+            val number = comment.fullDatabaseId?.toLongOrNull() ?: return@mapNotNull null
+            ThreadComment(number, comment.author?.let { ForgeUser(it.login, null, it.avatarUrl) }, comment.body, runCatching { Instant.parse(comment.createdAt) }.getOrNull(), reactions = comment.reactions())
         },
         resolved = isResolved,
         canResolve = if (isResolved) viewerCanUnresolve else viewerCanResolve,
@@ -912,5 +756,20 @@ private data class PrThreadJson(
     )
 }
 
-@Serializable
-private data class PrTemplateJson(val filename: String? = null, val body: String? = null)
+/** The kinds anyone gave, by how many: GraphQL lists every kind, most at zero. */
+private fun ThreadsQuery.Node1.reactions(): Map<Reaction, Int> = reactionGroups.orEmpty().mapNotNull { group ->
+    val kind = Reaction.entries.firstOrNull { it.name == group.content.rawValue } ?: return@mapNotNull null
+    group.reactors.totalCount.takeIf { it > 0 }?.let { kind to it }
+}.toMap()
+
+private fun BlameQuery.Range.toModel() = BlameRange(
+    startingLine,
+    endingLine,
+    Commit(
+        sha = commit.oid,
+        message = commit.message,
+        authorName = commit.author?.name,
+        author = commit.author?.user?.let { ForgeUser(it.login, null, it.avatarUrl) },
+        date = runCatching { Instant.parse(commit.authoredDate) }.getOrNull(),
+    ),
+)
