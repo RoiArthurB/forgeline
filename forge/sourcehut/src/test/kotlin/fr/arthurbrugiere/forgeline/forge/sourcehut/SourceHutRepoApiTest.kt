@@ -70,9 +70,9 @@ class SourceHutRepoApiTest {
             listOf(
                 "revparse_single" to { request ->
                     if (request.string("cursor") == null) {
-                        inRepository("""{"revparse_single":{"tree":{"entries":{"results":[{"name":"Makefile","mode":33188},{"name":"doc","mode":16384}],"cursor":"abc"}}}}""")
+                        inRepository("""{"revparse_single":{"tree":{"entries":{"__typename":"TreeEntryCursor","results":[{"name":"Makefile","mode":33188},{"name":"doc","mode":16384}],"cursor":"abc"}}}}""")
                     } else {
-                        inRepository("""{"revparse_single":{"tree":{"entries":{"results":[{"name":"link","mode":40960},{"name":"vendor","mode":57344},{"name":"run.sh","mode":33261}],"cursor":null}}}}""")
+                        inRepository("""{"revparse_single":{"tree":{"entries":{"__typename":"TreeEntryCursor","results":[{"name":"link","mode":40960},{"name":"vendor","mode":57344},{"name":"run.sh","mode":33261}],"cursor":null}}}}""")
                     }
                 },
             ),
@@ -91,7 +91,7 @@ class SourceHutRepoApiTest {
     @Test
     fun a_sub_folder_is_read_by_its_path() = runTest {
         val fake = FakeSourceHut(
-            listOf("path(" to { _ -> inRepository("""{"path":{"object":{"type":"TREE","entries":{"results":[{"name":"scdoc.5.scd","mode":33188}],"cursor":null}}}}""") }),
+            listOf("path(" to { _ -> inRepository("""{"path":{"object":{"__typename":"Tree","type":"TREE","entries":{"__typename":"TreeEntryCursor","results":[{"name":"scdoc.5.scd","mode":33188}],"cursor":null}}}}""") }),
         )
 
         val files = SourceHutRepoApi(fake.client).contents(TOKEN, scdoc, "doc/", "master").value()
@@ -107,9 +107,9 @@ class SourceHutRepoApiTest {
             listOf(
                 "path(" to { request ->
                     if (request.string("path") == "README.md") {
-                        inRepository("""{"path":{"object":{"type":"BLOB","size":20,"text":"# scdoc\n\nman pages","content":"$contentUrl"}}}""")
+                        inRepository("""{"path":{"object":{"__typename":"TextBlob","type":"BLOB","size":20,"text":"# scdoc\n\nman pages","content":"$contentUrl"}}}""")
                     } else {
-                        inRepository("""{"path":{"object":{"type":"BLOB","size":200000,"text":"truncated","content":"$contentUrl"}}}""")
+                        inRepository("""{"path":{"object":{"__typename":"TextBlob","type":"BLOB","size":200000,"text":"truncated","content":"$contentUrl"}}}""")
                     }
                 },
             ),
@@ -127,8 +127,8 @@ class SourceHutRepoApiTest {
     fun the_readme_is_found_in_the_root_folder() = runTest {
         val fake = FakeSourceHut(
             listOf(
-                "revparse_single" to { _ -> inRepository("""{"revparse_single":{"tree":{"entries":{"results":[{"name":"README","mode":33188},{"name":"README.md","mode":33188}],"cursor":null}}}}""") },
-                "path(" to { _ -> inRepository("""{"path":{"object":{"type":"BLOB","size":7,"text":"# scdoc","content":"x"}}}""") },
+                "revparse_single" to { _ -> inRepository("""{"revparse_single":{"tree":{"entries":{"__typename":"TreeEntryCursor","results":[{"name":"README","mode":33188},{"name":"README.md","mode":33188}],"cursor":null}}}}""") },
+                "path(" to { _ -> inRepository("""{"path":{"object":{"__typename":"TextBlob","type":"BLOB","size":7,"text":"# scdoc","content":"x"}}}""") },
             ),
         )
 
@@ -168,11 +168,11 @@ class SourceHutRepoApiTest {
                 "references" to { _ ->
                     inRepository(
                         """{"references":{"results":[
-                          {"name":"refs/heads/master","follow":{"type":"COMMIT","committer":{"time":"2026-10-01T00:00:00Z"}},"artifacts":{"results":[]}},
-                          {"name":"refs/tags/1.11.2","follow":{"type":"TAG","message":"scdoc 1.11.2\n","tagger":{"time":"2025-01-01T00:00:00Z"}},"artifacts":{"results":[]}},
-                          {"name":"refs/tags/1.11.3","follow":{"type":"TAG","message":"scdoc 1.11.3\n\nFixes.\n","tagger":{"time":"2026-02-01T00:00:00Z"}},
+                          {"__typename":"Reference","name":"refs/heads/master","follow":{"__typename":"Commit","type":"COMMIT","committer":{"time":"2026-10-01T00:00:00Z"}},"artifacts":{"results":[]}},
+                          {"__typename":"Reference","name":"refs/tags/1.11.2","follow":{"__typename":"Tag","type":"TAG","message":"scdoc 1.11.2\n","tagger":{"time":"2025-01-01T00:00:00Z"}},"artifacts":{"results":[]}},
+                          {"__typename":"Reference","name":"refs/tags/1.11.3","follow":{"__typename":"Tag","type":"TAG","message":"scdoc 1.11.3\n\nFixes.\n","tagger":{"time":"2026-02-01T00:00:00Z"}},
                            "artifacts":{"results":[{"filename":"scdoc-1.11.3.tar.gz.sig","size":566,"url":"https://git.sr.ht/~sircmpwn/scdoc/refs/download/1.11.3/scdoc-1.11.3.tar.gz.sig"}]}},
-                          {"name":"refs/tags/light","follow":{"type":"COMMIT","committer":{"time":"2024-01-01T00:00:00Z"}},"artifacts":{"results":[]}}
+                          {"__typename":"Reference","name":"refs/tags/light","follow":{"__typename":"Commit","type":"COMMIT","committer":{"time":"2024-01-01T00:00:00Z"}},"artifacts":{"results":[]}}
                         ],"cursor":null}}""",
                     )
                 },
@@ -195,12 +195,47 @@ class SourceHutRepoApiTest {
     @Test
     fun one_release_is_read_by_its_tag() = runTest {
         val fake = FakeSourceHut(
-            listOf("reference(" to { _ -> inRepository("""{"reference":{"name":"refs/tags/1.11.3","follow":{"type":"TAG","message":"scdoc 1.11.3","tagger":{"time":"2026-02-01T00:00:00Z"}},"artifacts":{"results":[]}}}""") }),
+            listOf("reference(" to { _ -> inRepository("""{"reference":{"__typename":"Reference","name":"refs/tags/1.11.3","follow":{"__typename":"Tag","type":"TAG","message":"scdoc 1.11.3","tagger":{"time":"2026-02-01T00:00:00Z"}},"artifacts":{"results":[]}}}""") }),
         )
 
         val release = SourceHutRepoApi(fake.client).release(TOKEN, scdoc, "1.11.3").value()
 
         assertThat(release.tag).isEqualTo("1.11.3")
         assertThat(fake.requests.single().string("ref")).isEqualTo("refs/tags/1.11.3")
+    }
+
+    @Test
+    fun an_answer_its_schema_does_not_allow_is_unreadable_rather_than_a_crash() = runTest {
+        // A repository always has a visibility and an update time: this one has neither.
+        val fake = FakeSourceHut(listOf("HEAD" to { _ -> inRepository("""{"name":"scdoc","HEAD":null}""") }))
+
+        assertThat(SourceHutRepoApi(fake.client).repo(TOKEN, scdoc)).isEqualTo(ForgeResult.Failure(ForgeError.Unreadable))
+    }
+
+    @Test
+    fun a_binary_file_is_read_from_its_content() = runTest {
+        val contentUrl = "https://git.sr.ht/query/blob/1/logo"
+        val fake = FakeSourceHut(
+            listOf("path(" to { _ -> inRepository("""{"path":{"object":{"__typename":"BinaryBlob","type":"BLOB","size":4,"content":"$contentUrl"}}}""") }),
+            blobs = mapOf(contentUrl to "\u0089PNG"),
+        )
+
+        assertThat(SourceHutRepoApi(fake.client).fileText(TOKEN, scdoc, "logo.png", "master").value()).isEqualTo("\u0089PNG")
+    }
+
+    @Test
+    fun a_folder_asked_as_a_file_is_refused() = runTest {
+        val fake = FakeSourceHut(listOf("path(" to { _ -> inRepository("""{"path":{"object":{"__typename":"Tree","type":"TREE"}}}""") }))
+
+        assertThat(((SourceHutRepoApi(fake.client).fileText(TOKEN, scdoc, "doc", "master") as ForgeResult.Failure).error as ForgeError.Http).status).isEqualTo(400)
+    }
+
+    @Test
+    fun each_call_is_a_named_operation_checked_against_the_schema() = runTest {
+        val fake = FakeSourceHut(listOf("HEAD" to { _ -> inRepository("""{"name":"scdoc","visibility":"PUBLIC","updated":"2026-10-01T12:00:00Z","HEAD":null}""") }))
+
+        SourceHutRepoApi(fake.client).repo(TOKEN, scdoc)
+
+        assertThat(fake.requests.single().query).startsWith("query Repo(")
     }
 }

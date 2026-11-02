@@ -1,0 +1,32 @@
+# What the app asks git.sr.ht of a person, checked against schema.graphqls when it builds.
+
+query Me {
+  me {
+    canonicalName
+  }
+}
+
+query Person($owner: String!) {
+  user(username: $owner) {
+    canonicalName
+    username
+    url
+    location
+    bio
+    created
+  }
+}
+
+query PersonRepositories($owner: String!, $cursor: Cursor) {
+  user(username: $owner) {
+    repositories(cursor: $cursor, filter: { count: 100 }) {
+      results {
+        name
+        description
+        visibility
+        updated
+      }
+      cursor
+    }
+  }
+}

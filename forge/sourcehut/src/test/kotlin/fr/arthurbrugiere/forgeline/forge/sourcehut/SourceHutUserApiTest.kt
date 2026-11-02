@@ -14,7 +14,7 @@ class SourceHutUserApiTest {
         if (request.string("cursor") == null) {
             """{"data":{"user":{"repositories":{"results":[{"name":"scdoc","description":"man pages","visibility":"PUBLIC","updated":"2026-10-01T00:00:00Z"}],"cursor":"next"}}}}"""
         } else {
-            """{"data":{"user":{"repositories":{"results":[{"name":"secret","visibility":"PRIVATE"}],"cursor":null}}}}"""
+            """{"data":{"user":{"repositories":{"results":[{"name":"secret","description":null,"visibility":"PRIVATE","updated":"2026-09-01T00:00:00Z"}],"cursor":null}}}}"""
         }
     }
 
