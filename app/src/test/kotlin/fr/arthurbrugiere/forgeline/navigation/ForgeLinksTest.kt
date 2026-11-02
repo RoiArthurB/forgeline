@@ -142,6 +142,19 @@ class ForgeLinksTest {
     }
 
     @Test
+    fun tangled_links_open_people_repositories_and_files_in_app() {
+        assertThat(ForgeLinks.routeFor("https://tangled.org/tangled.org/core")).isEqualTo(RepoRoute("tangled.org", "tangled.org", "core"))
+        assertThat(ForgeLinks.routeFor("https://tangled.org/@oppi.li/zoxide")).isEqualTo(RepoRoute("tangled.org", "oppi.li", "zoxide"))
+        assertThat(ForgeLinks.routeFor("https://tangled.org/@oppi.li")).isEqualTo(UserRoute("tangled.org", "oppi.li"))
+        assertThat(ForgeLinks.routeFor("https://tangled.org/tangled.org/core/blob/master/docs/hacking.md"))
+            .isEqualTo(FileRoute("tangled.org", "tangled.org", "core", path = "docs/hacking.md", ref = "master"))
+        // What the app doesn't read from Tangled yet, and Tangled's own pages, stay in the browser.
+        assertThat(ForgeLinks.routeFor("https://tangled.org/tangled.org/core/issues/12")).isNull()
+        assertThat(ForgeLinks.routeFor("https://tangled.org/timeline")).isNull()
+        assertThat(ForgeLinks.forgeOf("tangled.org")).isEqualTo(ForgeInstance.Tangled)
+    }
+
+    @Test
     fun codeberg_links_open_in_app_on_codeberg() {
         assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/forgejo")).isEqualTo(RepoRoute("codeberg.org", "forgejo", "forgejo"))
         assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/forgejo/issues/42")).isEqualTo(IssueRoute("codeberg.org", "forgejo", "forgejo", 42))

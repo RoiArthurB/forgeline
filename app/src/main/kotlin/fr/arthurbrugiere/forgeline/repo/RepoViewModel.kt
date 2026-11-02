@@ -108,11 +108,16 @@ data class RepoUiState(
     /** What the code is written in, largest share first; empty until known, or when the forge can't say. */
     val languages: List<RepoLanguage> = emptyList(),
 ) {
-    /** The tabs this repository fills: Actions unless its CI is switched off (Forgejo repositories can). */
+    /**
+     * The tabs this repository fills: Actions unless its CI is switched off (Forgejo repositories can), and none its forge's
+     * API can't fill (Tangled lists neither conversations nor releases).
+     */
     val tabs: List<RepoTab>
         get() = RepoTab.entries.filter {
             when (it) {
                 RepoTab.ACTIONS -> details?.hasActions != false
+                RepoTab.ISSUES, RepoTab.PULLS -> details?.listsConversations != false
+                RepoTab.RELEASES -> details?.listsReleases != false
                 // Only where the repository holds some: most don't.
                 RepoTab.DISCUSSIONS -> details?.hasDiscussions == true
                 else -> true

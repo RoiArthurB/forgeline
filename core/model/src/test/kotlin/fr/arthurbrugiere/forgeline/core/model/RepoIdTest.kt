@@ -71,6 +71,19 @@ class RepoIdTest {
     }
 
     @Test
+    fun tangled_is_known_by_name_under_both_its_addresses() {
+        assertThat(ForgeInstance.of("tangled.org")).isEqualTo(ForgeInstance.Tangled)
+        assertThat(ForgeInstance.of("tangled.sh")).isEqualTo(ForgeInstance.Tangled)
+        assertThat(ForgeInstance.Tangled.displayName).isEqualTo("Tangled")
+        assertThat(ForgeType.TANGLED.speaksForgejo).isFalse()
+        assertThat(ForgeType.TANGLED.signsIn).isFalse()
+        val core = RepoId("tangled.org", "core", ForgeInstance.Tangled)
+        assertThat(core.webUrl).isEqualTo("https://tangled.org/tangled.org/core")
+        assertThat(core.blobBaseUrl("master")).isEqualTo("https://tangled.org/tangled.org/core/blob/master/")
+        assertThat(core.rawBaseUrl("master")).isEqualTo("https://tangled.org/tangled.org/core/raw/master/")
+    }
+
+    @Test
     fun repositories_are_equal_and_hash_identically_regardless_of_case() {
         val uppercase = RepoId("RoiArthurB", "Forgeline", ForgeInstance.GitHub)
         val lowercase = RepoId("roiarthurb", "forgeline", ForgeInstance.GitHub)

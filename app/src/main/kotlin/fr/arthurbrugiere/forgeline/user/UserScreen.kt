@@ -156,7 +156,7 @@ fun UserScreen(
                     },
                 ) {
                     if (profile != null) {
-                        Header(profile, state.following, signedIn, onToggleFollow, onSignIn, onOpenUrl)
+                        Header(profile, state.following, signedIn, onToggleFollow, onSignIn.takeIf { state.forge.type.signsIn }, onOpenUrl)
                     } else {
                         Text("@${state.login}", style = Soft.type.hero, color = Soft.colors.ink, modifier = Modifier.semantics { heading() })
                     }
@@ -228,7 +228,8 @@ private fun Header(
     following: Boolean?,
     signedIn: Boolean,
     onToggleFollow: () -> Unit,
-    onSignIn: () -> Unit,
+    /** Null on a forge the app can't sign in to: following isn't offered there. */
+    onSignIn: (() -> Unit)?,
     onOpenUrl: (String) -> Unit,
 ) {
     val colors = Soft.colors
@@ -272,7 +273,7 @@ private fun Header(
         }
         val action = Modifier.padding(top = 4.dp)
         when {
-            !signedIn -> SoftButton(stringResource(R.string.user_follow), onSignIn, action)
+            !signedIn -> if (onSignIn != null) SoftButton(stringResource(R.string.user_follow), onSignIn, action)
             following == true -> Box(
                 action.clip(SoftTokens.Pill).background(colors.surface).clickable(role = Role.Button, onClick = onToggleFollow).heightIn(min = 48.dp).padding(horizontal = 20.dp),
                 contentAlignment = Alignment.Center,

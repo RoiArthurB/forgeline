@@ -5,13 +5,14 @@ Everything the app can do, and where forges differ. For a gentler tour, start wi
 ## Every forge at once
 
 - **Several forges at once:** GitHub, GitLab (gitlab.com and self-hosted), Codeberg, gitea.com and any self-hosted Forgejo or Gitea server share one Inbox, Feed, Trending page and search. Each row names its forge, and one forge can be picked alone. Codeberg's and gitlab.com's Trending are measured daily, shown to everyone without signing in, and mixed in by share of stars.
+- **Tangled, to browse:** Tangled's Trending, its repositories (README, files, branches and tags) and people, without an account. Signing in, issues and pull requests aren't there yet: see [TANGLED.md](TANGLED.md).
 
 ## Inbox, Feed and Trending
 
 - **Inbox:** what needs you first (review requests, mentions, assignments, security alerts, and GitLab Todos), then everything else grouped by owner and repository. Pull requests/merge requests and issues say whether they're open, merged or closed. Swipe right to mark read, left to mark done, with 5 seconds to Undo. Background checks (every hour by default, or off) post phone notifications on separate channels, and the conversations waiting on you are loaded ahead so they open instantly.
 - **Your work:** under the Inbox's "Yours" filter, the reviews asked of you, your open pull requests and what is assigned to you, across every account.
 - **Feed:** what the people you follow and the repositories you watch are doing, in strict chronological order, grouped by day, each event leading with the repository or pull request it's about. Releases show the project's logo, how big a step the version is and the start of their notes; pull requests show their size. Identical events on the same repository merge. Releases (and, on GitHub, announcements) from the repositories you starred join in, which the forges' own event feeds leave out. You choose which kinds of activity show up in Settings.
-- **Trending:** what is trending today, this week or this month on GitHub (as GitHub ranks it), Codeberg and gitlab.com, mixed into one page or one forge at a time. A repository needs at least 5 stars today (10 this week, 20 this month) to be listed, and on the mixed page each forge gets about the same room (10 each, up to 12 for a busy forge). It works without signing in. From its header, **First issues**: the open issues maintainers marked for a first contribution, in your latest stars and today's Trending, on every forge.
+- **Trending:** what is trending today, this week or this month on GitHub (as GitHub ranks it), Codeberg, gitlab.com and Tangled (as Tangled ranks it), mixed into one page or one forge at a time. A repository needs at least 5 stars today (10 this week, 20 this month) to be listed, and on the mixed page each forge gets about the same room (10 each, up to 12 for a busy forge). It works without signing in. From its header, **First issues**: the open issues maintainers marked for a first contribution, in your latest stars and today's Trending, on every forge.
 - **Where you left off:** Trending and the Feed mark where your last visit's reading stopped.
 
 ## Repositories

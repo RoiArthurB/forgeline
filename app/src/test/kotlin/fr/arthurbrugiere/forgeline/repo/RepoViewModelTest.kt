@@ -608,6 +608,14 @@ class RepoViewModelTest {
         assertThat(RepoUiState(codeberg, details = details.copy(hasActions = false)).tabs).doesNotContain(RepoTab.ACTIONS)
     }
 
+    @Test
+    fun tabs_the_forge_cannot_fill_are_left_out() {
+        val tangled = RepoId("tangled.org", "core", ForgeInstance.Tangled)
+        val details = repoDetails("tangled.org/core").copy(id = tangled, hasActions = false, listsConversations = false, listsReleases = false)
+
+        assertThat(RepoUiState(tangled, details = details).tabs).containsExactly(RepoTab.README, RepoTab.CODE).inOrder()
+    }
+
     private suspend fun signIn() = accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "t")
 
     @Test

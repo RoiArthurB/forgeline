@@ -142,14 +142,17 @@ internal fun RepoHeader(
         val isStarred = starred == true && signedIn
         // Side by side while they fit; at large text or on a narrow screen they go one under another.
         FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            HeaderAction(
-                icon = if (isStarred) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                label = stringResource(if (isStarred) R.string.repo_starred else R.string.repo_star),
-                // The one thing asked of a passer-by stands out until it is done.
-                prominent = !isStarred,
-                on = isStarred,
-                onToggle = onToggleStar,
-            )
+            // Where the app can't sign in (Tangled), there's nothing to ask of a passer-by.
+            if (signedIn || details.id.forge.type.signsIn) {
+                HeaderAction(
+                    icon = if (isStarred) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                    label = stringResource(if (isStarred) R.string.repo_starred else R.string.repo_star),
+                    // The one thing asked of a passer-by stands out until it is done.
+                    prominent = !isStarred,
+                    on = isStarred,
+                    onToggle = onToggleStar,
+                )
+            }
             // Watching and forking are an account's: nothing is offered before the forge has said where it stands.
             if (signedIn && watching != null) {
                 HeaderAction(

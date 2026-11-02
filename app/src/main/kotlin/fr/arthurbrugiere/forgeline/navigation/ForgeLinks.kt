@@ -11,7 +11,7 @@ import java.net.URI
 
 /** Maps forge web URLs to in-app destinations; anything unrecognized stays on the web. */
 object ForgeLinks {
-    private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab, ForgeInstance.Gitea)
+    private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab, ForgeInstance.Gitea, ForgeInstance.Tangled)
 
     // First path segments that are the forge's own pages, not user or organization names.
     private val FORGEJO_RESERVED = setOf(
@@ -30,6 +30,10 @@ object ForgeLinks {
         ForgeType.GITLAB to setOf(
             "-", "admin", "api", "assets", "dashboard", "explore", "groups", "help", "jwt", "organizations", "profile",
             "search", "settings", "snippets", "users", "v2",
+        ),
+        ForgeType.TANGLED to setOf(
+            "api", "docs", "explore", "goodfirstissues", "knots", "login", "logout", "notifications", "oauth", "search",
+            "settings", "signup", "spindles", "static", "strings", "timeline", "xrpc",
         ),
     )
 
@@ -57,6 +61,7 @@ object ForgeLinks {
                 val query = uri.rawQuery.orEmpty().split('&').mapNotNull { part -> part.split('=', limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] } }.toMap()
                 query["q"].takeIf { segments == listOf("explore", "repos") && query["topic"] in setOf("1", "true") }
             }
+            ForgeType.TANGLED -> null
         }
         return topic?.let { java.net.URLDecoder.decode(it, "UTF-8") }?.takeIf { it.isNotBlank() }?.let(::TopicRoute)
     }
@@ -68,6 +73,7 @@ object ForgeLinks {
         val segments = uri.path.orEmpty().split('/').filter { it.isNotEmpty() }
         topicRoute(forge, segments, uri)?.let { return it }
         if (segments.isEmpty() || segments[0].lowercase() in reserved.getValue(forge.type)) return null
+        if (forge.type == ForgeType.TANGLED) return tangledRoute(forge, segments, uri)
         if (segments.size == 1) return UserRoute(forge.host, segments[0])
 
         if (forge.type == ForgeType.GITLAB) {
@@ -133,6 +139,21 @@ object ForgeLinks {
             return if (forge.type == ForgeType.GITHUB) RunRoute(forge.host, owner, name, runId) else null
         }
         return RepoRoute(forge.host, owner, name)
+    }
+
+    /**
+     * Tangled's pages, which name a person by handle with or without `@`: theirs, a repository's, and a file's
+     * (`/blob/<ref>/<path>`). Its conversations and pipelines aren't read in the app yet: they stay in the browser.
+     */
+    private fun tangledRoute(forge: ForgeInstance, segments: List<String>, uri: URI): NavKey? {
+        val owner = segments[0].removePrefix("@")
+        if (segments.size == 1) return UserRoute(forge.host, owner)
+        val name = segments[1].removeSuffix(".git")
+        return when (segments.getOrNull(2)) {
+            null, "tree", "branches", "tags" -> RepoRoute(forge.host, owner, name)
+            "blob" -> fileRoute(forge.host, owner, name, uri, segments.drop(3)) ?: RepoRoute(forge.host, owner, name)
+            else -> null
+        }
     }
 
     /**

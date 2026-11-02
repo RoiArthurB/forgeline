@@ -35,7 +35,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- github.com, codeberg.org, gitlab.com and gitea.com links open in-app. Not auto-verified (we don't own the
+            <!-- github.com, codeberg.org, gitlab.com, gitea.com and tangled.org links open in-app. Not auto-verified (we don't own the
                  domains): Android asks, or people enable it under "Open by default". -->
             <intent-filter tools:ignore="AppLinkWarning">
                 <action android:name="android.intent.action.VIEW" />
@@ -47,6 +47,7 @@
                 <data android:host="codeberg.org" />
                 <data android:host="gitlab.com" />
                 <data android:host="gitea.com" />
+                <data android:host="tangled.org" />
             </intent-filter>
             <!-- Android only lets an app claim the hosts it names here, so a self-hosted server's links can't open
                  in-app by themselves: sharing a page to Forgeline opens it instead, whatever its host. -->
