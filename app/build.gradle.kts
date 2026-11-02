@@ -80,6 +80,7 @@ dependencies {
     implementation(projects.forge.forgejo)
     implementation(projects.forge.gitlab)
     implementation(projects.forge.tangled)
+    implementation(projects.forge.sourcehut)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.ktor3)

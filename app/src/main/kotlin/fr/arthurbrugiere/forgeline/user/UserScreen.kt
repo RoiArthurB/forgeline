@@ -156,7 +156,7 @@ fun UserScreen(
                     },
                 ) {
                     if (profile != null) {
-                        Header(profile, state.following, signedIn, onToggleFollow, onSignIn.takeIf { state.forge.type.signsIn }, onOpenUrl)
+                        Header(profile, state.following, signedIn, onToggleFollow, onSignIn.takeIf { state.forge.type.signsIn }, onOpenUrl, social = state.forge.type.isSocial)
                     } else {
                         Text("@${state.login}", style = Soft.type.hero, color = Soft.colors.ink, modifier = Modifier.semantics { heading() })
                     }
@@ -231,6 +231,8 @@ private fun Header(
     /** Null on a forge the app can't sign in to: following isn't offered there. */
     onSignIn: (() -> Unit)?,
     onOpenUrl: (String) -> Unit,
+    /** Whether people follow each other on the forge: SourceHut shows neither counts nor a follow button. */
+    social: Boolean = true,
 ) {
     val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -264,7 +266,7 @@ private fun Header(
                 link = true,
             )
         }
-        if (!profile.isOrganization) {
+        if (!profile.isOrganization && social) {
             Text(
                 stringResource(R.string.user_followers, compactCount(profile.followers), compactCount(profile.following)),
                 style = Soft.type.meta,
@@ -273,6 +275,7 @@ private fun Header(
         }
         val action = Modifier.padding(top = 4.dp)
         when {
+            !social -> Unit
             !signedIn -> if (onSignIn != null) SoftButton(stringResource(R.string.user_follow), onSignIn, action)
             following == true -> Box(
                 action.clip(SoftTokens.Pill).background(colors.surface).clickable(role = Role.Button, onClick = onToggleFollow).heightIn(min = 48.dp).padding(horizontal = 20.dp),

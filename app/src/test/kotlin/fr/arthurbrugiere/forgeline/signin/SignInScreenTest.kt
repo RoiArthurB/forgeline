@@ -125,6 +125,21 @@ class SignInScreenTest {
         }
     }
 
+    @Test
+    fun sourcehut_signs_in_with_a_token_made_on_meta_sr_ht() {
+        setOther(
+            SignInUiState(
+                deviceFlowAvailable = false, personalAccessTokenUrl = "https://meta.sr.ht/oauth2/personal-token", forge = SignInForge.SOURCEHUT, forgeName = "SourceHut",
+            ),
+        )
+
+        // No browser sign-in, no address: only the token, and where to make it.
+        composeRule.onNodeWithText("Sign in with SourceHut").assertDoesNotExist()
+        composeRule.onNode(hasContentDescription("Server address") and hasSetTextAction()).assertDoesNotExist()
+        composeRule.onNodeWithText("Create a token on SourceHut").assertExists()
+        composeRule.onNodeWithText("Generate a personal access token on meta.sr.ht", substring = true).assertExists()
+    }
+
     private val other = SignInUiState(
         deviceFlowAvailable = false, personalAccessTokenUrl = null, forge = SignInForge.OTHER, host = "gitlab.example.org", forgeName = "gitlab.example.org",
     )
@@ -259,6 +274,6 @@ class SignInScreenTest {
     fun at_large_text_every_forge_is_named_whole() {
         setContent()
 
-        for (forge in listOf("GitHub", "GitLab", "Codeberg", "Forgejo")) composeRule.assertTextFits(forge)
+        for (forge in listOf("GitHub", "GitLab", "Codeberg", "SourceHut", "Forgejo")) composeRule.assertTextFits(forge)
     }
 }

@@ -203,6 +203,7 @@ private fun ChooseMethod(
             stringResource(R.string.sign_in_forge_github),
             stringResource(R.string.sign_in_forge_gitlab),
             stringResource(R.string.sign_in_forge_codeberg),
+            stringResource(R.string.sign_in_forge_sourcehut),
             stringResource(R.string.sign_in_forge_other),
         ),
         selected = state.forge.ordinal,
@@ -286,6 +287,7 @@ private fun ChooseMethod(
         stringResource(
             when {
                 state.forge == SignInForge.GITHUB -> R.string.sign_in_token_body
+                state.forge == SignInForge.SOURCEHUT -> R.string.sign_in_token_body_sourcehut
                 state.otherType?.speaksForgejo == true -> R.string.sign_in_token_body_forgejo
                 state.forge == SignInForge.GITLAB || state.otherType == ForgeType.GITLAB -> R.string.sign_in_token_body_gitlab
                 else -> R.string.sign_in_token_body_forgejo

@@ -11,7 +11,7 @@ import java.net.URI
 
 /** Maps forge web URLs to in-app destinations; anything unrecognized stays on the web. */
 object ForgeLinks {
-    private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab, ForgeInstance.Gitea, ForgeInstance.Tangled)
+    private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab, ForgeInstance.Gitea, ForgeInstance.Tangled, ForgeInstance.SourceHut)
 
     // First path segments that are the forge's own pages, not user or organization names.
     private val FORGEJO_RESERVED = setOf(
@@ -35,6 +35,8 @@ object ForgeLinks {
             "api", "docs", "explore", "goodfirstissues", "knots", "login", "logout", "notifications", "oauth", "search",
             "settings", "signup", "spindles", "static", "strings", "timeline", "xrpc",
         ),
+        // Every person's address starts with "~": anything else is SourceHut's own page.
+        ForgeType.SOURCEHUT to emptySet(),
     )
 
     /**
@@ -61,7 +63,7 @@ object ForgeLinks {
                 val query = uri.rawQuery.orEmpty().split('&').mapNotNull { part -> part.split('=', limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] } }.toMap()
                 query["q"].takeIf { segments == listOf("explore", "repos") && query["topic"] in setOf("1", "true") }
             }
-            ForgeType.TANGLED -> null
+            ForgeType.TANGLED, ForgeType.SOURCEHUT -> null
         }
         return topic?.let { java.net.URLDecoder.decode(it, "UTF-8") }?.takeIf { it.isNotBlank() }?.let(::TopicRoute)
     }
@@ -74,6 +76,7 @@ object ForgeLinks {
         topicRoute(forge, segments, uri)?.let { return it }
         if (segments.isEmpty() || segments[0].lowercase() in reserved.getValue(forge.type)) return null
         if (forge.type == ForgeType.TANGLED) return tangledRoute(forge, segments, uri)
+        if (forge.type == ForgeType.SOURCEHUT) return sourceHutRoute(forge, segments, uri)
         if (segments.size == 1) return UserRoute(forge.host, segments[0])
 
         if (forge.type == ForgeType.GITLAB) {
@@ -152,6 +155,27 @@ object ForgeLinks {
         return when (segments.getOrNull(2)) {
             null, "tree", "branches", "tags" -> RepoRoute(forge.host, owner, name)
             "blob" -> fileRoute(forge.host, owner, name, uri, segments.drop(3)) ?: RepoRoute(forge.host, owner, name)
+            else -> null
+        }
+    }
+
+    /**
+     * git.sr.ht's pages: a person's (`/~name`), a repository's, a file's (`/tree/<ref>/item/<path>`) and a tag's
+     * (`/refs/<tag>`). Its log, commits and the other services' pages stay in the browser.
+     */
+    private fun sourceHutRoute(forge: ForgeInstance, segments: List<String>, uri: URI): NavKey? {
+        val owner = segments[0].takeIf { it.startsWith("~") && it.length > 1 } ?: return null
+        if (segments.size == 1) return UserRoute(forge.host, owner)
+        val name = segments[1]
+        return when (segments.getOrNull(2)) {
+            null -> RepoRoute(forge.host, owner, name)
+            "tree" -> if (segments.getOrNull(4) == "item") {
+                fileRoute(forge.host, owner, name, uri, listOf(segments[3]) + segments.drop(5)) ?: RepoRoute(forge.host, owner, name)
+            } else {
+                RepoRoute(forge.host, owner, name)
+            }
+            "refs" -> segments.drop(3).takeIf { it.isNotEmpty() && it[0] != "download" }?.joinToString("/")?.let { ReleaseRoute(forge.host, owner, name, it) }
+                ?: RepoRoute(forge.host, owner, name)
             else -> null
         }
     }

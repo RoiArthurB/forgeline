@@ -29,6 +29,7 @@ import fr.arthurbrugiere.forgeline.forge.forgejo.forgejoHttpClient
 import fr.arthurbrugiere.forgeline.forge.gitlab.GitLabApis
 import fr.arthurbrugiere.forgeline.forge.gitlab.gitlabHttpClient
 import fr.arthurbrugiere.forgeline.forge.gitlab.trending.GitLabTrendingMeter
+import fr.arthurbrugiere.forgeline.forge.sourcehut.SourceHutApis
 import fr.arthurbrugiere.forgeline.forge.tangled.TangledApis
 import fr.arthurbrugiere.forgeline.signin.BrowserRedirects
 import fr.arthurbrugiere.forgeline.signin.ForgeHosts
@@ -97,6 +98,8 @@ class DefaultForgeClients @Inject constructor(
         ForgeType.GITHUB -> gitHub
         // Tangled's index is read without an account, by the same plain client as a Forgejo server's API.
         ForgeType.TANGLED -> instances.getOrPut(forge) { TangledApis(forgejoHttp) }
+        // So is git.sr.ht's GraphQL API, with the person's token on each call.
+        ForgeType.SOURCEHUT -> instances.getOrPut(forge) { SourceHutApis(forgejoHttp) }
         ForgeType.FORGEJO, ForgeType.GITEA -> instances.getOrPut(forge) {
             ForgejoApis(
                 forgejoHttp, forge,

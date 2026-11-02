@@ -155,6 +155,19 @@ class ForgeLinksTest {
     }
 
     @Test
+    fun sourcehut_links_open_people_repositories_files_and_tags_in_app() {
+        assertThat(ForgeLinks.routeFor("https://git.sr.ht/~sircmpwn/scdoc")).isEqualTo(RepoRoute("git.sr.ht", "~sircmpwn", "scdoc"))
+        assertThat(ForgeLinks.routeFor("https://git.sr.ht/~sircmpwn")).isEqualTo(UserRoute("git.sr.ht", "~sircmpwn"))
+        assertThat(ForgeLinks.routeFor("https://git.sr.ht/~sircmpwn/scdoc/tree/master/item/src/main.c"))
+            .isEqualTo(FileRoute("git.sr.ht", "~sircmpwn", "scdoc", path = "src/main.c", ref = "master"))
+        assertThat(ForgeLinks.routeFor("https://git.sr.ht/~sircmpwn/scdoc/refs/1.11.3")).isEqualTo(ReleaseRoute("git.sr.ht", "~sircmpwn", "scdoc", "1.11.3"))
+        // Its log and SourceHut's own pages stay in the browser.
+        assertThat(ForgeLinks.routeFor("https://git.sr.ht/~sircmpwn/scdoc/log")).isNull()
+        assertThat(ForgeLinks.routeFor("https://git.sr.ht/projects")).isNull()
+        assertThat(ForgeLinks.forgeOf("git.sr.ht")).isEqualTo(ForgeInstance.SourceHut)
+    }
+
+    @Test
     fun codeberg_links_open_in_app_on_codeberg() {
         assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/forgejo")).isEqualTo(RepoRoute("codeberg.org", "forgejo", "forgejo"))
         assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/forgejo/issues/42")).isEqualTo(IssueRoute("codeberg.org", "forgejo", "forgejo", 42))

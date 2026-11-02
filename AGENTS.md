@@ -16,7 +16,7 @@
 
 - `app`: screens, view-models, navigation, notifications, widget
 - `core/model`, `core/data` (Room cache, repositories), `core/forge` (the forge interface), `core/ui`, `core/markdown`, `core/testing` (fakes)
-- `forge/common`, `forge/github`, `forge/gitlab`, `forge/forgejo` (Codeberg, self-hosted Forgejo, and Gitea: gitea.com and self-hosted, see `docs/GITEA.md`), `forge/tangled` (Tangled, read-only, see `docs/TANGLED.md`): one client per forge
+- `forge/common`, `forge/github`, `forge/gitlab`, `forge/forgejo` (Codeberg, self-hosted Forgejo, and Gitea: gitea.com and self-hosted, see `docs/GITEA.md`), `forge/tangled` (Tangled, read-only, see `docs/TANGLED.md`), `forge/sourcehut` (git.sr.ht, see `docs/SOURCEHUT.md`): one client per forge
 - `baselineprofile`: profile generation and benchmarks
 - `site`: the landing page; `fastlane/metadata`: store listings; `docs`: per-forge notes, release notes, releasing
 

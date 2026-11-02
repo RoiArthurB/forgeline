@@ -96,7 +96,7 @@ data class RepoDetails(
     val isEmpty: Boolean = false,
     /** Whether the forge's API lists the repository's issues and pull requests: Tangled's doesn't yet. */
     val listsConversations: Boolean = true,
-    /** Whether the forge's API lists the repository's releases: Tangled's and SourceHut's don't. */
+    /** Whether the forge's API lists the repository's releases: Tangled's doesn't. */
     val listsReleases: Boolean = true,
 )
 

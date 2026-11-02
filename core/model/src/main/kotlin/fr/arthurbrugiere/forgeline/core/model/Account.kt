@@ -9,7 +9,10 @@ enum class ForgeType {
     GITEA,
 
     /** Tangled (tangled.org), built on the AT Protocol: one forge, whose git servers ("knots") anyone can run. */
-    TANGLED;
+    TANGLED,
+
+    /** SourceHut (git.sr.ht): repositories read through its GraphQL API, which asks for a token on every call. */
+    SOURCEHUT;
 
     /** Whether merge requests have their own numbering, so that one can share its number with an issue. */
     val numbersMergeRequestsApart: Boolean get() = this == GITLAB
@@ -19,10 +22,13 @@ enum class ForgeType {
 
     /** Whether the app can sign in to the forge: not Tangled yet, so nothing there asks to sign in (starring, following). */
     val signsIn: Boolean get() = this != TANGLED
+
+    /** Whether people star, watch and fork repositories and follow each other there: SourceHut has none of it. */
+    val isSocial: Boolean get() = this != SOURCEHUT
 }
 
 /**
- * A forge server: github.com, codeberg.org, gitlab.com, gitea.com, tangled.org, or a self-hosted Forgejo, Gitea or GitLab. [host]
+ * A forge server: github.com, codeberg.org, gitlab.com, gitea.com, tangled.org, git.sr.ht, or a self-hosted Forgejo, Gitea or GitLab. [host]
  * is lowercase.
  */
 data class ForgeInstance(val type: ForgeType, val host: String) {
@@ -37,6 +43,7 @@ data class ForgeInstance(val type: ForgeType, val host: String) {
             GitLab -> "GitLab"
             Gitea -> "Gitea"
             Tangled -> "Tangled"
+            SourceHut -> "SourceHut"
             else -> host
         }
 
@@ -49,9 +56,10 @@ data class ForgeInstance(val type: ForgeType, val host: String) {
         val GitLab = ForgeInstance(ForgeType.GITLAB, "gitlab.com")
         val Gitea = ForgeInstance(ForgeType.GITEA, "gitea.com")
         val Tangled = ForgeInstance(ForgeType.TANGLED, "tangled.org")
+        val SourceHut = ForgeInstance(ForgeType.SOURCEHUT, "git.sr.ht")
 
         /**
-         * The forge at [host]: GitHub for github.com, GitLab for gitlab.com, Codeberg for codeberg.org, Gitea for gitea.com, Tangled for tangled.org, and for any
+         * The forge at [host]: GitHub for github.com, GitLab for gitlab.com, Codeberg for codeberg.org, Gitea for gitea.com, Tangled for tangled.org, SourceHut for git.sr.ht, and for any
          * other host what [KnownForges] was told it runs, Forgejo otherwise (a self-hosted server never signed in to).
          */
         fun of(host: String): ForgeInstance {
@@ -63,6 +71,7 @@ data class ForgeInstance(val type: ForgeType, val host: String) {
                 Gitea.host -> Gitea
                 // Tangled's former address.
                 Tangled.host, "tangled.sh" -> Tangled
+                SourceHut.host, "sr.ht" -> SourceHut
                 else -> ForgeInstance(KnownForges.typeOf(lower) ?: ForgeType.FORGEJO, lower)
             }
         }
