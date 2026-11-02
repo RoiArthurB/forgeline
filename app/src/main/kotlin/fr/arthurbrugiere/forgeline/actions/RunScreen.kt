@@ -196,7 +196,7 @@ fun RunScreen(
                         },
                     ) {
                         if (run != null) {
-                            RunHeader(run, state.pending, signedIn, nowMillis, onPerform, onOpenUser, canRerun = state.canRerun, forgeName = state.repo.forge.displayName)
+                            RunHeader(run, state.pending, signedIn, nowMillis, onPerform, onOpenUser, canRerun = state.canRerun, canCancel = state.canCancel, forgeName = state.repo.forge.displayName)
                         } else {
                             Text(state.repo.fullName, style = Soft.type.title, color = Soft.colors.ink)
                         }
@@ -253,6 +253,7 @@ private fun RunHeader(
     onPerform: (RunAction) -> Unit,
     onOpenUser: (String) -> Unit,
     canRerun: Boolean = true,
+    canCancel: Boolean = true,
     forgeName: String = "GitHub",
 ) {
     val colors = Soft.colors
@@ -280,13 +281,13 @@ private fun RunHeader(
             color = colors.inkMuted,
             modifier = run.actor?.let { actor -> Modifier.softPressable { onOpenUser(actor.login) } } ?: Modifier,
         )
-        if (signedIn) RunActions(run, pending, onPerform, canRerun, forgeName)
+        if (signedIn) RunActions(run, pending, onPerform, canRerun, canCancel, forgeName)
     }
 }
 
 /** What can be done to the run now: cancel it while it goes, re-run it once it's done. */
 @Composable
-private fun RunActions(run: WorkflowRun, pending: RunAction?, onPerform: (RunAction) -> Unit, canRerun: Boolean, forgeName: String) {
+private fun RunActions(run: WorkflowRun, pending: RunAction?, onPerform: (RunAction) -> Unit, canRerun: Boolean, canCancel: Boolean, forgeName: String) {
     val colors = Soft.colors
     if (pending != null) {
         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -298,7 +299,7 @@ private fun RunActions(run: WorkflowRun, pending: RunAction?, onPerform: (RunAct
     }
     FlowRow(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         when {
-            run.status != RunStatus.COMPLETED -> SoftTonalButton(stringResource(R.string.run_cancel), onClick = { onPerform(RunAction.CANCEL) })
+            run.status != RunStatus.COMPLETED -> if (canCancel) SoftTonalButton(stringResource(R.string.run_cancel), onClick = { onPerform(RunAction.CANCEL) })
             !canRerun -> Unit
             run.conclusion.failed || run.conclusion == RunConclusion.CANCELLED -> {
                 SoftButton(stringResource(R.string.run_rerun_failed), onClick = { onPerform(RunAction.RERUN_FAILED) })

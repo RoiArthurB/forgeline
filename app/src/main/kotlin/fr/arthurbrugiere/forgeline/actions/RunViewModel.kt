@@ -39,6 +39,8 @@ data class RunUiState(
     val result: RunActionResult? = null,
     /** Whether the forge can start the run again (Forgejo's API can't). */
     val canRerun: Boolean = true,
+    /** Whether the forge can stop the run while it goes (Gitea's API can't). */
+    val canCancel: Boolean = true,
     /** The server can't list the run's jobs (older Forgejo): they're only on the run's page. */
     val jobsUnlisted: Boolean = false,
     /** The files the run kept; null until asked, empty where there are none or the forge can't list them. */
@@ -59,7 +61,7 @@ class RunViewModel @AssistedInject constructor(
         fun create(repo: RepoId, runId: Long): RunViewModel
     }
 
-    private val _state = MutableStateFlow(RunUiState(repo, runId, canRerun = actions.supportsRerun(repo)))
+    private val _state = MutableStateFlow(RunUiState(repo, runId, canRerun = actions.supportsRerun(repo), canCancel = actions.supportsCancel(repo)))
     val state: StateFlow<RunUiState> = _state.asStateFlow()
 
     init {

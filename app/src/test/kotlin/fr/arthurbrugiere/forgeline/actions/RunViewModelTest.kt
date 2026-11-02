@@ -153,6 +153,15 @@ class RunViewModelTest {
     }
 
     @Test
+    fun a_forge_without_cancel_offers_none() = test {
+        val gitea = RepoId("gitea", "tea", ForgeInstance.Gitea)
+        val clients = FakeForgeClients().also { it.put(ForgeInstance.Gitea, FakeForgeClients(actions = FakeActionsApi(supportsCancel = false))) }
+
+        assertThat(RunViewModel(gitea, 7, DefaultActionsRepository(clients, accounts)).state.value.canCancel).isFalse()
+        assertThat(viewModel().state.value.canCancel).isTrue()
+    }
+
+    @Test
     fun a_server_that_cant_list_jobs_shows_the_run_without_an_error() = test {
         // Regression: an older Forgejo answered the run but not its jobs, and the run screen only showed an error.
         val codeberg = RepoId("me", "tool", ForgeInstance(ForgeType.FORGEJO, "git.example.org"))

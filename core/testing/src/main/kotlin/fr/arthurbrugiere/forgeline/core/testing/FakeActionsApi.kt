@@ -18,6 +18,7 @@ import java.io.OutputStream
 /** Records every call as "method:owner/name:extra"; unknown runs and jobs answer 404. */
 class FakeActionsApi(
     override val supportsRerun: Boolean = true,
+    override val supportsCancel: Boolean = true,
     override val logFormat: LogFormat = LogFormat.GITHUB,
 ) : ActionsApi {
     val runs = mutableMapOf<Long, WorkflowRun>()

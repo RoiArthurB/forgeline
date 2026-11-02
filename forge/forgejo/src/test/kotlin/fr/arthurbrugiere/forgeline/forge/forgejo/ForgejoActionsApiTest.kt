@@ -213,6 +213,24 @@ class ForgejoActionsApiTest {
     }
 
     @Test
+    fun gitea_reruns_and_has_no_cancel() = runTest {
+        // Gitea's API description (v1.26, v1.27): POST runs/{run}/rerun and rerun-failed-jobs, answering 201; no cancel.
+        val tea = RepoId("gitea", "tea", ForgeInstance.Gitea)
+        val api = ForgejoActionsApi(with(codeberg) { client { status(HttpStatusCode.Created) } }, ForgeInstance.Gitea)
+
+        assertThat(api.supportsRerun).isTrue()
+        assertThat(api.supportsCancel).isFalse()
+        assertThat(api.rerun("t", tea, 51, failedJobsOnly = true)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.rerun("t", tea, 51, failedJobsOnly = false)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(codeberg.requests.map { it.method to it.url.toString() }).containsExactly(
+            HttpMethod.Post to "https://gitea.com/api/v1/repos/gitea/tea/actions/runs/51/rerun-failed-jobs",
+            HttpMethod.Post to "https://gitea.com/api/v1/repos/gitea/tea/actions/runs/51/rerun",
+        ).inOrder()
+        assertThat(api.cancel("t", tea, 51)).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+        assertThat(codeberg.requests).hasSize(2)
+    }
+
+    @Test
     fun an_older_server_without_a_job_list_says_so_instead_of_failing() = runTest {
         // Regression: a self-hosted Forgejo listed runs but answered 404 for a run's jobs, and the run wouldn't open.
         val api = with(codeberg) {

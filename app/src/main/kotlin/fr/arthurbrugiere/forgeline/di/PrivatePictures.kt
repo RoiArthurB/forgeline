@@ -32,7 +32,7 @@ fun authenticatedPicture(url: String, access: List<PictureAccess>): Authenticate
         when (forge.type) {
             ForgeType.GITHUB -> if (host == GITHUB_RAW_HOST) return AuthenticatedPicture(url, AUTHORIZATION, "token $token")
             // /owner/name/raw/branch/<ref>/<path>, and the same under /media/ for files kept in LFS.
-            ForgeType.FORGEJO -> if (host == forge.host && path.split('/').getOrNull(3) in setOf("raw", "media")) {
+            ForgeType.FORGEJO, ForgeType.GITEA -> if (host == forge.host && path.split('/').getOrNull(3) in setOf("raw", "media")) {
                 return AuthenticatedPicture(url, AUTHORIZATION, "token $token")
             }
             ForgeType.GITLAB -> if (host == forge.host) gitLabApiFile(forge, path)?.let { return AuthenticatedPicture(it, AUTHORIZATION, "Bearer $token") }

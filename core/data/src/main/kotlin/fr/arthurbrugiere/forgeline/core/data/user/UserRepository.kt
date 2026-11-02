@@ -99,7 +99,7 @@ class DefaultUserRepository @Inject constructor(
             } else {
                 root(login)
             }
-            ForgeType.FORGEJO -> root(".profile")
+            ForgeType.FORGEJO, ForgeType.GITEA -> root(".profile")
             ForgeType.GITLAB -> root(if (organization) "gitlab-profile" else login)
         }
     }

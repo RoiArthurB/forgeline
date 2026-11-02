@@ -15,6 +15,9 @@ interface ActionsApi {
     /** Whether finished runs can be started again; Forgejo's API has no re-run. */
     val supportsRerun: Boolean get() = true
 
+    /** Whether a running run can be stopped; Gitea's API has no cancel. */
+    val supportsCancel: Boolean get() = true
+
     suspend fun run(token: String?, id: RepoId, runId: Long): ForgeResult<WorkflowRun>
 
     /** The latest attempt's jobs, in the order the forge lists them. */

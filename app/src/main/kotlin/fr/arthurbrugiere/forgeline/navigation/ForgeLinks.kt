@@ -11,19 +11,22 @@ import java.net.URI
 
 /** Maps forge web URLs to in-app destinations; anything unrecognized stays on the web. */
 object ForgeLinks {
-    private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab)
+    private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab, ForgeInstance.Gitea)
 
     // First path segments that are the forge's own pages, not user or organization names.
-    private val reserved = mapOf(
+    private val FORGEJO_RESERVED = setOf(
+        "-", "admin", "api", "assets", "attachments", "avatars", "captcha", "explore", "issues", "login", "milestones",
+        "notifications", "org", "pulls", "repo", "user", "users", ".well-known",
+    )
+
+    private val reserved: Map<ForgeType, Set<String>> = mapOf(
         ForgeType.GITHUB to setOf(
             "about", "apps", "codespaces", "collections", "contact", "customer-stories", "enterprise", "events", "explore",
             "features", "issues", "login", "marketplace", "new", "notifications", "orgs", "organizations", "pricing", "pulls",
             "readme", "search", "security", "settings", "site", "sponsors", "topics", "trending", "user-attachments",
         ),
-        ForgeType.FORGEJO to setOf(
-            "-", "admin", "api", "assets", "attachments", "avatars", "captcha", "explore", "issues", "login", "milestones",
-            "notifications", "org", "pulls", "repo", "user", "users", ".well-known",
-        ),
+        ForgeType.FORGEJO to FORGEJO_RESERVED,
+        ForgeType.GITEA to FORGEJO_RESERVED,
         ForgeType.GITLAB to setOf(
             "-", "admin", "api", "assets", "dashboard", "explore", "groups", "help", "jwt", "organizations", "profile",
             "search", "settings", "snippets", "users", "v2",
@@ -31,7 +34,7 @@ object ForgeLinks {
     )
 
     /**
-     * The forge a URL's host belongs to, among those Forgeline opens links for: the three it knows by name, and each
+     * The forge a URL's host belongs to, among those Forgeline opens links for: the four it knows by name, and each
      * self-hosted server signed in to, since only signing in tells what a server runs.
      */
     fun forgeOf(host: String?): ForgeInstance? {
@@ -50,7 +53,7 @@ object ForgeLinks {
         val topic = when (forge.type) {
             ForgeType.GITHUB -> segments.getOrNull(1).takeIf { segments.size == 2 && segments[0] == "topics" }
             ForgeType.GITLAB -> segments.getOrNull(3).takeIf { segments.size == 4 && segments.take(3) == listOf("explore", "projects", "topics") }
-            ForgeType.FORGEJO -> {
+            ForgeType.FORGEJO, ForgeType.GITEA -> {
                 val query = uri.rawQuery.orEmpty().split('&').mapNotNull { part -> part.split('=', limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] } }.toMap()
                 query["q"].takeIf { segments == listOf("explore", "repos") && query["topic"] in setOf("1", "true") }
             }
@@ -113,7 +116,7 @@ object ForgeLinks {
         // A file's page: GitHub's /blob/<ref>/<path>, Forgejo's /src/{branch,tag,commit}/<ref>/<path>.
         when {
             forge.type == ForgeType.GITHUB && segments.getOrNull(2) == "blob" -> fileRoute(forge.host, owner, name, uri, segments.drop(3))
-            forge.type == ForgeType.FORGEJO && segments.getOrNull(2) == "src" && segments.getOrNull(3) in setOf("branch", "tag", "commit") ->
+            forge.type.speaksForgejo && segments.getOrNull(2) == "src" && segments.getOrNull(3) in setOf("branch", "tag", "commit") ->
                 fileRoute(forge.host, owner, name, uri, segments.drop(4))
             else -> null
         }?.let { return it }

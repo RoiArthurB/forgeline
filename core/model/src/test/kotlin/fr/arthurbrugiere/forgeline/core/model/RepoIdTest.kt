@@ -60,6 +60,17 @@ class RepoIdTest {
     }
 
     @Test
+    fun gitea_com_is_known_by_name_and_speaks_forgejos_api() {
+        assertThat(ForgeInstance.of("gitea.com")).isEqualTo(ForgeInstance.Gitea)
+        assertThat(ForgeInstance.Gitea.displayName).isEqualTo("Gitea")
+        assertThat(ForgeType.GITEA.speaksForgejo).isTrue()
+        assertThat(ForgeType.GITLAB.speaksForgejo).isFalse()
+        val tea = RepoId("gitea", "tea", ForgeInstance.Gitea)
+        assertThat(IssueRef(tea, 7).webUrl(isPullRequest = true)).isEqualTo("https://gitea.com/gitea/tea/pulls/7")
+        assertThat(tea.blobBaseUrl("main")).isEqualTo("https://gitea.com/gitea/tea/src/branch/main/")
+    }
+
+    @Test
     fun repositories_are_equal_and_hash_identically_regardless_of_case() {
         val uppercase = RepoId("RoiArthurB", "Forgeline", ForgeInstance.GitHub)
         val lowercase = RepoId("roiarthurb", "forgeline", ForgeInstance.GitHub)

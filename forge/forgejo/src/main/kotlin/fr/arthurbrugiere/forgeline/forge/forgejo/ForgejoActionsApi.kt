@@ -8,6 +8,7 @@ import fr.arthurbrugiere.forgeline.core.forge.WorkflowDispatchParser
 import fr.arthurbrugiere.forgeline.core.forge.logPartOf
 import fr.arthurbrugiere.forgeline.core.model.DispatchInput
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.LogFormat
 import fr.arthurbrugiere.forgeline.core.model.LogPart
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -45,10 +46,17 @@ import java.time.Instant
  * - runs have an API id and a per-repository number, and web pages use the number ([WorkflowRun.webUrl]);
  * - workflows are files in `.forgejo/workflows` (or `.gitea/`, `.github/`), with no list of their own;
  * - there's no re-run.
+ *
+ * Gitea's (checked against its API description, v1.24 to v1.27) is the same where both have a call, but it has re-run
+ * and no cancel, and lists runs only since v1.26.
  */
 class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : ActionsApi {
 
-    override val supportsRerun: Boolean = false
+    private val gitea = forge.type == ForgeType.GITEA
+
+    override val supportsRerun: Boolean = gitea
+
+    override val supportsCancel: Boolean = !gitea
 
     override suspend fun run(token: String?, id: RepoId, runId: Long): ForgeResult<WorkflowRun> = forgeCall {
         call(token, id, "actions", "runs", runId.toString()).toResult { body<RunJson>().toModel() }
@@ -134,11 +142,18 @@ class ForgejoActionsApi(private val httpClient: HttpClient, private val forge: F
             call(token, id, "actions", "workflows", file, "dispatches", method = HttpMethod.Post, body = body).toResult { }
         }
 
-    override suspend fun rerun(token: String, id: RepoId, runId: Long, failedJobsOnly: Boolean): ForgeResult<Unit> =
-        ForgeResult.Failure(ForgeError.Unsupported)
+    override suspend fun rerun(token: String, id: RepoId, runId: Long, failedJobsOnly: Boolean): ForgeResult<Unit> {
+        if (!gitea) return ForgeResult.Failure(ForgeError.Unsupported)
+        return forgeCall {
+            call(token, id, "actions", "runs", runId.toString(), if (failedJobsOnly) "rerun-failed-jobs" else "rerun", method = HttpMethod.Post).toResult { }
+        }
+    }
 
-    override suspend fun cancel(token: String, id: RepoId, runId: Long): ForgeResult<Unit> = forgeCall {
-        call(token, id, "actions", "runs", runId.toString(), "cancel", method = HttpMethod.Post).toResult { }
+    override suspend fun cancel(token: String, id: RepoId, runId: Long): ForgeResult<Unit> {
+        if (gitea) return ForgeResult.Failure(ForgeError.Unsupported)
+        return forgeCall {
+            call(token, id, "actions", "runs", runId.toString(), "cancel", method = HttpMethod.Post).toResult { }
+        }
     }
 
     /** The newest runs. `page` must be sent: without it Codeberg ignores `limit` and answers every run (56 MB, 2026-09-30). */

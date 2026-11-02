@@ -24,7 +24,7 @@ object KnownForges {
     /** Reads the kept servers now if no one has yet: off the main thread, so a page opened later doesn't wait for it. */
     fun readKept() = kept.value
 
-    /** Remembers what [instance] runs. github.com, gitlab.com and codeberg.org are known without being told. */
+    /** Remembers what [instance] runs. github.com, gitlab.com, codeberg.org and gitea.com are known without being told. */
     fun remember(instance: ForgeInstance) {
         val host = instance.host.lowercase()
         if (host !in KnownByName) types[host] = instance.type
@@ -47,5 +47,5 @@ object KnownForges {
         kept = lazyOf(Unit)
     }
 
-    private val KnownByName = setOf(ForgeInstance.GitHub.host, ForgeInstance.GitLab.host, ForgeInstance.Codeberg.host)
+    private val KnownByName = setOf(ForgeInstance.GitHub.host, ForgeInstance.GitLab.host, ForgeInstance.Codeberg.host, ForgeInstance.Gitea.host)
 }

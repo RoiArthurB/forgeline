@@ -174,10 +174,11 @@
     <string name="sign_in_host">Server address</string>
     <string name="sign_in_host_example" translatable="false">git.example.org</string>
     <string name="sign_in_host_example_gitlab" translatable="false">gitlab.example.org</string>
-    <string name="sign_in_host_hint">Any Forgejo server works with an access token.</string>
+    <string name="sign_in_host_hint">Any Forgejo or Gitea server, gitea.com included, works with an access token.</string>
     <string name="sign_in_host_hint_gitlab">Any GitLab server works with an access token.</string>
     <string name="sign_in_host_is">This is a %1$s server.</string>
     <string name="sign_in_kind_forgejo" translatable="false">Forgejo</string>
+    <string name="sign_in_kind_gitea" translatable="false">Gitea</string>
     <string name="sign_in_kind_gitlab" translatable="false">GitLab</string>
     <string name="sign_in_client_id">Application ID (optional)</string>
     <string name="sign_in_client_id_hint">To sign in through the browser instead of a token, create an application on your server (Preferences, then Applications): redirect URI http://127.0.0.1/oauth/gitlab, not confidential, scopes api and read_user. Then paste its Application ID here.</string>
@@ -201,7 +202,7 @@
     <string name="sign_in_error_rate_limited">%1$s is limiting requests right now. Try again in a few minutes.</string>
     <string name="sign_in_error_denied">Authorization was declined on %1$s.</string>
     <string name="sign_in_error_expired">The sign-in took too long. Start again.</string>
-    <string name="sign_in_error_not_a_forge">No Forgejo or GitLab server answered at this address.</string>
+    <string name="sign_in_error_not_a_forge">No Forgejo, Gitea or GitLab server answered at this address.</string>
     <string name="sign_in_error_unknown">Something went wrong. Try again.</string>
     <string name="trending_period_daily">Today</string>
     <string name="trending_period_weekly">This week</string>
@@ -256,7 +257,7 @@
     <string name="settings_trending_none_title">Nothing to measure yet</string>
     <string name="settings_trending_none_body">GitHub has its own Trending, and Codeberg\'s and GitLab\'s are published for everyone each day. Sign in to Codeberg or another Forgejo server to measure theirs on this phone instead.</string>
     <string name="settings_version_summary">Credits, source code, version %1$s</string>
-    <string name="settings_add_account_summary">GitHub, Codeberg or another Forgejo server</string>
+    <string name="settings_add_account_summary">GitHub, GitLab, Codeberg, or a Forgejo or Gitea server</string>
     <string name="error_unauthorized">The forge no longer accepts your sign-in. Sign in again from the You tab.</string>
     <string name="you_ended_title">Your sign-in to %1$s ended</string>
     <string name="you_ended_body">Forgeline can no longer use the sign-in of %2$s on %1$s: %1$s refused it, or it can\'t be read on this device. Nothing syncs for it until you sign in again.</string>

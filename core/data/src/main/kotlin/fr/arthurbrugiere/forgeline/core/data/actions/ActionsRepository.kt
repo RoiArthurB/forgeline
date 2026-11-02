@@ -45,6 +45,9 @@ interface ActionsRepository {
 
     /** Whether [id]'s forge can start a finished run again. */
     fun supportsRerun(id: RepoId): Boolean
+
+    /** Whether [id]'s forge can stop a run that goes. */
+    fun supportsCancel(id: RepoId): Boolean = true
 }
 
 class DefaultActionsRepository @Inject constructor(
@@ -74,6 +77,8 @@ class DefaultActionsRepository @Inject constructor(
     override suspend fun cancel(id: RepoId, runId: Long) = signedIn(id) { api, token -> api.cancel(token, id, runId) }
 
     override fun supportsRerun(id: RepoId): Boolean = clients.actions(id.forge)?.supportsRerun == true
+
+    override fun supportsCancel(id: RepoId): Boolean = clients.actions(id.forge)?.supportsCancel == true
 
     /** [call] with the repository forge's client and token (null signed out); Unsupported when it has no CI API. */
     private suspend fun <T> on(id: RepoId, call: suspend (ActionsApi, String?) -> ForgeResult<T>): ForgeResult<T> {
