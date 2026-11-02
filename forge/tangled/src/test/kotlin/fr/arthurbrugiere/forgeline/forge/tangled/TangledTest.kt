@@ -31,6 +31,9 @@ internal class FakeTangled(
         },
     )
 
+    /** The XRPC clients on this fake. */
+    val xrpc by lazy { TangledXrpc(client) }
+
     /** The methods asked, in order, with their parameters as `name=value` joined by `&`. */
     val asked: List<String>
         get() = requests.map { r -> r.key + "?" + r.url.parameters.entries().sortedBy { it.key }.joinToString("&") { (k, v) -> "$k=${v.joinToString(",")}" } }
@@ -55,6 +58,9 @@ internal val HttpRequestData.text: String
 
 internal const val OWNER_DID = "did:plc:wshs7t2adsemcrrd4snkeqli"
 internal const val REPO_DID = "did:plc:j5hmlfdrwkvtxm7cjmu7j2is"
+
+/** A git signature, as `org.tangled.git.defs#signature` has it. */
+internal const val SIGNATURE = """{"name":"Akshay","email":"akshay@example.com","when":"2026-10-30T09:00:00Z"}"""
 
 internal val resolved: (HttpRequestData) -> String? = { """{"did":"$OWNER_DID"}""" }
 

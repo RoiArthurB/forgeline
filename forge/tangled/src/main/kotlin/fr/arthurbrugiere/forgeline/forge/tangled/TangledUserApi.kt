@@ -8,12 +8,20 @@ import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
 import fr.arthurbrugiere.forgeline.forge.common.UnsupportedUserApi
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.JsonObject
+import org.tangled.actor.GetProfileQueryParams
+import org.tangled.feed.ListStarsByOrder
+import org.tangled.feed.ListStarsByQueryParams
+import org.tangled.graph.CountFollowsByQueryParams
+import org.tangled.graph.CountFollowsQueryParams
+import org.tangled.repo.CountReposQueryParams
+import org.tangled.repo.GetRepoByRepoDidQueryParams
+import org.tangled.repo.ListReposOrder
+import org.tangled.repo.ListReposQueryParams
+import sh.christian.ozone.api.AtUri
 
 /**
  * A person or organisation on Tangled, by handle: their profile record, how many follow them and they follow, their
@@ -21,14 +29,14 @@ import kotlinx.serialization.json.JsonObject
  * Unsupported.
  */
 class TangledUserApi internal constructor(
-    private val httpClient: HttpClient,
+    private val xrpc: TangledXrpc,
     private val identity: TangledIdentity,
     private val follows: TangledFollows?,
     private val forge: ForgeInstance = ForgeInstance.Tangled,
 ) : UnsupportedUserApi() {
 
     /** Read-only: without an account, following answers Unsupported. */
-    constructor(httpClient: HttpClient, identity: TangledIdentity) : this(httpClient, identity, null)
+    constructor(xrpc: TangledXrpc, identity: TangledIdentity) : this(xrpc, identity, null)
 
     override suspend fun isFollowing(token: String, login: String): ForgeResult<Boolean> =
         follows?.isFollowing(token, login) ?: super.isFollowing(token, login)
@@ -41,50 +49,53 @@ class TangledUserApi internal constructor(
      * and one that is gone is left out.
      */
     override suspend fun starred(token: String?, login: String): ForgeResult<List<RepoSummary>> = forgeCall {
-        val did = when (val result = identity.did(login)) {
+        val did = when (val result = identity.did(login).then(::asDid)) {
             is ForgeResult.Failure -> return@forgeCall result
             is ForgeResult.Success -> result.value
         }
         val stars = when (
-            val page = httpClient.xrpc("org.tangled.feed.listStarsBy", "subject" to did, "limit" to "$STARRED", "order" to "desc")
-                .toResult { body<RecordListJson<JsonObject>>().items }
+            val page = xrpc.index.listStarsBy(ListStarsByQueryParams(did, limit = STARRED, order = ListStarsByOrder.Desc))
+                .toResult { answer -> answer.items.map { it.value.decodeAs<JsonObject>() } }
         ) {
             is ForgeResult.Failure -> return@forgeCall page
             is ForgeResult.Success -> page.value
         }
-        val repoDids = stars.mapNotNull { it.value.starredRepo }.distinct()
+        val repoDids = stars.mapNotNull { it.starredRepo }.distinct()
         val repos = coroutineScope { repoDids.map { async { starredRepo(it) } }.awaitAll() }
         ForgeResult.Success(repos.filterNotNull())
     }
 
     private suspend fun starredRepo(repoDid: String): RepoSummary? {
-        val repo = (
-            forgeCall { httpClient.xrpc("org.tangled.repo.getRepoByRepoDid", "repoDid" to repoDid).toResult { body<RecordJson<RepoRecordJson>>() } }
-                as? ForgeResult.Success
+        val (uri, record) = (
+            forgeCall {
+                asDid(repoDid).then { did ->
+                    xrpc.index.getRepoByRepoDid(GetRepoByRepoDidQueryParams(did)).toResult { it.uri.atUri to it.value.decodeAs<RepoRecordJson>() }
+                }
+            } as? ForgeResult.Success
             )?.value ?: return null
-        val ownerDid = repo.uri.removePrefix("at://").substringBefore('/')
+        val ownerDid = uri.removePrefix("at://").substringBefore('/')
         val owner = (identity.handle(ownerDid) as? ForgeResult.Success)?.value ?: ownerDid
         return RepoSummary(
-            id = RepoId(owner, repo.value.name ?: repo.uri.recordKey, forge),
-            description = repo.value.description?.takeIf { it.isNotBlank() },
+            id = RepoId(owner, record.name ?: uri.recordKey, forge),
+            description = record.description?.takeIf { it.isNotBlank() },
             language = null,
             stars = 0,
             forks = 0,
-            isFork = repo.value.source != null,
-            updatedAt = instant(repo.value.createdAt),
+            isFork = record.source != null,
+            updatedAt = instant(record.createdAt),
         )
     }
 
     override suspend fun user(token: String?, login: String): ForgeResult<UserProfile> = forgeCall {
-        val did = when (val result = identity.did(login)) {
+        val did = when (val result = identity.did(login).then(::asDid)) {
             is ForgeResult.Failure -> return@forgeCall result
             is ForgeResult.Success -> result.value
         }
         coroutineScope {
-            val profile = async { httpClient.xrpc("org.tangled.actor.getProfile", "actor" to did).toResult { body<RecordJson<ProfileRecordJson>>().value } }
-            val followers = async { count("org.tangled.graph.countFollows", did) }
-            val following = async { count("org.tangled.graph.countFollowsBy", did) }
-            val repos = async { count("org.tangled.repo.countRepos", did) }
+            val profile = async { xrpc.index.getProfile(GetProfileQueryParams(AtUri(did.did))).toResult { it.value.decodeAs<ProfileRecordJson>() } }
+            val followers = async { count { xrpc.index.countFollows(CountFollowsQueryParams(did)).toResult { it.count } } }
+            val following = async { count { xrpc.index.countFollowsBy(CountFollowsByQueryParams(did)).toResult { it.count } } }
+            val repos = async { count { xrpc.index.countRepos(CountReposQueryParams(did)).toResult { it.count } } }
             // Someone who never wrote a profile has none: they're still someone, with their handle.
             val record = (profile.await() as? ForgeResult.Success)?.value ?: ProfileRecordJson()
             val links = record.links.filter { it.isNotBlank() }
@@ -110,29 +121,31 @@ class TangledUserApi internal constructor(
 
     /** Newest first. Tangled's list says neither stars nor forks: they read 0. */
     override suspend fun repos(token: String?, login: String, mine: Boolean, organization: Boolean): ForgeResult<List<RepoSummary>> = forgeCall {
-        val did = when (val result = identity.did(login)) {
+        val did = when (val result = identity.did(login).then(::asDid)) {
             is ForgeResult.Failure -> return@forgeCall result
             is ForgeResult.Success -> result.value
         }
-        httpClient.xrpc("org.tangled.repo.listRepos", "subject" to did, "limit" to "100", "order" to "desc").toResult {
-            body<RecordListJson<RepoRecordJson>>().items.map { item ->
+        xrpc.index.listRepos(ListReposQueryParams(did, limit = REPOS, order = ListReposOrder.Desc)).toResult { answer ->
+            answer.items.map { item ->
+                val record = item.value.decodeAs<RepoRecordJson>()
                 RepoSummary(
-                    id = RepoId(login.removePrefix("@"), item.value.name ?: item.uri.recordKey, forge),
-                    description = item.value.description?.takeIf { it.isNotBlank() },
+                    id = RepoId(login.removePrefix("@"), record.name ?: item.uri.atUri.recordKey, forge),
+                    description = record.description?.takeIf { it.isNotBlank() },
                     language = null,
                     stars = 0,
                     forks = 0,
-                    isFork = item.value.source != null,
-                    updatedAt = instant(item.value.createdAt),
+                    isFork = record.source != null,
+                    updatedAt = instant(record.createdAt),
                 )
             }
         }
     }
 
     private companion object {
-        const val STARRED = 50
+        const val STARRED = 50L
+        const val REPOS = 100L
     }
 
-    private suspend fun count(nsid: String, subject: String): Int =
-        (forgeCall { httpClient.xrpc(nsid, "subject" to subject).toResult { body<CountJson>().count } } as? ForgeResult.Success)?.value ?: 0
+    /** A count Tangled keeps for the person; 0 where it couldn't say, which only leaves a number out. */
+    private suspend fun count(ask: suspend () -> ForgeResult<Long>): Int = (forgeCall { ask() } as? ForgeResult.Success)?.value?.toInt() ?: 0
 }

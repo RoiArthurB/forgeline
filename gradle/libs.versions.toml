@@ -18,6 +18,8 @@ work = "2.12.0"
 coroutines = "1.11.0"
 serialization = "1.12.0"
 ktor = "3.6.0"
+# AT Protocol clients generated from lexicons (Tangled): https://github.com/christiandeange/ozone
+ozone = "0.3.4"
 coil = "3.6.3"
 jsoup = "1.23.2"
 snakeyaml-engine = "3.2"
@@ -134,6 +136,7 @@ roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
 baselineprofile = { id = "androidx.baselineprofile", version.ref = "baselineprofile" }
 room = { id = "androidx.room", version.ref = "room" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+ozone = { id = "sh.christian.ozone.generator", version.ref = "ozone" }
 
 # Convention plugins (build-logic)
 forgeline-android-application = { id = "forgeline.android.application" }

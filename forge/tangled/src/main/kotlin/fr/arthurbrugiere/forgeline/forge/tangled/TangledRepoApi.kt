@@ -20,11 +20,17 @@ import fr.arthurbrugiere.forgeline.core.model.blobBaseUrl
 import fr.arthurbrugiere.forgeline.core.model.languageShares
 import fr.arthurbrugiere.forgeline.core.model.rawBaseUrl
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import org.tangled.feed.CountStarsQueryParams
+import org.tangled.repo.CountForksQueryParams
+import org.tangled.temp.git.GetBlobQueryParams
+import org.tangled.temp.git.GetTreeQueryParams
+import org.tangled.temp.git.GetTreeTreeEntry
+import org.tangled.temp.git.ListBranchesQueryParams
+import org.tangled.temp.git.ListTagsQueryParams
+import org.tangled.temp.repo.GetRepoByNameQueryParams
+import sh.christian.ozone.api.Did
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -34,28 +40,28 @@ import java.util.concurrent.ConcurrentHashMap
  * say so, and the tabs stay away.
  */
 class TangledRepoApi(
-    private val httpClient: HttpClient,
+    private val xrpc: TangledXrpc,
     private val identity: TangledIdentity,
     private val forge: ForgeInstance = ForgeInstance.Tangled,
 ) : RepoApi {
 
     /** Each repository's own DID and what its git says, once it was looked up: every file read needs the DID. */
-    private val found = ConcurrentHashMap<RepoId, RepoByNameJson>()
+    private val found = ConcurrentHashMap<RepoId, FoundRepo>()
 
-    internal suspend fun lookUp(id: RepoId): ForgeResult<RepoByNameJson> {
+    internal suspend fun lookUp(id: RepoId): ForgeResult<FoundRepo> {
         found[id]?.let { return ForgeResult.Success(it) }
-        val owner = when (val did = identity.did(id.owner)) {
+        val owner = when (val did = identity.did(id.owner).then(::asDid)) {
             is ForgeResult.Failure -> return did
             is ForgeResult.Success -> did.value
         }
-        return httpClient.xrpc("org.tangled.temp.repo.getRepoByName", "owner" to owner, "name" to id.name)
-            .toResult { body<RepoByNameJson>().also { found[id] = it } }
+        return xrpc.index.getRepoByName(GetRepoByNameQueryParams(owner, id.name))
+            .toResult { FoundRepo(it.value.decodeAs<RepoRecordJson>(), it.git).also { repo -> found[id] = repo } }
     }
 
     /** The DID the repository's git content is asked by; Unsupported for one declared before repositories had their own. */
-    private suspend fun repoDid(id: RepoId): ForgeResult<String> = when (val repo = lookUp(id)) {
+    private suspend fun repoDid(id: RepoId): ForgeResult<Did> = when (val repo = lookUp(id)) {
         is ForgeResult.Failure -> repo
-        is ForgeResult.Success -> repo.value.value.repoDid?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Unsupported)
+        is ForgeResult.Success -> repo.value.record.repoDid?.let(::asDid) ?: ForgeResult.Failure(ForgeError.Unsupported)
     }
 
     override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = forgeCall {
@@ -63,19 +69,19 @@ class TangledRepoApi(
             is ForgeResult.Failure -> return@forgeCall result
             is ForgeResult.Success -> result.value
         }
-        val did = repo.value.repoDid
+        val did = repo.record.repoDid
         val (stars, forks) = coroutineScope {
-            val stars = async { did?.let { count("org.tangled.feed.countStars", it) } ?: 0 }
-            val forks = async { did?.let { count("org.tangled.repo.countForks", it) } ?: 0 }
+            val stars = async { did?.let { count { xrpc.index.countStars(CountStarsQueryParams(did)).toResult { it.count } } } ?: 0 }
+            val forks = async { did?.let { count { asDid(did).then { xrpc.index.countForks(CountForksQueryParams(it)).toResult { answer -> answer.count } } } } ?: 0 }
             stars.await() to forks.await()
         }
         val git = repo.git
         ForgeResult.Success(
             RepoDetails(
                 id = id,
-                description = repo.value.description?.takeIf { it.isNotBlank() },
-                homepage = repo.value.website?.takeIf { it.isNotBlank() },
-                topics = repo.value.topics,
+                description = repo.record.description?.takeIf { it.isNotBlank() },
+                homepage = repo.record.website?.takeIf { it.isNotBlank() },
+                topics = repo.record.topics,
                 stars = stars,
                 forks = forks,
                 watchers = 0,
@@ -83,7 +89,7 @@ class TangledRepoApi(
                 license = null,
                 defaultBranch = git?.defaultBranch ?: "main",
                 ownerAvatarUrl = null,
-                isFork = repo.value.source != null,
+                isFork = repo.record.source != null,
                 isArchived = false,
                 pushedAt = null,
                 hasActions = false,
@@ -96,8 +102,7 @@ class TangledRepoApi(
     }
 
     /** A count Tangled keeps for the repository; 0 where it couldn't say, which only leaves a number out. */
-    private suspend fun count(nsid: String, subject: String): Int =
-        (forgeCall { httpClient.xrpc(nsid, "subject" to subject).toResult { body<CountJson>().count } } as? ForgeResult.Success)?.value ?: 0
+    private suspend fun count(ask: suspend () -> ForgeResult<Long>): Int = (forgeCall { ask() } as? ForgeResult.Success)?.value?.toInt() ?: 0
 
     override suspend fun languages(token: String?, id: RepoId): ForgeResult<List<RepoLanguage>> = when (val repo = forgeCall { lookUp(id) }) {
         is ForgeResult.Failure -> repo
@@ -122,8 +127,12 @@ class TangledRepoApi(
             is ForgeResult.Success -> result.value
         }
         coroutineScope {
-            val branches = async { names(did, "org.tangled.temp.git.listBranches") { it.branches } }
-            val tags = async { names(did, "org.tangled.temp.git.listTags") { it.tags } }
+            val branches = async {
+                names { cursor -> xrpc.index.listBranches(ListBranchesQueryParams(did, REF_PAGE, cursor)).toResult { page -> page.branches.map { it.name } to page.cursor } }
+            }
+            val tags = async {
+                names { cursor -> xrpc.index.listTags(ListTagsQueryParams(did, REF_PAGE, cursor)).toResult { page -> page.tags.map { it.name } to page.cursor } }
+            }
             when (val b = branches.await()) {
                 is ForgeResult.Failure -> b
                 is ForgeResult.Success -> when (val t = tags.await()) {
@@ -135,16 +144,16 @@ class TangledRepoApi(
     }
 
     /** Every name a ref list holds, a page of 100 at a time, up to [MAX_REF_PAGES] pages. */
-    private suspend fun names(did: String, nsid: String, of: (RefsJson) -> List<NamedRefJson>): ForgeResult<List<String>> {
+    private suspend fun names(page: suspend (cursor: String?) -> ForgeResult<Pair<List<String>, String?>>): ForgeResult<List<String>> {
         val all = mutableListOf<String>()
         var cursor: String? = null
         repeat(MAX_REF_PAGES) {
-            val page = when (val result = httpClient.xrpc(nsid, "repo" to did, "limit" to "100", "cursor" to cursor).toResult { body<RefsJson>() }) {
+            val (names, next) = when (val result = page(cursor)) {
                 is ForgeResult.Failure -> return result
                 is ForgeResult.Success -> result.value
             }
-            all += of(page).map { it.name }
-            cursor = page.cursor?.takeIf { it.isNotBlank() && of(page).isNotEmpty() } ?: return ForgeResult.Success(all)
+            all += names
+            cursor = next?.takeIf { it.isNotBlank() && names.isNotEmpty() } ?: return ForgeResult.Success(all)
         }
         return ForgeResult.Success(all)
     }
@@ -163,13 +172,12 @@ class TangledRepoApi(
 
     override suspend fun fileText(token: String?, id: RepoId, path: String, ref: String): ForgeResult<String> = forgeCall { blob(id, ref, path) }
 
-    private suspend fun tree(id: RepoId, ref: String?, path: String): ForgeResult<List<TreeEntryJson>> {
+    private suspend fun tree(id: RepoId, ref: String?, path: String): ForgeResult<List<GetTreeTreeEntry>> {
         val did = when (val result = repoDid(id)) {
             is ForgeResult.Failure -> return result
             is ForgeResult.Success -> result.value
         }
-        return httpClient.xrpc("org.tangled.temp.git.getTree", "repo" to did, "ref" to ref, "path" to path.takeIf { it.isNotEmpty() })
-            .toResult { body<TreeJson>().entries }
+        return xrpc.index.getTree(GetTreeQueryParams(did, ref ?: "HEAD", path)).toResult { it.entries }
     }
 
     private suspend fun blob(id: RepoId, ref: String?, path: String): ForgeResult<String> {
@@ -177,7 +185,7 @@ class TangledRepoApi(
             is ForgeResult.Failure -> return result
             is ForgeResult.Success -> result.value
         }
-        return httpClient.xrpc("org.tangled.temp.git.getBlob", "repo" to did, "ref" to ref, "path" to path.trim('/')).toResult { bodyAsText() }
+        return xrpc.index.getBlob(GetBlobQueryParams(did, ref ?: "HEAD", path.trim('/'))).toResult { it.decodeToString() }
     }
 
     private val ForgeResult.Failure.isMissing: Boolean get() = (error as? ForgeError.Http)?.status == 404
@@ -197,8 +205,9 @@ class TangledRepoApi(
     override fun blobBaseUrl(id: RepoId, ref: String): String = id.blobBaseUrl(ref)
 
     internal companion object {
-        /** 100 refs a page: a repository with more than 2,000 branches or tags shows the first 2,000. */
+        /** 100 refs a page (the most Tangled gives): a repository with more than 2,000 branches or tags shows the first 2,000. */
         const val MAX_REF_PAGES = 20
+        const val REF_PAGE = 100L
 
         /** The README a forge shows: README.md first, then any README.* or README. */
         fun readmeOf(files: List<String>): String? {

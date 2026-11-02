@@ -1,29 +1,26 @@
 package fr.arthurbrugiere.forgeline.forge.tangled
 
+import com.atproto.repo.CreateRecordRequest
+import com.atproto.repo.DeleteRecordRequest
+import com.atproto.repo.ListRecordsQueryParams
+import com.atproto.repo.PutRecordRequest
+import com.atproto.server.CreateSessionRequest
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.OAuthTokens
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.request.bearerAuth
-import io.ktor.client.request.get
-import io.ktor.client.request.header
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.client.statement.HttpResponse
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
-import io.ktor.http.contentType
-import io.ktor.http.isSuccess
-import io.ktor.http.takeFrom
-import kotlinx.serialization.Serializable
+import fr.arthurbrugiere.forgeline.forge.tangled.xrpc.Atproto
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
+import sh.christian.ozone.api.Did
+import sh.christian.ozone.api.Nsid
+import sh.christian.ozone.api.RKey
+import sh.christian.ozone.api.model.JsonContent
+import sh.christian.ozone.api.model.JsonContent.Companion.encodeAsJsonContent
 import java.time.Clock
 import java.util.Base64
 
@@ -35,7 +32,7 @@ import java.util.Base64
  * to, is read from the token itself: an AT Protocol access token is a JWT whose `sub` is the account's DID.
  */
 class TangledAccount(
-    private val httpClient: HttpClient,
+    private val xrpc: TangledXrpc,
     private val identity: TangledIdentity,
     private val clock: Clock = Clock.systemUTC(),
 ) {
@@ -48,11 +45,8 @@ class TangledAccount(
             is ForgeResult.Failure -> return@forgeCall server
             is ForgeResult.Success -> server.value
         }
-        httpClient.post("$base/xrpc/com.atproto.server.createSession") {
-            contentType(ContentType.Application.Json)
-            header(HttpHeaders.Accept, "application/json")
-            setBody(CreateSessionJson(name, password))
-        }.toResult { body<SessionJson>().toTokens() }
+        xrpc.server(base).createSession(CreateSessionRequest(name, password))
+            .toResult { tokens(it.handle.handle, it.did.did, it.accessJwt, it.refreshJwt) }
     }
 
     /** A new session for the one [refreshToken] belongs to; AT Protocol servers hand a new refresh token each time. */
@@ -62,10 +56,8 @@ class TangledAccount(
             is ForgeResult.Failure -> return@forgeCall server
             is ForgeResult.Success -> server.value
         }
-        httpClient.post("$base/xrpc/com.atproto.server.refreshSession") {
-            bearerAuth(refreshToken)
-            header(HttpHeaders.Accept, "application/json")
-        }.toResult { body<SessionJson>().toTokens() }
+        xrpc.server(base, refreshToken).refreshSession()
+            .toResult { tokens(it.handle.handle, it.did.did, it.accessJwt, it.refreshJwt) }
     }
 
     /** Who [token] signs in: their handle, asked of their own server, which says at once whether it still takes the token. */
@@ -75,13 +67,9 @@ class TangledAccount(
             is ForgeResult.Failure -> return@forgeCall server
             is ForgeResult.Success -> server.value
         }
-        httpClient.get("$pds/xrpc/com.atproto.server.getSession") {
-            bearerAuth(token)
-            header(HttpHeaders.Accept, "application/json")
-        }.toResult {
-            val session = body<SessionJson>()
-            identity.remember(session.handle, session.did)
-            ForgeUser(session.handle, null, null)
+        xrpc.server(pds, token).getSession().toResult { session ->
+            identity.remember(session.handle.handle, session.did.did)
+            ForgeUser(session.handle.handle, null, null)
         }
     }
 
@@ -89,51 +77,51 @@ class TangledAccount(
     fun did(token: String): ForgeResult<String> = subjectOf(token)?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Unauthorized)
 
     /** Creates a record in the signed-in person's [collection], under a key their server picks; answers its AT URI. */
-    suspend fun createRecord(token: String, collection: String, record: JsonObject): ForgeResult<String> =
-        write(token, "com.atproto.repo.createRecord") { did -> WriteJson(did, collection, record = record) }
+    suspend fun createRecord(token: String, collection: String, record: JsonObject): ForgeResult<String> = write(token) { server, did ->
+        server.createRecord(CreateRecordRequest(did, Nsid(collection), record = record.content())).toResult { it.uri.atUri }
+    }
 
     /** Writes the record [rkey] of [collection], replacing what was there. */
-    suspend fun putRecord(token: String, collection: String, rkey: String, record: JsonObject): ForgeResult<String> =
-        write(token, "com.atproto.repo.putRecord") { did -> WriteJson(did, collection, rkey, record) }
+    suspend fun putRecord(token: String, collection: String, rkey: String, record: JsonObject): ForgeResult<String> = write(token) { server, did ->
+        server.putRecord(PutRecordRequest(did, Nsid(collection), RKey(rkey), record = record.content())).toResult { it.uri.atUri }
+    }
 
     /** Deletes the record at [uri] (`at://did/collection/rkey`), which must be the signed-in person's; gone already is done. */
     suspend fun deleteRecord(token: String, uri: String): ForgeResult<Unit> {
         val parts = uri.removePrefix("at://").split('/')
         if (parts.size != 3) return ForgeResult.Failure(ForgeError.Unreadable)
         val (_, collection, rkey) = parts
-        return when (val result = write(token, "com.atproto.repo.deleteRecord") { did -> WriteJson(did, collection, rkey) }) {
-            is ForgeResult.Failure -> result
-            is ForgeResult.Success -> ForgeResult.Success(Unit)
-        }
+        return write(token) { server, did -> server.deleteRecord(DeleteRecordRequest(did, Nsid(collection), RKey(rkey))).toResult { } }
     }
 
     /** The signed-in person's records of [collection], a page at a time, as their own server keeps them. */
-    internal suspend fun listRecords(did: String, collection: String, cursor: String?): ForgeResult<RecordListJson<JsonObject>> = forgeCall {
+    internal suspend fun listRecords(did: String, collection: String, cursor: String?): ForgeResult<RecordPage> = forgeCall {
         val pds = when (val server = identity.pds(did)) {
             is ForgeResult.Failure -> return@forgeCall server
             is ForgeResult.Success -> server.value
         }
-        httpClient.xrpc("com.atproto.repo.listRecords", "repo" to did, "collection" to collection, "limit" to "100", "cursor" to cursor, base = pds)
-            .toResult { body<ListRecordsJson>().let { RecordListJson(it.records, it.cursor) } }
+        val repo = when (val valid = asDid(did)) {
+            is ForgeResult.Failure -> return@forgeCall valid
+            is ForgeResult.Success -> valid.value
+        }
+        xrpc.server(pds).listRecords(ListRecordsQueryParams(repo, Nsid(collection), limit = 100, cursor = cursor))
+            .toResult { page -> RecordPage(page.records.map { it.uri.atUri to it.value.decodeAs<JsonObject>() }, page.cursor) }
     }
 
-    private suspend fun write(token: String, nsid: String, body: (did: String) -> WriteJson): ForgeResult<String> = forgeCall {
-        val did = subjectOf(token) ?: return@forgeCall ForgeResult.Failure(ForgeError.Unauthorized)
-        val pds = when (val server = identity.pds(did)) {
+    private suspend fun <T> write(token: String, call: suspend (server: Atproto, did: Did) -> ForgeResult<T>): ForgeResult<T> = forgeCall {
+        val me = subjectOf(token) ?: return@forgeCall ForgeResult.Failure(ForgeError.Unauthorized)
+        val did = when (val valid = asDid(me)) {
+            is ForgeResult.Failure -> return@forgeCall valid
+            is ForgeResult.Success -> valid.value
+        }
+        val pds = when (val server = identity.pds(me)) {
             is ForgeResult.Failure -> return@forgeCall server
             is ForgeResult.Success -> server.value
         }
-        val response: HttpResponse = httpClient.post {
-            url { takeFrom("$pds/xrpc/$nsid") }
-            bearerAuth(token)
-            contentType(ContentType.Application.Json)
-            header(HttpHeaders.Accept, "application/json")
-            setBody(body(did))
-        }
-        if (!response.status.isSuccess()) return@forgeCall response.failure()
-        // deleteRecord answers no URI (an empty object, or nothing on older servers).
-        ForgeResult.Success(runCatching { response.body<WrittenJson>().uri }.getOrNull().orEmpty())
+        call(xrpc.server(pds, token), did)
     }
+
+    private fun JsonObject.content(): JsonContent = XRPC_JSON.run { encodeAsJsonContent(this@content) }
 
     /**
      * Where [actor] signs in. Accounts on Bluesky's own servers (`*.host.bsky.network`) sign in at its entryway,
@@ -150,10 +138,10 @@ class TangledAccount(
         }
     }
 
-    private fun SessionJson.toTokens(): OAuthTokens {
+    private fun tokens(handle: String, did: String, access: String, refresh: String): OAuthTokens {
         identity.remember(handle, did)
-        val expiresAt = claims(accessJwt)?.get("exp")?.jsonPrimitive?.longOrNull
-        return OAuthTokens(accessJwt, refreshJwt, expiresAt?.let { (it - clock.instant().epochSecond).coerceAtLeast(0) })
+        val expiresAt = claims(access)?.get("exp")?.jsonPrimitive?.longOrNull
+        return OAuthTokens(access, refresh, expiresAt?.let { (it - clock.instant().epochSecond).coerceAtLeast(0) })
     }
 
     internal companion object {
@@ -170,17 +158,8 @@ class TangledAccount(
     }
 }
 
-@Serializable
-private data class CreateSessionJson(val identifier: String, val password: String)
+/** A page of someone's records, as their own server lists them: each record's AT URI and its content. */
+internal data class RecordPage(val records: List<Pair<String, JsonObject>>, val cursor: String?)
 
-@Serializable
-internal data class SessionJson(val did: String, val handle: String, val accessJwt: String = "", val refreshJwt: String? = null)
-
-@Serializable
-private data class WriteJson(val repo: String, val collection: String, val rkey: String? = null, val record: JsonObject? = null)
-
-@Serializable
-private data class WrittenJson(val uri: String? = null)
-
-@Serializable
-private data class ListRecordsJson(val records: List<RecordJson<JsonObject>> = emptyList(), val cursor: String? = null)
+/** How records are written: as ozone reads and writes XRPC, `$type` and all. */
+private val XRPC_JSON = sh.christian.ozone.api.runtime.buildXrpcJsonConfiguration()
