@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
@@ -88,6 +89,7 @@ import fr.arthurbrugiere.forgeline.ui.relative
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import fr.arthurbrugiere.forgeline.ui.rememberNow
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
+import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
 import java.time.Instant
 
 @Composable
@@ -212,7 +214,8 @@ fun DiscussionScreen(
                 state = listState,
                 horizontalAlignment = Alignment.CenterHorizontally,
                 contentPadding = PaddingValues(bottom = listBottomPadding()),
-                modifier = Modifier.fillMaxSize().sideSafeArea(),
+                // The comment and reply boxes stay above the keyboard (edge-to-edge doesn't resize the window for it).
+                modifier = Modifier.fillMaxSize().sideSafeArea().imePadding(),
             ) {
                 item(key = "header") {
                     SoftHeader(
@@ -321,7 +324,7 @@ fun DiscussionScreen(
                                 if (discussion.locked) Text(stringResource(R.string.discussion_locked), style = Soft.type.secondary, color = colors.inkMuted)
                                 if (state.canComment) {
                                     val sendingComment = state.sending == DiscussionViewModel.COMMENT
-                                    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Row(Modifier.staysAboveKeyboard(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                         SoftTextField(
                                             value = draft,
                                             onValueChange = { draft = it },
@@ -375,7 +378,7 @@ private fun CommentActions(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (replying) {
-            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.staysAboveKeyboard(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SoftTextField(
                     value = reply,
                     onValueChange = onReplyChange,
