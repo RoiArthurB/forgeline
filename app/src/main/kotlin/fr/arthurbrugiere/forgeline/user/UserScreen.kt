@@ -248,23 +248,28 @@ private fun Header(
         profile.bio?.let { Text(it, style = Soft.type.lead, color = colors.ink, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure)) }
         profile.company?.let { Detail(Icons.Outlined.Business, it) }
         profile.location?.let { Detail(Icons.Outlined.LocationOn, it) }
-        profile.website?.let { site ->
-            val url = if (site.startsWith("http")) site else "https://$site"
-            Detail(Icons.Outlined.Link, site.removePrefix("https://").removePrefix("http://"), Modifier.clip(SoftTokens.Pill).clickable { onOpenUrl(url) }, link = true)
-        }
-        // Each other place by its logo and the way people write it ("@ana@mastodon.social"); the service's name is read
-        // out with it, since the logo is the only place it's written.
-        profile.links.forEach { link ->
-            val icon = link.kind.iconRes?.let { painterResource(it) } ?: rememberVectorPainter(if (link.kind == LinkKind.EMAIL) Icons.Outlined.MailOutline else Icons.Outlined.Link)
-            Detail(
-                icon,
-                link.label,
-                Modifier
-                    .clip(SoftTokens.Pill)
-                    .clickable(onClickLabel = link.kind.displayName) { onOpenUrl(link.url) }
-                    .semantics(mergeDescendants = true) { contentDescription = "${link.kind.displayName}, ${link.label}" },
-                link = true,
-            )
+        // The links stand one under another, each as tall as a finger with no gap between: 20dp lines 10dp apart left a
+        // tap between two of them to whichever was nearer, and a near miss opened another app.
+        if (profile.website != null || profile.links.isNotEmpty()) {
+            Column {
+                profile.website?.let { site ->
+                    val url = if (site.startsWith("http")) site else "https://$site"
+                    Detail(Icons.Outlined.Link, site.removePrefix("https://").removePrefix("http://"), Modifier.linkRow { onOpenUrl(url) }, link = true)
+                }
+                // Each other place by its logo and the way people write it ("@ana@mastodon.social"); the service's name is read
+                // out with it, since the logo is the only place it's written.
+                profile.links.forEach { link ->
+                    val icon = link.kind.iconRes?.let { painterResource(it) } ?: rememberVectorPainter(if (link.kind == LinkKind.EMAIL) Icons.Outlined.MailOutline else Icons.Outlined.Link)
+                    Detail(
+                        icon,
+                        link.label,
+                        Modifier
+                            .linkRow(link.kind.displayName) { onOpenUrl(link.url) }
+                            .semantics(mergeDescendants = true) { contentDescription = "${link.kind.displayName}, ${link.label}" },
+                        link = true,
+                    )
+                }
+            }
         }
         if (!profile.isOrganization && social) {
             Text(
@@ -287,6 +292,11 @@ private fun Header(
         }
     }
 }
+
+/** A profile link's row: as tall as a finger, pressed as a pill around its words, which keep the whole width. */
+private fun Modifier.linkRow(label: String? = null, onClick: () -> Unit): Modifier = clip(SoftTokens.Pill)
+    .clickable(onClickLabel = label, role = Role.Button, onClick = onClick)
+    .heightIn(min = 48.dp)
 
 @Composable
 private fun Detail(icon: ImageVector, text: String, modifier: Modifier = Modifier, link: Boolean = false) = Detail(rememberVectorPainter(icon), text, modifier, link)

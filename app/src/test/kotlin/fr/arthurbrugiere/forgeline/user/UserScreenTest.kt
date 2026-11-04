@@ -92,6 +92,20 @@ class UserScreenTest {
     }
 
     @Test
+    fun each_link_is_a_finger_tall_on_its_own_not_only_by_what_compose_lends_it() {
+        // Regression: the links were 20dp lines 10dp apart. Compose widens a small target's touch area to 48dp, but two
+        // such areas overlap, so a tap between links went to the nearer one and a near miss opened another app.
+        setContent(linked.copy(profile = linked.profile!!.copy(website = "octo.example.org")))
+
+        val rows = listOf("octo.example.org", "Email, octocat@example.org", "Matrix, @octocat:matrix.org", "Mastodon, @octocat@fosstodon.org").map { name ->
+            composeRule.onNode(androidx.compose.ui.test.hasText(name) or androidx.compose.ui.test.hasContentDescription(name)).fetchSemanticsNode().boundsInRoot
+        }
+        val density = composeRule.density.density
+        rows.forEach { assertThat(it.height / density).isAtLeast(47.5f) }
+        rows.zipWithNext().forEach { (above, below) -> assertThat(below.top).isAtLeast(above.bottom - 0.5f) }
+    }
+
+    @Test
     fun shows_the_profile_and_repositories() {
         setContent(base)
 
