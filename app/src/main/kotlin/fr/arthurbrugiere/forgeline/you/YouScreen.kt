@@ -482,6 +482,12 @@ private fun AccountHeader(account: Account, compact: Boolean, onClick: () -> Uni
 /** A row that leads somewhere: an icon on a tile, its name, and a chevron. */
 @Composable
 internal fun NavigationRow(icon: ImageVector, label: String, onClick: () -> Unit, summary: String? = null) {
+    NavigationRow(label, onClick, summary) { Icon(icon, contentDescription = null, tint = Soft.colors.ink, modifier = Modifier.size(18.dp)) }
+}
+
+/** A row that leads somewhere, with what [tile] draws on its tile: a forge's logo, say. */
+@Composable
+internal fun NavigationRow(label: String, onClick: () -> Unit, summary: String? = null, tile: @Composable () -> Unit) {
     val colors = Soft.colors
     Row(
         Modifier
@@ -492,9 +498,7 @@ internal fun NavigationRow(icon: ImageVector, label: String, onClick: () -> Unit
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(SoftTokens.Tile).background(colors.surface, SoftTokens.TileCorner), contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = null, tint = colors.ink, modifier = Modifier.size(18.dp))
-        }
+        Box(Modifier.size(SoftTokens.Tile).background(colors.surface, SoftTokens.TileCorner), contentAlignment = Alignment.Center) { tile() }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(label, style = Soft.type.body, color = colors.ink)

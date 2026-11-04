@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.signin
 
 import android.content.ClipData
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -66,6 +67,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
+import fr.arthurbrugiere.forgeline.you.NavigationRow
 import kotlinx.coroutines.launch
 
 @Composable
@@ -91,6 +93,7 @@ fun SignInRoute(
     SignInScreen(
         state = state,
         onSelectForge = viewModel::selectForge,
+        onChooseForge = viewModel::chooseAnotherForge,
         onHostChange = viewModel::setHost,
         onClientIdChange = viewModel::setOauthClientId,
         onSelectGitLabServer = viewModel::selectGitLabServer,
@@ -127,9 +130,12 @@ fun SignInScreen(
     onSelectGitLabServer: (Boolean) -> Unit = {},
     onStartBrowserSignIn: () -> Unit = {},
     onSubmitPassword: (identifier: String, password: String) -> Unit = { _, _ -> },
+    onChooseForge: () -> Unit = {},
 ) {
     val colors = Soft.colors
     val forgeName = state.forgeName
+    // A forge's form goes back to the list of forges, which is where signing in started.
+    BackHandler(enabled = !state.choosingForge, onBack = onChooseForge)
     Column(
         modifier
             .fillMaxSize()
@@ -142,17 +148,29 @@ fun SignInScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         SoftHeader(
-            title = if (forgeName.isBlank()) stringResource(R.string.sign_in_headline_other) else stringResource(R.string.sign_in_headline, forgeName),
-            onBack = onBack,
+            title = when {
+                state.choosingForge -> stringResource(R.string.sign_in)
+                forgeName.isBlank() -> stringResource(R.string.sign_in_headline_other)
+                else -> stringResource(R.string.sign_in_headline, forgeName)
+            },
+            onBack = if (state.choosingForge) onBack else onChooseForge,
             backDescription = stringResource(R.string.navigate_up),
         ) {
             // The field says one thing: where a sign-in goes. What the forge will ask is said where it is asked for.
             Text(
-                stringResource(R.string.sign_in_privacy, forgeName.ifBlank { stringResource(R.string.sign_in_forge_other) }),
+                if (state.choosingForge) {
+                    stringResource(R.string.sign_in_privacy_any)
+                } else {
+                    stringResource(R.string.sign_in_privacy, forgeName.ifBlank { stringResource(R.string.sign_in_forge_other) })
+                },
                 style = Soft.type.body,
                 color = Soft.colors.inkMuted,
                 modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure),
             )
+        }
+        if (state.choosingForge) {
+            ForgeList(onSelectForge)
+            return@Column
         }
         Column(
             Modifier.widthIn(max = SoftTokens.MaxMeasure).fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp),
@@ -169,7 +187,6 @@ fun SignInScreen(
                 SignInStep.ChooseMethod, is SignInStep.Failed -> ChooseMethod(
                     state = state,
                     error = (step as? SignInStep.Failed)?.error,
-                    onSelectForge = onSelectForge,
                     onHostChange = onHostChange,
                     onClientIdChange = onClientIdChange,
                     onSelectGitLabServer = onSelectGitLabServer,
@@ -185,11 +202,49 @@ fun SignInScreen(
     }
 }
 
+/**
+ * Every forge one can sign in to, each a row with its logo, its name and where it is. Seven forges don't fit a row of tabs
+ * on a phone, and at larger text half of them went off its edge; a list wraps and scrolls like the rest of the app.
+ */
+@Composable
+private fun ForgeList(onSelectForge: (SignInForge) -> Unit) {
+    val colors = Soft.colors
+    Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(vertical = 12.dp)) {
+        for (forge in SignInForge.entries) {
+            NavigationRow(stringResource(forge.label), onClick = { onSelectForge(forge) }, summary = stringResource(forge.where)) {
+                ForgeIcon(forge.icon, size = 18.dp, tint = colors.ink, contentDescription = null)
+            }
+        }
+    }
+}
+
+private val SignInForge.label: Int
+    get() = when (this) {
+        SignInForge.GITHUB -> R.string.sign_in_forge_github
+        SignInForge.GITLAB -> R.string.sign_in_forge_gitlab
+        SignInForge.CODEBERG -> R.string.sign_in_forge_codeberg
+        SignInForge.GITEA -> R.string.sign_in_forge_gitea
+        SignInForge.SOURCEHUT -> R.string.sign_in_forge_sourcehut
+        SignInForge.TANGLED -> R.string.sign_in_forge_tangled
+        SignInForge.OTHER -> R.string.sign_in_forge_other_server
+    }
+
+/** Where the forge is, or what it takes. */
+private val SignInForge.where: Int
+    get() = when (this) {
+        SignInForge.GITHUB -> R.string.sign_in_where_github
+        SignInForge.GITLAB -> R.string.sign_in_where_gitlab
+        SignInForge.CODEBERG -> R.string.sign_in_where_codeberg
+        SignInForge.GITEA -> R.string.sign_in_where_gitea
+        SignInForge.SOURCEHUT -> R.string.sign_in_where_sourcehut
+        SignInForge.TANGLED -> R.string.sign_in_where_tangled
+        SignInForge.OTHER -> R.string.sign_in_where_other
+    }
+
 @Composable
 private fun ChooseMethod(
     state: SignInUiState,
     error: SignInError?,
-    onSelectForge: (SignInForge) -> Unit,
     onHostChange: (String) -> Unit,
     onClientIdChange: (String) -> Unit,
     onSelectGitLabServer: (Boolean) -> Unit,
@@ -203,21 +258,6 @@ private fun ChooseMethod(
     val colors = Soft.colors
     var token by rememberSaveable { mutableStateOf("") }
 
-    SoftSwitch(
-        options = listOf(
-            stringResource(R.string.sign_in_forge_github),
-            stringResource(R.string.sign_in_forge_gitlab),
-            stringResource(R.string.sign_in_forge_codeberg),
-            stringResource(R.string.sign_in_forge_gitea),
-            stringResource(R.string.sign_in_forge_sourcehut),
-            stringResource(R.string.sign_in_forge_tangled),
-            stringResource(R.string.sign_in_forge_other),
-        ),
-        selected = state.forge.ordinal,
-        onSelect = { onSelectForge(SignInForge.entries[it]) },
-        // Named as well: this is where the forge is chosen.
-        leading = { index, color -> ForgeIcon(SignInForge.entries[index].icon, size = 16.dp, tint = color) },
-    )
     if (state.forge == SignInForge.GITLAB) {
         // GitLab is gitlab.com for most, and a server of their own for the others: the same choice, one step further.
         SoftSwitch(

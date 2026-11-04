@@ -104,6 +104,8 @@ class AppSmokeTest {
         awaitTabs()
         tab("Inbox").performClick()
         composeRule.onNodeWithText("Sign in").performClick()
+        // Signing in starts at the list of forges.
+        composeRule.onNodeWithText("github.com").performClick()
         // The field is named by its label, which stays above it once something is written.
         val tokenField = composeRule.onNode(hasContentDescription("Personal access token") and hasSetTextAction())
         tokenField.performTextInput("ghp_emulator")

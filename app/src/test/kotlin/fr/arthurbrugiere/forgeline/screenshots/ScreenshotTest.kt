@@ -278,10 +278,20 @@ class ScreenshotTest {
     @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
     fun sign_in_font_2_0_light() = snapshot("sign_in_font_2_0_light", darkTheme = false) { SignInShot() }
 
+    @Test
+    fun sign_in_forges_light() = snapshot("sign_in_forges_light", darkTheme = false) { SignInShot(choosingForge = true) }
+
+    @Test
+    fun sign_in_forges_dark() = snapshot("sign_in_forges_dark", darkTheme = true) { SignInShot(choosingForge = true) }
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    fun sign_in_forges_font_2_0_light() = snapshot("sign_in_forges_font_2_0_light", darkTheme = false) { SignInShot(choosingForge = true) }
+
     @Composable
-    private fun SignInShot() {
+    private fun SignInShot(choosingForge: Boolean = false) {
         SignInScreen(
-            state = SignInUiState(true, "https://github.com/settings/tokens/new"),
+            state = SignInUiState(true, "https://github.com/settings/tokens/new", choosingForge = choosingForge),
             onStartDeviceFlow = {}, onContinueOnGitHub = { _, _ -> }, onSubmitToken = {}, onOpenUrl = {},
             onCancel = {}, onDismissError = {}, onBack = {},
         )

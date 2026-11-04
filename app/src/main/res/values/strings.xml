@@ -165,6 +165,15 @@
     <string name="sign_in_headline">Connect to %1$s</string>
     <string name="sign_in_headline_other">Connect to your server</string>
     <string name="sign_in_privacy">Forgeline talks to %1$s directly from your phone. Your token is encrypted on this device and only ever sent there.</string>
+    <string name="sign_in_privacy_any">Forgeline talks to your forge directly from your phone. Your token is encrypted on this device and only ever sent there.</string>
+    <string name="sign_in_forge_other_server">Other server</string>
+    <string name="sign_in_where_github" translatable="false">github.com</string>
+    <string name="sign_in_where_gitlab">gitlab.com, or a server of your own</string>
+    <string name="sign_in_where_codeberg" translatable="false">codeberg.org</string>
+    <string name="sign_in_where_gitea" translatable="false">gitea.com</string>
+    <string name="sign_in_where_sourcehut" translatable="false">git.sr.ht</string>
+    <string name="sign_in_where_tangled">tangled.org, with your AT Protocol account</string>
+    <string name="sign_in_where_other">Your own Forgejo, Gitea or GitLab server</string>
     <string name="sign_in_forge_github" translatable="false">GitHub</string>
     <string name="sign_in_forge_gitlab" translatable="false">GitLab</string>
     <string name="sign_in_forge_codeberg" translatable="false">Codeberg</string>

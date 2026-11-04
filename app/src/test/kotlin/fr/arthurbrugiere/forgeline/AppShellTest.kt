@@ -97,11 +97,15 @@ class AppShellTest {
     fun signing_in_from_the_inbox_opens_the_sign_in_screen() {
         tab("Inbox").performClick()
         composeRule.onNodeWithText("Sign in").performClick()
+        // It starts at the forges, and GitHub's form is a tap away.
+        composeRule.onNodeWithText("github.com").performClick()
 
         composeRule.onNodeWithText("Connect to GitHub").assertIsDisplayed()
         // No OAuth client ID in test builds: only the token path is offered.
         composeRule.onNodeWithText("Sign in with GitHub").assertDoesNotExist()
 
+        composeRule.onNode(hasContentDescription("Navigate up")).performClick()
+        composeRule.onNodeWithText("github.com").assertIsDisplayed()
         composeRule.onNode(hasContentDescription("Navigate up")).performClick()
         composeRule.onNodeWithText("Your notifications, in one place").assertIsDisplayed()
     }
@@ -206,7 +210,7 @@ class AppShellTest {
 
         composeRule.onNodeWithText("New issue").performClick()
 
-        composeRule.onNodeWithText("Connect to GitHub").assertIsDisplayed()
+        composeRule.onNodeWithText("Your own Forgejo, Gitea or GitLab server").assertExists()
     }
 
     private fun openIssuesTab() {

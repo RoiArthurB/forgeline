@@ -39,6 +39,7 @@ class SignInScreenTest {
                 onCancel = { events += "cancel" },
                 onDismissError = { events += "dismiss" },
                 onBack = { events += "back" },
+                onChooseForge = { events += "forges" },
             )
         }
     }
@@ -290,14 +291,68 @@ class SignInScreenTest {
         composeRule.assertEveryTargetIsAtLeast48dp()
     }
 
-    /** Regression: at twice the text size the forges' names were cut beside their logos ("Codebe"). */
+    private fun setForges(onSelect: (SignInForge) -> Unit = {}) {
+        composeRule.setContent {
+            SignInScreen(
+                state = SignInUiState(true, "https://github.com/settings/tokens/new", choosingForge = true),
+                onSelectForge = onSelect,
+                onStartDeviceFlow = {}, onContinueOnGitHub = { _, _ -> }, onSubmitToken = {}, onOpenUrl = {}, onCancel = {}, onDismissError = {},
+                onBack = { events += "back" }, onChooseForge = { events += "forges" },
+            )
+        }
+    }
+
+    @Test
+    fun signing_in_starts_by_listing_every_forge_and_opens_the_one_picked() {
+        val picked = mutableListOf<SignInForge>()
+        setForges { picked += it }
+
+        composeRule.onNodeWithText("Sign in").assertIsDisplayed()
+        // Nothing is asked before a forge is picked.
+        composeRule.onNode(hasContentDescription("Personal access token")).assertDoesNotExist()
+        composeRule.onNodeWithText("Other server").performScrollTo()
+        composeRule.onNodeWithText("Your own Forgejo, Gitea or GitLab server").assertIsDisplayed()
+        composeRule.onNodeWithText("Codeberg").performScrollTo().performClick()
+
+        assertThat(picked).containsExactly(SignInForge.CODEBERG)
+    }
+
+    @Test
+    fun back_from_the_list_of_forges_leaves_sign_in() {
+        setForges()
+
+        composeRule.onNode(hasContentDescription("Navigate up")).performClick()
+
+        assertThat(events).containsExactly("back")
+    }
+
+    @Test
+    fun back_from_a_forge_returns_to_the_list_of_forges() {
+        setContent()
+
+        composeRule.onNode(hasContentDescription("Navigate up")).performClick()
+
+        assertThat(events).containsExactly("forges")
+    }
+
+    /** Regression: at twice the text size, the forges' tabs ran off the screen's edge and four of seven were out of sight. */
     @Test
     // Text is measured for real only with native graphics; the default fakes a width of a pixel a letter.
     @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
     @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
     fun at_large_text_every_forge_is_named_whole() {
-        setContent()
+        setForges()
 
-        for (forge in listOf("GitHub", "GitLab", "Codeberg", "Gitea", "SourceHut", "Tangled", "Forgejo")) composeRule.assertTextFits(forge)
+        for (forge in listOf("GitHub", "GitLab", "Codeberg", "Gitea", "SourceHut", "Tangled", "Other server")) {
+            composeRule.onNodeWithText(forge).performScrollTo()
+            composeRule.assertTextFits(forge)
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h2400dp-xhdpi")
+    fun every_forge_row_is_48dp_at_least() {
+        setForges()
+        composeRule.assertEveryTargetIsAtLeast48dp()
     }
 }

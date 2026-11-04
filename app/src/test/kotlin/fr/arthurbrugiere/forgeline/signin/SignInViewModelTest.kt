@@ -222,6 +222,31 @@ class SignInViewModelTest {
     }
 
     @Test
+    fun signing_in_starts_at_the_list_of_forges_and_a_pick_opens_its_form() = test {
+        val viewModel = viewModel()
+        assertThat(viewModel.state.value.choosingForge).isTrue()
+
+        viewModel.selectForge(SignInForge.CODEBERG)
+
+        assertThat(viewModel.state.value.choosingForge).isFalse()
+        assertThat(viewModel.state.value.forge).isEqualTo(SignInForge.CODEBERG)
+    }
+
+    @Test
+    fun going_back_to_the_forges_stops_what_was_under_way() = test {
+        val viewModel = viewModel().apply { selectForge(SignInForge.GITHUB) }
+        viewModel.startDeviceFlow()
+        advanceTimeBy(5_001)
+
+        viewModel.chooseAnotherForge()
+        advanceUntilIdle()
+
+        assertThat(auth.pollCount).isEqualTo(1)
+        assertThat(viewModel.state.value.choosingForge).isTrue()
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.ChooseMethod)
+    }
+
+    @Test
     fun failing_to_get_a_device_code_is_reported() = test {
         auth.deviceCodeResult = ForgeResult.Failure(ForgeError.Network)
         val viewModel = viewModel()

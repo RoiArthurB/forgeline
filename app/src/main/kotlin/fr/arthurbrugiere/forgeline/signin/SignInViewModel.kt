@@ -89,6 +89,8 @@ data class SignInUiState(
     val passwordSignInAvailable: Boolean = false,
     /** The forge's name, for "Sign in with ...". */
     val forgeName: String = ForgeInstance.GitHub.displayName,
+    /** Whether the forges are listed to pick one, which is where signing in starts: every forge in sight, at any text size. */
+    val choosingForge: Boolean = false,
 ) {
     /** Whether the server is given by its address: a Forgejo of one's own, or a GitLab of one's own. */
     val usesHost: Boolean get() = forge == SignInForge.OTHER || (forge == SignInForge.GITLAB && gitlabOwnServer)
@@ -104,7 +106,7 @@ class SignInViewModel @Inject constructor(
     private val hosts: ForgeHosts,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(stateFor(SignInForge.GITHUB, ""))
+    private val _state = MutableStateFlow(stateFor(SignInForge.GITHUB, "").copy(choosingForge = true))
     val state: StateFlow<SignInUiState> = _state.asStateFlow()
 
     private var job: Job? = null
@@ -115,6 +117,13 @@ class SignInViewModel @Inject constructor(
         // The address typed under one choice doesn't follow to another: a GitLab's isn't a Forgejo's.
         _state.value = stateFor(forge, host = "", own = false)
         probing?.cancel()
+    }
+
+    /** Back to the list of forges, from one's form: what was under way there stops. */
+    fun chooseAnotherForge() {
+        job?.cancel()
+        probing?.cancel()
+        _state.update { it.copy(choosingForge = true, step = SignInStep.ChooseMethod) }
     }
 
     /** Under GitLab: gitlab.com, or a server of one's own, which then asks for its address. */

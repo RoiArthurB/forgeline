@@ -168,6 +168,11 @@
     <string name="sign_in_headline">Se connecter à %1$s</string>
     <string name="sign_in_headline_other">Se connecter à votre serveur</string>
     <string name="sign_in_privacy">Forgeline parle à %1$s directement depuis votre téléphone. Votre jeton est chiffré sur cet appareil et n’est envoyé que là-bas.</string>
+    <string name="sign_in_privacy_any">Forgeline parle à votre forge directement depuis votre téléphone. Votre jeton est chiffré sur cet appareil et n’est envoyé que là-bas.</string>
+    <string name="sign_in_forge_other_server">Autre serveur</string>
+    <string name="sign_in_where_gitlab">gitlab.com, ou un serveur à vous</string>
+    <string name="sign_in_where_tangled">tangled.org, avec votre compte AT Protocol</string>
+    <string name="sign_in_where_other">Votre propre serveur Forgejo, Gitea ou GitLab</string>
     <string name="sign_in_gitlab_own">Votre propre serveur</string>
     <string name="sign_in_host">Adresse du serveur</string>
     <string name="sign_in_host_hint">Tout serveur Forgejo ou Gitea, gitea.com compris, fonctionne avec un jeton d’accès.</string>
