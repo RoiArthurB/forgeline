@@ -298,6 +298,6 @@ class SignInScreenTest {
     fun at_large_text_every_forge_is_named_whole() {
         setContent()
 
-        for (forge in listOf("GitHub", "GitLab", "Codeberg", "SourceHut", "Tangled", "Forgejo")) composeRule.assertTextFits(forge)
+        for (forge in listOf("GitHub", "GitLab", "Codeberg", "Gitea", "SourceHut", "Tangled", "Forgejo")) composeRule.assertTextFits(forge)
     }
 }

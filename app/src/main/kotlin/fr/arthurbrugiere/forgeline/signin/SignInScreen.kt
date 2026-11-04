@@ -208,6 +208,7 @@ private fun ChooseMethod(
             stringResource(R.string.sign_in_forge_github),
             stringResource(R.string.sign_in_forge_gitlab),
             stringResource(R.string.sign_in_forge_codeberg),
+            stringResource(R.string.sign_in_forge_gitea),
             stringResource(R.string.sign_in_forge_sourcehut),
             stringResource(R.string.sign_in_forge_tangled),
             stringResource(R.string.sign_in_forge_other),

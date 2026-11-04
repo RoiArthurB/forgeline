@@ -591,6 +591,26 @@ class SignInViewModelTest {
     }
 
     @Test
+    fun gitea_com_is_a_choice_of_its_own_signing_in_through_the_browser() = test {
+        // Regression: gitea.com's application was wired but the screen offered no Gitea, only "Forgejo" and an address.
+        val giteaAuth = FakeForgeAuthApi(supportsDeviceFlow = false, forge = ForgeInstance.Gitea, supportsBrowserSignIn = true)
+            .apply { users["access"] = ForgeUser("alice", null, null) }
+        clients.put(ForgeInstance.Gitea, FakeForgeClients(auth = giteaAuth))
+        val viewModel = viewModel().also { it.selectForge(SignInForge.GITEA) }
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.usesHost).isFalse()
+        assertThat(viewModel.state.value.forgeName).isEqualTo("Gitea")
+        assertThat(viewModel.state.value.browserSignInAvailable).isTrue()
+        redirect.params = { mapOf("code" to "the-code", "state" to stateOf(viewModel)) }
+        viewModel.startBrowserSignIn()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.SignedIn)
+        assertThat(redirectPaths).containsExactly("/oauth/gitea")
+    }
+
+    @Test
     fun another_server_that_is_a_forgejo_asks_for_no_application() = test {
         val viewModel = viewModel().also { it.selectForge(SignInForge.OTHER) }
         viewModel.setHost("git.example.org")

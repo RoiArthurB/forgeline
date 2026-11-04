@@ -30,13 +30,15 @@ import kotlin.time.Duration.Companion.minutes
 enum class SignInError { NETWORK, INVALID_TOKEN, RATE_LIMITED, DENIED, EXPIRED, NOT_A_FORGE, UNKNOWN }
 
 /**
- * Where to sign in: GitHub, GitLab (gitlab.com or a server of one's own), Codeberg, SourceHut, Tangled, or a Forgejo server of one's own.
+ * Where to sign in: GitHub, GitLab (gitlab.com or a server of one's own), Codeberg, gitea.com, SourceHut, Tangled, or a Forgejo
+ * (or Gitea) server of one's own.
  * A server of one's own is given by its address, and says itself what it runs.
  */
 enum class SignInForge {
     GITHUB,
     GITLAB,
     CODEBERG,
+    GITEA,
     SOURCEHUT,
     TANGLED,
     OTHER;
@@ -47,6 +49,7 @@ enum class SignInForge {
             GITHUB -> ForgeInstance.GitHub
             GITLAB -> ForgeInstance.GitLab
             CODEBERG -> ForgeInstance.Codeberg
+            GITEA -> ForgeInstance.Gitea
             SOURCEHUT -> ForgeInstance.SourceHut
             TANGLED -> ForgeInstance.Tangled
             OTHER -> ForgeInstance(ForgeType.FORGEJO, "")
@@ -252,6 +255,7 @@ class SignInViewModel @Inject constructor(
         // One's own GitLab is taken for one until it says otherwise: the address typed there may still be a Forgejo's.
         SignInForge.GITLAB -> if (own) normalizedHost(host)?.let { ForgeInstance(type ?: ForgeType.GITLAB, it) } else ForgeInstance.GitLab
         SignInForge.CODEBERG -> ForgeInstance.Codeberg
+        SignInForge.GITEA -> ForgeInstance.Gitea
         SignInForge.SOURCEHUT -> ForgeInstance.SourceHut
         SignInForge.TANGLED -> ForgeInstance.Tangled
         // Until the server says what it runs, it is taken for a Forgejo: that is what this choice is for.

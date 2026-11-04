@@ -168,6 +168,7 @@
     <string name="sign_in_forge_github" translatable="false">GitHub</string>
     <string name="sign_in_forge_gitlab" translatable="false">GitLab</string>
     <string name="sign_in_forge_codeberg" translatable="false">Codeberg</string>
+    <string name="sign_in_forge_gitea" translatable="false">Gitea</string>
     <string name="sign_in_forge_sourcehut" translatable="false">SourceHut</string>
     <string name="sign_in_forge_tangled" translatable="false">Tangled</string>
     <string name="sign_in_forge_other" translatable="false">Forgejo</string>
