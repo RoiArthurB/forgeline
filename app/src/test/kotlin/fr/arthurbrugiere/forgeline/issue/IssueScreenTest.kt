@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.issue
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotDisplayed
@@ -236,6 +237,15 @@ class IssueScreenTest {
         composeRule.onNodeWithText("octocat opened this", substring = true).performClick()
 
         assertThat(events).containsExactly("issue:octo/other#42", "user:octocat").inOrder()
+    }
+
+    @Test
+    fun who_opened_it_and_who_wrote_each_comment_are_said_to_open() {
+        // Regression: TalkBack heard an author's name as plain text, not as something that opens their profile.
+        setContent(IssueUiState(ref, issueDetails(ref), listOf(TimelineItem.Comment(1, ForgeUser("hubot", null, null), "Same here.", at, emptyMap(), nodeId = "IC_1"))))
+
+        composeRule.onNodeWithText("octocat opened this", substring = true).assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button))
+        composeRule.onNodeWithText("hubot").assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button))
     }
 
     @Test

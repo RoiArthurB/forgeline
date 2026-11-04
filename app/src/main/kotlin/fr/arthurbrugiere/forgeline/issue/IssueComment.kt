@@ -145,7 +145,7 @@ internal fun Comment(
                         modifier = Modifier
                             .weight(1f, fill = false)
                             .clip(SoftTokens.Pill)
-                            .clickable(enabled = author != null) { author?.let { onOpenUser(it.login) } }
+                            .clickable(enabled = author != null, role = Role.Button) { author?.let { onOpenUser(it.login) } }
                             .padding(end = 8.dp),
                     ) {
                         Avatar(author?.avatarUrl, author?.login ?: "?", size = 28.dp, shape = SoftTokens.TileCorner, placeholderColor = colors.raised.takeIf { editor != null } ?: colors.surface, placeholderContentColor = colors.inkMuted)

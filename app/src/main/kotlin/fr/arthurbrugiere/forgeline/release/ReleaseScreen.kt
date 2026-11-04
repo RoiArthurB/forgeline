@@ -26,7 +26,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.material.icons.outlined.Sell
@@ -82,6 +81,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.navigation.ReleaseRoute
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.ui.Avatar
+import fr.arthurbrugiere.forgeline.ui.HeaderRepoLink
 import fr.arthurbrugiere.forgeline.ui.Message
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
 import fr.arthurbrugiere.forgeline.ui.conversationContext
@@ -255,25 +255,7 @@ private fun Header(state: ReleaseUiState, nowMillis: Long, onOpenRepo: () -> Uni
     val colors = Soft.colors
     val release = state.release
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        // The repository it belongs to, one tap away.
-        Row(
-            Modifier
-                .clip(SoftTokens.Pill)
-                .clickable(role = Role.Button, onClickLabel = stringResource(R.string.issue_open_repo), onClick = onOpenRepo)
-                .heightIn(min = 48.dp)
-                .padding(end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                state.repo.fullName,
-                style = Soft.type.secondary,
-                color = colors.inkMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp))
-        }
+        HeaderRepoLink(state.repo.fullName, onClick = onOpenRepo)
         Text(release?.name ?: state.tag, style = Soft.type.hero, color = colors.ink, modifier = Modifier.semantics { heading() })
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),

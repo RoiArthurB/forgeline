@@ -1,6 +1,8 @@
 package fr.arthurbrugiere.forgeline.discussion
 
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
@@ -12,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.unit.dp
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -196,6 +199,15 @@ class DiscussionScreenTest {
         setContent(loaded)
 
         composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    @Test
+    fun its_repository_and_its_people_are_said_to_open_and_its_repository_line_is_a_finger_tall() {
+        // Regression: TalkBack heard "bob" and "octo/repo" as plain words, and the repository was a 19dp line of text.
+        setContent(loaded)
+
+        composeRule.onNodeWithText("octo/repo").assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button)).assertHeightIsAtLeast(48.dp)
+        composeRule.onNodeWithText("bob").assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button))
     }
 
     @Test

@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -61,6 +62,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.navigation.WikiRoute
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
+import fr.arthurbrugiere.forgeline.ui.HeaderRepoLink
 import fr.arthurbrugiere.forgeline.ui.LocalOpenCommit
 import fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion
 import fr.arthurbrugiere.forgeline.ui.LocalOpenRelease
@@ -167,12 +169,7 @@ fun WikiScreen(
                         },
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(
-                                stringResource(R.string.wiki_of, repo.fullName),
-                                style = Soft.type.secondary,
-                                color = Soft.colors.inkMuted,
-                                modifier = Modifier.clickable { onOpenRepo(repo) },
-                            )
+                            HeaderRepoLink(stringResource(R.string.wiki_of, repo.fullName), onClick = { onOpenRepo(repo) })
                             Text(title, style = Soft.type.detailTitle, color = Soft.colors.ink, modifier = Modifier.semantics { heading() })
                         }
                     }
@@ -218,7 +215,7 @@ fun WikiScreen(
                                 modifier = Modifier
                                     .widthIn(max = SoftTokens.MaxReadingWidth)
                                     .fillMaxWidth()
-                                    .clickable(enabled = !here) { onOpenPage(other.key) }
+                                    .clickable(enabled = !here, role = Role.Button) { onOpenPage(other.key) }
                                     .heightIn(min = 48.dp)
                                     .padding(horizontal = 20.dp, vertical = 12.dp),
                             )

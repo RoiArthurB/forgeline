@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.wiki
 
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
@@ -8,6 +10,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.unit.dp
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -60,6 +63,18 @@ class WikiScreenTest {
         composeRule.waitUntil(5_000) { shown("Welcome to the wiki.") }
         composeRule.onNodeWithText("Wiki of octo/repo").performClick()
         assertThat(events).containsExactly("repo:octo/repo")
+    }
+
+    @Test
+    fun its_repository_and_its_pages_are_said_to_open() {
+        // Regression: the wiki's repository was a 19dp line TalkBack heard as plain text, and so were the other pages.
+        setContent(loaded)
+
+        composeRule.onNodeWithText("Wiki of octo/repo").assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button)).assertHeightIsAtLeast(48.dp)
+        reach("All pages (3)")
+        composeRule.onNodeWithText("All pages (3)").performClick()
+        reach("FAQ")
+        composeRule.onNodeWithText("FAQ").assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button))
     }
 
     @Test

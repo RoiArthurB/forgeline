@@ -43,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -75,6 +76,7 @@ import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.ui.Avatar
+import fr.arthurbrugiere.forgeline.ui.HeaderRepoLink
 import fr.arthurbrugiere.forgeline.ui.LocalOpenCommit
 import fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion
 import fr.arthurbrugiere.forgeline.ui.LocalOpenRelease
@@ -229,12 +231,7 @@ fun DiscussionScreen(
                         },
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(
-                                state.repo.fullName,
-                                style = Soft.type.secondary,
-                                color = Soft.colors.inkMuted,
-                                modifier = Modifier.clickable { onOpenRepo(state.repo) },
-                            )
+                            HeaderRepoLink(state.repo.fullName, onClick = { onOpenRepo(state.repo) })
                             Text(
                                 summary?.let { "${it.title} - #${it.number}" } ?: "#${state.number}",
                                 style = Soft.type.detailTitle,
@@ -458,7 +455,7 @@ private fun Entry(
                 modifier = Modifier
                     .weight(1f, fill = false)
                     .clip(SoftTokens.Pill)
-                    .clickable(enabled = author != null) { author?.let { onOpenUser(it.login) } }
+                    .clickable(enabled = author != null, role = Role.Button) { author?.let { onOpenUser(it.login) } }
                     .padding(end = 8.dp),
             ) {
                 Avatar(author?.avatarUrl, author?.login ?: "?", size = if (isReply) 24.dp else 28.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)

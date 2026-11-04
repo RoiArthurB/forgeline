@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -15,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.CallMerge
 import androidx.compose.material.icons.outlined.Adjust
 import androidx.compose.material.icons.outlined.CheckCircleOutline
-import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -50,6 +48,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.pull.PullActions
 import fr.arthurbrugiere.forgeline.pull.PullRequestPanel
 import fr.arthurbrugiere.forgeline.pull.PullRequestUiState
+import fr.arthurbrugiere.forgeline.ui.HeaderRepoLink
 import fr.arthurbrugiere.forgeline.ui.LabelChip
 import fr.arthurbrugiere.forgeline.ui.label
 import fr.arthurbrugiere.forgeline.ui.relativeInSentence
@@ -74,25 +73,7 @@ internal fun Header(
 ) {
     val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        // The repository it belongs to, one tap away.
-        Row(
-            Modifier
-                .clip(SoftTokens.Pill)
-                .clickable(role = Role.Button, onClickLabel = stringResource(R.string.issue_open_repo)) { onOpenRepo(ref.repo) }
-                .heightIn(min = 48.dp)
-                .padding(end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                ref.repo.fullName,
-                style = Soft.type.secondary,
-                color = colors.inkMuted,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(18.dp))
-        }
+        HeaderRepoLink(ref.repo.fullName, onClick = { onOpenRepo(ref.repo) })
         if (issue == null) {
             Text("#${ref.number}", style = Soft.type.hero, color = colors.ink, modifier = Modifier.semantics { heading() })
             return@Column
@@ -122,7 +103,7 @@ internal fun Header(
                 style = Soft.type.secondary,
                 color = colors.inkMuted,
                 // Not a pill: over two lines its round ends cut into the first and last letters.
-                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = issue.author != null) { issue.author?.let { onOpenUser(it.login) } },
+                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = issue.author != null, role = Role.Button) { issue.author?.let { onOpenUser(it.login) } },
             )
         }
         issue.pullRequest?.let { pr ->
