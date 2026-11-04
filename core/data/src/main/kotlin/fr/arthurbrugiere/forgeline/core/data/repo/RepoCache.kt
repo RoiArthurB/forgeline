@@ -71,6 +71,8 @@ private data class StoredDetails(
     val openIssues: Int? = null,
     val openPulls: Int? = null,
     val isEmpty: Boolean = false,
+    val listsConversations: Boolean = true,
+    val listsReleases: Boolean = true,
 )
 
 private val json = Json { ignoreUnknownKeys = true }
@@ -81,6 +83,7 @@ internal fun RepoDetails.encode(): String = json.encodeToString(
     StoredDetails(
         id.forge.type, id.forge.host, id.owner, id.name, description, homepage, topics, stars, forks, watchers, language, license,
         defaultBranch, ownerAvatarUrl, isFork, isArchived, pushedAt?.epochSecond, hasActions, hasIssues, hasDiscussions, hasWiki, openIssues, openPulls, isEmpty,
+        listsConversations, listsReleases,
     ),
 )
 
@@ -88,6 +91,7 @@ internal fun RepoCacheEntity.decodeDetails(): RepoDetails = json.decodeFromStrin
     RepoDetails(
         RepoId(owner, name, ForgeInstance(forgeType, host)), description, homepage, topics, stars, forks, watchers, language, license,
         defaultBranch, ownerAvatarUrl, isFork, isArchived, pushedAtEpochSeconds?.let(Instant::ofEpochSecond), hasActions, hasIssues, hasDiscussions, hasWiki, openIssues, openPulls, isEmpty,
+        listsConversations = listsConversations, listsReleases = listsReleases,
     )
 }
 

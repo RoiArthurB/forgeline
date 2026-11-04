@@ -257,6 +257,18 @@ class DefaultRepoRepositoryTest {
     }
 
     @Test
+    fun a_repository_its_forge_cannot_list_conversations_or_releases_of_is_remembered_as_such() = runTest {
+        // Without it in the cache, a Tangled repository showed Issues, Pull requests and Releases tabs once reopened.
+        api.details[id] = repoDetails("octo/repo").copy(listsConversations = false, listsReleases = false)
+
+        repository.refresh(id)
+
+        val details = repository.observe(id).first().details
+        assertThat(details?.listsConversations).isFalse()
+        assertThat(details?.listsReleases).isFalse()
+    }
+
+    @Test
     fun a_repositorys_details_and_readme_are_asked_together() = runTest {
         // One round trip to a far forge instead of two.
         api.details[id] = repoDetails("octo/repo")
