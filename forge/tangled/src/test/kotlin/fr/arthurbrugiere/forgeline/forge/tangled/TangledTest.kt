@@ -72,3 +72,17 @@ internal val coreRepo: (HttpRequestData) -> String? = {
      "git":{"defaultBranch":"master","isEmpty":false,"languages":[{"name":"Go","size":900000},{"name":"HTML","size":100000}]}}
     """.trimIndent()
 }
+
+/**
+ * The same repository as Tangled's index has served it since 2026-11: an `org.tangled.repo.manifest` record kept in the
+ * repository's own AT Protocol repository, naming it and its owner in `declaration` (as read from api.tangled.org).
+ */
+internal val coreManifest: (HttpRequestData) -> String? = {
+    """
+    {"uri":"at://$REPO_DID/org.tangled.repo.manifest/self","cid":"bafyrei","knot":"knot1.tangled.sh",
+     "value":{"${'$'}type":"org.tangled.repo.manifest","contributionPolicy":"anyone","createdAt":"2025-02-23T18:43:18.000000Z",
+              "declaration":{"name":"core","owner":"$OWNER_DID"},"description":"Monorepo for Tangled",
+              "spindle":"did:web:spindle.tangled.network","website":"https://tangled.org","x-tngl-editor":"$OWNER_DID"},
+     "git":{"defaultBranch":"master","isEmpty":false,"languages":[{"name":"Go","size":900000}]}}
+    """.trimIndent()
+}

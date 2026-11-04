@@ -52,6 +52,31 @@ class TangledRepoApiTest {
     }
 
     @Test
+    fun a_repository_kept_as_a_manifest_is_read_by_the_did_it_lives_at() = runTest {
+        val fake = FakeTangled(
+            mapOf(
+                "com.atproto.identity.resolveHandle" to resolved,
+                "org.tangled.temp.repo.getRepoByName" to coreManifest,
+                "org.tangled.feed.countStars" to { """{"count":412,"distinctAuthors":412}""" },
+                "org.tangled.temp.git.getTree" to { """{"entries":[{"name":"README.md","mode":"0100644","size":20}]}""" },
+                "org.tangled.temp.git.getBlob" to { "# Tangled\n" },
+            ),
+        )
+        val api = api(fake)
+
+        val details = api.repo(null, core).value()
+        val readme = api.readme(null, core).value()
+
+        assertThat(details.description).isEqualTo("Monorepo for Tangled")
+        assertThat(details.stars).isEqualTo(412)
+        assertThat(readme?.markdown).isEqualTo("# Tangled\n")
+        assertThat(fake.asked).containsAtLeast(
+            "org.tangled.feed.countStars?subject=$REPO_DID",
+            "org.tangled.temp.git.getBlob?download=false&path=README.md&ref=HEAD&repo=$REPO_DID",
+        )
+    }
+
+    @Test
     fun counts_tangled_cannot_give_leave_the_repository_readable() = runTest {
         val fake = FakeTangled(mapOf("com.atproto.identity.resolveHandle" to resolved, "org.tangled.temp.repo.getRepoByName" to coreRepo))
 

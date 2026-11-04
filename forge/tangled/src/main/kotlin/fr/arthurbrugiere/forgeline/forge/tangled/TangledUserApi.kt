@@ -73,10 +73,10 @@ class TangledUserApi internal constructor(
                 }
             } as? ForgeResult.Success
             )?.value ?: return null
-        val ownerDid = uri.removePrefix("at://").substringBefore('/')
+        val ownerDid = record.ownerDid(uri)
         val owner = (identity.handle(ownerDid) as? ForgeResult.Success)?.value ?: ownerDid
         return RepoSummary(
-            id = RepoId(owner, record.name ?: uri.recordKey, forge),
+            id = RepoId(owner, record.name(uri), forge),
             description = record.description?.takeIf { it.isNotBlank() },
             language = null,
             stars = 0,
@@ -129,7 +129,7 @@ class TangledUserApi internal constructor(
             answer.items.map { item ->
                 val record = item.value.decodeAs<RepoRecordJson>()
                 RepoSummary(
-                    id = RepoId(login.removePrefix("@"), record.name ?: item.uri.atUri.recordKey, forge),
+                    id = RepoId(login.removePrefix("@"), record.name(item.uri.atUri), forge),
                     description = record.description?.takeIf { it.isNotBlank() },
                     language = null,
                     stars = 0,

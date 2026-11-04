@@ -55,13 +55,16 @@ class TangledRepoApi(
             is ForgeResult.Success -> did.value
         }
         return xrpc.index.getRepoByName(GetRepoByNameQueryParams(owner, id.name))
-            .toResult { FoundRepo(it.value.decodeAs<RepoRecordJson>(), it.git).also { repo -> found[id] = repo } }
+            .toResult { answer ->
+                val record = answer.value.decodeAs<RepoRecordJson>()
+                FoundRepo(record, record.repoDid(answer.uri.atUri), answer.git).also { repo -> found[id] = repo }
+            }
     }
 
     /** The DID the repository's git content is asked by; Unsupported for one declared before repositories had their own. */
     private suspend fun repoDid(id: RepoId): ForgeResult<Did> = when (val repo = lookUp(id)) {
         is ForgeResult.Failure -> repo
-        is ForgeResult.Success -> repo.value.record.repoDid?.let(::asDid) ?: ForgeResult.Failure(ForgeError.Unsupported)
+        is ForgeResult.Success -> repo.value.repoDid?.let(::asDid) ?: ForgeResult.Failure(ForgeError.Unsupported)
     }
 
     override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = forgeCall {
@@ -69,7 +72,7 @@ class TangledRepoApi(
             is ForgeResult.Failure -> return@forgeCall result
             is ForgeResult.Success -> result.value
         }
-        val did = repo.record.repoDid
+        val did = repo.repoDid
         val (stars, forks) = coroutineScope {
             val stars = async { did?.let { count { xrpc.index.countStars(CountStarsQueryParams(did)).toResult { it.count } } } ?: 0 }
             val forks = async { did?.let { count { asDid(did).then { xrpc.index.countForks(CountForksQueryParams(it)).toResult { answer -> answer.count } } } } ?: 0 }

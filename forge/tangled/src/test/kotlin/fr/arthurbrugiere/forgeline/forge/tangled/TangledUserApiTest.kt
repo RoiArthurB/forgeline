@@ -69,4 +69,23 @@ class TangledUserApiTest {
         assertThat(repos.map { it.isFork }).containsExactly(false, true).inOrder()
         assertThat(fake.asked.last()).isEqualTo("org.tangled.repo.listRepos?limit=100&order=desc&subject=$OWNER_DID")
     }
+
+    @Test
+    fun repositories_kept_as_manifests_list_by_their_declared_name() = runTest {
+        val fake = FakeTangled(
+            mapOf(
+                "com.atproto.identity.resolveHandle" to resolved,
+                "org.tangled.repo.listRepos" to {
+                    """{"items":[
+                        {"uri":"at://did:plc:lyuzyoi42mf2driipmsiemsl/org.tangled.repo.manifest/self","value":{"${'$'}type":"org.tangled.repo.manifest","declaration":{"name":"infra","owner":"$OWNER_DID"},"createdAt":"2025-06-21T09:39:21Z"}},
+                        {"uri":"at://$REPO_DID/org.tangled.repo.manifest/self","value":{"${'$'}type":"org.tangled.repo.manifest","declaration":{"name":"core","owner":"$OWNER_DID"},"description":"Monorepo","createdAt":"2025-02-23T18:43:18Z"}}
+                    ]}"""
+                },
+            ),
+        )
+
+        val repos = TangledUserApi(fake.xrpc, TangledIdentity(fake.client, fake.xrpc)).repos(null, "tangled.org").value()
+
+        assertThat(repos.map { it.id.name }).containsExactly("infra", "core").inOrder()
+    }
 }

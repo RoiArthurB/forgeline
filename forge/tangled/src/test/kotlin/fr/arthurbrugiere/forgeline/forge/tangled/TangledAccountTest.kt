@@ -248,4 +248,20 @@ class TangledAccountTest {
         assertThat(starred.map { it.id }).containsExactly(core)
         assertThat(starred.single().description).isEqualTo("Monorepo for Tangled")
     }
+
+    @Test
+    fun a_starred_repository_kept_as_a_manifest_is_listed_by_its_declared_owner() = runTest {
+        val fake = fake(
+            mapOf(
+                "org.tangled.feed.listStarsBy" to {
+                    """{"items":[{"uri":"at://$me/org.tangled.feed.star/3a","value":{"subject":{"${'$'}type":"org.tangled.feed.star#repo","identity":"$REPO_DID"},"createdAt":"2026-11-02T11:00:00Z"}}]}"""
+                },
+                "org.tangled.repo.getRepoByRepoDid" to { r -> if (r.url.parameters["repoDid"] == REPO_DID) coreManifest(r) else null },
+            ),
+        )
+
+        val starred = apis(fake).third.starred(null, "me.example").value()
+
+        assertThat(starred.map { it.id }).containsExactly(core)
+    }
 }

@@ -111,7 +111,7 @@ class TangledStarApi(
 
     private suspend fun repoDid(repo: RepoId): ForgeResult<String> = when (val found = repos.lookUp(repo)) {
         is ForgeResult.Failure -> found
-        is ForgeResult.Success -> found.value.record.repoDid?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Unsupported)
+        is ForgeResult.Success -> found.value.repoDid?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Unsupported)
     }
 
     private fun now(): String = clock.instant().truncatedTo(ChronoUnit.MILLIS).toString()
