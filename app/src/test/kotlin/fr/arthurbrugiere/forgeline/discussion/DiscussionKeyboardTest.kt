@@ -1,6 +1,8 @@
 package fr.arthurbrugiere.forgeline.discussion
 
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
@@ -18,6 +20,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import com.google.common.truth.Truth.assertWithMessage
 import fr.arthurbrugiere.forgeline.PHONE
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.discussionComment
@@ -57,13 +60,13 @@ class DiscussionKeyboardTest {
     /** A keyboard about as tall as a phone's, with its suggestion strip; taller with a clipboard or emoji strip on top. */
     private var keyboardDp = 360
 
-    private fun setContent() {
+    private fun setContent(state: State<DiscussionUiState> = mutableStateOf(writable)) {
         val activity = composeRule.activity
         composeRule.runOnUiThread { WindowCompat.setDecorFitsSystemWindows(activity.window, false) }
         composeRule.setContent {
             ForgelineTheme(darkTheme = false) {
                 DiscussionScreen(
-                    state = writable, signedIn = true,
+                    state = state.value, signedIn = true,
                     onBack = {}, onRefresh = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {}, onLinkClick = {},
                     onSignIn = {}, onErrorShown = {}, onSend = { _, _ -> }, onSetAnswer = { _, _ -> }, onSendErrorShown = {},
                     nowMillis = Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
@@ -130,5 +133,21 @@ class DiscussionKeyboardTest {
 
         val send = composeRule.onNodeWithContentDescription("Send reply").bottom()
         assertWithMessage("The send tile ends at ${send}dp, the keyboard starts at ${keyboardTop()}dp").that(send).isAtMost(keyboardTop() + 1f)
+    }
+
+    @Test
+    fun why_a_comment_didn_t_go_through_is_said_above_the_keyboard() {
+        // Regression: the message stood over the navigation bar, under the keyboard still up for the comment.
+        val state = mutableStateOf(writable)
+        setContent(state)
+        reach("Comment on this discussion")
+        composeRule.onNodeWithText("Comment on this discussion").performClick()
+        raiseKeyboard()
+
+        state.value = writable.copy(sendError = ForgeError.Http(403, "Discussion is locked"))
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithText("You can't comment here.", substring = true).fetchSemanticsNodes().isNotEmpty() }
+
+        val said = composeRule.onNodeWithText("You can't comment here.", substring = true).bottom()
+        assertWithMessage("The message ends at ${said}dp, the keyboard starts at ${keyboardTop()}dp").that(said).isAtMost(keyboardTop() + 1f)
     }
 }

@@ -17,10 +17,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -52,7 +54,7 @@ import fr.arthurbrugiere.forgeline.navigation.TopLevelDestination
 
 /**
  * Space a screen leaves at its bottom so its last row can scroll clear of the bar (and the system navigation bar).
- * Lists add it to their bottom content padding; snackbars sit above it.
+ * Lists add it to their bottom content padding; snackbars sit above it, or above the keyboard while it is up.
  */
 val LocalBottomBarSpace = compositionLocalOf { 0.dp }
 
@@ -189,6 +191,14 @@ private fun <T> snapTween() = androidx.compose.animation.core.tween<T>(0)
 /** Bottom padding for a screen's list: breathing room plus the space the navigation takes. */
 @Composable
 fun listBottomPadding(extra: Dp = 24.dp): Dp = LocalBottomBarSpace.current + extra
+
+/**
+ * Where a message at the foot of a screen stands: over the navigation, or over the keyboard while it is up, so what
+ * is said about a comment being sent isn't hidden under the keyboard still up for it. Read from the insets at layout,
+ * not as state: the keyboard sliding in recomposes nothing.
+ */
+@Composable
+fun Modifier.overBottomBarOrKeyboard(): Modifier = windowInsetsPadding(WindowInsets.ime.union(WindowInsets(bottom = LocalBottomBarSpace.current)))
 
 /**
  * Keeps a screen clear of whatever sits on its sides: the navigation bar of a phone in landscape, or a camera cutout.
