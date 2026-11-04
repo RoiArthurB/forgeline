@@ -240,9 +240,9 @@ fun DiscussionScreen(
                             )
                             if (summary != null) {
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    summary.category?.let { SoftTag(it, background = Soft.colors.ground) }
-                                    if (summary.isAnswered == true) SoftTag(stringResource(R.string.repo_discussion_answered), background = Soft.colors.ground)
-                                    if (summary.upvotes > 0) Upvotes(summary.upvotes, background = true)
+                                    summary.category?.let { SoftTag(it) }
+                                    if (summary.isAnswered == true) SoftTag(stringResource(R.string.repo_discussion_answered))
+                                    if (summary.upvotes > 0) Upvotes(summary.upvotes)
                                 }
                                 val who = summary.author?.login ?: stringResource(R.string.deleted_account)
                                 summary.createdAt?.let {
@@ -406,10 +406,10 @@ private fun CommentActions(
 }
 
 @Composable
-private fun Upvotes(count: Int, background: Boolean = false) {
+private fun Upvotes(count: Int) {
     val said = androidx.compose.ui.res.pluralStringResource(R.plurals.discussion_upvotes, count, count)
     Box(Modifier.clearAndSetSemantics { contentDescription = said }) {
-        SoftTag(stringResource(R.string.discussion_upvotes, count), background = if (background) Soft.colors.ground else Soft.colors.surface)
+        SoftTag(stringResource(R.string.discussion_upvotes, count))
     }
 }
 
@@ -458,7 +458,7 @@ private fun Entry(
                     .clickable(enabled = author != null, role = Role.Button) { author?.let { onOpenUser(it.login) } }
                     .padding(end = 8.dp),
             ) {
-                Avatar(author?.avatarUrl, author?.login ?: "?", size = if (isReply) 24.dp else 28.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
+                Avatar(author?.avatarUrl, author?.login ?: "?", size = if (isReply) 24.dp else 28.dp, shape = SoftTokens.TileCorner, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
                 Text(author?.login ?: stringResource(R.string.deleted_account), style = Soft.type.control, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 createdAt?.let { Text(relative(it, nowMillis), style = Soft.type.meta, color = colors.inkMuted, maxLines = 1) }
             }
