@@ -1,7 +1,12 @@
 package fr.arthurbrugiere.forgeline.feed
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -88,6 +93,13 @@ class FeedScreenTest {
         composeRule.onNodeWithText("Tools 2.0").performClick()
 
         assertThat(events).containsExactly("release:octo/tools@v2.0.0")
+    }
+
+    @Test
+    fun the_picture_of_who_did_it_is_said_to_open() {
+        setContent(state(feedEvent("3", actor = "alice")))
+
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("alice") and hasClickAction()).assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
     }
 
     @Test

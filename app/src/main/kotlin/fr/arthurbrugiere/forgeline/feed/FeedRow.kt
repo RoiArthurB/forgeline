@@ -56,6 +56,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -156,7 +157,7 @@ internal fun FeedRow(
                     placeholderContentColor = colors.inkMuted,
                     modifier = Modifier
                         .clip(CircleShape)
-                        .clickable { onOpenUser(item.repo.forge, actor.login) }
+                        .clickable(role = Role.Button) { onOpenUser(item.repo.forge, actor.login) }
                         .semantics { contentDescription = actor.login },
                 )
             }

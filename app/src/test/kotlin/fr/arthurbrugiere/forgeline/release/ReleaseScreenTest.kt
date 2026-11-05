@@ -1,6 +1,11 @@
 package fr.arthurbrugiere.forgeline.release
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
@@ -180,6 +185,13 @@ class ReleaseScreenTest {
 
         reach("🎉 12")
         composeRule.onNodeWithText("🚀 3").assertExists()
+    }
+
+    @Test
+    fun its_author_is_said_to_open() {
+        setContent(shown())
+
+        composeRule.onNodeWithText("octocat released this 2 days ago").assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
     }
 
     @Test

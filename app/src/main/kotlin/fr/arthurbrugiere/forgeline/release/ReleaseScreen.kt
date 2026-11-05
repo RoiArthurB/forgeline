@@ -273,7 +273,7 @@ private fun Header(state: ReleaseUiState, nowMillis: Long, onOpenRepo: () -> Uni
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = author != null) { author?.let { onOpenUser(it.login) } },
+                modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = author != null, role = Role.Button) { author?.let { onOpenUser(it.login) } },
             ) {
                 if (author != null) Avatar(author.avatarUrl, author.login, size = 24.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
                 Text(

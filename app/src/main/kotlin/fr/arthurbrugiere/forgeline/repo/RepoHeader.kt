@@ -88,7 +88,7 @@ internal fun RepoHeader(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.clip(SoftTokens.Pill).clickable { onOpenUser(details.id.owner) }.padding(end = 8.dp),
+                modifier = Modifier.clip(SoftTokens.Pill).clickable(role = Role.Button) { onOpenUser(details.id.owner) }.padding(end = 8.dp),
             ) {
                 Avatar(details.ownerAvatarUrl, details.id.owner, size = 28.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
                 Text(details.id.owner, style = Soft.type.secondary, color = colors.inkMuted)
@@ -106,7 +106,7 @@ internal fun RepoHeader(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 // As tall as a finger, or the topics below would share its near misses; it gives back the band's spacing
                 // above, so it stays with the description it adds to.
-                modifier = Modifier.bleed(top = 10.dp).clip(SoftTokens.Pill).clickable { onLinkClick(url) }.heightIn(min = 48.dp).padding(end = 8.dp),
+                modifier = Modifier.bleed(top = 10.dp).clip(SoftTokens.Pill).clickable(role = Role.Button) { onLinkClick(url) }.heightIn(min = 48.dp).padding(end = 8.dp),
             ) {
                 Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(18.dp), tint = colors.accent)
                 Text(url.removePrefix("https://").removePrefix("http://").trimEnd('/'), style = Soft.type.secondary, color = colors.accent)

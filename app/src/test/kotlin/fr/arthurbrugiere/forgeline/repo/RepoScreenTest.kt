@@ -1,5 +1,9 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
@@ -600,6 +604,15 @@ class RepoScreenTest {
         assertThat(tags.map { it.top }.distinct()).hasSize(1)
         composeRule.onNode(hasText("developer-tools") and hasClickAction()).performScrollTo().performClick()
         assertThat(opened).containsExactly("developer-tools")
+    }
+
+    @Test
+    fun its_owner_and_its_website_are_said_to_open() {
+        setContent(loaded.copy(details = loaded.details!!.copy(homepage = "https://octo.example")))
+
+        val button = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
+        composeRule.onNode(hasText("octo") and hasClickAction()).assert(button)
+        composeRule.onNode(hasText("octo.example") and hasClickAction()).assert(button)
     }
 
     @Test
