@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -96,7 +98,9 @@ private fun SoftBar(selected: TopLevelDestination, onSelect: (TopLevelDestinatio
         Box(Modifier.fillMaxWidth().height(Dp.Hairline).background(colors.hairline))
         Row(
             Modifier
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                // The system bars and cutouts, not the keyboard (safeDrawing has it): the bar stays behind a keyboard
+                // instead of rising onto it and covering the box being written in.
+                .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout).only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
                 .align(Alignment.CenterHorizontally)
                 .widthIn(max = 480.dp)
                 .fillMaxWidth()

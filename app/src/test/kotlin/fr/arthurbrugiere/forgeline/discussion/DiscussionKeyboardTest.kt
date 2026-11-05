@@ -26,6 +26,8 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.discussionComment
 import fr.arthurbrugiere.forgeline.core.testing.discussionSummary
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
+import fr.arthurbrugiere.forgeline.navigation.TopLevelDestination
+import fr.arthurbrugiere.forgeline.ui.SoftNavigation
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -65,12 +67,15 @@ class DiscussionKeyboardTest {
         composeRule.runOnUiThread { WindowCompat.setDecorFitsSystemWindows(activity.window, false) }
         composeRule.setContent {
             ForgelineTheme(darkTheme = false) {
-                DiscussionScreen(
-                    state = state.value, signedIn = true,
-                    onBack = {}, onRefresh = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {}, onLinkClick = {},
-                    onSignIn = {}, onErrorShown = {}, onSend = { _, _ -> }, onSetAnswer = { _, _ -> }, onSendErrorShown = {},
-                    nowMillis = Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
-                )
+                // In the app, with its tab bar along the bottom.
+                SoftNavigation(selected = TopLevelDestination.INBOX, onSelect = {}) {
+                    DiscussionScreen(
+                        state = state.value, signedIn = true,
+                        onBack = {}, onRefresh = {}, onOpenRepo = {}, onOpenUser = {}, onOpenInBrowser = {}, onLinkClick = {},
+                        onSignIn = {}, onErrorShown = {}, onSend = { _, _ -> }, onSetAnswer = { _, _ -> }, onSendErrorShown = {},
+                        nowMillis = Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
+                    )
+                }
             }
         }
         composeRule.waitForIdle()
@@ -97,14 +102,18 @@ class DiscussionKeyboardTest {
         (node.positionInRoot.y + node.size.height) / density
     }
 
+    /** Where the screen stops being usable: the keyboard, or the tab bar if it stood on top of the keyboard. */
     private fun keyboardTop(): Float {
         val density = composeRule.activity.resources.displayMetrics.density
-        return composeRule.onRoot().fetchSemanticsNode().size.height / density - keyboardDp
+        val keyboard = composeRule.onRoot().fetchSemanticsNode().size.height / density - keyboardDp
+        val bar = composeRule.onNodeWithContentDescription("Inbox").fetchSemanticsNode().positionInRoot.y / density
+        return minOf(keyboard, bar)
     }
 
     @Test
     fun the_comment_box_and_its_send_tile_stay_above_the_keyboard() {
-        // Regression: the comment box at the end of a discussion stayed under the keyboard that came up for it.
+        // Regression: the comment box at the end of a discussion stayed under the keyboard that came up for it, and then
+        // under the tab bar, which rose with the keyboard and stood on top of it.
         setContent()
         reach("Comment on this discussion")
         composeRule.onNodeWithText("Comment on this discussion").performClick()
