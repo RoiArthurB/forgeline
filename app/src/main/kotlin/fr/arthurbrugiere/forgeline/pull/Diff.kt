@@ -50,6 +50,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
+import fr.arthurbrugiere.forgeline.ui.lineNumberWidth
 
 /**
  * The files of a change, one after the other: each a heading that folds it, then its hunks line by line. A line is
@@ -96,6 +97,8 @@ internal fun LazyListScope.fileDiffItems(
             }
         }
         val remarks = comments.filter { it.path == diff.file.path }
+        // The file's numbers share one column width, so its code lines up from the first hunk to the last.
+        val largest = diff.hunks.maxOfOrNull { hunk -> hunk.lines.maxOfOrNull { it.largestNumber } ?: 0 } ?: 0
         diff.hunks.forEachIndexed { hunkIndex, hunk ->
             item(key = "file-$index-hunk-$hunkIndex", contentType = "hunk") {
                 Text(
@@ -108,7 +111,7 @@ internal fun LazyListScope.fileDiffItems(
             }
             itemsIndexed(hunk.lines, key = { lineIndex, _ -> "file-$index-hunk-$hunkIndex-line-$lineIndex" }, contentType = { _, _ -> "line" }) { _, line ->
                 Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
-                    LineRow(line, onClick = onLineClick?.let { click -> { click(diff.file.path, line) } })
+                    LineRow(line, largest, onClick = onLineClick?.let { click -> { click(diff.file.path, line) } })
                     remarks.filter { it.oldLine == line.oldNumber && it.newLine == line.newNumber }.forEach { remark ->
                         PendingRemark(remark, onRemove = { onRemoveComment(remark) })
                     }
@@ -181,11 +184,15 @@ private fun FileHeading(
     }
 }
 
-/** One line of a change: its number before and after, then the line on the tint of what happened to it. */
+/**
+ * One line of a change: its number before and after, then the line on the tint of what happened to it. [largest] is
+ * the largest number among the lines shown with it, which sets how wide the numbers' columns are.
+ */
 @Composable
-internal fun LineRow(line: DiffLine, onClick: (() -> Unit)?) {
+internal fun LineRow(line: DiffLine, largest: Int, onClick: (() -> Unit)?) {
     val colors = Soft.colors
     val number = Soft.type.gutter
+    val numberWidth = lineNumberWidth(largest, number, floor = 34.dp)
     val spoken = stringResource(
         when (line.kind) {
             DiffLineKind.ADDED -> R.string.changes_line_added
@@ -210,8 +217,8 @@ internal fun LineRow(line: DiffLine, onClick: (() -> Unit)?) {
             .padding(vertical = 1.dp)
             .clearAndSetSemantics { contentDescription = spoken },
     ) {
-        Text(line.oldNumber?.toString().orEmpty(), style = number, color = colors.inkMuted, textAlign = TextAlign.End, modifier = Modifier.width(34.dp))
-        Text(line.newNumber?.toString().orEmpty(), style = number, color = colors.inkMuted, textAlign = TextAlign.End, modifier = Modifier.width(34.dp))
+        Text(line.oldNumber?.toString().orEmpty(), style = number, color = colors.inkMuted, textAlign = TextAlign.End, maxLines = 1, softWrap = false, modifier = Modifier.width(numberWidth))
+        Text(line.newNumber?.toString().orEmpty(), style = number, color = colors.inkMuted, textAlign = TextAlign.End, maxLines = 1, softWrap = false, modifier = Modifier.width(numberWidth))
         Text(
             when (line.kind) {
                 DiffLineKind.ADDED -> "+"
@@ -258,3 +265,6 @@ internal fun spokenLineCounts(added: Int, removed: Int): String = stringResource
     pluralStringResource(R.plurals.lines_added_spoken, added, added),
     pluralStringResource(R.plurals.lines_removed_spoken, removed, removed),
 )
+
+/** The larger of a line's numbers, before or after the change. */
+internal val DiffLine.largestNumber: Int get() = maxOf(oldNumber ?: 0, newNumber ?: 0)

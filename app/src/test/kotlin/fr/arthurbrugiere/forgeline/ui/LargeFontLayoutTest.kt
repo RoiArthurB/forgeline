@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsActions
@@ -17,14 +18,29 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
+import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.parsePatch
+import fr.arthurbrugiere.forgeline.core.testing.changedFile
+import fr.arthurbrugiere.forgeline.core.testing.commit
 import fr.arthurbrugiere.forgeline.core.testing.notificationThread
 import fr.arthurbrugiere.forgeline.core.testing.trendingRepo
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
+import fr.arthurbrugiere.forgeline.file.FileContent
+import fr.arthurbrugiere.forgeline.file.FileScreen
+import fr.arthurbrugiere.forgeline.file.FileTarget
+import fr.arthurbrugiere.forgeline.file.FileUiState
 import fr.arthurbrugiere.forgeline.inbox.InboxScreen
 import fr.arthurbrugiere.forgeline.inbox.InboxSection
 import fr.arthurbrugiere.forgeline.inbox.InboxUiState
 import fr.arthurbrugiere.forgeline.inbox.SectionGroup
+import fr.arthurbrugiere.forgeline.pull.BlameBlock
+import fr.arthurbrugiere.forgeline.pull.BlameScreen
+import fr.arthurbrugiere.forgeline.pull.BlameUiState
+import fr.arthurbrugiere.forgeline.pull.FileDiff
+import fr.arthurbrugiere.forgeline.pull.fileDiffItems
+import fr.arthurbrugiere.forgeline.repo.Loadable
 import fr.arthurbrugiere.forgeline.trending.TrendingItem
 import fr.arthurbrugiere.forgeline.trending.TrendingScreen
 import fr.arthurbrugiere.forgeline.trending.TrendingUiState
@@ -109,5 +125,49 @@ class LargeFontLayoutTest {
 
         val actions = composeRule.onNodeWithText("Actions").getUnclippedBoundsInRoot()
         assertThat(actions.right.value).isAtMost(320f)
+    }
+
+    @Test
+    fun a_file_s_line_numbers_stay_on_one_line() {
+        val code = (1..12).joinToString("\n") { "val v$it = $it" }
+        setThemedContent {
+            FileScreen(
+                state = FileUiState(
+                    target = FileTarget(RepoId("octo", "repo"), "src/Main.kt", "main"),
+                    content = Loadable.Loaded(FileContent.Text(code)),
+                    webUrl = "https://github.com/octo/repo/blob/main/src/Main.kt",
+                    readmeContext = ReadmeContext("https://raw.example/", "https://blob.example/"),
+                ),
+                onBack = {}, onRetry = {}, onOpenInBrowser = {}, onLinkClick = {}, onCopy = {},
+            )
+        }
+
+        assertThat(composeRule.onNodeWithText("10").textLayout().lineCount).isEqualTo(1)
+    }
+
+    @Test
+    fun a_change_s_four_figure_line_numbers_keep_its_lines_one_line_tall() {
+        val file = changedFile("src/Big.kt", patch = "@@ -1234,1 +1234,2 @@\n x\n+y")
+        setThemedContent { LazyColumn { fileDiffItems(listOf(FileDiff(file, parsePatch(file.patch!!))), isExpanded = { true }, onToggle = {}) } }
+
+        // A line of code and its numbers share one line's height (18sp, and a 1dp breath above and below); a number
+        // broken in two would make the row twice that.
+        val oneLine = with(composeRule.density) { 18.sp.toDp() } + 2.dp
+        val row = composeRule.onNode(hasContentDescription("Line 1235, added: y")).getUnclippedBoundsInRoot()
+        assertThat((row.bottom - row.top).value).isAtMost(oneLine.value + 0.5f)
+    }
+
+    @Test
+    fun a_blame_s_four_figure_line_numbers_stay_on_one_line() {
+        val tools = RepoId("octo", "tools")
+        setThemedContent {
+            BlameScreen(
+                BlameUiState(FileTarget(tools, "src/Main.kt", "main"), Loadable.Loaded(listOf(BlameBlock(commit("1a2b3c4d5e", "Start"), 1234, listOf("x"))))),
+                onBack = {}, onRetry = {}, onOpenCommit = {}, onSignIn = {},
+                nowMillis = 0L,
+            )
+        }
+
+        assertThat(composeRule.onNodeWithText("1234").textLayout().lineCount).isEqualTo(1)
     }
 }

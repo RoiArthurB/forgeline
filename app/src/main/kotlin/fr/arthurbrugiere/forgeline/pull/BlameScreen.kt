@@ -45,6 +45,7 @@ import fr.arthurbrugiere.forgeline.file.FileTarget
 import fr.arthurbrugiere.forgeline.navigation.BlameRoute
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
+import fr.arthurbrugiere.forgeline.ui.lineNumberWidth
 import fr.arthurbrugiere.forgeline.ui.message
 import fr.arthurbrugiere.forgeline.ui.rememberNow
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
@@ -73,6 +74,9 @@ fun BlameScreen(
 ) {
     val colors = Soft.colors
     val listState = rememberLazyListState()
+    // One column of numbers down every block, as wide as the last line's number is at the reader's text size.
+    val lastLine = (state.blocks as? Loadable.Loaded)?.value?.maxOfOrNull { it.startLine + it.lines.size - 1 } ?: 0
+    val numbers = lineNumberWidth(lastLine, Soft.type.gutter, floor = 40.dp)
     Box(modifier.fillMaxSize().background(colors.ground)) {
         LazyColumn(
             state = listState,
@@ -122,7 +126,9 @@ fun BlameScreen(
                                 style = Soft.type.gutter,
                                 color = colors.inkMuted,
                                 textAlign = TextAlign.End,
-                                modifier = Modifier.width(40.dp),
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.width(numbers),
                             )
                             Text(
                                 line,

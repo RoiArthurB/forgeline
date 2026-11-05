@@ -180,7 +180,8 @@ private fun Thread(
         )
         val lines = remember(thread.hunk) { thread.hunk?.let { parsePatch(it).lastOrNull()?.lines?.takeLast(HUNK_LINES_SHOWN) }.orEmpty() }
         if (lines.isNotEmpty()) {
-            Column(Modifier.fillMaxWidth().clip(SoftTokens.RowCorner)) { lines.forEach { LineRow(it, onClick = null) } }
+            val largest = lines.maxOf { it.largestNumber }
+            Column(Modifier.fillMaxWidth().clip(SoftTokens.RowCorner)) { lines.forEach { LineRow(it, largest, onClick = null) } }
         }
         val over = remember(thread) { thread.suggestedOver }
         // Only where the lines it replaces are known, and still where the remark was made.
@@ -323,9 +324,10 @@ private fun SuggestedChange(suggested: List<String>, over: List<DiffLine>, line:
             modifier = Modifier.padding(horizontal = 8.dp),
         )
         Column(Modifier.fillMaxWidth().clip(SoftTokens.RowCorner)) {
-            over.forEach { LineRow(DiffLine(DiffLineKind.REMOVED, it.text, oldNumber = it.newNumber, newNumber = null), onClick = null) }
             val first = over.firstOrNull()?.newNumber ?: line ?: 1
-            suggested.forEachIndexed { index, text -> LineRow(DiffLine(DiffLineKind.ADDED, text, oldNumber = null, newNumber = first + index), onClick = null) }
+            val largest = maxOf(over.maxOfOrNull { it.newNumber ?: 0 } ?: 0, first + suggested.size - 1)
+            over.forEach { LineRow(DiffLine(DiffLineKind.REMOVED, it.text, oldNumber = it.newNumber, newNumber = null), largest, onClick = null) }
+            suggested.forEachIndexed { index, text -> LineRow(DiffLine(DiffLineKind.ADDED, text, oldNumber = null, newNumber = first + index), largest, onClick = null) }
         }
         if (onCommit != null) {
             SoftTonalButton(stringResource(R.string.thread_suggestion_commit), onClick = onCommit, enabled = !busy, modifier = Modifier.padding(horizontal = 8.dp))

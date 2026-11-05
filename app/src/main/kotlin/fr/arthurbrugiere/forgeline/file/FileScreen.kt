@@ -68,6 +68,7 @@ import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
 import fr.arthurbrugiere.forgeline.ui.ZoomablePicture
+import fr.arthurbrugiere.forgeline.ui.lineNumberWidth
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
@@ -237,8 +238,9 @@ private fun CodeFile(text: String, path: String) {
         value = withContext(Dispatchers.Default) { CodeHighlighter.lines(CodeHighlighter.highlight(text, path, darkTheme)) }
     }
     val lines = highlighted ?: remember(text) { CodeHighlighter.lines(AnnotatedString(text)) }
-    val gutter = (lines.size.toString().length * 9 + 20).dp
     val code = Soft.type.code
+    // The numbers' column and the 12dp before the code: 9dp a figure at the usual size, as wide as they are at a larger one.
+    val gutter = lineNumberWidth(lines.size, code, floor = (lines.size.toString().length * 9 + 8).dp) + 12.dp
     LazyColumn(
         Modifier.fillMaxSize().background(colors.ground).testTag(if (highlighted != null) CODE_HIGHLIGHTED_TAG else CODE_PLAIN_TAG),
         contentPadding = PaddingValues(top = 12.dp, bottom = listBottomPadding()),
@@ -251,6 +253,8 @@ private fun CodeFile(text: String, path: String) {
                     style = code,
                     color = colors.inkMuted,
                     textAlign = TextAlign.End,
+                    maxLines = 1,
+                    softWrap = false,
                 )
                 Text(line, style = code, color = colors.ink)
             }
