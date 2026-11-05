@@ -1,13 +1,65 @@
 # What the app asks GitHub's GraphQL API of an issue, checked against schema.graphqls when it builds.
 
-# Which comments are hidden, and whether the reader may hide them, by their nodes.
-query Hidden($ids: [ID!]!) {
+# What the REST timeline leaves out, asked by its entries' nodes all at once: whether each comment is hidden and may
+# be, and the details some events lack there (a project's new column, the two sides of a duplicate, the environment
+# deployed to, the branch a pull request now goes into). A project's name needs the read:project scope: not asked.
+query TimelineNodes($ids: [ID!]!) {
   nodes(ids: $ids) {
+    id
     ... on IssueComment {
       id
       isMinimized
       minimizedReason
       viewerCanMinimize
+    }
+    ... on ProjectV2ItemStatusChangedEvent {
+      id
+      status
+    }
+    ... on MarkedAsDuplicateEvent {
+      id
+      canonical {
+        ...Canonical
+      }
+      duplicate {
+        ...Canonical
+      }
+    }
+    ... on UnmarkedAsDuplicateEvent {
+      id
+      canonical {
+        ...Canonical
+      }
+      duplicate {
+        ...Canonical
+      }
+    }
+    ... on DeployedEvent {
+      id
+      deployment {
+        environment
+      }
+    }
+    ... on BaseRefChangedEvent {
+      id
+      currentRefName
+    }
+  }
+}
+
+fragment Canonical on IssueOrPullRequest {
+  ... on Issue {
+    number
+    title
+    repository {
+      nameWithOwner
+    }
+  }
+  ... on PullRequest {
+    number
+    title
+    repository {
+      nameWithOwner
     }
   }
 }

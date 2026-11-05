@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Entity
 import androidx.room.Query
 import androidx.room.Upsert
+import fr.arthurbrugiere.forgeline.core.model.ClosingCommit
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
@@ -153,6 +154,16 @@ private data class StoredIssue(
     }
 }
 
+/** A conversation an event names, kept as its forge, repository and number. */
+@Serializable
+private data class StoredRef(val host: String, val owner: String, val name: String, val number: Int, val isPullRequest: Boolean? = null) {
+    fun toModel() = IssueRef(RepoId(owner, name, ForgeInstance.of(host)), number, isPullRequest)
+
+    companion object {
+        fun of(ref: IssueRef) = StoredRef(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, ref.isPullRequest)
+    }
+}
+
 @Serializable
 private data class StoredPage(val items: List<StoredItem>, val nextPage: Int?, val lastPage: Int? = null)
 
@@ -208,8 +219,20 @@ private sealed interface StoredItem {
 
     @Serializable
     @SerialName("event")
-    data class Event(val event: ConversationEvent, val actor: StoredUser?, val subject: String?, val at: Long) : StoredItem {
-        override fun toModel() = TimelineItem.Event(event, actor?.toModel(), subject, Instant.ofEpochMilli(at))
+    data class Event(
+        val event: ConversationEvent,
+        val actor: StoredUser?,
+        val subject: String?,
+        val at: Long,
+        val target: StoredRef? = null,
+    ) : StoredItem {
+        override fun toModel() = TimelineItem.Event(event, actor?.toModel(), subject, Instant.ofEpochMilli(at), target?.toModel())
+    }
+
+    @Serializable
+    @SerialName("commit_ref")
+    data class CommitReferenced(val sha: String, val message: String?, val webUrl: String, val actor: StoredUser?, val at: Long) : StoredItem {
+        override fun toModel() = TimelineItem.CommitReferenced(ClosingCommit(sha, message, webUrl), actor?.toModel(), Instant.ofEpochMilli(at))
     }
 
     @Serializable
@@ -229,7 +252,8 @@ private sealed interface StoredItem {
                 item.source.repo.forge.host, item.source.repo.owner, item.source.repo.name, item.source.number, item.sourceTitle, item.sourceIsPullRequest,
                 StoredUser.of(item.actor), item.createdAt.toEpochMilli(),
             )
-            is TimelineItem.Event -> Event(item.event, StoredUser.of(item.actor), item.subject, item.createdAt.toEpochMilli())
+            is TimelineItem.Event -> Event(item.event, StoredUser.of(item.actor), item.subject, item.createdAt.toEpochMilli(), item.target?.let(StoredRef::of))
+            is TimelineItem.CommitReferenced -> CommitReferenced(item.commit.sha, item.commit.message, item.commit.webUrl, StoredUser.of(item.actor), item.createdAt.toEpochMilli())
             is TimelineItem.Committed -> Committed(item.sha, item.message, item.authorName, item.createdAt?.toEpochMilli())
         }
     }

@@ -573,6 +573,168 @@ class GitHubIssueApiTest {
         assertThat(events.map { it.actor?.login }.distinct()).containsExactly("maintainer")
     }
 
+    private val gama = IssueRef(RepoId("gama-platform", "gama"), 1295)
+
+    /** The triage fixture's events, read as gama-platform/gama#1295 signed in, GraphQL answering [nodes]. */
+    private suspend fun triage(timeline: String = fixture("triage_timeline.json"), nodes: String = fixture("triage_timeline_nodes.json"), at: IssueRef = gama) =
+        api { if (it.url.encodedPath == "/graphql") json(nodes) else if ("/commits/" in it.url.encodedPath) json("{}", status = HttpStatusCode.NotFound) else json(timeline) }
+            .timeline("tok", at, 1).value().items
+
+    @Test
+    fun every_triage_event_of_an_issue_is_told() = runTest {
+        // Real events, one of each, from gama-platform/gama#1295, #1248 and #1249, zed-industries/zed#66286 and #66369,
+        // github/spec-kit#5060 and #5071, astral-sh/ruff#29512 and github/docs#15980 and #35725 (2026-11-05).
+        val items = triage()
+        val events = items.filterIsInstance<TimelineItem.Event>()
+
+        assertThat(events.map { it.event }).containsExactly(
+            ConversationEvent.TYPE_SET, ConversationEvent.TYPE_SET,
+            ConversationEvent.SUB_ISSUE_ADDED, ConversationEvent.PARENT_ADDED,
+            ConversationEvent.DEPENDENCY_ADDED, ConversationEvent.BLOCKING_ADDED,
+            ConversationEvent.ADDED_TO_PROJECT, ConversationEvent.PROJECT_STATUS_CHANGED, ConversationEvent.REMOVED_FROM_PROJECT,
+            ConversationEvent.MARKED_DUPLICATE,
+            ConversationEvent.COMMENT_PINNED, ConversationEvent.COMMENT_UNPINNED,
+            ConversationEvent.COMMENT_DELETED, ConversationEvent.USER_BLOCKED,
+            ConversationEvent.LINKED,
+        ).inOrder()
+        assertThat(events.map { it.subject }).containsExactly(
+            "Bug", "Bug",
+            "#1249 #nan value as agent position exhaust memory", "#1248 Setting a 3d location hang and exhaust the memory",
+            "github/spec-kit#5060 [Feature]: Replace hand-written workflow expression parser with a Lark LALR grammar",
+            "github/spec-kit#5071 [Bug]: Chained comparisons such as `0 <= x <= 10` in workflow expressions silently return the wrong result",
+            // The project's name needs the read:project scope; its new column doesn't.
+            null, "Todo", null,
+            """zed-industries/zed#66369 Windows: closing an active window logs "window not found" and "Invalid window handle"""",
+            null, null, null, null,
+            "github/docs#35747 Rust: Add instructions for building and testing",
+        ).inOrder()
+        // The conversations they name open.
+        assertThat(events.first { it.event == ConversationEvent.SUB_ISSUE_ADDED }.target).isEqualTo(IssueRef(gama.repo, 1249))
+        assertThat(events.first { it.event == ConversationEvent.DEPENDENCY_ADDED }.target).isEqualTo(IssueRef(RepoId("github", "spec-kit"), 5060))
+        assertThat(events.first { it.event == ConversationEvent.MARKED_DUPLICATE }.target).isEqualTo(IssueRef(RepoId("zed-industries", "zed"), 66369))
+        assertThat(events.first { it.event == ConversationEvent.ADDED_TO_PROJECT }.actor?.login).isEqualTo("github-project-automation[bot]")
+        // A commit that mentions it is told with its page, its message asked of the commit (gone here).
+        val reference = items.filterIsInstance<TimelineItem.CommitReferenced>().single()
+        assertThat(reference.commit).isEqualTo(
+            ClosingCommit("675df2e1a797a3dd088aa7675d702d8c3ad8244b", null, "https://github.com/gama-platform/gama/commit/675df2e1a797a3dd088aa7675d702d8c3ad8244b"),
+        )
+        assertThat(reference.actor?.login).isEqualTo("AlexisDrogoul")
+    }
+
+    @Test
+    fun the_details_of_events_are_asked_of_graphql_by_their_nodes_once() = runTest {
+        triage()
+
+        val asked = requests.filter { it.url.encodedPath == "/graphql" }
+        assertThat(asked).hasSize(1)
+        val ids = Json.parseToJsonElement((asked.single().body as TextContent).text).jsonObject["variables"]!!.jsonObject["ids"].toString()
+        // Only those REST leaves short: a project's new column, a duplicate's original, an environment; not every event.
+        assertThat(ids).contains("PVTISC_lADOLUle7M8AAAABcsepps8AAAAIM5Sc7w")
+        assertThat(ids).contains("MADE_lADOFExXwM8AAAABbjz2cM8AAAAII0XScg")
+        assertThat(ids).doesNotContain("ATPVTE_")
+        assertThat(ids).doesNotContain("SIAE_")
+    }
+
+    @Test
+    fun events_read_without_graphql_still_say_what_happened() = runTest {
+        // Signed out GraphQL can't be asked, and an answer that fails is no answer: the events read without what it adds.
+        val signedOut = api { json(fixture("triage_timeline.json")) }.timeline(null, gama, 1).value().items.filterIsInstance<TimelineItem.Event>()
+        val failed = triage(nodes = """{"errors":[{"message":"Something went wrong"}]}""").filterIsInstance<TimelineItem.Event>()
+
+        for (events in listOf(signedOut, failed)) {
+            assertThat(events.first { it.event == ConversationEvent.PROJECT_STATUS_CHANGED }.subject).isNull()
+            assertThat(events.first { it.event == ConversationEvent.MARKED_DUPLICATE }.subject).isNull()
+            assertThat(events.first { it.event == ConversationEvent.MARKED_DUPLICATE }.target).isNull()
+            assertThat(events.first { it.event == ConversationEvent.SUB_ISSUE_ADDED }.subject).isEqualTo("#1249 #nan value as agent position exhaust memory")
+        }
+        assertThat(requests.count { it.url.encodedPath == "/graphql" }).isEqualTo(1)
+    }
+
+    @Test
+    fun the_original_of_a_duplicate_names_its_duplicate() = runTest {
+        // zed-industries/zed#66400 was marked a duplicate of #66369: only #66369's timeline holds the event (2026-11-02).
+        val zed = IssueRef(RepoId("zed-industries", "zed"), 66369)
+        val event = triage(at = zed).filterIsInstance<TimelineItem.Event>().single { it.event == ConversationEvent.DUPLICATE_ADDED }
+
+        assertThat(event.subject).startsWith("#66400 Windows: closing a window logs three ERROR lines")
+        assertThat(event.target).isEqualTo(IssueRef(zed.repo, 66400))
+    }
+
+    @Test
+    fun every_triage_event_of_a_pull_request_is_told() = runTest {
+        // Real events, one of each, from cli/cli#12444, #8698 and #13541, gama-platform/gama#1207 and github/docs#30890.
+        val events = triage(fixture("pr_triage_timeline.json")).filterIsInstance<TimelineItem.Event>()
+
+        assertThat(events.map { it.event to it.subject }).containsExactly(
+            ConversationEvent.REVIEW_REQUESTED to "code reviewers",
+            ConversationEvent.REVIEW_REQUEST_REMOVED to "code reviewers",
+            ConversationEvent.REVIEW_DISMISSED to "dismiss self review",
+            ConversationEvent.FORCE_PUSHED to "d1d25e7",
+            ConversationEvent.READY_FOR_REVIEW to null,
+            ConversationEvent.CONVERTED_TO_DRAFT to null,
+            ConversationEvent.AUTO_MERGE_ENABLED to null,
+            ConversationEvent.ADDED_TO_MERGE_QUEUE to null,
+            ConversationEvent.REMOVED_FROM_MERGE_QUEUE to null,
+            ConversationEvent.DEPLOYED to "cli-automation",
+        ).inOrder()
+        assertThat(events.map { it.actor?.login }).containsExactly(
+            "devm33", "andyfeller", "BagToad", "devm33", "devm33", "AlexisDrogoul", "BagToad", "subatoi", "github-merge-queue[bot]", "devm33",
+        ).inOrder()
+    }
+
+    @Test
+    fun documented_events_no_captured_timeline_holds_are_told() = runTest {
+        // GitHub's documented shapes, and GraphQL's for a pull request's new base.
+        fun event(name: String, extra: String = "") =
+            """{"event":"$name","node_id":"N_$name","actor":{"login":"maintainer"},"created_at":"2026-10-02T03:00:00Z"$extra}"""
+        val timeline = listOf(
+            event("locked", ""","lock_reason":"too heated""""),
+            event("review_requested", ""","requested_reviewer":{"login":"octocat"}"""),
+            event("issue_type_removed", ""","issue_type":{"name":"Bug"}"""),
+            event("sub_issue_removed", ""","sub_issue":{"number":7,"title":"Seven"}"""),
+            event("parent_issue_removed", ""","parent_issue":{"number":3,"title":"Three"}"""),
+            event("blocked_by_removed", ""","blocked_by":{"number":4,"title":"Four"}"""),
+            event("blocking_removed", ""","blocking":{"number":5,"title":"Five"}"""),
+            event("disconnected", ""","subject":{"number":6,"title":"Six","pull_request":{}}"""),
+            event("unmarked_as_duplicate"),
+            event("auto_merge_disabled"), event("auto_squash_enabled"),
+            event("base_ref_changed"),
+            event("moved_columns_in_project", ""","project_card":{"column_name":"Done"}"""),
+        ).joinToString(",", "[", "]")
+        val nodes = """{"data":{"nodes":[{"__typename":"BaseRefChangedEvent","id":"N_base_ref_changed","currentRefName":"release"}]}}"""
+
+        val events = triage(timeline, nodes).filterIsInstance<TimelineItem.Event>()
+
+        assertThat(events.map { it.event to it.subject }).containsExactly(
+            ConversationEvent.LOCKED to "too heated",
+            ConversationEvent.REVIEW_REQUESTED to "octocat",
+            ConversationEvent.TYPE_REMOVED to "Bug",
+            ConversationEvent.SUB_ISSUE_REMOVED to "#7 Seven",
+            ConversationEvent.PARENT_REMOVED to "#3 Three",
+            ConversationEvent.DEPENDENCY_REMOVED to "#4 Four",
+            ConversationEvent.BLOCKING_REMOVED to "#5 Five",
+            ConversationEvent.UNLINKED to "#6 Six",
+            ConversationEvent.UNMARKED_DUPLICATE to null,
+            ConversationEvent.AUTO_MERGE_DISABLED to null,
+            ConversationEvent.AUTO_MERGE_ENABLED to null,
+            ConversationEvent.BASE_CHANGED to "release",
+            ConversationEvent.PROJECT_STATUS_CHANGED to "Done",
+        ).inOrder()
+        assertThat(events.single { it.event == ConversationEvent.UNLINKED }.target).isEqualTo(IssueRef(gama.repo, 6, isPullRequest = true))
+    }
+
+    @Test
+    fun a_commit_is_told_once_however_many_forks_reference_it() = runTest {
+        // gama-platform/gama#1248, 2026-10-08: closed by 625c632, then referenced by a fork's push of it a day later.
+        val closing = """{"event":"closed","actor":{"login":"a"},"commit_id":"625c6329","commit_url":"https://api.github.com/repos/gama-platform/gama/commits/625c6329","created_at":"2026-10-08T04:24:21Z"}"""
+        val fork = """{"event":"referenced","actor":{"login":"a"},"commit_id":"625c6329","commit_url":"https://api.github.com/repos/hqnghi88/gama/commits/625c6329","created_at":"2026-10-09T06:36:12Z"}"""
+        val other = """{"event":"referenced","actor":{"login":"b"},"commit_id":"abcdef12","commit_url":"https://api.github.com/repos/gama-platform/gama/commits/abcdef12","created_at":"2026-10-10T00:00:00Z"}"""
+        val items = triage("[$closing,$fork,$other,$other]")
+
+        assertThat(items.filterIsInstance<TimelineItem.CommitReferenced>().map { it.commit.sha }).containsExactly("abcdef12")
+        assertThat(items.filterIsInstance<TimelineItem.StateChanged>().single().commit?.sha).isEqualTo("625c6329")
+    }
+
     private val bodies get() = requests.map { (it.body as? TextContent)?.text }
 
     @Test

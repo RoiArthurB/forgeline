@@ -39,7 +39,6 @@ import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.forge.github.graphql.ClosingQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.ConvertToDraftMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DeleteIssueMutation
-import fr.arthurbrugiere.forgeline.forge.github.graphql.HiddenQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.HideCommentMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.IssueNodeQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.IssueTemplatesQuery
@@ -47,6 +46,7 @@ import fr.arthurbrugiere.forgeline.forge.github.graphql.MarkReadyMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.PinIssueMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.SavedRepliesQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.SubscribableQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.TimelineNodesQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.TransferIdsQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.TransferIssueMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.TypesQuery
@@ -121,8 +121,25 @@ class GitHubIssueApi(
             query = mapOf("per_page" to "100", "page" to page.toString()),
         )
         response.toResult {
-            val items = withCommitMessages(token, body<List<EventJson>>().mapNotNull { it.toModel() }.withoutCloseOfMerge())
-            TimelinePage(if (token == null) items else withHiddenState(token, items), nextPage(), lastPage())
+            val events = body<List<EventJson>>()
+            val nodes = if (token == null) emptyMap() else timelineNodes(token, events)
+            val items = events.mapNotNull { it.toModel(ref.repo, ref.number, nodes[it.nodeId]) }.withoutCloseOfMerge().withoutRepeatedReferences()
+            TimelinePage(withCommitMessages(token, items), nextPage(), lastPage())
+        }
+    }
+
+    /**
+     * A commit is referenced again by every fork it is pushed to, and the one that closed the conversation by the
+     * close too (gama-platform/gama#1248, 2026-10-09): it is told once, where it first is.
+     */
+    private fun List<TimelineItem>.withoutRepeatedReferences(): List<TimelineItem> {
+        val seen = mutableSetOf<String>()
+        return filter { item ->
+            when (item) {
+                is TimelineItem.StateChanged -> item.commit?.let { seen += it.sha }.let { true }
+                is TimelineItem.CommitReferenced -> seen.add(item.commit.sha)
+                else -> true
+            }
         }
     }
 
@@ -137,18 +154,17 @@ class GitHubIssueApi(
     }
 
     /**
-     * Which comments are hidden, and whether the reader may hide them: GraphQL tells, by their nodes, all at once. A
-     * timeline that can't be told so reads as it was.
+     * What GraphQL tells of the entries the REST timeline leaves short (which comments are hidden and may be, a
+     * project's new status, the issue a duplicate is of...), by their nodes, a hundred at a time. Entries it can't be
+     * asked of read as REST gives them.
      */
-    private suspend fun withHiddenState(token: String, items: List<TimelineItem>): List<TimelineItem> {
-        val ids = items.mapNotNull { (it as? TimelineItem.Comment)?.nodeId }.take(100)
-        if (ids.isEmpty()) return items
-        val answer = runCatching { httpClient.gitHubOperation(apiBaseUrl, token, HiddenQuery(ids), partial = true) }.getOrNull() as? ForgeResult.Success ?: return items
-        val nodes = answer.value.nodes.mapNotNull { it?.onIssueComment }.associateBy { it.id }
-        return items.map { item ->
-            val node = (item as? TimelineItem.Comment)?.nodeId?.let(nodes::get) ?: return@map item
-            item.copy(hidden = node.reason.takeIf { node.isMinimized }, canHide = node.viewerCanMinimize)
-        }
+    private suspend fun timelineNodes(token: String, events: List<EventJson>): Map<String, TimelineNodesQuery.Node> = coroutineScope {
+        events.filter { it.event in DETAILED_IN_GRAPHQL }.mapNotNull { it.nodeId }.distinct().chunked(100).map { ids ->
+            async {
+                val answer = runCatching { httpClient.gitHubOperation(apiBaseUrl, token, TimelineNodesQuery(ids), partial = true) }.getOrNull()
+                (answer as? ForgeResult.Success)?.value?.nodes.orEmpty().filterNotNull().map { node -> node.id to node }
+            }
+        }.awaitAll().flatten().toMap()
     }
 
     override val keepsSavedReplies: Boolean = true
@@ -225,8 +241,14 @@ class GitHubIssueApi(
     /** A closing event names its commit only: each one's message is asked of it, all at once. */
     private suspend fun withCommitMessages(token: String?, items: List<TimelineItem>): List<TimelineItem> = coroutineScope {
         items.map { item ->
-            val commit = (item as? TimelineItem.StateChanged)?.commit ?: return@map async { item }
-            async { item.copy(commit = commit.copy(message = commitMessage(token, commit) ?: return@async item)) }
+            when (item) {
+                is TimelineItem.StateChanged -> {
+                    val commit = item.commit ?: return@map async { item }
+                    async { item.copy(commit = commit.copy(message = commitMessage(token, commit) ?: return@async item)) }
+                }
+                is TimelineItem.CommitReferenced -> async { item.copy(commit = item.commit.copy(message = commitMessage(token, item.commit) ?: return@async item)) }
+                else -> async { item }
+            }
         }.awaitAll()
     }
 
@@ -702,7 +724,20 @@ private data class SourceIssueJson(
     val title: String,
     val repository: RepositoryJson? = null,
     @SerialName("pull_request") val pullRequest: kotlinx.serialization.json.JsonElement? = null,
-)
+) {
+    /** Where it is: in [home] unless its repository says another. */
+    fun ref(home: RepoId): IssueRef {
+        val path = repository?.fullName?.split('/')?.takeIf { it.size == 2 }
+        val repo = if (path == null) home else RepoId(path[0], path[1], home.forge)
+        return IssueRef(repo, number, isPullRequest = pullRequest != null)
+    }
+
+    /** "#12 Its title", or "owner/name#12 Its title" when it is in another repository than [home]. */
+    fun named(home: RepoId): String {
+        val elsewhere = repository?.fullName?.takeUnless { it.equals(home.fullName, ignoreCase = true) }.orEmpty()
+        return "$elsewhere#$number $title"
+    }
+}
 
 @Serializable
 private data class SourceJson(val issue: SourceIssueJson? = null)
@@ -711,7 +746,7 @@ private data class SourceJson(val issue: SourceIssueJson? = null)
 private data class RenameJson(val from: String, val to: String)
 
 /** A comment's node, as GraphQL tells whether it is hidden and why ("off-topic", "spam"...). */
-private val HiddenQuery.OnIssueComment.reason: HideReason?
+private val TimelineNodesQuery.OnIssueComment.reason: HideReason?
     get() = HideReason.entries.firstOrNull { it.name.replace('_', '-').equals(minimizedReason, ignoreCase = true) }
 
 /** An issue as the sub-issue endpoints answer it: its id names it to them. */
@@ -745,6 +780,20 @@ private data class CommitMessageJson(val message: String? = null)
 private data class CommitAuthorJson(val name: String? = null, val date: String? = null)
 
 @Serializable
+private data class TeamJson(val name: String)
+
+@Serializable
+private data class DismissedReviewJson(@SerialName("dismissal_message") val message: String? = null)
+
+@Serializable
+private data class ProjectCardJson(@SerialName("column_name") val columnName: String? = null)
+
+/** The events GraphQL tells more of than the REST timeline does, by their nodes. */
+private val DETAILED_IN_GRAPHQL = setOf(
+    "commented", "project_v2_item_status_changed", "marked_as_duplicate", "unmarked_as_duplicate", "deployed", "base_ref_changed",
+)
+
+@Serializable
 private data class EventJson(
     val event: String,
     val id: Long? = null,
@@ -767,19 +816,39 @@ private data class EventJson(
     @SerialName("node_id") val nodeId: String? = null,
     @SerialName("commit_id") val commitId: String? = null,
     @SerialName("commit_url") val commitUrl: String? = null,
+    @SerialName("lock_reason") val lockReason: String? = null,
+    @SerialName("requested_reviewer") val requestedReviewer: UserJson? = null,
+    @SerialName("requested_team") val requestedTeam: TeamJson? = null,
+    @SerialName("dismissed_review") val dismissedReview: DismissedReviewJson? = null,
+    @SerialName("issue_type") val issueType: IssueTypeJson? = null,
+    @SerialName("prev_issue_type") val previousIssueType: IssueTypeJson? = null,
+    @SerialName("project_card") val projectCard: ProjectCardJson? = null,
+    /** The conversation an event names: a linked pull request, a sub-issue, its parent, one it is blocked by or blocks. */
+    val subject: SourceIssueJson? = null,
+    @SerialName("sub_issue") val subIssue: SourceIssueJson? = null,
+    @SerialName("parent_issue") val parentIssue: SourceIssueJson? = null,
+    @SerialName("blocked_by") val blockedBy: SourceIssueJson? = null,
+    val blocking: SourceIssueJson? = null,
 ) {
-    /** The commit a closing event names, its page made from the API's address for it. */
-    private fun closingCommit(): ClosingCommit? {
+    /** The commit an event names, its page made from the API's address for it. */
+    private fun namedCommit(): ClosingCommit? {
         val sha = commitId ?: return null
         val repo = commitUrl?.substringAfter("/repos/", "")?.substringBefore("/commits/")?.takeIf { it.count { c -> c == '/' } == 1 } ?: return null
         return ClosingCommit(sha, message = null, webUrl = "https://github.com/$repo/commit/$sha")
     }
 
-    private fun event(event: ConversationEvent, at: Instant?, subject: String? = null): TimelineItem? =
-        at?.let { TimelineItem.Event(event, actor?.toModel(), subject, it) }
+    private fun event(event: ConversationEvent, at: Instant?, subject: String? = null, target: IssueRef? = null): TimelineItem? =
+        at?.let { TimelineItem.Event(event, actor?.toModel(), subject, it, target) }
 
-    /** Null for events that are noise in a conversation (subscribed, mentioned, review_requested...). */
-    fun toModel(): TimelineItem? {
+    /** An event that names another conversation: it says which ("#12 Its title", or with its repository when elsewhere), and opens it. */
+    private fun linked(event: ConversationEvent, at: Instant?, issue: SourceIssueJson?, home: RepoId): TimelineItem? {
+        issue ?: return null
+        val ref = issue.ref(home)
+        return event(event, at, issue.named(home), ref)
+    }
+
+    /** Null for events that are noise in a conversation (subscribed, mentioned...). [node] is what GraphQL told of it. */
+    fun toModel(home: RepoId, number: Int, node: TimelineNodesQuery.Node? = null): TimelineItem? {
         val at = createdAt?.let(Instant::parse)
         return when (event) {
             "commented" -> TimelineItem.Comment(
@@ -789,6 +858,8 @@ private data class EventJson(
                 createdAt = at ?: return null,
                 reactions = reactions?.toModel().orEmpty(),
                 nodeId = nodeId,
+                hidden = node?.onIssueComment?.takeIf { it.isMinimized }?.reason,
+                canHide = node?.onIssueComment?.viewerCanMinimize == true,
             )
             "reviewed" -> TimelineItem.Review(
                 id = id ?: 0,
@@ -802,7 +873,7 @@ private data class EventJson(
                 body = body?.ifBlank { null },
                 createdAt = submittedAt?.let(Instant::parse),
             )
-            "closed" -> TimelineItem.StateChanged(StateChange.CLOSED, actor?.toModel(), stateReason, at ?: return null, closingCommit())
+            "closed" -> TimelineItem.StateChanged(StateChange.CLOSED, actor?.toModel(), stateReason, at ?: return null, namedCommit())
             "reopened" -> TimelineItem.StateChanged(StateChange.REOPENED, actor?.toModel(), stateReason, at ?: return null)
             "merged" -> TimelineItem.StateChanged(StateChange.MERGED, actor?.toModel(), null, at ?: return null)
             "labeled", "unlabeled" -> TimelineItem.Labeled(event == "labeled", label?.toModel() ?: return null, actor?.toModel(), at ?: return null)
@@ -814,7 +885,10 @@ private data class EventJson(
                     IssueRef(RepoId(repo[0], repo[1], ForgeInstance.GitHub), issue.number), issue.title, issue.pullRequest != null, actor?.toModel(), at ?: return null,
                 )
             }
-            "locked" -> event(ConversationEvent.LOCKED, at)
+            // A commit that mentions it, pushed anywhere: a fork's push of it too.
+            "referenced" -> TimelineItem.CommitReferenced(namedCommit() ?: return null, actor?.toModel(), at ?: return null)
+            // Why, where it was said: "off-topic", "too heated", "resolved", "spam".
+            "locked" -> event(ConversationEvent.LOCKED, at, lockReason?.ifBlank { null })
             "unlocked" -> event(ConversationEvent.UNLOCKED, at)
             "pinned" -> event(ConversationEvent.PINNED, at)
             "unpinned" -> event(ConversationEvent.UNPINNED, at)
@@ -827,10 +901,65 @@ private data class EventJson(
             // GitHub doesn't name the branch here: it is the pull request's own.
             "head_ref_deleted" -> event(ConversationEvent.BRANCH_DELETED, at)
             "head_ref_restored" -> event(ConversationEvent.BRANCH_RESTORED, at)
+            "head_ref_force_pushed" -> event(ConversationEvent.FORCE_PUSHED, at, commitId?.take(7))
             "committed" -> TimelineItem.Committed(sha ?: return null, message.orEmpty(), author?.name, author?.date?.let(Instant::parse))
+            // A person or a team.
+            "review_requested" -> event(ConversationEvent.REVIEW_REQUESTED, at, requestedReviewer?.login ?: requestedTeam?.name ?: return null)
+            "review_request_removed" -> event(ConversationEvent.REVIEW_REQUEST_REMOVED, at, requestedReviewer?.login ?: requestedTeam?.name ?: return null)
+            "review_dismissed" -> event(ConversationEvent.REVIEW_DISMISSED, at, dismissedReview?.message?.ifBlank { null })
+            "ready_for_review" -> event(ConversationEvent.READY_FOR_REVIEW, at)
+            "convert_to_draft" -> event(ConversationEvent.CONVERTED_TO_DRAFT, at)
+            // REST names neither side: GraphQL tells both. The original's timeline holds it (zed-industries/zed#66369, 2026-11-02).
+            "marked_as_duplicate", "unmarked_as_duplicate" -> {
+                val marked = event == "marked_as_duplicate"
+                val sides = node?.onMarkedAsDuplicateEvent?.let { it.canonical?.canonical to it.duplicate?.canonical }
+                    ?: node?.onUnmarkedAsDuplicateEvent?.let { it.canonical?.canonical to it.duplicate?.canonical }
+                val canonical = sides?.first?.toSource()
+                val duplicate = sides?.second?.toSource()
+                if (canonical != null && duplicate != null && canonical.ref(home).number == number && canonical.ref(home).repo == home) {
+                    event(if (marked) ConversationEvent.DUPLICATE_ADDED else ConversationEvent.DUPLICATE_REMOVED, at, duplicate.named(home), duplicate.ref(home))
+                } else {
+                    event(if (marked) ConversationEvent.MARKED_DUPLICATE else ConversationEvent.UNMARKED_DUPLICATE, at, canonical?.named(home), canonical?.ref(home))
+                }
+            }
+            // Its board isn't named without the read:project scope; its new column is (none when it was cleared).
+            "added_to_project_v2", "added_to_project" -> event(ConversationEvent.ADDED_TO_PROJECT, at)
+            "removed_from_project_v2", "removed_from_project" -> event(ConversationEvent.REMOVED_FROM_PROJECT, at)
+            "project_v2_item_status_changed" -> event(ConversationEvent.PROJECT_STATUS_CHANGED, at, node?.onProjectV2ItemStatusChangedEvent?.status?.ifBlank { null })
+            "moved_columns_in_project" -> event(ConversationEvent.PROJECT_STATUS_CHANGED, at, projectCard?.columnName?.ifBlank { null })
+            "comment_deleted" -> event(ConversationEvent.COMMENT_DELETED, at)
+            "issue_comment_pinned" -> event(ConversationEvent.COMMENT_PINNED, at)
+            "issue_comment_unpinned" -> event(ConversationEvent.COMMENT_UNPINNED, at)
+            "deployed" -> event(ConversationEvent.DEPLOYED, at, node?.onDeployedEvent?.deployment?.environment?.ifBlank { null })
+            "auto_merge_enabled", "auto_squash_enabled", "auto_rebase_enabled" -> event(ConversationEvent.AUTO_MERGE_ENABLED, at)
+            "auto_merge_disabled" -> event(ConversationEvent.AUTO_MERGE_DISABLED, at)
+            "added_to_merge_queue" -> event(ConversationEvent.ADDED_TO_MERGE_QUEUE, at)
+            "removed_from_merge_queue" -> event(ConversationEvent.REMOVED_FROM_MERGE_QUEUE, at)
+            "base_ref_changed" -> event(ConversationEvent.BASE_CHANGED, at, node?.onBaseRefChangedEvent?.currentRefName?.ifBlank { null })
+            "connected" -> linked(ConversationEvent.LINKED, at, subject, home)
+            "disconnected" -> linked(ConversationEvent.UNLINKED, at, subject, home)
+            "user_blocked" -> event(ConversationEvent.USER_BLOCKED, at)
+            "issue_type_added", "issue_type_changed" -> event(ConversationEvent.TYPE_SET, at, issueType?.name ?: return null)
+            "issue_type_removed" -> event(ConversationEvent.TYPE_REMOVED, at, (issueType ?: previousIssueType)?.name)
+            "sub_issue_added" -> linked(ConversationEvent.SUB_ISSUE_ADDED, at, subIssue, home)
+            "sub_issue_removed" -> linked(ConversationEvent.SUB_ISSUE_REMOVED, at, subIssue, home)
+            "parent_issue_added" -> linked(ConversationEvent.PARENT_ADDED, at, parentIssue, home)
+            "parent_issue_removed" -> linked(ConversationEvent.PARENT_REMOVED, at, parentIssue, home)
+            // Blocked by another is depending on it, as Forgejo says it.
+            "blocked_by_added" -> linked(ConversationEvent.DEPENDENCY_ADDED, at, blockedBy, home)
+            "blocked_by_removed" -> linked(ConversationEvent.DEPENDENCY_REMOVED, at, blockedBy, home)
+            "blocking_added" -> linked(ConversationEvent.BLOCKING_ADDED, at, blocking, home)
+            "blocking_removed" -> linked(ConversationEvent.BLOCKING_REMOVED, at, blocking, home)
             else -> null
         }
     }
+}
+
+/** The conversation as GraphQL names a duplicate's original. */
+private fun fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.Canonical.toSource(): SourceIssueJson? {
+    onIssue?.let { return SourceIssueJson(it.number, it.title, RepositoryJson(it.repository.nameWithOwner)) }
+    onPullRequest?.let { return SourceIssueJson(it.number, it.title, RepositoryJson(it.repository.nameWithOwner), pullRequest = kotlinx.serialization.json.JsonNull) }
+    return null
 }
 
 /** A file of `.github/ISSUE_TEMPLATE`, as the contents API lists it, and sends it alone ([content], in base64). */

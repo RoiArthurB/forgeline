@@ -1,0 +1,38 @@
+{
+  "data": {
+    "nodes": [
+      {
+        "__typename": "ProjectV2ItemStatusChangedEvent",
+        "id": "PVTISC_lADOLUle7M8AAAABcsepps8AAAAIM5Sc7w",
+        "status": "Todo"
+      },
+      {
+        "__typename": "MarkedAsDuplicateEvent",
+        "id": "MADE_lADOFExXwM8AAAABbjz2cM8AAAAII0XScg",
+        "canonical": {
+          "__typename": "Issue",
+          "number": 66369,
+          "title": "Windows: closing an active window logs \"window not found\" and \"Invalid window handle\"",
+          "repository": {
+            "nameWithOwner": "zed-industries/zed"
+          }
+        },
+        "duplicate": {
+          "__typename": "Issue",
+          "number": 66400,
+          "title": "Windows: closing a window logs three ERROR lines (\"window not found\", DRAGDROP_E_INVALIDHWND, ERROR_INVALID_WINDOW_HANDLE) from the deferred destroy path",
+          "repository": {
+            "nameWithOwner": "zed-industries/zed"
+          }
+        }
+      },
+      {
+        "__typename": "DeployedEvent",
+        "id": "DEE_lADODKw3uc7h7XhxzwAAAAUZ235D",
+        "deployment": {
+          "environment": "cli-automation"
+        }
+      }
+    ]
+  }
+}

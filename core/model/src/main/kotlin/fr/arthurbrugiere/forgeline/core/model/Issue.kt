@@ -154,6 +154,112 @@ enum class ConversationEvent {
     /** The branch a pull request came from was deleted, or made again where it was. */
     BRANCH_DELETED,
     BRANCH_RESTORED,
+
+    /** Someone was asked to review a pull request ([TimelineItem.Event.subject]: who, a person or a team), or no longer. */
+    REVIEW_REQUESTED,
+    REVIEW_REQUEST_REMOVED,
+
+    /** A review's verdict was set aside; the subject is what the one who did it said, where they said something. */
+    REVIEW_DISMISSED,
+
+    /** Commits were pushed to the pull request (the subject: how many, where the forge says), or its branch rewritten. */
+    PUSHED,
+    FORCE_PUSHED,
+
+    /** A pull request was marked ready for review, or made a draft again. */
+    READY_FOR_REVIEW,
+    CONVERTED_TO_DRAFT,
+
+    /** It was said to be a duplicate of another conversation (the subject, and the target, where the forge names it), or no longer. */
+    MARKED_DUPLICATE,
+    UNMARKED_DUPLICATE,
+
+    /** The subject (and the target) was said to be a duplicate of this one, or no longer: the original's side of it. */
+    DUPLICATE_ADDED,
+    DUPLICATE_REMOVED,
+
+    /** It was put on a project board (the subject: the board's name, where the forge tells it), taken off one, or moved on one to the subject's column. */
+    ADDED_TO_PROJECT,
+    REMOVED_FROM_PROJECT,
+    PROJECT_STATUS_CHANGED,
+
+    /** Its status was set, on forges that keep one beside open and closed (GitLab's "To do", "In progress"...). */
+    STATUS_CHANGED,
+
+    /** A comment was deleted: what it said is gone. */
+    COMMENT_DELETED,
+
+    /** A comment was pinned to the top of the conversation, or no longer. */
+    COMMENT_PINNED,
+    COMMENT_UNPINNED,
+
+    /** The pull request's changes were deployed, to the subject's environment where it is named. */
+    DEPLOYED,
+
+    /** The pull request is set to merge itself once its checks pass, or no longer. */
+    AUTO_MERGE_ENABLED,
+    AUTO_MERGE_DISABLED,
+
+    /** The pull request joined the queue of those merged one after the other, or left it. */
+    ADDED_TO_MERGE_QUEUE,
+    REMOVED_FROM_MERGE_QUEUE,
+
+    /** The pull request now goes into the subject's branch. */
+    BASE_CHANGED,
+
+    /** A pull request that closes this issue once merged was linked to it (the subject, and the target), or no longer. */
+    LINKED,
+    UNLINKED,
+
+    /** Someone was blocked from the repository's owner for what they said here. */
+    USER_BLOCKED,
+
+    /** Its type was set to the subject's, or the subject's taken away. */
+    TYPE_SET,
+    TYPE_REMOVED,
+
+    /** The subject became part of this issue, or no longer; this one became part of the subject, or no longer. */
+    SUB_ISSUE_ADDED,
+    SUB_ISSUE_REMOVED,
+    PARENT_ADDED,
+    PARENT_REMOVED,
+
+    /** This one now holds the subject up (it can't be closed before this is), or no longer: the other side of a dependency. */
+    BLOCKING_ADDED,
+    BLOCKING_REMOVED,
+
+    /** Time recorded on it was taken back, or a running timer was stopped without recording. */
+    TIME_REMOVED,
+    TRACKING_CANCELLED,
+
+    /** It was tied to the subject as related, or no longer (GitLab). */
+    RELATED_ADDED,
+    RELATED_REMOVED,
+
+    /** Its description was changed. */
+    DESCRIPTION_CHANGED,
+
+    /** It was made visible only to the project's members, or to everyone again (GitLab). */
+    CONFIDENTIAL,
+    NOT_CONFIDENTIAL,
+
+    /** Its weight was set to the subject, or taken away (GitLab). */
+    WEIGHT_SET,
+    WEIGHT_REMOVED,
+
+    /** It was put in the subject's iteration, or taken out of it (GitLab). */
+    ITERATION_SET,
+    ITERATION_REMOVED,
+
+    /** It was moved to the subject, another repository, and goes on there; or copied there. */
+    MOVED_AWAY,
+    CLONED,
+
+    /** A merge request's approval was taken back (GitLab). */
+    APPROVAL_REVOKED,
+
+    /** Every thread of the pull request was resolved. */
+    THREADS_RESOLVED,
 }
 
 enum class ReviewState { APPROVED, CHANGES_REQUESTED, COMMENTED, DISMISSED }
@@ -211,8 +317,18 @@ sealed interface TimelineItem {
     /**
      * [subject] is who was assigned or unassigned, the milestone's title, the day it is due (ISO), or the conversation
      * depended on ("#12 Its title"), the branch deleted or restored where the forge names it; null for the other events.
+     * [target] is the conversation the event names, where it names one (a sub-issue, a duplicate, a dependency), to open.
      */
-    data class Event(val event: ConversationEvent, val actor: ForgeUser?, val subject: String?, override val createdAt: Instant) : TimelineItem
+    data class Event(
+        val event: ConversationEvent,
+        val actor: ForgeUser?,
+        val subject: String?,
+        override val createdAt: Instant,
+        val target: IssueRef? = null,
+    ) : TimelineItem
+
+    /** [commit] mentioned this conversation in its message, without closing it. */
+    data class CommitReferenced(val commit: ClosingCommit, val actor: ForgeUser?, override val createdAt: Instant) : TimelineItem
 
     data class Committed(val sha: String, val message: String, val authorName: String?, override val createdAt: Instant?) : TimelineItem
 }

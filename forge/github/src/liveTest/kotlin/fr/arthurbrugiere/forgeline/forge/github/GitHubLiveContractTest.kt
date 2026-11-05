@@ -160,6 +160,33 @@ class GitHubLiveContractTest {
         assertWithMessage("may hide").that(comments.all { it.canHide }).isTrue()
     }
 
+    /**
+     * Triage events still read, with what GraphQL adds: gama-platform/gama#1295 was put on a project and moved to Todo
+     * there, #1248 was typed a Bug and given #1249 as a sub-issue, and zed-industries/zed#66400 was marked a duplicate of
+     * #66369, whose timeline alone tells it (checked 2026-11-05).
+     */
+    @Test
+    fun triage_events_still_read_with_what_graphql_adds() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        val api = GitHubIssueApi(client)
+        fun events(owner: String, name: String, number: Int): List<fr.arthurbrugiere.forgeline.core.model.TimelineItem.Event> {
+            val page = runBlocking { api.timeline(pat, fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId(owner, name), number), 1) }
+            assertWithMessage("timeline of $owner/$name#$number: $page").that(page).isInstanceOf(ForgeResult.Success::class.java)
+            return (page as ForgeResult.Success).value.items.filterIsInstance<fr.arthurbrugiere.forgeline.core.model.TimelineItem.Event>()
+        }
+        val board = events("gama-platform", "gama", 1295).associateBy { it.event }
+        assertWithMessage("added to a project").that(board).containsKey(fr.arthurbrugiere.forgeline.core.model.ConversationEvent.ADDED_TO_PROJECT)
+        assertWithMessage("its column").that(board[fr.arthurbrugiere.forgeline.core.model.ConversationEvent.PROJECT_STATUS_CHANGED]?.subject).isEqualTo("Todo")
+
+        val split = events("gama-platform", "gama", 1248)
+        assertWithMessage("typed").that(split.map { it.event to it.subject }).contains(fr.arthurbrugiere.forgeline.core.model.ConversationEvent.TYPE_SET to "Bug")
+        assertWithMessage("sub-issue").that(split.first { it.event == fr.arthurbrugiere.forgeline.core.model.ConversationEvent.SUB_ISSUE_ADDED }.target?.number).isEqualTo(1249)
+
+        // Only the original's timeline holds the event: it names its duplicate.
+        val duplicate = events("zed-industries", "zed", 66369).first { it.event == fr.arthurbrugiere.forgeline.core.model.ConversationEvent.DUPLICATE_ADDED }
+        assertWithMessage("its duplicate").that(duplicate.target?.number).isEqualTo(66400)
+    }
+
     /** Read only: gama-platform/gama names Task, Bug and Feature, and #1239 is a Bug (2026-10-25). */
     @Test
     fun issue_types_still_read() = runBlocking {

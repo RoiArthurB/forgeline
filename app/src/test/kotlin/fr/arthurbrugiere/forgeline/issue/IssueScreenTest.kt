@@ -615,6 +615,109 @@ class IssueScreenTest {
     }
 
     @Test
+    fun every_triage_event_reads_as_a_sentence_and_one_the_forge_left_unnamed_reads_without_it() {
+        fun event(event: ConversationEvent, subject: String? = null) = TimelineItem.Event(event, ForgeUser("maintainer", null, null), subject, at)
+        val sentences = listOf(
+            event(ConversationEvent.LOCKED, "too heated") to "maintainer locked this as too heated and limited it to collaborators",
+            event(ConversationEvent.LOCKED, "something new") to "maintainer locked this and limited it to collaborators",
+            event(ConversationEvent.REVIEW_REQUESTED, "octocat") to "maintainer asked octocat for a review",
+            event(ConversationEvent.REVIEW_REQUEST_REMOVED, "code reviewers") to "maintainer no longer asks code reviewers for a review",
+            event(ConversationEvent.REVIEW_DISMISSED, "Outdated") to "maintainer dismissed a review: “Outdated”",
+            event(ConversationEvent.REVIEW_DISMISSED) to "maintainer dismissed a review",
+            event(ConversationEvent.PUSHED, "3") to "maintainer pushed 3 commits",
+            event(ConversationEvent.PUSHED, "1") to "maintainer pushed 1 commit",
+            event(ConversationEvent.PUSHED) to "maintainer pushed commits",
+            event(ConversationEvent.FORCE_PUSHED, "d1d25e7") to "maintainer force-pushed the branch to d1d25e7",
+            event(ConversationEvent.FORCE_PUSHED) to "maintainer force-pushed the branch",
+            event(ConversationEvent.READY_FOR_REVIEW) to "maintainer marked this ready for review",
+            event(ConversationEvent.CONVERTED_TO_DRAFT) to "maintainer made this a draft",
+            event(ConversationEvent.MARKED_DUPLICATE, "#3 Crash") to "maintainer marked this a duplicate of #3 Crash",
+            event(ConversationEvent.MARKED_DUPLICATE) to "maintainer marked this a duplicate",
+            event(ConversationEvent.UNMARKED_DUPLICATE) to "maintainer no longer marks this a duplicate",
+            event(ConversationEvent.DUPLICATE_ADDED, "#9 Same crash") to "maintainer marked #9 Same crash a duplicate of this",
+            event(ConversationEvent.DUPLICATE_REMOVED, "#9 Same crash") to "maintainer no longer marks #9 Same crash a duplicate of this",
+            event(ConversationEvent.ADDED_TO_PROJECT) to "maintainer added this to a project",
+            event(ConversationEvent.ADDED_TO_PROJECT, "Roadmap") to "maintainer added this to the project Roadmap",
+            event(ConversationEvent.REMOVED_FROM_PROJECT) to "maintainer removed this from a project",
+            event(ConversationEvent.PROJECT_STATUS_CHANGED, "Todo") to "maintainer moved this to Todo on a project",
+            event(ConversationEvent.PROJECT_STATUS_CHANGED) to "maintainer changed its status on a project",
+            event(ConversationEvent.STATUS_CHANGED, "In progress") to "maintainer set the status to In progress",
+            event(ConversationEvent.COMMENT_DELETED) to "maintainer deleted a comment",
+            event(ConversationEvent.COMMENT_PINNED) to "maintainer pinned a comment",
+            event(ConversationEvent.COMMENT_UNPINNED) to "maintainer unpinned a comment",
+            event(ConversationEvent.DEPLOYED, "production") to "maintainer deployed this to production",
+            event(ConversationEvent.DEPLOYED) to "maintainer deployed this",
+            event(ConversationEvent.AUTO_MERGE_ENABLED) to "maintainer set this to merge once its checks pass",
+            event(ConversationEvent.AUTO_MERGE_DISABLED) to "maintainer stopped this from merging by itself",
+            event(ConversationEvent.ADDED_TO_MERGE_QUEUE) to "maintainer added this to the merge queue",
+            event(ConversationEvent.REMOVED_FROM_MERGE_QUEUE) to "maintainer removed this from the merge queue",
+            event(ConversationEvent.BASE_CHANGED, "release") to "maintainer changed the base branch to release",
+            event(ConversationEvent.BASE_CHANGED) to "maintainer changed the base branch",
+            event(ConversationEvent.LINKED, "#6 Fix it") to "maintainer linked #6 Fix it, which closes this once merged",
+            event(ConversationEvent.UNLINKED, "#6 Fix it") to "maintainer unlinked #6 Fix it",
+            event(ConversationEvent.USER_BLOCKED) to "maintainer blocked someone for what they said here",
+            event(ConversationEvent.TYPE_SET, "Bug") to "maintainer set the type to Bug",
+            event(ConversationEvent.TYPE_REMOVED, "Bug") to "maintainer removed the type Bug",
+            event(ConversationEvent.TYPE_REMOVED) to "maintainer removed the type",
+            event(ConversationEvent.SUB_ISSUE_ADDED, "#7 Seven") to "maintainer added the sub-issue #7 Seven",
+            event(ConversationEvent.SUB_ISSUE_REMOVED, "#7 Seven") to "maintainer removed the sub-issue #7 Seven",
+            event(ConversationEvent.PARENT_ADDED, "#3 Three") to "maintainer made this part of #3 Three",
+            event(ConversationEvent.PARENT_REMOVED, "#3 Three") to "maintainer took this out of #3 Three",
+            event(ConversationEvent.BLOCKING_ADDED, "#5 Five") to "maintainer made #5 Five depend on this",
+            event(ConversationEvent.BLOCKING_REMOVED, "#5 Five") to "maintainer removed the dependency of #5 Five on this",
+            event(ConversationEvent.TIME_ADDED, "1h 30m") to "maintainer recorded 1h 30m of time spent",
+            event(ConversationEvent.TIME_REMOVED) to "maintainer took back recorded time",
+            event(ConversationEvent.TRACKING_CANCELLED) to "maintainer stopped their timer without recording it",
+            event(ConversationEvent.RELATED_ADDED, "#4 Four") to "maintainer marked this related to #4 Four",
+            event(ConversationEvent.RELATED_REMOVED, "#4 Four") to "maintainer removed the relation to #4 Four",
+            event(ConversationEvent.DESCRIPTION_CHANGED) to "maintainer changed the description",
+            event(ConversationEvent.CONFIDENTIAL) to "maintainer made this confidential",
+            event(ConversationEvent.NOT_CONFIDENTIAL) to "maintainer made this visible to everyone",
+            event(ConversationEvent.WEIGHT_SET, "3") to "maintainer set the weight to 3",
+            event(ConversationEvent.WEIGHT_REMOVED) to "maintainer removed the weight",
+            event(ConversationEvent.ITERATION_SET, "Sprint 4") to "maintainer added this to the Sprint 4 iteration",
+            event(ConversationEvent.ITERATION_REMOVED) to "maintainer removed this from an iteration",
+            event(ConversationEvent.TRANSFERRED, "group/old#2") to "maintainer moved this here from group/old#2",
+            event(ConversationEvent.MOVED_AWAY, "group/new#8") to "maintainer moved this to group/new#8",
+            event(ConversationEvent.CLONED, "group/new#9") to "maintainer copied this to group/new#9",
+            event(ConversationEvent.APPROVAL_REVOKED) to "maintainer took back their approval",
+            event(ConversationEvent.THREADS_RESOLVED) to "maintainer resolved every thread",
+        )
+        // Every kind of event has its sentence here.
+        assertThat(ConversationEvent.entries - sentences.map { it.first.event }.toSet() - OLDER_EVENTS).isEmpty()
+        setContent(opened.copy(items = sentences.map { it.first }))
+
+        sentences.forEach { (_, sentence) -> reach(hasText(sentence, substring = true)) }
+    }
+
+    @Test
+    fun an_event_that_names_a_conversation_opens_it_and_a_referencing_commit_opens_its_page() {
+        val target = IssueRef(RepoId("other", "docs"), 7)
+        val sub = TimelineItem.Event(ConversationEvent.SUB_ISSUE_ADDED, ForgeUser("maintainer", null, null), "other/docs#7 Seven", at, target)
+        val commit = TimelineItem.CommitReferenced(
+            fr.arthurbrugiere.forgeline.core.model.ClosingCommit("675df2e1a797", "Fix the leak\n\nLonger text", "https://github.com/gama-platform/gama/commit/675df2e1a797"),
+            ForgeUser("alexis", null, null),
+            at,
+        )
+        setContent(opened.copy(items = listOf(sub, commit)))
+
+        reach(hasText("maintainer added the sub-issue other/docs#7 Seven", substring = true))
+        composeRule.onNodeWithText("maintainer added the sub-issue other/docs#7 Seven", substring = true).performClick()
+        assertThat(events).contains("issue:other/docs#7")
+        reach(hasText("alexis mentioned this in a commit", substring = true))
+        reach(hasText("675df2e  Fix the leak"))
+        composeRule.onNodeWithText("675df2e  Fix the leak").performClick()
+        assertThat(events.joinToString()).contains("https://github.com/gama-platform/gama/commit/675df2e1a797")
+    }
+
+    @Test
+    fun an_issue_closed_as_a_duplicate_says_so() {
+        setContent(opened.copy(items = listOf(TimelineItem.StateChanged(StateChange.CLOSED, ForgeUser("maintainer", null, null), "duplicate", at))))
+
+        reach(hasText("maintainer closed this as a duplicate", substring = true))
+    }
+
+    @Test
     fun a_deleted_branch_is_named_even_where_the_forge_does_not_name_it() {
         fun event(event: ConversationEvent, subject: String? = null) = TimelineItem.Event(event, ForgeUser("maintainer", null, null), subject, at)
         val pull = issueDetails(ref, "Fix it").copy(pullRequest = PullRequestInfo(false, true, "main", "fix/it", 12, 3, 2, 1))
@@ -889,5 +992,16 @@ class IssueScreenTest {
         composeRule.onNodeWithText("Needs repro").performClick()
 
         assertThat(events).containsAtLeast("load-replies", "reply:Needs repro").inOrder()
+    }
+
+    private companion object {
+        /** The events the tests above this one already read as sentences. */
+        val OLDER_EVENTS = setOf(
+            ConversationEvent.LOCKED, ConversationEvent.UNLOCKED, ConversationEvent.PINNED, ConversationEvent.UNPINNED,
+            ConversationEvent.ASSIGNED, ConversationEvent.UNASSIGNED, ConversationEvent.MILESTONED, ConversationEvent.DEMILESTONED,
+            ConversationEvent.TRANSFERRED, ConversationEvent.DEADLINE_SET, ConversationEvent.DEADLINE_REMOVED, ConversationEvent.TRACKING_STARTED,
+            ConversationEvent.TRACKING_STOPPED, ConversationEvent.TIME_ADDED, ConversationEvent.DEPENDENCY_ADDED, ConversationEvent.DEPENDENCY_REMOVED,
+            ConversationEvent.CONVERTED_TO_DISCUSSION, ConversationEvent.BRANCH_DELETED, ConversationEvent.BRANCH_RESTORED,
+        )
     }
 }
