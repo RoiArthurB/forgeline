@@ -881,6 +881,17 @@
     <string name="settings_reading_marks_summary">Les tendances et le fil montrent où votre dernière visite s’est arrêtée</string>
     <string name="settings_trending_period">Ouvrir les tendances sur</string>
     <string name="settings_section_about">À propos</string>
+    <string name="settings_section_accessibility">Accessibilité</string>
+    <string name="settings_accessibility_summary">Taille du texte, police et place autour des liens</string>
+    <string name="settings_text_size">Taille du texte</string>
+    <string name="text_size_smaller">Plus petite</string>
+    <string name="text_size_phone">Comme sur le téléphone</string>
+    <string name="text_size_larger">Plus grande</string>
+    <string name="text_size_largest">La plus grande</string>
+    <string name="settings_system_font">Police du téléphone</string>
+    <string name="settings_system_font_summary">Le texte dans la police choisie sur le téléphone plutôt que Geist ; le code reste à chasse fixe</string>
+    <string name="settings_roomy_targets">Liens espacés</string>
+    <string name="settings_roomy_targets_summary">Les liens proches ont chacun la hauteur d’un doigt : un appui à côté n’ouvre pas le voisin</string>
     <string name="settings_credits">Crédits et licences</string>
     <string name="settings_credits_summary">Les bibliothèques libres sur lesquelles Forgeline est bâti</string>
     <string name="settings_source_code">Code source</string>

@@ -9,20 +9,25 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.arthurbrugiere.forgeline.core.model.HeaderStyle
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.ui.soft.Geist
+import fr.arthurbrugiere.forgeline.core.ui.soft.LocalSoftType
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDark
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLight
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTheme
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftType
 import fr.arthurbrugiere.forgeline.core.ui.soft.amoled
+import fr.arthurbrugiere.forgeline.core.ui.soft.inFamily
 import fr.arthurbrugiere.forgeline.core.ui.soft.withHeader
 
 fun ThemeMode.isDark(systemInDarkTheme: Boolean): Boolean = when (this) {
@@ -80,27 +85,30 @@ fun SoftColors.toMaterial(): ColorScheme {
     )
 }
 
-private fun geist(size: Int, line: Int, weight: FontWeight = FontWeight.Normal) =
-    TextStyle(fontFamily = Geist, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp)
+/** Geist for every role (or [family] in its place): SemiBold for display, headline and title, Regular for reading, SemiBold for labels. */
+fun softTypography(family: FontFamily = Geist): Typography {
+    fun geist(size: Int, line: Int, weight: FontWeight = FontWeight.Normal) =
+        TextStyle(fontFamily = family, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp)
+    return Typography(
+        displayLarge = geist(44, 50, FontWeight.SemiBold),
+        displayMedium = geist(36, 42, FontWeight.SemiBold),
+        displaySmall = geist(30, 36, FontWeight.SemiBold),
+        headlineLarge = geist(26, 32, FontWeight.SemiBold),
+        headlineMedium = geist(22, 28, FontWeight.SemiBold),
+        headlineSmall = geist(20, 26, FontWeight.SemiBold),
+        titleLarge = geist(18, 24, FontWeight.SemiBold),
+        titleMedium = geist(16, 22, FontWeight.SemiBold),
+        titleSmall = geist(14, 20, FontWeight.SemiBold),
+        bodyLarge = geist(15, 22),
+        bodyMedium = geist(14, 20),
+        bodySmall = geist(12, 16),
+        labelLarge = geist(14, 20, FontWeight.SemiBold),
+        labelMedium = geist(12, 16, FontWeight.SemiBold),
+        labelSmall = geist(11, 16, FontWeight.SemiBold),
+    )
+}
 
-/** Geist for every role: SemiBold for display, headline and title, Regular for reading, SemiBold for labels. */
-val SoftTypography = Typography(
-    displayLarge = geist(44, 50, FontWeight.SemiBold),
-    displayMedium = geist(36, 42, FontWeight.SemiBold),
-    displaySmall = geist(30, 36, FontWeight.SemiBold),
-    headlineLarge = geist(26, 32, FontWeight.SemiBold),
-    headlineMedium = geist(22, 28, FontWeight.SemiBold),
-    headlineSmall = geist(20, 26, FontWeight.SemiBold),
-    titleLarge = geist(18, 24, FontWeight.SemiBold),
-    titleMedium = geist(16, 22, FontWeight.SemiBold),
-    titleSmall = geist(14, 20, FontWeight.SemiBold),
-    bodyLarge = geist(15, 22),
-    bodyMedium = geist(14, 20),
-    bodySmall = geist(12, 16),
-    labelLarge = geist(14, 20, FontWeight.SemiBold),
-    labelMedium = geist(12, 16, FontWeight.SemiBold),
-    labelSmall = geist(11, 16, FontWeight.SemiBold),
-)
+val SoftTypography = softTypography()
 
 /** Small, quiet corners: 6dp controls and fields, up to 12dp for a sheet. */
 val SoftShapes = Shapes(
@@ -116,11 +124,15 @@ fun ForgelineTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     amoledBlack: Boolean = false,
     headerStyle: HeaderStyle = HeaderStyle.INK,
+    /** The phone's own font in place of Geist. */
+    systemFont: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val soft = softColors(darkTheme, amoledBlack, headerStyle)
     val scheme = remember(soft) { soft.toMaterial() }
-    MaterialTheme(colorScheme = scheme, typography = SoftTypography, shapes = SoftShapes) {
-        SoftTheme(soft, content)
+    val typography = remember(systemFont) { if (systemFont) softTypography(FontFamily.Default) else SoftTypography }
+    val type = remember(systemFont) { if (systemFont) SoftType().inFamily(FontFamily.Default) else SoftType() }
+    MaterialTheme(colorScheme = scheme, typography = typography, shapes = SoftShapes) {
+        CompositionLocalProvider(LocalSoftType provides type) { SoftTheme(soft, content) }
     }
 }

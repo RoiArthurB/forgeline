@@ -267,6 +267,11 @@ class ScreenshotTest {
     }
 
     @Test
+    fun settings_accessibility_light() = snapshot("settings_accessibility_light", darkTheme = false) {
+        SettingsPreview(UserSettings(textSize = fr.arthurbrugiere.forgeline.core.model.TextSize.LARGER), section = SettingsSection.ACCESSIBILITY)
+    }
+
+    @Test
     fun settings_reading_dark() = snapshot("settings_reading_dark", darkTheme = true) {
         SettingsPreview(UserSettings(readingMarks = false), section = SettingsSection.READING)
     }

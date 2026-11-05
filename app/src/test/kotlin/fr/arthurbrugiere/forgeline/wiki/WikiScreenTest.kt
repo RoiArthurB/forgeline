@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.wiki
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -37,15 +38,17 @@ class WikiScreenTest {
     private val pages = listOf(WikiPageSummary("Home", "Home"), WikiPageSummary("Install", "Install"), WikiPageSummary("FAQ", "FAQ"))
     private val loaded = WikiUiState(repo, "Home", home, pages, isLoading = false)
 
-    private fun setContent(state: WikiUiState) {
+    private fun setContent(state: WikiUiState, roomy: Boolean = false) {
         composeRule.setContent {
             ForgelineTheme {
-                WikiScreen(
-                    state = state,
-                    onBack = { events += "back" }, onRefresh = { events += "refresh" }, onOpenRepo = { events += "repo:${it.fullName}" },
-                    onOpenPage = { events += "page:$it" }, onOpenInBrowser = { events += "browser:$it" }, onLinkClick = { events += "link:$it" },
-                    onErrorShown = { events += "error-shown" },
-                )
+                androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalUserSettings provides fr.arthurbrugiere.forgeline.core.model.UserSettings(roomyTargets = roomy)) {
+                    WikiScreen(
+                        state = state,
+                        onBack = { events += "back" }, onRefresh = { events += "refresh" }, onOpenRepo = { events += "repo:${it.fullName}" },
+                        onOpenPage = { events += "page:$it" }, onOpenInBrowser = { events += "browser:$it" }, onLinkClick = { events += "link:$it" },
+                        onErrorShown = { events += "error-shown" },
+                    )
+                }
             }
         }
         composeRule.waitForIdle()
@@ -66,11 +69,23 @@ class WikiScreenTest {
     }
 
     @Test
+    fun its_repository_line_keeps_its_own_height_unless_links_are_asked_to_be_roomy() {
+        setContent(loaded)
+        composeRule.onNodeWithText("Wiki of octo/repo").getBoundsInRoot().let { com.google.common.truth.Truth.assertThat((it.bottom - it.top).value).isAtMost(30f) }
+    }
+
+    @Test
+    fun with_roomy_links_its_repository_line_is_a_finger_tall() {
+        setContent(loaded, roomy = true)
+        composeRule.onNodeWithText("Wiki of octo/repo").assertHeightIsAtLeast(48.dp)
+    }
+
+    @Test
     fun its_repository_and_its_pages_are_said_to_open() {
         // Regression: the wiki's repository was a 19dp line TalkBack heard as plain text, and so were the other pages.
         setContent(loaded)
 
-        composeRule.onNodeWithText("Wiki of octo/repo").assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button)).assertHeightIsAtLeast(48.dp)
+        composeRule.onNodeWithText("Wiki of octo/repo").assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button))
         reach("All pages (3)")
         composeRule.onNodeWithText("All pages (3)").performClick()
         reach("FAQ")

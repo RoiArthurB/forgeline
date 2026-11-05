@@ -72,9 +72,12 @@ class RepoScreenTest {
         readmeContext = context,
     )
 
-    private fun setContent(state: RepoUiState, signedIn: Boolean = true, openTopic: ((String) -> Unit)? = null) {
+    private fun setContent(state: RepoUiState, signedIn: Boolean = true, openTopic: ((String) -> Unit)? = null, roomy: Boolean = false) {
         composeRule.setContent {
-            androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalOpenTopic provides openTopic) { RepoScreenUnderTest(state, signedIn) }
+            androidx.compose.runtime.CompositionLocalProvider(
+                fr.arthurbrugiere.forgeline.ui.LocalOpenTopic provides openTopic,
+                fr.arthurbrugiere.forgeline.ui.LocalUserSettings provides fr.arthurbrugiere.forgeline.core.model.UserSettings(roomyTargets = roomy),
+            ) { RepoScreenUnderTest(state, signedIn) }
         }
     }
 
@@ -588,12 +591,11 @@ class RepoScreenTest {
     }
 
     @Test
-    fun its_topics_keep_one_line_and_each_topic_and_its_website_are_a_finger_tall_on_their_own() {
+    fun with_roomy_links_its_topics_keep_one_line_and_each_topic_and_its_website_are_a_finger_tall_on_their_own() {
         // Regression: topics were 20dp tags wrapped onto rows 6dp apart, under a 20dp website line. Compose widens a
         // small target's touch area to 48dp, but those areas overlapped, so a near miss opened the topic beside it.
-        val topics = listOf("agents", "orchestration", "typescript", "ai", "llm", "automation", "workflow", "agent-framework", "cli", "developer-tools")
         val opened = mutableListOf<String>()
-        setContent(loaded.copy(details = loaded.details!!.copy(homepage = "https://octo.example", topics = topics)), openTopic = { opened += it })
+        setContent(loaded.copy(details = loaded.details!!.copy(homepage = "https://octo.example", topics = topics)), openTopic = { opened += it }, roomy = true)
 
         val density = composeRule.density.density
         val site = composeRule.onNode(hasText("octo.example") and hasClickAction()).fetchSemanticsNode().boundsInRoot
@@ -601,6 +603,22 @@ class RepoScreenTest {
         (tags + site).forEach { assertThat(it.height / density).isAtLeast(47.5f) }
         tags.forEach { assertThat(it.top).isAtLeast(site.bottom - 0.5f) }
         // One line, however many: the ones past the edge are a sideways scroll away.
+        assertThat(tags.map { it.top }.distinct()).hasSize(1)
+        composeRule.onNode(hasText("developer-tools") and hasClickAction()).performScrollTo().performClick()
+        assertThat(opened).containsExactly("developer-tools")
+    }
+
+    private val topics = listOf("agents", "orchestration", "typescript", "ai", "llm", "automation", "workflow", "agent-framework", "cli", "developer-tools")
+
+    @Test
+    fun its_topics_and_website_keep_their_own_height_on_one_line_unless_links_are_asked_to_be_roomy() {
+        val opened = mutableListOf<String>()
+        setContent(loaded.copy(details = loaded.details!!.copy(homepage = "https://octo.example", topics = topics)), openTopic = { opened += it })
+
+        val density = composeRule.density.density
+        val site = composeRule.onNode(hasText("octo.example") and hasClickAction()).fetchSemanticsNode().boundsInRoot
+        val tags = topics.take(3).map { composeRule.onNode(hasText(it) and hasClickAction()).fetchSemanticsNode().boundsInRoot }
+        (tags + site).forEach { assertThat(it.height / density).isAtMost(30f) }
         assertThat(tags.map { it.top }.distinct()).hasSize(1)
         composeRule.onNode(hasText("developer-tools") and hasClickAction()).performScrollTo().performClick()
         assertThat(opened).containsExactly("developer-tools")

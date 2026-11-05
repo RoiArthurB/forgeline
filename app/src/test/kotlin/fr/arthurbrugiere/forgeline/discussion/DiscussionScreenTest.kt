@@ -4,6 +4,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
@@ -49,21 +50,23 @@ class DiscussionScreenTest {
     )
     private val loaded = DiscussionUiState(repo, 7, summary, read, isLoading = false)
 
-    private fun setContent(state: DiscussionUiState, signedIn: Boolean = true) = setContent(mutableStateOf(state), signedIn)
+    private fun setContent(state: DiscussionUiState, signedIn: Boolean = true, roomy: Boolean = false) = setContent(mutableStateOf(state), signedIn, roomy)
 
-    private fun setContent(state: androidx.compose.runtime.State<DiscussionUiState>, signedIn: Boolean = true) {
+    private fun setContent(state: androidx.compose.runtime.State<DiscussionUiState>, signedIn: Boolean = true, roomy: Boolean = false) {
         composeRule.setContent {
             ForgelineTheme {
-                DiscussionScreen(
-                    state = state.value, signedIn = signedIn,
-                    onBack = { events += "back" }, onRefresh = { events += "refresh" }, onOpenRepo = { events += "repo:${it.fullName}" },
-                    onOpenUser = { events += "user:$it" }, onOpenInBrowser = { events += "browser:$it" }, onLinkClick = { events += "link:$it" },
-                    onSignIn = { events += "sign-in" }, onErrorShown = { events += "error-shown" },
-                    onSend = { body, under -> events += "send:${under?.id ?: "discussion"}:$body" },
-                    onSetAnswer = { comment, answer -> events += "answer:${comment.id}:$answer" },
-                    onSendErrorShown = { events += "send-error-shown" },
-                    nowMillis = Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
-                )
+                androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalUserSettings provides fr.arthurbrugiere.forgeline.core.model.UserSettings(roomyTargets = roomy)) {
+                    DiscussionScreen(
+                        state = state.value, signedIn = signedIn,
+                        onBack = { events += "back" }, onRefresh = { events += "refresh" }, onOpenRepo = { events += "repo:${it.fullName}" },
+                        onOpenUser = { events += "user:$it" }, onOpenInBrowser = { events += "browser:$it" }, onLinkClick = { events += "link:$it" },
+                        onSignIn = { events += "sign-in" }, onErrorShown = { events += "error-shown" },
+                        onSend = { body, under -> events += "send:${under?.id ?: "discussion"}:$body" },
+                        onSetAnswer = { comment, answer -> events += "answer:${comment.id}:$answer" },
+                        onSendErrorShown = { events += "send-error-shown" },
+                        nowMillis = Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
+                    )
+                }
             }
         }
         composeRule.waitForIdle()
@@ -202,12 +205,18 @@ class DiscussionScreenTest {
     }
 
     @Test
-    fun its_repository_and_its_people_are_said_to_open_and_its_repository_line_is_a_finger_tall() {
+    fun its_repository_and_its_people_are_said_to_open_and_with_roomy_links_its_repository_line_is_a_finger_tall() {
         // Regression: TalkBack heard "bob" and "octo/repo" as plain words, and the repository was a 19dp line of text.
-        setContent(loaded)
+        setContent(loaded, roomy = true)
 
         composeRule.onNodeWithText("octo/repo").assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button)).assertHeightIsAtLeast(48.dp)
         composeRule.onNodeWithText("bob").assert(androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Button))
+    }
+
+    @Test
+    fun its_repository_line_keeps_its_own_height_unless_links_are_asked_to_be_roomy() {
+        setContent(loaded)
+        composeRule.onNodeWithText("octo/repo").getBoundsInRoot().let { com.google.common.truth.Truth.assertThat((it.bottom - it.top).value).isAtMost(30f) }
     }
 
     @Test

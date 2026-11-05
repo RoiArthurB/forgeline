@@ -23,7 +23,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 
 /**
  * The repository a page belongs to, on its band above the title, one tap away: muted, with a chevron that says it leads
- * there, and as tall as a finger whatever the line's own height.
+ * there, and as tall as a finger whatever the line's own height when links are asked to be roomy.
  */
 @Composable
 fun HeaderRepoLink(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -32,7 +32,7 @@ fun HeaderRepoLink(text: String, onClick: () -> Unit, modifier: Modifier = Modif
         modifier
             .clip(SoftTokens.Pill)
             .clickable(role = Role.Button, onClickLabel = stringResource(R.string.issue_open_repo), onClick = onClick)
-            .heightIn(min = 48.dp)
+            .heightIn(min = if (LocalUserSettings.current.roomyTargets) 48.dp else 0.dp)
             .padding(end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

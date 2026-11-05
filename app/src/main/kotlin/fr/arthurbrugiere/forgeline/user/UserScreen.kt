@@ -74,6 +74,7 @@ import fr.arthurbrugiere.forgeline.repo.ReadmeBody
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.ui.Avatar
+import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.RepoSummaryRow
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
@@ -248,13 +249,14 @@ private fun Header(
         profile.bio?.let { Text(it, style = Soft.type.lead, color = colors.ink, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure)) }
         profile.company?.let { Detail(Icons.Outlined.Business, it) }
         profile.location?.let { Detail(Icons.Outlined.LocationOn, it) }
-        // The links stand one under another, each as tall as a finger with no gap between: 20dp lines 10dp apart left a
-        // tap between two of them to whichever was nearer, and a near miss opened another app.
+        // Roomy, the links stand one under another, each as tall as a finger with no gap between: 20dp lines 10dp apart
+        // leave a tap between two of them to whichever is nearer. Compact, they keep those lines.
+        val roomy = LocalUserSettings.current.roomyTargets
         if (profile.website != null || profile.links.isNotEmpty()) {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(if (roomy) 0.dp else 10.dp)) {
                 profile.website?.let { site ->
                     val url = if (site.startsWith("http")) site else "https://$site"
-                    Detail(Icons.Outlined.Link, site.removePrefix("https://").removePrefix("http://"), Modifier.linkRow { onOpenUrl(url) }, link = true)
+                    Detail(Icons.Outlined.Link, site.removePrefix("https://").removePrefix("http://"), Modifier.linkRow(roomy) { onOpenUrl(url) }, link = true)
                 }
                 // Each other place by its logo and the way people write it ("@ana@mastodon.social"); the service's name is read
                 // out with it, since the logo is the only place it's written.
@@ -264,7 +266,7 @@ private fun Header(
                         icon,
                         link.label,
                         Modifier
-                            .linkRow(link.kind.displayName) { onOpenUrl(link.url) }
+                            .linkRow(roomy, link.kind.displayName) { onOpenUrl(link.url) }
                             .semantics(mergeDescendants = true) { contentDescription = "${link.kind.displayName}, ${link.label}" },
                         link = true,
                     )
@@ -293,10 +295,10 @@ private fun Header(
     }
 }
 
-/** A profile link's row: as tall as a finger, pressed as a pill around its words, which keep the whole width. */
-private fun Modifier.linkRow(label: String? = null, onClick: () -> Unit): Modifier = clip(SoftTokens.Pill)
+/** A profile link's row, pressed as a pill around its words, which keep the whole width; as tall as a finger when [roomy]. */
+private fun Modifier.linkRow(roomy: Boolean, label: String? = null, onClick: () -> Unit): Modifier = clip(SoftTokens.Pill)
     .clickable(onClickLabel = label, role = Role.Button, onClick = onClick)
-    .heightIn(min = 48.dp)
+    .heightIn(min = if (roomy) 48.dp else 0.dp)
 
 @Composable
 private fun Detail(icon: ImageVector, text: String, modifier: Modifier = Modifier, link: Boolean = false) = Detail(rememberVectorPainter(icon), text, modifier, link)

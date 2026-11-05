@@ -904,6 +904,17 @@
     <string name="settings_reading_marks_summary">Trending and the Feed show where your last visit stopped</string>
     <string name="settings_trending_period">Open Trending on</string>
     <string name="settings_section_about">About</string>
+    <string name="settings_section_accessibility">Accessibility</string>
+    <string name="settings_accessibility_summary">Text size, font and room around links</string>
+    <string name="settings_text_size">Text size</string>
+    <string name="text_size_smaller">Smaller</string>
+    <string name="text_size_phone">As on the phone</string>
+    <string name="text_size_larger">Larger</string>
+    <string name="text_size_largest">Largest</string>
+    <string name="settings_system_font">Phone\'s font</string>
+    <string name="settings_system_font_summary">Text in the font set on the phone instead of Geist; code stays monospace</string>
+    <string name="settings_roomy_targets">Roomy links</string>
+    <string name="settings_roomy_targets_summary">Links close together each get a finger\'s height, so a near miss doesn\'t open the next one</string>
     <string name="settings_credits">Credits and licenses</string>
     <string name="settings_credits_summary">The open source libraries Forgeline is built on</string>
     <string name="settings_source_code">Source code</string>

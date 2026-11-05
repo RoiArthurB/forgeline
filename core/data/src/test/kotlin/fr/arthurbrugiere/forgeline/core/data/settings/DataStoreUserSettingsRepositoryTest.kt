@@ -113,6 +113,9 @@ class DataStoreUserSettingsRepositoryTest {
         readingMarks = false,
         feedPictures = false,
         openFailedStep = true,
+        textSize = fr.arthurbrugiere.forgeline.core.model.TextSize.LARGEST,
+        systemFont = true,
+        roomyTargets = true,
         hintsSeen = setOf(fr.arthurbrugiere.forgeline.core.model.Hint.INBOX_SWIPES, fr.arthurbrugiere.forgeline.core.model.Hint.INBOX_YOURS),
     )
 
@@ -146,6 +149,9 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(changed.headerStyle).isNotEqualTo(defaults.headerStyle)
         assertThat(changed.codeTheme).isNotEqualTo(defaults.codeTheme)
         assertThat(changed.hintsSeen).isNotEqualTo(defaults.hintsSeen)
+        assertThat(changed.textSize).isNotEqualTo(defaults.textSize)
+        assertThat(changed.systemFont).isNotEqualTo(defaults.systemFont)
+        assertThat(changed.roomyTargets).isNotEqualTo(defaults.roomyTargets)
     }
 
     @Test
@@ -176,6 +182,10 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(listOf(defaults.loadConversationsAhead, defaults.readElsewhereIsDone, defaults.doubleTapReaction, defaults.swipeToReply, defaults.openAtUnread, defaults.readingMarks, defaults.feedPictures)).doesNotContain(false)
         // Offered later: a failed job still opens on its folded steps.
         assertThat(defaults.openFailedStep).isFalse()
+        // The text as the phone sets it, in Geist; links in their compact lines, as before 2026-11-04.
+        assertThat(defaults.textSize.scale).isEqualTo(1f)
+        assertThat(defaults.systemFont).isFalse()
+        assertThat(defaults.roomyTargets).isFalse()
     }
 
     @Test

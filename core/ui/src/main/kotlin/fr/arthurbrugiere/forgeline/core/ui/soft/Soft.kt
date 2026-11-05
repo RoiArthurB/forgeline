@@ -192,6 +192,20 @@ data class SoftType(
     val gutter: TextStyle = code.copy(fontSize = 11.sp, lineHeight = 18.sp, fontFeatureSettings = "tnum"),
 )
 
+/**
+ * The same roles in [family] instead of Geist, for someone who reads better in the phone's own font: sizes, weights and
+ * spacing stay the design's, and code stays monospace.
+ */
+fun SoftType.inFamily(family: FontFamily): SoftType {
+    fun TextStyle.inIt() = copy(fontFamily = family)
+    return copy(
+        title = title.inIt(), detailTitle = detailTitle.inIt(), hero = hero.inIt(), version = version.inIt(),
+        section = section.inIt(), name = name.inIt(), figure = figure.inIt(), control = control.inIt(), body = body.inIt(),
+        secondary = secondary.inIt(), meta = meta.inIt(), label = label.inIt(), lead = lead.inIt(), rowTitle = rowTitle.inIt(),
+        tag = tag.inIt(),
+    )
+}
+
 val LocalSoftColors = staticCompositionLocalOf { SoftLight }
 val LocalSoftType = staticCompositionLocalOf { SoftType() }
 

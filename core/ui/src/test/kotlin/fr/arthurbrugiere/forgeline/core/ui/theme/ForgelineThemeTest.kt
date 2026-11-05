@@ -6,6 +6,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.text.font.FontFamily
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.model.HeaderStyle
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
@@ -14,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDark
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLight
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftType
 import fr.arthurbrugiere.forgeline.core.ui.soft.bandIsDark
 import org.junit.Rule
 import org.junit.Test
@@ -67,6 +69,34 @@ class ForgelineThemeTest {
         assertThat(typography.titleLarge.fontFamily).isEqualTo(Geist)
         assertThat(typography.bodyLarge.fontFamily).isEqualTo(Geist)
         assertThat(typography.labelLarge.fontFamily).isEqualTo(Geist)
+    }
+
+    @Test
+    fun the_phone_s_own_font_reaches_soft_and_material_text_and_code_stays_monospace() {
+        lateinit var soft: SoftType
+        lateinit var material: Typography
+        composeRule.setContent {
+            ForgelineTheme(darkTheme = false, systemFont = true) {
+                soft = Soft.type
+                material = MaterialTheme.typography
+            }
+        }
+        composeRule.waitForIdle()
+
+        assertThat(listOf(soft.title, soft.body, soft.control, soft.meta, soft.tag).map { it.fontFamily }.toSet()).containsExactly(FontFamily.Default)
+        assertThat(listOf(material.titleLarge, material.bodyLarge, material.labelLarge).map { it.fontFamily }.toSet()).containsExactly(FontFamily.Default)
+        assertThat(listOf(soft.code, soft.codeDense, soft.gutter).map { it.fontFamily }.toSet()).containsExactly(FontFamily.Monospace)
+        // Only the face changes: sizes and weights stay those of the design.
+        assertThat(soft.title.copy(fontFamily = Geist)).isEqualTo(SoftType().title)
+    }
+
+    @Test
+    fun soft_text_is_in_geist_unless_the_phone_s_font_is_asked_for() {
+        lateinit var soft: SoftType
+        composeRule.setContent { ForgelineTheme(darkTheme = false) { soft = Soft.type } }
+        composeRule.waitForIdle()
+
+        assertThat(soft.body.fontFamily).isEqualTo(Geist)
     }
 
     @Test

@@ -30,6 +30,7 @@ import fr.arthurbrugiere.forgeline.navigation.linkRoute
 import fr.arthurbrugiere.forgeline.notifications.EXTRA_LAST_READ_AT
 import fr.arthurbrugiere.forgeline.notifications.EXTRA_UNREAD
 import fr.arthurbrugiere.forgeline.session.SessionViewModel
+import fr.arthurbrugiere.forgeline.ui.AppTextSize
 import fr.arthurbrugiere.forgeline.ui.ForgelineApp
 import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.openInCustomTab
@@ -66,17 +67,20 @@ class MainActivity : ComponentActivity() {
                 darkTheme = darkTheme,
                 amoledBlack = settings.amoledBlack,
                 headerStyle = settings.headerStyle,
+                systemFont = settings.systemFont,
             ) {
                 val session by sessionViewModel.session.collectAsStateWithLifecycle()
                 CompositionLocalProvider(LocalUserSettings provides settings, LocalCodeDarkTheme provides settings.codeTheme.dark) {
-                    ForgelineApp(
-                        session = session,
-                        onSignOut = sessionViewModel::signOut,
-                        link = link,
-                        onLinkOpened = { link = null },
-                        // Not known until the settings are read: the app waits rather than open on the wrong tab.
-                        startTab = (uiState as? MainUiState.Ready)?.settings?.startTab,
-                    )
+                    AppTextSize(settings.textSize) {
+                        ForgelineApp(
+                            session = session,
+                            onSignOut = sessionViewModel::signOut,
+                            link = link,
+                            onLinkOpened = { link = null },
+                            // Not known until the settings are read: the app waits rather than open on the wrong tab.
+                            startTab = (uiState as? MainUiState.Ready)?.settings?.startTab,
+                        )
+                    }
                 }
             }
         }

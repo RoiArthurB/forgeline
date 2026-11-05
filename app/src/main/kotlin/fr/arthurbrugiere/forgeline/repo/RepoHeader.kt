@@ -66,6 +66,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.ui.Avatar
 import fr.arthurbrugiere.forgeline.ui.LocalOpenTopic
+import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 
 @Composable
 internal fun RepoHeader(
@@ -100,13 +101,18 @@ internal fun RepoHeader(
         details.description?.let {
             Text(it, style = Soft.type.lead, color = colors.ink, modifier = Modifier.widthIn(max = SoftTokens.MaxMeasure))
         }
+        // Roomy, the website and each topic are as tall as a finger, taking back the band's spacing so it looks the same;
+        // compact, they keep their own lines.
+        val roomy = LocalUserSettings.current.roomyTargets
+        val tall = if (roomy) 48.dp else 0.dp
+        val giveBack = if (roomy) 10.dp else 0.dp
         details.homepage?.let { url ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 // As tall as a finger, or the topics below would share its near misses; it gives back the band's spacing
                 // above, so it stays with the description it adds to.
-                modifier = Modifier.bleed(top = 10.dp).clip(SoftTokens.Pill).clickable(role = Role.Button) { onLinkClick(url) }.heightIn(min = 48.dp).padding(end = 8.dp),
+                modifier = Modifier.bleed(top = giveBack).clip(SoftTokens.Pill).clickable(role = Role.Button) { onLinkClick(url) }.heightIn(min = tall).padding(end = 8.dp),
             ) {
                 Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(18.dp), tint = colors.accent)
                 Text(url.removePrefix("https://").removePrefix("http://").trimEnd('/'), style = Soft.type.secondary, color = colors.accent)
@@ -114,23 +120,23 @@ internal fun RepoHeader(
         }
         if (details.topics.isNotEmpty()) {
             // One line that scrolls sideways out to the band's edges: a long list neither grows the header nor stacks
-            // its tags into rows too close to tell apart under a finger. Each tag owns a finger's height, drawn as
-            // before; the line gives back what the band's spacing already leaves around it, so the band looks the same.
+            // its tags into rows too close to tell apart under a finger. Roomy, each tag owns a finger's height,
+            // drawn as before, and the line gives back what the band's spacing already leaves around it.
             Row(
-                Modifier.bleed(sides = HeaderInset, top = 10.dp, bottom = 10.dp).horizontalScroll(rememberScrollState()).padding(horizontal = HeaderInset),
+                Modifier.bleed(sides = HeaderInset, top = giveBack, bottom = giveBack).horizontalScroll(rememberScrollState()).padding(horizontal = HeaderInset),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 // Each opens its topic: what else is tagged so, on every forge.
                 val openTopic = LocalOpenTopic.current
                 details.topics.forEach { topic ->
                     if (openTopic == null) {
-                        Box(Modifier.heightIn(min = 48.dp), contentAlignment = Alignment.Center) { SoftTag(topic, background = colors.surface) }
+                        Box(Modifier.heightIn(min = tall), contentAlignment = Alignment.Center) { SoftTag(topic, background = colors.surface) }
                     } else {
-                        // Pressed where it is drawn, tapped anywhere in its finger-tall column.
+                        // Pressed where it is drawn, tapped anywhere in its column (finger-tall when roomy).
                         val press = remember { MutableInteractionSource() }
                         Box(
                             Modifier
-                                .heightIn(min = 48.dp)
+                                .heightIn(min = tall)
                                 .clickable(press, indication = null, role = Role.Button, onClickLabel = stringResource(R.string.topic_open, topic)) { openTopic(topic) },
                             contentAlignment = Alignment.Center,
                         ) {

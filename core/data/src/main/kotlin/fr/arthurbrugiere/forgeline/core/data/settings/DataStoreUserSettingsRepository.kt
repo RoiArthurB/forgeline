@@ -47,6 +47,9 @@ class DataStoreUserSettingsRepository @Inject constructor(
             readingMarks = prefs[READING_MARKS] ?: defaults.readingMarks,
             feedPictures = prefs[FEED_PICTURES] ?: defaults.feedPictures,
             openFailedStep = prefs[OPEN_FAILED_STEP] ?: defaults.openFailedStep,
+            textSize = choice(TEXT_SIZE, defaults.textSize),
+            systemFont = prefs[SYSTEM_FONT] ?: defaults.systemFont,
+            roomyTargets = prefs[ROOMY_TARGETS] ?: defaults.roomyTargets,
             // A hint a later version no longer has is skipped.
             hintsSeen = Hint.entries.filterTo(mutableSetOf()) { it.name in prefs[HINTS_SEEN].orEmpty() },
             themeMode = prefs[THEME_MODE]
@@ -91,6 +94,9 @@ class DataStoreUserSettingsRepository @Inject constructor(
             prefs[READING_MARKS] = wanted.readingMarks
             prefs[FEED_PICTURES] = wanted.feedPictures
             prefs[OPEN_FAILED_STEP] = wanted.openFailedStep
+            prefs[TEXT_SIZE] = wanted.textSize.name
+            prefs[SYSTEM_FONT] = wanted.systemFont
+            prefs[ROOMY_TARGETS] = wanted.roomyTargets
             // Kept: hints seen in a newer version, met again after going back to this one.
             prefs[HINTS_SEEN] = prefs[HINTS_SEEN].orEmpty().filterTo(mutableSetOf()) { name -> Hint.entries.none { it.name == name } } +
                 wanted.hintsSeen.map { it.name }
@@ -152,6 +158,9 @@ class DataStoreUserSettingsRepository @Inject constructor(
         val READING_MARKS = booleanPreferencesKey("reading_marks")
         val FEED_PICTURES = booleanPreferencesKey("feed_pictures")
         val OPEN_FAILED_STEP = booleanPreferencesKey("open_failed_step")
+        val TEXT_SIZE = stringPreferencesKey("text_size")
+        val SYSTEM_FONT = booleanPreferencesKey("system_font")
+        val ROOMY_TARGETS = booleanPreferencesKey("roomy_targets")
         val HINTS_SEEN = stringSetPreferencesKey("hints_seen")
     }
 }

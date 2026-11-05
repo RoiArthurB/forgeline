@@ -30,14 +30,16 @@ class UserScreenTest {
     private val repo = RepoSummary(RepoId("octocat", "Hello-World"), "My first repo", "Kotlin", 2_500, 10, false, null)
     private val base = UserUiState("octocat", profile = userProfile("octocat", name = "The Octocat"), repos = Loadable.Loaded(listOf(repo)))
 
-    private fun setContent(state: UserUiState, signedIn: Boolean = true) {
+    private fun setContent(state: UserUiState, signedIn: Boolean = true, roomy: Boolean = false) {
         composeRule.setContent {
-            UserScreen(
-                state = state, signedIn = signedIn, onBack = {},
-                onSelectTab = { events += "tab:$it" }, onRetry = {}, onToggleFollow = { events += "follow" },
-                onSignIn = { events += "signin" }, onOpenRepo = { events += "repo:${it.fullName}" },
-                onOpenUrl = { events += "url:$it" }, onFollowFailureShown = {},
-            )
+            androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalUserSettings provides fr.arthurbrugiere.forgeline.core.model.UserSettings(roomyTargets = roomy)) {
+                UserScreen(
+                    state = state, signedIn = signedIn, onBack = {},
+                    onSelectTab = { events += "tab:$it" }, onRetry = {}, onToggleFollow = { events += "follow" },
+                    onSignIn = { events += "signin" }, onOpenRepo = { events += "repo:${it.fullName}" },
+                    onOpenUrl = { events += "url:$it" }, onFollowFailureShown = {},
+                )
+            }
         }
     }
 
@@ -92,10 +94,10 @@ class UserScreenTest {
     }
 
     @Test
-    fun each_link_is_a_finger_tall_on_its_own_not_only_by_what_compose_lends_it() {
+    fun with_roomy_links_each_link_is_a_finger_tall_on_its_own_not_only_by_what_compose_lends_it() {
         // Regression: the links were 20dp lines 10dp apart. Compose widens a small target's touch area to 48dp, but two
         // such areas overlap, so a tap between links went to the nearer one and a near miss opened another app.
-        setContent(linked.copy(profile = linked.profile!!.copy(website = "octo.example.org")))
+        setContent(linked.copy(profile = linked.profile!!.copy(website = "octo.example.org")), roomy = true)
 
         val rows = listOf("octo.example.org", "Email, octocat@example.org", "Matrix, @octocat:matrix.org", "Mastodon, @octocat@fosstodon.org").map { name ->
             composeRule.onNode(androidx.compose.ui.test.hasText(name) or androidx.compose.ui.test.hasContentDescription(name)).fetchSemanticsNode().boundsInRoot
@@ -103,6 +105,19 @@ class UserScreenTest {
         val density = composeRule.density.density
         rows.forEach { assertThat(it.height / density).isAtLeast(47.5f) }
         rows.zipWithNext().forEach { (above, below) -> assertThat(below.top).isAtLeast(above.bottom - 0.5f) }
+    }
+
+    @Test
+    fun the_links_keep_their_compact_lines_unless_they_are_asked_to_be_roomy() {
+        setContent(linked.copy(profile = linked.profile!!.copy(website = "octo.example.org")))
+
+        val rows = listOf("octo.example.org", "Email, octocat@example.org", "Matrix, @octocat:matrix.org").map { name ->
+            composeRule.onNode(androidx.compose.ui.test.hasText(name) or androidx.compose.ui.test.hasContentDescription(name)).fetchSemanticsNode().boundsInRoot
+        }
+        val density = composeRule.density.density
+        rows.forEach { assertThat(it.height / density).isAtMost(30f) }
+        // 10dp apart, as before roomy links were offered.
+        rows.zipWithNext().forEach { (above, below) -> assertThat((below.top - above.bottom) / density).isWithin(0.5f).of(10f) }
     }
 
     @Test

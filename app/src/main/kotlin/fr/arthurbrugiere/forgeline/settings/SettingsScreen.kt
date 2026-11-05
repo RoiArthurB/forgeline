@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
+import androidx.compose.material.icons.outlined.Accessibility
 import androidx.compose.material.icons.outlined.DynamicFeed
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Notifications
@@ -60,6 +61,7 @@ import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
 import fr.arthurbrugiere.forgeline.core.model.ShareTap
 import fr.arthurbrugiere.forgeline.core.model.StartTab
 import fr.arthurbrugiere.forgeline.core.model.SwipeAction
+import fr.arthurbrugiere.forgeline.core.model.TextSize
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import fr.arthurbrugiere.forgeline.core.model.UndoDelay
@@ -93,6 +95,7 @@ const val SOURCE_CODE_URL = "https://github.com/RoiArthurB/forgeline"
 enum class SettingsSection(@StringRes val title: Int, val icon: ImageVector) {
     ACCOUNTS(R.string.settings_section_account, Icons.Outlined.Person),
     APPEARANCE(R.string.settings_section_appearance, Icons.Outlined.Palette),
+    ACCESSIBILITY(R.string.settings_section_accessibility, Icons.Outlined.Accessibility),
     INBOX(R.string.settings_section_notifications, Icons.Outlined.Notifications),
     FEED(R.string.settings_section_feed, Icons.Outlined.DynamicFeed),
     TRENDING(R.string.settings_section_trending, Icons.AutoMirrored.Outlined.TrendingUp),
@@ -356,6 +359,32 @@ fun SettingsScreen(
                     )
                 }
             }
+            if (section == SettingsSection.ACCESSIBILITY) {
+                item {
+                    ChoiceItem(
+                        title = stringResource(R.string.settings_text_size),
+                        options = TextSize.entries.map { stringResource(it.label) },
+                        selected = settings.textSize.ordinal,
+                        onSelect = { picked -> onChange { it.copy(textSize = TextSize.entries[picked]) } },
+                    )
+                }
+                item {
+                    SwitchItem(
+                        title = stringResource(R.string.settings_system_font),
+                        summary = stringResource(R.string.settings_system_font_summary),
+                        checked = settings.systemFont,
+                        onCheckedChange = { on -> onChange { it.copy(systemFont = on) } },
+                    )
+                }
+                item {
+                    SwitchItem(
+                        title = stringResource(R.string.settings_roomy_targets),
+                        summary = stringResource(R.string.settings_roomy_targets_summary),
+                        checked = settings.roomyTargets,
+                        onCheckedChange = { on -> onChange { it.copy(roomyTargets = on) } },
+                    )
+                }
+            }
             if (section == SettingsSection.TRENDING) item {
                 ChoiceItem(
                     title = stringResource(R.string.settings_trending_period),
@@ -439,6 +468,7 @@ private fun SettingsSection.summary(session: SessionState, settings: UserSetting
         SessionState.Loading -> null
     }
     SettingsSection.APPEARANCE -> stringResource(settings.themeMode.label)
+    SettingsSection.ACCESSIBILITY -> stringResource(R.string.settings_accessibility_summary)
     SettingsSection.INBOX -> stringResource(R.string.settings_inbox_check_summary, stringResource(settings.inboxCheckInterval.label))
     SettingsSection.FEED -> stringResource(R.string.settings_feed_kinds_summary, settings.feedKinds.size, FeedKind.entries.size)
     SettingsSection.TRENDING -> settings.measuredTrending.takeIf { it.isNotEmpty() }
@@ -451,6 +481,14 @@ private fun SettingsSection.summary(session: SessionState, settings: UserSetting
 
 /** The app's own language as Android keeps it: [tag] is null when it follows the phone's. */
 data class AppLanguageChoice(val tag: String?)
+
+private val TextSize.label: Int
+    get() = when (this) {
+        TextSize.SMALLER -> R.string.text_size_smaller
+        TextSize.PHONE -> R.string.text_size_phone
+        TextSize.LARGER -> R.string.text_size_larger
+        TextSize.LARGEST -> R.string.text_size_largest
+    }
 
 private val StartTab.label: Int
     get() = when (this) {

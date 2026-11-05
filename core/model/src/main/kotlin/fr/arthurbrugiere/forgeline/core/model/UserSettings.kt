@@ -23,6 +23,9 @@ enum class UndoDelay(val millis: Long) { OFF(0), SEC_3(3_000), SEC_5(5_000), SEC
 /** What a tap on a share button does; a long press does the other. */
 enum class ShareTap { SHARE, COPY }
 
+/** How large the app's text is next to the size set on the phone, which it multiplies. */
+enum class TextSize(val scale: Float) { SMALLER(0.9f), PHONE(1f), LARGER(1.15f), LARGEST(1.3f) }
+
 /** A word of help shown the first time something is met, until it is put away. */
 enum class Hint { INBOX_SWIPES, INBOX_PARTICIPATING, INBOX_YOURS }
 
@@ -70,6 +73,15 @@ data class UserSettings(
     val feedPictures: Boolean = true,
     /** A failed job opens on the step it failed at, unfolded, instead of on its folded steps. */
     val openFailedStep: Boolean = false,
+    /** The app's text next to the phone's own size. */
+    val textSize: TextSize = TextSize.PHONE,
+    /** The phone's own font for reading and controls instead of Geist; code stays monospace. */
+    val systemFont: Boolean = false,
+    /**
+     * Links that sit close together (a profile's, a repository's website and topics, a page's repository) each get a
+     * finger's height of their own, so a near miss doesn't open the one next to it. Off, they keep their compact lines.
+     */
+    val roomyTargets: Boolean = false,
     /** The hints put away, never shown again. Not a choice offered in Settings: what has been read. */
     val hintsSeen: Set<Hint> = emptySet(),
 )

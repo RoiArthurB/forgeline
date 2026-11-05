@@ -24,6 +24,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
+import fr.arthurbrugiere.forgeline.core.model.TextSize
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import fr.arthurbrugiere.forgeline.session.SessionState
@@ -370,6 +371,39 @@ class SettingsScreenTest {
         composeRule.onNodeWithText("Mark where you left off").performClick()
 
         assertThat(changed).isEqualTo(UserSettings(openAtUnread = false, readingMarks = false))
+    }
+
+    @Test
+    fun accessibility_has_a_page_of_its_own_on_the_main_list() {
+        setContent()
+
+        composeRule.onNodeWithText("Text size, font and room around links").assertExists()
+        composeRule.onNodeWithText("Accessibility").performClick()
+
+        assertThat(openedSection).isEqualTo(SettingsSection.ACCESSIBILITY)
+    }
+
+    @Test
+    fun the_text_size_is_chosen_under_accessibility() {
+        setContent(section = SettingsSection.ACCESSIBILITY)
+
+        composeRule.onNodeWithText("As on the phone").assertExists()
+        composeRule.onNodeWithText("Text size").performClick()
+        composeRule.onNodeWithText("Larger").performClick()
+
+        assertThat(changed).isEqualTo(UserSettings(textSize = TextSize.LARGER))
+    }
+
+    @Test
+    fun the_phone_s_font_and_roomy_links_switch_on_under_accessibility() {
+        setContent(section = SettingsSection.ACCESSIBILITY)
+
+        composeRule.onNode(hasText("Phone's font", substring = true) and androidx.compose.ui.test.isToggleable()).assertIsOff()
+        composeRule.onNode(hasText("Roomy links", substring = true) and androidx.compose.ui.test.isToggleable()).assertIsOff()
+        composeRule.onNodeWithText("Phone's font").performClick()
+        composeRule.onNodeWithText("Roomy links").performClick()
+
+        assertThat(changed).isEqualTo(UserSettings(systemFont = true, roomyTargets = true))
     }
 
     @Test
