@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
@@ -16,6 +17,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onParent
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import com.google.common.truth.Truth.assertThat
@@ -579,6 +581,25 @@ class RepoScreenTest {
 
         composeRule.assertEveryTargetIsAtLeast48dp()
         composeRule.onNode(hasText("repo") and isHeading()).assertIsDisplayed()
+    }
+
+    @Test
+    fun its_topics_keep_one_line_and_each_topic_and_its_website_are_a_finger_tall_on_their_own() {
+        // Regression: topics were 20dp tags wrapped onto rows 6dp apart, under a 20dp website line. Compose widens a
+        // small target's touch area to 48dp, but those areas overlapped, so a near miss opened the topic beside it.
+        val topics = listOf("agents", "orchestration", "typescript", "ai", "llm", "automation", "workflow", "agent-framework", "cli", "developer-tools")
+        val opened = mutableListOf<String>()
+        setContent(loaded.copy(details = loaded.details!!.copy(homepage = "https://octo.example", topics = topics)), openTopic = { opened += it })
+
+        val density = composeRule.density.density
+        val site = composeRule.onNode(hasText("octo.example") and hasClickAction()).fetchSemanticsNode().boundsInRoot
+        val tags = topics.take(3).map { composeRule.onNode(hasText(it) and hasClickAction()).fetchSemanticsNode().boundsInRoot }
+        (tags + site).forEach { assertThat(it.height / density).isAtLeast(47.5f) }
+        tags.forEach { assertThat(it.top).isAtLeast(site.bottom - 0.5f) }
+        // One line, however many: the ones past the edge are a sideways scroll away.
+        assertThat(tags.map { it.top }.distinct()).hasSize(1)
+        composeRule.onNode(hasText("developer-tools") and hasClickAction()).performScrollTo().performClick()
+        assertThat(opened).containsExactly("developer-tools")
     }
 
     @Test

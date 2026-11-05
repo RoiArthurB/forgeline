@@ -1,7 +1,11 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,12 +36,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -45,6 +52,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.arthurbrugiere.forgeline.R
@@ -96,21 +104,39 @@ internal fun RepoHeader(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.clip(SoftTokens.Pill).clickable { onLinkClick(url) },
+                // As tall as a finger, or the topics below would share its near misses; it gives back the band's spacing
+                // above, so it stays with the description it adds to.
+                modifier = Modifier.bleed(top = 10.dp).clip(SoftTokens.Pill).clickable { onLinkClick(url) }.heightIn(min = 48.dp).padding(end = 8.dp),
             ) {
                 Icon(Icons.Outlined.Link, contentDescription = null, modifier = Modifier.size(18.dp), tint = colors.accent)
                 Text(url.removePrefix("https://").removePrefix("http://").trimEnd('/'), style = Soft.type.secondary, color = colors.accent)
             }
         }
         if (details.topics.isNotEmpty()) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            // One line that scrolls sideways out to the band's edges: a long list neither grows the header nor stacks
+            // its tags into rows too close to tell apart under a finger. Each tag owns a finger's height, drawn as
+            // before; the line gives back what the band's spacing already leaves around it, so the band looks the same.
+            Row(
+                Modifier.bleed(sides = HeaderInset, top = 10.dp, bottom = 10.dp).horizontalScroll(rememberScrollState()).padding(horizontal = HeaderInset),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 // Each opens its topic: what else is tagged so, on every forge.
                 val openTopic = LocalOpenTopic.current
                 details.topics.forEach { topic ->
-                    val tap = openTopic?.let { open ->
-                        Modifier.clip(SoftTokens.TagCorner).clickable(role = Role.Button, onClickLabel = stringResource(R.string.topic_open, topic)) { open(topic) }
+                    if (openTopic == null) {
+                        Box(Modifier.heightIn(min = 48.dp), contentAlignment = Alignment.Center) { SoftTag(topic, background = colors.surface) }
+                    } else {
+                        // Pressed where it is drawn, tapped anywhere in its finger-tall column.
+                        val press = remember { MutableInteractionSource() }
+                        Box(
+                            Modifier
+                                .heightIn(min = 48.dp)
+                                .clickable(press, indication = null, role = Role.Button, onClickLabel = stringResource(R.string.topic_open, topic)) { openTopic(topic) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            SoftTag(topic, modifier = Modifier.clip(SoftTokens.TagCorner).indication(press, LocalIndication.current), background = colors.surface)
+                        }
                     }
-                    SoftTag(topic, modifier = tap ?: Modifier, background = colors.surface)
                 }
             }
         }
@@ -270,4 +296,20 @@ private fun HeaderAction(
 @Composable
 private fun Stat(text: String) {
     Text(text, style = Soft.type.meta, color = Soft.colors.inkMuted)
+}
+
+/** How far the band's content sits in from its edges, which a sideways-scrolling line runs out to. */
+private val HeaderInset = 20.dp
+
+/**
+ * Lays this out [sides] wider than its parent on each side, out to the edges, and [top] and [bottom] shorter, drawn and
+ * tapped there all the same: room the parent's spacing already leaves around it.
+ */
+private fun Modifier.bleed(sides: Dp = 0.dp, top: Dp = 0.dp, bottom: Dp = 0.dp): Modifier = layout { measurable, constraints ->
+    val x = sides.roundToPx()
+    val width = if (constraints.hasBoundedWidth) constraints.maxWidth + 2 * x else constraints.maxWidth
+    val minWidth = if (x > 0 && constraints.hasBoundedWidth) width else constraints.minWidth
+    val placeable = measurable.measure(constraints.copy(minWidth = minWidth, maxWidth = width, minHeight = 0))
+    val trimmed = (placeable.height - top.roundToPx() - bottom.roundToPx()).coerceAtLeast(0)
+    layout((placeable.width - 2 * x).coerceAtLeast(0), trimmed) { placeable.place(-x, -top.roundToPx()) }
 }

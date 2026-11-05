@@ -630,6 +630,16 @@ class ScreenshotTest {
     }
 
     @Test
+    fun repo_many_topics_light() = snapshot("repo_many_topics_light", darkTheme = false, awaitText = "teams of AI agents") {
+        // Topics on one line that scrolls sideways past the edge, under a finger-tall website line.
+        val details = repoState.details!!.copy(
+            homepage = "https://paperclip.ing",
+            topics = listOf("agents", "orchestration", "typescript", "ai", "llm", "automation", "workflow", "agent-framework", "cli", "developer-tools"),
+        )
+        androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalOpenTopic provides {}) { RepoPreview(repoState.copy(details = details)) }
+    }
+
+    @Test
     fun repo_ref_sheet_dark() = snapshot(
         "repo_ref_sheet_dark",
         darkTheme = true,
