@@ -36,10 +36,14 @@ class TangledTrendingApi(
         }
         val since = clock.instant().minus(period.length)
         val gained = coroutineScope { repos.map { async { starsSince(it.did.did, since) } }.awaitAll() }
+        // The index names an owner's picture by its blob's CID (rarely by an address): read as Tangled reads it.
+        val avatars = coroutineScope {
+            repos.map { repo -> async { repo.owner.avatar?.uri ?: identity.avatarOf(repo.owner.did.did, repo.owner.avatarCid?.cid) } }.awaitAll()
+        }
         ForgeResult.Success(
-            repos.zip(gained).map { (repo, periodStars) ->
+            repos.zip(gained).zip(avatars).map { (repoAndStars, avatar) ->
+                val (repo, periodStars) = repoAndStars
                 val owner = repo.owner.handle.handle
-                val avatar = repo.owner.avatar?.uri
                 identity.remember(owner, repo.owner.did.did)
                 TrendingRepo(
                     id = RepoId(owner, repo.slug, forge),

@@ -46,9 +46,10 @@ class TangledRepoApiTest {
             "org.tangled.temp.repo.getRepoByName?name=core&owner=$OWNER_DID",
             "org.tangled.feed.countStars?subject=$REPO_DID",
         )
-        // Handles resolve on Bluesky's public AppView; everything else is Tangled's.
+        // Handles resolve on Bluesky's public AppView, which also has the picture of someone whose Tangled profile names
+        // none; everything else is Tangled's.
         assertThat(fake.requests.first().url.host).isEqualTo("public.api.bsky.app")
-        assertThat(fake.requests.drop(1).map { it.url.host }.toSet()).containsExactly("api.tangled.org")
+        assertThat(fake.requests.drop(1).filterNot { "app.bsky.actor.getProfile" in it.url.encodedPath }.map { it.url.host }.toSet()).containsExactly("api.tangled.org")
     }
 
     @Test

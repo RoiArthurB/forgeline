@@ -36,6 +36,8 @@ class TangledUserApiTest {
         assertThat(profile.followers).isEqualTo(1200)
         assertThat(profile.following).isEqualTo(3)
         assertThat(profile.publicRepos).isEqualTo(14)
+        // Regression: asked by the bare DID, which the index refuses ("regex failure"), so no profile ever read.
+        assertThat(fake.asked).contains("org.tangled.actor.getProfile?actor=at://$OWNER_DID/org.tangled.actor.profile/self")
     }
 
     @Test

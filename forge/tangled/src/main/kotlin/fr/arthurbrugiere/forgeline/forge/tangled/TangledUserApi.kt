@@ -92,18 +92,19 @@ class TangledUserApi internal constructor(
             is ForgeResult.Success -> result.value
         }
         coroutineScope {
-            val profile = async { xrpc.index.getProfile(GetProfileQueryParams(AtUri(did.did))).toResult { it.value.decodeAs<ProfileRecordJson>() } }
+            val profile = async { identity.profile(did.did) }
             val followers = async { count { xrpc.index.countFollows(CountFollowsQueryParams(did)).toResult { it.count } } }
             val following = async { count { xrpc.index.countFollowsBy(CountFollowsByQueryParams(did)).toResult { it.count } } }
             val repos = async { count { xrpc.index.countRepos(CountReposQueryParams(did)).toResult { it.count } } }
             // Someone who never wrote a profile has none: they're still someone, with their handle.
             val record = (profile.await() as? ForgeResult.Success)?.value ?: ProfileRecordJson()
             val links = record.links.filter { it.isNotBlank() }
+            val avatar = identity.avatarOf(did.did, record.avatar?.link)
             ForgeResult.Success(
                 UserProfile(
                     login = login.removePrefix("@"),
                     name = null,
-                    avatarUrl = null,
+                    avatarUrl = avatar,
                     bio = record.description?.takeIf { it.isNotBlank() },
                     company = null,
                     location = record.location?.takeIf { it.isNotBlank() },

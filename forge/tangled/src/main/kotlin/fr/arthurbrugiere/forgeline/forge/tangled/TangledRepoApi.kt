@@ -73,10 +73,11 @@ class TangledRepoApi(
             is ForgeResult.Success -> result.value
         }
         val did = repo.repoDid
-        val (stars, forks) = coroutineScope {
+        val (stars, forks, ownerAvatar) = coroutineScope {
+            val ownerAvatar = async { (identity.did(id.owner) as? ForgeResult.Success)?.value?.let { identity.avatar(it) } }
             val stars = async { did?.let { count { xrpc.index.countStars(CountStarsQueryParams(did)).toResult { it.count } } } ?: 0 }
             val forks = async { did?.let { count { asDid(did).then { xrpc.index.countForks(CountForksQueryParams(it)).toResult { answer -> answer.count } } } } ?: 0 }
-            stars.await() to forks.await()
+            Triple(stars.await(), forks.await(), ownerAvatar.await())
         }
         val git = repo.git
         ForgeResult.Success(
@@ -91,7 +92,7 @@ class TangledRepoApi(
                 language = git?.languages?.maxByOrNull { it.size }?.name,
                 license = null,
                 defaultBranch = git?.defaultBranch ?: "main",
-                ownerAvatarUrl = null,
+                ownerAvatarUrl = ownerAvatar,
                 isFork = repo.record.source != null,
                 isArchived = false,
                 pushedAt = null,

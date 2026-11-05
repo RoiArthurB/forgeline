@@ -67,9 +67,13 @@ class TangledAccount(
             is ForgeResult.Failure -> return@forgeCall server
             is ForgeResult.Success -> server.value
         }
-        xrpc.server(pds, token).getSession().toResult { session ->
-            identity.remember(session.handle.handle, session.did.did)
-            ForgeUser(session.handle.handle, null, null)
+        when (val session = xrpc.server(pds, token).getSession().toResult { it.handle.handle to it.did.did }) {
+            is ForgeResult.Failure -> session
+            is ForgeResult.Success -> {
+                val (handle, sessionDid) = session.value
+                identity.remember(handle, sessionDid)
+                ForgeResult.Success(ForgeUser(handle, null, identity.avatar(sessionDid)))
+            }
         }
     }
 

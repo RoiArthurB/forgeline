@@ -57,7 +57,22 @@ internal data class ProfileRecordJson(
     val location: String? = null,
     val links: List<String> = emptyList(),
     val isOrganization: Boolean = false,
+    /** The profile picture, a blob kept on the person's own server. */
+    val avatar: BlobJson? = null,
 )
+
+/** A blob a record names: by `ref.$link` as records write it now, or by `cid` as early ones did. */
+@Serializable
+internal data class BlobJson(val ref: BlobRefJson? = null, val cid: String? = null) {
+    val link: String? get() = ref?.link ?: cid
+}
+
+@Serializable
+internal data class BlobRefJson(@kotlinx.serialization.SerialName("\$link") val link: String? = null)
+
+/** What Bluesky's public AppView says of someone: only their picture is read. */
+@Serializable
+internal data class BlueskyProfileJson(val avatar: String? = null)
 
 /** The last part of an AT URI, `at://did/collection/<rkey>`. */
 internal val String.recordKey: String get() = substringAfterLast('/')

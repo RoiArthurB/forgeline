@@ -62,4 +62,16 @@ class TangledLiveTest {
         assertThat(users.user(null, "tangled.org").value().login).isEqualTo("tangled.org")
         assertThat(users.repos(null, "tangled.org", mine = false, organization = false).value().map { it.id.name }).contains("core")
     }
+
+    @Test
+    fun a_profile_record_reads_and_people_have_their_pictures() = runBlocking<Unit> {
+        // oppi.li keeps a Tangled profile with a description (as of 2026-11-05), and a picture on Bluesky or Tangled.
+        val profile = TangledUserApi(xrpc, identity).user(null, "oppi.li").value()
+
+        assertThat(profile.bio).isNotEmpty()
+        assertThat(profile.avatarUrl).startsWith("https://")
+        // Trending's owners are named with a picture's CID, or nothing: most have one.
+        val trending = TangledTrendingApi(xrpc, identity).trending(TrendingPeriod.MONTHLY).value()
+        assertThat(trending.count { it.ownerAvatarUrl != null }).isGreaterThan(0)
+    }
 }

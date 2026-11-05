@@ -19,7 +19,8 @@ As Tangled serves everything it holds publicly:
 
 - **Trending:** Tangled's own trending repositories (`org.tangled.actor.getTrending`, as many as it gives), mixed into the Trending page and shown whole: Tangled already picked them, so the page's star floor doesn't apply to them (`ForgeType.curatesTrending`). Tangled doesn't say for which period, so what each gained today, this week or this month is counted from its stars' dates (`org.tangled.feed.listStars`), for the row's count and its place on the mixed page.
 - **Repositories:** description, website, topics, stars and forks, languages, README, files and folders, any file, branches and tags. The handle is resolved to a DID (`com.atproto.identity.resolveHandle`, on Bluesky's public AppView, which resolves any handle), the repository found by owner and name (`org.tangled.temp.repo.getRepoByName`), and its git read by the repository's own DID (`org.tangled.temp.git.getTree`, `getBlob`, `listBranches`, `listTags`). Since 2026-11 the index serves every repository as an `org.tangled.repo.manifest` record kept under that DID (`at://<repository DID>/org.tangled.repo.manifest/self`), naming the repository and its owner in `declaration`; former `sh.tangled.repo` records, kept by the owner and naming the DID as `repoDid`, are still read.
-- **People:** a profile's description, location and links, who follows them and whom they follow (counts), and their repositories.
+- **People:** a profile's description, location and links (its record asked by its own address, `at://<DID>/org.tangled.actor.profile/self`: the index refuses a bare DID), who follows them and whom they follow (counts), and their repositories.
+- **Pictures:** found as Tangled's own avatar service finds them (`avatar/src/index.js` in `tangled.org/core`, read 2026-11-05): the blob the person's Tangled profile names (`avatar`, or `avatarCid` in the index's views), served by their own server (`com.atproto.sync.getBlob`), or else their Bluesky picture (`app.bsky.actor.getProfile` on Bluesky's public AppView). Tangled's web app serves them through signed addresses (`avatar.tangled.sh/<signature>/<DID>`) that only it can make. Shown on profiles, a repository's owner, Trending and the signed-in account.
 - **Links:** `tangled.org/<handle>`, `tangled.org/<handle>/<repo>` and a file's page (`/blob/<ref>/<path>`) open in the app; `@handle` works too.
 
 ## What doesn't, yet
@@ -31,7 +32,7 @@ As Tangled serves everything it holds publicly:
 | Releases | Tangled has tags with notes, not releases | The tab is hidden (`RepoDetails.listsReleases`) |
 | CI (spindles) | Pipelines are records on the knot, not in the index | No Actions tab |
 | Feed, Inbox, search, watching | Not in the index | Not offered |
-| Avatars and display names | Tangled has neither in its profile record | The handle is shown |
+| Display names | Tangled's profile record has none | The handle is shown |
 
 ## Where it comes from
 
