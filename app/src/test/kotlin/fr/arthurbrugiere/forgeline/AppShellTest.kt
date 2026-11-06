@@ -56,13 +56,13 @@ class AppShellTest {
     @Test
     fun the_signed_out_walls_name_every_forge_and_lead_back_to_trending() {
         tab("Inbox").performClick()
-        // GitLab, Codeberg and self-hosted Forgejo work too: the wall must not say GitHub alone, nor leave GitLab out.
-        composeRule.onNodeWithText("GitHub, GitLab, Codeberg or your own Forgejo", substring = true).assertIsDisplayed()
+        // GitLab, Codeberg, Gitea and self-hosted Forgejo work too: the wall must not say GitHub alone, nor leave GitLab out.
+        composeRule.onNodeWithText("GitHub, GitLab, Codeberg, Gitea or your own Forgejo", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("Browse Trending").performClick()
         tab("Trending").assertIsSelected()
 
         tab("Feed").performClick()
-        composeRule.onNodeWithText("GitHub, GitLab, Codeberg or your own Forgejo", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("GitHub, GitLab, Codeberg, Gitea or your own Forgejo", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("Browse Trending").performClick()
         tab("Trending").assertIsSelected()
     }
