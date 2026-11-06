@@ -9,7 +9,7 @@ tasks.test {
     systemProperty("forgeline.repoRoot", repoRoot.absolutePath)
     inputs.files(
         fileTree(repoRoot) {
-            include(".github/**", "site/index.html", "gradle.properties", "gradle/*.properties", "build-logic/convention/src/**")
+            include(".github/**", "site/index.html", "app/build.gradle.kts", "gradle.properties", "gradle/*.properties", "build-logic/convention/src/**")
             include("**/src/test/**/*.kt")
             include("app/src/main/**/*.kt", "core/ui/src/main/**/*.kt")
             exclude("**/build/**", ".gradle/**", "config-checks/**")

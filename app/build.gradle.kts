@@ -41,6 +41,13 @@ android {
         buildConfig = true
     }
 
+    dependenciesInfo {
+        // The APK would carry the dependency list encrypted with Google Play's key: an unreadable blob that
+        // F-Droid and IzzyOnDroid flag. The bundle, which only Play takes, keeps it.
+        includeInApk = false
+        includeInBundle = true
+    }
+
     val keystorePath = providers.environmentVariable("FORGELINE_KEYSTORE_PATH")
     if (keystorePath.isPresent) {
         signingConfigs {

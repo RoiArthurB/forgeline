@@ -18,6 +18,13 @@ class GradleSetupTest {
     }
 
     @Test
+    fun the_apk_carries_no_dependency_block_only_google_can_read() {
+        // F-Droid and IzzyOnDroid flag the dependency list AGP encrypts with Google Play's key into every APK.
+        val app = Repo.text("app/build.gradle.kts")
+        assertThat(app).containsMatch("""dependenciesInfo \{[^}]*includeInApk = false""")
+    }
+
+    @Test
     fun pure_kotlin_modules_run_their_tests_under_the_ci_unit_test_task() {
         // CI runs `testDebugUnitTest`, which only Android modules had: the pure Kotlin modules'
         // tests (including the GitHub API ones) silently never ran in CI.
