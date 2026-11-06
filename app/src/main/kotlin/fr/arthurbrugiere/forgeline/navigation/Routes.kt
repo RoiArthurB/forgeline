@@ -41,8 +41,18 @@ data class RepoRoute(val host: String, val owner: String, val name: String) : Na
 }
 
 @Serializable
-data class FileRoute(val host: String, val owner: String, val name: String, val path: String, val ref: String) : NavKey {
+data class FileRoute(
+    val host: String,
+    val owner: String,
+    val name: String,
+    val path: String,
+    val ref: String,
+    /** The lines a link named (`#L42-L60`), first to last: the file opens on them, marked. */
+    val firstLine: Int? = null,
+    val lastLine: Int? = null,
+) : NavKey {
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
+    val lines: IntRange? get() = firstLine?.let { it..(lastLine ?: it) }
 }
 
 /** One discussion of a repository, by its number. */

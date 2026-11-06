@@ -31,7 +31,7 @@ class ForgeLinksTest {
         assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/blob/master/README.md"))
             .isEqualTo(FileRoute("github.com", "square", "okhttp", path = "README.md", ref = "master"))
         assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/blob/master/docs/src/Main.kt#L10"))
-            .isEqualTo(FileRoute("github.com", "square", "okhttp", path = "docs/src/Main.kt", ref = "master"))
+            .isEqualTo(FileRoute("github.com", "square", "okhttp", path = "docs/src/Main.kt", ref = "master", firstLine = 10, lastLine = 10))
         assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/blob/master/docs/My%20Guide.md"))
             .isEqualTo(FileRoute("github.com", "square", "okhttp", path = "docs/My Guide.md", ref = "master"))
         assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/forgejo/src/branch/forgejo/CONTRIBUTING.md"))
@@ -40,6 +40,36 @@ class ForgeLinksTest {
             .isEqualTo(FileRoute("codeberg.org", "forgejo", "forgejo", path = "docs/a.md", ref = "v9.0.0"))
         assertThat(ForgeLinks.routeFor("https://gitlab.com/group/subgroup/project/-/blob/main/docs/GUIDE.md"))
             .isEqualTo(FileRoute("gitlab.com", "group/subgroup", "project", path = "docs/GUIDE.md", ref = "main"))
+    }
+
+    @Test
+    fun a_link_to_lines_opens_the_file_on_them_as_each_forge_writes_them() {
+        assertThat(ForgeLinks.routeFor("https://github.com/square/okhttp/blob/master/Main.kt#L42-L60")?.let { (it as FileRoute).lines })
+            .isEqualTo(42..60)
+        assertThat(ForgeLinks.routeFor("https://gitlab.com/group/project/-/blob/main/Main.kt#L42-60")?.let { (it as FileRoute).lines })
+            .isEqualTo(42..60)
+        assertThat(ForgeLinks.routeFor("https://codeberg.org/forgejo/forgejo/src/branch/forgejo/Main.go#L7-L9")?.let { (it as FileRoute).lines })
+            .isEqualTo(7..9)
+        assertThat(ForgeLinks.routeFor("https://git.sr.ht/~sircmpwn/scdoc/tree/master/item/src/main.c#L12")?.let { (it as FileRoute).lines })
+            .isEqualTo(12..12)
+    }
+
+    @Test
+    fun line_anchors_read_columns_backwards_runs_and_nonsense() {
+        assertThat(ForgeLinks.linesOf("L42C3-L60C9")).isEqualTo(42..60)
+        assertThat(ForgeLinks.linesOf("L60-L42")).isEqualTo(42..60)
+        assertThat(ForgeLinks.linesOf("L0")).isNull()
+        assertThat(ForgeLinks.linesOf("installation")).isNull()
+        assertThat(ForgeLinks.linesOf("L12abc")).isNull()
+        assertThat(ForgeLinks.linesOf(null)).isNull()
+    }
+
+    @Test
+    fun a_tapped_link_to_lines_hands_them_on() {
+        val opened = mutableListOf<String>()
+        val url = "https://github.com/octo/repo/blob/main/src/Main.kt#L3-L5"
+        openForgeLink(url, ForgeInstance.GitHub, {}, {}, {}, {}, onOpenFile = { _, path, _, lines -> opened += "$path:$lines" })
+        assertThat(opened).containsExactly("src/Main.kt:3..5")
     }
 
     @Test
@@ -56,7 +86,7 @@ class ForgeLinksTest {
     fun a_tapped_file_link_opens_the_file_in_app_and_on_its_forge_outside_the_shell() {
         val opened = mutableListOf<String>()
         val url = "https://github.com/octo/repo/blob/main/docs/GUIDE.md"
-        openForgeLink(url, ForgeInstance.GitHub, { opened += "repo" }, { opened += "issue" }, { opened += "user" }, { opened += "browser:$it" }, onOpenFile = { repo, path, ref -> opened += "file:${repo.fullName}@$ref:$path" })
+        openForgeLink(url, ForgeInstance.GitHub, { opened += "repo" }, { opened += "issue" }, { opened += "user" }, { opened += "browser:$it" }, onOpenFile = { repo, path, ref, lines -> opened += "file:${repo.fullName}@$ref:$path" + (lines?.let { "#$it" } ?: "") })
         openForgeLink(url, ForgeInstance.GitHub, { opened += "repo" }, { opened += "issue" }, { opened += "user" }, { opened += "browser:$it" })
         assertThat(opened).containsExactly("file:octo/repo@main:docs/GUIDE.md", "browser:$url").inOrder()
     }

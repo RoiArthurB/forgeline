@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.DisableSelection
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -82,6 +83,9 @@ import kotlinx.coroutines.withContext
 const val CODE_HIGHLIGHTED_TAG = "code-highlighted"
 const val CODE_PLAIN_TAG = "code-plain"
 
+/** Marks each line a link named, which the file opens on. */
+const val CODE_LINKED_LINE_TAG = "code-linked-line"
+
 @Composable
 fun FileRoute(
     route: FileRoute,
@@ -116,6 +120,7 @@ fun FileRoute(
         onCopy = { text -> scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(target.name, text))) } },
         onOpenHistory = { onOpenHistory(target) },
         onOpenBlame = { onOpenBlame(target) },
+        lines = route.lines,
     )
 }
 
@@ -131,6 +136,8 @@ fun FileScreen(
     modifier: Modifier = Modifier,
     onOpenHistory: () -> Unit = {},
     onOpenBlame: () -> Unit = {},
+    /** The lines a link named, if it named any: the file opens on them, marked. */
+    lines: IntRange? = null,
 ) {
     val colors = Soft.colors
     val content = state.content
@@ -203,10 +210,11 @@ fun FileScreen(
                         onAction = { onOpenInBrowser(state.webUrl) },
                     )
                     // The whole path, since some languages are told by where a file sits (.github/workflows/*.yml).
-                    is FileContent.Text -> if (CodeHighlighter.isMarkdown(state.target.path)) {
+                    // A link to lines of a Markdown file means its source (as `?plain=1` does on GitHub): it shows as code.
+                    is FileContent.Text -> if (CodeHighlighter.isMarkdown(state.target.path) && lines == null) {
                         MarkdownFile(file.text, state, onLinkClick)
                     } else {
-                        CodeFile(file.text, state.target.path)
+                        CodeFile(file.text, state.target.path, lines)
                     }
                 }
             }
@@ -231,7 +239,7 @@ private fun MarkdownFile(text: String, state: FileUiState, onLinkClick: (String)
 }
 
 @Composable
-private fun CodeFile(text: String, path: String) {
+private fun CodeFile(text: String, path: String, linked: IntRange? = null) {
     // The code theme's colors, page included: the Code theme setting may show code light in a dark app, or dark in a light one.
     val colors = currentCodeColors
     val darkTheme = colors.isDark
@@ -243,14 +251,19 @@ private fun CodeFile(text: String, path: String) {
     val code = Soft.type.code
     // The numbers' column and the 12dp before the code: 9dp a figure at the usual size, as wide as they are at a larger one.
     val gutter = lineNumberWidth(lines.size, code, floor = (lines.size.toString().length * 9 + 8).dp) + 12.dp
+    // Opened on the lines a link named, with two lines before them to read them in.
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = linked?.let { (it.first - 3).coerceIn(0, (lines.size - 1).coerceAtLeast(0)) } ?: 0)
     // A long press selects the code, to copy a part of it; the line numbers stay out of what is copied.
     SelectionContainer {
         LazyColumn(
-            Modifier.fillMaxSize().background(colors.ground).testTag(if (highlighted != null) CODE_HIGHLIGHTED_TAG else CODE_PLAIN_TAG),
+            state = listState,
+            modifier = Modifier.fillMaxSize().background(colors.ground).testTag(if (highlighted != null) CODE_HIGHLIGHTED_TAG else CODE_PLAIN_TAG),
             contentPadding = PaddingValues(top = 12.dp, bottom = listBottomPadding()),
         ) {
             itemsIndexed(lines) { index, line ->
-                Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp)) {
+                val marked = linked != null && index + 1 in linked
+                val mark = if (marked) Modifier.background(colors.accentSoft).testTag(CODE_LINKED_LINE_TAG) else Modifier
+                Row(Modifier.fillMaxWidth().then(mark).padding(start = 4.dp, end = 16.dp)) {
                     DisableSelection {
                         Text(
                             "${index + 1}",

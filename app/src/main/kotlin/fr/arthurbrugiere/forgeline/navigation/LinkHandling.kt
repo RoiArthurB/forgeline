@@ -28,11 +28,11 @@ fun openForgeLink(
     /** Null where a topic's page isn't offered: it then opens on its forge. */
     onOpenTopic: ((String) -> Unit)? = null,
     /** Null outside the app shell: a file then opens on its forge. */
-    onOpenFile: ((RepoId, path: String, ref: String) -> Unit)? = null,
+    onOpenFile: ((RepoId, path: String, ref: String, lines: IntRange?) -> Unit)? = null,
 ) {
     when (val target = ForgeLinks.routeFor(url)) {
         is RepoRoute -> onOpenRepo(target.repo)
-        is FileRoute -> if (onOpenFile != null) onOpenFile(target.repo, target.path, target.ref) else openUrl(url)
+        is FileRoute -> if (onOpenFile != null) onOpenFile(target.repo, target.path, target.ref, target.lines) else openUrl(url)
         is IssueRoute -> onOpenIssue(target.issue)
         is ReleaseRoute -> if (onOpenRelease != null) onOpenRelease(target.repo, target.tag) else onOpenRepo(target.repo)
         is DiscussionRoute -> if (onOpenDiscussion != null) onOpenDiscussion(target.repo, target.number) else openUrl(url)
