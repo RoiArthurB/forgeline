@@ -1,12 +1,17 @@
 package fr.arthurbrugiere.forgeline.core.markdown
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
+import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -73,6 +78,47 @@ class ForgelineMarkdownTest {
         } finally {
             coil3.SingletonImageLoader.reset()
         }
+    }
+
+    @Test
+    fun a_code_block_copies_whole_from_its_button() {
+        var clipboard: androidx.compose.ui.platform.Clipboard? = null
+        composeRule.setContent {
+            ForgelineTheme {
+                clipboard = LocalClipboard.current
+                CompositionLocalProvider(LocalCopyCodeLabel provides "Copy code") {
+                    ForgelineMarkdown(parseForgeMarkdown("Run:\n\n```sh\n./gradlew build\n./gradlew test\n```"), onLinkClick = {}, selectable = true)
+                }
+            }
+        }
+
+        composeRule.onNodeWithTag(MARKDOWN_COPY_CODE_TAG).performClick()
+        composeRule.waitForIdle()
+
+        val copied = runBlocking { clipboard!!.getClipEntry() }?.clipData?.getItemAt(0)?.text?.toString()
+        assertThat(copied).isEqualTo("./gradlew build\n./gradlew test")
+    }
+
+    @Test
+    fun without_a_label_code_blocks_have_no_copy_button() {
+        composeRule.setContent {
+            ForgelineTheme { ForgelineMarkdown(parseForgeMarkdown("```\nval x = 1\n```"), onLinkClick = {}) }
+        }
+
+        composeRule.onNodeWithText("val x = 1", substring = true).assertIsDisplayed()
+        assertThat(composeRule.onAllNodesWithTag(MARKDOWN_COPY_CODE_TAG).fetchSemanticsNodes()).isEmpty()
+    }
+
+    @Test
+    fun selectable_text_still_routes_link_taps_to_the_app() {
+        val clicked = mutableListOf<String>()
+        composeRule.setContent {
+            ForgelineTheme { ForgelineMarkdown(parseForgeMarkdown("Read the [guide](https://example.com/guide)."), onLinkClick = { clicked += it }, selectable = true) }
+        }
+
+        composeRule.onNodeWithText("guide", substring = true).performClick()
+
+        assertThat(clicked).containsExactly("https://example.com/guide")
     }
 
     private fun withPictures(text: String, opened: MutableList<String>?) = composeRule.setContent {

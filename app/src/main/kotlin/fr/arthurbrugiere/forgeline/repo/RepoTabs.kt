@@ -182,7 +182,7 @@ internal fun ReadmeBody(markdown: String, context: ReadmeContext, onLinkClick: (
             CircularProgressIndicator(color = Soft.colors.accent, trackColor = Soft.colors.surface)
         }
     } else {
-        ForgelineMarkdown(parsed, onLinkClick, Modifier.widthIn(max = SoftTokens.MaxReadingWidth).padding(horizontal = 20.dp, vertical = 12.dp))
+        ForgelineMarkdown(parsed, onLinkClick, Modifier.widthIn(max = SoftTokens.MaxReadingWidth).padding(horizontal = 20.dp, vertical = 12.dp), selectable = true)
     }
 }
 

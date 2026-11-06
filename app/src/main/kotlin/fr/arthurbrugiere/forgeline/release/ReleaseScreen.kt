@@ -298,7 +298,7 @@ private fun Notes(markdown: String, context: ReadmeContext, onLinkClick: (String
             CircularProgressIndicator(color = Soft.colors.accent, trackColor = Soft.colors.surface)
         }
     } else {
-        ForgelineMarkdown(parsed, onLinkClick, Section.padding(horizontal = 20.dp, vertical = 12.dp))
+        ForgelineMarkdown(parsed, onLinkClick, Section.padding(horizontal = 20.dp, vertical = 12.dp), selectable = true)
     }
 }
 
