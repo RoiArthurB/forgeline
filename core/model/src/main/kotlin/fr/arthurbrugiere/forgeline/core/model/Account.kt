@@ -38,6 +38,29 @@ data class ForgeInstance(val type: ForgeType, val host: String) {
     /** Where the forge's web pages live, without a trailing `/`. */
     val webUrl: String get() = "https://$host"
 
+    /**
+     * The server's address alone. A forge installed under a path of its server (Forgejo's `ROOT_URL`, GitLab's relative
+     * URL root) keeps that path in [host], as `example.org/git`; this is `example.org`.
+     */
+    val server: String get() = host.substringBefore('/')
+
+    /**
+     * The path of a page of this forge from where the forge starts, `/owner/name` for `example.org/git/owner/name`
+     * when [host] is `example.org/git`; null when a URL at [urlHost] with [path] isn't one of its pages. [path] is a
+     * URL's own, raw or decoded, starting with `/` (or empty).
+     */
+    fun pathOf(urlHost: String?, path: String): String? {
+        if (urlHost?.lowercase()?.removePrefix("www.") != server) return null
+        val base = host.substringAfter('/', "")
+        if (base.isEmpty()) return path
+        val prefix = "/$base"
+        return when {
+            path.trimEnd('/').equals(prefix, ignoreCase = true) -> path.substring(prefix.length)
+            path.startsWith("$prefix/", ignoreCase = true) -> path.substring(prefix.length)
+            else -> null
+        }
+    }
+
     /** How people call it: GitHub, Codeberg, or a self-hosted instance's host. */
     val displayName: String
         get() = when (this) {

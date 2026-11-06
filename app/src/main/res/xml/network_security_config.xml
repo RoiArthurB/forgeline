@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Self-hosted forges often sit behind a private certificate authority (a homelab's step-ca or Caddy, a company's
+    own root). Android ignores the authorities a person installs unless the app opts in, so such a server failed as if
+    it were offline. The phone's own authorities still come first; cleartext stays off.
+-->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" tools:ignore="AcceptsUserCertificates" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

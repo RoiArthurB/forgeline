@@ -574,7 +574,8 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
         val link = COMMIT_LINK.find(body.orEmpty())
         val path = link?.groupValues?.get(1)?.takeIf { it.startsWith("/") }
         val message = link?.groupValues?.get(2)?.let(::withoutEntities)?.ifBlank { null }
-        return ClosingCommit(sha, message, "https://${forge.host}${path ?: "/commit/$sha"}")
+        // The link's path is from the server's root, a server installed under a path (example.org/git) included.
+        return ClosingCommit(sha, message, path?.let { "https://${forge.server}$it" } ?: "${forge.webUrl}/commit/$sha")
     }
 
     private fun TimelineComment.toItem(reviewStates: Map<Long, ReviewState>, home: RepoId): TimelineItem? {

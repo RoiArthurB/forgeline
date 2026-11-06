@@ -32,10 +32,11 @@ fun authenticatedPicture(url: String, access: List<PictureAccess>): Authenticate
         when (forge.type) {
             ForgeType.GITHUB -> if (host == GITHUB_RAW_HOST) return AuthenticatedPicture(url, AUTHORIZATION, "token $token")
             // /owner/name/raw/branch/<ref>/<path>, and the same under /media/ for files kept in LFS.
-            ForgeType.FORGEJO, ForgeType.GITEA -> if (host == forge.host && path.split('/').getOrNull(3) in setOf("raw", "media")) {
+            // A server installed under a path (example.org/git) reads its files from there.
+            ForgeType.FORGEJO, ForgeType.GITEA -> if (forge.pathOf(host, path)?.split('/')?.getOrNull(3) in setOf("raw", "media")) {
                 return AuthenticatedPicture(url, AUTHORIZATION, "token $token")
             }
-            ForgeType.GITLAB -> if (host == forge.host) gitLabApiFile(forge, path)?.let { return AuthenticatedPicture(it, AUTHORIZATION, "Bearer $token") }
+            ForgeType.GITLAB -> forge.pathOf(host, path)?.let { gitLabApiFile(forge, it) }?.let { return AuthenticatedPicture(it, AUTHORIZATION, "Bearer $token") }
             // Tangled serves every repository's files publicly: its pictures need no token.
             ForgeType.TANGLED -> Unit
             // git.sr.ht's file pages take a browser's session, not a token: a private repository's pictures stay out.

@@ -374,6 +374,21 @@ class ForgeLinksTest {
     }
 
     @Test
+    fun a_server_installed_under_a_path_opens_only_what_lies_under_it() {
+        KnownForges.remember(ForgeInstance(ForgeType.FORGEJO, "example.org/git"))
+        KnownForges.remember(ForgeInstance(ForgeType.GITLAB, "example.org/lab"))
+
+        assertThat(ForgeLinks.routeFor("https://example.org/git/alice/tool/issues/3")).isEqualTo(IssueRoute("example.org/git", "alice", "tool", 3))
+        assertThat(ForgeLinks.routeFor("https://example.org/git/alice/tool/src/branch/main/README.md"))
+            .isEqualTo(FileRoute("example.org/git", "alice", "tool", path = "README.md", ref = "main"))
+        assertThat(ForgeLinks.routeFor("https://example.org/lab/group/tool/-/merge_requests/8"))
+            .isEqualTo(IssueRoute("example.org/lab", "group", "tool", 8, isPullRequest = true))
+        // The rest of the server isn't the forge's.
+        assertThat(ForgeLinks.routeFor("https://example.org/blog/2026/hello")).isNull()
+        assertThat(ForgeLinks.routeFor("https://example.org/git/explore/repos")).isNull()
+    }
+
+    @Test
     fun a_server_never_signed_in_to_stays_on_the_web() {
         KnownForges.remember(ForgeInstance(ForgeType.FORGEJO, "git.example.org"))
 

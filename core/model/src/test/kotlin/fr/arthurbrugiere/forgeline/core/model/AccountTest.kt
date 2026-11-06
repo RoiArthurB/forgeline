@@ -19,4 +19,28 @@ class AccountTest {
         assertThat(Account.idFor(ForgeInstance.Codeberg, "octocat")).isEqualTo("forgejo:codeberg.org:octocat")
         assertThat(Account.idFor(ForgeInstance.Codeberg, "octocat")).isNotEqualTo(Account.idFor(ForgeInstance.GitHub, "octocat"))
     }
+
+    @Test
+    fun a_forge_at_the_root_of_its_server_owns_every_path_there() {
+        val forge = ForgeInstance(ForgeType.FORGEJO, "git.example.org")
+
+        assertThat(forge.server).isEqualTo("git.example.org")
+        assertThat(forge.pathOf("git.example.org", "/acme/rocket")).isEqualTo("/acme/rocket")
+        assertThat(forge.pathOf("www.git.example.org", "/acme")).isEqualTo("/acme")
+        assertThat(forge.pathOf("example.org", "/acme")).isNull()
+    }
+
+    @Test
+    fun a_forge_under_a_path_owns_only_what_lies_under_it() {
+        val forge = ForgeInstance(ForgeType.FORGEJO, "example.org/git")
+
+        assertThat(forge.server).isEqualTo("example.org")
+        assertThat(forge.webUrl).isEqualTo("https://example.org/git")
+        assertThat(forge.pathOf("example.org", "/git/acme/rocket")).isEqualTo("/acme/rocket")
+        assertThat(forge.pathOf("Example.org", "/Git/acme")).isEqualTo("/acme")
+        assertThat(forge.pathOf("example.org", "/git")).isEmpty()
+        assertThat(forge.pathOf("example.org", "/git/")).isEqualTo("/")
+        assertThat(forge.pathOf("example.org", "/gitea/acme")).isNull()
+        assertThat(forge.pathOf("example.org", "/acme/rocket")).isNull()
+    }
 }
