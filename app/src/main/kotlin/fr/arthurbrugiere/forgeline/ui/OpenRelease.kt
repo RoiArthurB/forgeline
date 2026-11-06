@@ -19,4 +19,4 @@ val LocalOpenTopic = compositionLocalOf<((String) -> Unit)?> { null }
 val LocalOpenCommit = compositionLocalOf<((RepoId, String) -> Unit)?> { null }
 
 /** Opens a file of a repository at a ref, as a README's link to it; null outside the app shell, where it opens on its forge. */
-val LocalOpenFile = compositionLocalOf<((RepoId, String, String) -> Unit)?> { null }
+val LocalOpenFile = compositionLocalOf<((RepoId, String, String, IntRange?) -> Unit)?> { null }

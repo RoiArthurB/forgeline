@@ -214,8 +214,22 @@ object ForgeLinks {
      */
     private fun fileRoute(host: String, owner: String, name: String, uri: URI, rest: List<String>): FileRoute? {
         if (rest.size < 2 || uri.path.orEmpty().endsWith("/")) return null
-        return FileRoute(host, owner, name, path = rest.drop(1).joinToString("/"), ref = rest[0])
+        val lines = linesOf(uri.rawFragment)
+        return FileRoute(host, owner, name, path = rest.drop(1).joinToString("/"), ref = rest[0], firstLine = lines?.first, lastLine = lines?.last)
     }
+
+    /**
+     * The lines a file's address names after `#`: `L42`, or a run of them as GitHub, Forgejo and Gitea write it
+     * (`L42-L60`, columns too: `L42C3-L60C9`) and as GitLab does (`L42-60`). Backwards, the run is read forwards.
+     */
+    internal fun linesOf(fragment: String?): IntRange? {
+        val match = LINES.matchEntire(fragment ?: return null) ?: return null
+        val first = match.groupValues[1].toIntOrNull()?.takeIf { it > 0 } ?: return null
+        val last = match.groupValues[2].takeIf { it.isNotEmpty() }?.toIntOrNull()?.takeIf { it > 0 } ?: first
+        return minOf(first, last)..maxOf(first, last)
+    }
+
+    private val LINES = Regex("L(\\d{1,7})(?:C\\d+)?(?:-L?(\\d{1,7})(?:C\\d+)?)?")
 
     /** This address with [path] (raw) in place of its own, its query and fragment kept. */
     private fun URI.underRoot(path: String): URI =

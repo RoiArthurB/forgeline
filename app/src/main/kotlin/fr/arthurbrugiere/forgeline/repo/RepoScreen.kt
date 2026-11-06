@@ -83,7 +83,7 @@ fun RepoRoute(
     session: SessionState,
     onBack: () -> Unit,
     onOpenRepo: (RepoId) -> Unit,
-    onOpenFile: (RepoId, path: String, ref: String) -> Unit,
+    onOpenFile: (RepoId, path: String, ref: String, lines: IntRange?) -> Unit,
     onOpenIssue: (IssueRef) -> Unit,
     onNewIssue: (RepoId) -> Unit,
     onOpenRun: (RepoId, Long) -> Unit,
@@ -156,7 +156,7 @@ fun RepoRoute(
         onToggleStar = { if (signedIn) viewModel.toggleStar() else onSignIn() },
         onOpenDirectory = viewModel::openDirectory,
         onOpenParentDirectory = viewModel::openParentDirectory,
-        onOpenFile = { file -> state.details?.let { onOpenFile(it.id, file.path, state.browsedRef ?: it.defaultBranch) } },
+        onOpenFile = { file -> state.details?.let { onOpenFile(it.id, file.path, state.browsedRef ?: it.defaultBranch, null) } },
         // The kind goes with the number: on GitLab a merge request and an issue can share theirs.
         onOpenIssue = { number, isPullRequest -> state.details?.let { onOpenIssue(IssueRef(it.id, number, isPullRequest)) } },
         // Opening an issue needs an account on the repository's forge, like starring it.

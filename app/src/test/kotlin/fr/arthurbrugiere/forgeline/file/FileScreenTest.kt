@@ -44,7 +44,7 @@ class FileScreenTest {
         readmeContext = ReadmeContext("https://raw.example/", "https://blob.example/", "docs/"),
     )
 
-    private fun setContent(state: FileUiState) {
+    private fun setContent(state: FileUiState, lines: IntRange? = null) {
         composeRule.setContent {
             FileScreen(
                 state = state,
@@ -55,6 +55,7 @@ class FileScreenTest {
                 onCopy = { events += "copy:${it.length}" },
                 onOpenHistory = { events += "history" },
                 onOpenBlame = { events += "blame" },
+                lines = lines,
             )
         }
     }
@@ -92,6 +93,33 @@ class FileScreenTest {
         composeRule.onNodeWithText("fun main() {").assertIsDisplayed()
         composeRule.onNodeWithText("3").assertIsDisplayed()
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasTestTag(CODE_HIGHLIGHTED_TAG)).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test
+    fun a_link_to_lines_opens_the_file_on_them_marked() {
+        val text = (1..400).joinToString("\n") { "val line$it = $it" }
+        setContent(state("src/Main.kt", Loadable.Loaded(FileContent.Text(text))), lines = 300..302)
+
+        // Opened there, not at the top: the first lines aren't laid out at all.
+        composeRule.onNodeWithText("val line300 = 300").assertIsDisplayed()
+        assertThat(composeRule.onAllNodesWithText("val line1 = 1").fetchSemanticsNodes()).isEmpty()
+        assertThat(composeRule.onAllNodesWithTag(CODE_LINKED_LINE_TAG).fetchSemanticsNodes()).hasSize(3)
+    }
+
+    @Test
+    fun a_link_past_the_last_line_opens_the_file_on_its_end() {
+        setContent(state("src/Main.kt", Loadable.Loaded(FileContent.Text("fun main() {\n    println(1)\n}\n"))), lines = 90..95)
+
+        composeRule.onNodeWithText("}").assertIsDisplayed()
+        assertThat(composeRule.onAllNodesWithTag(CODE_LINKED_LINE_TAG).fetchSemanticsNodes()).isEmpty()
+    }
+
+    @Test
+    fun a_link_to_lines_of_a_markdown_file_shows_its_source() {
+        setContent(state("docs/GUIDE.md", Loadable.Loaded(FileContent.Text("# Guide\n\nSee [setup](setup.md)."))), lines = 3..3)
+
+        composeRule.onNodeWithText("See [setup](setup.md).").assertIsDisplayed()
+        assertThat(composeRule.onAllNodesWithTag(CODE_LINKED_LINE_TAG).fetchSemanticsNodes()).hasSize(1)
     }
 
     @Test
