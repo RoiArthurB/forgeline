@@ -4,12 +4,12 @@ Forgeline is published as a signed APK on [GitHub Releases](https://github.com/R
 
 ## What is ready
 
-- **The store listing**, in English and French, under `fastlane/metadata/android/<locale>/`: `title.txt`, `short_description.txt` (80 characters at most), `full_description.txt` (4000 at most) and `images/phoneScreenshots/`. F-Droid reads this layout straight from the repository, and `fastlane supply` uploads the same files to Google Play.
+- **The store listing**, in English and French, under `fastlane/metadata/android/<locale>/`: `title.txt`, `short_description.txt` (80 characters at most), `full_description.txt` (4000 at most), `images/icon.png` and `images/phoneScreenshots/`. F-Droid reads this layout straight from the repository, and `fastlane supply` uploads the same files to Google Play.
 - **Nothing proprietary to remove.** Every dependency is free software (AndroidX, Kotlin, Hilt, Room, Ktor, OkHttp, Coil, the Markdown renderer, jsoup, SnakeYAML). There are no Google Play services, no analytics and no trackers, so F-Droid has no anti-feature to flag beyond the forges being network services the app doesn't control.
 - **No blob only Google can read.** The APK leaves out the dependency list the Android Gradle plugin encrypts with Google Play's key, which F-Droid and IzzyOnDroid flag (`dependenciesInfo` in `app/build.gradle.kts`).
 - **The build needs no secret.** The OAuth application IDs in `gradle.properties` are public by nature (device flow and PKCE, no client secret), so a build from source signs in like the published one.
 
-The screenshots there are the test suite's own (`app/src/test/screenshots`), with its made-up repositories. They are honest pictures of the app; replace them with ones of real content before a listing goes live if you prefer.
+The icon is the launcher icon drawn at 512 px by `StoreIconTest`, which fails if the two drift apart (F-Droid can't draw the launcher's vector icon itself). The screenshots there are the test suite's own (`app/src/test/screenshots`), with its made-up repositories. They are honest pictures of the app; replace them with ones of real content before a listing goes live if you prefer.
 
 ## What is left
 

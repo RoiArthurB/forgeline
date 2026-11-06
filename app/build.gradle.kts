@@ -82,6 +82,11 @@ android {
     }
 }
 
+// StoreIconTest compares the stores' icon with the launcher's: a new icon must run it again.
+tasks.withType<Test>().configureEach {
+    inputs.file(rootProject.file("fastlane/metadata/android/en-US/images/icon.png")).optional().withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
 dependencies {
     implementation(projects.core.data)
     implementation(projects.core.ui)
