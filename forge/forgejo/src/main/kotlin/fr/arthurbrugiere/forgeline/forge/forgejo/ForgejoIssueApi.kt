@@ -69,8 +69,10 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -614,7 +616,15 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             "removed_deadline" -> TimelineItem.Event(ConversationEvent.DEADLINE_REMOVED, actor, null, at)
             "start_tracking" -> TimelineItem.Event(ConversationEvent.TRACKING_STARTED, actor, null, at)
             "stop_tracking" -> TimelineItem.Event(ConversationEvent.TRACKING_STOPPED, actor, null, at)
-            "add_time_manual" -> TimelineItem.Event(ConversationEvent.TIME_ADDED, actor, null, at)
+            // Its body is "|<seconds>" (older ones wrote the time out: shown as it came).
+            "add_time_manual" -> TimelineItem.Event(ConversationEvent.TIME_ADDED, actor, spentTime(body), at)
+            "delete_time_manual" -> TimelineItem.Event(ConversationEvent.TIME_REMOVED, actor, null, at)
+            "cancel_tracking" -> TimelineItem.Event(ConversationEvent.TRACKING_CANCELLED, actor, null, at)
+            // Gitea only, its body the estimate in seconds: none is "0".
+            "change_time_estimate" -> when (val estimate = spentTime(body)) {
+                null -> TimelineItem.Event(ConversationEvent.ESTIMATE_REMOVED, actor, null, at)
+                else -> TimelineItem.Event(ConversationEvent.ESTIMATE_SET, actor, estimate, at)
+            }
             "add_dependency", "remove_dependency" -> dependentIssue?.let {
                 TimelineItem.Event(
                     if (kind == "add_dependency") ConversationEvent.DEPENDENCY_ADDED else ConversationEvent.DEPENDENCY_REMOVED,
@@ -626,13 +636,58 @@ class ForgejoIssueApi(private val httpClient: HttpClient, private val forge: For
             }
             // The comment of a deleted branch names it.
             "delete_branch" -> TimelineItem.Event(ConversationEvent.BRANCH_DELETED, actor, oldRef?.ifBlank { null }, at)
-            // Review requests, pushes... are noise in a conversation, as on GitHub.
+            // A person or a team asked for a review, or no longer.
+            "review_request" -> (assignee?.login ?: assigneeTeam?.name)?.let {
+                TimelineItem.Event(if (removedAssignee == true) ConversationEvent.REVIEW_REQUEST_REMOVED else ConversationEvent.REVIEW_REQUESTED, actor, it, at)
+            }
+            "dismiss_review" -> TimelineItem.Event(ConversationEvent.REVIEW_DISMISSED, actor, body?.ifBlank { null }, at)
+            // Its body: {"is_force_push":false,"commit_ids":[...]}, a force push naming the old head then the new.
+            "pull_push" -> push(body).let { (force, commits) ->
+                if (force) {
+                    TimelineItem.Event(ConversationEvent.FORCE_PUSHED, actor, commits.lastOrNull()?.take(7), at)
+                } else {
+                    TimelineItem.Event(ConversationEvent.PUSHED, actor, commits.size.takeIf { it > 0 }?.toString(), at)
+                }
+            }
+            "change_target_branch" -> TimelineItem.Event(ConversationEvent.BASE_CHANGED, actor, newRef?.ifBlank { null }, at)
+            "pull_scheduled_merge" -> TimelineItem.Event(ConversationEvent.AUTO_MERGE_ENABLED, actor, null, at)
+            "pull_cancel_scheduled_merge" -> TimelineItem.Event(ConversationEvent.AUTO_MERGE_DISABLED, actor, null, at)
+            // A commit that mentions it without closing it (one that closes it is told with the close).
+            "commit_ref" -> commit()?.let { TimelineItem.CommitReferenced(it, actor, at) }
+            // The API names a project by its id alone, and a column not at all.
+            "project" -> when {
+                (projectId ?: 0) > 0 -> TimelineItem.Event(ConversationEvent.ADDED_TO_PROJECT, actor, null, at)
+                (oldProjectId ?: 0) > 0 -> TimelineItem.Event(ConversationEvent.REMOVED_FROM_PROJECT, actor, null, at)
+                else -> null
+            }
+            "project_board" -> TimelineItem.Event(ConversationEvent.PROJECT_STATUS_CHANGED, actor, null, at)
+            // Line comments are read as threads; changing the branch an issue refers to says nothing of its work.
             else -> null
         }
     }
 
     private companion object {
         const val PAGE_SIZE = 50
+
+        /** "|5400" read as "1h 30m"; a time written out is kept as it is, none (or "0") is null. */
+        fun spentTime(body: String?): String? {
+            val text = body?.trim()?.ifEmpty { null } ?: return null
+            val seconds = text.removePrefix("|").toLongOrNull() ?: return text.removePrefix("|").ifBlank { null }
+            if (seconds <= 0) return null
+            val hours = seconds / 3600
+            val minutes = seconds % 3600 / 60
+            val rest = seconds % 60
+            return listOfNotNull(hours.takeIf { it > 0 }?.let { "${it}h" }, minutes.takeIf { it > 0 }?.let { "${it}m" }, rest.takeIf { it > 0 && hours == 0L }?.let { "${it}s" })
+                .joinToString(" ")
+        }
+
+        /** Whether a push rewrote the branch, and the commits it names. */
+        fun push(body: String?): Pair<Boolean, List<String>> {
+            val json = runCatching { ForgeJson.parseToJsonElement(body.orEmpty()).jsonObject }.getOrNull() ?: return false to emptyList()
+            val force = json["is_force_push"]?.jsonPrimitive?.booleanOrNull == true
+            val commits = (json["commit_ids"] as? JsonArray)?.mapNotNull { it.jsonPrimitive.contentOrNull }.orEmpty()
+            return force to commits
+        }
 
         val FIRST_PAGE = mapOf("limit" to "$PAGE_SIZE")
 

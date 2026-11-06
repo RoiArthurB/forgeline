@@ -88,7 +88,7 @@ class ForgejoIssueApiTest {
     @Test
     fun an_issue_closed_by_a_commit_says_which_and_what_it_said() = runTest {
         // dnkl/foot#2467 (2026-09-18): the commit's reference, then the close, in the same second; and a commit that
-        // only mentioned the issue, earlier, which stays out as GitHub's "referenced" events do.
+        // only mentioned the issue, earlier, told apart as GitHub's "referenced" events are.
         val entries = """[
           {"id":1,"type":"commit_ref","body":"<a href=\"/dnkl/foot/commit/0123456789abcdef\">Mention it &amp; move on</a>","ref_commit_sha":"0123456789abcdef","user":{"id":1,"login":"dnkl"},"created_at":"2026-09-17T10:00:00+02:00"},
           {"id":2,"type":"commit_ref","body":"<a href=\"/dnkl/foot/commit/f3226bc5eba53ce4b0306546e99f5928198526c3\">ime: ignore enter events with a NULL surface</a>","ref_commit_sha":"f3226bc5eba53ce4b0306546e99f5928198526c3","user":{"id":1,"login":"dnkl"},"created_at":"2026-09-18T07:51:39+02:00"},
@@ -99,7 +99,10 @@ class ForgejoIssueApiTest {
 
         val items = api.timeline(null, foot, page = 1).value().items
 
-        assertThat((items.single() as TimelineItem.StateChanged).commit).isEqualTo(
+        assertThat(items).hasSize(2)
+        assertThat((items[0] as TimelineItem.CommitReferenced).commit)
+            .isEqualTo(ClosingCommit("0123456789abcdef", "Mention it & move on", "https://codeberg.org/dnkl/foot/commit/0123456789abcdef"))
+        assertThat((items[1] as TimelineItem.StateChanged).commit).isEqualTo(
             ClosingCommit(
                 "f3226bc5eba53ce4b0306546e99f5928198526c3",
                 "ime: ignore enter events with a NULL surface",
@@ -136,24 +139,77 @@ class ForgejoIssueApiTest {
     }
 
     @Test
-    fun the_timeline_keeps_the_conversation_and_drops_the_noise() = runTest {
+    fun the_timeline_keeps_the_conversation_and_what_was_done_to_it() = runTest {
         val items = api.timeline(null, pull, page = 1).value().items
 
-        // Review requests, pushes and commit references are left out.
-        assertThat(items.map { it::class.simpleName }).containsExactly("Labeled", "Review", "Comment", "StateChanged", "Event", "Event").inOrder()
+        assertThat(items.map { it::class.simpleName }).containsExactly(
+            "Event", "Event", "Event", "Event", "Event", "Labeled", "Review", "Comment", "StateChanged", "CommitReferenced", "Event", "Event",
+        ).inOrder()
+        // The backport bot pushed one commit, then asked four reviewers.
+        val asked = items.take(5).map { it as TimelineItem.Event }
+        assertThat(asked.map { it.event to it.subject }).containsExactly(
+            ConversationEvent.PUSHED to "1",
+            ConversationEvent.REVIEW_REQUESTED to "Gusted",
+            ConversationEvent.REVIEW_REQUESTED to "Cyborus",
+            ConversationEvent.REVIEW_REQUESTED to "Maks1mS",
+            ConversationEvent.REVIEW_REQUESTED to "mfenniak",
+        ).inOrder()
+        assertThat(asked.map { it.actor?.login }.distinct()).containsExactly("forgejo-backport-action")
+        // The merge commit references it: its page is the commit's on Codeberg.
+        val reference = items[9] as TimelineItem.CommitReferenced
+        assertThat(reference.commit.sha).isEqualTo("c4d05ee1a971aed25c575b995de3eaf0f8a11d26")
+        assertThat(reference.commit.webUrl).isEqualTo("https://codeberg.org/forgejo/forgejo/commit/c4d05ee1a971aed25c575b995de3eaf0f8a11d26")
+        assertThat(reference.commit.message).startsWith("[v17.")
         // After the merge, its branch was deleted, then the release bot filed it under the release it shipped in.
-        assertThat((items[4] as TimelineItem.Event).event).isEqualTo(ConversationEvent.BRANCH_DELETED)
-        assertThat((items[4] as TimelineItem.Event).subject).isEqualTo("bp-v17.0/forgejo-5175a75")
-        assertThat(items[5]).isEqualTo(
-            TimelineItem.Event(ConversationEvent.MILESTONED, (items[5] as TimelineItem.Event).actor, "Forgejo v17.0.0", (items[5] as TimelineItem.Event).createdAt),
+        assertThat((items[10] as TimelineItem.Event).event).isEqualTo(ConversationEvent.BRANCH_DELETED)
+        assertThat((items[10] as TimelineItem.Event).subject).isEqualTo("bp-v17.0/forgejo-5175a75")
+        assertThat(items[11]).isEqualTo(
+            TimelineItem.Event(ConversationEvent.MILESTONED, (items[11] as TimelineItem.Event).actor, "Forgejo v17.0.0", (items[11] as TimelineItem.Event).createdAt),
         )
-        assertThat((items[5] as TimelineItem.Event).actor?.login).isEqualTo("forgejo-release-notes-assistant")
-        assertThat((items[0] as TimelineItem.Labeled).added).isTrue()
-        assertThat((items[0] as TimelineItem.Labeled).label.name).isEqualTo("test/present")
+        assertThat((items[11] as TimelineItem.Event).actor?.login).isEqualTo("forgejo-release-notes-assistant")
+        assertThat((items[5] as TimelineItem.Labeled).added).isTrue()
+        assertThat((items[5] as TimelineItem.Labeled).label.name).isEqualTo("test/present")
         // The review entry doesn't say it approved: the pull request's reviews do.
-        assertThat((items[1] as TimelineItem.Review).state).isEqualTo(ReviewState.APPROVED)
-        assertThat((items[2] as TimelineItem.Comment).author?.login).isEqualTo("forgejo-actions")
-        assertThat((items[3] as TimelineItem.StateChanged).change).isEqualTo(StateChange.MERGED)
+        assertThat((items[6] as TimelineItem.Review).state).isEqualTo(ReviewState.APPROVED)
+        assertThat((items[7] as TimelineItem.Comment).author?.login).isEqualTo("forgejo-actions")
+        assertThat((items[8] as TimelineItem.StateChanged).change).isEqualTo(StateChange.MERGED)
+    }
+
+    @Test
+    fun what_forgejo_and_gitea_record_beside_comments_is_told() = runTest {
+        // Forgejo's comment types (models/issues/comment.go, read 2026-11-05) in the API's shapes, and Gitea's estimate;
+        // pull_scheduled_merge as Codeberg/pages-server#543 has it.
+        fun entry(type: String, extra: String = "") = """{"type":"$type","user":{"login":"maintainer"},"created_at":"2026-10-02T04:20:00+02:00"$extra}"""
+        val timeline = listOf(
+            entry("pull_push", ""","body":"{\"is_force_push\":true,\"commit_ids\":[\"aaaaaaa1111\",\"bbbbbbb2222\"]}""""),
+            entry("review_request", ""","assignee_team":{"name":"reviewers"},"removed_assignee":true"""),
+            entry("dismiss_review", ""","body":"Stale""""),
+            entry("change_target_branch", ""","old_ref":"main","new_ref":"v17.0/forgejo""""),
+            entry("pull_scheduled_merge"), entry("pull_cancel_scheduled_merge"),
+            entry("project", ""","project_id":3"""), entry("project", ""","old_project_id":3"""), entry("project_board"),
+            entry("add_time_manual", ""","body":"|5400""""), entry("delete_time_manual", ""","body":"|5400""""), entry("cancel_tracking"),
+            entry("change_time_estimate", ""","body":"7200""""), entry("change_time_estimate", ""","body":"0""""),
+            entry("change_issue_ref", ""","old_ref":"a","new_ref":"b""""), entry("code"),
+        ).joinToString(",", "[", "]")
+
+        val events = triaged("", timeline).timeline(null, IssueRef(pull.repo, 7), 1).value().items.map { it as TimelineItem.Event }
+
+        assertThat(events.map { it.event to it.subject }).containsExactly(
+            ConversationEvent.FORCE_PUSHED to "bbbbbbb",
+            ConversationEvent.REVIEW_REQUEST_REMOVED to "reviewers",
+            ConversationEvent.REVIEW_DISMISSED to "Stale",
+            ConversationEvent.BASE_CHANGED to "v17.0/forgejo",
+            ConversationEvent.AUTO_MERGE_ENABLED to null,
+            ConversationEvent.AUTO_MERGE_DISABLED to null,
+            ConversationEvent.ADDED_TO_PROJECT to null,
+            ConversationEvent.REMOVED_FROM_PROJECT to null,
+            ConversationEvent.PROJECT_STATUS_CHANGED to null,
+            ConversationEvent.TIME_ADDED to "1h 30m",
+            ConversationEvent.TIME_REMOVED to null,
+            ConversationEvent.TRACKING_CANCELLED to null,
+            ConversationEvent.ESTIMATE_SET to "2h",
+            ConversationEvent.ESTIMATE_REMOVED to null,
+        ).inOrder()
     }
 
     @Test
@@ -889,7 +945,7 @@ class ForgejoIssueApiTest {
             ConversationEvent.DEPENDENCY_ADDED, ConversationEvent.DEPENDENCY_REMOVED,
         ).inOrder()
         // A changed date names the new one; a dependency in another repository names it.
-        assertThat(events.map { it.subject }).containsExactly("2026-10-10", "2026-10-12", null, null, null, null, "#3 Schema first", "dzeuros/website#106 Website copy").inOrder()
+        assertThat(events.map { it.subject }).containsExactly("2026-10-10", "2026-10-12", null, null, null, "10m", "#3 Schema first", "dzeuros/website#106 Website copy").inOrder()
     }
 
     @Test

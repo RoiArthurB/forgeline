@@ -64,4 +64,17 @@ class GiteaLiveTest {
         assertThat(actions.supportsRerun).isTrue()
         assertThat(actions.supportsCancel).isFalse()
     }
+
+    /** gitea/tea#1155 was pushed to, set to merge itself once its checks passed, merged and its branch deleted (checked 2026-11-05). */
+    @Test
+    fun a_pull_request_s_pushes_and_auto_merge_still_read() = runBlocking<Unit> {
+        val items = ForgejoIssueApi(http, gitea).timeline(null, fr.arthurbrugiere.forgeline.core.model.IssueRef(tea, 1155), 1).value().items
+        val events = items.filterIsInstance<fr.arthurbrugiere.forgeline.core.model.TimelineItem.Event>().map { it.event }
+
+        assertThat(events).containsAtLeast(
+            fr.arthurbrugiere.forgeline.core.model.ConversationEvent.PUSHED,
+            fr.arthurbrugiere.forgeline.core.model.ConversationEvent.AUTO_MERGE_ENABLED,
+            fr.arthurbrugiere.forgeline.core.model.ConversationEvent.BRANCH_DELETED,
+        )
+    }
 }

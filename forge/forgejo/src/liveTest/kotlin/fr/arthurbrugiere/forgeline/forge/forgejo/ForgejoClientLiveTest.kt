@@ -182,4 +182,17 @@ class ForgejoClientLiveTest {
         assertWithMessage("home: ${(home as? fr.arthurbrugiere.forgeline.core.forge.ForgeResult.Failure)?.error}").that(home).isInstanceOf(fr.arthurbrugiere.forgeline.core.forge.ForgeResult.Success::class.java)
         assertWithMessage("home text").that((home as fr.arthurbrugiere.forgeline.core.forge.ForgeResult.Success).value.body).contains("Troubleshooting")
     }
+
+    /** Codeberg/pages-server#543 was pushed to, set to merge itself once its checks passed, merged and its branch deleted (checked 2026-11-05). */
+    @Test
+    fun a_pull_request_s_pushes_and_auto_merge_still_read() = runBlocking<Unit> {
+        val items = ForgejoIssueApi(http, ForgeInstance.Codeberg).timeline(null, fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("Codeberg", "pages-server", ForgeInstance.Codeberg), 543), 1).value().items
+        val events = items.filterIsInstance<fr.arthurbrugiere.forgeline.core.model.TimelineItem.Event>().map { it.event }
+
+        assertThat(events).containsAtLeast(
+            fr.arthurbrugiere.forgeline.core.model.ConversationEvent.PUSHED,
+            fr.arthurbrugiere.forgeline.core.model.ConversationEvent.AUTO_MERGE_ENABLED,
+            fr.arthurbrugiere.forgeline.core.model.ConversationEvent.BRANCH_DELETED,
+        )
+    }
 }
