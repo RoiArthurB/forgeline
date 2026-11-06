@@ -449,6 +449,53 @@ class IssueViewModelTest {
         assertThat(api.calls.filter { it.startsWith("manage:sub-issue") }).containsExactly("manage:sub-issue octo/repo#7 + octo/repo#12", "manage:sub-issue octo/repo#7 - octo/repo#12").inOrder()
     }
 
+    private val board = fr.arthurbrugiere.forgeline.core.model.ProjectItem(
+        "item", "project", "Roadmap", "Todo", "field",
+        listOf(fr.arthurbrugiere.forgeline.core.model.ProjectStatus("a", "Todo"), fr.arthurbrugiere.forgeline.core.model.ProjectStatus("b", "Done")),
+        canChange = true,
+    )
+
+    @Test
+    fun the_boards_a_conversation_is_on_are_read_with_it_and_it_moves_on_them() = test {
+        api.projects[ref] = listOf(board)
+        val viewModel = managing(RepoAccess.TRIAGE)
+        assertThat(viewModel.state.value.projects).containsExactly(board)
+
+        viewModel.setProjectStatus(board, board.statuses[1])
+        advanceUntilIdle()
+
+        // Read again after the move: the board says where it now is.
+        assertThat(viewModel.state.value.projects?.single()?.status).isEqualTo("Done")
+        assertThat(api.calls.filter { it.startsWith("manage:project") }).containsExactly("manage:project Roadmap -> Done")
+        viewModel.setProjectStatus(board, null)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.projects?.single()?.status).isNull()
+    }
+
+    @Test
+    fun a_move_the_forge_refuses_says_so_once() = test {
+        api.projects[ref] = listOf(board)
+        val viewModel = managing(RepoAccess.TRIAGE)
+        api.manageFailure = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http(403, "Forbidden")
+
+        viewModel.setProjectStatus(board, board.statuses[1])
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.projectError).isNotNull()
+        assertThat(viewModel.state.value.projects?.single()?.status).isEqualTo("Todo")
+        viewModel.projectErrorShown()
+        assertThat(viewModel.state.value.projectError).isNull()
+    }
+
+    @Test
+    fun a_forge_without_boards_is_never_asked_for_them() = test {
+        api.tracksProjects = false
+        val viewModel = managing(RepoAccess.TRIAGE)
+
+        assertThat(viewModel.state.value.projects).isNull()
+        assertThat(api.calls.none { it.startsWith("projects:") }).isTrue()
+    }
+
     @Test
     fun what_isn_t_an_issue_number_is_not_sent() = test {
         val viewModel = managing(RepoAccess.TRIAGE)

@@ -329,6 +329,8 @@ sealed interface TimelineItem {
         val subject: String?,
         override val createdAt: Instant,
         val target: IssueRef? = null,
+        /** The project board it happened on, where the forge names it. */
+        val place: String? = null,
     ) : TimelineItem
 
     /** [commit] mentioned this conversation in its message, without closing it. */
@@ -336,6 +338,25 @@ sealed interface TimelineItem {
 
     data class Committed(val sha: String, val message: String, val authorName: String?, override val createdAt: Instant?) : TimelineItem
 }
+
+/**
+ * A conversation's place on a project board ([title], [url]): [status] is its column, among [statuses], none when it
+ * has none. [canChange] says whether the reader may move it. [id], [projectId] and [statusFieldId] are what the forge
+ * takes to move it.
+ */
+data class ProjectItem(
+    val id: String,
+    val projectId: String,
+    val title: String,
+    val status: String?,
+    val statusFieldId: String?,
+    val statuses: List<ProjectStatus>,
+    val canChange: Boolean,
+    val url: String? = null,
+)
+
+/** A column of a project board, by the [id] the forge takes. */
+data class ProjectStatus(val id: String, val name: String)
 
 /** A reply the reader saved on their forge, to say again in a comment. */
 data class SavedReply(val title: String, val body: String)

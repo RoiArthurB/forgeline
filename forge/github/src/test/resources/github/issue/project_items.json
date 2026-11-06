@@ -1,0 +1,85 @@
+{
+  "data": {
+    "repository": {
+      "issueOrPullRequest": {
+        "__typename": "Issue",
+        "projectItems": {
+          "nodes": [
+            {
+              "__typename": "ProjectV2Item",
+              "id": "PVTI_lADOLUle7M4Aw1qFzgk3n9I",
+              "isArchived": false,
+              "project": {
+                "id": "PVT_kwDOLUle7M4Aw1qF",
+                "title": "GAMA 2025",
+                "url": "https://github.com/orgs/gama-platform/projects/7",
+                "closed": false,
+                "viewerCanUpdate": true,
+                "field": {
+                  "__typename": "ProjectV2SingleSelectField",
+                  "id": "PVTSSF_lADOLUle7M4Aw1qFzgmyfE0",
+                  "options": [
+                    {"id": "f75ad846", "name": "Todo"},
+                    {"id": "47fc9ee4", "name": "In Progress"},
+                    {"id": "98236657", "name": "Done"}
+                  ]
+                }
+              },
+              "fieldValueByName": {"__typename": "ProjectV2ItemFieldSingleSelectValue", "name": "Todo"}
+            },
+            {
+              "__typename": "ProjectV2Item",
+              "id": "PVTI_lADOLUle7M4AjJ8NzgYxw3A",
+              "isArchived": false,
+              "project": {
+                "id": "PVT_kwDOLUle7M4AjJ8N",
+                "title": "Old roadmap",
+                "url": "https://github.com/orgs/gama-platform/projects/2",
+                "closed": true,
+                "viewerCanUpdate": true,
+                "field": {
+                  "__typename": "ProjectV2SingleSelectField",
+                  "id": "PVTSSF_lADOLUle7M4AjJ8NzgW9cxM",
+                  "options": [{"id": "1a2b3c4d", "name": "Backlog"}]
+                }
+              },
+              "fieldValueByName": null
+            },
+            {
+              "__typename": "ProjectV2Item",
+              "id": "PVTI_archived",
+              "isArchived": true,
+              "project": {
+                "id": "PVT_kwDOLUle7M4Aw1qF",
+                "title": "GAMA 2025",
+                "url": "https://github.com/orgs/gama-platform/projects/7",
+                "closed": false,
+                "viewerCanUpdate": true,
+                "field": null
+              },
+              "fieldValueByName": null
+            },
+            {
+              "__typename": "ProjectV2Item",
+              "id": "PVTI_someone_elses",
+              "isArchived": false,
+              "project": {
+                "id": "PVT_other",
+                "title": "Someone's board",
+                "url": "https://github.com/users/someone/projects/1",
+                "closed": false,
+                "viewerCanUpdate": false,
+                "field": {
+                  "__typename": "ProjectV2SingleSelectField",
+                  "id": "PVTSSF_other",
+                  "options": [{"id": "aa", "name": "Later"}]
+                }
+              },
+              "fieldValueByName": {"__typename": "ProjectV2ItemFieldSingleSelectValue", "name": "Later"}
+            }
+          ]
+        }
+      }
+    }
+  }
+}

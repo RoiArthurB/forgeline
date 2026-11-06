@@ -225,8 +225,9 @@ private sealed interface StoredItem {
         val subject: String?,
         val at: Long,
         val target: StoredRef? = null,
+        val place: String? = null,
     ) : StoredItem {
-        override fun toModel() = TimelineItem.Event(event, actor?.toModel(), subject, Instant.ofEpochMilli(at), target?.toModel())
+        override fun toModel() = TimelineItem.Event(event, actor?.toModel(), subject, Instant.ofEpochMilli(at), target?.toModel(), place)
     }
 
     @Serializable
@@ -252,7 +253,7 @@ private sealed interface StoredItem {
                 item.source.repo.forge.host, item.source.repo.owner, item.source.repo.name, item.source.number, item.sourceTitle, item.sourceIsPullRequest,
                 StoredUser.of(item.actor), item.createdAt.toEpochMilli(),
             )
-            is TimelineItem.Event -> Event(item.event, StoredUser.of(item.actor), item.subject, item.createdAt.toEpochMilli(), item.target?.let(StoredRef::of))
+            is TimelineItem.Event -> Event(item.event, StoredUser.of(item.actor), item.subject, item.createdAt.toEpochMilli(), item.target?.let(StoredRef::of), item.place)
             is TimelineItem.CommitReferenced -> CommitReferenced(item.commit.sha, item.commit.message, item.commit.webUrl, StoredUser.of(item.actor), item.createdAt.toEpochMilli())
             is TimelineItem.Committed -> Committed(item.sha, item.message, item.authorName, item.createdAt?.toEpochMilli())
         }

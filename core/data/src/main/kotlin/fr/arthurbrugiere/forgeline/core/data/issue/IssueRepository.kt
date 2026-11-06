@@ -23,6 +23,8 @@ import fr.arthurbrugiere.forgeline.core.model.IssueType
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
+import fr.arthurbrugiere.forgeline.core.model.ProjectItem
+import fr.arthurbrugiere.forgeline.core.model.ProjectStatus
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -166,6 +168,15 @@ interface IssueRepository {
 
     /** The pull requests that close the issue [ref] once merged, where its forge links them. */
     suspend fun closingPulls(ref: IssueRef): ForgeResult<List<LinkedIssue>>
+
+    /** Whether conversations are put on project boards on [forge]. */
+    fun tracksProjects(forge: ForgeInstance): Boolean
+
+    /** The boards [ref] is on, and its column on each: asked as the reader, none signed out. */
+    suspend fun projects(ref: IssueRef): ForgeResult<List<ProjectItem>>
+
+    /** Moves [ref]'s [item] to [status], or out of any column when that is null. */
+    suspend fun setProjectStatus(ref: IssueRef, item: ProjectItem, status: ProjectStatus?): ForgeResult<Unit>
 
     /** Whether comments can be hidden, saying why, on [forge]. */
     fun hidesComments(forge: ForgeInstance): Boolean
@@ -470,6 +481,12 @@ class DefaultIssueRepository @Inject constructor(
     override suspend fun removeSubIssue(ref: IssueRef, sub: IssueRef) = changing(ref) { removeSubIssue(it, ref, sub) }
 
     override suspend fun closingPulls(ref: IssueRef) = clients.issues(ref.repo.forge).closingPulls(accounts.tokenOn(ref.repo.forge), ref)
+
+    override fun tracksProjects(forge: ForgeInstance) = clients.issues(forge).tracksProjects
+
+    override suspend fun projects(ref: IssueRef) = signedIn(ref.repo.forge) { projects(it, ref) }
+
+    override suspend fun setProjectStatus(ref: IssueRef, item: ProjectItem, status: ProjectStatus?) = changing(ref) { setProjectStatus(it, item, status) }
 
     override fun hidesComments(forge: ForgeInstance) = clients.issues(forge).hidesComments
 

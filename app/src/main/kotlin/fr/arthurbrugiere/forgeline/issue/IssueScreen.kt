@@ -79,6 +79,8 @@ import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
+import fr.arthurbrugiere.forgeline.core.model.ProjectItem
+import fr.arthurbrugiere.forgeline.core.model.ProjectStatus
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -87,6 +89,7 @@ import fr.arthurbrugiere.forgeline.core.model.SubIssues
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.webUrl
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDangerButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
@@ -225,6 +228,8 @@ fun IssueRoute(
             onAddSubIssue = viewModel::addSubIssue,
             onRemoveSubIssue = viewModel::removeSubIssue,
             onSubIssueErrorShown = viewModel::subIssueErrorShown,
+            onSetProjectStatus = viewModel::setProjectStatus,
+            onProjectErrorShown = viewModel::projectErrorShown,
             onLoadSavedReplies = viewModel::loadSavedReplies,
             onUseSavedReply = viewModel::useSavedReply,
             onDeleteErrorShown = viewModel::deleteErrorShown,
@@ -345,6 +350,8 @@ class CommentActions(
     val onAddSubIssue: (String) -> Unit = {},
     val onRemoveSubIssue: (IssueRef) -> Unit = {},
     val onSubIssueErrorShown: () -> Unit = {},
+    val onSetProjectStatus: (ProjectItem, ProjectStatus?) -> Unit = { _, _ -> },
+    val onProjectErrorShown: () -> Unit = {},
     /** Reads the reader's saved replies, and puts one in the comment being written. */
     val onLoadSavedReplies: () -> Unit = {},
     val onUseSavedReply: (SavedReply) -> Unit = {},
@@ -404,6 +411,7 @@ fun IssueScreen(
 
     SayOnce(stringResource(R.string.issue_comment_delete_failed).takeIf { state.deleteError != null }, snackbar, comments.onDeleteErrorShown)
     SayOnce(stringResource(R.string.issue_sub_issues_failed).takeIf { state.subIssueError != null }, snackbar, comments.onSubIssueErrorShown)
+    SayOnce(stringResource(R.string.issue_project_status_failed).takeIf { state.projectError != null }, snackbar, comments.onProjectErrorShown)
     val attachFailed = state.attachError?.let { error ->
         stringResource(
             when {
@@ -700,6 +708,12 @@ fun IssueScreen(
                                     }
                                 }
                             }
+                            // The boards it is on, and its column on each: whoever may move it there picks another.
+                            state.projects?.takeIf { it.isNotEmpty() }?.let { projects ->
+                                item(key = "projects") {
+                                    ProjectsSection(projects, mayChange = canComment, comments.onSetProjectStatus)
+                                }
+                            }
                             // What ran on a pull request, right above the turn where it is merged or not.
                             if (!pull?.checks.isNullOrEmpty()) {
                                 item(key = "checks") {
@@ -819,6 +833,49 @@ private fun DismissReviewSheet(isSending: Boolean, onDismissReview: (String) -> 
             SoftTonalButton(stringResource(R.string.cancel), onDismiss)
             SoftDangerButton(stringResource(R.string.review_dismiss_confirm), onClick = { onDismissReview(message) }, enabled = message.isNotBlank() && !isSending)
         }
+    }
+}
+
+/**
+ * The project boards a conversation is on, each with its column. Whoever may move it on a board (GitHub says who, per
+ * board) taps it to pick another column, or none.
+ */
+@Composable
+private fun ProjectsSection(projects: List<ProjectItem>, mayChange: Boolean, onSetStatus: (ProjectItem, ProjectStatus?) -> Unit) {
+    val colors = Soft.colors
+    var picking by remember { mutableStateOf<ProjectItem?>(null) }
+    Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 24.dp)) {
+        Text(
+            stringResource(R.string.issue_projects),
+            style = Soft.type.name,
+            color = colors.ink,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp).semantics { heading() },
+        )
+        projects.forEach { project ->
+            val movable = mayChange && project.canChange && project.statuses.isNotEmpty()
+            Text(
+                stringResource(R.string.issue_project_line, project.title, project.status ?: stringResource(R.string.issue_project_no_status)),
+                style = Soft.type.body,
+                color = colors.ink,
+                modifier = Modifier.fillMaxWidth()
+                    .then(if (movable) Modifier.softPressable(role = androidx.compose.ui.semantics.Role.Button) { picking = project } else Modifier)
+                    .padding(horizontal = 8.dp, vertical = 12.dp),
+            )
+        }
+    }
+    picking?.let { project ->
+        // The columns in the board's order, then none: what GitHub's own menu offers.
+        val options = project.statuses.map { it.name } + stringResource(R.string.issue_project_no_status)
+        SoftChoiceSheet(
+            title = stringResource(R.string.issue_project_move, project.title),
+            options = options,
+            selected = project.statuses.indexOfFirst { it.name == project.status }.takeIf { it >= 0 } ?: project.statuses.size,
+            onSelect = { index ->
+                onSetStatus(project, project.statuses.getOrNull(index))
+                picking = null
+            },
+            onDismiss = { picking = null },
+        )
     }
 }
 

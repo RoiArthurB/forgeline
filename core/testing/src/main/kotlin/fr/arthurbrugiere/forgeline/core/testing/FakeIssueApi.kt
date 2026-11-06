@@ -18,6 +18,8 @@ import fr.arthurbrugiere.forgeline.core.model.IssueType
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
+import fr.arthurbrugiere.forgeline.core.model.ProjectItem
+import fr.arthurbrugiere.forgeline.core.model.ProjectStatus
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -269,6 +271,20 @@ class FakeIssueApi : IssueApi {
     override suspend fun removeSubIssue(token: String, ref: IssueRef, sub: IssueRef) = manage(token, "sub-issue ${ref.label} - ${sub.label}") {
         subs[ref]?.let { now -> subs[ref] = now.copy(children = now.children.filterNot { it.ref.number == sub.number && it.ref.repo == sub.repo }) }
         Unit
+    }
+
+    override var tracksProjects: Boolean = true
+
+    /** The boards each conversation is on. */
+    val projects = mutableMapOf<IssueRef, List<ProjectItem>>()
+
+    override suspend fun projects(token: String, ref: IssueRef): ForgeResult<List<ProjectItem>> {
+        calls += "projects:${ref.label}"
+        return ForgeResult.Success(projects[ref].orEmpty())
+    }
+
+    override suspend fun setProjectStatus(token: String, item: ProjectItem, status: ProjectStatus?) = manage(token, "project ${item.title} -> ${status?.name}") {
+        projects.replaceAll { _, items -> items.map { if (it.id == item.id) it.copy(status = status?.name) else it } }
     }
 
     /** The pull requests that close each issue once merged. */

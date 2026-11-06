@@ -625,7 +625,8 @@ class GitHubIssueApiTest {
     fun the_details_of_events_are_asked_of_graphql_by_their_nodes_once() = runTest {
         triage()
 
-        val asked = requests.filter { it.url.encodedPath == "/graphql" }
+        // The boards' names are asked apart (ProjectEventPlaces): a sign-in without their scope is refused only those.
+        val asked = requests.filter { it.url.encodedPath == "/graphql" && "TimelineNodes" in (it.body as TextContent).text }
         assertThat(asked).hasSize(1)
         val ids = Json.parseToJsonElement((asked.single().body as TextContent).text).jsonObject["variables"]!!.jsonObject["ids"].toString()
         // Only those REST leaves short: a project's new column, a duplicate's original, an environment; not every event.
@@ -647,7 +648,7 @@ class GitHubIssueApiTest {
             assertThat(events.first { it.event == ConversationEvent.MARKED_DUPLICATE }.target).isNull()
             assertThat(events.first { it.event == ConversationEvent.SUB_ISSUE_ADDED }.subject).isEqualTo("#1249 #nan value as agent position exhaust memory")
         }
-        assertThat(requests.count { it.url.encodedPath == "/graphql" }).isEqualTo(1)
+        assertThat(requests.count { it.url.encodedPath == "/graphql" && "TimelineNodes" in (it.body as TextContent).text }).isEqualTo(1)
     }
 
     @Test
@@ -733,6 +734,90 @@ class GitHubIssueApiTest {
 
         assertThat(items.filterIsInstance<TimelineItem.CommitReferenced>().map { it.commit.sha }).containsExactly("abcdef12")
         assertThat(items.filterIsInstance<TimelineItem.StateChanged>().single().commit?.sha).isEqualTo("625c6329")
+    }
+
+    @Test
+    fun the_project_boards_a_conversation_is_on_read_with_their_columns() = runTest {
+        // GitHub's documented shape (no token here may read projects): an open board the reader may move it on, a
+        // closed one, an archived item and someone else's board.
+        val api = api { json(fixture("project_items.json")) }
+
+        val projects = api.projects("tok", gama).value()
+
+        assertThat(api.tracksProjects).isTrue()
+        assertThat(projects.map { it.title }).containsExactly("GAMA 2025", "Old roadmap", "Someone's board").inOrder()
+        val board = projects.first()
+        assertThat(board).isEqualTo(
+            fr.arthurbrugiere.forgeline.core.model.ProjectItem(
+                id = "PVTI_lADOLUle7M4Aw1qFzgk3n9I",
+                projectId = "PVT_kwDOLUle7M4Aw1qF",
+                title = "GAMA 2025",
+                status = "Todo",
+                statusFieldId = "PVTSSF_lADOLUle7M4Aw1qFzgmyfE0",
+                statuses = listOf(
+                    fr.arthurbrugiere.forgeline.core.model.ProjectStatus("f75ad846", "Todo"),
+                    fr.arthurbrugiere.forgeline.core.model.ProjectStatus("47fc9ee4", "In Progress"),
+                    fr.arthurbrugiere.forgeline.core.model.ProjectStatus("98236657", "Done"),
+                ),
+                canChange = true,
+                url = "https://github.com/orgs/gama-platform/projects/7",
+            ),
+        )
+        // A closed board, and one the reader may not update, can't be moved on; one without a column says so.
+        assertThat(projects.map { it.canChange }).containsExactly(true, false, false).inOrder()
+        assertThat(projects[1].status).isNull()
+        val variables = Json.parseToJsonElement((requests.single().body as TextContent).text).jsonObject["variables"]!!.jsonObject
+        assertThat(variables.toString()).isEqualTo("""{"owner":"gama-platform","name":"gama","number":1295}""")
+    }
+
+    @Test
+    fun a_sign_in_without_the_project_scope_reads_no_boards() = runTest {
+        // What GitHub answers a token made before Forgeline asked the scope (gh's, 2026-11-05).
+        val refused = """{"errors":[{"type":"INSUFFICIENT_SCOPES","message":"Your token has not been granted the required scopes to execute this query. The 'title' field requires one of the following scopes: ['read:project']"}]}"""
+
+        assertThat(api { json(refused) }.projects("tok", gama)).isInstanceOf(ForgeResult.Failure::class.java)
+    }
+
+    @Test
+    fun moving_a_conversation_on_a_board_sets_its_column_or_clears_it() = runTest {
+        val api = api { json("""{"data":{"updateProjectV2ItemFieldValue":{"clientMutationId":null},"clearProjectV2ItemFieldValue":{"clientMutationId":null}}}""") }
+        val board = api { json(fixture("project_items.json")) }.projects("tok", gama).value().first()
+        requests.clear()
+
+        assertThat(api.setProjectStatus("tok", board, board.statuses[1])).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(api.setProjectStatus("tok", board, null)).isEqualTo(ForgeResult.Success(Unit))
+
+        val sent = requests.map { Json.parseToJsonElement((it.body as TextContent).text).jsonObject }
+        assertThat(sent[0]["query"].toString()).contains("updateProjectV2ItemFieldValue")
+        assertThat(sent[0]["variables"].toString())
+            .isEqualTo("""{"project":"PVT_kwDOLUle7M4Aw1qF","item":"PVTI_lADOLUle7M4Aw1qFzgk3n9I","field":"PVTSSF_lADOLUle7M4Aw1qFzgmyfE0","option":"47fc9ee4"}""")
+        assertThat(sent[1]["query"].toString()).contains("clearProjectV2ItemFieldValue")
+        assertThat(sent[1]["variables"].toString()).isEqualTo("""{"project":"PVT_kwDOLUle7M4Aw1qF","item":"PVTI_lADOLUle7M4Aw1qFzgk3n9I","field":"PVTSSF_lADOLUle7M4Aw1qFzgmyfE0"}""")
+        // A board without a Status column has nothing to move it in.
+        assertThat(api.setProjectStatus("tok", board.copy(statusFieldId = null), null)).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+    }
+
+    @Test
+    fun project_events_name_their_board_to_a_sign_in_that_may_read_it() = runTest {
+        // The places answer apart: a sign-in without the scope is refused them, and keeps the rest.
+        val places = """{"data":{"nodes":[{"__typename":"AddedToProjectV2Event","id":"ATPVTE_lADOLUle7M8AAAABcsepps8AAAAIM5SQrA","project":{"title":"GAMA 2025"}},""" +
+            """{"__typename":"ProjectV2ItemStatusChangedEvent","id":"PVTISC_lADOLUle7M8AAAABcsepps8AAAAIM5Sc7w","project":{"title":"GAMA 2025"}}]}}"""
+        fun run(placesAnswer: String) = api {
+            val text = (it.body as? TextContent)?.text.orEmpty()
+            when {
+                it.url.encodedPath != "/graphql" -> if ("/commits/" in it.url.encodedPath) json("{}", status = HttpStatusCode.NotFound) else json(fixture("triage_timeline.json"))
+                "ProjectEventPlaces" in text -> json(placesAnswer)
+                else -> json(fixture("triage_timeline_nodes.json"))
+            }
+        }
+
+        val events = run(places).timeline("tok", gama, 1).value().items.filterIsInstance<TimelineItem.Event>()
+        assertThat(events.first { it.event == ConversationEvent.ADDED_TO_PROJECT }.place).isEqualTo("GAMA 2025")
+        val moved = events.first { it.event == ConversationEvent.PROJECT_STATUS_CHANGED }
+        assertThat(moved.place to moved.subject).isEqualTo("GAMA 2025" to "Todo")
+
+        val refused = run("""{"errors":[{"type":"INSUFFICIENT_SCOPES","message":"read:project"}]}""").timeline("tok", gama, 1).value().items.filterIsInstance<TimelineItem.Event>()
+        assertThat(refused.first { it.event == ConversationEvent.PROJECT_STATUS_CHANGED }.let { it.place to it.subject }).isEqualTo(null to "Todo")
     }
 
     private val bodies get() = requests.map { (it.body as? TextContent)?.text }

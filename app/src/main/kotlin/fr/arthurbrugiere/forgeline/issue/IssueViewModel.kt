@@ -22,6 +22,8 @@ import fr.arthurbrugiere.forgeline.core.model.IssueType
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
+import fr.arthurbrugiere.forgeline.core.model.ProjectItem
+import fr.arthurbrugiere.forgeline.core.model.ProjectStatus
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -113,6 +115,9 @@ data class IssueUiState(
     val subIssues: SubIssues? = null,
     /** Why a sub-issue couldn't be added or taken out, said once. */
     val subIssueError: ForgeError? = null,
+    /** The project boards it is on, where its forge has them; null until read. */
+    val projects: List<ProjectItem>? = null,
+    val projectError: ForgeError? = null,
     /** Whether the forge keeps the reader's saved replies, and those replies, read once asked for. */
     val offersSavedReplies: Boolean = false,
     val savedReplies: Loadable<List<SavedReply>> = Loadable.Idle,
@@ -345,6 +350,7 @@ class IssueViewModel @AssistedInject constructor(
                 )
             }
             checkPermissions()
+            loadProjects()
             // What would close it, for an issue: read after it, never holding it up.
             if (ref.isPullRequest != true && _state.value.issue?.pullRequest == null) {
                 (repository.closingPulls(ref) as? ForgeResult.Success)?.let { read -> _state.update { it.copy(closingPulls = read.value) } }
@@ -352,6 +358,24 @@ class IssueViewModel @AssistedInject constructor(
             }
         }
     }
+
+    /** The boards it is on, read after it, never holding it up: none when they can't be read (a sign-in without the scope). */
+    private suspend fun loadProjects() {
+        if (!repository.tracksProjects(ref.repo.forge)) return
+        (repository.projects(ref) as? ForgeResult.Success)?.let { read -> _state.update { it.copy(projects = read.value) } }
+    }
+
+    /** Moves the conversation to [status] on [item]'s board, or out of any column; the boards are read again after. */
+    fun setProjectStatus(item: ProjectItem, status: ProjectStatus?) {
+        viewModelScope.launch {
+            when (val result = repository.setProjectStatus(ref, item, status)) {
+                is ForgeResult.Failure -> _state.update { it.copy(projectError = result.error) }
+                is ForgeResult.Success -> loadProjects()
+            }
+        }
+    }
+
+    fun projectErrorShown() = _state.update { it.copy(projectError = null) }
 
     private suspend fun loadSubIssues() {
         if (!repository.tracksSubIssues(ref.repo.forge)) return

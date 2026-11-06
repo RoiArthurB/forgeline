@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.issue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotDisplayed
@@ -86,6 +87,7 @@ class IssueScreenTest {
                     onSetHidden = { id, reason -> events += "hide:$id:$reason" },
                     onAddSubIssue = { events += "sub+:$it" },
                     onRemoveSubIssue = { events += "sub-:${it.number}" },
+                    onSetProjectStatus = { item, status -> events += "project:${item.title}:${status?.name}" },
                     onLoadSavedReplies = { events += "load-replies" },
                     onUseSavedReply = { events += "reply:${it.title}" },
                 ),
@@ -729,6 +731,51 @@ class IssueScreenTest {
 
         reach(hasText("maintainer mentioned this in !3", substring = true))
         reach(hasText("maintainer mentioned this in group/other#9", substring = true))
+    }
+
+    @Test
+    fun the_boards_it_is_on_show_its_column_and_whoever_may_moves_it_on_one() {
+        val statuses = listOf(fr.arthurbrugiere.forgeline.core.model.ProjectStatus("a", "Todo"), fr.arthurbrugiere.forgeline.core.model.ProjectStatus("b", "Done"))
+        val open = fr.arthurbrugiere.forgeline.core.model.ProjectItem("i1", "p1", "Roadmap", "Todo", "f1", statuses, canChange = true)
+        val closed = fr.arthurbrugiere.forgeline.core.model.ProjectItem("i2", "p2", "Old board", null, "f2", statuses, canChange = false)
+        setContent(opened.copy(projects = listOf(open, closed)))
+
+        reach(hasText("Roadmap · Todo"))
+        reach(hasText("Old board · No status"))
+        // A board the reader may not move it on is only read.
+        composeRule.onNodeWithText("Old board · No status").assertHasNoClickAction()
+        composeRule.onNodeWithText("Roadmap · Todo").performClick()
+        composeRule.onNodeWithText("Done").performClick()
+        assertThat(events).contains("project:Roadmap:Done")
+    }
+
+    @Test
+    fun the_boards_can_t_be_moved_on_signed_out_and_none_shows_nothing() {
+        val board = fr.arthurbrugiere.forgeline.core.model.ProjectItem("i1", "p1", "Roadmap", "Todo", "f1", listOf(fr.arthurbrugiere.forgeline.core.model.ProjectStatus("a", "Todo")), canChange = true)
+        setContent(opened.copy(projects = listOf(board)), canComment = false)
+        reach(hasText("Roadmap · Todo"))
+        composeRule.onNodeWithText("Roadmap · Todo").assertHasNoClickAction()
+
+        shown.value = opened.copy(projects = emptyList())
+        composeRule.onNodeWithText("Projects").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_project_event_names_its_board_where_github_told_it() {
+        val who = ForgeUser("bot", null, null)
+        setContent(
+            opened.copy(
+                items = listOf(
+                    TimelineItem.Event(ConversationEvent.ADDED_TO_PROJECT, who, null, at, place = "GAMA 2025"),
+                    TimelineItem.Event(ConversationEvent.PROJECT_STATUS_CHANGED, who, "Todo", at, place = "GAMA 2025"),
+                    TimelineItem.Event(ConversationEvent.PROJECT_STATUS_CHANGED, who, null, at, place = "GAMA 2025"),
+                ),
+            ),
+        )
+
+        reach(hasText("bot added this to the project GAMA 2025", substring = true))
+        reach(hasText("bot moved this to Todo on GAMA 2025", substring = true))
+        reach(hasText("bot changed its status on GAMA 2025", substring = true))
     }
 
     @Test

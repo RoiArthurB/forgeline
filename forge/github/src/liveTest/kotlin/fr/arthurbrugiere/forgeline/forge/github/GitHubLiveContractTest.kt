@@ -187,6 +187,21 @@ class GitHubLiveContractTest {
         assertWithMessage("its duplicate").that(duplicate.target?.number).isEqualTo(66400)
     }
 
+    /**
+     * gama-platform/gama#1295 is on a board, in its Todo column (2026-11-05). Read only, and only with a token that has
+     * the project (or read:project) scope: one without is refused, and the check is skipped.
+     */
+    @Test
+    fun the_boards_an_issue_is_on_still_read_with_their_columns() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        val read = GitHubIssueApi(client).projects(pat, fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("gama-platform", "gama"), 1295))
+        assumeTrue("LIVE_TEST_PAT can't read projects: $read", read is ForgeResult.Success)
+
+        val boards = (read as ForgeResult.Success).value
+        assertWithMessage("boards").that(boards).isNotEmpty()
+        assertWithMessage("columns").that(boards.first().statuses.map { it.name }).contains("Todo")
+    }
+
     /** Read only: gama-platform/gama names Task, Bug and Feature, and #1239 is a Bug (2026-10-25). */
     @Test
     fun issue_types_still_read() = runBlocking {

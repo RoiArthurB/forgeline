@@ -437,7 +437,7 @@ class DefaultIssueRepositoryTest {
     fun the_conversation_an_event_names_and_a_commit_that_mentions_it_are_kept_across_launches() = runTest {
         api.issues[ref] = issueDetails(ref)
         val target = IssueRef(RepoId("other", "docs", fr.arthurbrugiere.forgeline.core.model.ForgeInstance.Codeberg), 7, isPullRequest = false)
-        val sub = TimelineItem.Event(fr.arthurbrugiere.forgeline.core.model.ConversationEvent.SUB_ISSUE_ADDED, ForgeUser("maintainer", null, null), "other/docs#7 Seven", Instant.parse("2026-10-01T16:44:08Z"), target)
+        val sub = TimelineItem.Event(fr.arthurbrugiere.forgeline.core.model.ConversationEvent.SUB_ISSUE_ADDED, ForgeUser("maintainer", null, null), "other/docs#7 Seven", Instant.parse("2026-10-01T16:44:08Z"), target, place = "Roadmap")
         val commit = TimelineItem.CommitReferenced(
             fr.arthurbrugiere.forgeline.core.model.ClosingCommit("675df2e1", "Fix the leak", "https://github.com/o/r/commit/675df2e1"),
             ForgeUser("alexis", null, null),

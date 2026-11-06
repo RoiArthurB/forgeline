@@ -183,7 +183,7 @@
     <string name="sign_in_with_forge">Se connecter avec %1$s</string>
     <string name="sign_in_or">ou</string>
     <string name="sign_in_token_title">Utiliser un jeton d’accès personnel</string>
-    <string name="sign_in_token_body">Créez un jeton classique avec les portées notifications, read:user, user:follow et repo, plus delete_repo pour supprimer des dépôts depuis Forgeline, puis collez-le ici.</string>
+    <string name="sign_in_token_body">Créez un jeton classique avec les portées notifications, read:user, user:follow et repo, plus delete_repo pour supprimer des dépôts depuis Forgeline et project pour déplacer les tickets dans les projets, puis collez-le ici.</string>
     <string name="sign_in_token_body_sourcehut">Générez un jeton d’accès personnel sur meta.sr.ht (l’accès en lecture à git.sr.ht suffit), puis collez-le ici. SourceHut n’a pas de connexion par le navigateur pour les applications, et ne montre rien sans jeton.</string>
     <string name="sign_in_token_body_gitlab">Créez un jeton d’accès personnel avec les portées api et read_user, puis collez-le ici.</string>
     <string name="sign_in_token_body_forgejo">Créez un jeton d’accès qui atteint tous vos dépôts (publics, privés et limités), avec un accès en lecture et en écriture aux notifications, aux dépôts, aux tickets et à votre utilisateur, puis collez-le ici.</string>
@@ -527,6 +527,11 @@
     <string name="issue_sub_issue_add">Ajouter</string>
     <string name="issue_sub_issue_start">Ajouter un sous-ticket</string>
     <string name="issue_sub_issues_failed">Les sous-tickets n’ont pas été modifiés. Réessayez.</string>
+    <string name="issue_projects">Projets</string>
+    <string name="issue_project_line">%1$s · %2$s</string>
+    <string name="issue_project_no_status">Sans statut</string>
+    <string name="issue_project_move">Déplacer dans %1$s</string>
+    <string name="issue_project_status_failed">Sa colonne n’a pas été changée. Réessayez.</string>
     <string name="hide_off_topic">Hors sujet</string>
     <string name="hide_outdated">Obsolète</string>
     <string name="hide_resolved">Résolu</string>
@@ -656,6 +661,8 @@
     <string name="issue_removed_from_a_project_event">%1$s a retiré ceci d’un projet %2$s</string>
     <string name="issue_project_status_event">%1$s a déplacé ceci vers %2$s dans un projet %3$s</string>
     <string name="issue_project_status_unnamed_event">%1$s a changé son statut dans un projet %2$s</string>
+    <string name="issue_project_status_on_event">%1$s a déplacé ceci vers %2$s dans %3$s %4$s</string>
+    <string name="issue_project_status_unnamed_on_event">%1$s a changé son statut dans %2$s %3$s</string>
     <string name="issue_status_event">%1$s a mis le statut à %2$s %3$s</string>
     <string name="issue_comment_deleted_event">%1$s a supprimé un commentaire %2$s</string>
     <string name="issue_comment_pinned_event">%1$s a épinglé un commentaire %2$s</string>

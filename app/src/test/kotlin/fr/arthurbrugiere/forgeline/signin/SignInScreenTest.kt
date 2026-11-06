@@ -268,7 +268,7 @@ class SignInScreenTest {
         composeRule.onNode(hasText("and for permission to delete them", substring = true)).assertIsDisplayed()
         composeRule.onNode(hasText("deletes a repository only when you ask", substring = true)).assertIsDisplayed()
         // The token's scopes say which one is only for deleting.
-        composeRule.onNode(hasText("plus delete_repo to delete repositories from Forgeline", substring = true)).assertIsDisplayed()
+        composeRule.onNode(hasText("plus delete_repo to delete repositories from Forgeline and project to move issues on project boards", substring = true)).assertIsDisplayed()
     }
 
     @Test

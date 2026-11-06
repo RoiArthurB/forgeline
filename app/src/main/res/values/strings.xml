@@ -197,7 +197,7 @@
     <string name="sign_in_with_forge">Sign in with %1$s</string>
     <string name="sign_in_or">or</string>
     <string name="sign_in_token_title">Use a personal access token</string>
-    <string name="sign_in_token_body">Create a classic token with the notifications, read:user, user:follow and repo scopes, plus delete_repo to delete repositories from Forgeline, then paste it here.</string>
+    <string name="sign_in_token_body">Create a classic token with the notifications, read:user, user:follow and repo scopes, plus delete_repo to delete repositories from Forgeline and project to move issues on project boards, then paste it here.</string>
     <string name="sign_in_token_body_sourcehut">Generate a personal access token on meta.sr.ht (read access to git.sr.ht is enough), then paste it here. SourceHut has no sign-in through the browser for apps, and shows nothing without a token.</string>
     <string name="sign_in_token_body_gitlab">Create a personal access token with the api and read_user scopes, then paste it here.</string>
     <string name="sign_in_token_body_forgejo">Create an access token that reaches all your repositories (public, private and limited), with read and write access to notifications, repositories, issues and your user, then paste it here.</string>
@@ -550,6 +550,11 @@
     <string name="issue_sub_issue_add">Add</string>
     <string name="issue_sub_issue_start">Add a sub-issue</string>
     <string name="issue_sub_issues_failed">The sub-issues weren’t changed. Try again.</string>
+    <string name="issue_projects">Projects</string>
+    <string name="issue_project_line">%1$s · %2$s</string>
+    <string name="issue_project_no_status">No status</string>
+    <string name="issue_project_move">Move on %1$s</string>
+    <string name="issue_project_status_failed">Its column wasn’t changed. Try again.</string>
     <string name="hide_off_topic">Off-topic</string>
     <string name="hide_outdated">Outdated</string>
     <string name="hide_resolved">Resolved</string>
@@ -680,6 +685,8 @@
     <string name="issue_removed_from_a_project_event">%1$s removed this from a project %2$s</string>
     <string name="issue_project_status_event">%1$s moved this to %2$s on a project %3$s</string>
     <string name="issue_project_status_unnamed_event">%1$s changed its status on a project %2$s</string>
+    <string name="issue_project_status_on_event">%1$s moved this to %2$s on %3$s %4$s</string>
+    <string name="issue_project_status_unnamed_on_event">%1$s changed its status on %2$s %3$s</string>
     <string name="issue_status_event">%1$s set the status to %2$s %3$s</string>
     <string name="issue_comment_deleted_event">%1$s deleted a comment %2$s</string>
     <string name="issue_comment_pinned_event">%1$s pinned a comment %2$s</string>

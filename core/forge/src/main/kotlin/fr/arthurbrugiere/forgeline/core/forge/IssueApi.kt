@@ -13,6 +13,8 @@ import fr.arthurbrugiere.forgeline.core.model.IssueType
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
+import fr.arthurbrugiere.forgeline.core.model.ProjectItem
+import fr.arthurbrugiere.forgeline.core.model.ProjectStatus
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoRights
@@ -130,6 +132,15 @@ interface IssueApi {
 
     /** The pull requests that close the issue [ref] once merged, as the forge links them; none where it doesn't say. */
     suspend fun closingPulls(token: String?, ref: IssueRef): ForgeResult<List<LinkedIssue>> = ForgeResult.Success(emptyList())
+
+    /** Whether conversations are put on project boards here, in a column the API tells and changes. */
+    val tracksProjects: Boolean get() = false
+
+    /** The project boards [ref] is on, and its column on each; none where the forge has none. */
+    suspend fun projects(token: String, ref: IssueRef): ForgeResult<List<ProjectItem>> = ForgeResult.Success(emptyList())
+
+    /** Moves [item] to the column [status] of its board, or out of any when that is null. */
+    suspend fun setProjectStatus(token: String, item: ProjectItem, status: ProjectStatus?): ForgeResult<Unit> = unsupported
 
     /** Whether comments can be hidden here, saying why, by those who moderate the conversation. */
     val hidesComments: Boolean get() = false

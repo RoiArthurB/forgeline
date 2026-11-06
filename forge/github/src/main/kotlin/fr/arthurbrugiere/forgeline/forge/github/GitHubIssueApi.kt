@@ -23,6 +23,8 @@ import fr.arthurbrugiere.forgeline.core.model.IssueType
 import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.LinkedIssue
 import fr.arthurbrugiere.forgeline.core.model.Milestone
+import fr.arthurbrugiere.forgeline.core.model.ProjectItem
+import fr.arthurbrugiere.forgeline.core.model.ProjectStatus
 import fr.arthurbrugiere.forgeline.core.model.PullRequestInfo
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoAccess
@@ -36,6 +38,7 @@ import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
 import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
+import fr.arthurbrugiere.forgeline.forge.github.graphql.ClearProjectStatusMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.ClosingQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.ConvertToDraftMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DeleteIssueMutation
@@ -44,7 +47,10 @@ import fr.arthurbrugiere.forgeline.forge.github.graphql.IssueNodeQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.IssueTemplatesQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.MarkReadyMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.PinIssueMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.ProjectEventPlacesQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.ProjectItemsQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.SavedRepliesQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.SetProjectStatusMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.SubscribableQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.TimelineNodesQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.TransferIdsQuery
@@ -122,8 +128,19 @@ class GitHubIssueApi(
         )
         response.toResult {
             val events = body<List<EventJson>>()
-            val nodes = if (token == null) emptyMap() else timelineNodes(token, events)
-            val items = events.mapNotNull { it.toModel(ref.repo, ref.number, nodes[it.nodeId]) }.withoutCloseOfMerge().withoutRepeatedReferences()
+            val (nodes, places) = if (token == null) {
+                emptyMap<String, TimelineNodesQuery.Node>() to emptyMap()
+            } else {
+                coroutineScope {
+                    val places = async { projectPlaces(token, events) }
+                    timelineNodes(token, events) to places.await()
+                }
+            }
+            val items = events.mapNotNull { event ->
+                val item = event.toModel(ref.repo, ref.number, nodes[event.nodeId])
+                val place = event.nodeId?.let(places::get)
+                if (item is TimelineItem.Event && place != null) item.copy(place = place) else item
+            }.withoutCloseOfMerge().withoutRepeatedReferences()
             TimelinePage(withCommitMessages(token, items), nextPage(), lastPage())
         }
     }
@@ -165,6 +182,20 @@ class GitHubIssueApi(
                 (answer as? ForgeResult.Success)?.value?.nodes.orEmpty().filterNotNull().map { node -> node.id to node }
             }
         }.awaitAll().flatten().toMap()
+    }
+
+    /**
+     * The boards project events happened on, by their nodes: a sign-in without the read:project scope (made before
+     * Forgeline asked it) is refused, and the events read without them.
+     */
+    private suspend fun projectPlaces(token: String, events: List<EventJson>): Map<String, String> {
+        val ids = events.filter { it.event in PROJECT_EVENTS }.mapNotNull { it.nodeId }.distinct().take(100)
+        if (ids.isEmpty()) return emptyMap()
+        val answer = runCatching { httpClient.gitHubOperation(apiBaseUrl, token, ProjectEventPlacesQuery(ids), partial = true) }.getOrNull()
+        return (answer as? ForgeResult.Success)?.value?.nodes.orEmpty().filterNotNull().mapNotNull { node ->
+            val title = node.onAddedToProjectV2Event?.project?.title ?: node.onRemovedFromProjectV2Event?.project?.title ?: node.onProjectV2ItemStatusChangedEvent?.project?.title
+            title?.let { node.id to it }
+        }.toMap()
     }
 
     override val keepsSavedReplies: Boolean = true
@@ -224,6 +255,39 @@ class GitHubIssueApi(
         if (token == null) return ForgeResult.Success(emptyList())
         return operation(token, ClosingQuery(ref.repo.owner, ref.repo.name, ref.number)).map { data ->
             data.repository?.issue?.closedByPullRequestsReferences?.nodes.orEmpty().filterNotNull().map { it.toModel(ref.repo.forge) }
+        }
+    }
+
+    override val tracksProjects: Boolean = true
+
+    /** Through GraphQL, its archived items left out: GitHub's page doesn't show them either. */
+    override suspend fun projects(token: String, ref: IssueRef): ForgeResult<List<ProjectItem>> =
+        operation(token, ProjectItemsQuery(ref.repo.owner, ref.repo.name, ref.number)).map { data ->
+            val conversation = data.repository?.issueOrPullRequest
+            val items = conversation?.onIssue?.projectItems?.nodes?.mapNotNull { it?.projectItemFields }
+                ?: conversation?.onPullRequest?.projectItems?.nodes?.mapNotNull { it?.projectItemFields }
+            items.orEmpty().filterNot { it.isArchived }.map { item ->
+                val field = item.project.field?.onProjectV2SingleSelectField
+                ProjectItem(
+                    id = item.id,
+                    projectId = item.project.id,
+                    title = item.project.title,
+                    status = item.fieldValueByName?.onProjectV2ItemFieldSingleSelectValue?.name,
+                    statusFieldId = field?.id,
+                    statuses = field?.options.orEmpty().map { ProjectStatus(it.id, it.name) },
+                    // A closed board, or one without a Status column, can't be moved on.
+                    canChange = item.project.viewerCanUpdate && !item.project.closed && field != null,
+                    url = item.project.url.toString(),
+                )
+            }
+        }
+
+    override suspend fun setProjectStatus(token: String, item: ProjectItem, status: ProjectStatus?): ForgeResult<Unit> {
+        val field = item.statusFieldId ?: return ForgeResult.Failure(ForgeError.Unsupported)
+        return if (status == null) {
+            operation(token, ClearProjectStatusMutation(item.projectId, item.id, field)).map { }
+        } else {
+            operation(token, SetProjectStatusMutation(item.projectId, item.id, field, status.id)).map { }
         }
     }
 
@@ -787,6 +851,9 @@ private data class DismissedReviewJson(@SerialName("dismissal_message") val mess
 
 @Serializable
 private data class ProjectCardJson(@SerialName("column_name") val columnName: String? = null)
+
+/** The events that happen on a project board, which GraphQL names to a sign-in with the read:project scope. */
+private val PROJECT_EVENTS = setOf("added_to_project_v2", "removed_from_project_v2", "project_v2_item_status_changed")
 
 /** The events GraphQL tells more of than the REST timeline does, by their nodes. */
 private val DETAILED_IN_GRAPHQL = setOf(

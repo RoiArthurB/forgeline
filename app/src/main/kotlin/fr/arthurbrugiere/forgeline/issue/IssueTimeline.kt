@@ -280,9 +280,23 @@ private fun eventWords(item: TimelineItem.Event, time: String, headRef: String?)
         ConversationEvent.FORCE_PUSHED -> Icons.Outlined.Commit to either(R.string.issue_force_pushed_event, R.string.issue_force_pushed_unnamed_event)
         ConversationEvent.READY_FOR_REVIEW -> Icons.Outlined.RateReview to stringResource(R.string.issue_ready_for_review_event, who, time)
         ConversationEvent.CONVERTED_TO_DRAFT -> Icons.Outlined.EditNote to stringResource(R.string.issue_converted_to_draft_event, who, time)
-        ConversationEvent.ADDED_TO_PROJECT -> Icons.Outlined.ViewKanban to either(R.string.issue_added_to_project_event, R.string.issue_added_to_a_project_event)
-        ConversationEvent.REMOVED_FROM_PROJECT -> Icons.Outlined.ViewKanban to either(R.string.issue_removed_from_project_event, R.string.issue_removed_from_a_project_event)
-        ConversationEvent.PROJECT_STATUS_CHANGED -> Icons.Outlined.ViewKanban to either(R.string.issue_project_status_event, R.string.issue_project_status_unnamed_event)
+        // The board's name is the subject, or its place where GitHub names it apart (to a sign-in that may read it).
+        ConversationEvent.ADDED_TO_PROJECT -> Icons.Outlined.ViewKanban to when (val board = named ?: item.place) {
+            null -> stringResource(R.string.issue_added_to_a_project_event, who, time)
+            else -> stringResource(R.string.issue_added_to_project_event, who, board, time)
+        }
+        ConversationEvent.REMOVED_FROM_PROJECT -> Icons.Outlined.ViewKanban to when (val board = named ?: item.place) {
+            null -> stringResource(R.string.issue_removed_from_a_project_event, who, time)
+            else -> stringResource(R.string.issue_removed_from_project_event, who, board, time)
+        }
+        ConversationEvent.PROJECT_STATUS_CHANGED -> Icons.Outlined.ViewKanban to item.place.let { board ->
+            when {
+                named != null && board != null -> stringResource(R.string.issue_project_status_on_event, who, named, board, time)
+                named != null -> stringResource(R.string.issue_project_status_event, who, named, time)
+                board != null -> stringResource(R.string.issue_project_status_unnamed_on_event, who, board, time)
+                else -> stringResource(R.string.issue_project_status_unnamed_event, who, time)
+            }
+        }
         ConversationEvent.STATUS_CHANGED -> Icons.Outlined.ViewKanban to stringResource(R.string.issue_status_event, who, subject, time)
         ConversationEvent.COMMENT_DELETED -> Icons.Outlined.DeleteOutline to stringResource(R.string.issue_comment_deleted_event, who, time)
         ConversationEvent.COMMENT_PINNED -> Icons.Outlined.PushPin to stringResource(R.string.issue_comment_pinned_event, who, time)

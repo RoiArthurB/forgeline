@@ -223,3 +223,87 @@ mutation TransferIssue($issue: ID!, $repository: ID!) {
     }
   }
 }
+
+# The project boards a conversation is on, and its column on each: asking needs the read:project scope (project, which
+# also moves it, includes it). A sign-in made before Forgeline asked it is refused, and shows none.
+query ProjectItems($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    issueOrPullRequest(number: $number) {
+      ... on Issue {
+        projectItems(first: 20) {
+          nodes {
+            ...ProjectItemFields
+          }
+        }
+      }
+      ... on PullRequest {
+        projectItems(first: 20) {
+          nodes {
+            ...ProjectItemFields
+          }
+        }
+      }
+    }
+  }
+}
+
+fragment ProjectItemFields on ProjectV2Item {
+  id
+  isArchived
+  project {
+    id
+    title
+    url
+    closed
+    viewerCanUpdate
+    field(name: "Status") {
+      ... on ProjectV2SingleSelectField {
+        id
+        options {
+          id
+          name
+        }
+      }
+    }
+  }
+  fieldValueByName(name: "Status") {
+    ... on ProjectV2ItemFieldSingleSelectValue {
+      name
+    }
+  }
+}
+
+mutation SetProjectStatus($project: ID!, $item: ID!, $field: ID!, $option: String!) {
+  updateProjectV2ItemFieldValue(input: {projectId: $project, itemId: $item, fieldId: $field, value: {singleSelectOptionId: $option}}) {
+    clientMutationId
+  }
+}
+
+mutation ClearProjectStatus($project: ID!, $item: ID!, $field: ID!) {
+  clearProjectV2ItemFieldValue(input: {projectId: $project, itemId: $item, fieldId: $field}) {
+    clientMutationId
+  }
+}
+
+# The boards project events happened on, by the events' nodes: apart from TimelineNodes, as a sign-in without the
+# read:project scope is refused all of it.
+query ProjectEventPlaces($ids: [ID!]!) {
+  nodes(ids: $ids) {
+    id
+    ... on AddedToProjectV2Event {
+      project {
+        title
+      }
+    }
+    ... on RemovedFromProjectV2Event {
+      project {
+        title
+      }
+    }
+    ... on ProjectV2ItemStatusChangedEvent {
+      project {
+        title
+      }
+    }
+  }
+}

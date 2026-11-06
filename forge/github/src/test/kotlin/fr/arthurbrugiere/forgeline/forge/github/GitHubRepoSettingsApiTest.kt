@@ -200,7 +200,7 @@ class GitHubRepoSettingsApiTest {
 
     @Test
     fun deleting_is_among_what_a_sign_in_asks_for() {
-        assertThat(GitHubAuthApi.SCOPES).containsExactly("notifications", "read:user", "user:follow", "repo", "delete_repo").inOrder()
+        assertThat(GitHubAuthApi.SCOPES).containsExactly("notifications", "read:user", "user:follow", "repo", "delete_repo", "project").inOrder()
     }
 
     // Cut down from api.github.com's for a repository that publishes with a workflow, read on 2026-10-12.
