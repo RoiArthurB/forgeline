@@ -35,9 +35,12 @@ class SearchRepository @Inject constructor(
     private val clients: ForgeClients,
     private val accounts: AccountRepository,
 ) {
-    /** The forges a search can ask: GitHub, then each forge an account is signed in to. */
+    /**
+     * The forges a search can ask: signed out, the three public ones, which answer without an account; signed in,
+     * GitHub, then each forge an account is signed in to.
+     */
     val forges: Flow<List<ForgeInstance>> = accounts.accounts
-        .map { signedIn -> (listOf(ForgeInstance.GitHub) + signedIn.map { it.forge }).distinct() }
+        .map { signedIn -> if (signedIn.isEmpty()) PUBLIC_FORGES else (listOf(ForgeInstance.GitHub) + signedIn.map { it.forge }).distinct() }
         .distinctUntilChanged()
 
     /**
