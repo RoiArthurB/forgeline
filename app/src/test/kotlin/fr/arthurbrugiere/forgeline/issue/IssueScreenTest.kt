@@ -1,5 +1,7 @@
 package fr.arthurbrugiere.forgeline.issue
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -65,38 +67,43 @@ class IssueScreenTest {
     private val ref = IssueRef(RepoId("octo", "repo"), 7)
     private val at = Instant.parse("2026-09-26T09:00:00Z")
 
-    private fun setContent(state: IssueUiState, canComment: Boolean = true) {
+    private fun setContent(state: IssueUiState, canComment: Boolean = true, commentingAs: String? = null) {
         shown.value = state
         composeRule.setContent {
-            IssueScreen(
-                state = shown.value,
-                canComment = canComment,
-                onDraftChange = { events += "draft:$it" }, onSendComment = { events += "send" }, onToggleOpen = { events += "toggle" }, onSignIn = { events += "signin" },
-                onCommentNoticeShown = { events += "noticed" },
-                onBack = {}, onRefresh = { events += "refresh" }, onLoadMore = { events += "more" },
-                onOpenIssue = { events += "issue:${it.repo.fullName}#${it.number}" },
-                onOpenRepo = { events += "repo:${it.fullName}" },
-                onOpenUser = { events += "user:$it" },
-                onOpenInBrowser = { events += "browser:$it" },
-                onLinkClick = { events += "link:$it" },
-                onErrorShown = {},
-                nowMillis = at.toEpochMilli(),
-                onToEnd = { events += "end" },
-                onToggleSubscribed = { events += "subscription" },
-                comments = CommentActions(
-                    onSetHidden = { id, reason -> events += "hide:$id:$reason" },
-                    onAddSubIssue = { events += "sub+:$it" },
-                    onRemoveSubIssue = { events += "sub-:${it.number}" },
-                    onSetProjectStatus = { item, status -> events += "project:${item.title}:${status?.name}" },
-                    onLoadSavedReplies = { events += "load-replies" },
-                    onUseSavedReply = { events += "reply:${it.title}" },
-                ),
-                onScrolled = {
-                    events += "scrolled"
-                    shown.value = shown.value.copy(scrollTo = null)
-                },
-            )
+            CompositionLocalProvider(LocalCommentingAs provides commentingAs) { Screen(canComment) }
         }
+    }
+
+    @Composable
+    private fun Screen(canComment: Boolean) {
+        IssueScreen(
+            state = shown.value,
+            canComment = canComment,
+            onDraftChange = { events += "draft:$it" }, onSendComment = { events += "send" }, onToggleOpen = { events += "toggle" }, onSignIn = { events += "signin" },
+            onCommentNoticeShown = { events += "noticed" },
+            onBack = {}, onRefresh = { events += "refresh" }, onLoadMore = { events += "more" },
+            onOpenIssue = { events += "issue:${it.repo.fullName}#${it.number}" },
+            onOpenRepo = { events += "repo:${it.fullName}" },
+            onOpenUser = { events += "user:$it" },
+            onOpenInBrowser = { events += "browser:$it" },
+            onLinkClick = { events += "link:$it" },
+            onErrorShown = {},
+            nowMillis = at.toEpochMilli(),
+            onToEnd = { events += "end" },
+            onToggleSubscribed = { events += "subscription" },
+            comments = CommentActions(
+                onSetHidden = { id, reason -> events += "hide:$id:$reason" },
+                onAddSubIssue = { events += "sub+:$it" },
+                onRemoveSubIssue = { events += "sub-:${it.number}" },
+                onSetProjectStatus = { item, status -> events += "project:${item.title}:${status?.name}" },
+                onLoadSavedReplies = { events += "load-replies" },
+                onUseSavedReply = { events += "reply:${it.title}" },
+            ),
+            onScrolled = {
+                events += "scrolled"
+                shown.value = shown.value.copy(scrollTo = null)
+            },
+        )
     }
 
     private fun waitFor(text: String) =
@@ -991,6 +998,29 @@ class IssueScreenTest {
         composeRule.onNodeWithText("Show").performClick()
 
         composeRule.waitUntil(5_000) { composeRule.onAllNodesWithText("Buy now!").fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test
+    fun a_comment_s_words_open_to_be_selected_from_its_menu() {
+        val comment = TimelineItem.Comment(1, ForgeUser("someone", null, null), "Copy this part", at, emptyMap(), nodeId = "IC_1", canHide = true)
+        setContent(IssueUiState(ref, issueDetails(ref), listOf(comment)))
+
+        composeRule.onAllNodes(hasContentDescription("Comment options")).onLast().performClick()
+        composeRule.onNodeWithText("Select text").performClick()
+
+        // The sheet shows the words again, where a long press selects them.
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithText("Copy this part").fetchSemanticsNodes().size == 2 }
+    }
+
+    @Test
+    fun with_two_accounts_on_the_forge_the_comment_box_says_whose_name_it_goes_out_under() {
+        setContent(IssueUiState(ref, issueDetails(ref)), commentingAs = "work")
+
+        shown.value = shown.value.copy(scrollTo = ScrollTarget.End)
+        letTimePass(1_500)
+
+        composeRule.onNodeWithText("Comment as @work").assertIsDisplayed()
+        assertThat(composeRule.onAllNodesWithText("Add a comment").fetchSemanticsNodes()).isEmpty()
     }
 
     @Test

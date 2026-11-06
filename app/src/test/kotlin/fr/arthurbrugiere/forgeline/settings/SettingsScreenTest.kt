@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.settings
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
@@ -53,6 +54,7 @@ class SettingsScreenTest {
     private val feedChanges = mutableListOf<Pair<FeedKind, Boolean>>()
 
     private var openedSection: SettingsSection? = null
+    private var actingAs: Account? = null
 
     /** The settings as the last simple choice left them; null while none was made. */
     private var changed: UserSettings? = null
@@ -86,6 +88,7 @@ class SettingsScreenTest {
                 onChange = { change -> changed = change(changed ?: settings) },
                 language = language,
                 onLanguageChange = { languages += it },
+                onActAs = { actingAs = it },
             )
         }
     }
@@ -170,6 +173,24 @@ class SettingsScreenTest {
         composeRule.onNodeWithText("Credits and licenses").performClick()
 
         assertThat(creditsOpened).isTrue()
+    }
+
+    @Test
+    fun of_two_accounts_on_one_forge_the_one_acting_says_so_and_the_other_offers_to() {
+        val work = Account(Account.idFor(ForgeInstance.GitHub, "work"), ForgeInstance.GitHub, ForgeUser("work", null, null))
+        val me = Account(Account.idFor(ForgeInstance.GitHub, "me"), ForgeInstance.GitHub, ForgeUser("me", null, null))
+        val codeberg = Account(Account.idFor(ForgeInstance.Codeberg, "alice"), ForgeInstance.Codeberg, ForgeUser("alice", null, null))
+        setContent(session = SessionState.SignedIn(me, listOf(work, me, codeberg), acting = setOf(me.id)), section = SettingsSection.ACCOUNTS)
+
+        composeRule.onNodeWithText("Acts on GitHub").assertIsDisplayed()
+        composeRule.onNodeWithText("GitHub, another account acts there").assertIsDisplayed()
+        // Alone on its forge, an account says only its forge, with nothing to choose.
+        composeRule.onNodeWithText("Codeberg").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Use").assertCountEquals(1)
+
+        composeRule.onNodeWithText("Use").performClick()
+
+        assertThat(actingAs).isEqualTo(work)
     }
 
     @Test
