@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.graphics.drawable.Icon
 import androidx.annotation.StringRes
 import androidx.core.net.toUri
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -49,6 +50,12 @@ enum class InboxChannel(val id: String, @param:StringRes val label: Int, val imp
 const val EXTRA_UNREAD = "fr.arthurbrugiere.forgeline.UNREAD"
 const val EXTRA_LAST_READ_AT = "fr.arthurbrugiere.forgeline.LAST_READ_AT"
 
+/** Every Inbox notification is posted under this tag, with [notificationId] for its thread. */
+const val NOTIFICATION_TAG = "inbox"
+
+/** A thread's notification, by account and id: two forges can use the same thread id. */
+fun notificationId(accountId: String, threadId: String): Int = "$accountId|$threadId".hashCode()
+
 /** The web page of a thread; the app routes it back in-app when the notification is tapped. */
 fun inboxLink(thread: NotificationThread): String {
     val number = thread.number ?: return thread.repo.webUrl
@@ -68,8 +75,7 @@ class SystemInboxNotifier @Inject constructor(@param:ApplicationContext private 
         )
         // Also false on Android 13+ until the notification permission is granted.
         if (!manager.areNotificationsEnabled()) return
-        // By account and id: two forges can use the same thread id.
-        threads.forEach { thread -> manager.notify(TAG, thread.key.hashCode(), build(thread)) }
+        threads.forEach { thread -> manager.notify(NOTIFICATION_TAG, notificationId(thread.accountId, thread.id), build(thread)) }
     }
 
     private fun build(thread: NotificationThread): Notification {
@@ -93,12 +99,25 @@ class SystemInboxNotifier @Inject constructor(@param:ApplicationContext private 
             .setWhen(thread.updatedAt.toEpochMilli())
             .setShowWhen(true)
             .setContentIntent(tap)
+            // Sorted from the notification shade, as with a swipe in the Inbox: read (when it isn't yet) or done.
+            .apply { if (thread.unread) addAction(action(thread, ACTION_MARK_READ, R.string.inbox_mark_read)) }
+            .addAction(action(thread, ACTION_MARK_DONE, R.string.inbox_mark_done))
             .setAutoCancel(true)
             .setCategory(Notification.CATEGORY_SOCIAL)
             .build()
     }
 
-    private companion object {
-        const val TAG = "inbox"
+    private fun action(thread: NotificationThread, what: String, @StringRes label: Int): Notification.Action {
+        val intent = Intent(what, null, context, InboxActionReceiver::class.java)
+            .putExtra(EXTRA_ACCOUNT_ID, thread.accountId)
+            .putExtra(EXTRA_THREAD_ID, thread.id)
+        // One per thread and button: a request code shared by two would hand the second the first one's thread.
+        val pending = PendingIntent.getBroadcast(
+            context,
+            "$what|${thread.key}".hashCode(),
+            intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        return Notification.Action.Builder(Icon.createWithResource(context, R.drawable.ic_notification), context.getString(label), pending).build()
     }
 }
