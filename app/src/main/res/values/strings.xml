@@ -257,6 +257,10 @@
     <string name="trending_refresh_failed">Couldn\'t refresh. Showing the last saved list.</string>
     <string name="trending_star_failed">Couldn\'t update the star. Try again.</string>
     <string name="retry">Retry</string>
+    <string name="settings_account_acting">Acts on %1$s</string>
+    <string name="settings_account_not_acting">%1$s, another account acts there</string>
+    <string name="settings_account_act_as">Use</string>
+    <string name="issue_comment_placeholder_as">Comment as @%1$s</string>
     <string name="settings_add_account">Add an account</string>
     <string name="settings_separate_inbox">Inbox tabs per account</string>
     <string name="settings_separate_inbox_summary">See one account at a time, or all together</string>

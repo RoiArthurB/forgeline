@@ -21,6 +21,15 @@ class FakeAccountRepository : AccountRepository {
         list.firstOrNull { it.account.id == id }?.account
     }
 
+    private val actingIds = MutableStateFlow<Set<String>>(emptySet())
+
+    override val acting: Flow<Set<String>> = actingIds
+
+    override suspend fun actAs(accountId: String) {
+        val account = entries.value.firstOrNull { it.account.id == accountId }?.account ?: return
+        actingIds.update { ids -> ids.filterNot { id -> entries.value.any { it.account.id == id && it.account.forge == account.forge } }.toSet() + accountId }
+    }
+
     /** Ids of accounts whose sign-in has ended; a test sets it. */
     val ended = MutableStateFlow<Set<String>>(emptySet())
 
@@ -36,6 +45,7 @@ class FakeAccountRepository : AccountRepository {
         entries.update { list -> list.filterNot { it.account.id == account.id } + Entry(account, token) }
         refreshTokens[account.id] = refreshToken to expiresAtMillis
         activeId.value = account.id
+        actAs(account.id)
         return account
     }
 
@@ -43,6 +53,7 @@ class FakeAccountRepository : AccountRepository {
 
     override suspend fun signOut(accountId: String) {
         entries.update { list -> list.filterNot { it.account.id == accountId } }
+        actingIds.update { it - accountId }
         if (activeId.value == accountId) activeId.value = entries.value.lastOrNull()?.account?.id
     }
 }

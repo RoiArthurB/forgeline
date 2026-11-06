@@ -48,6 +48,7 @@ import fr.arthurbrugiere.forgeline.navigation.route
 import fr.arthurbrugiere.forgeline.navigation.settingsRoute
 import fr.arthurbrugiere.forgeline.navigation.userRoute
 import fr.arthurbrugiere.forgeline.session.SessionState
+import fr.arthurbrugiere.forgeline.session.actingOn
 import fr.arthurbrugiere.forgeline.signin.SignInRoute
 import fr.arthurbrugiere.forgeline.you.YouDestination
 import fr.arthurbrugiere.forgeline.actions.JobLogRoute as JobLogDestination
@@ -80,6 +81,8 @@ fun ForgelineApp(
     session: SessionState,
     onSignOut: (Account) -> Unit,
     link: NavKey? = null,
+    /** Makes an account the one acting on its forge, then goes on: see [fr.arthurbrugiere.forgeline.session.SessionViewModel.actAs]. */
+    onActAs: (accountId: String, then: () -> Unit) -> Unit = { _, then -> then() },
     onLinkOpened: () -> Unit = {},
     navigator: AppNavigator = rememberAppNavigator(),
     /** The tab chosen to open on; null while the settings are still being read. */
@@ -113,13 +116,13 @@ fun ForgelineApp(
             LocalOpenPicture provides { url, description -> navigator.navigate(PictureRoute(url, description)) },
             LocalOpenPictureLabel provides stringResource(R.string.picture_view),
         ) {
-            ForgelineNavDisplay(navigator, session, onSignOut)
+            ForgelineNavDisplay(navigator, session, onSignOut, onActAs)
         }
     }
 }
 
 @Composable
-private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, onSignOut: (Account) -> Unit) {
+private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, onSignOut: (Account) -> Unit, onActAs: (String, () -> Unit) -> Unit) {
     val signIn = { navigator.navigate(SignInKey) }
     val openRepo = { id: RepoId -> navigator.navigate(id.route()) }
     val openIssue = { ref: IssueRef -> navigator.navigate(ref.route()) }
@@ -135,7 +138,10 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 onOpenIssue = openIssue,
                 onOpenThread = { thread ->
                     // An unread thread opens where the reader left it, not at the title.
-                    thread.route()?.let(navigator::navigate) ?: openRepo(thread.repo)
+                    val open = { thread.route()?.let(navigator::navigate) ?: openRepo(thread.repo) }
+                    // It came to one account: with several on its forge, that one answers it.
+                    val acting = session.actingOn(thread.repo.forge)
+                    if (acting != null && thread.accountId.isNotEmpty() && acting.id != thread.accountId) onActAs(thread.accountId, open) else open()
                 },
             )
         }
@@ -164,17 +170,19 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
             )
         }
         entry<IssueKey> { key ->
-            IssueDestination(
-                key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.issue.repo.forge, it) },
-                session = session, onSignIn = signIn,
-                onNewIssue = { id -> navigator.navigate(id.newIssueRoute()) },
-                onMoved = { navigator.replaceCurrent(it.route()) },
-                onEditIssue = { navigator.navigate(it.repo.newIssueRoute().copy(edit = it.number, editIsPullRequest = it.isPullRequest)) },
-                onOpenChanges = { navigator.navigate(it.changesRoute()) },
-                onOpenCommits = { navigator.navigate(it.commitsRoute()) },
-                onOpenRun = { id, runId -> navigator.navigate(RunKey(id.forge.host, id.owner, id.name, runId)) },
-                onOpenCheck = { id, checkId, name -> navigator.navigate(id.checkRoute(checkId, name)) },
-            )
+            CompositionLocalProvider(fr.arthurbrugiere.forgeline.issue.LocalCommentingAs provides session.actingOn(key.issue.repo.forge)?.user?.login) {
+                IssueDestination(
+                    key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.issue.repo.forge, it) },
+                    session = session, onSignIn = signIn,
+                    onNewIssue = { id -> navigator.navigate(id.newIssueRoute()) },
+                    onMoved = { navigator.replaceCurrent(it.route()) },
+                    onEditIssue = { navigator.navigate(it.repo.newIssueRoute().copy(edit = it.number, editIsPullRequest = it.isPullRequest)) },
+                    onOpenChanges = { navigator.navigate(it.changesRoute()) },
+                    onOpenCommits = { navigator.navigate(it.commitsRoute()) },
+                    onOpenRun = { id, runId -> navigator.navigate(RunKey(id.forge.host, id.owner, id.name, runId)) },
+                    onOpenCheck = { id, checkId, name -> navigator.navigate(id.checkRoute(checkId, name)) },
+                )
+            }
         }
         entry<fr.arthurbrugiere.forgeline.navigation.CheckRoute> { key ->
             fr.arthurbrugiere.forgeline.pull.CheckRoute(key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.repo.forge, it) })
@@ -269,6 +277,7 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 session = session,
                 onSignIn = signIn,
                 onSignOut = onSignOut,
+                onActAs = { onActAs(it.id) {} },
                 onBack = navigator::goBack,
                 onOpenCredits = { navigator.navigate(CreditsKey) },
                 onOpenSection = { navigator.navigate(SettingsSectionRoute(it)) },
@@ -279,6 +288,7 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 session = session,
                 onSignIn = signIn,
                 onSignOut = onSignOut,
+                onActAs = { onActAs(it.id) {} },
                 onBack = navigator::goBack,
                 onOpenCredits = { navigator.navigate(CreditsKey) },
                 section = key.section,

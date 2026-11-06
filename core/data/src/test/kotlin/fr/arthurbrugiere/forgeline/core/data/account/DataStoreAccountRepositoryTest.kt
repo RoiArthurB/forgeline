@@ -70,6 +70,24 @@ class DataStoreAccountRepositoryTest {
         assertThat(repository.token(account.id)).isEqualTo("ghp_secret")
     }
 
+    @Test
+    fun the_account_chosen_to_act_on_a_forge_is_kept_one_a_forge() = runTest {
+        val repository = DataStoreAccountRepository(dataStore(), ReversingCipher, refresher, clock, backgroundScope)
+        val work = repository.signIn(ForgeInstance.GitHub, ForgeUser("work", null, null), "ghp_work")
+        val mine = repository.signIn(ForgeInstance.GitHub, octocat, "ghp_mine")
+        val codeberg = repository.signIn(ForgeInstance.Codeberg, octocat, "cb")
+
+        assertThat(repository.acting.first()).containsExactly(mine.id, codeberg.id)
+
+        repository.actAs(work.id)
+        assertThat(repository.acting.first()).containsExactly(work.id, codeberg.id)
+        assertThat(repository.accountOn(ForgeInstance.GitHub)).isEqualTo(work)
+
+        repository.signOut(work.id)
+        assertThat(repository.acting.first()).containsExactly(codeberg.id)
+        assertThat(repository.accountOn(ForgeInstance.GitHub)).isEqualTo(mine)
+    }
+
     /** Counts decryptions: on a phone each one is a round trip to the Keystore. */
     private class CountingCipher : TokenCipher {
         var decryptions = 0

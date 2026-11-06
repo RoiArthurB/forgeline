@@ -242,6 +242,10 @@
     <string name="trending_refresh_failed">Actualisation impossible. Voici la dernière liste enregistrée.</string>
     <string name="trending_star_failed">L’étoile n’a pas pu être mise à jour. Réessayez.</string>
     <string name="retry">Réessayer</string>
+    <string name="settings_account_acting">Agit sur %1$s</string>
+    <string name="settings_account_not_acting">%1$s, un autre compte y agit</string>
+    <string name="settings_account_act_as">Utiliser</string>
+    <string name="issue_comment_placeholder_as">Commenter en tant que @%1$s</string>
     <string name="settings_add_account">Ajouter un compte</string>
     <string name="settings_separate_inbox">Un onglet de réception par compte</string>
     <string name="settings_separate_inbox_summary">Voir un compte à la fois, ou tous ensemble</string>

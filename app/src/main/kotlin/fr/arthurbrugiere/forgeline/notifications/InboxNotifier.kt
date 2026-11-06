@@ -83,6 +83,8 @@ class SystemInboxNotifier @Inject constructor(@param:ApplicationContext private 
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             // What the link can't say: the conversation opens at what is new since it was last read.
             .putExtra(EXTRA_UNREAD, thread.unread)
+            // Whose thread it is: with several accounts on its forge, that one opens it.
+            .putExtra(EXTRA_ACCOUNT_ID, thread.accountId)
             .apply { thread.lastReadAt?.let { putExtra(EXTRA_LAST_READ_AT, it.toEpochMilli()) } }
         val tap = PendingIntent.getActivity(
             context,
