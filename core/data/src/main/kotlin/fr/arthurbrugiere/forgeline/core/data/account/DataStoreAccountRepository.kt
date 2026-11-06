@@ -4,6 +4,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import dagger.Lazy
 import fr.arthurbrugiere.forgeline.core.data.di.AccountsDataStore
 import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
@@ -71,6 +72,22 @@ class DataStoreAccountRepository @Inject constructor(
         .map { stored -> stored.accounts.firstOrNull { it.id == stored.activeId }?.toAccount() }
         .distinctUntilChanged()
 
+    override val acting: Flow<Set<String>> = state.map { it.acting }.distinctUntilChanged()
+
+    override suspend fun actAs(accountId: String) {
+        dataStore.edit { prefs ->
+            val current = prefs.toState()
+            val account = current.accounts.firstOrNull { it.id == accountId } ?: return@edit
+            prefs.write(current.copy(acting = current.actingAlone(account)))
+        }
+    }
+
+    /** What acts once [account] does: it, in place of any other on its forge. */
+    private fun StoredState.actingAlone(account: StoredAccount): Set<String> {
+        val sameForge = accounts.filter { it.host == account.host && it.forgeType == account.forgeType }.map { it.id }.toSet()
+        return acting - sameForge + account.id
+    }
+
     override suspend fun signIn(forge: ForgeInstance, user: ForgeUser, token: String, refreshToken: String?, expiresAtMillis: Long?): Account {
         val stored = StoredAccount(
             id = Account.idFor(forge, user.login),
@@ -85,7 +102,8 @@ class DataStoreAccountRepository @Inject constructor(
         )
         dataStore.edit { prefs ->
             val current = prefs.toState()
-            prefs.write(StoredState(current.accounts.filterNot { it.id == stored.id } + stored, stored.id))
+            val accounts = current.accounts.filterNot { it.id == stored.id } + stored
+            prefs.write(StoredState(accounts, stored.id, current.copy(accounts = accounts).actingAlone(stored)))
         }
         ended.update { it - stored.id }
         return stored.toAccount()
@@ -175,7 +193,7 @@ class DataStoreAccountRepository @Inject constructor(
             val current = prefs.toState()
             val remaining = current.accounts.filterNot { it.id == accountId }
             val activeId = if (current.activeId == accountId) remaining.lastOrNull()?.id else current.activeId
-            prefs.write(StoredState(remaining, activeId))
+            prefs.write(StoredState(remaining, activeId, current.acting - accountId))
         }
         ended.update { it - accountId }
         // Nothing of the account stays in memory; the others' tokens are read again when next needed.
@@ -185,14 +203,16 @@ class DataStoreAccountRepository @Inject constructor(
     private fun Preferences.toState(): StoredState = StoredState(
         accounts = this[ACCOUNTS]?.let { json.decodeFromString<List<StoredAccount>>(it) }.orEmpty(),
         activeId = this[ACTIVE_ID],
+        acting = this[ACTING_IDS].orEmpty(),
     )
 
     private fun androidx.datastore.preferences.core.MutablePreferences.write(state: StoredState) {
         this[ACCOUNTS] = json.encodeToString(state.accounts)
         if (state.activeId == null) remove(ACTIVE_ID) else this[ACTIVE_ID] = state.activeId
+        if (state.acting.isEmpty()) remove(ACTING_IDS) else this[ACTING_IDS] = state.acting
     }
 
-    private data class StoredState(val accounts: List<StoredAccount>, val activeId: String?)
+    private data class StoredState(val accounts: List<StoredAccount>, val activeId: String?, val acting: Set<String> = emptySet())
 
     @Serializable
     private data class StoredAccount(
@@ -216,6 +236,7 @@ class DataStoreAccountRepository @Inject constructor(
     private companion object {
         val ACCOUNTS = stringPreferencesKey("accounts")
         val ACTIVE_ID = stringPreferencesKey("active_account_id")
+        val ACTING_IDS = stringSetPreferencesKey("acting_account_ids")
         val json = Json { ignoreUnknownKeys = true }
 
         /** Refreshed a minute early, so a token doesn't expire on its way to the forge. */

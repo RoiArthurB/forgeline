@@ -35,7 +35,7 @@ class SessionViewModelTest {
 
         val account = accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "t")
 
-        assertThat(viewModel.session.value).isEqualTo(SessionState.SignedIn(account))
+        assertThat(viewModel.session.value).isEqualTo(SessionState.SignedIn(account, acting = setOf(account.id)))
     }
 
     @Test
@@ -44,11 +44,11 @@ class SessionViewModelTest {
         val github = accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "t")
         val codeberg = accounts.signIn(ForgeInstance.Codeberg, ForgeUser("octocat", null, null), "c")
 
-        assertThat(viewModel.session.value).isEqualTo(SessionState.SignedIn(codeberg, listOf(github, codeberg)))
+        assertThat(viewModel.session.value).isEqualTo(SessionState.SignedIn(codeberg, listOf(github, codeberg), acting = setOf(github.id, codeberg.id)))
 
         viewModel.signOut(codeberg)
 
-        assertThat(viewModel.session.value).isEqualTo(SessionState.SignedIn(github, listOf(github)))
+        assertThat(viewModel.session.value).isEqualTo(SessionState.SignedIn(github, listOf(github), acting = setOf(github.id)))
     }
 
     @Test
@@ -146,5 +146,24 @@ class SessionViewModelTest {
 
         assertThat((viewModel.session.value as SessionState.SignedIn).ended).isEmpty()
         assertThat((viewModel.session.value as SessionState.SignedIn).account).isEqualTo(github)
+    }
+
+    @Test
+    fun with_two_accounts_on_a_forge_the_one_chosen_acts_there() = runTest {
+        val viewModel = SessionViewModel(accounts, signedOutData, clients)
+        val work = accounts.signIn(ForgeInstance.GitHub, ForgeUser("work", null, null), "w")
+        val mine = accounts.signIn(ForgeInstance.GitHub, ForgeUser("octocat", null, null), "t")
+        val codeberg = accounts.signIn(ForgeInstance.Codeberg, ForgeUser("octocat", null, null), "c")
+
+        assertThat(viewModel.session.value.actingOn(ForgeInstance.GitHub)).isEqualTo(mine)
+        // One account on a forge: nobody else to tell it from.
+        assertThat(viewModel.session.value.actingOn(ForgeInstance.Codeberg)).isNull()
+
+        var opened = false
+        viewModel.actAs(work.id) { opened = true }
+
+        assertThat(viewModel.session.value.actingOn(ForgeInstance.GitHub)).isEqualTo(work)
+        assertThat(opened).isTrue()
+        assertThat(codeberg.id in (viewModel.session.value as SessionState.SignedIn).acting).isTrue()
     }
 }

@@ -11,6 +11,15 @@ interface AccountRepository {
     val activeAccount: Flow<Account?>
 
     /**
+     * The ids of the accounts chosen to act on their forge, where several are signed in to one: at most one a forge.
+     * Signing in to an account makes it the one on its forge; [actAs] picks another.
+     */
+    val acting: Flow<Set<String>>
+
+    /** Makes [accountId] the account that reads and writes on its forge, in place of any other signed in there. */
+    suspend fun actAs(accountId: String)
+
+    /**
      * Stores (or refreshes) the account and makes it the active one. A token that expires (Codeberg's browser sign-in:
      * an hour) comes with its [refreshToken] and [expiresAtMillis].
      */

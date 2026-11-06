@@ -36,6 +36,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -84,6 +85,12 @@ import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
  * conversation's forge, it says so and offers to sign in. A comment that wasn't sent stays written. Whoever may close
  * the conversation, or reopen it, finds that beside the comment's action, quieter, after any other [decisions].
  */
+/**
+ * The login a comment goes out under, where several accounts are signed in to the conversation's forge; null with
+ * one, where there is no one else it could be.
+ */
+val LocalCommentingAs = staticCompositionLocalOf<String?> { null }
+
 @Composable
 internal fun Composer(
     state: IssueUiState,
@@ -164,7 +171,8 @@ internal fun Composer(
                 if (changed) onDraftChange(written.text)
                 onReferenceTyped(written.typedReference(marks))
             },
-            placeholder = stringResource(R.string.issue_comment_placeholder),
+            placeholder = LocalCommentingAs.current?.let { stringResource(R.string.issue_comment_placeholder_as, it) }
+                ?: stringResource(R.string.issue_comment_placeholder),
             error = state.commentError?.let { error ->
                 commentErrorText(error, forge)
             },

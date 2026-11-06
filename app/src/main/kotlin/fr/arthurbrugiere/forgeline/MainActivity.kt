@@ -27,6 +27,7 @@ import fr.arthurbrugiere.forgeline.core.ui.theme.isDark
 import fr.arthurbrugiere.forgeline.core.ui.theme.softColors
 import fr.arthurbrugiere.forgeline.navigation.ForgeLinks
 import fr.arthurbrugiere.forgeline.navigation.linkRoute
+import fr.arthurbrugiere.forgeline.notifications.EXTRA_ACCOUNT_ID
 import fr.arthurbrugiere.forgeline.notifications.EXTRA_LAST_READ_AT
 import fr.arthurbrugiere.forgeline.notifications.EXTRA_UNREAD
 import fr.arthurbrugiere.forgeline.session.SessionViewModel
@@ -75,6 +76,7 @@ class MainActivity : ComponentActivity() {
                         ForgelineApp(
                             session = session,
                             onSignOut = sessionViewModel::signOut,
+                            onActAs = sessionViewModel::actAs,
                             link = link,
                             onLinkOpened = { link = null },
                             // Not known until the settings are read: the app waits rather than open on the wrong tab.
@@ -96,8 +98,14 @@ class MainActivity : ComponentActivity() {
         val url = intent.dataString ?: return
         val lastReadAt = intent.getLongExtra(EXTRA_LAST_READ_AT, -1).takeIf { it >= 0 }
         val route = linkRoute(url, intent.getBooleanExtra(EXTRA_UNREAD, false), lastReadAt)
+        // A notification's thread came to one account: with several on its forge, that one answers it.
+        val account = intent.getStringExtra(EXTRA_ACCOUNT_ID)?.takeIf { it.isNotEmpty() }
         // A github.com page Forgeline can't show (settings, orgs...): hand it to the browser.
-        if (route == null) openInCustomTab(this, url) else link = route
+        when {
+            route == null -> openInCustomTab(this, url)
+            account != null -> sessionViewModel.actAs(account) { link = route }
+            else -> link = route
+        }
     }
 
     /**

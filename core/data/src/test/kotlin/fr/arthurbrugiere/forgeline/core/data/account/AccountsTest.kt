@@ -26,4 +26,19 @@ class AccountsTest {
         assertThat(accounts.accountOn(ForgeInstance.Codeberg)).isNull()
         assertThat(accounts.tokenOn(ForgeInstance.Codeberg)).isNull()
     }
+
+    @Test
+    fun of_two_accounts_on_one_forge_the_one_chosen_acts_there() = runTest {
+        val work = accounts.signIn(ForgeInstance.GitHub, ForgeUser("work", null, null), "work_token")
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "me_token")
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "cb_token")
+
+        // The latest sign-in acts on its forge, until another is chosen there.
+        assertThat(accounts.tokenOn(ForgeInstance.GitHub)).isEqualTo("me_token")
+        accounts.actAs(work.id)
+
+        assertThat(accounts.tokenOn(ForgeInstance.GitHub)).isEqualTo("work_token")
+        // Another forge keeps its own.
+        assertThat(accounts.tokenOn(ForgeInstance.Codeberg)).isEqualTo("cb_token")
+    }
 }

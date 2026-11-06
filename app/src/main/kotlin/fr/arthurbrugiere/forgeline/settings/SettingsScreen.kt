@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.settings
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -81,6 +82,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.session.SessionState
+import fr.arthurbrugiere.forgeline.session.actingOn
 import fr.arthurbrugiere.forgeline.ui.Avatar
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import fr.arthurbrugiere.forgeline.ui.relative
@@ -113,6 +115,7 @@ fun SettingsRoute(
     onOpenCredits: () -> Unit,
     section: SettingsSection? = null,
     onOpenSection: (SettingsSection) -> Unit = {},
+    onActAs: (Account) -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
@@ -123,6 +126,7 @@ fun SettingsRoute(
         session = session,
         onSignIn = onSignIn,
         onSignOut = onSignOut,
+        onActAs = onActAs,
         settings = settings,
         versionName = BuildConfig.VERSION_NAME,
         onThemeModeChange = viewModel::setThemeMode,
@@ -172,6 +176,8 @@ fun SettingsScreen(
     /** The app's own language; null where Android doesn't let an app have one. */
     language: AppLanguageChoice? = null,
     onLanguageChange: (String?) -> Unit = {},
+    /** Makes an account the one acting on its forge, where several are signed in there. */
+    onActAs: (Account) -> Unit = {},
 ) {
     val colors = Soft.colors
     val listState = rememberLazyListState()
@@ -199,7 +205,11 @@ fun SettingsScreen(
                 when (session) {
                     is SessionState.SignedIn -> {
                         // Every signed-in account, one per forge or more, each signed out on its own.
-                        items(session.accounts, key = { "account-${it.id}" }) { AccountItem(it, onSignOut) }
+                        items(session.accounts, key = { "account-${it.id}" }) { account ->
+                            // With several accounts on one forge, one of them reads and writes there: it says so, the others offer to.
+                            val acting = session.actingOn(account.forge)?.let { it.id == account.id }
+                            AccountItem(account, onSignOut, acting = acting, onActAs = { onActAs(account) })
+                        }
                         item(key = "add-account") {
                             SettingRow(stringResource(R.string.settings_add_account), stringResource(R.string.settings_add_account_summary), onClick = onSignIn)
                         }
@@ -563,14 +573,18 @@ internal fun SettingRow(
 }
 
 @Composable
-private fun AccountItem(account: Account, onSignOut: (Account) -> Unit) {
+private fun AccountItem(account: Account, onSignOut: (Account) -> Unit, acting: Boolean? = null, onActAs: () -> Unit = {}) {
     val colors = Soft.colors
     var confirming by rememberSaveable(account.id) { mutableStateOf(false) }
     val login = account.user.login
     SettingRow(
         title = "@$login",
         // Two accounts can share a login: the forge's name says which is which, the logo on the avatar echoes it.
-        summary = account.forge.displayName,
+        summary = when (acting) {
+            true -> stringResource(R.string.settings_account_acting, account.forge.displayName)
+            false -> stringResource(R.string.settings_account_not_acting, account.forge.displayName)
+            null -> account.forge.displayName
+        },
         leading = {
             Box {
                 Avatar(account.user.avatarUrl, login, size = 40.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
@@ -584,7 +598,12 @@ private fun AccountItem(account: Account, onSignOut: (Account) -> Unit) {
                 )
             }
         },
-        trailing = { SoftTonalButton(stringResource(R.string.sign_out), onClick = { confirming = true }) },
+        trailing = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (acting == false) SoftTonalButton(stringResource(R.string.settings_account_act_as), onClick = onActAs)
+                SoftTonalButton(stringResource(R.string.sign_out), onClick = { confirming = true })
+            }
+        },
     )
     if (confirming) {
         SoftConfirmSheet(
