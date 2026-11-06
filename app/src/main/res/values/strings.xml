@@ -498,6 +498,8 @@
     <string name="file_binary_title">Binary file</string>
     <string name="file_binary_body">This file can\'t be shown as text.</string>
     <string name="file_error_title">Couldn\'t open this file</string>
+    <string name="markdown_copy_code">Copy code</string>
+    <string name="issue_comment_select">Select text</string>
     <string name="file_copy">Copy file</string>
 
     <string name="issue_state_open">Open</string>

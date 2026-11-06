@@ -1,12 +1,20 @@
 package fr.arthurbrugiere.forgeline.core.markdown
 
+import android.content.ClipData
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -14,7 +22,11 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.testTag
@@ -47,7 +59,9 @@ import com.mikepenz.markdown.model.parseMarkdown
 import com.mikepenz.markdown.utils.resolveImageAlt
 import com.mikepenz.markdown.utils.resolveImageLink
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.ast.ASTNode
@@ -60,6 +74,11 @@ val LocalOpenPicture = compositionLocalOf<((url: String, description: String?) -
 
 /** What a tap on a picture is said to do, to screen readers. */
 val LocalOpenPictureLabel = compositionLocalOf<String?> { null }
+
+/** What the button on a code block that copies it is called; null leaves code blocks without one. */
+val LocalCopyCodeLabel = compositionLocalOf<String?> { null }
+
+const val MARKDOWN_COPY_CODE_TAG = "markdown-copy-code"
 
 /** Marks the pictures of a text that open larger when tapped. */
 const val MARKDOWN_PICTURE_TAG = "markdown-picture"
@@ -115,6 +134,11 @@ fun ForgelineMarkdown(
     state: State,
     onLinkClick: (String) -> Unit,
     modifier: Modifier = Modifier,
+    /**
+     * Whether its words can be selected with a long press, to copy a part of them: a README or a file, read on its
+     * own. A comment's long press opens its menu instead, which offers the same.
+     */
+    selectable: Boolean = false,
 ) {
     val uriHandler = remember(onLinkClick) {
         object : UriHandler {
@@ -122,41 +146,46 @@ fun ForgelineMarkdown(
         }
     }
     CompositionLocalProvider(LocalUriHandler provides uriHandler) {
-        val type = MaterialTheme.typography
-        val soft = Soft.colors
-        Markdown(
-            state = state,
-            modifier = modifier,
-            // Code sits on the soft surface; links are ember, in the text face's medium weight (it has no bold).
-            colors = markdownColor(
-                text = soft.ink,
-                codeBackground = soft.surface,
-                inlineCodeBackground = soft.surface,
-                dividerColor = soft.track.copy(alpha = soft.track.alpha * 2),
-                tableBackground = soft.surface.copy(alpha = 0.5f),
-            ),
-            // Material headline/title scale: the default H1 uses display sizes, too big on a phone.
-            typography = markdownTypography(
-                h1 = type.headlineMedium,
-                h2 = type.headlineSmall,
-                h3 = type.titleLarge,
-                h4 = type.titleMedium,
-                h5 = type.titleSmall,
-                h6 = type.labelLarge,
-                code = type.bodySmall.copy(fontFamily = FontFamily.Monospace),
-                textLink = TextLinkStyles(
-                    style = SpanStyle(color = soft.accent, fontWeight = FontWeight.Medium, textDecoration = TextDecoration.Underline),
-                ),
-            ),
-            imageTransformer = ForgelineImageTransformer,
-            components = markdownComponents(
-                codeBlock = { MarkdownCodeBlock(it.content, it.node, it.typography.code) { code, language, style -> HighlightedCode(code, language, style) } },
-                codeFence = { MarkdownCodeFence(it.content, it.node, it.typography.code) { code, language, style -> HighlightedCode(code, language, style) } },
-                image = { BlockPicture(it) },
-                inlineImage = { InlinePicture(it) },
-            ),
-        )
+        if (selectable) SelectionContainer { Rendered(state, modifier) } else Rendered(state, modifier)
     }
+}
+
+@Composable
+private fun Rendered(state: State, modifier: Modifier) {
+    val type = MaterialTheme.typography
+    val soft = Soft.colors
+    Markdown(
+        state = state,
+        modifier = modifier,
+        // Code sits on the soft surface; links are ember, in the text face's medium weight (it has no bold).
+        colors = markdownColor(
+            text = soft.ink,
+            codeBackground = soft.surface,
+            inlineCodeBackground = soft.surface,
+            dividerColor = soft.track.copy(alpha = soft.track.alpha * 2),
+            tableBackground = soft.surface.copy(alpha = 0.5f),
+        ),
+        // Material headline/title scale: the default H1 uses display sizes, too big on a phone.
+        typography = markdownTypography(
+            h1 = type.headlineMedium,
+            h2 = type.headlineSmall,
+            h3 = type.titleLarge,
+            h4 = type.titleMedium,
+            h5 = type.titleSmall,
+            h6 = type.labelLarge,
+            code = type.bodySmall.copy(fontFamily = FontFamily.Monospace),
+            textLink = TextLinkStyles(
+                style = SpanStyle(color = soft.accent, fontWeight = FontWeight.Medium, textDecoration = TextDecoration.Underline),
+            ),
+        ),
+        imageTransformer = ForgelineImageTransformer,
+        components = markdownComponents(
+            codeBlock = { MarkdownCodeBlock(it.content, it.node, it.typography.code) { code, language, style -> HighlightedCode(code, language, style) } },
+            codeFence = { MarkdownCodeFence(it.content, it.node, it.typography.code) { code, language, style -> HighlightedCode(code, language, style) } },
+            image = { BlockPicture(it) },
+            inlineImage = { InlinePicture(it) },
+        ),
+    )
 }
 
 /**
@@ -178,11 +207,36 @@ private fun HighlightedCode(code: String, language: String?, style: TextStyle) {
         language = language,
         code = code,
     ) {
-        MarkdownBasicText(
-            text = highlighted,
-            style = style,
-            color = colors.ink,
-            modifier = Modifier.horizontalScroll(rememberScrollState()).padding(LocalMarkdownPadding.current.codeBlock),
+        Box {
+            MarkdownBasicText(
+                text = highlighted,
+                style = style,
+                color = colors.ink,
+                modifier = Modifier.horizontalScroll(rememberScrollState()).padding(LocalMarkdownPadding.current.codeBlock),
+            )
+            LocalCopyCodeLabel.current?.let { label -> CopyCode(code, label, Modifier.align(Alignment.TopEnd)) }
+        }
+    }
+}
+
+/**
+ * Copies a code block whole, the command a README says to run being the usual reason to: a finger's target at its
+ * corner, on the block's own ground so the code under it doesn't show through.
+ */
+@Composable
+private fun CopyCode(code: String, label: String, modifier: Modifier = Modifier) {
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
+    val colors = currentCodeColors
+    SoftIconButton(
+        onClick = { scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText(label, code))) } },
+        modifier = modifier.testTag(MARKDOWN_COPY_CODE_TAG),
+    ) {
+        Icon(
+            Icons.Outlined.ContentCopy,
+            contentDescription = label,
+            tint = colors.inkMuted,
+            modifier = Modifier.background(colors.surface.copy(alpha = 0.9f), CircleShape).padding(6.dp).size(16.dp),
         )
     }
 }

@@ -42,7 +42,7 @@ const val MARKDOWN_PENDING_TAG = "markdown-pending"
 internal val LocalUnreadMarkdown = compositionLocalOf<MutableIntState> { mutableIntStateOf(0) }
 
 @Composable
-internal fun Markdown(body: String, context: ReadmeContext, onLinkClick: (String) -> Unit) {
+internal fun Markdown(body: String, context: ReadmeContext, onLinkClick: (String) -> Unit, selectable: Boolean = false) {
     val colors = Soft.colors
     val parsed = rememberReadmeState(body, context, colors.isDark)
     if (parsed == null) {
@@ -62,6 +62,6 @@ internal fun Markdown(body: String, context: ReadmeContext, onLinkClick: (String
             modifier = Modifier.testTag(MARKDOWN_PENDING_TAG),
         )
     } else {
-        ForgelineMarkdown(parsed, onLinkClick)
+        ForgelineMarkdown(parsed, onLinkClick, selectable = selectable)
     }
 }

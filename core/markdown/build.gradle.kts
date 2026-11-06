@@ -12,6 +12,8 @@ dependencies {
     api(libs.markdown.renderer.m3)
     implementation(libs.markdown.renderer.coil3)
     implementation(libs.coil.compose)
+    // A code block's copy button.
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.sora.language.textmate)
     implementation(libs.sora.editor)
     implementation(libs.sora.oniguruma.native)

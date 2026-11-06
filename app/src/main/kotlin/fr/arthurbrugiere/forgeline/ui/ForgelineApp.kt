@@ -16,6 +16,7 @@ import androidx.navigation3.runtime.rememberDecoratedNavEntries
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import fr.arthurbrugiere.forgeline.R
+import fr.arthurbrugiere.forgeline.core.markdown.LocalCopyCodeLabel
 import fr.arthurbrugiere.forgeline.core.markdown.LocalOpenPicture
 import fr.arthurbrugiere.forgeline.core.markdown.LocalOpenPictureLabel
 import fr.arthurbrugiere.forgeline.core.model.Account
@@ -115,6 +116,7 @@ fun ForgelineApp(
             LocalOpenWiki provides { repo, page -> navigator.navigate(fr.arthurbrugiere.forgeline.navigation.WikiRoute(repo.forge.host, repo.owner, repo.name, page)) },
             LocalOpenPicture provides { url, description -> navigator.navigate(PictureRoute(url, description)) },
             LocalOpenPictureLabel provides stringResource(R.string.picture_view),
+            LocalCopyCodeLabel provides stringResource(R.string.markdown_copy_code),
         ) {
             ForgelineNavDisplay(navigator, session, onSignOut, onActAs)
         }

@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.DisableSelection
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
@@ -223,7 +225,7 @@ private fun MarkdownFile(text: String, state: FileUiState, onLinkClick: (String)
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(bottom = listBottomPadding()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            ForgelineMarkdown(parsed, onLinkClick, Modifier.widthIn(max = SoftTokens.MaxReadingWidth).padding(horizontal = 20.dp, vertical = 16.dp))
+            ForgelineMarkdown(parsed, onLinkClick, Modifier.widthIn(max = SoftTokens.MaxReadingWidth).padding(horizontal = 20.dp, vertical = 16.dp), selectable = true)
         }
     }
 }
@@ -241,22 +243,27 @@ private fun CodeFile(text: String, path: String) {
     val code = Soft.type.code
     // The numbers' column and the 12dp before the code: 9dp a figure at the usual size, as wide as they are at a larger one.
     val gutter = lineNumberWidth(lines.size, code, floor = (lines.size.toString().length * 9 + 8).dp) + 12.dp
-    LazyColumn(
-        Modifier.fillMaxSize().background(colors.ground).testTag(if (highlighted != null) CODE_HIGHLIGHTED_TAG else CODE_PLAIN_TAG),
-        contentPadding = PaddingValues(top = 12.dp, bottom = listBottomPadding()),
-    ) {
-        itemsIndexed(lines) { index, line ->
-            Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp)) {
-                Text(
-                    "${index + 1}",
-                    modifier = Modifier.width(gutter).padding(end = 12.dp),
-                    style = code,
-                    color = colors.inkMuted,
-                    textAlign = TextAlign.End,
-                    maxLines = 1,
-                    softWrap = false,
-                )
-                Text(line, style = code, color = colors.ink)
+    // A long press selects the code, to copy a part of it; the line numbers stay out of what is copied.
+    SelectionContainer {
+        LazyColumn(
+            Modifier.fillMaxSize().background(colors.ground).testTag(if (highlighted != null) CODE_HIGHLIGHTED_TAG else CODE_PLAIN_TAG),
+            contentPadding = PaddingValues(top = 12.dp, bottom = listBottomPadding()),
+        ) {
+            itemsIndexed(lines) { index, line ->
+                Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp)) {
+                    DisableSelection {
+                        Text(
+                            "${index + 1}",
+                            modifier = Modifier.width(gutter).padding(end = 12.dp),
+                            style = code,
+                            color = colors.inkMuted,
+                            textAlign = TextAlign.End,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    }
+                    Text(line, style = code, color = colors.ink)
+                }
             }
         }
     }

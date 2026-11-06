@@ -479,6 +479,8 @@
     <string name="file_binary_title">Fichier binaire</string>
     <string name="file_binary_body">Ce fichier ne peut pas être affiché comme du texte.</string>
     <string name="file_error_title">Impossible d’ouvrir ce fichier</string>
+    <string name="markdown_copy_code">Copier le code</string>
+    <string name="issue_comment_select">Sélectionner le texte</string>
     <string name="file_copy">Copier le fichier</string>
     <string name="issue_state_open">Ouvert</string>
     <string name="issue_state_closed">Fermé</string>

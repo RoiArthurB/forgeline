@@ -60,6 +60,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.rowHairline
@@ -81,8 +82,12 @@ internal class CommentMenu(
     /** Hides the comment (asking why), or shows a hidden one again. */
     val onHide: (() -> Unit)? = null,
     val onUnhide: (() -> Unit)? = null,
+    /** Opens the comment's words where they can be selected, a part of them copied: signed in or not. */
+    val onSelectText: (() -> Unit)? = null,
 ) {
-    val isEmpty: Boolean get() = onQuote == null && onEdit == null && onDelete == null && onReact == null && onHide == null && onUnhide == null
+    val isEmpty: Boolean get() = onQuote == null && onEdit == null && onDelete == null && onReact == null && onHide == null && onUnhide == null && onSelectText == null
+
+    fun selectingWith(onSelectText: () -> Unit) = CommentMenu(onQuote, onEdit, onDelete, onReact, onHide, onUnhide, onSelectText)
 }
 
 /** One comment as a conversation turn: the author and when, then their words; unboxed, the reading is the point. */
@@ -103,7 +108,15 @@ internal fun Comment(
 ) {
     val colors = Soft.colors
     val haptics = LocalHapticFeedback.current
-    val offered = rememberUpdatedState(menu?.takeIf { !it.isEmpty && editor == null })
+    // Its words open where they can be selected, from its menu: a long press on the comment is the menu's.
+    var selecting by remember { mutableStateOf(false) }
+    if (selecting) {
+        SoftSheet(stringResource(R.string.issue_comment_select), onDismiss = { selecting = false }) {
+            Markdown(body, context, onLinkClick, selectable = true)
+        }
+    }
+    // Where the comment has a menu, it offers to; without one, nothing else takes a long press, and the words are selectable as they stand.
+    val offered = rememberUpdatedState(menu?.takeIf { !it.isEmpty && editor == null }?.selectingWith { selecting = true })
     // Where the menu opens: under the finger after a long press, at its button otherwise.
     var pressedAt by remember { mutableStateOf<IntOffset?>(null) }
     // Where a double tap landed, while its thumbs up shows.
@@ -158,7 +171,7 @@ internal fun Comment(
                     Box(Modifier.padding(top = 10.dp, bottom = 6.dp)) { editor() }
                 } else {
                     Column(Modifier.padding(start = TimelineGutter, top = 6.dp).widthIn(max = SoftTokens.MaxMeasure)) {
-                        Markdown(body, context, onLinkClick)
+                        Markdown(body, context, onLinkClick, selectable = offered.value == null)
                         if (reactions.isNotEmpty()) {
                             // Tappable, each brings its own room: no more is added above.
                             Reactions(reactions, Modifier.padding(top = if (menu?.onReact == null) 8.dp else 0.dp), onReact = menu?.onReact)
@@ -299,6 +312,7 @@ private fun CommentDropdown(menu: CommentMenu, expanded: Boolean, onDismiss: () 
             if (action != null) DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = { onDismiss(); action() })
         }
         choice(R.string.issue_comment_quote, menu.onQuote)
+        choice(R.string.issue_comment_select, menu.onSelectText)
         choice(R.string.issue_comment_edit, menu.onEdit)
         choice(R.string.issue_comment_hide, menu.onHide)
         choice(R.string.issue_comment_unhide, menu.onUnhide)
