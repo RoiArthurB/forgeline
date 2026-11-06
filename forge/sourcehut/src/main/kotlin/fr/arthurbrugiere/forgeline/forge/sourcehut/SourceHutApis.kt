@@ -23,15 +23,15 @@ import fr.arthurbrugiere.forgeline.forge.sourcehut.graphql.MeQuery
 import io.ktor.client.HttpClient
 
 /**
- * SourceHut's APIs, on [http]: git.sr.ht's repositories and people, with a personal access token. Tickets, patches,
- * builds and the rest are other services, or things SourceHut doesn't do (stars, a feed, notifications): Unsupported,
- * as docs/SOURCEHUT.md says.
+ * SourceHut's APIs, on [http]: git.sr.ht's repositories and people, and todo.sr.ht's tickets, with a personal access
+ * token. Patches, builds and the rest are other services, or things SourceHut doesn't do (stars, a feed,
+ * notifications): Unsupported, as docs/SOURCEHUT.md says.
  */
 class SourceHutApis(http: HttpClient) : ForgeApis {
-    override val repos = SourceHutRepoApi(http)
+    override val issues = SourceHutIssueApi(http)
+    override val repos = SourceHutRepoApi(http, tickets = issues)
     override val users = SourceHutUserApi(http)
     override val auth: ForgeAuthApi = SourceHutAuthApi(http)
-    override val issues = UnsupportedIssueApi()
     override val pulls = UnsupportedPullRequestApi()
     override val repoSettings = UnsupportedRepoSettingsApi()
     override val stars = UnsupportedStarApi()

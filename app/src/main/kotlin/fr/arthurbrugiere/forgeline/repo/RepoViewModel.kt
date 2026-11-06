@@ -116,7 +116,9 @@ data class RepoUiState(
         get() = RepoTab.entries.filter {
             when (it) {
                 RepoTab.ACTIONS -> details?.hasActions != false
-                RepoTab.ISSUES, RepoTab.PULLS -> details?.listsConversations != false
+                RepoTab.ISSUES -> details?.listsConversations != false
+                // SourceHut's patches are sent by email: its repositories have tickets, and no pull requests.
+                RepoTab.PULLS -> details?.listsConversations != false && details?.listsPullRequests != false
                 RepoTab.RELEASES -> details?.listsReleases != false
                 // Only where the repository holds some: most don't.
                 RepoTab.DISCUSSIONS -> details?.hasDiscussions == true

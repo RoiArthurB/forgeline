@@ -33,6 +33,8 @@ import fr.arthurbrugiere.forgeline.forge.sourcehut.graphql.RootEntriesQuery
 import fr.arthurbrugiere.forgeline.forge.sourcehut.graphql.fragment.EntryPage
 import fr.arthurbrugiere.forgeline.forge.sourcehut.graphql.fragment.TagRelease
 import io.ktor.client.HttpClient
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 
 /**
  * A git.sr.ht repository, read with the person's token: its description, README, files, branches, and its tags as
@@ -42,13 +44,20 @@ import io.ktor.client.HttpClient
 class SourceHutRepoApi(
     private val httpClient: HttpClient,
     private val forge: ForgeInstance = ForgeInstance.SourceHut,
+    /** The tickets of the tracker named as a repository, on todo.sr.ht. */
+    private val tickets: SourceHutIssueApi = SourceHutIssueApi(httpClient, forge),
 ) : RepoApi {
 
-    override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = forgeCall {
-        when (val result = httpClient.srht(token, RepoQuery(id.owner.username, id.name)).then { located(id, it.user, it.user?.repository) }) {
-            is ForgeResult.Failure -> result
+    override suspend fun repo(token: String?, id: RepoId): ForgeResult<RepoDetails> = forgeCall { coroutineScope { details(token, id) } }
+
+    private suspend fun kotlinx.coroutines.CoroutineScope.details(token: String?, id: RepoId): ForgeResult<RepoDetails> {
+        // Its tickets are its owner's tracker of the same name, where there is one and the token reaches todo.sr.ht.
+        val tracker = async { tickets.tracker(token, id) }
+        return when (val result = httpClient.srht(token, RepoQuery(id.owner.username, id.name)).then { located(id, it.user, it.user?.repository) }) {
+            is ForgeResult.Failure -> result.also { tracker.cancel() }
             is ForgeResult.Success -> {
                 val repo = result.value
+                val hasTickets = tracker.await() is ForgeResult.Success
                 ForgeResult.Success(
                     RepoDetails(
                         id = id,
@@ -66,9 +75,11 @@ class SourceHutRepoApi(
                         isArchived = false,
                         pushedAt = instant(repo.updated),
                         hasActions = false,
-                        hasIssues = false,
+                        hasIssues = hasTickets,
                         isEmpty = repo.HEAD == null,
-                        listsConversations = false,
+                        listsConversations = hasTickets,
+                        // Patches go to lists.sr.ht by email: there are no pull requests to list.
+                        listsPullRequests = false,
                     ),
                 )
             }
@@ -163,7 +174,7 @@ class SourceHutRepoApi(
         )
     }
 
-    override suspend fun issues(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = ForgeResult.Failure(ForgeError.Unsupported)
+    override suspend fun issues(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = tickets.tickets(token, id, query)
 
     override suspend fun pullRequests(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = ForgeResult.Failure(ForgeError.Unsupported)
 

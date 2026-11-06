@@ -198,7 +198,7 @@
     <string name="sign_in_or">or</string>
     <string name="sign_in_token_title">Use a personal access token</string>
     <string name="sign_in_token_body">Create a classic token with the notifications, read:user, user:follow and repo scopes, plus delete_repo to delete repositories from Forgeline and project to move issues on project boards, then paste it here.</string>
-    <string name="sign_in_token_body_sourcehut">Generate a personal access token on meta.sr.ht (read access to git.sr.ht is enough), then paste it here. SourceHut has no sign-in through the browser for apps, and shows nothing without a token.</string>
+    <string name="sign_in_token_body_sourcehut">Generate a personal access token on meta.sr.ht (read access to git.sr.ht, and read and write access to todo.sr.ht for tickets), then paste it here. SourceHut has no sign-in through the browser for apps, and shows nothing without a token.</string>
     <string name="sign_in_token_body_gitlab">Create a personal access token with the api and read_user scopes, then paste it here.</string>
     <string name="sign_in_token_body_forgejo">Create an access token that reaches all your repositories (public, private and limited), with read and write access to notifications, repositories, issues and your user, then paste it here.</string>
     <string name="sign_in_create_token">Create a token on %1$s</string>

@@ -155,6 +155,15 @@ class ForgeLinksTest {
     }
 
     @Test
+    fun todo_sr_ht_tickets_open_as_their_repository_s_in_app() {
+        assertThat(ForgeLinks.routeFor("https://todo.sr.ht/~sircmpwn/scdoc/21")).isEqualTo(IssueRoute("git.sr.ht", "~sircmpwn", "scdoc", 21, isPullRequest = false))
+        assertThat(ForgeLinks.routeFor("https://todo.sr.ht/~sircmpwn/scdoc")).isEqualTo(RepoRoute("git.sr.ht", "~sircmpwn", "scdoc"))
+        // Not a person's tracker, or a page under a ticket: the browser's.
+        assertThat(ForgeLinks.routeFor("https://todo.sr.ht/trackers")).isNull()
+        assertThat(ForgeLinks.routeFor("https://todo.sr.ht/~sircmpwn/scdoc/21/edit")).isNull()
+    }
+
+    @Test
     fun sourcehut_links_open_people_repositories_files_and_tags_in_app() {
         assertThat(ForgeLinks.routeFor("https://git.sr.ht/~sircmpwn/scdoc")).isEqualTo(RepoRoute("git.sr.ht", "~sircmpwn", "scdoc"))
         assertThat(ForgeLinks.routeFor("https://git.sr.ht/~sircmpwn")).isEqualTo(UserRoute("git.sr.ht", "~sircmpwn"))

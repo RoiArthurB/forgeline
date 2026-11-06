@@ -616,6 +616,16 @@ class RepoViewModelTest {
         assertThat(RepoUiState(tangled, details = details).tabs).containsExactly(RepoTab.README, RepoTab.CODE).inOrder()
     }
 
+    @Test
+    fun a_sourcehut_repository_with_a_tracker_has_tickets_and_no_pull_requests() {
+        val scdoc = RepoId("~sircmpwn", "scdoc", ForgeInstance.SourceHut)
+        val details = repoDetails("~sircmpwn/scdoc").copy(id = scdoc, hasActions = false, listsConversations = true, listsPullRequests = false)
+
+        assertThat(RepoUiState(scdoc, details = details).tabs).containsExactly(RepoTab.README, RepoTab.CODE, RepoTab.ISSUES, RepoTab.RELEASES).inOrder()
+        // Without a tracker named as it, neither.
+        assertThat(RepoUiState(scdoc, details = details.copy(listsConversations = false)).tabs).doesNotContain(RepoTab.ISSUES)
+    }
+
     private suspend fun signIn() = accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "t")
 
     @Test

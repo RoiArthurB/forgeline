@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.apollo)
 }
 
-// git.sr.ht, through its GraphQL API, with a personal access token: see docs/SOURCEHUT.md.
+// git.sr.ht and todo.sr.ht, through their GraphQL APIs, with a personal access token: see docs/SOURCEHUT.md.
 dependencies {
     api(projects.forge.common)
     api(libs.ktor.client.core)
@@ -28,6 +28,15 @@ apollo {
         mapScalarToKotlinString("Time")
         mapScalarToKotlinString("Cursor")
         mapScalarToKotlinString("URL")
+    }
+    // todo.sr.ht's tickets: a service of its own, with its own schema (refreshed by tools/specs/fetch.py too).
+    service("todosrht") {
+        srcDir("src/main/todo-graphql")
+        packageName.set("fr.arthurbrugiere.forgeline.forge.sourcehut.todo")
+        mapScalarToKotlinString("Time")
+        mapScalarToKotlinString("Cursor")
+        mapScalarToKotlinString("URL")
+        mapScalarToKotlinString("Upload")
     }
 }
 

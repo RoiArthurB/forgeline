@@ -71,6 +71,7 @@ object ForgeLinks {
     fun routeFor(url: String): NavKey? {
         val uri = runCatching { URI(url) }.getOrNull() ?: return null
         if (uri.scheme !in setOf("http", "https")) return null
+        ticketRoute(uri)?.let { return it }
         val forge = forgeOf(uri.host) ?: return null
         val segments = uri.path.orEmpty().split('/').filter { it.isNotEmpty() }
         topicRoute(forge, segments, uri)?.let { return it }
@@ -163,6 +164,23 @@ object ForgeLinks {
      * git.sr.ht's pages: a person's (`/~name`), a repository's, a file's (`/tree/<ref>/item/<path>`) and a tag's
      * (`/refs/<tag>`). Its log, commits and the other services' pages stay in the browser.
      */
+
+    /**
+     * A todo.sr.ht ticket (`todo.sr.ht/~owner/tracker/12`): it opens as the ticket of the repository named as its tracker,
+     * as a SourceHut repository's tickets are. A tracker's own page opens that repository.
+     */
+    private fun ticketRoute(uri: URI): NavKey? {
+        if (uri.host?.lowercase() != "todo.sr.ht") return null
+        val segments = uri.path.orEmpty().split('/').filter { it.isNotEmpty() }
+        val owner = segments.getOrNull(0)?.takeIf { it.startsWith("~") && it.length > 1 } ?: return null
+        val name = segments.getOrNull(1) ?: return null
+        val host = ForgeInstance.SourceHut.host
+        return when (val number = segments.getOrNull(2)?.toIntOrNull()) {
+            null -> RepoRoute(host, owner, name).takeIf { segments.size == 2 }
+            else -> IssueRoute(host, owner, name, number, isPullRequest = false).takeIf { segments.size == 3 }
+        }
+    }
+
     private fun sourceHutRoute(forge: ForgeInstance, segments: List<String>, uri: URI): NavKey? {
         val owner = segments[0].takeIf { it.startsWith("~") && it.length > 1 } ?: return null
         if (segments.size == 1) return UserRoute(forge.host, owner)

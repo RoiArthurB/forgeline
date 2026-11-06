@@ -1,0 +1,239 @@
+# What the app asks todo.sr.ht (https://todo.sr.ht/query), checked against its schema.graphqls when it builds. A
+# repository's tickets are those of its owner's tracker of the same name, SourceHut's own convention.
+
+fragment EntityName on Entity {
+  canonicalName
+}
+
+fragment TicketLabel on Label {
+  id
+  name
+  backgroundColor
+}
+
+fragment TicketFields on Ticket {
+  id
+  created
+  subject
+  body
+  status
+  resolution
+  submitter {
+    ...EntityName
+  }
+  labels {
+    ...TicketLabel
+  }
+  assignees {
+    ...EntityName
+  }
+}
+
+# Whether the owner keeps a tracker named as the repository, and who the reader is to it.
+query Tracker($owner: String!, $name: String!) {
+  me {
+    canonicalName
+  }
+  user(username: $owner) {
+    tracker(name: $name) {
+      id
+      name
+      owner {
+        ...EntityName
+      }
+      acl {
+        browse
+        submit
+        comment
+        edit
+        triage
+      }
+    }
+  }
+}
+
+query TrackerTickets($owner: String!, $name: String!, $cursor: Cursor) {
+  user(username: $owner) {
+    tracker(name: $name) {
+      id
+      tickets(cursor: $cursor) {
+        results {
+          ...TicketFields
+        }
+        cursor
+      }
+    }
+  }
+}
+
+query TrackerLabels($owner: String!, $name: String!, $cursor: Cursor) {
+  user(username: $owner) {
+    tracker(name: $name) {
+      id
+      labels(cursor: $cursor) {
+        results {
+          ...TicketLabel
+        }
+        cursor
+      }
+    }
+  }
+}
+
+query Ticket($owner: String!, $name: String!, $id: Int!) {
+  user(username: $owner) {
+    tracker(name: $name) {
+      id
+      ticket(id: $id) {
+        ...TicketFields
+        subscription {
+          id
+        }
+      }
+    }
+  }
+}
+
+fragment EventFields on Event {
+  id
+  created
+  changes {
+    eventType
+    ... on Comment {
+      author {
+        ...EntityName
+      }
+      text
+      supersededBy {
+        text
+      }
+    }
+    ... on StatusChange {
+      editor {
+        ...EntityName
+      }
+      oldStatus
+      newStatus
+      newResolution
+    }
+    ... on LabelUpdate {
+      labeler {
+        ...EntityName
+      }
+      label {
+        ...TicketLabel
+      }
+    }
+    ... on Assignment {
+      assigner {
+        ...EntityName
+      }
+      assignee {
+        ...EntityName
+      }
+    }
+    ... on TicketMention {
+      author {
+        ...EntityName
+      }
+      mentioned {
+        id
+        subject
+        tracker {
+          name
+          owner {
+            ...EntityName
+          }
+        }
+      }
+    }
+  }
+}
+
+query TicketEvents($owner: String!, $name: String!, $id: Int!, $cursor: Cursor) {
+  user(username: $owner) {
+    tracker(name: $name) {
+      ticket(id: $id) {
+        events(cursor: $cursor) {
+          results {
+            ...EventFields
+          }
+          cursor
+        }
+      }
+    }
+  }
+}
+
+# A person's id, which assigning them takes.
+query PersonId($username: String!) {
+  user(username: $username) {
+    id
+  }
+}
+
+mutation SubmitComment($tracker: Int!, $ticket: Int!, $text: String!) {
+  submitComment(trackerId: $tracker, ticketId: $ticket, input: {text: $text}) {
+    ...EventFields
+  }
+}
+
+mutation SubmitTicket($tracker: Int!, $subject: String!, $body: String) {
+  submitTicket(trackerId: $tracker, input: {subject: $subject, body: $body}) {
+    ...TicketFields
+  }
+}
+
+mutation UpdateTicket($tracker: Int!, $ticket: Int!, $subject: String!, $body: String) {
+  updateTicket(trackerId: $tracker, ticketId: $ticket, input: {subject: $subject, body: $body}) {
+    id
+  }
+}
+
+mutation UpdateTicketStatus($tracker: Int!, $ticket: Int!, $status: TicketStatus!, $resolution: TicketResolution) {
+  updateTicketStatus(trackerId: $tracker, ticketId: $ticket, input: {status: $status, resolution: $resolution}) {
+    id
+  }
+}
+
+mutation LabelTicket($tracker: Int!, $ticket: Int!, $label: Int!) {
+  labelTicket(trackerId: $tracker, ticketId: $ticket, labelId: $label) {
+    id
+  }
+}
+
+mutation UnlabelTicket($tracker: Int!, $ticket: Int!, $label: Int!) {
+  unlabelTicket(trackerId: $tracker, ticketId: $ticket, labelId: $label) {
+    id
+  }
+}
+
+mutation AssignUser($tracker: Int!, $ticket: Int!, $user: Int!) {
+  assignUser(trackerId: $tracker, ticketId: $ticket, userId: $user) {
+    id
+  }
+}
+
+mutation UnassignUser($tracker: Int!, $ticket: Int!, $user: Int!) {
+  unassignUser(trackerId: $tracker, ticketId: $ticket, userId: $user) {
+    id
+  }
+}
+
+mutation DeleteTicket($tracker: Int!, $ticket: Int!) {
+  deleteTicket(trackerId: $tracker, ticketId: $ticket) {
+    id
+  }
+}
+
+mutation TicketSubscribe($tracker: Int!, $ticket: Int!) {
+  ticketSubscribe(trackerId: $tracker, ticketId: $ticket) {
+    id
+  }
+}
+
+mutation TicketUnsubscribe($tracker: Int!, $ticket: Int!) {
+  ticketUnsubscribe(trackerId: $tracker, ticketId: $ticket) {
+    id
+  }
+}

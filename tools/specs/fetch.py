@@ -103,6 +103,8 @@ def forgejo() -> None:
 def sourcehut() -> None:
     url = "https://git.sr.ht/~sircmpwn/git.sr.ht/blob/master/api/graph/schema.graphqls"
     write(ROOT / "forge/sourcehut/src/main/graphql/schema.graphqls", get(url))
+    tickets = "https://git.sr.ht/~sircmpwn/todo.sr.ht/blob/master/api/graph/schema.graphqls"
+    write(ROOT / "forge/sourcehut/src/main/todo-graphql/schema.graphqls", get(tickets))
 
 
 def github() -> None:

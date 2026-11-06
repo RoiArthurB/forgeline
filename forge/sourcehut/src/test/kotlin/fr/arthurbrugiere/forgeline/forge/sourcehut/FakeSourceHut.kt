@@ -20,11 +20,14 @@ internal class FakeSourceHut(
     private val answers: List<Pair<String, (Request) -> String>>,
     private val blobs: Map<String, String> = emptyMap(),
 ) {
-    data class Request(val query: String, val variables: JsonObject) {
+    data class Request(val query: String, val variables: JsonObject, val host: String = "git.sr.ht") {
         fun string(name: String): String? = variables[name]?.takeIf { it !is kotlinx.serialization.json.JsonNull }?.jsonPrimitive?.content
     }
 
     val requests = java.util.concurrent.CopyOnWriteArrayList<Request>()
+
+    /** Those of [requests] that went to todo.sr.ht. */
+    val tickets = java.util.concurrent.CopyOnWriteArrayList<Request>()
     val tokens = java.util.concurrent.CopyOnWriteArrayList<String?>()
 
     val client = sourceHutHttpClient(
@@ -34,8 +37,9 @@ internal class FakeSourceHut(
                 return@MockEngine respond(blobs[request.url.toString()] ?: "", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/octet-stream"))
             }
             val body = Json.parseToJsonElement(request.body.toByteArray().decodeToString()).jsonObject
-            val asked = Request(body["query"]!!.jsonPrimitive.content, body["variables"]?.jsonObject ?: JsonObject(emptyMap()))
+            val asked = Request(body["query"]!!.jsonPrimitive.content, body["variables"]?.jsonObject ?: JsonObject(emptyMap()), request.url.host)
             requests += asked
+            if (asked.host == "todo.sr.ht") tickets += asked
             val answer = answers.firstOrNull { (key, _) -> key in asked.query }?.second?.invoke(asked)
                 ?: """{"errors":[{"message":"Resource not found","extensions":{"code":"ERR_NOT_FOUND"}}],"data":null}"""
             respond(answer, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))

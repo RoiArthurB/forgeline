@@ -184,7 +184,7 @@
     <string name="sign_in_or">ou</string>
     <string name="sign_in_token_title">Utiliser un jeton d’accès personnel</string>
     <string name="sign_in_token_body">Créez un jeton classique avec les portées notifications, read:user, user:follow et repo, plus delete_repo pour supprimer des dépôts depuis Forgeline et project pour déplacer les tickets dans les projets, puis collez-le ici.</string>
-    <string name="sign_in_token_body_sourcehut">Générez un jeton d’accès personnel sur meta.sr.ht (l’accès en lecture à git.sr.ht suffit), puis collez-le ici. SourceHut n’a pas de connexion par le navigateur pour les applications, et ne montre rien sans jeton.</string>
+    <string name="sign_in_token_body_sourcehut">Générez un jeton d’accès personnel sur meta.sr.ht (accès en lecture à git.sr.ht, et en lecture et écriture à todo.sr.ht pour les tickets), puis collez-le ici. SourceHut n’a pas de connexion par le navigateur pour les applications, et ne montre rien sans jeton.</string>
     <string name="sign_in_token_body_gitlab">Créez un jeton d’accès personnel avec les portées api et read_user, puis collez-le ici.</string>
     <string name="sign_in_token_body_forgejo">Créez un jeton d’accès qui atteint tous vos dépôts (publics, privés et limités), avec un accès en lecture et en écriture aux notifications, aux dépôts, aux tickets et à votre utilisateur, puis collez-le ici.</string>
     <string name="sign_in_create_token">Créer un jeton sur %1$s</string>

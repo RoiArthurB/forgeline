@@ -31,13 +31,15 @@ class SourceHutRepoApiTest {
         assertThat(repo.defaultBranch).isEqualTo("master")
         assertThat(repo.pushedAt).isEqualTo(Instant.parse("2026-10-01T12:00:00Z"))
         assertThat(repo.isEmpty).isFalse()
-        // Tickets, patches and builds are other services: their tabs stay away. Tags are its releases.
+        // No tracker named as it (todo.sr.ht said none): no tickets. Patches and builds are other services. Tags are its releases.
         assertThat(repo.listsConversations).isFalse()
+        assertThat(repo.listsPullRequests).isFalse()
         assertThat(repo.listsReleases).isTrue()
         assertThat(repo.hasActions).isFalse()
-        assertThat(fake.requests.single().string("owner")).isEqualTo("sircmpwn")
-        assertThat(fake.requests.single().string("name")).isEqualTo("scdoc")
-        assertThat(fake.tokens.single()).isEqualTo("Bearer $TOKEN")
+        val git = fake.requests.single { it.host == "git.sr.ht" }
+        assertThat(git.string("owner")).isEqualTo("sircmpwn")
+        assertThat(git.string("name")).isEqualTo("scdoc")
+        assertThat(fake.tokens.distinct()).containsExactly("Bearer $TOKEN")
     }
 
     @Test
@@ -236,6 +238,24 @@ class SourceHutRepoApiTest {
 
         SourceHutRepoApi(fake.client).repo(TOKEN, scdoc)
 
-        assertThat(fake.requests.single().query).startsWith("query Repo(")
+        assertThat(fake.requests.single { it.host == "git.sr.ht" }.query).startsWith("query Repo(")
+        assertThat(fake.tickets.single().query).startsWith("query Tracker(")
+    }
+
+    @Test
+    fun a_repository_whose_owner_keeps_a_tracker_named_as_it_lists_its_tickets_and_no_pull_requests() = runTest {
+        val fake = FakeSourceHut(
+            listOf(
+                "query Tracker(" to { _ -> TRACKER },
+                "HEAD" to { _ -> inRepository("""{"name":"scdoc","visibility":"PUBLIC","updated":"2026-10-01T12:00:00Z","HEAD":{"name":"refs/heads/master"}}""") },
+            ),
+        )
+
+        val repo = SourceHutRepoApi(fake.client).repo(TOKEN, scdoc).value()
+
+        assertThat(repo.listsConversations).isTrue()
+        assertThat(repo.hasIssues).isTrue()
+        assertThat(repo.listsPullRequests).isFalse()
+        assertThat(fake.tickets.single().string("name")).isEqualTo("scdoc")
     }
 }

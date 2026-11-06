@@ -53,6 +53,25 @@ class SourceHutLiveTest {
         assertThat(api.release(token, scdoc, releases.first().tag).value().tag).isEqualTo(releases.first().tag)
     }
 
+    /**
+     * ~sircmpwn keeps a tracker named scdoc (todo.sr.ht/~sircmpwn/scdoc, its tickets #6 and #21 seen on 2026-11-06): read
+     * only, as the token's owner may only read it.
+     */
+    @Test
+    fun a_repository_s_tracker_its_tickets_and_their_events_read() = runBlocking<Unit> {
+        val issues = SourceHutIssueApi(http)
+        val repos = SourceHutRepoApi(http, tickets = issues)
+        assertThat(repos.repo(token, scdoc).value().listsConversations).isTrue()
+
+        val all = repos.issues(token, scdoc, fr.arthurbrugiere.forgeline.core.model.IssueQuery(open = false)).value() +
+            repos.issues(token, scdoc, fr.arthurbrugiere.forgeline.core.model.IssueQuery()).value()
+        assertThat(all).isNotEmpty()
+        val ref = fr.arthurbrugiere.forgeline.core.model.IssueRef(scdoc, all.first().number, isPullRequest = false)
+        assertThat(issues.issue(token, ref).value().title).isEqualTo(all.first().title)
+        assertThat(issues.timeline(token, ref, 1)).isInstanceOf(fr.arthurbrugiere.forgeline.core.forge.ForgeResult.Success::class.java)
+        assertThat(issues.access(token, scdoc)).isInstanceOf(fr.arthurbrugiere.forgeline.core.forge.ForgeResult.Success::class.java)
+    }
+
     @Test
     fun a_person_and_their_repositories_read() = runBlocking<Unit> {
         val users = SourceHutUserApi(http)
