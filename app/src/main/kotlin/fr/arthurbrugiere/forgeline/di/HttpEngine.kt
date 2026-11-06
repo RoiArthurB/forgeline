@@ -4,6 +4,7 @@ package fr.arthurbrugiere.forgeline.di
 
 import android.content.Context
 import coil3.ImageLoader
+import coil3.gif.AnimatedImageDecoder
 import coil3.network.ktor3.KtorNetworkFetcherFactory
 import coil3.svg.Svg
 import coil3.svg.SvgDecoder
@@ -92,6 +93,9 @@ private const val IDLE_CONNECTIONS = 16
  *
  * SVG is decoded too: a README's badges are all SVG, and Android reads none on its own. Their size is in CSS pixels,
  * drawn as as many dp, so a 20-pixel badge is as tall on a phone as on the forge's site.
+ *
+ * GIFs (and animated WebP) play, through Android's own decoder: added by hand, as Coil's service loader would add it
+ * from a file the minified release build has no rule to keep.
  */
 fun forgeImageLoader(
     context: Context,
@@ -104,6 +108,7 @@ fun forgeImageLoader(
         .components {
             add(PrivatePictureInterceptor(access))
             add(KtorNetworkFetcherFactory(httpClient = { client.value }))
+            add(AnimatedImageDecoder.Factory())
             add(SvgDecoder.Factory(parser = SizedSvgParser, density = SvgDecoder.PLATFORM_DENSITY, useViewBoundsAsIntrinsicSize = false))
         }
         .build()

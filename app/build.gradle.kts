@@ -88,6 +88,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.ktor3)
     implementation(libs.coil.svg)
+    implementation(libs.coil.gif)
     implementation(libs.androidx.browser)
     implementation(libs.androidx.work.runtime)
 

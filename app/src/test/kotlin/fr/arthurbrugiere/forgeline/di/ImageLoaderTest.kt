@@ -59,6 +59,22 @@ class ImageLoaderTest {
         assertThat(result.image!!.height).isEqualTo((20 * density).toInt())
     }
 
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun an_animated_gif_plays() = runBlocking<Unit> {
+        // Regression: GIFs were decoded as their first frame only, so a README's demos stood still (max-sixty/worktrunk's).
+        val gif = requireNotNull(javaClass.getResource("/images/two_frames.gif")).readBytes()
+        val engine = MockEngine { respond(gif, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "image/gif")) }
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val request = ImageRequest.Builder(context).data("https://cdn.example/demo.gif").diskCachePolicy(CachePolicy.DISABLED).build()
+
+        val result = forgeImageLoader(context, engine).execute(request)
+
+        assertThat(result).isInstanceOf(SuccessResult::class.java)
+        val drawable = (result.image as coil3.DrawableImage).drawable
+        assertThat(drawable).isInstanceOf(android.graphics.drawable.Animatable::class.java)
+    }
+
     private fun decoded(svg: String): android.graphics.Bitmap = runBlocking {
         val engine = MockEngine { respond(svg, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "image/svg+xml")) }
         val context = ApplicationProvider.getApplicationContext<Context>()
