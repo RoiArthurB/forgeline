@@ -20,6 +20,7 @@
           },
           "name": {
             "type": "string",
+            "maxLength": 255,
             "description": "name of the artifact"
           },
           "createdAt": {

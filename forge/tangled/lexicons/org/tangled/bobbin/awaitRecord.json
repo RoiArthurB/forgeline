@@ -42,6 +42,7 @@
               "knownValues": [
                 "unknownCollection",
                 "undecodable",
+                "invalid",
                 "missingBody",
                 "notIndexed"
               ],

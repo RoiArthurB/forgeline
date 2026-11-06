@@ -85,7 +85,8 @@
             "org.tangled.query.enrichResponse#viewer",
             "blue.microcosm.identity.resolveMiniDoc",
             "org.tangled.repo.defs#repoViewBasic",
-            "org.tangled.query.enrichResponse#labels"
+            "org.tangled.query.enrichResponse#labels",
+            "org.tangled.query.enrichResponse#reactions"
           ],
           "description": "NSID of the payload type to produce, which also defines the payload's shape. Results land at data[ref][source][type]."
         },
@@ -106,6 +107,48 @@
         "labels": {
           "type": "array",
           "items": { "type": "ref", "ref": "com.atproto.label.defs#label" }
+        }
+      }
+    },
+    "reactions": {
+      "type": "object",
+      "description": "Reaction counts per emoji on a subject, each with its newest reactors and the viewer's own reaction. Use org.tangled.feed.reaction:subject. Reactors' profiles come back as blue.microcosm.identity.resolveMiniDoc payloads under their dids when cached. Emojis keep a fixed order, not by count. Absent when nobody reacted.",
+      "required": ["reactions"],
+      "properties": {
+        "reactions": {
+          "type": "array",
+          "items": { "type": "ref", "ref": "#reactionSummary" }
+        }
+      }
+    },
+    "reactionSummary": {
+      "type": "object",
+      "required": ["reaction", "count", "reactors"],
+      "properties": {
+        "reaction": { "type": "string", "maxGraphemes": 1 },
+        "count": { "type": "integer", "minimum": 1 },
+        "reactors": {
+          "type": "array",
+          "maxLength": 10,
+          "items": { "type": "string", "format": "did" },
+          "description": "The newest few who reacted with this emoji, at most 10."
+        },
+        "viewer": {
+          "type": "ref",
+          "ref": "#viewerReaction",
+          "description": "The viewer's own reaction with this emoji, when a viewer was given and has one."
+        }
+      }
+    },
+    "viewerReaction": {
+      "type": "object",
+      "required": ["uri"],
+      "properties": {
+        "uri": { "type": "string", "format": "at-uri" },
+        "cid": {
+          "type": "string",
+          "format": "cid",
+          "description": "Absent when the record couldn't be fetched."
         }
       }
     }
