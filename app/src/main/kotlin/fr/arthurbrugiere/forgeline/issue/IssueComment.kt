@@ -171,7 +171,8 @@ internal fun Comment(
                     Box(Modifier.padding(top = 10.dp, bottom = 6.dp)) { editor() }
                 } else {
                     Column(Modifier.padding(start = TimelineGutter, top = 6.dp).widthIn(max = SoftTokens.MaxMeasure)) {
-                        Markdown(body, context, onLinkClick, selectable = offered.value == null)
+                        // Asked of the menu itself: [offered] is a new menu at each composition, and reading it here would compose again for ever.
+                        Markdown(body, context, onLinkClick, selectable = menu == null || menu.isEmpty)
                         if (reactions.isNotEmpty()) {
                             // Tappable, each brings its own room: no more is added above.
                             Reactions(reactions, Modifier.padding(top = if (menu?.onReact == null) 8.dp else 0.dp), onReact = menu?.onReact)

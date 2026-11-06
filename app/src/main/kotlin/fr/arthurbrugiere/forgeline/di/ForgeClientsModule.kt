@@ -208,16 +208,6 @@ abstract class ForgeClientsModule {
 
     companion object {
         @Provides
-        @Singleton
-        @Forgejo
-        fun provideForgejoHttpClient(cache: Cache): HttpClient = forgejoHttpClient(forgeEngine(cache))
-
-        @Provides
-        @Singleton
-        @GitLab
-        fun provideGitLabHttpClient(cache: Cache): HttpClient = gitlabHttpClient(forgeEngine(cache))
-
-        @Provides
         fun provideForgeProbe(@Forgejo http: HttpClient): ForgeProbe = HttpForgeProbe(http)
 
         @Provides
@@ -232,6 +222,24 @@ abstract class ForgeClientsModule {
         @GiteaClientId
         fun provideGiteaClientId(): String = BuildConfig.GITEA_CLIENT_ID
     }
+}
+
+/**
+ * The HTTP clients of the forges other than GitHub's. A module of its own, so app-level tests can keep them off the
+ * network: signed out, a search asks Codeberg and gitlab.com too.
+ */
+@Module
+@InstallIn(SingletonComponent::class)
+object ForgeHttpModule {
+    @Provides
+    @Singleton
+    @Forgejo
+    fun provideForgejoHttpClient(cache: Cache): HttpClient = forgejoHttpClient(forgeEngine(cache))
+
+    @Provides
+    @Singleton
+    @GitLab
+    fun provideGitLabHttpClient(cache: Cache): HttpClient = gitlabHttpClient(forgeEngine(cache))
 }
 
 /**

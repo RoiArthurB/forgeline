@@ -36,4 +36,14 @@ class AppTestsStayOffTheNetworkTest {
         assertThat(clients.trending(ForgeInstance.Codeberg)).isNull()
         assertThat(clients.trending(ForgeInstance.GitLab)).isNull()
     }
+
+    @Test
+    fun codeberg_and_gitlab_com_are_down_in_app_tests() = kotlinx.coroutines.runBlocking {
+        // Signed out, a search asks them along with GitHub's fake.
+        val codeberg = clients.search(ForgeInstance.Codeberg).repositories(null, "paperclip", 1)
+        val gitlab = clients.search(ForgeInstance.GitLab).repositories(null, "paperclip", 1)
+
+        assertThat(codeberg).isInstanceOf(fr.arthurbrugiere.forgeline.core.forge.ForgeResult.Failure::class.java)
+        assertThat(gitlab).isInstanceOf(fr.arthurbrugiere.forgeline.core.forge.ForgeResult.Failure::class.java)
+    }
 }
