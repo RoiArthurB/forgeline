@@ -61,6 +61,11 @@
             </intent-filter>
         </activity>
 
+        <!-- "Mark as read" and "Done" on an Inbox notification. -->
+        <receiver
+            android:name=".notifications.InboxActionReceiver"
+            android:exported="false" />
+
         <!-- The Inbox on the home screen. -->
         <receiver
             android:name=".widget.InboxWidgetProvider"

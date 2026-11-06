@@ -166,4 +166,36 @@ class SystemInboxNotifierTest {
         assertThat(tap.getBooleanExtra(EXTRA_UNREAD, false)).isTrue()
         assertThat(tap.hasExtra(EXTRA_LAST_READ_AT)).isFalse()
     }
+
+    @Test
+    fun an_unread_thread_can_be_marked_read_or_done_from_its_notification() {
+        notifier.show(listOf(notificationThread("42", repo = "acme/rocket").copy(unread = true, accountId = "github:github.com:me")))
+
+        val actions = shadowOf(manager).allNotifications.single().actions
+        assertThat(actions.map { it.title.toString() }).containsExactly("Mark as read", "Done").inOrder()
+        val done = shadowOf(actions[1].actionIntent).savedIntent
+        assertThat(done.action).isEqualTo(ACTION_MARK_DONE)
+        assertThat(done.component?.className).isEqualTo(InboxActionReceiver::class.java.name)
+        assertThat(done.getStringExtra(EXTRA_ACCOUNT_ID)).isEqualTo("github:github.com:me")
+        assertThat(done.getStringExtra(EXTRA_THREAD_ID)).isEqualTo("42")
+    }
+
+    @Test
+    fun a_read_thread_offers_done_alone() {
+        notifier.show(listOf(notificationThread("42").copy(unread = false)))
+
+        assertThat(shadowOf(manager).allNotifications.single().actions.map { it.title.toString() }).containsExactly("Done")
+    }
+
+    @Test
+    fun a_notification_s_button_tells_the_forge() = kotlinx.coroutines.test.runTest {
+        val inbox = fr.arthurbrugiere.forgeline.core.testing.FakeInboxRepository()
+
+        inbox.actOnNotification(fr.arthurbrugiere.forgeline.core.model.InboxAction.DONE, "github:github.com:me", "42")
+        inbox.actOnNotification(fr.arthurbrugiere.forgeline.core.model.InboxAction.READ, "github:github.com:me", "43")
+
+        assertThat(inbox.actions).containsExactly("done:42", "read:43").inOrder()
+        // Answered, nothing is left waiting to be sent.
+        assertThat(inbox.held).isEmpty()
+    }
 }
