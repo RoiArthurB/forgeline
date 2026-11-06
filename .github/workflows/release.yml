@@ -19,6 +19,9 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v6
+      - name: Work out the version from the tag
+        # versionName and versionCode, for the build and for F-Droid, which reads version.txt off the latest release.
+        run: bash tools/release/version.sh "$GITHUB_REF_NAME" | tee version.txt >> "$GITHUB_ENV"
       - name: Check the release notes
         run: |
           NOTES="docs/release-notes/${GITHUB_REF_NAME}.md"
@@ -42,21 +45,20 @@ jobs:
           FORGELINE_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           FORGELINE_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           ./gradlew :app:assembleRelease \
-            -Pforgeline.versionName="$VERSION" \
-            -Pforgeline.versionCode="${{ github.run_number }}"
-          cp app/build/outputs/apk/release/app-release.apk "forgeline-$VERSION.apk"
+            -Pforgeline.versionName="$versionName" \
+            -Pforgeline.versionCode="$versionCode"
+          cp app/build/outputs/apk/release/app-release.apk "forgeline-$versionName.apk"
       - uses: softprops/action-gh-release@v3
         with:
-          files: forgeline-*.apk
+          files: |
+            forgeline-*.apk
+            version.txt
           # Hand-written: GitHub's generated notes list pull requests, and Forgeline commits straight to main.
           body_path: docs/release-notes/${{ github.ref_name }}.md
-          prerelease: ${{ contains(github.ref_name, '-') }}
       - name: Republish the landing page
         # A release made with this workflow's token doesn't start other workflows, so the landing page is
         # asked for directly, to name the new version.
-        if: ${{ !contains(github.ref_name, '-') }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh workflow run trending.yml --repo "$GITHUB_REPOSITORY" --ref main -f republish=true

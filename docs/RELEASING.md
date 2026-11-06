@@ -38,10 +38,11 @@ Android only lets an update install over an existing app if **both are signed wi
    git push origin v0.2.0
    ```
 
-- The tag (without the `v`) becomes `versionName`; the workflow run number becomes `versionCode`, so it always increases.
-- Tags containing a `-` (e.g. `v0.2.0-beta1`) are published as pre-releases.
+- The tag must be `vX.Y.Z`, with Y and Z at most 99. Without the `v` it becomes `versionName`, and `versionCode` is worked out from it as `X × 10000 + Y × 100 + Z` (`v0.12.0` is `1200`) by `tools/release/version.sh`. Any other tag stops the workflow before it builds. Nothing in the repository is bumped by hand: `gradle.properties` only versions local builds.
+- The release gets a `version.txt` next to the APK, with both values. F-Droid reads it to find new releases (see [DISTRIBUTION.md](DISTRIBUTION.md)); keep the file and its two keys.
+- Releases v0.1.0 to v0.11.0 were coded with the workflow's run number (10 at most), so the first worked-out code is higher and installs update normally. Codes must keep rising: if the formula changes, its weights can only grow.
 - GitHub's generated release notes aren't used: they list pull requests, and Forgeline commits straight to `main`.
-- Once the release is up, the workflow republishes the landing page, which names the latest release wherever `site/index.html` marks an element `data-version`. Nothing to bump by hand; pre-releases leave it as it is.
+- Once the release is up, the workflow republishes the landing page, which names the latest release wherever `site/index.html` marks an element `data-version`. Nothing to bump by hand.
 
 ## Signing a build locally
 
