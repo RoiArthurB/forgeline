@@ -23,14 +23,26 @@ class SearchRepositoryTest {
     private suspend fun signInToCodeberg() = accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "t-codeberg")
 
     @Test
-    fun signed_out_searches_github_anonymously() = runTest {
+    fun signed_out_searches_the_three_public_forges_anonymously() = runTest {
+        val gitlabApi = FakeSearchApi(pageSize = 2).apply { repositories = listOf(repoSummary("c/gl1", forge = ForgeInstance.GitLab)) }
+        clients.put(ForgeInstance.GitLab, FakeForgeClients(search = gitlabApi))
+        api.repositories = listOf(repoSummary("a/gh1"))
         codebergApi.repositories = listOf(repoSummary("ziglang/zig", forge = ForgeInstance.Codeberg))
 
         val page = (repository.repositories("forge") as ForgeResult.Success).value
 
         assertThat(api.tokens).containsExactly(null)
-        assertThat(codebergApi.calls).isEmpty()
-        assertThat(page.forges).containsExactly(ForgeInstance.GitHub)
+        assertThat(codebergApi.tokens).containsExactly(null)
+        assertThat(gitlabApi.tokens).containsExactly(null)
+        assertThat(page.forges).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab).inOrder()
+        assertThat(page.items.map { it.id.fullName }).containsExactly("a/gh1", "ziglang/zig", "c/gl1").inOrder()
+    }
+
+    @Test
+    fun signed_in_searches_github_and_the_forges_signed_in_to() = runTest {
+        signInToCodeberg()
+
+        assertThat(repository.forges.first()).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg).inOrder()
     }
 
     @Test
