@@ -469,6 +469,48 @@ class SignInViewModelTest {
     }
 
     @Test
+    fun a_server_installed_under_a_path_is_found_there_and_signed_in_to() = test {
+        // Nothing answers at the server's root: the forge is under /git.
+        kinds["example.org"] = null
+        kinds["example.org/git"] = ForgeType.GITEA
+        val underPath = ForgeInstance(ForgeType.GITEA, "example.org/git")
+        clients.put(underPath, FakeForgeClients(auth = FakeForgeAuthApi(supportsDeviceFlow = false, forge = underPath).apply { users["tok"] = octocat }))
+        val viewModel = viewModel().also { it.selectForge(SignInForge.OTHER) }
+
+        viewModel.setHost("https://example.org/git/")
+        advanceUntilIdle()
+
+        assertThat(probed).containsExactly("example.org", "example.org/git").inOrder()
+        assertThat(viewModel.state.value.otherType).isEqualTo(ForgeType.GITEA)
+        assertThat(viewModel.state.value.address).isEqualTo("example.org/git")
+
+        viewModel.signInWithToken("tok")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.SignedIn)
+        assertThat(accounts.activeAccount.first()!!.forge).isEqualTo(underPath)
+    }
+
+    @Test
+    fun a_page_s_address_pasted_whole_finds_the_forge_at_its_root_first() = test {
+        val viewModel = viewModel().also { it.selectForge(SignInForge.OTHER) }
+
+        viewModel.setHost("https://git.example.org/alice/tool/src/branch/main")
+        advanceUntilIdle()
+
+        assertThat(probed).containsExactly("git.example.org")
+        assertThat(viewModel.state.value.address).isEqualTo("git.example.org")
+    }
+
+    @Test
+    fun the_places_a_forge_may_stand_in_an_address_go_from_its_root_down() {
+        assertThat(SignInViewModel.addressesIn("https://Example.org/Git/alice/tool?tab=1"))
+            .containsExactly("example.org", "example.org/git", "example.org/git/alice").inOrder()
+        assertThat(SignInViewModel.addressesIn("codeberg.org")).containsExactly("codeberg.org")
+        assertThat(SignInViewModel.addressesIn("localhost/git")).isEmpty()
+    }
+
+    @Test
     fun server_addresses_are_read_forgivingly() {
         assertThat(SignInViewModel.normalizedHost("https://Git.Example.org/explore")).isEqualTo("git.example.org")
         assertThat(SignInViewModel.normalizedHost("codeberg.org")).isEqualTo("codeberg.org")

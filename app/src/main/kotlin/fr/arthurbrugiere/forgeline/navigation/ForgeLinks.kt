@@ -48,6 +48,14 @@ object ForgeLinks {
         return forges.firstOrNull { it.host == lower } ?: KnownForges.all().firstOrNull { it.host == lower }
     }
 
+    /**
+     * The forge [uri] is a page of, with the page's raw path from where the forge starts: a server installed under a
+     * path (`example.org/git`) owns only what lies under it, and of two on one server the one installed deeper wins.
+     */
+    private fun forgeAt(uri: URI): Pair<ForgeInstance, String>? = (forges + KnownForges.all())
+        .mapNotNull { forge -> forge.pathOf(uri.host, uri.rawPath.orEmpty())?.let { forge to it } }
+        .maxByOrNull { (forge, _) -> forge.host.length }
+
     /** The first web address in [text]: what another app shares is often a title, then the page's address. */
     fun addressIn(text: String?): String? =
         text?.let { ADDRESS.find(it) }?.value?.trimEnd('.', ',', ';', ':', '!', '?', ')', ']', '>', '"', '\'')
@@ -69,10 +77,12 @@ object ForgeLinks {
     }
 
     fun routeFor(url: String): NavKey? {
-        val uri = runCatching { URI(url) }.getOrNull() ?: return null
-        if (uri.scheme !in setOf("http", "https")) return null
-        ticketRoute(uri)?.let { return it }
-        val forge = forgeOf(uri.host) ?: return null
+        val asked = runCatching { URI(url) }.getOrNull() ?: return null
+        if (asked.scheme !in setOf("http", "https")) return null
+        ticketRoute(asked)?.let { return it }
+        val (forge, path) = forgeAt(asked) ?: return null
+        // From here on the page is read as if the forge stood at its server's root.
+        val uri = if (path == asked.rawPath.orEmpty()) asked else asked.underRoot(path)
         val segments = uri.path.orEmpty().split('/').filter { it.isNotEmpty() }
         topicRoute(forge, segments, uri)?.let { return it }
         if (segments.isEmpty() || segments[0].lowercase() in reserved.getValue(forge.type)) return null
@@ -206,6 +216,10 @@ object ForgeLinks {
         if (rest.size < 2 || uri.path.orEmpty().endsWith("/")) return null
         return FileRoute(host, owner, name, path = rest.drop(1).joinToString("/"), ref = rest[0])
     }
+
+    /** This address with [path] (raw) in place of its own, its query and fragment kept. */
+    private fun URI.underRoot(path: String): URI =
+        URI("$scheme://$rawAuthority$path" + (rawQuery?.let { "?$it" } ?: "") + (rawFragment?.let { "#$it" } ?: ""))
 
     /** A commit as its page names it: its full or shortened hash. */
     private fun isSha(text: String) = text.length in 7..64 && text.all { it in '0'..'9' || it in 'a'..'f' }

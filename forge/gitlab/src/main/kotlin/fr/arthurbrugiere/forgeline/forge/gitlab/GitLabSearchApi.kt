@@ -168,7 +168,9 @@ class GitLabSearchApi(
 
     /** The project a result is in, from its page's address; null when that can't be read, and the result is left out. */
     private fun parseRepoFromIssueUrl(webUrl: String?): RepoId? {
-        val path = webUrl?.takeIf { "/-/" in it }?.substringBefore("/-/")?.substringAfter("://")?.substringAfter('/', "") ?: return null
+        // From where the forge starts: a GitLab installed under a path (example.org/lab) has it before the project's.
+        val path = webUrl?.takeIf { "/-/" in it }?.substringBefore("/-/")?.substringAfter("://")?.substringAfter('/', "")
+            ?.let { page -> forge.pathOf(forge.server, "/$page")?.removePrefix("/") } ?: return null
         if ('/' !in path) return null
         return RepoId(path.substringBeforeLast('/'), path.substringAfterLast('/'), forge)
     }

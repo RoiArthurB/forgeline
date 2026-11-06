@@ -207,7 +207,7 @@
     <string name="sign_in_error_rate_limited">%1$s limite les requêtes en ce moment. Réessayez dans quelques minutes.</string>
     <string name="sign_in_error_denied">L’autorisation a été refusée sur %1$s.</string>
     <string name="sign_in_error_expired">La connexion a pris trop de temps. Recommencez.</string>
-    <string name="sign_in_error_not_a_forge">Aucun serveur Forgejo, Gitea ou GitLab n’a répondu à cette adresse.</string>
+    <string name="sign_in_error_not_a_forge">Aucun serveur Forgejo, Gitea ou GitLab n’a répondu à cette adresse en HTTPS, à sa racine ou sous le chemin saisi.</string>
     <string name="sign_in_error_unknown">Quelque chose s’est mal passé. Réessayez.</string>
     <string name="trending_period_daily">Aujourd’hui</string>
     <string name="trending_period_weekly">Cette semaine</string>
