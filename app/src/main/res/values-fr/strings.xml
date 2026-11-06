@@ -9,7 +9,7 @@
     <string name="sign_out">Se déconnecter</string>
     <string name="cancel">Annuler</string>
     <string name="inbox_signed_out_title">Vos notifications, au même endroit</string>
-    <string name="inbox_signed_out_body">Connectez-vous à GitHub, GitLab, Codeberg ou votre propre Forgejo pour lire et traiter ce qui vous attend.</string>
+    <string name="inbox_signed_out_body">Connectez-vous à GitHub, GitLab, Codeberg, Gitea ou votre propre Forgejo pour lire et traiter ce qui vous attend.</string>
     <string name="inbox_filter_unread">Non lues</string>
     <string name="inbox_filter_participating">Vous participez</string>
     <string name="inbox_filter_all">Toutes</string>
@@ -104,7 +104,7 @@
     <string name="reason_security_alert">Alerte de sécurité</string>
     <string name="reason_other">Mise à jour</string>
     <string name="feed_signed_out_title">Ce que font les personnes que vous suivez</string>
-    <string name="feed_signed_out_body">Connectez-vous à GitHub, GitLab, Codeberg ou votre propre Forgejo pour voir ce qu’ils étoilent, forkent et publient.</string>
+    <string name="feed_signed_out_body">Connectez-vous à GitHub, GitLab, Codeberg, Gitea ou votre propre Forgejo pour voir ce qu’ils étoilent, forkent et publient.</string>
     <string name="browse_trending">Parcourir les tendances</string>
     <string name="feed_empty_title">C’est calme pour l’instant</string>
     <string name="feed_empty_body">L’activité des personnes que vous suivez et des dépôts que vous surveillez apparaît ici.</string>
@@ -164,7 +164,7 @@
     <string name="you_limited_action">Se reconnecter à %1$s</string>
     <string name="sign_in_github_access">GitHub demandera l’accès à vos dépôts, privés compris, et la permission de les supprimer. Forgeline s’en sert pour les afficher et pour y commenter, étoiler et lancer des workflows ; il ne supprime un dépôt que si vous le demandez, depuis les paramètres de ce dépôt.</string>
     <string name="you_signed_out_title">Connecter un compte</string>
-    <string name="you_signed_out_body">GitHub, GitLab, Codeberg ou votre propre Forgejo. La boîte de réception et le fil demandent un compte ; les tendances et la navigation fonctionnent sans.</string>
+    <string name="you_signed_out_body">GitHub, GitLab, Codeberg, Gitea, Tangled, SourceHut ou votre propre Forgejo. La boîte de réception et le fil demandent un compte ; les tendances et la navigation fonctionnent sans.</string>
     <string name="sign_in_headline">Se connecter à %1$s</string>
     <string name="sign_in_headline_other">Se connecter à votre serveur</string>
     <string name="sign_in_privacy">Forgeline parle à %1$s directement depuis votre téléphone. Votre jeton est chiffré sur cet appareil et n’est envoyé que là-bas.</string>
@@ -262,7 +262,7 @@
     <string name="settings_trending_none_title">Rien à mesurer pour l’instant</string>
     <string name="settings_trending_none_body">GitHub a ses propres tendances, et celles de Codeberg et de GitLab sont publiées chaque jour pour tout le monde. Connectez-vous à Codeberg ou à un autre serveur Forgejo pour mesurer les leurs sur ce téléphone.</string>
     <string name="settings_version_summary">Crédits, code source, version %1$s</string>
-    <string name="settings_add_account_summary">GitHub, GitLab, Codeberg, SourceHut, ou un serveur Forgejo ou Gitea</string>
+    <string name="settings_add_account_summary">GitHub, GitLab, Codeberg, Tangled, SourceHut, ou un serveur Forgejo ou Gitea</string>
     <string name="error_unauthorized">La forge n’accepte plus votre connexion. Reconnectez-vous depuis l’onglet Vous.</string>
     <string name="you_ended_title">Votre connexion à %1$s a pris fin</string>
     <string name="you_ended_body">Forgeline ne peut plus utiliser la connexion de %2$s sur %1$s : %1$s l’a refusée, ou elle ne peut plus être lue sur cet appareil. Rien ne se synchronise pour ce compte tant que vous ne vous reconnectez pas.</string>
@@ -889,7 +889,7 @@
     <string name="search_organization">Organisation</string>
     <string name="settings_title">Réglages</string>
     <string name="settings_section_account">Comptes</string>
-    <string name="settings_signed_out_summary">Connecter un compte GitHub, GitLab, Codeberg ou Forgejo</string>
+    <string name="settings_signed_out_summary">Connecter un compte GitHub, GitLab, Codeberg, Gitea, Tangled, SourceHut ou Forgejo</string>
     <string name="sign_out_confirm_title">Se déconnecter de @%1$s ?</string>
     <string name="sign_out_confirm_body">Votre jeton sera supprimé de cet appareil.</string>
     <string name="settings_section_appearance">Apparence</string>
