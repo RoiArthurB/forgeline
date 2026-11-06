@@ -1,0 +1,80 @@
+[
+  {
+    "id": 186386118,
+    "user": {
+      "id": 4713264,
+      "username": "mkaeppler",
+      "public_email": "mkaeppler@gitlab.com",
+      "name": "Matthias Käppler",
+      "state": "active",
+      "locked": false,
+      "avatar_url": "https://gitlab.com/uploads/-/system/user/avatar/4713264/avatar.png?v=1793893440",
+      "web_url": "https://gitlab.com/mkaeppler"
+    },
+    "created_at": "2022-09-15T14:31:32.641Z",
+    "resource_type": "Issue",
+    "resource_id": 115145593,
+    "label": {
+      "id": 3174863,
+      "name": "maintenance::dependency",
+      "description": "Issues related to updating to newer versions of the dependencies GitLab requires (Ruby gems, NPM packages, GitLab Workhorse, GitLab Shell, Gitaly...)",
+      "text_color": "#FFFFFF",
+      "description_html": "Issues related to updating to newer versions of the dependencies GitLab requires (Ruby gems, NPM packages, GitLab Workhorse, GitLab Shell, Gitaly...)",
+      "color": "#7f8c8d",
+      "archived": false
+    },
+    "action": "add"
+  },
+  {
+    "id": 186386119,
+    "user": {
+      "id": 4713264,
+      "username": "mkaeppler",
+      "public_email": "mkaeppler@gitlab.com",
+      "name": "Matthias Käppler",
+      "state": "active",
+      "locked": false,
+      "avatar_url": "https://gitlab.com/uploads/-/system/user/avatar/4713264/avatar.png?v=1793893440",
+      "web_url": "https://gitlab.com/mkaeppler"
+    },
+    "created_at": "2022-09-15T14:31:32.641Z",
+    "resource_type": "Issue",
+    "resource_id": 115145593,
+    "label": {
+      "id": 15119514,
+      "name": "type::maintenance",
+      "description": "Upkeeping efforts and catch-up corrective improvements that are not Feature nor Bugs. Read more at https://handbook.gitlab.com/handbook/product/groups/product-analysis/engineering/metrics/#work-type-classification",
+      "text_color": "#FFFFFF",
+      "description_html": "Upkeeping efforts and catch-up corrective improvements that are not Feature nor Bugs. Read more at <a href=\"https://handbook.gitlab.com/handbook/product/groups/product-analysis/engineering/metrics/#work-type-classification\" rel=\"nofollow noreferrer noopener\" target=\"_blank\">https://handbook.gitlab.com/handbook/product/groups/product-analysis/engineering/metrics/#work-type-classification</a>",
+      "color": "#330066",
+      "archived": false
+    },
+    "action": "add"
+  },
+  {
+    "id": 186468787,
+    "user": {
+      "id": 1786152,
+      "username": "gitlab-bot",
+      "public_email": "",
+      "name": "🤖 GitLab Bot 🤖",
+      "state": "active",
+      "locked": false,
+      "avatar_url": "https://gitlab.com/uploads/-/system/user/avatar/1786152/avatar.png?v=1793925642",
+      "web_url": "https://gitlab.com/gitlab-bot"
+    },
+    "created_at": "2022-09-16T01:02:01.167Z",
+    "resource_type": "Issue",
+    "resource_id": 115145593,
+    "label": {
+      "id": 1890178,
+      "name": "[deprecated] Accepting merge requests",
+      "description": "[deprecated] Please use \"Seeking community contributions\" instead. https://gitlab.com/gitlab-org/developer-relations/contributor-success/team-task/-/issues/77",
+      "text_color": "#1F1E24",
+      "description_html": "[deprecated] Please use \"Seeking community contributions\" instead. <a href=\"https://gitlab.com/gitlab-org/developer-relations/contributor-success/team-task/-/issues/77\" title=\"Migrate `seeking community contribution` to `workflow::ready for development` and remove the use of `Accepting merge requests`\" class=\"gfm gfm-issue\" data-original=\"https://gitlab.com/gitlab-org/developer-relations/contributor-success/team-task/-/issues/77\" data-link=\"false\" data-link-reference=\"true\" data-issue=\"117543021\" data-project=\"39971471\" data-iid=\"77\" data-namespace-path=\"gitlab-org/developer-relations/contributor-success/team-task\" data-project-path=\"gitlab-org/developer-relations/contributor-success/team-task\" data-issue-type=\"issue\" data-container=\"body\" data-placement=\"top\" data-reference-type=\"issue\">gitlab-org/developer-relations/contributor-success/team-task#77</a>",
+      "color": "#69d100",
+      "archived": false
+    },
+    "action": "add"
+  }
+]

@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.gitlab
 
 import fr.arthurbrugiere.forgeline.core.model.ClosingCommit
+import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
@@ -340,6 +341,73 @@ internal data class GitLabStateEventJson(
         }
         val commit = sourceCommit?.ifEmpty { null }?.let { ClosingCommit(it, message = null, webUrl = "${repo.webUrl}/-/commit/$it") }
         return TimelineItem.StateChanged(change, user?.toForgeUser(), null, gitlabInstant(createdAt) ?: return null, commit)
+    }
+}
+
+/** A label put on a conversation or taken off it: `resource_label_events`. Its label is null once deleted. */
+@Serializable
+internal data class GitLabLabelEventJson(
+    val user: GitLabUserJson? = null,
+    @SerialName("created_at") val createdAt: String,
+    val label: GitLabLabelJson? = null,
+    val action: String,
+) {
+    fun toTimelineItem(): TimelineItem? =
+        TimelineItem.Labeled(action == "add", label?.toModel() ?: return null, user?.toForgeUser(), gitlabInstant(createdAt) ?: return null)
+}
+
+@Serializable
+internal data class GitLabTitledJson(val title: String? = null, @SerialName("start_date") val startDate: String? = null, @SerialName("due_date") val dueDate: String? = null)
+
+/** A milestone set or taken away: `resource_milestone_events`. */
+@Serializable
+internal data class GitLabMilestoneEventJson(
+    val user: GitLabUserJson? = null,
+    @SerialName("created_at") val createdAt: String,
+    val milestone: GitLabTitledJson? = null,
+    val action: String,
+) {
+    fun toTimelineItem(): TimelineItem? = TimelineItem.Event(
+        if (action == "add") ConversationEvent.MILESTONED else ConversationEvent.DEMILESTONED,
+        user?.toForgeUser(),
+        milestone?.title ?: return null,
+        gitlabInstant(createdAt) ?: return null,
+    )
+}
+
+/** An issue's weight set, or taken away (null): `resource_weight_events`, on GitLab's paid tiers. */
+@Serializable
+internal data class GitLabWeightEventJson(
+    val user: GitLabUserJson? = null,
+    @SerialName("created_at") val createdAt: String,
+    /** Always there: what tells a weight event from anything else, its weight being null once taken away. */
+    @SerialName("issue_id") val issueId: Long,
+    val weight: Int? = null,
+) {
+    fun toTimelineItem(): TimelineItem? = TimelineItem.Event(
+        if (weight == null) ConversationEvent.WEIGHT_REMOVED else ConversationEvent.WEIGHT_SET,
+        user?.toForgeUser(),
+        weight?.toString(),
+        gitlabInstant(createdAt) ?: return null,
+    )
+}
+
+/** An issue put in an iteration or taken out: `resource_iteration_events`. A cadence's iterations may have no title: their dates name them. */
+@Serializable
+internal data class GitLabIterationEventJson(
+    val user: GitLabUserJson? = null,
+    @SerialName("created_at") val createdAt: String,
+    val iteration: GitLabTitledJson? = null,
+    val action: String,
+) {
+    fun toTimelineItem(): TimelineItem? {
+        val name = iteration?.title?.ifBlank { null } ?: listOfNotNull(iteration?.startDate, iteration?.dueDate).joinToString(" – ").ifBlank { null }
+        return TimelineItem.Event(
+            if (action == "add") ConversationEvent.ITERATION_SET else ConversationEvent.ITERATION_REMOVED,
+            user?.toForgeUser(),
+            name,
+            gitlabInstant(createdAt) ?: return null,
+        )
     }
 }
 

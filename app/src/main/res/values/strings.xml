@@ -642,6 +642,9 @@
     <string name="issue_tracking_cancelled_event">%1$s stopped their timer without recording it %2$s</string>
     <string name="issue_time_added_amount_event">%1$s recorded %2$s of time spent %3$s</string>
     <string name="issue_time_removed_event">%1$s took back recorded time %2$s</string>
+    <string name="issue_estimate_set_event">%1$s set the time estimate to %2$s %3$s</string>
+    <string name="issue_estimate_removed_event">%1$s removed the time estimate %2$s</string>
+    <string name="issue_referenced_untitled_event">%1$s mentioned this in %2$s %3$s</string>
     <string name="issue_blocking_added_event">%1$s made %2$s depend on this %3$s</string>
     <string name="issue_blocking_removed_event">%1$s removed the dependency of %2$s on this %3$s</string>
     <string name="issue_sub_issue_added_event">%1$s added the sub-issue %2$s %3$s</string>

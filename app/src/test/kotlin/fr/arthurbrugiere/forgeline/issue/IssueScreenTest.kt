@@ -667,6 +667,8 @@ class IssueScreenTest {
             event(ConversationEvent.BLOCKING_REMOVED, "#5 Five") to "maintainer removed the dependency of #5 Five on this",
             event(ConversationEvent.TIME_ADDED, "1h 30m") to "maintainer recorded 1h 30m of time spent",
             event(ConversationEvent.TIME_REMOVED) to "maintainer took back recorded time",
+            event(ConversationEvent.ESTIMATE_SET, "2h") to "maintainer set the time estimate to 2h",
+            event(ConversationEvent.ESTIMATE_REMOVED) to "maintainer removed the time estimate",
             event(ConversationEvent.TRACKING_CANCELLED) to "maintainer stopped their timer without recording it",
             event(ConversationEvent.RELATED_ADDED, "#4 Four") to "maintainer marked this related to #4 Four",
             event(ConversationEvent.RELATED_REMOVED, "#4 Four") to "maintainer removed the relation to #4 Four",
@@ -708,6 +710,25 @@ class IssueScreenTest {
         reach(hasText("675df2e  Fix the leak"))
         composeRule.onNodeWithText("675df2e  Fix the leak").performClick()
         assertThat(events.joinToString()).contains("https://github.com/gama-platform/gama/commit/675df2e1a797")
+    }
+
+    @Test
+    fun a_mention_gitlab_left_untitled_names_it_by_its_reference() {
+        val gitlab = RepoId("group", "project", fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitLab)
+        val who = ForgeUser("maintainer", null, null)
+        setContent(
+            opened.copy(
+                ref = IssueRef(gitlab, 7),
+                issue = issueDetails(IssueRef(gitlab, 7), "Crash on start"),
+                items = listOf(
+                    TimelineItem.CrossReferenced(IssueRef(gitlab, 3, isPullRequest = true), "", true, who, at),
+                    TimelineItem.CrossReferenced(IssueRef(RepoId("group", "other", gitlab.forge), 9, isPullRequest = false), "", false, who, at),
+                ),
+            ),
+        )
+
+        reach(hasText("maintainer mentioned this in !3", substring = true))
+        reach(hasText("maintainer mentioned this in group/other#9", substring = true))
     }
 
     @Test

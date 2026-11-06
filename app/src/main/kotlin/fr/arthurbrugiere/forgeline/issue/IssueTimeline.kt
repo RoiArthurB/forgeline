@@ -68,6 +68,7 @@ import fr.arthurbrugiere.forgeline.core.model.ClosingCommit
 import fr.arthurbrugiere.forgeline.core.model.ConversationEvent
 import fr.arthurbrugiere.forgeline.core.model.HideReason
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.core.model.StateChange
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
@@ -99,6 +100,8 @@ internal fun TimelineEntry(
     onDismissReview: ((Long) -> Unit)? = null,
     /** The branch a pull request came from, for the events that don't name it. */
     headRef: String? = null,
+    /** The conversation's repository: a reference to another names its repository. */
+    here: RepoId? = null,
     menuFor: (TimelineItem.Comment) -> CommentMenu? = { null },
 ) {
     val colors = Soft.colors
@@ -164,7 +167,12 @@ internal fun TimelineEntry(
         is TimelineItem.Renamed -> EventLine(Icons.Outlined.Edit, stringResource(R.string.issue_renamed_event, item.actor?.login ?: stringResource(R.string.deleted_account), item.from, item.to))
         is TimelineItem.CrossReferenced -> EventLine(
             Icons.Outlined.Link,
-            stringResource(R.string.issue_referenced_event, item.actor?.login ?: stringResource(R.string.deleted_account), item.source.number, item.sourceTitle),
+            // GitLab doesn't title the conversation that mentioned it: its reference says which, as GitLab writes it.
+            if (item.sourceTitle.isBlank()) {
+                stringResource(R.string.issue_referenced_untitled_event, item.actor?.login ?: stringResource(R.string.deleted_account), item.source.reference(here), time)
+            } else {
+                stringResource(R.string.issue_referenced_event, item.actor?.login ?: stringResource(R.string.deleted_account), item.source.number, item.sourceTitle)
+            },
             onClick = { onOpenIssue(item.source) },
         )
         is TimelineItem.Event -> {
@@ -238,6 +246,8 @@ private fun eventWords(item: TimelineItem.Event, time: String, headRef: String?)
         ConversationEvent.TRACKING_CANCELLED -> Icons.Outlined.Timer to stringResource(R.string.issue_tracking_cancelled_event, who, time)
         ConversationEvent.TIME_ADDED -> Icons.Outlined.Timer to either(R.string.issue_time_added_amount_event, R.string.issue_time_added_event)
         ConversationEvent.TIME_REMOVED -> Icons.Outlined.Timer to stringResource(R.string.issue_time_removed_event, who, time)
+        ConversationEvent.ESTIMATE_SET -> Icons.Outlined.Timer to stringResource(R.string.issue_estimate_set_event, who, subject, time)
+        ConversationEvent.ESTIMATE_REMOVED -> Icons.Outlined.Timer to stringResource(R.string.issue_estimate_removed_event, who, time)
         ConversationEvent.DEPENDENCY_ADDED -> Icons.Outlined.AccountTree to stringResource(R.string.issue_dependency_added_event, who, subject, time)
         ConversationEvent.DEPENDENCY_REMOVED -> Icons.Outlined.AccountTree to stringResource(R.string.issue_dependency_removed_event, who, subject, time)
         ConversationEvent.BLOCKING_ADDED -> Icons.Outlined.AccountTree to stringResource(R.string.issue_blocking_added_event, who, subject, time)
@@ -293,6 +303,16 @@ private fun eventWords(item: TimelineItem.Event, time: String, headRef: String?)
         ConversationEvent.ITERATION_SET -> Icons.Outlined.Loop to either(R.string.issue_iteration_set_event, R.string.issue_iteration_set_unnamed_event)
         ConversationEvent.ITERATION_REMOVED -> Icons.Outlined.Loop to either(R.string.issue_iteration_removed_event, R.string.issue_iteration_removed_unnamed_event)
     }
+}
+
+/**
+ * How a conversation is named where its title isn't told: "#12", "!12" for a GitLab merge request, with its repository
+ * in front when it isn't [here].
+ */
+internal fun IssueRef.reference(here: RepoId?): String {
+    val sign = if (repo.forge.type.numbersMergeRequestsApart && isPullRequest == true) "!" else "#"
+    val elsewhere = if (here == null || repo == here) "" else repo.fullName
+    return "$elsewhere$sign$number"
 }
 
 /** How GitHub's reasons to lock a conversation read; null for none, or one it may add later. */

@@ -152,64 +152,62 @@ class GitLabIssueApi(
     override suspend fun timeline(token: String?, ref: IssueRef, page: Int): ForgeResult<TimelinePage> = forgeCall {
         coroutineScope {
             val kind = targetKind(ref)
-            // Closing, reopening and merging are kept apart from the notes: asked alongside, not after.
-            val stateEvents = async {
-                httpClient.gitlabApi(
-                    ref.repo.forge, token, "projects", ref.repo.fullName, kind, ref.number.toString(), "resource_state_events",
-                    query = mapOf("per_page" to "100"),
-                )
-            }
+            // Closing, reopening and merging, labels, milestones, weights and iterations are kept apart from the notes:
+            // asked alongside, not after. Weights and iterations are issues' only, and GitLab's paid tiers'.
+            val stateEvents = async { resourceEvents<GitLabStateEventJson>(token, ref, kind, "resource_state_events") }
+            val labelEvents = async { resourceEvents<GitLabLabelEventJson>(token, ref, kind, "resource_label_events") }
+            val milestoneEvents = async { resourceEvents<GitLabMilestoneEventJson>(token, ref, kind, "resource_milestone_events") }
+            val weightEvents = async { if (kind == "issues") resourceEvents<GitLabWeightEventJson>(token, ref, kind, "resource_weight_events") else emptyList() }
+            val iterationEvents = async { if (kind == "issues") resourceEvents<GitLabIterationEventJson>(token, ref, kind, "resource_iteration_events") else emptyList() }
             val response = httpClient.gitlabApi(
                 ref.repo.forge, token, "projects", ref.repo.fullName, kind, ref.number.toString(), "notes",
                 query = mapOf("sort" to "asc", "page" to page.toString(), "per_page" to "$NOTES_PER_PAGE"),
             )
             if (response.status != HttpStatusCode.OK) {
-                stateEvents.cancel()
+                listOf(stateEvents, labelEvents, milestoneEvents, weightEvents, iterationEvents).forEach { it.cancel() }
                 return@coroutineScope response.failure()
             }
-            val notes = response.body<List<GitLabNoteJson>>().mapNotNull { it.toTimelineItem() }
+            val notes = response.body<List<GitLabNoteJson>>().flatMap { it.toTimelineItems(ref.repo) }
             val nextPage = response.nextPage()
             // Each page takes the changes of its own stretch of time: the first from the start, the last to the end.
             val from = if (page == 1) Instant.MIN else notes.firstOrNull()?.createdAt ?: Instant.MIN
             val until = if (nextPage == null) Instant.MAX else notes.lastOrNull()?.createdAt ?: Instant.MIN
-            val events = stateEvents.await()
-            // The notes are the conversation: state changes that can't be had or read only leave it without them.
-            val changes = if (events.status == HttpStatusCode.OK) {
-                val read = runCatching { events.body<List<GitLabStateEventJson>>() }.getOrDefault(emptyList())
-                    .mapNotNull { it.toTimelineItem(ref.repo) }.filter { it.createdAt >= from && it.createdAt <= until }
-                withCommitMessages(token, ref.repo, withoutEchoes(read))
-            } else {
-                emptyList()
-            }
-            ForgeResult.Success(TimelinePage((notes + changes).sortedBy { it.createdAt ?: Instant.MIN }, nextPage, response.lastPage()))
+            fun TimelineItem.inStretch() = createdAt.let { it != null && it >= from && it <= until }
+            // The notes are the conversation: changes that can't be had or read only leave it without them.
+            val states = withCommitMessages(token, ref.repo, withoutEchoes(stateEvents.await().mapNotNull { it.toTimelineItem(ref.repo) }.filter { it.inStretch() }))
+            val others = (
+                labelEvents.await().mapNotNull { it.toTimelineItem() } +
+                    milestoneEvents.await().mapNotNull { it.toTimelineItem() } +
+                    weightEvents.await().mapNotNull { it.toTimelineItem() } +
+                    iterationEvents.await().mapNotNull { it.toTimelineItem() }
+                ).filter { it.inStretch() }
+            ForgeResult.Success(TimelinePage((notes + states + others).sortedBy { it.createdAt ?: Instant.MIN }, nextPage, response.lastPage()))
         }
     }
 
-    private fun GitLabNoteJson.toTimelineItem(): TimelineItem? {
-        // A remark on a line belongs to its thread, shown apart from the conversation.
-        if (type == "DiffNote") return null
-        if (!system) return toComment()
-        val (event, subject) = systemNoteEvent(body) ?: return null
-        return TimelineItem.Event(event, author?.toForgeUser(), subject, gitlabInstant(createdAt) ?: Instant.EPOCH)
+    /**
+     * Every resource event of [kind] [ref] has, up to [RESOURCE_PAGES] pages of a hundred: none where they can't be
+     * had (a free tier's weights, an instance too old to keep them) or read.
+     */
+    private suspend inline fun <reified T> resourceEvents(token: String?, ref: IssueRef, kind: String, segment: String): List<T> {
+        val events = mutableListOf<T>()
+        for (page in 1..RESOURCE_PAGES) {
+            val response = runCatching {
+                httpClient.gitlabApi(ref.repo.forge, token, "projects", ref.repo.fullName, kind, ref.number.toString(), segment, query = mapOf("per_page" to "100", "page" to "$page"))
+            }.getOrNull() ?: break
+            if (response.status != HttpStatusCode.OK) break
+            val read = runCatching { response.body<List<T>>() }.getOrNull() ?: break
+            events += read
+            if (response.nextPage() == null) break
+        }
+        return events
     }
 
-    /**
-     * What a system note says happened, with whom or what it was about. GitLab writes them as sentences, in English
-     * whatever the reader's language (read on gitlab.com, 2026-10-04): "assigned to @alice", "unassigned @alice",
-     * "locked the discussion in this issue", "changed due date to March 14, 2031", "removed due date March 14, 2031",
-     * "added 1h of time spent at ...". The longer word is looked for first: "unlocked" holds "locked".
-     */
-    private fun systemNoteEvent(body: String): Pair<ConversationEvent, String?>? = when {
-        body.startsWith("unassigned ") -> ConversationEvent.UNASSIGNED to body.substringAfter('@', "").substringBefore(' ').ifEmpty { null }
-        body.startsWith("assigned to ") -> ConversationEvent.ASSIGNED to body.substringAfter('@', "").substringBefore(' ').ifEmpty { null }
-        body.startsWith("unlocked ") -> ConversationEvent.UNLOCKED to null
-        body.startsWith("locked ") -> ConversationEvent.LOCKED to null
-        body.startsWith("changed due date to ") -> ConversationEvent.DEADLINE_SET to body.removePrefix("changed due date to ")
-        body.startsWith("removed due date") -> ConversationEvent.DEADLINE_REMOVED to null
-        body.startsWith("added ") && " of time spent" in body -> ConversationEvent.TIME_ADDED to body.removePrefix("added ").substringBefore(" of time spent")
-        body.startsWith("changed milestone to ") -> ConversationEvent.MILESTONED to body.removePrefix("changed milestone to ").removePrefix("%")
-        body.startsWith("removed milestone") -> ConversationEvent.DEMILESTONED to null
-        else -> null
+    private fun GitLabNoteJson.toTimelineItems(home: RepoId): List<TimelineItem> {
+        // A remark on a line belongs to its thread, shown apart from the conversation.
+        if (type == "DiffNote") return emptyList()
+        if (!system) return listOf(toComment())
+        return systemNoteItems(id, body, author?.toForgeUser(), gitlabInstant(createdAt) ?: Instant.EPOCH, home)
     }
 
     override suspend fun comment(token: String, ref: IssueRef, body: String): ForgeResult<TimelineItem.Comment> = forgeCall {
@@ -544,6 +542,9 @@ class GitLabIssueApi(
 
     private companion object {
         const val NOTES_PER_PAGE = 30
+
+        /** How many pages of a hundred resource events of a kind are read: past that, the oldest are left out. */
+        const val RESOURCE_PAGES = 5
 
         /** How soon after a close by commit GitLab tells it again, without the commit. */
         val ECHO_WINDOW: Duration = Duration.ofSeconds(2)

@@ -1,0 +1,18 @@
+[
+  {
+    "id": 3215002,
+    "user": {
+      "id": 447038,
+      "username": "vitallium",
+      "public_email": "",
+      "name": "Vitaly Slobodin",
+      "state": "active",
+      "locked": false,
+      "avatar_url": "https://gitlab.com/uploads/-/system/user/avatar/447038/avatar.png?v=1793923831",
+      "web_url": "https://gitlab.com/vitallium"
+    },
+    "created_at": "2023-01-18T09:13:12.915Z",
+    "issue_id": 115145593,
+    "weight": 4
+  }
+]

@@ -618,6 +618,9 @@
     <string name="issue_tracking_cancelled_event">%1$s a arrêté son chronomètre sans l’enregistrer %2$s</string>
     <string name="issue_time_added_amount_event">%1$s a enregistré %2$s de temps passé %3$s</string>
     <string name="issue_time_removed_event">%1$s a retiré du temps enregistré %2$s</string>
+    <string name="issue_estimate_set_event">%1$s a estimé le temps nécessaire à %2$s %3$s</string>
+    <string name="issue_estimate_removed_event">%1$s a retiré l’estimation de temps %2$s</string>
+    <string name="issue_referenced_untitled_event">%1$s a mentionné ceci dans %2$s %3$s</string>
     <string name="issue_blocking_added_event">%1$s a fait dépendre %2$s de ceci %3$s</string>
     <string name="issue_blocking_removed_event">%1$s a retiré la dépendance de %2$s envers ceci %3$s</string>
     <string name="issue_sub_issue_added_event">%1$s a ajouté le sous-ticket %2$s %3$s</string>

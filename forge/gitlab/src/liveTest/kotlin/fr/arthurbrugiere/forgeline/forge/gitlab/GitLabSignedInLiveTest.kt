@@ -60,6 +60,31 @@ class GitLabSignedInLiveTest {
     }
 
     /** The signed-in person's saved replies still read through GraphQL (none on the test account, 2026-10-25). */
+
+    /**
+     * gitlab-org/gitlab#373997 holds labels, milestones and a weight as resource events, beside its notes (checked
+     * 2026-11-05); gitlab-org/gitlab-runner's MRs hold review requests and pushed commits as system notes.
+     */
+    @Test
+    fun labels_milestones_and_weights_still_come_from_resource_events() = runBlocking {
+        assumeTrue("GITLAB_LIVE_TOKEN not set", token.isNotBlank())
+        val issue = fr.arthurbrugiere.forgeline.core.model.IssueRef(RepoId("gitlab-org", "gitlab", ForgeInstance.GitLab), 373997, isPullRequest = false)
+        val api = GitLabIssueApi(http)
+        val items = mutableListOf<fr.arthurbrugiere.forgeline.core.model.TimelineItem>()
+        var page: Int? = 1
+        while (page != null && page <= 20) {
+            val read = api.timeline(token, issue, page).value()
+            items += read.items
+            page = read.nextPage
+        }
+
+        assertWithMessage("labels").that(items.filterIsInstance<fr.arthurbrugiere.forgeline.core.model.TimelineItem.Labeled>().map { it.label.name })
+            .contains("maintenance::dependency")
+        val events = items.filterIsInstance<fr.arthurbrugiere.forgeline.core.model.TimelineItem.Event>().map { it.event to it.subject }
+        assertWithMessage("milestone").that(events).contains(fr.arthurbrugiere.forgeline.core.model.ConversationEvent.MILESTONED to "15.8")
+        assertWithMessage("weight").that(events).contains(fr.arthurbrugiere.forgeline.core.model.ConversationEvent.WEIGHT_SET to "4")
+    }
+
     @Test
     fun saved_replies_still_read() = runBlocking {
         assumeTrue("GITLAB_LIVE_TOKEN not set", token.isNotBlank())

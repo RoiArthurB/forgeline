@@ -232,6 +232,10 @@ enum class ConversationEvent {
     TIME_REMOVED,
     TRACKING_CANCELLED,
 
+    /** How long it is thought to take was set to the subject (as the forge writes it), or taken away. */
+    ESTIMATE_SET,
+    ESTIMATE_REMOVED,
+
     /** It was tied to the subject as related, or no longer (GitLab). */
     RELATED_ADDED,
     RELATED_REMOVED,
