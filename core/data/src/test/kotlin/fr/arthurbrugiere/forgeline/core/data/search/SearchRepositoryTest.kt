@@ -92,6 +92,14 @@ class SearchRepositoryTest {
     }
 
     @Test
+    fun a_forge_failing_where_the_others_found_nothing_says_why() = runTest {
+        // Signed out: GitHub's limit reached, and Codeberg and gitlab.com without a match, isn't "nothing found".
+        api.failure = ForgeError.RateLimited(null)
+
+        assertThat(repository.repositories("tool")).isEqualTo(ForgeResult.Failure(ForgeError.RateLimited(null)))
+    }
+
+    @Test
     fun every_forge_failing_fails_the_search() = runTest {
         signInToCodeberg()
         api.failure = ForgeError.Network

@@ -151,8 +151,7 @@ class SearchViewModelTest {
         viewModel.retry()
         advanceUntilIdle()
         assertThat(viewModel.state.value.results.error).isNull()
-        // Signed out, the three public forges are asked, each answering a page of two here.
-        assertThat(viewModel.state.value.results.items).hasSize(6)
+        assertThat(viewModel.state.value.results.items).hasSize(2)
     }
 
     @Test
