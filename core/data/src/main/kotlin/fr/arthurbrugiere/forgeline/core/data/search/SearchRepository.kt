@@ -82,7 +82,10 @@ class SearchRepository @Inject constructor(
             pages.map { (forge, page) -> async { forge to clients.search(forge).fetch(accounts.tokenOn(forge), page) } }.awaitAll()
         }
         val found = results.mapNotNull { (forge, result) -> (result as? ForgeResult.Success)?.let { forge to it.value } }
-        if (found.isEmpty()) return results.first().second as ForgeResult.Failure
+        // Nothing found where a forge failed says why, rather than that there is nothing: signed out, GitHub's limit
+        // reached while Codeberg and gitlab.com have no match would read as no match anywhere.
+        val failed = results.firstNotNullOfOrNull { (_, result) -> result as? ForgeResult.Failure }
+        if (failed != null && found.all { it.second.items.isEmpty() }) return failed
         val next = found.mapNotNull { (forge, page) -> page.nextPage?.let { forge to it } }.toMap()
         return ForgeResult.Success(
             MergedSearchPage(
