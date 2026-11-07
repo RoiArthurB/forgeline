@@ -116,7 +116,9 @@ internal fun Comment(
         }
     }
     // Where the comment has a menu, it offers to; without one, nothing else takes a long press, and the words are selectable as they stand.
-    val offered = rememberUpdatedState(menu?.takeIf { !it.isEmpty && editor == null }?.selectingWith { selecting = true })
+    // Remembered with the menu it adds to: a new menu at each composition, read below, would compose again for ever.
+    val withSelecting = remember(menu) { menu?.takeIf { !it.isEmpty }?.selectingWith { selecting = true } }
+    val offered = rememberUpdatedState(withSelecting?.takeIf { !it.isEmpty && editor == null })
     // Where the menu opens: under the finger after a long press, at its button otherwise.
     var pressedAt by remember { mutableStateOf<IntOffset?>(null) }
     // Where a double tap landed, while its thumbs up shows.
@@ -171,8 +173,7 @@ internal fun Comment(
                     Box(Modifier.padding(top = 10.dp, bottom = 6.dp)) { editor() }
                 } else {
                     Column(Modifier.padding(start = TimelineGutter, top = 6.dp).widthIn(max = SoftTokens.MaxMeasure)) {
-                        // Asked of the menu itself: [offered] is a new menu at each composition, and reading it here would compose again for ever.
-                        Markdown(body, context, onLinkClick, selectable = menu == null || menu.isEmpty)
+                        Markdown(body, context, onLinkClick, selectable = offered.value == null)
                         if (reactions.isNotEmpty()) {
                             // Tappable, each brings its own room: no more is added above.
                             Reactions(reactions, Modifier.padding(top = if (menu?.onReact == null) 8.dp else 0.dp), onReact = menu?.onReact)
