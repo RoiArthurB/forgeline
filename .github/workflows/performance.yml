@@ -38,6 +38,14 @@ jobs:
         with:
           name: baseline-profile
           path: app/src/release/generated/baselineProfiles/
+      - name: Upload the test report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: baseline-profile-report
+          path: |
+            baselineprofile/build/outputs/androidTest-results/
+            baselineprofile/build/reports/androidTests/
 
   startup-benchmark:
     runs-on: ubuntu-latest
