@@ -8,7 +8,7 @@ Every call the Forgejo client makes, and every query parameter it sends, was che
 
 ## Telling one from the other
 
-Both answer `GET /api/v1/version` to anyone. Forgejo since v7 numbers itself and adds the Gitea it's compatible with (`16.0.0-dev-753-6bcc6da0+gitea-1.22.0`); its 1.x releases ended in a release number (`1.21.11-1`). Gitea is `1.x.y`, or `1.x.y+dev-…` for a build of main. `forgejoOrGitea` in `ForgeProbe.kt` reads that, so "your own server" needs no more than its address.
+Both answer `GET /api/v1/version` to anyone. Forgejo since v7 numbers itself and adds the Gitea it's compatible with (`16.0.0-dev-753-6bcc6da0+gitea-1.22.0`); its 1.x releases ended in a release number (`1.21.11-1`). Gitea has neither, whatever its number: `1.x.y`, `1.x.y+dev-…` for a build of main, and `29.0.0+dev-…` on gitea.com since November 2026. `forgejoOrGitea` in `ForgeProbe.kt` reads that, so "your own server" needs no more than its address.
 
 ## Where Gitea differs
 

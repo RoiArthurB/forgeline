@@ -39,6 +39,13 @@ class HttpForgeProbeTest {
     }
 
     @Test
+    fun a_gitea_numbered_past_1_x_is_still_a_gitea() {
+        // Regression: gitea.com answered "29.0.0+dev-160-g55186ca39b" on 2026-11-09 and was taken for a Forgejo.
+        assertThat(forgejoOrGitea("29.0.0+dev-160-g55186ca39b")).isEqualTo(ForgeType.GITEA)
+        assertThat(forgejoOrGitea("29.0.0")).isEqualTo(ForgeType.GITEA)
+    }
+
+    @Test
     fun an_old_forgejo_numbered_like_gitea_is_still_a_forgejo() {
         // Forgejo's 1.x releases added a release number of their own.
         assertThat(forgejoOrGitea("1.21.11-1")).isEqualTo(ForgeType.FORGEJO)

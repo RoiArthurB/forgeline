@@ -54,10 +54,11 @@ private val VERSION = Regex(""""version"\s*:\s*"([^"]*)"""")
 /**
  * Forgejo or Gitea, from what `/api/v1/version` says. Forgejo since v7 numbers itself on its own and adds the Gitea it
  * is compatible with (`16.0.0-dev-753-6bcc6da0+gitea-1.22.0`, codeberg.org); its 1.x releases ended with a release
- * number (`1.21.11-1`). Gitea is 1.x with neither (`1.26.1`, or `1.27.0+dev-12-gabcdef` for a build of main).
+ * number (`1.21.11-1`). Gitea has neither, whatever its number: `1.26.1`, `1.27.0+dev-12-gabcdef` for a build of main,
+ * and past 1.x since gitea.com answered `29.0.0+dev-160-g55186ca39b` (2026-11-09).
  */
 internal fun forgejoOrGitea(version: String?): ForgeType {
     val v = version.orEmpty()
-    val gitea = "+gitea-" !in v && Regex("""^1\.\d+\.\d+(\+.*)?$""").matches(v)
+    val gitea = "+gitea-" !in v && Regex("""^\d+\.\d+\.\d+(\+.*)?$""").matches(v)
     return if (gitea) ForgeType.GITEA else ForgeType.FORGEJO
 }
