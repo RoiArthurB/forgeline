@@ -121,7 +121,7 @@ data class ReleasePreview(
     val summary: String?,
     /** The newest stable release before this one, which says how big a step this is: see [releaseJump]. */
     val previousTag: String?,
-    /** The project's own social image, else the first picture in the notes; null when there is neither. */
+    /** The first picture in the notes, else the project's own social image; null when there is neither. */
     val imageUrl: String?,
     /** The owner's avatar: the project's logo, as most projects set it. */
     val logoUrl: String?,
@@ -179,12 +179,26 @@ private fun versionNumbers(tag: String): List<Long>? =
 private val markdownImage = Regex("""!\[[^\]]*]\((https://[^)\s]+)[^)]*\)""")
 private val htmlImage = Regex("""<img[^>]*\ssrc=["'](https://[^"']+)["']""", RegexOption.IGNORE_CASE)
 
-/** The first picture in [markdown] served over https, as Markdown or as an HTML `<img>`; null when there is none. */
+private val badgeHosts = setOf("img.shields.io", "badgen.net", "badge.fury.io")
+
+/** A badge: a line of text drawn as a picture (a build's status, a version), not a picture of the project. */
+private fun isBadge(url: String): Boolean {
+    val host = url.removePrefix("https://").substringBefore('/').substringBefore(':').lowercase()
+    val path = url.substringBefore('?').substringBefore('#').lowercase()
+    // A workflow's status on GitHub or Forgejo ends in /badge.svg; GitLab's pipeline and coverage live under /badges/.
+    return host in badgeHosts || path.endsWith("/badge.svg") || "/badges/" in path
+}
+
+/**
+ * The first picture in [markdown] served over https, as Markdown or as an HTML `<img>`, badges left out; null when
+ * there is none.
+ */
 fun firstImage(markdown: String?): String? {
     if (markdown == null) return null
-    val fromMarkdown = markdownImage.find(markdown)
-    val fromHtml = htmlImage.find(markdown)
-    return listOfNotNull(fromMarkdown, fromHtml).minByOrNull { it.range.first }?.groupValues?.get(1)
+    return (markdownImage.findAll(markdown) + htmlImage.findAll(markdown))
+        .sortedBy { it.range.first }
+        .map { it.groupValues[1] }
+        .firstOrNull { !isBadge(it) }
 }
 
 /**

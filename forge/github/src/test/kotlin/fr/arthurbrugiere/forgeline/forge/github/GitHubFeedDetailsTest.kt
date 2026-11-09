@@ -92,8 +92,18 @@ class GitHubFeedDetailsTest {
     }
 
     @Test
-    fun a_project_s_own_image_comes_before_the_notes_picture() = runTest {
+    fun the_notes_picture_comes_before_the_project_s_own_image() = runTest {
+        // The release's own picture shows what's new; the project's image is the same on every release.
         val custom = answer.replace("\"usesCustomOpenGraphImage\":false", "\"usesCustomOpenGraphImage\":true")
+        val details = (api(body = custom).details("tok", listOf(zed)) as ForgeResult.Success).value
+
+        assertThat((details[zed] as FeedDetail.Release).preview.imageUrl).isEqualTo("https://zed.dev/img/unfold.png")
+    }
+
+    @Test
+    fun a_project_s_own_image_stands_in_when_the_notes_have_no_picture() = runTest {
+        val custom = answer.replace("\"usesCustomOpenGraphImage\":false", "\"usesCustomOpenGraphImage\":true")
+            .replace("\\n\\n![Unfolding](https://zed.dev/img/unfold.png)", "")
         val details = (api(body = custom).details("tok", listOf(zed)) as ForgeResult.Success).value
 
         assertThat((details[zed] as FeedDetail.Release).preview.imageUrl).isEqualTo("https://opengraph.githubassets.com/1/zed-industries/zed")

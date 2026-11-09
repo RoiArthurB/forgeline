@@ -105,8 +105,9 @@ private fun FeedDetailKey.detail(json: DetailsRepoJson): FeedDetail? = when (thi
             ReleasePreview(
                 summary = releaseSummary(release.description),
                 previousTag = previous,
-                // GitHub draws a card for every repository; only one the project made itself is a picture worth showing.
-                imageUrl = json.openGraphImageUrl?.takeIf { json.usesCustomOpenGraphImage } ?: firstImage(release.description),
+                // The notes' picture shows what's new; the project's image, the same on every release, stands in. GitHub
+                // draws a card for every repository: only one the project made itself is a picture worth showing.
+                imageUrl = firstImage(release.description) ?: json.openGraphImageUrl?.takeIf { json.usesCustomOpenGraphImage },
                 logoUrl = json.owner?.avatarUrl,
                 reactions = release.reactionGroups.reactions(),
             ),

@@ -300,7 +300,7 @@ private fun ReleaseObject(action: FeedAction.Released, release: ReleasePreview?)
     }
 }
 
-/** The project's picture, at the width of the row, two to one: its social image, or the first picture in its notes. */
+/** The release's picture, at the width of the row, two to one: the first in its notes, or the project's social image. */
 @Composable
 private fun ReleasePicture(url: String) {
     val colors = Soft.colors

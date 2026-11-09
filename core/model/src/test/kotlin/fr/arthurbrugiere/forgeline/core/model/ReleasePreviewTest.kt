@@ -155,6 +155,21 @@ class ReleasePreviewTest {
     }
 
     @Test
+    fun a_badge_is_not_the_notes_picture() {
+        // A badge is a line of text drawn as a picture: cropped to the row's width it says nothing.
+        assertThat(
+            firstImage(
+                "[![CI](https://img.shields.io/badge/ci-passing-green)](https://ci.example.org) " +
+                    "![build](https://github.com/acme/rocket/actions/workflows/ci.yml/badge.svg) " +
+                    "![npm](https://badge.fury.io/js/rocket.svg) ![size](https://badgen.net/bundlephobia/min/rocket) " +
+                    "![pipeline](https://gitlab.com/acme/rocket/badges/main/pipeline.svg)\n\n" +
+                    "![The new map](https://example.org/map.png)",
+            ),
+        ).isEqualTo("https://example.org/map.png")
+        assertThat(firstImage("![CI](https://img.shields.io/badge/ci-passing-green)")).isNull()
+    }
+
+    @Test
     fun languages_become_shares_of_the_whole_largest_first() {
         val shares = languageShares(mapOf("Kotlin" to 158_348.0, "TypeScript" to 6_118_914.0, "Shell" to 0.0))
 
