@@ -11,6 +11,8 @@ const val PACKAGE_NAME = "fr.arthurbrugiere.forgeline"
 private const val TIMEOUT_MS = 5_000L
 private const val NETWORK_TIMEOUT_MS = 15_000L
 private const val FLING_TRIES = 3
+private const val BACK_PRESSES = 4
+private const val SHORT_WAIT_MS = 1_000L
 
 /**
  * Flings the list on screen, found again for each fling, and again when it was redrawn under the gesture: a screen
@@ -63,21 +65,33 @@ fun MacrobenchmarkScope.readTrending() {
     device.findObject(By.descContains("today"))?.click() ?: return
     device.wait(Until.hasObject(By.text("README")), NETWORK_TIMEOUT_MS)
     flingList(Direction.DOWN)
-    device.pressBack()
-    device.waitForIdle()
+    backToTabs()
 }
 
 fun MacrobenchmarkScope.search(query: String) {
     device.wait(Until.hasObject(By.desc("Search")), TIMEOUT_MS)
-    device.findObject(By.desc("Search"))?.click() ?: return
+    device.findObject(By.desc("Search"))?.click() ?: return backToTabs()
     device.wait(Until.hasObject(By.clazz("android.widget.EditText")), TIMEOUT_MS)
     device.findObject(By.clazz("android.widget.EditText"))?.text = query
     device.pressEnter()
     device.wait(Until.hasObject(By.textContains("results")), NETWORK_TIMEOUT_MS)
     device.findObject(By.text("People"))?.click()
     device.waitForIdle()
-    device.pressBack()
-    device.waitForIdle()
+    backToTabs()
+}
+
+/**
+ * Goes back until the tabs are on screen, looking before each press so the app is never left: every journey ends there,
+ * so the next one starts from the tabs. Regression: a single press didn't always get back, and the next journey found no
+ * tabs ("No "Trending" tab on screen", 2026-11-09).
+ */
+fun MacrobenchmarkScope.backToTabs() {
+    repeat(BACK_PRESSES) {
+        if (device.wait(Until.hasObject(By.desc("Trending")), SHORT_WAIT_MS)) return
+        device.pressBack()
+        device.waitForIdle()
+    }
+    check(device.wait(Until.hasObject(By.desc("Trending")), TIMEOUT_MS)) { "Not back on the tabs" }
 }
 
 /** Opens a header button by its description, waits for its screen, and comes back. */
@@ -86,8 +100,7 @@ private fun MacrobenchmarkScope.visit(description: String, until: androidx.test.
     device.findObject(By.desc(description)).click()
     device.wait(Until.hasObject(until), NETWORK_TIMEOUT_MS)
     flingList(Direction.DOWN)
-    device.pressBack()
-    device.waitForIdle()
+    backToTabs()
 }
 
 /**
@@ -103,6 +116,5 @@ fun MacrobenchmarkScope.discover() {
     device.wait(Until.hasObject(By.textContains("repositories")), NETWORK_TIMEOUT_MS)
     flingList(Direction.DOWN, margin = device.displayWidth / 5)
     flingList(Direction.UP, margin = device.displayWidth / 5)
-    device.pressBack()
-    device.waitForIdle()
+    backToTabs()
 }
