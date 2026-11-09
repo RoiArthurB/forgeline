@@ -3,12 +3,33 @@ package fr.arthurbrugiere.forgeline.baselineprofile
 import androidx.benchmark.macro.MacrobenchmarkScope
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Direction
+import androidx.test.uiautomator.StaleObjectException
 import androidx.test.uiautomator.Until
 
 const val PACKAGE_NAME = "fr.arthurbrugiere.forgeline"
 
 private const val TIMEOUT_MS = 5_000L
 private const val NETWORK_TIMEOUT_MS = 15_000L
+private const val FLING_TRIES = 3
+
+/**
+ * Flings the list on screen, found again for each fling, and again when it was redrawn under the gesture: a screen
+ * that swaps its loading state for its content replaces its list, and a list held from before goes stale.
+ * Regression: First issues finished loading between finding its list and flinging it, and the benchmark failed with a
+ * StaleObjectException (2026-11-09).
+ */
+private fun MacrobenchmarkScope.flingList(direction: Direction, margin: Int = 0) {
+    repeat(FLING_TRIES) {
+        val list = device.findObject(By.scrollable(true)) ?: return
+        try {
+            if (margin > 0) list.setGestureMargin(margin)
+            list.fling(direction)
+            return
+        } catch (_: StaleObjectException) {
+            device.waitForIdle()
+        }
+    }
+}
 
 /**
  * A tab is named by its description, not by its text (the label under the icon is hidden from accessibility so the
@@ -37,14 +58,11 @@ fun MacrobenchmarkScope.readTrending() {
     openTab("Trending")
     // A row says "+120 today" to accessibility only (it shows "+120"), so it is found by description.
     if (!device.wait(Until.hasObject(By.descContains("today")), NETWORK_TIMEOUT_MS)) return
-    device.findObject(By.scrollable(true))?.let { list ->
-        list.setGestureMargin(device.displayWidth / 5)
-        list.fling(Direction.DOWN)
-        list.fling(Direction.UP)
-    }
+    flingList(Direction.DOWN, margin = device.displayWidth / 5)
+    flingList(Direction.UP, margin = device.displayWidth / 5)
     device.findObject(By.descContains("today"))?.click() ?: return
     device.wait(Until.hasObject(By.text("README")), NETWORK_TIMEOUT_MS)
-    device.findObject(By.scrollable(true))?.fling(Direction.DOWN)
+    flingList(Direction.DOWN)
     device.pressBack()
     device.waitForIdle()
 }
@@ -67,7 +85,7 @@ private fun MacrobenchmarkScope.visit(description: String, until: androidx.test.
     check(device.wait(Until.hasObject(By.desc(description)), TIMEOUT_MS)) { "No \"$description\" button on screen" }
     device.findObject(By.desc(description)).click()
     device.wait(Until.hasObject(until), NETWORK_TIMEOUT_MS)
-    device.findObject(By.scrollable(true))?.fling(Direction.DOWN)
+    flingList(Direction.DOWN)
     device.pressBack()
     device.waitForIdle()
 }
@@ -83,11 +101,8 @@ fun MacrobenchmarkScope.discover() {
     visit("Collections", By.text("Collections"))
     device.executeShellCommand("am start -a android.intent.action.VIEW -d https://github.com/topics/kotlin $PACKAGE_NAME")
     device.wait(Until.hasObject(By.textContains("repositories")), NETWORK_TIMEOUT_MS)
-    device.findObject(By.scrollable(true))?.let { list ->
-        list.setGestureMargin(device.displayWidth / 5)
-        list.fling(Direction.DOWN)
-        list.fling(Direction.UP)
-    }
+    flingList(Direction.DOWN, margin = device.displayWidth / 5)
+    flingList(Direction.UP, margin = device.displayWidth / 5)
     device.pressBack()
     device.waitForIdle()
 }
