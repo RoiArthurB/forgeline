@@ -17,6 +17,8 @@ Both answer `GET /api/v1/version` to anyone. Forgejo since v7 numbers itself and
 | Re-run a run | none | `POST …/actions/runs/{id}/rerun` and `rerun-failed-jobs` (v1.26+) | Offered on Gitea |
 | Cancel a run | `POST …/actions/runs/{id}/cancel` | none | The button is hidden on Gitea |
 | List runs and their jobs | yes | since v1.26 | Older servers show the run's page link, as older Forgejo does |
+| Run and job answers | Forgejo's own shape | GitHub's shape (`display_title`, `status` + `conclusion`, jobs in `{"jobs": […]}` with their steps) | Each read in its own shape |
+| Runs signed out | listed | gitea.com lists them only to someone signed in (2026-11-09), but shows each run and the jobs list (`…/actions/tasks`) | Signed out, runs come from the newest jobs, each run read on its own |
 | Workflows | no list (read from `.forgejo/workflows`, `.gitea/`, `.github/`) | `GET …/actions/workflows` | The folders are read on both, which works on both |
 | Profile README | `.profile` repository | `.profile` repository | Same |
 

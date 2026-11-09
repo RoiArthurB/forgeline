@@ -1,0 +1,61 @@
+{
+  "id": 1217896,
+  "url": "https://gitea.com/api/v1/repos/gitea/cli/actions/runs/1217896",
+  "previous_attempt_url": null,
+  "html_url": "https://gitea.com/gitea/cli/actions/runs/1217896",
+  "jobs_url": "https://gitea.com/api/v1/repos/gitea/cli/actions/runs/1217896/jobs",
+  "logs_url": "https://gitea.com/api/v1/repos/gitea/cli/actions/runs/1217896/logs",
+  "artifacts_url": "https://gitea.com/api/v1/repos/gitea/cli/actions/runs/1217896/artifacts",
+  "cancel_url": "https://gitea.com/api/v1/repos/gitea/cli/actions/runs/1217896/cancel",
+  "rerun_url": "https://gitea.com/api/v1/repos/gitea/cli/actions/runs/1217896/rerun",
+  "display_title": "chore(deps): update dependencies",
+  "path": "test-pr.yml@refs/pull/107/head",
+  "event": "pull_request",
+  "run_attempt": 1,
+  "run_number": 563,
+  "repository_id": 0,
+  "head_sha": "b24c66f92ed813a01ace06a67c8b41f74a59b31fc5a3c1913db2b41561b209b2",
+  "status": "completed",
+  "actor": {
+    "id": 44044,
+    "login": "renovate-bot",
+    "full_name": "Renovate Bot",
+    "avatar_url": "https://gitea.com/avatars/a7012524a51bf2c579579dca81161ad6d64bc1cc3ea8e16098d9cbec42a84216"
+  },
+  "trigger_actor": {
+    "id": 44044,
+    "login": "renovate-bot",
+    "full_name": "Renovate Bot",
+    "avatar_url": "https://gitea.com/avatars/a7012524a51bf2c579579dca81161ad6d64bc1cc3ea8e16098d9cbec42a84216"
+  },
+  "conclusion": "success",
+  "pull_requests": [
+    {
+      "id": 211240,
+      "number": 107,
+      "url": "https://gitea.com/api/v1/repos/gitea/cli/pulls/107",
+      "head": {
+        "ref": "renovate/dependencies",
+        "sha": "b24c66f92ed813a01ace06a67c8b41f74a59b31fc5a3c1913db2b41561b209b2",
+        "repo": {
+          "id": 148011,
+          "url": "https://gitea.com/api/v1/repos/gitea/cli",
+          "name": "cli"
+        }
+      },
+      "base": {
+        "ref": "main",
+        "sha": "cfdb1c2d83591dae1e44a57aa0411040e0f19fa5635d065f4dba4f891c84ce4a",
+        "repo": {
+          "id": 148011,
+          "url": "https://gitea.com/api/v1/repos/gitea/cli",
+          "name": "cli"
+        }
+      }
+    }
+  ],
+  "created_at": "2026-11-09T00:04:51Z",
+  "updated_at": "2026-11-09T00:22:05Z",
+  "started_at": "2026-11-09T00:05:38Z",
+  "completed_at": "2026-11-09T00:22:05Z"
+}

@@ -64,6 +64,9 @@ class GiteaLiveTest {
 
         val runs = actions.runs(null, cli).value()
         assertThat(runs).isNotEmpty()
+        // Read in Gitea's own shape: a run has its title, and a state the app knows.
+        assertThat(runs.first().title).isNotEmpty()
+        assertThat(runs.first().status).isNotEqualTo(fr.arthurbrugiere.forgeline.core.model.RunStatus.OTHER)
         assertThat(actions.jobs(null, cli, runs.first().id).value()).isNotEmpty()
         assertThat(actions.supportsRerun).isTrue()
         assertThat(actions.supportsCancel).isFalse()

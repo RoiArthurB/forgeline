@@ -1,0 +1,80 @@
+{
+  "workflow_runs": [
+    {
+      "id": 424167,
+      "name": "release-image",
+      "head_branch": "main",
+      "head_sha": "03db312892302c481d16be6bff9480e656a747e8fcbfeaf5b2463bc0ed79138d",
+      "run_number": 564,
+      "event": "push",
+      "display_title": "chore(deps): update dependencies (#107)",
+      "status": "success",
+      "workflow_id": "release-nightly.yml",
+      "url": "https://gitea.com/gitea/cli/actions/runs/1217993",
+      "created_at": "2026-11-09T00:29:33Z",
+      "updated_at": "2026-11-09T00:33:58Z",
+      "run_started_at": "2026-11-09T00:29:33Z"
+    },
+    {
+      "id": 424166,
+      "name": "goreleaser",
+      "head_branch": "main",
+      "head_sha": "03db312892302c481d16be6bff9480e656a747e8fcbfeaf5b2463bc0ed79138d",
+      "run_number": 564,
+      "event": "push",
+      "display_title": "chore(deps): update dependencies (#107)",
+      "status": "success",
+      "workflow_id": "release-nightly.yml",
+      "url": "https://gitea.com/gitea/cli/actions/runs/1217993",
+      "created_at": "2026-11-09T00:29:06Z",
+      "updated_at": "2026-11-09T00:33:56Z",
+      "run_started_at": "2026-11-09T00:29:06Z"
+    },
+    {
+      "id": 424121,
+      "name": "Integration Test",
+      "head_branch": "#107",
+      "head_sha": "b24c66f92ed813a01ace06a67c8b41f74a59b31fc5a3c1913db2b41561b209b2",
+      "run_number": 563,
+      "event": "pull_request",
+      "display_title": "chore(deps): update dependencies",
+      "status": "success",
+      "workflow_id": "test-pr.yml",
+      "url": "https://gitea.com/gitea/cli/actions/runs/1217896",
+      "created_at": "2026-11-09T00:05:56Z",
+      "updated_at": "2026-11-09T00:09:01Z",
+      "run_started_at": "2026-11-09T00:05:56Z"
+    },
+    {
+      "id": 424120,
+      "name": "Unit Test On Windows",
+      "head_branch": "#107",
+      "head_sha": "b24c66f92ed813a01ace06a67c8b41f74a59b31fc5a3c1913db2b41561b209b2",
+      "run_number": 563,
+      "event": "pull_request",
+      "display_title": "chore(deps): update dependencies",
+      "status": "success",
+      "workflow_id": "test-pr.yml",
+      "url": "https://gitea.com/gitea/cli/actions/runs/1217896",
+      "created_at": "2026-11-09T00:05:56Z",
+      "updated_at": "2026-11-09T00:22:05Z",
+      "run_started_at": "2026-11-09T00:05:56Z"
+    },
+    {
+      "id": 424118,
+      "name": "Lint Build And Unit Coverage",
+      "head_branch": "#107",
+      "head_sha": "b24c66f92ed813a01ace06a67c8b41f74a59b31fc5a3c1913db2b41561b209b2",
+      "run_number": 563,
+      "event": "pull_request",
+      "display_title": "chore(deps): update dependencies",
+      "status": "success",
+      "workflow_id": "test-pr.yml",
+      "url": "https://gitea.com/gitea/cli/actions/runs/1217896",
+      "created_at": "2026-11-09T00:05:38Z",
+      "updated_at": "2026-11-09T00:10:43Z",
+      "run_started_at": "2026-11-09T00:05:38Z"
+    }
+  ],
+  "total_count": 910
+}
