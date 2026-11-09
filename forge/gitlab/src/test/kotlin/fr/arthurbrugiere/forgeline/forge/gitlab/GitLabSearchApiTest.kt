@@ -81,6 +81,35 @@ class GitLabSearchApiTest {
         assertThat(requests.single { it.url.encodedPath.endsWith("/issues") }.url.parameters["labels"]).isEqualTo("easy-fix")
     }
 
+    /** Regression: gitlab.com answers a project's labels only to someone signed in (a 401, seen 2026-11-09). */
+    @Test
+    fun signed_out_where_labels_are_refused_issues_are_asked_under_the_usual_first_issue_labels() = runTest {
+        val repo = RepoId("inkscape", "inkscape", ForgeInstance.GitLab)
+        val issue = """[{"id": 9, "iid": 42, "project_id": 3, "title": "Fix a typo", "state": "opened", "created_at": "2026-10-20T10:00:00Z", "web_url": "https://gitlab.com/inkscape/inkscape/-/issues/42", "labels": ["easy-fix"]}]"""
+
+        val found = api { request ->
+            when {
+                request.url.encodedPath.endsWith("/labels") -> json("""{"message": "401 Unauthorized"}""", HttpStatusCode.Unauthorized)
+                request.url.parameters["labels"] == "easy-fix" -> json(issue)
+                else -> json("[]")
+            }
+        }.firstIssues(null, listOf(repo)).value()
+
+        assertThat(found.single().issue.number).isEqualTo(42)
+        val asked = requests.filter { it.url.encodedPath.endsWith("/issues") }.map { it.url.parameters["labels"] }
+        assertThat(asked).containsExactlyElementsIn(fr.arthurbrugiere.forgeline.core.model.FirstIssueLabels.searched)
+    }
+
+    @Test
+    fun signed_in_a_refused_label_list_is_still_a_failure() = runTest {
+        val repo = RepoId("inkscape", "inkscape", ForgeInstance.GitLab)
+
+        val result = api { json("""{"message": "401 Unauthorized"}""", HttpStatusCode.Unauthorized) }.firstIssues("token", listOf(repo))
+
+        assertThat(result).isInstanceOf(ForgeResult.Failure::class.java)
+        assertThat(requests).hasSize(1)
+    }
+
     @Test
     fun a_project_without_a_first_issue_label_is_asked_nothing_more() = runTest {
         val repo = RepoId("group", "project", fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitLab)
