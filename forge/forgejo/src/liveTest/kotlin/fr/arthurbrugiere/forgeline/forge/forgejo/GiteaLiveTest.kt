@@ -17,16 +17,19 @@ import org.junit.Test
 class GiteaLiveTest {
     private val http = forgejoHttpClient(OkHttp.create())
     private val gitea = ForgeInstance.Gitea
+    // gitea/tea was archived on 2026-10-29 with every issue closed, and continues as gitea/cli.
+    private val cli = RepoId("gitea", "cli", gitea)
     private val tea = RepoId("gitea", "tea", gitea)
 
     private fun <T> ForgeResult<T>.value(): T = (this as? ForgeResult.Success)?.value ?: error("$this")
 
     @Test
     fun gitea_com_tells_a_version_that_says_gitea_not_forgejo() = runBlocking<Unit> {
-        // What the sign-in screen's probe tells Gitea from Forgejo by: 1.x, without Forgejo's "+gitea-" suffix.
+        // What the sign-in screen's probe tells Gitea from Forgejo by: x.y.z, without Forgejo's "+gitea-" suffix. Not
+        // always 1.x: gitea.com answered "29.0.0+dev-160-g55186ca39b" on 2026-11-09.
         val version = http.get("https://gitea.com/api/v1/version").bodyAsText()
 
-        assertThat(version).contains("\"version\":\"1.")
+        assertThat(version).containsMatch(""""version":"\d+\.\d+\.\d+""")
         assertThat(version).doesNotContain("+gitea-")
     }
 
@@ -34,17 +37,17 @@ class GiteaLiveTest {
     fun a_repository_its_readme_refs_files_and_conversations_read() = runBlocking<Unit> {
         val api = ForgejoRepoApi(http, gitea)
 
-        val repo = api.repo(null, tea).value()
-        assertThat(repo.id).isEqualTo(tea)
+        val repo = api.repo(null, cli).value()
+        assertThat(repo.id).isEqualTo(cli)
         assertThat(repo.stars).isGreaterThan(10)
-        assertThat(api.readme(null, tea).value()?.markdown).isNotEmpty()
-        val refs = api.refs(null, tea).value()
+        assertThat(api.readme(null, cli).value()?.markdown).isNotEmpty()
+        val refs = api.refs(null, cli).value()
         assertThat(refs.branches).contains(repo.defaultBranch)
-        assertThat(api.contents(null, tea, "", repo.defaultBranch).value().map { it.path }).contains("go.mod")
-        assertThat(api.fileText(null, tea, "go.mod", repo.defaultBranch).value()).contains("module ")
-        assertThat(api.issues(null, tea).value()).isNotEmpty()
-        assertThat(api.pullRequests(null, tea).value().all { it.isPullRequest }).isTrue()
-        assertThat(api.releases(null, tea).value()).isNotEmpty()
+        assertThat(api.contents(null, cli, "", repo.defaultBranch).value().map { it.path }).contains("go.mod")
+        assertThat(api.fileText(null, cli, "go.mod", repo.defaultBranch).value()).contains("module ")
+        assertThat(api.issues(null, cli).value()).isNotEmpty()
+        assertThat(api.pullRequests(null, cli).value().all { it.isPullRequest }).isTrue()
+        assertThat(api.releases(null, cli).value()).isNotEmpty()
     }
 
     @Test
@@ -58,9 +61,9 @@ class GiteaLiveTest {
     fun runs_list_with_their_jobs_and_finished_runs_can_be_rerun_but_not_cancelled() = runBlocking<Unit> {
         val actions = ForgejoActionsApi(http, gitea)
 
-        val runs = actions.runs(null, tea).value()
+        val runs = actions.runs(null, cli).value()
         assertThat(runs).isNotEmpty()
-        assertThat(actions.jobs(null, tea, runs.first().id).value()).isNotEmpty()
+        assertThat(actions.jobs(null, cli, runs.first().id).value()).isNotEmpty()
         assertThat(actions.supportsRerun).isTrue()
         assertThat(actions.supportsCancel).isFalse()
     }
