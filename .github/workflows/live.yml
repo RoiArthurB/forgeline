@@ -25,8 +25,9 @@ jobs:
       - name: Run live contract tests
         env:
           # Only the read checks run here: the write ones need *_LIVE_WRITES=1 and run from a developer's machine.
-          # GitHub reads with the workflow's own token; it can't see another organization's boards, so that check skips.
-          LIVE_TEST_PAT: ${{ secrets.GITHUB_TOKEN }}
+          # A person's GitHub token (classic, read:project). Not the workflow's own GITHUB_TOKEN: that one is an app's, and
+          # GitHub answers it 403 for /user, notifications and stars. Without it the signed-in GitHub checks are skipped.
+          LIVE_TEST_PAT: ${{ secrets.LIVE_TEST_PAT }}
           # Optional: a read-only Codeberg token. Without it the signed-in Codeberg checks are skipped.
           CODEBERG_LIVE_TOKEN: ${{ secrets.CODEBERG_LIVE_TOKEN }}
           # Optional too: a read-only gitlab.com token (read_api). Without it the GitLab checks are skipped.
