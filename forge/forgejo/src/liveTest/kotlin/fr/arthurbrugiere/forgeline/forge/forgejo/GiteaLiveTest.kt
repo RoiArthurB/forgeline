@@ -17,6 +17,7 @@ import org.junit.Test
 class GiteaLiveTest {
     private val http = forgejoHttpClient(OkHttp.create())
     private val gitea = ForgeInstance.Gitea
+
     // gitea/tea was archived on 2026-10-29 with every issue closed, and continues as gitea/cli.
     private val cli = RepoId("gitea", "cli", gitea)
     private val tea = RepoId("gitea", "tea", gitea)
