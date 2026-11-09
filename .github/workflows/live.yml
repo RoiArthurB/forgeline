@@ -24,7 +24,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       - name: Run live contract tests
         env:
-          LIVE_TEST_PAT: ${{ secrets.LIVE_TEST_PAT }}
+          # Only the read checks run here: the write ones need *_LIVE_WRITES=1 and run from a developer's machine.
+          # GitHub reads with the workflow's own token; it can't see another organization's boards, so that check skips.
+          LIVE_TEST_PAT: ${{ secrets.GITHUB_TOKEN }}
           # Optional: a read-only Codeberg token. Without it the signed-in Codeberg checks are skipped.
           CODEBERG_LIVE_TOKEN: ${{ secrets.CODEBERG_LIVE_TOKEN }}
           # Optional too: a read-only gitlab.com token (read_api). Without it the GitLab checks are skipped.
