@@ -156,6 +156,8 @@ fun IssueRoute(
     onEditIssue: (IssueRef) -> Unit = {},
     /** Opens what a pull request changes, file by file. */
     onOpenChanges: (IssueRef) -> Unit = {},
+    /** Opens what a pull request changes on one file, by its path. */
+    onOpenChangesAt: (IssueRef, String) -> Unit = { ref, _ -> onOpenChanges(ref) },
     onOpenCommits: (IssueRef) -> Unit = {},
     /** Opens a CI run of the repository, by its id. */
     onOpenRun: (RepoId, Long) -> Unit = { _, _ -> },
@@ -273,6 +275,7 @@ fun IssueRoute(
     val pullActions = remember(pull, openUrl) {
         PullActions(
             onOpenChanges = { onOpenChanges(pullRef) },
+            onOpenChangesAt = { path -> onOpenChangesAt(pullRef, path) },
             onOpenCommits = { onOpenCommits(pullRef) },
             onOpenRun = { runId -> onOpenRun(ref.repo, runId) },
             onOpenCheck = { checkId, name -> onOpenCheck(ref.repo, checkId, name) },

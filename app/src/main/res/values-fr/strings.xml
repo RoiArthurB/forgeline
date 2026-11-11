@@ -1320,6 +1320,7 @@
     <string name="thread_suggestion_unsupported">Non appliquée : ce fichier est trop gros pour être modifié d’ici.</string>
     <string name="thread_outdated">Obsolète</string>
     <string name="thread_on_file">Fichier entier</string>
+    <string name="thread_open_in_change">Voir dans les modifications</string>
     <string name="thread_resolved">Résolu</string>
     <plurals name="thread_answers">
         <item quantity="one">%d réponse</item>

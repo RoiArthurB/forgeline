@@ -61,6 +61,7 @@ class ReviewThreadsTest {
         onEditThreadComment = { thread, comment, body -> events += "edit:${thread.id}:${comment.id}:$body" },
         onDeleteThreadComment = { thread, comment -> events += "delete:${thread.id}:${comment.id}" },
         onToggleThreadReaction = { thread, comment, reaction -> events += "react:${thread.id}:${comment.id}:$reaction" },
+        onOpenChangesAt = { events += "changes:$it" },
     )
 
     private fun setContent(
@@ -81,6 +82,16 @@ class ReviewThreadsTest {
 
     private fun waitFor(text: String) =
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+
+    @Test
+    fun a_thread_leads_to_its_file_in_the_change() {
+        // Regression: a thread showed four lines of its code, with no way to the rest of the file.
+        setContent(listOf(open))
+
+        composeRule.onNodeWithText("src/Upload.kt:3").performClick()
+
+        assertThat(events).containsExactly("changes:src/Upload.kt")
+    }
 
     @Test
     fun an_open_thread_says_where_it_is_shows_the_code_and_what_was_said() {

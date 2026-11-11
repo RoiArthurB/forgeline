@@ -1320,6 +1320,7 @@
     <string name="thread_suggestion_unsupported">Not committed: this file is too large to change from here.</string>
     <string name="thread_outdated">Outdated</string>
     <string name="thread_on_file">Whole file</string>
+    <string name="thread_open_in_change">Show in the change</string>
     <string name="thread_resolved">Resolved</string>
     <plurals name="thread_answers">
         <item quantity="one">%d answer</item>

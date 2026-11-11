@@ -161,6 +161,23 @@ class ChangesScreenTest {
     }
 
     @Test
+    fun the_change_opens_on_the_file_asked_for() {
+        val files = (1..12).map { diff("src/File$it.kt") }
+        composeRule.setContent {
+            ForgelineTheme {
+                ChangesScreen(
+                    state = ChangesUiState(pull, files = files, isLoading = false),
+                    onBack = {}, onRefresh = {}, onLoadMore = {}, onErrorShown = {}, onToggle = {},
+                    openAt = "src/File10.kt",
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("src/File10.kt").assertIsDisplayed()
+        composeRule.onNodeWithText("src/File1.kt").assertDoesNotExist()
+    }
+
+    @Test
     fun what_reviewers_said_shows_under_the_lines_it_is_about() {
         // Regression: other reviewers' threads were only in the conversation, never on the change.
         val said = fr.arthurbrugiere.forgeline.core.model.ReviewThread(

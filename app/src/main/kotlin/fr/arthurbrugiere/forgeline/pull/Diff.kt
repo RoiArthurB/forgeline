@@ -60,6 +60,22 @@ import fr.arthurbrugiere.forgeline.ui.lineNumberWidth
  * tap on a line does (a remark on it, when a review can be written); [comments] are the remarks waiting to be sent,
  * shown under their lines.
  */
+/**
+ * Where the file at [path] starts among the items [fileDiffItems] puts in a list, counted from its first; null when it
+ * isn't among [files] (not read yet).
+ */
+internal fun fileItemIndex(files: List<FileDiff>, isExpanded: (FileDiff) -> Boolean, path: String): Int? {
+    var at = 0
+    for (diff in files) {
+        if (diff.file.path == path) return at
+        at += 1
+        if (!isExpanded(diff)) continue
+        if (diff.hunks.isEmpty()) at += 1
+        at += diff.hunks.sumOf { 1 + it.lines.size }
+    }
+    return null
+}
+
 internal fun LazyListScope.fileDiffItems(
     files: List<FileDiff>,
     isExpanded: (FileDiff) -> Boolean,

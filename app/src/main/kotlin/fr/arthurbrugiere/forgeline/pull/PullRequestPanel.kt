@@ -78,6 +78,8 @@ import fr.arthurbrugiere.forgeline.ui.message
 /** What a pull request's panel asks of the screen that shows it. */
 class PullActions(
     val onOpenChanges: () -> Unit = {},
+    /** Opens the change on one file, by its path: a thread's. Null where there is no change to open. */
+    val onOpenChangesAt: ((String) -> Unit)? = null,
     val onOpenCommits: () -> Unit = {},
     /** Opens the run a check is part of, in the app. */
     val onOpenRun: (Long) -> Unit = {},

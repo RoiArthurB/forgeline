@@ -176,7 +176,13 @@ private fun Thread(
             color = colors.inkMuted,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 8.dp),
+            // To the file in the change, for more of the code than the few lines below.
+            modifier = (
+                actions.onOpenChangesAt?.let { open ->
+                    val label = stringResource(R.string.thread_open_in_change)
+                    Modifier.clip(SoftTokens.RowCorner).clickable(onClickLabel = label, role = Role.Button) { open(thread.path) }
+                } ?: Modifier
+                ).padding(horizontal = 8.dp),
         )
         val lines = remember(thread.hunk) { thread.hunk?.let { parsePatch(it).lastOrNull()?.lines?.takeLast(HUNK_LINES_SHOWN) }.orEmpty() }
         if (lines.isNotEmpty()) {

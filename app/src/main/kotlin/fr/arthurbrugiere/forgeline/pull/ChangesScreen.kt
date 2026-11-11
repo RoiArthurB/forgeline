@@ -18,7 +18,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
@@ -56,6 +59,7 @@ fun ChangesRoute(route: ChangesRoute, onBack: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     ChangesScreen(
         state = state,
+        openAt = route.path,
         onBack = onBack,
         onRefresh = viewModel::refresh,
         onLoadMore = viewModel::loadMore,
@@ -110,6 +114,8 @@ fun ChangesScreen(
     onToggle: (String) -> Unit,
     modifier: Modifier = Modifier,
     review: ReviewActions = ReviewActions(),
+    /** The file to open on, once it's read: a thread's, say. */
+    openAt: String? = null,
     nowMillis: Long = rememberNow(state.commit),
 ) {
     val colors = Soft.colors
@@ -122,6 +128,15 @@ fun ChangesScreen(
         ReviewSheet(state.verdicts, state.comments.size, state.isSending, state.reviewError, onSubmit = review.onSubmit, onDismiss = review.onClose)
     }
     val listState = rememberLazyListState()
+    // Once, when the file asked for has been read: after that, where the reader scrolls is theirs.
+    var openedAt by rememberSaveable { mutableStateOf(openAt == null) }
+    LaunchedEffect(files) {
+        if (openedAt || openAt == null || files == null) return@LaunchedEffect
+        val at = fileItemIndex(files, state::isExpanded, openAt) ?: return@LaunchedEffect
+        openedAt = true
+        // Past the header and the summary.
+        listState.scrollToItem(at + 2)
+    }
     Box(modifier.fillMaxSize().background(colors.ground)) {
         LazyColumn(
             state = listState,

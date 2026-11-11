@@ -117,7 +117,15 @@ data class ReleaseRoute(val host: String, val owner: String, val name: String, v
  * What a change holds, file by file: a pull request's (by its [number]) or one commit's (by its [sha]).
  */
 @Serializable
-data class ChangesRoute(val host: String, val owner: String, val name: String, val number: Int? = null, val sha: String? = null) : NavKey {
+data class ChangesRoute(
+    val host: String,
+    val owner: String,
+    val name: String,
+    val number: Int? = null,
+    val sha: String? = null,
+    /** The file the change opens on, when one was asked for: a thread's, say. */
+    val path: String? = null,
+) : NavKey {
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
 
     val target: fr.arthurbrugiere.forgeline.pull.ChangesTarget
@@ -223,7 +231,7 @@ fun RepoId.releaseRoute(tag: String) = ReleaseRoute(forge.host, owner, name, tag
 
 fun RepoId.newIssueRoute() = NewIssueRoute(forge.host, owner, name)
 
-fun IssueRef.changesRoute() = ChangesRoute(repo.forge.host, repo.owner, repo.name, number = number)
+fun IssueRef.changesRoute(path: String? = null) = ChangesRoute(repo.forge.host, repo.owner, repo.name, number = number, path = path)
 
 fun IssueRef.commitsRoute() = CommitsRoute(repo.forge.host, repo.owner, repo.name, number = number)
 
