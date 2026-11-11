@@ -7,6 +7,7 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.account.actingOn
 import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 import fr.arthurbrugiere.forgeline.core.data.star.StarRepository
@@ -166,7 +167,10 @@ class RepoViewModel @AssistedInject constructor(
             firstRefresh.complete(Unit)
         }
         viewModelScope.launch {
-            combine(canonicalIds(), accounts.activeAccount.map { it?.id }.distinctUntilChanged()) { id, account -> id to account }
+            // Asked again of the account acting on the repository's forge, whichever it is: with two signed in there,
+            // choosing the other changes what is starred and who administers. Regression: the active one was followed.
+            combine(canonicalIds(), accounts.accounts, accounts.activeAccount, accounts.acting) { id, all, active, acting -> id to actingOn(id.forge, all, active, acting)?.id }
+                .distinctUntilChanged()
                 .collect { (id, account) ->
                     // Asked side by side: neither waits for the other.
                     viewModelScope.launch {

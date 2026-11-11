@@ -91,6 +91,23 @@ class RepoViewModelTest {
         assertThat(issueApi.calls).contains("access:octo/repo")
     }
 
+    @Test
+    fun choosing_the_other_account_on_its_forge_asks_again_whether_it_is_starred() = test {
+        // Regression: the star followed the active account, not the one chosen to act on the repository's forge.
+        cache()
+        val work = accounts.signIn(fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitHub, fr.arthurbrugiere.forgeline.core.model.ForgeUser("work", null, null), "tok-work")
+        accounts.signIn(fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitHub, fr.arthurbrugiere.forgeline.core.model.ForgeUser("me", null, null), "tok")
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(stars.viewerLookups).hasSize(1)
+
+        accounts.actAs(work.id)
+        advanceUntilIdle()
+
+        assertThat(stars.viewerLookups).hasSize(2)
+        assertThat(viewModel.state.value.starred).isNotNull()
+    }
+
     // Regression: whether the repository is starred and whether it is watched were two requests, on GitHub too.
     @Test
     fun whether_it_is_starred_and_watched_is_asked_at_once() = test {

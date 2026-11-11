@@ -12,6 +12,7 @@ import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import fr.arthurbrugiere.forgeline.core.model.KnownForges
 import fr.arthurbrugiere.forgeline.di.PictureAccess
 import fr.arthurbrugiere.forgeline.di.forgeImageLoader
+import fr.arthurbrugiere.forgeline.di.pictureAccessOrder
 import fr.arthurbrugiere.forgeline.notifications.InboxSyncScheduler
 import fr.arthurbrugiere.forgeline.signin.ForgeHosts
 import fr.arthurbrugiere.forgeline.trending.TrendingMeasureScheduler
@@ -27,7 +28,8 @@ class ForgelineApplication : Application(), Configuration.Provider, SingletonIma
     override fun newImageLoader(context: PlatformContext): ImageLoader = forgeImageLoader(context) {
         // Only when a picture was refused: never on the launch path.
         val repository = accounts.get()
-        repository.accounts.first().mapNotNull { account -> repository.token(account.id)?.let { PictureAccess(account.forge, it) } }
+        pictureAccessOrder(repository.accounts.first(), repository.activeAccount.first(), repository.acting.first())
+            .mapNotNull { account -> repository.token(account.id)?.let { PictureAccess(account.forge, it) } }
     }
 
     @Inject

@@ -14,6 +14,13 @@ import java.net.URLEncoder
 /** A forge signed in to, and the token that reads its private repositories. */
 data class PictureAccess(val forge: ForgeInstance, val token: String)
 
+/**
+ * Each account's access, the one acting on its forge first: a forge's pictures are read with the first token found for
+ * it, which must be that of the account the reader chose there. Regression: the first one signed in was used.
+ */
+fun pictureAccessOrder(accounts: List<fr.arthurbrugiere.forgeline.core.model.Account>, active: fr.arthurbrugiere.forgeline.core.model.Account?, acting: Set<String>) =
+    accounts.sortedByDescending { fr.arthurbrugiere.forgeline.core.data.account.actingOn(it.forge, accounts, active, acting) == it }
+
 /** How a picture of a private repository is read: from where, with which header. */
 data class AuthenticatedPicture(val url: String, val header: String, val value: String)
 

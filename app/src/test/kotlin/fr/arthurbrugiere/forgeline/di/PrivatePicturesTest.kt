@@ -31,6 +31,20 @@ class PrivatePicturesTest {
     )
 
     @Test
+    fun the_account_acting_on_a_forge_reads_its_pictures_first() {
+        // Regression: with two accounts on GitHub, the first signed in read every private picture, the other's 404'd.
+        val work = fr.arthurbrugiere.forgeline.core.model.Account("work@GitHub", ForgeInstance.GitHub, fr.arthurbrugiere.forgeline.core.model.ForgeUser("work", null, null))
+        val mine = fr.arthurbrugiere.forgeline.core.model.Account("me@GitHub", ForgeInstance.GitHub, fr.arthurbrugiere.forgeline.core.model.ForgeUser("me", null, null))
+        val codeberg = fr.arthurbrugiere.forgeline.core.model.Account("me@Codeberg", ForgeInstance.Codeberg, fr.arthurbrugiere.forgeline.core.model.ForgeUser("me", null, null))
+
+        val ordered = pictureAccessOrder(listOf(work, codeberg, mine), active = codeberg, acting = setOf(mine.id))
+
+        assertThat(ordered.first { it.forge == ForgeInstance.GitHub }).isEqualTo(mine)
+        assertThat(ordered).containsExactly(work, codeberg, mine)
+        assertThat(ordered.indexOf(mine)).isLessThan(ordered.indexOf(work))
+    }
+
+    @Test
     fun github_and_forgejo_files_are_asked_again_where_they_are_with_the_token() {
         assertThat(authenticatedPicture("https://raw.githubusercontent.com/me/secret/main/docs/shot.png", access))
             .isEqualTo(AuthenticatedPicture("https://raw.githubusercontent.com/me/secret/main/docs/shot.png", "Authorization", "token gh"))

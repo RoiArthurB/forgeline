@@ -113,6 +113,7 @@ import fr.arthurbrugiere.forgeline.pull.PullRequestUiState
 import fr.arthurbrugiere.forgeline.pull.PullRequestViewModel
 import fr.arthurbrugiere.forgeline.pull.ReviewThreads
 import fr.arthurbrugiere.forgeline.session.SessionState
+import fr.arthurbrugiere.forgeline.session.actingOn
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import fr.arthurbrugiere.forgeline.ui.LocalUnreadMarkdown
@@ -174,8 +175,9 @@ fun IssueRoute(
     val openFile = fr.arthurbrugiere.forgeline.ui.LocalOpenFile.current
     val openRelease = fr.arthurbrugiere.forgeline.ui.LocalOpenRelease.current
     val signedIn = session.signedInOn(ref.repo.forge)
-    // Who may close the conversation depends on who is signed in: signing in from here is asked about on the way back.
-    LaunchedEffect(signedIn) { viewModel.checkPermissions() }
+    // Who may close the conversation depends on who is signed in, and with two accounts on its forge on which acts:
+    // signing in from here, or choosing the other account, is asked about on the way back.
+    LaunchedEffect(signedIn, session.actingOn(ref.repo.forge)?.id) { viewModel.checkPermissions() }
     LaunchedEffect(state.movedTo) { state.movedTo?.let(onMoved) }
     LaunchedEffect(state.deleted) { if (state.deleted) onBack() }
     val atUnread = LocalUserSettings.current.openAtUnread

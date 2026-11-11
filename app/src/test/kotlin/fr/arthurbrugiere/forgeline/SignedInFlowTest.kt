@@ -99,6 +99,31 @@ class SignedInFlowTest {
     }
 
     @Test
+    fun choosing_the_other_account_on_a_forge_says_again_what_it_may_do_to_a_conversation() {
+        // Regression: a conversation open while the other account on its forge was chosen kept the first one's rights.
+        openIssuesSignedIn()
+        val work = runBlocking { accounts.signIn(ForgeInstance.GitHub, ForgeUser("work", null, null), "tok-work") }
+        // Signing in made it the one acting there: octocat acts again, as when the conversation was opened.
+        runBlocking { accounts.actAs(accounts.accounts.first().first { it.user.login == "octocat" }.id) }
+        composeRule.onNodeWithText("Heartbeat recovery escalates too early").performClick()
+        waitFor("Mine happens after an update.")
+        fun ownOffered(): Boolean {
+            // The second comment is octocat's own: its menu offers to edit it.
+            composeRule.onAllNodes(hasContentDescription("Comment options"))[2].performClick()
+            composeRule.waitForIdle()
+            val offered = composeRule.onAllNodes(hasText("Edit")).fetchSemanticsNodes().isNotEmpty()
+            composeRule.onNodeWithText("Quote reply").performClick()
+            return offered
+        }
+        assertThat(ownOffered()).isTrue()
+
+        runBlocking { accounts.actAs(work.id) }
+        composeRule.waitForIdle()
+
+        assertThat(ownOffered()).isFalse()
+    }
+
+    @Test
     fun a_comment_written_under_a_conversation_joins_it_and_empties_the_box() {
         openIssuesSignedIn()
         composeRule.onNodeWithText("Heartbeat recovery escalates too early").performClick()
