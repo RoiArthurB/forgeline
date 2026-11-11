@@ -25,6 +25,7 @@ import fr.arthurbrugiere.forgeline.core.testing.discussionComment
 import fr.arthurbrugiere.forgeline.core.testing.discussionSummary
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
 import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
+import fr.arthurbrugiere.forgeline.ui.assertTextFits
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -75,6 +76,18 @@ class DiscussionScreenTest {
     private fun reach(text: String) = composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(text, substring = true))
 
     private fun shown(text: String) = composeRule.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-xhdpi", fontScale = 2.0f)
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun at_large_text_an_answer_still_names_who_wrote_it() {
+        // Regression: at 2x, the answer and upvote tags beside it left the author's name no room at all.
+        val answer = discussionComment("c1", "Use the cursor.", login = "hubot", isAnswer = true, upvotes = 5)
+        setContent(loaded.copy(discussion = read.copy(comments = listOf(answer))))
+
+        composeRule.onNode(androidx.compose.ui.test.hasScrollAction()).performScrollToNode(androidx.compose.ui.test.hasText("hubot"))
+        composeRule.assertTextFits("hubot", oneLine = true)
+    }
 
     @Test
     fun a_discussion_is_headed_by_what_it_asks_where_it_was_filed_and_who_started_it() {

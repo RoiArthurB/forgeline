@@ -424,6 +424,7 @@ private fun Entry(
 ) = Entry(comment.author, comment.body, comment.createdAt, comment.upvotes, comment.isAnswer, context, nowMillis, onOpenUser, onLinkClick, isReply = isReply)
 
 /** One turn of the discussion: who and when, then their words. A reply stands in from the comment it answers, along a line. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Entry(
     author: ForgeUser?,
@@ -448,12 +449,17 @@ private fun Entry(
             .then(if (isReply) Modifier.drawBehind { drawLine(line, Offset(-12.dp.toPx(), 0f), Offset(-12.dp.toPx(), size.height), 2.dp.toPx()) } else Modifier)
             .padding(vertical = 10.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // The answer and upvote tags go under the author when there's no room beside: at large text they took it all,
+        // and the name drew nowhere. Regression seen at 2x.
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            itemVerticalAlignment = Alignment.CenterVertically,
+        ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
-                    .weight(1f, fill = false)
                     .clip(SoftTokens.Pill)
                     .clickable(enabled = author != null, role = Role.Button) { author?.let { onOpenUser(it.login) } }
                     .padding(end = 8.dp),
