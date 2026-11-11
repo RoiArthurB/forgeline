@@ -71,6 +71,19 @@ class DataStoreAccountRepositoryTest {
     }
 
     @Test
+    fun choosing_who_acts_leaves_the_active_account_as_it_is() = runTest {
+        // The Inbox and the Feed are kept by the active account: a thread opened as another account on its forge
+        // must not start them over, with their filter and what could be undone.
+        val repository = DataStoreAccountRepository(dataStore(), ReversingCipher, refresher, clock, backgroundScope)
+        val work = repository.signIn(ForgeInstance.GitHub, ForgeUser("work", null, null), "ghp_work")
+        val mine = repository.signIn(ForgeInstance.GitHub, octocat, "ghp_mine")
+
+        repository.actAs(work.id)
+
+        assertThat(repository.activeAccount.first()).isEqualTo(mine)
+    }
+
+    @Test
     fun the_account_chosen_to_act_on_a_forge_is_kept_one_a_forge() = runTest {
         val repository = DataStoreAccountRepository(dataStore(), ReversingCipher, refresher, clock, backgroundScope)
         val work = repository.signIn(ForgeInstance.GitHub, ForgeUser("work", null, null), "ghp_work")
