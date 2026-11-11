@@ -1144,6 +1144,7 @@
     <string name="changes_remark_on_line">Remark on this line</string>
     <string name="changes_remark_pending">Your remark, sent with the review</string>
     <string name="changes_remark_remove">Remove this remark</string>
+    <string name="changes_remark_edit">Change this remark</string>
     <string name="changes_remark_title">%1$s, line %2$d</string>
     <string name="changes_remark_body">What do you want to say about this line?</string>
     <string name="changes_remark_add">Add to the review</string>

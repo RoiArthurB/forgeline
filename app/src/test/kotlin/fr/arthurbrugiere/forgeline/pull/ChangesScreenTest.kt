@@ -66,6 +66,7 @@ class ChangesScreenTest {
                     onStartFileComment = { events += "remark-file:$it" },
                     onToggleViewed = { events += "viewed:$it" },
                     onRemoveComment = { events += "remark-remove:${it.body}" },
+                    onEditComment = { events += "remark-edit:${it.body}" },
                     onOpen = { events += "review-open" },
                     onClose = { events += "review-close" },
                     onSubmit = { verdict, body -> events += "review:$verdict:$body" },
@@ -157,6 +158,27 @@ class ChangesScreenTest {
         composeRule.onNodeWithContentDescription("Remove this remark").performClick()
 
         assertThat(events).containsExactly("remark-remove:Why twice?")
+    }
+
+    @Test
+    fun a_remark_waiting_opens_to_be_rewritten_with_its_words() {
+        val remark = LineComment("src/Upload.kt", oldLine = null, newLine = 2, body = "Why twice?")
+        setContent(loaded(upload).copy(canReview = true, comments = listOf(remark)))
+
+        composeRule.onNodeWithText("Why twice?").performClick()
+        assertThat(events).containsExactly("remark-edit:Why twice?")
+    }
+
+    @Test
+    fun a_remark_rewritten_starts_from_what_was_kept() {
+        val line = upload.hunks[0].lines[2]
+        val remark = LineComment("src/Upload.kt", oldLine = null, newLine = 2, body = "Why twice?")
+        setContent(loaded(upload).copy(canReview = true, comments = listOf(remark), drafting = LineTarget("src/Upload.kt", line, editing = remark)))
+
+        composeRule.onNode(hasSetTextAction()).performTextInput("Really, ")
+        composeRule.onNodeWithText("Add to the review").performClick()
+
+        assertThat(events).containsExactly("remark-add:Really, Why twice?")
     }
 
     @Test

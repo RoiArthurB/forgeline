@@ -36,10 +36,11 @@ class ChangesViewModelTest {
     private val repository = DefaultPullRequestRepository(FakeForgeClients(pulls = api), accounts)
     private val tools = RepoId("octo", "tools")
     private val pull = IssueRef(tools, 88, isPullRequest = true)
+    private val drafts = fr.arthurbrugiere.forgeline.core.data.draft.InMemoryDraftStore()
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
-    private fun viewModel(target: ChangesTarget = ChangesTarget.Pull(pull)) = ChangesViewModel(target, repository, accounts)
+    private fun viewModel(target: ChangesTarget = ChangesTarget.Pull(pull)) = ChangesViewModel(target, repository, accounts, drafts)
 
     private suspend fun signIn() = accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok")
 
@@ -260,6 +261,58 @@ class ChangesViewModelTest {
         assertThat(state.reviewSent).isTrue()
         viewModel.reviewSentShown()
         assertThat(viewModel.state.value.reviewSent).isFalse()
+    }
+
+    @Test
+    fun remarks_outlive_the_screen_until_the_review_is_sent() = test {
+        // Regression: going back to the conversation lost every remark written on the change.
+        signIn()
+        api.files = listOf(listOf(changedFile("a.kt")))
+        val first = viewModel()
+        advanceUntilIdle()
+        first.startComment("a.kt", first.state.value.files!![0].hunks[0].lines[2])
+        first.addComment("Hm")
+        first.startFileComment("a.kt")
+        first.addComment("Split this file?")
+
+        val again = viewModel()
+        advanceUntilIdle()
+        assertThat(again.state.value.comments).isEqualTo(first.state.value.comments)
+
+        again.openReview()
+        again.submitReview(ReviewVerdict.COMMENT, "")
+        advanceUntilIdle()
+        assertThat(viewModel().state.value.comments).isEmpty()
+    }
+
+    @Test
+    fun a_remark_kept_opens_again_to_be_rewritten_in_its_place() = test {
+        signIn()
+        api.files = listOf(listOf(changedFile("a.kt")))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        val lines = viewModel.state.value.files!![0].hunks[0].lines
+        viewModel.startComment("a.kt", lines[2])
+        viewModel.addComment("Both of these", start = lines[0])
+        viewModel.startFileComment("a.kt")
+        viewModel.addComment("Split this file?")
+        val kept = viewModel.state.value.comments.first()
+
+        viewModel.editComment(kept)
+        val drafting = viewModel.state.value.drafting!!
+        assertThat(drafting.line).isEqualTo(lines[2])
+        assertThat(drafting.editing).isEqualTo(kept)
+        // It reached over the line above: the sheet starts there.
+        assertThat(drafting.reach).isEqualTo(1)
+        viewModel.addComment("Only this one")
+
+        assertThat(viewModel.state.value.comments.map { it.body }).containsExactly("Only this one", "Split this file?").inOrder()
+        assertThat(viewModel.state.value.comments.first().startNewLine).isNull()
+
+        // Given up on, a rewrite leaves the remark as it was.
+        viewModel.editComment(viewModel.state.value.comments.last())
+        viewModel.cancelComment()
+        assertThat(viewModel.state.value.comments.map { it.body }).containsExactly("Only this one", "Split this file?").inOrder()
     }
 
     @Test

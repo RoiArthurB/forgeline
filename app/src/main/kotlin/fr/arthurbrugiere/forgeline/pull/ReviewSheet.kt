@@ -110,9 +110,10 @@ internal val ReviewVerdict.label: Int
 @Composable
 fun LineRemarkSheet(target: LineTarget, onAdd: (String, DiffLine?) -> Unit, onDismiss: () -> Unit) {
     val colors = Soft.colors
-    var body by rememberSaveable(target) { mutableStateOf("") }
+    // A remark being changed starts as it was kept.
+    var body by rememberSaveable(target) { mutableStateOf(target.editing?.body.orEmpty()) }
     // How many of the lines above it the remark reaches up over.
-    var reach by rememberSaveable(target) { mutableIntStateOf(0) }
+    var reach by rememberSaveable(target) { mutableIntStateOf(target.reach) }
     val line = target.line
     val start = target.above.getOrNull(reach - 1)
     // The lines it covers, top to bottom.

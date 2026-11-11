@@ -49,6 +49,9 @@ fun commentDraftKey(ref: IssueRef): String {
     return "comment|${ref.repo.forge.host}|${ref.repo.fullName.lowercase()}$mark${ref.number}"
 }
 
+/** The remarks on lines written on the pull request [ref]'s change, not sent with a review yet. */
+fun reviewDraftKey(ref: IssueRef): String = "review|${ref.repo.forge.host}|${ref.repo.fullName.lowercase()}!${ref.number}"
+
 /** The issue being written for [repo], not opened yet. */
 fun issueDraftKey(repo: RepoId): String = "issue|${repo.forge.host}|${repo.fullName.lowercase()}"
 

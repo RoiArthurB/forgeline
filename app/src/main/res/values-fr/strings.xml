@@ -1141,6 +1141,7 @@
     <string name="changes_remark_on_line">Faire une remarque sur cette ligne</string>
     <string name="changes_remark_pending">Votre remarque, envoyée avec la relecture</string>
     <string name="changes_remark_remove">Retirer cette remarque</string>
+    <string name="changes_remark_edit">Modifier cette remarque</string>
     <string name="changes_remark_title">%1$s, ligne %2$d</string>
     <string name="changes_remark_body">Que voulez-vous dire de cette ligne ?</string>
     <string name="changes_remark_add">Ajouter à la relecture</string>

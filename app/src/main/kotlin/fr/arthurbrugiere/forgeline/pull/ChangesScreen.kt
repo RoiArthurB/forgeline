@@ -68,6 +68,7 @@ fun ChangesRoute(route: ChangesRoute, onBack: () -> Unit) {
             onStartFileComment = viewModel::startFileComment,
             onToggleViewed = viewModel::toggleViewed,
             onRemoveComment = viewModel::removeComment,
+            onEditComment = viewModel::editComment,
             onOpen = viewModel::openReview,
             onClose = viewModel::closeReview,
             onSubmit = viewModel::submitReview,
@@ -87,6 +88,8 @@ class ReviewActions(
     /** Marks a file viewed, or no longer, by its path. */
     val onToggleViewed: (String) -> Unit = {},
     val onRemoveComment: (LineComment) -> Unit = {},
+    /** Opens a remark not sent yet to be rewritten. */
+    val onEditComment: (LineComment) -> Unit = {},
     val onOpen: () -> Unit = {},
     val onClose: () -> Unit = {},
     val onSubmit: (ReviewVerdict, String) -> Unit = { _, _ -> },
@@ -176,6 +179,7 @@ fun ChangesScreen(
                         onToggleViewed = review.onToggleViewed.takeIf { state.canReview && state.marksFilesViewed },
                         comments = state.comments,
                         onRemoveComment = review.onRemoveComment,
+                        onEditComment = review.onEditComment,
                     )
                     if (state.nextPage != null) {
                         item(key = "more") {

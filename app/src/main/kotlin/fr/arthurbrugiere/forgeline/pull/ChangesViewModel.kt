@@ -7,6 +7,9 @@ import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
+import fr.arthurbrugiere.forgeline.core.data.draft.Draft
+import fr.arthurbrugiere.forgeline.core.data.draft.DraftStore
+import fr.arthurbrugiere.forgeline.core.data.draft.reviewDraftKey
 import fr.arthurbrugiere.forgeline.core.data.pull.PullRequestRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
@@ -24,7 +27,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 /** Whose change is read: a pull request's, or one commit's. */
 sealed interface ChangesTarget {
@@ -55,7 +61,17 @@ data class FileDiff(val file: ChangedFile, val hunks: List<DiffHunk>) {
  * What a remark is being written about: [line] of the file at [path], or the whole file when it is null. [above] are the
  * lines it can reach up over, nearest first: those of its hunk above it, on its side of the change.
  */
-data class LineTarget(val path: String, val line: DiffLine?, val above: List<DiffLine> = emptyList())
+data class LineTarget(
+    val path: String,
+    val line: DiffLine?,
+    val above: List<DiffLine> = emptyList(),
+    /** The remark kept earlier that this rewrites, when one is being changed: its words and reach start the sheet. */
+    val editing: LineComment? = null,
+) {
+    /** How many of the lines [above] the remark being changed reached up over. */
+    val reach: Int
+        get() = editing?.let { remark -> above.indexOfFirst { it.oldNumber == remark.startOldLine && it.newNumber == remark.startNewLine } + 1 } ?: 0
+}
 
 data class ChangesUiState(
     val target: ChangesTarget,
@@ -95,6 +111,7 @@ class ChangesViewModel @AssistedInject constructor(
     @Assisted private val target: ChangesTarget,
     private val repository: PullRequestRepository,
     private val accounts: AccountRepository,
+    private val drafts: DraftStore,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -113,8 +130,22 @@ class ChangesViewModel @AssistedInject constructor(
     )
     val state: StateFlow<ChangesUiState> = _state.asStateFlow()
 
+    /** Where the remarks not sent yet are kept: going back to the conversation, or the app ending, doesn't lose them. */
+    private val draftKey = (target as? ChangesTarget.Pull)?.let { reviewDraftKey(it.ref) }
+
     init {
         refresh()
+        if (draftKey != null) {
+            val kept = drafts.peek(draftKey)
+            if (kept != null) {
+                _state.update { it.copy(comments = decodeRemarks(kept.body)) }
+            } else {
+                viewModelScope.launch {
+                    // Remarks written while it was read come after the kept ones.
+                    drafts.read(draftKey)?.let { read -> _state.update { it.copy(comments = decodeRemarks(read.body) + it.comments) } }
+                }
+            }
+        }
         if (target is ChangesTarget.Pull) {
             viewModelScope.launch {
                 accounts.accounts.collect { signedIn ->
@@ -208,6 +239,19 @@ class ChangesViewModel @AssistedInject constructor(
         return hunk.lines.subList(0, hunk.lines.indexOf(line)).filter { it.kind != other }.reversed()
     }
 
+    /** Opens a remark kept earlier to be rewritten, or reach over other lines. */
+    fun editComment(comment: LineComment) {
+        if (comment !in _state.value.comments) return
+        if (comment.onFile) {
+            _state.update { it.copy(drafting = LineTarget(comment.path, null, editing = comment)) }
+            return
+        }
+        val line = _state.value.files.orEmpty().firstOrNull { it.file.path == comment.path }?.hunks.orEmpty()
+            .flatMap { it.lines }.firstOrNull { it.oldNumber == comment.oldLine && it.newNumber == comment.newLine } ?: return
+        val above = if (_state.value.remarksOnRanges) linesAbove(comment.path, line) else emptyList()
+        _state.update { it.copy(drafting = LineTarget(comment.path, line, above, editing = comment)) }
+    }
+
     fun cancelComment() = _state.update { it.copy(drafting = null) }
 
     /**
@@ -225,10 +269,18 @@ class ChangesViewModel @AssistedInject constructor(
             val from = start?.takeIf { it in drafting.above }
             LineComment(drafting.path, line.oldNumber, line.newNumber, body.trim(), file?.previousPath, startOldLine = from?.oldNumber, startNewLine = from?.newNumber)
         }
-        _state.update { it.copy(drafting = null, comments = it.comments + comment) }
+        // A remark rewritten keeps its place among the others.
+        val editing = drafting.editing
+        setComments { comments -> if (editing != null && editing in comments) comments.map { if (it == editing) comment else it } else comments + comment }
+        _state.update { it.copy(drafting = null) }
     }
 
-    fun removeComment(comment: LineComment) = _state.update { it.copy(comments = it.comments - comment) }
+    fun removeComment(comment: LineComment) = setComments { it - comment }
+
+    private fun setComments(change: (List<LineComment>) -> List<LineComment>) {
+        val comments = _state.updateAndGet { it.copy(comments = change(it.comments)) }.comments
+        draftKey?.let { key -> drafts.write(key, Draft(body = encodeRemarks(comments))) }
+    }
 
     fun openReview() = _state.update { it.copy(isReviewOpen = true, reviewError = null) }
 
@@ -242,7 +294,10 @@ class ChangesViewModel @AssistedInject constructor(
             when (val result = repository.review(target.ref, verdict, body.trim(), current.comments)) {
                 // What was written stays, to be sent again.
                 is ForgeResult.Failure -> _state.update { it.copy(isSending = false, reviewError = result.error) }
-                is ForgeResult.Success -> _state.update { it.copy(isSending = false, isReviewOpen = false, comments = emptyList(), reviewSent = true) }
+                is ForgeResult.Success -> {
+                    setComments { emptyList() }
+                    _state.update { it.copy(isSending = false, isReviewOpen = false, reviewSent = true) }
+                }
             }
         }
     }
@@ -251,3 +306,28 @@ class ChangesViewModel @AssistedInject constructor(
 
     private fun read(file: ChangedFile) = FileDiff(file, file.patch?.let(::parsePatch).orEmpty())
 }
+
+/** A remark as kept among the drafts, until its review is sent. */
+@Serializable
+private data class StoredRemark(
+    val path: String,
+    val oldLine: Int? = null,
+    val newLine: Int? = null,
+    val body: String,
+    val previousPath: String? = null,
+    val startOldLine: Int? = null,
+    val startNewLine: Int? = null,
+    val onFile: Boolean = false,
+)
+
+private val remarkJson = Json { ignoreUnknownKeys = true }
+
+/** The remarks as one draft's text; none is no draft at all. */
+private fun encodeRemarks(comments: List<LineComment>): String = if (comments.isEmpty()) {
+    ""
+} else {
+    remarkJson.encodeToString(comments.map { StoredRemark(it.path, it.oldLine, it.newLine, it.body, it.previousPath, it.startOldLine, it.startNewLine, it.onFile) })
+}
+
+private fun decodeRemarks(text: String): List<LineComment> = runCatching { remarkJson.decodeFromString<List<StoredRemark>>(text) }.getOrDefault(emptyList())
+    .map { LineComment(it.path, it.oldLine, it.newLine, it.body, it.previousPath, it.startOldLine, it.startNewLine, it.onFile) }

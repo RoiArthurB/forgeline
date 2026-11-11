@@ -65,6 +65,8 @@ internal fun LazyListScope.fileDiffItems(
     onLineClick: ((String, DiffLine) -> Unit)? = null,
     comments: List<LineComment> = emptyList(),
     onRemoveComment: (LineComment) -> Unit = {},
+    /** Opens a remark not sent yet to be rewritten; null where it can't be. */
+    onEditComment: ((LineComment) -> Unit)? = null,
     /** Starts a remark on a whole file, by its path; null where none can be written. */
     onFileRemark: ((String) -> Unit)? = null,
     /** The files the reader viewed, and how one is marked viewed or no longer; null where it can't be. */
@@ -82,7 +84,9 @@ internal fun LazyListScope.fileDiffItems(
                     onToggleViewed = onToggleViewed?.let { toggle -> { toggle(diff.file.path) } },
                 )
                 // A remark on the whole file waits under its heading, folded or not.
-                comments.filter { it.onFile && it.path == diff.file.path }.forEach { remark -> PendingRemark(remark, onRemove = { onRemoveComment(remark) }) }
+                comments.filter { it.onFile && it.path == diff.file.path }.forEach { remark ->
+                    PendingRemark(remark, onRemove = { onRemoveComment(remark) }, onEdit = onEditComment?.let { edit -> { edit(remark) } })
+                }
             }
         }
         if (!expanded) return@forEachIndexed
@@ -113,7 +117,7 @@ internal fun LazyListScope.fileDiffItems(
                 Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
                     LineRow(line, largest, onClick = onLineClick?.let { click -> { click(diff.file.path, line) } })
                     remarks.filter { it.oldLine == line.oldNumber && it.newLine == line.newNumber }.forEach { remark ->
-                        PendingRemark(remark, onRemove = { onRemoveComment(remark) })
+                        PendingRemark(remark, onRemove = { onRemoveComment(remark) }, onEdit = onEditComment?.let { edit -> { edit(remark) } })
                     }
                 }
             }
@@ -240,15 +244,21 @@ internal fun LineRow(line: DiffLine, largest: Int, onClick: (() -> Unit)?) {
     }
 }
 
-/** A remark written on a line and not sent yet: it goes with the review. */
+/** A remark written on a line and not sent yet: it goes with the review. Tapped, it opens to be rewritten. */
 @Composable
-private fun PendingRemark(remark: LineComment, onRemove: () -> Unit) {
+private fun PendingRemark(remark: LineComment, onRemove: () -> Unit, onEdit: (() -> Unit)? = null) {
     val colors = Soft.colors
     Row(
         Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp).clip(RoundedCornerShape(8.dp)).background(colors.surface).padding(start = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f).padding(vertical = 10.dp)) {
+        val editLabel = stringResource(R.string.changes_remark_edit)
+        Column(
+            Modifier
+                .weight(1f)
+                .then(if (onEdit != null) Modifier.clickable(onClickLabel = editLabel, role = Role.Button, onClick = onEdit) else Modifier)
+                .padding(vertical = 10.dp),
+        ) {
             Text(stringResource(R.string.changes_remark_pending), style = Soft.type.meta, color = colors.inkMuted)
             Text(remark.body, style = Soft.type.secondary, color = colors.ink)
         }
