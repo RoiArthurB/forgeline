@@ -180,6 +180,7 @@ fun ChangesScreen(
                         comments = state.comments,
                         onRemoveComment = review.onRemoveComment,
                         onEditComment = review.onEditComment,
+                        threads = state.threads,
                     )
                     if (state.nextPage != null) {
                         item(key = "more") {

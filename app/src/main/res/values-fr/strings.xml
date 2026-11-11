@@ -1321,6 +1321,11 @@
     <string name="thread_outdated">Obsolète</string>
     <string name="thread_on_file">Fichier entier</string>
     <string name="thread_resolved">Résolu</string>
+    <plurals name="thread_answers">
+        <item quantity="one">%d réponse</item>
+        <item quantity="many">%d réponses</item>
+        <item quantity="other">%d réponses</item>
+    </plurals>
     <string name="thread_reply">Répondre</string>
     <string name="thread_reply_placeholder">Répondre…</string>
     <string name="thread_reply_send">Envoyer la réponse</string>

@@ -21,8 +21,10 @@ import fr.arthurbrugiere.forgeline.core.model.DiffLineKind
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.LineComment
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import fr.arthurbrugiere.forgeline.core.model.parsePatch
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -96,6 +98,8 @@ data class ChangesUiState(
     val remarksOnFiles: Boolean = false,
     /** The remarks on lines written so far; they go with the review. */
     val comments: List<LineComment> = emptyList(),
+    /** What was said on lines of a pull request's change already, by anyone: shown on the lines it is about. */
+    val threads: List<ReviewThread> = emptyList(),
     val drafting: LineTarget? = null,
     val isReviewOpen: Boolean = false,
     val isSending: Boolean = false,
@@ -164,11 +168,16 @@ class ChangesViewModel @AssistedInject constructor(
         _state.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
             when (target) {
-                is ChangesTarget.Pull -> when (val result = repository.files(target.ref)) {
-                    is ForgeResult.Failure -> _state.update { it.copy(isLoading = false, error = result.error) }
-                    is ForgeResult.Success -> _state.update {
-                        it.copy(isLoading = false, files = result.value.files.map(::read), nextPage = result.value.nextPage)
+                is ChangesTarget.Pull -> {
+                    // The threads come with the files; without them, the change still reads.
+                    val threads = async { (repository.threads(target.ref) as? ForgeResult.Success)?.value }
+                    when (val result = repository.files(target.ref)) {
+                        is ForgeResult.Failure -> _state.update { it.copy(isLoading = false, error = result.error) }
+                        is ForgeResult.Success -> _state.update {
+                            it.copy(isLoading = false, files = result.value.files.map(::read), nextPage = result.value.nextPage)
+                        }
                     }
+                    threads.await()?.let { read -> _state.update { it.copy(threads = read) } }
                 }
                 is ChangesTarget.OfCommit -> when (val result = repository.commit(target.repo, target.sha)) {
                     is ForgeResult.Failure -> _state.update { it.copy(isLoading = false, error = result.error) }

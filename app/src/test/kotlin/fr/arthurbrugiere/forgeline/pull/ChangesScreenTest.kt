@@ -161,6 +161,27 @@ class ChangesScreenTest {
     }
 
     @Test
+    fun what_reviewers_said_shows_under_the_lines_it_is_about() {
+        // Regression: other reviewers' threads were only in the conversation, never on the change.
+        val said = fr.arthurbrugiere.forgeline.core.model.ReviewThread(
+            "T1", "src/Upload.kt", 2, onOldSide = false, hunk = null,
+            comments = listOf(
+                fr.arthurbrugiere.forgeline.core.model.ThreadComment(1, fr.arthurbrugiere.forgeline.core.model.ForgeUser("hubot", null, null), "Why not three times?", null),
+                fr.arthurbrugiere.forgeline.core.model.ThreadComment(2, fr.arthurbrugiere.forgeline.core.model.ForgeUser("octocat", null, null), "Flaky links.", null),
+            ),
+            resolved = false, canResolve = true,
+        )
+        val moved = said.copy(id = "T2", outdated = true, comments = listOf(said.comments[0].copy(body = "Long gone")))
+        val onFile = said.copy(id = "T3", line = null, comments = listOf(said.comments[0].copy(body = "Split this file?")))
+        setContent(loaded(upload).copy(threads = listOf(said, moved, onFile)))
+
+        composeRule.onNodeWithText("Why not three times?").assertIsDisplayed()
+        composeRule.onNodeWithText("hubot · 1 answer").assertIsDisplayed()
+        composeRule.onNodeWithText("Split this file?").assertIsDisplayed()
+        composeRule.onNodeWithText("Long gone").assertDoesNotExist()
+    }
+
+    @Test
     fun a_remark_waiting_opens_to_be_rewritten_with_its_words() {
         val remark = LineComment("src/Upload.kt", oldLine = null, newLine = 2, body = "Why twice?")
         setContent(loaded(upload).copy(canReview = true, comments = listOf(remark)))

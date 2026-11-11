@@ -39,6 +39,7 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.arthurbrugiere.forgeline.R
@@ -46,6 +47,7 @@ import fr.arthurbrugiere.forgeline.core.model.DiffLine
 import fr.arthurbrugiere.forgeline.core.model.DiffLineKind
 import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.LineComment
+import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
@@ -67,6 +69,8 @@ internal fun LazyListScope.fileDiffItems(
     onRemoveComment: (LineComment) -> Unit = {},
     /** Opens a remark not sent yet to be rewritten; null where it can't be. */
     onEditComment: ((LineComment) -> Unit)? = null,
+    /** What was said on the change's lines already: each thread shows under its line, or its file's heading. */
+    threads: List<ReviewThread> = emptyList(),
     /** Starts a remark on a whole file, by its path; null where none can be written. */
     onFileRemark: ((String) -> Unit)? = null,
     /** The files the reader viewed, and how one is marked viewed or no longer; null where it can't be. */
@@ -83,6 +87,7 @@ internal fun LazyListScope.fileDiffItems(
                     viewed = diff.file.path in viewed,
                     onToggleViewed = onToggleViewed?.let { toggle -> { toggle(diff.file.path) } },
                 )
+                threads.filter { it.path == diff.file.path && it.line == null }.forEach { ExistingThread(it) }
                 // A remark on the whole file waits under its heading, folded or not.
                 comments.filter { it.onFile && it.path == diff.file.path }.forEach { remark ->
                     PendingRemark(remark, onRemove = { onRemoveComment(remark) }, onEdit = onEditComment?.let { edit -> { edit(remark) } })
@@ -101,6 +106,8 @@ internal fun LazyListScope.fileDiffItems(
             }
         }
         val remarks = comments.filter { it.path == diff.file.path }
+        // Where the code has moved on since, a thread is no longer on these lines: the conversation still has it.
+        val said = threads.filter { it.path == diff.file.path && it.line != null && !it.outdated }
         // The file's numbers share one column width, so its code lines up from the first hunk to the last.
         val largest = diff.hunks.maxOfOrNull { hunk -> hunk.lines.maxOfOrNull { it.largestNumber } ?: 0 } ?: 0
         diff.hunks.forEachIndexed { hunkIndex, hunk ->
@@ -116,6 +123,7 @@ internal fun LazyListScope.fileDiffItems(
             itemsIndexed(hunk.lines, key = { lineIndex, _ -> "file-$index-hunk-$hunkIndex-line-$lineIndex" }, contentType = { _, _ -> "line" }) { _, line ->
                 Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
                     LineRow(line, largest, onClick = onLineClick?.let { click -> { click(diff.file.path, line) } })
+                    said.filter { it.line == (if (it.onOldSide) line.oldNumber else line.newNumber) }.forEach { ExistingThread(it) }
                     remarks.filter { it.oldLine == line.oldNumber && it.newLine == line.newNumber }.forEach { remark ->
                         PendingRemark(remark, onRemove = { onRemoveComment(remark) }, onEdit = onEditComment?.let { edit -> { edit(remark) } })
                     }
@@ -241,6 +249,32 @@ internal fun LineRow(line: DiffLine, largest: Int, onClick: (() -> Unit)?) {
             color = colors.ink,
             modifier = Modifier.weight(1f).padding(end = 8.dp),
         )
+    }
+}
+
+/**
+ * A thread already on a line, read where the line is: who opened it and what they said, and how many answered. Its
+ * answers, and answering, are in the conversation.
+ */
+@Composable
+private fun ExistingThread(thread: ReviewThread) {
+    val colors = Soft.colors
+    val first = thread.comments.firstOrNull() ?: return
+    val answers = thread.comments.size - 1
+    Column(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp).clip(RoundedCornerShape(8.dp)).background(colors.surface)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        Text(
+            listOfNotNull(
+                first.author?.login,
+                pluralStringResource(R.plurals.thread_answers, answers, answers).takeIf { answers > 0 },
+                stringResource(R.string.thread_resolved).takeIf { thread.resolved },
+            ).joinToString(" · "),
+            style = Soft.type.meta,
+            color = colors.inkMuted,
+        )
+        Text(first.body, style = Soft.type.secondary, color = colors.ink, maxLines = 4, overflow = TextOverflow.Ellipsis)
     }
 }
 

@@ -96,7 +96,7 @@ class ChangesViewModelTest {
         assertThat(viewModel.state.value.files!!.map { it.file.path }).containsExactly("a.kt", "b.kt").inOrder()
         assertThat(viewModel.state.value.nextPage).isNull()
         // Asked once, though the end was seen twice.
-        assertThat(api.calls).containsExactly("files:octo/tools#88:1", "files:octo/tools#88:2").inOrder()
+        assertThat(api.calls.filter { it.startsWith("files:") }).containsExactly("files:octo/tools#88:1", "files:octo/tools#88:2").inOrder()
     }
 
     @Test
@@ -261,6 +261,18 @@ class ChangesViewModelTest {
         assertThat(state.reviewSent).isTrue()
         viewModel.reviewSentShown()
         assertThat(viewModel.state.value.reviewSent).isFalse()
+    }
+
+    @Test
+    fun what_was_said_on_the_change_comes_with_it() = test {
+        val thread = fr.arthurbrugiere.forgeline.core.model.ReviewThread("T1", "a.kt", 2, onOldSide = false, hunk = null, comments = emptyList(), resolved = false, canResolve = false)
+        api.files = listOf(listOf(changedFile("a.kt")))
+        api.reviewThreads = listOf(thread)
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.threads).containsExactly(thread)
     }
 
     @Test
