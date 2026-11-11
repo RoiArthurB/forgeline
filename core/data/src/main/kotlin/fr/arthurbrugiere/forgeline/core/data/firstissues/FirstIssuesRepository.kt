@@ -68,7 +68,8 @@ interface FirstIssuesRepository {
     fun observe(): Flow<FirstIssues?>
 
     /**
-     * Looks again when what was found is older than [MAX_AGE_MILLIS], or always when [force]d: in the repositories
+     * Looks again when what was found is older than [MAX_AGE_MILLIS] or was found for other accounts than those signed
+     * in now, or always when [force]d: in the repositories
      * each account starred lately and in today's Trending. Fails only when every forge did.
      */
     suspend fun refresh(force: Boolean = false): ForgeResult<Unit>
@@ -97,7 +98,10 @@ class DefaultFirstIssuesRepository @Inject constructor(
     override suspend fun refresh(force: Boolean): ForgeResult<Unit> = lock.withLock {
         val now = clock.millis()
         val kept = dao.get()
-        if (!force && kept != null && now - kept.fetchedAtMillis < FirstIssuesRepository.MAX_AGE_MILLIS) return ForgeResult.Success(Unit)
+        // Regression: signing in kept the signed-out list for hours, without the starred repositories.
+        val signedIn = accounts.accounts.first().map { it.id }.sorted()
+        val keptFor = kept?.let { row -> runCatching { Stored.decode(row.json).accounts }.getOrNull() }
+        if (!force && kept != null && keptFor == signedIn && now - kept.fetchedAtMillis < FirstIssuesRepository.MAX_AGE_MILLIS) return ForgeResult.Success(Unit)
         val sources = sources()
         val byForge = sources.keys.groupBy { it.forge }
         val answers = coroutineScope {
@@ -109,7 +113,7 @@ class DefaultFirstIssuesRepository @Inject constructor(
             .distinctBy { it.repo to it.issue.number }
             .sortedByDescending { it.issue.createdAt }
             .map { FirstIssue(it.repo, it.issue, sources[it.repo] ?: FirstIssueSource.TRENDING) }
-        dao.upsert(FirstIssuesEntity(json = Stored(issues.map(StoredIssue::of)).encode(), fetchedAtMillis = now))
+        dao.upsert(FirstIssuesEntity(json = Stored(issues.map(StoredIssue::of), signedIn).encode(), fetchedAtMillis = now))
         ForgeResult.Success(Unit)
     }
 
@@ -148,7 +152,11 @@ class DefaultFirstIssuesRepository @Inject constructor(
 private val StoredJson = Json { ignoreUnknownKeys = true }
 
 @Serializable
-private data class Stored(val issues: List<StoredIssue> = emptyList()) {
+private data class Stored(
+    val issues: List<StoredIssue> = emptyList(),
+    /** The accounts signed in when the issues were found: a different set looks again. */
+    val accounts: List<String> = emptyList(),
+) {
     fun encode() = StoredJson.encodeToString(serializer(), this)
 
     companion object {

@@ -109,6 +109,25 @@ class DefaultFirstIssuesRepositoryTest {
     }
 
     @Test
+    fun signing_in_or_out_looks_again_however_fresh_the_list() = runTest {
+        // Regression: the signed-out list stayed for hours after signing in, without the starred repositories.
+        trendingToday()
+        repository.refresh()
+        now = now.plusSeconds(60)
+
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "t-me")
+        githubUsers.starred["me"] = listOf(repoSummary("me-likes/tool"))
+        githubSearch.firstIssues[starredRepo] = listOf(found(starredRepo, 1, 20))
+        repository.refresh()
+
+        assertThat(githubSearch.calls).hasSize(2)
+        assertThat(repository.observe().first()!!.issues.single { it.repo == starredRepo }.source).isEqualTo(FirstIssueSource.STARRED)
+        // The same accounts again: fresh enough.
+        repository.refresh()
+        assertThat(githubSearch.calls).hasSize(2)
+    }
+
+    @Test
     fun one_forge_failing_keeps_the_others_and_all_failing_keeps_what_was_there() = runTest {
         trendingToday()
         githubSearch.failure = ForgeError.Network
