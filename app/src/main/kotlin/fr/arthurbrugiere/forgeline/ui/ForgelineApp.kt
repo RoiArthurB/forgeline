@@ -230,7 +230,10 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
         }
         entry<JobLogKey> { key -> JobLogDestination(key, onBack = navigator::goBack, onSignIn = signIn) }
         entry<UserKey> { key ->
-            UserDestination(key, session = session, onBack = navigator::goBack, onOpenRepo = openRepo, onSignIn = signIn)
+            UserDestination(
+                key, session = session, onBack = navigator::goBack, onOpenRepo = openRepo, onSignIn = signIn,
+                onOpenIssue = openIssue, onOpenUser = { openUser(key.forge, it) },
+            )
         }
         entry<RepoKey> { key ->
             RepoDestination(

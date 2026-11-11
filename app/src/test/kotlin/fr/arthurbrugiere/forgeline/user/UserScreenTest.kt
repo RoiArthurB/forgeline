@@ -38,6 +38,7 @@ class UserScreenTest {
                     onSelectTab = { events += "tab:$it" }, onRetry = {}, onToggleFollow = { events += "follow" },
                     onSignIn = { events += "signin" }, onOpenRepo = { events += "repo:${it.fullName}" },
                     onOpenUrl = { events += "url:$it" }, onFollowFailureShown = {},
+                    onLinkClick = { events += "link:$it" },
                 )
             }
         }
@@ -65,6 +66,22 @@ class UserScreenTest {
         composeRule.onNodeWithText("README").assertIsDisplayed()
         // The repositories wait behind their own tab.
         composeRule.onNodeWithText("octocat/Hello-World", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun a_link_in_the_readme_goes_through_the_app() {
+        // Regression: a repository linked from a profile README opened in the browser rather than in the app.
+        val readme = fr.arthurbrugiere.forgeline.core.model.ProfileReadme(
+            RepoId("octocat", "octocat"),
+            fr.arthurbrugiere.forgeline.core.model.Readme("README.md", "See [my forge](https://github.com/octocat/Hello-World)."),
+        )
+        setContent(base.copy(readme = readme, tab = UserTab.README))
+
+        composeRule.waitUntil(5_000) { composeRule.onAllNodesWithText("my forge", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        composeRule.onNodeWithText("my forge", substring = true).performClick()
+
+        assertThat(events).contains("link:https://github.com/octocat/Hello-World")
+        assertThat(events.filter { it.startsWith("url:") }).isEmpty()
     }
 
     @Test

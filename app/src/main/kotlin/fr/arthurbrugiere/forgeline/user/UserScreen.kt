@@ -51,6 +51,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.LinkKind
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
@@ -70,6 +71,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.navigation.UserRoute
+import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.repo.ReadmeBody
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.session.signedInOn
@@ -92,12 +94,20 @@ fun UserRoute(
     onBack: () -> Unit,
     onOpenRepo: (RepoId) -> Unit,
     onSignIn: () -> Unit,
+    onOpenIssue: (IssueRef) -> Unit = {},
+    onOpenUser: (String) -> Unit = {},
 ) {
     val viewModel = hiltViewModel<UserViewModel, UserViewModel.Factory>(key = "${route.host}/${route.login.lowercase()}") {
         it.create(route.forge, route.login)
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
     val openUrl = rememberLinkOpener()
+    val openDiscussion = fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion.current
+    val openWiki = fr.arthurbrugiere.forgeline.ui.LocalOpenWiki.current
+    val openCommit = fr.arthurbrugiere.forgeline.ui.LocalOpenCommit.current
+    val openFile = fr.arthurbrugiere.forgeline.ui.LocalOpenFile.current
+    val openRelease = fr.arthurbrugiere.forgeline.ui.LocalOpenRelease.current
+    val openTopic = fr.arthurbrugiere.forgeline.ui.LocalOpenTopic.current
     UserScreen(
         state = state,
         signedIn = session.signedInOn(route.forge),
@@ -109,6 +119,12 @@ fun UserRoute(
         onOpenRepo = onOpenRepo,
         onOpenUrl = openUrl,
         onFollowFailureShown = viewModel::followFailureShown,
+        onLinkClick = { url ->
+            openForgeLink(
+                url, route.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion,
+                onOpenWiki = openWiki, onOpenCommit = openCommit, onOpenTopic = openTopic, onOpenFile = openFile,
+            )
+        },
     )
 }
 
@@ -126,6 +142,8 @@ fun UserScreen(
     onOpenUrl: (String) -> Unit,
     onFollowFailureShown: () -> Unit,
     modifier: Modifier = Modifier,
+    /** A link in the profile's README: one to a repository, a conversation or a person opens in the app. */
+    onLinkClick: (String) -> Unit = onOpenUrl,
 ) {
     val profile = state.profile
     val snackbar = remember { SnackbarHostState() }
@@ -200,7 +218,7 @@ fun UserScreen(
                             val context = remember(readme) {
                                 ReadmeContext(rawBaseUrl = readme.repo.rawBaseUrl("HEAD"), blobBaseUrl = readme.repo.blobBaseUrl("HEAD"), directory = directory)
                             }
-                            ReadmeBody(readme.readme.markdown, context, onOpenUrl)
+                            ReadmeBody(readme.readme.markdown, context, onLinkClick)
                         }
                         return@LazyColumn
                     }
