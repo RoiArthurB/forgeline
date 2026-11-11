@@ -208,8 +208,9 @@ fun TrendingScreen(
 
         // Where the last visit stopped, unless Settings says not to mark it.
         val resumeAt = state.resumeAt?.takeIf { it in 0 until state.items.lastIndex && LocalUserSettings.current.readingMarks }
-        val rankByKey = remember(state.items) { state.items.withIndex().associate { (index, item) -> item.repo.id.fullName to index.toLong() } }
-        ReportReading(listState, resetKey = state.period, positionOf = { rankByKey[it] }, onRead = { key -> rankByKey[key]?.let { onReadThrough(it.toInt()) } })
+        // Keyed as the rows are, forge and all, or no row would ever be found.
+        val rankByKey = remember(state.items) { state.items.withIndex().associate { (index, item) -> item.repo.id.key to index.toLong() } }
+        ReportReading(listState, resetKey = state.period to state.onlyForge, positionOf = { rankByKey[it] }, onRead = { key -> rankByKey[key]?.let { onReadThrough(it.toInt()) } })
         // Once the mark is on screen or above it, the way back to it has done its job.
         val markReached by remember(resumeAt) {
             derivedStateOf { resumeAt != null && listState.firstVisibleItemIndex + listState.layoutInfo.visibleItemsInfo.size > FIRST_ROW + resumeAt + 1 }

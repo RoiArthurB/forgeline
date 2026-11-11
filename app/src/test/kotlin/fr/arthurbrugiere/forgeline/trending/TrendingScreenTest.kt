@@ -39,6 +39,7 @@ class TrendingScreenTest {
     val composeRule = createComposeRule()
 
     private val events = mutableListOf<String>()
+    private val readThrough = mutableListOf<Int>()
     private val paperclip = trendingRepo("paperclipai/paperclip", stars = 85_955, periodStars = 2_109)
 
     /** What Settings holds for the test; every default unless it says otherwise. */
@@ -55,6 +56,7 @@ class TrendingScreenTest {
                     onOpenRepo = { events += "open:${it.fullName}" },
                     onErrorShown = { events += "errorShown" },
                     onStarFailureShown = { events += "starFailureShown" },
+                    onReadThrough = { readThrough += it },
                     nowMillis = 10 * 60_000L,
                 )
             }
@@ -162,6 +164,18 @@ class TrendingScreenTest {
         composeRule.onNodeWithText("Where you left off").assertIsDisplayed()
         // There: the way back has done its job.
         composeRule.onNodeWithText("Continue where you left off").assertDoesNotExist()
+    }
+
+    @Test
+    fun rows_that_stay_on_screen_are_reported_read() {
+        // Regression: the rows were looked up by owner/name while the list keys them by forge too, so nothing was ever read.
+        val repos = (1..30).map { TrendingItem(trendingRepo("owner/repo$it"), null) }
+        setContent(TrendingUiState(items = repos))
+
+        composeRule.mainClock.advanceTimeBy(fr.arthurbrugiere.forgeline.ui.READ_DWELL_MILLIS * 2)
+
+        assertThat(readThrough).isNotEmpty()
+        assertThat(readThrough.last()).isGreaterThan(0)
     }
 
     @Test
