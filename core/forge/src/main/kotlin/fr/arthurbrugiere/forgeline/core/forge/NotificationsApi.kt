@@ -19,6 +19,12 @@ interface NotificationsApi {
     suspend fun markRead(token: String, threadId: String): ForgeResult<Unit>
 
     /**
+     * Whether [markRead] tells the forge. Where there is no read to tell (a GitLab todo is pending or done), the forge
+     * goes on listing a thread read here as unread: the Inbox remembers it read until it has something new.
+     */
+    val marksRead: Boolean get() = true
+
+    /**
      * Marks a read thread unread again, where the forge can (Forgejo). Elsewhere (GitHub has no such call, and a
      * GitLab todo is never read) this does nothing, and the Inbox remembers it by itself.
      */

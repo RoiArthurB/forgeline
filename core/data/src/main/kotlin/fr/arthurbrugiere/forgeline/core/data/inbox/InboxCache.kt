@@ -82,6 +82,14 @@ data class DoneEntity(val accountId: String, val threadId: String, val updatedAt
 data class KeptUnreadEntity(val accountId: String, val threadId: String)
 
 /**
+ * A thread read here on a forge that can't be told ([fr.arthurbrugiere.forgeline.core.forge.NotificationsApi.marksRead]):
+ * read for as long as nothing new happens on it, [updatedAtMillis] being when it last did, though the forge lists it
+ * unread still.
+ */
+@Entity(tableName = "inbox_kept_read", primaryKeys = ["accountId", "threadId"])
+data class KeptReadEntity(val accountId: String, val threadId: String, val updatedAtMillis: Long)
+
+/**
  * An action ([fr.arthurbrugiere.forgeline.core.model.InboxAction], by name) shown as done to a thread but not yet
  * answered by the forge: still undoable, or cut short by the app closing, when it is sent at the next sync.
  */
@@ -248,6 +256,25 @@ interface KeptUnreadDao {
     /** Deletes what accounts other than [accountIds] kept unread: those that signed out. */
     @Query("DELETE FROM inbox_kept_unread WHERE accountId NOT IN (:accountIds)")
     suspend fun keepOnly(accountIds: List<String>)
+
+    // The threads kept read, against a forge that lists them unread ([KeptReadEntity]).
+
+    @Query("SELECT * FROM inbox_kept_read WHERE accountId = :accountId")
+    suspend fun readOf(accountId: String): List<KeptReadEntity>
+
+    @Upsert
+    suspend fun upsertRead(entity: KeptReadEntity)
+
+    @Query("DELETE FROM inbox_kept_read WHERE accountId = :accountId AND threadId = :threadId")
+    suspend fun deleteRead(accountId: String, threadId: String)
+
+    /** Forgets the threads with something new since they were read, or no longer listed. */
+    @Query("DELETE FROM inbox_kept_read WHERE accountId = :accountId AND threadId NOT IN (:threadIds)")
+    suspend fun pruneRead(accountId: String, threadIds: List<String>)
+
+    /** Deletes what accounts other than [accountIds] kept read: those that signed out. */
+    @Query("DELETE FROM inbox_kept_read WHERE accountId NOT IN (:accountIds)")
+    suspend fun keepReadOnly(accountIds: List<String>)
 }
 
 internal fun NotificationThread.toEntity(accountId: String) = NotificationEntity(

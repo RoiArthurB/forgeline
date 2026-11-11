@@ -14,7 +14,7 @@ import kotlinx.coroutines.CompletableDeferred
 import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
 
-class FakeNotificationsApi(override val supportsDone: Boolean = true) : NotificationsApi {
+class FakeNotificationsApi(override val supportsDone: Boolean = true, override val marksRead: Boolean = true) : NotificationsApi {
     var threads: List<NotificationThread> = emptyList()
 
     /** When set, the next sync answers "not modified". */

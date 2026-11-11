@@ -266,6 +266,14 @@ class DefaultInboxRepository @Inject constructor(
                     keptUnreadDao.prune(account.id, listed.filter { !it.unread && it.id in kept }.map { it.id })
                     listed.map { if (it.id in kept) it.copy(unread = true) else it }
                 }?.let { listed ->
+                    // Read here on a forge that can't be told: read still, until something new happens on it.
+                    // Regression: a GitLab todo opened here was unread again at the next sync.
+                    val keptRead = keptUnreadDao.readOf(account.id).associate { it.threadId to it.updatedAtMillis }
+                    if (keptRead.isEmpty()) return@let listed
+                    val stillRead = listed.filter { thread -> keptRead[thread.id]?.let { thread.updatedAt.toEpochMilli() <= it } == true }.map { it.id }.toSet()
+                    keptUnreadDao.pruneRead(account.id, stillRead.toList())
+                    listed.map { if (it.id in stillRead) it.copy(unread = false) else it }
+                }?.let { listed ->
                     // Done here, and nothing happened on it since: done still, though the forge goes on calling it
                     // unread (one that takes a thread away without marking it read). Its date, not its flag, is news.
                     val doneAt = doneDao.of(account.id).associate { it.threadId to it.updatedAtMillis }
@@ -316,10 +324,13 @@ class DefaultInboxRepository @Inject constructor(
 
     override suspend fun markRead(accountId: String, threadId: String): ForgeResult<Unit> {
         val (account, token) = session(accountId) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        val api = clients.notifications(account.forge)
         dao.setUnread(account.id, threadId, false)
         keptUnreadDao.delete(account.id, threadId)
         handledHere["${account.id}|$threadId"] = clock.millis()
-        return clients.notifications(account.forge).markRead(token, threadId)
+        // The forge will go on listing it unread: remembered read here, across launches.
+        if (!api.marksRead) dao.get(account.id, threadId)?.let { keptUnreadDao.upsertRead(KeptReadEntity(account.id, threadId, it.updatedAtMillis)) }
+        return api.markRead(token, threadId)
             .also { if (it is ForgeResult.Failure) dao.setUnread(account.id, threadId, true) }
             .also { answered(account.id, threadId) }
     }
@@ -328,6 +339,7 @@ class DefaultInboxRepository @Inject constructor(
         val (account, token) = session(accountId) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
         dao.setUnread(account.id, threadId, true)
         keptUnreadDao.upsert(KeptUnreadEntity(account.id, threadId))
+        keptUnreadDao.deleteRead(account.id, threadId)
         handledHere.remove("${account.id}|$threadId")
         return clients.notifications(account.forge).markUnread(token, threadId).also {
             if (it is ForgeResult.Failure) {

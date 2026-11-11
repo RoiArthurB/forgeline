@@ -726,6 +726,26 @@ class DefaultInboxRepositoryTest {
     }
 
     @Test
+    fun a_thread_read_on_a_forge_that_can_t_be_told_stays_read_until_it_has_news() = runTest {
+        // Regression: a GitLab todo has no read, so one opened here was back among the unread at the next sync.
+        val gitlab = FakeNotificationsApi(marksRead = false).apply { threads = listOf(notificationThread("7", repo = "inkscape/inkscape")) }
+        clients.put(ForgeInstance.GitLab, FakeForgeClients(notifications = gitlab))
+        val me = accounts.signIn(ForgeInstance.GitLab, ForgeUser("me", null, null), "gl_token").id
+        repository.sync(force = true, waitForFollowUps = true)
+
+        repository.markRead(me, "7")
+        // Still pending on GitLab, and the app started again: read still.
+        val again = restarted()
+        again.sync(force = true, waitForFollowUps = true)
+        assertThat(again.observe().first().threads.map { it.id to it.unread }).containsExactly("7" to false)
+
+        // Something new on it: unread again.
+        gitlab.threads = listOf(notificationThread("7", repo = "inkscape/inkscape", updatedAt = "2026-09-27T11:00:00Z"))
+        again.sync(force = true, waitForFollowUps = true)
+        assertThat(again.observe().first().threads.map { it.id to it.unread }).containsExactly("7" to true)
+    }
+
+    @Test
     fun a_thread_done_stays_done_though_reading_it_moved_its_date() = runTest {
         // Regression: Forgejo dates a thread from its last change, and marking it read is one (seen on Codeberg,
         // 2026-10-04). Done looked like new activity at the next sync, and the thread came back.

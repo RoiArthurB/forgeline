@@ -31,6 +31,9 @@ class GitLabNotificationsApi(
 
     override val supportsDone: Boolean = true
 
+    /** A todo is pending or done: there is no read to tell GitLab of. */
+    override val marksRead: Boolean = false
+
     /** Where each todo last listed points: unsubscribing is from its conversation, which a todo's id doesn't say. */
     private val targets = ConcurrentHashMap<String, IssueRef>()
 

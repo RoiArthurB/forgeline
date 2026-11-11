@@ -78,6 +78,7 @@ class AccountDataCleaner @Inject constructor(
         inbox.keepOnly(ids)
         done.keepOnly(ids)
         keptUnread.keepOnly(ids)
+        keptUnread.keepReadOnly(ids)
         baselines.keepOnly(ids)
         feed.keepOnly(ids + ids.map { STARRED_PREFIX + it })
         // The account's repositories, private ones among them.
