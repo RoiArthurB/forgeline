@@ -30,7 +30,9 @@ fun interface ResponseCache {
 /**
  * What goes when an account signs out: its own rows (notifications, Feed, starred activity), and what was kept from
  * its forge whoever asked (conversations, repositories, previews), since some of it was read with that account and
- * may be private; and what was being written there, which was to be sent as that account. Anything still wanted from the forge is fetched again.
+ * may be private; and what was being written there, which was to be sent as that account, unless another account
+ * is still signed in to the same forge: what was being written may be that one's. Anything still wanted from the
+ * forge is fetched again.
  */
 @Singleton
 class AccountDataCleaner @Inject constructor(
@@ -58,7 +60,9 @@ class AccountDataCleaner @Inject constructor(
         previews.clear(host)
         conversations.forget(account.forge)
         users.forget(account.forge)
-        drafts.forget(account.forge)
+        // Drafts are kept by forge, not by account: with another account still on it, they may be that one's, and
+        // they can't be fetched again. Regression: signing out of a work account lost the personal one's drafts.
+        if (accounts.accounts.first().none { it.forge == account.forge }) drafts.forget(account.forge)
         // Found among the account's stars, some private: looked for again without them.
         firstIssues.clear()
         // Kept by address, not by account: all of it goes, and what is still wanted is asked again in full.

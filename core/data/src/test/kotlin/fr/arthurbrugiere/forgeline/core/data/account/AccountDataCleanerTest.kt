@@ -217,4 +217,16 @@ class AccountDataCleanerTest {
         assertThat(drafts.peek(commentDraftKey(issue(ForgeInstance.Codeberg)))).isEqualTo(Draft(body = "Half a thought"))
         assertThat(drafts.peek(issueDraftKey(issue(ForgeInstance.Codeberg).repo))).isEqualTo(Draft("Not opened yet", "Still thinking"))
     }
+
+    @Test
+    fun what_was_being_written_stays_while_another_account_is_on_its_forge() = runTest {
+        drafts.write(commentDraftKey(issue(ForgeInstance.GitHub)), Draft(body = "Half a thought"))
+        val work = accounts.signIn(ForgeInstance.GitHub, ForgeUser("work", null, null), "tok-work")
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "tok-me")
+        accounts.signOut(work.id)
+
+        cleaner.forget(work)
+
+        assertThat(drafts.peek(commentDraftKey(issue(ForgeInstance.GitHub)))).isEqualTo(Draft(body = "Half a thought"))
+    }
 }
