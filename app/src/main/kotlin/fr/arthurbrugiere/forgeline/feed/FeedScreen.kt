@@ -225,7 +225,8 @@ fun FeedScreen(
                             onAction = onRefresh,
                         )
                     }
-                    !hasItems && state.syncedAtMillis == null -> item(key = "loading") {
+                    // Still paging past activity Settings hides: not quiet yet.
+                    !hasItems && (state.syncedAtMillis == null || state.isLoadingMore) -> item(key = "loading") {
                         SoftLoadingRows(stringResource(R.string.feed_loading))
                     }
                     !hasItems -> item(key = "empty") {

@@ -43,9 +43,16 @@ class FakeFeedRepository : FeedRepository {
         if (readUpTo == null || at > readUpTo) readUpTo = at
     }
 
+    /** When not empty, each [loadMore] appends the next of these instead, with more left while any remain. */
+    val olderPages = ArrayDeque<List<FeedEvent>>()
+
     override suspend fun loadMore(): ForgeResult<Unit> {
         loadMoreCalls++
         failure?.let { return ForgeResult.Failure(it) }
+        if (olderPages.isNotEmpty()) {
+            snapshot.value = snapshot.value.copy(events = snapshot.value.events + olderPages.removeFirst(), hasMore = olderPages.isNotEmpty())
+            return ForgeResult.Success(Unit)
+        }
         snapshot.value = snapshot.value.copy(events = snapshot.value.events + olderPage, hasMore = false)
         return ForgeResult.Success(Unit)
     }

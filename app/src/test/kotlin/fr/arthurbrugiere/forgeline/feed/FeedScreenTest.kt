@@ -10,6 +10,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -263,6 +264,14 @@ class FeedScreenTest {
         composeRule.onNodeWithText("Quiet for now").assertIsDisplayed()
         composeRule.onNodeWithText("Browse Trending").performClick()
         assertThat(browsed).isTrue()
+    }
+
+    @Test
+    fun paging_past_hidden_activity_is_loading_not_quiet() {
+        setContent(FeedUiState(syncedAtMillis = 1, hasMore = true, isLoadingMore = true))
+
+        composeRule.onNodeWithText("Quiet for now").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("Loading your feed").assertIsDisplayed()
     }
 
     @Test

@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -105,9 +106,25 @@ class FeedViewModel @Inject constructor(
         if (status.value.isLoadingMore) return
         status.value = status.value.copy(isLoadingMore = true, error = null)
         viewModelScope.launch {
-            val result = feed.loadMore()
+            val shown = rows.first().items.size
+            val result = feed.loadMore().takeIf { it is ForgeResult.Failure } ?: pageWhileHidden(shown)
             status.value = status.value.copy(isLoadingMore = false, error = (result as? ForgeResult.Failure)?.error)
         }
+    }
+
+    /**
+     * Kinds hidden in Settings can leave a whole page with nothing to show, and then no row comes into view to ask for
+     * the next one. Regression: the Feed then said it was quiet, or stopped paging. Pages on until more than [shown]
+     * rows show or the Feed ends, a few pages at most.
+     */
+    private suspend fun pageWhileHidden(shown: Int): ForgeResult<Unit> {
+        repeat(MAX_HIDDEN_PAGES) {
+            val (snapshot, items) = rows.first()
+            if (items.size > shown || !snapshot.hasMore) return ForgeResult.Success(Unit)
+            val result = feed.loadMore()
+            if (result is ForgeResult.Failure) return result
+        }
+        return ForgeResult.Success(Unit)
     }
 
     /** Rows on screen: fetch the previews they need (repositories, releases, issues and pull requests). */
@@ -126,7 +143,18 @@ class FeedViewModel @Inject constructor(
         viewModelScope.launch {
             // The indicator stays until every forge has answered: the rows change once, when it stops.
             val result = feed.refresh(force)
-            status.update { it.copy(isRefreshing = false, error = (result as? ForgeResult.Failure)?.error) }
+            if (result is ForgeResult.Success && rows.first().let { it.items.isEmpty() && it.snapshot.hasMore }) {
+                status.update { it.copy(isRefreshing = false, isLoadingMore = true) }
+                val more = pageWhileHidden(0)
+                status.update { it.copy(isLoadingMore = false, error = (more as? ForgeResult.Failure)?.error) }
+            } else {
+                status.update { it.copy(isRefreshing = false, error = (result as? ForgeResult.Failure)?.error) }
+            }
         }
+    }
+
+    private companion object {
+        /** How many pages in a row may bring nothing to show before the Feed stops asking on its own. */
+        const val MAX_HIDDEN_PAGES = 5
     }
 }

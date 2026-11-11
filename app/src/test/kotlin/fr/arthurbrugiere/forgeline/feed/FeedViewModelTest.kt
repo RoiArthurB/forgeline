@@ -115,6 +115,40 @@ class FeedViewModelTest {
     }
 
     @Test
+    fun pages_on_past_activity_settings_hide_until_something_shows() = test {
+        // Regression: a first page of nothing but pushes left the Feed saying it was quiet, with older activity unasked.
+        feed.set(feedEvent("4", action = FeedAction.Pushed("main")), hasMore = true)
+        feed.olderPages += listOf(feedEvent("3", action = FeedAction.Pushed("main")))
+        feed.olderPages += listOf(feedEvent("2"), feedEvent("1", action = FeedAction.Pushed("main")))
+        feed.olderPages += listOf(feedEvent("0"))
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.items.map { it.key }).containsExactly("2")
+        assertThat(feed.loadMoreCalls).isEqualTo(2)
+        assertThat(viewModel.state.value.isLoadingMore).isFalse()
+    }
+
+    @Test
+    fun a_page_with_nothing_shown_asks_for_the_next() = test {
+        // Regression: a page of hidden kinds added no rows, so nothing came into view to ask for the one after.
+        feed.set(feedEvent("4", repo = "octo/four"), hasMore = true)
+        feed.olderPages += listOf(feedEvent("3", action = FeedAction.Pushed("main")))
+        feed.olderPages += listOf(feedEvent("2", repo = "octo/two"))
+        feed.olderPages += listOf(feedEvent("1", repo = "octo/one"))
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.loadMore()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.items.map { it.key }).containsExactly("4", "2").inOrder()
+        assertThat(feed.loadMoreCalls).isEqualTo(2)
+        assertThat(viewModel.state.value.hasMore).isTrue()
+    }
+
+    @Test
     fun pull_to_refresh_forces_a_reload() = test {
         val viewModel = viewModel()
         advanceUntilIdle()
