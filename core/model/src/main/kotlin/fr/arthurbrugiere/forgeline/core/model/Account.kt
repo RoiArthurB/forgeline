@@ -28,6 +28,9 @@ enum class ForgeType {
 
     /** Whether people star, watch and fork repositories and follow each other there: SourceHut has none of it. */
     val isSocial: Boolean get() = this != SOURCEHUT
+
+    /** Whether the forge keeps notifications for an account to read: Tangled and SourceHut have none an app can. */
+    val hasNotifications: Boolean get() = this != TANGLED && this != SOURCEHUT
 }
 
 /**

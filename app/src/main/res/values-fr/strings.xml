@@ -18,6 +18,8 @@
     <string name="inbox_caught_up_body">Les nouvelles notifications apparaîtront ici.</string>
     <string name="inbox_empty_title">Rien ici</string>
     <string name="inbox_empty_body">Aucune notification ne correspond à ce filtre.</string>
+    <string name="inbox_silent_title">Pas de notifications ici</string>
+    <string name="inbox_silent_body">%1$s ne garde aucune notification que l’app puisse afficher.</string>
     <string name="inbox_error_title">Impossible de charger vos notifications</string>
     <string name="inbox_error_scope">Votre jeton ne peut pas lire les notifications. Déconnectez-vous, puis reconnectez-vous avec un jeton qui a la portée notifications.</string>
     <string name="inbox_action_failed">La notification n’a pas pu être mise à jour. Réessayez.</string>

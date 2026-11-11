@@ -21,6 +21,8 @@
     <string name="inbox_caught_up_body">New notifications will show up here.</string>
     <string name="inbox_empty_title">Nothing here</string>
     <string name="inbox_empty_body">No notifications match this filter.</string>
+    <string name="inbox_silent_title">No notifications here</string>
+    <string name="inbox_silent_body">%1$s keeps no notifications the app can show.</string>
     <string name="inbox_error_title">Couldn\'t load your notifications</string>
     <string name="inbox_error_scope">Your token can\'t read notifications. Sign out and sign in again with a token that has the notifications scope.</string>
     <string name="inbox_action_failed">Couldn\'t update the notification. Try again.</string>

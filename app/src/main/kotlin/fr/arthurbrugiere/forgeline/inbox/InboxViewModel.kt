@@ -99,6 +99,8 @@ data class InboxUiState(
     val selectedAccountId: String? = null,
     /** Rows say which forge they're from only when more than one forge is signed in. */
     val showForge: Boolean = false,
+    /** The forges shown, when none of them keeps notifications (Tangled, SourceHut): the Inbox can only say so. */
+    val silentForges: List<ForgeInstance> = emptyList(),
     /** The threads picked to be acted on together, by [NotificationThread.key]; empty when none is being picked. */
     val selected: Set<String> = emptySet(),
     /** The word of help shown above the list, the first time it applies; null once put away. */
@@ -127,12 +129,15 @@ class InboxViewModel @Inject constructor(
     private val filter = savedState.getStateFlow(FILTER_KEY, InboxFilter.UNREAD)
     private val selectedAccount = savedState.getStateFlow<String?>(ACCOUNT_KEY, null)
 
-    private data class Split(val tabs: List<Account>, val selected: String?, val showForge: Boolean)
+    private data class Split(val tabs: List<Account>, val selected: String?, val showForge: Boolean, val silent: List<ForgeInstance>)
 
     private val split = combine(accounts.accounts, settings.settings, selectedAccount) { signedIn, chosen, selected ->
         val tabs = if (chosen.separateInboxPerForge && signedIn.size > 1) signedIn else emptyList()
         // Nothing selected is "All": the unified list stays the default, even split.
-        Split(tabs, selected?.takeIf { id -> tabs.any { it.id == id } }, signedIn.map { it.forge }.distinct().size > 1)
+        val shown = selected?.takeIf { id -> tabs.any { it.id == id } }
+        // Where every account shown is on a forge without notifications, the Inbox says so rather than "caught up".
+        val silent = signedIn.filter { shown == null || it.id == shown }.map { it.forge }.distinct().takeIf { forges -> forges.none { it.type.hasNotifications } }.orEmpty()
+        Split(tabs, shown, signedIn.map { it.forge }.distinct().size > 1, silent)
     }
     private val status = MutableStateFlow(Status())
 
@@ -179,6 +184,7 @@ class InboxViewModel @Inject constructor(
             accountTabs = split.tabs,
             selectedAccountId = split.selected,
             showForge = split.showForge,
+            silentForges = split.silent,
             syncedAtMillis = snapshot.syncedAtMillis,
             isRefreshing = status.isRefreshing,
             error = status.error,

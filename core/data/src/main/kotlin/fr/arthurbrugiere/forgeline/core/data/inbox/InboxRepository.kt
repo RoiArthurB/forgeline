@@ -238,6 +238,9 @@ class DefaultInboxRepository @Inject constructor(
     private suspend fun syncAccount(account: Account, force: Boolean, onlyIfNew: Boolean): SyncResult = lockOf(account).withLock {
         val token = accounts.token(account.id) ?: return SyncResult.SignedOut
         val state = dao.sync(account.id)
+        // A forge without notifications has nothing to ask, ever: it is synced as soon as asked, with nothing. Regression:
+        // it was never synced, and with its account alone the Inbox loaded for good.
+        if (!account.forge.type.hasNotifications) return nothingToSync(account, state)
         val interval = (state?.pollIntervalSeconds ?: DEFAULT_POLL_SECONDS) * 1_000L
         if (!force && state != null && clock.millis() - state.syncedAtMillis < interval) return SyncResult.NotModified
         val askedAt = clock.millis()
@@ -245,7 +248,7 @@ class DefaultInboxRepository @Inject constructor(
             is ForgeResult.Failure -> {
                 // The forge turned the token down: nothing will sync for this account until it signs in again.
                 if (result.error == ForgeError.Unauthorized) accounts.markSignInEnded(account.id)
-                SyncResult.Failed(result.error)
+                if (result.error == ForgeError.Unsupported) nothingToSync(account, state) else SyncResult.Failed(result.error)
             }
             is ForgeResult.Success -> {
                 val sync = result.value
@@ -447,6 +450,17 @@ class DefaultInboxRepository @Inject constructor(
 
     /** The kind as it is stored: only where it tells two conversations apart, so the others keep one row each. */
     private val IssueRef.storedKind: Boolean get() = repo.forge.type.numbersMergeRequestsApart && isPullRequest == true
+
+    /** An account whose forge keeps no notifications: synced, with none. */
+    private suspend fun nothingToSync(account: Account, state: InboxSyncEntity?): SyncResult {
+        if (state == null) {
+            dao.replace(account.id, emptyList())
+            dao.upsertSync(InboxSyncEntity(account.id, lastModified = null, pollIntervalSeconds = null, syncedAtMillis = clock.millis(), notifiedUpToMillis = 0L))
+        } else {
+            dao.upsertSync(state.copy(syncedAtMillis = clock.millis()))
+        }
+        return SyncResult.NotModified
+    }
 
     private fun List<NotificationThread>?.newestMillis(): Long = this?.maxOfOrNull { it.updatedAt.toEpochMilli() } ?: 0L
 

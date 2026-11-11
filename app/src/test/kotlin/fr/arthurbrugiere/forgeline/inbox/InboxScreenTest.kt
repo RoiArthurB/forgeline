@@ -379,6 +379,16 @@ class InboxScreenTest {
     }
 
     @Test
+    fun an_inbox_of_forges_without_notifications_says_so_rather_than_load() {
+        // Regression: signed in to SourceHut alone, the Inbox loaded for ever.
+        val sourceHut = fr.arthurbrugiere.forgeline.core.model.ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.SOURCEHUT, "git.sr.ht")
+        setContent(InboxUiState(silentForges = listOf(sourceHut)))
+
+        composeRule.onNodeWithText("No notifications here").assertIsDisplayed()
+        composeRule.onNodeWithText("SourceHut keeps no notifications the app can show.").assertIsDisplayed()
+    }
+
+    @Test
     fun an_empty_unread_inbox_is_all_caught_up() {
         setContent(InboxUiState(syncedAtMillis = 1))
 

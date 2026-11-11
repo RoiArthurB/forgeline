@@ -400,6 +400,13 @@ fun InboxScreen(
                             onAction = onRefresh,
                         )
                     }
+                    // Nothing to wait for: the forge has no notifications to give.
+                    !hasThreads && state.silentForges.isNotEmpty() -> item(key = "silent") {
+                        SoftNotice(
+                            stringResource(R.string.inbox_silent_title),
+                            stringResource(R.string.inbox_silent_body, state.silentForges.joinToString(", ") { it.displayName }),
+                        )
+                    }
                     !hasThreads && state.syncedAtMillis == null -> item(key = "loading") {
                         SoftLoadingRows(stringResource(R.string.inbox_loading))
                     }

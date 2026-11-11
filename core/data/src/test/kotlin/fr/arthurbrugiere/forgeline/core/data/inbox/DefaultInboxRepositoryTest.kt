@@ -104,6 +104,23 @@ class DefaultInboxRepositoryTest {
     }
 
     @Test
+    fun a_forge_without_notifications_is_synced_with_none() = runTest {
+        // Regression: never synced, it held the Inbox's "synced" back for good, and alone it loaded for ever.
+        val sourceHut = ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.SOURCEHUT, "git.sr.ht")
+        accounts.signIn(sourceHut, ForgeUser("~me", null, null), "s")
+        signIn()
+        api.threads = listOf(notificationThread("1"))
+
+        assertThat(repository.sync(force = true, waitForFollowUps = true)).isInstanceOf(SyncResult.Updated::class.java)
+
+        val snapshot = repository.observe().first()
+        assertThat(snapshot.threads.map { it.id }).containsExactly("1")
+        assertThat(snapshot.syncedAtMillis).isEqualTo(now.toEpochMilli())
+        // Nothing asked of it: it has nothing to give.
+        assertThat(api.calls.count { it.startsWith("threads") }).isEqualTo(1)
+    }
+
+    @Test
     fun sync_caches_threads_newest_first() = runTest {
         signIn()
         api.threads = listOf(

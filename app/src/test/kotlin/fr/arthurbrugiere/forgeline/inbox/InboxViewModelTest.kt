@@ -439,6 +439,24 @@ class InboxViewModelTest {
     }
 
     @Test
+    fun an_inbox_of_forges_without_notifications_says_so() = test {
+        val sourceHut = ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.SOURCEHUT, "git.sr.ht")
+        val alone = accounts.signIn(sourceHut, ForgeUser("~me", null, null), "s")
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.silentForges).containsExactly(sourceHut)
+
+        // Beside a forge that has them, it's an Inbox like any other; that forge's tab alone says so again.
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "g")
+        settings.setSeparateInboxPerForge(true)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.silentForges).isEmpty()
+        viewModel.selectAccount(alone.id)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.silentForges).containsExactly(sourceHut)
+    }
+
+    @Test
     fun with_the_setting_on_each_account_gets_its_own_tab() = test {
         val github = accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "g")
         val codeberg = accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "c")
