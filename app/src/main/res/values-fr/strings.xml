@@ -762,6 +762,7 @@
     <string name="manage_load_failed">Impossible de charger les choix</string>
     <string name="manage_no_labels">Ce dépôt n’a aucun label.</string>
     <string name="manage_label_new">Nouveau label</string>
+    <string name="manage_filter">Filtrer</string>
     <string name="manage_label_create">Créer</string>
     <string name="manage_type">Type</string>
     <string name="manage_no_types">Ce dépôt ne nomme aucun type de ticket.</string>

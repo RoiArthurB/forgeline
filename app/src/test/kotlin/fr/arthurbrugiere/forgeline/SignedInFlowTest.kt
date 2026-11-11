@@ -156,10 +156,11 @@ class SignedInFlowTest {
         composeRule.onNodeWithText("enhancement").performClick()
         composeRule.onNodeWithText("Save").performClick()
 
-        // The sheet closed, and the header wears the label.
+        // Back on the sheet's overview, for the next change, which says the labels the forge now has.
         composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("Save")).fetchSemanticsNodes().isEmpty() }
-        waitFor("enhancement")
-        composeRule.onNodeWithText("Delete issue").assertDoesNotExist()
+        composeRule.onNodeWithText("Delete issue").assertExists()
+        // Under the Labels row and in the header beneath the sheet alike.
+        composeRule.waitUntil(FLOW_WAIT_MILLIS) { composeRule.onAllNodes(hasText("enhancement", substring = true)).fetchSemanticsNodes().size >= 2 }
     }
 
     @Test

@@ -185,6 +185,11 @@ data class ManageUiState(
     val error: ForgeError? = null,
     /** A change went through: the sheet closes on what it changed. */
     val done: Boolean = false,
+    /**
+     * How many of what a conversation carries (labels, people, milestone, kind, due day) were saved: each time, the
+     * sheet goes back to its overview, for the next one. Regression: it closed after each, to be opened again.
+     */
+    val saved: Int = 0,
     /** The label just made, or found already there, by its name: the picker ticks it. Counted, so twice is told twice. */
     val labelMade: Pair<String, Int>? = null,
 )
@@ -691,7 +696,7 @@ class IssueViewModel @AssistedInject constructor(
 
     fun loadTypes() = load({ it.types }, { repository.issueTypes(ref.repo) }) { manage, value -> manage.copy(types = value) }
 
-    fun setIssueType(name: String?) = manage({ repository.setIssueType(ref, name) })
+    fun setIssueType(name: String?) = manage({ repository.setIssueType(ref, name) }, stay = true)
 
     fun loadMilestones() = load({ it.milestones }, { repository.milestones(ref.repo) }) { manage, value -> manage.copy(milestones = value) }
 
@@ -713,7 +718,7 @@ class IssueViewModel @AssistedInject constructor(
 
     fun loadDependencies() = load({ it.dependencies }, { repository.dependencies(ref) }) { manage, value -> manage.copy(dependencies = value) }
 
-    fun setDueDate(date: LocalDate?) = manage({ repository.setDueDate(ref, date) })
+    fun setDueDate(date: LocalDate?) = manage({ repository.setDueDate(ref, date) }, stay = true)
 
     /** Starts the reader's timer on this conversation, or stops it, which records the time it ran. */
     fun toggleTimer() {
@@ -736,7 +741,7 @@ class IssueViewModel @AssistedInject constructor(
     fun removeDependency(on: IssueRef) =
         manage({ repository.removeDependency(ref, on) }) { it.copy(manage = it.manage.copy(dependencies = Loadable.Idle)) }
 
-    fun setLabels(names: List<String>) = manage({ repository.setLabels(ref, names) })
+    fun setLabels(names: List<String>) = manage({ repository.setLabels(ref, names) }, stay = true)
 
     /**
      * Makes the label [name] for the repository, and adds it to the picker's list; one already there by that name, in
@@ -765,13 +770,13 @@ class IssueViewModel @AssistedInject constructor(
 
     private var labelSerial = 0
 
-    fun setAssignees(logins: List<String>) = manage({ repository.setAssignees(ref, logins) })
+    fun setAssignees(logins: List<String>) = manage({ repository.setAssignees(ref, logins) }, stay = true)
 
-    fun setReviewers(logins: List<String>) = manage({ repository.setReviewers(ref, logins) })
+    fun setReviewers(logins: List<String>) = manage({ repository.setReviewers(ref, logins) }, stay = true)
 
     fun setDraft(draft: Boolean) = manage({ repository.setDraft(ref, draft) })
 
-    fun setMilestone(milestone: Milestone?) = manage({ repository.setMilestone(ref, milestone) })
+    fun setMilestone(milestone: Milestone?) = manage({ repository.setMilestone(ref, milestone) }, stay = true)
 
     fun toggleLocked() {
         val locked = _state.value.issue?.isLocked ?: return
@@ -797,21 +802,25 @@ class IssueViewModel @AssistedInject constructor(
         drafts.keep(ref.repo, IssueDraft(issue.title, issue.body.orEmpty()))
     }
 
-    private fun manage(change: suspend () -> ForgeResult<Unit>, reload: Boolean = true, then: (IssueUiState) -> IssueUiState = { it }) =
-        manage(change, reload) { state, _ -> then(state) }
+    private fun manage(change: suspend () -> ForgeResult<Unit>, reload: Boolean = true, stay: Boolean = false, then: (IssueUiState) -> IssueUiState = { it }) =
+        manage(change, reload, stay) { state, _ -> then(state) }
 
     /**
-     * One change at a time. Once the forge took it, the sheet closes and the conversation loads again ([reload]) so
-     * the header and the line that tells of the change come from the forge.
+     * One change at a time. Once the forge took it, the sheet closes, or goes back to its overview when it should
+     * [stay] open, and the conversation loads again ([reload]) so the header and the line that tells of the change
+     * come from the forge.
      */
-    private fun <T> manage(change: suspend () -> ForgeResult<T>, reload: Boolean, then: (IssueUiState, T) -> IssueUiState) {
+    private fun <T> manage(change: suspend () -> ForgeResult<T>, reload: Boolean, stay: Boolean = false, then: (IssueUiState, T) -> IssueUiState) {
         if (_state.value.manage.isWorking) return
         _state.update { it.copy(manage = it.manage.copy(isWorking = true, error = null)) }
         viewModelScope.launch {
             when (val result = change()) {
                 is ForgeResult.Failure -> _state.update { it.copy(manage = it.manage.copy(isWorking = false, error = result.error)) }
                 is ForgeResult.Success -> {
-                    _state.update { then(it.copy(manage = it.manage.copy(isWorking = false, done = true)), result.value) }
+                    _state.update {
+                        val manage = if (stay) it.manage.copy(isWorking = false, saved = it.manage.saved + 1) else it.manage.copy(isWorking = false, done = true)
+                        then(it.copy(manage = manage), result.value)
+                    }
                     if (reload) refresh()
                 }
             }

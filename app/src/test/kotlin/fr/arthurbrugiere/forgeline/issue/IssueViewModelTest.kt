@@ -760,7 +760,8 @@ class IssueViewModelTest {
     }
 
     @Test
-    fun a_change_closes_the_sheet_and_reloads_the_conversation() = test {
+    fun what_it_carries_saved_keeps_the_sheet_open_and_reloads_the_conversation() = test {
+        // Regression: saving labels closed the sheet, to be opened again for the assignees and again for the milestone.
         val viewModel = managing(RepoAccess.TRIAGE)
         val loadsBefore = api.calls.count { it.startsWith("issue:") }
 
@@ -770,11 +771,21 @@ class IssueViewModelTest {
 
         assertThat(api.managed).containsExactly("labels octo/repo#7: bug, question")
         assertThat(viewModel.state.value.manage.isWorking).isFalse()
-        assertThat(viewModel.state.value.manage.done).isTrue()
+        assertThat(viewModel.state.value.manage.done).isFalse()
+        assertThat(viewModel.state.value.manage.saved).isEqualTo(1)
         // The header shows what the forge now says.
         assertThat(viewModel.state.value.issue?.labels?.map { it.name }).containsExactly("bug", "question").inOrder()
         assertThat(api.calls.count { it.startsWith("issue:") }).isEqualTo(loadsBefore + 1)
+    }
 
+    @Test
+    fun a_change_of_where_it_stands_closes_the_sheet() = test {
+        val viewModel = managing(RepoAccess.TRIAGE)
+
+        viewModel.close(fr.arthurbrugiere.forgeline.core.model.CloseReason.COMPLETED)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.manage.done).isTrue()
         viewModel.manageDoneShown()
         assertThat(viewModel.state.value.manage.done).isFalse()
     }
@@ -961,7 +972,7 @@ class IssueViewModelTest {
         viewModel.setDueDate(LocalDate.parse("2026-10-10"))
         advanceUntilIdle()
         assertThat(viewModel.state.value.issue?.dueDate).isEqualTo(LocalDate.parse("2026-10-10"))
-        assertThat(viewModel.state.value.manage.done).isTrue()
+        assertThat(viewModel.state.value.manage.saved).isEqualTo(1)
 
         viewModel.setDueDate(null)
         advanceUntilIdle()

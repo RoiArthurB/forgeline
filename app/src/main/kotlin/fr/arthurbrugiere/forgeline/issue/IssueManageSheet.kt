@@ -47,6 +47,7 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -166,6 +167,14 @@ fun IssueManageContent(
     nowMillis: Long = rememberNow(state.issue),
 ) {
     var page by rememberSaveable { mutableStateOf(startPage) }
+    // Something it carries was saved: back to the overview, for the next.
+    var saved by rememberSaveable { mutableIntStateOf(state.manage.saved) }
+    LaunchedEffect(state.manage.saved) {
+        if (state.manage.saved != saved) {
+            saved = state.manage.saved
+            page = ManagePage.MENU
+        }
+    }
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
         when (page) {
             ManagePage.MENU -> Menu(state, actions, onOpen = { page = it }, onDismiss = onDismiss)
@@ -425,7 +434,8 @@ private fun LabelsPage(state: IssueUiState, actions: ManageActions, onBack: () -
     }
     PageTitle(stringResource(R.string.manage_labels), onBack)
     Choices(state.manage.labels, stringResource(R.string.manage_no_labels), actions.onLoadLabels) { labels ->
-        labels.forEach { label ->
+        val filter = choiceFilter(labels.size)
+        labels.filter { it.name.contains(filter, ignoreCase = true) }.forEach { label ->
             ChoiceRow(label.name in chosen, !state.manage.isWorking, { chosen = if (label.name in chosen) chosen - label.name else chosen + label.name }) {
                 LabelChip(label)
             }
@@ -450,7 +460,8 @@ private fun PeoplePage(title: Int, current: List<ForgeUser>, state: IssueUiState
     var chosen by rememberSaveable { mutableStateOf(current.map { it.login }) }
     PageTitle(stringResource(title), onBack)
     Choices(state.manage.assignable, stringResource(R.string.manage_no_assignable), actions.onLoadAssignable) { users ->
-        users.forEach { user ->
+        val filter = choiceFilter(users.size)
+        users.filter { it.login.contains(filter, ignoreCase = true) }.forEach { user ->
             ChoiceRow(user.login in chosen, !state.manage.isWorking, { chosen = if (user.login in chosen) chosen - user.login else chosen + user.login }) {
                 Avatar(user.avatarUrl, user.login, size = 28.dp, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
                 Spacer(Modifier.width(12.dp))
@@ -459,6 +470,21 @@ private fun PeoplePage(title: Int, current: List<ForgeUser>, state: IssueUiState
         }
         Save(state.manage.isWorking) { onSave(chosen) }
     }
+}
+
+/** Above this many choices, a field narrows them down by what is typed. */
+private const val FILTER_FROM = 10
+
+/** A field narrowing [count] choices down by name, where there are enough to need it; what it holds, or nothing. */
+@Composable
+private fun choiceFilter(count: Int): String {
+    if (count <= FILTER_FROM) return ""
+    var filter by rememberSaveable { mutableStateOf("") }
+    SoftTextField(
+        value = filter, onValueChange = { filter = it }, placeholder = stringResource(R.string.manage_filter),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+    )
+    return filter.trim()
 }
 
 /** One milestone at most, so choosing is saving: there is nothing to confirm. */

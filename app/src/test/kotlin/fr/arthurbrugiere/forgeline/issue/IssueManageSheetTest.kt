@@ -437,6 +437,35 @@ class IssueManageSheetTest {
     }
 
     @Test
+    fun saving_what_it_carries_goes_back_to_the_overview_for_the_next() {
+        setContent(page = ManagePage.LABELS)
+        composeRule.onNode(hasText("Manage") and isHeading()).assertDoesNotExist()
+
+        shown.value = owned.copy(manage = owned.manage.copy(saved = 1))
+
+        composeRule.onNode(hasText("Manage") and isHeading()).assertIsDisplayed()
+        assertThat(events).doesNotContain("dismiss")
+    }
+
+    @Test
+    fun a_long_list_of_labels_narrows_down_as_it_is_typed() {
+        val many = (1..12).map { Label("area: part $it", null) } + Label("good first issue", null)
+        setContent(owned.copy(manage = owned.manage.copy(labels = Loadable.Loaded(many))), page = ManagePage.LABELS)
+
+        composeRule.onNode(androidx.compose.ui.test.hasSetTextAction() and hasText("Filter")).performTextInput("first")
+
+        choice("good first issue").assertExists()
+        choice("area: part 3").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_short_list_has_nothing_to_narrow_down() {
+        setContent(page = ManagePage.LABELS)
+
+        composeRule.onNodeWithText("Filter").assertDoesNotExist()
+    }
+
+    @Test
     fun labels_are_chosen_then_saved_whole() {
         setContent(page = ManagePage.LABELS)
 

@@ -786,6 +786,7 @@
     <string name="manage_load_failed">Couldn\'t load the choices</string>
     <string name="manage_no_labels">This repository has no labels.</string>
     <string name="manage_label_new">New label</string>
+    <string name="manage_filter">Filter</string>
     <string name="manage_label_create">Create</string>
     <string name="manage_type">Type</string>
     <string name="manage_no_types">This repository names no issue types.</string>
