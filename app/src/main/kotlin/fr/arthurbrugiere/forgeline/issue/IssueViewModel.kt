@@ -93,6 +93,9 @@ data class IssueUiState(
     val editing: Long? = null,
     /** A comment couldn't be deleted. */
     val deleteError: ForgeError? = null,
+    /** Whether the forge lets comments be rewritten and taken back, and take reactions: SourceHut's don't. */
+    val editsComments: Boolean = true,
+    val reacts: Boolean = true,
     /** A reaction couldn't be given or taken back. */
     val reactionError: ForgeError? = null,
     /** Who the forge's API lets put a picture in a comment. */
@@ -126,10 +129,10 @@ data class IssueUiState(
     val isEditingInPlace: Boolean get() = editing != null && items.any { it is TimelineItem.Comment && it.id == editing }
 
     /** One's own words can be rewritten; nobody else's, whatever the forge would allow. */
-    fun canEdit(comment: TimelineItem.Comment): Boolean = wrote(comment.author)
+    fun canEdit(comment: TimelineItem.Comment): Boolean = editsComments && wrote(comment.author)
 
     /** One's own words can be taken back, and whoever can write to the repository may remove anyone's. */
-    fun canDelete(comment: TimelineItem.Comment): Boolean = wrote(comment.author) || (me != null && access >= RepoAccess.WRITE)
+    fun canDelete(comment: TimelineItem.Comment): Boolean = editsComments && (wrote(comment.author) || (me != null && access >= RepoAccess.WRITE))
 
     /** The title and the description are their author's to change, and whoever can write to the repository's. */
     val canEditIssue: Boolean get() = issue != null && (wrote(issue.author) || (me != null && access >= RepoAccess.WRITE))
@@ -215,7 +218,10 @@ class IssueViewModel @AssistedInject constructor(
         repository.cached(ref).let { cached ->
             // The draft outlives the screen and the app being stopped: a comment half written is not to be typed again.
             val draft = savedState.get<String>(DRAFT_KEY)?.takeIf { it.isNotEmpty() } ?: drafts.comment(ref)
-            IssueUiState(ref, cached?.issue, cached?.firstPage?.items.orEmpty(), cached?.firstPage?.nextPage, cached?.firstPage?.lastPage, draft = draft)
+            IssueUiState(
+                ref, cached?.issue, cached?.firstPage?.items.orEmpty(), cached?.firstPage?.nextPage, cached?.firstPage?.lastPage, draft = draft,
+                editsComments = repository.editsComments(ref.repo.forge), reacts = repository.reacts(ref.repo.forge),
+            )
         },
     )
     val state: StateFlow<IssueUiState> = _state.asStateFlow()

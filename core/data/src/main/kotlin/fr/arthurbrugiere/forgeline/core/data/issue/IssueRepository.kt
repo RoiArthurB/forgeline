@@ -149,6 +149,12 @@ interface IssueRepository {
     /** Whether [forge] keeps replies its users saved, and the signed-in reader's. */
     fun keepsSavedReplies(forge: ForgeInstance): Boolean
 
+    /** Whether comments can be rewritten and taken back on [forge]. */
+    fun editsComments(forge: ForgeInstance): Boolean = true
+
+    /** Whether conversations and comments take reactions on [forge]. */
+    fun reacts(forge: ForgeInstance): Boolean = true
+
     suspend fun savedReplies(forge: ForgeInstance): ForgeResult<List<SavedReply>>
 
     /** The kinds of issue [repo]'s owner named, and setting one on an issue by its name (none when null). */
@@ -465,6 +471,10 @@ class DefaultIssueRepository @Inject constructor(
     override suspend fun labels(repo: RepoId) = signedIn(repo.forge) { labels(it, repo) }
 
     override fun keepsSavedReplies(forge: ForgeInstance) = clients.issues(forge).keepsSavedReplies
+
+    override fun editsComments(forge: ForgeInstance) = clients.issues(forge).editsComments
+
+    override fun reacts(forge: ForgeInstance) = clients.issues(forge).reacts
 
     override suspend fun savedReplies(forge: ForgeInstance) = signedIn(forge) { savedReplies(it) }
 

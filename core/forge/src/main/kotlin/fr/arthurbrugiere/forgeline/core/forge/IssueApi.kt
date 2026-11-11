@@ -145,6 +145,12 @@ interface IssueApi {
     /** Whether comments can be hidden here, saying why, by those who moderate the conversation. */
     val hidesComments: Boolean get() = false
 
+    /** Whether a comment can be rewritten and taken back here ([editComment], [deleteComment]): not on SourceHut. */
+    val editsComments: Boolean get() = false
+
+    /** Whether a conversation and its comments take reactions here ([toggleReaction]): not on SourceHut. */
+    val reacts: Boolean get() = false
+
     /** Hides [comment] of [ref] for [reason], or shows it again when that is null. */
     suspend fun setCommentHidden(token: String, ref: IssueRef, comment: TimelineItem.Comment, reason: HideReason?): ForgeResult<Unit> = unsupported
 

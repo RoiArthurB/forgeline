@@ -297,6 +297,10 @@ class FakeIssueApi : IssueApi {
 
     override var hidesComments: Boolean = true
 
+    override var editsComments: Boolean = true
+
+    override var reacts: Boolean = true
+
     /** Hides the comment in the pages kept, as a forge then tells it. */
     override suspend fun setCommentHidden(token: String, ref: IssueRef, comment: TimelineItem.Comment, reason: HideReason?) =
         manage(token, "hide ${ref.label} comment ${comment.id}: $reason") {

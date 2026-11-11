@@ -629,7 +629,7 @@ fun IssueScreen(
                                         onEdit = comments.onEditIssue.takeIf { state.canEditIssue },
                                         onDelete = null,
                                         // Reacting takes an account, not the right to comment: a locked conversation still takes them.
-                                        onReact = if (canComment) ({ reaction -> comments.onReact(null, reaction) }) else null,
+                                        onReact = if (canComment && state.reacts) ({ reaction -> comments.onReact(null, reaction) }) else null,
                                     ),
                                 )
                             }
@@ -643,7 +643,7 @@ fun IssueScreen(
                                         onQuote = if (canWrite) ({ comments.onQuote(comment.body) }) else null,
                                         onEdit = if (canWrite && state.canEdit(comment)) ({ comments.onEdit(comment.id) }) else null,
                                         onDelete = if (state.canDelete(comment)) ({ deleting = comment.id }) else null,
-                                        onReact = if (canComment) ({ reaction -> comments.onReact(comment.id, reaction) }) else null,
+                                        onReact = if (canComment && state.reacts) ({ reaction -> comments.onReact(comment.id, reaction) }) else null,
                                         onHide = if (comment.canHide && comment.hidden == null) ({ hiding = comment.id }) else null,
                                         onUnhide = if (comment.canHide && comment.hidden != null) ({ comments.onSetHidden(comment.id, null) }) else null,
                                     )

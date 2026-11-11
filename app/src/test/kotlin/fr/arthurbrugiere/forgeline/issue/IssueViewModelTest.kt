@@ -51,6 +51,17 @@ class IssueViewModelTest {
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
     @Test
+    fun what_the_forge_does_to_comments_comes_from_it() {
+        api.editsComments = false
+        api.reacts = false
+
+        val state = IssueViewModel(ref, repository, SavedStateHandle(), drafts).state.value
+
+        assertThat(state.editsComments).isFalse()
+        assertThat(state.reacts).isFalse()
+    }
+
+    @Test
     fun loads_the_issue_and_its_conversation() = test {
         api.issues[ref] = issueDetails(ref)
         api.pages[ref to 1] = TimelinePage(listOf(comment(1, "First")), nextPage = 2)

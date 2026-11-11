@@ -331,6 +331,10 @@ class GitHubIssueApi(
         ).toResult { body<CommentJson>().toModel() }
     }
 
+    override val editsComments: Boolean = true
+
+    override val reacts: Boolean = true
+
     override suspend fun editComment(token: String, ref: IssueRef, commentId: Long, body: String): ForgeResult<Unit> = forgeCall {
         httpClient.gitHubApi(
             apiBaseUrl, token, "repos", ref.repo.owner, ref.repo.name, "issues", "comments", commentId.toString(),

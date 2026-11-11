@@ -148,6 +148,19 @@ class CommentActionsScreenTest {
     }
 
     @Test
+    fun a_forge_whose_comments_stay_as_sent_offers_neither_to_rewrite_nor_react() {
+        // Regression: on SourceHut, editing, deleting and reacting were offered, and each failed.
+        setContent(opened.copy(editsComments = false, reacts = false))
+
+        openMenu(2)
+
+        assertThat(offered("Edit")).isFalse()
+        assertThat(offered("Delete")).isFalse()
+        composeRule.onNode(hasContentDescription("Rocket")).assertDoesNotExist()
+        assertThat(offered("Quote reply")).isTrue()
+    }
+
+    @Test
     fun deleting_a_comment_is_asked_about_first() {
         setContent()
         openMenu(2)

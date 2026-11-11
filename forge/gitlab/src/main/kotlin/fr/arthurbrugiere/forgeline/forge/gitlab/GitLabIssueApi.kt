@@ -220,6 +220,10 @@ class GitLabIssueApi(
         ).toResult { body<GitLabNoteJson>().toComment() }
     }
 
+    override val editsComments: Boolean = true
+
+    override val reacts: Boolean = true
+
     override suspend fun editComment(token: String, ref: IssueRef, commentId: Long, body: String): ForgeResult<Unit> = forgeCall {
         httpClient.gitlabApi(
             ref.repo.forge, token, "projects", ref.repo.fullName, targetKind(ref), ref.number.toString(), "notes", commentId.toString(),
