@@ -4,6 +4,7 @@ import fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoSnapshot
 import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
@@ -168,4 +169,12 @@ class FakeRepoRepository : RepoRepository {
     override fun rawBaseUrl(id: RepoId, ref: String) = "https://raw.example/${id.fullName}/$ref/"
 
     override fun blobBaseUrl(id: RepoId, ref: String) = "https://blob.example/${id.fullName}/$ref/"
+
+    /** What the forge offers; everything unless a test says otherwise. */
+    var history = true
+    var settings = true
+
+    override fun hasHistory(forge: ForgeInstance) = history
+
+    override fun hasSettings(forge: ForgeInstance) = settings
 }

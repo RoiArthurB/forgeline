@@ -11,6 +11,9 @@ import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
 interface RepoSettingsApi {
     suspend fun settings(token: String, repo: RepoId): ForgeResult<RepoSettings>
 
+    /** Whether a repository's settings can be read and changed here at all: Tangled's and SourceHut's can't. */
+    val isSupported: Boolean get() = true
+
     /** Makes [change], and answers the settings as the forge then has them. */
     suspend fun change(token: String, repo: RepoId, change: RepoSettingsChange): ForgeResult<RepoSettings>
 

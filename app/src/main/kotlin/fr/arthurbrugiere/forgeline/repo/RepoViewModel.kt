@@ -102,8 +102,10 @@ data class RepoUiState(
     val refs: Loadable<GitRefs> = Loadable.Idle,
     /** The README at [ref]; only the default branch's README is cached. */
     val refReadme: Loadable<Readme?> = Loadable.Idle,
-    /** Whether the signed-in account administers the repository: its settings are then one tap away. */
+    /** Whether the signed-in account administers the repository, where its forge has settings to change: one tap away. */
     val canAdminister: Boolean = false,
+    /** Whether the forge lists the commits of what the Code tab shows. */
+    val hasHistory: Boolean = true,
     /** A workflow was just started by hand, to say so once. */
     val workflowStarted: Boolean = false,
     /** What the code is written in, largest share first; empty until known, or when the forge can't say. */
@@ -146,7 +148,7 @@ class RepoViewModel @AssistedInject constructor(
     }
 
     private val snapshot = repos.observe(requested)
-    private val local = MutableStateFlow(RepoUiState(requested))
+    private val local = MutableStateFlow(RepoUiState(requested, hasHistory = repos.hasHistory(requested.forge)))
 
     val state: StateFlow<RepoUiState> = combine(snapshot, local) { snapshot, local ->
         val details = snapshot.details
@@ -184,7 +186,8 @@ class RepoViewModel @AssistedInject constructor(
                     viewModelScope.launch {
                         // Asked once the details are in, which tell it: asked alongside, it was a second request for them.
                         firstRefresh.await()
-                        val administers = account != null && conversations.access(id) == RepoAccess.ADMIN
+                        // A tracker's owner administers it on SourceHut, but the forge has no settings for the app to change.
+                        val administers = account != null && repos.hasSettings(id.forge) && conversations.access(id) == RepoAccess.ADMIN
                         local.update { it.copy(canAdminister = administers) }
                     }
                 }

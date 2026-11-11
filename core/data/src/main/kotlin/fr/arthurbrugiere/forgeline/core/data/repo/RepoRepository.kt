@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
@@ -109,6 +110,12 @@ interface RepoRepository {
     fun rawBaseUrl(id: RepoId, ref: String): String
 
     fun blobBaseUrl(id: RepoId, ref: String): String
+
+    /** Whether [forge] lists the commits of a repository or a file: its history is offered only then. */
+    fun hasHistory(forge: ForgeInstance): Boolean = true
+
+    /** Whether [forge] lets a repository's settings be read and changed here: offered to who administers only then. */
+    fun hasSettings(forge: ForgeInstance): Boolean = true
 }
 
 // One for the whole app: the releases a repository's list loaded are what a release's page opens from.
@@ -251,6 +258,10 @@ class DefaultRepoRepository @Inject constructor(
     override fun rawBaseUrl(id: RepoId, ref: String) = clients.repos(id.forge).rawBaseUrl(id, ref)
 
     override fun blobBaseUrl(id: RepoId, ref: String) = clients.repos(id.forge).blobBaseUrl(id, ref)
+
+    override fun hasHistory(forge: ForgeInstance) = clients.pulls(forge).supportsHistory
+
+    override fun hasSettings(forge: ForgeInstance) = clients.repoSettings(forge).isSupported
 
     companion object {
         private val MAX_AGE = 30.minutes

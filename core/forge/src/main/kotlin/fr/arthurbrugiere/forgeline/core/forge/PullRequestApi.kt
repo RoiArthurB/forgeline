@@ -162,6 +162,9 @@ interface PullRequestApi {
     /** Whether [blame] can be asked here: Forgejo's API has none. */
     val supportsBlame: Boolean get() = false
 
+    /** Whether [history] can be asked here: Tangled's and SourceHut's clients have none. */
+    val supportsHistory: Boolean get() = true
+
     /**
      * Which commit last changed each line of the file [path] as it is at [ref], top to bottom. GitHub only tells
      * signed-in users (Unauthorized without a token).

@@ -46,6 +46,8 @@ data class FileUiState(
     val readmeContext: ReadmeContext,
     /** Whether the forge can say which commit last changed each line: Forgejo's API can't. */
     val canBlame: Boolean = false,
+    /** Whether the forge lists the commits that changed the file: Tangled's and SourceHut's clients can't. */
+    val hasHistory: Boolean = true,
 )
 
 @HiltViewModel(assistedFactory = FileViewModel.Factory::class)
@@ -65,6 +67,7 @@ class FileViewModel @AssistedInject constructor(
             target = target,
             webUrl = repos.blobBaseUrl(target.id, target.ref) + target.path,
             canBlame = pulls.supportsBlame(target.id.forge),
+            hasHistory = repos.hasHistory(target.id.forge),
             readmeContext = ReadmeContext(
                 rawBaseUrl = repos.rawBaseUrl(target.id, target.ref),
                 blobBaseUrl = repos.blobBaseUrl(target.id, target.ref),

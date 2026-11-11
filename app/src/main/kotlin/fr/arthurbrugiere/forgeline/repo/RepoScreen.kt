@@ -399,7 +399,7 @@ fun RepoScreen(
                                 })
                             }
                         }
-                        if (state.tab == RepoTab.CODE && !unpushed) {
+                        if (state.tab == RepoTab.CODE && !unpushed && state.hasHistory) {
                             item(key = "history") {
                                 Row(RowModifier.padding(horizontal = 20.dp, vertical = 4.dp)) {
                                     SoftTonalButton(stringResource(R.string.history_open), onClick = onOpenHistory)

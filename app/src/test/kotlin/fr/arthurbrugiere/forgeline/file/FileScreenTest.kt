@@ -90,6 +90,13 @@ class FileScreenTest {
     }
 
     @Test
+    fun a_file_on_a_forge_without_a_history_offers_none() {
+        setContent(state("src/Main.kt", Loadable.Loaded(FileContent.Text("fun main() {}\n"))).copy(hasHistory = false))
+
+        composeRule.onNodeWithText("History").assertDoesNotExist()
+    }
+
+    @Test
     fun a_file_that_is_not_text_has_a_history_and_no_blame() {
         setContent(state("logo.bin", Loadable.Loaded(FileContent.Binary)).copy(canBlame = true))
 

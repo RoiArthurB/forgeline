@@ -61,6 +61,8 @@ open class UnsupportedIssueApi : IssueApi {
 }
 
 open class UnsupportedPullRequestApi : PullRequestApi {
+    override val supportsHistory: Boolean get() = false
+
     override suspend fun files(token: String?, ref: IssueRef, page: Int): ForgeResult<ChangedFiles> = unsupported()
 
     override suspend fun commits(token: String?, ref: IssueRef): ForgeResult<List<Commit>> = unsupported()
@@ -81,6 +83,8 @@ open class UnsupportedPullRequestApi : PullRequestApi {
 }
 
 open class UnsupportedRepoSettingsApi : RepoSettingsApi {
+    override val isSupported: Boolean get() = false
+
     override suspend fun settings(token: String, repo: RepoId): ForgeResult<RepoSettings> = unsupported()
 
     override suspend fun change(token: String, repo: RepoId, change: RepoSettingsChange): ForgeResult<RepoSettings> = unsupported()

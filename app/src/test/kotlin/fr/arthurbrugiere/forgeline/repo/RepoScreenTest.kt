@@ -494,6 +494,14 @@ class RepoScreenTest {
     }
 
     @Test
+    fun a_forge_without_a_history_offers_none() {
+        // Regression: on Tangled and SourceHut, History led to "this forge doesn't offer this".
+        setContent(loaded.copy(tab = RepoTab.CODE, code = CodeState("src", Loadable.Loaded(emptyList())), hasHistory = false))
+
+        composeRule.onNodeWithText("History").assertDoesNotExist()
+    }
+
+    @Test
     fun the_code_tab_leads_to_the_history_of_what_it_shows() {
         setContent(loaded.copy(tab = RepoTab.CODE, code = CodeState("src", Loadable.Loaded(emptyList()))))
 

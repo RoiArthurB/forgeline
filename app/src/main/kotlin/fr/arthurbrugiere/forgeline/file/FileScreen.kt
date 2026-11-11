@@ -178,7 +178,7 @@ fun FileScreen(
                 }
                 // Where the file comes from: who changed it, and for text, who last left each line.
                 FlowRow(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SoftTonalButton(stringResource(R.string.history_open), onClick = onOpenHistory)
+                    if (state.hasHistory) SoftTonalButton(stringResource(R.string.history_open), onClick = onOpenHistory)
                     if (state.canBlame && content is Loadable.Loaded && content.value is FileContent.Text) {
                         SoftTonalButton(stringResource(R.string.blame_open), onClick = onOpenBlame)
                     }

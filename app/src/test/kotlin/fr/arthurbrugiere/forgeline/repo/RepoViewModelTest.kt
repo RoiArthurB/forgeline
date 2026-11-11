@@ -108,6 +108,22 @@ class RepoViewModelTest {
         assertThat(viewModel.state.value.starred).isNotNull()
     }
 
+    @Test
+    fun who_administers_a_repository_on_a_forge_without_its_settings_is_not_offered_them() = test {
+        // Regression: a SourceHut tracker's owner administers it, and the gear opened "this forge doesn't offer this".
+        cache()
+        repos.settings = false
+        repos.history = false
+        issueApi.access[requested] = fr.arthurbrugiere.forgeline.core.model.RepoAccess.ADMIN
+        accounts.signIn(fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitHub, fr.arthurbrugiere.forgeline.core.model.ForgeUser("owner", null, null), "tok")
+
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.canAdminister).isFalse()
+        assertThat(viewModel.state.value.hasHistory).isFalse()
+    }
+
     // Regression: whether the repository is starred and whether it is watched were two requests, on GitHub too.
     @Test
     fun whether_it_is_starred_and_watched_is_asked_at_once() = test {
