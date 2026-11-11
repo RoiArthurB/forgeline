@@ -34,6 +34,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
@@ -44,6 +45,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.file.FileTarget
 import fr.arthurbrugiere.forgeline.navigation.BlameRoute
 import fr.arthurbrugiere.forgeline.repo.Loadable
+import fr.arthurbrugiere.forgeline.ui.HeaderRepoLink
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import fr.arthurbrugiere.forgeline.ui.lineNumberWidth
 import fr.arthurbrugiere.forgeline.ui.message
@@ -51,11 +53,11 @@ import fr.arthurbrugiere.forgeline.ui.rememberNow
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 
 @Composable
-fun BlameRoute(route: BlameRoute, onBack: () -> Unit, onOpenCommit: (String) -> Unit, onSignIn: () -> Unit) {
+fun BlameRoute(route: BlameRoute, onBack: () -> Unit, onOpenCommit: (String) -> Unit, onSignIn: () -> Unit, onOpenRepo: ((RepoId) -> Unit)? = null) {
     val target = FileTarget(route.repo, route.path, route.ref)
     val viewModel = hiltViewModel<BlameViewModel, BlameViewModel.Factory>(key = "blame-$route") { it.create(target) }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    BlameScreen(state, onBack = onBack, onRetry = viewModel::retry, onOpenCommit = onOpenCommit, onSignIn = onSignIn)
+    BlameScreen(state, onBack = onBack, onRetry = viewModel::retry, onOpenCommit = onOpenCommit, onSignIn = onSignIn, onOpenRepo = onOpenRepo?.let { open -> { open(target.id) } })
 }
 
 /**
@@ -70,6 +72,8 @@ fun BlameScreen(
     onOpenCommit: (String) -> Unit,
     onSignIn: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens the file's repository; null where there is no page for it. */
+    onOpenRepo: (() -> Unit)? = null,
     nowMillis: Long = rememberNow(state.blocks),
 ) {
     val colors = Soft.colors
@@ -89,7 +93,12 @@ fun BlameScreen(
                     title = stringResource(R.string.blame_title),
                     onBack = onBack,
                     backDescription = stringResource(R.string.navigate_up),
-                    content = { Text("${state.target.path} · ${state.target.ref}", style = Soft.type.secondary, color = Soft.colors.inkMuted) },
+                    content = {
+                        Column {
+                            if (onOpenRepo != null) HeaderRepoLink(state.target.id.fullName, onClick = onOpenRepo)
+                            Text("${state.target.path} · ${state.target.ref}", style = Soft.type.secondary, color = Soft.colors.inkMuted)
+                        }
+                    },
                 )
             }
             when (val blocks = state.blocks) {

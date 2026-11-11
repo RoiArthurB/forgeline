@@ -41,14 +41,24 @@ class BlameAndNewPullRequestScreenTest {
     private val tools = RepoId("octo", "tools")
     private val file = FileTarget(tools, "src/Main.kt", "main")
 
-    private fun blame(blocks: Loadable<List<BlameBlock>>) = composeRule.setContent {
+    private fun blame(blocks: Loadable<List<BlameBlock>>, onOpenRepo: (() -> Unit)? = null) = composeRule.setContent {
         ForgelineTheme {
             BlameScreen(
                 BlameUiState(file, blocks),
                 onBack = { events += "back" }, onRetry = { events += "retry" }, onOpenCommit = { events += "commit:$it" }, onSignIn = { events += "sign-in" },
+                onOpenRepo = onOpenRepo,
                 nowMillis = Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
             )
         }
+    }
+
+    @Test
+    fun blame_leads_on_to_its_repository() {
+        blame(Loadable.Loaded(emptyList()), onOpenRepo = { events += "repo" })
+
+        composeRule.onNodeWithText("octo/tools").performClick()
+
+        assertThat(events).containsExactly("repo")
     }
 
     @Test

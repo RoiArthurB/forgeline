@@ -190,14 +190,14 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
             fr.arthurbrugiere.forgeline.pull.CheckRoute(key, onBack = navigator::goBack, onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = { openUser(key.repo.forge, it) })
         }
         entry<fr.arthurbrugiere.forgeline.navigation.BlameRoute> { key ->
-            fr.arthurbrugiere.forgeline.pull.BlameRoute(key, onBack = navigator::goBack, onOpenCommit = { sha -> navigator.navigate(key.repo.commitRoute(sha)) }, onSignIn = signIn)
+            fr.arthurbrugiere.forgeline.pull.BlameRoute(key, onBack = navigator::goBack, onOpenCommit = { sha -> navigator.navigate(key.repo.commitRoute(sha)) }, onSignIn = signIn, onOpenRepo = openRepo)
         }
         entry<fr.arthurbrugiere.forgeline.navigation.NewPullRequestRoute> { key ->
             fr.arthurbrugiere.forgeline.pull.NewPullRequestRoute(key, onBack = navigator::goBack, onCreated = { navigator.replaceCurrent(it.route()) })
         }
         entry<fr.arthurbrugiere.forgeline.navigation.ChangesRoute> { key -> fr.arthurbrugiere.forgeline.pull.ChangesRoute(key, onBack = navigator::goBack) }
         entry<fr.arthurbrugiere.forgeline.navigation.CommitsRoute> { key ->
-            fr.arthurbrugiere.forgeline.pull.CommitsRoute(key, onBack = navigator::goBack, onOpenCommit = { sha -> navigator.navigate(key.repo.commitRoute(sha)) })
+            fr.arthurbrugiere.forgeline.pull.CommitsRoute(key, onBack = navigator::goBack, onOpenCommit = { sha -> navigator.navigate(key.repo.commitRoute(sha)) }, onOpenRepo = openRepo)
         }
         entry<NewIssueKey> { key ->
             NewIssueDestination(

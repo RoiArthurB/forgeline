@@ -69,6 +69,7 @@ import fr.arthurbrugiere.forgeline.navigation.RepoRoute
 import fr.arthurbrugiere.forgeline.navigation.UserRoute
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.repo.Loadable
+import fr.arthurbrugiere.forgeline.ui.HeaderRepoLink
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
 import fr.arthurbrugiere.forgeline.ui.ZoomablePicture
 import fr.arthurbrugiere.forgeline.ui.lineNumberWidth
@@ -121,6 +122,7 @@ fun FileRoute(
         onOpenHistory = { onOpenHistory(target) },
         onOpenBlame = { onOpenBlame(target) },
         lines = route.lines,
+        onOpenRepo = { onOpenRepo(target.id) },
     )
 }
 
@@ -138,6 +140,8 @@ fun FileScreen(
     onOpenBlame: () -> Unit = {},
     /** The lines a link named, if it named any: the file opens on them, marked. */
     lines: IntRange? = null,
+    /** Opens the file's repository; null where there is no page for it. */
+    onOpenRepo: (() -> Unit)? = null,
 ) {
     val colors = Soft.colors
     val content = state.content
@@ -159,13 +163,19 @@ fun FileScreen(
         ) {
             Column {
                 Text(state.target.name, style = Soft.type.name, color = Soft.colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(
-                    "${state.target.id.fullName} · ${state.target.path}",
-                    style = Soft.type.meta,
-                    color = Soft.colors.inkMuted,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                // A file reached from a link leads on to its repository.
+                if (onOpenRepo != null) {
+                    HeaderRepoLink(state.target.id.fullName, onClick = onOpenRepo)
+                    Text(state.target.path, style = Soft.type.meta, color = Soft.colors.inkMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                } else {
+                    Text(
+                        "${state.target.id.fullName} · ${state.target.path}",
+                        style = Soft.type.meta,
+                        color = Soft.colors.inkMuted,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
                 // Where the file comes from: who changed it, and for text, who last left each line.
                 FlowRow(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     SoftTonalButton(stringResource(R.string.history_open), onClick = onOpenHistory)

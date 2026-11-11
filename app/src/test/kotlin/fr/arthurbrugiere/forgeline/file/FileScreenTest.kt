@@ -44,7 +44,7 @@ class FileScreenTest {
         readmeContext = ReadmeContext("https://raw.example/", "https://blob.example/", "docs/"),
     )
 
-    private fun setContent(state: FileUiState, lines: IntRange? = null) {
+    private fun setContent(state: FileUiState, lines: IntRange? = null, onOpenRepo: (() -> Unit)? = null) {
         composeRule.setContent {
             FileScreen(
                 state = state,
@@ -56,8 +56,19 @@ class FileScreenTest {
                 onOpenHistory = { events += "history" },
                 onOpenBlame = { events += "blame" },
                 lines = lines,
+                onOpenRepo = onOpenRepo,
             )
         }
+    }
+
+    @Test
+    fun a_file_leads_on_to_its_repository() {
+        // Regression: a file opened from a link named its repository without a way there.
+        setContent(state("src/Main.kt", Loadable.Loaded(FileContent.Text("fun main() {}\n"))), onOpenRepo = { events += "repo" })
+
+        composeRule.onNodeWithText("octo/repo").performClick()
+
+        assertThat(events).containsExactly("repo")
     }
 
     @Test

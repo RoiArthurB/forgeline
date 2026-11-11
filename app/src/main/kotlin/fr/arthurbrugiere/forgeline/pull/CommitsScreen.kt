@@ -38,6 +38,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.model.Commit
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
@@ -48,6 +49,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.navigation.CommitsRoute
 import fr.arthurbrugiere.forgeline.ui.Avatar
+import fr.arthurbrugiere.forgeline.ui.HeaderRepoLink
 import fr.arthurbrugiere.forgeline.ui.LocalBottomBarSpace
 import fr.arthurbrugiere.forgeline.ui.SayOnce
 import fr.arthurbrugiere.forgeline.ui.message
@@ -56,11 +58,14 @@ import fr.arthurbrugiere.forgeline.ui.rememberNow
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 
 @Composable
-fun CommitsRoute(route: CommitsRoute, onBack: () -> Unit, onOpenCommit: (String) -> Unit) {
+fun CommitsRoute(route: CommitsRoute, onBack: () -> Unit, onOpenCommit: (String) -> Unit, onOpenRepo: ((RepoId) -> Unit)? = null) {
     val target = route.target
     val viewModel = hiltViewModel<CommitsViewModel, CommitsViewModel.Factory>(key = "commits-$route") { it.create(target) }
     val state by viewModel.state.collectAsStateWithLifecycle()
-    CommitsScreen(state, onBack = onBack, onRefresh = viewModel::refresh, onLoadMore = viewModel::loadMore, onErrorShown = viewModel::errorShown, onOpenCommit = onOpenCommit)
+    CommitsScreen(
+        state, onBack = onBack, onRefresh = viewModel::refresh, onLoadMore = viewModel::loadMore, onErrorShown = viewModel::errorShown, onOpenCommit = onOpenCommit,
+        onOpenRepo = onOpenRepo?.let { open -> { open(target.repo) } },
+    )
 }
 
 /** The commits of a pull request, or a history: of a repository from a ref, or of one file. A commit opens on what it changed. */
@@ -73,6 +78,8 @@ fun CommitsScreen(
     onErrorShown: () -> Unit,
     onOpenCommit: (String) -> Unit,
     modifier: Modifier = Modifier,
+    /** Opens the repository a history is of; null where there is no page for it. */
+    onOpenRepo: (() -> Unit)? = null,
     nowMillis: Long = rememberNow(state.commits),
 ) {
     val colors = Soft.colors
@@ -94,12 +101,19 @@ fun CommitsScreen(
                     onBack = onBack,
                     backDescription = stringResource(R.string.navigate_up),
                     content = {
-                        val about = when (target) {
-                            is CommitsTarget.Pull -> target.ref.label()
-                            // What the history is of, then where it is read from.
-                            is CommitsTarget.History -> listOfNotNull(target.path ?: target.repo.fullName, target.ref).joinToString(" · ")
+                        when {
+                            target is CommitsTarget.Pull -> Text(target.ref.label(), style = Soft.type.secondary, color = Soft.colors.inkMuted)
+                            // A history leads on to its repository, then says what it is of and where it is read from.
+                            target is CommitsTarget.History && onOpenRepo != null -> Column {
+                                HeaderRepoLink(target.repo.fullName, onClick = onOpenRepo)
+                                Text(listOfNotNull(target.path, target.ref).joinToString(" · "), style = Soft.type.secondary, color = Soft.colors.inkMuted)
+                            }
+                            target is CommitsTarget.History -> Text(
+                                listOfNotNull(target.path ?: target.repo.fullName, target.ref).joinToString(" · "),
+                                style = Soft.type.secondary,
+                                color = Soft.colors.inkMuted,
+                            )
                         }
-                        Text(about, style = Soft.type.secondary, color = Soft.colors.inkMuted)
                     },
                 )
             }

@@ -30,7 +30,7 @@ class CommitsScreenTest {
     private val events = mutableListOf<String>()
     private val tools = RepoId("octo", "tools")
 
-    private fun setContent(state: CommitsUiState) = composeRule.setContent {
+    private fun setContent(state: CommitsUiState, onOpenRepo: (() -> Unit)? = null) = composeRule.setContent {
         ForgelineTheme {
             CommitsScreen(
                 state,
@@ -39,6 +39,7 @@ class CommitsScreenTest {
                 onLoadMore = { events += "more" },
                 onErrorShown = {},
                 onOpenCommit = { events += "commit:$it" },
+                onOpenRepo = onOpenRepo,
                 nowMillis = Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
             )
         }
@@ -86,6 +87,16 @@ class CommitsScreenTest {
         setContent(CommitsUiState(CommitsTarget.History(tools, ref = null, path = null), commits = commits, isLoading = false))
 
         composeRule.onNodeWithText("octo/tools").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_history_leads_on_to_its_repository() {
+        setContent(CommitsUiState(CommitsTarget.History(tools, ref = "main", path = "src/Upload.kt"), commits = commits, isLoading = false), onOpenRepo = { events += "repo" })
+
+        composeRule.onNodeWithText("src/Upload.kt · main").assertIsDisplayed()
+        composeRule.onNodeWithText("octo/tools").performClick()
+
+        assertThat(events).containsExactly("repo")
     }
 
     @Test
