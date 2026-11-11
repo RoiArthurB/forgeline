@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.repo
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -266,6 +267,8 @@ fun RepoScreen(
         }
     }
     SayOnce(stringResource(R.string.repo_watch_failed).takeIf { state.watchFailed }, snackbar, onWatchFailureShown)
+    // Deep in the code, Back climbs a folder, as the parent-folder row does, before it leaves the repository.
+    BackHandler(enabled = state.tab == RepoTab.CODE && state.code.path.isNotEmpty(), onBack = onOpenParentDirectory)
     val forkFailed = state.forkError?.let { error ->
         stringResource(
             when {

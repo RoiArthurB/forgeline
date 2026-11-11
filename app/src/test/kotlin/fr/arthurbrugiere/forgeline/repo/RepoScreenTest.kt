@@ -455,6 +455,31 @@ class RepoScreenTest {
     }
 
     @Test
+    fun back_climbs_a_folder_before_it_leaves_the_repository() {
+        // Regression: Back deep in the code left the repository rather than going up a folder.
+        var dispatcher: androidx.activity.OnBackPressedDispatcher? = null
+        composeRule.setContent {
+            dispatcher = androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
+            RepoScreenUnderTest(loaded.copy(tab = RepoTab.CODE, code = CodeState("src/main", Loadable.Loaded(emptyList()))), signedIn = true)
+        }
+
+        composeRule.runOnIdle { dispatcher!!.onBackPressed() }
+
+        assertThat(events).containsExactly("up")
+    }
+
+    @Test
+    fun back_at_the_top_of_the_code_is_the_systems() {
+        var dispatcher: androidx.activity.OnBackPressedDispatcher? = null
+        composeRule.setContent {
+            dispatcher = androidx.activity.compose.LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
+            RepoScreenUnderTest(loaded.copy(tab = RepoTab.CODE, code = CodeState("", Loadable.Loaded(emptyList()))), signedIn = true)
+        }
+
+        composeRule.runOnIdle { assertThat(dispatcher!!.hasEnabledCallbacks()).isFalse() }
+    }
+
+    @Test
     fun the_code_tab_leads_to_the_history_of_what_it_shows() {
         setContent(loaded.copy(tab = RepoTab.CODE, code = CodeState("src", Loadable.Loaded(emptyList()))))
 
