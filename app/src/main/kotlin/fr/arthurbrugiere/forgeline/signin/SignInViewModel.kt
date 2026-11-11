@@ -14,6 +14,9 @@ import fr.arthurbrugiere.forgeline.core.forge.Pkce
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -176,13 +179,13 @@ class SignInViewModel @Inject constructor(
     }
 
     /**
-     * The first address under [typed] where a forge answers, and what it runs: its server's root first, then each path
-     * typed after it, for a server installed under a path (`example.org/git`). A page's address pasted whole (a
-     * repository's) still finds the forge at its root, asked first.
+     * The deepest address under [typed] where a forge answers, and what it runs: its server's root and each path typed
+     * after it are asked at once. A server installed under a path (`example.org/git`) is found there though something
+     * else answers at the root; a page's address pasted whole (a repository's) finds the forge at its root, nothing
+     * answering deeper. Regression: the root was asked first and taken, whatever stood under it.
      */
-    private suspend fun answeringServer(typed: String): Pair<String, ForgeType>? {
-        for (address in addressesIn(typed)) probe.typeOf(address)?.let { return address to it }
-        return null
+    private suspend fun answeringServer(typed: String): Pair<String, ForgeType>? = coroutineScope {
+        addressesIn(typed).map { address -> async { probe.typeOf(address)?.let { address to it } } }.awaitAll().lastOrNull { it != null }
     }
 
     fun signInWithToken(token: String) {
@@ -404,7 +407,8 @@ class SignInViewModel @Inject constructor(
         private const val DEEPEST_PATH = 2
 
         /**
-         * Where a forge may stand in the address typed: its server, then the server and each path segment after it,
+         * Where a forge may stand in the address typed: its server, then the server and each path segment after it, the
+         * shallowest first,
          * up to [DEEPEST_PATH] of them. Empty for an address that isn't one.
          */
         fun addressesIn(input: String): List<String> {

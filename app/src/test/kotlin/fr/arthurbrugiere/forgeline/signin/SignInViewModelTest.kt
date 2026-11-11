@@ -43,12 +43,15 @@ class SignInViewModelTest {
         override fun withZone(zone: ZoneId?) = this
     }
 
-    /** What each address runs, as the servers would say; any other address is a Forgejo, as before GitLab. */
+    /**
+     * What each address runs, as the servers would say; any other server is a Forgejo, as before GitLab, and nothing
+     * answers under a path (a repository's page) unless said.
+     */
     private val kinds = mutableMapOf<String, ForgeType?>()
-    private val probed = mutableListOf<String>()
+    private val probed = java.util.concurrent.CopyOnWriteArrayList<String>()
     private val probe = ForgeProbe { host ->
         probed += host
-        if (host in kinds) kinds[host] else ForgeType.FORGEJO
+        if (host in kinds) kinds[host] else ForgeType.FORGEJO.takeIf { '/' !in host }
     }
     private val hosts = FakeForgeHosts()
     private val redirectPaths = mutableListOf<String>()
@@ -480,7 +483,7 @@ class SignInViewModelTest {
         viewModel.setHost("https://example.org/git/")
         advanceUntilIdle()
 
-        assertThat(probed).containsExactly("example.org", "example.org/git").inOrder()
+        assertThat(probed).containsExactly("example.org", "example.org/git")
         assertThat(viewModel.state.value.otherType).isEqualTo(ForgeType.GITEA)
         assertThat(viewModel.state.value.address).isEqualTo("example.org/git")
 
@@ -492,13 +495,27 @@ class SignInViewModelTest {
     }
 
     @Test
-    fun a_page_s_address_pasted_whole_finds_the_forge_at_its_root_first() = test {
+    fun a_server_under_a_path_is_found_though_something_answers_at_the_root() = test {
+        // Regression: the root was asked first and taken: another forge there, or a gateway answering GitLab's way.
+        kinds["example.org"] = ForgeType.GITLAB
+        kinds["example.org/git"] = ForgeType.FORGEJO
+        val viewModel = viewModel().also { it.selectForge(SignInForge.OTHER) }
+
+        viewModel.setHost("https://example.org/git")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.otherType).isEqualTo(ForgeType.FORGEJO)
+        assertThat(viewModel.state.value.address).isEqualTo("example.org/git")
+    }
+
+    @Test
+    fun a_page_s_address_pasted_whole_finds_the_forge_at_its_root() = test {
         val viewModel = viewModel().also { it.selectForge(SignInForge.OTHER) }
 
         viewModel.setHost("https://git.example.org/alice/tool/src/branch/main")
         advanceUntilIdle()
 
-        assertThat(probed).containsExactly("git.example.org")
+        assertThat(probed).containsExactly("git.example.org", "git.example.org/alice", "git.example.org/alice/tool")
         assertThat(viewModel.state.value.address).isEqualTo("git.example.org")
     }
 
