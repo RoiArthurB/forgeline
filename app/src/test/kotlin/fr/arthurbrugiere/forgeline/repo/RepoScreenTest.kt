@@ -480,6 +480,20 @@ class RepoScreenTest {
     }
 
     @Test
+    fun links_and_submodules_say_what_they_are_and_are_not_offered_as_taps() {
+        val entries = listOf(
+            RepoFile("latest", "latest", RepoFileType.SYMLINK, 2),
+            RepoFile("vendor", "vendor", RepoFileType.SUBMODULE, 0),
+        )
+        setContent(loaded.copy(tab = RepoTab.CODE, code = CodeState("", Loadable.Loaded(entries))))
+
+        composeRule.onNodeWithText("Symbolic link").assertIsDisplayed()
+        composeRule.onNodeWithText("Submodule").assertIsDisplayed()
+        composeRule.onNode(androidx.compose.ui.test.hasText("latest") and androidx.compose.ui.test.hasClickAction()).assertDoesNotExist()
+        composeRule.onNode(androidx.compose.ui.test.hasText("vendor") and androidx.compose.ui.test.hasClickAction()).assertDoesNotExist()
+    }
+
+    @Test
     fun the_code_tab_leads_to_the_history_of_what_it_shows() {
         setContent(loaded.copy(tab = RepoTab.CODE, code = CodeState("src", Loadable.Loaded(emptyList()))))
 

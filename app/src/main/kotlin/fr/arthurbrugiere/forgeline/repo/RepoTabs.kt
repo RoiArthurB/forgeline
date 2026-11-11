@@ -214,14 +214,14 @@ internal fun LazyListScope.code(
     loadable(code.entries, R.string.repo_empty_folder, onRetry) { entries ->
         items(entries, key = { "file-${it.path}" }) { file ->
             val colors = Soft.colors
+            // A link or a submodule leads nowhere the app can follow: it says what it is, and isn't offered as a tap.
+            val opens = when (file.type) {
+                RepoFileType.DIR -> ({ onOpenDirectory(file.path) })
+                RepoFileType.FILE -> ({ onOpenFile(file) })
+                RepoFileType.SYMLINK, RepoFileType.SUBMODULE -> null
+            }
             Row(
-                RowModifier.softPressable {
-                    when (file.type) {
-                        RepoFileType.DIR -> onOpenDirectory(file.path)
-                        RepoFileType.FILE -> onOpenFile(file)
-                        RepoFileType.SYMLINK, RepoFileType.SUBMODULE -> Unit
-                    }
-                }.padding(horizontal = 12.dp, vertical = 8.dp),
+                (if (opens != null) RowModifier.softPressable(onClick = opens) else RowModifier).padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 RowIcon(
@@ -233,7 +233,14 @@ internal fun LazyListScope.code(
                     if (file.type == RepoFileType.DIR) colors.fields[1] else colors.surface,
                 )
                 Spacer(Modifier.width(14.dp))
-                Text(file.name, style = Soft.type.body, color = colors.ink)
+                Column {
+                    Text(file.name, style = Soft.type.body, color = colors.ink)
+                    when (file.type) {
+                        RepoFileType.SYMLINK -> Text(stringResource(R.string.repo_file_symlink), style = Soft.type.meta, color = colors.inkMuted)
+                        RepoFileType.SUBMODULE -> Text(stringResource(R.string.repo_file_submodule), style = Soft.type.meta, color = colors.inkMuted)
+                        else -> Unit
+                    }
+                }
             }
         }
     }

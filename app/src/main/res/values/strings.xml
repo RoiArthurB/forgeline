@@ -382,6 +382,8 @@
     <string name="repo_no_runs">No workflow runs.</string>
     <string name="repo_empty_folder">This folder is empty.</string>
     <string name="repo_parent_folder">Parent folder</string>
+    <string name="repo_file_symlink">Symbolic link</string>
+    <string name="repo_file_submodule">Submodule</string>
     <string name="run_loading">Loading this run</string>
     <string name="run_error_title">Couldn\'t open this run</string>
     <string name="run_queued">Queued</string>

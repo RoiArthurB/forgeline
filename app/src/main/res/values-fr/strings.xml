@@ -366,6 +366,8 @@
     <string name="repo_no_runs">Aucune exécution de workflow.</string>
     <string name="repo_empty_folder">Ce dossier est vide.</string>
     <string name="repo_parent_folder">Dossier parent</string>
+    <string name="repo_file_symlink">Lien symbolique</string>
+    <string name="repo_file_submodule">Sous-module</string>
     <string name="run_loading">Chargement de cette exécution</string>
     <string name="run_error_title">Impossible d’ouvrir cette exécution</string>
     <string name="run_queued">En file d’attente</string>
