@@ -69,6 +69,8 @@ class TangledUserApiTest {
 
         assertThat(repos.map { it.id }).containsExactly(RepoId("tangled.org", "core", ForgeInstance.Tangled), RepoId("tangled.org", "website", ForgeInstance.Tangled)).inOrder()
         assertThat(repos.map { it.isFork }).containsExactly(false, true).inOrder()
+        // The list doesn't say how many stars: unsaid, not 0.
+        assertThat(repos.map { it.starsKnown }).containsExactly(false, false)
         assertThat(fake.asked.last()).isEqualTo("org.tangled.repo.listRepos?limit=100&order=desc&subject=$OWNER_DID")
     }
 

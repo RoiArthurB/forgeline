@@ -94,6 +94,16 @@ class UserScreenTest {
     }
 
     @Test
+    fun a_repository_whose_stars_the_forge_didn_t_say_reads_none() {
+        // Regression: every repository on a Tangled profile read "0 stars".
+        val unsaid = repo.copy(stars = 0, starsKnown = false)
+        setContent(base.copy(repos = Loadable.Loaded(listOf(unsaid)), tab = UserTab.REPOS))
+
+        composeRule.onNodeWithText("Hello-World", substring = true, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("0 stars", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
     fun a_forge_where_nobody_stars_has_no_starred_tab() {
         val sourceHut = fr.arthurbrugiere.forgeline.core.model.ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.SOURCEHUT, "git.sr.ht")
         setContent(UserUiState("~sircmpwn", forge = sourceHut, profile = userProfile("~sircmpwn"), repos = Loadable.Loaded(listOf(repo))))

@@ -83,6 +83,7 @@ class TangledUserApi internal constructor(
             forks = 0,
             isFork = record.source != null,
             updatedAt = instant(record.createdAt),
+            starsKnown = false,
         )
     }
 
@@ -120,7 +121,7 @@ class TangledUserApi internal constructor(
         }
     }
 
-    /** Newest first. Tangled's list says neither stars nor forks: they read 0. */
+    /** Newest first. Tangled's list says neither stars nor forks: they are left unsaid. */
     override suspend fun repos(token: String?, login: String, mine: Boolean, organization: Boolean): ForgeResult<List<RepoSummary>> = forgeCall {
         val did = when (val result = identity.did(login).then(::asDid)) {
             is ForgeResult.Failure -> return@forgeCall result
@@ -137,6 +138,7 @@ class TangledUserApi internal constructor(
                     forks = 0,
                     isFork = record.source != null,
                     updatedAt = instant(record.createdAt),
+                    starsKnown = false,
                 )
             }
         }

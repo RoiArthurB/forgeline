@@ -141,7 +141,8 @@ fun RepoSummaryRow(
                         Text(language, style = Soft.type.meta, color = colors.inkMuted)
                     }
                 }
-                if (pushedNowMillis == null || repo.stars > 0) {
+                // Unsaid where the forge didn't say. Regression: Tangled's profiles read "0 stars" on every repository.
+                if (repo.starsKnown && (pushedNowMillis == null || repo.stars > 0)) {
                     Text(stringResource(R.string.trending_stars, compactCount(repo.stars)), style = Soft.type.meta, color = colors.inkMuted)
                 }
                 if (pushedNowMillis != null) {

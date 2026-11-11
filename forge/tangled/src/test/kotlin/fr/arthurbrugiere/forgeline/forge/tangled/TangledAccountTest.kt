@@ -247,6 +247,7 @@ class TangledAccountTest {
 
         assertThat(starred.map { it.id }).containsExactly(core)
         assertThat(starred.single().description).isEqualTo("Monorepo for Tangled")
+        assertThat(starred.single().starsKnown).isFalse()
     }
 
     @Test

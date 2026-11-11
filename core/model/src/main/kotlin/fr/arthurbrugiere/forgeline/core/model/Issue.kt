@@ -406,4 +406,6 @@ data class RepoSummary(
     val pushedAt: Instant? = null,
     /** Whether an organisation (a GitLab group) owns it; null where the forge doesn't say. */
     val ownerIsOrganization: Boolean? = null,
+    /** Whether [stars] was said: Tangled's lists of someone's repositories don't, and 0 there would be made up. */
+    val starsKnown: Boolean = true,
 )
