@@ -70,6 +70,8 @@ import fr.arthurbrugiere.forgeline.ui.LocalOpenRelease
 import fr.arthurbrugiere.forgeline.ui.Message
 import fr.arthurbrugiere.forgeline.ui.SayOnce
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
+import fr.arthurbrugiere.forgeline.ui.SignInToRead
+import fr.arthurbrugiere.forgeline.ui.asksToSignIn
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import fr.arthurbrugiere.forgeline.ui.loadable
 import fr.arthurbrugiere.forgeline.ui.message
@@ -180,6 +182,7 @@ fun RepoRoute(
         onStarFailureShown = viewModel::starFailureShown,
         onCollect = { collecting = true },
         collected = collections.holding.isNotEmpty(),
+        onSignIn = onSignIn,
     )
 }
 
@@ -238,6 +241,8 @@ fun RepoScreen(
     onCollect: (() -> Unit)? = null,
     /** Whether the repository is in at least one collection: its bookmark is filled. */
     collected: Boolean = false,
+    /** Signs in, where the forge shows nothing to people signed out. */
+    onSignIn: () -> Unit = {},
     nowMillis: Long = rememberNow(state.issues, state.pulls, state.pinned, state.releases, state.runs),
 ) {
     // Outside the app shell (previews, tests) the wiki opens on its forge.
@@ -361,6 +366,7 @@ fun RepoScreen(
                     }
                 }
                 when {
+                    details == null && state.error.asksToSignIn(signedIn) -> item(key = "sign-in") { SignInToRead(id.forge, onSignIn) }
                     details == null && state.error != null -> item(key = "error") {
                         SoftNotice(
                             stringResource(R.string.repo_error_title),

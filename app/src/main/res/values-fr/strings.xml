@@ -270,6 +270,8 @@
     <string name="settings_version_summary">Crédits, code source, version %1$s</string>
     <string name="settings_add_account_summary">GitHub, GitLab, Codeberg, Tangled, SourceHut, ou un serveur Forgejo ou Gitea</string>
     <string name="error_unauthorized">La forge n’accepte plus votre connexion. Reconnectez-vous depuis l’onglet Vous.</string>
+    <string name="sign_in_to_read_title">Connectez-vous pour lire %1$s</string>
+    <string name="sign_in_to_read_body">%1$s ne montre rien à qui n’est pas connecté.</string>
     <string name="you_ended_title">Votre connexion à %1$s a pris fin</string>
     <string name="you_ended_body">Forgeline ne peut plus utiliser la connexion de %2$s sur %1$s : %1$s l’a refusée, ou elle ne peut plus être lue sur cet appareil. Rien ne se synchronise pour ce compte tant que vous ne vous reconnectez pas.</string>
     <string name="you_ended_action">Se reconnecter à %1$s</string>

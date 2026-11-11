@@ -1079,6 +1079,17 @@ class IssueScreenTest {
     }
 
     @Test
+    fun a_ticket_on_a_forge_that_shows_nothing_signed_out_asks_to_sign_in() {
+        val sourceHut = fr.arthurbrugiere.forgeline.core.model.ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.SOURCEHUT, "git.sr.ht")
+        setContent(IssueUiState(IssueRef(RepoId("~sircmpwn", "aerc", sourceHut), 12), error = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unauthorized), canComment = false)
+
+        composeRule.onNodeWithText("Sign in to read SourceHut").assertIsDisplayed()
+        composeRule.onNodeWithText("Sign in").performClick()
+
+        assertThat(events).contains("signin")
+    }
+
+    @Test
     fun a_sub_issue_is_found_by_its_title_as_it_is_typed() {
         // Regression: the field took a number alone, to be known by heart.
         val subs = fr.arthurbrugiere.forgeline.core.model.SubIssues(null, emptyList())

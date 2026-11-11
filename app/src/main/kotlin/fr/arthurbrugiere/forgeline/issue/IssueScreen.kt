@@ -121,6 +121,8 @@ import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.Markdown
 import fr.arthurbrugiere.forgeline.ui.SayOnce
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
+import fr.arthurbrugiere.forgeline.ui.SignInToRead
+import fr.arthurbrugiere.forgeline.ui.asksToSignIn
 import fr.arthurbrugiere.forgeline.ui.conversationContext
 import fr.arthurbrugiere.forgeline.ui.label
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
@@ -603,6 +605,7 @@ fun IssueScreen(
                         }
                     }
                     when {
+                        issue == null && state.error.asksToSignIn(canComment) -> item(key = "sign-in") { SignInToRead(state.ref.repo.forge, onSignIn) }
                         issue == null && state.error != null -> item(key = "error") {
                             SoftNotice(
                                 stringResource(R.string.issue_error_title),

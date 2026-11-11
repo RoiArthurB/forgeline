@@ -117,6 +117,7 @@ class RepoScreenTest {
                 onErrorShown = {},
                 onStarFailureShown = {},
                 onToggleWatch = { events += "watch" },
+                onSignIn = { events += "sign-in" },
                 onOpenDiscussion = { events += "discussion:$it" },
                 onFork = { events += "fork" },
                 onWatchFailureShown = { events += "watch-failure-shown" },
@@ -491,6 +492,25 @@ class RepoScreenTest {
         composeRule.onNodeWithText("Submodule").assertIsDisplayed()
         composeRule.onNode(androidx.compose.ui.test.hasText("latest") and androidx.compose.ui.test.hasClickAction()).assertDoesNotExist()
         composeRule.onNode(androidx.compose.ui.test.hasText("vendor") and androidx.compose.ui.test.hasClickAction()).assertDoesNotExist()
+    }
+
+    @Test
+    fun a_forge_that_shows_nothing_signed_out_asks_to_sign_in() {
+        // Regression: a SourceHut link opened signed out said the forge no longer accepted a sign-in.
+        val sourceHut = fr.arthurbrugiere.forgeline.core.model.ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.SOURCEHUT, "git.sr.ht")
+        setContent(RepoUiState(RepoId("~sircmpwn", "aerc", sourceHut), error = ForgeError.Unauthorized), signedIn = false)
+
+        composeRule.onNodeWithText("Sign in to read SourceHut").assertIsDisplayed()
+        composeRule.onNodeWithText("Sign in").performClick()
+
+        assertThat(events).containsExactly("sign-in")
+    }
+
+    @Test
+    fun signed_in_a_refused_sign_in_says_it_ended() {
+        setContent(RepoUiState(id, error = ForgeError.Unauthorized), signedIn = true)
+
+        composeRule.onNodeWithText("The forge no longer accepts your sign-in", substring = true).assertIsDisplayed()
     }
 
     @Test

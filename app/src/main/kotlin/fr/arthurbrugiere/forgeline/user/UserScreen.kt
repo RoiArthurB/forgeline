@@ -79,6 +79,8 @@ import fr.arthurbrugiere.forgeline.ui.Avatar
 import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
 import fr.arthurbrugiere.forgeline.ui.RepoSummaryRow
 import fr.arthurbrugiere.forgeline.ui.ShareLinkButton
+import fr.arthurbrugiere.forgeline.ui.SignInToRead
+import fr.arthurbrugiere.forgeline.ui.asksToSignIn
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import fr.arthurbrugiere.forgeline.ui.loadable
 import fr.arthurbrugiere.forgeline.ui.message
@@ -185,6 +187,7 @@ fun UserScreen(
                 item(key = "contributions") { ContributionGraph(contributions, today = remember { java.time.LocalDate.now() }) }
             }
             when {
+                profile == null && state.error.asksToSignIn(signedIn) -> item(key = "sign-in") { SignInToRead(state.forge, onSignIn) }
                 profile == null && state.error != null -> item(key = "error") {
                     SoftNotice(
                         stringResource(R.string.user_error_title),

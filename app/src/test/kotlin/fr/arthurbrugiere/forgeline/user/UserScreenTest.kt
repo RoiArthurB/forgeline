@@ -85,6 +85,17 @@ class UserScreenTest {
     }
 
     @Test
+    fun a_profile_on_a_forge_that_shows_nothing_signed_out_asks_to_sign_in() {
+        val sourceHut = fr.arthurbrugiere.forgeline.core.model.ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.SOURCEHUT, "git.sr.ht")
+        setContent(UserUiState("~sircmpwn", forge = sourceHut, error = fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unauthorized), signedIn = false)
+
+        composeRule.onNodeWithText("Sign in to read SourceHut").assertIsDisplayed()
+        composeRule.onNodeWithText("Sign in").performClick()
+
+        assertThat(events).containsExactly("signin")
+    }
+
+    @Test
     fun a_sourcehut_login_keeps_its_own_mark() {
         val sourceHut = fr.arthurbrugiere.forgeline.core.model.ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.SOURCEHUT, "git.sr.ht")
         setContent(UserUiState("~sircmpwn", forge = sourceHut, profile = userProfile("~sircmpwn", name = "Drew"), repos = Loadable.Loaded(emptyList())))
