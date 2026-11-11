@@ -38,7 +38,8 @@ internal fun LazyListScope.workItems(state: WorkUiState, nowMillis: Long, onRefr
         }
         work == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.work_loading), rows = 4) }
         else -> {
-            if (work.isEmpty && work.failed.isEmpty() && work.pending.isEmpty()) {
+            // Nothing waiting where a forge could have said: where none could, the line below says why.
+            if (work.isEmpty && work.failed.isEmpty() && work.pending.isEmpty() && work.unsupported.size < work.forges.size) {
                 item(key = "empty") { SoftNotice(stringResource(R.string.work_empty_title), stringResource(R.string.work_empty_body)) }
             }
             WorkKind.entries.forEach { kind ->
@@ -62,6 +63,17 @@ internal fun LazyListScope.workItems(state: WorkUiState, nowMillis: Long, onRefr
                 item(key = "pending") {
                     Text(
                         stringResource(R.string.work_pending, work.pending.joinToString { it.displayName }),
+                        style = Soft.type.secondary,
+                        color = Soft.colors.inkMuted,
+                        modifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp),
+                    )
+                }
+            }
+            // A forge with no way to tell is said too, apart: there is nothing to try again.
+            if (work.unsupported.isNotEmpty()) {
+                item(key = "unsupported") {
+                    Text(
+                        stringResource(R.string.work_unsupported, work.unsupported.joinToString { it.displayName }),
                         style = Soft.type.secondary,
                         color = Soft.colors.inkMuted,
                         modifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp),

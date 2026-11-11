@@ -92,6 +92,21 @@ class WorkRepositoryTest {
     }
 
     @Test
+    fun a_forge_that_can_t_tell_is_not_called_a_failure() = runTest {
+        // Regression: SourceHut and Tangled were "couldn't be asked, pull down to try again", which never helps.
+        signInToGitHub()
+        signInToCodeberg()
+        gitHub.work[WorkKind.ASSIGNED] = listOf(found("octo/a", 1, pull = false))
+        codeberg.failure = ForgeError.Unsupported
+
+        val work = load()
+
+        assertThat(work.failed).isEmpty()
+        assertThat(work.unsupported).containsExactly(ForgeInstance.Codeberg)
+        assertThat(work.sections[WorkKind.ASSIGNED]).hasSize(1)
+    }
+
+    @Test
     fun a_forge_failing_for_one_kind_only_is_still_named() = runTest {
         signInToGitHub()
         gitHub.work[WorkKind.ASSIGNED] = listOf(found("octo/a", 1, pull = false))

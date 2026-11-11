@@ -48,7 +48,8 @@ class WorkScreenTest {
         todo: List<IssueSearchResult> = listOf(assigned),
         forges: List<ForgeInstance> = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg),
         failed: List<ForgeInstance> = emptyList(),
-    ) = Work(mapOf(WorkKind.REVIEW_REQUESTED to reviews, WorkKind.OWN_PULL_REQUESTS to mine, WorkKind.ASSIGNED to todo), forges, failed)
+        unsupported: List<ForgeInstance> = emptyList(),
+    ) = Work(mapOf(WorkKind.REVIEW_REQUESTED to reviews, WorkKind.OWN_PULL_REQUESTS to mine, WorkKind.ASSIGNED to todo), forges, failed, unsupported = unsupported)
 
     private fun setContent(state: WorkUiState) = composeRule.setContent {
         ForgelineTheme {
@@ -115,6 +116,16 @@ class WorkScreenTest {
         setContent(WorkUiState(work(emptyList(), emptyList(), emptyList()), isLoading = false))
 
         composeRule.onNodeWithText("Nothing waits on you").assertIsDisplayed()
+    }
+
+    @Test
+    fun a_forge_that_can_t_tell_says_so_and_nothing_else() {
+        val sourceHut = ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.SOURCEHUT, "git.sr.ht")
+        setContent(WorkUiState(work(emptyList(), emptyList(), emptyList(), forges = listOf(sourceHut), unsupported = listOf(sourceHut)), isLoading = false))
+
+        composeRule.onNodeWithText("SourceHut can't tell what waits on you there.").assertIsDisplayed()
+        composeRule.onNodeWithText("Nothing waits on you").assertDoesNotExist()
+        composeRule.onNode(hasText("couldn't be asked", substring = true)).assertDoesNotExist()
     }
 
     @Test

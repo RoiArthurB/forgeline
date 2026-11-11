@@ -29,6 +29,8 @@ data class Work(
     val failed: List<ForgeInstance> = emptyList(),
     /** The forges still to answer: what is here is only the others' so far. */
     val pending: List<ForgeInstance> = emptyList(),
+    /** The forges that can't tell what waits on someone (Tangled, SourceHut): not failed, they have no way to. */
+    val unsupported: List<ForgeInstance> = emptyList(),
 ) {
     val isEmpty: Boolean get() = sections.values.all { it.isEmpty() }
 }
@@ -68,7 +70,9 @@ class WorkRepository @Inject constructor(
                     // In the accounts' order, whichever answered first: the list doesn't reshuffle as forges come in.
                     val known = signedIn.mapNotNull { answered[it.id] }.flatten()
                     val pending = signedIn.filter { it.id !in answered }.map { it.forge }.distinct()
-                    val failures = known.filter { it.third is ForgeResult.Failure }
+                    // A forge that can't be asked isn't one that failed. Regression: SourceHut and Tangled were named as
+                    // servers to try again.
+                    val failures = known.filter { it.third.failed }
                     when {
                         failures.size < known.size -> send(ForgeResult.Success(work(signedIn.map { it.forge }.distinct(), known, pending)))
                         // Nothing but failures: said only once nobody is left to say otherwise.
@@ -87,8 +91,11 @@ class WorkRepository @Inject constructor(
             // Each account's list keeps its order; they are interleaved, every account's latest first.
             interleave(answers.filter { it.second == kind }.mapNotNull { (it.third as? ForgeResult.Success)?.value }).distinct()
         }
-        return Work(sections, forges, answers.filter { it.third is ForgeResult.Failure }.map { it.first }.distinct(), pending)
+        val unsupported = answers.groupBy { it.first }.filterValues { forge -> forge.all { (it.third as? ForgeResult.Failure)?.error == ForgeError.Unsupported } }.keys.toList()
+        return Work(sections, forges, answers.filter { it.third.failed }.map { it.first }.distinct(), pending, unsupported)
     }
+
+    private val ForgeResult<*>.failed: Boolean get() = this is ForgeResult.Failure && error != ForgeError.Unsupported
 
     private fun <T> interleave(lists: List<List<T>>): List<T> = buildList {
         for (rank in 0 until (lists.maxOfOrNull { it.size } ?: 0)) lists.forEach { list -> list.getOrNull(rank)?.let(::add) }
