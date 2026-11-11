@@ -18,8 +18,11 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val repository: UserSettingsRepository,
-    trending: TrendingRepository,
+    private val trending: TrendingRepository,
 ) : ViewModel() {
+    /** Whether a forge's Trending can be measured on the phone: only those are offered. */
+    fun canMeasure(forge: fr.arthurbrugiere.forgeline.core.model.ForgeInstance): Boolean = trending.canMeasure(forge)
+
     val settings: StateFlow<UserSettings> = repository.settings
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UserSettings())
 

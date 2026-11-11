@@ -292,6 +292,26 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun a_forge_that_can_t_be_measured_is_not_offered() {
+        // Regression: Tangled, SourceHut and a GitLab of one's own were offered, and measuring did nothing.
+        val tangled = ForgeInstance(ForgeType.TANGLED, "tangled.org")
+        val home = ForgeInstance(ForgeType.FORGEJO, "git.example.org")
+        val accounts = listOf(tangled, home).map { Account(Account.idFor(it, "me"), it, ForgeUser("me", null, null)) }
+        composeRule.setContent {
+            SettingsScreen(
+                session = SessionState.SignedIn(accounts[0], accounts),
+                onSignIn = {}, onSignOut = {}, settings = UserSettings(), versionName = "1.2.3",
+                onThemeModeChange = {}, onAmoledBlackChange = {}, onOpenCredits = {}, onOpenSourceCode = {}, onBack = {},
+                section = SettingsSection.TRENDING,
+                canMeasure = { it == home },
+            )
+        }
+
+        composeRule.onNodeWithText("Measure git.example.org here").assertIsDisplayed()
+        composeRule.onNodeWithText("Measure Tangled here").assertDoesNotExist()
+    }
+
+    @Test
     fun a_measured_server_says_when_it_was_last_measured() {
         val home = ForgeInstance(ForgeType.FORGEJO, "git.example.org")
         val account = Account(Account.idFor(home, "me"), home, ForgeUser("me", null, null))

@@ -34,6 +34,11 @@ class FakeTrendingRepository : TrendingRepository {
 
     override fun observeMeasuredAt(): Flow<Map<String, Long>> = measuredAt
 
+    /** The forges whose Trending can be measured on the phone; every one but GitHub unless a test says otherwise. */
+    var measurable: (ForgeInstance) -> Boolean = { it.type != fr.arthurbrugiere.forgeline.core.model.ForgeType.GITHUB }
+
+    override fun canMeasure(forge: ForgeInstance): Boolean = measurable(forge)
+
     /** Marks of pages narrowed to one forge, by period and host. */
     val forgeMarks = mutableMapOf<Pair<TrendingPeriod, String>, Pair<RepoId, Int>>()
 

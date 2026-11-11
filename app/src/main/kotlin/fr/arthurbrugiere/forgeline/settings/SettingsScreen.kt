@@ -145,6 +145,7 @@ fun SettingsRoute(
         onOpenSection = onOpenSection,
         measuredAt = measuredAt,
         onTrendingMeasuredChange = viewModel::setTrendingMeasured,
+        canMeasure = viewModel::canMeasure,
     )
 }
 
@@ -170,6 +171,8 @@ fun SettingsScreen(
     onOpenSection: (SettingsSection) -> Unit = {},
     measuredAt: Map<String, Long> = emptyMap(),
     onTrendingMeasuredChange: (host: String, measured: Boolean) -> Unit = { _, _ -> },
+    /** Whether a forge's Trending can be measured on the phone; the others aren't offered. */
+    canMeasure: (ForgeInstance) -> Boolean = { it.type != ForgeType.GITHUB },
     nowMillis: Long = rememberNow(measuredAt),
     /** Changes one of the simple choices: it is given the settings and answers them as wanted. */
     onChange: ((UserSettings) -> UserSettings) -> Unit = {},
@@ -427,8 +430,9 @@ fun SettingsScreen(
             }
             if (section == SettingsSection.TRENDING) {
                 // Only GitHub has a trending list of its own. Codeberg's and gitlab.com's are published daily for
-                // everyone; once signed in there, the phone can measure them instead, and any other server's too.
-                val forges = (session as? SessionState.SignedIn)?.accounts.orEmpty().map { it.forge }.distinct().filter { it.type != ForgeType.GITHUB }
+                // everyone; once signed in there, the phone can measure them instead, and a Forgejo or Gitea server's
+                // too. The others (a GitLab of one's own, Tangled, SourceHut) can't be: not offered.
+                val forges = (session as? SessionState.SignedIn)?.accounts.orEmpty().map { it.forge }.distinct().filter(canMeasure)
                 if (forges.isEmpty()) {
                     item { SoftNotice(stringResource(R.string.settings_trending_none_title), stringResource(R.string.settings_trending_none_body)) }
                 }

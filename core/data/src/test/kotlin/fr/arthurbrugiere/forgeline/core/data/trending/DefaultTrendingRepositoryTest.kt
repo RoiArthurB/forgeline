@@ -353,6 +353,20 @@ class DefaultTrendingRepositoryTest {
     }
 
     @Test
+    fun asking_to_measure_a_forge_that_can_t_be_keeps_its_published_list() = runTest {
+        // Regression: Tangled asked to be measured, with nothing to measure it, left Trending altogether.
+        val tangled = ForgeInstance(ForgeType.TANGLED, "tangled.org")
+        clients.put(tangled, FakeForgeClients(trending = FakeTrendingApi(), trendingMeter = null))
+        accounts.signIn(tangled, ForgeUser("me", null, null), "t")
+        assertThat(repository.canMeasure(tangled)).isFalse()
+        assertThat(repository.canMeasure(selfHosted)).isTrue()
+
+        settings.setTrendingMeasured(tangled.host, true)
+
+        assertThat(repository.observe(TrendingPeriod.DAILY).first().forges).contains(tangled)
+    }
+
+    @Test
     fun each_measurement_is_handed_the_history_the_last_one_kept() = runTest {
         accounts.signIn(selfHosted, ForgeUser("me", null, null), "t")
         settings.setTrendingMeasured(selfHosted.host, true)

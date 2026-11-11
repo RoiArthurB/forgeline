@@ -72,6 +72,9 @@ interface TrendingRepository {
     /** When each measured forge (by host) was last measured. */
     fun observeMeasuredAt(): Flow<Map<String, Long>>
 
+    /** Whether [forge]'s Trending can be measured on the phone: not GitHub's, nor a forge without a way to. */
+    fun canMeasure(forge: ForgeInstance): Boolean
+
     /**
      * Records that [repo], at [rank] (0-based) in the list as shown, was read; only ever moves the mark further down.
      * A page narrowed to [only] one forge keeps its own mark: its ranks aren't the mixed page's.
@@ -106,8 +109,13 @@ class DefaultTrendingRepository @Inject constructor(
         }
     }.distinctUntilChanged()
 
-    /** Forges measured on the phone: those the settings ask for, while signed in there. Signing out goes back to the published list. */
-    private fun measuredHere(signedIn: List<ForgeInstance>, hosts: Set<String>) = signedIn.filter { it.host in hosts }.toSet()
+    /**
+     * Forges measured on the phone: those the settings ask for, while signed in there, and that can be. Signing out
+     * goes back to the published list. Regression: a forge that can't be measured, asked for, left Trending.
+     */
+    private fun measuredHere(signedIn: List<ForgeInstance>, hosts: Set<String>) = signedIn.filter { it.host in hosts && canMeasure(it) }.toSet()
+
+    override fun canMeasure(forge: ForgeInstance): Boolean = clients.trendingMeter(forge) != null
 
     private suspend fun isMeasuredHere(forge: ForgeInstance) =
         forge in measuredHere(accounts.accounts.first().map { it.forge }, settings.settings.first().measuredTrending)
