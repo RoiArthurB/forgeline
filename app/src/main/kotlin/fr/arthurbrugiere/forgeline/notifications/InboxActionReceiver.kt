@@ -35,6 +35,17 @@ suspend fun InboxRepository.actOnNotification(action: InboxAction, accountId: St
     return run()
 }
 
+/**
+ * The thread an unread notification or widget row opened, as its account and id: opening it reads it, as opening it
+ * from the Inbox does. Null for any other link, or a thread already read.
+ */
+fun Intent.unreadThreadOpened(): Pair<String, String>? {
+    if (!getBooleanExtra(EXTRA_UNREAD, false)) return null
+    val accountId = getStringExtra(EXTRA_ACCOUNT_ID)?.takeIf { it.isNotEmpty() } ?: return null
+    val threadId = getStringExtra(EXTRA_THREAD_ID)?.takeIf { it.isNotEmpty() } ?: return null
+    return accountId to threadId
+}
+
 /** Where a notification's "Mark as read" and "Done" land: the notification goes at once, the forge is told after. */
 class InboxActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {

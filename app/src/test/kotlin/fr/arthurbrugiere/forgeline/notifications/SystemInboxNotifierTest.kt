@@ -159,6 +159,24 @@ class SystemInboxNotifierTest {
     }
 
     @Test
+    fun a_tap_names_its_thread_so_opening_it_reads_it() {
+        notifier.show(listOf(notificationThread("42", repo = "acme/rocket", title = "Launch fails").copy(unread = true, accountId = "github:github.com:me")))
+
+        val tap = shadowOf(shadowOf(manager).allNotifications.single().contentIntent).savedIntent
+
+        assertThat(tap.unreadThreadOpened()).isEqualTo("github:github.com:me" to "42")
+    }
+
+    @Test
+    fun a_thread_already_read_is_not_read_again_when_opened() {
+        notifier.show(listOf(notificationThread("42", repo = "acme/rocket", title = "Launch fails").copy(unread = false, accountId = "github:github.com:me")))
+
+        val tap = shadowOf(shadowOf(manager).allNotifications.single().contentIntent).savedIntent
+
+        assertThat(tap.unreadThreadOpened()).isNull()
+    }
+
+    @Test
     fun a_thread_never_read_carries_no_time() {
         notifier.show(listOf(notificationThread("42", repo = "acme/rocket", title = "Launch fails").copy(unread = true)))
 

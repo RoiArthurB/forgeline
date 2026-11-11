@@ -22,7 +22,9 @@ import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxRepository
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
+import fr.arthurbrugiere.forgeline.notifications.EXTRA_ACCOUNT_ID
 import fr.arthurbrugiere.forgeline.notifications.EXTRA_LAST_READ_AT
+import fr.arthurbrugiere.forgeline.notifications.EXTRA_THREAD_ID
 import fr.arthurbrugiere.forgeline.notifications.EXTRA_UNREAD
 import fr.arthurbrugiere.forgeline.notifications.inboxLink
 import kotlinx.coroutines.CoroutineScope
@@ -131,4 +133,7 @@ internal fun rowHeading(thread: NotificationThread): String =
 internal fun openThread(thread: NotificationThread): Intent =
     Intent().setData(inboxLink(thread).toUri())
         .putExtra(EXTRA_UNREAD, thread.unread)
+        // Whose thread it is and which: that account answers it, and opening it reads it.
+        .putExtra(EXTRA_ACCOUNT_ID, thread.accountId)
+        .putExtra(EXTRA_THREAD_ID, thread.id)
         .apply { thread.lastReadAt?.let { putExtra(EXTRA_LAST_READ_AT, it.toEpochMilli()) } }

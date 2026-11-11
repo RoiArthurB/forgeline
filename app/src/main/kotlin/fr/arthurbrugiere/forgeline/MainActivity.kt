@@ -30,6 +30,7 @@ import fr.arthurbrugiere.forgeline.navigation.linkRoute
 import fr.arthurbrugiere.forgeline.notifications.EXTRA_ACCOUNT_ID
 import fr.arthurbrugiere.forgeline.notifications.EXTRA_LAST_READ_AT
 import fr.arthurbrugiere.forgeline.notifications.EXTRA_UNREAD
+import fr.arthurbrugiere.forgeline.notifications.unreadThreadOpened
 import fr.arthurbrugiere.forgeline.session.SessionViewModel
 import fr.arthurbrugiere.forgeline.ui.AppTextSize
 import fr.arthurbrugiere.forgeline.ui.ForgelineApp
@@ -100,6 +101,7 @@ class MainActivity : ComponentActivity() {
         val route = linkRoute(url, intent.getBooleanExtra(EXTRA_UNREAD, false), lastReadAt)
         // A notification's thread came to one account: with several on its forge, that one answers it.
         val account = intent.getStringExtra(EXTRA_ACCOUNT_ID)?.takeIf { it.isNotEmpty() }
+        if (route != null) intent.unreadThreadOpened()?.let { (accountId, threadId) -> viewModel.threadOpened(accountId, threadId) }
         // A github.com page Forgeline can't show (settings, orgs...): hand it to the browser.
         when {
             route == null -> openInCustomTab(this, url)

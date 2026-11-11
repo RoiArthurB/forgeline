@@ -16,6 +16,7 @@ import fr.arthurbrugiere.forgeline.core.testing.FakeInboxRepository
 import fr.arthurbrugiere.forgeline.core.testing.notificationThread
 import fr.arthurbrugiere.forgeline.notifications.EXTRA_LAST_READ_AT
 import fr.arthurbrugiere.forgeline.notifications.EXTRA_UNREAD
+import fr.arthurbrugiere.forgeline.notifications.unreadThreadOpened
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -94,6 +95,14 @@ class InboxWidgetTest {
         assertThat(pull.dataString).isEqualTo("https://github.com/alice/notes/pull/7")
         // Not known when it was last read: nothing is said of it.
         assertThat(pull.hasExtra(EXTRA_LAST_READ_AT)).isFalse()
+    }
+
+    @Test
+    fun a_row_names_its_thread_so_opening_it_reads_it() {
+        // Regression: a thread opened from the widget stayed unread in the Inbox.
+        val mine = crash.copy(accountId = "github:github.com:me")
+
+        assertThat(openThread(mine).unreadThreadOpened()).isEqualTo("github:github.com:me" to "42")
     }
 
     @Test

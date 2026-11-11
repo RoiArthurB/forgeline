@@ -85,6 +85,8 @@ class SystemInboxNotifier @Inject constructor(@param:ApplicationContext private 
             .putExtra(EXTRA_UNREAD, thread.unread)
             // Whose thread it is: with several accounts on its forge, that one opens it.
             .putExtra(EXTRA_ACCOUNT_ID, thread.accountId)
+            // Which thread: opening it reads it, as opening it from the Inbox does.
+            .putExtra(EXTRA_THREAD_ID, thread.id)
             .apply { thread.lastReadAt?.let { putExtra(EXTRA_LAST_READ_AT, it.toEpochMilli()) } }
         val tap = PendingIntent.getActivity(
             context,
