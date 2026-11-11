@@ -195,7 +195,8 @@ fun UserScreen(
                 }
                 profile == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.user_loading), rows = 3, leadingDot = false) }
                 else -> {
-                    val tabs = UserTab.entries.filter { it != UserTab.README || state.readme != null }
+                    // Nobody stars anything on SourceHut: no list of stars to show. Regression: the tab said the forge couldn't.
+                    val tabs = UserTab.entries.filter { (it != UserTab.README || state.readme != null) && (it != UserTab.STARRED || state.forge.type.isSocial) }
                     stickyHeader(key = "tabs") {
                         SoftChipTabs(
                             options = tabs.map {

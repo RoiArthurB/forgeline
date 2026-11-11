@@ -94,6 +94,14 @@ class UserScreenTest {
     }
 
     @Test
+    fun a_forge_where_nobody_stars_has_no_starred_tab() {
+        val sourceHut = fr.arthurbrugiere.forgeline.core.model.ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.SOURCEHUT, "git.sr.ht")
+        setContent(UserUiState("~sircmpwn", forge = sourceHut, profile = userProfile("~sircmpwn"), repos = Loadable.Loaded(listOf(repo))))
+
+        composeRule.onNodeWithText("Starred").assertDoesNotExist()
+    }
+
+    @Test
     fun without_a_readme_there_is_no_readme_tab() {
         setContent(base)
 
