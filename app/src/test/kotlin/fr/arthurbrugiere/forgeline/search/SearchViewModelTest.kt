@@ -211,7 +211,7 @@ class SearchViewModelTest {
         viewModel.onQueryChange("tool")
         viewModel.submit()
         advanceUntilIdle()
-        assertThat(viewModel.state.value.forges).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg).inOrder()
+        assertThat(viewModel.state.value.forges).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab).inOrder()
 
         viewModel.selectForge(ForgeInstance.Codeberg)
         advanceUntilIdle()

@@ -39,10 +39,19 @@ class SearchRepositoryTest {
     }
 
     @Test
-    fun signed_in_searches_github_and_the_forges_signed_in_to() = runTest {
-        signInToCodeberg()
+    fun signed_in_to_github_alone_still_searches_the_other_public_forges() = runTest {
+        // Regression: signing in to GitHub left Codeberg and gitlab.com out of Search.
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "t-me")
 
-        assertThat(repository.forges.first()).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg).inOrder()
+        assertThat(repository.forges.first()).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab).inOrder()
+    }
+
+    @Test
+    fun signed_in_searches_the_public_forges_then_each_other_server() = runTest {
+        val own = ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.FORGEJO, "git.example.org")
+        accounts.signIn(own, ForgeUser("me", null, null), "t-own")
+
+        assertThat(repository.forges.first()).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab, own).inOrder()
     }
 
     @Test
@@ -68,7 +77,7 @@ class SearchRepositoryTest {
 
         assertThat(first.items).containsExactly(gh[0], cb[0], gh[1]).inOrder()
         assertThat(first.totalCount).isEqualTo(4)
-        assertThat(first.forges).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg).inOrder()
+        assertThat(first.forges).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab).inOrder()
         assertThat(codebergApi.tokens).containsExactly("t-codeberg")
         // Only GitHub has more: the next page asks it alone.
         assertThat(first.next).isEqualTo(SearchCursor(mapOf(ForgeInstance.GitHub to 2)))
@@ -119,7 +128,7 @@ class SearchRepositoryTest {
         assertThat(page.items.map { it.id.forge }).containsExactly(ForgeInstance.Codeberg)
         assertThat(page.forges).containsExactly(ForgeInstance.Codeberg)
         assertThat(api.calls).isEmpty()
-        assertThat(repository.forges.first()).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg).inOrder()
+        assertThat(repository.forges.first()).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab).inOrder()
     }
 
     @Test
@@ -144,7 +153,7 @@ class SearchRepositoryTest {
         clients.put(server, FakeForgeClients(search = serverApi))
         accounts.signIn(server, ForgeUser("me", null, null), "t-server")
 
-        assertThat(repository.topicForges.first()).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab, server).inOrder()
+        assertThat(repository.forges.first()).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab, server).inOrder()
         val page = (repository.topic("selfhosted", only = server) as ForgeResult.Success).value
 
         assertThat(page.items.map { it.id.fullName }).containsExactly("d/mine")

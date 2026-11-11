@@ -80,7 +80,7 @@ class TopicViewModel @AssistedInject constructor(
         _state.update { it.copy(isLoading = true, error = null) }
         loading?.cancel()
         loading = viewModelScope.launch {
-            val forges = search.topicForges.first()
+            val forges = search.forges.first()
             val only = _state.value.onlyForge
             when (val result = search.topic(_state.value.topic, cursor, only)) {
                 is ForgeResult.Failure -> _state.update { it.copy(isLoading = false, error = result.error, forges = forges) }

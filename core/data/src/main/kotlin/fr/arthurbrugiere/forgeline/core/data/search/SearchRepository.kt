@@ -26,7 +26,8 @@ data class SearchCursor(val pages: Map<ForgeInstance, Int>)
 data class MergedSearchPage<T>(val items: List<T>, val totalCount: Int, val next: SearchCursor?, val forges: List<ForgeInstance>)
 
 /**
- * One search across forges: GitHub's, always (it works signed out), and that of each forge an account is signed in to.
+ * One search across forges: the three public ones, always (they answer signed out), and that of each other server an
+ * account is signed in to.
  * Each forge's results keep their own order and are interleaved by rank: every forge's best match, then every
  * forge's second, and so on, GitHub first. Signed in, a forge is searched with its token, for the higher rate limit
  * and private results.
@@ -36,18 +37,10 @@ class SearchRepository @Inject constructor(
     private val accounts: AccountRepository,
 ) {
     /**
-     * The forges a search can ask: signed out, the three public ones, which answer without an account; signed in,
-     * GitHub, then each forge an account is signed in to.
+     * The forges a search or a topic asks: the three public ones, which answer without an account, then each other
+     * server an account is signed in to. Regression: signing in to GitHub alone left Codeberg and gitlab.com out.
      */
     val forges: Flow<List<ForgeInstance>> = accounts.accounts
-        .map { signedIn -> if (signedIn.isEmpty()) PUBLIC_FORGES else (listOf(ForgeInstance.GitHub) + signedIn.map { it.forge }).distinct() }
-        .distinctUntilChanged()
-
-    /**
-     * The forges a topic is looked for on: the three public ones, which answer signed out, then each other server an
-     * account is signed in to.
-     */
-    val topicForges: Flow<List<ForgeInstance>> = accounts.accounts
         .map { signedIn -> (PUBLIC_FORGES + signedIn.map { it.forge }).distinct() }
         .distinctUntilChanged()
 
@@ -64,7 +57,7 @@ class SearchRepository @Inject constructor(
 
     /** The repositories tagged [topic], each forge's most starred first, interleaved as a search's are. */
     suspend fun topic(topic: String, cursor: SearchCursor? = null, only: ForgeInstance? = null): ForgeResult<MergedSearchPage<RepoSummary>> =
-        search(cursor, only, topicForges) { token, page -> topic(token, topic, page) }
+        search(cursor, only) { token, page -> topic(token, topic, page) }
 
     /**
      * Reads the next page of every forge in [cursor], or the first of every forge. A forge that fails is left out of
@@ -73,10 +66,9 @@ class SearchRepository @Inject constructor(
     private suspend fun <T> search(
         cursor: SearchCursor?,
         only: ForgeInstance?,
-        among: Flow<List<ForgeInstance>> = forges,
         fetch: suspend SearchApi.(token: String?, page: Int) -> ForgeResult<SearchPage<T>>,
     ): ForgeResult<MergedSearchPage<T>> {
-        val searched = among.first().filter { only == null || it == only }.ifEmpty { listOfNotNull(only) }
+        val searched = forges.first().filter { only == null || it == only }.ifEmpty { listOfNotNull(only) }
         val pages = cursor?.pages ?: searched.associateWith { 1 }
         val results = coroutineScope {
             pages.map { (forge, page) -> async { forge to clients.search(forge).fetch(accounts.tokenOn(forge), page) } }.awaitAll()
