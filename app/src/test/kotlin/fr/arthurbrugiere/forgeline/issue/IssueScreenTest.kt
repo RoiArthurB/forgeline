@@ -74,10 +74,15 @@ class IssueScreenTest {
         }
     }
 
+    /** What the reference being typed may mean, as the view-model would offer it; and each one typed. */
+    private val offer = androidx.compose.runtime.mutableStateOf(ReferenceOffer())
+    private val typedReferences = mutableListOf<TypedReference?>()
+
     @Composable
     private fun Screen(canComment: Boolean) {
         IssueScreen(
             state = shown.value,
+            suggestions = offer.value,
             canComment = canComment,
             onDraftChange = { events += "draft:$it" }, onSendComment = { events += "send" }, onToggleOpen = { events += "toggle" }, onSignIn = { events += "signin" },
             onCommentNoticeShown = { events += "noticed" },
@@ -94,6 +99,7 @@ class IssueScreenTest {
             comments = CommentActions(
                 onSetHidden = { id, reason -> events += "hide:$id:$reason" },
                 onAddSubIssue = { events += "sub+:$it" },
+                onReferenceTyped = { typedReferences += it },
                 onRemoveSubIssue = { events += "sub-:${it.number}" },
                 onSetProjectStatus = { item, status -> events += "project:${item.title}:${status?.name}" },
                 onLoadSavedReplies = { events += "load-replies" },
@@ -1070,6 +1076,25 @@ class IssueScreenTest {
         composeRule.onNodeWithText("Add").performClick()
 
         assertThat(events).containsAtLeast("sub-:13", "sub+:14").inOrder()
+    }
+
+    @Test
+    fun a_sub_issue_is_found_by_its_title_as_it_is_typed() {
+        // Regression: the field took a number alone, to be known by heart.
+        val subs = fr.arthurbrugiere.forgeline.core.model.SubIssues(null, emptyList())
+        setContent(IssueUiState(ref, issueDetails(ref), subIssues = subs, access = RepoAccess.TRIAGE))
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Add a sub-issue"))
+        composeRule.onNodeWithText("Add a sub-issue").performClick()
+
+        composeRule.onNode(hasText("#number") and hasSetTextAction()).performTextInput("crash")
+        assertThat(typedReferences.last()).isEqualTo(TypedReference(0, '#', "crash", field = "sub-issue"))
+        // Listed under the field it is typed in, not under the comment's too.
+        offer.value = ReferenceOffer(listOf(fr.arthurbrugiere.forgeline.core.testing.issueSummary(42, "Crash on start")), field = "sub-issue")
+        composeRule.onNodeWithContentDescription("Issue #42, Crash on start").performClick()
+        composeRule.onNode(hasText("#42") and hasSetTextAction()).assertExists()
+        composeRule.onNodeWithText("Add").performClick()
+
+        assertThat(events).contains("sub+:#42")
     }
 
     @Test

@@ -25,7 +25,13 @@ val RepoId.referenceMarks: String get() = if (forge.type.numbersMergeRequestsApa
  * A reference being written: its [mark] stands at [start] in the text, and [words] is what was typed after it, up to
  * the cursor. A number, or the start of a title.
  */
-data class TypedReference(val start: Int, val mark: Char, val words: String)
+data class TypedReference(
+    val start: Int,
+    val mark: Char,
+    val words: String,
+    /** Which field it is typed in, when it isn't the comment's: only that field lists what it may mean. */
+    val field: String = "",
+)
 
 /** How much of a title is followed while it is typed after a mark: past that, it is no longer a reference. */
 private const val MAX_TYPED = 40
@@ -49,6 +55,18 @@ fun typedReference(text: String, cursor: Int, marks: String): TypedReference? {
         at--
     }
     return null
+}
+
+/**
+ * The reference written in a field that holds nothing but one (a sub-issue's, a dependency's): one typed with its mark,
+ * or words or a number alone, which can only mean a conversation of this repository. One in another repository
+ * (`owner/name#12`) is left as written.
+ */
+fun typedReferenceAlone(text: String, cursor: Int, marks: String): TypedReference? {
+    typedReference(text, cursor, marks)?.let { return it }
+    val words = text.take(cursor)
+    if (words.isBlank() || words.startsWith(' ') || words.any { it in marks || it == '/' } || cursor != text.length) return null
+    return TypedReference(0, marks.first(), "").takeIf { words.length <= MAX_TYPED }?.copy(words = words)
 }
 
 /** The text with [typed] replaced by the reference to [number], and the cursor after it, ready to go on writing. */
@@ -119,7 +137,12 @@ class ReferenceSuggestions(private val list: suspend (RepoId, pullRequests: Bool
 }
 
 /** What is offered for the reference being typed, and whether more is on its way. */
-data class ReferenceOffer(val suggestions: List<IssueSummary> = emptyList(), val isLoading: Boolean = false)
+data class ReferenceOffer(
+    val suggestions: List<IssueSummary> = emptyList(),
+    val isLoading: Boolean = false,
+    /** The field the reference was typed in ([TypedReference.field]): the others list nothing. */
+    val field: String = "",
+)
 
 /**
  * What a writing screen keeps of the reference being typed. What is known shows at once, with a sign that the forge
@@ -144,12 +167,12 @@ class ReferenceTyping(private val scope: CoroutineScope, private val suggestions
         }
         val asks = suggestions.asksForge(repo, reference)
         // Regression: nothing showed until the forge had answered, which is seconds from a far one.
-        _offer.value = ReferenceOffer(suggestions.known(repo, reference), isLoading = asks)
+        _offer.value = ReferenceOffer(suggestions.known(repo, reference), isLoading = asks, field = reference.field)
         if (!asks) return
         asking = scope.launch {
             // A title is searched for, and a search per letter would be many: the recent ones are simply listed, once.
             if (reference.words.isNotBlank()) delay(PAUSE_MILLIS)
-            _offer.value = ReferenceOffer(suggestions.suggest(repo, reference))
+            _offer.value = ReferenceOffer(suggestions.suggest(repo, reference), field = reference.field)
         }
     }
 

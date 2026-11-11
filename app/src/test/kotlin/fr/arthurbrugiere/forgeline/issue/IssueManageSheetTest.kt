@@ -300,6 +300,27 @@ class IssueManageSheetTest {
     }
 
     @Test
+    fun what_it_depends_on_is_found_by_its_title_as_it_is_typed() {
+        val typed = mutableListOf<TypedReference?>()
+        val offer = mutableStateOf(ReferenceOffer())
+        shown.value = depending()
+        composeRule.setContent {
+            IssueManageContent(
+                shown.value, actions, onDismiss = {}, startPage = ManagePage.DEPENDENCIES,
+                suggestions = offer.value, onReferenceTyped = { typed += it },
+            )
+        }
+
+        composeRule.onNode(hasSetTextAction()).performTextInput("schema")
+        assertThat(typed.last()).isEqualTo(TypedReference(0, '#', "schema", field = "dependency"))
+        offer.value = ReferenceOffer(listOf(fr.arthurbrugiere.forgeline.core.testing.issueSummary(12, "Schema first")), field = "dependency")
+        composeRule.onNodeWithContentDescription("Issue #12, Schema first").performClick()
+        composeRule.onNodeWithText("Add dependency").assertIsEnabled().performClick()
+
+        assertThat(events).containsExactly("depend:#12")
+    }
+
+    @Test
     fun an_issue_that_depends_on_nothing_says_so_and_can_t_depend_on_itself() {
         setContent(depending(), page = ManagePage.DEPENDENCIES)
         composeRule.onNodeWithText("This doesn't depend on anything yet.").assertIsDisplayed()

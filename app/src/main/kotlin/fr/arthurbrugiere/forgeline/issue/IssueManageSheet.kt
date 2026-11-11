@@ -134,7 +134,13 @@ fun IssueUiState.canManage(signedIn: Boolean): Boolean = signedIn && issue != nu
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun IssueManageSheet(state: IssueUiState, actions: ManageActions, onDismiss: () -> Unit) {
+fun IssueManageSheet(
+    state: IssueUiState,
+    actions: ManageActions,
+    onDismiss: () -> Unit,
+    suggestions: ReferenceOffer = ReferenceOffer(),
+    onReferenceTyped: (TypedReference?) -> Unit = {},
+) {
     val colors = Soft.colors
     LaunchedEffect(Unit) { actions.onOpened() }
     // A change that went through closes the sheet on what it changed.
@@ -150,7 +156,7 @@ fun IssueManageSheet(state: IssueUiState, actions: ManageActions, onDismiss: () 
         containerColor = colors.ground,
         contentColor = colors.ink,
     ) {
-        IssueManageContent(state, actions, onDismiss)
+        IssueManageContent(state, actions, onDismiss, suggestions = suggestions, onReferenceTyped = onReferenceTyped)
     }
 }
 
@@ -165,6 +171,9 @@ fun IssueManageContent(
     onDismiss: () -> Unit,
     startPage: ManagePage = ManagePage.MENU,
     nowMillis: Long = rememberNow(state.issue),
+    /** The conversations a reference being typed may mean, for what this one is blocked by. */
+    suggestions: ReferenceOffer = ReferenceOffer(),
+    onReferenceTyped: (TypedReference?) -> Unit = {},
 ) {
     var page by rememberSaveable { mutableStateOf(startPage) }
     // Something it carries was saved: back to the overview, for the next.
@@ -185,7 +194,7 @@ fun IssueManageContent(
             ManagePage.TYPE -> TypePage(state, actions) { page = ManagePage.MENU }
             ManagePage.DUE_DATE -> DueDatePage(state, actions) { page = ManagePage.MENU }
             ManagePage.TIME -> TimePage(state, actions, nowMillis) { page = ManagePage.MENU }
-            ManagePage.DEPENDENCIES -> DependenciesPage(state, actions) { page = ManagePage.MENU }
+            ManagePage.DEPENDENCIES -> DependenciesPage(state, actions, suggestions, onReferenceTyped) { page = ManagePage.MENU }
             ManagePage.TRANSFER -> TransferPage(state, actions) { page = ManagePage.MENU }
             ManagePage.DELETE -> DeletePage(state, actions) { page = ManagePage.MENU }
         }
@@ -627,7 +636,7 @@ private fun TimePage(state: IssueUiState, actions: ManageActions, nowMillis: Lon
 
 /** What this conversation waits on: each can be taken away, and another added by its number. */
 @Composable
-private fun DependenciesPage(state: IssueUiState, actions: ManageActions, onBack: () -> Unit) {
+private fun DependenciesPage(state: IssueUiState, actions: ManageActions, suggestions: ReferenceOffer, onReferenceTyped: (TypedReference?) -> Unit, onBack: () -> Unit) {
     val colors = Soft.colors
     var written by rememberSaveable { mutableStateOf("") }
     val working = state.manage.isWorking
@@ -662,9 +671,10 @@ private fun DependenciesPage(state: IssueUiState, actions: ManageActions, onBack
                 }
             }
             Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SoftTextField(
-                    written, { written = it }, stringResource(R.string.manage_dependency_example),
-                    Modifier.fillMaxWidth(), readOnly = working, label = stringResource(R.string.manage_dependency_label),
+                // By number or title in this repository; one elsewhere is written in full.
+                ReferenceField(
+                    "dependency", written, { written = it }, stringResource(R.string.manage_dependency_example), state.ref.repo.referenceMarks, suggestions, onReferenceTyped,
+                    Modifier.fillMaxWidth(), label = stringResource(R.string.manage_dependency_label), readOnly = working,
                 )
                 SoftButton(
                     stringResource(R.string.manage_dependency_add), { actions.onAddDependency(written) }, Modifier.align(Alignment.End),

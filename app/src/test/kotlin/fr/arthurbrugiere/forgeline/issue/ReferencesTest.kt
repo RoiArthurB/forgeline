@@ -35,6 +35,16 @@ class ReferencesTest {
     }
 
     @Test
+    fun a_field_of_one_reference_takes_words_or_a_number_without_a_mark() {
+        assertThat(typedReferenceAlone("crash", 5, "#")).isEqualTo(TypedReference(0, '#', "crash"))
+        assertThat(typedReferenceAlone("12", 2, "#")).isEqualTo(TypedReference(0, '#', "12"))
+        assertThat(typedReferenceAlone("#12", 3, "#")).isEqualTo(TypedReference(0, '#', "12"))
+        // One in another repository is written in full, and nothing is nothing.
+        assertThat(typedReferenceAlone("octo/tools#12", 13, "#")).isNull()
+        assertThat(typedReferenceAlone("", 0, "#")).isNull()
+    }
+
+    @Test
     fun a_mark_at_the_start_of_a_word_starts_a_reference() {
         assertThat(typed("#")).isEqualTo(TypedReference(0, '#', ""))
         assertThat(typed("Same as #12")).isEqualTo(TypedReference(8, '#', "12"))

@@ -398,7 +398,7 @@ fun IssueScreen(
 ) {
     val issue = state.issue
     var managing by rememberSaveable { mutableStateOf(false) }
-    if (managing) IssueManageSheet(state, manage, onDismiss = { managing = false })
+    if (managing) IssueManageSheet(state, manage, onDismiss = { managing = false }, suggestions = suggestions, onReferenceTyped = comments.onReferenceTyped)
     val isPullRequest = issue?.pullRequest != null
     val webUrl = state.ref.webUrl(isPullRequest)
     // Comments may link relative to the repo; HEAD resolves to the default branch on GitHub.
@@ -707,7 +707,10 @@ fun IssueScreen(
                                 val mayChange = canComment && state.access >= RepoAccess.TRIAGE
                                 if (subs.parent != null || subs.children.isNotEmpty() || mayChange) {
                                     item(key = "sub-issues") {
-                                        SubIssuesSection(subs, state.ref.repo, mayChange, onOpenIssue, comments.onAddSubIssue, comments.onRemoveSubIssue)
+                                        SubIssuesSection(
+                                            subs, state.ref.repo, mayChange, onOpenIssue, comments.onAddSubIssue, comments.onRemoveSubIssue,
+                                            suggestions = suggestions, onReferenceTyped = comments.onReferenceTyped,
+                                        )
                                     }
                                 }
                             }
@@ -894,6 +897,9 @@ private fun SubIssuesSection(
     onOpenIssue: (IssueRef) -> Unit,
     onAdd: (String) -> Unit,
     onRemove: (IssueRef) -> Unit,
+    /** The issues the number or title being typed may mean. */
+    suggestions: ReferenceOffer = ReferenceOffer(),
+    onReferenceTyped: (TypedReference?) -> Unit = {},
 ) {
     val colors = Soft.colors
     var typed by rememberSaveable { mutableStateOf("") }
@@ -937,8 +943,12 @@ private fun SubIssuesSection(
             SoftTonalButton(stringResource(R.string.issue_sub_issue_start), onClick = { adding = true }, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp))
         }
         if (mayChange && adding) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SoftTextField(value = typed, onValueChange = { typed = it }, placeholder = stringResource(R.string.issue_sub_issue_number), modifier = Modifier.weight(1f))
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // By number or title: the issues it may mean show under it as it is typed.
+                ReferenceField(
+                    "sub-issue", typed, { typed = it }, stringResource(R.string.issue_sub_issue_number), home.referenceMarks, suggestions, onReferenceTyped,
+                    Modifier.weight(1f),
+                )
                 SoftTonalButton(
                     stringResource(R.string.issue_sub_issue_add),
                     onClick = {

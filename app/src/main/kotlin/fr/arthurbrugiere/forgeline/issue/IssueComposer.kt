@@ -30,6 +30,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -187,7 +188,7 @@ internal fun Composer(
         )
         // The conversations the reference being typed may mean, right under where it is typed.
         if (!showPreview) {
-            ReferenceSuggestionList(suggestions) { picked ->
+            ReferenceSuggestionList(suggestions.takeIf { it.field.isEmpty() } ?: ReferenceOffer()) { picked ->
                 val typed = field.typedReference(marks) ?: return@ReferenceSuggestionList
                 field = field.withReference(typed, picked.number)
                 onDraftChange(field.text)
@@ -331,6 +332,51 @@ internal fun TextFieldValue.typedReference(marks: String): TypedReference? =
     if (selection.collapsed) typedReference(text, selection.end, marks) else null
 
 const val REFERENCE_SUGGESTIONS_TAG = "reference-suggestions"
+
+/**
+ * A field that holds one reference to a conversation (a sub-issue, what this one is blocked by), with the
+ * conversations it may mean listed under it as it is typed, by number or by title. Picking one writes its number.
+ */
+@Composable
+internal fun ReferenceField(
+    /** Names the field, so the suggestions it lists are those typed in it. */
+    key: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    marks: String,
+    suggestions: ReferenceOffer,
+    onReferenceTyped: (TypedReference?) -> Unit,
+    modifier: Modifier = Modifier,
+    label: String? = null,
+    readOnly: Boolean = false,
+) {
+    var field by remember { mutableStateOf(TextFieldValue(value, TextRange(value.length))) }
+    if (field.text != value) field = TextFieldValue(value, TextRange(value.length))
+    fun typed(written: TextFieldValue) = if (written.selection.collapsed) typedReferenceAlone(written.text, written.selection.end, marks)?.copy(field = key) else null
+    // Another field's suggestions aren't this one's: they go when it is left.
+    DisposableEffect(Unit) { onDispose { onReferenceTyped(null) } }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SoftTextField(
+            value = field,
+            onValueChange = { written ->
+                field = written
+                if (written.text != value) onValueChange(written.text)
+                onReferenceTyped(typed(written))
+            },
+            placeholder = placeholder,
+            label = label,
+            readOnly = readOnly,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        ReferenceSuggestionList(suggestions.takeIf { it.field == key } ?: ReferenceOffer()) { picked ->
+            val typed = typed(field) ?: return@ReferenceSuggestionList
+            field = field.withReference(typed, picked.number).let { it.copy(text = it.text.trimEnd(), selection = TextRange(it.text.trimEnd().length)) }
+            onValueChange(field.text)
+            onReferenceTyped(null)
+        }
+    }
+}
 
 /**
  * The conversations a reference being typed may mean, each by its number and title: tapping one writes its number.
