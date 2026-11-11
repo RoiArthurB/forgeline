@@ -172,7 +172,7 @@ internal fun Composer(
                 if (changed) onDraftChange(written.text)
                 onReferenceTyped(written.typedReference(marks))
             },
-            placeholder = LocalCommentingAs.current?.let { stringResource(R.string.issue_comment_placeholder_as, it) }
+            placeholder = LocalCommentingAs.current?.let { stringResource(R.string.issue_comment_placeholder_as, fr.arthurbrugiere.forgeline.ui.handleOf(it)) }
                 ?: stringResource(R.string.issue_comment_placeholder),
             error = state.commentError?.let { error ->
                 commentErrorText(error, forge)

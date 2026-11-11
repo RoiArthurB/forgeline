@@ -133,3 +133,9 @@ val ForgeError.message: Int
         ForgeError.Unauthorized -> R.string.error_unauthorized
         else -> R.string.sign_in_error_unknown
     }
+
+/**
+ * A login as people write it, `@octocat`: unless it carries its own mark, as SourceHut's do (`~sircmpwn`). Regression:
+ * those read `@~sircmpwn`.
+ */
+fun handleOf(login: String): String = if (login.startsWith('~') || login.startsWith('@')) login else "@$login"

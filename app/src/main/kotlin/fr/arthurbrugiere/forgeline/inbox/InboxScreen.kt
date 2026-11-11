@@ -342,7 +342,7 @@ fun InboxScreen(
                                 SoftChoicePill(
                                     name = stringResource(R.string.choice_account),
                                     options = listOf(allAccounts) +
-                                        state.accountTabs.map { "@${it.user.login} · ${it.forge.displayName}" },
+                                        state.accountTabs.map { "${fr.arthurbrugiere.forgeline.ui.handleOf(it.user.login)} · ${it.forge.displayName}" },
                                     selected = state.accountTabs.indexOfFirst { it.id == state.selectedAccountId } + 1,
                                     onSelect = { onSelectAccount(state.accountTabs.getOrNull(it - 1)?.id) },
                                     // Beside the title, a tile with the chosen account's forge (or every account's glyph); the menu

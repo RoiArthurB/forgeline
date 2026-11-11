@@ -85,6 +85,15 @@ class UserScreenTest {
     }
 
     @Test
+    fun a_sourcehut_login_keeps_its_own_mark() {
+        val sourceHut = fr.arthurbrugiere.forgeline.core.model.ForgeInstance(fr.arthurbrugiere.forgeline.core.model.ForgeType.SOURCEHUT, "git.sr.ht")
+        setContent(UserUiState("~sircmpwn", forge = sourceHut, profile = userProfile("~sircmpwn", name = "Drew"), repos = Loadable.Loaded(emptyList())))
+
+        composeRule.onNodeWithText("~sircmpwn").assertIsDisplayed()
+        composeRule.onNodeWithText("@~sircmpwn").assertDoesNotExist()
+    }
+
+    @Test
     fun without_a_readme_there_is_no_readme_tab() {
         setContent(base)
 

@@ -471,7 +471,7 @@ private fun AccountHeader(account: Account, compact: Boolean, onClick: () -> Uni
             )
             // The forge goes under the handle when both don't fit on one line (large text): neither is cut.
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), itemVerticalAlignment = Alignment.CenterVertically) {
-                Text("@${account.user.login}", style = Soft.type.secondary, color = colors.inkMuted)
+                Text(fr.arthurbrugiere.forgeline.ui.handleOf(account.user.login), style = Soft.type.secondary, color = colors.inkMuted)
                 ForgeMark(account.forge, style = Soft.type.secondary, color = colors.inkMuted)
             }
         }

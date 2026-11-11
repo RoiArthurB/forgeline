@@ -177,7 +177,7 @@ fun UserScreen(
                     if (profile != null) {
                         Header(profile, state.following, signedIn, onToggleFollow, onSignIn, onOpenUrl, social = state.forge.type.isSocial)
                     } else {
-                        Text("@${state.login}", style = Soft.type.hero, color = Soft.colors.ink, modifier = Modifier.semantics { heading() })
+                        Text(fr.arthurbrugiere.forgeline.ui.handleOf(state.login), style = Soft.type.hero, color = Soft.colors.ink, modifier = Modifier.semantics { heading() })
                     }
                 }
             }
@@ -260,7 +260,7 @@ private fun Header(
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 // The name leads when there is one; otherwise the login is the page's heading.
                 profile.name?.let { Text(it, style = Soft.type.hero, color = colors.ink, modifier = Modifier.semantics { heading() }) }
-                Text("@${profile.login}", style = Soft.type.secondary, color = colors.inkMuted, modifier = if (profile.name == null) Modifier.semantics { heading() } else Modifier)
+                Text(fr.arthurbrugiere.forgeline.ui.handleOf(profile.login), style = Soft.type.secondary, color = colors.inkMuted, modifier = if (profile.name == null) Modifier.semantics { heading() } else Modifier)
                 if (profile.isOrganization) SoftTag(stringResource(R.string.user_organization), background = colors.surface)
             }
         }

@@ -247,7 +247,7 @@
     <string name="settings_account_acting">Agit sur %1$s</string>
     <string name="settings_account_not_acting">%1$s, un autre compte y agit</string>
     <string name="settings_account_act_as">Utiliser</string>
-    <string name="issue_comment_placeholder_as">Commenter en tant que @%1$s</string>
+    <string name="issue_comment_placeholder_as">Commenter en tant que %1$s</string>
     <string name="settings_add_account">Ajouter un compte</string>
     <string name="settings_separate_inbox">Un onglet de réception par compte</string>
     <string name="settings_separate_inbox_summary">Voir un compte à la fois, ou tous ensemble</string>
@@ -856,7 +856,7 @@
     <string name="collections_import_title">Importer vos listes</string>
     <string name="collections_import">Importer vos listes %1$s</string>
     <string name="collections_importing">Import de vos listes %1$s…</string>
-    <string name="collections_import_summary">En tant que @%1$s. Importer à nouveau ajoute ce que les listes ont gagné, sans toucher à vos changements ici.</string>
+    <string name="collections_import_summary">En tant que %1$s. Importer à nouveau ajoute ce que les listes ont gagné, sans toucher à vos changements ici.</string>
     <string name="collections_imported_none">Vous n’avez encore aucune liste là-bas.</string>
     <string name="collections_import_failed">Les listes ne sont pas venues : %1$s</string>
     <string name="collection_edit">Modifier la collection</string>
@@ -902,7 +902,7 @@
     <string name="settings_title">Réglages</string>
     <string name="settings_section_account">Comptes</string>
     <string name="settings_signed_out_summary">Connecter un compte GitHub, GitLab, Codeberg, Gitea, Tangled, SourceHut ou Forgejo</string>
-    <string name="sign_out_confirm_title">Se déconnecter de @%1$s ?</string>
+    <string name="sign_out_confirm_title">Se déconnecter de %1$s ?</string>
     <string name="sign_out_confirm_body">Votre jeton sera supprimé de cet appareil.</string>
     <string name="settings_section_appearance">Apparence</string>
     <string name="settings_theme">Thème</string>

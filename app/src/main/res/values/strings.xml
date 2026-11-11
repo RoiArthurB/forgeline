@@ -262,7 +262,7 @@
     <string name="settings_account_acting">Acts on %1$s</string>
     <string name="settings_account_not_acting">%1$s, another account acts there</string>
     <string name="settings_account_act_as">Use</string>
-    <string name="issue_comment_placeholder_as">Comment as @%1$s</string>
+    <string name="issue_comment_placeholder_as">Comment as %1$s</string>
     <string name="settings_add_account">Add an account</string>
     <string name="settings_separate_inbox">Inbox tabs per account</string>
     <string name="settings_separate_inbox_summary">See one account at a time, or all together</string>
@@ -878,7 +878,7 @@
     <string name="collections_import_title">Bring your lists over</string>
     <string name="collections_import">Import your %1$s lists</string>
     <string name="collections_importing">Importing your %1$s lists…</string>
-    <string name="collections_import_summary">As @%1$s. Importing again adds what the lists gained, and leaves your changes here alone.</string>
+    <string name="collections_import_summary">As %1$s. Importing again adds what the lists gained, and leaves your changes here alone.</string>
     <string name="collections_imported_none">You have no list there yet.</string>
     <string name="collections_import_failed">The lists didn\'t come: %1$s</string>
     <string name="collection_edit">Edit the collection</string>
@@ -924,7 +924,7 @@
     <string name="settings_title">Settings</string>
     <string name="settings_section_account">Accounts</string>
     <string name="settings_signed_out_summary">Connect a GitHub, GitLab, Codeberg, Gitea, Tangled, SourceHut or Forgejo account</string>
-    <string name="sign_out_confirm_title">Sign out of @%1$s?</string>
+    <string name="sign_out_confirm_title">Sign out of %1$s?</string>
     <string name="sign_out_confirm_body">Your token will be deleted from this device.</string>
     <string name="settings_section_appearance">Appearance</string>
     <string name="settings_theme">Theme</string>

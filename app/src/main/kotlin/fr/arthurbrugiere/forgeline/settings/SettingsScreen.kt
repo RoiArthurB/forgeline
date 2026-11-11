@@ -477,7 +477,7 @@ fun SettingsScreen(
 @Composable
 private fun SettingsSection.summary(session: SessionState, settings: UserSettings, versionName: String): String? = when (this) {
     SettingsSection.ACCOUNTS -> when (session) {
-        is SessionState.SignedIn -> session.accounts.joinToString { "@${it.user.login}" }
+        is SessionState.SignedIn -> session.accounts.joinToString { fr.arthurbrugiere.forgeline.ui.handleOf(it.user.login) }
         SessionState.SignedOut -> stringResource(R.string.settings_signed_out_summary)
         SessionState.Loading -> null
     }
@@ -582,7 +582,7 @@ private fun AccountItem(account: Account, onSignOut: (Account) -> Unit, acting: 
     var confirming by rememberSaveable(account.id) { mutableStateOf(false) }
     val login = account.user.login
     SettingRow(
-        title = "@$login",
+        title = fr.arthurbrugiere.forgeline.ui.handleOf(login),
         // Two accounts can share a login: the forge's name says which is which, the logo on the avatar echoes it.
         summary = when (acting) {
             true -> stringResource(R.string.settings_account_acting, account.forge.displayName)
@@ -611,7 +611,7 @@ private fun AccountItem(account: Account, onSignOut: (Account) -> Unit, acting: 
     )
     if (confirming) {
         SoftConfirmSheet(
-            title = stringResource(R.string.sign_out_confirm_title, login),
+            title = stringResource(R.string.sign_out_confirm_title, fr.arthurbrugiere.forgeline.ui.handleOf(login)),
             body = stringResource(R.string.sign_out_confirm_body),
             confirm = stringResource(R.string.sign_out),
             cancel = stringResource(R.string.cancel),

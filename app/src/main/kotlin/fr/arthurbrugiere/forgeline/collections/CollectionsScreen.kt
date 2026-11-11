@@ -136,7 +136,7 @@ fun CollectionsScreen(
                         Icons.Outlined.CloudDownload,
                         stringResource(if (importing) R.string.collections_importing else R.string.collections_import, account.forge.displayName),
                         { onImport(account) },
-                        summary = stringResource(R.string.collections_import_summary, account.user.login),
+                        summary = stringResource(R.string.collections_import_summary, fr.arthurbrugiere.forgeline.ui.handleOf(account.user.login)),
                     )
                 }
             }
