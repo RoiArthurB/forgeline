@@ -149,6 +149,17 @@ class UserScreenTest {
     }
 
     @Test
+    @org.robolectric.annotation.Config(qualifiers = "fr-$PHONE")
+    fun an_email_and_a_website_are_named_in_the_reader_s_language() {
+        // Regression: a screen reader said "Email" and "Website" in English, in French.
+        val withSite = linked.copy(profile = linked.profile!!.copy(links = linked.profile!!.links + fr.arthurbrugiere.forgeline.core.model.ProfileLink.of("https://blog.example.org")!!))
+        setContent(withSite)
+
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("E-mail, octocat@example.org")).assertExists()
+        composeRule.onNode(androidx.compose.ui.test.hasContentDescription("Site web", substring = true)).assertExists()
+    }
+
+    @Test
     fun with_roomy_links_each_link_is_a_finger_tall_on_its_own_not_only_by_what_compose_lends_it() {
         // Regression: the links were 20dp lines 10dp apart. Compose widens a small target's touch area to 48dp, but two
         // such areas overlap, so a tap between links went to the nearer one and a near miss opened another app.

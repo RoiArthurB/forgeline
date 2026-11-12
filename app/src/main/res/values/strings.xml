@@ -824,6 +824,8 @@
     <string name="user_tab_readme">README</string>
     <string name="user_tab_repos">Repositories</string>
     <string name="user_tab_starred">Starred</string>
+    <string name="user_link_email">Email</string>
+    <string name="user_link_website">Website</string>
     <string name="user_no_repos">No repositories yet.</string>
     <string name="user_no_starred">No starred repositories.</string>
     <string name="user_error_title">Couldn\'t open this profile</string>

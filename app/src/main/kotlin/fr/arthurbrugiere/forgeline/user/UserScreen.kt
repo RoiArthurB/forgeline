@@ -283,13 +283,19 @@ private fun Header(
                 // Each other place by its logo and the way people write it ("@ana@mastodon.social"); the service's name is read
                 // out with it, since the logo is the only place it's written.
                 profile.links.forEach { link ->
+                    // The services go by their own names; an email and a website by the reader's words for them.
+                    val kind = when (link.kind) {
+                        LinkKind.EMAIL -> stringResource(R.string.user_link_email)
+                        LinkKind.WEB -> stringResource(R.string.user_link_website)
+                        else -> link.kind.displayName
+                    }
                     val icon = link.kind.iconRes?.let { painterResource(it) } ?: rememberVectorPainter(if (link.kind == LinkKind.EMAIL) Icons.Outlined.MailOutline else Icons.Outlined.Link)
                     Detail(
                         icon,
                         link.label,
                         Modifier
-                            .linkRow(roomy, link.kind.displayName) { onOpenUrl(link.url) }
-                            .semantics(mergeDescendants = true) { contentDescription = "${link.kind.displayName}, ${link.label}" },
+                            .linkRow(roomy, kind) { onOpenUrl(link.url) }
+                            .semantics(mergeDescendants = true) { contentDescription = "$kind, ${link.label}" },
                         link = true,
                     )
                 }
