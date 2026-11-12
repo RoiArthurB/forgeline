@@ -65,18 +65,11 @@ fun Badge(text: String) {
 
 /** A forge label in its own color, as the forge shows it, as a tag; text contrast follows the color. */
 @Composable
-fun LabelChip(label: Label) {
+fun LabelChip(label: Label, modifier: Modifier = Modifier) {
     val color = parseHexColor(label.color?.let { "#$it" }) ?: Soft.colors.surface
-    Text(
-        label.name,
-        style = Soft.type.label,
-        color = readableOn(color),
-        maxLines = 1,
-        modifier = Modifier
-            .clip(SoftTokens.Pill)
-            .background(color)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-    )
+    // A tag in the forge's colour, as DESIGN.md has forge labels: beside an issue's type tag, the two match. Regression:
+    // labels were larger, rounder and padded apart from every other tag.
+    SoftTag(label.name, modifier, background = color, content = readableOn(color))
 }
 
 /** A quiet line of text standing in for an empty list. */
