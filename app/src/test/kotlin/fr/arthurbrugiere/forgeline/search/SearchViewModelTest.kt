@@ -47,8 +47,10 @@ class SearchViewModelTest {
 
     private fun test(block: suspend TestScope.() -> Unit) = runTest(mainDispatcherRule.testDispatcher) { block() }
 
+    private val accountsOfDefault = FakeAccountRepository()
+
     private fun TestScope.viewModel(saved: SavedStateHandle = SavedStateHandle()) =
-        SearchViewModel(saved, SearchRepository(FakeForgeClients(search = api), FakeAccountRepository()), yours).also { it.state.launchIn(backgroundScope) }
+        SearchViewModel(saved, SearchRepository(FakeForgeClients(search = api), accountsOfDefault), yours).also { it.state.launchIn(backgroundScope) }
 
     @Test
     fun nothing_is_searched_until_submitted() = test {
@@ -276,5 +278,44 @@ class SearchViewModelTest {
         viewModel.selectScope(SearchScope.USERS)
         advanceUntilIdle()
         assertThat(viewModel.state.value.yours).isEmpty()
+    }
+
+    @Test
+    fun a_forge_turning_a_signed_out_search_away_is_named_and_asked_again_once_signed_in_there() = test {
+        val codebergApi = FakeSearchApi(pageSize = 2).apply {
+            repositories = listOf(repoSummary("ziglang/zig", forge = ForgeInstance.Codeberg))
+            failure = ForgeError.Unauthorized
+        }
+        val clients = FakeForgeClients(search = api).also { it.put(ForgeInstance.Codeberg, FakeForgeClients(search = codebergApi)) }
+        val accounts = FakeAccountRepository()
+        val viewModel = SearchViewModel(SavedStateHandle(), SearchRepository(clients, accounts), yours).also { it.state.launchIn(backgroundScope) }
+        viewModel.onQueryChange("zig")
+        viewModel.submit()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.results.refused).containsExactly(ForgeInstance.Codeberg)
+        assertThat(viewModel.state.value.results.error).isNull()
+
+        codebergApi.failure = null
+        accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "t")
+        advanceUntilIdle()
+
+        val results = viewModel.state.value.results
+        assertThat(results.refused).isEmpty()
+        assertThat(results.items.map { (it as SearchResult.Repository).repo.id.key }).contains("codeberg.org/ziglang/zig")
+        assertThat(codebergApi.tokens).containsExactly(null, "t").inOrder()
+    }
+
+    @Test
+    fun signing_in_elsewhere_doesnt_search_again() = test {
+        val viewModel = viewModel()
+        viewModel.onQueryChange("rocket")
+        viewModel.submit()
+        advanceUntilIdle()
+
+        accountsOfDefault.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "t")
+        advanceUntilIdle()
+
+        assertThat(api.calls).containsExactly("repos:rocket@1")
     }
 }

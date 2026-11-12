@@ -55,6 +55,7 @@ class SearchScreenTest {
                 onBack = { events += "back" },
                 nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
                 onOpenLink = { events += "link:$it" },
+                onSignIn = { events += "sign-in" },
             )
         }
     }
@@ -285,5 +286,37 @@ class SearchScreenTest {
         composeRule.onNodeWithText("Everywhere").assertIsDisplayed()
         composeRule.onNodeWithText("me/rocket-site", substring = true).performClick()
         assertThat(events).containsExactly("repo:me/rocket-site")
+    }
+
+    // Regression: signed out, Codeberg's repositories went missing from Search without a word (2026-11-12).
+
+    @Test
+    fun a_forge_that_turned_the_search_away_says_an_account_finds_its_results() {
+        val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab)
+        setContent(
+            SearchUiState(
+                "rocket",
+                results = ScopeResults("rocket", listOf(SearchResult.Repository(repoSummary("acme/rocket"))), 1, forges = forges, refused = listOf(ForgeInstance.Codeberg)),
+            ),
+        )
+
+        composeRule.onNodeWithText("Sign in to search Codeberg").assertIsDisplayed()
+        composeRule.onNodeWithText("Codeberg answers searches only from people signed in to it, so its results are missing here.").assertIsDisplayed()
+        composeRule.onNodeWithText("acme/rocket", substring = true, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Sign in").performClick()
+        assertThat(events).containsExactly("sign-in")
+    }
+
+    @Test
+    fun searched_alone_the_forge_that_turned_it_away_doesnt_also_say_nothing_matched() {
+        setContent(
+            SearchUiState(
+                "rocket",
+                results = ScopeResults("rocket", emptyList(), 0, forges = listOf(ForgeInstance.Codeberg), refused = listOf(ForgeInstance.Codeberg)),
+            ),
+        )
+
+        composeRule.onNodeWithText("Sign in to search Codeberg").assertIsDisplayed()
+        composeRule.onNodeWithText("No results").assertDoesNotExist()
     }
 }

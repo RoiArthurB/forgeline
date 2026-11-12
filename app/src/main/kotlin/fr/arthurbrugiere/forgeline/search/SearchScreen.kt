@@ -88,6 +88,7 @@ import fr.arthurbrugiere.forgeline.navigation.ForgeLinks
 import fr.arthurbrugiere.forgeline.ui.Avatar
 import fr.arthurbrugiere.forgeline.ui.IssueSummaryRow
 import fr.arthurbrugiere.forgeline.ui.RepoSummaryRow
+import fr.arthurbrugiere.forgeline.ui.SignInToSearch
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import fr.arthurbrugiere.forgeline.ui.message
 import fr.arthurbrugiere.forgeline.ui.rememberNow
@@ -102,6 +103,7 @@ fun SearchRoute(
     onOpenUser: (ForgeInstance, String) -> Unit,
     onBack: () -> Unit,
     onOpenLink: (NavKey) -> Unit = {},
+    onSignIn: () -> Unit = {},
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -118,6 +120,7 @@ fun SearchRoute(
         onOpenUser = onOpenUser,
         onBack = onBack,
         onOpenLink = onOpenLink,
+        onSignIn = onSignIn,
     )
 }
 
@@ -139,6 +142,7 @@ fun SearchScreen(
     nowMillis: Long = rememberNow(state.results),
     /** Opens what an address typed or pasted in the field names. */
     onOpenLink: (NavKey) -> Unit = {},
+    onSignIn: () -> Unit = {},
 ) {
     // An address of a forge Forgeline knows is somewhere to go, not words to look for.
     val link = remember(state.query) { ForgeLinks.routeFor(state.query.trim()) }
@@ -211,6 +215,7 @@ fun SearchScreen(
                 }
             }
             if (state.yours.isNotEmpty() && link == null) yours(state, onOpenRepo)
+            if (link == null) results.refused.forEach { forge -> item(key = "sign-in-${forge.host}") { SignInToSearch(forge, onSignIn) } }
             val items = state.forgeItems
             when {
                 // The address stands for itself: nothing more to explain under it.
@@ -236,6 +241,8 @@ fun SearchScreen(
                         onAction = onRetry,
                     )
                 }
+                // Every forge searched turned it away: the notice above says why nothing came.
+                items.isEmpty() && results.forges.isNotEmpty() && results.refused.containsAll(results.forges) -> Unit
                 // Everything found was one's own, already shown.
                 items.isEmpty() && state.yours.isNotEmpty() -> Unit
                 items.isEmpty() -> item(key = "empty") {

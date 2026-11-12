@@ -924,6 +924,8 @@
     <string name="search_empty_title">No results</string>
     <string name="search_empty_body">Nothing matches \u201c%1$s\u201d here. Try another tab or fewer words.</string>
     <string name="search_error_title">Search failed</string>
+    <string name="search_sign_in_title">Sign in to search %1$s</string>
+    <string name="search_sign_in_body">%1$s answers searches only from people signed in to it, so its results are missing here.</string>
     <string name="search_organization">Organization</string>
     <string name="settings_title">Settings</string>
     <string name="settings_section_account">Accounts</string>

@@ -160,4 +160,46 @@ class SearchRepositoryTest {
         assertThat(serverApi.tokens).containsExactly("t-server")
         assertThat(api.calls).isEmpty()
     }
+
+    // Codeberg turns signed-out repository searches away (2026-11-12): the other forges' results come, Codeberg is named.
+
+    @Test
+    fun a_forge_turning_a_signed_out_search_away_is_named_not_a_failure() = runTest {
+        api.repositories = listOf(repoSummary("a/gh1"))
+        codebergApi.failure = ForgeError.Unauthorized
+
+        val page = (repository.repositories("tool") as ForgeResult.Success).value
+
+        assertThat(page.items.map { it.id.fullName }).containsExactly("a/gh1")
+        assertThat(page.refused).containsExactly(ForgeInstance.Codeberg)
+    }
+
+    @Test
+    fun the_refusing_forge_searched_alone_answers_with_nothing_found_there_and_its_name() = runTest {
+        codebergApi.failure = ForgeError.Unauthorized
+
+        val page = (repository.topic("rust", only = ForgeInstance.Codeberg) as ForgeResult.Success).value
+
+        assertThat(page.items).isEmpty()
+        assertThat(page.refused).containsExactly(ForgeInstance.Codeberg)
+    }
+
+    @Test
+    fun signed_in_the_same_answer_is_a_failure_the_sign_in_ended() = runTest {
+        signInToCodeberg()
+        codebergApi.failure = ForgeError.Unauthorized
+
+        val result = repository.repositories("tool", only = ForgeInstance.Codeberg)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+    }
+
+    @Test
+    fun signing_in_somewhere_is_announced() = runTest {
+        assertThat(repository.signedIn.first()).isEmpty()
+
+        signInToCodeberg()
+
+        assertThat(repository.signedIn.first()).containsExactly(ForgeInstance.Codeberg)
+    }
 }

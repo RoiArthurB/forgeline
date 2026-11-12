@@ -40,6 +40,7 @@ class TopicScreenTest {
             onSelectForge = { events += "forge:${it?.host}" },
             onLoadMore = { events += "more" },
             onRetry = { events += "retry" },
+            onSignIn = { events += "sign-in" },
         )
     }
 
@@ -75,5 +76,23 @@ class TopicScreenTest {
     fun every_target_is_48dp_at_least() {
         setContent(loaded)
         composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    @Test
+    fun a_forge_that_turned_the_topic_away_offers_to_sign_in_above_the_others_repositories() {
+        setContent(loaded.copy(refused = listOf(ForgeInstance.Codeberg)))
+
+        composeRule.onNodeWithText("Sign in to search Codeberg").assertIsDisplayed()
+        composeRule.onNodeWithText("Sign in").performClick()
+
+        assertThat(events).containsExactly("sign-in")
+    }
+
+    @Test
+    fun the_forge_that_turned_the_topic_away_asked_alone_doesnt_also_say_nothing_is_tagged() {
+        setContent(TopicUiState("selfhosted", totalCount = 0, isLoading = false, forges = forges, onlyForge = ForgeInstance.Codeberg, refused = listOf(ForgeInstance.Codeberg)))
+
+        composeRule.onNodeWithText("Sign in to search Codeberg").assertIsDisplayed()
+        composeRule.onNodeWithText("Nothing tagged yet").assertDoesNotExist()
     }
 }

@@ -76,4 +76,22 @@ class TopicViewModelTest {
         assertThat(viewModel.state.value.error).isNull()
         assertThat(viewModel.state.value.repos).isNotEmpty()
     }
+
+    @Test
+    fun a_forge_turning_the_topic_away_signed_out_is_named_and_asked_again_once_signed_in_there() = runTest(main.testDispatcher) {
+        codeberg.failure = ForgeError.Unauthorized
+        val accounts = FakeAccountRepository()
+        val viewModel = TopicViewModel("selfhosted", SearchRepository(clients, accounts))
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.refused).containsExactly(ForgeInstance.Codeberg)
+        assertThat(viewModel.state.value.repos.map { it.id.fullName }).containsExactly("a/one", "a/two").inOrder()
+
+        codeberg.failure = null
+        accounts.signIn(ForgeInstance.Codeberg, fr.arthurbrugiere.forgeline.core.model.ForgeUser("me", null, null), "t")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.refused).isEmpty()
+        assertThat(viewModel.state.value.repos.map { it.id.fullName }).containsExactly("a/one", "b/one", "a/two").inOrder()
+    }
 }

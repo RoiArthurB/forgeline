@@ -16,6 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -32,6 +33,8 @@ data class TopicUiState(
     val forges: List<ForgeInstance> = emptyList(),
     /** The one forge asked, or null for all of them. */
     val onlyForge: ForgeInstance? = null,
+    /** The forges that turned the topic away for want of an account there: the page offers to sign in. */
+    val refused: List<ForgeInstance> = emptyList(),
 ) {
     val hasMore: Boolean get() = next != null
     val showForge: Boolean get() = onlyForge == null && forges.size > 1
@@ -56,6 +59,15 @@ class TopicViewModel @AssistedInject constructor(
 
     init {
         load(cursor = null)
+        // Signed in where the topic was turned away, it is asked again from the top.
+        viewModelScope.launch {
+            search.signedIn.drop(1).collect { signedIn ->
+                if (_state.value.refused.any { it in signedIn }) {
+                    _state.update { TopicUiState(it.topic, forges = it.forges, onlyForge = it.onlyForge) }
+                    load(cursor = null)
+                }
+            }
+        }
     }
 
     fun loadMore() {
@@ -93,6 +105,7 @@ class TopicViewModel @AssistedInject constructor(
                         next = page.next,
                         isLoading = false,
                         forges = forges,
+                        refused = if (cursor == null) page.refused else it.refused,
                     )
                 }
             }

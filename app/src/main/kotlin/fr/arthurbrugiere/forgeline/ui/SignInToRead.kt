@@ -24,3 +24,15 @@ fun SignInToRead(forge: ForgeInstance, onSignIn: () -> Unit) = SoftNotice(
     action = stringResource(R.string.sign_in),
     onAction = onSignIn,
 )
+
+/**
+ * What a search says of a forge that turned it away for want of an account there: Codeberg answers no repository
+ * search from someone signed out (2026-11-12). Regression: its results went missing without a word.
+ */
+@Composable
+fun SignInToSearch(forge: ForgeInstance, onSignIn: () -> Unit) = SoftNotice(
+    stringResource(R.string.search_sign_in_title, forge.displayName),
+    stringResource(R.string.search_sign_in_body, forge.displayName),
+    action = stringResource(R.string.sign_in),
+    onAction = onSignIn,
+)

@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.forge.forgejo
 
 import com.google.common.truth.Truth.assertThat
 import com.google.common.truth.Truth.assertWithMessage
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
@@ -47,6 +48,19 @@ class ForgejoClientLiveTest {
         assertThat(page.items.size).isAtLeast(2)
         assertThat(page.items.map { it.stars }).isInOrder(Comparator.reverseOrder<Int>())
         assertThat(page.nextPage).isEqualTo(2)
+    }
+
+    // Signed out, Codeberg turns repository searches away with a 429 while the quota is left (2026-11-12); the app reads
+    // that as wanting an account and says so. Either answer passes: this fails when the refusal changes shape, and its
+    // log says when Codeberg answers signed-out searches again.
+    @Test
+    fun a_signed_out_repository_search_answers_or_asks_for_an_account() = runBlocking<Unit> {
+        val result = ForgejoSearchApi(http, ForgeInstance.Codeberg).repositories(null, "forgejo", 1)
+
+        when (result) {
+            is ForgeResult.Success -> println("Codeberg answers signed-out repository searches again: ${result.value.items.size} found")
+            is ForgeResult.Failure -> assertThat(result.error).isEqualTo(ForgeError.Unauthorized)
+        }
     }
 
     @Test

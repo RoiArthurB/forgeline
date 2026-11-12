@@ -44,13 +44,14 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftStatusBarScrim
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.navigation.TopicRoute
 import fr.arthurbrugiere.forgeline.ui.RepoSummaryRow
+import fr.arthurbrugiere.forgeline.ui.SignInToSearch
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import fr.arthurbrugiere.forgeline.ui.message
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Composable
-fun TopicRoute(route: TopicRoute, onBack: () -> Unit, onOpenRepo: (RepoId) -> Unit) {
+fun TopicRoute(route: TopicRoute, onBack: () -> Unit, onOpenRepo: (RepoId) -> Unit, onSignIn: () -> Unit = {}) {
     val viewModel = hiltViewModel<TopicViewModel, TopicViewModel.Factory>(key = "topic/${route.topic}") { it.create(route.topic) }
     val state by viewModel.state.collectAsStateWithLifecycle()
     TopicScreen(
@@ -60,6 +61,7 @@ fun TopicRoute(route: TopicRoute, onBack: () -> Unit, onOpenRepo: (RepoId) -> Un
         onSelectForge = viewModel::selectForge,
         onLoadMore = viewModel::loadMore,
         onRetry = viewModel::retry,
+        onSignIn = onSignIn,
     )
 }
 
@@ -73,6 +75,7 @@ fun TopicScreen(
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    onSignIn: () -> Unit = {},
 ) {
     val colors = Soft.colors
     val listState = rememberLazyListState()
@@ -116,11 +119,14 @@ fun TopicScreen(
                     }
                 }
             }
+            state.refused.forEach { forge -> item(key = "sign-in-${forge.host}") { SignInToSearch(forge, onSignIn) } }
             when {
                 state.repos.isEmpty() && state.isLoading -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.topic_loading), rows = 6) }
                 state.repos.isEmpty() && state.error != null -> item(key = "error") {
                     SoftNotice(stringResource(R.string.topic_error_title), stringResource(state.error.message), action = stringResource(R.string.retry), onAction = onRetry)
                 }
+                // Every forge asked turned it away: the notice above says why nothing came.
+                state.repos.isEmpty() && state.refused.isNotEmpty() && (state.onlyForge != null || state.refused.containsAll(state.forges)) -> Unit
                 state.repos.isEmpty() -> item(key = "empty") {
                     SoftNotice(stringResource(R.string.topic_empty_title), stringResource(R.string.topic_empty_body, state.topic), icon = Icons.Outlined.SearchOff)
                 }

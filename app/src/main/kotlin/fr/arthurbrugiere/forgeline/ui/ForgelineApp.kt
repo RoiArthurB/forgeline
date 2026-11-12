@@ -316,10 +316,10 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
             fr.arthurbrugiere.forgeline.firstissues.FirstIssuesRoute(onBack = navigator::goBack, onOpenIssue = openIssue)
         }
         entry<fr.arthurbrugiere.forgeline.navigation.TopicRoute> { key ->
-            fr.arthurbrugiere.forgeline.topic.TopicRoute(key, onBack = navigator::goBack, onOpenRepo = openRepo)
+            fr.arthurbrugiere.forgeline.topic.TopicRoute(key, onBack = navigator::goBack, onOpenRepo = openRepo, onSignIn = signIn)
         }
         entry<SearchKey> {
-            SearchDestination(onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser, onBack = navigator::goBack, onOpenLink = navigator::navigate)
+            SearchDestination(onOpenRepo = openRepo, onOpenIssue = openIssue, onOpenUser = openUser, onBack = navigator::goBack, onOpenLink = navigator::navigate, onSignIn = signIn)
         }
         entry<CreditsKey> {
             CreditsRoute(onBack = navigator::goBack)

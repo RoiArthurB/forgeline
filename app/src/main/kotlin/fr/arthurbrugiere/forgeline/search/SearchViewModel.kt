@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -44,6 +45,8 @@ data class ScopeResults(
     val error: ForgeError? = null,
     /** The forges searched: each result names its own when there are several. */
     val forges: List<ForgeInstance> = emptyList(),
+    /** The forges that turned the search away for want of an account there: the page offers to sign in. */
+    val refused: List<ForgeInstance> = emptyList(),
 ) {
     val submitted: Boolean get() = query != null
     val hasMore: Boolean get() = next != null
@@ -103,6 +106,15 @@ class SearchViewModel @Inject constructor(
 
     init {
         if (submitted != null) load(scope.value, cursor = null)
+        // Signed in where the search was turned away, it is asked again: what was missing comes.
+        viewModelScope.launch {
+            search.signedIn.drop(1).collect { signedIn ->
+                if (results.value.values.any { found -> found.refused.any { it in signedIn } }) {
+                    results.value = emptyMap()
+                    load(scope.value, cursor = null)
+                }
+            }
+        }
     }
 
     fun onQueryChange(text: String) {
@@ -167,6 +179,8 @@ class SearchViewModel @Inject constructor(
                         next = result.value.next,
                         isLoading = false,
                         forges = result.value.forges,
+                        // The first page asks every forge; later ones only those that answered.
+                        refused = if (cursor == null) result.value.refused else current.refused,
                     )
                 }
                 all + (target to updated)
@@ -177,7 +191,7 @@ class SearchViewModel @Inject constructor(
     private fun <T> ForgeResult<MergedSearchPage<T>>.map(transform: (T) -> SearchResult): ForgeResult<MergedSearchPage<SearchResult>> =
         when (this) {
             is ForgeResult.Failure -> this
-            is ForgeResult.Success -> ForgeResult.Success(MergedSearchPage(value.items.map(transform), value.totalCount, value.next, value.forges))
+            is ForgeResult.Success -> ForgeResult.Success(MergedSearchPage(value.items.map(transform), value.totalCount, value.next, value.forges, value.refused))
         }
 
     private companion object {

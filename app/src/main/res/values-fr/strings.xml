@@ -902,6 +902,8 @@
     <string name="search_empty_title">Aucun résultat</string>
     <string name="search_empty_body">Rien ne correspond à « %1$s » ici. Essayez un autre onglet ou moins de mots.</string>
     <string name="search_error_title">La recherche a échoué</string>
+    <string name="search_sign_in_title">Connectez-vous pour chercher sur %1$s</string>
+    <string name="search_sign_in_body">%1$s ne répond qu’aux recherches des personnes connectées, ses résultats manquent donc ici.</string>
     <string name="search_organization">Organisation</string>
     <string name="settings_title">Réglages</string>
     <string name="settings_section_account">Comptes</string>

@@ -86,14 +86,38 @@ internal suspend inline fun <T> HttpResponse.toResult(parse: HttpResponse.() -> 
     if (status.isSuccess()) ForgeResult.Success(parse()) else failure()
 
 internal suspend fun HttpResponse.failure(): ForgeResult.Failure {
-    // Forgejo announces its limit in RateLimit headers (checked on Codeberg, 2026-09-29).
-    val exhausted = headers["RateLimit-Remaining"] == "0" || status == HttpStatusCode.TooManyRequests
+    val quota = quota()
+    val tooMany = status == HttpStatusCode.TooManyRequests
+    val signedOut = call.request.headers[HttpHeaders.Authorization] == null
     val error = when {
         status == HttpStatusCode.Unauthorized -> ForgeError.Unauthorized
-        exhausted -> ForgeError.RateLimited(headers["RateLimit-Reset"]?.toLongOrNull()?.let { Instant.now().epochSecond + it })
+        // Codeberg turns a signed-out repository search away with a 429 while most of the quota is left, and answers
+        // the same search signed in (checked 2026-11-12): the way through is an account, not waiting.
+        tooMany && signedOut && quota.remaining != null && quota.remaining > 0 -> ForgeError.Unauthorized
+        tooMany || quota.remaining == 0L -> ForgeError.RateLimited(quota.resetInSeconds?.let { Instant.now().epochSecond + it })
         else -> ForgeError.Http(status.value, runCatching { ForgeJson.decodeFromString<ErrorResponse>(bodyAsText()).message }.getOrNull())
     }
     return ForgeResult.Failure(error)
+}
+
+/** What is left of the request quota, and when it fills again; null where the forge doesn't say. */
+internal data class Quota(val remaining: Long?, val resetInSeconds: Long?)
+
+/**
+ * Forgejo announces its limit in RateLimit headers: once as `RateLimit-Remaining` and `RateLimit-Reset` (checked on
+ * Codeberg, 2026-09-29), now as one `RateLimit: "baseline";r=1999;t=600` (checked on Codeberg, 2026-11-12). With
+ * several policies, the tightest counts.
+ */
+internal fun HttpResponse.quota(): Quota {
+    val policies = headers["RateLimit"]?.split(',')?.map { policy ->
+        val params = policy.split(';').drop(1).associate { it.substringBefore('=').trim() to it.substringAfter('=', "").trim() }
+        params["r"]?.toLongOrNull() to params["t"]?.toLongOrNull()
+    }.orEmpty().filter { it.first != null }
+    val tightest = policies.minByOrNull { it.first!! }
+    return Quota(
+        remaining = tightest?.first ?: headers["RateLimit-Remaining"]?.toLongOrNull(),
+        resetInSeconds = tightest?.second ?: headers["RateLimit-Reset"]?.toLongOrNull(),
+    )
 }
 
 @Serializable
