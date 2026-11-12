@@ -54,6 +54,16 @@ class TranslationsTest {
     private val english = strings(File(res, "values/strings.xml"))
 
     @Test
+    fun french_calls_one_thing_by_one_name() {
+        // Regression: a review was a "revue" in the timeline and a "relecture" everywhere else, and Settings named the
+        // All filter "Tout" where its tab reads "Toutes".
+        val french = strings(File(res, "values-fr/strings.xml"))
+
+        assertWithMessage("strings saying \"revue\"").that(french.filterValues { Regex("\\brevues?\\b").containsMatchIn(it) }.keys).isEmpty()
+        assertThat(french.getValue("settings_read_elsewhere_summary")).contains(french.getValue("inbox_filter_all"))
+    }
+
+    @Test
     fun french_is_one_of_the_languages() {
         assertThat(languages).contains("fr")
     }
