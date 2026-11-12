@@ -526,7 +526,7 @@
     <string name="issue_labeled_event">%1$s added</string>
     <string name="issue_unlabeled_event">%1$s removed</string>
     <string name="issue_renamed_event">%1$s changed the title from “%2$s” to “%3$s”</string>
-    <string name="issue_referenced_event">%1$s mentioned this in #%2$d %3$s</string>
+    <string name="issue_referenced_event">%1$s mentioned this in %2$s %3$s %4$s</string>
     <string name="issue_review_approved">%1$s approved these changes</string>
     <string name="issue_review_changes">%1$s requested changes</string>
     <string name="issue_review_commented">%1$s reviewed</string>

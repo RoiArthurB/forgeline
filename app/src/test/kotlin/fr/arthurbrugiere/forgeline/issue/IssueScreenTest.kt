@@ -248,7 +248,9 @@ class IssueScreenTest {
         val items = listOf(TimelineItem.CrossReferenced(source, "Related bug", false, ForgeUser("bob", null, null), at))
         setContent(IssueUiState(ref, issueDetails(ref), items))
 
-        composeRule.onNodeWithText("bob mentioned this in #42 Related bug").performClick()
+        // Another repository's, it says which, and when.
+        val time = fr.arthurbrugiere.forgeline.ui.relative(at, at.toEpochMilli())
+        composeRule.onNodeWithText("bob mentioned this in octo/other#42 Related bug $time").performClick()
         composeRule.onNodeWithText("octocat opened this", substring = true).performClick()
 
         assertThat(events).containsExactly("issue:octo/other#42", "user:octocat").inOrder()

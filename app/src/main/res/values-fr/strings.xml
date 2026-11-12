@@ -503,7 +503,7 @@
     <string name="issue_labeled_event">%1$s a ajouté</string>
     <string name="issue_unlabeled_event">%1$s a retiré</string>
     <string name="issue_renamed_event">%1$s a changé le titre de « %2$s » en « %3$s »</string>
-    <string name="issue_referenced_event">%1$s a mentionné ceci dans nº %2$d %3$s</string>
+    <string name="issue_referenced_event">%1$s a mentionné ceci dans %2$s %3$s %4$s</string>
     <string name="issue_review_approved">%1$s a approuvé ces modifications</string>
     <string name="issue_review_changes">%1$s a demandé des modifications</string>
     <string name="issue_review_commented">%1$s a relu</string>

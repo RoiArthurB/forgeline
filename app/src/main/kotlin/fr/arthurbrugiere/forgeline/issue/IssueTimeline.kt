@@ -171,7 +171,9 @@ internal fun TimelineEntry(
             if (item.sourceTitle.isBlank()) {
                 stringResource(R.string.issue_referenced_untitled_event, item.actor?.login ?: stringResource(R.string.deleted_account), item.source.reference(here), time)
             } else {
-                stringResource(R.string.issue_referenced_event, item.actor?.login ?: stringResource(R.string.deleted_account), item.source.number, item.sourceTitle)
+                // Named as the reference reads, another repository's and a merge request's included, and when, as the
+                // untitled one is. Regression: always "#42", whatever it was, and no time.
+                stringResource(R.string.issue_referenced_event, item.actor?.login ?: stringResource(R.string.deleted_account), item.source.reference(here), item.sourceTitle, time)
             },
             onClick = { onOpenIssue(item.source) },
         )
