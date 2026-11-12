@@ -214,6 +214,8 @@ The role is asked once per repository and session (`GET /repos/{owner}/{repo}`).
 
 One search across forges: GitHub's, always, and that of each forge an account is signed in to (Codeberg answers anonymous issue searches with a 500, so signed-out Codeberg search wouldn't work anyway). Every forge is searched at once, with its own token. Forges rank by relevance in their own ways, so scores can't be compared: results are interleaved by rank instead, every forge's best match, then every forge's second, GitHub first. Each forge pages on its own: the next page only asks the forges that have more. A forge that fails is left out and the others still answer; the search fails only when every forge did. Results name their forge once more than one is searched, and a person found on Codeberg opens on Codeberg.
 
+**Signed out, Codeberg searches no repositories** (checked 2026-11-12): `GET /repos/search` answers 429, "Search and filtering is seeing a high influx of requests [...] your search request will not be processed", while its `RateLimit` header shows most of the quota left. Signed in, the same search answers. So signed out, Codeberg's repositories are missing from Search and from topic pages; issue lists (First issues) still answer. The live contract checks ask search with the job's account (`CODEBERG_LIVE_TOKEN`) and skip it without one.
+
 ## Sign-in
 
 Like GitHub, Codeberg offers both, and both are shown when the OAuth client ID is set:

@@ -25,21 +25,31 @@ import java.time.OffsetDateTime
 
 /**
  * If one of these fails, Codeberg changed something docs/CODEBERG.md relies on: revisit the design
- * (and, once it exists, the Forgejo client). Everything here is public, so no account is needed.
+ * (and, once it exists, the Forgejo client). Everything here is public, so no account is needed, but for repository
+ * search: Codeberg refuses it signed out, so it is asked with the live job's account ([codebergToken]) and skipped
+ * without one.
  */
 class CodebergLiveContractTest {
     private val api = "https://codeberg.org/api/v1"
     private val client = HttpClient(OkHttp) {
         expectSuccess = false
+        engine { config { readTimeout(30, java.util.concurrent.TimeUnit.SECONDS) } }
         defaultRequest { header(HttpHeaders.UserAgent, "Forgeline (+https://github.com/RoiArthurB/forgeline)") }
+        retrySlowAnswers()
     }
 
     private suspend fun get(url: String): HttpResponse = client.get(url)
 
+    /** A repository search, signed in: Codeberg turns it away signed out (see [codebergToken]). */
+    private suspend fun search(query: String): HttpResponse {
+        org.junit.Assume.assumeTrue("Codeberg searches repositories only signed in: CODEBERG_LIVE_TOKEN not set", codebergToken != null)
+        return client.get("$api/repos/search?$query") { header(HttpHeaders.Authorization, "token $codebergToken") }
+    }
+
     private suspend fun HttpResponse.json(): JsonElement = Json.parseToJsonElement(bodyAsText())
 
     private suspend fun searchPage(query: String): Pair<HttpResponse, List<JsonObject>> {
-        val response = get("$api/repos/search?$query")
+        val response = search(query)
         assertWithMessage("repos/search?$query").that(response.status.value).isEqualTo(200)
         return response to response.json().jsonObject.getValue("data").jsonArray.map { it.jsonObject }
     }
@@ -87,12 +97,13 @@ class CodebergLiveContractTest {
 
     @Test
     fun the_api_sort_key_for_age_is_created_not_the_web_uis_newest() = runBlocking<Unit> {
-        assertThat(get("$api/repos/search?sort=newest&limit=1").status.value).isEqualTo(422)
+        assertThat(search("sort=newest&limit=1").status.value).isEqualTo(422)
     }
 
     @Test
     fun the_rate_limit_is_announced_in_headers() = runBlocking<Unit> {
-        val response = get("$api/repos/search?limit=1")
+        // Any public call carries them; search is not public any more.
+        val response = get("$api/repos/forgejo/forgejo")
 
         val policy = requireNotNull(response.headers["RateLimit-Policy"]) { "no RateLimit-Policy header" }
         val quota = Regex("""q=(\d+)""").find(policy)?.groupValues?.get(1)?.toInt()

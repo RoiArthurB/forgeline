@@ -7,13 +7,15 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
-import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
-/** Forgeline's own Forgejo client against the real Codeberg, anonymously: if these fail, parsing drifted from the API. */
+/**
+ * Forgeline's own Forgejo client against the real Codeberg, anonymously but for repository search (a topic), which
+ * Codeberg answers only signed in ([codebergToken]): if these fail, parsing drifted from the API.
+ */
 class ForgejoClientLiveTest {
-    private val http = forgejoHttpClient(OkHttp.create())
+    private val http = liveForgejoClient()
     private val forgejo = RepoId("forgejo", "forgejo", ForgeInstance.Codeberg)
 
     private fun <T> ForgeResult<T>.value(): T = (this as? ForgeResult.Success)?.value ?: error("$this")
@@ -38,7 +40,9 @@ class ForgejoClientLiveTest {
 
     @Test
     fun a_topic_lists_codeberg_s_repositories_tagged_with_it_most_starred_first() = runBlocking<Unit> {
-        val page = ForgejoSearchApi(http, ForgeInstance.Codeberg).topic(null, "selfhosted").value()
+        // A topic is a repository search: Codeberg answers it only signed in.
+        org.junit.Assume.assumeTrue("Codeberg searches repositories only signed in: CODEBERG_LIVE_TOKEN not set", codebergToken != null)
+        val page = ForgejoSearchApi(http, ForgeInstance.Codeberg).topic(codebergToken, "selfhosted").value()
 
         assertThat(page.items.size).isAtLeast(2)
         assertThat(page.items.map { it.stars }).isInOrder(Comparator.reverseOrder<Int>())
