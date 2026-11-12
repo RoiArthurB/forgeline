@@ -36,7 +36,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.mikepenz.markdown.compose.LocalMarkdownColors
@@ -175,7 +174,8 @@ private fun Rendered(state: State, modifier: Modifier) {
             h6 = type.labelLarge,
             code = type.bodySmall.copy(fontFamily = FontFamily.Monospace),
             textLink = TextLinkStyles(
-                style = SpanStyle(color = soft.accent, fontWeight = FontWeight.Medium, textDecoration = TextDecoration.Underline),
+                // Told by its color and its line, in the weight of the words around it: Geist has no Medium, which was faked.
+                style = SpanStyle(color = soft.accent, textDecoration = TextDecoration.Underline),
             ),
         ),
         imageTransformer = ForgelineImageTransformer,

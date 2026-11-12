@@ -5,7 +5,8 @@ import org.junit.Test
 
 /** Rules of DESIGN.md that a screen can break without any test of its own noticing. */
 class DesignSystemTest {
-    private val screens = Repo.sources(Regex("""^(app|core/ui)/src/main/.*\.kt$""")).toList()
+    // Markdown too: READMEs and comments are most of what is read. Regression: its links took a weight Geist lacks.
+    private val screens = Repo.sources(Regex("""^(app|core/ui|core/markdown)/src/main/.*\.kt$""")).toList()
 
     private fun offenders(pattern: Regex, except: Set<String> = emptySet()) = screens
         .flatMap { file ->
@@ -60,7 +61,9 @@ class DesignSystemTest {
         // whose bold is real.
         val other = Regex("""FontWeight\.(Thin|ExtraLight|Light|Medium|Bold|ExtraBold|Black)\b""")
         val log = "app/src/main/kotlin/fr/arthurbrugiere/forgeline/actions/Ansi.kt"
-        assertThat(offenders(other, except = setOf(log))).isEmpty()
+        // Highlighted code is monospace too, and a theme's bold keywords are real there.
+        val code = "core/markdown/src/main/kotlin/fr/arthurbrugiere/forgeline/core/markdown/CodeHighlighter.kt"
+        assertThat(offenders(other, except = setOf(log, code))).isEmpty()
     }
 
     /** Where each `SoftHeader(...)` call sits in [text], its trailing content lambda included. */
