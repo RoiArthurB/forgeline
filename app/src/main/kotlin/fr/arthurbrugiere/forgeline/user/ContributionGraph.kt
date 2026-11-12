@@ -19,6 +19,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -79,22 +81,31 @@ internal fun ContributionGraph(contributions: Contributions, today: LocalDate, m
             .clearAndSetSemantics { contentDescription = listOfNotNull(summary, busiest).joinToString(". ") },
     ) {
         Text(summary, style = Soft.type.section, color = colors.ink)
-        val monthRow = 18.dp
+        // As tall as the month names are at the reader's text size, and a little room under them. Regression: a fixed
+        // 18dp, and at 2x the names drew over the first row of squares.
+        val density = LocalDensity.current
+        val monthRow = remember(monthStyle, density) { with(density) { measurer.measure("Ag", monthStyle).size.height.toDp() } + 4.dp }
         Canvas(
             Modifier
                 .horizontalScroll(scroll)
+                .testTag(CONTRIBUTION_GRAPH_TAG)
                 .size(width = Cell * WEEKS + Gap * (WEEKS - 1), height = monthRow + Cell * 7 + Gap * 6),
         ) {
             val cell = Cell.toPx()
             val step = cell + Gap.toPx()
             val top = monthRow.toPx()
             var lastMonth = -1
+            var labelEnd = Float.NEGATIVE_INFINITY
             for (week in 0 until WEEKS) {
                 val monday = firstWeek.plusWeeks(week.toLong())
                 // A month is named over the first week that begins in it.
                 if (monday.monthValue != lastMonth) {
                     if (lastMonth != -1 || monday.dayOfMonth <= 7) {
-                        drawText(measurer, monday.month.getDisplayName(TextStyle.SHORT, locale), Offset(week * step, 0f), monthStyle)
+                        val name = measurer.measure(monday.month.getDisplayName(TextStyle.SHORT, locale), monthStyle)
+                        monthLabelX(week * step, name.size.width.toFloat(), size.width, labelEnd, Gap.toPx())?.let { x ->
+                            drawText(name, topLeft = Offset(x, 0f))
+                            labelEnd = x + name.size.width
+                        }
                     }
                     lastMonth = monday.monthValue
                 }
@@ -111,6 +122,18 @@ internal fun ContributionGraph(contributions: Contributions, today: LocalDate, m
             }
         }
     }
+}
+
+const val CONTRIBUTION_GRAPH_TAG = "contribution-graph"
+
+/**
+ * Where a month's name of [width] starts, over its first week at [at]: pulled back from the graph's right edge
+ * ([end]) rather than cut there, which "Nov" was, to "N". Null when that would run into the name before it, which
+ * ended at [previousEnd]: a month begun in the last days of the graph goes unnamed.
+ */
+internal fun monthLabelX(at: Float, width: Float, end: Float, previousEnd: Float, gap: Float): Float? {
+    val x = minOf(at, end - width).coerceAtLeast(0f)
+    return x.takeIf { it >= previousEnd + gap }
 }
 
 /** Four shades above nothing, split at the quartiles of the busy days, so one huge day doesn't wash the rest out. */
