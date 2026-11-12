@@ -5,6 +5,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
@@ -38,6 +39,28 @@ class LineRemarkSheetTest {
                 onDismiss = {},
             )
         }
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h560dp-xhdpi", fontScale = 2.0f)
+    fun at_large_text_a_remark_s_sheet_scrolls_to_its_button() {
+        // Regression: at 2x, "Add to the review" was below the screen, out of reach.
+        val line = DiffLine(DiffLineKind.ADDED, "    retry { send(file) }", oldNumber = null, newNumber = 3)
+        setContent(line, above = listOf(DiffLine(DiffLineKind.CONTEXT, "fun upload() {", oldNumber = 1, newNumber = 1), DiffLine(DiffLineKind.CONTEXT, "    val tries = 3", oldNumber = 2, newNumber = 2)))
+
+        composeRule.onNodeWithText("Add to the review").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h560dp-xhdpi", fontScale = 2.0f)
+    fun at_large_text_the_review_sheet_scrolls_to_its_button() {
+        composeRule.setContent {
+            ForgelineTheme {
+                ReviewSheet(fr.arthurbrugiere.forgeline.core.model.ReviewVerdict.entries.toSet(), remarks = 2, isSending = false, error = null, onSubmit = { _, _ -> }, onDismiss = {})
+            }
+        }
+
+        composeRule.onNodeWithText("Send review").performScrollTo().assertIsDisplayed()
     }
 
     @Test

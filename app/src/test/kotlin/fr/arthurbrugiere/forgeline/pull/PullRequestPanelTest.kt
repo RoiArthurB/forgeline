@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import com.google.common.truth.Truth.assertThat
@@ -441,6 +442,17 @@ class PullRequestPanelTest {
 
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Merge pull request")).fetchSemanticsNodes().isEmpty() }
         assertThat(events).isEmpty()
+    }
+
+    @Test
+    @Config(qualifiers = "w360dp-h560dp-xhdpi", fontScale = 2.0f)
+    fun at_large_text_the_merge_sheet_scrolls_to_its_button() {
+        // Regression: taller than the screen at 2x, its button was pushed off the bottom.
+        setContent(signedIn)
+
+        composeRule.onNodeWithText("Merge").performClick()
+
+        composeRule.onNodeWithText("Confirm merge").performScrollTo().assertIsDisplayed()
     }
 
     @Test

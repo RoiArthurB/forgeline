@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -61,7 +63,7 @@ fun ReviewSheet(
         containerColor = colors.ground,
         contentColor = colors.ink,
     ) {
-        Column(Modifier.padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.review_title), style = Soft.type.name, color = colors.ink, modifier = Modifier.semantics { heading() })
             Column(Modifier.selectableGroup()) {
                 ReviewVerdict.entries.filter { it in verdicts }.forEach { option ->
@@ -124,7 +126,7 @@ fun LineRemarkSheet(target: LineTarget, onAdd: (String, DiffLine?) -> Unit, onDi
         containerColor = colors.ground,
         contentColor = colors.ink,
     ) {
-        Column(Modifier.padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val file = target.path.substringAfterLast('/')
             Text(
                 if (line == null) stringResource(R.string.changes_remark_file_title, file) else stringResource(R.string.changes_remark_title, file, line.number),
