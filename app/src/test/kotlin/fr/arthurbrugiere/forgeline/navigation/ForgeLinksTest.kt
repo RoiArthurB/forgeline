@@ -289,9 +289,18 @@ class ForgeLinksTest {
         // Read already: nothing new to go to.
         assertThat(thread.copy(unread = false).route()).isEqualTo(IssueRoute("github.com", "acme", "rocket", 42, isPullRequest = false))
         // A thread about a pull request says so: on GitLab that is another conversation than the issue of its number.
-        assertThat(thread.copy(type = fr.arthurbrugiere.forgeline.core.model.SubjectType.PULL_REQUEST).route()?.isPullRequest).isTrue()
+        assertThat((thread.copy(type = fr.arthurbrugiere.forgeline.core.model.SubjectType.PULL_REQUEST).route() as IssueRoute).isPullRequest).isTrue()
         // Not about a conversation: its repository opens instead.
         assertThat(thread.copy(type = fr.arthurbrugiere.forgeline.core.model.SubjectType.RELEASE).route()).isNull()
+    }
+
+    @Test
+    fun a_discussion_thread_opens_its_discussion() {
+        val thread = fr.arthurbrugiere.forgeline.core.testing.notificationThread("6", repo = "acme/rocket", type = fr.arthurbrugiere.forgeline.core.model.SubjectType.DISCUSSION)
+
+        assertThat(thread.route()).isEqualTo(DiscussionRoute("github.com", "acme", "rocket", 6))
+        // One whose number GitHub didn't send: its repository opens instead.
+        assertThat(thread.copy(number = null).route()).isNull()
     }
 
     @Test

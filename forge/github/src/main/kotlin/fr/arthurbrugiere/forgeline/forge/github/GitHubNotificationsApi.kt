@@ -187,8 +187,10 @@ private data class ThreadJson(
             "Commit" -> SubjectType.COMMIT
             else -> SubjectType.OTHER
         }
-        // Subject URLs end with the number for issues (/issues/42) and pull requests (/pulls/43).
-        val number = if (type == SubjectType.ISSUE || type == SubjectType.PULL_REQUEST) subject.url?.substringAfterLast('/')?.toIntOrNull() else null
+        // Subject URLs end with the number for issues (/issues/42), pull requests (/pulls/43) and discussions
+        // (/discussions/6, seen 2026-11-13; GitHub long sent none for a discussion, and may still for an old one).
+        val numbered = type == SubjectType.ISSUE || type == SubjectType.PULL_REQUEST || type == SubjectType.DISCUSSION
+        val number = if (numbered) subject.url?.substringAfterLast('/')?.toIntOrNull() else null
         return NotificationThread(
             id = id,
             repo = RepoId(owner, name, ForgeInstance.GitHub),

@@ -62,6 +62,7 @@ fun inboxLink(thread: NotificationThread): String {
     return when (thread.type) {
         SubjectType.ISSUE -> IssueRef(thread.repo, number).webUrl(isPullRequest = false)
         SubjectType.PULL_REQUEST -> IssueRef(thread.repo, number).webUrl(isPullRequest = true)
+        SubjectType.DISCUSSION -> "${thread.repo.webUrl}/discussions/$number"
         else -> thread.repo.webUrl
     }
 }

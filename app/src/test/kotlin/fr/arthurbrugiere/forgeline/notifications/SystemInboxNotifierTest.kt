@@ -38,6 +38,9 @@ class SystemInboxNotifierTest {
             .isEqualTo("https://github.com/acme/rocket/pull/43")
         assertThat(inboxLink(notificationThread("9", repo = "octo/tools", type = SubjectType.RELEASE, number = null)))
             .isEqualTo("https://github.com/octo/tools")
+        // Tapped, a discussion's notification opens the discussion, not its repository.
+        assertThat(inboxLink(notificationThread("6", repo = "acme/rocket", type = SubjectType.DISCUSSION)))
+            .isEqualTo("https://github.com/acme/rocket/discussions/6")
     }
 
     @Test

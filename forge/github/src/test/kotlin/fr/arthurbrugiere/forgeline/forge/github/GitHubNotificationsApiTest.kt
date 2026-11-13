@@ -270,4 +270,23 @@ class GitHubNotificationsApiTest {
         assertThat(threads[0].lastReadAt).isNull()
         assertThat(threads[3].lastReadAt).isEqualTo(java.time.Instant.parse("2026-09-26T18:00:00Z"))
     }
+
+    @Test
+    fun a_discussion_thread_says_which_discussion_it_is() = runTest {
+        // As GitHub sends one (seen 2026-11-13): the subject's URL names the discussion; one without leaves it unknown.
+        val body = """[
+            {"id":"2001","unread":true,"reason":"comment","updated_at":"2026-11-12T15:24:03Z","last_read_at":null,
+             "subject":{"title":"Ideas for the next release","url":"https://api.github.com/repos/acme/rocket/discussions/6","latest_comment_url":null,"type":"Discussion"},
+             "repository":{"full_name":"acme/rocket","owner":{"avatar_url":"https://avatars.example/1"}}},
+            {"id":"2002","unread":false,"reason":"subscribed","updated_at":"2026-11-10T10:00:00Z",
+             "subject":{"title":"An older one","url":null,"latest_comment_url":null,"type":"Discussion"},
+             "repository":{"full_name":"acme/rocket"}}
+        ]"""
+        val threads = api { json(body) }.threads("tok", ifModifiedSince = null).value().threads!!
+
+        assertThat(threads.map { it.type }).containsExactly(SubjectType.DISCUSSION, SubjectType.DISCUSSION)
+        assertThat(threads.map { it.number }).containsExactly(6, null).inOrder()
+        // Not an issue or a pull request: no state is asked for it.
+        assertThat(threads.first().subject).isNull()
+    }
 }

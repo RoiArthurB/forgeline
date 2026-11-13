@@ -245,7 +245,10 @@ fun RepoId.checkRoute(checkId: Long, checkName: String) = CheckRoute(forge.host,
 
 fun IssueRef.route() = IssueRoute(repo.forge.host, repo.owner, repo.name, number, isPullRequest)
 
-/** The conversation of a thread, for a thread about one; an unread thread opens at what is new. */
-fun NotificationThread.route(): IssueRoute? = subject?.route()?.copy(unread = unread, lastReadAtMillis = lastReadAt?.toEpochMilli())
+/** The conversation of a thread, for a thread about one (an unread thread opens at what is new), or its discussion. */
+fun NotificationThread.route(): NavKey? = when {
+    type == fr.arthurbrugiere.forgeline.core.model.SubjectType.DISCUSSION -> number?.let { DiscussionRoute(repo.forge.host, repo.owner, repo.name, it) }
+    else -> subject?.route()?.copy(unread = unread, lastReadAtMillis = lastReadAt?.toEpochMilli())
+}
 
 fun ForgeInstance.userRoute(login: String) = UserRoute(host, login)
