@@ -113,6 +113,22 @@ class FakeRepoRepository : RepoRepository {
         return wikiPageByKey[key] ?: ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Http(404, "Not Found"))
     }
 
+    /** The pages of comments and of replies, by the cursor that asks for each; a failure for those not given. */
+    val discussionCommentPages = mutableMapOf<String, ForgeResult<fr.arthurbrugiere.forgeline.core.model.DiscussionCommentPage>>()
+    val discussionReplyPages = mutableMapOf<String, ForgeResult<fr.arthurbrugiere.forgeline.core.model.DiscussionCommentPage>>()
+
+    override suspend fun discussionComments(id: RepoId, discussion: fr.arthurbrugiere.forgeline.core.model.Discussion, after: String): ForgeResult<fr.arthurbrugiere.forgeline.core.model.DiscussionCommentPage> {
+        calls += "discussionComments:${id.fullName}#${discussion.summary.number} after $after"
+        gate?.await()
+        return discussionCommentPages[after] ?: ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Network)
+    }
+
+    override suspend fun discussionReplies(id: RepoId, commentId: String, after: String): ForgeResult<fr.arthurbrugiere.forgeline.core.model.DiscussionCommentPage> {
+        calls += "discussionReplies:${id.fullName}:$commentId after $after"
+        gate?.await()
+        return discussionReplyPages[after] ?: ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Network)
+    }
+
     /** What a write to a discussion answers, once recorded in [calls]; it goes through when null. */
     var discussionWriteFailure: fr.arthurbrugiere.forgeline.core.forge.ForgeError? = null
 

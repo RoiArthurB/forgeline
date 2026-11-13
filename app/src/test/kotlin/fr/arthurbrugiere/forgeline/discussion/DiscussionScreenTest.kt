@@ -145,7 +145,7 @@ class DiscussionScreenTest {
     fun when_only_the_first_comments_were_read_it_says_so_and_offers_the_rest_on_the_forge() {
         setContent(loaded.copy(discussion = read.copy(summary = summary.copy(comments = 80))))
 
-        reach("Only the first comments and replies are shown here.")
+        reach("Not every comment and reply could be read here.")
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText("Open on GitHub"))
         composeRule.onNodeWithText("Open on GitHub").performClick()
 
@@ -157,7 +157,7 @@ class DiscussionScreenTest {
         setContent(loaded)
 
         reach("Open on GitHub")
-        assertThat(shown("Only the first comments")).isFalse()
+        assertThat(shown("Not every comment")).isFalse()
     }
 
     @Test
@@ -489,5 +489,13 @@ class DiscussionScreenTest {
         setContent(loaded.copy(discussion = own, deleted = true))
 
         assertThat(events).contains("back")
+    }
+
+    @Test
+    fun while_the_rest_is_read_it_says_so_rather_than_that_some_is_missing() {
+        setContent(loaded.copy(discussion = read.copy(summary = summary.copy(comments = 80)), readingRest = true))
+
+        reach("Reading the rest of the discussion")
+        assertThat(shown("Not every comment")).isFalse()
     }
 }

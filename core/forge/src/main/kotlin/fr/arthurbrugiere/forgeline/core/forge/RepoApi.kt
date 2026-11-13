@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.forge
 
 import fr.arthurbrugiere.forgeline.core.model.Discussion
+import fr.arthurbrugiere.forgeline.core.model.DiscussionCommentPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
 import fr.arthurbrugiere.forgeline.core.model.DiscussionUpvotes
@@ -66,6 +67,12 @@ interface RepoApi {
 
     /** The discussion [number] with its first comments and their replies; 404 when there is none. */
     suspend fun discussion(token: String?, id: RepoId, number: Int): ForgeResult<Discussion> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** The comments of the discussion the forge names [discussionId] after those [after] gave, with their first replies. */
+    suspend fun discussionComments(token: String, discussionId: String, after: String): ForgeResult<DiscussionCommentPage> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** The replies to the discussion comment [commentId] after those [after] gave. */
+    suspend fun discussionReplies(token: String, commentId: String, after: String): ForgeResult<DiscussionCommentPage> = ForgeResult.Failure(ForgeError.Unsupported)
 
     /** Comments on [discussion], or replies under its comment [replyTo]: a comment, never a reply, which has none of its own. */
     suspend fun commentOnDiscussion(token: String, discussion: Discussion, body: String, replyTo: String? = null): ForgeResult<Unit> =

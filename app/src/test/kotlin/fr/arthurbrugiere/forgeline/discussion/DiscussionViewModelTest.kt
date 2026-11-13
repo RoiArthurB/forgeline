@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Discussion
+import fr.arthurbrugiere.forgeline.core.model.DiscussionCommentPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
 import fr.arthurbrugiere.forgeline.core.model.DiscussionUpvotes
 import fr.arthurbrugiere.forgeline.core.model.Reaction
@@ -17,6 +18,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
@@ -315,5 +317,77 @@ class DiscussionViewModelTest {
         assertThat(viewModel.state.value.deleted).isFalse()
         assertThat(viewModel.state.value.sendError).isEqualTo(ForgeError.Http(403, "Forbidden"))
         assertThat(viewModel.state.value.sending).isNull()
+    }
+
+    @Test
+    fun the_comments_after_the_first_and_the_replies_past_the_first_are_read_next_and_added() = test {
+        val first = read.copy(
+            id = "D1", summary = read.summary.copy(comments = 3), commentsAfter = "p2",
+            comments = listOf(discussionComment("c1", "Use the cursor.", replies = listOf(discussionComment("r1", "Thanks!"))).copy(replyCount = 2, repliesAfter = "q2")),
+        )
+        repos.discussions[7] = ForgeResult.Success(first)
+        repos.discussionCommentPages["p2"] = ForgeResult.Success(DiscussionCommentPage(listOf(discussionComment("c2", "Me too.")), next = "p3"))
+        repos.discussionCommentPages["p3"] = ForgeResult.Success(DiscussionCommentPage(listOf(discussionComment("c3", "Same.")), next = null))
+        repos.discussionReplyPages["q2"] = ForgeResult.Success(DiscussionCommentPage(listOf(discussionComment("r2", "Glad it helped.")), next = null))
+
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        advanceUntilIdle()
+
+        val discussion = viewModel.state.value.discussion!!
+        assertThat(discussion.comments.map { it.id }).containsExactly("c1", "c2", "c3").inOrder()
+        assertThat(discussion.comments[0].replies.map { it.id }).containsExactly("r1", "r2").inOrder()
+        assertThat(discussion.isPartial).isFalse()
+        assertThat(viewModel.state.value.readingRest).isFalse()
+        assertThat(repos.calls).containsExactly(
+            "discussion:octo/repo#7",
+            "discussionComments:octo/repo#7 after p2",
+            "discussionComments:octo/repo#7 after p3",
+            "discussionReplies:octo/repo:c1 after q2",
+        ).inOrder()
+    }
+
+    @Test
+    fun the_first_comments_show_while_the_rest_is_read_and_a_page_that_fails_leaves_what_was_read() = test {
+        repos.discussions[7] = ForgeResult.Success(read.copy(id = "D1", summary = read.summary.copy(comments = 5), commentsAfter = "p2"))
+        repos.gate = CompletableDeferred()
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        runCurrent()
+        repos.gate!!.complete(Unit)
+        repos.gate = CompletableDeferred()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.discussion?.comments?.map { it.id }).containsExactly("c1")
+        assertThat(viewModel.state.value.readingRest).isTrue()
+        // Not given: the fake answers it as offline.
+        repos.gate!!.complete(Unit)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.readingRest).isFalse()
+        assertThat(viewModel.state.value.discussion?.isPartial).isTrue()
+    }
+
+    @Test
+    fun read_again_the_comments_read_past_the_first_stay_until_read_again_and_one_deleted_since_goes() = test {
+        val page2 = DiscussionCommentPage(listOf(discussionComment("c2", "Me too."), discussionComment("c3", "Same.")), next = null)
+        repos.discussions[7] = ForgeResult.Success(read.copy(id = "D1", summary = read.summary.copy(comments = 3), commentsAfter = "p2"))
+        repos.discussionCommentPages["p2"] = ForgeResult.Success(page2)
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.discussion?.comments?.map { it.id }).containsExactly("c1", "c2", "c3").inOrder()
+
+        // c3 deleted since: the second page now holds c2 only.
+        repos.discussionCommentPages["p2"] = ForgeResult.Success(page2.copy(items = page2.items.take(1)))
+        repos.gate = CompletableDeferred()
+        viewModel.refresh()
+        runCurrent()
+        repos.gate!!.complete(Unit)
+        repos.gate = CompletableDeferred()
+        advanceUntilIdle()
+        // The first page read again: what was read after it stays meanwhile.
+        assertThat(viewModel.state.value.discussion?.comments?.map { it.id }).containsExactly("c1", "c2", "c3").inOrder()
+        repos.gate!!.complete(Unit)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.discussion?.comments?.map { it.id }).containsExactly("c1", "c2").inOrder()
     }
 }

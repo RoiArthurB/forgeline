@@ -8,6 +8,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Discussion
+import fr.arthurbrugiere.forgeline.core.model.DiscussionCommentPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
 import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
@@ -89,6 +90,12 @@ interface RepoRepository {
 
     /** The wiki page [key] of [id]. */
     suspend fun wikiPage(id: RepoId, key: String): ForgeResult<fr.arthurbrugiere.forgeline.core.model.WikiPage> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** The comments of [discussion] of [id] after those [after] gave, with their first replies. */
+    suspend fun discussionComments(id: RepoId, discussion: Discussion, after: String): ForgeResult<DiscussionCommentPage> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** The replies to the comment [commentId] of a discussion of [id], after those [after] gave. */
+    suspend fun discussionReplies(id: RepoId, commentId: String, after: String): ForgeResult<DiscussionCommentPage> = ForgeResult.Failure(ForgeError.Unsupported)
 
     /** Comments on [discussion] of [id], or replies under its comment [replyTo], as the account signed in on its forge. */
     suspend fun commentOnDiscussion(id: RepoId, discussion: Discussion, body: String, replyTo: String? = null): ForgeResult<Unit> =
@@ -266,6 +273,14 @@ class DefaultRepoRepository @Inject constructor(
     override suspend fun wikiPages(id: RepoId) = clients.repos(id.forge).wikiPages(accounts.tokenOn(id.forge), id)
 
     override suspend fun wikiPage(id: RepoId, key: String) = clients.repos(id.forge).wikiPage(accounts.tokenOn(id.forge), id, key)
+
+    override suspend fun discussionComments(id: RepoId, discussion: Discussion, after: String): ForgeResult<DiscussionCommentPage> {
+        val named = discussion.id ?: return ForgeResult.Failure(ForgeError.Unsupported)
+        return accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).discussionComments(it, named, after) } ?: ForgeResult.Failure(ForgeError.Unauthorized)
+    }
+
+    override suspend fun discussionReplies(id: RepoId, commentId: String, after: String) =
+        accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).discussionReplies(it, commentId, after) } ?: ForgeResult.Failure(ForgeError.Unauthorized)
 
     override suspend fun commentOnDiscussion(id: RepoId, discussion: Discussion, body: String, replyTo: String?) =
         accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).commentOnDiscussion(it, discussion, body, replyTo) } ?: ForgeResult.Failure(ForgeError.Unauthorized)

@@ -9,6 +9,7 @@ import fr.arthurbrugiere.forgeline.core.forge.VersionOrder
 import fr.arthurbrugiere.forgeline.core.forge.map
 import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.model.DiscussionComment
+import fr.arthurbrugiere.forgeline.core.model.DiscussionCommentPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
 import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
@@ -45,7 +46,9 @@ import fr.arthurbrugiere.forgeline.forge.github.graphql.AddReactionMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.AddUpvoteMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DeleteDiscussionCommentMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DeleteDiscussionMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionCommentsQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionRepliesQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionsQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.MarkDiscussionAnswerMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.PinnedQuery
@@ -55,6 +58,7 @@ import fr.arthurbrugiere.forgeline.forge.github.graphql.UnmarkDiscussionAnswerMu
 import fr.arthurbrugiere.forgeline.forge.github.graphql.UpdateDiscussionCommentMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.UpdateDiscussionMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.DiscussionCommentFields
+import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.DiscussionCommentWithReplies
 import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.DiscussionFields
 import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.ReactionTally
 import fr.arthurbrugiere.forgeline.forge.github.graphql.type.ReactionContent
@@ -227,12 +231,8 @@ class GitHubRepoApi(
                 Discussion(
                     found.discussionFields.toSummary(found.comments.totalCount),
                     found.body,
-                    found.comments.nodes.orEmpty().filterNotNull().map { comment ->
-                        comment.discussionCommentFields.toModel(
-                            replies = comment.replies.nodes.orEmpty().filterNotNull().map { it.discussionCommentFields.toModel() },
-                            replyCount = comment.replies.totalCount,
-                        )
-                    },
+                    found.comments.nodes.orEmpty().filterNotNull().map { it.discussionCommentWithReplies.toModel() },
+                    commentsAfter = found.comments.pageInfo.endCursor.takeIf { found.comments.pageInfo.hasNextPage },
                     id = found.id,
                     locked = found.locked,
                     reactions = found.reactionTally.toModel(),
@@ -241,6 +241,20 @@ class GitHubRepoApi(
                     canEdit = found.viewerCanUpdate,
                     canDelete = found.viewerCanDelete,
                 )
+            }
+        }
+
+    override suspend fun discussionComments(token: String, discussionId: String, after: String): ForgeResult<DiscussionCommentPage> =
+        discussionsQuery(token, DiscussionCommentsQuery(discussionId, Optional.present(after))) { data ->
+            data.node?.onDiscussion?.comments?.let { page ->
+                DiscussionCommentPage(page.nodes.orEmpty().filterNotNull().map { it.discussionCommentWithReplies.toModel() }, page.pageInfo.endCursor.takeIf { page.pageInfo.hasNextPage })
+            }
+        }
+
+    override suspend fun discussionReplies(token: String, commentId: String, after: String): ForgeResult<DiscussionCommentPage> =
+        discussionsQuery(token, DiscussionRepliesQuery(commentId, Optional.present(after))) { data ->
+            data.node?.onDiscussionComment?.replies?.let { page ->
+                DiscussionCommentPage(page.nodes.orEmpty().filterNotNull().map { it.discussionCommentFields.toModel() }, page.pageInfo.endCursor.takeIf { page.pageInfo.hasNextPage })
             }
         }
 
@@ -464,6 +478,11 @@ private fun DiscussionCommentFields.toModel(replies: List<DiscussionComment> = e
     canEdit = viewerCanUpdate,
     canDelete = viewerCanDelete,
 )
+
+private fun DiscussionCommentWithReplies.toModel() = discussionCommentFields.toModel(
+    replies = replies.nodes.orEmpty().filterNotNull().map { it.discussionCommentFields.toModel() },
+    replyCount = replies.totalCount,
+).copy(repliesAfter = replies.pageInfo.endCursor.takeIf { replies.pageInfo.hasNextPage })
 
 /** The kinds anyone gave, by how many (GraphQL lists every kind, most at zero), and the reader's own. */
 private fun ReactionTally?.toModel(): DiscussionReactions {

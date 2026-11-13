@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.forge.github
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.DiscussionCommentPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
 import fr.arthurbrugiere.forgeline.core.model.DiscussionUpvotes
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
@@ -513,11 +514,11 @@ class GitHubRepoApiTest {
 
     private val oneDiscussion = """{"data":{"repository":{"discussion":{"__typename":"Discussion","number":7,"title":"How do I page?","body":"I can't find it.","createdAt":"2026-10-01T10:00:00Z","upvoteCount":3,"isAnswered":true,
         "category":{"name":"Q&A"},"author":{"login":"alice","avatarUrl":"https://avatars.example/2"},"id":"D_kwDOA","locked":false,"viewerCanReact":true,"viewerHasUpvoted":true,"viewerCanUpvote":true,"viewerCanUpdate":true,"viewerCanDelete":false,
-        "reactionGroups":[{"content":"THUMBS_UP","viewerHasReacted":true,"reactors":{"totalCount":4}},{"content":"HEART","viewerHasReacted":false,"reactors":{"totalCount":1}},{"content":"EYES","viewerHasReacted":false,"reactors":{"totalCount":0}}],"comments":{"totalCount":2,"nodes":[
+        "reactionGroups":[{"content":"THUMBS_UP","viewerHasReacted":true,"reactors":{"totalCount":4}},{"content":"HEART","viewerHasReacted":false,"reactors":{"totalCount":1}},{"content":"EYES","viewerHasReacted":false,"reactors":{"totalCount":0}}],"comments":{"totalCount":2,"pageInfo":{"hasNextPage":true,"endCursor":"Y29tbWVudHM"},"nodes":[
         {"__typename":"DiscussionComment","id":"c1","body":"Use the cursor.","createdAt":"2026-10-01T11:00:00Z","upvoteCount":5,"isAnswer":true,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":true,"viewerHasUpvoted":false,"viewerCanUpvote":true,"viewerCanUpdate":false,"viewerCanDelete":true,"author":{"login":"bob","avatarUrl":"https://avatars.example/2"},"viewerCanReact":true,
          "reactionGroups":[{"content":"ROCKET","viewerHasReacted":true,"reactors":{"totalCount":2}},{"content":"LAUGH","viewerHasReacted":false,"reactors":{"totalCount":0}}],
-         "replies":{"totalCount":40,"nodes":[{"__typename":"DiscussionComment","id":"r1","body":"Thanks!","createdAt":"2026-10-01T12:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":false,"viewerHasUpvoted":false,"viewerCanUpvote":false,"viewerCanUpdate":true,"viewerCanDelete":true,"author":{"login":"alice","avatarUrl":"https://avatars.example/2"},"viewerCanReact":true}]}},
-        {"__typename":"DiscussionComment","id":"c2","body":"Same question.","createdAt":"2026-10-02T11:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":true,"viewerCanUnmarkAsAnswer":false,"viewerHasUpvoted":false,"viewerCanUpvote":true,"viewerCanUpdate":false,"viewerCanDelete":false,"author":null,"viewerCanReact":false,"replies":{"totalCount":0,"nodes":[]}}]}}}}}"""
+         "replies":{"totalCount":40,"pageInfo":{"hasNextPage":true,"endCursor":"cmVwbGllcw"},"nodes":[{"__typename":"DiscussionComment","id":"r1","body":"Thanks!","createdAt":"2026-10-01T12:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":false,"viewerHasUpvoted":false,"viewerCanUpvote":false,"viewerCanUpdate":true,"viewerCanDelete":true,"author":{"login":"alice","avatarUrl":"https://avatars.example/2"},"viewerCanReact":true}]}},
+        {"__typename":"DiscussionComment","id":"c2","body":"Same question.","createdAt":"2026-10-02T11:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":true,"viewerCanUnmarkAsAnswer":false,"viewerHasUpvoted":false,"viewerCanUpvote":true,"viewerCanUpdate":false,"viewerCanDelete":false,"author":null,"viewerCanReact":false,"replies":{"totalCount":0,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}]}}}}}"""
 
     private fun body() = (requests.last().body as io.ktor.http.content.TextContent).text
 
@@ -666,6 +667,45 @@ class GitHubRepoApiTest {
 
         writing.deleteDiscussion("tok", "D_kwDOA")
         assertThat(body()).contains("\"operationName\":\"DeleteDiscussion\"")
+    }
+
+    @Test
+    fun what_asks_for_the_comments_and_replies_left_out_comes_with_the_first_ones() = runTest {
+        val discussion = api { json(oneDiscussion) }.discussion("tok", paperclip, 7).value()
+
+        assertThat(discussion.commentsAfter).isEqualTo("Y29tbWVudHM")
+        assertThat(discussion.comments.map { it.repliesAfter }).containsExactly("cmVwbGllcw", null).inOrder()
+    }
+
+    @Test
+    fun the_comments_after_the_first_are_asked_for_by_the_discussion_s_id_and_the_replies_by_their_comment_s() = runTest {
+        // As GitHub answers (2026-11-13), shortened.
+        val comments = api {
+            json(
+                """{"data":{"node":{"__typename":"Discussion","comments":{"pageInfo":{"hasNextPage":false,"endCursor":"ZW5k"},"nodes":[
+                {"__typename":"DiscussionComment","id":"c3","body":"Late to this.","createdAt":"2026-10-03T11:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":false,
+                 "viewerHasUpvoted":false,"viewerCanUpvote":true,"viewerCanUpdate":false,"viewerCanDelete":false,"author":null,"viewerCanReact":true,"reactionGroups":[],
+                 "replies":{"totalCount":0,"pageInfo":{"hasNextPage":false,"endCursor":null},"nodes":[]}}]}}}}""",
+            )
+        }
+
+        val page = comments.discussionComments("tok", "D_kwDOA", after = "Y29tbWVudHM").value()
+        assertThat(page.items.map { it.id }).containsExactly("c3")
+        assertThat(page.next).isNull()
+        assertThat(body()).contains("\"operationName\":\"DiscussionComments\"")
+        assertThat(body()).contains("\"variables\":{\"id\":\"D_kwDOA\",\"after\":\"Y29tbWVudHM\"}")
+
+        val replies = api {
+            json(
+                """{"data":{"node":{"__typename":"DiscussionComment","replies":{"pageInfo":{"hasNextPage":true,"endCursor":"bW9yZQ"},"nodes":[
+                {"__typename":"DiscussionComment","id":"r2","body":"Me too.","createdAt":"2026-10-03T12:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":false,
+                 "viewerHasUpvoted":false,"viewerCanUpvote":false,"viewerCanUpdate":false,"viewerCanDelete":false,"author":null,"viewerCanReact":true,"reactionGroups":[]}]}}}}""",
+            )
+        }
+        val more = replies.discussionReplies("tok", "c1", after = "cmVwbGllcw").value()
+        assertThat(more).isEqualTo(DiscussionCommentPage(listOf(more.items.single()), "bW9yZQ"))
+        assertThat(more.items.single().id).isEqualTo("r2")
+        assertThat(body()).contains("\"operationName\":\"DiscussionReplies\"")
     }
 
     @Test

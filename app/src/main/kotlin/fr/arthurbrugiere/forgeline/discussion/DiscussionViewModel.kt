@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.model.DiscussionComment
 import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +37,8 @@ data class DiscussionUiState(
     val sendError: ForgeError? = null,
     /** A reaction couldn't be given or taken back. */
     val reactionError: ForgeError? = null,
+    /** The comments and replies past the first are being read, after the first are shown. */
+    val readingRest: Boolean = false,
     /** Deleted from here: the page has nothing left to show, and goes back. */
     val deleted: Boolean = false,
 ) {
@@ -64,18 +67,75 @@ class DiscussionViewModel @AssistedInject constructor(
         refresh()
     }
 
-    /** Reads the discussion again. What was read stays on screen meanwhile, and when the forge can't be asked. */
+    /** Reading the comments and replies past the first ones; a new read of the discussion starts it over. */
+    private var rest: Job? = null
+    private var reads = 0
+
+    /**
+     * Reads the discussion again. What was read stays on screen meanwhile, and when the forge can't be asked. The first
+     * comments show at once; those after them, and replies past the first, are read next and added as they come.
+     */
     fun refresh() {
         _state.update { it.copy(isLoading = true, error = null) }
         viewModelScope.launch {
             val result = repos.discussion(repo, number)
+            if (result is ForgeResult.Success) rest?.cancel()
             _state.update {
                 when (result) {
-                    is ForgeResult.Success -> it.copy(discussion = result.value, summary = result.value.summary, isLoading = false)
+                    // What was read past the first page stays until it is read again: the list doesn't shrink under the reader.
+                    is ForgeResult.Success -> it.copy(discussion = result.value.keeping(it.discussion), summary = result.value.summary, isLoading = false)
                     is ForgeResult.Failure -> it.copy(isLoading = false, error = result.error)
                 }
             }
+            if (result is ForgeResult.Success) rest = viewModelScope.launch { readRest(result.value) }
         }
+    }
+
+    /**
+     * Reads the comments after [read]'s first ones, then the replies past each comment's first ones, a page at a time.
+     * Once all are read, what was kept from before and not seen again (deleted since) goes.
+     */
+    private suspend fun readRest(read: Discussion) {
+        if (read.commentsAfter == null && read.comments.none { it.repliesAfter != null }) return
+        // A read called off finishes after the next began: it leaves that one's saying so alone.
+        val mine = ++reads
+        _state.update { it.copy(readingRest = true) }
+        try {
+            val seen = read.comments.mapTo(HashSet()) { it.id }
+            var after = read.commentsAfter
+            var pages = 0
+            while (after != null && pages++ < MAX_PAGES) {
+                val discussion = state.value.discussion ?: return
+                val page = (repos.discussionComments(repo, discussion, after) as? ForgeResult.Success)?.value ?: return
+                page.items.mapTo(seen) { it.id }
+                change { it.copy(comments = it.comments.merging(page.items), commentsAfter = page.next) }
+                after = page.next
+            }
+            if (after == null) change { it.copy(comments = it.comments.filter { comment -> comment.id in seen }) }
+            state.value.discussion?.comments.orEmpty().filter { it.repliesAfter != null }.forEach { readReplies(it) }
+        } finally {
+            if (reads == mine) _state.update { it.copy(readingRest = false) }
+        }
+    }
+
+    private suspend fun readReplies(comment: DiscussionComment) {
+        val seen = comment.replies.mapTo(HashSet()) { it.id }
+        var after = comment.repliesAfter
+        var pages = 0
+        while (after != null && pages++ < MAX_PAGES) {
+            val page = (repos.discussionReplies(repo, comment.id, after) as? ForgeResult.Success)?.value ?: return
+            page.items.mapTo(seen) { it.id }
+            val next = page.next
+            changeComment(comment.id) { it.copy(replies = it.replies.merging(page.items), repliesAfter = next) }
+            after = next
+        }
+        if (after == null) changeComment(comment.id) { it.copy(replies = it.replies.filter { reply -> reply.id in seen }) }
+    }
+
+    private fun change(change: (Discussion) -> Discussion) = _state.update { it.copy(discussion = it.discussion?.let(change)) }
+
+    private fun changeComment(id: String, change: (DiscussionComment) -> DiscussionComment) = change { discussion ->
+        discussion.copy(comments = discussion.comments.map { if (it.id == id) change(it) else it })
     }
 
     fun errorShown() = _state.update { it.copy(error = null) }
@@ -177,8 +237,36 @@ class DiscussionViewModel @AssistedInject constructor(
         /** What [DiscussionUiState.sending] holds while a comment on the discussion itself is sent. */
         const val COMMENT = "comment"
 
+        /** How many pages of comments, and of each comment's replies, are read past the first: the forge's site has more. */
+        const val MAX_PAGES = 20
+
         /** What [DiscussionUiState.sending] holds while the discussion's title and text are rewritten, or it is deleted. */
         const val EDIT_DISCUSSION = "edit:discussion"
         const val DELETE_DISCUSSION = "delete:discussion"
     }
+}
+
+/**
+ * This discussion as just read, keeping what [before] read past its first page (comments, and replies past each
+ * comment's first), until that is read again: where the forge says nothing was left out, nothing is kept.
+ */
+internal fun Discussion.keeping(before: Discussion?): Discussion {
+    if (before == null) return this
+    val earlier = before.comments.associateBy { it.id }
+    val firstIds = comments.mapTo(HashSet()) { it.id }
+    val first = comments.map { comment -> earlier[comment.id]?.let { comment.keepingReplies(it) } ?: comment }
+    return copy(comments = if (commentsAfter == null) first else first + before.comments.filter { it.id !in firstIds })
+}
+
+private fun DiscussionComment.keepingReplies(before: DiscussionComment): DiscussionComment {
+    if (repliesAfter == null) return this
+    val ids = replies.mapTo(HashSet()) { it.id }
+    return copy(replies = replies + before.replies.filter { it.id !in ids })
+}
+
+/** These comments with [page]'s: one already here takes its new version in place (keeping replies read past its first), a new one goes at the end. */
+internal fun List<DiscussionComment>.merging(page: List<DiscussionComment>): List<DiscussionComment> {
+    val fresh = page.associateBy { it.id }
+    val here = mapTo(HashSet()) { it.id }
+    return map { old -> fresh[old.id]?.keepingReplies(old) ?: old } + page.filter { it.id !in here }
 }

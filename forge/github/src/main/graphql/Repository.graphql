@@ -68,14 +68,58 @@ query Discussion($owner: String!, $name: String!, $number: Int!) {
       ...ReactionTally
       comments(first: 50) {
         totalCount
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          ...DiscussionCommentWithReplies
+        }
+      }
+    }
+  }
+}
+
+fragment DiscussionCommentWithReplies on DiscussionComment {
+  ...DiscussionCommentFields
+  replies(first: 30) {
+    totalCount
+    pageInfo {
+      hasNextPage
+      endCursor
+    }
+    nodes {
+      ...DiscussionCommentFields
+    }
+  }
+}
+
+query DiscussionComments($id: ID!, $after: String) {
+  node(id: $id) {
+    ... on Discussion {
+      comments(first: 50, after: $after) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+        nodes {
+          ...DiscussionCommentWithReplies
+        }
+      }
+    }
+  }
+}
+
+query DiscussionReplies($id: ID!, $after: String) {
+  node(id: $id) {
+    ... on DiscussionComment {
+      replies(first: 50, after: $after) {
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
         nodes {
           ...DiscussionCommentFields
-          replies(first: 30) {
-            totalCount
-            nodes {
-              ...DiscussionCommentFields
-            }
-          }
         }
       }
     }

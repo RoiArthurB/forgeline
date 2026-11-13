@@ -446,7 +446,10 @@ fun DiscussionScreen(
                                 Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 20.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                             ) {
-                                if (discussion.isPartial) Text(stringResource(R.string.discussion_partial), style = Soft.type.secondary, color = colors.inkMuted)
+                                when {
+                                    state.readingRest -> Text(stringResource(R.string.discussion_reading_rest), style = Soft.type.secondary, color = colors.inkMuted)
+                                    discussion.isPartial -> Text(stringResource(R.string.discussion_partial), style = Soft.type.secondary, color = colors.inkMuted)
+                                }
                                 if (discussion.locked) Text(stringResource(R.string.discussion_locked), style = Soft.type.secondary, color = colors.inkMuted)
                                 if (state.canComment) {
                                     val sendingComment = state.sending == DiscussionViewModel.COMMENT

@@ -278,6 +278,29 @@ class GitHubLiveContractTest {
         }
     }
 
+    /** Read only: a long discussion's comments past the first page, and replies past a comment's first, still read. */
+    @Test
+    fun a_long_discussion_s_later_comments_and_replies_still_read() = runBlocking<Unit> {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        val api = GitHubRepoApi(client)
+        val next = RepoId("vercel", "next.js")
+        var page = (api.discussions(pat, next) as? ForgeResult.Success)?.value
+        var long = page?.items?.firstOrNull { it.comments > 50 }
+        repeat(5) { if (long == null && page?.next != null) page = (api.discussions(pat, next, page?.next) as? ForgeResult.Success)?.value.also { long = it?.items?.firstOrNull { d -> d.comments > 50 } } }
+        assertWithMessage("a discussion past 50 comments").that(long).isNotNull()
+        val discussion = (api.discussion(pat, next, long!!.number) as ForgeResult.Success).value
+        assertWithMessage("cursor").that(discussion.commentsAfter).isNotNull()
+
+        val later = api.discussionComments(pat, discussion.id!!, discussion.commentsAfter!!)
+
+        assertWithMessage("later comments: $later").that(later).isInstanceOf(ForgeResult.Success::class.java)
+        assertWithMessage("new ones").that((later as ForgeResult.Success).value.items.map { it.id }.intersect(discussion.comments.map { it.id }.toSet())).isEmpty()
+        (discussion.comments + later.value.items).firstOrNull { it.repliesAfter != null }?.let { comment ->
+            val replies = api.discussionReplies(pat, comment.id, comment.repliesAfter!!)
+            assertWithMessage("later replies: $replies").that(replies).isInstanceOf(ForgeResult.Success::class.java)
+        }
+    }
+
     @Test
     fun the_authenticated_user_endpoint_still_matches() = runBlocking {
         assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())

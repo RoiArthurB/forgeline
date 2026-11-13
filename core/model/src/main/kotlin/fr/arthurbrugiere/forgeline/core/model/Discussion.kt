@@ -30,6 +30,9 @@ data class DiscussionReactions(
 /** How many upvoted a discussion or one of its comments, whether the reader did, and whether they may. */
 data class DiscussionUpvotes(val count: Int, val given: Boolean = false, val canGive: Boolean = false)
 
+/** Comments of a discussion, or replies to one of its comments, after those read, and what asks for the next. */
+data class DiscussionCommentPage(val items: List<DiscussionComment>, val next: String?)
+
 /** One page of a repository's discussions, most recently active first, and what asks for the next. */
 data class DiscussionPage(val items: List<DiscussionSummary>, val next: String?)
 
@@ -45,6 +48,8 @@ data class DiscussionComment(
     val replies: List<DiscussionComment> = emptyList(),
     /** How many replies the forge holds, which may be more than [replies]. */
     val replyCount: Int = replies.size,
+    /** What asks the forge for the replies after [replies]; null once they are all read. */
+    val repliesAfter: String? = null,
     /** Whether the reader may pick it as the answer, or take that back: the discussion's author and maintainers may. */
     val canMarkAnswer: Boolean = false,
     val canUnmarkAnswer: Boolean = false,
@@ -66,6 +71,8 @@ data class Discussion(
     val comments: List<DiscussionComment>,
     /** What the forge names it by, to comment on it; null where it can't be commented on from here. */
     val id: String? = null,
+    /** What asks the forge for the comments after [comments]; null once they are all read. */
+    val commentsAfter: String? = null,
     /** Locked: only those who look after the repository may still comment. */
     val locked: Boolean = false,
     /** Those given to its own text. */
