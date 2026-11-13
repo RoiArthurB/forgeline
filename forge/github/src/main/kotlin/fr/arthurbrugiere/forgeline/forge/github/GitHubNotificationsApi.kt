@@ -86,15 +86,30 @@ class GitHubNotificationsApi(
         return ForgeResult.Success(answers.flatMap { (it as ForgeResult.Success).value.entries }.associate { it.key to it.value })
     }
 
-    private suspend fun states(token: String, chunk: List<IssueRef>): ForgeResult<Map<IssueRef, SubjectState>> {
+    override suspend fun discussionStates(token: String, discussions: List<IssueRef>): ForgeResult<Map<IssueRef, SubjectState>> {
+        if (discussions.isEmpty()) return ForgeResult.Success(emptyMap())
+        val answers = coroutineScope {
+            discussions.distinct().chunked(STATES_PER_REQUEST).map { chunk -> async { states(token, chunk, discussions = true) } }.awaitAll()
+        }
+        answers.firstOrNull { it is ForgeResult.Failure }?.let { return it as ForgeResult.Failure }
+        return ForgeResult.Success(answers.flatMap { (it as ForgeResult.Success).value.entries }.associate { it.key to it.value })
+    }
+
+    private suspend fun states(token: String, chunk: List<IssueRef>, discussions: Boolean = false): ForgeResult<Map<IssueRef, SubjectState>> {
         val repos = chunk.groupBy { it.repo }.entries.toList()
         val params = repos.indices.joinToString(", ") { "\$o$it: String!, \$n$it: String!" }
         val fields = repos.withIndex().joinToString(" ") { (i, entry) ->
-            val items = entry.value.joinToString(" ") { "i${it.number}: issueOrPullRequest(number: ${it.number}) { ...state }" }
+            val items = entry.value.joinToString(" ") {
+                if (discussions) "i${it.number}: discussion(number: ${it.number}) { closed isAnswered }" else "i${it.number}: issueOrPullRequest(number: ${it.number}) { ...state }"
+            }
             "r$i: repository(owner: \$o$i, name: \$n$i) { $items }"
         }
-        val query = "query SubjectStates($params) { $fields } fragment state on IssueOrPullRequest { " +
-            "__typename ... on Issue { state stateReason } ... on PullRequest { state isDraft } }"
+        val query = if (discussions) {
+            "query DiscussionStates($params) { $fields }"
+        } else {
+            "query SubjectStates($params) { $fields } fragment state on IssueOrPullRequest { " +
+                "__typename ... on Issue { state stateReason } ... on PullRequest { state isDraft } }"
+        }
         val variables = repos.withIndex().flatMap { (i, entry) -> listOf("o$i" to entry.key.owner, "n$i" to entry.key.name) }.toMap()
         // A subject deleted since, or in a repository the token can no longer see, leaves the others answered.
         val data = when (
@@ -108,9 +123,17 @@ class GitHubNotificationsApi(
         val states = mutableMapOf<IssueRef, SubjectState>()
         repos.forEachIndexed { i, (_, refs) ->
             val repo = data["r$i"] as? JsonObject ?: return@forEachIndexed
-            refs.forEach { ref -> (repo["i${ref.number}"] as? JsonObject)?.let(::subjectState)?.let { states[ref] = it } }
+            refs.forEach { ref -> (repo["i${ref.number}"] as? JsonObject)?.let { if (discussions) discussionState(it) else subjectState(it) }?.let { states[ref] = it } }
         }
         return ForgeResult.Success(states)
+    }
+
+    /** Closed whatever the reason (resolved, outdated, a duplicate); open, an answer picked or not. */
+    private fun discussionState(node: JsonObject): SubjectState? = when {
+        node["closed"]?.jsonPrimitive?.booleanOrNull == true -> SubjectState.CLOSED
+        node["isAnswered"]?.jsonPrimitive?.booleanOrNull == true -> SubjectState.ANSWERED
+        node["closed"]?.jsonPrimitive?.booleanOrNull == false -> SubjectState.OPEN
+        else -> null
     }
 
     private fun subjectState(node: JsonObject): SubjectState? {

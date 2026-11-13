@@ -418,6 +418,9 @@
     <string name="inbox_state_closed_pull">Pull request fermée</string>
     <string name="inbox_state_open_issue">Ticket ouvert</string>
     <string name="inbox_state_closed_issue">Ticket fermé</string>
+    <string name="inbox_state_open_discussion">Discussion ouverte</string>
+    <string name="inbox_state_answered_discussion">Discussion résolue</string>
+    <string name="inbox_state_closed_discussion">Discussion fermée</string>
     <string name="inbox_state_not_planned">Ticket non planifié</string>
     <string name="issue_open_repo">Ouvrir le dépôt</string>
     <string name="dispatch_title">Lancer un workflow</string>

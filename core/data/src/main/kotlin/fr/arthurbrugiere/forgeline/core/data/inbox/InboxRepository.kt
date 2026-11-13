@@ -15,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.SubjectState
+import fr.arthurbrugiere.forgeline.core.model.SubjectType
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -150,7 +151,7 @@ class DefaultInboxRepository @Inject constructor(
                         }
                         .map { entity ->
                             val thread = entity.toModel()
-                            val state = thread.subject?.let { byRef[it] }?.state?.let { name -> SubjectState.entries.firstOrNull { it.name == name } }
+                            val state = thread.stateRef?.let { byRef[it] }?.state?.let { name -> SubjectState.entries.firstOrNull { it.name == name } }
                             thread.copy(state = state)
                         },
                     // The Inbox is as fresh as its stalest account.
@@ -219,15 +220,24 @@ class DefaultInboxRepository @Inject constructor(
         // A conversation still in the inbox has its state asked (or sent with its thread) far more often than this.
         dao.pruneStates(now - STATE_KEEP_MILLIS)
         val known = dao.states().associateBy { it.ref() }
-        val stale = dao.all(account.id).map { it.toModel() }.mapNotNull { thread ->
-            val ref = thread.subject ?: return@mapNotNull null
+        val threads = dao.all(account.id).map { it.toModel() }
+        val discussions = threads.filter { it.type == SubjectType.DISCUSSION }.mapNotNullTo(HashSet()) { it.stateRef }
+        val stale = threads.mapNotNull { thread ->
+            val ref = thread.stateRef ?: return@mapNotNull null
             val state = known[ref]
             val fresh = state != null && state.threadUpdatedAtMillis >= thread.updatedAt.toEpochMilli() &&
                 now - state.checkedAtMillis < STATE_MAX_AGE_MILLIS
             if (fresh) null else ref to thread.updatedAt.toEpochMilli()
         }.toMap()
         if (stale.isEmpty()) return
-        val states = (clients.notifications(account.forge).subjectStates(token, stale.keys.toList()) as? ForgeResult.Success)?.value ?: return
+        val api = clients.notifications(account.forge)
+        // Discussions are asked apart: a forge names their states otherwise. Each answer is kept whatever the other's.
+        val (asDiscussions, asConversations) = stale.keys.partition { it in discussions }
+        val states = listOfNotNull(
+            asConversations.takeIf { it.isNotEmpty() }?.let { (api.subjectStates(token, it) as? ForgeResult.Success)?.value },
+            asDiscussions.takeIf { it.isNotEmpty() }?.let { (api.discussionStates(token, it) as? ForgeResult.Success)?.value },
+        ).fold(emptyMap<IssueRef, SubjectState>()) { all, some -> all + some }
+        if (states.isEmpty()) return
         dao.upsertStates(
             states.map { (ref, state) ->
                 SubjectStateEntity(ref.repo.forge.host, ref.repo.owner, ref.repo.name, ref.number, state.name, stale.getValue(ref), now, ref.storedKind)

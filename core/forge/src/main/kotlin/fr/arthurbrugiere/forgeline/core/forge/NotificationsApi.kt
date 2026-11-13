@@ -43,4 +43,10 @@ interface NotificationsApi {
 
     /** Where each issue or pull request stands now. Ones that no longer exist are left out. */
     suspend fun subjectStates(token: String, subjects: List<IssueRef>): ForgeResult<Map<IssueRef, SubjectState>>
+
+    /**
+     * Where each discussion stands now (open, answered or closed), each named by its repository and number as an
+     * [IssueRef]. Ones that no longer exist are left out; none on a forge without discussions.
+     */
+    suspend fun discussionStates(token: String, discussions: List<IssueRef>): ForgeResult<Map<IssueRef, SubjectState>> = ForgeResult.Success(emptyMap())
 }

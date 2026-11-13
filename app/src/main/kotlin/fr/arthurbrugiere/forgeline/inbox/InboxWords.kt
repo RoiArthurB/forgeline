@@ -14,6 +14,7 @@ import androidx.compose.material.icons.outlined.PlayCircleOutline
 import androidx.compose.material.icons.outlined.RateReview
 import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -35,13 +36,17 @@ internal val InboxFilter.label: Int
         InboxFilter.YOURS -> R.string.inbox_filter_yours
     }
 
-/** What a thread is about, and where it stands once known: "Merged pull request", "Closed issue". */
+/** What a thread is about, and where it stands once known: "Merged pull request", "Closed issue", "Answered discussion". */
 @Composable
 internal fun NotificationThread.kindLabel(): String {
     val isPull = type == SubjectType.PULL_REQUEST
+    val isDiscussion = type == SubjectType.DISCUSSION
     return stringResource(
         when (state) {
             null -> type.label
+            SubjectState.OPEN if isDiscussion -> R.string.inbox_state_open_discussion
+            SubjectState.CLOSED if isDiscussion -> R.string.inbox_state_closed_discussion
+            SubjectState.ANSWERED -> R.string.inbox_state_answered_discussion
             SubjectState.OPEN -> if (isPull) R.string.inbox_state_open_pull else R.string.inbox_state_open_issue
             SubjectState.DRAFT -> R.string.inbox_state_draft_pull
             SubjectState.MERGED -> R.string.inbox_state_merged_pull
@@ -51,10 +56,10 @@ internal fun NotificationThread.kindLabel(): String {
     )
 }
 
-/** A thread's tile, tinted like the Feed's states: fresh while open, cool once merged, warm once closed. */
+/** A thread's tile, tinted like the Feed's states: fresh while open, cool once merged or answered, warm once closed. */
 internal fun NotificationThread.stateTint(colors: SoftColors): Color = when (state) {
     SubjectState.OPEN -> colors.fields[2]
-    SubjectState.MERGED -> colors.fields[1]
+    SubjectState.MERGED, SubjectState.ANSWERED -> colors.fields[1]
     SubjectState.CLOSED -> colors.fields[0]
     null, SubjectState.DRAFT, SubjectState.NOT_PLANNED -> colors.surface
 }
@@ -63,6 +68,7 @@ internal fun NotificationThread.stateTint(colors: SoftColors): Color = when (sta
 internal val NotificationThread.tileIcon: ImageVector
     get() = when (state) {
         SubjectState.MERGED -> Icons.AutoMirrored.Outlined.CallMerge
+        SubjectState.ANSWERED -> Icons.Outlined.TaskAlt
         SubjectState.CLOSED -> if (type == SubjectType.PULL_REQUEST) Icons.Outlined.Close else Icons.Outlined.CheckCircleOutline
         SubjectState.NOT_PLANNED -> Icons.Outlined.Block
         else -> if (reasonIsNeedsYou) reason.icon else type.icon

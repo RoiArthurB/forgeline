@@ -62,6 +62,15 @@ class FakeNotificationsApi(override val supportsDone: Boolean = true, override v
         failure?.let { return ForgeResult.Failure(it) }
         return ForgeResult.Success(states.filterKeys { it in subjects })
     }
+
+    /** Where discussions stand, by their repository and number. */
+    val discussionStates = mutableMapOf<IssueRef, SubjectState>()
+
+    override suspend fun discussionStates(token: String, discussions: List<IssueRef>): ForgeResult<Map<IssueRef, SubjectState>> {
+        calls += "discussionStates:" + discussions.joinToString(",") { "${it.repo.fullName}#${it.number}" }
+        failure?.let { return ForgeResult.Failure(it) }
+        return ForgeResult.Success(discussionStates.filterKeys { it in discussions })
+    }
 }
 
 fun notificationThread(

@@ -9,8 +9,11 @@ enum class NotificationReason {
 
 enum class SubjectType { ISSUE, PULL_REQUEST, RELEASE, DISCUSSION, CHECK_SUITE, COMMIT, OTHER }
 
-/** Where an issue or pull request stands now; notifications don't say, so it's asked for separately. */
-enum class SubjectState { OPEN, DRAFT, MERGED, CLOSED, NOT_PLANNED }
+/**
+ * Where an issue, a pull request or a discussion stands now; notifications don't say, so it's asked for separately.
+ * [ANSWERED] is a discussion's that is still open, an answer picked among its comments.
+ */
+enum class SubjectState { OPEN, DRAFT, MERGED, CLOSED, NOT_PLANNED, ANSWERED }
 
 data class NotificationThread(
     val id: String,
@@ -39,6 +42,13 @@ data class NotificationThread(
         get() = number?.takeIf { type == SubjectType.ISSUE || type == SubjectType.PULL_REQUEST }?.let {
             IssueRef(repo, it, isPullRequest = (type == SubjectType.PULL_REQUEST))
         }
+
+    /**
+     * What this thread's state is asked and kept by: its issue or pull request, or its discussion as an [IssueRef] of
+     * its number (on GitHub, the one forge with discussions, they are numbered with issues and pull requests).
+     */
+    val stateRef: IssueRef?
+        get() = subject ?: number?.takeIf { type == SubjectType.DISCUSSION }?.let { IssueRef(repo, it, isPullRequest = false) }
 
     /** GitHub's "participating": you're directly involved, not just watching. */
     val isParticipating: Boolean

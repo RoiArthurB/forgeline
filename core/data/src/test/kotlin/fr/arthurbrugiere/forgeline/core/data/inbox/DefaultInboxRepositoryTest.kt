@@ -467,6 +467,30 @@ class DefaultInboxRepositoryTest {
     }
 
     @Test
+    fun discussions_show_whether_they_were_answered_or_closed_asked_apart_from_conversations() = runTest {
+        signIn()
+        api.threads = listOf(
+            notificationThread("1", type = SubjectType.ISSUE),
+            notificationThread("6", type = SubjectType.DISCUSSION),
+            notificationThread("7", type = SubjectType.DISCUSSION),
+            // GitHub sent no number for this one: there is nothing to ask by.
+            notificationThread("d", type = SubjectType.DISCUSSION, number = null),
+        )
+        api.states[IssueRef(RepoId("acme", "rocket"), 1)] = SubjectState.OPEN
+        api.discussionStates[IssueRef(RepoId("acme", "rocket"), 6, isPullRequest = false)] = SubjectState.ANSWERED
+        api.discussionStates[IssueRef(RepoId("acme", "rocket"), 7, isPullRequest = false)] = SubjectState.CLOSED
+
+        repository.sync(force = true, waitForFollowUps = true)
+
+        val states = repository.observe().first().threads.associate { it.id to it.state }
+        assertThat(states).containsExactly("1", SubjectState.OPEN, "6", SubjectState.ANSWERED, "7", SubjectState.CLOSED, "d", null)
+        assertThat(api.calls).containsAtLeast("states:acme/rocket#1", "discussionStates:acme/rocket#6,acme/rocket#7")
+        // Known and nothing moved: neither is asked again.
+        repository.sync(force = true, waitForFollowUps = true)
+        assertThat(api.calls.count { it.startsWith("discussionStates:") }).isEqualTo(1)
+    }
+
+    @Test
     fun states_are_asked_again_only_when_a_thread_moves_on_or_they_get_old() = runTest {
         signIn()
         api.threads = listOf(notificationThread("1", type = SubjectType.PULL_REQUEST), notificationThread("2", type = SubjectType.PULL_REQUEST))

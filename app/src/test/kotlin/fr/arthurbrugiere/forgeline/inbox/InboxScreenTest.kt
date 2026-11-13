@@ -114,6 +114,16 @@ class InboxScreenTest {
     }
 
     @Test
+    fun a_discussion_says_whether_it_is_open_answered_or_closed() {
+        val discussion = { id: String, state: SubjectState -> notificationThread(id, repo = "octo/tools", type = SubjectType.DISCUSSION, reason = NotificationReason.SUBSCRIBED).copy(state = state) }
+        setContent(grouped.copy(groups = listOf(SectionGroup(InboxSection.OTHERS, listOf(discussion("6", SubjectState.OPEN), discussion("7", SubjectState.ANSWERED), discussion("8", SubjectState.CLOSED))))))
+
+        composeRule.onNodeWithText("Open discussion", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Answered discussion", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Closed discussion", substring = true).assertIsDisplayed()
+    }
+
+    @Test
     fun everything_else_says_where_a_pull_request_or_issue_stands() {
         // Regression: every pull request read "Pull request", merged or not.
         val merged = notificationThread("7", repo = "octo/tools", type = SubjectType.PULL_REQUEST, reason = NotificationReason.SUBSCRIBED)

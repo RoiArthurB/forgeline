@@ -289,4 +289,19 @@ class GitHubNotificationsApiTest {
         // Not an issue or a pull request: no state is asked for it.
         assertThat(threads.first().subject).isNull()
     }
+
+    @Test
+    fun discussion_states_come_from_one_graphql_request_closed_answered_or_open() = runTest {
+        val repo = RepoId("acme", "rocket")
+        // As GitHub answers (2026-11-13); a discussion gone since answers null.
+        val answer = """{"data":{"r0":{"i6":{"closed":false,"isAnswered":true},"i7":{"closed":true,"isAnswered":true},"i8":{"closed":false,"isAnswered":null},"i9":null}}}"""
+        val refs = listOf(6, 7, 8, 9).map { IssueRef(repo, it, isPullRequest = false) }
+
+        val states = api { json(answer) }.discussionStates("tok", refs).value()
+
+        assertThat(states).containsExactly(refs[0], SubjectState.ANSWERED, refs[1], SubjectState.CLOSED, refs[2], SubjectState.OPEN)
+        val sent = (requests.single().body as TextContent).text
+        assertThat(sent).contains("query DiscussionStates")
+        assertThat(sent).contains("i6: discussion(number: 6) { closed isAnswered }")
+    }
 }
