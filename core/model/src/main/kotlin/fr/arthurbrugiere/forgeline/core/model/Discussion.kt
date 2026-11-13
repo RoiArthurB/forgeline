@@ -51,6 +51,9 @@ data class DiscussionComment(
     val reactions: DiscussionReactions = DiscussionReactions(),
     val upvoted: Boolean = false,
     val canUpvote: Boolean = false,
+    /** Whether the reader may rewrite it or delete it: their own, or a repository they look after. */
+    val canEdit: Boolean = false,
+    val canDelete: Boolean = false,
 ) {
     val upvoteTally: DiscussionUpvotes get() = DiscussionUpvotes(upvotes, upvoted, canUpvote)
 }
@@ -70,8 +73,14 @@ data class Discussion(
     /** Whether the reader upvoted it, and may; how many did is in [summary]. */
     val upvoted: Boolean = false,
     val canUpvote: Boolean = false,
+    /** Whether the reader may rewrite its title and text, or delete it with its comments. */
+    val canEdit: Boolean = false,
+    val canDelete: Boolean = false,
 ) {
     val upvoteTally: DiscussionUpvotes get() = DiscussionUpvotes(summary.upvotes, upvoted, canUpvote)
+
+    /** The comment or reply of that id. */
+    fun commentOrReply(id: String): DiscussionComment? = comments.firstNotNullOfOrNull { comment -> if (comment.id == id) comment else comment.replies.firstOrNull { it.id == id } }
 
     /** Its own upvotes ([id]), or those of the comment or reply of that id; null when it has none such. */
     fun upvotesOf(subjectId: String): DiscussionUpvotes? = when (subjectId) {

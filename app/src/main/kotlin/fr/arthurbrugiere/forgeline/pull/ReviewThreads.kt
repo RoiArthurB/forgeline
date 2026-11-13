@@ -298,7 +298,7 @@ private fun Thread(
 
 /** The reader's own remark, rewritten where it stands: its words in a field, then saved or left as they were. */
 @Composable
-private fun ThreadCommentEditor(text: String, onChange: (String) -> Unit, busy: Boolean, onCancel: () -> Unit, onSave: () -> Unit) {
+internal fun ThreadCommentEditor(text: String, onChange: (String) -> Unit, busy: Boolean, onCancel: () -> Unit, onSave: () -> Unit) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SoftTextField(
             value = text, onValueChange = onChange, placeholder = stringResource(R.string.issue_comment_editing),

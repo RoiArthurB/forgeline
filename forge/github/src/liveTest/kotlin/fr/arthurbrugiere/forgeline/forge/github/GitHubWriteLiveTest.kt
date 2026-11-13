@@ -199,10 +199,11 @@ class GitHubWriteLiveTest {
 
     /**
      * A discussion in a private scratch repository with discussions turned on: a reaction given to its text and to a
-     * comment, read back as the reader's, then taken back; an upvote given to the comment and taken back.
+     * comment, read back as the reader's, then taken back; an upvote given to the comment and taken back; the comment and
+     * the discussion rewritten, then deleted.
      */
     @Test
-    fun reactions_and_upvotes_are_given_to_a_discussion_and_its_comment_and_taken_back() = runBlocking<Unit> {
+    fun a_discussion_and_its_comment_are_reacted_to_upvoted_rewritten_and_deleted() = runBlocking<Unit> {
         assumeTrue("LIVE_TEST_PAT not set", token.isNotBlank())
         assumeTrue("GITHUB_LIVE_WRITES not set", System.getenv("GITHUB_LIVE_WRITES") == "1")
         val api = "https://api.github.com"
@@ -268,6 +269,17 @@ class GitHubWriteLiveTest {
             check(upvoted.given && upvoted.count == 1) { "upvoted: $upvoted" }
             val unvoted = repos.upvoteInDiscussion(token, comment, give = false).value("take the upvote back")
             check(!unvoted.given && unvoted.count == 0) { "taken back: $unvoted" }
+
+            // The reader's own: rewritten, then deleted; the discussion's title and text rewritten, then it deleted.
+            check(discussion.canEdit && discussion.canDelete && discussion.comments.single().let { it.canEdit && it.canDelete }) { "rights: $discussion" }
+            repos.editDiscussionComment(token, comment, "Rewritten.").value("rewrite the comment")
+            repos.editDiscussion(token, subject, "Scratch, renamed", "Rewritten too.").value("rewrite the discussion")
+            val rewritten = repos.discussion(token, repo, number).value("read rewritten")
+            check(rewritten.summary.title == "Scratch, renamed" && rewritten.body == "Rewritten too." && rewritten.comments.single().body == "Rewritten.") { "rewritten: $rewritten" }
+            repos.deleteDiscussionComment(token, comment).value("delete the comment")
+            check(repos.discussion(token, repo, number).value("read without it").comments.isEmpty()) { "comment still there" }
+            repos.deleteDiscussion(token, subject).value("delete the discussion")
+            check((repos.discussion(token, repo, number) as? ForgeResult.Failure)?.error.let { it is ForgeError.Http && it.status == 404 }) { "discussion still there" }
 
             val deletion = GitHubRepoSettingsApi(http).delete(token, repo)
             System.err.println("GITHUB deletion: $deletion")

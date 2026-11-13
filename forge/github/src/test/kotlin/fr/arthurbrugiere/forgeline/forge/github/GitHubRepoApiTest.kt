@@ -512,12 +512,12 @@ class GitHubRepoApiTest {
         {"__typename":"Discussion","number":99836,"title":"App Router PDF downloads","createdAt":"2026-10-07T22:12:26Z","upvoteCount":4,"isAnswered":false,"category":{"name":"Help"},"author":null,"comments":{"totalCount":12}}]}}}}"""
 
     private val oneDiscussion = """{"data":{"repository":{"discussion":{"__typename":"Discussion","number":7,"title":"How do I page?","body":"I can't find it.","createdAt":"2026-10-01T10:00:00Z","upvoteCount":3,"isAnswered":true,
-        "category":{"name":"Q&A"},"author":{"login":"alice","avatarUrl":"https://avatars.example/2"},"id":"D_kwDOA","locked":false,"viewerCanReact":true,"viewerHasUpvoted":true,"viewerCanUpvote":true,
+        "category":{"name":"Q&A"},"author":{"login":"alice","avatarUrl":"https://avatars.example/2"},"id":"D_kwDOA","locked":false,"viewerCanReact":true,"viewerHasUpvoted":true,"viewerCanUpvote":true,"viewerCanUpdate":true,"viewerCanDelete":false,
         "reactionGroups":[{"content":"THUMBS_UP","viewerHasReacted":true,"reactors":{"totalCount":4}},{"content":"HEART","viewerHasReacted":false,"reactors":{"totalCount":1}},{"content":"EYES","viewerHasReacted":false,"reactors":{"totalCount":0}}],"comments":{"totalCount":2,"nodes":[
-        {"__typename":"DiscussionComment","id":"c1","body":"Use the cursor.","createdAt":"2026-10-01T11:00:00Z","upvoteCount":5,"isAnswer":true,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":true,"viewerHasUpvoted":false,"viewerCanUpvote":true,"author":{"login":"bob","avatarUrl":"https://avatars.example/2"},"viewerCanReact":true,
+        {"__typename":"DiscussionComment","id":"c1","body":"Use the cursor.","createdAt":"2026-10-01T11:00:00Z","upvoteCount":5,"isAnswer":true,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":true,"viewerHasUpvoted":false,"viewerCanUpvote":true,"viewerCanUpdate":false,"viewerCanDelete":true,"author":{"login":"bob","avatarUrl":"https://avatars.example/2"},"viewerCanReact":true,
          "reactionGroups":[{"content":"ROCKET","viewerHasReacted":true,"reactors":{"totalCount":2}},{"content":"LAUGH","viewerHasReacted":false,"reactors":{"totalCount":0}}],
-         "replies":{"totalCount":40,"nodes":[{"__typename":"DiscussionComment","id":"r1","body":"Thanks!","createdAt":"2026-10-01T12:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":false,"viewerHasUpvoted":false,"viewerCanUpvote":false,"author":{"login":"alice","avatarUrl":"https://avatars.example/2"},"viewerCanReact":true}]}},
-        {"__typename":"DiscussionComment","id":"c2","body":"Same question.","createdAt":"2026-10-02T11:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":true,"viewerCanUnmarkAsAnswer":false,"viewerHasUpvoted":false,"viewerCanUpvote":true,"author":null,"viewerCanReact":false,"replies":{"totalCount":0,"nodes":[]}}]}}}}}"""
+         "replies":{"totalCount":40,"nodes":[{"__typename":"DiscussionComment","id":"r1","body":"Thanks!","createdAt":"2026-10-01T12:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":false,"viewerHasUpvoted":false,"viewerCanUpvote":false,"viewerCanUpdate":true,"viewerCanDelete":true,"author":{"login":"alice","avatarUrl":"https://avatars.example/2"},"viewerCanReact":true}]}},
+        {"__typename":"DiscussionComment","id":"c2","body":"Same question.","createdAt":"2026-10-02T11:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":true,"viewerCanUnmarkAsAnswer":false,"viewerHasUpvoted":false,"viewerCanUpvote":true,"viewerCanUpdate":false,"viewerCanDelete":false,"author":null,"viewerCanReact":false,"replies":{"totalCount":0,"nodes":[]}}]}}}}}"""
 
     private fun body() = (requests.last().body as io.ktor.http.content.TextContent).text
 
@@ -637,6 +637,35 @@ class GitHubRepoApiTest {
         val taken = api { json("""{"data":{"removeUpvote":{"subject":{"__typename":"Discussion","upvoteCount":2,"viewerHasUpvoted":false,"viewerCanUpvote":true}}}}""") }
         assertThat(taken.upvoteInDiscussion("tok", "D_kwDOA", give = false).value()).isEqualTo(DiscussionUpvotes(2, given = false, canGive = true))
         assertThat(body()).contains("\"operationName\":\"RemoveUpvote\"")
+    }
+
+    @Test
+    fun a_discussion_and_its_comments_say_whether_the_reader_may_rewrite_or_delete_them() = runTest {
+        val discussion = api { json(oneDiscussion) }.discussion("tok", paperclip, 7).value()
+
+        assertThat(discussion.canEdit to discussion.canDelete).isEqualTo(true to false)
+        assertThat(discussion.comments.map { it.canEdit to it.canDelete }).containsExactly(false to true, false to false).inOrder()
+        assertThat(discussion.comments[0].replies.single().let { it.canEdit to it.canDelete }).isEqualTo(true to true)
+    }
+
+    @Test
+    fun a_comment_and_the_discussion_are_rewritten_and_deleted_by_what_github_names_them() = runTest {
+        val writing = api { json("""{"data":{"updateDiscussionComment":{"comment":{"id":"c1"}}}}""") }
+
+        assertThat(writing.editDiscussionComment("tok", "c1", "Use the cursor, not the page.")).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(body()).contains("\"operationName\":\"UpdateDiscussionComment\"")
+        assertThat(body()).contains("\"variables\":{\"id\":\"c1\",\"body\":\"Use the cursor, not the page.\"}")
+
+        writing.deleteDiscussionComment("tok", "r1")
+        assertThat(body()).contains("\"operationName\":\"DeleteDiscussionComment\"")
+        assertThat(body()).contains("\"variables\":{\"id\":\"r1\"}")
+
+        writing.editDiscussion("tok", "D_kwDOA", "How do I page through?", "I can't find it.")
+        assertThat(body()).contains("\"operationName\":\"UpdateDiscussion\"")
+        assertThat(body()).contains("\"variables\":{\"id\":\"D_kwDOA\",\"title\":\"How do I page through?\",\"body\":\"I can't find it.\"}")
+
+        writing.deleteDiscussion("tok", "D_kwDOA")
+        assertThat(body()).contains("\"operationName\":\"DeleteDiscussion\"")
     }
 
     @Test

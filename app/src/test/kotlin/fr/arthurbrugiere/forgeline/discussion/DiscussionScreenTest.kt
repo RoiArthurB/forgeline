@@ -9,14 +9,17 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.unit.dp
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
@@ -71,6 +74,10 @@ class DiscussionScreenTest {
                         onSendErrorShown = { events += "send-error-shown" },
                         onReact = { id, reaction -> events += "react:$id:$reaction" },
                         onUpvote = { events += "upvote:$it" },
+                        onEditComment = { comment, body -> events += "edit:${comment.id}:$body" },
+                        onDeleteComment = { events += "delete:${it.id}" },
+                        onEditDiscussion = { title, body -> events += "rewrite:$title:$body" },
+                        onDeleteDiscussion = { events += "delete:discussion" },
                         onReactionErrorShown = { events += "reaction-error-shown" },
                         nowMillis = Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
                     )
@@ -415,5 +422,72 @@ class DiscussionScreenTest {
 
         assertThat(composeRule.onAllNodes(hasContentDescription("Upvote", substring = true)).fetchSemanticsNodes()).isEmpty()
         assertThat(composeRule.onAllNodes(hasContentDescription("3 upvotes")).fetchSemanticsNodes()).hasSize(1)
+    }
+
+    private val own = read.copy(
+        id = "D1", canEdit = true, canDelete = true,
+        comments = read.comments.map { comment -> comment.copy(canEdit = comment.id == "c2", canDelete = comment.id == "c2", replies = comment.replies.map { it.copy(canEdit = true, canDelete = true) }) },
+    )
+
+    @Test
+    fun the_reader_s_own_comment_is_rewritten_where_it_stands() {
+        setContent(loaded.copy(discussion = own))
+
+        reach("Same question here.")
+        // The text's, bob's, the reply's, then carol's.
+        composeRule.onAllNodes(hasContentDescription("Comment options"))[3].performClick()
+        composeRule.onNodeWithText("Edit").performClick()
+        composeRule.onNodeWithText("Same question here.").performTextReplacement("Same question, still.")
+        composeRule.onNodeWithText("Save").performClick()
+
+        assertThat(events).containsExactly("edit:c2:Same question, still.")
+    }
+
+    @Test
+    fun a_reply_is_deleted_once_the_reader_says_so() {
+        setContent(loaded.copy(discussion = own))
+
+        reach("Thanks, that was it.")
+        composeRule.onAllNodes(hasContentDescription("Comment options"))[2].performClick()
+        composeRule.onNodeWithText("Delete").performClick()
+        assertThat(events).isEmpty()
+        composeRule.onNodeWithText("Delete this comment?").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Delete").onLast().performClick()
+
+        assertThat(events).containsExactly("delete:r1")
+    }
+
+    @Test
+    fun the_discussion_s_title_and_text_are_rewritten_and_it_can_be_deleted() {
+        setContent(loaded.copy(discussion = own))
+
+        composeRule.onAllNodes(hasContentDescription("Comment options"))[0].performClick()
+        composeRule.onNodeWithText("Delete").performClick()
+        composeRule.onNodeWithText("Delete this discussion?").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Delete").onLast().performClick()
+        composeRule.onAllNodes(hasContentDescription("Comment options"))[0].performClick()
+        composeRule.onNodeWithText("Edit").performClick()
+        composeRule.onNode(hasSetTextAction() and hasText("How do I page?")).performTextReplacement("How do I page through?")
+        composeRule.onNodeWithText("Save").performClick()
+
+        assertThat(events).containsExactly("delete:discussion", "rewrite:How do I page through?:I can't find it in the docs.").inOrder()
+    }
+
+    @Test
+    fun what_the_reader_may_not_change_offers_no_edit_nor_delete() {
+        setContent(loaded.copy(discussion = own))
+
+        reach("Use the cursor.")
+        composeRule.onAllNodes(hasContentDescription("Comment options"))[1].performClick()
+
+        assertThat(shown("Edit")).isFalse()
+        assertThat(shown("Delete")).isFalse()
+    }
+
+    @Test
+    fun once_deleted_the_page_goes_back() {
+        setContent(loaded.copy(discussion = own, deleted = true))
+
+        assertThat(events).contains("back")
     }
 }

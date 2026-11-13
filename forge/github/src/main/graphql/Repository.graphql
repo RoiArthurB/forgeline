@@ -63,6 +63,8 @@ query Discussion($owner: String!, $name: String!, $number: Int!) {
       body
       viewerHasUpvoted
       viewerCanUpvote
+      viewerCanUpdate
+      viewerCanDelete
       ...ReactionTally
       comments(first: 50) {
         totalCount
@@ -105,6 +107,8 @@ fragment DiscussionCommentFields on DiscussionComment {
   viewerCanUnmarkAsAnswer
   viewerHasUpvoted
   viewerCanUpvote
+  viewerCanUpdate
+  viewerCanDelete
   author {
     login
     avatarUrl
@@ -120,6 +124,38 @@ fragment ReactionTally on Reactable {
     viewerHasReacted
     reactors {
       totalCount
+    }
+  }
+}
+
+mutation UpdateDiscussionComment($id: ID!, $body: String!) {
+  updateDiscussionComment(input: {commentId: $id, body: $body}) {
+    comment {
+      id
+    }
+  }
+}
+
+mutation DeleteDiscussionComment($id: ID!) {
+  deleteDiscussionComment(input: {id: $id}) {
+    comment {
+      id
+    }
+  }
+}
+
+mutation UpdateDiscussion($id: ID!, $title: String!, $body: String!) {
+  updateDiscussion(input: {discussionId: $id, title: $title, body: $body}) {
+    discussion {
+      id
+    }
+  }
+}
+
+mutation DeleteDiscussion($id: ID!) {
+  deleteDiscussion(input: {id: $id}) {
+    discussion {
+      id
     }
   }
 }

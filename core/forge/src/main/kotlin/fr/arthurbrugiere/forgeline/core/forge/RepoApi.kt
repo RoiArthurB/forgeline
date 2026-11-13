@@ -91,6 +91,18 @@ interface RepoApi {
      * back when [give] is false. Answers what it then has, everyone's.
      */
 
+    /** Rewrites the discussion comment or reply [commentId]. */
+    suspend fun editDiscussionComment(token: String, commentId: String, body: String): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Deletes the discussion comment or reply [commentId], for everyone. */
+    suspend fun deleteDiscussionComment(token: String, commentId: String): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Rewrites the title and text of the discussion the forge names [discussionId]. */
+    suspend fun editDiscussion(token: String, discussionId: String, title: String, body: String): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Deletes the discussion the forge names [discussionId], with its comments, for everyone. */
+    suspend fun deleteDiscussion(token: String, discussionId: String): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
     /** Upvotes a discussion or one of its comments ([subjectId]), or takes that back; answers its upvotes then. */
     suspend fun upvoteInDiscussion(token: String, subjectId: String, give: Boolean): ForgeResult<DiscussionUpvotes> = ForgeResult.Failure(ForgeError.Unsupported)
 

@@ -43,6 +43,8 @@ import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.forge.github.graphql.AddDiscussionCommentMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.AddReactionMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.AddUpvoteMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.DeleteDiscussionCommentMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.DeleteDiscussionMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionsQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.MarkDiscussionAnswerMutation
@@ -50,6 +52,8 @@ import fr.arthurbrugiere.forgeline.forge.github.graphql.PinnedQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.RemoveReactionMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.RemoveUpvoteMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.UnmarkDiscussionAnswerMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.UpdateDiscussionCommentMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.UpdateDiscussionMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.DiscussionCommentFields
 import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.DiscussionFields
 import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.ReactionTally
@@ -234,6 +238,8 @@ class GitHubRepoApi(
                     reactions = found.reactionTally.toModel(),
                     upvoted = found.viewerHasUpvoted,
                     canUpvote = found.viewerCanUpvote,
+                    canEdit = found.viewerCanUpdate,
+                    canDelete = found.viewerCanDelete,
                 )
             }
         }
@@ -251,6 +257,18 @@ class GitHubRepoApi(
             httpClient.gitHubOperation(apiBaseUrl, token, UnmarkDiscussionAnswerMutation(commentId)).map { }
         }
     }
+
+    override suspend fun editDiscussionComment(token: String, commentId: String, body: String): ForgeResult<Unit> =
+        forgeCall { httpClient.gitHubOperation(apiBaseUrl, token, UpdateDiscussionCommentMutation(commentId, body)).map { } }
+
+    override suspend fun deleteDiscussionComment(token: String, commentId: String): ForgeResult<Unit> =
+        forgeCall { httpClient.gitHubOperation(apiBaseUrl, token, DeleteDiscussionCommentMutation(commentId)).map { } }
+
+    override suspend fun editDiscussion(token: String, discussionId: String, title: String, body: String): ForgeResult<Unit> =
+        forgeCall { httpClient.gitHubOperation(apiBaseUrl, token, UpdateDiscussionMutation(discussionId, title, body)).map { } }
+
+    override suspend fun deleteDiscussion(token: String, discussionId: String): ForgeResult<Unit> =
+        forgeCall { httpClient.gitHubOperation(apiBaseUrl, token, DeleteDiscussionMutation(discussionId)).map { } }
 
     override suspend fun upvoteInDiscussion(token: String, subjectId: String, give: Boolean): ForgeResult<DiscussionUpvotes> = forgeCall {
         val tally = if (give) {
@@ -443,6 +461,8 @@ private fun DiscussionCommentFields.toModel(replies: List<DiscussionComment> = e
     reactions = reactionTally.toModel(),
     upvoted = viewerHasUpvoted,
     canUpvote = viewerCanUpvote,
+    canEdit = viewerCanUpdate,
+    canDelete = viewerCanDelete,
 )
 
 /** The kinds anyone gave, by how many (GraphQL lists every kind, most at zero), and the reader's own. */

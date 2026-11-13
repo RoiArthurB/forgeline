@@ -122,6 +122,30 @@ class FakeRepoRepository : RepoRepository {
         return discussionWriteFailure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(Unit)
     }
 
+    override suspend fun editDiscussionComment(id: RepoId, commentId: String, body: String): ForgeResult<Unit> {
+        calls += "discussionEdit:${id.fullName}:$commentId:$body"
+        gate?.await()
+        return discussionWriteFailure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(Unit)
+    }
+
+    override suspend fun deleteDiscussionComment(id: RepoId, commentId: String): ForgeResult<Unit> {
+        calls += "discussionDelete:${id.fullName}:$commentId"
+        gate?.await()
+        return discussionWriteFailure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(Unit)
+    }
+
+    override suspend fun editDiscussion(id: RepoId, discussion: fr.arthurbrugiere.forgeline.core.model.Discussion, title: String, body: String): ForgeResult<Unit> {
+        calls += "discussionRewrite:${id.fullName}#${discussion.summary.number}:$title:$body"
+        gate?.await()
+        return discussionWriteFailure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(Unit)
+    }
+
+    override suspend fun deleteDiscussion(id: RepoId, discussion: fr.arthurbrugiere.forgeline.core.model.Discussion): ForgeResult<Unit> {
+        calls += "discussionRemove:${id.fullName}#${discussion.summary.number}"
+        gate?.await()
+        return discussionWriteFailure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(Unit)
+    }
+
     override suspend fun upvoteInDiscussion(id: RepoId, subjectId: String, give: Boolean): ForgeResult<fr.arthurbrugiere.forgeline.core.model.DiscussionUpvotes> {
         calls += "discussionUpvote:${id.fullName}:$subjectId:$give"
         gate?.await()

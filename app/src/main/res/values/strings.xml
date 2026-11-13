@@ -312,6 +312,10 @@
     <string name="discussion_missing_body">It may have been deleted, or moved to an issue.</string>
     <string name="discussion_opened">%1$s started this %2$s</string>
     <string name="discussion_answer">Answer</string>
+    <string name="discussion_delete_title">Delete this discussion?</string>
+    <string name="discussion_delete_body">It is deleted for good, for everyone, with all its comments.</string>
+    <string name="discussion_title_placeholder">Title</string>
+    <string name="discussion_editing">Rewriting the discussion</string>
     <string name="discussion_upvote">Upvote</string>
     <string name="discussion_upvotes">▲ %1$d</string>
     <plurals name="discussion_upvotes">

@@ -296,6 +296,10 @@
     <string name="discussion_missing_body">Elle a peut-être été supprimée, ou transformée en ticket.</string>
     <string name="discussion_opened">%1$s a lancé cette discussion %2$s</string>
     <string name="discussion_answer">Réponse</string>
+    <string name="discussion_delete_title">Supprimer cette discussion ?</string>
+    <string name="discussion_delete_body">Elle est supprimée pour de bon, pour tout le monde, avec tous ses commentaires.</string>
+    <string name="discussion_title_placeholder">Titre</string>
+    <string name="discussion_editing">Réécriture de la discussion</string>
     <string name="discussion_upvote">Voter pour</string>
     <string name="discussion_upvotes">▲ %1$d</string>
     <plurals name="discussion_upvotes">

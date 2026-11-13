@@ -262,4 +262,58 @@ class DiscussionViewModelTest {
         assertThat(viewModel.state.value.reactionError).isEqualTo(ForgeError.Network)
         assertThat(viewModel.state.value.discussion?.upvoted).isFalse()
     }
+
+    @Test
+    fun a_comment_is_rewritten_or_deleted_and_the_discussion_read_again() = test {
+        repos.discussions[7] = ForgeResult.Success(read)
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        advanceUntilIdle()
+        val comment = read.comments.single()
+
+        viewModel.editComment(comment, "  Use the cursor, not the page.  ")
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.sent?.first).isEqualTo("edit:c1")
+        viewModel.deleteComment(comment)
+        advanceUntilIdle()
+
+        assertThat(repos.calls).containsExactly(
+            "discussion:octo/repo#7",
+            "discussionEdit:octo/repo:c1:Use the cursor, not the page.",
+            "discussion:octo/repo#7",
+            "discussionDelete:octo/repo:c1",
+            "discussion:octo/repo#7",
+        ).inOrder()
+    }
+
+    @Test
+    fun the_discussion_is_rewritten_or_deleted_and_once_deleted_the_page_goes() = test {
+        repos.discussions[7] = ForgeResult.Success(read.copy(id = "D1"))
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        advanceUntilIdle()
+
+        viewModel.editDiscussion("How do I page through? ", "I can't find it.")
+        advanceUntilIdle()
+        assertThat(repos.calls).contains("discussionRewrite:octo/repo#7:How do I page through?:I can't find it.")
+        viewModel.deleteDiscussion()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.deleted).isTrue()
+        // Nothing is read again: there is nothing left.
+        assertThat(repos.calls.last()).isEqualTo("discussionRemove:octo/repo#7")
+    }
+
+    @Test
+    fun a_deletion_refused_says_why_and_the_discussion_stays() = test {
+        repos.discussions[7] = ForgeResult.Success(read.copy(id = "D1"))
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        advanceUntilIdle()
+        repos.discussionWriteFailure = ForgeError.Http(403, "Forbidden")
+
+        viewModel.deleteDiscussion()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.deleted).isFalse()
+        assertThat(viewModel.state.value.sendError).isEqualTo(ForgeError.Http(403, "Forbidden"))
+        assertThat(viewModel.state.value.sending).isNull()
+    }
 }

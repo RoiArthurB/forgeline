@@ -36,6 +36,8 @@ data class DiscussionUiState(
     val sendError: ForgeError? = null,
     /** A reaction couldn't be given or taken back. */
     val reactionError: ForgeError? = null,
+    /** Deleted from here: the page has nothing left to show, and goes back. */
+    val deleted: Boolean = false,
 ) {
     /** Whether the reader may comment: the discussion is read (only signed in) and not locked. */
     val canComment: Boolean get() = discussion?.id != null && !discussion.locked
@@ -88,6 +90,30 @@ class DiscussionViewModel @AssistedInject constructor(
 
     /** Picks [comment] as the discussion's answer, or takes that back. */
     fun setAnswer(comment: DiscussionComment, answer: Boolean) = write("answer:${comment.id}") { repos.setDiscussionAnswer(repo, comment.id, answer) }
+
+    /** Rewrites [comment], one of the discussion's comments or replies; read again once it went through. */
+    fun editComment(comment: DiscussionComment, body: String) = write("edit:${comment.id}") { repos.editDiscussionComment(repo, comment.id, body.trim()) }
+
+    fun deleteComment(comment: DiscussionComment) = write("delete:${comment.id}") { repos.deleteDiscussionComment(repo, comment.id) }
+
+    /** Rewrites the discussion's title and text. */
+    fun editDiscussion(title: String, body: String) {
+        val discussion = state.value.discussion ?: return
+        write(EDIT_DISCUSSION) { repos.editDiscussion(repo, discussion, title.trim(), body.trim()) }
+    }
+
+    /** Deletes the discussion with its comments: nothing is read again, the page goes. */
+    fun deleteDiscussion() {
+        val discussion = state.value.discussion ?: return
+        if (state.value.sending != null) return
+        _state.update { it.copy(sending = DELETE_DISCUSSION, sendError = null) }
+        viewModelScope.launch {
+            when (val result = repos.deleteDiscussion(repo, discussion)) {
+                is ForgeResult.Success -> _state.update { it.copy(sending = null, deleted = true) }
+                is ForgeResult.Failure -> _state.update { it.copy(sending = null, sendError = result.error) }
+            }
+        }
+    }
 
     fun sendErrorShown() = _state.update { it.copy(sendError = null) }
 
@@ -150,5 +176,9 @@ class DiscussionViewModel @AssistedInject constructor(
     companion object {
         /** What [DiscussionUiState.sending] holds while a comment on the discussion itself is sent. */
         const val COMMENT = "comment"
+
+        /** What [DiscussionUiState.sending] holds while the discussion's title and text are rewritten, or it is deleted. */
+        const val EDIT_DISCUSSION = "edit:discussion"
+        const val DELETE_DISCUSSION = "delete:discussion"
     }
 }

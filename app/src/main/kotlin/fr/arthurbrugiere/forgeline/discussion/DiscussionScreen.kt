@@ -71,6 +71,8 @@ import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
@@ -86,6 +88,7 @@ import fr.arthurbrugiere.forgeline.issue.Comment
 import fr.arthurbrugiere.forgeline.issue.CommentMenu
 import fr.arthurbrugiere.forgeline.navigation.DiscussionRoute
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
+import fr.arthurbrugiere.forgeline.pull.ThreadCommentEditor
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.ui.HeaderRepoLink
@@ -141,6 +144,10 @@ fun DiscussionRoute(
         onSendErrorShown = viewModel::sendErrorShown,
         onReact = viewModel::react,
         onUpvote = viewModel::upvote,
+        onEditComment = viewModel::editComment,
+        onDeleteComment = viewModel::deleteComment,
+        onEditDiscussion = viewModel::editDiscussion,
+        onDeleteDiscussion = viewModel::deleteDiscussion,
         onReactionErrorShown = viewModel::reactionErrorShown,
     )
 }
@@ -175,6 +182,11 @@ fun DiscussionScreen(
     onReact: (String, Reaction) -> Unit = { _, _ -> },
     /** An upvote given to the discussion or a comment, by its id; or taken back. */
     onUpvote: (String) -> Unit = {},
+    /** A comment or reply rewritten, or deleted; the discussion's title and text rewritten, or it deleted. */
+    onEditComment: (DiscussionComment, String) -> Unit = { _, _ -> },
+    onDeleteComment: (DiscussionComment) -> Unit = {},
+    onEditDiscussion: (String, String) -> Unit = { _, _ -> },
+    onDeleteDiscussion: () -> Unit = {},
     onReactionErrorShown: () -> Unit = {},
     nowMillis: Long = rememberNow(state.discussion),
 ) {
@@ -205,15 +217,41 @@ fun DiscussionScreen(
     // The comment a reply is being written under, by its id, and that reply.
     var replyingTo by rememberSaveable { mutableStateOf<String?>(null) }
     var reply by rememberSaveable { mutableStateOf("") }
+    // What is being rewritten in its place, by its id (the discussion's own for its title and text), and its words.
+    var editing by rememberSaveable { mutableStateOf<String?>(null) }
+    var edited by rememberSaveable { mutableStateOf("") }
+    var editedTitle by rememberSaveable { mutableStateOf("") }
+    // What is asked about before it is deleted, by its id.
+    var deleting by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(state.sent) {
-        when (state.sent?.first) {
+        when (val sent = state.sent?.first) {
             null -> Unit
             DiscussionViewModel.COMMENT -> draft = ""
             replyingTo -> {
                 reply = ""
                 replyingTo = null
             }
+            // Rewritten: it reads as it now stands.
+            DiscussionViewModel.EDIT_DISCUSSION, "edit:$editing" -> editing = null
+            else -> if (sent == "delete:$replyingTo") replyingTo = null
         }
+    }
+    // Deleted from here, the discussion leaves nothing to show.
+    LaunchedEffect(state.deleted) { if (state.deleted) onBack() }
+    discussion?.let { shown ->
+        val asked = deleting ?: return@let
+        val whole = asked == shown.id
+        SoftConfirmSheet(
+            title = stringResource(if (whole) R.string.discussion_delete_title else R.string.issue_comment_delete_title),
+            body = stringResource(if (whole) R.string.discussion_delete_body else R.string.issue_comment_delete_body),
+            confirm = stringResource(R.string.issue_comment_delete),
+            cancel = stringResource(R.string.cancel),
+            onConfirm = {
+                deleting = null
+                if (whole) onDeleteDiscussion() else shown.commentOrReply(asked)?.let(onDeleteComment)
+            },
+            onDismiss = { deleting = null },
+        )
     }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -320,10 +358,26 @@ fun DiscussionScreen(
                                 context, nowMillis, onOpenUser, onLinkClick, Modifier.padding(top = 12.dp),
                                 menu = CommentMenu(
                                     onQuote = { quoteInComment(discussion.body) }.takeIf { state.canComment && discussion.body.isNotBlank() },
-                                    onEdit = null,
-                                    onDelete = null,
+                                    onEdit = {
+                                        edited = discussion.body
+                                        editedTitle = discussion.summary.title
+                                        editing = discussion.id
+                                    }.takeIf { discussion.canEdit && discussion.id != null },
+                                    onDelete = { deleting = discussion.id }.takeIf { discussion.canDelete && discussion.id != null },
                                     onReact = reactTo(discussion.id, discussion.reactions),
                                 ),
+                                editor = if (editing != null && editing == discussion.id) {
+                                    {
+                                        DiscussionEditor(
+                                            editedTitle, { editedTitle = it }, edited, { edited = it },
+                                            busy = state.sending == DiscussionViewModel.EDIT_DISCUSSION,
+                                            onCancel = { editing = null },
+                                            onSave = { onEditDiscussion(editedTitle, edited) },
+                                        )
+                                    }
+                                } else {
+                                    null
+                                },
                                 parted = false,
                             )
                         }
@@ -344,6 +398,12 @@ fun DiscussionScreen(
                                     onQuote = { quoteInReply(comment, comment.body) }.takeIf { state.canComment },
                                     onReact = reactTo(comment.id, comment.reactions),
                                     onUpvote = { onUpvote(comment.id) },
+                                    onEdit = {
+                                        edited = comment.body
+                                        editing = comment.id
+                                    }.takeIf { comment.canEdit },
+                                    onDelete = { deleting = comment.id }.takeIf { comment.canDelete },
+                                    editor = editorFor(comment, editing, edited, { edited = it }, state.sending, { editing = null }, onEditComment),
                                 )
                             }
                             items(comment.replies, key = { it.id }) { reply ->
@@ -353,6 +413,12 @@ fun DiscussionScreen(
                                     onQuote = { quoteInReply(comment, reply.body) }.takeIf { state.canComment },
                                     onReact = reactTo(reply.id, reply.reactions),
                                     onUpvote = { onUpvote(reply.id) },
+                                    onEdit = {
+                                        edited = reply.body
+                                        editing = reply.id
+                                    }.takeIf { reply.canEdit },
+                                    onDelete = { deleting = reply.id }.takeIf { reply.canDelete },
+                                    editor = editorFor(reply, editing, edited, { edited = it }, state.sending, { editing = null }, onEditComment),
                                     isReply = true,
                                 )
                             }
@@ -527,6 +593,9 @@ private fun Entry(
     onQuote: (() -> Unit)?,
     onReact: ((Reaction) -> Unit)?,
     onUpvote: (() -> Unit)? = null,
+    onEdit: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
+    editor: (@Composable () -> Unit)? = null,
     isReply: Boolean = false,
 ) {
     val line = Soft.colors.track
@@ -550,10 +619,42 @@ private fun Entry(
     }
     Comment(
         comment.author, comment.body, comment.createdAt, comment.reactions.counts, context, nowMillis, onOpenUser, onLinkClick, thread,
-        menu = CommentMenu(onQuote = onQuote, onEdit = null, onDelete = null, onReact = onReact),
+        menu = CommentMenu(onQuote = onQuote, onEdit = onEdit, onDelete = onDelete, onReact = onReact),
+        editor = editor,
         tags = tags,
         parted = false,
     )
+}
+
+/** The field [comment] is rewritten in, while it is the one being rewritten. */
+private fun editorFor(
+    comment: DiscussionComment,
+    editing: String?,
+    edited: String,
+    onChange: (String) -> Unit,
+    sending: String?,
+    onCancel: () -> Unit,
+    onSave: (DiscussionComment, String) -> Unit,
+): (@Composable () -> Unit)? = if (editing != comment.id) {
+    null
+} else {
+    { ThreadCommentEditor(edited, onChange, busy = sending == "edit:${comment.id}", onCancel = onCancel, onSave = { onSave(comment, edited) }) }
+}
+
+/** The discussion's title and text, rewritten where they stand, then saved or left as they were. */
+@Composable
+private fun DiscussionEditor(title: String, onTitleChange: (String) -> Unit, body: String, onBodyChange: (String) -> Unit, busy: Boolean, onCancel: () -> Unit, onSave: () -> Unit) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SoftTextField(value = title, onValueChange = onTitleChange, placeholder = stringResource(R.string.discussion_title_placeholder), readOnly = busy, modifier = Modifier.fillMaxWidth())
+        SoftTextField(
+            value = body, onValueChange = onBodyChange, placeholder = stringResource(R.string.discussion_editing),
+            singleLine = false, maxLines = 12, readOnly = busy, modifier = Modifier.fillMaxWidth(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SoftTonalButton(stringResource(R.string.cancel), onClick = onCancel, enabled = !busy)
+            SoftButton(stringResource(R.string.issue_comment_save), onClick = onSave, enabled = title.isNotBlank() && !busy)
+        }
+    }
 }
 
 /** [text] as Markdown quotes it, line by line. */
