@@ -298,7 +298,13 @@ class ForgeLinksTest {
     fun a_discussion_thread_opens_its_discussion() {
         val thread = fr.arthurbrugiere.forgeline.core.testing.notificationThread("6", repo = "acme/rocket", type = fr.arthurbrugiere.forgeline.core.model.SubjectType.DISCUSSION)
 
-        assertThat(thread.route()).isEqualTo(DiscussionRoute("github.com", "acme", "rocket", 6))
+        assertThat(thread.copy(unread = false).route()).isEqualTo(DiscussionRoute("github.com", "acme", "rocket", 6))
+        // Unread, it opens at what is new, as a conversation does: from the Inbox and from its phone notification.
+        val lastRead = java.time.Instant.parse("2026-11-12T10:00:00Z")
+        assertThat(thread.copy(unread = true, lastReadAt = lastRead).route())
+            .isEqualTo(DiscussionRoute("github.com", "acme", "rocket", 6, unread = true, lastReadAtMillis = lastRead.toEpochMilli()))
+        assertThat(linkRoute("https://github.com/acme/rocket/discussions/6", unread = true, lastReadAtMillis = 5L))
+            .isEqualTo(DiscussionRoute("github.com", "acme", "rocket", 6, unread = true, lastReadAtMillis = 5L))
         // One whose number GitHub didn't send: its repository opens instead.
         assertThat(thread.copy(number = null).route()).isNull()
     }

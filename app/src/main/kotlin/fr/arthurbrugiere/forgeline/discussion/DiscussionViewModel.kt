@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.Instant
 
 data class DiscussionUiState(
     val repo: RepoId,
@@ -39,6 +40,8 @@ data class DiscussionUiState(
     val reactionError: ForgeError? = null,
     /** The comments and replies past the first are being read, after the first are shown. */
     val readingRest: Boolean = false,
+    /** Where the list is to go, once: the id of a comment or reply, or [DiscussionViewModel.END]. */
+    val scrollTo: String? = null,
     /** Deleted from here: the page has nothing left to show, and goes back. */
     val deleted: Boolean = false,
 ) {
@@ -69,6 +72,28 @@ class DiscussionViewModel @AssistedInject constructor(
 
     /** Reading the comments and replies past the first ones; a new read of the discussion starts it over. */
     private var rest: Job? = null
+    private var refreshing: Job? = null
+    private var openedAtUnread = false
+
+    /**
+     * Once the whole discussion is read, sends the list to the first comment or reply written since [lastRead]; to the
+     * end when the forge doesn't say when it was last read, or nothing came since but the discussion itself.
+     */
+    fun openAtUnread(lastRead: Instant?) {
+        if (openedAtUnread) return
+        openedAtUnread = true
+        viewModelScope.launch {
+            refreshing?.join()
+            rest?.join()
+            val discussion = state.value.discussion ?: return@launch
+            // Started since: all of it is new, and it starts at the top.
+            if (lastRead != null && discussion.summary.createdAt?.isAfter(lastRead) == true) return@launch
+            val firstNew = lastRead?.let { discussion.inReadingOrder().firstOrNull { it.createdAt?.isAfter(lastRead) == true } }
+            _state.update { it.copy(scrollTo = firstNew?.id ?: END) }
+        }
+    }
+
+    fun scrolled() = _state.update { it.copy(scrollTo = null) }
     private var reads = 0
 
     /**
@@ -77,7 +102,7 @@ class DiscussionViewModel @AssistedInject constructor(
      */
     fun refresh() {
         _state.update { it.copy(isLoading = true, error = null) }
-        viewModelScope.launch {
+        refreshing = viewModelScope.launch {
             val result = repos.discussion(repo, number)
             if (result is ForgeResult.Success) rest?.cancel()
             _state.update {
@@ -237,6 +262,9 @@ class DiscussionViewModel @AssistedInject constructor(
         /** What [DiscussionUiState.sending] holds while a comment on the discussion itself is sent. */
         const val COMMENT = "comment"
 
+        /** What [DiscussionUiState.scrollTo] holds for the end of the discussion, where the reader's turn is. */
+        const val END = "end"
+
         /** How many pages of comments, and of each comment's replies, are read past the first: the forge's site has more. */
         const val MAX_PAGES = 20
 
@@ -270,3 +298,6 @@ internal fun List<DiscussionComment>.merging(page: List<DiscussionComment>): Lis
     val here = mapTo(HashSet()) { it.id }
     return map { old -> fresh[old.id]?.keepingReplies(old) ?: old } + page.filter { it.id !in here }
 }
+
+/** Its comments and replies in the order they are read: each comment, then the replies it drew. */
+internal fun Discussion.inReadingOrder(): List<DiscussionComment> = comments.flatMap { listOf(it) + it.replies }

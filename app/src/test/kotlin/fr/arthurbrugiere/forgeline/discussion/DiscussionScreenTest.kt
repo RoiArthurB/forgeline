@@ -79,6 +79,7 @@ class DiscussionScreenTest {
                         onEditDiscussion = { title, body -> events += "rewrite:$title:$body" },
                         onDeleteDiscussion = { events += "delete:discussion" },
                         onReactionErrorShown = { events += "reaction-error-shown" },
+                        onScrolled = { events += "scrolled" },
                         nowMillis = Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
                     )
                 }
@@ -497,5 +498,26 @@ class DiscussionScreenTest {
 
         reach("Reading the rest of the discussion")
         assertThat(shown("Not every comment")).isFalse()
+    }
+
+    @Test
+    fun each_comment_and_reply_is_found_where_the_list_draws_it() {
+        // Header, text; bob's, alice's reply, bob's actions; carol's, her actions; the end.
+        assertThat(listOf("c1", "r1", "c2", DiscussionViewModel.END).map { listIndexOf(it, read, canComment = true) }).containsExactly(2, 3, 5, 7).inOrder()
+        // Signed out, nothing is offered beside them.
+        assertThat(listOf("c2", DiscussionViewModel.END).map { listIndexOf(it, read, canComment = false) }).containsExactly(4, 5).inOrder()
+        assertThat(listIndexOf("gone", read, canComment = true)).isNull()
+        assertThat(listIndexOf(DiscussionViewModel.END, read.copy(comments = emptyList()), canComment = true)).isEqualTo(3)
+    }
+
+    @Test
+    fun sent_to_what_is_new_the_list_goes_there_and_says_so() {
+        val many = read.copy(id = "D1", comments = (1..20).map { discussionComment("c$it", "Comment number $it.", login = "user$it") })
+        setContent(loaded.copy(discussion = many, scrollTo = "c15"))
+        composeRule.mainClock.advanceTimeBy(6_000)
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText("Comment number 15.").assertIsDisplayed()
+        assertThat(events).contains("scrolled")
     }
 }

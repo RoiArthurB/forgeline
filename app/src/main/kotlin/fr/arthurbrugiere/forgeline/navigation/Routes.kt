@@ -55,9 +55,19 @@ data class FileRoute(
     val lines: IntRange? get() = firstLine?.let { it..(lastLine ?: it) }
 }
 
-/** One discussion of a repository, by its number. */
+/**
+ * One discussion of a repository, by its number. Opened from a notification that is [unread], it starts at what is new
+ * since [lastReadAtMillis], or at its latest entry when the forge doesn't say when it was last read.
+ */
 @Serializable
-data class DiscussionRoute(val host: String, val owner: String, val name: String, val number: Int) : NavKey {
+data class DiscussionRoute(
+    val host: String,
+    val owner: String,
+    val name: String,
+    val number: Int,
+    val unread: Boolean = false,
+    val lastReadAtMillis: Long? = null,
+) : NavKey {
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
 }
 
@@ -247,7 +257,7 @@ fun IssueRef.route() = IssueRoute(repo.forge.host, repo.owner, repo.name, number
 
 /** The conversation of a thread, for a thread about one (an unread thread opens at what is new), or its discussion. */
 fun NotificationThread.route(): NavKey? = when {
-    type == fr.arthurbrugiere.forgeline.core.model.SubjectType.DISCUSSION -> number?.let { DiscussionRoute(repo.forge.host, repo.owner, repo.name, it) }
+    type == fr.arthurbrugiere.forgeline.core.model.SubjectType.DISCUSSION -> number?.let { DiscussionRoute(repo.forge.host, repo.owner, repo.name, it, unread, lastReadAt?.toEpochMilli()) }
     else -> subject?.route()?.copy(unread = unread, lastReadAtMillis = lastReadAt?.toEpochMilli())
 }
 

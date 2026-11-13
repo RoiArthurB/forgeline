@@ -64,6 +64,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
+import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.model.DiscussionComment
 import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
 import fr.arthurbrugiere.forgeline.core.model.DiscussionUpvotes
@@ -128,6 +129,9 @@ fun DiscussionRoute(
     val openWiki = LocalOpenWiki.current
     val openCommit = LocalOpenCommit.current
     val openFile = fr.arthurbrugiere.forgeline.ui.LocalOpenFile.current
+    // Opened from an unread notification, it goes to what is new, as a conversation does; Settings can keep it at the top.
+    val atUnread = fr.arthurbrugiere.forgeline.ui.LocalUserSettings.current.openAtUnread
+    LaunchedEffect(viewModel) { if (route.unread && atUnread) viewModel.openAtUnread(route.lastReadAtMillis?.let(java.time.Instant::ofEpochMilli)) }
     DiscussionScreen(
         state = state,
         signedIn = session.signedInOn(repo.forge),
@@ -149,6 +153,7 @@ fun DiscussionRoute(
         onEditDiscussion = viewModel::editDiscussion,
         onDeleteDiscussion = viewModel::deleteDiscussion,
         onReactionErrorShown = viewModel::reactionErrorShown,
+        onScrolled = viewModel::scrolled,
     )
 }
 
@@ -188,6 +193,8 @@ fun DiscussionScreen(
     onEditDiscussion: (String, String) -> Unit = { _, _ -> },
     onDeleteDiscussion: () -> Unit = {},
     onReactionErrorShown: () -> Unit = {},
+    /** The list went where [DiscussionUiState.scrollTo] said. */
+    onScrolled: () -> Unit = {},
     nowMillis: Long = rememberNow(state.discussion),
 ) {
     val colors = Soft.colors
@@ -255,6 +262,33 @@ fun DiscussionScreen(
     }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    // How many comments in sight still show their text unread: each changes size once its Markdown lands.
+    val unreadMarkdown = remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    // An entry lands right below the status bar, not under it.
+    val topInset = WindowInsets.statusBars.getTop(androidx.compose.ui.platform.LocalDensity.current)
+    LaunchedEffect(state.scrollTo) {
+        val key = state.scrollTo ?: return@LaunchedEffect
+        val index = discussion?.let { listIndexOf(key, it, state.canComment) }
+        if (index == null) {
+            onScrolled()
+            return@LaunchedEffect
+        }
+        val toEnd = key == DiscussionViewModel.END
+        val offset = if (toEnd) 0 else -topInset
+        listState.scrollToItem(index, offset)
+        // Comments are laid out as their Markdown is read: those that grow afterwards push the place away. It is put
+        // back until every comment in sight is read and nothing moved it for a while, unless the reader takes over.
+        fun inPlace() = if (toEnd) !listState.canScrollForward else listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index }?.offset == -offset
+        val start = androidx.compose.runtime.withFrameMillis { it }
+        var settledSince = start
+        while (true) {
+            val now = androidx.compose.runtime.withFrameMillis { it }
+            if (listState.isScrollInProgress || now - settledSince >= SETTLE_MILLIS || now - start >= HOLD_LIMIT_MILLIS) break
+            if (!inPlace()) listState.scrollToItem(index, offset) else if (unreadMarkdown.intValue == 0) continue
+            settledSince = now
+        }
+        onScrolled()
+    }
     // Quoting the discussion's text adds it to the comment at the end, which the list goes to; quoting a comment or a
     // reply starts a reply in that comment's thread, quoting it.
     val quoteInComment = { text: String ->
@@ -270,218 +304,245 @@ fun DiscussionScreen(
 
     // Reacting takes an account and the forge's leave, not the right to comment: a locked discussion may still take them.
     fun reactTo(id: String?, reactions: DiscussionReactions): ((Reaction) -> Unit)? = if (id != null && reactions.canReact) ({ reaction -> onReact(id, reaction) }) else null
-    Box(modifier.fillMaxSize().background(colors.ground)) {
-        val pullState = rememberPullToRefreshState()
-        PullToRefreshBox(
-            isRefreshing = state.isLoading && discussion != null,
-            onRefresh = onRefresh,
-            state = pullState,
-            indicator = {
-                PullToRefreshDefaults.Indicator(
-                    state = pullState,
-                    isRefreshing = state.isLoading && discussion != null,
-                    modifier = Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.statusBars),
-                    containerColor = colors.raised,
-                    color = colors.accent,
-                )
-            },
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            LazyColumn(
-                state = listState,
-                horizontalAlignment = Alignment.CenterHorizontally,
-                contentPadding = PaddingValues(bottom = listBottomPadding()),
-                // The comment and reply boxes stay above the keyboard (edge-to-edge doesn't resize the window for it).
-                modifier = Modifier.fillMaxSize().sideSafeArea().imePadding(),
+    androidx.compose.runtime.CompositionLocalProvider(fr.arthurbrugiere.forgeline.ui.LocalUnreadMarkdown provides unreadMarkdown) {
+        Box(modifier.fillMaxSize().background(colors.ground)) {
+            val pullState = rememberPullToRefreshState()
+            PullToRefreshBox(
+                isRefreshing = state.isLoading && discussion != null,
+                onRefresh = onRefresh,
+                state = pullState,
+                indicator = {
+                    PullToRefreshDefaults.Indicator(
+                        state = pullState,
+                        isRefreshing = state.isLoading && discussion != null,
+                        modifier = Modifier.align(Alignment.TopCenter).windowInsetsPadding(WindowInsets.statusBars),
+                        containerColor = colors.raised,
+                        color = colors.accent,
+                    )
+                },
+                modifier = Modifier.fillMaxSize(),
             ) {
-                item(key = "header") {
-                    SoftHeader(
-                        onBack = onBack,
-                        backDescription = stringResource(R.string.navigate_up),
-                        actions = {
-                            ShareLinkButton(state.webUrl, (state.discussion?.summary ?: state.summary)?.title ?: "${state.repo.fullName}#${state.number}")
-                            SoftIconButton(onClick = { onOpenInBrowser(state.webUrl) }) {
-                                Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, forge), tint = Soft.colors.ink)
-                            }
-                        },
-                    ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            HeaderRepoLink(state.repo.fullName, onClick = { onOpenRepo(state.repo) })
-                            Text(
-                                summary?.let { "${it.title} - #${it.number}" } ?: "#${state.number}",
-                                style = Soft.type.detailTitle,
-                                color = Soft.colors.ink,
-                                modifier = Modifier.semantics { heading() },
-                            )
-                            if (summary != null) {
-                                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    summary.category?.let { SoftTag(it) }
-                                    if (summary.isAnswered == true) SoftTag(stringResource(R.string.repo_discussion_answered))
-                                    val upvotes = discussion?.upvoteTally ?: DiscussionUpvotes(summary.upvotes)
-                                    val toggle = discussion?.id?.takeIf { upvotes.canGive }?.let { id -> { onUpvote(id) } }
-                                    if (upvotes.count > 0 || toggle != null) Upvotes(upvotes, toggle)
+                LazyColumn(
+                    state = listState,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    contentPadding = PaddingValues(bottom = listBottomPadding()),
+                    // The comment and reply boxes stay above the keyboard (edge-to-edge doesn't resize the window for it).
+                    modifier = Modifier.fillMaxSize().sideSafeArea().imePadding(),
+                ) {
+                    item(key = "header") {
+                        SoftHeader(
+                            onBack = onBack,
+                            backDescription = stringResource(R.string.navigate_up),
+                            actions = {
+                                ShareLinkButton(state.webUrl, (state.discussion?.summary ?: state.summary)?.title ?: "${state.repo.fullName}#${state.number}")
+                                SoftIconButton(onClick = { onOpenInBrowser(state.webUrl) }) {
+                                    Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, forge), tint = Soft.colors.ink)
                                 }
-                                val who = summary.author?.login ?: stringResource(R.string.deleted_account)
-                                summary.createdAt?.let {
-                                    Text(stringResource(R.string.discussion_opened, who, relative(it, nowMillis)), style = Soft.type.secondary, color = Soft.colors.inkMuted)
-                                }
-                            }
-                        }
-                    }
-                }
-                when {
-                    discussion == null && state.error == ForgeError.Unauthorized && !signedIn -> item(key = "sign-in") {
-                        SoftNotice(
-                            stringResource(R.string.repo_discussions_sign_in_title),
-                            stringResource(R.string.repo_discussions_sign_in_body, forge),
-                            action = stringResource(R.string.sign_in),
-                            onAction = onSignIn,
-                            secondaryAction = stringResource(R.string.repo_open_on_forge, forge),
-                            onSecondaryAction = { onOpenInBrowser(state.webUrl) },
-                        )
-                    }
-                    discussion == null && state.error != null -> item(key = "error") {
-                        val missing = state.error is ForgeError.Http && state.error.status == 404
-                        SoftNotice(
-                            stringResource(R.string.discussion_error_title),
-                            if (missing) stringResource(R.string.discussion_missing_body) else stringResource(if (state.error == ForgeError.Network) R.string.trending_error_offline else R.string.sign_in_error_unknown),
-                            action = stringResource(if (missing) R.string.repo_open_on_forge else R.string.retry, forge),
-                            onAction = { if (missing) onOpenInBrowser(state.webUrl) else onRefresh() },
-                        )
-                    }
-                    discussion == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.issue_loading), rows = 3) }
-                    else -> {
-                        item(key = "body") {
-                            // When it was started is said in the header already.
-                            Comment(
-                                discussion.summary.author, discussion.body.ifBlank { stringResource(R.string.discussion_no_text) }, createdAt = null, discussion.reactions.counts,
-                                context, nowMillis, onOpenUser, onLinkClick, Modifier.padding(top = 12.dp),
-                                menu = CommentMenu(
-                                    onQuote = { quoteInComment(discussion.body) }.takeIf { state.canComment && discussion.body.isNotBlank() },
-                                    onEdit = {
-                                        edited = discussion.body
-                                        editedTitle = discussion.summary.title
-                                        editing = discussion.id
-                                    }.takeIf { discussion.canEdit && discussion.id != null },
-                                    onDelete = { deleting = discussion.id }.takeIf { discussion.canDelete && discussion.id != null },
-                                    onReact = reactTo(discussion.id, discussion.reactions),
-                                ),
-                                editor = if (editing != null && editing == discussion.id) {
-                                    {
-                                        DiscussionEditor(
-                                            editedTitle, { editedTitle = it }, edited, { edited = it },
-                                            busy = state.sending == DiscussionViewModel.EDIT_DISCUSSION,
-                                            onCancel = { editing = null },
-                                            onSave = { onEditDiscussion(editedTitle, edited) },
-                                        )
-                                    }
-                                } else {
-                                    null
-                                },
-                                parted = false,
-                            )
-                        }
-                        if (discussion.comments.isEmpty()) {
-                            item(key = "none") {
+                            },
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                HeaderRepoLink(state.repo.fullName, onClick = { onOpenRepo(state.repo) })
                                 Text(
-                                    stringResource(R.string.discussion_no_comments),
-                                    style = Soft.type.body,
-                                    color = colors.inkMuted,
-                                    modifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
+                                    summary?.let { "${it.title} - #${it.number}" } ?: "#${state.number}",
+                                    style = Soft.type.detailTitle,
+                                    color = Soft.colors.ink,
+                                    modifier = Modifier.semantics { heading() },
                                 )
+                                if (summary != null) {
+                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        summary.category?.let { SoftTag(it) }
+                                        if (summary.isAnswered == true) SoftTag(stringResource(R.string.repo_discussion_answered))
+                                        val upvotes = discussion?.upvoteTally ?: DiscussionUpvotes(summary.upvotes)
+                                        val toggle = discussion?.id?.takeIf { upvotes.canGive }?.let { id -> { onUpvote(id) } }
+                                        if (upvotes.count > 0 || toggle != null) Upvotes(upvotes, toggle)
+                                    }
+                                    val who = summary.author?.login ?: stringResource(R.string.deleted_account)
+                                    summary.createdAt?.let {
+                                        Text(stringResource(R.string.discussion_opened, who, relative(it, nowMillis)), style = Soft.type.secondary, color = Soft.colors.inkMuted)
+                                    }
+                                }
                             }
                         }
-                        discussion.comments.forEach { comment ->
-                            item(key = comment.id) {
-                                Entry(
-                                    comment, context, nowMillis, onOpenUser, onLinkClick,
-                                    onQuote = { quoteInReply(comment, comment.body) }.takeIf { state.canComment },
-                                    onReact = reactTo(comment.id, comment.reactions),
-                                    onUpvote = { onUpvote(comment.id) },
-                                    onEdit = {
-                                        edited = comment.body
-                                        editing = comment.id
-                                    }.takeIf { comment.canEdit },
-                                    onDelete = { deleting = comment.id }.takeIf { comment.canDelete },
-                                    editor = editorFor(comment, editing, edited, { edited = it }, state.sending, { editing = null }, onEditComment),
+                    }
+                    when {
+                        discussion == null && state.error == ForgeError.Unauthorized && !signedIn -> item(key = "sign-in") {
+                            SoftNotice(
+                                stringResource(R.string.repo_discussions_sign_in_title),
+                                stringResource(R.string.repo_discussions_sign_in_body, forge),
+                                action = stringResource(R.string.sign_in),
+                                onAction = onSignIn,
+                                secondaryAction = stringResource(R.string.repo_open_on_forge, forge),
+                                onSecondaryAction = { onOpenInBrowser(state.webUrl) },
+                            )
+                        }
+                        discussion == null && state.error != null -> item(key = "error") {
+                            val missing = state.error is ForgeError.Http && state.error.status == 404
+                            SoftNotice(
+                                stringResource(R.string.discussion_error_title),
+                                if (missing) stringResource(R.string.discussion_missing_body) else stringResource(if (state.error == ForgeError.Network) R.string.trending_error_offline else R.string.sign_in_error_unknown),
+                                action = stringResource(if (missing) R.string.repo_open_on_forge else R.string.retry, forge),
+                                onAction = { if (missing) onOpenInBrowser(state.webUrl) else onRefresh() },
+                            )
+                        }
+                        discussion == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.issue_loading), rows = 3) }
+                        else -> {
+                            item(key = "body") {
+                                // When it was started is said in the header already.
+                                Comment(
+                                    discussion.summary.author, discussion.body.ifBlank { stringResource(R.string.discussion_no_text) }, createdAt = null, discussion.reactions.counts,
+                                    context, nowMillis, onOpenUser, onLinkClick, Modifier.padding(top = 12.dp),
+                                    menu = CommentMenu(
+                                        onQuote = { quoteInComment(discussion.body) }.takeIf { state.canComment && discussion.body.isNotBlank() },
+                                        onEdit = {
+                                            edited = discussion.body
+                                            editedTitle = discussion.summary.title
+                                            editing = discussion.id
+                                        }.takeIf { discussion.canEdit && discussion.id != null },
+                                        onDelete = { deleting = discussion.id }.takeIf { discussion.canDelete && discussion.id != null },
+                                        onReact = reactTo(discussion.id, discussion.reactions),
+                                    ),
+                                    editor = if (editing != null && editing == discussion.id) {
+                                        {
+                                            DiscussionEditor(
+                                                editedTitle, { editedTitle = it }, edited, { edited = it },
+                                                busy = state.sending == DiscussionViewModel.EDIT_DISCUSSION,
+                                                onCancel = { editing = null },
+                                                onSave = { onEditDiscussion(editedTitle, edited) },
+                                            )
+                                        }
+                                    } else {
+                                        null
+                                    },
+                                    parted = false,
                                 )
                             }
-                            items(comment.replies, key = { it.id }) { reply ->
-                                Entry(
-                                    reply, context, nowMillis, onOpenUser, onLinkClick,
-                                    // A reply has none of its own: one to it goes in its thread.
-                                    onQuote = { quoteInReply(comment, reply.body) }.takeIf { state.canComment },
-                                    onReact = reactTo(reply.id, reply.reactions),
-                                    onUpvote = { onUpvote(reply.id) },
-                                    onEdit = {
-                                        edited = reply.body
-                                        editing = reply.id
-                                    }.takeIf { reply.canEdit },
-                                    onDelete = { deleting = reply.id }.takeIf { reply.canDelete },
-                                    editor = editorFor(reply, editing, edited, { edited = it }, state.sending, { editing = null }, onEditComment),
-                                    isReply = true,
-                                )
-                            }
-                            if (state.canComment || comment.canMarkAnswer || comment.canUnmarkAnswer) {
-                                item(key = "actions-${comment.id}") {
-                                    CommentActions(
-                                        comment,
-                                        canReply = state.canComment,
-                                        replying = replyingTo == comment.id,
-                                        reply = reply,
-                                        onReplyChange = { reply = it },
-                                        onStartReply = {
-                                            if (replyingTo != comment.id) reply = ""
-                                            replyingTo = comment.id
-                                        },
-                                        onSendReply = { onSend(reply, comment) },
-                                        onSetAnswer = { onSetAnswer(comment, it) },
-                                        sending = state.sending,
+                            if (discussion.comments.isEmpty()) {
+                                item(key = "none") {
+                                    Text(
+                                        stringResource(R.string.discussion_no_comments),
+                                        style = Soft.type.body,
+                                        color = colors.inkMuted,
+                                        modifier = Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
                                     )
                                 }
                             }
-                        }
-                        item(key = "end") {
-                            Column(
-                                Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 20.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                            ) {
-                                when {
-                                    state.readingRest -> Text(stringResource(R.string.discussion_reading_rest), style = Soft.type.secondary, color = colors.inkMuted)
-                                    discussion.isPartial -> Text(stringResource(R.string.discussion_partial), style = Soft.type.secondary, color = colors.inkMuted)
+                            discussion.comments.forEach { comment ->
+                                item(key = comment.id) {
+                                    Entry(
+                                        comment, context, nowMillis, onOpenUser, onLinkClick,
+                                        onQuote = { quoteInReply(comment, comment.body) }.takeIf { state.canComment },
+                                        onReact = reactTo(comment.id, comment.reactions),
+                                        onUpvote = { onUpvote(comment.id) },
+                                        onEdit = {
+                                            edited = comment.body
+                                            editing = comment.id
+                                        }.takeIf { comment.canEdit },
+                                        onDelete = { deleting = comment.id }.takeIf { comment.canDelete },
+                                        editor = editorFor(comment, editing, edited, { edited = it }, state.sending, { editing = null }, onEditComment),
+                                    )
                                 }
-                                if (discussion.locked) Text(stringResource(R.string.discussion_locked), style = Soft.type.secondary, color = colors.inkMuted)
-                                if (state.canComment) {
-                                    val sendingComment = state.sending == DiscussionViewModel.COMMENT
-                                    Row(Modifier.staysAboveKeyboard(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                        SoftTextField(
-                                            value = draft,
-                                            onValueChange = { draft = it },
-                                            placeholder = stringResource(R.string.discussion_comment_placeholder),
-                                            singleLine = false,
-                                            maxLines = 8,
-                                            readOnly = sendingComment,
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                        SoftSendButton(
-                                            onClick = { onSend(draft, null) },
-                                            description = stringResource(R.string.discussion_comment_send),
-                                            enabled = draft.isNotBlank() && state.sending == null,
-                                            busy = sendingComment,
+                                items(comment.replies, key = { it.id }) { reply ->
+                                    Entry(
+                                        reply, context, nowMillis, onOpenUser, onLinkClick,
+                                        // A reply has none of its own: one to it goes in its thread.
+                                        onQuote = { quoteInReply(comment, reply.body) }.takeIf { state.canComment },
+                                        onReact = reactTo(reply.id, reply.reactions),
+                                        onUpvote = { onUpvote(reply.id) },
+                                        onEdit = {
+                                            edited = reply.body
+                                            editing = reply.id
+                                        }.takeIf { reply.canEdit },
+                                        onDelete = { deleting = reply.id }.takeIf { reply.canDelete },
+                                        editor = editorFor(reply, editing, edited, { edited = it }, state.sending, { editing = null }, onEditComment),
+                                        isReply = true,
+                                    )
+                                }
+                                if (state.canComment || comment.canMarkAnswer || comment.canUnmarkAnswer) {
+                                    item(key = "actions-${comment.id}") {
+                                        CommentActions(
+                                            comment,
+                                            canReply = state.canComment,
+                                            replying = replyingTo == comment.id,
+                                            reply = reply,
+                                            onReplyChange = { reply = it },
+                                            onStartReply = {
+                                                if (replyingTo != comment.id) reply = ""
+                                                replyingTo = comment.id
+                                            },
+                                            onSendReply = { onSend(reply, comment) },
+                                            onSetAnswer = { onSetAnswer(comment, it) },
+                                            sending = state.sending,
                                         )
                                     }
                                 }
-                                SoftTonalButton(stringResource(R.string.repo_open_on_forge, forge), { onOpenInBrowser(state.webUrl) })
+                            }
+                            item(key = "end") {
+                                Column(
+                                    Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 20.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    when {
+                                        state.readingRest -> Text(stringResource(R.string.discussion_reading_rest), style = Soft.type.secondary, color = colors.inkMuted)
+                                        discussion.isPartial -> Text(stringResource(R.string.discussion_partial), style = Soft.type.secondary, color = colors.inkMuted)
+                                    }
+                                    if (discussion.locked) Text(stringResource(R.string.discussion_locked), style = Soft.type.secondary, color = colors.inkMuted)
+                                    if (state.canComment) {
+                                        val sendingComment = state.sending == DiscussionViewModel.COMMENT
+                                        Row(Modifier.staysAboveKeyboard(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                            SoftTextField(
+                                                value = draft,
+                                                onValueChange = { draft = it },
+                                                placeholder = stringResource(R.string.discussion_comment_placeholder),
+                                                singleLine = false,
+                                                maxLines = 8,
+                                                readOnly = sendingComment,
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                            SoftSendButton(
+                                                onClick = { onSend(draft, null) },
+                                                description = stringResource(R.string.discussion_comment_send),
+                                                enabled = draft.isNotBlank() && state.sending == null,
+                                                busy = sendingComment,
+                                            )
+                                        }
+                                    }
+                                    SoftTonalButton(stringResource(R.string.repo_open_on_forge, forge), { onOpenInBrowser(state.webUrl) })
+                                }
                             }
                         }
                     }
                 }
             }
+            val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+            SoftStatusBarScrim(scrolled)
+            SoftSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).overBottomBarOrKeyboard())
         }
-        val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
-        SoftStatusBarScrim(scrolled)
-        SoftSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).overBottomBarOrKeyboard())
     }
+}
+
+/** How long nothing must have moved the list from the place it was sent to before it is left alone. */
+private const val SETTLE_MILLIS = 600L
+
+/** However restless what is around it, the list is the reader's again after this long. */
+private const val HOLD_LIMIT_MILLIS = 5_000L
+
+/**
+ * Where [key] (a comment's or reply's id, or [DiscussionViewModel.END]) is in the list as [DiscussionScreen] draws it:
+ * its header, its text (or that nobody commented), then each comment, its replies and what may be done with it, then
+ * the end. Null for none such.
+ */
+internal fun listIndexOf(key: String, discussion: Discussion, canComment: Boolean): Int? {
+    var index = if (discussion.comments.isEmpty()) 3 else 2
+    discussion.comments.forEach { comment ->
+        if (comment.id == key) return index
+        index++
+        comment.replies.forEach { reply ->
+            if (reply.id == key) return index
+            index++
+        }
+        if (canComment || comment.canMarkAnswer || comment.canUnmarkAnswer) index++
+    }
+    return index.takeIf { key == DiscussionViewModel.END }
 }
 
 /**

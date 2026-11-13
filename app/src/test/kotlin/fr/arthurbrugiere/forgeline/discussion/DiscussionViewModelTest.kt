@@ -390,4 +390,64 @@ class DiscussionViewModelTest {
 
         assertThat(viewModel.state.value.discussion?.comments?.map { it.id }).containsExactly("c1", "c2").inOrder()
     }
+
+    private fun at(time: String) = java.time.Instant.parse(time)
+
+    private val timed = read.copy(
+        id = "D1",
+        summary = read.summary.copy(createdAt = at("2026-10-01T10:00:00Z"), comments = 2),
+        comments = listOf(
+            discussionComment("c1", "Use the cursor.", replies = listOf(discussionComment("r1", "Thanks!").copy(createdAt = at("2026-10-05T10:00:00Z")))).copy(createdAt = at("2026-10-02T10:00:00Z")),
+            discussionComment("c2", "Me too.").copy(createdAt = at("2026-10-06T10:00:00Z")),
+        ),
+    )
+
+    @Test
+    fun opened_unread_it_goes_to_the_first_comment_or_reply_written_since_it_was_last_read() = test {
+        repos.discussions[7] = ForgeResult.Success(timed)
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+
+        viewModel.openAtUnread(at("2026-10-04T10:00:00Z"))
+        advanceUntilIdle()
+
+        // The reply under c1 came before c2.
+        assertThat(viewModel.state.value.scrollTo).isEqualTo("r1")
+        viewModel.scrolled()
+        assertThat(viewModel.state.value.scrollTo).isNull()
+        // Once only.
+        viewModel.openAtUnread(at("2026-10-04T10:00:00Z"))
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.scrollTo).isNull()
+    }
+
+    @Test
+    fun what_is_new_is_looked_for_once_the_comments_past_the_first_are_read_too() = test {
+        repos.discussions[7] = ForgeResult.Success(timed.copy(commentsAfter = "p2", summary = timed.summary.copy(comments = 3)))
+        repos.discussionCommentPages["p2"] = ForgeResult.Success(DiscussionCommentPage(listOf(discussionComment("c3", "Late.").copy(createdAt = at("2026-10-09T10:00:00Z"))), next = null))
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+
+        viewModel.openAtUnread(at("2026-10-08T10:00:00Z"))
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.scrollTo).isEqualTo("c3")
+    }
+
+    @Test
+    fun without_a_last_read_or_with_nothing_new_it_goes_to_the_end_and_started_since_it_stays_at_the_top() = test {
+        repos.discussions[7] = ForgeResult.Success(timed)
+        val unknown = DiscussionViewModel(repo, 7, repos)
+        unknown.openAtUnread(null)
+        advanceUntilIdle()
+        assertThat(unknown.state.value.scrollTo).isEqualTo(DiscussionViewModel.END)
+
+        val caughtUp = DiscussionViewModel(repo, 7, repos)
+        caughtUp.openAtUnread(at("2026-10-07T10:00:00Z"))
+        advanceUntilIdle()
+        assertThat(caughtUp.state.value.scrollTo).isEqualTo(DiscussionViewModel.END)
+
+        val started = DiscussionViewModel(repo, 7, repos)
+        started.openAtUnread(at("2026-09-30T10:00:00Z"))
+        advanceUntilIdle()
+        assertThat(started.state.value.scrollTo).isNull()
+    }
 }

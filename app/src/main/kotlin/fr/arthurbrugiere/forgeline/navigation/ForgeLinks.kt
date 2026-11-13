@@ -255,5 +255,10 @@ object ForgeLinks {
  */
 fun linkRoute(url: String, unread: Boolean = false, lastReadAtMillis: Long? = null): NavKey? {
     val route = ForgeLinks.routeFor(url)
-    return if (route is IssueRoute && unread) route.copy(unread = true, lastReadAtMillis = lastReadAtMillis) else route
+    return when {
+        !unread -> route
+        route is IssueRoute -> route.copy(unread = true, lastReadAtMillis = lastReadAtMillis)
+        route is DiscussionRoute -> route.copy(unread = true, lastReadAtMillis = lastReadAtMillis)
+        else -> route
+    }
 }
