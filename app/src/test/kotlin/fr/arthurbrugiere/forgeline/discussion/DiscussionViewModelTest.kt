@@ -9,10 +9,12 @@ import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
 import fr.arthurbrugiere.forgeline.core.model.DiscussionUpvotes
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SavedReply
 import fr.arthurbrugiere.forgeline.core.testing.FakeRepoRepository
 import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
 import fr.arthurbrugiere.forgeline.core.testing.discussionComment
 import fr.arthurbrugiere.forgeline.core.testing.discussionSummary
+import fr.arthurbrugiere.forgeline.repo.Loadable
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -467,5 +469,33 @@ class DiscussionViewModelTest {
         assertThat(viewModel.state.value.discussion?.subscribed).isTrue()
         assertThat(viewModel.state.value.subscriptionError).isEqualTo(ForgeError.Network)
         assertThat(repos.calls.filter { it.startsWith("discussionSubscribed") }).containsExactly("discussionSubscribed:octo/repo#7:true", "discussionSubscribed:octo/repo#7:false").inOrder()
+    }
+
+    @Test
+    fun signed_in_on_a_forge_that_keeps_them_saved_replies_are_offered_and_read_once() = test {
+        var asked = 0
+        val saved = SavedReplySource({ true }, { asked++; ForgeResult.Success(listOf(SavedReply("Thanks", "Thanks for this!"))) })
+        repos.discussions[7] = ForgeResult.Success(read.copy(id = "D1"))
+        val viewModel = DiscussionViewModel(repo, 7, repos, saved = saved)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.offersSavedReplies).isTrue()
+
+        viewModel.loadSavedReplies()
+        advanceUntilIdle()
+        viewModel.loadSavedReplies()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.savedReplies).isEqualTo(Loadable.Loaded(listOf(SavedReply("Thanks", "Thanks for this!"))))
+        assertThat(asked).isEqualTo(1)
+    }
+
+    @Test
+    fun signed_out_no_saved_reply_is_offered() = test {
+        // Read signed out, a discussion has no id to comment on it by.
+        repos.discussions[7] = ForgeResult.Success(read)
+        val viewModel = DiscussionViewModel(repo, 7, repos, saved = SavedReplySource({ true }, { ForgeResult.Success(emptyList()) }))
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.offersSavedReplies).isFalse()
     }
 }

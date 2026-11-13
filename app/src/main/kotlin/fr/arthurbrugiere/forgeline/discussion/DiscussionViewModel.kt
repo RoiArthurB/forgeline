@@ -6,14 +6,20 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
 import fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.model.DiscussionComment
 import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
+import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SavedReply
+import fr.arthurbrugiere.forgeline.issue.ReferenceSuggestions
+import fr.arthurbrugiere.forgeline.issue.ReferenceTyping
+import fr.arthurbrugiere.forgeline.repo.Loadable
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -21,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Instant
+import javax.inject.Inject
 
 data class DiscussionUiState(
     val repo: RepoId,
@@ -45,6 +52,9 @@ data class DiscussionUiState(
     /** Following it, or no longer, is on its way; or didn't go through. */
     val isSubscribing: Boolean = false,
     val subscriptionError: ForgeError? = null,
+    /** Whether the reader's saved replies are offered while writing: signed in, on a forge that keeps them. */
+    val offersSavedReplies: Boolean = false,
+    val savedReplies: Loadable<List<SavedReply>> = Loadable.Idle,
     /** Deleted from here: the page has nothing left to show, and goes back. */
     val deleted: Boolean = false,
 ) {
@@ -59,7 +69,12 @@ class DiscussionViewModel @AssistedInject constructor(
     @Assisted private val repo: RepoId,
     @Assisted private val number: Int,
     private val repos: RepoRepository,
+    suggestions: ReferenceSuggestions = ReferenceSuggestions(),
+    private val saved: SavedReplySource = SavedReplySource(),
 ) : ViewModel() {
+
+    /** The conversations a reference being typed in a comment or a reply may mean. */
+    val references = ReferenceTyping(viewModelScope, suggestions, repo)
 
     @AssistedFactory
     interface Factory {
@@ -111,7 +126,11 @@ class DiscussionViewModel @AssistedInject constructor(
             _state.update {
                 when (result) {
                     // What was read past the first page stays until it is read again: the list doesn't shrink under the reader.
-                    is ForgeResult.Success -> it.copy(discussion = result.value.keeping(it.discussion), summary = result.value.summary, isLoading = false)
+                    is ForgeResult.Success -> it.copy(
+                        discussion = result.value.keeping(it.discussion), summary = result.value.summary, isLoading = false,
+                        // Read signed in only, and the forge keeps them: then they are offered.
+                        offersSavedReplies = result.value.id != null && saved.keeps(repo.forge),
+                    )
                     is ForgeResult.Failure -> it.copy(isLoading = false, error = result.error)
                 }
             }
@@ -204,6 +223,17 @@ class DiscussionViewModel @AssistedInject constructor(
     }
 
     fun sendErrorShown() = _state.update { it.copy(sendError = null) }
+
+    /** Reads the reader's saved replies, once: they are theirs, and change rarely. */
+    fun loadSavedReplies() {
+        val now = _state.value.savedReplies
+        if (now is Loadable.Loaded || now == Loadable.Loading) return
+        _state.update { it.copy(savedReplies = Loadable.Loading) }
+        viewModelScope.launch {
+            val read = saved.read(repo.forge)
+            _state.update { it.copy(savedReplies = if (read is ForgeResult.Success) Loadable.Loaded(read.value) else Loadable.Failed((read as ForgeResult.Failure).error)) }
+        }
+    }
 
     /** Follows the discussion, or stops following it. */
     fun toggleSubscribed() {
@@ -318,3 +348,12 @@ internal fun List<DiscussionComment>.merging(page: List<DiscussionComment>): Lis
 
 /** Its comments and replies in the order they are read: each comment, then the replies it drew. */
 internal fun Discussion.inReadingOrder(): List<DiscussionComment> = comments.flatMap { listOf(it) + it.replies }
+
+/** The reader's saved replies, on a forge that keeps them; none elsewhere. */
+class SavedReplySource(val keeps: (ForgeInstance) -> Boolean, val read: suspend (ForgeInstance) -> ForgeResult<List<SavedReply>>) {
+    @Inject
+    constructor(issues: IssueRepository) : this(issues::keepsSavedReplies, { issues.savedReplies(it) })
+
+    /** Keeps none: for tests of what has nothing to do with them. */
+    constructor() : this({ false }, { ForgeResult.Success(emptyList()) })
+}

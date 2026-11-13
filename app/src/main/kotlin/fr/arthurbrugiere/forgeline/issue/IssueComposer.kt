@@ -456,7 +456,7 @@ internal fun WritingAction(icon: ImageVector, label: String, busy: Boolean = fal
 
 /** The reader's saved replies, each by its title and how it starts: the one picked goes in the comment. */
 @Composable
-private fun SavedRepliesSheet(replies: Loadable<List<SavedReply>>, forge: String, onRetry: () -> Unit, onPick: (SavedReply) -> Unit, onDismiss: () -> Unit) {
+internal fun SavedRepliesSheet(replies: Loadable<List<SavedReply>>, forge: String, onRetry: () -> Unit, onPick: (SavedReply) -> Unit, onDismiss: () -> Unit) {
     val colors = Soft.colors
     SoftSheet(stringResource(R.string.issue_saved_replies), onDismiss) {
         when (replies) {

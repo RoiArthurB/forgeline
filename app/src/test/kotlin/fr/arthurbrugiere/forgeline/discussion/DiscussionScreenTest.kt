@@ -58,6 +58,9 @@ class DiscussionScreenTest {
     )
     private val loaded = DiscussionUiState(repo, 7, summary, read, isLoading = false)
 
+    /** What the screen is told a reference typed may mean. */
+    private var suggestionsShown = fr.arthurbrugiere.forgeline.issue.ReferenceOffer()
+
     private fun setContent(state: DiscussionUiState, signedIn: Boolean = true, roomy: Boolean = false) = setContent(mutableStateOf(state), signedIn, roomy)
 
     private fun setContent(state: androidx.compose.runtime.State<DiscussionUiState>, signedIn: Boolean = true, roomy: Boolean = false) {
@@ -81,6 +84,9 @@ class DiscussionScreenTest {
                         onReactionErrorShown = { events += "reaction-error-shown" },
                         onScrolled = { events += "scrolled" },
                         onToggleSubscribed = { events += "subscribe" },
+                        suggestions = state.value.let { suggestionsShown },
+                        onReferenceTyped = { typed -> typed?.let { events += "typed:${it.field}:${it.words}" } },
+                        onLoadSavedReplies = { events += "saved-replies" },
                         nowMillis = Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
                     )
                 }
@@ -538,5 +544,54 @@ class DiscussionScreenTest {
 
         assertThat(shown("Subscribe")).isFalse()
         assertThat(shown("You hear of")).isFalse()
+    }
+
+    private val commentable = loaded.copy(discussion = read.copy(id = "D1"))
+
+    @Test
+    fun a_reference_typed_in_the_comment_lists_what_it_may_mean_and_picking_one_writes_its_number() {
+        suggestionsShown = fr.arthurbrugiere.forgeline.issue.ReferenceOffer(listOf(fr.arthurbrugiere.forgeline.core.testing.issueSummary(12, "Paging breaks")), field = "")
+        setContent(commentable)
+
+        reach("Comment on this discussion")
+        composeRule.onNodeWithText("Comment on this discussion").performTextInput("See #")
+        composeRule.onNodeWithContentDescription("Issue #12, Paging breaks").performClick()
+        composeRule.onNodeWithContentDescription("Send comment").performClick()
+
+        // Typed in the comment's own field, as a reference with nothing after its mark yet.
+        assertThat(events).containsAtLeast("typed::", "send:discussion:See #12 ").inOrder()
+    }
+
+    @Test
+    fun the_reader_s_saved_replies_go_in_the_comment_or_in_a_reply() {
+        setContent(commentable.copy(offersSavedReplies = true, savedReplies = fr.arthurbrugiere.forgeline.repo.Loadable.Loaded(listOf(fr.arthurbrugiere.forgeline.core.model.SavedReply("Thanks", "Thanks for this!")))))
+
+        reach("Comment on this discussion")
+        composeRule.onNodeWithContentDescription("Saved replies").performClick()
+        composeRule.onNodeWithText("Thanks").performClick()
+        composeRule.onNodeWithContentDescription("Send comment").performClick()
+
+        assertThat(events).containsAtLeast("saved-replies", "send:discussion:Thanks for this!").inOrder()
+    }
+
+    @Test
+    fun signed_out_or_on_a_forge_without_them_no_saved_reply_is_offered() {
+        setContent(commentable)
+
+        reach("Comment on this discussion")
+        assertThat(composeRule.onAllNodes(hasContentDescription("Saved replies")).fetchSemanticsNodes()).isEmpty()
+    }
+
+    @Test
+    fun what_was_written_is_previewed_as_it_will_read() {
+        setContent(commentable)
+
+        reach("Comment on this discussion")
+        composeRule.onNodeWithText("Comment on this discussion").performTextInput("**Found it**")
+        composeRule.onNodeWithContentDescription("Preview").performClick()
+
+        // Read as it will be, in place of its field.
+        assertThat(composeRule.onAllNodes(androidx.compose.ui.test.hasTestTag(fr.arthurbrugiere.forgeline.issue.WRITING_PREVIEW_TAG)).fetchSemanticsNodes()).hasSize(1)
+        assertThat(composeRule.onAllNodes(hasText("Comment on this discussion")).fetchSemanticsNodes()).isEmpty()
     }
 }

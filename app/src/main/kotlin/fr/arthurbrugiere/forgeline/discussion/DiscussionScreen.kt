@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.ArrowCircleUp
 import androidx.compose.material.icons.outlined.ArrowCircleUp
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
@@ -34,6 +35,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -56,7 +58,9 @@ import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -87,7 +91,17 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.issue.Comment
 import fr.arthurbrugiere.forgeline.issue.CommentMenu
+import fr.arthurbrugiere.forgeline.issue.PreviewToggle
+import fr.arthurbrugiere.forgeline.issue.ReferenceOffer
+import fr.arthurbrugiere.forgeline.issue.ReferenceSuggestionList
+import fr.arthurbrugiere.forgeline.issue.SavedRepliesSheet
 import fr.arthurbrugiere.forgeline.issue.Subscription
+import fr.arthurbrugiere.forgeline.issue.TypedReference
+import fr.arthurbrugiere.forgeline.issue.WritingAction
+import fr.arthurbrugiere.forgeline.issue.WritingPreview
+import fr.arthurbrugiere.forgeline.issue.referenceMarks
+import fr.arthurbrugiere.forgeline.issue.typedReference
+import fr.arthurbrugiere.forgeline.issue.withReference
 import fr.arthurbrugiere.forgeline.navigation.DiscussionRoute
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.pull.ThreadCommentEditor
@@ -124,6 +138,7 @@ fun DiscussionRoute(
     val repo = route.repo
     val viewModel = hiltViewModel<DiscussionViewModel, DiscussionViewModel.Factory>(key = "${repo.key}#discussion-${route.number}") { it.create(repo, route.number) }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val suggestions by viewModel.references.offer.collectAsStateWithLifecycle()
     val openUrl = rememberCustomTabOpener()
     val openRelease = LocalOpenRelease.current
     val openDiscussion = LocalOpenDiscussion.current
@@ -156,6 +171,9 @@ fun DiscussionRoute(
         onReactionErrorShown = viewModel::reactionErrorShown,
         onScrolled = viewModel::scrolled,
         onToggleSubscribed = viewModel::toggleSubscribed,
+        suggestions = suggestions,
+        onReferenceTyped = viewModel.references::typed,
+        onLoadSavedReplies = viewModel::loadSavedReplies,
     )
 }
 
@@ -199,6 +217,11 @@ fun DiscussionScreen(
     onScrolled: () -> Unit = {},
     /** Follows the discussion, or stops. */
     onToggleSubscribed: () -> Unit = {},
+    /** The conversations a reference being typed may mean, in the field it is typed in. */
+    suggestions: ReferenceOffer = ReferenceOffer(),
+    onReferenceTyped: (TypedReference?) -> Unit = {},
+    /** Asks for the reader's saved replies, for one to go in what they write. */
+    onLoadSavedReplies: () -> Unit = {},
     nowMillis: Long = rememberNow(state.discussion),
 ) {
     val colors = Soft.colors
@@ -247,6 +270,15 @@ fun DiscussionScreen(
             else -> if (sent == "delete:$replyingTo") replyingTo = null
         }
     }
+    // The field a saved reply is being picked for: the comment's ("") or a reply's, by its comment's id.
+    var pickingFor by rememberSaveable { mutableStateOf<String?>(null) }
+    pickingFor?.let { key ->
+        SavedRepliesSheet(state.savedReplies, forge, onRetry = onLoadSavedReplies, onPick = { picked ->
+            pickingFor = null
+            if (key == COMMENT_FIELD) draft = draft.adding(picked.body) else reply = reply.adding(picked.body)
+        }, onDismiss = { pickingFor = null })
+    }
+    val savedRepliesFor = { key: String -> { onLoadSavedReplies(); pickingFor = key }.takeIf { state.offersSavedReplies } }
     // Deleted from here, the discussion leaves nothing to show.
     LaunchedEffect(state.deleted) { if (state.deleted) onBack() }
     discussion?.let { shown ->
@@ -467,16 +499,28 @@ fun DiscussionScreen(
                                             comment,
                                             canReply = state.canComment,
                                             replying = replyingTo == comment.id,
-                                            reply = reply,
-                                            onReplyChange = { reply = it },
                                             onStartReply = {
                                                 if (replyingTo != comment.id) reply = ""
                                                 replyingTo = comment.id
                                             },
-                                            onSendReply = { onSend(reply, comment) },
                                             onSetAnswer = { onSetAnswer(comment, it) },
                                             sending = state.sending,
-                                        )
+                                        ) {
+                                            Writing(
+                                                key = comment.id,
+                                                text = reply,
+                                                onTextChange = { reply = it },
+                                                placeholder = stringResource(R.string.discussion_reply_placeholder, comment.author?.login ?: stringResource(R.string.deleted_account)),
+                                                sendDescription = stringResource(R.string.discussion_reply_send),
+                                                busy = state.sending == comment.id,
+                                                canSend = reply.isNotBlank() && state.sending == null,
+                                                onSend = { onSend(reply, comment) },
+                                                repo = state.repo,
+                                                suggestions = suggestions,
+                                                onReferenceTyped = onReferenceTyped,
+                                                onSavedReplies = savedRepliesFor(comment.id),
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -491,24 +535,20 @@ fun DiscussionScreen(
                                     }
                                     if (discussion.locked) Text(stringResource(R.string.discussion_locked), style = Soft.type.secondary, color = colors.inkMuted)
                                     if (state.canComment) {
-                                        val sendingComment = state.sending == DiscussionViewModel.COMMENT
-                                        Row(Modifier.staysAboveKeyboard(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                            SoftTextField(
-                                                value = draft,
-                                                onValueChange = { draft = it },
-                                                placeholder = stringResource(R.string.discussion_comment_placeholder),
-                                                singleLine = false,
-                                                maxLines = 8,
-                                                readOnly = sendingComment,
-                                                modifier = Modifier.weight(1f),
-                                            )
-                                            SoftSendButton(
-                                                onClick = { onSend(draft, null) },
-                                                description = stringResource(R.string.discussion_comment_send),
-                                                enabled = draft.isNotBlank() && state.sending == null,
-                                                busy = sendingComment,
-                                            )
-                                        }
+                                        Writing(
+                                            key = COMMENT_FIELD,
+                                            text = draft,
+                                            onTextChange = { draft = it },
+                                            placeholder = stringResource(R.string.discussion_comment_placeholder),
+                                            sendDescription = stringResource(R.string.discussion_comment_send),
+                                            busy = state.sending == DiscussionViewModel.COMMENT,
+                                            canSend = draft.isNotBlank() && state.sending == null,
+                                            onSend = { onSend(draft, null) },
+                                            repo = state.repo,
+                                            suggestions = suggestions,
+                                            onReferenceTyped = onReferenceTyped,
+                                            onSavedReplies = savedRepliesFor(COMMENT_FIELD),
+                                        )
                                     }
                                     // Whether the reader hears of what is said next: under their turn, quieter than any of it.
                                     discussion.subscribed?.let { Subscription(it, state.isSubscribing, state.subscriptionError, onToggleSubscribed) }
@@ -561,37 +601,17 @@ private fun CommentActions(
     comment: DiscussionComment,
     canReply: Boolean,
     replying: Boolean,
-    reply: String,
-    onReplyChange: (String) -> Unit,
     onStartReply: () -> Unit,
-    onSendReply: () -> Unit,
     onSetAnswer: (Boolean) -> Unit,
     sending: String?,
+    /** Where the reply is written, while it is. */
+    writing: @Composable () -> Unit,
 ) {
-    val sendingReply = sending == comment.id
     Column(
         Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 20.dp + ReplyInset, end = 20.dp, bottom = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        if (replying) {
-            Row(Modifier.staysAboveKeyboard(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SoftTextField(
-                    value = reply,
-                    onValueChange = onReplyChange,
-                    placeholder = stringResource(R.string.discussion_reply_placeholder, comment.author?.login ?: stringResource(R.string.deleted_account)),
-                    singleLine = false,
-                    maxLines = 8,
-                    readOnly = sendingReply,
-                    modifier = Modifier.weight(1f),
-                )
-                SoftSendButton(
-                    onClick = onSendReply,
-                    description = stringResource(R.string.discussion_reply_send),
-                    enabled = reply.isNotBlank() && sending == null,
-                    busy = sendingReply,
-                )
-            }
-        }
+        if (replying) writing()
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (canReply && !replying) SoftTonalButton(stringResource(R.string.discussion_reply), onClick = onStartReply)
             if (comment.canMarkAnswer && !comment.isAnswer) {
@@ -723,6 +743,74 @@ private fun DiscussionEditor(title: String, onTitleChange: (String) -> Unit, bod
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             SoftTonalButton(stringResource(R.string.cancel), onClick = onCancel, enabled = !busy)
             SoftButton(stringResource(R.string.issue_comment_save), onClick = onSave, enabled = title.isNotBlank() && !busy)
+        }
+    }
+}
+
+/** What [Writing] keys the comment's own field by; a reply's is its comment's id. */
+private const val COMMENT_FIELD = ""
+
+/** This text with [more] after it, a blank line between. */
+private fun String.adding(more: String): String = trimEnd().let { if (it.isEmpty()) more else "$it\n\n$more" }
+
+/**
+ * Where a comment or a reply is written, as on a conversation: the field, the conversations a reference typed in it
+ * may mean right under it, then the reader's saved replies, a preview of what was written, and the send arrow.
+ */
+@Composable
+private fun Writing(
+    key: String,
+    text: String,
+    onTextChange: (String) -> Unit,
+    placeholder: String,
+    sendDescription: String,
+    busy: Boolean,
+    canSend: Boolean,
+    onSend: () -> Unit,
+    repo: RepoId,
+    suggestions: ReferenceOffer,
+    onReferenceTyped: (TypedReference?) -> Unit,
+    onSavedReplies: (() -> Unit)?,
+) {
+    val marks = repo.referenceMarks
+    // The cursor is the field's own. Text put there by something other than typing (a quote, a saved reply, the
+    // field emptied once sent) leaves it at the end, where the reader goes on writing.
+    var field by remember { mutableStateOf(TextFieldValue(text, TextRange(text.length))) }
+    if (field.text != text) field = TextFieldValue(text, TextRange(text.length))
+    fun typed(written: TextFieldValue) = written.typedReference(marks)?.copy(field = key)
+    // Another field's suggestions aren't this one's: they go when it is left.
+    DisposableEffect(Unit) { onDispose { onReferenceTyped(null) } }
+    var previewing by rememberSaveable { mutableStateOf(false) }
+    val showPreview = previewing && text.isNotBlank()
+    Column(Modifier.fillMaxWidth().staysAboveKeyboard(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (showPreview) {
+            WritingPreview(text, repo)
+        } else {
+            SoftTextField(
+                value = field,
+                onValueChange = { written ->
+                    field = written
+                    if (written.text != text) onTextChange(written.text)
+                    onReferenceTyped(typed(written))
+                },
+                placeholder = placeholder,
+                singleLine = false,
+                maxLines = 8,
+                // Not to be changed while it is on its way.
+                readOnly = busy,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            ReferenceSuggestionList(suggestions.takeIf { it.field == key } ?: ReferenceOffer()) { picked ->
+                val typed = typed(field) ?: return@ReferenceSuggestionList
+                field = field.withReference(typed, picked.number)
+                onTextChange(field.text)
+                onReferenceTyped(null)
+            }
+        }
+        Row(Modifier.align(Alignment.End), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            onSavedReplies?.let { WritingAction(Icons.Outlined.BookmarkBorder, stringResource(R.string.issue_saved_replies), onClick = it) }
+            if (text.isNotBlank()) PreviewToggle(showPreview) { previewing = !showPreview }
+            SoftSendButton(onClick = onSend, description = sendDescription, enabled = canSend, busy = busy)
         }
     }
 }
