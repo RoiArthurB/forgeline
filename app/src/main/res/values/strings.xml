@@ -312,6 +312,7 @@
     <string name="discussion_missing_body">It may have been deleted, or moved to an issue.</string>
     <string name="discussion_opened">%1$s started this %2$s</string>
     <string name="discussion_answer">Answer</string>
+    <string name="discussion_upvote">Upvote</string>
     <string name="discussion_upvotes">▲ %1$d</string>
     <plurals name="discussion_upvotes">
         <item quantity="one">%1$d upvote</item>

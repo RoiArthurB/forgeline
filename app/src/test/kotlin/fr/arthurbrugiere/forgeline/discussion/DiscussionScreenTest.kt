@@ -4,6 +4,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasScrollAction
@@ -68,6 +70,7 @@ class DiscussionScreenTest {
                         onSetAnswer = { comment, answer -> events += "answer:${comment.id}:$answer" },
                         onSendErrorShown = { events += "send-error-shown" },
                         onReact = { id, reaction -> events += "react:$id:$reaction" },
+                        onUpvote = { events += "upvote:$it" },
                         onReactionErrorShown = { events += "reaction-error-shown" },
                         nowMillis = Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
                     )
@@ -386,5 +389,31 @@ class DiscussionScreenTest {
         setContent(loaded.copy(discussion = reactable, reactionError = ForgeError.Network))
 
         assertThat(events).contains("reaction-error-shown")
+    }
+
+    @Test
+    fun where_the_reader_may_upvote_the_count_is_a_toggle_that_says_whether_theirs_is_given() {
+        val votable = read.copy(
+            id = "D1", upvoted = true, canUpvote = true,
+            comments = read.comments.map { it.copy(canUpvote = it.id == "c2") },
+        )
+        setContent(loaded.copy(discussion = votable))
+
+        composeRule.onNode(hasContentDescription("Upvote, 3 upvotes")).assertIsOn().performClick()
+        reach("Same question here.")
+        // None given to carol's yet: the toggle offers the first.
+        composeRule.onNode(hasContentDescription("Upvote, 0 upvotes")).assertIsOff().performClick()
+
+        assertThat(events).containsExactly("upvote:D1", "upvote:c2").inOrder()
+        // Bob's answer takes none from the reader: its count only shows.
+        assertThat(composeRule.onAllNodes(hasContentDescription("5 upvotes")).fetchSemanticsNodes()).hasSize(1)
+    }
+
+    @Test
+    fun signed_out_upvotes_only_show() {
+        setContent(loaded)
+
+        assertThat(composeRule.onAllNodes(hasContentDescription("Upvote", substring = true)).fetchSemanticsNodes()).isEmpty()
+        assertThat(composeRule.onAllNodes(hasContentDescription("3 upvotes")).fetchSemanticsNodes()).hasSize(1)
     }
 }

@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.core.forge
 import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
+import fr.arthurbrugiere.forgeline.core.model.DiscussionUpvotes
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
@@ -89,6 +90,10 @@ interface RepoApi {
      * Gives [reaction] to a discussion or one of its comments, by what the forge names it ([subjectId]), or takes it
      * back when [give] is false. Answers what it then has, everyone's.
      */
+
+    /** Upvotes a discussion or one of its comments ([subjectId]), or takes that back; answers its upvotes then. */
+    suspend fun upvoteInDiscussion(token: String, subjectId: String, give: Boolean): ForgeResult<DiscussionUpvotes> = ForgeResult.Failure(ForgeError.Unsupported)
+
     suspend fun reactInDiscussion(token: String, subjectId: String, reaction: Reaction, give: Boolean): ForgeResult<DiscussionReactions> =
         ForgeResult.Failure(ForgeError.Unsupported)
 

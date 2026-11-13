@@ -296,6 +296,7 @@
     <string name="discussion_missing_body">Elle a peut-être été supprimée, ou transformée en ticket.</string>
     <string name="discussion_opened">%1$s a lancé cette discussion %2$s</string>
     <string name="discussion_answer">Réponse</string>
+    <string name="discussion_upvote">Voter pour</string>
     <string name="discussion_upvotes">▲ %1$d</string>
     <plurals name="discussion_upvotes">
         <item quantity="one">%1$d vote positif</item>

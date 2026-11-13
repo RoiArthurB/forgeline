@@ -5,6 +5,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
+import fr.arthurbrugiere.forgeline.core.model.DiscussionUpvotes
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.FakeRepoRepository
@@ -227,5 +228,38 @@ class DiscussionViewModelTest {
         assertThat(viewModel.state.value.discussion?.reactions).isEqualTo(read.reactions)
         viewModel.reactionErrorShown()
         assertThat(viewModel.state.value.reactionError).isNull()
+    }
+
+    @Test
+    fun an_upvote_is_given_to_the_discussion_or_a_comment_and_taken_back() = test {
+        val votable = read.copy(id = "D1", canUpvote = true, comments = listOf(discussionComment("c1", "Use the cursor.", upvotes = 4).copy(upvoted = true, canUpvote = true)))
+        repos.discussions[7] = ForgeResult.Success(votable)
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        advanceUntilIdle()
+
+        viewModel.upvote("D1")
+        viewModel.upvote("c1")
+        advanceUntilIdle()
+
+        val discussion = viewModel.state.value.discussion!!
+        assertThat(discussion.upvoteTally).isEqualTo(DiscussionUpvotes(1, given = true, canGive = true))
+        // The header reads the count from what was read.
+        assertThat(viewModel.state.value.summary?.upvotes).isEqualTo(1)
+        assertThat(discussion.comments[0].upvoteTally).isEqualTo(DiscussionUpvotes(3, given = false, canGive = true))
+        assertThat(repos.calls.drop(1)).containsExactly("discussionUpvote:octo/repo:D1:true", "discussionUpvote:octo/repo:c1:false").inOrder()
+    }
+
+    @Test
+    fun an_upvote_that_didn_t_go_through_is_said_and_leaves_the_count() = test {
+        repos.discussions[7] = ForgeResult.Success(read.copy(id = "D1", canUpvote = true))
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        advanceUntilIdle()
+        repos.discussionWriteFailure = ForgeError.Network
+
+        viewModel.upvote("D1")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.reactionError).isEqualTo(ForgeError.Network)
+        assertThat(viewModel.state.value.discussion?.upvoted).isFalse()
     }
 }

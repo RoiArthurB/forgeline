@@ -271,7 +271,10 @@ class GitHubLiveContractTest {
         // Someone else's discussion: nothing of it is the reader's to pick.
         assertWithMessage("answers to pick").that(discussion.comments.none { it.canMarkAnswer || it.canUnmarkAnswer }).isTrue()
         // Signed in, an open discussion takes the reader's reactions; a locked one may not.
-        if (!discussion.locked) assertWithMessage("can react").that(discussion.reactions.canReact).isTrue()
+        if (!discussion.locked) {
+            assertWithMessage("can react").that(discussion.reactions.canReact).isTrue()
+            assertWithMessage("can upvote").that(discussion.canUpvote).isTrue()
+        }
     }
 
     @Test

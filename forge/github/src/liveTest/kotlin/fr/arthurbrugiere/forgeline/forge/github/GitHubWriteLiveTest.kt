@@ -199,10 +199,10 @@ class GitHubWriteLiveTest {
 
     /**
      * A discussion in a private scratch repository with discussions turned on: a reaction given to its text and to a
-     * comment, read back as the reader's, then taken back.
+     * comment, read back as the reader's, then taken back; an upvote given to the comment and taken back.
      */
     @Test
-    fun reactions_are_given_to_a_discussion_and_its_comment_and_taken_back() = runBlocking<Unit> {
+    fun reactions_and_upvotes_are_given_to_a_discussion_and_its_comment_and_taken_back() = runBlocking<Unit> {
         assumeTrue("LIVE_TEST_PAT not set", token.isNotBlank())
         assumeTrue("GITHUB_LIVE_WRITES not set", System.getenv("GITHUB_LIVE_WRITES") == "1")
         val api = "https://api.github.com"
@@ -263,6 +263,11 @@ class GitHubWriteLiveTest {
 
             val taken = repos.reactInDiscussion(token, subject, Reaction.HEART, give = false).value("take back")
             check(taken.counts.isEmpty() && taken.given.isEmpty()) { "taken: $taken" }
+
+            val upvoted = repos.upvoteInDiscussion(token, comment, give = true).value("upvote")
+            check(upvoted.given && upvoted.count == 1) { "upvoted: $upvoted" }
+            val unvoted = repos.upvoteInDiscussion(token, comment, give = false).value("take the upvote back")
+            check(!unvoted.given && unvoted.count == 0) { "taken back: $unvoted" }
 
             val deletion = GitHubRepoSettingsApi(http).delete(token, repo)
             System.err.println("GITHUB deletion: $deletion")

@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
+import fr.arthurbrugiere.forgeline.core.model.DiscussionUpvotes
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.Reaction
@@ -511,12 +512,12 @@ class GitHubRepoApiTest {
         {"__typename":"Discussion","number":99836,"title":"App Router PDF downloads","createdAt":"2026-10-07T22:12:26Z","upvoteCount":4,"isAnswered":false,"category":{"name":"Help"},"author":null,"comments":{"totalCount":12}}]}}}}"""
 
     private val oneDiscussion = """{"data":{"repository":{"discussion":{"__typename":"Discussion","number":7,"title":"How do I page?","body":"I can't find it.","createdAt":"2026-10-01T10:00:00Z","upvoteCount":3,"isAnswered":true,
-        "category":{"name":"Q&A"},"author":{"login":"alice","avatarUrl":"https://avatars.example/2"},"id":"D_kwDOA","locked":false,"viewerCanReact":true,
+        "category":{"name":"Q&A"},"author":{"login":"alice","avatarUrl":"https://avatars.example/2"},"id":"D_kwDOA","locked":false,"viewerCanReact":true,"viewerHasUpvoted":true,"viewerCanUpvote":true,
         "reactionGroups":[{"content":"THUMBS_UP","viewerHasReacted":true,"reactors":{"totalCount":4}},{"content":"HEART","viewerHasReacted":false,"reactors":{"totalCount":1}},{"content":"EYES","viewerHasReacted":false,"reactors":{"totalCount":0}}],"comments":{"totalCount":2,"nodes":[
-        {"__typename":"DiscussionComment","id":"c1","body":"Use the cursor.","createdAt":"2026-10-01T11:00:00Z","upvoteCount":5,"isAnswer":true,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":true,"author":{"login":"bob","avatarUrl":"https://avatars.example/2"},"viewerCanReact":true,
+        {"__typename":"DiscussionComment","id":"c1","body":"Use the cursor.","createdAt":"2026-10-01T11:00:00Z","upvoteCount":5,"isAnswer":true,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":true,"viewerHasUpvoted":false,"viewerCanUpvote":true,"author":{"login":"bob","avatarUrl":"https://avatars.example/2"},"viewerCanReact":true,
          "reactionGroups":[{"content":"ROCKET","viewerHasReacted":true,"reactors":{"totalCount":2}},{"content":"LAUGH","viewerHasReacted":false,"reactors":{"totalCount":0}}],
-         "replies":{"totalCount":40,"nodes":[{"__typename":"DiscussionComment","id":"r1","body":"Thanks!","createdAt":"2026-10-01T12:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":false,"author":{"login":"alice","avatarUrl":"https://avatars.example/2"},"viewerCanReact":true}]}},
-        {"__typename":"DiscussionComment","id":"c2","body":"Same question.","createdAt":"2026-10-02T11:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":true,"viewerCanUnmarkAsAnswer":false,"author":null,"viewerCanReact":false,"replies":{"totalCount":0,"nodes":[]}}]}}}}}"""
+         "replies":{"totalCount":40,"nodes":[{"__typename":"DiscussionComment","id":"r1","body":"Thanks!","createdAt":"2026-10-01T12:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":false,"viewerHasUpvoted":false,"viewerCanUpvote":false,"author":{"login":"alice","avatarUrl":"https://avatars.example/2"},"viewerCanReact":true}]}},
+        {"__typename":"DiscussionComment","id":"c2","body":"Same question.","createdAt":"2026-10-02T11:00:00Z","upvoteCount":0,"isAnswer":false,"viewerCanMarkAsAnswer":true,"viewerCanUnmarkAsAnswer":false,"viewerHasUpvoted":false,"viewerCanUpvote":true,"author":null,"viewerCanReact":false,"replies":{"totalCount":0,"nodes":[]}}]}}}}}"""
 
     private fun body() = (requests.last().body as io.ktor.http.content.TextContent).text
 
@@ -612,6 +613,30 @@ class GitHubRepoApiTest {
         val taken = api { json("""{"data":{"removeReaction":{"subject":{"__typename":"Discussion","viewerCanReact":true,"reactionGroups":[{"content":"HEART","viewerHasReacted":false,"reactors":{"totalCount":2}}]}}}}""") }
         assertThat(taken.reactInDiscussion("tok", "D_kwDOA", Reaction.HEART, give = false).value()).isEqualTo(DiscussionReactions(mapOf(Reaction.HEART to 2), canReact = true))
         assertThat(body()).contains("\"operationName\":\"RemoveReaction\"")
+    }
+
+    @Test
+    fun a_discussion_and_its_comments_say_whether_the_reader_upvoted_them_and_may() = runTest {
+        val discussion = api { json(oneDiscussion) }.discussion("tok", paperclip, 7).value()
+
+        assertThat(discussion.upvoteTally).isEqualTo(DiscussionUpvotes(3, given = true, canGive = true))
+        assertThat(discussion.comments[0].upvoteTally).isEqualTo(DiscussionUpvotes(5, given = false, canGive = true))
+        // A reply takes none on GitHub: it says so.
+        assertThat(discussion.comments[0].replies.single().canUpvote).isFalse()
+    }
+
+    @Test
+    fun an_upvote_is_given_and_taken_back_and_answers_the_count_then() = runTest {
+        // As GitHub answers (2026-11-13).
+        val given = api { json("""{"data":{"addUpvote":{"subject":{"__typename":"DiscussionComment","upvoteCount":6,"viewerHasUpvoted":true,"viewerCanUpvote":true}}}}""") }
+
+        assertThat(given.upvoteInDiscussion("tok", "c1", give = true).value()).isEqualTo(DiscussionUpvotes(6, given = true, canGive = true))
+        assertThat(body()).contains("\"operationName\":\"AddUpvote\"")
+        assertThat(body()).contains("\"variables\":{\"id\":\"c1\"}")
+
+        val taken = api { json("""{"data":{"removeUpvote":{"subject":{"__typename":"Discussion","upvoteCount":2,"viewerHasUpvoted":false,"viewerCanUpvote":true}}}}""") }
+        assertThat(taken.upvoteInDiscussion("tok", "D_kwDOA", give = false).value()).isEqualTo(DiscussionUpvotes(2, given = false, canGive = true))
+        assertThat(body()).contains("\"operationName\":\"RemoveUpvote\"")
     }
 
     @Test

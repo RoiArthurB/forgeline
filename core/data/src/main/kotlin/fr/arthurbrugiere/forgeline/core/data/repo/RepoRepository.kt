@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
 import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
+import fr.arthurbrugiere.forgeline.core.model.DiscussionUpvotes
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
@@ -95,6 +96,9 @@ interface RepoRepository {
 
     /** Picks the comment [commentId] of a discussion of [id] as its answer, or takes that back. */
     suspend fun setDiscussionAnswer(id: RepoId, commentId: String, answer: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Upvotes a discussion of [id] or one of its comments ([subjectId]), or takes that back; answers its upvotes then. */
+    suspend fun upvoteInDiscussion(id: RepoId, subjectId: String, give: Boolean): ForgeResult<DiscussionUpvotes> = ForgeResult.Failure(ForgeError.Unsupported)
 
     /** Gives [reaction] to a discussion of [id] or one of its comments ([subjectId]), or takes it back; answers what it then has. */
     suspend fun reactInDiscussion(id: RepoId, subjectId: String, reaction: Reaction, give: Boolean): ForgeResult<DiscussionReactions> = ForgeResult.Failure(ForgeError.Unsupported)
@@ -257,6 +261,9 @@ class DefaultRepoRepository @Inject constructor(
 
     override suspend fun setDiscussionAnswer(id: RepoId, commentId: String, answer: Boolean) =
         accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).setDiscussionAnswer(it, commentId, answer) } ?: ForgeResult.Failure(ForgeError.Unauthorized)
+
+    override suspend fun upvoteInDiscussion(id: RepoId, subjectId: String, give: Boolean) =
+        accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).upvoteInDiscussion(it, subjectId, give) } ?: ForgeResult.Failure(ForgeError.Unauthorized)
 
     override suspend fun reactInDiscussion(id: RepoId, subjectId: String, reaction: Reaction, give: Boolean) =
         accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).reactInDiscussion(it, subjectId, reaction, give) } ?: ForgeResult.Failure(ForgeError.Unauthorized)

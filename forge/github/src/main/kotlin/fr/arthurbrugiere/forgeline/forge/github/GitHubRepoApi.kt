@@ -12,6 +12,7 @@ import fr.arthurbrugiere.forgeline.core.model.DiscussionComment
 import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
 import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
+import fr.arthurbrugiere.forgeline.core.model.DiscussionUpvotes
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
@@ -41,11 +42,13 @@ import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.forge.github.graphql.AddDiscussionCommentMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.AddReactionMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.AddUpvoteMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionsQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.MarkDiscussionAnswerMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.PinnedQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.RemoveReactionMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.RemoveUpvoteMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.UnmarkDiscussionAnswerMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.DiscussionCommentFields
 import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.DiscussionFields
@@ -229,6 +232,8 @@ class GitHubRepoApi(
                     id = found.id,
                     locked = found.locked,
                     reactions = found.reactionTally.toModel(),
+                    upvoted = found.viewerHasUpvoted,
+                    canUpvote = found.viewerCanUpvote,
                 )
             }
         }
@@ -244,6 +249,18 @@ class GitHubRepoApi(
             httpClient.gitHubOperation(apiBaseUrl, token, MarkDiscussionAnswerMutation(commentId)).map { }
         } else {
             httpClient.gitHubOperation(apiBaseUrl, token, UnmarkDiscussionAnswerMutation(commentId)).map { }
+        }
+    }
+
+    override suspend fun upvoteInDiscussion(token: String, subjectId: String, give: Boolean): ForgeResult<DiscussionUpvotes> = forgeCall {
+        val tally = if (give) {
+            httpClient.gitHubOperation(apiBaseUrl, token, AddUpvoteMutation(subjectId)).map { it.addUpvote?.subject?.voteTally }
+        } else {
+            httpClient.gitHubOperation(apiBaseUrl, token, RemoveUpvoteMutation(subjectId)).map { it.removeUpvote?.subject?.voteTally }
+        }
+        when (tally) {
+            is ForgeResult.Failure -> tally
+            is ForgeResult.Success -> tally.value?.let { ForgeResult.Success(DiscussionUpvotes(it.upvoteCount, it.viewerHasUpvoted, it.viewerCanUpvote)) } ?: ForgeResult.Failure(ForgeError.Http(404, "Not Found"))
         }
     }
 
@@ -424,6 +441,8 @@ private fun DiscussionCommentFields.toModel(replies: List<DiscussionComment> = e
     canMarkAnswer = viewerCanMarkAsAnswer,
     canUnmarkAnswer = viewerCanUnmarkAsAnswer,
     reactions = reactionTally.toModel(),
+    upvoted = viewerHasUpvoted,
+    canUpvote = viewerCanUpvote,
 )
 
 /** The kinds anyone gave, by how many (GraphQL lists every kind, most at zero), and the reader's own. */

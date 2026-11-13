@@ -122,6 +122,15 @@ class FakeRepoRepository : RepoRepository {
         return discussionWriteFailure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(Unit)
     }
 
+    override suspend fun upvoteInDiscussion(id: RepoId, subjectId: String, give: Boolean): ForgeResult<fr.arthurbrugiere.forgeline.core.model.DiscussionUpvotes> {
+        calls += "discussionUpvote:${id.fullName}:$subjectId:$give"
+        gate?.await()
+        discussionWriteFailure?.let { return ForgeResult.Failure(it) }
+        val before = discussions.values.firstNotNullOfOrNull { (it as? ForgeResult.Success)?.value?.upvotesOf(subjectId) }
+        val count = (before?.count ?: 0) + if (give) 1 else -1
+        return ForgeResult.Success(fr.arthurbrugiere.forgeline.core.model.DiscussionUpvotes(count.coerceAtLeast(0), given = give, canGive = true))
+    }
+
     /** What a reaction answers, by what it was given to; the reaction alone, counted once, when not given. */
     val discussionReactions = mutableMapOf<String, fr.arthurbrugiere.forgeline.core.model.DiscussionReactions>()
 

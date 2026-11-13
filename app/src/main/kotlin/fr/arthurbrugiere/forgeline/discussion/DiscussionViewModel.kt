@@ -112,6 +112,26 @@ class DiscussionViewModel @AssistedInject constructor(
 
     fun reactionErrorShown() = _state.update { it.copy(reactionError = null) }
 
+    /** What is being upvoted, by its id: one change at a time on each. */
+    private val upvoting = mutableSetOf<String>()
+
+    /** Upvotes the discussion or one of its comments by its id, or takes that back when the reader had upvoted it. */
+    fun upvote(subjectId: String) {
+        val upvotes = state.value.discussion?.upvotesOf(subjectId) ?: return
+        if (!upvoting.add(subjectId)) return
+        viewModelScope.launch {
+            when (val result = repos.upvoteInDiscussion(repo, subjectId, !upvotes.given)) {
+                // Said as a reaction is: both are a quick answer to someone's words.
+                is ForgeResult.Failure -> _state.update { it.copy(reactionError = result.error) }
+                is ForgeResult.Success -> _state.update { state ->
+                    val discussion = state.discussion?.withUpvotes(subjectId, result.value)
+                    state.copy(discussion = discussion, summary = discussion?.summary ?: state.summary)
+                }
+            }
+            upvoting -= subjectId
+        }
+    }
+
     /** One write at a time. */
     private fun write(key: String, call: suspend () -> ForgeResult<Unit>) {
         if (state.value.sending != null) return

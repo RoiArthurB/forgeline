@@ -61,6 +61,8 @@ query Discussion($owner: String!, $name: String!, $number: Int!) {
       id
       locked
       body
+      viewerHasUpvoted
+      viewerCanUpvote
       ...ReactionTally
       comments(first: 50) {
         totalCount
@@ -101,6 +103,8 @@ fragment DiscussionCommentFields on DiscussionComment {
   isAnswer
   viewerCanMarkAsAnswer
   viewerCanUnmarkAsAnswer
+  viewerHasUpvoted
+  viewerCanUpvote
   author {
     login
     avatarUrl
@@ -118,6 +122,28 @@ fragment ReactionTally on Reactable {
       totalCount
     }
   }
+}
+
+mutation AddUpvote($id: ID!) {
+  addUpvote(input: {subjectId: $id}) {
+    subject {
+      ...VoteTally
+    }
+  }
+}
+
+mutation RemoveUpvote($id: ID!) {
+  removeUpvote(input: {subjectId: $id}) {
+    subject {
+      ...VoteTally
+    }
+  }
+}
+
+fragment VoteTally on Votable {
+  upvoteCount
+  viewerHasUpvoted
+  viewerCanUpvote
 }
 
 mutation AddReaction($id: ID!, $content: ReactionContent!) {

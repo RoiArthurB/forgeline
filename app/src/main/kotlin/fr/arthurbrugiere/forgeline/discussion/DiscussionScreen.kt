@@ -13,18 +13,23 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.filled.ArrowCircleUp
+import androidx.compose.material.icons.outlined.ArrowCircleUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -39,13 +44,19 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -55,6 +66,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.DiscussionComment
 import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
+import fr.arthurbrugiere.forgeline.core.model.DiscussionUpvotes
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -128,6 +140,7 @@ fun DiscussionRoute(
         onSetAnswer = viewModel::setAnswer,
         onSendErrorShown = viewModel::sendErrorShown,
         onReact = viewModel::react,
+        onUpvote = viewModel::upvote,
         onReactionErrorShown = viewModel::reactionErrorShown,
     )
 }
@@ -160,6 +173,8 @@ fun DiscussionScreen(
     onSendErrorShown: () -> Unit = {},
     /** A reaction given to the discussion's text, a comment or a reply, by its id; or taken back. */
     onReact: (String, Reaction) -> Unit = { _, _ -> },
+    /** An upvote given to the discussion or a comment, by its id; or taken back. */
+    onUpvote: (String) -> Unit = {},
     onReactionErrorShown: () -> Unit = {},
     nowMillis: Long = rememberNow(state.discussion),
 ) {
@@ -264,7 +279,9 @@ fun DiscussionScreen(
                                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                     summary.category?.let { SoftTag(it) }
                                     if (summary.isAnswered == true) SoftTag(stringResource(R.string.repo_discussion_answered))
-                                    if (summary.upvotes > 0) Upvotes(summary.upvotes)
+                                    val upvotes = discussion?.upvoteTally ?: DiscussionUpvotes(summary.upvotes)
+                                    val toggle = discussion?.id?.takeIf { upvotes.canGive }?.let { id -> { onUpvote(id) } }
+                                    if (upvotes.count > 0 || toggle != null) Upvotes(upvotes, toggle)
                                 }
                                 val who = summary.author?.login ?: stringResource(R.string.deleted_account)
                                 summary.createdAt?.let {
@@ -322,7 +339,12 @@ fun DiscussionScreen(
                         }
                         discussion.comments.forEach { comment ->
                             item(key = comment.id) {
-                                Entry(comment, context, nowMillis, onOpenUser, onLinkClick, onQuote = { quoteInReply(comment, comment.body) }.takeIf { state.canComment }, onReact = reactTo(comment.id, comment.reactions))
+                                Entry(
+                                    comment, context, nowMillis, onOpenUser, onLinkClick,
+                                    onQuote = { quoteInReply(comment, comment.body) }.takeIf { state.canComment },
+                                    onReact = reactTo(comment.id, comment.reactions),
+                                    onUpvote = { onUpvote(comment.id) },
+                                )
                             }
                             items(comment.replies, key = { it.id }) { reply ->
                                 Entry(
@@ -330,6 +352,7 @@ fun DiscussionScreen(
                                     // A reply has none of its own: one to it goes in its thread.
                                     onQuote = { quoteInReply(comment, reply.body) }.takeIf { state.canComment },
                                     onReact = reactTo(reply.id, reply.reactions),
+                                    onUpvote = { onUpvote(reply.id) },
                                     isReply = true,
                                 )
                             }
@@ -445,11 +468,48 @@ private fun CommentActions(
     }
 }
 
+/**
+ * How many upvoted it. Where the reader may upvote, it is a toggle: an outlined arrow, filled marigold with its count
+ * in bold once theirs is given, as the star toggle shows a star.
+ */
 @Composable
-private fun Upvotes(count: Int) {
+private fun Upvotes(upvotes: DiscussionUpvotes, onToggle: (() -> Unit)? = null) {
+    val count = upvotes.count
     val said = androidx.compose.ui.res.pluralStringResource(R.plurals.discussion_upvotes, count, count)
-    Box(Modifier.clearAndSetSemantics { contentDescription = said }) {
-        SoftTag(stringResource(R.string.discussion_upvotes, count))
+    if (onToggle == null) {
+        Box(Modifier.clearAndSetSemantics { contentDescription = said }) {
+            SoftTag(stringResource(R.string.discussion_upvotes, count))
+        }
+        return
+    }
+    val colors = Soft.colors
+    val label = stringResource(R.string.discussion_upvote)
+    Row(
+        Modifier
+            .clip(SoftTokens.TagCorner)
+            .toggleable(value = upvotes.given, role = Role.Checkbox, onValueChange = { onToggle() })
+            .minimumInteractiveComponentSize()
+            .clearAndSetSemantics {
+                contentDescription = "$label, $said"
+                toggleableState = androidx.compose.ui.state.ToggleableState(upvotes.given)
+                role = Role.Checkbox
+                onClick { onToggle(); true }
+            }
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(
+            if (upvotes.given) Icons.Filled.ArrowCircleUp else Icons.Outlined.ArrowCircleUp,
+            contentDescription = null,
+            tint = if (upvotes.given) colors.accent else colors.inkMuted,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            count.toString(),
+            style = Soft.type.tag.copy(fontWeight = if (upvotes.given) FontWeight.Bold else Soft.type.tag.fontWeight),
+            color = colors.ink,
+        )
     }
 }
 
@@ -466,6 +526,7 @@ private fun Entry(
     onLinkClick: (String) -> Unit,
     onQuote: (() -> Unit)?,
     onReact: ((Reaction) -> Unit)?,
+    onUpvote: (() -> Unit)? = null,
     isReply: Boolean = false,
 ) {
     val line = Soft.colors.track
@@ -477,10 +538,12 @@ private fun Entry(
             drawLine(line, Offset(x, 0f), Offset(x, size.height), 2.dp.toPx())
         }
     }
-    val tags: (@Composable () -> Unit)? = if (comment.isAnswer || comment.upvotes > 0) {
+    val upvotes = comment.upvoteTally
+    val toggle = onUpvote?.takeIf { upvotes.canGive }
+    val tags: (@Composable () -> Unit)? = if (comment.isAnswer || upvotes.count > 0 || toggle != null) {
         {
             if (comment.isAnswer) SoftTag(stringResource(R.string.discussion_answer), background = Soft.colors.fields[2])
-            if (comment.upvotes > 0) Upvotes(comment.upvotes)
+            if (upvotes.count > 0 || toggle != null) Upvotes(upvotes, toggle)
         }
     } else {
         null

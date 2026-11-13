@@ -27,6 +27,9 @@ data class DiscussionReactions(
     fun gives(reaction: Reaction): Boolean = reaction !in given
 }
 
+/** How many upvoted a discussion or one of its comments, whether the reader did, and whether they may. */
+data class DiscussionUpvotes(val count: Int, val given: Boolean = false, val canGive: Boolean = false)
+
 /** One page of a repository's discussions, most recently active first, and what asks for the next. */
 data class DiscussionPage(val items: List<DiscussionSummary>, val next: String?)
 
@@ -46,7 +49,11 @@ data class DiscussionComment(
     val canMarkAnswer: Boolean = false,
     val canUnmarkAnswer: Boolean = false,
     val reactions: DiscussionReactions = DiscussionReactions(),
-)
+    val upvoted: Boolean = false,
+    val canUpvote: Boolean = false,
+) {
+    val upvoteTally: DiscussionUpvotes get() = DiscussionUpvotes(upvotes, upvoted, canUpvote)
+}
 
 /** A discussion with its text and its comments. */
 data class Discussion(
@@ -60,8 +67,28 @@ data class Discussion(
     val locked: Boolean = false,
     /** Those given to its own text. */
     val reactions: DiscussionReactions = DiscussionReactions(),
+    /** Whether the reader upvoted it, and may; how many did is in [summary]. */
+    val upvoted: Boolean = false,
+    val canUpvote: Boolean = false,
 ) {
+    val upvoteTally: DiscussionUpvotes get() = DiscussionUpvotes(summary.upvotes, upvoted, canUpvote)
+
+    /** Its own upvotes ([id]), or those of the comment or reply of that id; null when it has none such. */
+    fun upvotesOf(subjectId: String): DiscussionUpvotes? = when (subjectId) {
+        id -> upvoteTally
+        else -> comments.firstNotNullOfOrNull { comment -> if (comment.id == subjectId) comment.upvoteTally else comment.replies.firstOrNull { it.id == subjectId }?.upvoteTally }
+    }
+
+    /** The same discussion, [subjectId]'s upvotes now being [upvotes]. */
+    fun withUpvotes(subjectId: String, upvotes: DiscussionUpvotes): Discussion = if (subjectId == id) {
+        copy(summary = summary.copy(upvotes = upvotes.count), upvoted = upvotes.given, canUpvote = upvotes.canGive)
+    } else {
+        val change = { c: DiscussionComment -> if (c.id == subjectId) c.copy(upvotes = upvotes.count, upvoted = upvotes.given, canUpvote = upvotes.canGive) else c }
+        copy(comments = comments.map { comment -> change(comment).copy(replies = comment.replies.map(change)) })
+    }
+
     /** Whether comments or replies were left out: the forge's site has them all. */
+
     /** What was given to its own text ([id]) or to the comment or reply of that id; null when it has none such. */
     fun reactionsOf(subjectId: String): DiscussionReactions? = when (subjectId) {
         id -> reactions
