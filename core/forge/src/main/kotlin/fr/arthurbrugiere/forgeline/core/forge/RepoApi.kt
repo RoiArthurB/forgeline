@@ -98,6 +98,9 @@ interface RepoApi {
      * back when [give] is false. Answers what it then has, everyone's.
      */
 
+    /** Follows the discussion the forge names [discussionId] (every comment on it is heard of), or stops. */
+    suspend fun setDiscussionSubscribed(token: String, discussionId: String, subscribed: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
     /** Rewrites the discussion comment or reply [commentId]. */
     suspend fun editDiscussionComment(token: String, commentId: String, body: String): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
 

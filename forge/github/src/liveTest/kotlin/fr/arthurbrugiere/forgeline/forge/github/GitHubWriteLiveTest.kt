@@ -270,6 +270,12 @@ class GitHubWriteLiveTest {
             val unvoted = repos.upvoteInDiscussion(token, comment, give = false).value("take the upvote back")
             check(!unvoted.given && unvoted.count == 0) { "taken back: $unvoted" }
 
+            // Started by the reader, they follow it: left, then followed again.
+            check(discussion.subscribed == true) { "not followed: $discussion" }
+            repos.setDiscussionSubscribed(token, subject, subscribed = false).value("leave")
+            check(repos.discussion(token, repo, number).value("read left").subscribed == false) { "still followed" }
+            repos.setDiscussionSubscribed(token, subject, subscribed = true).value("follow")
+
             // The reader's own: rewritten, then deleted; the discussion's title and text rewritten, then it deleted.
             check(discussion.canEdit && discussion.canDelete && discussion.comments.single().let { it.canEdit && it.canDelete }) { "rights: $discussion" }
             repos.editDiscussionComment(token, comment, "Rewritten.").value("rewrite the comment")

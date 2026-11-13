@@ -104,6 +104,9 @@ interface RepoRepository {
     /** Picks the comment [commentId] of a discussion of [id] as its answer, or takes that back. */
     suspend fun setDiscussionAnswer(id: RepoId, commentId: String, answer: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
 
+    /** Follows [discussion] of [id], or stops. */
+    suspend fun setDiscussionSubscribed(id: RepoId, discussion: Discussion, subscribed: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
     /** Rewrites a discussion comment or reply of [id]. */
     suspend fun editDiscussionComment(id: RepoId, commentId: String, body: String): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
 
@@ -287,6 +290,11 @@ class DefaultRepoRepository @Inject constructor(
 
     override suspend fun setDiscussionAnswer(id: RepoId, commentId: String, answer: Boolean) =
         accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).setDiscussionAnswer(it, commentId, answer) } ?: ForgeResult.Failure(ForgeError.Unauthorized)
+
+    override suspend fun setDiscussionSubscribed(id: RepoId, discussion: Discussion, subscribed: Boolean): ForgeResult<Unit> {
+        val named = discussion.id ?: return ForgeResult.Failure(ForgeError.Unsupported)
+        return accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).setDiscussionSubscribed(it, named, subscribed) } ?: ForgeResult.Failure(ForgeError.Unauthorized)
+    }
 
     override suspend fun editDiscussionComment(id: RepoId, commentId: String, body: String) =
         accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).editDiscussionComment(it, commentId, body) } ?: ForgeResult.Failure(ForgeError.Unauthorized)

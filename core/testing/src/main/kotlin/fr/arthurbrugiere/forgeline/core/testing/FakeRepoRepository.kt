@@ -138,6 +138,12 @@ class FakeRepoRepository : RepoRepository {
         return discussionWriteFailure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(Unit)
     }
 
+    override suspend fun setDiscussionSubscribed(id: RepoId, discussion: fr.arthurbrugiere.forgeline.core.model.Discussion, subscribed: Boolean): ForgeResult<Unit> {
+        calls += "discussionSubscribed:${id.fullName}#${discussion.summary.number}:$subscribed"
+        gate?.await()
+        return discussionWriteFailure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(Unit)
+    }
+
     override suspend fun editDiscussionComment(id: RepoId, commentId: String, body: String): ForgeResult<Unit> {
         calls += "discussionEdit:${id.fullName}:$commentId:$body"
         gate?.await()

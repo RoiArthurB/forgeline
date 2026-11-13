@@ -270,6 +270,7 @@ class GitHubLiveContractTest {
         assertWithMessage("id").that(discussion.id).isNotEmpty()
         // Someone else's discussion: nothing of it is the reader's to pick.
         assertWithMessage("answers to pick").that(discussion.comments.none { it.canMarkAnswer || it.canUnmarkAnswer }).isTrue()
+        assertWithMessage("followable").that(discussion.subscribed).isNotNull()
         assertWithMessage("nothing to rewrite").that(discussion.canEdit || discussion.canDelete || discussion.comments.any { it.canEdit || it.canDelete }).isFalse()
         // Signed in, an open discussion takes the reader's reactions; a locked one may not.
         if (!discussion.locked) {

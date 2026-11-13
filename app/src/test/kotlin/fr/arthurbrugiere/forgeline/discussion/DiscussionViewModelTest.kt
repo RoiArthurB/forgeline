@@ -450,4 +450,22 @@ class DiscussionViewModelTest {
         advanceUntilIdle()
         assertThat(started.state.value.scrollTo).isNull()
     }
+
+    @Test
+    fun the_discussion_is_followed_or_left_and_a_change_refused_is_said() = test {
+        repos.discussions[7] = ForgeResult.Success(read.copy(id = "D1", subscribed = false))
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        advanceUntilIdle()
+
+        viewModel.toggleSubscribed()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.discussion?.subscribed).isTrue()
+        repos.discussionWriteFailure = ForgeError.Network
+        viewModel.toggleSubscribed()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.discussion?.subscribed).isTrue()
+        assertThat(viewModel.state.value.subscriptionError).isEqualTo(ForgeError.Network)
+        assertThat(repos.calls.filter { it.startsWith("discussionSubscribed") }).containsExactly("discussionSubscribed:octo/repo#7:true", "discussionSubscribed:octo/repo#7:false").inOrder()
+    }
 }

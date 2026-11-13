@@ -272,7 +272,7 @@ internal fun Composer(
 
 /** Whether the reader hears of every reply here or only of what mentions them, and the one button that changes it. */
 @Composable
-private fun Subscription(subscribed: Boolean, busy: Boolean, error: ForgeError?, onToggle: () -> Unit) {
+internal fun Subscription(subscribed: Boolean, busy: Boolean, error: ForgeError?, onToggle: () -> Unit) {
     val colors = Soft.colors
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

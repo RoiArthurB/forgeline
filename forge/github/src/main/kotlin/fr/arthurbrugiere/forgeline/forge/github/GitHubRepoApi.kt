@@ -57,11 +57,13 @@ import fr.arthurbrugiere.forgeline.forge.github.graphql.RemoveUpvoteMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.UnmarkDiscussionAnswerMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.UpdateDiscussionCommentMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.UpdateDiscussionMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.UpdateSubscriptionMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.DiscussionCommentFields
 import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.DiscussionCommentWithReplies
 import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.DiscussionFields
 import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.ReactionTally
 import fr.arthurbrugiere.forgeline.forge.github.graphql.type.ReactionContent
+import fr.arthurbrugiere.forgeline.forge.github.graphql.type.SubscriptionState
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
@@ -240,6 +242,8 @@ class GitHubRepoApi(
                     canUpvote = found.viewerCanUpvote,
                     canEdit = found.viewerCanUpdate,
                     canDelete = found.viewerCanDelete,
+                    // Ignoring it, the reader hears of nothing, as unsubscribed.
+                    subscribed = (found.viewerSubscription == SubscriptionState.SUBSCRIBED).takeIf { found.viewerCanSubscribe },
                 )
             }
         }
@@ -270,6 +274,11 @@ class GitHubRepoApi(
         } else {
             httpClient.gitHubOperation(apiBaseUrl, token, UnmarkDiscussionAnswerMutation(commentId)).map { }
         }
+    }
+
+    override suspend fun setDiscussionSubscribed(token: String, discussionId: String, subscribed: Boolean): ForgeResult<Unit> = forgeCall {
+        val state = if (subscribed) SubscriptionState.SUBSCRIBED else SubscriptionState.UNSUBSCRIBED
+        httpClient.gitHubOperation(apiBaseUrl, token, UpdateSubscriptionMutation(discussionId, state)).map { }
     }
 
     override suspend fun editDiscussionComment(token: String, commentId: String, body: String): ForgeResult<Unit> =

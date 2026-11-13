@@ -42,6 +42,9 @@ data class DiscussionUiState(
     val readingRest: Boolean = false,
     /** Where the list is to go, once: the id of a comment or reply, or [DiscussionViewModel.END]. */
     val scrollTo: String? = null,
+    /** Following it, or no longer, is on its way; or didn't go through. */
+    val isSubscribing: Boolean = false,
+    val subscriptionError: ForgeError? = null,
     /** Deleted from here: the page has nothing left to show, and goes back. */
     val deleted: Boolean = false,
 ) {
@@ -201,6 +204,20 @@ class DiscussionViewModel @AssistedInject constructor(
     }
 
     fun sendErrorShown() = _state.update { it.copy(sendError = null) }
+
+    /** Follows the discussion, or stops following it. */
+    fun toggleSubscribed() {
+        val discussion = state.value.discussion ?: return
+        val subscribed = discussion.subscribed ?: return
+        if (state.value.isSubscribing) return
+        _state.update { it.copy(isSubscribing = true, subscriptionError = null) }
+        viewModelScope.launch {
+            when (val result = repos.setDiscussionSubscribed(repo, discussion, !subscribed)) {
+                is ForgeResult.Failure -> _state.update { it.copy(isSubscribing = false, subscriptionError = result.error) }
+                is ForgeResult.Success -> _state.update { it.copy(isSubscribing = false, discussion = it.discussion?.copy(subscribed = !subscribed)) }
+            }
+        }
+    }
 
     /** What is being reacted to, by its id: one change at a time on each. */
     private val reacting = mutableSetOf<String>()

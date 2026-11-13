@@ -87,6 +87,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.issue.Comment
 import fr.arthurbrugiere.forgeline.issue.CommentMenu
+import fr.arthurbrugiere.forgeline.issue.Subscription
 import fr.arthurbrugiere.forgeline.navigation.DiscussionRoute
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.pull.ThreadCommentEditor
@@ -154,6 +155,7 @@ fun DiscussionRoute(
         onDeleteDiscussion = viewModel::deleteDiscussion,
         onReactionErrorShown = viewModel::reactionErrorShown,
         onScrolled = viewModel::scrolled,
+        onToggleSubscribed = viewModel::toggleSubscribed,
     )
 }
 
@@ -195,6 +197,8 @@ fun DiscussionScreen(
     onReactionErrorShown: () -> Unit = {},
     /** The list went where [DiscussionUiState.scrollTo] said. */
     onScrolled: () -> Unit = {},
+    /** Follows the discussion, or stops. */
+    onToggleSubscribed: () -> Unit = {},
     nowMillis: Long = rememberNow(state.discussion),
 ) {
     val colors = Soft.colors
@@ -506,6 +510,8 @@ fun DiscussionScreen(
                                             )
                                         }
                                     }
+                                    // Whether the reader hears of what is said next: under their turn, quieter than any of it.
+                                    discussion.subscribed?.let { Subscription(it, state.isSubscribing, state.subscriptionError, onToggleSubscribed) }
                                     SoftTonalButton(stringResource(R.string.repo_open_on_forge, forge), { onOpenInBrowser(state.webUrl) })
                                 }
                             }

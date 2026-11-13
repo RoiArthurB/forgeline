@@ -65,6 +65,8 @@ query Discussion($owner: String!, $name: String!, $number: Int!) {
       viewerCanUpvote
       viewerCanUpdate
       viewerCanDelete
+      viewerSubscription
+      viewerCanSubscribe
       ...ReactionTally
       comments(first: 50) {
         totalCount

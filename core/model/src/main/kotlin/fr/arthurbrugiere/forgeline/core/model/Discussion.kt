@@ -83,6 +83,8 @@ data class Discussion(
     /** Whether the reader may rewrite its title and text, or delete it with its comments. */
     val canEdit: Boolean = false,
     val canDelete: Boolean = false,
+    /** Whether the reader hears of every comment on it; null where they can't follow it (signed out). */
+    val subscribed: Boolean? = null,
 ) {
     val upvoteTally: DiscussionUpvotes get() = DiscussionUpvotes(summary.upvotes, upvoted, canUpvote)
 

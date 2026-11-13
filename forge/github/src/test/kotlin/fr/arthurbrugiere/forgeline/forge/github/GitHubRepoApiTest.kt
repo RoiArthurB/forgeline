@@ -513,7 +513,7 @@ class GitHubRepoApiTest {
         {"__typename":"Discussion","number":99836,"title":"App Router PDF downloads","createdAt":"2026-10-07T22:12:26Z","upvoteCount":4,"isAnswered":false,"category":{"name":"Help"},"author":null,"comments":{"totalCount":12}}]}}}}"""
 
     private val oneDiscussion = """{"data":{"repository":{"discussion":{"__typename":"Discussion","number":7,"title":"How do I page?","body":"I can't find it.","createdAt":"2026-10-01T10:00:00Z","upvoteCount":3,"isAnswered":true,
-        "category":{"name":"Q&A"},"author":{"login":"alice","avatarUrl":"https://avatars.example/2"},"id":"D_kwDOA","locked":false,"viewerCanReact":true,"viewerHasUpvoted":true,"viewerCanUpvote":true,"viewerCanUpdate":true,"viewerCanDelete":false,
+        "category":{"name":"Q&A"},"author":{"login":"alice","avatarUrl":"https://avatars.example/2"},"id":"D_kwDOA","locked":false,"viewerCanReact":true,"viewerHasUpvoted":true,"viewerCanUpvote":true,"viewerCanUpdate":true,"viewerCanDelete":false,"viewerSubscription":"SUBSCRIBED","viewerCanSubscribe":true,
         "reactionGroups":[{"content":"THUMBS_UP","viewerHasReacted":true,"reactors":{"totalCount":4}},{"content":"HEART","viewerHasReacted":false,"reactors":{"totalCount":1}},{"content":"EYES","viewerHasReacted":false,"reactors":{"totalCount":0}}],"comments":{"totalCount":2,"pageInfo":{"hasNextPage":true,"endCursor":"Y29tbWVudHM"},"nodes":[
         {"__typename":"DiscussionComment","id":"c1","body":"Use the cursor.","createdAt":"2026-10-01T11:00:00Z","upvoteCount":5,"isAnswer":true,"viewerCanMarkAsAnswer":false,"viewerCanUnmarkAsAnswer":true,"viewerHasUpvoted":false,"viewerCanUpvote":true,"viewerCanUpdate":false,"viewerCanDelete":true,"author":{"login":"bob","avatarUrl":"https://avatars.example/2"},"viewerCanReact":true,
          "reactionGroups":[{"content":"ROCKET","viewerHasReacted":true,"reactors":{"totalCount":2}},{"content":"LAUGH","viewerHasReacted":false,"reactors":{"totalCount":0}}],
@@ -706,6 +706,19 @@ class GitHubRepoApiTest {
         assertThat(more).isEqualTo(DiscussionCommentPage(listOf(more.items.single()), "bW9yZQ"))
         assertThat(more.items.single().id).isEqualTo("r2")
         assertThat(body()).contains("\"operationName\":\"DiscussionReplies\"")
+    }
+
+    @Test
+    fun a_discussion_says_whether_the_reader_follows_it_and_is_followed_or_left_by_its_id() = runTest {
+        assertThat(api { json(oneDiscussion) }.discussion("tok", paperclip, 7).value().subscribed).isTrue()
+        // Ignored, the reader hears of nothing; one they can't follow says nothing of it.
+        assertThat(api { json(oneDiscussion.replace("\"SUBSCRIBED\"", "\"IGNORED\"")) }.discussion("tok", paperclip, 7).value().subscribed).isFalse()
+        assertThat(api { json(oneDiscussion.replace("\"viewerCanSubscribe\":true", "\"viewerCanSubscribe\":false")) }.discussion("tok", paperclip, 7).value().subscribed).isNull()
+
+        val writing = api { json("""{"data":{"updateSubscription":{"clientMutationId":null}}}""") }
+        assertThat(writing.setDiscussionSubscribed("tok", "D_kwDOA", subscribed = false)).isEqualTo(ForgeResult.Success(Unit))
+        assertThat(body()).contains("\"operationName\":\"UpdateSubscription\"")
+        assertThat(body()).contains("\"variables\":{\"id\":\"D_kwDOA\",\"state\":\"UNSUBSCRIBED\"}")
     }
 
     @Test

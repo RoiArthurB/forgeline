@@ -80,6 +80,7 @@ class DiscussionScreenTest {
                         onDeleteDiscussion = { events += "delete:discussion" },
                         onReactionErrorShown = { events += "reaction-error-shown" },
                         onScrolled = { events += "scrolled" },
+                        onToggleSubscribed = { events += "subscribe" },
                         nowMillis = Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
                     )
                 }
@@ -519,5 +520,23 @@ class DiscussionScreenTest {
 
         composeRule.onNodeWithText("Comment number 15.").assertIsDisplayed()
         assertThat(events).contains("scrolled")
+    }
+
+    @Test
+    fun the_reader_following_it_hears_of_every_reply_and_may_stop() {
+        setContent(loaded.copy(discussion = read.copy(subscribed = true)))
+
+        reach("You hear of every reply here.")
+        composeRule.onNodeWithText("Unsubscribe").performClick()
+
+        assertThat(events).containsExactly("subscribe")
+    }
+
+    @Test
+    fun signed_out_nothing_is_said_of_following_it() {
+        setContent(loaded)
+
+        assertThat(shown("Subscribe")).isFalse()
+        assertThat(shown("You hear of")).isFalse()
     }
 }
