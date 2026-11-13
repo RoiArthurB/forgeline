@@ -20,6 +20,8 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.Discussion
+import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.discussionComment
 import fr.arthurbrugiere.forgeline.core.testing.discussionSummary
@@ -65,6 +67,8 @@ class DiscussionScreenTest {
                         onSend = { body, under -> events += "send:${under?.id ?: "discussion"}:$body" },
                         onSetAnswer = { comment, answer -> events += "answer:${comment.id}:$answer" },
                         onSendErrorShown = { events += "send-error-shown" },
+                        onReact = { id, reaction -> events += "react:$id:$reaction" },
+                        onReactionErrorShown = { events += "reaction-error-shown" },
                         nowMillis = Instant.parse("2026-09-26T10:00:00Z").toEpochMilli(),
                     )
                 }
@@ -320,5 +324,67 @@ class DiscussionScreenTest {
         composeRule.waitUntil(5_000) { shown("You can't comment here.") }
         assertThat(events).contains("send-error-shown")
         assertThat(shown("Hello")).isTrue()
+    }
+
+    private val reactable = read.copy(
+        id = "D1",
+        reactions = DiscussionReactions(mapOf(Reaction.HEART to 2), setOf(Reaction.HEART), canReact = true),
+        comments = read.comments.map { comment ->
+            comment.copy(
+                reactions = DiscussionReactions(if (comment.id == "c1") mapOf(Reaction.ROCKET to 3) else emptyMap(), canReact = true),
+                replies = comment.replies.map { it.copy(reactions = DiscussionReactions(canReact = true)) },
+            )
+        },
+    )
+
+    @Test
+    fun the_reactions_given_show_and_tapping_one_gives_it_or_takes_it_back() {
+        setContent(loaded.copy(discussion = reactable))
+
+        composeRule.onNodeWithContentDescription("Heart, 2").performClick()
+        reach("Use the cursor.")
+        composeRule.onNodeWithContentDescription("Rocket, 3").performClick()
+
+        assertThat(events).containsExactly("react:D1:HEART", "react:c1:ROCKET").inOrder()
+    }
+
+    @Test
+    fun a_reaction_is_picked_from_a_comment_s_or_a_reply_s_menu() {
+        setContent(loaded.copy(discussion = reactable))
+
+        reach("Thanks, that was it.")
+        // The text's, the two comments' and the reply's menus, in their order.
+        composeRule.onAllNodes(hasContentDescription("Comment options"))[2].performClick()
+        composeRule.onNodeWithContentDescription("Eyes").performClick()
+
+        assertThat(events).containsExactly("react:r1:EYES")
+    }
+
+    @Test
+    fun where_the_forge_takes_no_reaction_from_the_reader_those_given_only_show() {
+        // Signed out, or kept out by a lock: GitHub says so of each.
+        setContent(loaded.copy(discussion = reactable.copy(reactions = reactable.reactions.copy(canReact = false))))
+
+        assertThat(shown("❤️ 2")).isTrue()
+        assertThat(composeRule.onAllNodes(hasContentDescription("Heart, 2")).fetchSemanticsNodes()).isEmpty()
+    }
+
+    @Test
+    fun quoting_a_reply_starts_a_reply_in_its_thread_with_its_words() {
+        setContent(loaded.copy(discussion = reactable.copy(id = "D1")))
+
+        reach("Thanks, that was it.")
+        composeRule.onAllNodes(hasContentDescription("Comment options"))[2].performClick()
+        composeRule.onNodeWithText("Quote reply").performClick()
+        composeRule.onNodeWithContentDescription("Send reply").performClick()
+
+        assertThat(events).containsExactly("send:c1:> Thanks, that was it.\n\n")
+    }
+
+    @Test
+    fun a_reaction_that_didn_t_go_through_is_said() {
+        setContent(loaded.copy(discussion = reactable, reactionError = ForgeError.Network))
+
+        assertThat(events).contains("reaction-error-shown")
     }
 }

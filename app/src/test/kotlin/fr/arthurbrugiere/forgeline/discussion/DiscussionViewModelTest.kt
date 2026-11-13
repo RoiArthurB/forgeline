@@ -4,6 +4,8 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Discussion
+import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.FakeRepoRepository
 import fr.arthurbrugiere.forgeline.core.testing.MainDispatcherRule
@@ -160,5 +162,70 @@ class DiscussionViewModelTest {
 
         assertThat(viewModel.state.value.copy(discussion = read.copy(id = "D_1", locked = true)).canComment).isFalse()
         assertThat(viewModel.state.value.copy(discussion = read).canComment).isFalse()
+    }
+
+    @Test
+    fun a_reaction_is_given_to_the_text_a_comment_or_a_reply_and_the_forge_s_counts_replace_the_old() = test {
+        val reply = discussionComment("r1", "Thanks!")
+        val reactable = read.copy(
+            id = "D1",
+            reactions = DiscussionReactions(canReact = true),
+            comments = listOf(discussionComment("c1", "Use the cursor.", replies = listOf(reply.copy(reactions = DiscussionReactions(canReact = true))))),
+        )
+        repos.discussions[7] = ForgeResult.Success(reactable)
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        advanceUntilIdle()
+        repos.discussionReactions["c1"] = DiscussionReactions(mapOf(Reaction.HEART to 5), setOf(Reaction.HEART), canReact = true)
+
+        viewModel.react("D1", Reaction.ROCKET)
+        viewModel.react("c1", Reaction.HEART)
+        viewModel.react("r1", Reaction.EYES)
+        advanceUntilIdle()
+
+        val discussion = viewModel.state.value.discussion!!
+        assertThat(discussion.reactions.counts).containsExactly(Reaction.ROCKET, 1)
+        assertThat(discussion.comments[0].reactions.counts).containsExactly(Reaction.HEART, 5)
+        assertThat(discussion.comments[0].replies[0].reactions.given).containsExactly(Reaction.EYES)
+        // Nothing else is read again: the forge answered what each now has.
+        assertThat(repos.calls).containsExactly(
+            "discussion:octo/repo#7",
+            "discussionReaction:octo/repo:D1:ROCKET:true",
+            "discussionReaction:octo/repo:c1:HEART:true",
+            "discussionReaction:octo/repo:r1:EYES:true",
+        ).inOrder()
+    }
+
+    @Test
+    fun a_reaction_the_reader_gave_is_taken_back() = test {
+        val given = read.copy(id = "D1", reactions = DiscussionReactions(mapOf(Reaction.HEART to 2), setOf(Reaction.HEART), canReact = true))
+        repos.discussions[7] = ForgeResult.Success(given)
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        advanceUntilIdle()
+
+        viewModel.react("D1", Reaction.HEART)
+        advanceUntilIdle()
+
+        assertThat(repos.calls.last()).isEqualTo("discussionReaction:octo/repo:D1:HEART:false")
+    }
+
+    @Test
+    fun a_second_tap_while_the_first_is_on_its_way_is_not_sent_and_a_refused_one_is_said() = test {
+        repos.discussions[7] = ForgeResult.Success(read.copy(id = "D1"))
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+        advanceUntilIdle()
+        repos.gate = CompletableDeferred()
+        repos.discussionWriteFailure = ForgeError.Network
+
+        viewModel.react("D1", Reaction.HEART)
+        viewModel.react("D1", Reaction.HEART)
+        repos.gate!!.complete(Unit)
+        advanceUntilIdle()
+
+        assertThat(repos.calls.count { it.startsWith("discussionReaction") }).isEqualTo(1)
+        assertThat(viewModel.state.value.reactionError).isEqualTo(ForgeError.Network)
+        // What was shown stays as it was.
+        assertThat(viewModel.state.value.discussion?.reactions).isEqualTo(read.reactions)
+        viewModel.reactionErrorShown()
+        assertThat(viewModel.state.value.reactionError).isNull()
     }
 }

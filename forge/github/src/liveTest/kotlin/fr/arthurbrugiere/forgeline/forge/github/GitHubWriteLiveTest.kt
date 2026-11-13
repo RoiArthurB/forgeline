@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.PagesBuild
 import fr.arthurbrugiere.forgeline.core.model.PagesChange
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
@@ -26,6 +27,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -186,6 +188,81 @@ class GitHubWriteLiveTest {
             val revert = pulls.revert(token, ref).value("revert")
             System.err.println("GITHUB revert: $revert")
             check(revert.number > number) { "revert: $revert" }
+
+            val deletion = GitHubRepoSettingsApi(http).delete(token, repo)
+            System.err.println("GITHUB deletion: $deletion")
+            left = deletion is ForgeResult.Failure
+        } finally {
+            if (left) System.err.println("GITHUB scratch repository LEFT, delete it by hand: ${repo.fullName}")
+        }
+    }
+
+    /**
+     * A discussion in a private scratch repository with discussions turned on: a reaction given to its text and to a
+     * comment, read back as the reader's, then taken back.
+     */
+    @Test
+    fun reactions_are_given_to_a_discussion_and_its_comment_and_taken_back() = runBlocking<Unit> {
+        assumeTrue("LIVE_TEST_PAT not set", token.isNotBlank())
+        assumeTrue("GITHUB_LIVE_WRITES not set", System.getenv("GITHUB_LIVE_WRITES") == "1")
+        val api = "https://api.github.com"
+        val name = "forgeline-scratch-${System.currentTimeMillis()}"
+        suspend fun send(method: HttpMethod, path: String, body: JsonObject? = null): JsonObject {
+            val response = http.request("$api$path") {
+                this.method = method
+                header("Authorization", "Bearer $token")
+                if (body != null) {
+                    contentType(ContentType.Application.Json)
+                    setBody(body)
+                }
+            }
+            check(response.status.isSuccess()) { "$method $path: ${response.status} ${response.bodyAsText().take(300)}" }
+            return response.body()
+        }
+        suspend fun graphQl(query: String, variables: JsonObject): JsonObject {
+            val answer = send(HttpMethod.Post, "/graphql", buildJsonObject { put("query", query); put("variables", variables) })
+            check("errors" !in answer) { "graphql: $answer" }
+            return answer.getValue("data").jsonObject
+        }
+        val created = send(
+            HttpMethod.Post, "/user/repos",
+            buildJsonObject {
+                put("name", name)
+                put("private", true)
+                put("auto_init", true)
+                put("has_discussions", true)
+                put("description", "Scratch repository for Forgeline API tests. Safe to delete.")
+            },
+        )
+        val repo = RepoId(created.getValue("owner").jsonObject.getValue("login").jsonPrimitive.content, name)
+        var left = true
+        try {
+            val found = graphQl(
+                "query(\$o: String!, \$n: String!) { repository(owner: \$o, name: \$n) { id discussionCategories(first: 1) { nodes { id } } } }",
+                buildJsonObject { put("o", repo.owner); put("n", repo.name) },
+            ).getValue("repository").jsonObject
+            val category = found.getValue("discussionCategories").jsonObject.getValue("nodes").jsonArray.first().jsonObject.getValue("id").jsonPrimitive.content
+            val number = graphQl(
+                "mutation(\$r: ID!, \$c: ID!) { createDiscussion(input: {repositoryId: \$r, categoryId: \$c, title: \"Scratch\", body: \"Safe to delete.\"}) { discussion { number } } }",
+                buildJsonObject { put("r", found.getValue("id").jsonPrimitive.content); put("c", category) },
+            ).getValue("createDiscussion").jsonObject.getValue("discussion").jsonObject.getValue("number").jsonPrimitive.content.toInt()
+            val repos = GitHubRepoApi(http)
+            var discussion = repos.discussion(token, repo, number).value("discussion")
+            repos.commentOnDiscussion(token, discussion, "A comment to react to.").value("comment")
+            discussion = repos.discussion(token, repo, number).value("discussion with its comment")
+            check(discussion.reactions.canReact) { "can't react: $discussion" }
+            val subject = discussion.id!!
+            val comment = discussion.comments.single().id
+
+            val given = repos.reactInDiscussion(token, subject, Reaction.HEART, give = true).value("give")
+            System.err.println("GITHUB discussion reaction: $given")
+            check(given.counts == mapOf(Reaction.HEART to 1) && given.given == setOf(Reaction.HEART)) { "given: $given" }
+            repos.reactInDiscussion(token, comment, Reaction.ROCKET, give = true).value("give to the comment")
+            val read = repos.discussion(token, repo, number).value("read back")
+            check(read.reactions.given == setOf(Reaction.HEART) && read.comments.single().reactions.given == setOf(Reaction.ROCKET)) { "read: $read" }
+
+            val taken = repos.reactInDiscussion(token, subject, Reaction.HEART, give = false).value("take back")
+            check(taken.counts.isEmpty() && taken.given.isEmpty()) { "taken: $taken" }
 
             val deletion = GitHubRepoSettingsApi(http).delete(token, repo)
             System.err.println("GITHUB deletion: $deletion")

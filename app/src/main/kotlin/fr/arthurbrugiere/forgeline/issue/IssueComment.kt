@@ -105,6 +105,10 @@ internal fun Comment(
     menu: CommentMenu? = null,
     /** What stands in for the comment's words while it is rewritten. */
     editor: (@Composable () -> Unit)? = null,
+    /** Tags over its words: what the comment is to the conversation (a discussion's answer, its upvotes). */
+    tags: (@Composable () -> Unit)? = null,
+    /** Whether a hairline parts it from what follows; a discussion's comment and its replies go on as one thread. */
+    parted: Boolean = true,
 ) {
     val colors = Soft.colors
     val haptics = LocalHapticFeedback.current
@@ -145,7 +149,7 @@ internal fun Comment(
     }
     SwipeToReply(offered.value?.onQuote?.takeIf { swipeToReply }, modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
         // Comments are parted by hairlines, like the rows of a list; one being rewritten stands on its own ground instead.
-        Box(Modifier.fillMaxWidth().testTag(COMMENT_TAG).then(if (editor == null) Modifier.rowHairline(start = 20.dp) else Modifier).then(gestures)) {
+        Box(Modifier.fillMaxWidth().testTag(COMMENT_TAG).then(if (editor == null && parted) Modifier.rowHairline(start = 20.dp) else Modifier).then(gestures)) {
             Column(
                 Modifier
                     .fillMaxWidth()
@@ -173,6 +177,9 @@ internal fun Comment(
                     Box(Modifier.padding(top = 10.dp, bottom = 6.dp)) { editor() }
                 } else {
                     Column(Modifier.padding(start = TimelineGutter, top = 6.dp).widthIn(max = SoftTokens.MaxMeasure)) {
+                        if (tags != null) {
+                            FlowRow(Modifier.padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { tags() }
+                        }
                         Markdown(body, context, onLinkClick, selectable = offered.value == null)
                         if (reactions.isNotEmpty()) {
                             // Tappable, each brings its own room: no more is added above.

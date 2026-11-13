@@ -9,11 +9,13 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
+import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
 import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.Release
 import fr.arthurbrugiere.forgeline.core.model.RepoDetails
@@ -93,6 +95,9 @@ interface RepoRepository {
 
     /** Picks the comment [commentId] of a discussion of [id] as its answer, or takes that back. */
     suspend fun setDiscussionAnswer(id: RepoId, commentId: String, answer: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Gives [reaction] to a discussion of [id] or one of its comments ([subjectId]), or takes it back; answers what it then has. */
+    suspend fun reactInDiscussion(id: RepoId, subjectId: String, reaction: Reaction, give: Boolean): ForgeResult<DiscussionReactions> = ForgeResult.Failure(ForgeError.Unsupported)
 
     /** What a discussion's list said of it this session, to head its page while it loads. */
     fun rememberedDiscussion(id: RepoId, number: Int): DiscussionSummary? = null
@@ -252,6 +257,9 @@ class DefaultRepoRepository @Inject constructor(
 
     override suspend fun setDiscussionAnswer(id: RepoId, commentId: String, answer: Boolean) =
         accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).setDiscussionAnswer(it, commentId, answer) } ?: ForgeResult.Failure(ForgeError.Unauthorized)
+
+    override suspend fun reactInDiscussion(id: RepoId, subjectId: String, reaction: Reaction, give: Boolean) =
+        accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).reactInDiscussion(it, subjectId, reaction, give) } ?: ForgeResult.Failure(ForgeError.Unauthorized)
 
     override fun rememberedDiscussion(id: RepoId, number: Int): DiscussionSummary? = seenDiscussions[id to number]
 

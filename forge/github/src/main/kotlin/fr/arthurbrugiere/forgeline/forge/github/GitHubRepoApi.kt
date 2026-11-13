@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.forge.map
 import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.model.DiscussionComment
 import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
+import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
 import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
@@ -39,13 +40,17 @@ import fr.arthurbrugiere.forgeline.core.model.withLatest
 import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.forge.github.graphql.AddDiscussionCommentMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.AddReactionMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionsQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.MarkDiscussionAnswerMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.PinnedQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.RemoveReactionMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.UnmarkDiscussionAnswerMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.DiscussionCommentFields
 import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.DiscussionFields
+import fr.arthurbrugiere.forgeline.forge.github.graphql.fragment.ReactionTally
+import fr.arthurbrugiere.forgeline.forge.github.graphql.type.ReactionContent
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.bearerAuth
@@ -223,6 +228,7 @@ class GitHubRepoApi(
                     },
                     id = found.id,
                     locked = found.locked,
+                    reactions = found.reactionTally.toModel(),
                 )
             }
         }
@@ -238,6 +244,15 @@ class GitHubRepoApi(
             httpClient.gitHubOperation(apiBaseUrl, token, MarkDiscussionAnswerMutation(commentId)).map { }
         } else {
             httpClient.gitHubOperation(apiBaseUrl, token, UnmarkDiscussionAnswerMutation(commentId)).map { }
+        }
+    }
+
+    override suspend fun reactInDiscussion(token: String, subjectId: String, reaction: Reaction, give: Boolean): ForgeResult<DiscussionReactions> = forgeCall {
+        val content = ReactionContent.safeValueOf(reaction.name)
+        if (give) {
+            httpClient.gitHubOperation(apiBaseUrl, token, AddReactionMutation(subjectId, content)).map { it.addReaction?.subject?.reactionTally.toModel() }
+        } else {
+            httpClient.gitHubOperation(apiBaseUrl, token, RemoveReactionMutation(subjectId, content)).map { it.removeReaction?.subject?.reactionTally.toModel() }
         }
     }
 
@@ -408,7 +423,18 @@ private fun DiscussionCommentFields.toModel(replies: List<DiscussionComment> = e
     replyCount = replyCount,
     canMarkAnswer = viewerCanMarkAsAnswer,
     canUnmarkAnswer = viewerCanUnmarkAsAnswer,
+    reactions = reactionTally.toModel(),
 )
+
+/** The kinds anyone gave, by how many (GraphQL lists every kind, most at zero), and the reader's own. */
+private fun ReactionTally?.toModel(): DiscussionReactions {
+    val groups = this?.reactionGroups.orEmpty().mapNotNull { group -> Reaction.entries.firstOrNull { it.name == group.content.rawValue }?.let { it to group } }
+    return DiscussionReactions(
+        counts = groups.mapNotNull { (kind, group) -> group.reactors.totalCount.takeIf { it > 0 }?.let { kind to it } }.toMap(),
+        given = groups.filter { (_, group) -> group.viewerHasReacted }.mapTo(mutableSetOf()) { it.first },
+        canReact = this?.viewerCanReact == true,
+    )
+}
 
 private fun PinnedQuery.Issue.toModel() = IssueSummary(
     number = number,

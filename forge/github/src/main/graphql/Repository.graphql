@@ -61,6 +61,7 @@ query Discussion($owner: String!, $name: String!, $number: Int!) {
       id
       locked
       body
+      ...ReactionTally
       comments(first: 50) {
         totalCount
         nodes {
@@ -103,6 +104,35 @@ fragment DiscussionCommentFields on DiscussionComment {
   author {
     login
     avatarUrl
+  }
+  ...ReactionTally
+}
+
+# Every kind is listed, most at zero.
+fragment ReactionTally on Reactable {
+  viewerCanReact
+  reactionGroups {
+    content
+    viewerHasReacted
+    reactors {
+      totalCount
+    }
+  }
+}
+
+mutation AddReaction($id: ID!, $content: ReactionContent!) {
+  addReaction(input: {subjectId: $id, content: $content}) {
+    subject {
+      ...ReactionTally
+    }
+  }
+}
+
+mutation RemoveReaction($id: ID!, $content: ReactionContent!) {
+  removeReaction(input: {subjectId: $id, content: $content}) {
+    subject {
+      ...ReactionTally
+    }
   }
 }
 

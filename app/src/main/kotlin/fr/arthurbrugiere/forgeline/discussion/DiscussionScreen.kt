@@ -1,7 +1,6 @@
 package fr.arthurbrugiere.forgeline.discussion
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,20 +34,19 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -56,8 +54,9 @@ import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.DiscussionComment
-import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
@@ -71,11 +70,12 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTag
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
+import fr.arthurbrugiere.forgeline.issue.Comment
+import fr.arthurbrugiere.forgeline.issue.CommentMenu
 import fr.arthurbrugiere.forgeline.navigation.DiscussionRoute
 import fr.arthurbrugiere.forgeline.navigation.openForgeLink
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.session.signedInOn
-import fr.arthurbrugiere.forgeline.ui.Avatar
 import fr.arthurbrugiere.forgeline.ui.HeaderRepoLink
 import fr.arthurbrugiere.forgeline.ui.LocalOpenCommit
 import fr.arthurbrugiere.forgeline.ui.LocalOpenDiscussion
@@ -92,7 +92,7 @@ import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import fr.arthurbrugiere.forgeline.ui.rememberNow
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import fr.arthurbrugiere.forgeline.ui.staysAboveKeyboard
-import java.time.Instant
+import kotlinx.coroutines.launch
 
 @Composable
 fun DiscussionRoute(
@@ -127,6 +127,8 @@ fun DiscussionRoute(
         onSend = viewModel::send,
         onSetAnswer = viewModel::setAnswer,
         onSendErrorShown = viewModel::sendErrorShown,
+        onReact = viewModel::react,
+        onReactionErrorShown = viewModel::reactionErrorShown,
     )
 }
 
@@ -156,6 +158,9 @@ fun DiscussionScreen(
     onSend: (String, DiscussionComment?) -> Unit = { _, _ -> },
     onSetAnswer: (DiscussionComment, Boolean) -> Unit = { _, _ -> },
     onSendErrorShown: () -> Unit = {},
+    /** A reaction given to the discussion's text, a comment or a reply, by its id; or taken back. */
+    onReact: (String, Reaction) -> Unit = { _, _ -> },
+    onReactionErrorShown: () -> Unit = {},
     nowMillis: Long = rememberNow(state.discussion),
 ) {
     val colors = Soft.colors
@@ -180,6 +185,7 @@ fun DiscussionScreen(
         snackbar,
         onSendErrorShown,
     )
+    SayOnce(stringResource(R.string.issue_reaction_failed).takeIf { state.reactionError != null }, snackbar, onReactionErrorShown)
     var draft by rememberSaveable { mutableStateOf("") }
     // The comment a reply is being written under, by its id, and that reply.
     var replyingTo by rememberSaveable { mutableStateOf<String?>(null) }
@@ -195,6 +201,22 @@ fun DiscussionScreen(
         }
     }
     val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    // Quoting the discussion's text adds it to the comment at the end, which the list goes to; quoting a comment or a
+    // reply starts a reply in that comment's thread, quoting it.
+    val quoteInComment = { text: String ->
+        draft = draft.trimEnd().let { if (it.isEmpty()) "${quoted(text)}\n\n" else "$it\n\n${quoted(text)}\n\n" }
+        scope.launch { listState.animateScrollToItem((listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)) }
+        Unit
+    }
+    val quoteInReply = { thread: DiscussionComment, text: String ->
+        val written = if (replyingTo == thread.id) reply.trimEnd() else ""
+        reply = if (written.isEmpty()) "${quoted(text)}\n\n" else "$written\n\n${quoted(text)}\n\n"
+        replyingTo = thread.id
+    }
+
+    // Reacting takes an account and the forge's leave, not the right to comment: a locked discussion may still take them.
+    fun reactTo(id: String?, reactions: DiscussionReactions): ((Reaction) -> Unit)? = if (id != null && reactions.canReact) ({ reaction -> onReact(id, reaction) }) else null
     Box(modifier.fillMaxSize().background(colors.ground)) {
         val pullState = rememberPullToRefreshState()
         PullToRefreshBox(
@@ -275,9 +297,17 @@ fun DiscussionScreen(
                     discussion == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.issue_loading), rows = 3) }
                     else -> {
                         item(key = "body") {
-                            Entry(
-                                discussion.summary.author, discussion.body.ifBlank { stringResource(R.string.discussion_no_text) }, createdAt = null, upvotes = 0, isAnswer = false,
+                            // When it was started is said in the header already.
+                            Comment(
+                                discussion.summary.author, discussion.body.ifBlank { stringResource(R.string.discussion_no_text) }, createdAt = null, discussion.reactions.counts,
                                 context, nowMillis, onOpenUser, onLinkClick, Modifier.padding(top = 12.dp),
+                                menu = CommentMenu(
+                                    onQuote = { quoteInComment(discussion.body) }.takeIf { state.canComment && discussion.body.isNotBlank() },
+                                    onEdit = null,
+                                    onDelete = null,
+                                    onReact = reactTo(discussion.id, discussion.reactions),
+                                ),
+                                parted = false,
                             )
                         }
                         if (discussion.comments.isEmpty()) {
@@ -291,8 +321,18 @@ fun DiscussionScreen(
                             }
                         }
                         discussion.comments.forEach { comment ->
-                            item(key = comment.id) { Entry(comment, context, nowMillis, onOpenUser, onLinkClick) }
-                            items(comment.replies, key = { it.id }) { reply -> Entry(reply, context, nowMillis, onOpenUser, onLinkClick, isReply = true) }
+                            item(key = comment.id) {
+                                Entry(comment, context, nowMillis, onOpenUser, onLinkClick, onQuote = { quoteInReply(comment, comment.body) }.takeIf { state.canComment }, onReact = reactTo(comment.id, comment.reactions))
+                            }
+                            items(comment.replies, key = { it.id }) { reply ->
+                                Entry(
+                                    reply, context, nowMillis, onOpenUser, onLinkClick,
+                                    // A reply has none of its own: one to it goes in its thread.
+                                    onQuote = { quoteInReply(comment, reply.body) }.takeIf { state.canComment },
+                                    onReact = reactTo(reply.id, reply.reactions),
+                                    isReply = true,
+                                )
+                            }
                             if (state.canComment || comment.canMarkAnswer || comment.canUnmarkAnswer) {
                                 item(key = "actions-${comment.id}") {
                                     CommentActions(
@@ -413,6 +453,10 @@ private fun Upvotes(count: Int) {
     }
 }
 
+/**
+ * One turn of the discussion, as a conversation's comments are drawn (who and when, their words, the reactions given,
+ * a menu), its tags over its words. A reply stands in from the comment it answers, along a line.
+ */
 @Composable
 private fun Entry(
     comment: DiscussionComment,
@@ -420,59 +464,34 @@ private fun Entry(
     nowMillis: Long,
     onOpenUser: (String) -> Unit,
     onLinkClick: (String) -> Unit,
-    isReply: Boolean = false,
-) = Entry(comment.author, comment.body, comment.createdAt, comment.upvotes, comment.isAnswer, context, nowMillis, onOpenUser, onLinkClick, isReply = isReply)
-
-/** One turn of the discussion: who and when, then their words. A reply stands in from the comment it answers, along a line. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun Entry(
-    author: ForgeUser?,
-    body: String,
-    createdAt: Instant?,
-    upvotes: Int,
-    isAnswer: Boolean,
-    context: ReadmeContext,
-    nowMillis: Long,
-    onOpenUser: (String) -> Unit,
-    onLinkClick: (String) -> Unit,
-    modifier: Modifier = Modifier,
+    onQuote: (() -> Unit)?,
+    onReact: ((Reaction) -> Unit)?,
     isReply: Boolean = false,
 ) {
-    val colors = Soft.colors
-    val line = colors.track
-    Column(
-        modifier
-            .widthIn(max = SoftTokens.MaxReadingWidth)
-            .fillMaxWidth()
-            .padding(start = if (isReply) 20.dp + ReplyInset else 20.dp, end = 20.dp)
-            .then(if (isReply) Modifier.drawBehind { drawLine(line, Offset(-12.dp.toPx(), 0f), Offset(-12.dp.toPx(), size.height), 2.dp.toPx()) } else Modifier)
-            .padding(vertical = 10.dp),
-    ) {
-        // The answer and upvote tags go under the author when there's no room beside: at large text they took it all,
-        // and the name drew nowhere. Regression seen at 2x.
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            itemVerticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier
-                    .clip(SoftTokens.Pill)
-                    .clickable(enabled = author != null, role = Role.Button) { author?.let { onOpenUser(it.login) } }
-                    .padding(end = 8.dp),
-            ) {
-                Avatar(author?.avatarUrl, author?.login ?: "?", size = if (isReply) 24.dp else 28.dp, shape = SoftTokens.TileCorner, placeholderColor = colors.surface, placeholderContentColor = colors.inkMuted)
-                Text(author?.login ?: stringResource(R.string.deleted_account), style = Soft.type.control, color = colors.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                createdAt?.let { Text(relative(it, nowMillis), style = Soft.type.meta, color = colors.inkMuted, maxLines = 1) }
-            }
-            if (isAnswer) SoftTag(stringResource(R.string.discussion_answer), background = colors.fields[2])
-            if (upvotes > 0) Upvotes(upvotes)
-        }
-        Column(Modifier.padding(start = if (isReply) 0.dp else 40.dp, top = 6.dp).widthIn(max = SoftTokens.MaxMeasure)) {
-            Markdown(body, context, onLinkClick)
+    val line = Soft.colors.track
+    val thread = if (!isReply) {
+        Modifier
+    } else {
+        Modifier.padding(start = ReplyInset).drawBehind {
+            val x = 8.dp.toPx().let { if (layoutDirection == LayoutDirection.Ltr) it else size.width - it }
+            drawLine(line, Offset(x, 0f), Offset(x, size.height), 2.dp.toPx())
         }
     }
+    val tags: (@Composable () -> Unit)? = if (comment.isAnswer || comment.upvotes > 0) {
+        {
+            if (comment.isAnswer) SoftTag(stringResource(R.string.discussion_answer), background = Soft.colors.fields[2])
+            if (comment.upvotes > 0) Upvotes(comment.upvotes)
+        }
+    } else {
+        null
+    }
+    Comment(
+        comment.author, comment.body, comment.createdAt, comment.reactions.counts, context, nowMillis, onOpenUser, onLinkClick, thread,
+        menu = CommentMenu(onQuote = onQuote, onEdit = null, onDelete = null, onReact = onReact),
+        tags = tags,
+        parted = false,
+    )
 }
+
+/** [text] as Markdown quotes it, line by line. */
+internal fun quoted(text: String): String = text.trim().lines().joinToString("\n") { "> $it".trimEnd() }

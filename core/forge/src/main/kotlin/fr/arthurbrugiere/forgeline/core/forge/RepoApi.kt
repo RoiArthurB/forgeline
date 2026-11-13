@@ -2,9 +2,11 @@ package fr.arthurbrugiere.forgeline.core.forge
 
 import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
+import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
 import fr.arthurbrugiere.forgeline.core.model.GitRefs
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
 import fr.arthurbrugiere.forgeline.core.model.IssueSummary
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.Readme
 import fr.arthurbrugiere.forgeline.core.model.Release
 import fr.arthurbrugiere.forgeline.core.model.RepoDetails
@@ -82,6 +84,13 @@ interface RepoApi {
 
     /** Picks the comment [commentId] as the answer to its discussion, or takes that back. */
     suspend fun setDiscussionAnswer(token: String, commentId: String, answer: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /**
+     * Gives [reaction] to a discussion or one of its comments, by what the forge names it ([subjectId]), or takes it
+     * back when [give] is false. Answers what it then has, everyone's.
+     */
+    suspend fun reactInDiscussion(token: String, subjectId: String, reaction: Reaction, give: Boolean): ForgeResult<DiscussionReactions> =
+        ForgeResult.Failure(ForgeError.Unsupported)
 
     /** Where raw file bytes live, ending with `/`: README images resolve against it. */
     fun rawBaseUrl(id: RepoId, ref: String): String

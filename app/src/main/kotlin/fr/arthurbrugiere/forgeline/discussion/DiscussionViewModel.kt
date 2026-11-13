@@ -12,6 +12,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Discussion
 import fr.arthurbrugiere.forgeline.core.model.DiscussionComment
 import fr.arthurbrugiere.forgeline.core.model.DiscussionSummary
+import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -33,6 +34,8 @@ data class DiscussionUiState(
     val sent: Pair<String, Long>? = null,
     /** Why the last comment, reply or answer didn't go through. */
     val sendError: ForgeError? = null,
+    /** A reaction couldn't be given or taken back. */
+    val reactionError: ForgeError? = null,
 ) {
     /** Whether the reader may comment: the discussion is read (only signed in) and not locked. */
     val canComment: Boolean get() = discussion?.id != null && !discussion.locked
@@ -87,6 +90,27 @@ class DiscussionViewModel @AssistedInject constructor(
     fun setAnswer(comment: DiscussionComment, answer: Boolean) = write("answer:${comment.id}") { repos.setDiscussionAnswer(repo, comment.id, answer) }
 
     fun sendErrorShown() = _state.update { it.copy(sendError = null) }
+
+    /** What is being reacted to, by its id: one change at a time on each. */
+    private val reacting = mutableSetOf<String>()
+
+    /**
+     * Gives [reaction] to the discussion's own text or one of its comments or replies, by its id ([subjectId]); takes
+     * it back when the reader had given it. The counts shown are the forge's, once it has answered.
+     */
+    fun react(subjectId: String, reaction: Reaction) {
+        val given = state.value.discussion?.reactionsOf(subjectId) ?: return
+        if (!reacting.add(subjectId)) return
+        viewModelScope.launch {
+            when (val result = repos.reactInDiscussion(repo, subjectId, reaction, given.gives(reaction))) {
+                is ForgeResult.Failure -> _state.update { it.copy(reactionError = result.error) }
+                is ForgeResult.Success -> _state.update { it.copy(discussion = it.discussion?.withReactions(subjectId, result.value)) }
+            }
+            reacting -= subjectId
+        }
+    }
+
+    fun reactionErrorShown() = _state.update { it.copy(reactionError = null) }
 
     /** One write at a time. */
     private fun write(key: String, call: suspend () -> ForgeResult<Unit>) {
