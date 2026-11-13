@@ -131,6 +131,15 @@ interface RepoRepository {
     /** Gives [reaction] to a discussion of [id] or one of its comments ([subjectId]), or takes it back; answers what it then has. */
     suspend fun reactInDiscussion(id: RepoId, subjectId: String, reaction: Reaction, give: Boolean): ForgeResult<DiscussionReactions> = ForgeResult.Failure(ForgeError.Unsupported)
 
+    /** A discussion as last read this session, to show at once while it is read again; null when none was. */
+    fun cachedDiscussion(id: RepoId, number: Int): Discussion? = null
+
+    /**
+     * Reads discussion [number] of [id] ahead of being opened, unless what is kept is as new as [activityAt] (the
+     * thread's last activity). True when it is kept after. Signed out, nothing is read.
+     */
+    suspend fun prefetchDiscussion(id: RepoId, number: Int, activityAt: java.time.Instant): Boolean = false
+
     /** What a discussion's list said of it this session, to head its page while it loads. */
     fun rememberedDiscussion(id: RepoId, number: Int): DiscussionSummary? = null
 
@@ -275,7 +284,10 @@ class DefaultRepoRepository @Inject constructor(
     }
 
     override suspend fun discussion(id: RepoId, number: Int) = clients.repos(id.forge).discussion(accounts.tokenOn(id.forge), id, number).also { result ->
-        if (result is ForgeResult.Success) seenDiscussions[id to number] = result.value.summary
+        if (result is ForgeResult.Success) {
+            seenDiscussions[id to number] = result.value.summary
+            readDiscussions[id to number] = result.value to clock.millis()
+        }
     }
 
     override fun wikiHome(forge: fr.arthurbrugiere.forgeline.core.model.ForgeInstance) = clients.repos(forge).wikiHome
@@ -337,6 +349,19 @@ class DefaultRepoRepository @Inject constructor(
         accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).reactInDiscussion(it, subjectId, reaction, give) } ?: ForgeResult.Failure(ForgeError.Unauthorized)
 
     override fun rememberedDiscussion(id: RepoId, number: Int): DiscussionSummary? = seenDiscussions[id to number]
+
+    /** Discussions as last read, with when: kept for the session, the one way a notification's tap finds one at once. */
+    private val readDiscussions = ConcurrentHashMap<Pair<RepoId, Int>, Pair<Discussion, Long>>()
+
+    override fun cachedDiscussion(id: RepoId, number: Int): Discussion? = readDiscussions[id to number]?.first
+
+    override suspend fun prefetchDiscussion(id: RepoId, number: Int, activityAt: java.time.Instant): Boolean {
+        val kept = readDiscussions[id to number]
+        if (kept != null && kept.second >= activityAt.toEpochMilli()) return true
+        if (accounts.tokenOn(id.forge) == null) return false
+        // Reading it keeps it.
+        return discussion(id, number) is ForgeResult.Success
+    }
 
     override fun rawBaseUrl(id: RepoId, ref: String) = clients.repos(id.forge).rawBaseUrl(id, ref)
 

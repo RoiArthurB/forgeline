@@ -97,6 +97,16 @@ class FakeRepoRepository : RepoRepository {
 
     override fun rememberedDiscussion(id: RepoId, number: Int) = seenDiscussions[number]
 
+    /** Discussions kept from an earlier read, and the ones read ahead (recorded in [calls]). */
+    val cachedDiscussions = mutableMapOf<Int, fr.arthurbrugiere.forgeline.core.model.Discussion>()
+
+    override fun cachedDiscussion(id: RepoId, number: Int) = cachedDiscussions[number]
+
+    override suspend fun prefetchDiscussion(id: RepoId, number: Int, activityAt: java.time.Instant): Boolean {
+        calls += "prefetchDiscussion:${id.fullName}#$number"
+        return true
+    }
+
     /** A wiki's pages, and each page by its key; a 404 for a page not given. */
     var wikiPages: ForgeResult<List<fr.arthurbrugiere.forgeline.core.model.WikiPageSummary>> = ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unsupported)
     val wikiPageByKey = mutableMapOf<String, ForgeResult<fr.arthurbrugiere.forgeline.core.model.WikiPage>>()

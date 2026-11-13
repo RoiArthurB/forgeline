@@ -663,7 +663,7 @@ private fun Upvotes(upvotes: DiscussionUpvotes, onToggle: (() -> Unit)? = null) 
         )
         Text(
             count.toString(),
-            style = Soft.type.tag.copy(fontWeight = if (upvotes.given) FontWeight.Bold else Soft.type.tag.fontWeight),
+            style = Soft.type.tag.copy(fontWeight = if (upvotes.given) FontWeight.SemiBold else Soft.type.tag.fontWeight),
             color = colors.ink,
         )
     }

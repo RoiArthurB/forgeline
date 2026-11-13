@@ -22,6 +22,7 @@ import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import fr.arthurbrugiere.forgeline.core.testing.FakeIssueApi
 import fr.arthurbrugiere.forgeline.core.testing.FakeNotificationsApi
+import fr.arthurbrugiere.forgeline.core.testing.FakeRepoRepository
 import fr.arthurbrugiere.forgeline.core.testing.RecordingDispatcher
 import fr.arthurbrugiere.forgeline.core.testing.Rendezvous
 import fr.arthurbrugiere.forgeline.core.testing.issueDetails
@@ -72,7 +73,8 @@ class DefaultInboxRepositoryTest {
     private val background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val computation = RecordingDispatcher()
     private val userSettings = fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository()
-    private val repository = DefaultInboxRepository(database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), state.heldActionDao(), clients, accounts, conversations, clock, background, computation, userSettings)
+    private val discussions = FakeRepoRepository()
+    private val repository = DefaultInboxRepository(database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), state.heldActionDao(), clients, accounts, conversations, discussions, clock, background, computation, userSettings)
 
     private val me = Account.idFor(ForgeInstance.GitHub, "me")
 
@@ -293,7 +295,7 @@ class DefaultInboxRepositoryTest {
 
     /** The app as it starts again: the same databases, nothing remembered in memory. */
     private fun restarted() = DefaultInboxRepository(
-        database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), state.heldActionDao(), clients, accounts, conversations, clock, background, computation, userSettings,
+        database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), state.heldActionDao(), clients, accounts, conversations, discussions, clock, background, computation, userSettings,
     )
 
     @Test
@@ -886,11 +888,26 @@ class DefaultInboxRepositoryTest {
             override suspend fun issue(token: String?, ref: IssueRef) = together.arrive("#${ref.number}").let { issueApi.issue(token, ref) }
         }
         val ahead = DefaultIssueRepository(FakeForgeClients(issues = meeting), accounts, database.conversationDao(), clock)
-        val inbox = DefaultInboxRepository(database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), state.heldActionDao(), clients, accounts, ahead, clock, background, computation, userSettings)
+        val inbox = DefaultInboxRepository(database.inboxDao(), state.doneDao(), state.keptUnreadDao(), state.baselineDao(), state.heldActionDao(), clients, accounts, ahead, discussions, clock, background, computation, userSettings)
 
         realTime { inbox.sync(force = true, waitForFollowUps = true) }
 
         refs.forEach { assertThat(ahead.stored(it)?.issue).isNotNull() }
+    }
+
+    @Test
+    fun discussions_waiting_on_you_are_read_ahead_like_conversations_and_not_when_switched_off() = runTest {
+        signIn()
+        api.threads = listOf(
+            notificationThread("6", reason = NotificationReason.MENTION, type = SubjectType.DISCUSSION),
+            // Not waiting on you: left to be read when opened.
+            notificationThread("7", reason = NotificationReason.SUBSCRIBED, type = SubjectType.DISCUSSION),
+            notificationThread("d", reason = NotificationReason.MENTION, type = SubjectType.DISCUSSION, number = null),
+        )
+
+        repository.sync(force = true, waitForFollowUps = true)
+
+        assertThat(discussions.calls.filter { it.startsWith("prefetchDiscussion") }).containsExactly("prefetchDiscussion:acme/rocket#6")
     }
 
     @Test

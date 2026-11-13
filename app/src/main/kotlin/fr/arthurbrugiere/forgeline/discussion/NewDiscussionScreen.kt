@@ -106,8 +106,8 @@ fun NewDiscussionScreen(
         ) {
             SoftHeader(title = stringResource(R.string.new_discussion_title), onBack = onBack, backDescription = stringResource(R.string.navigate_up)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(state.repo.fullName, style = Soft.type.secondary, color = colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                    ForgeMark(state.repo.forge, style = Soft.type.secondary, color = colors.inkMuted, size = 16.dp)
+                    Text(state.repo.fullName, style = Soft.type.secondary, color = Soft.colors.inkMuted, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    ForgeMark(state.repo.forge, style = Soft.type.secondary, color = Soft.colors.inkMuted, size = 16.dp)
                 }
             }
             Column(

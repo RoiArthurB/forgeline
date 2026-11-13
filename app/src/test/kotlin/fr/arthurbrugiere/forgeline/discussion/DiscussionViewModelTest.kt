@@ -498,4 +498,20 @@ class DiscussionViewModelTest {
 
         assertThat(viewModel.state.value.offersSavedReplies).isFalse()
     }
+
+    @Test
+    fun one_read_ahead_shows_at_once_and_is_read_again_meanwhile() = test {
+        repos.cachedDiscussions[7] = read
+        repos.discussions[7] = ForgeResult.Success(read.copy(body = "Edited since."))
+        repos.gate = CompletableDeferred()
+
+        val viewModel = DiscussionViewModel(repo, 7, repos)
+
+        // Before the forge has answered: what was kept is on screen.
+        assertThat(viewModel.state.value.discussion).isEqualTo(read)
+        assertThat(viewModel.state.value.isLoading).isTrue()
+        repos.gate!!.complete(Unit)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.discussion?.body).isEqualTo("Edited since.")
+    }
 }

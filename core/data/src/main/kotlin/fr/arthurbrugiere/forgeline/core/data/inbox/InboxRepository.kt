@@ -4,6 +4,7 @@ import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.data.di.BackgroundScope
 import fr.arthurbrugiere.forgeline.core.data.di.Computation
 import fr.arthurbrugiere.forgeline.core.data.issue.IssueRepository
+import fr.arthurbrugiere.forgeline.core.data.repo.RepoRepository
 import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
@@ -106,6 +107,7 @@ class DefaultInboxRepository @Inject constructor(
     private val clients: ForgeClients,
     private val accounts: AccountRepository,
     private val conversations: IssueRepository,
+    private val discussions: RepoRepository,
     private val clock: Clock,
     @param:BackgroundScope private val scope: CoroutineScope,
     @param:Computation private val computation: CoroutineDispatcher,
@@ -192,11 +194,17 @@ class DefaultInboxRepository @Inject constructor(
             .filter { it.needsYou }
             // Stable: newest first within unread, then within read.
             .sortedByDescending { it.unread }
-            .mapNotNull { thread -> thread.subject?.let { it to thread.updatedAt } }
+            .mapNotNull { thread -> thread.stateRef?.let { Triple(it, thread.updatedAt, thread.type == SubjectType.DISCUSSION) } }
             .take(PREFETCHED_CONVERSATIONS)
             .toList()
         coroutineScope {
-            waiting.forEach { (ref, activityAt) -> launch { permits.withPermit { conversations.prefetch(ref, activityAt) } } }
+            waiting.forEach { (ref, activityAt, isDiscussion) ->
+                launch {
+                    permits.withPermit {
+                        if (isDiscussion) discussions.prefetchDiscussion(ref.repo, ref.number, activityAt) else conversations.prefetch(ref, activityAt)
+                    }
+                }
+            }
         }
     }
 

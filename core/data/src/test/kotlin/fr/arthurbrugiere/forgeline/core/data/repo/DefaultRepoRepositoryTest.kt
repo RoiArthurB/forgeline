@@ -384,6 +384,32 @@ class DefaultRepoRepositoryTest {
         assertThat(repository.rememberedDiscussion(id, 7)).isEqualTo(read)
     }
 
+    @Test
+    fun a_discussion_read_ahead_is_kept_for_its_page_and_not_read_again_while_it_is_as_new_as_its_thread() = runTest {
+        accounts.signIn(ForgeInstance.GitHub, ForgeUser("me", null, null), "ghp_token")
+        api.discussions[7] = fr.arthurbrugiere.forgeline.core.model.Discussion(fr.arthurbrugiere.forgeline.core.testing.discussionSummary(7, "How do I page?"), "Body", emptyList())
+        assertThat(repository.cachedDiscussion(id, 7)).isNull()
+
+        assertThat(repository.prefetchDiscussion(id, 7, now.minusSeconds(60))).isTrue()
+        assertThat(repository.cachedDiscussion(id, 7)?.body).isEqualTo("Body")
+        val reads = api.calls.count { it.startsWith("discussion:") }
+        // Read after the thread's last activity: nothing new to read.
+        assertThat(repository.prefetchDiscussion(id, 7, now.minusSeconds(120))).isTrue()
+        assertThat(api.calls.count { it.startsWith("discussion:") }).isEqualTo(reads)
+        // Activity since: read again.
+        now = now.plusSeconds(600)
+        assertThat(repository.prefetchDiscussion(id, 7, now.minusSeconds(60))).isTrue()
+        assertThat(api.calls.count { it.startsWith("discussion:") }).isEqualTo(reads + 1)
+    }
+
+    @Test
+    fun signed_out_nothing_is_read_ahead() = runTest {
+        api.discussions[7] = fr.arthurbrugiere.forgeline.core.model.Discussion(fr.arthurbrugiere.forgeline.core.testing.discussionSummary(7, "How do I page?"), "Body", emptyList())
+
+        assertThat(repository.prefetchDiscussion(id, 7, now)).isFalse()
+        assertThat(repository.cachedDiscussion(id, 7)).isNull()
+    }
+
     // Regression: opening a repository asked the forge for it twice, once for its details and again for the account's rights.
     @Test
     fun what_the_account_may_do_comes_with_the_details_and_is_not_asked_again() = runTest {

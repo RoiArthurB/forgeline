@@ -81,7 +81,12 @@ class DiscussionViewModel @AssistedInject constructor(
         fun create(repo: RepoId, number: Int): DiscussionViewModel
     }
 
-    private val _state = MutableStateFlow(DiscussionUiState(repo, number, summary = repos.rememberedDiscussion(repo, number)))
+    // One read ahead (from the Inbox) or earlier this session shows at once, and is read again meanwhile.
+    private val _state = MutableStateFlow(
+        repos.cachedDiscussion(repo, number).let { cached ->
+            DiscussionUiState(repo, number, summary = cached?.summary ?: repos.rememberedDiscussion(repo, number), discussion = cached)
+        },
+    )
     val state: StateFlow<DiscussionUiState> = _state.asStateFlow()
 
     init {
