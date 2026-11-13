@@ -251,6 +251,14 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
                 onOpenHistory = { id, ref, path -> navigator.navigate(id.historyRoute(ref, path)) },
                 onNewPullRequest = { id -> navigator.navigate(fr.arthurbrugiere.forgeline.navigation.NewPullRequestRoute(id.forge.host, id.owner, id.name)) },
                 onOpenSettings = { id -> navigator.navigate(id.settingsRoute()) },
+                onNewDiscussion = { id -> navigator.navigate(fr.arthurbrugiere.forgeline.navigation.NewDiscussionRoute(id.forge.host, id.owner, id.name)) },
+            )
+        }
+        entry<fr.arthurbrugiere.forgeline.navigation.NewDiscussionRoute> { key ->
+            fr.arthurbrugiere.forgeline.discussion.NewDiscussionRoute(
+                key, session, onBack = navigator::goBack, onSignIn = signIn,
+                // The discussion started takes the form's place: back from it is the repository.
+                onCreated = { repo, number -> navigator.replaceCurrent(DiscussionRoute(repo.forge.host, repo.owner, repo.name, number)) },
             )
         }
         entry<fr.arthurbrugiere.forgeline.navigation.RepoSettingsRoute> { key ->

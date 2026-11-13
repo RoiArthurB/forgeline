@@ -119,6 +119,7 @@ class RepoScreenTest {
                 onToggleWatch = { events += "watch" },
                 onSignIn = { events += "sign-in" },
                 onOpenDiscussion = { events += "discussion:$it" },
+                onNewDiscussion = { events += "new-discussion" },
                 onFork = { events += "fork" },
                 onWatchFailureShown = { events += "watch-failure-shown" },
                 onForkErrorShown = { events += "fork-error-shown" },
@@ -928,6 +929,23 @@ class RepoScreenTest {
         composeRule.onNodeWithText("How do I page?").performClick()
 
         assertThat(events).containsExactly("discussion:7")
+    }
+
+    @Test
+    fun signed_in_a_discussion_is_started_from_the_discussions_tab_and_signed_out_it_isn_t_offered() {
+        setContent(withDiscussions.copy(discussions = Loadable.Loaded(emptyList())))
+
+        composeRule.onAllNodes(hasScrollAction())[0].performScrollToNode(hasText("New discussion"))
+        composeRule.onNodeWithText("New discussion").performClick()
+
+        assertThat(events).containsExactly("new-discussion")
+    }
+
+    @Test
+    fun signed_out_no_discussion_is_offered_to_start() {
+        setContent(withDiscussions.copy(discussions = Loadable.Loaded(emptyList())), signedIn = false)
+
+        composeRule.onNodeWithText("New discussion").assertDoesNotExist()
     }
 
     @Test

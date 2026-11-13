@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.forge.github
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.DiscussionCategory
 import fr.arthurbrugiere.forgeline.core.model.DiscussionCommentPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
 import fr.arthurbrugiere.forgeline.core.model.DiscussionUpvotes
@@ -719,6 +720,32 @@ class GitHubRepoApiTest {
         assertThat(writing.setDiscussionSubscribed("tok", "D_kwDOA", subscribed = false)).isEqualTo(ForgeResult.Success(Unit))
         assertThat(body()).contains("\"operationName\":\"UpdateSubscription\"")
         assertThat(body()).contains("\"variables\":{\"id\":\"D_kwDOA\",\"state\":\"UNSUBSCRIBED\"}")
+    }
+
+    // As GitHub answered on 2026-11-13 (vercel/next.js), shortened.
+    private val categories = """{"data":{"repository":{"id":"R_kgDOA","discussionCategories":{"nodes":[
+        {"id":"DIC_1","name":"Help","description":"Ask the community for help","isAnswerable":true},
+        {"id":"DIC_2","name":"Feedback","description":"","isAnswerable":false}]}}}}"""
+
+    @Test
+    fun the_categories_a_discussion_may_be_filed_under_are_read_in_the_repository_s_order() = runTest {
+        val read = api { json(categories) }.discussionCategories("tok", paperclip).value()
+
+        assertThat(read).containsExactly(DiscussionCategory("DIC_1", "Help", "Ask the community for help", isAnswerable = true), DiscussionCategory("DIC_2", "Feedback", null, isAnswerable = false)).inOrder()
+        assertThat(body()).contains("\"operationName\":\"DiscussionCategories\"")
+    }
+
+    @Test
+    fun a_discussion_is_started_in_the_repository_github_names_by_its_id() = runTest {
+        var asked = 0
+        val starting = api {
+            asked++
+            json(if (asked == 1) categories else """{"data":{"createDiscussion":{"discussion":{"number":101}}}}""")
+        }
+
+        assertThat(starting.startDiscussion("tok", paperclip, "DIC_1", "How do I page?", "Can't find it.").value()).isEqualTo(101)
+        assertThat(body()).contains("\"operationName\":\"CreateDiscussion\"")
+        assertThat(body()).contains("\"variables\":{\"repository\":\"R_kgDOA\",\"category\":\"DIC_1\",\"title\":\"How do I page?\",\"body\":\"Can't find it.\"}")
     }
 
     @Test

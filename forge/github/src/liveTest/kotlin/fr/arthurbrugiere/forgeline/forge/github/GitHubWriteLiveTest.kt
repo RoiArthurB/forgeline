@@ -27,7 +27,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -220,11 +219,6 @@ class GitHubWriteLiveTest {
             check(response.status.isSuccess()) { "$method $path: ${response.status} ${response.bodyAsText().take(300)}" }
             return response.body()
         }
-        suspend fun graphQl(query: String, variables: JsonObject): JsonObject {
-            val answer = send(HttpMethod.Post, "/graphql", buildJsonObject { put("query", query); put("variables", variables) })
-            check("errors" !in answer) { "graphql: $answer" }
-            return answer.getValue("data").jsonObject
-        }
         val created = send(
             HttpMethod.Post, "/user/repos",
             buildJsonObject {
@@ -238,16 +232,9 @@ class GitHubWriteLiveTest {
         val repo = RepoId(created.getValue("owner").jsonObject.getValue("login").jsonPrimitive.content, name)
         var left = true
         try {
-            val found = graphQl(
-                "query(\$o: String!, \$n: String!) { repository(owner: \$o, name: \$n) { id discussionCategories(first: 1) { nodes { id } } } }",
-                buildJsonObject { put("o", repo.owner); put("n", repo.name) },
-            ).getValue("repository").jsonObject
-            val category = found.getValue("discussionCategories").jsonObject.getValue("nodes").jsonArray.first().jsonObject.getValue("id").jsonPrimitive.content
-            val number = graphQl(
-                "mutation(\$r: ID!, \$c: ID!) { createDiscussion(input: {repositoryId: \$r, categoryId: \$c, title: \"Scratch\", body: \"Safe to delete.\"}) { discussion { number } } }",
-                buildJsonObject { put("r", found.getValue("id").jsonPrimitive.content); put("c", category) },
-            ).getValue("createDiscussion").jsonObject.getValue("discussion").jsonObject.getValue("number").jsonPrimitive.content.toInt()
             val repos = GitHubRepoApi(http)
+            val category = repos.discussionCategories(token, repo).value("categories").first { !it.name.equals("Announcements", ignoreCase = true) }
+            val number = repos.startDiscussion(token, repo, category.id, "Scratch", "Safe to delete.").value("start")
             var discussion = repos.discussion(token, repo, number).value("discussion")
             repos.commentOnDiscussion(token, discussion, "A comment to react to.").value("comment")
             discussion = repos.discussion(token, repo, number).value("discussion with its comment")

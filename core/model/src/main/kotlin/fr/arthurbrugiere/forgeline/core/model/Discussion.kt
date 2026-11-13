@@ -27,6 +27,9 @@ data class DiscussionReactions(
     fun gives(reaction: Reaction): Boolean = reaction !in given
 }
 
+/** Where a discussion is filed ("Q&A", "Ideas"): one that [isAnswerable] takes an answer picked among its comments. */
+data class DiscussionCategory(val id: String, val name: String, val description: String?, val isAnswerable: Boolean)
+
 /** How many upvoted a discussion or one of its comments, whether the reader did, and whether they may. */
 data class DiscussionUpvotes(val count: Int, val given: Boolean = false, val canGive: Boolean = false)
 

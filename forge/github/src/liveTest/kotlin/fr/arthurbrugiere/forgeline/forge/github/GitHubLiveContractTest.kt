@@ -279,6 +279,19 @@ class GitHubLiveContractTest {
         }
     }
 
+    /** Read only: where a discussion may be filed, as starting one asks. */
+    @Test
+    fun a_repository_s_discussion_categories_still_read() = runBlocking<Unit> {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+
+        val categories = GitHubRepoApi(client).discussionCategories(pat, RepoId("vercel", "next.js"))
+
+        assertWithMessage("categories: $categories").that(categories).isInstanceOf(ForgeResult.Success::class.java)
+        val read = (categories as ForgeResult.Success).value
+        assertWithMessage("some").that(read).isNotEmpty()
+        assertWithMessage("one takes an answer").that(read.any { it.isAnswerable }).isTrue()
+    }
+
     /** Read only: a long discussion's comments past the first page, and replies past a comment's first, still read. */
     @Test
     fun a_long_discussion_s_later_comments_and_replies_still_read() = runBlocking<Unit> {

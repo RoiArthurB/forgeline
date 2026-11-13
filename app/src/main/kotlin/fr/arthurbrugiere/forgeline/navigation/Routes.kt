@@ -71,6 +71,12 @@ data class DiscussionRoute(
     val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
 }
 
+/** The form that starts a discussion in a repository. */
+@Serializable
+data class NewDiscussionRoute(val host: String, val owner: String, val name: String) : NavKey {
+    val repo: RepoId get() = RepoId(owner, name, ForgeInstance.of(host))
+}
+
 /** A page of a repository's wiki; its first page when [page] is null. */
 @Serializable
 data class WikiRoute(val host: String, val owner: String, val name: String, val page: String? = null) : NavKey {

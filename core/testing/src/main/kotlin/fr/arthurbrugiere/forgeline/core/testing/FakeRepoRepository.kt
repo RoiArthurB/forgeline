@@ -138,6 +138,24 @@ class FakeRepoRepository : RepoRepository {
         return discussionWriteFailure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(Unit)
     }
 
+    /** Where a discussion may be filed; a failure until given. */
+    var discussionCategories: ForgeResult<List<fr.arthurbrugiere.forgeline.core.model.DiscussionCategory>> = ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Network)
+
+    /** The number a discussion started answers. */
+    var startedDiscussion = 42
+
+    override suspend fun discussionCategories(id: RepoId): ForgeResult<List<fr.arthurbrugiere.forgeline.core.model.DiscussionCategory>> {
+        calls += "discussionCategories:${id.fullName}"
+        gate?.await()
+        return discussionCategories
+    }
+
+    override suspend fun startDiscussion(id: RepoId, categoryId: String, title: String, body: String): ForgeResult<Int> {
+        calls += "startDiscussion:${id.fullName}:$categoryId:$title:$body"
+        gate?.await()
+        return discussionWriteFailure?.let { ForgeResult.Failure(it) } ?: ForgeResult.Success(startedDiscussion)
+    }
+
     override suspend fun setDiscussionSubscribed(id: RepoId, discussion: fr.arthurbrugiere.forgeline.core.model.Discussion, subscribed: Boolean): ForgeResult<Unit> {
         calls += "discussionSubscribed:${id.fullName}#${discussion.summary.number}:$subscribed"
         gate?.await()

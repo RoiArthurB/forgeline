@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.core.forge
 
 import fr.arthurbrugiere.forgeline.core.model.Discussion
+import fr.arthurbrugiere.forgeline.core.model.DiscussionCategory
 import fr.arthurbrugiere.forgeline.core.model.DiscussionCommentPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
@@ -97,6 +98,12 @@ interface RepoApi {
      * Gives [reaction] to a discussion or one of its comments, by what the forge names it ([subjectId]), or takes it
      * back when [give] is false. Answers what it then has, everyone's.
      */
+
+    /** Where a discussion of [id] may be filed, in the repository's order. */
+    suspend fun discussionCategories(token: String?, id: RepoId): ForgeResult<List<DiscussionCategory>> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Starts a discussion in [id], filed under the category [categoryId]; answers its number. */
+    suspend fun startDiscussion(token: String, id: RepoId, categoryId: String, title: String, body: String): ForgeResult<Int> = ForgeResult.Failure(ForgeError.Unsupported)
 
     /** Follows the discussion the forge names [discussionId] (every comment on it is heard of), or stops. */
     suspend fun setDiscussionSubscribed(token: String, discussionId: String, subscribed: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)

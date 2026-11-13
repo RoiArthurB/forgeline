@@ -98,6 +98,8 @@ fun RepoRoute(
     onNewPullRequest: (RepoId) -> Unit = {},
     /** Opens what the repository's owner sets on it. */
     onOpenSettings: (RepoId) -> Unit = {},
+    /** Opens the form that starts a discussion in a repository. */
+    onNewDiscussion: (RepoId) -> Unit = {},
 ) {
     val id = route.repo
     val viewModel = hiltViewModel<RepoViewModel, RepoViewModel.Factory>(key = id.key) { it.create(id) }
@@ -165,6 +167,7 @@ fun RepoRoute(
         // Opening an issue needs an account on the repository's forge, like starring it.
         onNewIssue = { if (signedIn) state.details?.let { onNewIssue(it.id) } else onSignIn() },
         onNewPullRequest = { if (signedIn) state.details?.let { onNewPullRequest(it.id) } else onSignIn() },
+        onNewDiscussion = { state.details?.let { onNewDiscussion(it.id) } },
         onOpenSettings = { state.details?.let { onOpenSettings(it.id) } },
         onOpenHistory = { state.details?.let { details -> onOpenHistory(details.id, state.browsedRef ?: details.defaultBranch, state.code.path.ifEmpty { null }) } },
         onShowOpen = viewModel::showOpen,
@@ -231,6 +234,8 @@ fun RepoScreen(
     onNewPullRequest: (() -> Unit)? = null,
     onToggleWatch: () -> Unit = {},
     onOpenDiscussion: (Int) -> Unit = {},
+    /** Opens the form that starts a discussion: offered signed in, the only way GitHub lists them. */
+    onNewDiscussion: () -> Unit = {},
     /** Asks for the next page of the issues or pull requests listed. */
     onLoadMore: () -> Unit = {},
     /** Copies the repository to the reader's account, once they have said yes. */
@@ -477,6 +482,13 @@ fun RepoScreen(
                                     )
                                 }
                             } else {
+                                if (signedIn) {
+                                    item(key = "discussions-new") {
+                                        Box(RowModifier.padding(horizontal = 4.dp, vertical = 4.dp), contentAlignment = Alignment.CenterEnd) {
+                                            SoftTonalButton(stringResource(R.string.new_discussion_title), onClick = onNewDiscussion)
+                                        }
+                                    }
+                                }
                                 loadable(state.discussions, R.string.repo_no_discussions, onRetryTab) { discussions ->
                                     items(discussions, key = { "discussion-${it.number}" }) { DiscussionRow(it, nowMillis) { onOpenDiscussion(it.number) } }
                                     more(state.discussionPaging, onLoadMore)

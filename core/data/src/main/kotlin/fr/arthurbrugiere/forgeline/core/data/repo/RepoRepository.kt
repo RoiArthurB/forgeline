@@ -8,6 +8,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Discussion
+import fr.arthurbrugiere.forgeline.core.model.DiscussionCategory
 import fr.arthurbrugiere.forgeline.core.model.DiscussionCommentPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionReactions
@@ -103,6 +104,12 @@ interface RepoRepository {
 
     /** Picks the comment [commentId] of a discussion of [id] as its answer, or takes that back. */
     suspend fun setDiscussionAnswer(id: RepoId, commentId: String, answer: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Where a discussion of [id] may be filed. */
+    suspend fun discussionCategories(id: RepoId): ForgeResult<List<DiscussionCategory>> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Starts a discussion in [id] as the account signed in on its forge; answers its number. */
+    suspend fun startDiscussion(id: RepoId, categoryId: String, title: String, body: String): ForgeResult<Int> = ForgeResult.Failure(ForgeError.Unsupported)
 
     /** Follows [discussion] of [id], or stops. */
     suspend fun setDiscussionSubscribed(id: RepoId, discussion: Discussion, subscribed: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
@@ -290,6 +297,11 @@ class DefaultRepoRepository @Inject constructor(
 
     override suspend fun setDiscussionAnswer(id: RepoId, commentId: String, answer: Boolean) =
         accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).setDiscussionAnswer(it, commentId, answer) } ?: ForgeResult.Failure(ForgeError.Unauthorized)
+
+    override suspend fun discussionCategories(id: RepoId) = clients.repos(id.forge).discussionCategories(accounts.tokenOn(id.forge), id)
+
+    override suspend fun startDiscussion(id: RepoId, categoryId: String, title: String, body: String) =
+        accounts.tokenOn(id.forge)?.let { clients.repos(id.forge).startDiscussion(it, id, categoryId, title, body) } ?: ForgeResult.Failure(ForgeError.Unauthorized)
 
     override suspend fun setDiscussionSubscribed(id: RepoId, discussion: Discussion, subscribed: Boolean): ForgeResult<Unit> {
         val named = discussion.id ?: return ForgeResult.Failure(ForgeError.Unsupported)

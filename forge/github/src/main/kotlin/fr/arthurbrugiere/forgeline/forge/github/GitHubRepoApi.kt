@@ -8,6 +8,7 @@ import fr.arthurbrugiere.forgeline.core.forge.RepoApi
 import fr.arthurbrugiere.forgeline.core.forge.VersionOrder
 import fr.arthurbrugiere.forgeline.core.forge.map
 import fr.arthurbrugiere.forgeline.core.model.Discussion
+import fr.arthurbrugiere.forgeline.core.model.DiscussionCategory
 import fr.arthurbrugiere.forgeline.core.model.DiscussionComment
 import fr.arthurbrugiere.forgeline.core.model.DiscussionCommentPage
 import fr.arthurbrugiere.forgeline.core.model.DiscussionPage
@@ -44,8 +45,10 @@ import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.forge.github.graphql.AddDiscussionCommentMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.AddReactionMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.AddUpvoteMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.CreateDiscussionMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DeleteDiscussionCommentMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DeleteDiscussionMutation
+import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionCategoriesQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionCommentsQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DiscussionRepliesQuery
@@ -274,6 +277,20 @@ class GitHubRepoApi(
         } else {
             httpClient.gitHubOperation(apiBaseUrl, token, UnmarkDiscussionAnswerMutation(commentId)).map { }
         }
+    }
+
+    override suspend fun discussionCategories(token: String?, id: RepoId): ForgeResult<List<DiscussionCategory>> =
+        discussionsQuery(token, DiscussionCategoriesQuery(id.owner, id.name)) { data ->
+            data.repository?.discussionCategories?.nodes?.filterNotNull()?.map { DiscussionCategory(it.id, it.name, it.description?.ifBlank { null }, it.isAnswerable) }
+        }
+
+    /** GitHub names the repository by its id to start one there: it is asked with the categories. */
+    override suspend fun startDiscussion(token: String, id: RepoId, categoryId: String, title: String, body: String): ForgeResult<Int> {
+        val repository = when (val found = discussionsQuery(token, DiscussionCategoriesQuery(id.owner, id.name)) { it.repository?.id }) {
+            is ForgeResult.Failure -> return found
+            is ForgeResult.Success -> found.value
+        }
+        return discussionsQuery(token, CreateDiscussionMutation(repository, categoryId, title, body)) { it.createDiscussion?.discussion?.number }
     }
 
     override suspend fun setDiscussionSubscribed(token: String, discussionId: String, subscribed: Boolean): ForgeResult<Unit> = forgeCall {
