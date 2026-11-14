@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.core.data.trending
 
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import fr.arthurbrugiere.forgeline.core.model.TrendingRepo
 import fr.arthurbrugiere.forgeline.core.testing.trendingRepo
 import org.junit.Test
@@ -15,7 +16,7 @@ class BalanceForgesTest {
     @Test
     fun each_forge_gets_about_the_same_room_on_a_mixed_page() {
         // GitHub's 25 and Codeberg's 10: GitHub, far deeper, gets its two extra, no more.
-        val page = balanceForges(mergeByShare(listOf(list(ForgeInstance.GitHub, 25), list(ForgeInstance.Codeberg, 10))))
+        val page = balanceForges(rankByGrowth(listOf(list(ForgeInstance.GitHub, 25), list(ForgeInstance.Codeberg, 10)), TrendingPeriod.DAILY))
 
         assertThat(page.countOn(ForgeInstance.GitHub)).isEqualTo(PER_FORGE + MAX_ACTIVE_EXTRA)
         assertThat(page.countOn(ForgeInstance.Codeberg)).isEqualTo(PER_FORGE)
@@ -23,14 +24,14 @@ class BalanceForgesTest {
 
     @Test
     fun a_forge_a_little_deeper_than_the_others_gets_one_more() {
-        val page = balanceForges(mergeByShare(listOf(list(ForgeInstance.GitHub, 25), list(ForgeInstance.Codeberg, PER_FORGE + ACTIVE_STEP))))
+        val page = balanceForges(rankByGrowth(listOf(list(ForgeInstance.GitHub, 25), list(ForgeInstance.Codeberg, PER_FORGE + ACTIVE_STEP)), TrendingPeriod.DAILY))
 
         assertThat(page.countOn(ForgeInstance.Codeberg)).isEqualTo(PER_FORGE + 1)
     }
 
     @Test
     fun a_quiet_forge_shows_what_it_has_and_the_others_are_not_stretched_to_fill() {
-        val page = balanceForges(mergeByShare(listOf(list(ForgeInstance.GitHub, 25), list(ForgeInstance.Codeberg, 3))))
+        val page = balanceForges(rankByGrowth(listOf(list(ForgeInstance.GitHub, 25), list(ForgeInstance.Codeberg, 3)), TrendingPeriod.DAILY))
 
         assertThat(page.countOn(ForgeInstance.Codeberg)).isEqualTo(3)
         assertThat(page.countOn(ForgeInstance.GitHub)).isEqualTo(PER_FORGE + MAX_ACTIVE_EXTRA)
@@ -38,7 +39,7 @@ class BalanceForgesTest {
 
     @Test
     fun the_order_of_the_merge_is_kept_and_each_forge_keeps_its_head() {
-        val merged = mergeByShare(listOf(list(ForgeInstance.GitHub, 25), list(ForgeInstance.Codeberg, 20), list(ForgeInstance.GitLab, 12)))
+        val merged = rankByGrowth(listOf(list(ForgeInstance.GitHub, 25), list(ForgeInstance.Codeberg, 20), list(ForgeInstance.GitLab, 12)), TrendingPeriod.DAILY)
 
         val page = balanceForges(merged)
 
