@@ -200,23 +200,26 @@ class DefaultTrendingRepositoryTest {
     }
 
     @Test
-    fun a_codeberg_account_mixes_codeberg_in_by_share_of_stars() = runTest {
+    fun a_codeberg_account_mixes_codeberg_in_by_growth_against_its_forge() = runTest {
         signInToCodeberg()
-        val gh1 = trendingRepo("a/gh1", periodStars = 2400)
-        val gh2 = trendingRepo("a/gh2", periodStars = 1200)
-        val gh3 = trendingRepo("a/gh3", periodStars = 8400)
-        val cb1 = trendingRepo("b/cb1", periodStars = 30, forge = ForgeInstance.Codeberg)
-        val cb2 = trendingRepo("b/cb2", periodStars = 12, forge = ForgeInstance.Codeberg)
-        val cb3 = trendingRepo("b/cb3", periodStars = 108, forge = ForgeInstance.Codeberg)
+        // Median growth: GitHub's 2.0% (gh2's), Codeberg's 0.72% (between cb1's 1.2% and cb4's 0.29%).
+        val gh1 = trendingRepo("a/gh1", stars = 20_000, periodStars = 1_800)
+        val gh2 = trendingRepo("a/gh2", stars = 60_000, periodStars = 1_200)
+        val gh3 = trendingRepo("a/gh3", stars = 30_000, periodStars = 150)
+        val cb1 = trendingRepo("b/cb1", stars = 1_000, periodStars = 12, forge = ForgeInstance.Codeberg)
+        val zig = trendingRepo("ziglang/zig", stars = 7_000, periodStars = 9, forge = ForgeInstance.Codeberg)
+        val cb3 = trendingRepo("b/cb3", stars = 300, periodStars = 5, forge = ForgeInstance.Codeberg)
+        val cb4 = trendingRepo("b/cb4", stars = 2_000, periodStars = 6, forge = ForgeInstance.Codeberg)
         api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(gh1, gh2, gh3))
-        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(cb1, cb2, cb3))
+        codebergApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(cb1, zig, cb4, cb3))
 
         assertThat(repository.refresh(TrendingPeriod.DAILY)).isEqualTo(RefreshResult.Refreshed)
 
         val snapshot = repository.observe(TrendingPeriod.DAILY).first()
-        // Shares: gh1 0.2, gh2 0.1, gh3 0.7; cb1 0.2, cb2 0.08, cb3 0.72. GitHub wins the tie, and each forge keeps its
-        // own order: cb3's big share can't pass cb2.
-        assertThat(snapshot.repos).containsExactly(gh1, cb1, gh2, gh3, cb2, cb3).inOrder()
+        // zig's +9 is 0.13% of its stars: off the page, though it still counts in Codeberg's median. Then by growth
+        // over the forge's median: gh1 (9.9% against 2.0%: ×4.8), cb3 (1.4% against 0.72%: ×2.0), cb1 (×1.6),
+        // gh2 (×1.0), cb4 (×0.40), gh3 (×0.25).
+        assertThat(snapshot.repos).containsExactly(gh1, cb3, cb1, gh2, cb4, gh3).inOrder()
         assertThat(snapshot.forges).containsExactly(ForgeInstance.GitHub, ForgeInstance.Codeberg).inOrder()
     }
 

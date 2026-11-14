@@ -9,6 +9,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
@@ -20,7 +21,9 @@ import java.time.OffsetDateTime
  * Reads a Forgejo instance for Trending: its repositories by stars, then its newest forks. Used by the daily job
  * that publishes Codeberg's Trending, and on the phone for any other server. Pages are read until [topPages], the
  * server runs out, or repositories fall under [MIN_PERIOD_STARS] (they can't trend), so a small server costs a few
- * requests. A page is retried twice; a crawl that can't read the ranking throws rather than record a partial one.
+ * requests. A page is tried up to [attempts] times, waiting twice as long each time (from [retryDelayMillis]), or as
+ * long as the server's `Retry-After` asks when it says it is rate limiting (HTTP 429, capped at [MAX_RETRY_AFTER_MILLIS]).
+ * A crawl that can't read the ranking throws rather than record a partial one.
  */
 class ForgejoTrendingCrawler(
     private val http: HttpClient,
@@ -30,6 +33,7 @@ class ForgejoTrendingCrawler(
     private val forkPages: Int = FORK_PAGES,
     private val clock: Clock = Clock.systemUTC(),
     private val retryDelayMillis: Long = 10_000,
+    private val attempts: Int = ATTEMPTS,
 ) {
     suspend fun crawl(): Crawl {
         val at = clock.instant()
@@ -55,12 +59,19 @@ class ForgejoTrendingCrawler(
     private suspend fun page(mode: String, sort: String, page: Int): List<Repository> {
         val url = "${forge.webUrl}/api/v1/repos/search?mode=$mode&sort=$sort&order=desc&limit=$PAGE_SIZE&page=$page"
         var failure: String? = null
-        repeat(ATTEMPTS) { attempt ->
-            if (attempt > 0) delay(retryDelayMillis)
+        var wait = 0L
+        repeat(attempts) { attempt ->
+            if (attempt > 0) delay(wait)
+            wait = retryDelayMillis shl attempt
             try {
                 val response = http.get(url) { token?.let { header(HttpHeaders.Authorization, "token $it") } }
                 if (response.status.isSuccess()) return json.decodeFromString<SearchResults>(response.bodyAsText()).`data`.orEmpty()
                 failure = "HTTP ${response.status.value}"
+                if (response.status == HttpStatusCode.TooManyRequests) {
+                    response.headers[HttpHeaders.RetryAfter]?.trim()?.toLongOrNull()?.let { seconds ->
+                        wait = (seconds * 1_000).coerceIn(0, MAX_RETRY_AFTER_MILLIS)
+                    }
+                }
             } catch (e: IOException) {
                 failure = e.toString()
             }
@@ -84,7 +95,12 @@ class ForgejoTrendingCrawler(
         const val TOP_PAGES = 28
         const val FORK_PAGES = 2
         const val PAGE_SIZE = 50
-        private const val ATTEMPTS = 3
+
+        /** On the phone: a measurement that fails is tried again the next day. The daily job asks for more. */
+        const val ATTEMPTS = 3
+
+        /** The longest a `Retry-After` is waited for: a server asking for more isn't coming back within the job. */
+        const val MAX_RETRY_AFTER_MILLIS = 2 * 60 * 1_000L
     }
 }
 
