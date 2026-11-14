@@ -13,10 +13,15 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 /**
- * `trending <codeberg|gitlab> <previous state.json> <output directory>`: reads the forge once, anonymously, and writes
+ * `trending <codeberg|gitlab> <previous state.json> <output directory>`: reads the forge once and writes
  * `state.json` and `trending.json` to the output directory. A missing or empty previous state starts the history
  * afresh. The measuring itself lives in `forge:forgejo`, shared with the phone's own measurements; only the reading
  * differs per forge.
+ *
+ * Codeberg is read with the `CODEBERG_TOKEN` environment variable when it is set (a token with read access to public
+ * repositories): anonymous requests share a rate limit with everything else on GitHub's runners, and from 2026-11-10
+ * Codeberg answered the very first page with HTTP 429 every day. Without it, the job reads anonymously as before. Rate
+ * limiting is waited out: up to [JOB_ATTEMPTS] tries a page, 30 s apart and doubling, or as long as Codeberg asks.
  */
 fun main(args: Array<String>) = runBlocking {
     require(args.size == 3 && args[0] in FORGES) { "Usage: trending <${FORGES.joinToString("|")}> <previous state.json> <output directory>" }
@@ -25,7 +30,9 @@ fun main(args: Array<String>) = runBlocking {
     forgejoHttpClient(OkHttp.create()).use { http ->
         val (state, file) = when (args[0]) {
             "codeberg" -> {
-                val crawl = ForgejoTrendingCrawler(http, ForgeInstance.Codeberg).crawl()
+                val token = System.getenv("CODEBERG_TOKEN")?.trim()?.ifEmpty { null }
+                println("codeberg: reading ${if (token != null) "with a token" else "anonymously"}.")
+                val crawl = ForgejoTrendingCrawler(http, ForgeInstance.Codeberg, token, retryDelayMillis = 30_000, attempts = JOB_ATTEMPTS).crawl()
                 previous.record(crawl).let { it to it.lists(crawl) }
             }
             else -> {
@@ -42,6 +49,9 @@ fun main(args: Array<String>) = runBlocking {
 }
 
 private val FORGES = listOf("codeberg", "gitlab")
+
+/** 30 s, 1, 2 then 4 minutes between tries: under ten minutes for a page before giving up for the day. */
+private const val JOB_ATTEMPTS = 5
 
 private val json = Json {
     encodeDefaults = true
