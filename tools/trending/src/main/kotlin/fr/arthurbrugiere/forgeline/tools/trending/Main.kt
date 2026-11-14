@@ -22,7 +22,8 @@ import java.io.File
  * read-only token): from 2026-11-10 Codeberg refuses repository search to anyone signed out, with an HTTP 429 saying
  * search "is seeing a high influx of requests", so the job's first page failed every day. Without it, the job reads
  * anonymously. A real rate limit is waited out: up to [JOB_ATTEMPTS] tries a page, 30 s apart and doubling, or as long
- * as Codeberg asks.
+ * as Codeberg asks. gitlab.com is read the same way with `GITLAB_TOKEN` (the live checks' read-only token), in case it
+ * starts refusing signed-out reads too; only its public projects are asked for.
  */
 fun main(args: Array<String>) = runBlocking {
     require(args.size == 3 && args[0] in FORGES) { "Usage: trending <${FORGES.joinToString("|")}> <previous state.json> <output directory>" }
@@ -37,7 +38,9 @@ fun main(args: Array<String>) = runBlocking {
                 previous.record(crawl).let { it to it.lists(crawl) }
             }
             else -> {
-                val gitlab = GitLabTrendingCrawler(http)
+                val token = System.getenv("GITLAB_TOKEN")?.trim()?.ifEmpty { null }
+                println("gitlab: reading ${if (token != null) "with a token" else "anonymously"}.")
+                val gitlab = GitLabTrendingCrawler(http, token = token)
                 val crawl = gitlab.crawl()
                 previous.record(crawl).let { it to gitlab.withLanguages(it.lists(crawl), crawl) }
             }

@@ -59,9 +59,11 @@ jobs:
         # crawling the forges again. On a scheduled or manual run, a forge that can't be measured today publishes
         # yesterday's files again, so the other forge's day isn't lost; with nothing measured at all,
         # nothing is published. Codeberg is read signed in, with the live checks' read-only token: from 2026-11-10
-        # it refuses repository search to anyone signed out (HTTP 429 "high influx of requests").
+        # it refuses repository search to anyone signed out (HTTP 429 "high influx of requests"). gitlab.com is
+        # read with its own live token too, in case it does the same.
         env:
           CODEBERG_TOKEN: ${{ secrets.CODEBERG_LIVE_TOKEN }}
+          GITLAB_TOKEN: ${{ secrets.GITLAB_LIVE_TOKEN }}
         run: |
           measured=0
           for forge in codeberg gitlab; do
