@@ -17,7 +17,7 @@ room = "2.8.5"
 work = "2.12.0"
 coroutines = "1.11.0"
 serialization = "1.12.0"
-ktor = "3.6.0"
+ktor = "3.6.1"
 # AT Protocol clients generated from lexicons (Tangled): https://github.com/christiandeange/ozone
 ozone = "0.3.4"
 # Forgejo/Gitea models generated from their OpenAPI description: https://openapi-generator.tech
