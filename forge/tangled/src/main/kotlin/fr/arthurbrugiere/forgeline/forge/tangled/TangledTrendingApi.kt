@@ -19,8 +19,7 @@ import java.time.Duration
 /**
  * Tangled's own Trending (`org.tangled.actor.getTrending`): a handful of repositories, for no period in particular. What
  * each gained in the period asked is counted from its stars' dates (`org.tangled.feed.listStars`, newest first), so the
- * page can show it and place it among the other forges' by share of stars. The page's star floor leaves them be: Tangled
- * already picked them.
+ * page can show it. The page's floors leave them be: Tangled already picked them.
  */
 class TangledTrendingApi(
     private val xrpc: TangledXrpc,

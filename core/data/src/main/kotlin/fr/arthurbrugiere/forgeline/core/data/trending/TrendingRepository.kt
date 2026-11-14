@@ -34,7 +34,7 @@ import kotlin.time.Duration.Companion.hours
  * One page mixing every forge's ranking, [repos] already merged and balanced between forges (see [balanceForges]).
  * [fetchedAtMillis] is the oldest of the forges' fetches, and [forges] lists the forges on the page, for showing each
  * row's forge when there are several. [unbalanced] is the same merge before balancing, every repository above the
- * period's floor: a page narrowed to one forge shows that forge's whole list.
+ * period's floors ([isTrending]): a page narrowed to one forge shows that forge's whole list.
  */
 data class TrendingSnapshot(
     val repos: List<TrendingRepo>,
@@ -85,7 +85,7 @@ interface TrendingRepository {
 /**
  * GitHub's Trending and the lists published daily for Codeberg and gitlab.com, always (none needs an account), and that
  * of each other forge an account is signed in to. A forge signed in to can be measured on the phone instead, when the
- * settings ask for it. Each forge's ranking is cached and refreshed on its own; the page merges them with [mergeByShare].
+ * settings ask for it. Each forge's ranking is cached and refreshed on its own; the page ranks them together with [rankByGrowth].
  */
 @Singleton
 class DefaultTrendingRepository @Inject constructor(
@@ -122,9 +122,9 @@ class DefaultTrendingRepository @Inject constructor(
 
     override fun observe(period: TrendingPeriod): Flow<TrendingSnapshot> =
         combine(forges, dao.observeRepos(period.name), dao.observeFetches(period.name)) { forges, repos, fetches ->
-            val byForge = repos.map { it.toModel() }.filter { it.id.forge.type.curatesTrending || it.periodStars >= period.minStars }.groupBy { it.id.forge }
+            val byForge = repos.map { it.toModel() }.groupBy { it.id.forge }
             val times = fetches.filter { fetch -> forges.any { it.host == fetch.host } }.map { it.fetchedAtMillis }
-            val merged = mergeByShare(forges.map { byForge[it].orEmpty() })
+            val merged = rankByGrowth(forges.map { byForge[it].orEmpty() }, period)
             TrendingSnapshot(balanceForges(merged), times.minOrNull(), forges, merged)
         }.flowOn(computation)
 
@@ -248,40 +248,63 @@ fun balanceForges(page: List<TrendingRepo>): List<TrendingRepo> {
 }
 
 /**
- * Merges each forge's ranking into one page, by each repository's share of its forge's stars gained over the list
- * (`periodStars / sum`), so 30 stars on Codeberg can stand with 2,400 on GitHub. Like a merge sort's merge step: each
- * forge's own order is kept, and the head with the larger share goes next; the forge listed first wins ties.
- *
- * A forge listing fewer than [MIN_SHARE_ENTRIES] repositories has its shares scaled down in proportion
- * (`size / MIN_SHARE_ENTRIES`). Regression: a share is only comparable when the list it is taken over is long enough.
- * Three projects with 3, 2 and 2 stars "held" 43%, 29% and 29% of their forge and stood above a repository that
- * gained over a thousand; a forge's lists are that short on quiet days and while its history builds up.
- *
- * And a forge whose whole list gained fewer than [MIN_FORGE_STARS] is weighed as if it had gained that many: with 17
- * stars gained across gitlab.com's list, the first project's 3 stars were 18% of its forge and led the page.
+ * How fast [this] grew over the period, against its own size: the stars it gained over those it had before, plus
+ * [GROWTH_PRIOR]. Seven stars a day on a 7,000-star repository is 0.1%, its daily noise; twelve on a 1,300-star one is
+ * nearly 1%. The prior keeps a brand-new repository's first handful from reading as a 100% jump (+5 on nothing is 10%).
  */
+val TrendingRepo.growth: Double
+    get() = periodStars.toDouble() / ((stars - periodStars).coerceAtLeast(0) + GROWTH_PRIOR)
 
-/** The list length from which a forge's shares count in full. Every list GitHub gives is longer. */
-const val MIN_SHARE_ENTRIES = 10
+/** The stars [TrendingRepo.growth] counts a repository as having had before the period, on top of its own. */
+const val GROWTH_PRIOR = 50
 
-/** The stars a forge's list must have gained in all for its shares to count in full. */
-const val MIN_FORGE_STARS = 100L
-
-fun mergeByShare(rankings: List<List<TrendingRepo>>): List<TrendingRepo> {
-    val totals = rankings.map { list -> list.sumOf { it.periodStars.toLong() } }
-    val next = IntArray(rankings.size)
-    fun share(forge: Int): Double {
-        val total = totals[forge]
-        if (total == 0L) return 0.0
-        val weight = minOf(1.0, rankings[forge].size.toDouble() / MIN_SHARE_ENTRIES)
-        return rankings[forge][next[forge]].periodStars.toDouble() / maxOf(total, MIN_FORGE_STARS) * weight
+/**
+ * The [TrendingRepo.growth] a repository must reach over the period to be on the page: a gain that is small for its
+ * own size is the usual flow of stars a well-known project gets every day, not a trend. Regression: Codeberg's
+ * ziglang/zig stood second on the mixed page with +7 on 7,000 stars (0.1%) and forgejo third with +8 on 5,800.
+ * Under linear for the longer periods: a burst doesn't repeat every day of the month.
+ */
+val TrendingPeriod.minGrowth: Double
+    get() = when (this) {
+        TrendingPeriod.DAILY -> 0.0025
+        TrendingPeriod.WEEKLY -> 0.01
+        TrendingPeriod.MONTHLY -> 0.03
     }
-    return buildList {
-        while (true) {
-            val forge = rankings.indices.filter { next[it] < rankings[it].size }.maxWithOrNull(
-                compareBy<Int> { share(it) }.thenByDescending { it },
-            ) ?: break
-            add(rankings[forge][next[forge]++])
-        }
-    }
+
+/**
+ * Whether [this] stands on [period]'s page at all: it gained at least [minStars] and grew by at least [minGrowth] of
+ * its own size. A forge that picks its own Trending (Tangled) is shown whole.
+ */
+fun TrendingRepo.isTrending(period: TrendingPeriod): Boolean =
+    id.forge.type.curatesTrending || (periodStars >= period.minStars && growth >= period.minGrowth)
+
+/**
+ * Ranks every forge's repositories on one page by how fast each grew against its own size ([growth]), relative to how
+ * fast its forge's listed repositories grew that period (their median): `growth / median`. A repository at three times
+ * its forge's usual pace stands with one at three times its own forge's, whatever the forges' sizes, so a big day on
+ * GitHub and a big day on Codeberg mix on merit rather than by turns. Only repositories that [isTrending] are kept; the
+ * median is taken over each forge's whole list, the ones under the floors included, since they are its usual pace.
+ * Ties keep the forges' order, then each forge's own.
+ *
+ * Replaces a merge by share of the forge's stars gained, which no tuning made fair: on 2026-11-14 Codeberg's whole
+ * first page (+12 down to +5) stood above GitHub's +1,925. Taking turns between forges was tried too, and read as
+ * artificial: it hid which forge really moved.
+ */
+fun rankByGrowth(rankings: List<List<TrendingRepo>>, period: TrendingPeriod): List<TrendingRepo> =
+    rankings.flatMap { list ->
+        val median = list.map { it.growth }.median().coerceAtLeast(MIN_MEDIAN_GROWTH)
+        list.filter { it.isTrending(period) }.map { it to it.growth / median }
+    }.sortedByDescending { (_, score) -> score }.map { (repo, _) -> repo }
+
+/**
+ * The least a forge's median [growth] is counted as: a list whose repositories mostly gained nothing (Tangled's pick on
+ * a quiet day) would otherwise make any gain on it infinitely fast.
+ */
+const val MIN_MEDIAN_GROWTH = 0.001
+
+private fun List<Double>.median(): Double {
+    if (isEmpty()) return 0.0
+    val sorted = sorted()
+    val middle = size / 2
+    return if (size % 2 == 1) sorted[middle] else (sorted[middle - 1] + sorted[middle]) / 2
 }

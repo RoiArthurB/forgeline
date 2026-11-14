@@ -137,4 +137,60 @@ class ForgejoTrendingCrawlerTest {
 
         assertThrows(IOException::class.java) { kotlinx.coroutines.runBlocking { crawler.crawl() } }
     }
+
+    /** A Codeberg that turns the first [refusals] requests away with HTTP 429 and [retryAfter], then answers. */
+    private fun rateLimited(refusals: Int, retryAfter: String?, attempts: Int, retryDelayMillis: Long = 0): ForgejoTrendingCrawler {
+        var refused = 0
+        return ForgejoTrendingCrawler(
+            forgejoHttpClient(
+                MockEngine { request ->
+                    requests += request
+                    if (refused < refusals) {
+                        refused++
+                        respond("", HttpStatusCode.TooManyRequests, retryAfter?.let { headersOf(HttpHeaders.RetryAfter, it) } ?: headersOf())
+                    } else {
+                        val body = if (request.url.parameters["mode"] == "fork") fixture("search_forks.json") else fullPage(100, request.url.parameters["page"]!!.toInt() * 100)
+                        respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                    }
+                },
+            ),
+            ForgeInstance.Codeberg,
+            clock = Clock.fixed(now, ZoneOffset.UTC),
+            retryDelayMillis = retryDelayMillis,
+            attempts = attempts,
+        )
+    }
+
+    @Test
+    fun a_rate_limited_page_waits_as_long_as_the_server_asks() = runTest {
+        // Regression: from 2026-11-10 Codeberg answered the daily job's first page with 429 three times in a row,
+        // 10 seconds apart, and Codeberg's Trending stayed on 2026-11-09's for days.
+        val crawl = rateLimited(refusals = 2, retryAfter = "90", attempts = 5).crawl()
+
+        assertThat(crawl.top).isNotEmpty()
+        assertThat(testScheduler.currentTime).isEqualTo(180_000)
+    }
+
+    @Test
+    fun without_retry_after_the_wait_doubles() = runTest {
+        rateLimited(refusals = 3, retryAfter = null, attempts = 5, retryDelayMillis = 1_000).crawl()
+
+        // 1 s, 2 s, 4 s.
+        assertThat(testScheduler.currentTime).isEqualTo(7_000)
+    }
+
+    @Test
+    fun a_server_asking_for_hours_is_waited_for_only_so_long() = runTest {
+        rateLimited(refusals = 1, retryAfter = "86400", attempts = 2).crawl()
+
+        assertThat(testScheduler.currentTime).isEqualTo(ForgejoTrendingCrawler.MAX_RETRY_AFTER_MILLIS)
+    }
+
+    @Test
+    fun a_page_still_refused_after_every_attempt_fails_the_crawl() = runTest {
+        val crawler = rateLimited(refusals = Int.MAX_VALUE, retryAfter = "1", attempts = 3)
+
+        assertThrows(IOException::class.java) { kotlinx.coroutines.runBlocking { crawler.crawl() } }
+        assertThat(requests).hasSize(3)
+    }
 }

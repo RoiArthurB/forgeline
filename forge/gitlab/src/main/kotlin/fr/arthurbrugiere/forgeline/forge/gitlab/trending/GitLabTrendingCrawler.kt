@@ -7,7 +7,9 @@ import fr.arthurbrugiere.forgeline.forge.forgejo.trending.CrawledRepo
 import fr.arthurbrugiere.forgeline.forge.forgejo.trending.MIN_PERIOD_STARS
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.delay
 import kotlinx.serialization.SerialName
@@ -20,7 +22,9 @@ import java.time.OffsetDateTime
 
 /**
  * Reads gitlab.com for Trending, which GitLab doesn't have (its Explore tab was removed in GitLab 19.0): its projects
- * by stars, measured the same way as Codeberg's (see docs/GITLAB.md#trending). Anonymous, like Codeberg's job.
+ * by stars, measured the same way as Codeberg's (see docs/GITLAB.md#trending). Read with [token] when there is one,
+ * so a refusal of signed-out reads (as Codeberg's search began on 2026-11-10) doesn't stop the day; only public
+ * projects are asked for either way, so a token never brings the account's own private projects into Trending.
  *
  * Two differences from Forgejo: GitLab can't list only forks, so there are no new forks to break ties with, and its
  * project list has no language, so [withLanguages] asks for it only for the projects that made a list.
@@ -28,6 +32,7 @@ import java.time.OffsetDateTime
 class GitLabTrendingCrawler(
     private val http: HttpClient,
     private val host: String = "gitlab.com",
+    private val token: String? = null,
     private val topPages: Int = TOP_PAGES,
     private val clock: Clock = Clock.systemUTC(),
     private val retryDelayMillis: Long = 10_000,
@@ -38,7 +43,7 @@ class GitLabTrendingCrawler(
         val at = clock.instant()
         val top = mutableListOf<ProjectJson>()
         for (page in 1..topPages) {
-            val projects = read<List<ProjectJson>>("$webUrl/api/v4/projects?order_by=star_count&sort=desc&simple=true&per_page=$PAGE_SIZE&page=$page")
+            val projects = read<List<ProjectJson>>("$webUrl/api/v4/projects?visibility=public&order_by=star_count&sort=desc&simple=true&per_page=$PAGE_SIZE&page=$page")
             top += projects
             if (projects.size < PAGE_SIZE || (projects.lastOrNull()?.stars ?: 0) < MIN_PERIOD_STARS) break
         }
@@ -69,7 +74,7 @@ class GitLabTrendingCrawler(
         repeat(ATTEMPTS) { attempt ->
             if (attempt > 0) delay(retryDelayMillis)
             try {
-                val response = http.get(url)
+                val response = http.get(url) { token?.let { header(HttpHeaders.Authorization, "Bearer $it") } }
                 if (response.status.isSuccess()) return json.decodeFromString<T>(response.bodyAsText())
                 failure = "HTTP ${response.status.value}"
             } catch (e: IOException) {

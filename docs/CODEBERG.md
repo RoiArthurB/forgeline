@@ -98,14 +98,16 @@ One Trending page, mixing GitHub and Codeberg. Two separate problems: getting a 
 
 ### Getting Codeberg's list: one crawl a day, for everyone
 
-Codeberg has no trending page, no star timestamps and no star events, so "stars gained today" can only be measured by comparing star counts over time. Doing that on every phone would cost storage, battery, data, and many times the load on Codeberg. Instead, **one scheduled job measures it once a day for everyone**, within a fixed budget of **30 anonymous API requests per run**.
+Codeberg has no trending page, no star timestamps and no star events, so "stars gained today" can only be measured by comparing star counts over time. Doing that on every phone would cost storage, battery, data, and many times the load on Codeberg. Instead, **one scheduled job measures it once a day for everyone**, within a fixed budget of **30 API requests per run**.
 
 **Where it runs.** A GitHub Actions workflow in this repository (`.github/workflows/trending.yml`, which measures gitlab.com the same way: see [GITLAB.md](GITLAB.md#trending)), daily at 02:17 UTC, running the `tools:trending` module. It publishes two files on the repository's GitHub Pages site, under `codeberg/`:
 
 - `state.json`: for each tracked repository (keyed by Codeberg's numeric id, so renames don't break history), its star count on each of the last 31 recorded days, plus new forks per repository per day. The first real run (2026-09-29) tracked 1,400 repositories in 84 KB for one day.
 - `trending.json`: the daily, weekly and monthly lists, each already in its final order (`TrendingFile` in `forge:forgejo`, shared by the job and the app so they can't drift apart).
 
-Each run first downloads yesterday's `state.json` from the site. Only a 404 (the very first run) starts afresh; any other failure stops the run, since publishing without it would throw away a month of history. A run that can't read the whole ranking (each page is retried twice) fails rather than publish a partial one, and the site keeps the previous day's files.
+Each run first downloads yesterday's `state.json` from the site. Only a 404 (the very first run) starts afresh; any other failure stops the run, since publishing without it would throw away a month of history. A run that can't read the whole ranking fails rather than publish a partial one, and the site keeps the previous day's files.
+
+**Signed in.** From 2026-11-10 Codeberg refuses repository search to anyone signed out, with an HTTP 429 saying search "is seeing a high influx of requests" while its quota headers show most of it left (the live checks hit the same on 2026-11-12). The job's first page failed every day, so Codeberg's Trending stayed on 2026-11-09's lists for five days. The job now reads with the live checks' read-only token (repository secret `CODEBERG_LIVE_TOKEN`, passed as `CODEBERG_TOKEN`), and reads anonymously only without it. A real rate limit is waited out: each page gets up to 5 tries, 30 s apart and doubling, or as long as Codeberg's `Retry-After` asks, capped at 2 minutes a wait. On the phone a page is still tried 3 times; a failed measurement is tried again the next day.
 
 The app fetches `trending.json` (its address is `forgeline.codebergTrendingUrl` in `gradle.properties`) with one request, cached for an hour like GitHub's trending. No Codeberg request comes from the phone for Trending. The download comes from GitHub, which the app already talks to; nothing identifying is sent.
 
@@ -126,47 +128,24 @@ Anything gaining stars quickly climbs into the top 1,400, so tracking that ranki
 
 New forks are summed from the stored daily counts, so weekly and monthly forks don't need more pages. On launch, the lists fill in over the first 1, 7 and 30 days; after that the history is always there, for everyone.
 
-Each list is ordered by stars gained in the period, then new forks in the period, and holds at most 25 repositories with at least 2 stars gained, so a lone star doesn't make a repository "trending". The app then applies its own, higher floor (see [below](#what-makes-the-page-a-floor-then-an-even-share-per-forge)). `language` comes from the forge; `languageColor` comes from the app's own table; `builtBy` is left empty, since Forgejo has nothing like it.
+Each list is ordered by stars gained in the period, then new forks in the period, and holds at most 25 repositories with at least 2 stars gained, so a lone star doesn't make a repository "trending". The app then applies its own, higher floor (see [below](#what-makes-the-page-two-floors-then-one-ranking)). `language` comes from the forge; `languageColor` comes from the app's own table; `builtBy` is left empty, since Forgejo has nothing like it.
 
-### Ranking GitHub and Codeberg together: share of the forge's stars
+### What makes the page: two floors, then one ranking
 
-Raw counts can't be compared: GitHub's tenth repository of the day might gain 400 stars when Codeberg's first gains 30. So each repository is scored by its **share of its forge's stars in the list**:
+**Floors.** Before merging, the app drops every repository that either gained fewer than **5 stars today, 10 this week or 20 this month** (`TrendingPeriod.minStars` in `core/data`), or grew by less than **0.25% of its own stars today, 1% this week or 3% this month** (`TrendingPeriod.minGrowth`), on every forge, GitHub included. Tangled's own pick is shown whole (`ForgeType.curatesTrending`): Tangled already chose it.
+
+- **The star floor** keeps out "every project that got a star or two": on 2026-10-01 Codeberg's daily list went 14, 12, 8, 7, 6, 6, 6, 5, 5, 4, … down to 2s, and gitlab.com's whole list was a 3 and 2s. GitHub's own daily Trending ends around +10 to +15, so five a day drops nothing there. The published lists keep their own 2-star floor, so they still hold everything the app might show.
+- **The growth floor** keeps out a big project's usual daily stars. Growth is `periodStars / (stars before the period + 50)`; the 50 keeps a brand-new repository's first handful from reading as a 100% jump. On 2026-11-14 Codeberg's ziglang/zig stood second on the mixed page with +7 on 7,000 stars (0.1%) and forgejo third with +8 on 5,800: that's their ordinary pace, not a trend. +12 on 1,300 (0.9%) or +300 on a 60,000-star GitHub project (0.5%) stays. The longer periods ask for less than seven or thirty times the daily rate, since a burst doesn't repeat every day.
+
+**Ranked by growth against the forge's own pace.** Raw counts can't be compared across forges (GitHub's tenth of the day might gain 400 stars when Codeberg's first gains 30). Ordering by gain put GitHub on top; ordering by each repository's share of its forge's gained stars put Codeberg's whole first page above GitHub's thousands, however it was tuned; and taking turns between forges (every forge's #1, then every #2) read as artificial and hid which forge really moved. So each repository is scored by its growth over its forge's **median** growth that period (`rankByGrowth`), and the page is one sort by that score:
 
 ```
-score = periodStars / (sum of periodStars over that forge's list)
+score = growth / median(growth over the forge's whole list)
 ```
 
-The rows still show the real numbers (total stars and "+30 today"); only the order uses the score.
+A repository at three times its forge's usual pace stands with one at three times its own forge's, so a big day anywhere shows as more of that forge's rows near the top. The median is taken over the forge's whole list, the rows under the floors included, since they are that forge's usual pace; it is never counted under 0.1%, so a list that mostly gained nothing (Tangled's pick on a quiet day) doesn't make any gain on it infinitely fast. On 2026-11-14 (GitHub's day, Codeberg's list of 11-09, gitlab.com's of 11-13) the medians were 1.33%, 0.49% and 2.67%, and the page ran: modern-web-guidance-src (GitHub, +1,925 on 5k), Veyra-NRVideo (GitHub), sure (GitHub), shitter (Codeberg, +5 on 163), codex-security (GitHub), slopfree-software-index (Codeberg), tailcat (GitHub), AlwaysStrong (gitlab.com), ai-free-foss-alternatives (Codeberg), claude-trading-skills (GitHub), and so on. A forge's own order isn't kept on the mixed page: GitHub's #1 that day (open-code-review, +215 on 51k, 0.4%) ranks 15th.
 
-Worked example, daily:
-
-| Forge | Repository | +stars | Share |
-|---|---|---|---|
-| GitHub | #1 | 2400 | 2400 / 12000 = 0.20 |
-| GitHub | #2 | 1200 | 0.10 |
-| Codeberg | #1 | 30 | 30 / 150 = 0.20 |
-| Codeberg | #2 | 12 | 0.08 |
-
-Merged order: GitHub #1 and Codeberg #1 (tied at 0.20, GitHub wins ties), GitHub #2, Codeberg #2, and so on.
-
-What checking the ratio turned up:
-
-- **The forge's own order is kept.** GitHub's trending order isn't strictly by stars gained, and PRODUCT.md says a forge's ranking must be kept. So the lists aren't re-sorted by score; they are *merged* like the merge step of a merge sort: at each step, the head with the higher score goes next. GitHub's #3 can never jump above its #2.
-- **Same list length on both sides.** The sum is over each forge's top 25, so a forge doesn't get bigger shares just by listing fewer repositories. A forge with fewer than 25 entries is summed over what it has. Under 10 entries its shares are scaled down in proportion (`entries / 10`): the 2-star floor alone didn't keep a handful of stars from turning into huge shares, and three projects with 3, 2 and 2 stars would have stood above a repository that gained over a thousand. Lists are that short on quiet days and while a forge's history builds up. And a forge whose whole list gained fewer than 100 stars is weighed as if it had gained 100: on 2026-10-01 gitlab.com's daily list gained 17 stars in all, which made its first project's 3 stars an 18% share and put it first on the page.
-- **The true totals aren't available.** Neither forge publishes how many stars were given in total that day, so "share of the forge's total" is taken over the trending list, which is where nearly all of a day's attention goes anyway.
-- **One standout wins.** A forge with one repository far ahead of the rest gives it a big share and puts it near the top of the merged page. That's intended: it is the story of the day on that forge.
-
-The same merge works for any number of forges, so a self-hosted Forgejo instance could join later if someone ran the same job for it.
-
-### What makes the page: a floor, then an even share per forge
-
-Before merging, the app drops every repository that gained fewer than **5 stars today, 10 this week or 20 this month**, on every forge, GitHub included (`TrendingPeriod.minStars` in `core/data`). The published lists keep their own 2-star floor, so they still hold everything the app might show; the app applies the stricter one, which also covers lists published before it existed. Why an absolute floor and these numbers:
-
-- **It matches where GitHub's own page ends.** GitHub's daily Trending runs down to about +10 to +15 a day (the recorded `trending_daily.html` ends at +13). Five a day is under that, so in practice nothing GitHub lists is dropped, and over the noise of "every project that got one or two stars".
-- **It leaves the small forges a real list.** On 2026-10-01 Codeberg's daily list went 14, 12, 8, 7, 6, 6, 6, 5, 5, 4, … down to 2s, and gitlab.com's whole list was a 3 and 2s. A floor of 5 keeps Codeberg's nine that moved and empties gitlab.com's that day, which is right: nothing there was trending. A floor of 10 would have left Codeberg two.
-- **A share of the forge's stars doesn't work as a floor.** On a quiet forge it's too low (5% of 30 stars is one and a half), and on GitHub far too high (5% of a 7,000-star day is 350, half its page). The share stays what it is good for: ordering the merge.
-
-Then the mixed page is shared out (`balanceForges`): each forge shows its first **10**, plus one more for every 5 repositories its list has beyond that, at most **2** more. So GitHub's 25 show as 12, a Codeberg day with 15 qualifying shows 11, and a forge with 3 shows its 3; the page isn't padded with another forge's tail. Picking one forge alone shows its whole list above the floor.
+**An even share per forge.** Then the mixed page is shared out (`balanceForges`): each forge shows its first **10**, plus one more for every 5 repositories its list has beyond that, at most **2** more. So GitHub's 25 show as 12, a Codeberg day with 15 qualifying shows 11, and a forge with 3 shows its 3; the page isn't padded with another forge's tail. Picking one forge alone shows its whole list above the floors.
 
 **Measured on the phone.** A self-hosted Forgejo server has nobody publishing its list, so Settings → Trending offers to measure it on the phone, and Codeberg (and gitlab.com, once GitLab accounts arrive) too for anyone signed in who'd rather not use the shared list. It's the same measurement as the daily job, and the same code (`forge:forgejo`'s `trending` package): once a day, a background task reads the server's repositories by stars, then its newest forks, with the account's token, and keeps a month of star counts in the app's database. Reading stops as soon as the server runs out or repositories fall under 2 stars, so a small server costs a couple of requests; at most 20 pages (1,000 repositories), 28 for Codeberg. It's off by default: nothing is read from a server unless asked. Turning it on measures at once, so the history starts that day.
 
@@ -232,7 +211,7 @@ An account is identified by `forge:host:login`, as `Account.idFor` already does,
 3. Codeberg sign-in (access token, then OAuth with PKCE).
 4. Unified Inbox (reasons, tombstones, `/new` polling, background check, the "separate per forge" setting).
 5. Unified Feed (fan-out, deduplication, horizon merge).
-6. Codeberg Trending: the daily job, then the unified page with the share-of-stars merge.
+6. Codeberg Trending: the daily job, then the unified page, merged by rank.
 7. Unified search: each forge's results, merged by rank.
 
 Each step ships by itself, and the Forgejo module is reused for self-hosted instances. All seven shipped on 2026-09-30, followed by Codeberg's Actions (see [Actions](#actions)).

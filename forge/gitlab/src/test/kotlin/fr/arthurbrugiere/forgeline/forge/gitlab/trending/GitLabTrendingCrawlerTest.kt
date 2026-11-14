@@ -34,6 +34,7 @@ class GitLabTrendingCrawlerTest {
 
     private fun crawler(
         at: Instant = now,
+        token: String? = null,
         answer: (HttpRequestData) -> String? = { request -> fullPage(100, request.url.parameters["page"]!!.toInt() * 100) },
     ) = GitLabTrendingCrawler(
         forgejoHttpClient(
@@ -44,9 +45,18 @@ class GitLabTrendingCrawlerTest {
                 else respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
             },
         ),
+        token = token,
         clock = Clock.fixed(at, ZoneOffset.UTC),
         retryDelayMillis = 0,
     )
+
+    @Test
+    fun with_a_token_gitlab_is_read_signed_in_and_still_only_its_public_projects() = runTest {
+        crawler(token = "glpat-live").crawl()
+
+        assertThat(requests.map { it.headers[HttpHeaders.Authorization] }.toSet()).containsExactly("Bearer glpat-live")
+        assertThat(requests.map { it.url.parameters["visibility"] }.toSet()).containsExactly("public")
+    }
 
     @Test
     fun gitlab_is_read_by_stars_within_its_budget_without_signing_in() = runTest {

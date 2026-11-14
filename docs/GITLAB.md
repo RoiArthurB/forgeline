@@ -93,11 +93,13 @@ Forgeline handles GitLab URLs natively, including nested project namespaces and 
 
 gitlab.com has no trending page any more: GitLab removed the Explore → Trending tab in GitLab 19.0. Its API has no trending order either. So the daily job that measures Codeberg's Trending ([CODEBERG.md](CODEBERG.md#trending)) measures gitlab.com's too, with the same code: one run a day, star counts compared over time, the same daily, weekly and monthly lists in the same `TrendingFile` format, published at `gitlab/trending.json` and `gitlab/state.json` on the same GitHub Pages site. The app reads `trending.json` (`forgeline.gitlabTrendingUrl` in `gradle.properties`) with one request, like Codeberg's.
 
+The job reads gitlab.com with the live checks' read-only token (repository secret `GITLAB_LIVE_TOKEN`, passed as `GITLAB_TOKEN`) when it is set, in case gitlab.com starts refusing signed-out reads the way Codeberg's search did on 2026-11-10; it asks for public projects only, so the account's own private projects never reach Trending. Without the secret it reads anonymously.
+
 Checked against gitlab.com on 2026-10-01:
 
 | | Codeberg | gitlab.com |
 |---|---|---|
-| Ranking read | `/api/v1/repos/search?sort=stars`, 28 pages of 50 | `/api/v4/projects?order_by=star_count&sort=desc&simple=true`, up to 50 pages of 100 |
+| Ranking read | `/api/v1/repos/search?sort=stars`, 28 pages of 50 | `/api/v4/projects?visibility=public&order_by=star_count&sort=desc&simple=true`, up to 50 pages of 100 |
 | Repositories tracked | top 1,400 (13 stars or more) | top 5,000 (11 stars or more) |
 | Owner | `owner.login` | `namespace.full_path`, which can be nested (`group/subgroup`) |
 | Language | in the ranking | not in the list: one `/projects/:id/languages` call per listed project, the largest share wins (at most 75 calls) |
