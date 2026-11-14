@@ -18,10 +18,11 @@ import java.io.File
  * afresh. The measuring itself lives in `forge:forgejo`, shared with the phone's own measurements; only the reading
  * differs per forge.
  *
- * Codeberg is read with the `CODEBERG_TOKEN` environment variable when it is set (a token with read access to public
- * repositories): anonymous requests share a rate limit with everything else on GitHub's runners, and from 2026-11-10
- * Codeberg answered the very first page with HTTP 429 every day. Without it, the job reads anonymously as before. Rate
- * limiting is waited out: up to [JOB_ATTEMPTS] tries a page, 30 s apart and doubling, or as long as Codeberg asks.
+ * Codeberg is read with the `CODEBERG_TOKEN` environment variable when it is set (the workflow passes the live checks'
+ * read-only token): from 2026-11-10 Codeberg refuses repository search to anyone signed out, with an HTTP 429 saying
+ * search "is seeing a high influx of requests", so the job's first page failed every day. Without it, the job reads
+ * anonymously. A real rate limit is waited out: up to [JOB_ATTEMPTS] tries a page, 30 s apart and doubling, or as long
+ * as Codeberg asks.
  */
 fun main(args: Array<String>) = runBlocking {
     require(args.size == 3 && args[0] in FORGES) { "Usage: trending <${FORGES.joinToString("|")}> <previous state.json> <output directory>" }

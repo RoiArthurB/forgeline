@@ -58,10 +58,10 @@ jobs:
         # month of measurements. On a push to site/ or a release, yesterday's files are kept as-is without
         # crawling the forges again. On a scheduled or manual run, a forge that can't be measured today publishes
         # yesterday's files again, so the other forge's day isn't lost; with nothing measured at all,
-        # nothing is published. Codeberg is read with CODEBERG_TOKEN when that secret is set: anonymous requests
-        # from GitHub's runners were turned away with HTTP 429 from 2026-11-10.
+        # nothing is published. Codeberg is read signed in, with the live checks' read-only token: from 2026-11-10
+        # it refuses repository search to anyone signed out (HTTP 429 "high influx of requests").
         env:
-          CODEBERG_TOKEN: ${{ secrets.CODEBERG_TOKEN }}
+          CODEBERG_TOKEN: ${{ secrets.CODEBERG_LIVE_TOKEN }}
         run: |
           measured=0
           for forge in codeberg gitlab; do
