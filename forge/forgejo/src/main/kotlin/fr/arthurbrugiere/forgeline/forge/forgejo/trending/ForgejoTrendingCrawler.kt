@@ -95,6 +95,7 @@ class ForgejoTrendingCrawler(
         const val TOP_PAGES = 28
         const val FORK_PAGES = 2
         const val PAGE_SIZE = 50
+
         /** On the phone: a measurement that fails is tried again the next day. The daily job asks for more. */
         const val ATTEMPTS = 3
 
