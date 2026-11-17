@@ -14,6 +14,10 @@
             "description": "DID of the repository"
           },
           "ranges": { "type": "array", "items": { "type": "string" } },
+          "path": {
+            "type": "string",
+            "description": "Only list commits that changed this file or directory. Merges are compared with their first parent. The scan stops after a time budget and returns what it found, so a path untouched for very long can come back short."
+          },
           "limit": {
             "type": "integer",
             "description": "Maximum number of commits to return",

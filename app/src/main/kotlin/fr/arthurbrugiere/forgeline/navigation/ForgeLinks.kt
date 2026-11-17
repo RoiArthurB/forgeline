@@ -156,8 +156,9 @@ object ForgeLinks {
     }
 
     /**
-     * Tangled's pages, which name a person by handle with or without `@`: theirs, a repository's, and a file's
-     * (`/blob/<ref>/<path>`). Its conversations and pipelines aren't read in the app yet: they stay in the browser.
+     * Tangled's pages, which name a person by handle with or without `@`: theirs, a repository's, a file's
+     * (`/blob/<ref>/<path>`), and an issue's or a pull request's (`/issues/12`, `/pulls/12`). Its pipelines stay in the
+     * browser.
      */
     private fun tangledRoute(forge: ForgeInstance, segments: List<String>, uri: URI): NavKey? {
         val owner = segments[0].removePrefix("@")
@@ -166,6 +167,10 @@ object ForgeLinks {
         return when (segments.getOrNull(2)) {
             null, "tree", "branches", "tags" -> RepoRoute(forge.host, owner, name)
             "blob" -> fileRoute(forge.host, owner, name, uri, segments.drop(3)) ?: RepoRoute(forge.host, owner, name)
+            "issues", "pulls" -> when (val number = segments.getOrNull(3)?.toIntOrNull()) {
+                null -> RepoRoute(forge.host, owner, name).takeIf { segments.size == 3 }
+                else -> IssueRoute(forge.host, owner, name, number, isPullRequest = segments[2] == "pulls")
+            }
             else -> null
         }
     }

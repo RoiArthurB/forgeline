@@ -179,7 +179,11 @@ class ForgeLinksTest {
         assertThat(ForgeLinks.routeFor("https://tangled.org/tangled.org/core/blob/master/docs/hacking.md"))
             .isEqualTo(FileRoute("tangled.org", "tangled.org", "core", path = "docs/hacking.md", ref = "master"))
         // What the app doesn't read from Tangled yet, and Tangled's own pages, stay in the browser.
-        assertThat(ForgeLinks.routeFor("https://tangled.org/tangled.org/core/issues/12")).isNull()
+        assertThat(ForgeLinks.routeFor("https://tangled.org/tangled.org/core/issues/12"))
+            .isEqualTo(IssueRoute("tangled.org", "tangled.org", "core", 12, isPullRequest = false))
+        assertThat(ForgeLinks.routeFor("https://tangled.org/tangled.org/core/pulls/4784"))
+            .isEqualTo(IssueRoute("tangled.org", "tangled.org", "core", 4784, isPullRequest = true))
+        assertThat(ForgeLinks.routeFor("https://tangled.org/tangled.org/core/pipelines")).isNull()
         assertThat(ForgeLinks.routeFor("https://tangled.org/timeline")).isNull()
         assertThat(ForgeLinks.forgeOf("tangled.org")).isEqualTo(ForgeInstance.Tangled)
     }

@@ -26,29 +26,50 @@ val calledMethods = listOf(
     "com.atproto.identity.resolveHandle",
     "com.atproto.repo.createRecord",
     "com.atproto.repo.deleteRecord",
+    "com.atproto.repo.getRecord",
     "com.atproto.repo.listRecords",
     "com.atproto.repo.putRecord",
     "com.atproto.server.createSession",
+    "com.atproto.server.getServiceAuth",
     "com.atproto.server.getSession",
     "com.atproto.server.refreshSession",
     "org.tangled.actor.getProfile",
     "org.tangled.actor.getTrending",
+    "org.tangled.actor.searchActorsTypeahead",
+    "org.tangled.ci.queryPipelines",
     "org.tangled.feed.countStars",
     "org.tangled.feed.getStar",
+    "org.tangled.feed.getTimeline",
+    "org.tangled.feed.listComments",
+    "org.tangled.feed.listReactions",
     "org.tangled.feed.listStars",
     "org.tangled.feed.listStarsBy",
+    "org.tangled.git.getBlame",
+    "org.tangled.git.getDiff",
+    "org.tangled.git.listCommits",
     "org.tangled.graph.countFollows",
     "org.tangled.graph.countFollowsBy",
     "org.tangled.graph.getFollow",
+    "org.tangled.label.listDefinitions",
     "org.tangled.repo.countForks",
+    "org.tangled.repo.countIssues",
+    "org.tangled.repo.countPulls",
     "org.tangled.repo.countRepos",
     "org.tangled.repo.getRepoByRepoDid",
+    "org.tangled.repo.listCollaborators",
+    "org.tangled.repo.listIssues",
+    "org.tangled.repo.listPulls",
     "org.tangled.repo.listRepos",
+    "org.tangled.review.submitPatch",
+    "org.tangled.search.query",
     "org.tangled.temp.git.getBlob",
+    "org.tangled.temp.git.getBranch",
     "org.tangled.temp.git.getTree",
     "org.tangled.temp.git.listBranches",
+    "org.tangled.temp.git.listCommits",
     "org.tangled.temp.git.listTags",
     "org.tangled.temp.repo.getRepoByName",
+    "org.tangled.track.getTicketView",
 )
 
 val lexiconSources = layout.projectDirectory.dir("lexicons")
@@ -75,9 +96,46 @@ val neededLexicons: Set<String> = buildSet {
 val preparedLexicons = layout.buildDirectory.dir("lexicons")
 
 // Only the needed lexicons are handed to ozone.
+// Two things ozone 0.3.5 gets wrong, mended in the lexicons it is handed (upstream-reports in the project files):
+// - it writes no class for a string def other than `main` (`org.tangled.track.defs#ticketState`) yet types the
+//   properties referring to it by one, which doesn't compile: each such reference gets the string def itself;
+// - it copies a description into KDoc as it is, so one naming a path pattern (`refs/cobs/` then a star) opens a
+//   comment that never closes.
 val prepareLexicons = tasks.register<Sync>("prepareLexicons") {
     from(lexiconSources) { include(neededLexicons.map { it.replace('.', '/') + ".json" }) }
     into(preparedLexicons)
+    val output = preparedLexicons
+    // Written out here rather than as a function of the script: the configuration cache can't keep a task that
+    // refers to the script.
+    doLast {
+        val root = output.get().asFile
+        val files = root.walkTopDown().filter { it.extension == "json" }.toList()
+        val documents = files.associateWith { groovy.json.JsonSlurper().parse(it) as MutableMap<String, Any?> }
+        val strings = buildMap {
+            for (document in documents.values) {
+                val id = document["id"] as String
+                for ((name, def) in document["defs"] as Map<String, Map<String, Any?>>) {
+                    if (name != "main" && def["type"] == "string") put("$id#$name", def)
+                }
+            }
+        }
+        fun inline(node: Any?, id: String): Any? = when (node) {
+            is Map<*, *> -> {
+                val ref = (node["ref"] as? String)?.let { if (it.startsWith("#")) "$id$it" else it }
+                if (node["type"] == "ref" && ref in strings) {
+                    strings.getValue(ref!!) + node.filterKeys { it == "description" } as Map<String, Any?>
+                } else {
+                    node.mapValues { (key, value) -> if (key == "description" && value is String) value.replace("/*", "/\u2217") else inline(value, id) }
+                }
+            }
+            is List<*> -> node.map { inline(it, id) }
+            else -> node
+        }
+        for ((file, document) in documents) {
+            val inlined = inline(document, document["id"] as String)
+            if (inlined != document) file.writeText(groovy.json.JsonOutput.toJson(inlined))
+        }
+    }
 }
 
 lexicons {

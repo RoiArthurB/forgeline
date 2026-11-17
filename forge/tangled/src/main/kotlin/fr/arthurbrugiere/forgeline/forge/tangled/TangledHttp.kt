@@ -53,6 +53,15 @@ class TangledXrpc(http: HttpClient) {
     /** A person's own server at [base], as the one [token] signs in, if any. */
     internal fun server(base: String, token: String? = null): Atproto = Atproto(on(base, token))
 
+    /**
+     * Another of Tangled's services at [base], which answer Tangled's own calls as the index does: a repository's knot
+     * (its git, `org.tangled.git.*`) or its spindle (its CI, `org.tangled.ci.*`), as [token] signs in, if anyone.
+     */
+    internal fun service(base: String, token: String? = null): TangledIndex = TangledIndex(on(base, token))
+
+    /** The index's calls no lexicon describes yet (`org.tangled.temp.review.listPatches`), read as plain JSON. */
+    internal val plain: HttpClient = on(TANGLED_API)
+
     private fun on(base: String, token: String? = null): HttpClient = HttpClient(engine) {
         expectSuccess = false
         install(HttpTimeout)

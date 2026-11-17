@@ -37,8 +37,8 @@ class TangledRepoApiTest {
         assertThat(details.forks).isEqualTo(37)
         assertThat(details.defaultBranch).isEqualTo("master")
         assertThat(details.language).isEqualTo("Go")
-        // What the app can't list stays out of the tabs.
-        assertThat(details.listsConversations).isFalse()
+        // Its tickets are listed; what Tangled doesn't keep (releases, a list of CI runs) stays out of the tabs.
+        assertThat(details.listsConversations).isTrue()
         assertThat(details.listsReleases).isFalse()
         assertThat(details.hasActions).isFalse()
         assertThat(fake.asked).containsAtLeast(
@@ -170,7 +170,6 @@ class TangledRepoApiTest {
         val fake = FakeTangled(emptyMap())
         val api = api(fake)
 
-        assertThat(api.issues(null, core)).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
         assertThat(api.releases(null, core)).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
         assertThat(api.workflowRuns(null, core)).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
         assertThat(fake.requests).isEmpty()

@@ -113,7 +113,7 @@ data class RepoUiState(
 ) {
     /**
      * The tabs this repository fills: Actions unless its CI is switched off (Forgejo repositories can), and none its forge's
-     * API can't fill (Tangled lists neither conversations nor releases).
+     * API can't fill (Tangled lists no releases).
      */
     val tabs: List<RepoTab>
         get() = RepoTab.entries.filter {

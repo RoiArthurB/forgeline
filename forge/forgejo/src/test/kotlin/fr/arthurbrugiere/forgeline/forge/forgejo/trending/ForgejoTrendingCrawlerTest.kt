@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.forge.forgejo.forgejoHttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.HttpTimeoutCapability
 import io.ktor.client.request.HttpRequestData
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -192,5 +193,60 @@ class ForgejoTrendingCrawlerTest {
 
         assertThrows(IOException::class.java) { kotlinx.coroutines.runBlocking { crawler.crawl() } }
         assertThat(requests).hasSize(3)
+    }
+
+    /** A Codeberg whose answers to page [slowPage] time out [timeouts] times before it answers. */
+    private fun slow(timeouts: Int, slowPage: String = "8", patienceMillis: Long? = null): ForgejoTrendingCrawler {
+        var timedOut = 0
+        return ForgejoTrendingCrawler(
+            forgejoHttpClient(
+                MockEngine { request ->
+                    requests += request
+                    if (request.url.parameters["mode"] == "source" && request.url.parameters["page"] == slowPage && timedOut < timeouts) {
+                        timedOut++
+                        throw java.net.SocketTimeoutException("timeout")
+                    }
+                    val body = if (request.url.parameters["mode"] == "fork") fixture("search_forks.json") else fullPage(100, request.url.parameters["page"]!!.toInt() * 100)
+                    respond(body, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+                },
+            ),
+            ForgeInstance.Codeberg,
+            clock = Clock.fixed(now, ZoneOffset.UTC),
+            retryDelayMillis = 0,
+            attempts = 3,
+            patienceMillis = patienceMillis,
+        )
+    }
+
+    @Test
+    fun a_page_that_times_out_is_tried_again() = runTest {
+        val crawl = slow(timeouts = 2).crawl()
+
+        assertThat(crawl.top).hasSize(ForgejoTrendingCrawler.TOP_PAGES * ForgejoTrendingCrawler.PAGE_SIZE)
+        assertThat(requests.count { it.url.parameters["mode"] == "source" && it.url.parameters["page"] == "8" }).isEqualTo(3)
+    }
+
+    @Test
+    fun a_page_that_times_out_on_every_try_fails_the_crawl() = runTest {
+        val crawler = slow(timeouts = Int.MAX_VALUE)
+
+        val error = assertThrows(IOException::class.java) { kotlinx.coroutines.runBlocking { crawler.crawl() } }
+        assertThat(error).hasMessageThat().contains("page=8")
+    }
+
+    @Test
+    fun pages_are_given_the_patience_asked_for() = runTest {
+        // Regression: on 2026-11-17 Codeberg's page 8 took longer than the client's 10 s on all five tries, and the
+        // daily job published the day before's Trending again.
+        slow(timeouts = 0, patienceMillis = 60_000).crawl()
+
+        assertThat(requests.map { it.getCapabilityOrNull(HttpTimeoutCapability)?.socketTimeoutMillis }.toSet()).containsExactly(60_000L)
+    }
+
+    @Test
+    fun without_patience_the_client_keeps_its_own_limit() = runTest {
+        slow(timeouts = 0).crawl()
+
+        assertThat(requests.map { it.getCapabilityOrNull(HttpTimeoutCapability)?.socketTimeoutMillis }.toSet()).containsExactly(null)
     }
 }

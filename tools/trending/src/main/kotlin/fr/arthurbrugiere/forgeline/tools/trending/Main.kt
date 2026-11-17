@@ -22,7 +22,8 @@ import java.io.File
  * read-only token): from 2026-11-10 Codeberg refuses repository search to anyone signed out, with an HTTP 429 saying
  * search "is seeing a high influx of requests", so the job's first page failed every day. Without it, the job reads
  * anonymously. A real rate limit is waited out: up to [JOB_ATTEMPTS] tries a page, 30 s apart and doubling, or as long
- * as Codeberg asks. gitlab.com is read the same way with `GITLAB_TOKEN` (the live checks' read-only token), in case it
+ * as Codeberg asks. Codeberg's deeper pages of search can take longer than the client's usual 10 s to start answering
+ * (page 8 timed out on every try on 2026-11-17), so a page may take up to [JOB_PATIENCE_MILLIS]. gitlab.com is read the same way with `GITLAB_TOKEN` (the live checks' read-only token), in case it
  * starts refusing signed-out reads too; only its public projects are asked for. gitea.com is read as Codeberg is (its
  * API is Forgejo's), anonymously unless `GITEA_TOKEN` is set: it answered signed out on 2026-11-17, and its stars run
  * out within a few pages.
@@ -37,7 +38,7 @@ fun main(args: Array<String>) = runBlocking {
                 val forge = if (args[0] == "codeberg") ForgeInstance.Codeberg else ForgeInstance.Gitea
                 val token = System.getenv("${args[0].uppercase()}_TOKEN")?.trim()?.ifEmpty { null }
                 println("${args[0]}: reading ${if (token != null) "with a token" else "anonymously"}.")
-                val crawl = ForgejoTrendingCrawler(http, forge, token, retryDelayMillis = 30_000, attempts = JOB_ATTEMPTS).crawl()
+                val crawl = ForgejoTrendingCrawler(http, forge, token, retryDelayMillis = 30_000, attempts = JOB_ATTEMPTS, patienceMillis = JOB_PATIENCE_MILLIS).crawl()
                 previous.record(crawl).let { it to it.lists(crawl) }
             }
             else -> {
@@ -59,6 +60,9 @@ private val FORGES = listOf("codeberg", "gitea", "gitlab")
 
 /** 30 s, 1, 2 then 4 minutes between tries: under ten minutes for a page before giving up for the day. */
 private const val JOB_ATTEMPTS = 5
+
+/** A minute without a byte before a page is given up on and tried again: the job has time, the phone doesn't. */
+private const val JOB_PATIENCE_MILLIS = 60_000L
 
 private val json = Json {
     encodeDefaults = true

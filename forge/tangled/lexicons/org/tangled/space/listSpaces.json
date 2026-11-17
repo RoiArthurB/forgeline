@@ -1,0 +1,64 @@
+{
+  "lexicon": 1,
+  "id": "org.tangled.space.listSpaces",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Listing the private git repos that the caller is allowed to read.",
+      "parameters": {
+        "type": "params",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "Count of spaces to return."
+          },
+          "cursor": {
+            "type": "string"
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "spaces"
+          ],
+          "properties": {
+            "cursor": {
+              "type": "string"
+            },
+            "spaces": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "#spaceView"
+              }
+            }
+          }
+        }
+      }
+    },
+    "spaceView": {
+      "type": "object",
+      "required": [
+        "uri"
+      ],
+      "properties": {
+        "uri": {
+          "type": "string",
+          "format": "did",
+          "description": "The private git repo's DID."
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "datetime",
+          "description": "When the indexer's lease on this repo gets nuked, unless a member refreshes it. This is left out when calling as a regular user and not as a full-on indexer."
+        }
+      }
+    }
+  }
+}
