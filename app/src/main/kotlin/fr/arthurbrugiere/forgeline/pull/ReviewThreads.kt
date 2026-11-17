@@ -41,6 +41,7 @@ import fr.arthurbrugiere.forgeline.core.model.DiffLine
 import fr.arthurbrugiere.forgeline.core.model.DiffLineKind
 import fr.arthurbrugiere.forgeline.core.model.Reaction
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
+import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.parsePatch
 import fr.arthurbrugiere.forgeline.core.model.splitSuggestions
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
@@ -55,8 +56,9 @@ import fr.arthurbrugiere.forgeline.issue.Comment
 import fr.arthurbrugiere.forgeline.issue.CommentMenu
 
 /**
- * The remarks on lines of a pull request's change, near its end, after its conversation: the open threads each with
- * the code it is on, what was said, and a way to answer or resolve it; the resolved ones folded behind one row.
+ * Remarks on lines of a pull request's change: the open threads each with the code it is on, what was said, and a way
+ * to answer or resolve it; the resolved ones folded behind one row. Under the review that started them, as the forge
+ * shows them, untitled; the rest near the end, after the conversation, under a title saying how many ([titled]).
  * [canReply] is whether the reader may write here at all; resolving also takes the forge's say ([ReviewThread.canResolve]).
  * [branch] is where a suggestion goes once committed, for whoever may push there ([canCommit]).
  */
@@ -73,28 +75,31 @@ fun ReviewThreads(
     modifier: Modifier = Modifier,
     canCommit: Boolean = false,
     branch: String = "",
+    titled: Boolean = true,
 ) {
     if (threads.isEmpty()) return
     val colors = Soft.colors
     val (open, resolved) = threads.partition { !it.resolved }
     var showResolved by rememberSaveable { mutableStateOf(false) }
     Column(modifier) {
-        Text(
-            if (open.isNotEmpty()) {
-                pluralStringResource(R.plurals.threads_open, open.size, open.size)
-            } else {
-                pluralStringResource(R.plurals.threads_all_resolved, resolved.size, resolved.size)
-            },
-            style = Soft.type.name,
-            color = colors.ink,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp).semantics { heading() },
-        )
-        open.forEach { thread ->
-            SoftHairline()
+        if (titled) {
+            Text(
+                if (open.isNotEmpty()) {
+                    pluralStringResource(R.plurals.threads_open, open.size, open.size)
+                } else {
+                    pluralStringResource(R.plurals.threads_all_resolved, resolved.size, resolved.size)
+                },
+                style = Soft.type.name,
+                color = colors.ink,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp).semantics { heading() },
+            )
+        }
+        open.forEachIndexed { index, thread ->
+            if (titled || index > 0) SoftHairline()
             Thread(thread, state, actions, canReply, canCommit, branch, context, nowMillis, onOpenUser, onLinkClick)
         }
         if (resolved.isNotEmpty()) {
-            SoftHairline()
+            if (titled || open.isNotEmpty()) SoftHairline()
             if (showResolved) {
                 resolved.forEachIndexed { index, thread ->
                     if (index > 0) SoftHairline()
@@ -123,6 +128,16 @@ fun ReviewThreads(
             }
         }
     }
+}
+
+/**
+ * [threads] split by where they go: under the review that started them, by its id, where that review is among [items];
+ * the others (from a forge that doesn't say, or a review not read yet) after the conversation, in their order.
+ */
+internal fun placeThreads(items: List<TimelineItem>, threads: List<ReviewThread>): Pair<Map<Long, List<ReviewThread>>, List<ReviewThread>> {
+    val reviews = items.mapNotNullTo(HashSet()) { (it as? TimelineItem.Review)?.id }
+    val (nested, rest) = threads.partition { it.reviewId != null && it.reviewId in reviews }
+    return nested.groupBy { it.reviewId!! } to rest
 }
 
 /** How many lines of the code a remark is on are shown above it: the line itself and a few before it. */

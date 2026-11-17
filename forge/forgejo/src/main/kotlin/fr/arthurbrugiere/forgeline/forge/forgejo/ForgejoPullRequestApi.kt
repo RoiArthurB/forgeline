@@ -416,6 +416,7 @@ private fun List<PullReviewComment>.toThread(): ReviewThread {
         comments = map { ThreadComment(required(it.id, "a remark's id"), it.user?.toModel(), it.body.orEmpty(), instant(it.createdAt)) },
         resolved = first.resolver != null,
         canResolve = false,
+        reviewId = first.pullRequestReviewId,
     )
 }
 

@@ -478,6 +478,24 @@ class GitHubPullRequestApiTest {
     }
 
     @Test
+    fun a_thread_says_which_review_started_it() = runTest {
+        val threads = api {
+            json(
+                """{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[{"id":"PRRT_1","isResolved":false,"isOutdated":false,
+                "path":"a.kt","line":3,"originalLine":3,"startLine":null,"diffSide":"RIGHT","viewerCanResolve":true,"viewerCanUnresolve":false,
+                "comments":{"nodes":[{"fullDatabaseId":"1","body":"Hm","createdAt":"2026-10-24T10:00:00Z","diffHunk":"@@ -1 +1 @@","author":null,
+                "pullRequestReview":{"fullDatabaseId":"5623670757"}},
+                {"fullDatabaseId":"2","body":"Done","createdAt":"2026-10-24T11:00:00Z","diffHunk":"@@ -1 +1 @@","author":null,
+                "pullRequestReview":{"fullDatabaseId":"5623825997"}}]}}]}}}}}""",
+            )
+        }.threads("tok", gama).value()
+
+        // Past what a 32-bit id holds, like the timeline's review ids.
+        assertThat(threads.single().reviewId).isEqualTo(5623670757L)
+        assertThat(requests.single().sent).contains("pullRequestReview")
+    }
+
+    @Test
     fun a_thread_without_whether_it_is_resolved_makes_the_answer_unreadable() = runTest {
         val result = api {
             json(
@@ -497,6 +515,8 @@ class GitHubPullRequestApiTest {
         assertThat(threads.map { it.comments.size }).containsExactly(2, 1, 1, 2, 1).inOrder()
         assertThat(threads[0].comments[1].id).isEqualTo(4356030362)
         assertThat(threads[0].line).isEqualTo(265)
+        // Each under the review that started it, not those its replies came with.
+        assertThat(threads.map { it.reviewId }.toSet()).containsExactly(5623670757L)
         // Nothing to resolve without an account, nor anything said about it.
         assertThat(threads.none { it.canResolve || it.resolved }).isTrue()
         assertThat(requests.single().path).isEqualTo("/repos/gama-platform/gama/pulls/1265/comments")

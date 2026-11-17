@@ -268,6 +268,8 @@ class ForgejoPullRequestApiTest {
         assertThat(threads.map { it.resolved }).containsExactly(false, true, true, true).inOrder()
         assertThat(threads[3].comments.map { it.author?.login }).containsExactly("famfo-cb", "oliverpool", "famfo-cb").inOrder()
         assertThat(threads[1].hunk).startsWith("@@ -888,0 +883,4 @@")
+        // Each under the review its first remark came with, as the timeline names it.
+        assertThat(threads.map { it.reviewId }).containsExactly(2117654L, 2117666L, 2124134L, 2207543L).inOrder()
         // Forgejo's API resolves nothing.
         assertThat(threads.none { it.canResolve || it.onOldSide }).isTrue()
         // Only the reviews that hold remarks are asked for them.

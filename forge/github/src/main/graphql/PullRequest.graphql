@@ -54,6 +54,10 @@ query Threads($owner: String!, $name: String!, $number: Int!) {
               body
               createdAt
               diffHunk
+              # The review it came with, as the timeline names it: the thread is shown under it.
+              pullRequestReview {
+                fullDatabaseId
+              }
               author {
                 login
                 avatarUrl
