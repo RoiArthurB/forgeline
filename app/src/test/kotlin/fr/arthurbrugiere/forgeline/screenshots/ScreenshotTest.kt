@@ -427,14 +427,18 @@ class ScreenshotTest {
     )
 
     private val mixedTrendingState by lazy {
-        val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab)
+        val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab, ForgeInstance.Tangled)
         val items = trendingState.items.mapIndexed { index, item ->
-            val forge = when (index) {
-                1 -> ForgeInstance.Codeberg
-                3 -> ForgeInstance.GitLab
-                else -> ForgeInstance.GitHub
+            when (index) {
+                1 -> item.copy(repo = item.repo.copy(id = item.repo.id.copy(forge = ForgeInstance.Codeberg)))
+                3 -> item.copy(repo = item.repo.copy(id = item.repo.id.copy(forge = ForgeInstance.GitLab)))
+                // Tangled's own pick, under its owner's handle as Tangled names repositories.
+                4 -> item.copy(
+                    repo = trendingRepo("tangled.org/core", stars = 640, periodStars = 38, forge = ForgeInstance.Tangled)
+                        .copy(description = "Tangled's own code: the app view, knots and spindles.", language = "Go", languageColor = "#00ADD8", forks = 92),
+                )
+                else -> item
             }
-            item.copy(repo = item.repo.copy(id = item.repo.id.copy(forge = forge)))
         }
         trendingState.copy(items = items, showForge = true, forges = forges)
     }
@@ -467,8 +471,59 @@ class ScreenshotTest {
 
     @Test
     fun trending_mixed_forges_light() = snapshot("trending_mixed_forges_light", darkTheme = false) {
-        // GitHub and Codeberg on one page: every row wears its forge's logo, and one forge can be picked.
+        // GitHub, Codeberg, gitlab.com and Tangled on one page: every row wears its forge's logo, and one forge can be picked.
         TrendingPreview(mixedTrendingState)
+    }
+
+    @Test
+    fun topic_mixed_forges_light() = snapshot("topic_mixed_forges_light", darkTheme = false) {
+        // A topic's page: the most starred of each forge, mixed, each row naming its own.
+        fun repo(fullName: String, stars: Int, description: String, language: String, forge: ForgeInstance) =
+            fr.arthurbrugiere.forgeline.core.testing.repoSummary(fullName, stars, description, forge).copy(language = language)
+        fr.arthurbrugiere.forgeline.topic.TopicScreen(
+            state = fr.arthurbrugiere.forgeline.topic.TopicUiState(
+                "selfhosted",
+                repos = listOf(
+                    repo("immich-app/immich", 64_810, "High performance self-hosted photo and video management solution.", "TypeScript", ForgeInstance.GitHub),
+                    repo("jellyfin/jellyfin", 41_250, "The free software media system.", "C#", ForgeInstance.GitHub),
+                    repo("forgejo/forgejo", 14_280, "Beyond coding. We forge. Community-driven self-hosted software forge.", "Go", ForgeInstance.Codeberg),
+                    repo("gitlab-org/gitlab-runner", 2_480, "GitLab Runner runs the jobs of your own CI/CD pipelines.", "Go", ForgeInstance.GitLab),
+                    repo("Codeberg/pages-server", 312, "Static websites hosted from your repositories.", "Go", ForgeInstance.Codeberg),
+                ),
+                totalCount = 21_640,
+                isLoading = false,
+                forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab),
+            ),
+            onBack = {}, onOpenRepo = {}, onSelectForge = {}, onLoadMore = {}, onRetry = {},
+        )
+    }
+
+    @Test
+    fun first_issues_light() = snapshot("first_issues_light", darkTheme = false) {
+        // Issues marked for a first contribution, from your stars and today's Trending, on every forge.
+        val now = java.time.Instant.parse("2026-11-17T10:00:00Z")
+        fun first(repo: RepoId, number: Int, title: String, label: Label, hoursAgo: Long, comments: Int, source: fr.arthurbrugiere.forgeline.core.model.FirstIssueSource) =
+            fr.arthurbrugiere.forgeline.core.model.FirstIssue(
+                repo,
+                issueSummary(number, title).copy(createdAt = now.minusSeconds(hoursAgo * 3_600), labels = listOf(label), comments = comments),
+                source,
+            )
+        val good = Label("good first issue", "7057ff")
+        val starred = fr.arthurbrugiere.forgeline.core.model.FirstIssueSource.STARRED
+        val trending = fr.arthurbrugiere.forgeline.core.model.FirstIssueSource.TRENDING
+        fr.arthurbrugiere.forgeline.firstissues.FirstIssuesScreen(
+            state = fr.arthurbrugiere.forgeline.firstissues.FirstIssuesUiState(
+                all = listOf(
+                    first(RepoId("forgejo", "forgejo", ForgeInstance.Codeberg), 9_871, "Say which scope a migration token lacks", Label("Kind/Good First Issue", "84b6eb"), 3, 1, starred),
+                    first(RepoId("zed-industries", "zed"), 41_202, "Keep the cursor in view after folding a block", good, 7, 4, trending),
+                    first(RepoId("fdroid", "fdroidclient", ForgeInstance.GitLab), 3_102, "Show the app's size before installing it", Label("easy-fix", "5cb85c"), 20, 2, starred),
+                    first(RepoId("immich-app", "immich"), 18_457, "Add a tooltip to the album sort button", good, 30, 0, trending),
+                ),
+                fetchedAtMillis = now.toEpochMilli(),
+            ),
+            onBack = {}, onOpenIssue = {}, onSelectSource = {}, onRefresh = {}, onErrorShown = {},
+            nowMillis = now.toEpochMilli(),
+        )
     }
 
     @Test
