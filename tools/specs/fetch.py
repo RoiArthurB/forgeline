@@ -29,6 +29,8 @@ ATPROTO_REF = "main"
 ATPROTO_LEXICONS = [
     "com/atproto/identity/resolveHandle.json",
     "com/atproto/repo/createRecord.json",
+    "com/atproto/repo/getRecord.json",
+    "com/atproto/repo/uploadBlob.json",
     "com/atproto/repo/putRecord.json",
     "com/atproto/repo/deleteRecord.json",
     "com/atproto/repo/listRecords.json",
@@ -37,6 +39,7 @@ ATPROTO_LEXICONS = [
     "com/atproto/server/createSession.json",
     "com/atproto/server/refreshSession.json",
     "com/atproto/server/getSession.json",
+    "com/atproto/server/getServiceAuth.json",
     "com/atproto/label/defs.json",
 ]
 
