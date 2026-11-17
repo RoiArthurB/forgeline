@@ -66,6 +66,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.SearchScope
+import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeIcon
 import fr.arthurbrugiere.forgeline.core.ui.format.ForgeMark
@@ -113,6 +114,7 @@ fun SearchRoute(
         onSubmit = viewModel::submit,
         onSelectScope = viewModel::selectScope,
         onSelectForge = viewModel::selectForge,
+        onSelectSort = viewModel::selectSort,
         onLoadMore = viewModel::loadMore,
         onRetry = viewModel::retry,
         onOpenRepo = onOpenRepo,
@@ -139,6 +141,7 @@ fun SearchScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     onSelectForge: (ForgeInstance?) -> Unit = {},
+    onSelectSort: (SearchSort) -> Unit = {},
     nowMillis: Long = rememberNow(state.results),
     /** Opens what an address typed or pasted in the field names. */
     onOpenLink: (NavKey) -> Unit = {},
@@ -173,6 +176,15 @@ fun SearchScreen(
                     onBack = onBack,
                     backDescription = stringResource(R.string.navigate_up),
                     actions = {
+                        if (state.sorts.size > 1) {
+                            SoftChoicePill(
+                                name = stringResource(R.string.choice_sort),
+                                options = state.sorts.map { stringResource(it.label) },
+                                selected = state.sorts.indexOf(state.sort).coerceAtLeast(0),
+                                onSelect = { onSelectSort(state.sorts[it]) },
+                                modifier = Modifier.padding(end = 8.dp),
+                            )
+                        }
                         if (state.forges.size > 1) {
                             // All forges, or one: beside Back, where the row is otherwise empty.
                             SoftChoicePill(
@@ -216,6 +228,18 @@ fun SearchScreen(
             }
             if (state.yours.isNotEmpty() && link == null) yours(state, onOpenRepo)
             if (link == null) results.refused.forEach { forge -> item(key = "sign-in-${forge.host}") { SignInToSearch(forge, onSignIn) } }
+            if (link == null) {
+                results.unsorted.forEach { forge ->
+                    item(key = "unsorted-${forge.host}") {
+                        SoftNotice(
+                            stringResource(R.string.search_unsorted_title, forge.displayName),
+                            stringResource(R.string.search_unsorted_body, forge.displayName, stringResource(state.sort.label)),
+                            action = stringResource(R.string.search_sort_best_match),
+                            onAction = { onSelectSort(SearchSort.BEST_MATCH) },
+                        )
+                    }
+                }
+            }
             val items = state.forgeItems
             when {
                 // The address stands for itself: nothing more to explain under it.
@@ -241,8 +265,8 @@ fun SearchScreen(
                         onAction = onRetry,
                     )
                 }
-                // Every forge searched turned it away: the notice above says why nothing came.
-                items.isEmpty() && results.forges.isNotEmpty() && results.refused.containsAll(results.forges) -> Unit
+                // Every forge searched turned it away, or can't sort so: the notices above say why nothing came.
+                items.isEmpty() && results.forges.isNotEmpty() && (results.refused + results.unsorted).containsAll(results.forges) -> Unit
                 // Everything found was one's own, already shown.
                 items.isEmpty() && state.yours.isNotEmpty() -> Unit
                 items.isEmpty() -> item(key = "empty") {
@@ -372,6 +396,14 @@ private val SearchScope.label: Int
         SearchScope.REPOSITORIES -> R.string.search_scope_repositories
         SearchScope.ISSUES -> R.string.search_scope_issues
         SearchScope.USERS -> R.string.search_scope_users
+    }
+
+private val SearchSort.label: Int
+    get() = when (this) {
+        SearchSort.BEST_MATCH -> R.string.search_sort_best_match
+        SearchSort.STARS -> R.string.search_sort_stars
+        SearchSort.UPDATED -> R.string.search_sort_updated
+        SearchSort.NEWEST -> R.string.search_sort_newest
     }
 
 /** The one forge a search goes to (the chosen one, or the only one signed in), or null when it spans several. */

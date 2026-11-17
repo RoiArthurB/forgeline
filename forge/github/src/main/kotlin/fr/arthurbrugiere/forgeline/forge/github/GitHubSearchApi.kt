@@ -12,6 +12,8 @@ import fr.arthurbrugiere.forgeline.core.model.Label
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.SearchPage
+import fr.arthurbrugiere.forgeline.core.model.SearchScope
+import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
@@ -27,14 +29,27 @@ class GitHubSearchApi(
     private val apiBaseUrl: String = "https://api.github.com",
 ) : SearchApi {
 
-    override suspend fun repositories(token: String?, query: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
-        search(token, "repositories", query, page).toResult {
+    // Every order a scope offers: GitHub sorts by each, the most first.
+    override fun sorts(scope: SearchScope): Set<SearchSort> = scope.sorts.toSet()
+
+    override suspend fun repositories(token: String?, query: String, page: Int, sort: SearchSort): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
+        val by = when (sort) {
+            SearchSort.STARS -> "stars"
+            SearchSort.UPDATED -> "updated"
+            SearchSort.BEST_MATCH, SearchSort.NEWEST -> null
+        }
+        search(token, "repositories", query, page, sort = by).toResult {
             body<SearchJson<SearchRepoJson>>().toPage(nextPage()) { it.toModel() }
         }
     }
 
-    override suspend fun issues(token: String?, query: String, page: Int): ForgeResult<SearchPage<IssueSearchResult>> = forgeCall {
-        search(token, "issues", query, page).toResult {
+    override suspend fun issues(token: String?, query: String, page: Int, sort: SearchSort): ForgeResult<SearchPage<IssueSearchResult>> = forgeCall {
+        val by = when (sort) {
+            SearchSort.NEWEST -> "created"
+            SearchSort.UPDATED -> "updated"
+            SearchSort.BEST_MATCH, SearchSort.STARS -> null
+        }
+        search(token, "issues", query, page, sort = by).toResult {
             body<SearchJson<SearchIssueJson>>().toPage(nextPage()) { it.toModel() }
         }
     }
@@ -134,6 +149,7 @@ private data class SearchIssueJson(
     val user: SearchUserJson? = null,
     val comments: Int? = null,
     @SerialName("created_at") val createdAt: String,
+    @SerialName("updated_at") val updatedAt: String? = null,
     val labels: List<SearchLabelJson> = emptyList(),
     val draft: Boolean? = null,
     @SerialName("repository_url") val repositoryUrl: String,
@@ -158,6 +174,7 @@ private data class SearchIssueJson(
                 labels = labels.map { Label(it.name, it.color) },
                 isPullRequest = pullRequest != null,
                 isDraft = draft == true,
+                updatedAt = updatedAt?.let(Instant::parse),
             ),
         )
     }

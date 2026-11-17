@@ -923,6 +923,13 @@
     <string name="search_empty_title">Aucun résultat</string>
     <string name="search_empty_body">Rien ne correspond à « %1$s » ici. Essayez un autre onglet ou moins de mots.</string>
     <string name="search_error_title">La recherche a échoué</string>
+    <string name="choice_sort">Tri</string>
+    <string name="search_sort_best_match">Pertinence</string>
+    <string name="search_sort_stars">Plus d’étoiles</string>
+    <string name="search_sort_updated">Mis à jour récemment</string>
+    <string name="search_sort_newest">Plus récents</string>
+    <string name="search_unsorted_title">%1$s ne peut pas trier ainsi</string>
+    <string name="search_unsorted_body">%1$s n’a pas de tri « %2$s », ses résultats sont donc absents ici. Le tri par pertinence les affiche.</string>
     <string name="search_sign_in_title">Connectez-vous pour chercher sur %1$s</string>
     <string name="search_sign_in_body">%1$s ne répond qu’aux recherches des personnes connectées, ses résultats manquent donc ici.</string>
     <string name="search_organization">Organisation</string>

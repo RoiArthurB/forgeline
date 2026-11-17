@@ -6,6 +6,8 @@ import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SearchScope
+import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import io.ktor.client.request.HttpRequestData
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -54,6 +56,19 @@ class TangledSearchTest {
         assertThat(hit.issue.isPullRequest).isTrue()
         assertThat(hit.issue.state).isEqualTo(IssueState.MERGED)
         assertThat(hit.issue.comments).isEqualTo(1)
+    }
+
+    @Test
+    fun the_newest_tickets_are_asked_of_the_index_by_creation() = runTest {
+        val fake = fake(mapOf("org.tangled.search.query" to { fixture("search_tickets.json") }, "org.tangled.repo.getRepoByRepoDid" to { fixture("getRepoByRepoDid.json") }))
+        val api = search(fake)
+
+        api.issues(null, "editorconfig", 1, SearchSort.NEWEST).value()
+
+        assertThat(fake.asked.single { it.startsWith("org.tangled.search.query") }).contains("sort=created-desc")
+        // Stars and pushes aren't in the index: repositories come by relevance alone.
+        assertThat(api.sorts(SearchScope.REPOSITORIES)).containsExactly(SearchSort.BEST_MATCH)
+        assertThat(api.sorts(SearchScope.ISSUES)).containsExactly(SearchSort.BEST_MATCH, SearchSort.NEWEST)
     }
 
     @Test

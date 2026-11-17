@@ -4,6 +4,7 @@ import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.MockRequestHandleScope
@@ -250,5 +251,26 @@ class GitLabSearchApiTest {
         val result = api { json("{}", HttpStatusCode.InternalServerError) }.work("tok", "tanuki", WorkKind.ASSIGNED)
 
         assertThat(result).isInstanceOf(ForgeResult.Failure::class.java)
+    }
+
+    @Test
+    fun repositories_are_sorted_by_similarity_stars_or_last_activity() = runTest {
+        val api = api { json("[]") }
+
+        api.repositories(null, "tool").value()
+        api.repositories(null, "tool", sort = SearchSort.STARS).value()
+        api.repositories(null, "tool", sort = SearchSort.UPDATED).value()
+
+        assertThat(requests.map { it.url.parameters["order_by"] }).containsExactly("similarity", "star_count", "last_activity_at").inOrder()
+        assertThat(requests.map { it.url.parameters["sort"] }.distinct()).containsExactly("desc")
+    }
+
+    @Test
+    fun the_newest_issues_are_asked_by_creation_and_no_other_order_is_offered() = runTest {
+        api { json("[]") }.issues(null, "bug", sort = SearchSort.NEWEST).value()
+
+        assertThat(requests.map { it.url.parameters["order_by"] }).containsExactly("created_at", "created_at")
+        assertThat(GitLabSearchApi(gitlabHttpClient(MockEngine { json("[]") })).sorts(fr.arthurbrugiere.forgeline.core.model.SearchScope.ISSUES))
+            .containsExactly(SearchSort.BEST_MATCH, SearchSort.NEWEST)
     }
 }

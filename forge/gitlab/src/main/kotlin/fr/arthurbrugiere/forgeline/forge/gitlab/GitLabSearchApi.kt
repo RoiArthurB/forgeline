@@ -8,6 +8,8 @@ import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.SearchPage
+import fr.arthurbrugiere.forgeline.core.model.SearchScope
+import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
@@ -26,10 +28,23 @@ class GitLabSearchApi(
     private val forge: ForgeInstance = ForgeInstance.GitLab,
 ) : SearchApi {
 
-    override suspend fun repositories(token: String?, query: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
+    // Its search API orders issues and merge requests by when they were opened only, never by their last change.
+    override fun sorts(scope: SearchScope): Set<SearchSort> = when (scope) {
+        SearchScope.REPOSITORIES -> setOf(SearchSort.BEST_MATCH, SearchSort.STARS, SearchSort.UPDATED)
+        SearchScope.ISSUES -> setOf(SearchSort.BEST_MATCH, SearchSort.NEWEST)
+        SearchScope.USERS -> setOf(SearchSort.BEST_MATCH)
+    }
+
+    // Unsorted, GitLab lists projects the newest first: the best match is what it calls similarity.
+    override suspend fun repositories(token: String?, query: String, page: Int, sort: SearchSort): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
+        val order = when (sort) {
+            SearchSort.STARS -> "star_count"
+            SearchSort.UPDATED -> "last_activity_at"
+            SearchSort.BEST_MATCH, SearchSort.NEWEST -> "similarity"
+        }
         val response = httpClient.gitlabApi(
             forge, token, "projects",
-            query = mapOf("search" to query, "page" to page.toString(), "per_page" to "$PAGE_SIZE"),
+            query = mapOf("search" to query, "order_by" to order, "sort" to "desc", "page" to page.toString(), "per_page" to "$PAGE_SIZE"),
         )
         response.toResult {
             val items = body<List<GitLabProjectJson>>().map { it.toSummary(forge) }
@@ -96,18 +111,19 @@ class GitLabSearchApi(
 
     // Through the search endpoint: listing every merge request of gitlab.com that matches (`/merge_requests?scope=all`)
     // times out there (408 after 15 s, measured 2026-10-04), where the search answers in a second or two.
-    override suspend fun issues(token: String?, query: String, page: Int): ForgeResult<SearchPage<IssueSearchResult>> = forgeCall {
+    override suspend fun issues(token: String?, query: String, page: Int, sort: SearchSort): ForgeResult<SearchPage<IssueSearchResult>> = forgeCall {
+        val order = if (sort == SearchSort.NEWEST) mapOf("order_by" to "created_at", "sort" to "desc") else emptyMap()
         coroutineScope {
             val issuesDeferred = async {
                 httpClient.gitlabApi(
                     forge, token, "search",
-                    query = mapOf("scope" to "issues", "search" to query, "page" to page.toString(), "per_page" to "$HALF_PAGE_SIZE"),
+                    query = mapOf("scope" to "issues", "search" to query, "page" to page.toString(), "per_page" to "$HALF_PAGE_SIZE") + order,
                 )
             }
             val mrsDeferred = async {
                 httpClient.gitlabApi(
                     forge, token, "search",
-                    query = mapOf("scope" to "merge_requests", "search" to query, "page" to page.toString(), "per_page" to "$HALF_PAGE_SIZE"),
+                    query = mapOf("scope" to "merge_requests", "search" to query, "page" to page.toString(), "per_page" to "$HALF_PAGE_SIZE") + order,
                 )
             }
 

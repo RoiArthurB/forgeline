@@ -33,6 +33,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import fr.arthurbrugiere.forgeline.core.model.SearchPage
+import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import fr.arthurbrugiere.forgeline.core.model.SubjectState
 import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TimelinePage
@@ -107,9 +108,9 @@ open class UnsupportedNotificationsApi : NotificationsApi {
 }
 
 open class UnsupportedSearchApi : SearchApi {
-    override suspend fun repositories(token: String?, query: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = unsupported()
+    override suspend fun repositories(token: String?, query: String, page: Int, sort: SearchSort): ForgeResult<SearchPage<RepoSummary>> = unsupported()
 
-    override suspend fun issues(token: String?, query: String, page: Int): ForgeResult<SearchPage<IssueSearchResult>> = unsupported()
+    override suspend fun issues(token: String?, query: String, page: Int, sort: SearchSort): ForgeResult<SearchPage<IssueSearchResult>> = unsupported()
 
     override suspend fun users(token: String?, query: String, page: Int): ForgeResult<SearchPage<UserSummary>> = unsupported()
 

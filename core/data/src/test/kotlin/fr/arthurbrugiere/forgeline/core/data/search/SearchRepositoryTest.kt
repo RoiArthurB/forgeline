@@ -5,6 +5,8 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.SearchScope
+import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
 import fr.arthurbrugiere.forgeline.core.testing.FakeSearchApi
@@ -201,5 +203,51 @@ class SearchRepositoryTest {
         signInToCodeberg()
 
         assertThat(repository.signedIn.first()).containsExactly(ForgeInstance.Codeberg)
+    }
+
+    @Test
+    fun sorted_by_stars_merges_the_forges_in_that_order_across_pages() = runTest {
+        clients.put(ForgeInstance.GitLab, FakeForgeClients(search = FakeSearchApi()))
+        val gh = listOf(repoSummary("a/gh100", stars = 100), repoSummary("a/gh50", stars = 50), repoSummary("a/gh5", stars = 5))
+        val cb = listOf(repoSummary("b/cb80", stars = 80, forge = ForgeInstance.Codeberg), repoSummary("b/cb10", stars = 10, forge = ForgeInstance.Codeberg))
+        api.repositories = gh
+        codebergApi.repositories = cb
+
+        val first = (repository.repositories("tool", sort = SearchSort.STARS) as ForgeResult.Success).value
+
+        assertThat(api.calls).containsExactly("repos:tool@1~STARS")
+        // GitHub's next page may hold anything under 50 stars: Codeberg's 10 waits for it.
+        assertThat(first.items.map { it.stars }).containsExactly(100, 80, 50).inOrder()
+        assertThat(first.next).isNotNull()
+
+        val second = (repository.repositories("tool", first.next, sort = SearchSort.STARS) as ForgeResult.Success).value
+
+        assertThat(second.items.map { it.stars }).containsExactly(10, 5).inOrder()
+        assertThat(second.next).isNull()
+        // Codeberg had sent everything: it isn't asked again.
+        assertThat(codebergApi.calls).containsExactly("repos:tool@1~STARS")
+    }
+
+    @Test
+    fun a_forge_that_cant_sort_so_is_left_out_and_named() = runTest {
+        clients.put(ForgeInstance.GitLab, FakeForgeClients(search = FakeSearchApi()))
+        codebergApi.sorts = { setOf(SearchSort.BEST_MATCH) }
+        api.issues = emptyList()
+
+        val page = (repository.issues("bug", sort = SearchSort.UPDATED) as ForgeResult.Success).value
+
+        assertThat(codebergApi.calls).isEmpty()
+        assertThat(page.unsorted).containsExactly(ForgeInstance.Codeberg)
+        assertThat(api.calls).containsExactly("issues:bug@1~UPDATED")
+    }
+
+    @Test
+    fun the_orders_offered_are_those_one_forge_searched_can_give() {
+        codebergApi.sorts = { setOf(SearchSort.BEST_MATCH) }
+
+        assertThat(repository.sorts(SearchScope.REPOSITORIES, listOf(ForgeInstance.Codeberg))).containsExactly(SearchSort.BEST_MATCH)
+        assertThat(repository.sorts(SearchScope.REPOSITORIES, listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)))
+            .containsExactly(SearchSort.BEST_MATCH, SearchSort.STARS, SearchSort.UPDATED).inOrder()
+        assertThat(repository.sorts(SearchScope.USERS, listOf(ForgeInstance.GitHub))).containsExactly(SearchSort.BEST_MATCH)
     }
 }

@@ -106,6 +106,7 @@ internal fun Issue.toSummary() = IssueSummary(
     labels = labels.orEmpty().map { it.toModel() },
     isPullRequest = isPullRequest,
     isDraft = pullRequest?.draft == true,
+    updatedAt = instant(updatedAt),
 )
 
 /** A pull request as the pull request list shows it, with whether it is merged or a draft at the top level. */

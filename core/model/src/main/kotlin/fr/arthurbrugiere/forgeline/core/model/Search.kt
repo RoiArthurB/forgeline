@@ -1,6 +1,25 @@
 package fr.arthurbrugiere.forgeline.core.model
 
-enum class SearchScope { REPOSITORIES, ISSUES, USERS }
+enum class SearchScope {
+    REPOSITORIES,
+    ISSUES,
+    USERS,
+    ;
+
+    /** The orders a search of this scope can ask for, the forge's own first. People have none: forges agree on no other. */
+    val sorts: List<SearchSort>
+        get() = when (this) {
+            REPOSITORIES -> listOf(SearchSort.BEST_MATCH, SearchSort.STARS, SearchSort.UPDATED)
+            ISSUES -> listOf(SearchSort.BEST_MATCH, SearchSort.NEWEST, SearchSort.UPDATED)
+            USERS -> listOf(SearchSort.BEST_MATCH)
+        }
+}
+
+/**
+ * The order a search's results come in, each forge sorting its own: [BEST_MATCH] as the forge ranks them, [STARS] the
+ * most starred first, [UPDATED] the most recently updated first, [NEWEST] the most recently opened first.
+ */
+enum class SearchSort { BEST_MATCH, STARS, UPDATED, NEWEST }
 
 /** What an open conversation is to the person signed in: theirs to review, theirs as its author, or theirs to do. */
 enum class WorkKind { REVIEW_REQUESTED, OWN_PULL_REQUESTS, ASSIGNED }

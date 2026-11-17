@@ -9,6 +9,8 @@ import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.SearchPage
+import fr.arthurbrugiere.forgeline.core.model.SearchScope
+import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.forge.common.UnsupportedFeedApi
 import fr.arthurbrugiere.forgeline.forge.common.UnsupportedSearchApi
@@ -22,6 +24,7 @@ import org.tangled.feed.GetTimelineTimelineItemEventUnion
 import org.tangled.repo.RepoViewBasic
 import org.tangled.search.QueryHit
 import org.tangled.search.QueryQueryParams
+import org.tangled.search.QuerySort
 import sh.christian.ozone.api.Nsid
 import java.util.concurrent.ConcurrentHashMap
 
@@ -36,7 +39,11 @@ class TangledSearchApi internal constructor(
     private val conversations: TangledConversations,
 ) : UnsupportedSearchApi() {
 
-    override suspend fun repositories(token: String?, query: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
+    // The index orders by relevance or by when a record was made; repositories' stars and pushes aren't in it.
+    override fun sorts(scope: SearchScope): Set<SearchSort> =
+        if (scope == SearchScope.ISSUES) setOf(SearchSort.BEST_MATCH, SearchSort.NEWEST) else setOf(SearchSort.BEST_MATCH)
+
+    override suspend fun repositories(token: String?, query: String, page: Int, sort: SearchSort): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
         search(query, MANIFEST, page) { hits ->
             coroutineScope {
                 hits.map { hit ->
@@ -60,8 +67,8 @@ class TangledSearchApi internal constructor(
         }
     }
 
-    override suspend fun issues(token: String?, query: String, page: Int): ForgeResult<SearchPage<IssueSearchResult>> = forgeCall {
-        search(query, TICKET, page) { hits ->
+    override suspend fun issues(token: String?, query: String, page: Int, sort: SearchSort): ForgeResult<SearchPage<IssueSearchResult>> = forgeCall {
+        search(query, TICKET, page, if (sort == SearchSort.NEWEST) QuerySort.CreatedDesc else null) { hits ->
             coroutineScope {
                 hits.groupBy { it.uri.atUri.authority }.map { (repoDid, tickets) ->
                     async {
@@ -95,12 +102,12 @@ class TangledSearchApi internal constructor(
     }
 
     /** One [page] of the records of [collection] holding [query]'s words, as [read] makes them. */
-    private suspend fun <T> search(query: String, collection: String, page: Int, read: suspend (List<QueryHit>) -> List<T>): ForgeResult<SearchPage<T>> {
+    private suspend fun <T> search(query: String, collection: String, page: Int, sort: QuerySort? = null, read: suspend (List<QueryHit>) -> List<T>): ForgeResult<SearchPage<T>> {
         val words = query.trim()
         if (words.isEmpty()) return ForgeResult.Success(SearchPage(emptyList(), 0, null))
         val answer = when (
             val result = xrpc.index.query(
-                QueryQueryParams(q = words, nsid = Nsid(collection), offset = ((page - 1) * PAGE).toLong(), limit = PAGE.toLong()),
+                QueryQueryParams(q = words, nsid = Nsid(collection), sort = sort, offset = ((page - 1) * PAGE).toLong(), limit = PAGE.toLong()),
             ).toResult { it }
         ) {
             is ForgeResult.Failure -> return result
