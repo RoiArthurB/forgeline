@@ -1,17 +1,19 @@
 Forgeline amène vos forges logicielles sur votre téléphone sous la forme d’un fil : une boîte de réception pour ce qui vous attend, un fil de ce que font les personnes que vous suivez, et une page de tendances pour la découverte du jour. L’application s’ouvre en une seconde environ et affiche tout nativement : vous n’êtes jamais renvoyé vers une page web mobile.
 
 <b>Plusieurs forges à la fois</b>
-GitHub, GitLab (gitlab.com ou votre propre serveur), Codeberg et tout serveur Forgejo auto-hébergé partagent une même boîte de réception, un même fil, une même page de tendances et une même recherche. Plusieurs comptes peuvent être connectés ensemble, dépôts privés compris.
+GitHub, GitLab (gitlab.com ou votre propre serveur), Codeberg, Gitea (gitea.com ou votre propre serveur) et tout serveur Forgejo auto-hébergé partagent une même boîte de réception, un même fil, une même page de tendances et une même recherche. Tangled et SourceHut s’y joignent autant qu’ils le permettent : les dépôts, les personnes et les tendances de Tangled, avec étoiles et abonnements ; les dépôts de SourceHut et les tickets de todo.sr.ht. Plusieurs comptes peuvent être connectés ensemble, dépôts privés compris, et ce qu’une forge ne sait pas faire est caché plutôt que simulé.
 
 <b>Ce qu’elle fait</b>
 • Réception : d’abord ce qui vous attend (relectures demandées, mentions, assignations), puis tout le reste par dépôt. Balayez pour marquer comme lu ou terminé. Des vérifications en arrière-plan envoient des notifications, et un widget d’écran d’accueil liste ce qui n’est pas lu.
 • Votre travail : les relectures qu’on vous demande, vos pull requests ouvertes et ce qui vous est assigné, tous comptes confondus.
 • Fil : ce que font les personnes que vous suivez et les dépôts que vous surveillez, dans l’ordre, regroupé par jour.
-• Tendances : aujourd’hui, cette semaine ou ce mois-ci, sans se connecter.
+• Tendances : aujourd’hui, cette semaine ou ce mois-ci sur GitHub, Codeberg, gitlab.com et Tangled, mélangées ou forge par forge, sans se connecter.
 • Découvrir : des pages de sujets sur toutes les forges, des premiers tickets où contribuer, des collections de dépôts (vos listes GitHub s’importent), et une année d’activité sur les profils.
-• Dépôts : README, navigateur de code avec coloration syntaxique, tickets, pull requests, versions, wiki, discussions et exécutions de CI avec leurs journaux. Étoilez, surveillez et forkez.
-• Conversations : lisez, commentez, modifiez, réagissez, joignez des images, fermez et rouvrez, triez avec les labels, les personnes assignées et les jalons. Relisez les pull requests ligne par ligne, validez les suggestions et fusionnez.
-• Recherchez sur toutes vos forges, partagez ou copiez le lien de n’importe quoi, et ouvrez les liens des forges dans l’application.
+• Dépôts : README, navigateur de code coloré comme dans VS Code, tickets, pull requests, versions, wiki et exécutions de CI avec leurs journaux. Étoilez, surveillez et forkez.
+• Conversations : lisez, commentez, modifiez, réagissez, joignez des images, fermez et rouvrez, triez avec les labels, les personnes assignées, les jalons et les projets GitHub. Chaque événement de l’histoire d’une conversation se lit comme une phrase. Relisez les pull requests ligne par ligne, validez les suggestions et fusionnez.
+• Discussions GitHub : lancez-en une, commentez et répondez, votez, réagissez, choisissez la réponse et suivez-la.
+• Recherchez sur toutes vos forges, même sans être connecté, partagez ou copiez le lien de n’importe quoi, et ouvrez les liens des forges dans l’application.
+• Thèmes clair, sombre et noir pur, et une page Accessibilité : taille du texte, police du téléphone, liens espacés.
 
 <b>Principes</b>
 • Rapide : chaque écran s’affiche d’abord depuis le téléphone, puis s’actualise.

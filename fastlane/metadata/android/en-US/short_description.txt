@@ -1,1 +1,1 @@
-A fast, native client for GitHub, GitLab, Codeberg and Forgejo
+A fast, native client for GitHub, GitLab, Codeberg, Gitea, Tangled and SourceHut

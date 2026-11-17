@@ -1,17 +1,19 @@
 Forgeline brings your code forges to your phone as a timeline: an Inbox for what needs you, a Feed of what the people you follow are doing, and a Trending page for the daily discovery ritual. It opens in about a second and renders everything natively, so you are never bounced to a mobile web page.
 
 <b>Several forges at once</b>
-GitHub, GitLab (gitlab.com or your own server), Codeberg and any self-hosted Forgejo server share one Inbox, one Feed, one Trending page and one search. Several accounts can be signed in together, private repositories included.
+GitHub, GitLab (gitlab.com or your own server), Codeberg, Gitea (gitea.com or your own server) and any self-hosted Forgejo server share one Inbox, one Feed, one Trending page and one search. Tangled and SourceHut join in as far as they go: Tangled's repositories, people and Trending, with stars and follows; SourceHut's repositories and todo.sr.ht tickets. Several accounts can be signed in together, private repositories included, and what a forge can't do is hidden rather than faked.
 
 <b>What it does</b>
 • Inbox: what needs you first (review requests, mentions, assignments), then everything else by repository. Swipe to mark read or done. Background checks post notifications, and a home screen widget lists what is unread.
 • Your work: the reviews asked of you, your open pull requests and what is assigned to you, across every account.
 • Feed: what the people you follow and the repositories you watch are doing, in order, grouped by day.
-• Trending: today, this week or this month, without signing in.
+• Trending: today, this week or this month on GitHub, Codeberg, gitlab.com and Tangled, mixed or one forge at a time, without signing in.
 • Discover: topic pages across forges, first issues to contribute to, collections of repositories (your GitHub lists can be imported), and a year of activity on profiles.
-• Repositories: README, code browser with syntax highlighting, issues, pull requests, releases, wiki, discussions and CI runs with their logs. Star, watch and fork.
-• Conversations: read, comment, edit, react, attach pictures, close and reopen, triage with labels, assignees and milestones. Review pull requests line by line, commit suggestions and merge.
-• Search across your forges, share or copy the link of anything, and open forge links in the app.
+• Repositories: README, a code browser colored as VS Code colors it, issues, pull requests, releases, wiki and CI runs with their logs. Star, watch and fork.
+• Conversations: read, comment, edit, react, attach pictures, close and reopen, triage with labels, assignees, milestones and GitHub project boards. Every event in a conversation's story reads as a sentence. Review pull requests line by line, commit suggestions and merge.
+• GitHub discussions: start one, comment and reply, vote, react, pick the answer and follow it.
+• Search across your forges, even signed out, share or copy the link of anything, and open forge links in the app.
+• Light, dark and true black themes, and an Accessibility page: text size, the phone's own font, roomier links.
 
 <b>Principles</b>
 • Fast: every screen renders from the phone first, then refreshes.
