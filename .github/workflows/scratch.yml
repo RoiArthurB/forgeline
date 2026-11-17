@@ -1,0 +1,11 @@
+name: Scratch dump
+on:
+  push:
+    branches: [claude/project-thread-1mwu6v]
+    paths: [".github/scratch/**"]
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: xargs -d '\n' python3 .github/scratch/dump.py < .github/scratch/list.txt
