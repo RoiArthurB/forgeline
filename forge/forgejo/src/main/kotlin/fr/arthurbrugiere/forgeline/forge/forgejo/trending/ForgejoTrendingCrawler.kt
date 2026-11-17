@@ -5,6 +5,7 @@ import fr.arthurbrugiere.forgeline.forge.forgejo.api.Repository
 import fr.arthurbrugiere.forgeline.forge.forgejo.api.SearchResults
 import fr.arthurbrugiere.forgeline.forge.forgejo.count
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.timeout
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
@@ -23,7 +24,8 @@ import java.time.OffsetDateTime
  * server runs out, or repositories fall under [MIN_PERIOD_STARS] (they can't trend), so a small server costs a few
  * requests. A page is tried up to [attempts] times, waiting twice as long each time (from [retryDelayMillis]), or as
  * long as the server's `Retry-After` asks when it says it is rate limiting (HTTP 429, capped at [MAX_RETRY_AFTER_MILLIS]).
- * A crawl that can't read the ranking throws rather than record a partial one.
+ * A page the server takes too long to answer (no byte for [patienceMillis]) is tried again the same way. A crawl that
+ * can't read the ranking throws rather than record a partial one.
  */
 class ForgejoTrendingCrawler(
     private val http: HttpClient,
@@ -34,6 +36,8 @@ class ForgejoTrendingCrawler(
     private val clock: Clock = Clock.systemUTC(),
     private val retryDelayMillis: Long = 10_000,
     private val attempts: Int = ATTEMPTS,
+    /** How long a page may go without a byte from the server; null keeps the client's limit. */
+    private val patienceMillis: Long? = null,
 ) {
     suspend fun crawl(): Crawl {
         val at = clock.instant()
@@ -64,7 +68,10 @@ class ForgejoTrendingCrawler(
             if (attempt > 0) delay(wait)
             wait = retryDelayMillis shl attempt
             try {
-                val response = http.get(url) { token?.let { header(HttpHeaders.Authorization, "token $it") } }
+                val response = http.get(url) {
+                    token?.let { header(HttpHeaders.Authorization, "token $it") }
+                    patienceMillis?.let { timeout { socketTimeoutMillis = it } }
+                }
                 if (response.status.isSuccess()) return json.decodeFromString<SearchResults>(response.bodyAsText()).`data`.orEmpty()
                 failure = "HTTP ${response.status.value}"
                 if (response.status == HttpStatusCode.TooManyRequests) {

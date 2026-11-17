@@ -67,11 +67,23 @@ jobs:
           GITLAB_TOKEN: ${{ secrets.GITLAB_LIVE_TOKEN }}
           GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
         run: |
+          # GitHub Pages sometimes answers 5xx for a few seconds (a 503 on 2026-11-17 failed the whole run), so a
+          # file is asked for up to 6 times, 10 s apart and doubling: about 5 minutes before giving up. Prints the
+          # last HTTP status; only a 200 or a 404 is a real answer.
+          fetch() {
+            wait=10
+            for attempt in 1 2 3 4 5 6; do
+              status=$(curl -sSL -o "$2" -w '%{http_code}' "$1" || true)
+              case "$status" in 200|404) break ;; esac
+              [ "$attempt" -lt 6 ] && { echo "HTTP $status for $1: trying again in ${wait}s." >&2; sleep "$wait"; wait=$((wait * 2)); }
+            done
+            echo "$status"
+          }
           measured=0
           for forge in codeberg gitlab gitea; do
             echo "::group::$forge"
             base="${{ steps.pages.outputs.base_url }}/$forge"
-            status=$(curl -sSL --retry 3 -o "previous-$forge.json" -w '%{http_code}' "$base/state.json")
+            status=$(fetch "$base/state.json" "previous-$forge.json")
             case "$status" in
               200) echo "History found." ;;
               404) echo "No history yet: starting afresh."; rm -f "previous-$forge.json" ;;
@@ -81,7 +93,7 @@ jobs:
               if [ -f "previous-$forge.json" ]; then
                 mkdir -p "site/$forge"
                 cp "previous-$forge.json" "site/$forge/state.json"
-                curl -sSfL --retry 3 -o "site/$forge/trending.json" "$base/trending.json"
+                [ "$(fetch "$base/trending.json" "site/$forge/trending.json")" = 200 ] || { echo "Couldn't read $forge's trending.json."; exit 1; }
               fi
               measured=$((measured + 1))
             elif ./gradlew :tools:trending:run --args="$forge $GITHUB_WORKSPACE/previous-$forge.json $GITHUB_WORKSPACE/site/$forge"; then
@@ -90,7 +102,7 @@ jobs:
               echo "::warning::Couldn't measure $forge today: publishing yesterday's files again."
               mkdir -p "site/$forge"
               cp "previous-$forge.json" "site/$forge/state.json"
-              curl -sSfL --retry 3 -o "site/$forge/trending.json" "$base/trending.json"
+              [ "$(fetch "$base/trending.json" "site/$forge/trending.json")" = 200 ] || { echo "Couldn't read $forge's trending.json."; exit 1; }
             else
               echo "::warning::Couldn't measure $forge, which has no history yet."
               rm -rf "site/$forge"
