@@ -7,7 +7,9 @@ def get(url):
         with urllib.request.urlopen(r, timeout=60) as resp: return resp.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e: return f"HTTP {e.code}: {e.read()[:2000]!r}"
 def x(method, **params): return get(f"{IDX}/{method}?" + urllib.parse.urlencode(params, doseq=True))
-def tree(path): return json.loads(x("org.tangled.temp.git.getTree", repo=CORE, ref="master", path=path)).get("files") or []
+def tree(path):
+    d = json.loads(x("org.tangled.temp.git.getTree", repo=CORE, ref="master", path=path))
+    return d.get("entries") or d.get("files") or []
 def blob(path): return x("org.tangled.temp.git.getBlob", repo=CORE, ref="master", path=path)
 def show(title, text): print(f"\n##### {title}\n{text}\n##### END {title}", flush=True)
 def walk(path, depth):
