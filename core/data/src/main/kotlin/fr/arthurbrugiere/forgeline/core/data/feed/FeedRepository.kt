@@ -179,7 +179,7 @@ class DefaultFeedRepository @Inject constructor(
             }
             starred?.let {
                 val key = STARRED + account.id
-                events[key] = it
+                replaced[key] = it
                 syncs += FeedSyncEntity(key, lastModified = null, pollIntervalSeconds = null, syncedAtMillis = starredAtMillis, nextPage = null)
             }
         }
