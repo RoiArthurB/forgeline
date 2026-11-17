@@ -220,7 +220,6 @@
     <string name="trending_updated">Mis à jour %1$s</string>
     <string name="trending_built_by_names">Réalisé par %1$s</string>
     <string name="trending_rank">Rang %1$d</string>
-    <string name="trending_resume">Reprendre là où vous en étiez</string>
     <string name="reading_left_off">Là où vous en étiez</string>
     <string name="inbox_loading">Chargement de vos notifications</string>
     <string name="feed_loading">Chargement de votre fil</string>
@@ -1005,7 +1004,7 @@
     <string name="settings_open_failed_step_summary">Une tâche échouée s’ouvre sur l’étape où elle a échoué, dépliée</string>
     <string name="settings_open_at_unread_summary">Une conversation non lue s’ouvre là où vous vous étiez arrêté, pas à son titre</string>
     <string name="settings_reading_marks">Marquer là où vous en étiez</string>
-    <string name="settings_reading_marks_summary">Les tendances et le fil montrent où votre dernière visite s’est arrêtée</string>
+    <string name="settings_reading_marks_summary">Le fil montre où votre dernière visite s’est arrêtée</string>
     <string name="settings_trending_period">Ouvrir les tendances sur</string>
     <string name="settings_section_about">À propos</string>
     <string name="settings_section_accessibility">Accessibilité</string>

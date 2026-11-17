@@ -11,7 +11,6 @@ import fr.arthurbrugiere.forgeline.core.forge.TrendingMeasurement
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
-import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
 import fr.arthurbrugiere.forgeline.core.testing.FakeForgeClients
@@ -50,7 +49,7 @@ class DefaultTrendingRepositoryTest {
     private val accounts = FakeAccountRepository()
     private val settings = FakeUserSettingsRepository()
     private val computation = RecordingDispatcher()
-    private val repository = DefaultTrendingRepository(database.trendingDao(), state.trendingMeasurementDao(), clients, accounts, state.readingMarkDao(), clock, settings, computation)
+    private val repository = DefaultTrendingRepository(database.trendingDao(), state.trendingMeasurementDao(), clients, accounts, clock, settings, computation)
     private val codebergApi = FakeTrendingApi(ForgeInstance.Codeberg).also { clients.put(ForgeInstance.Codeberg, FakeForgeClients(trending = it)) }
 
     private val paperclip = trendingRepo("paperclipai/paperclip").copy(
@@ -159,26 +158,6 @@ class DefaultTrendingRepositoryTest {
 
         assertThat(result).isInstanceOf(RefreshResult.Failed::class.java)
         assertThat(repository.observe(TrendingPeriod.DAILY).first().repos).containsExactly(paperclip)
-    }
-
-    @Test
-    fun the_read_mark_names_a_repo_only_moves_down_survives_a_refresh_and_expires_after_a_day() = runTest {
-        val seventh = RepoId("acme", "seventh")
-        val fourth = RepoId("acme", "fourth")
-        assertThat(repository.readThrough(TrendingPeriod.DAILY)).isNull()
-
-        repository.markReadThrough(TrendingPeriod.DAILY, seventh, 6)
-        repository.markReadThrough(TrendingPeriod.DAILY, fourth, 3)
-        api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
-        repository.refresh(TrendingPeriod.DAILY, force = true)
-        // A repo, not a rank: the refreshed list may have moved it anywhere.
-        assertThat(repository.readThrough(TrendingPeriod.DAILY)).isEqualTo(seventh)
-        assertThat(repository.readThrough(TrendingPeriod.WEEKLY)).isNull()
-
-        now = now.plusSeconds(21 * 3600)
-        assertThat(repository.readThrough(TrendingPeriod.DAILY)).isNull()
-        repository.markReadThrough(TrendingPeriod.DAILY, fourth, 1)
-        assertThat(repository.readThrough(TrendingPeriod.DAILY)).isEqualTo(fourth)
     }
 
     private suspend fun signInToCodeberg() = accounts.signIn(ForgeInstance.Codeberg, ForgeUser("me", null, null), "token")
@@ -334,16 +313,6 @@ class DefaultTrendingRepositoryTest {
 
         assertThat(codebergApi.calls).isNotEmpty()
         assertThat(repository.observe(TrendingPeriod.DAILY).first().repos).contains(zig)
-    }
-
-    @Test
-    fun a_page_narrowed_to_one_forge_keeps_its_own_reading_mark() = runTest {
-        val zig = RepoId("ziglang", "zig", ForgeInstance.Codeberg)
-        repository.markReadThrough(TrendingPeriod.DAILY, zig, 0, only = ForgeInstance.Codeberg)
-        repository.markReadThrough(TrendingPeriod.DAILY, RepoId("acme", "tenth"), 9)
-
-        assertThat(repository.readThrough(TrendingPeriod.DAILY, only = ForgeInstance.Codeberg)).isEqualTo(zig)
-        assertThat(repository.readThrough(TrendingPeriod.DAILY)).isEqualTo(RepoId("acme", "tenth"))
     }
 
     private val selfHosted = ForgeInstance(ForgeType.FORGEJO, "git.example.org")

@@ -4,7 +4,6 @@ import fr.arthurbrugiere.forgeline.core.data.trending.RefreshResult
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingRepository
 import fr.arthurbrugiere.forgeline.core.data.trending.TrendingSnapshot
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
-import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,8 +20,6 @@ class FakeTrendingRepository : TrendingRepository {
         return nextResult
     }
 
-    val marks = mutableMapOf<TrendingPeriod, Pair<RepoId, Int>>()
-
     val measured = mutableListOf<ForgeInstance>()
     var measureResult: RefreshResult = RefreshResult.Refreshed
     val measuredAt = kotlinx.coroutines.flow.MutableStateFlow<Map<String, Long>>(emptyMap())
@@ -38,18 +35,4 @@ class FakeTrendingRepository : TrendingRepository {
     var measurable: (ForgeInstance) -> Boolean = { it.type != fr.arthurbrugiere.forgeline.core.model.ForgeType.GITHUB }
 
     override fun canMeasure(forge: ForgeInstance): Boolean = measurable(forge)
-
-    /** Marks of pages narrowed to one forge, by period and host. */
-    val forgeMarks = mutableMapOf<Pair<TrendingPeriod, String>, Pair<RepoId, Int>>()
-
-    override suspend fun readThrough(period: TrendingPeriod, only: ForgeInstance?): RepoId? =
-        if (only == null) marks[period]?.first else forgeMarks[period to only.host]?.first
-
-    override suspend fun markReadThrough(period: TrendingPeriod, repo: RepoId, rank: Int, only: ForgeInstance?) {
-        if (only == null) {
-            if (rank > (marks[period]?.second ?: -1)) marks[period] = repo to rank
-        } else if (rank > (forgeMarks[period to only.host]?.second ?: -1)) {
-            forgeMarks[period to only.host] = repo to rank
-        }
-    }
 }

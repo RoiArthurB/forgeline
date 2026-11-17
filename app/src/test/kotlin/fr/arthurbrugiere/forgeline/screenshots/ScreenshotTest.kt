@@ -450,9 +450,7 @@ class ScreenshotTest {
     fun trending_dark() = snapshot("trending_dark", darkTheme = true) { TrendingPreview() }
 
     @Test
-    fun trending_resume_dark_amoled() = snapshot("trending_resume_dark_amoled", darkTheme = true, amoledBlack = true) {
-        TrendingPreview(mixedTrendingState.copy(resumeAt = 1))
-    }
+    fun trending_dark_amoled() = snapshot("trending_dark_amoled", darkTheme = true, amoledBlack = true) { TrendingPreview(mixedTrendingState) }
 
     private fun pressHindsight() {
         composeRule.mainClock.autoAdvance = false
@@ -465,9 +463,6 @@ class ScreenshotTest {
 
     @Test
     fun trending_row_pressed_dark() = snapshot("trending_row_pressed_dark", darkTheme = true, beforeCapture = ::pressHindsight) { TrendingPreview() }
-
-    @Test
-    fun trending_resume_light() = snapshot("trending_resume_light", darkTheme = false) { TrendingPreview(mixedTrendingState.copy(resumeAt = 1)) }
 
     @Test
     fun trending_mixed_forges_light() = snapshot("trending_mixed_forges_light", darkTheme = false) {

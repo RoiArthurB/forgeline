@@ -3,14 +3,11 @@ package fr.arthurbrugiere.forgeline.core.data.trending
 import fr.arthurbrugiere.forgeline.core.data.account.AccountRepository
 import fr.arthurbrugiere.forgeline.core.data.account.tokenOn
 import fr.arthurbrugiere.forgeline.core.data.di.Computation
-import fr.arthurbrugiere.forgeline.core.data.reading.ReadingMarkDao
-import fr.arthurbrugiere.forgeline.core.data.reading.advance
 import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
-import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import fr.arthurbrugiere.forgeline.core.model.TrendingRepo
 import kotlinx.coroutines.CoroutineDispatcher
@@ -58,12 +55,6 @@ interface TrendingRepository {
     suspend fun refresh(period: TrendingPeriod, force: Boolean = false): RefreshResult
 
     /**
-     * The repository read furthest down [period] during the current browse, or null once it has gone stale. A repo,
-     * not a rank: the list reorders as it refreshes, and the reader stopped at a repo, not at a number.
-     */
-    suspend fun readThrough(period: TrendingPeriod, only: ForgeInstance? = null): RepoId?
-
-    /**
      * Measures [forge]'s Trending on the phone (a forge the settings measure): one day more of history, and the lists
      * it gives. No network for the page itself: it reads what the last measurement left.
      */
@@ -74,12 +65,6 @@ interface TrendingRepository {
 
     /** Whether [forge]'s Trending can be measured on the phone: not GitHub's, nor a forge without a way to. */
     fun canMeasure(forge: ForgeInstance): Boolean
-
-    /**
-     * Records that [repo], at [rank] (0-based) in the list as shown, was read; only ever moves the mark further down.
-     * A page narrowed to [only] one forge keeps its own mark: its ranks aren't the mixed page's.
-     */
-    suspend fun markReadThrough(period: TrendingPeriod, repo: RepoId, rank: Int, only: ForgeInstance? = null)
 }
 
 /**
@@ -93,7 +78,6 @@ class DefaultTrendingRepository @Inject constructor(
     private val measurements: TrendingMeasurementDao,
     private val clients: ForgeClients,
     private val accounts: AccountRepository,
-    private val marks: ReadingMarkDao,
     private val clock: Clock,
     private val settings: UserSettingsRepository,
     @param:Computation private val computation: CoroutineDispatcher,
@@ -186,23 +170,11 @@ class DefaultTrendingRepository @Inject constructor(
     override fun observeMeasuredAt(): Flow<Map<String, Long>> =
         measurements.observe().map { rows -> rows.associate { it.host to it.measuredAtMillis } }
 
-    override suspend fun readThrough(period: TrendingPeriod, only: ForgeInstance?): RepoId? =
-        marks.get(period.markList(only))?.takeIf { clock.millis() - it.markedAtMillis < MARK_MAX_AGE.inWholeMilliseconds }?.itemKey
-            ?.let(RepoId::fromKey)
-
-    override suspend fun markReadThrough(period: TrendingPeriod, repo: RepoId, rank: Int, only: ForgeInstance?) =
-        marks.advance(period.markList(only), repo.key, rank.toLong(), clock.millis(), MARK_MAX_AGE.inWholeMilliseconds)
-
-    private fun TrendingPeriod.markList(only: ForgeInstance?) = "trending:$name" + only?.let { ":${it.host}" }.orEmpty()
-
     private companion object {
         /** Forges whose Trending is on everyone's page: GitHub's and Tangled's own, and the lists published daily for the others. */
         val PUBLISHED = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab, ForgeInstance.Gitea, ForgeInstance.Tangled)
 
         val MAX_AGE = 1.hours
-
-        /** A daily browse: yesterday evening's place still counts this morning, last week's doesn't. */
-        val MARK_MAX_AGE = 20.hours
     }
 }
 
