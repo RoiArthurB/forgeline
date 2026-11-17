@@ -200,6 +200,20 @@ class DefaultTrendingRepositoryTest {
     }
 
     @Test
+    fun gitea_com_s_published_list_joins_without_an_account() = runTest {
+        val giteaApi = FakeTrendingApi(ForgeInstance.Gitea).also { clients.put(ForgeInstance.Gitea, FakeForgeClients(trending = it)) }
+        val cli = trendingRepo("gitea/cli", forge = ForgeInstance.Gitea)
+        giteaApi.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(cli))
+        api.results[TrendingPeriod.DAILY] = ForgeResult.Success(listOf(paperclip))
+
+        repository.refresh(TrendingPeriod.DAILY)
+
+        val snapshot = repository.observe(TrendingPeriod.DAILY).first()
+        assertThat(snapshot.repos).contains(cli)
+        assertThat(snapshot.forges).contains(ForgeInstance.Gitea)
+    }
+
+    @Test
     fun a_codeberg_account_mixes_codeberg_in_by_growth_against_its_forge() = runTest {
         signInToCodeberg()
         // Median growth: GitHub's 2.0% (gh2's), Codeberg's 0.72% (between cb1's 1.2% and cb4's 0.29%).

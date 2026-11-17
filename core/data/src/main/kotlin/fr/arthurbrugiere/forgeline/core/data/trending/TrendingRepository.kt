@@ -197,7 +197,7 @@ class DefaultTrendingRepository @Inject constructor(
 
     private companion object {
         /** Forges whose Trending is on everyone's page: GitHub's and Tangled's own, and the lists published daily for the others. */
-        val PUBLISHED = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab, ForgeInstance.Tangled)
+        val PUBLISHED = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab, ForgeInstance.Gitea, ForgeInstance.Tangled)
 
         val MAX_AGE = 1.hours
 

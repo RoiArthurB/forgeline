@@ -13,7 +13,7 @@ import kotlinx.serialization.json.Json
 import java.io.File
 
 /**
- * `trending <codeberg|gitlab> <previous state.json> <output directory>`: reads the forge once and writes
+ * `trending <codeberg|gitea|gitlab> <previous state.json> <output directory>`: reads the forge once and writes
  * `state.json` and `trending.json` to the output directory. A missing or empty previous state starts the history
  * afresh. The measuring itself lives in `forge:forgejo`, shared with the phone's own measurements; only the reading
  * differs per forge.
@@ -23,7 +23,9 @@ import java.io.File
  * search "is seeing a high influx of requests", so the job's first page failed every day. Without it, the job reads
  * anonymously. A real rate limit is waited out: up to [JOB_ATTEMPTS] tries a page, 30 s apart and doubling, or as long
  * as Codeberg asks. gitlab.com is read the same way with `GITLAB_TOKEN` (the live checks' read-only token), in case it
- * starts refusing signed-out reads too; only its public projects are asked for.
+ * starts refusing signed-out reads too; only its public projects are asked for. gitea.com is read as Codeberg is (its
+ * API is Forgejo's), anonymously unless `GITEA_TOKEN` is set: it answered signed out on 2026-11-17, and its stars run
+ * out within a few pages.
  */
 fun main(args: Array<String>) = runBlocking {
     require(args.size == 3 && args[0] in FORGES) { "Usage: trending <${FORGES.joinToString("|")}> <previous state.json> <output directory>" }
@@ -31,10 +33,11 @@ fun main(args: Array<String>) = runBlocking {
         ?.let { json.decodeFromString<TrendingState>(it) } ?: TrendingState()
     forgejoHttpClient(OkHttp.create()).use { http ->
         val (state, file) = when (args[0]) {
-            "codeberg" -> {
-                val token = System.getenv("CODEBERG_TOKEN")?.trim()?.ifEmpty { null }
-                println("codeberg: reading ${if (token != null) "with a token" else "anonymously"}.")
-                val crawl = ForgejoTrendingCrawler(http, ForgeInstance.Codeberg, token, retryDelayMillis = 30_000, attempts = JOB_ATTEMPTS).crawl()
+            "codeberg", "gitea" -> {
+                val forge = if (args[0] == "codeberg") ForgeInstance.Codeberg else ForgeInstance.Gitea
+                val token = System.getenv("${args[0].uppercase()}_TOKEN")?.trim()?.ifEmpty { null }
+                println("${args[0]}: reading ${if (token != null) "with a token" else "anonymously"}.")
+                val crawl = ForgejoTrendingCrawler(http, forge, token, retryDelayMillis = 30_000, attempts = JOB_ATTEMPTS).crawl()
                 previous.record(crawl).let { it to it.lists(crawl) }
             }
             else -> {
@@ -52,7 +55,7 @@ fun main(args: Array<String>) = runBlocking {
     }
 }
 
-private val FORGES = listOf("codeberg", "gitlab")
+private val FORGES = listOf("codeberg", "gitea", "gitlab")
 
 /** 30 s, 1, 2 then 4 minutes between tries: under ten minutes for a page before giving up for the day. */
 private const val JOB_ATTEMPTS = 5

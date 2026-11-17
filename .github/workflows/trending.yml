@@ -1,11 +1,11 @@
 name: Trending
 
-# Codeberg and gitlab.com have no trending page, so this measures one for each, for everyone, once a
+# Codeberg, gitea.com and gitlab.com have no trending page, so this measures one for each, for everyone, once a
 # day, with anonymous requests, and publishes them on GitHub Pages alongside the static landing page in
 # site/: <forge>/trending.json for the app, <forge>/state.json for tomorrow's run. Pushing changes under
 # site/ republishes the landing page while keeping each forge's existing state.json and trending.json;
 # so does a release, through the republish input, so the page names the new version.
-# See docs/CODEBERG.md#trending and docs/GITLAB.md#trending.
+# See docs/CODEBERG.md#trending, docs/GITEA.md#trending and docs/GITLAB.md#trending.
 on:
   workflow_dispatch:
     inputs:
@@ -52,21 +52,23 @@ jobs:
       - id: pages
         uses: actions/configure-pages@v6
       - name: Measure
-        # Both forges and the landing page in site/ go out in one Pages deployment, which replaces the
+        # Every forge and the landing page in site/ go out in one Pages deployment, which replaces the
         # whole site. So each forge's history is read first: only a 404 (that forge's very first run)
         # starts afresh, and any other failure stops here, since publishing without it would throw away a
         # month of measurements. On a push to site/ or a release, yesterday's files are kept as-is without
         # crawling the forges again. On a scheduled or manual run, a forge that can't be measured today publishes
-        # yesterday's files again, so the other forge's day isn't lost; with nothing measured at all,
+        # yesterday's files again, so the other forges' day isn't lost; with nothing measured at all,
         # nothing is published. Codeberg is read signed in, with the live checks' read-only token: from 2026-11-10
         # it refuses repository search to anyone signed out (HTTP 429 "high influx of requests"). gitlab.com is
-        # read with its own live token too, in case it does the same.
+        # read with its own live token too, in case it does the same. gitea.com is read anonymously (as of
+        # 2026-11-17 it answers signed out); a GITEA_TOKEN secret would be picked up the same way if it ever stops.
         env:
           CODEBERG_TOKEN: ${{ secrets.CODEBERG_LIVE_TOKEN }}
           GITLAB_TOKEN: ${{ secrets.GITLAB_LIVE_TOKEN }}
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
         run: |
           measured=0
-          for forge in codeberg gitlab; do
+          for forge in codeberg gitlab gitea; do
             echo "::group::$forge"
             base="${{ steps.pages.outputs.base_url }}/$forge"
             status=$(curl -sSL --retry 3 -o "previous-$forge.json" -w '%{http_code}' "$base/state.json")

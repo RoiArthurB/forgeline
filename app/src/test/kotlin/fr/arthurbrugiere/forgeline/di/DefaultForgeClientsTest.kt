@@ -33,6 +33,7 @@ class DefaultForgeClientsTest {
     private fun clients(
         codebergTrendingUrl: String = "https://example.org/codeberg/trending.json",
         gitlabTrendingUrl: String = "https://example.org/gitlab/trending.json",
+        giteaTrendingUrl: String = "https://example.org/gitea/trending.json",
         gitlabClientId: String = "gitlab-client",
         giteaClientId: String = "gitea-client",
     ) = DefaultForgeClients(
@@ -44,6 +45,7 @@ class DefaultForgeClientsTest {
         hosts = hosts,
         codebergTrendingUrl = codebergTrendingUrl,
         gitlabTrendingUrl = gitlabTrendingUrl,
+        giteaTrendingUrl = giteaTrendingUrl,
         repos = gitHubRepos, issues = FakeIssueApi(), pulls = gitHubPulls, repoSettings = gitHubSettings, users = FakeUserApi(), stars = FakeStarApi(), search = FakeSearchApi(),
         feed = FakeFeedApi(), notifications = FakeNotificationsApi(), auth = FakeForgeAuthApi(), actions = FakeActionsApi(),
         trending = FakeTrendingApi(),
@@ -111,6 +113,14 @@ class DefaultForgeClientsTest {
         assertThat(clients.trending(ForgeInstance.Codeberg)!!.forge).isEqualTo(ForgeInstance.Codeberg)
         assertThat(clients.trending(ForgeInstance(ForgeType.FORGEJO, "git.example.org"))).isNull()
         assertThat(clients(codebergTrendingUrl = "").trending(ForgeInstance.Codeberg)).isNull()
+    }
+
+    @Test
+    fun gitea_com_has_its_published_list_and_a_gitea_server_of_ones_own_none() {
+        assertThat(clients.trending(ForgeInstance.Gitea)).isInstanceOf(ForgejoTrendingApi::class.java)
+        assertThat(clients.trending(ForgeInstance.Gitea)!!.forge).isEqualTo(ForgeInstance.Gitea)
+        assertThat(clients.trending(ForgeInstance(ForgeType.GITEA, "gitea.example.org"))).isNull()
+        assertThat(clients(giteaTrendingUrl = "").trending(ForgeInstance.Gitea)).isNull()
     }
 
     @Test

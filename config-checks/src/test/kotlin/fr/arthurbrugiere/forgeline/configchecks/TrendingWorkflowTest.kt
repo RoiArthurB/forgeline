@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.configchecks
 
 import com.google.common.truth.Truth.assertThat
+import com.google.common.truth.Truth.assertWithMessage
 import org.junit.Test
 
 /** The daily Trending job keeps a month of history per forge in what it publishes: these guard that history. */
@@ -31,10 +32,19 @@ class TrendingWorkflowTest {
         val url = Regex("""forgeline\.codebergTrendingUrl=(\S+)""").find(Repo.text("gradle.properties"))!!.groupValues[1]
         assertThat(url).startsWith("https://")
         assertThat(url).endsWith("/codeberg/trending.json")
-        assertThat(workflow).contains("for forge in codeberg gitlab")
+        assertThat(workflow).contains("for forge in codeberg gitlab gitea")
         assertThat(workflow).contains("site/${'$'}forge")
         assertThat(workflow).containsMatch("""path:\s*site""")
         assertThat(workflow).contains("${'$'}base/state.json")
+    }
+
+    @Test
+    fun every_forge_the_job_measures_has_its_address_in_the_app() {
+        // The job publishes <forge>/trending.json; a forge measured without the app knowing where to read it is wasted.
+        for (forge in Regex("""for forge in ([a-z ]+); do""").find(workflow)!!.groupValues[1].split(' ')) {
+            val url = Regex("""forgeline\.${forge}TrendingUrl=(\S+)""").find(Repo.text("gradle.properties"))?.groupValues?.get(1)
+            assertWithMessage(forge).that(url).endsWith("/$forge/trending.json")
+        }
     }
 
     @Test

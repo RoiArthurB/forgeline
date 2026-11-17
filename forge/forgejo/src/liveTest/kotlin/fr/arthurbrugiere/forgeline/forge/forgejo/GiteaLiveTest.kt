@@ -52,6 +52,18 @@ class GiteaLiveTest {
     }
 
     @Test
+    fun the_trending_job_reads_gitea_com_signed_out() = runBlocking<Unit> {
+        // The daily job measures gitea.com as it does Codeberg, anonymously: one page of the stars ranking, in order,
+        // and one of the newest forks, each naming its parent (the tie-breaker). Checked by hand on 2026-11-17.
+        val crawl = fr.arthurbrugiere.forgeline.forge.forgejo.trending.ForgejoTrendingCrawler(http, gitea, topPages = 1, forkPages = 1).crawl()
+
+        assertThat(crawl.top).hasSize(fr.arthurbrugiere.forgeline.forge.forgejo.trending.ForgejoTrendingCrawler.PAGE_SIZE)
+        assertThat(crawl.top.map { it.stars }).isInOrder(Comparator.reverseOrder<Int>())
+        assertThat(crawl.top.map { it.id }.toSet()).hasSize(crawl.top.size)
+        assertThat(crawl.forks).isNotEmpty()
+    }
+
+    @Test
     fun a_person_and_their_repositories_read() = runBlocking<Unit> {
         val users = ForgejoUserApi(http, gitea)
 

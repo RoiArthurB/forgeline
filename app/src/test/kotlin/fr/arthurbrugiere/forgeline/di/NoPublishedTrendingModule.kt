@@ -16,4 +16,8 @@ object NoPublishedTrendingModule {
     @Provides
     @GitLabTrendingUrl
     fun provideGitLabTrendingUrl(): String = ""
+
+    @Provides
+    @GiteaTrendingUrl
+    fun provideGiteaTrendingUrl(): String = ""
 }

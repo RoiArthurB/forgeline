@@ -266,7 +266,7 @@
     <string name="settings_trending_measured_at">Mesurées sur ce téléphone, la dernière fois %1$s</string>
     <string name="settings_trending_how">Une fois par jour, le téléphone lit les dépôts les plus étoilés du serveur et ses forks les plus récents, et garde leur nombre d’étoiles. Les étoiles gagnées apparaissent dès le deuxième jour ; les listes de la semaine et du mois se remplissent en 7 et 30 jours. Un petit serveur ne demande que quelques requêtes.</string>
     <string name="settings_trending_none_title">Rien à mesurer pour l’instant</string>
-    <string name="settings_trending_none_body">GitHub a ses propres tendances, et celles de Codeberg et de GitLab sont publiées chaque jour pour tout le monde. Connectez-vous à Codeberg ou à un autre serveur Forgejo pour mesurer les leurs sur ce téléphone.</string>
+    <string name="settings_trending_none_body">GitHub a ses propres tendances, et celles de Codeberg, de GitLab et de gitea.com sont publiées chaque jour pour tout le monde. Connectez-vous à Codeberg ou à un autre serveur Forgejo ou Gitea pour mesurer les leurs sur ce téléphone.</string>
     <string name="settings_version_summary">Crédits, code source, version %1$s</string>
     <string name="settings_add_account_summary">GitHub, GitLab, Codeberg, Tangled, SourceHut, ou un serveur Forgejo ou Gitea</string>
     <string name="error_unauthorized">La forge n’accepte plus votre connexion. Reconnectez-vous depuis l’onglet Vous.</string>

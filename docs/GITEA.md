@@ -28,4 +28,10 @@ With an access token, on gitea.com and on any server (Settings → Applications 
 
 ## Trending
 
-Gitea has no Trending, and gitea.com isn't measured by the daily job yet. Signed in to a Gitea server, it can be measured on the phone as any Forgejo can.
+Gitea has no Trending, so gitea.com's is measured by the same daily job as Codeberg's, with the same code and the same rules ([CODEBERG.md](CODEBERG.md#trending)): its repositories by stars, then its newest forks, published as `gitea/trending.json` (`forgeline.giteaTrendingUrl`) and mixed into everyone's Trending page.
+
+- **Signed out.** gitea.com answered repository search anonymously on 2026-11-17, so the job reads it without a token; a `GITEA_TOKEN` repository secret would be used if it ever starts refusing, as Codeberg did. `GiteaLiveTest` checks the job's two queries nightly.
+- **Small.** On 2026-11-17 its most starred repository had 412 stars, the 50th had 8, and repositories fell under 2 stars on the fourth page: the job tracks about 220 repositories in four to five pages, 7 to 10 seconds each. Most days nothing will pass the app's floors (5 stars a day, 10 a week, 20 a month); a repository that does shows as any other forge's.
+- **Its first days.** As for Codeberg, a period's list only holds repositories with a starting point: on day one, only those created within the period (gitea/cli, created that month with 24 stars, was the first to pass the monthly floor).
+
+A self-hosted Gitea server has nobody publishing its list: signed in to it, it can be measured on the phone as any Forgejo can, and gitea.com too, instead of the published list.

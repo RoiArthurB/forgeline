@@ -59,6 +59,7 @@ class DefaultForgeClients @Inject constructor(
     private val hosts: ForgeHosts,
     @CodebergTrendingUrl private val codebergTrendingUrl: String,
     @GitLabTrendingUrl private val gitlabTrendingUrl: String,
+    @GiteaTrendingUrl private val giteaTrendingUrl: String,
     repos: RepoApi,
     issues: IssueApi,
     pulls: PullRequestApi,
@@ -111,8 +112,12 @@ class DefaultForgeClients @Inject constructor(
                     ForgeInstance.Gitea -> giteaClientId
                     else -> ""
                 },
-                // Forgejo has no Trending: only Codeberg's is measured, by the daily job that publishes it.
-                trending = codebergTrendingUrl.takeIf { forge == ForgeInstance.Codeberg && it.isNotBlank() }?.let { ForgejoTrendingApi(forgejoHttp, forge, it) },
+                // Forgejo and Gitea have no Trending: Codeberg's and gitea.com's are measured by the daily job that publishes them.
+                trending = when (forge) {
+                    ForgeInstance.Codeberg -> codebergTrendingUrl
+                    ForgeInstance.Gitea -> giteaTrendingUrl
+                    else -> ""
+                }.takeIf { it.isNotBlank() }?.let { ForgejoTrendingApi(forgejoHttp, forge, it) },
             )
         }
         ForgeType.GITLAB -> instances.getOrPut(forge) {
@@ -178,6 +183,11 @@ annotation class CodebergTrendingUrl
 @Qualifier
 @Retention(AnnotationRetention.BINARY)
 annotation class GitLabTrendingUrl
+
+/** Where gitea.com's Trending is published, from `forgeline.giteaTrendingUrl`; blank leaves Gitea out. */
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class GiteaTrendingUrl
 
 /** github.com's HTTP client. */
 @Qualifier
@@ -256,4 +266,8 @@ object PublishedTrendingModule {
     @Provides
     @GitLabTrendingUrl
     fun provideGitLabTrendingUrl(): String = BuildConfig.GITLAB_TRENDING_URL
+
+    @Provides
+    @GiteaTrendingUrl
+    fun provideGiteaTrendingUrl(): String = BuildConfig.GITEA_TRENDING_URL
 }

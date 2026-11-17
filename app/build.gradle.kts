@@ -35,6 +35,9 @@ android {
         // Nor has gitlab.com: the same job publishes its list. Empty leaves GitLab out of Trending.
         val gitlabTrendingUrl = providers.gradleProperty("forgeline.gitlabTrendingUrl").getOrElse("").trim()
         buildConfigField("String", "GITLAB_TRENDING_URL", "\"$gitlabTrendingUrl\"")
+        // Nor has gitea.com: the same job publishes its list. Empty leaves Gitea out of Trending.
+        val giteaTrendingUrl = providers.gradleProperty("forgeline.giteaTrendingUrl").getOrElse("").trim()
+        buildConfigField("String", "GITEA_TRENDING_URL", "\"$giteaTrendingUrl\"")
     }
 
     buildFeatures {

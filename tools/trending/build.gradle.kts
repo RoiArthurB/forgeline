@@ -4,7 +4,7 @@ plugins {
     application
 }
 
-// The daily Trending job for forges that have none (Codeberg, gitlab.com), run by .github/workflows/trending.yml
+// The daily Trending job for forges that have none (Codeberg, gitea.com, gitlab.com), run by .github/workflows/trending.yml
 // (see docs/CODEBERG.md#trending and docs/GITLAB.md#trending).
 application {
     mainClass.set("fr.arthurbrugiere.forgeline.tools.trending.MainKt")

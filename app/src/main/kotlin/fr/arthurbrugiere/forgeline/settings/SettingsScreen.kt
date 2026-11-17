@@ -429,7 +429,7 @@ fun SettingsScreen(
                 item { FeedKindsItem(settings.feedKinds, onFeedKindChange) }
             }
             if (section == SettingsSection.TRENDING) {
-                // Only GitHub has a trending list of its own. Codeberg's and gitlab.com's are published daily for
+                // Only GitHub has a trending list of its own. Codeberg's, gitlab.com's and gitea.com's are published daily for
                 // everyone; once signed in there, the phone can measure them instead, and a Forgejo or Gitea server's
                 // too. The others (a GitLab of one's own, Tangled, SourceHut) can't be: not offered.
                 val forges = (session as? SessionState.SignedIn)?.accounts.orEmpty().map { it.forge }.distinct().filter(canMeasure)
@@ -443,7 +443,8 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_trending_measure, forge.displayName),
                         summary = when {
                             last != null -> stringResource(R.string.settings_trending_measured_at, last)
-                            forge == ForgeInstance.Codeberg || forge == ForgeInstance.GitLab -> stringResource(R.string.settings_trending_measure_codeberg)
+                            forge == ForgeInstance.Codeberg || forge == ForgeInstance.GitLab || forge == ForgeInstance.Gitea ->
+                                stringResource(R.string.settings_trending_measure_codeberg)
                             else -> stringResource(R.string.settings_trending_measure_server)
                         },
                         checked = measured,

@@ -292,6 +292,25 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun gitea_com_measured_here_replaces_its_published_list_and_a_gitea_server_has_none() {
+        val home = ForgeInstance(ForgeType.GITEA, "gitea.example.org")
+        val accounts = listOf(ForgeInstance.Gitea, home).map { Account(Account.idFor(it, "me"), it, ForgeUser("me", null, null)) }
+        composeRule.setContent {
+            SettingsScreen(
+                session = SessionState.SignedIn(accounts[0], accounts),
+                onSignIn = {}, onSignOut = {}, settings = UserSettings(), versionName = "1.2.3",
+                onThemeModeChange = {}, onAmoledBlackChange = {}, onOpenCredits = {}, onOpenSourceCode = {}, onBack = {},
+                section = SettingsSection.TRENDING,
+            )
+        }
+
+        // gitea.com's list is published daily, like Codeberg's: measuring here is instead of it.
+        composeRule.onNodeWithText("Instead of the list published for everyone each day").assertIsDisplayed()
+        composeRule.onNodeWithText("Measure gitea.example.org here").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Instead of the list published for everyone each day").assertCountEquals(1)
+    }
+
+    @Test
     fun a_forge_that_can_t_be_measured_is_not_offered() {
         // Regression: Tangled, SourceHut and a GitLab of one's own were offered, and measuring did nothing.
         val tangled = ForgeInstance(ForgeType.TANGLED, "tangled.org")
