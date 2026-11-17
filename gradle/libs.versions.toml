@@ -19,7 +19,7 @@ coroutines = "1.11.0"
 serialization = "1.12.0"
 ktor = "3.6.0"
 # AT Protocol clients generated from lexicons (Tangled): https://github.com/christiandeange/ozone
-ozone = "0.3.4"
+ozone = "0.3.5"
 # Forgejo/Gitea models generated from their OpenAPI description: https://openapi-generator.tech
 openapi-generator = "7.27.0"
 # GraphQL operations generated from SourceHut's and GitHub's schemas: https://github.com/apollographql/apollo-kotlin

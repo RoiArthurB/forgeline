@@ -1,5 +1,3 @@
-import groovy.json.JsonOutput
-import groovy.json.JsonSlurper
 import sh.christian.ozone.api.generator.ApiReturnType
 
 plugins {
@@ -76,40 +74,10 @@ val neededLexicons: Set<String> = buildSet {
 
 val preparedLexicons = layout.buildDirectory.dir("lexicons")
 
-// ozone 0.3.4 writes a bound on an array's items as a bound on the array itself, which doesn't compile
-// (org.tangled.git.defs#diffHunk): those bounds are dropped from the copy it reads. They only check what the server
-// sends.
-val prepareLexicons by tasks.registering {
-    // Only plain values are taken into the action, never the script's own: the configuration cache can't keep those.
-    val sources = neededLexicons.associateWith(::lexiconFile)
-    val target = preparedLexicons
-    inputs.files(sources.values)
-    outputs.dir(target)
-    doLast {
-        val out = target.get().asFile.apply {
-            deleteRecursively()
-            mkdirs()
-        }
-        sources.forEach { (nsid, file) ->
-            val tree = JsonSlurper().parse(file)
-            fun dropItemBounds(node: Any?) {
-                when (node) {
-                    is MutableMap<*, *> -> {
-                        if (node["type"] == "array") {
-                            (node["items"] as? MutableMap<*, *>)?.let { items ->
-                                items.remove("minimum")
-                                items.remove("maximum")
-                            }
-                        }
-                        node.values.forEach(::dropItemBounds)
-                    }
-                    is List<*> -> node.forEach(::dropItemBounds)
-                }
-            }
-            dropItemBounds(tree)
-            out.resolve(nsid.replace('.', '/') + ".json").apply { parentFile.mkdirs() }.writeText(JsonOutput.toJson(tree))
-        }
-    }
+// Only the needed lexicons are handed to ozone.
+val prepareLexicons = tasks.register<Sync>("prepareLexicons") {
+    from(lexiconSources) { include(neededLexicons.map { it.replace('.', '/') + ".json" }) }
+    into(preparedLexicons)
 }
 
 lexicons {
@@ -134,24 +102,6 @@ lexicons {
 
 dependencies {
     lexicons(fileTree(preparedLexicons).builtBy(prepareLexicons))
-}
-
-// ozone 0.3.4 names XrpcSerializersModule in the clients but writes it only when a lexicon has a union type: an empty
-// one stands in until then.
-tasks.named("generateLexicons") {
-    val module = layout.buildDirectory.file("generated/lexicons/fr/arthurbrugiere/forgeline/forge/tangled/xrpc/XrpcSerializersModule.kt")
-    doLast {
-        module.get().asFile.takeUnless { it.exists() }?.writeText(
-            """
-            |package fr.arthurbrugiere.forgeline.forge.tangled.xrpc
-            |
-            |import kotlinx.serialization.modules.SerializersModule
-            |
-            |public val XrpcSerializersModule: SerializersModule = SerializersModule {}
-            |
-            """.trimMargin(),
-        )
-    }
 }
 
 // Contract tests against the real Tangled, run nightly by .github/workflows/live.yml. Everything is public: no account.
