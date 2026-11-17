@@ -114,6 +114,7 @@ class SearchRepository @Inject constructor(
     ): ForgeResult<MergedSearchPage<T>> {
         val searched = forges.first().filter { only == null || it == only }.ifEmpty { listOfNotNull(only) }
         val unsorted = if (sort == SearchSort.BEST_MATCH) emptyList() else searched.filter { sort !in clients.search(it).sorts(scope) }
+
         @Suppress("UNCHECKED_CAST")
         val held = cursor?.held.orEmpty() as Map<ForgeInstance, List<T>>
         val pages = cursor?.pages ?: (searched - unsorted.toSet()).associateWith { 1 }
