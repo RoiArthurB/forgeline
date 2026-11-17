@@ -33,16 +33,16 @@ In order of importance:
 
 - A quick daily check-in: open, browse Trending and the Feed, dip into repositories, READMEs, issues and profiles, then close.
 - Triage between desk sessions: clear the Inbox with swipes. Background checks (hourly by default, or off) post phone notifications on separate channels, so people can mute CI without missing mentions.
-- github.com and gitlab.com links can open in the app, but only after the user turns it on in Android's "Open by default" settings, because the app can't verify a domain it doesn't own.
-- Sign-in uses the one-tap GitHub device flow, browser OAuth with PKCE (GitLab, Codeberg), or personal access tokens. Trending works without signing in.
+- github.com, gitlab.com, codeberg.org, gitea.com, tangled.org and sr.ht links can open in the app, but only after the user turns it on in Android's "Open by default" settings, because the app can't verify a domain it doesn't own.
+- Sign-in uses the one-tap GitHub device flow, browser OAuth with PKCE (GitLab, Codeberg, gitea.com), an app password (Tangled), or personal access tokens (SourceHut, and any forge). Trending works without signing in.
 
 ## Capabilities and Constraints
 
 - **v0.1 (proof of concept):** Inbox (Unread, Participating and All filters; swipe actions), Feed (strict chronological order, identical events merged, activity types chosen in Settings), Trending (today, this week, this month, ranked as GitHub ranks them), repositories (native README, a code browser with syntax highlighting, issues, pull requests, releases, Actions runs), issue and PR timelines with reviews, merges and reactions, user and organization profiles, starring and following, and search (repositories, issues and PRs, people, with GitHub's query syntax).
 - **Deliberately excluded:** code search.
-- **Stack:** Kotlin, Jetpack Compose, a Material 3 base, and a user setting for dynamic color. Modules are split into `core/*` and `forge/*`, the latter so more forges can be added. Screenshot tests use Roborazzi and Robolectric, and the app ships a baseline profile.
+- **Stack:** Kotlin, Jetpack Compose and a Material 3 base under Forgeline's own components. Modules are split into `core/*` and `forge/*`, the latter so more forges can be added. Screenshot tests use Roborazzi and Robolectric, and the app ships a baseline profile.
 - **Performance is a product requirement:** new UI work must not slow cold start, first render from cache, or scrolling. The baseline profile and benchmarks cover the daily journeys.
-- **Why Material You:** it was the default, picked only to check whether the app concept worked. The owner has no attachment to Material You or Material 3 components. Any UI library or custom design system can replace them, as long as it is at least as fast and allows a better-looking UI. **Speed is the only hard constraint** on the UI stack. The `redesign` branch is where the visual direction and the component layer get decided.
+- **Why Material You:** it was the default, picked only to check whether the app concept worked. The owner has no attachment to Material You or Material 3 components. Any UI library or custom design system can replace them, as long as it is at least as fast and allows a better-looking UI. **Speed is the only hard constraint** on the UI stack. The visual direction ("Ink Compact") and the component layer it settled on are in `DESIGN.md`.
 
 ## Brand Commitments
 
@@ -51,7 +51,7 @@ The name "Forgeline" is the only commitment. There's no committed logo, voice or
 ## Evidence on Hand
 
 - `README.md`: the feature list and principles.
-- `app/src/test/screenshots/`: Roborazzi screenshot goldens of the current screens.
+- `app/src/test/screenshots/`: Roborazzi renders of the current screens, made by `./gradlew :app:recordRoborazziDebug` and not kept in git; `site/screenshots/` and the store listing keep a chosen few.
 - There are no users, testimonials, download numbers or benchmark figures beyond "opens in about a second". Future work must not invent them.
 
 ## Product Principles

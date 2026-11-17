@@ -25,12 +25,12 @@ Forgeline is built around three tabs:
 
 And everything you'd expect around them:
 
-- Read a repository: its README, code, issues, pull requests, releases, CI runs and wiki.
+- Read a repository: its README, code, issues, pull requests, releases, CI runs, wiki and, on GitHub, discussions.
 - Review and merge pull requests: comment on a line, suggest a change, approve, merge.
-- Open, comment on and triage issues.
+- Open, comment on and triage issues, and follow each one's whole story, from labels to force-pushes.
 - Search everywhere at once, and keep your favourite repositories in collections.
 - Get notified, and keep an eye on your Inbox from a home-screen widget.
-- Use it in English or French.
+- Use it in English or French, with the text size, font and theme that suit you.
 
 Curious about the details? Everything is listed in [docs/FEATURES.md](docs/FEATURES.md).
 
@@ -38,9 +38,9 @@ Curious about the details? Everything is listed in [docs/FEATURES.md](docs/FEATU
 
 1. **Install** the APK from the [latest release](https://github.com/RoiArthurB/forgeline/releases/latest). Forgeline isn't on an app store yet ([here's why](docs/DISTRIBUTION.md)).
 2. **Look around.** Trending works straight away, without an account.
-3. **Sign in** to fill your Inbox and Feed. GitHub, gitlab.com and Codeberg sign you in through your browser. For your own server, a personal access token always works (a GitLab server can do browser sign-in too: [here's how](docs/GITLAB_OAUTH_APP.md)). You can be signed in to several accounts at once.
+3. **Sign in** to fill your Inbox and Feed. GitHub, gitlab.com, Codeberg and gitea.com sign you in through your browser; Tangled takes your handle and an app password, and SourceHut a personal access token. For your own server, a personal access token always works (a GitLab server can do browser sign-in too: [here's how](docs/GITLAB_OAUTH_APP.md)). You can be signed in to several accounts at once.
 
-**Tip:** to open github.com, gitlab.com and codeberg.org links in Forgeline instead of the browser, go to *Settings → Apps → Forgeline → Open by default → Add links* and pick the forges.
+**Tip:** to open github.com, gitlab.com, codeberg.org, gitea.com, tangled.org and sr.ht links in Forgeline instead of the browser, go to *Settings → Apps → Forgeline → Open by default → Add links* and pick the forges.
 
 ## Building it yourself
 
@@ -52,7 +52,7 @@ echo "sdk.dir=$HOME/Android/Sdk" > local.properties
 ./gradlew testDebugUnitTest # run the tests
 ```
 
-Signing in with a personal access token works out of the box. Browser sign-in needs each forge's app registered: see [GitHub](docs/GITHUB_OAUTH_APP.md), [Codeberg](docs/CODEBERG_OAUTH_APP.md) and [GitLab](docs/GITLAB_OAUTH_APP.md). [AGENTS.md](AGENTS.md) has the full workflow, and [RELEASING.md](docs/RELEASING.md) how a version goes out.
+Signing in with a personal access token works out of the box. Browser sign-in needs each forge's app registered: see [GitHub](docs/GITHUB_OAUTH_APP.md), [Codeberg](docs/CODEBERG_OAUTH_APP.md), [GitLab](docs/GITLAB_OAUTH_APP.md) and [Gitea](docs/GITEA.md#signing-in). [AGENTS.md](AGENTS.md) has the full workflow, and [RELEASING.md](docs/RELEASING.md) how a version goes out.
 
 ## Contributing
 
