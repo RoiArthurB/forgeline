@@ -1,14 +1,18 @@
 package fr.arthurbrugiere.forgeline.pull
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.PHONE
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.commit
@@ -60,6 +64,27 @@ class CommitsScreenTest {
         composeRule.onNodeWithText("Fix typo").performClick()
 
         assertThat(events).containsExactly("commit:9f8e7d6c5b")
+    }
+
+    @Test
+    fun a_commit_says_whether_its_checks_passed_failed_or_are_running() {
+        val three = commits + commit("5d4c3b2a10", "Bump deps")
+        val checks = mapOf("1a2b3c4d5e" to CheckState.SUCCESS, "9f8e7d6c5b" to CheckState.FAILURE, "5d4c3b2a10" to CheckState.PENDING)
+        setContent(CommitsUiState(CommitsTarget.Pull(IssueRef(tools, 88, isPullRequest = true)), commits = three, checks = checks, isLoading = false))
+
+        composeRule.onNodeWithContentDescription("Passed").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Failed").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Running").assertIsDisplayed()
+        composeRule.assertEveryTargetIsAtLeast48dp()
+    }
+
+    @Test
+    fun a_commit_nothing_ran_on_has_no_badge() {
+        setContent(CommitsUiState(CommitsTarget.Pull(IssueRef(tools, 88, isPullRequest = true)), commits = commits, checks = mapOf("1a2b3c4d5e" to CheckState.SUCCESS), isLoading = false))
+
+        composeRule.onAllNodesWithContentDescription("Passed").assertCountEquals(1)
+        composeRule.onAllNodesWithContentDescription("Failed").assertCountEquals(0)
+        composeRule.onAllNodesWithContentDescription("Running").assertCountEquals(0)
     }
 
     @Test

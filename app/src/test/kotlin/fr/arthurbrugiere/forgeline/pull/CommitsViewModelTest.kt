@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.pull
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.data.pull.DefaultPullRequestRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
@@ -41,6 +42,41 @@ class CommitsViewModelTest {
         viewModel.loadMore()
         advanceUntilIdle()
         assertThat(api.calls).containsExactly("commits:octo/tools#88")
+    }
+
+    @Test
+    fun a_pull_request_s_commits_come_with_where_their_checks_stand() = test {
+        api.commits = listOf(commit("a1"), commit("b2"))
+        api.commitChecks = mapOf("a1" to CheckState.FAILURE, "b2" to CheckState.PENDING)
+
+        val viewModel = CommitsViewModel(CommitsTarget.Pull(IssueRef(tools, 88, isPullRequest = true)), repository)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.checks).containsExactly("a1", CheckState.FAILURE, "b2", CheckState.PENDING)
+        assertThat(api.calls).containsExactly("commits:octo/tools#88", "commitChecks:octo/tools#88")
+    }
+
+    @Test
+    fun a_forge_that_can_t_say_leaves_the_commits_without_checks() = test {
+        api.commits = listOf(commit("a1"))
+
+        val viewModel = CommitsViewModel(CommitsTarget.Pull(IssueRef(tools, 88, isPullRequest = true)), repository)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.commits).hasSize(1)
+        assertThat(viewModel.state.value.checks).isEmpty()
+        assertThat(viewModel.state.value.error).isNull()
+    }
+
+    @Test
+    fun a_history_asks_for_no_checks() = test {
+        api.history = listOf(listOf(commit("a1")))
+        api.commitChecks = mapOf("a1" to CheckState.SUCCESS)
+
+        CommitsViewModel(CommitsTarget.History(tools, ref = null, path = null), repository)
+        advanceUntilIdle()
+
+        assertThat(api.calls.none { it.startsWith("commitChecks") }).isTrue()
     }
 
     @Test

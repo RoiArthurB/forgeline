@@ -32,6 +32,24 @@ query Standing($owner: String!, $name: String!, $number: Int!) {
   }
 }
 
+# Where the checks of each of a pull request's last 100 commits stand, every check run and status of one together.
+query CommitChecks($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      commits(last: 100) {
+        nodes {
+          commit {
+            oid
+            statusCheckRollup {
+              state
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 query Threads($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {

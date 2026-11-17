@@ -35,6 +35,7 @@ import fr.arthurbrugiere.forgeline.core.model.ThreadComment
 import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.forge.github.graphql.BlameQuery
+import fr.arthurbrugiere.forgeline.forge.github.graphql.CommitChecksQuery
 import fr.arthurbrugiere.forgeline.forge.github.graphql.DisableAutoMergeMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.EnableAutoMergeMutation
 import fr.arthurbrugiere.forgeline.forge.github.graphql.MarkFileViewedMutation
@@ -113,6 +114,26 @@ class GitHubPullRequestApi(
             // Statuses are the lesser half: a repository that can't be asked for them still shows its check runs.
             val reported = statuses.await().takeIf { it.status == HttpStatusCode.OK }?.body<PrCombinedStatusJson>()?.statuses.orEmpty()
             ForgeResult.Success(runsResponse.body<PrCheckRunsJson>().checkRuns.map { it.toModel() } + reported.map { it.toModel() })
+        }
+    }
+
+    /**
+     * Each commit's check runs and statuses together, as GitHub rolls them up, for the last 100 commits in one GraphQL
+     * query. Its GraphQL API answers no one signed out, and the REST API would take two calls a commit: then there is
+     * nothing to show.
+     */
+    override suspend fun commitChecks(token: String?, ref: IssueRef): ForgeResult<Map<String, CheckState>> {
+        if (token == null) return ForgeResult.Failure(ForgeError.Unsupported)
+        return operation(token, CommitChecksQuery(ref.repo.owner, ref.repo.name, ref.number)).map { data ->
+            data.repository?.pullRequest?.commits?.nodes.orEmpty().filterNotNull().mapNotNull { node ->
+                val state = when (node.commit.statusCheckRollup?.state) {
+                    StatusState.SUCCESS -> CheckState.SUCCESS
+                    StatusState.FAILURE, StatusState.ERROR -> CheckState.FAILURE
+                    StatusState.PENDING, StatusState.EXPECTED -> CheckState.PENDING
+                    else -> null
+                }
+                state?.let { node.commit.oid to it }
+            }.toMap()
         }
     }
 

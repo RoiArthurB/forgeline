@@ -60,10 +60,14 @@ class GitLabPublicLiveTest {
         assertWithMessage("files of !${ref.number}").that(files.files).isNotEmpty()
         val patched = files.files.firstOrNull { it.patch != null }
         if (patched != null) assertWithMessage("hunks of ${patched.path}").that(parsePatch(patched.patch!!)).isNotEmpty()
-        assertWithMessage("commits").that(pulls.commits(null, ref).value()).isNotEmpty()
+        val commits = pulls.commits(null, ref).value()
+        assertWithMessage("commits").that(commits).isNotEmpty()
         // Signed out the jobs can't be listed: the pipeline stands for them, or nothing ran.
         val checks = pulls.checks(null, ref).value()
-        System.err.println("GITLAB !${ref.number}: ${files.files.size} files, ${checks.size} checks")
+        // Each pipeline names one of the merge request's commits (or one it had before a push replaced it).
+        val states = pulls.commitChecks(null, ref).value()
+        if (checks.isNotEmpty()) assertWithMessage("each commit's checks").that(states).isNotEmpty()
+        System.err.println("GITLAB !${ref.number}: ${files.files.size} files, ${checks.size} checks, ${states.size} commits with checks")
     }
 
     @Test

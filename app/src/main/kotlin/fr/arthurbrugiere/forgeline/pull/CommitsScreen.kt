@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,12 +32,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
+import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
@@ -124,7 +128,9 @@ fun CommitsScreen(
                 commits == null -> item(key = "loading") { SoftLoadingRows(stringResource(R.string.commits_loading), rows = 5) }
                 commits.isEmpty() -> item(key = "empty") { SoftNotice(stringResource(R.string.commits_empty_title), stringResource(R.string.commits_empty_body)) }
                 else -> {
-                    items(commits, key = { it.sha }, contentType = { "commit" }) { commit -> CommitRow(commit, nowMillis, onClick = { onOpenCommit(commit.sha) }) }
+                    items(commits, key = { it.sha }, contentType = { "commit" }) { commit ->
+                        CommitRow(commit, nowMillis, onClick = { onOpenCommit(commit.sha) }, check = state.checks[commit.sha])
+                    }
                     if (state.nextPage != null) {
                         item(key = "more") {
                             LaunchedEffect(state.nextPage) { onLoadMore() }
@@ -141,7 +147,7 @@ fun CommitsScreen(
 }
 
 @Composable
-internal fun CommitRow(commit: Commit, nowMillis: Long, onClick: () -> Unit, modifier: Modifier = Modifier) {
+internal fun CommitRow(commit: Commit, nowMillis: Long, onClick: () -> Unit, modifier: Modifier = Modifier, check: CheckState? = null) {
     val colors = Soft.colors
     Row(
         modifier
@@ -158,6 +164,25 @@ internal fun CommitRow(commit: Commit, nowMillis: Long, onClick: () -> Unit, mod
             Text(commit.title, style = Soft.type.body, color = colors.ink, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(commit.byline(nowMillis), style = Soft.type.meta, color = colors.inkMuted)
         }
+        if (check != null) {
+            Spacer(Modifier.width(12.dp))
+            CommitCheckBadge(check)
+        }
+    }
+}
+
+/** Where a commit's checks stand: passed, failed or still running, as a tinted glyph that says it aloud. */
+@Composable
+private fun CommitCheckBadge(state: CheckState) {
+    val description = stringResource(state.label)
+    Box(
+        Modifier
+            .size(24.dp)
+            .background(state.tint(Soft.colors), SoftTokens.TileCorner)
+            .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(state.icon, contentDescription = null, tint = Soft.colors.ink, modifier = Modifier.size(14.dp))
     }
 }
 

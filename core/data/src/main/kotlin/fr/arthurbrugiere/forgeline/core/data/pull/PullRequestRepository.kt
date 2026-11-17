@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.model.BlameRange
 import fr.arthurbrugiere.forgeline.core.model.ChangedFiles
 import fr.arthurbrugiere.forgeline.core.model.Check
 import fr.arthurbrugiere.forgeline.core.model.CheckReport
+import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
@@ -41,6 +42,9 @@ interface PullRequestRepository {
     suspend fun commits(ref: IssueRef): ForgeResult<List<Commit>>
 
     suspend fun checks(ref: IssueRef): ForgeResult<List<Check>>
+
+    /** Where the checks of each of [ref]'s commits stand, by sha ([PullRequestApi.commitChecks]). */
+    suspend fun commitChecks(ref: IssueRef): ForgeResult<Map<String, CheckState>>
 
     /** What one of those checks reported, by its [Check.checkId]. */
     suspend fun checkReport(repo: RepoId, checkId: Long): ForgeResult<CheckReport>
@@ -147,6 +151,8 @@ class DefaultPullRequestRepository @Inject constructor(
     override suspend fun commits(ref: IssueRef) = read(ref.repo.forge) { commits(it, ref) }
 
     override suspend fun checks(ref: IssueRef) = read(ref.repo.forge) { checks(it, ref) }
+
+    override suspend fun commitChecks(ref: IssueRef) = read(ref.repo.forge) { commitChecks(it, ref) }
 
     override suspend fun checkReport(repo: RepoId, checkId: Long) = read(repo.forge) { checkReport(it, repo, checkId) }
 

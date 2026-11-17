@@ -9,6 +9,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import fr.arthurbrugiere.forgeline.core.data.pull.PullRequestRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.RepoId
@@ -34,6 +35,8 @@ data class CommitsUiState(
     /** Null until the first page is in. A pull request's read oldest first, a history newest first. */
     val commits: List<Commit>? = null,
     val nextPage: Int? = null,
+    /** Where each commit's checks stand, by sha, where the forge says: a pull request's only. */
+    val checks: Map<String, CheckState> = emptyMap(),
     val isLoading: Boolean = true,
     val isLoadingMore: Boolean = false,
     val error: ForgeError? = null,
@@ -59,6 +62,12 @@ class CommitsViewModel @AssistedInject constructor(
 
     fun refresh() {
         _state.update { it.copy(isLoading = true, error = null) }
+        // Asked beside the commits: a forge that can't say, or a failure, leaves the commits without badges.
+        if (target is CommitsTarget.Pull) {
+            viewModelScope.launch {
+                (repository.commitChecks(target.ref) as? ForgeResult.Success)?.value?.let { checks -> _state.update { it.copy(checks = checks) } }
+            }
+        }
         viewModelScope.launch {
             val result = when (target) {
                 is CommitsTarget.Pull -> repository.commits(target.ref).let { result ->

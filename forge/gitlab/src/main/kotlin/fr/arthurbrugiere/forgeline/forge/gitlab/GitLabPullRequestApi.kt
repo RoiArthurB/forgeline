@@ -78,6 +78,15 @@ class GitLabPullRequestApi(private val httpClient: HttpClient, private val forge
         ForgeResult.Success(jobs.body<List<MrJobJson>>().sortedBy { it.id }.map { it.toModel(pipeline.id) })
     }
 
+    /** The merge request's pipelines, newest first, each its commit's latest; one pipeline's state stands for its jobs. */
+    override suspend fun commitChecks(token: String?, ref: IssueRef): ForgeResult<Map<String, CheckState>> = forgeCall {
+        val pipelines = mergeRequest(token, ref, "pipelines", query = mapOf("per_page" to "100"))
+        if (!pipelines.status.isSuccess()) return@forgeCall pipelines.failure()
+        ForgeResult.Success(
+            pipelines.body<List<MrShaPipelineJson>>().mapNotNull { pipeline -> pipeline.sha?.let { it to checkState(pipeline.status) } }.distinctBy { it.first }.toMap(),
+        )
+    }
+
     override suspend fun mergeInfo(token: String, ref: IssueRef): ForgeResult<MergeInfo> = forgeCall {
         coroutineScope {
             // How far the target branch moved on is only counted when asked.
@@ -398,6 +407,9 @@ private data class MrBlameJson(val commit: MrCommitJson, val lines: List<String>
 
 @Serializable
 private data class MrPipelineJson(val id: Long, val status: String = "", @SerialName("web_url") val webUrl: String? = null)
+
+@Serializable
+private data class MrShaPipelineJson(val sha: String? = null, val status: String = "")
 
 @Serializable
 private data class MrDiffRefsJson(@SerialName("base_sha") val baseSha: String, @SerialName("head_sha") val headSha: String, @SerialName("start_sha") val startSha: String)

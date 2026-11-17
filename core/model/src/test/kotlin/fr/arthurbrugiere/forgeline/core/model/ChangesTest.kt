@@ -264,4 +264,15 @@ class ChangesTest {
         assertThat(replaceLines(text, 0, listOf("one"), listOf("1"))).isNull()
         assertThat(replaceLines(text, 1, emptyList(), listOf("1"))).isNull()
     }
+
+    @Test
+    fun checks_together_failed_once_any_did_else_run_while_any_does() {
+        val (pending, success, failure, skipped) = listOf(CheckState.PENDING, CheckState.SUCCESS, CheckState.FAILURE, CheckState.SKIPPED)
+
+        assertThat(listOf(success, pending, failure, skipped).overall()).isEqualTo(failure)
+        assertThat(listOf(success, pending, skipped).overall()).isEqualTo(pending)
+        assertThat(listOf(success, skipped).overall()).isEqualTo(success)
+        assertThat(listOf(skipped).overall()).isEqualTo(skipped)
+        assertThat(emptyList<CheckState>().overall()).isNull()
+    }
 }

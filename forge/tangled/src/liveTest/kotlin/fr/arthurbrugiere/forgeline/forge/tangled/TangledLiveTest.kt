@@ -110,9 +110,12 @@ class TangledLiveTest {
         val files = apis.pulls.files(null, ref, 1).value().files
         assertThat(files).isNotEmpty()
         assertThat(files.mapNotNull { it.patch }.first()).startsWith("@@ -")
-        assertThat(apis.pulls.commits(null, ref).value()).isNotEmpty()
-        // Tangled's own code runs on its spindle.
+        val commits = apis.pulls.commits(null, ref).value()
+        assertThat(commits).isNotEmpty()
+        // Tangled's own code runs on its spindle, at least on a patch's last commit.
         assertThat(apis.pulls.checks(null, ref).value()).isNotEmpty()
+        val states = apis.pulls.commitChecks(null, ref).value()
+        assertThat(states).containsKey(commits.last().sha)
     }
 
     @Test
