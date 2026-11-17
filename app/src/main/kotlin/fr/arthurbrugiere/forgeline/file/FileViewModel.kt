@@ -46,7 +46,7 @@ data class FileUiState(
     val readmeContext: ReadmeContext,
     /** Whether the forge can say which commit last changed each line: Forgejo's API can't. */
     val canBlame: Boolean = false,
-    /** Whether the forge lists the commits that changed the file: Tangled's and SourceHut's clients can't. */
+    /** Whether the forge lists the commits that changed the file: SourceHut's client can't. */
     val hasHistory: Boolean = true,
 )
 

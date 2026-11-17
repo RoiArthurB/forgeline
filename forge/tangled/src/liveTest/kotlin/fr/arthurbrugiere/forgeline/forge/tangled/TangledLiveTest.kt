@@ -98,4 +98,32 @@ class TangledLiveTest {
         assertThat(timeline.items.filterIsInstance<TimelineItem.Comment>()).isNotEmpty()
         assertThat(apis.repos.issues(null, core, IssueQuery(open = false, text = "editorconfig")).value()).isNotEmpty()
     }
+
+    @Test
+    fun a_pull_request_reads_its_patch_files_commits_and_checks() = runBlocking<Unit> {
+        val merged = apis.repos.pullRequests(null, core, IssueQuery(open = false)).value()
+        assertThat(merged.all { it.isPullRequest }).isTrue()
+        val ref = IssueRef(core, merged.first { it.state == IssueState.MERGED }.number, isPullRequest = true)
+
+        val details = apis.issues.issue(null, ref).value()
+        assertThat(details.pullRequest?.baseRef).isNotEmpty()
+        val files = apis.pulls.files(null, ref, 1).value().files
+        assertThat(files).isNotEmpty()
+        assertThat(files.mapNotNull { it.patch }.first()).startsWith("@@ -")
+        assertThat(apis.pulls.commits(null, ref).value()).isNotEmpty()
+        // Tangled's own code runs on its spindle.
+        assertThat(apis.pulls.checks(null, ref).value()).isNotEmpty()
+    }
+
+    @Test
+    fun the_history_a_commit_and_a_blame_read_from_the_knot() = runBlocking<Unit> {
+        val history = apis.pulls.history(null, core, null, null, 1).value()
+        assertThat(history.commits).isNotEmpty()
+        assertThat(history.nextPage).isEqualTo(2)
+        assertThat(apis.pulls.history(null, core, null, null, 2).value().commits.first().sha).isNotEqualTo(history.commits.first().sha)
+
+        val commit = apis.pulls.commit(null, core, history.commits.first().sha).value()
+        assertThat(commit.files).isNotEmpty()
+        assertThat(apis.pulls.blame(null, core, "master", "go.mod").value()).isNotEmpty()
+    }
 }
