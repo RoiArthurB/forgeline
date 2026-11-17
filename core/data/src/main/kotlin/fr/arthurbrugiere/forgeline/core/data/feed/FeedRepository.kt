@@ -128,10 +128,13 @@ class DefaultFeedRepository @Inject constructor(
         // Paging holds an account's lock while it loads: its page is kept or replaced whole, never half-written.
         val held = signedIn.sortedBy { it.id }.map(::lockOf).onEach { it.lock() }
         try {
-            val events = mutableMapOf<String, List<FeedEventEntity>>()
+            val replaced = mutableMapOf<String, List<FeedEventEntity>>()
+            val added = mutableMapOf<String, List<FeedEventEntity>>()
             val syncs = mutableListOf<FeedSyncEntity>()
-            reads.forEach { read -> read.into(events, syncs) }
-            if (events.isNotEmpty() || syncs.isNotEmpty()) dao.commit(events, syncs)
+            reads.forEach { read -> read.into(replaced, added, syncs) }
+            if (replaced.isNotEmpty() || added.isNotEmpty() || syncs.isNotEmpty()) {
+                dao.commit(replaced, syncs, added, keepAfter = clock.millis() - KEEP_DAYS * DAY_MILLIS)
+            }
         } finally {
             held.forEach { it.unlock() }
         }
@@ -146,19 +149,32 @@ class DefaultFeedRepository @Inject constructor(
         val page: ForgeResult<FeedPage>?,
         val starred: List<FeedEventEntity>?,
         val starredAtMillis: Long,
+        /** Whether [page] reaches back to what was kept: it's added to it, not put in its place. */
+        val joinsKept: Boolean = false,
     ) {
         val result: ForgeResult<Unit> = if (page is ForgeResult.Failure) page else ForgeResult.Success(Unit)
 
-        suspend fun into(events: MutableMap<String, List<FeedEventEntity>>, syncs: MutableList<FeedSyncEntity>) {
+        suspend fun into(
+            replaced: MutableMap<String, List<FeedEventEntity>>,
+            added: MutableMap<String, List<FeedEventEntity>>,
+            syncs: MutableList<FeedSyncEntity>,
+        ) {
             (page as? ForgeResult.Success)?.value?.let { page ->
-                page.events?.let { events[account.id] = it.map { event -> event.on(account).toEntity(account.id) } }
+                page.events?.let { (if (joinsKept) added else replaced)[account.id] = it.map { event -> event.on(account).toEntity(account.id) } }
+                val kept = dao.sync(account.id)?.nextPage
                 syncs += FeedSyncEntity(
                     accountId = account.id,
                     lastModified = page.lastModified,
                     pollIntervalSeconds = page.pollIntervalSeconds,
                     syncedAtMillis = clock.millis(),
-                    // Unchanged: the pages already loaded, paging included, are still valid.
-                    nextPage = if (page.events == null) dao.sync(account.id)?.nextPage else page.nextPage,
+                    nextPage = when {
+                        // Unchanged: the pages already loaded, paging included, are still valid.
+                        page.events == null -> kept
+                        // Older activity is still kept: paging goes on from where it had reached. Newer events push
+                        // everything to later pages since, so that page may repeat a few rows, never skip any.
+                        joinsKept -> kept?.let { maxOf(it, page.nextPage ?: it) }
+                        else -> page.nextPage
+                    },
                 )
             }
             starred?.let {
@@ -185,14 +201,41 @@ class DefaultFeedRepository @Inject constructor(
             // A failure keeps what was there and is asked again next time.
             (clients.feed(account.forge).starredActivity(token, since) as? ForgeResult.Success)?.value?.map { it.on(account).toEntity(STARRED + account.id) }
         }
-        val page = if (!force && state != null && clock.millis() - state.syncedAtMillis < interval) {
+        val first = if (!force && state != null && clock.millis() - state.syncedAtMillis < interval) {
             null
         } else {
             clients.feed(account.forge).receivedEvents(token, account.user.login, page = 1, ifModifiedSince = if (force) null else state?.lastModified)
         }
         // The forge turned the token down: nothing will sync for this account until it signs in again.
-        if ((page as? ForgeResult.Failure)?.error == ForgeError.Unauthorized) accounts.markSignInEnded(account.id)
-        AccountRead(account, page, starred.await(), clock.millis())
+        if ((first as? ForgeResult.Failure)?.error == ForgeError.Unauthorized) accounts.markSignInEnded(account.id)
+        val caughtUp = (first as? ForgeResult.Success)?.value?.takeIf { it.events != null }?.let { catchUp(account, token, it) }
+        AccountRead(account, caughtUp?.first?.let { ForgeResult.Success(it) } ?: first, starred.await(), clock.millis(), caughtUp?.second == true)
+    }
+
+    /**
+     * Regression: each refresh put its first page in place of everything kept, so the Feed only went back a few days
+     * (a few dozen events) while starred releases stayed a month. Now a refresh adds to what's kept, which is dropped
+     * after [KEEP_DAYS]. When more happened since than one page holds, the next pages are read until they reach what's
+     * kept, so no hole opens between the two; past [CATCH_UP_PAGES] the Feed starts over from the forge's pages, as
+     * it did before. Returns the events read and whether they reach what's kept.
+     */
+    private suspend fun catchUp(account: Account, token: String, first: FeedPage): Pair<FeedPage, Boolean> {
+        val newest = dao.newest(account.id) ?: return first to false
+        val events = first.events.orEmpty().toMutableList()
+        var next = first.nextPage
+        var read = 1
+        while (events.none { it.createdAt.toEpochMilli() <= newest }) {
+            // The forge has nothing older: everything newer than what's kept is here.
+            val page = next ?: return first.copy(events = events, nextPage = null) to true
+            if (read > CATCH_UP_PAGES) break
+            val more = clients.feed(account.forge).receivedEvents(token, account.user.login, page = page)
+            val value = (more as? ForgeResult.Success)?.value ?: break
+            events += value.events.orEmpty()
+            next = value.nextPage
+            read++
+        }
+        val reached = events.any { it.createdAt.toEpochMilli() <= newest }
+        return first.copy(events = events, nextPage = next) to reached
     }
 
     override suspend fun loadMore(): ForgeResult<Unit> = pagingLock.withLock {
@@ -229,6 +272,13 @@ class DefaultFeedRepository @Inject constructor(
         /** How the repositories GitHub's events no longer announce are named when they're asked apart. */
         const val NEW_REPO = "new-repo:"
         const val STARRED_WINDOW_DAYS = 30L
+
+        /** How long the Feed keeps what it loaded: events are small, and a month back is worth scrolling to. */
+        const val KEEP_DAYS = 30L
+        const val DAY_MILLIS = 24 * 60 * 60_000L
+
+        /** How many more pages a refresh reads to reach what's kept before starting over instead. */
+        const val CATCH_UP_PAGES = 4
         const val STARRED_INTERVAL_MILLIS = 30 * 60_000L
 
         /** One Feed across accounts, so one reading mark. */

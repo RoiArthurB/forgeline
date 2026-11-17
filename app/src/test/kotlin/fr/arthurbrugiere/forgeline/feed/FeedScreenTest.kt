@@ -116,6 +116,21 @@ class FeedScreenTest {
         FeedUiState(items = feedItems(events.toList(), FeedKind.entries.toSet()), syncedAtMillis = 1, hasMore = hasMore)
 
     @Test
+    fun someone_who_accepted_an_invitation_joined_rather_than_added_themselves() {
+        // The owner's case: GitHub names the invitee as the actor, and the row read "LucasGrjs added LucasGrjs to …".
+        setContent(
+            state(
+                feedEvent("2", actor = "lucas", repo = "octo/stics", action = FeedAction.AddedMember("Lucas"), createdAt = "2026-09-27T09:30:00Z"),
+                feedEvent("1", actor = "alice", repo = "octo/tools", action = FeedAction.AddedMember("bob")),
+            ),
+        )
+
+        composeRule.onNodeWithText("joined", substring = true).assertTextContains("as a collaborator", substring = true)
+        composeRule.onNodeWithText("added", substring = true).assertTextContains("bob", substring = true)
+        assertThat(composeRule.onAllNodes(hasText("added lucas", substring = true, ignoreCase = true)).fetchSemanticsNodes()).isEmpty()
+    }
+
+    @Test
     fun where_you_left_off_sits_above_the_last_read_activity() {
         setContent(
             state(feedEvent("2", repo = "octo/new", createdAt = "2026-09-27T09:30:00Z"), feedEvent("1", repo = "octo/read"))

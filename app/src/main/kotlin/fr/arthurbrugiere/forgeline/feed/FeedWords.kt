@@ -96,7 +96,12 @@ private fun FeedItem.rawHeadline(repoLabel: String): String {
             who,
             repo,
         )
-        is FeedAction.AddedMember -> stringResource(R.string.feed_member_added, who, repo, a.login)
+        // GitHub names the invitee as the event's actor once they accept: "alice added alice" reads as a bug.
+        is FeedAction.AddedMember -> if (actors.singleOrNull()?.login.equals(a.login, ignoreCase = true)) {
+            stringResource(R.string.feed_member_joined, who, repo)
+        } else {
+            stringResource(R.string.feed_member_added, who, repo, a.login)
+        }
     }
 }
 

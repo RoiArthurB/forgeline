@@ -161,6 +161,7 @@
     <string name="feed_day_week">Cette semaine</string>
     <string name="feed_day_earlier">Plus tôt</string>
     <string name="feed_member_added">%1$s a ajouté %3$s à %2$s</string>
+    <string name="feed_member_joined">%1$s a rejoint %2$s comme collaborateur</string>
     <string name="you_limited_title">Les dépôts privés sont hors de portée</string>
     <string name="you_limited_body">Cette connexion à %1$s ne couvre que les dépôts publics. Reconnectez-vous pour ouvrir vos dépôts privés, et pour y commenter, étoiler et lancer des workflows.</string>
     <string name="you_limited_action">Se reconnecter à %1$s</string>
