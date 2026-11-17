@@ -1,0 +1,119 @@
+{
+  "lexicon": 1,
+  "id": "org.tangled.space.listRepoOps",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Operations that have occured on a private git repo (since a given revision). This is just a nice-to-have, sources of truth are as always `com.atproto.sync.getRepo` and `getRecord` and `getBlocks`. This endpoint requires service auth from the knot side.",
+      "parameters": {
+        "type": "params",
+        "required": [
+          "space"
+        ],
+        "properties": {
+          "space": {
+            "type": "string",
+            "format": "did",
+            "description": "The private git repo's DID."
+          },
+          "since": {
+            "type": "string",
+            "format": "tid",
+            "description": "Request perations after this particular revision. Don't get it confused with pagination, use `cursor` for that."
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000,
+            "default": 100,
+            "description": "Max operations to return."
+          },
+          "cursor": {
+            "type": "string",
+            "description": "Pagination cursor from a previous response. This one takes priority over `since` when both are given."
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "ops"
+          ],
+          "properties": {
+            "ops": {
+              "type": "array",
+              "items": {
+                "type": "ref",
+                "ref": "#opEntry"
+              }
+            },
+            "cursor": {
+              "type": "string",
+              "description": "Give as `cursor` to fetch the next page. This is left out when the response is at the newest operation."
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "SpaceNotFound",
+          "description": "No such repo, or the caller can't get it for whatever reason."
+        },
+        {
+          "name": "SinceTooOld",
+          "description": "The knot doesn't have operations back that far. Do a full `com.atproto.sync.getRepo` instead."
+        }
+      ]
+    },
+    "opEntry": {
+      "type": "object",
+      "description": "A single op. If there are operations that have a same rev, it means they belong to the same commit. CID is null for deletes and prev is null for creates.",
+      "required": [
+        "rev",
+        "action",
+        "collection",
+        "rkey",
+        "cid",
+        "prev"
+      ],
+      "nullable": [
+        "cid",
+        "prev"
+      ],
+      "properties": {
+        "rev": {
+          "type": "string",
+          "format": "tid"
+        },
+        "action": {
+          "type": "string",
+          "knownValues": [
+            "create",
+            "update",
+            "delete"
+          ]
+        },
+        "collection": {
+          "type": "string",
+          "format": "nsid"
+        },
+        "rkey": {
+          "type": "string",
+          "format": "record-key"
+        },
+        "cid": {
+          "type": "string",
+          "format": "cid",
+          "description": "Content ID of the record after the op."
+        },
+        "prev": {
+          "type": "string",
+          "format": "cid",
+          "description": "Content ID of the record before the op."
+        }
+      }
+    }
+  }
+}
