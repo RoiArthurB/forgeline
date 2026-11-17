@@ -394,6 +394,43 @@ class GitHubPullRequestApiTest {
         """{"data":{"repository":{"pullRequest":{"reviewDecision":${decision?.let { "\"$it\"" }},"commits":{"nodes":[{"commit":{"statusCheckRollup":${rollup?.let { "{\"state\":\"$it\"}" }}}}]}}}}}"""
 
     @Test
+    fun each_commit_s_checks_are_github_s_roll_up_of_them_in_one_query() = runTest {
+        val states = api {
+            json(
+                """{"data":{"repository":{"pullRequest":{"commits":{"nodes":[
+                    {"commit":{"oid":"a1","statusCheckRollup":{"state":"SUCCESS"}}},
+                    {"commit":{"oid":"b2","statusCheckRollup":{"state":"ERROR"}}},
+                    {"commit":{"oid":"c3","statusCheckRollup":null}},
+                    {"commit":{"oid":"d4","statusCheckRollup":{"state":"EXPECTED"}}},
+                    {"commit":{"oid":"e5","statusCheckRollup":{"state":"PENDING"}}},
+                    {"commit":{"oid":"f6","statusCheckRollup":{"state":"FAILURE"}}}
+                ]}}}}}""",
+            )
+        }.commitChecks("tok", pull).value()
+
+        // A commit nothing ran on has no roll-up and no badge.
+        assertThat(states).containsExactly(
+            "a1", CheckState.SUCCESS,
+            "b2", CheckState.FAILURE,
+            "d4", CheckState.PENDING,
+            "e5", CheckState.PENDING,
+            "f6", CheckState.FAILURE,
+        )
+        val asked = requests.single()
+        assertThat(asked.path).isEqualTo("/graphql")
+        assertThat(asked.sent).contains("commits(last: 100)")
+        assertThat(asked.sent).contains(""""variables":{"owner":"octo","name":"tools","number":88}""")
+    }
+
+    @Test
+    fun signed_out_no_commit_s_checks_are_asked_for() = runTest {
+        val result = api { json("{}") }.commitChecks(null, pull)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+        assertThat(requests).isEmpty()
+    }
+
+    @Test
     fun a_blocked_merge_says_which_reviews_and_checks_stand_in_its_way() = runTest {
         val info = api { request ->
             when {

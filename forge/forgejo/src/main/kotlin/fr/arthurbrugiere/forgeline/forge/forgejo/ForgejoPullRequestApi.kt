@@ -23,6 +23,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import fr.arthurbrugiere.forgeline.core.model.ThreadComment
+import fr.arthurbrugiere.forgeline.core.model.overall
 import fr.arthurbrugiere.forgeline.core.model.parseUnifiedDiff
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.forge.forgejo.api.CombinedStatus
@@ -43,6 +44,8 @@ import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -81,6 +84,31 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
         if (pull.status != HttpStatusCode.OK) return@forgeCall pull.failure()
         val sha = pull.body<PullRequest>().head?.sha.orEmpty()
         repo(token, ref.repo, "commits", sha, "status").toResult { body<CombinedStatus>().statuses.orEmpty().map { it.toModel(forge) } }
+    }
+
+    /**
+     * Forgejo answers each commit's statuses on its own: the newest [MAX_COMMIT_CHECKS] commits are asked, a few at a
+     * time so a big pull request doesn't run into Codeberg's rate limit. A commit whose statuses can't be read is left
+     * out, as one nothing ran on.
+     */
+    override suspend fun commitChecks(token: String?, ref: IssueRef): ForgeResult<Map<String, CheckState>> = forgeCall {
+        val shas = when (val commits = commits(token, ref)) {
+            is ForgeResult.Failure -> return@forgeCall commits
+            is ForgeResult.Success -> commits.value.map { it.sha }.takeLast(MAX_COMMIT_CHECKS)
+        }
+        val gate = Semaphore(COMMIT_CHECKS_AT_ONCE)
+        val states = coroutineScope {
+            shas.map { sha ->
+                async {
+                    gate.withPermit {
+                        val status = repo(token, ref.repo, "commits", sha, "status")
+                        if (status.status != HttpStatusCode.OK) return@withPermit null
+                        status.body<CombinedStatus>().statuses.orEmpty().map { it.toModel(forge).state }.overall()?.let { sha to it }
+                    }
+                }
+            }.awaitAll()
+        }
+        ForgeResult.Success(states.filterNotNull().toMap())
     }
 
     override suspend fun mergeInfo(token: String, ref: IssueRef): ForgeResult<MergeInfo> = forgeCall {
@@ -363,6 +391,11 @@ class ForgejoPullRequestApi(private val httpClient: HttpClient, private val forg
     private companion object {
         const val HISTORY_PER_PAGE = 30
         const val MAX_COMMIT_PAGES = 5
+
+        /** The newest commits whose statuses are asked for: a commit list's end, where the reader looks. */
+        const val MAX_COMMIT_CHECKS = 30
+
+        const val COMMIT_CHECKS_AT_ONCE = 4
         const val DRAFT_PREFIX = "WIP:"
 
         /** A large change's diff takes the server a while to write. */

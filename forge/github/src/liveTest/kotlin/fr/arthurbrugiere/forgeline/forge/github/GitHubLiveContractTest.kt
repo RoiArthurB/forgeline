@@ -480,10 +480,16 @@ class GitHubLiveContractTest {
         // A text file's change reads into numbered lines.
         val patched = files.files.firstOrNull { it.patch != null }
         if (patched != null) assertWithMessage("hunks of ${patched.path}").that(fr.arthurbrugiere.forgeline.core.model.parsePatch(patched.patch!!)).isNotEmpty()
-        assertWithMessage("commits").that(pulls.commits(token, ref).read("commits")).isNotEmpty()
+        val commits = pulls.commits(token, ref).read("commits")
+        assertWithMessage("commits").that(commits).isNotEmpty()
         // A check keeps its report under its id, when one ran here.
-        pulls.checks(token, ref).read("checks").firstNotNullOfOrNull { it.checkId }?.let { id ->
+        val checks = pulls.checks(token, ref).read("checks")
+        checks.firstNotNullOfOrNull { it.checkId }?.let { id ->
             assertWithMessage("report of check $id").that(pulls.checkReport(token, repo, id).read("check report").name).isNotEmpty()
+        }
+        // Signed in, each commit's checks come rolled up from GraphQL: the latest commit's when anything ran on it.
+        if (token != null && checks.isNotEmpty()) {
+            assertWithMessage("each commit's checks").that(pulls.commitChecks(token, ref).read("commit checks")).containsKey(commits.last().sha)
         }
 
         val history = pulls.history(token, repo, ref = null, path = null).read("history")

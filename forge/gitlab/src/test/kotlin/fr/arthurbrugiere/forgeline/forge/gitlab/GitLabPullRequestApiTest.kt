@@ -134,6 +134,33 @@ class GitLabPullRequestApiTest {
     }
 
     @Test
+    fun each_commit_s_checks_are_its_latest_pipeline_of_the_merge_request() = runTest {
+        // gitlab.com's own answer for !7606, read 2026-11-17: the same commit's pipeline for the merge request, then
+        // the earlier one for its push.
+        val answer = requireNotNull(javaClass.getResource("/gitlab/merge_request_pipelines_7606.json")).readText()
+        val states = api { json(answer) }.commitChecks(null, mr).value()
+
+        assertThat(states).containsExactly("cb7511ae7cd7be9fcd3c00588ac3dea352f9de73", CheckState.SUCCESS)
+        assertThat(requests.single().url.encodedPath).isEqualTo("$base/merge_requests/7606/pipelines")
+        assertThat(requests.single().url.parameters["per_page"]).isEqualTo("100")
+    }
+
+    @Test
+    fun a_commit_s_latest_pipeline_says_where_it_stands_even_when_an_older_one_passed() = runTest {
+        val states = api {
+            json(
+                """[
+                    {"id":3,"sha":"bbb","status":"running"},
+                    {"id":2,"sha":"aaa","status":"failed"},
+                    {"id":1,"sha":"aaa","status":"success"}
+                ]""",
+            )
+        }.commitChecks("tok", mr).value()
+
+        assertThat(states).containsExactly("bbb", CheckState.PENDING, "aaa", CheckState.FAILURE)
+    }
+
+    @Test
     fun a_merge_request_without_a_pipeline_has_no_checks() = runTest {
         assertThat(api { json("""{"iid":7606,"head_pipeline":null}""") }.checks(null, mr).value()).isEmpty()
     }

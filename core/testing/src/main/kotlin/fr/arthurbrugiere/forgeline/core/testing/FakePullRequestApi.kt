@@ -8,6 +8,7 @@ import fr.arthurbrugiere.forgeline.core.model.ChangedFile
 import fr.arthurbrugiere.forgeline.core.model.ChangedFiles
 import fr.arthurbrugiere.forgeline.core.model.Check
 import fr.arthurbrugiere.forgeline.core.model.CheckReport
+import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
@@ -51,6 +52,9 @@ class FakePullRequestApi(
     var files: List<List<ChangedFile>> = emptyList()
     var commits: List<Commit> = emptyList()
     var checks: List<Check> = emptyList()
+
+    /** Each commit's checks, by sha; null answers Unsupported, as a forge that can't say does. */
+    var commitChecks: Map<String, CheckState>? = null
     val checkReports = mutableMapOf<Long, CheckReport>()
     var mergeInfo = MergeInfo(mergeable = true, canMerge = true, methods = listOf(MergeMethod.MERGE, MergeMethod.SQUASH))
 
@@ -84,6 +88,11 @@ class FakePullRequestApi(
     override suspend fun commits(token: String?, ref: IssueRef) = read("commits:${ref.name()}") { commits }
 
     override suspend fun checks(token: String?, ref: IssueRef) = read("checks:${ref.name()}") { checks }
+
+    override suspend fun commitChecks(token: String?, ref: IssueRef): ForgeResult<Map<String, CheckState>> {
+        val known = commitChecks ?: return ForgeResult.Failure(ForgeError.Unsupported)
+        return read("commitChecks:${ref.name()}") { known }
+    }
 
     override suspend fun checkReport(token: String?, repo: RepoId, checkId: Long): ForgeResult<CheckReport> {
         calls += "checkReport:${repo.fullName}:$checkId"

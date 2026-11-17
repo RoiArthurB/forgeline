@@ -212,6 +212,21 @@ data class BlameRange(val startLine: Int, val endLine: Int, val commit: Commit)
 enum class CheckState { PENDING, SUCCESS, FAILURE, SKIPPED }
 
 /**
+ * Where these checks stand together, as a commit's badge says it: failed once any failed, else running while any is,
+ * else passed once any passed, else skipped; null when nothing ran.
+ */
+fun Iterable<CheckState>.overall(): CheckState? {
+    val states = toSet()
+    return when {
+        states.isEmpty() -> null
+        CheckState.FAILURE in states -> CheckState.FAILURE
+        CheckState.PENDING in states -> CheckState.PENDING
+        CheckState.SUCCESS in states -> CheckState.SUCCESS
+        else -> CheckState.SKIPPED
+    }
+}
+
+/**
  * Something a forge ran on a pull request's latest commit: a CI job, a status another service reported. [runId]
  * is the run it belongs to, when the app can show it; [checkId] names the report it left on the forge, when it left
  * one there ([CheckReport]); [url] is its page otherwise.

@@ -135,6 +135,43 @@ class ForgejoPullRequestApiTest {
     }
 
     @Test
+    fun each_commit_s_checks_are_its_statuses_together() = runTest {
+        val states = with(codeberg) {
+            api { path ->
+                when {
+                    path.endsWith("/pulls/14792/commits") -> json(commitsJson)
+                    // One status failed among others that passed: the commit failed.
+                    path.endsWith("/commits/cb7511ae7cd7be/status") -> json(
+                        """{"state":"failure","statuses":[
+                            {"context":"testing / backend-checks (pull_request)","status":"success"},
+                            {"context":"external/coverage","status":"failure"}
+                        ]}""",
+                    )
+                    else -> json("""{"state":"pending","statuses":[{"context":"testing / backend-checks (pull_request)","status":"pending"}]}""")
+                }
+            }
+        }.commitChecks(null, pull).value()
+
+        assertThat(states).containsExactly("cb7511ae7cd7be", CheckState.FAILURE, "a278fd0507debd", CheckState.PENDING)
+        assertThat(codeberg.requests.map { it.url.encodedPath }).containsAtLeast("$base/commits/cb7511ae7cd7be/status", "$base/commits/a278fd0507debd/status")
+    }
+
+    @Test
+    fun a_commit_nothing_ran_on_or_whose_statuses_can_t_be_read_has_no_badge() = runTest {
+        val states = with(codeberg) {
+            api { path ->
+                when {
+                    path.endsWith("/pulls/14792/commits") -> json(commitsJson)
+                    path.endsWith("/commits/cb7511ae7cd7be/status") -> json("""{"state":"","statuses":null}""")
+                    else -> json("""{"message":"Too many requests"}""", HttpStatusCode.TooManyRequests)
+                }
+            }
+        }.commitChecks(null, pull).value()
+
+        assertThat(states).isEmpty()
+    }
+
+    @Test
     fun merging_offers_the_repository_s_ways_its_own_choice_first() = runTest {
         val info = with(codeberg) {
             api { path ->

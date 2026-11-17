@@ -164,6 +164,37 @@ class TangledPullRequestApiTest {
     }
 
     @Test
+    fun each_commit_s_checks_are_its_latest_pipeline_asked_for_all_at_once() = runTest {
+        val fake = fake()
+
+        val states = api(fake).commitChecks(null, pull).value()
+
+        assertThat(states).containsExactly(HEAD, CheckState.SUCCESS)
+        val asked = fake.to("org.tangled.ci.queryPipelines").single()
+        assertThat(asked.url.host).isEqualTo("spindle.tangled.network")
+        assertThat(asked.url.parameters.getAll("commits")).containsExactly(HEAD)
+    }
+
+    @Test
+    fun a_commit_with_one_failed_workflow_failed_and_an_older_run_doesn_t_count() = runTest {
+        val latest = fixture("queryPipelines.json").replaceFirst(""""status":"success"""", """"status":"failed"""")
+        // The same commit's earlier pipeline, all passed, after the latest one.
+        val older = fixture("queryPipelines.json").substringAfter("\"pipelines\":[").substringBeforeLast("]")
+        val both = latest.substringBeforeLast("]") + "," + older + "]" + latest.substringAfterLast("]")
+        val fake = fake(mapOf("org.tangled.ci.queryPipelines" to { both }))
+
+        assertThat(api(fake).commitChecks(null, pull).value()).containsExactly(HEAD, CheckState.FAILURE)
+    }
+
+    @Test
+    fun without_a_spindle_no_commit_has_checks() = runTest {
+        val fake = fake(mapOf("org.tangled.temp.repo.getRepoByName" to coreRepo))
+
+        assertThat(api(fake).commitChecks(null, pull).value()).isEmpty()
+        assertThat(fake.to("org.tangled.ci.queryPipelines")).isEmpty()
+    }
+
+    @Test
     fun merging_and_verdicts_stay_in_the_browser() = runTest {
         val fake = fake()
         val api = api(fake)

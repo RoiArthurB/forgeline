@@ -4,6 +4,7 @@ import fr.arthurbrugiere.forgeline.core.model.BlameRange
 import fr.arthurbrugiere.forgeline.core.model.ChangedFiles
 import fr.arthurbrugiere.forgeline.core.model.Check
 import fr.arthurbrugiere.forgeline.core.model.CheckReport
+import fr.arthurbrugiere.forgeline.core.model.CheckState
 import fr.arthurbrugiere.forgeline.core.model.Commit
 import fr.arthurbrugiere.forgeline.core.model.CommitDetails
 import fr.arthurbrugiere.forgeline.core.model.CommitPage
@@ -19,6 +20,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import fr.arthurbrugiere.forgeline.core.model.ThreadComment
+import fr.arthurbrugiere.forgeline.core.model.overall
 import fr.arthurbrugiere.forgeline.core.model.replaceLines
 
 /**
@@ -34,6 +36,13 @@ interface PullRequestApi {
 
     /** What ran on [ref]'s latest commit; empty when nothing did. */
     suspend fun checks(token: String?, ref: IssueRef): ForgeResult<List<Check>>
+
+    /**
+     * Where the checks of each of [ref]'s commits stand, by sha: everything that ran on one, as one state
+     * ([overall]). A commit nothing ran on is left out. Unsupported where the forge can't say (SourceHut), or not to
+     * this reader (GitHub's answer needs a token).
+     */
+    suspend fun commitChecks(token: String?, ref: IssueRef): ForgeResult<Map<String, CheckState>> = ForgeResult.Failure(ForgeError.Unsupported)
 
     /** What the check [checkId] of [repo] reported ([Check.checkId]): only GitHub keeps such reports. */
     suspend fun checkReport(token: String?, repo: RepoId, checkId: Long): ForgeResult<CheckReport> = ForgeResult.Failure(ForgeError.Unsupported)

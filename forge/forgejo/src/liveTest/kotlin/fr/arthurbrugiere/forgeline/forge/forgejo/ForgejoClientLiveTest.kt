@@ -171,8 +171,12 @@ class ForgejoClientLiveTest {
             assertWithMessage("hunks of ${patched.path}").that(fr.arthurbrugiere.forgeline.core.model.parsePatch(patched.patch!!)).isNotEmpty()
             assertWithMessage("counts of ${patched.path}").that(patched.additions + patched.deletions).isGreaterThan(0)
         }
-        assertWithMessage("commits").that(pulls.commits(null, ref).value()).isNotEmpty()
+        val commits = pulls.commits(null, ref).value()
+        assertWithMessage("commits").that(commits).isNotEmpty()
         val checks = pulls.checks(null, ref).value()
+        // Forgejo's own CI runs on every pull request: the latest commit's statuses are its checks, read together.
+        val states = pulls.commitChecks(null, ref).value()
+        if (checks.isNotEmpty()) assertWithMessage("the latest commit's checks").that(states).containsKey(commits.last().sha)
 
         val history = pulls.history(null, forgejo, ref = null, path = "go.mod").value()
         assertWithMessage("history of go.mod").that(history.commits).isNotEmpty()
@@ -180,7 +184,7 @@ class ForgejoClientLiveTest {
         val commit = pulls.commit(null, forgejo, history.commits.first().sha).value()
         // A commit in go.mod's history changed go.mod.
         assertWithMessage("files of ${commit.commit.shortSha}").that(commit.files.map { it.path }).contains("go.mod")
-        System.err.println("CODEBERG #${ref.number}: ${files.files.size} files, ${checks.size} checks")
+        System.err.println("CODEBERG #${ref.number}: ${files.files.size} files, ${checks.size} checks, ${states.size} commits with checks")
     }
 
     /** dnkl/foot's wiki: its pages listed without the sidebar and footer, its first page read. */

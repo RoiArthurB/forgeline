@@ -17,6 +17,7 @@ import fr.arthurbrugiere.forgeline.core.model.MergeMethod
 import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
+import fr.arthurbrugiere.forgeline.core.model.overall
 import fr.arthurbrugiere.forgeline.forge.common.UnsupportedPullRequestApi
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import org.tangled.ci.QueryPipelinesQueryParams
@@ -119,17 +120,46 @@ class TangledPullRequestApi internal constructor(
             pipeline.workflows.map { run ->
                 Check(
                     name = run.name ?: run.id,
-                    state = when (run.status) {
-                        "success" -> CheckState.SUCCESS
-                        "failed", "timeout" -> CheckState.FAILURE
-                        "cancelled" -> CheckState.SKIPPED
-                        else -> CheckState.PENDING
-                    },
+                    state = checkState(run.status),
                     description = run.error,
                     url = "${repo.id.webUrl}/pipelines/${pipeline.id.rkey}/workflow/${run.id}",
                 )
             }
         }
+    }
+
+    /**
+     * The spindle's latest pipeline on each of [ref]'s commits, asked for all at once. A spindle often only runs on a
+     * patch's last commit: the others are then left out.
+     */
+    override suspend fun commitChecks(token: String?, ref: IssueRef): ForgeResult<Map<String, CheckState>> = forgeCall {
+        val (repo, patch) = when (val found = latest(ref)) {
+            is ForgeResult.Failure -> return@forgeCall found
+            is ForgeResult.Success -> found.value
+        }
+        val head = patch.head?.oid ?: return@forgeCall ForgeResult.Success(emptyMap())
+        val spindle = repo.spindle ?: return@forgeCall ForgeResult.Success(emptyMap())
+        val shas = when (val commits = TangledChanges.commits(xrpc, listOfNotNull(repo.did, patch.source?.repo), patch.base?.oid, head)) {
+            is ForgeResult.Failure -> return@forgeCall commits
+            is ForgeResult.Success -> commits.value.map { it.oid }
+        }
+        val did = when (val valid = asDid(repo.did)) {
+            is ForgeResult.Failure -> return@forgeCall valid
+            is ForgeResult.Success -> valid.value
+        }
+        xrpc.service(knot.base(spindle)).queryPipelines(QueryPipelinesQueryParams(did, commits = shas, limit = PIPELINES_PAGE)).toResult { answer ->
+            // Newest first: a commit's first pipeline is its latest run.
+            answer.pipelines.distinctBy { it.commit }.mapNotNull { pipeline ->
+                pipeline.workflows.map { checkState(it.status) }.overall()?.let { pipeline.commit to it }
+            }.toMap()
+        }
+    }
+
+    private fun checkState(status: String?): CheckState = when (status) {
+        "success" -> CheckState.SUCCESS
+        "failed", "timeout" -> CheckState.FAILURE
+        "cancelled" -> CheckState.SKIPPED
+        else -> CheckState.PENDING
     }
 
     /** Tangled merges through a call of its own no lexicon describes yet: the browser does it. */
@@ -254,6 +284,9 @@ class TangledPullRequestApi internal constructor(
     private companion object {
         const val SUBMIT_PATCH = "org.tangled.review.submitPatch"
         const val FILES_PAGE = 30
+
+        /** The spindle's most pipelines an answer: a commit can have one for its push and one for its pull request. */
+        const val PIPELINES_PAGE = 100L
         const val HISTORY_PAGE = 30
 
         /** The tree git gives a repository with nothing in it, which a first commit is diffed against. */
