@@ -145,7 +145,7 @@ class TangledFeedApi internal constructor(
         }
         val events = coroutineScope { answer.feed.map { item -> async { event(item.event, item.eventAt.toJava()) } }.awaitAll().filterNotNull() }
         val next = answer.cursor?.takeIf { it.isNotEmpty() && answer.feed.isNotEmpty() }?.let { page + 1 }
-        if (next != null) cursors[viewer.did to next] = answer.cursor!!
+        if (next != null) cursors[viewer.did to next] = answer.cursor
         ForgeResult.Success(FeedPage(events, next))
     }
 
