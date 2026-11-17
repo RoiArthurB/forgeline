@@ -3,8 +3,12 @@ package fr.arthurbrugiere.forgeline.forge.tangled
 import com.google.common.truth.Truth.assertThat
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.IssueQuery
+import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoFileType
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.runBlocking
@@ -73,5 +77,25 @@ class TangledLiveTest {
         // Trending's owners are named with a picture's CID, or nothing: most have one.
         val trending = TangledTrendingApi(xrpc, identity).trending(TrendingPeriod.MONTHLY).value()
         assertThat(trending.count { it.ownerAvatarUrl != null }).isGreaterThan(0)
+    }
+
+    private val apis = TangledApis(http)
+
+    @Test
+    fun issues_list_and_read_with_their_comments() = runBlocking<Unit> {
+        val open = apis.repos.issues(null, core, IssueQuery(open = true)).value()
+        assertThat(open).isNotEmpty()
+        assertThat(open.none { it.isPullRequest }).isTrue()
+        val closed = apis.repos.issues(null, core, IssueQuery(open = false)).value()
+        assertThat(closed.none { it.state == IssueState.OPEN }).isTrue()
+
+        // A long-lived issue with comments: the tickets' keys are their numbers.
+        val busiest = (open + closed).maxBy { it.comments ?: 0 }
+        val issue = apis.issues.issue(null, IssueRef(core, busiest.number)).value()
+        assertThat(issue.title).isEqualTo(busiest.title)
+        assertThat(issue.author?.login).isNotEmpty()
+        val timeline = apis.issues.timeline(null, IssueRef(core, busiest.number), 1).value()
+        assertThat(timeline.items.filterIsInstance<TimelineItem.Comment>()).isNotEmpty()
+        assertThat(apis.repos.issues(null, core, IssueQuery(open = false, text = "editorconfig")).value()).isNotEmpty()
     }
 }

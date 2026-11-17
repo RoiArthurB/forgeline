@@ -18,6 +18,8 @@ internal class FakeTangled(
     private val answers: Map<String, (HttpRequestData) -> String?>,
     /** A method that fails with an HTTP status of its own instead: a refused sign-in's 401. */
     private val status: (String) -> Int? = { null },
+    /** What such a failure says. */
+    private val failure: (String) -> String = { """{"error":"AuthenticationRequired","message":"Invalid identifier or password"}""" },
 ) {
     val requests = java.util.concurrent.CopyOnWriteArrayList<HttpRequestData>()
 
@@ -25,7 +27,7 @@ internal class FakeTangled(
         MockEngine { request ->
             requests += request
             val method = request.key
-            status(method)?.let { code -> return@MockEngine json("""{"error":"AuthenticationRequired","message":"Invalid identifier or password"}""", HttpStatusCode.fromValue(code)) }
+            status(method)?.let { code -> return@MockEngine json(failure(method), HttpStatusCode.fromValue(code)) }
             val answer = answers[method]?.invoke(request)
             if (answer == null) json("""{"error":"RepoNotFound","message":"repository not found"}""", HttpStatusCode.BadRequest) else respondFor(answer)
         },

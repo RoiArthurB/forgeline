@@ -48,6 +48,9 @@ class TangledRepoApi(
     /** Each repository's own DID and what its git says, once it was looked up: every file read needs the DID. */
     private val found = ConcurrentHashMap<RepoId, FoundRepo>()
 
+    /** The repositories' issues and pull requests, which this lists and the conversation APIs share. */
+    internal val conversations = TangledConversations(xrpc, identity, this)
+
     internal suspend fun lookUp(id: RepoId): ForgeResult<FoundRepo> {
         found[id]?.let { return ForgeResult.Success(it) }
         val owner = when (val did = identity.did(id.owner).then(::asDid)) {
@@ -57,7 +60,8 @@ class TangledRepoApi(
         return xrpc.index.getRepoByName(GetRepoByNameQueryParams(owner, id.name))
             .toResult { answer ->
                 val record = answer.value.decodeAs<RepoRecordJson>()
-                FoundRepo(record, record.repoDid(answer.uri.atUri), answer.git).also { repo -> found[id] = repo }
+                FoundRepo(record, record.repoDid(answer.uri.atUri), answer.git, owner.did, answer.knot?.takeIf { it.isNotBlank() })
+                    .also { repo -> found[id] = repo }
             }
     }
 
@@ -97,9 +101,9 @@ class TangledRepoApi(
                 isArchived = false,
                 pushedAt = null,
                 hasActions = false,
-                hasIssues = false,
+                hasIssues = did != null,
                 isEmpty = git?.isEmpty == true,
-                listsConversations = false,
+                listsConversations = did != null,
                 listsReleases = false,
             ),
         )
@@ -194,9 +198,11 @@ class TangledRepoApi(
 
     private val ForgeResult.Failure.isMissing: Boolean get() = (error as? ForgeError.Http)?.status == 404
 
-    override suspend fun issues(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = ForgeResult.Failure(ForgeError.Unsupported)
+    override suspend fun issues(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> =
+        conversations.repo(id).then { conversations.list(it, query, pulls = false) }
 
-    override suspend fun pullRequests(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> = ForgeResult.Failure(ForgeError.Unsupported)
+    override suspend fun pullRequests(token: String?, id: RepoId, query: IssueQuery): ForgeResult<List<IssueSummary>> =
+        conversations.repo(id).then { conversations.list(it, query, pulls = true) }
 
     override suspend fun releases(token: String?, id: RepoId): ForgeResult<List<Release>> = ForgeResult.Failure(ForgeError.Unsupported)
 

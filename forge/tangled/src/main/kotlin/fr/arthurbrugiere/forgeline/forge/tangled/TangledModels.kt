@@ -26,6 +26,8 @@ internal data class RepoRecordJson(
     val source: JsonElement? = null,
     val repoDid: String? = null,
     val createdAt: String? = null,
+    /** The spindle running the repository's CI, as a `did:web:` naming its host, where it has one. */
+    val spindle: String? = null,
 ) {
     /** The repository's name, the record kept at [uri] being this one. */
     fun name(uri: String): String = declaration?.name ?: name ?: uri.recordKey
@@ -43,8 +45,17 @@ private const val MANIFEST = "org.tangled.repo.manifest"
 @Serializable
 internal data class DeclarationJson(val owner: String? = null, val name: String? = null)
 
-/** A repository as `org.tangled.temp.repo.getRepoByName` found it: its record, its own DID, and what its git says. */
-internal data class FoundRepo(val record: RepoRecordJson, val repoDid: String?, val git: GetRepoByNameGitInfo?)
+/**
+ * A repository as `org.tangled.temp.repo.getRepoByName` found it: its record, its own DID, what its git says, its
+ * owner's DID, and its knot, the server that keeps its git and its tickets (`knot1.tangled.sh`).
+ */
+internal data class FoundRepo(
+    val record: RepoRecordJson,
+    val repoDid: String?,
+    val git: GetRepoByNameGitInfo?,
+    val ownerDid: String = "",
+    val knot: String? = null,
+)
 
 /** A `sh.tangled.feed.star` record: only when it was given matters. */
 @Serializable
