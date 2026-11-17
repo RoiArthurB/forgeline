@@ -116,7 +116,7 @@ class DefaultFeedRepositoryTest {
     }
 
     @Test
-    fun refreshing_replaces_the_cache_and_is_conditional_within_the_poll_interval() = runTest {
+    fun refreshing_adds_to_the_cache_and_is_conditional_within_the_poll_interval() = runTest {
         signIn()
         api.pages[1] = listOf(feedEvent("1"))
         repository.refresh(force = true)
@@ -134,7 +134,7 @@ class DefaultFeedRepositoryTest {
         api.lastModified = "later"
         now = now.plusSeconds(120)
         repository.refresh(force = false)
-        assertThat(repository.observe().first().events.map { it.id }).containsExactly("2")
+        assertThat(repository.observe().first().events.map { it.id }).containsExactly("2", "1")
         assertThat(repository.observe().first().syncedAtMillis).isEqualTo(now.toEpochMilli())
     }
 
@@ -152,6 +152,77 @@ class DefaultFeedRepositoryTest {
         assertThat(snapshot.events.map { it.id }).containsExactly("3", "2").inOrder()
         assertThat(snapshot.hasMore).isFalse()
         assertThat(api.calls).containsExactly("me@1", "me@2").inOrder()
+    }
+
+    @Test
+    fun the_feed_keeps_a_month_of_activity_not_just_the_latest_page() = runTest {
+        // The owner's case: releases went back a month (starred repositories are asked for 30 days) but everything
+        // else only a few days, as each refresh put its first page in place of what was kept.
+        signIn()
+        api.pages[1] = listOf(feedEvent("old", createdAt = "2026-09-01T09:00:00Z"))
+        repository.refresh(force = true)
+        api.pages[1] = listOf(feedEvent("mid", createdAt = "2026-09-20T09:00:00Z"), feedEvent("old", createdAt = "2026-09-01T09:00:00Z"))
+        repository.refresh(force = true)
+        api.pages[1] = listOf(feedEvent("new", createdAt = "2026-09-27T09:00:00Z"), feedEvent("mid", createdAt = "2026-09-20T09:00:00Z"))
+        repository.refresh(force = true)
+
+        assertThat(repository.observe().first().events.map { it.id }).containsExactly("new", "mid", "old").inOrder()
+
+        // Past a month, it goes.
+        now = Instant.parse("2026-10-05T10:00:00Z")
+        repository.refresh(force = true)
+        assertThat(repository.observe().first().events.map { it.id }).containsExactly("new", "mid").inOrder()
+    }
+
+    @Test
+    fun a_refresh_reads_on_until_it_reaches_what_was_kept() = runTest {
+        signIn()
+        api.pages[1] = listOf(feedEvent("1", createdAt = "2026-09-27T08:00:00Z"))
+        repository.refresh(force = true)
+
+        // More happened since than one page holds: no hole may open between the new pages and what was kept.
+        api.pages[1] = listOf(feedEvent("3", createdAt = "2026-09-27T09:30:00Z"))
+        api.pages[2] = listOf(feedEvent("2", createdAt = "2026-09-27T09:00:00Z"))
+        api.pages[3] = listOf(feedEvent("1", createdAt = "2026-09-27T08:00:00Z"))
+        repository.refresh(force = true)
+
+        assertThat(repository.observe().first().events.map { it.id }).containsExactly("3", "2", "1").inOrder()
+        assertThat(api.calls).containsExactly("me@1", "me@1", "me@2", "me@3").inOrder()
+        assertThat(repository.observe().first().hasMore).isFalse()
+    }
+
+    @Test
+    fun a_refresh_too_far_behind_what_was_kept_starts_over() = runTest {
+        signIn()
+        api.pages[1] = listOf(feedEvent("kept", createdAt = "2026-09-20T08:00:00Z"))
+        repository.refresh(force = true)
+
+        (1..8).forEach { page -> api.pages[page] = listOf(feedEvent("p$page", createdAt = "2026-09-27T0${9 - page}:00:00Z")) }
+        repository.refresh(force = true)
+
+        // Five pages read, and still newer than what was kept: those pages are the Feed now, and paging goes on from them.
+        val snapshot = repository.observe().first()
+        assertThat(snapshot.events.map { it.id }).containsExactly("p1", "p2", "p3", "p4", "p5").inOrder()
+        assertThat(snapshot.hasMore).isTrue()
+        repository.loadMore()
+        assertThat(api.calls.last()).isEqualTo("me@6")
+    }
+
+    @Test
+    fun paging_goes_on_from_where_it_had_reached_after_a_refresh() = runTest {
+        signIn()
+        api.pages[1] = listOf(feedEvent("3", createdAt = "2026-09-27T09:00:00Z"))
+        api.pages[2] = listOf(feedEvent("2", createdAt = "2026-09-26T09:00:00Z"))
+        api.pages[3] = listOf(feedEvent("1", createdAt = "2026-09-25T09:00:00Z"))
+        repository.refresh(force = true)
+        repository.loadMore()
+
+        api.pages[1] = listOf(feedEvent("4", createdAt = "2026-09-27T09:30:00Z"), feedEvent("3", createdAt = "2026-09-27T09:00:00Z"))
+        repository.refresh(force = true)
+        repository.loadMore()
+
+        assertThat(api.calls.last()).isEqualTo("me@3")
+        assertThat(repository.observe().first().events.map { it.id }).containsExactly("4", "3", "2", "1").inOrder()
     }
 
     @Test
@@ -329,7 +400,7 @@ class DefaultFeedRepositoryTest {
         watching.cancel()
 
         // From what was there straight to everything new: no step with only some of it.
-        assertThat(seen).containsExactly(listOf("1"), listOf("starred-release:octo/tools:v2", "2", "c1")).inOrder()
+        assertThat(seen).containsExactly(listOf("1"), listOf("starred-release:octo/tools:v2", "2", "c1", "1")).inOrder()
     }
 
     private fun release(repo: String, tag: String, at: String, id: String = "starred-release:$repo:$tag") =
@@ -346,7 +417,7 @@ class DefaultFeedRepositoryTest {
         )
         repository.refresh(force = true)
 
-        // A refresh replaces the account's own events: the starred ones must stay.
+        // A refresh rewrites the account's own events: the starred ones must stay.
         repository.refresh(force = true)
 
         val events = repository.observe().first().events
@@ -470,7 +541,7 @@ class DefaultFeedRepositoryTest {
         slow.complete(Unit)
 
         assertThat(refresh.await()).isEqualTo(ForgeResult.Success(Unit))
-        assertThat(repository.observe().first().events.map { it.id }).containsExactly("2", "starred-release:octo/tools:v2").inOrder()
+        assertThat(repository.observe().first().events.map { it.id }).containsExactly("2", "starred-release:octo/tools:v2", "1").inOrder()
         assertThat(api.starredCalls).hasSize(2)
     }
 }

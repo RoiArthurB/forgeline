@@ -157,6 +157,7 @@
     <string name="feed_day_week">This week</string>
     <string name="feed_day_earlier">Earlier</string>
     <string name="feed_member_added">%1$s added %3$s to %2$s</string>
+    <string name="feed_member_joined">%1$s joined %2$s as a collaborator</string>
     <string name="you_limited_title">Private repositories are out of reach</string>
     <string name="you_limited_body">This sign-in to %1$s only covers public repositories. Sign in again to open your private ones, and to comment, star and run workflows there.</string>
     <string name="you_limited_action">Sign in to %1$s again</string>

@@ -66,8 +66,15 @@ interface FeedDao {
     @Query("SELECT MIN(createdAtMillis) FROM feed_events WHERE accountId = :accountId")
     suspend fun oldest(accountId: String): Long?
 
+    /** When the account's newest loaded event happened. */
+    @Query("SELECT MAX(createdAtMillis) FROM feed_events WHERE accountId = :accountId")
+    suspend fun newest(accountId: String): Long?
+
     @Query("DELETE FROM feed_events WHERE accountId = :accountId")
     suspend fun clear(accountId: String)
+
+    @Query("DELETE FROM feed_events WHERE accountId = :accountId AND createdAtMillis < :before")
+    suspend fun clearBefore(accountId: String, before: Long)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entities: List<FeedEventEntity>)
@@ -78,10 +85,22 @@ interface FeedDao {
         insert(entities)
     }
 
-    /** Replaces the rows kept under each key of [events] and records [syncs] as one change, so the Feed redraws once. */
+    /**
+     * Replaces the rows kept under each key of [replaced], adds [added] to what each of their keys kept (dropping what
+     * happened before [keepAfter] there), and records [syncs], as one change, so the Feed redraws once.
+     */
     @Transaction
-    suspend fun commit(events: Map<String, List<FeedEventEntity>>, syncs: List<FeedSyncEntity>) {
-        events.forEach { (key, entities) -> replace(key, entities) }
+    suspend fun commit(
+        replaced: Map<String, List<FeedEventEntity>>,
+        syncs: List<FeedSyncEntity>,
+        added: Map<String, List<FeedEventEntity>> = emptyMap(),
+        keepAfter: Long = 0,
+    ) {
+        replaced.forEach { (key, entities) -> replace(key, entities) }
+        added.forEach { (key, entities) ->
+            clearBefore(key, keepAfter)
+            insert(entities)
+        }
         syncs.forEach { upsertSync(it) }
     }
 
