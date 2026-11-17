@@ -643,6 +643,23 @@ a {
   flex: 1;
 }
 
+/* The last card is about every forge, not one: no fill, so it reads as a note beside the forges. */
+.forge-item-note {
+  background-color: transparent;
+}
+
+.forge-item-link {
+  font-size: 14.5px;
+  line-height: 22px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.forge-item-link:hover {
+  text-decoration: underline;
+}
+
 /* ==========================================================================
    Section 2: Alternating Two-Column Feature Spotlights
    ========================================================================== */

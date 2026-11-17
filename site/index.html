@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Forgeline ,  Native Android Client for GitHub, GitLab, Codeberg &amp; Forgejo</title>
-  <meta name="description" content="Connect GitHub, GitLab (cloud &amp; self-hosted), Codeberg, and self-hosted Forgejo in one fast native Android app. Unified Inbox triage, inline PR diffs, CI logs, and daily discovery.">
+  <title>Forgeline · Native Android Client for GitHub, GitLab, Codeberg, Gitea, Tangled &amp; SourceHut</title>
+  <meta name="description" content="Connect GitHub, GitLab (cloud &amp; self-hosted), Codeberg, Forgejo, Gitea, Tangled, and SourceHut in one fast native Android app. Unified Inbox triage, inline PR diffs, CI logs, GitHub discussions, and daily discovery.">
   <meta name="theme-color" content="#16181A">
   <link rel="preload" href="./fonts/geist_regular.ttf" as="font" type="font/ttf" crossorigin>
   <link rel="preload" href="./fonts/geist_semibold.ttf" as="font" type="font/ttf" crossorigin>
@@ -85,7 +85,7 @@
           </h1>
 
           <p class="hero-lead">
-            Connect <strong>GitHub</strong>, <strong>GitLab</strong> (cloud &amp; self-hosted), <strong>Codeberg</strong>, and self-hosted <strong>Forgejo</strong> simultaneously. Triage notifications across every account in one unified Inbox, review pull request diffs inline, inspect CI logs, and discover rising projects, without ever getting bounced to a mobile browser.
+            Connect <strong>GitHub</strong>, <strong>GitLab</strong> (cloud &amp; self-hosted), <strong>Codeberg</strong>, <strong>Forgejo</strong>, <strong>Gitea</strong>, <strong>Tangled</strong>, and <strong>SourceHut</strong> simultaneously. Triage notifications across every account in one unified Inbox, review pull request diffs inline, inspect CI logs, and discover rising projects, without ever getting bounced to a mobile browser.
           </p>
 
           <div class="hero-cta-group">
@@ -199,7 +199,7 @@
               </div>
             </div>
             <p class="forge-item-body">
-              Sign in with one-tap device flow or personal access tokens. Keep work organizations and personal repositories side-by-side with full Notifications, Pull Requests, Issues, and GitHub Actions support.
+              Sign in with one-tap device flow or personal access tokens. Keep work organizations and personal repositories side-by-side with full Notifications, Pull Requests, Issues, Discussions, project boards, and GitHub Actions support.
             </p>
           </article>
 
@@ -253,8 +253,81 @@
               </div>
             </div>
             <p class="forge-item-body">
-              Connect any self-hosted Forgejo server on your own domain. Browse private and public repositories, review pull requests, and manage repository settings directly from your phone.
+              Connect any self-hosted Forgejo server on your own domain, even behind a private certificate authority or under a path. Browse private and public repositories, review pull requests, and manage repository settings directly from your phone.
             </p>
+          </article>
+
+          <!-- Gitea, cloud & self-hosted (exact path from ic_forge_gitea.xml) -->
+          <article class="forge-item">
+            <div class="forge-item-top">
+              <span class="forge-icon-tile" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22">
+                  <path fill="currentColor" d="M4.209 4.603c-.247 0-.525.02-.84.088-.333.07-1.28.283-2.054 1.027C-.403 7.25.035 9.685.089 10.052c.065.446.263 1.687 1.21 2.768 1.749 2.141 5.513 2.092 5.513 2.092s.462 1.103 1.168 2.119c.955 1.263 1.936 2.248 2.89 2.367 2.406 0 7.212-.004 7.212-.004s.458.004 1.08-.394c.535-.324 1.013-.893 1.013-.893s.492-.527 1.18-1.73c.21-.37.385-.729.538-1.068 0 0 2.107-4.471 2.107-8.823-.042-1.318-.367-1.55-.443-1.627-.156-.156-.366-.153-.366-.153s-4.475.252-6.792.306c-.508.011-1.012.023-1.512.027v4.474l-.634-.301c0-1.39-.004-4.17-.004-4.17-1.107.016-3.405-.084-3.405-.084s-5.399-.27-5.987-.324c-.187-.011-.401-.032-.648-.032zm.354 1.832h.111s.271 2.269.6 3.597C5.549 11.147 6.22 13 6.22 13s-.996-.119-1.641-.348c-.99-.324-1.409-.714-1.409-.714s-.73-.511-1.096-1.52C1.444 8.73 2.021 7.7 2.021 7.7s.32-.859 1.47-1.145c.395-.106.863-.12 1.072-.12zm8.33 2.554c.26.003.509.127.509.127l.868.422-.529 1.075a.686.686 0 0 0-.614.359.685.685 0 0 0 .072.756l-.939 1.924a.69.69 0 0 0-.66.527.687.687 0 0 0 .347.763.686.686 0 0 0 .867-.206.688.688 0 0 0-.069-.882l.916-1.874a.667.667 0 0 0 .237-.02.657.657 0 0 0 .271-.137 8.826 8.826 0 0 1 1.016.512.761.761 0 0 1 .286.282c.073.21-.073.569-.073.569-.087.29-.702 1.55-.702 1.55a.692.692 0 0 0-.676.477.681.681 0 1 0 1.157-.252c.073-.141.141-.282.214-.431.19-.397.515-1.16.515-1.16.035-.066.218-.394.103-.814-.095-.435-.48-.638-.48-.638-.467-.301-1.116-.58-1.116-.58s0-.156-.042-.27a.688.688 0 0 0-.148-.241l.516-1.062 2.89 1.401s.48.218.583.619c.073.282-.019.534-.069.657-.24.587-2.1 4.317-2.1 4.317s-.232.554-.748.588a1.065 1.065 0 0 1-.393-.045l-.202-.08-4.31-2.1s-.417-.218-.49-.596c-.083-.31.104-.691.104-.691l2.073-4.272s.183-.37.466-.497a.855.855 0 0 1 .35-.077z"/>
+                </svg>
+              </span>
+              <div>
+                <h3 class="forge-item-title">Gitea</h3>
+                <span class="forge-item-domain"><a href="https://gitea.com" class="forge-item-domain" target="_blank">gitea.com</a> &amp; self-hosted</span>
+              </div>
+            </div>
+            <p class="forge-item-body">
+              Works with <strong>gitea.com</strong> and your own Gitea server, told apart from Forgejo so you get what Gitea offers. Sign in to gitea.com through the browser or to your server with a token, review pull requests, and follow Gitea Actions runs.
+            </p>
+          </article>
+
+          <!-- Tangled (exact path from ic_forge_tangled.xml) -->
+          <article class="forge-item">
+            <div class="forge-item-top">
+              <span class="forge-icon-tile" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22">
+                  <path fill="currentColor" d="M15.823 23.573c-.78-.006-1.376-.233-2.022-.629-.926-.489-1.633-1.31-2.139-2.215-.803 1-1.876 1.606-3.078 1.949-.512.149-1.408.3-2.893-.24-2.141-.721-3.7-2.956-3.524-5.232-.032-.944.31-1.87.797-2.667-1.297-.698-2.355-1.87-2.76-3.308-.246-.787-.236-1.635-.145-2.444.325-1.91 1.754-3.571 3.593-4.168.734-1.678 2.336-2.93 4.15-3.184a5.5 5.5 0 0 1 3.507.699C12.845.425 15.521-.08 17.565.97c1.558.746 2.673 2.304 2.944 4.002 1.483.596 2.732 1.812 3.222 3.354.328.956.339 2.008.126 2.989-.379 1.53-1.456 2.833-2.85 3.545.003.272.896 2.236.746 3.718-.032 1.853-1.204 3.609-2.829 4.462-.948.555-2.071.544-3.101.533M11.38 18.24c1.314-.147 2.176-1.296 2.845-2.331.316-.472.558-1 .798-1.501.311.286.575.825 1.068.954.518.162 1.126.03 1.444-.442.608-1.137.308-2.51-.046-3.687-.218-.677-.504-1.371-1.048-1.85.116-.822-.369-1.655-1.058-2.085-.588.47-1.482.467-2.048-.036-1.087 1.112-2.082 1.075-3.044.194-.216-.198-.629 1.208-2.076.412-.831.698-1.476 1.37-2.047 2.339-.555 1.043-1.137 1.97-1.187 3.103-.024.662.492 1.356 1.191 1.302.699.063 1.174-.627 1.703-.914.08.925.168 1.918.48 2.82.357 1.168 1.616 1.91 2.808 1.74zm.682-3.486c-.64-.393-.332-1.246-.357-1.866.063-.747.115-1.533.45-2.214.354-.485 1.219-.298 1.257.325-.025.626-.312 1.25-.278 1.9-.074.542.054 1.151-.185 1.647-.197.274-.596.354-.887.208m-2.792-.357c-.602-.328-.41-1.153-.505-1.726.079-.663.013-1.505.567-1.97.542-.38 1.28.27 1.023.865-.273.753-.094 1.576-.088 2.339a.708.708 0 0 1-.997.492"/>
+                </svg>
+              </span>
+              <div>
+                <h3 class="forge-item-title">Tangled</h3>
+                <a href="https://tangled.org" target="_blank" class="forge-item-domain">tangled.org</a>
+              </div>
+            </div>
+            <p class="forge-item-body">
+              The forge built on the AT Protocol. Browse repositories, people, and Tangled's own Trending without an account; sign in with your handle and an app password to star and follow. Issues and pull requests aren't there yet: Tangled is moving them to a new kind of record.
+            </p>
+          </article>
+
+          <!-- SourceHut (exact path from ic_forge_sourcehut.xml) -->
+          <article class="forge-item">
+            <div class="forge-item-top">
+              <span class="forge-icon-tile" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="22" height="22">
+                  <path fill="currentColor" d="M12 0C5.371 0 0 5.371 0 12s5.371 12 12 12 12-5.371 12-12S18.629 0 12 0Zm0 21.677A9.675 9.675 0 0 1 2.323 12 9.675 9.675 0 0 1 12 2.323 9.675 9.675 0 0 1 21.677 12 9.675 9.675 0 0 1 12 21.677Z"/>
+                </svg>
+              </span>
+              <div>
+                <h3 class="forge-item-title">SourceHut</h3>
+                <a href="https://sr.ht" target="_blank" class="forge-item-domain">git.sr.ht &amp; todo.sr.ht</a>
+              </div>
+            </div>
+            <p class="forge-item-body">
+              Sign in with a token to browse git.sr.ht repositories, their tags and files, and people, and to read, comment on, and resolve a repository's todo.sr.ht tickets. Patches by email and builds stay on the web.
+            </p>
+          </article>
+
+          <!-- Every forge, as far as it goes: per-forge notes -->
+          <article class="forge-item forge-item-note">
+            <div class="forge-item-top">
+              <span class="forge-icon-tile" aria-hidden="true">
+                <svg viewBox="0 0 16 16" width="20" height="20" fill="none">
+                  <path d="M3 8.5l3.2 3.2L13 4.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <div>
+                <h3 class="forge-item-title">Nothing faked</h3>
+                <span class="forge-item-domain">Hidden or said plainly</span>
+              </div>
+            </div>
+            <p class="forge-item-body">
+              Forges don't all do the same things. Where one can't, Forgeline hides the button or says so instead of pretending. Each forge's notes list what works and what doesn't.
+            </p>
+            <a class="forge-item-link" href="https://github.com/RoiArthurB/forgeline/tree/main/docs" target="_blank" rel="noopener">Read the per-forge notes</a>
           </article>
         </div>
       </div>
@@ -293,7 +366,7 @@
                 </svg>
               </div>
               <div>
-                <strong>Dedicated "Yours" view across every server:</strong> Switch to the <strong>Yours</strong> tab to see every pull request waiting for your review, your own open PRs and MRs, and issues assigned to you across GitHub, GitLab, Codeberg, and Forgejo at a glance.
+                <strong>Dedicated "Yours" view across every server:</strong> Switch to the <strong>Yours</strong> tab to see every pull request waiting for your review, your own open PRs and MRs, and issues assigned to you across GitHub, GitLab, Codeberg, Forgejo, and Gitea at a glance.
               </div>
             </li>
             <li>
@@ -303,7 +376,7 @@
                 </svg>
               </div>
               <div>
-                <strong>Swipe gestures, batch selection &amp; preloaded threads:</strong> Swipe right to mark read, swipe left to mark done, or long-press to batch-triage multiple threads at once. Background checks preload conversations waiting on you so they open instantly.
+                <strong>Swipe gestures, batch selection &amp; preloaded threads:</strong> Swipe right to mark read, swipe left to mark done, or long-press to batch-triage multiple threads at once. Clear every thread whose pull request or issue is closed or merged in one tap, or act straight from a phone notification. Background checks preload conversations waiting on you so they open instantly.
               </div>
             </li>
           </ul>
@@ -374,7 +447,7 @@
         <div class="spotlight-copy">
 
           <h2 id="discovery-heading" class="spotlight-title">
-            Discover rising projects, follow your feed, and resume where you left off.
+            Discover rising projects and where to contribute, follow your feed, and resume where you left off.
           </h2>
 
           <p class="spotlight-lead">
@@ -390,7 +463,7 @@
                 </svg>
               </div>
               <div>
-                <strong>Trending across GitHub, Codeberg &amp; GitLab:</strong> Browse what is trending today, this week, or this month across all three public forges, mixed into a single page by share of stars or filtered to one forge at a time. Codeberg and gitlab.com velocity is measured daily by Forgeline.
+                <strong>Trending across GitHub, Codeberg, GitLab &amp; Tangled:</strong> Browse what is trending today, this week, or this month, mixed into a single page or filtered to one forge at a time. Codeberg and gitlab.com velocity is measured daily by Forgeline, and Tangled's picks come as Tangled made them.
               </div>
             </li>
             <li>
@@ -411,6 +484,16 @@
               </div>
               <div>
                 <strong>"Where you left off" session marker:</strong> Both Trending and your Feed automatically mark where your last visit's reading stopped so you never waste time re-reading old items.
+              </div>
+            </li>
+            <li>
+              <div class="point-marker" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 8.5l3.2 3.2L13 4.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <strong>Topics, first issues &amp; collections:</strong> Open a topic to see what else is tagged across forges, find issues maintainers marked for a first contribution in projects you starred or saw trending, and keep collections of repositories from any forge. Search GitHub, Codeberg, and gitlab.com without signing in.
               </div>
             </li>
           </ul>
@@ -441,7 +524,7 @@
                 </svg>
               </div>
               <div>
-                <strong>Line-by-line diffs &amp; inline reviews:</strong> Inspect changed files, tap any line to comment on it, send a review (approve, comment, or request changes), and merge directly from the app.
+                <strong>Line-by-line diffs &amp; reviews in full:</strong> Inspect changed files with what reviewers already said under their lines, comment on a line, several, or a whole file, answer and resolve threads, commit suggestions, send a review (approve, comment, or request changes), and merge the ways the repository allows.
               </div>
             </li>
             <li>
@@ -451,7 +534,7 @@
                 </svg>
               </div>
               <div>
-                <strong>Jumps straight to the first CI step:</strong> For GitHub Actions and GitLab CI/CD pipelines, Forgeline highlights failed jobs and steps with colored, folded job logs, live running steps, re-run/cancel controls, and manual workflow dispatch.
+                <strong>Jumps straight to the first CI step:</strong> For GitHub Actions and GitLab CI/CD pipelines, Forgeline highlights failed jobs and steps with colored, folded job logs, live running steps, re-run/cancel controls, and manual workflow dispatch. Gitea Actions runs show their jobs and steps too.
               </div>
             </li>
             <li>
@@ -461,7 +544,17 @@
                 </svg>
               </div>
               <div>
-                <strong>Code browser, history, blame &amp; repo settings:</strong> Browse syntax-highlighted files at any branch or tag, inspect commit history and line-by-line git blame, and manage repository settings.
+                <strong>Code browser, history, blame &amp; repo settings:</strong> Browse files at any branch or tag, colored by VS Code's own grammars in every language, inspect commit history and line-by-line git blame, read wikis, and manage repository settings.
+              </div>
+            </li>
+            <li>
+              <div class="point-marker" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 8.5l3.2 3.2L13 4.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <div>
+                <strong>Conversations told in full:</strong> Every triage event on an issue or pull request reads as a sentence, from review requests to force-pushes. Open issues from the repository's templates and forms, and on GitHub move them across project boards, and start, answer, and vote on discussions.
               </div>
             </li>
           </ul>
@@ -505,7 +598,7 @@
             Crafted for daily reading: Light, Dark &amp; True Black AMOLED.
           </h2>
           <p class="section-subtitle tnum">
-            Switch between Cool Light (#F5F4F6), Carbon Dark (#111113), and True Black AMOLED (#000000) in the app. Toggle the preview below to compare the screenshots across all three themes:
+            Switch between Cool Light (#F5F4F6), Carbon Dark (#111113), and True Black AMOLED (#000000) in the app, give code a theme of its own, and set text size, the phone's own font, and roomier links on the Accessibility page. Toggle the preview below to compare the screenshots across all three themes:
           </p>
 
           <div class="gallery-mode-bar" role="group" aria-label="Switch screenshot gallery theme">
@@ -613,7 +706,7 @@
             </div>
             <h3 class="pillar-title">Android Keystore &amp; direct API calls</h3>
             <p class="pillar-desc">
-              OAuth tokens and Personal Access Tokens stay encrypted in Android Keystore on your device and connect directly to GitHub, GitLab, Codeberg, and your Forgejo server.
+              OAuth tokens and Personal Access Tokens stay encrypted in Android Keystore on your device and connect directly to each forge you use, or to your own server.
             </p>
           </article>
 
