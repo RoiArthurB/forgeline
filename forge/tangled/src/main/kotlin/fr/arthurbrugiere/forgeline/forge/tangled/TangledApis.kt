@@ -11,15 +11,13 @@ import fr.arthurbrugiere.forgeline.core.forge.OAuthTokens
 import fr.arthurbrugiere.forgeline.core.forge.TrendingMeter
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
-import fr.arthurbrugiere.forgeline.forge.common.UnsupportedFeedApi
 import fr.arthurbrugiere.forgeline.forge.common.UnsupportedNotificationsApi
 import fr.arthurbrugiere.forgeline.forge.common.UnsupportedRepoSettingsApi
-import fr.arthurbrugiere.forgeline.forge.common.UnsupportedSearchApi
 import io.ktor.client.HttpClient
 
 /**
- * Tangled's APIs, on [http]. Repositories, their issues and pull requests, people and Trending are read from Tangled's
- * index (and a repository's git and pipelines from its knot and spindle) without an account;
+ * Tangled's APIs, on [http]. Repositories, their issues and pull requests, people, search, the Feed and Trending are
+ * read from Tangled's index (and a repository's git and pipelines from its knot and spindle) without an account;
  * starring and following write records to the signed-in person's own AT Protocol server ([TangledAccount]), and
  * issues, pull requests and comments to the repository's knot ([TangledKnot]). The rest answers Unsupported
  * (docs/TANGLED.md says why).
@@ -38,8 +36,8 @@ class TangledApis(http: HttpClient) : ForgeApis {
     override val pulls = TangledPullRequestApi(xrpc, knot, repos.conversations, issues)
     override val repoSettings = UnsupportedRepoSettingsApi()
     override val stars = TangledStarApi(xrpc, account, repos)
-    override val search = UnsupportedSearchApi()
-    override val feed = UnsupportedFeedApi()
+    override val search = TangledSearchApi(xrpc, identity, repos.conversations)
+    override val feed = TangledFeedApi(xrpc, identity, repos.conversations)
     override val notifications = UnsupportedNotificationsApi()
     override val auth: ForgeAuthApi = TangledAuthApi(account)
     override val actions: ActionsApi? = null

@@ -126,4 +126,12 @@ class TangledLiveTest {
         assertThat(commit.files).isNotEmpty()
         assertThat(apis.pulls.blame(null, core, "master", "go.mod").value()).isNotEmpty()
     }
+
+    @Test
+    fun search_finds_tickets_repositories_and_people_and_the_feed_reads() = runBlocking<Unit> {
+        assertThat(apis.search.issues(null, "editorconfig", 1).value().items).isNotEmpty()
+        assertThat(apis.search.repositories(null, "tangled", 1).value().items).isNotEmpty()
+        assertThat(apis.search.users(null, "oppi", 1).value().items.map { it.login }).contains("oppi.li")
+        assertThat(apis.feed.receivedEvents(null, "oppi.li", 1).value().events).isNotNull()
+    }
 }
