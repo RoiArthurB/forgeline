@@ -8,12 +8,15 @@ import fr.arthurbrugiere.forgeline.core.model.FileChange
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
 import fr.arthurbrugiere.forgeline.core.model.MergeMethod
+import fr.arthurbrugiere.forgeline.core.model.NewPullRequest
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.ReviewVerdict
 import io.ktor.client.request.HttpRequestData
+import io.ktor.http.HttpHeaders
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import java.time.Instant
+import java.util.Base64
 
 /**
  * Tangled's pull requests: their latest patch, read from the index; their change, diffed by the knot and written out
@@ -171,6 +174,106 @@ class TangledPullRequestApiTest {
         assertThat(api.verdicts).containsExactly(ReviewVerdict.COMMENT)
     }
 
+    /** An app password's session for [ME], whose own server is pds.example. */
+    private val token = run {
+        val enc = Base64.getUrlEncoder().withoutPadding()
+        val now = Instant.now().epochSecond
+        enc.encodeToString("""{"alg":"ES256K"}""".toByteArray()) + "." +
+            enc.encodeToString("""{"scope":"com.atproto.appPass","sub":"$ME","iat":$now,"exp":${now + 7_200}}""".toByteArray()) + ".c2ln"
+    }
+
+    /** A repository whose main branch moved on to [MAIN_TIP] since the head branch left it at [BASE]. */
+    private fun opening(status: (String) -> Int? = { null }) = FakeTangled(
+        mapOf(
+            "com.atproto.identity.resolveHandle" to resolved,
+            "org.tangled.temp.repo.getRepoByName" to coreManifest,
+            "plc.directory/$ME" to {
+                """{"id":"$ME","alsoKnownAs":["at://me.example"],"service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"https://pds.example/"}]}"""
+            },
+            "org.tangled.temp.git.getBranch" to { r ->
+                val hash = if (r.url.parameters["name"] == "main") MAIN_TIP else HEAD
+                """{"name":"${r.url.parameters["name"]}","hash":"$hash","message":"m","author":$SIGNATURE,"totalCommits":10}"""
+            },
+            "org.tangled.temp.git.listCommits" to { fixture("listCommits_range.json") },
+            "com.atproto.server.getServiceAuth" to { """{"token":"service-jwt"}""" },
+            "com.atproto.repo.createRecord" to { r ->
+                if (r.url.host == "pds.example") """{"uri":"at://$ME/org.tangled.graph.attestation/3att","cid":"bafyatt"}""" else """{"uri":"at://$REPO_DID/org.tangled.track.ticket/4790","cid":"bafyticket"}"""
+            },
+            "org.tangled.review.submitPatch" to { """{"uri":"at://$REPO_DID/org.tangled.review.patch/3patch","cid":"bafypatch"}""" },
+            "com.atproto.repo.deleteRecord" to { "{}" },
+        ),
+        status = status,
+        failure = { """{"error":"InvalidRequest","message":"no changes between base and head"}""" },
+    )
+
+    @Test
+    fun a_pull_request_is_a_ticket_into_the_base_branch_and_a_patch_from_where_the_head_left_it() = runTest {
+        val fake = opening()
+
+        val ref = api(fake).create(token, core, NewPullRequest("Inline ticket chips", "Renders references as chips", head = "eti/chips", base = "main")).value()
+
+        assertThat(ref).isEqualTo(IssueRef(core, 4790, isPullRequest = true))
+        assertThat(fake.to("org.tangled.temp.git.getBranch").map { it.url.parameters["name"] }).containsExactly("main", "eti/chips")
+        assertThat(fake.to("org.tangled.temp.git.listCommits").single().url.parameters["ranges"]).isEqualTo("$MAIN_TIP..$HEAD")
+        val ticket = fake.to("com.atproto.repo.createRecord").first { it.url.host == "knot1.tangled.sh" }.text
+        assertThat(ticket).contains(""""collection":"org.tangled.track.ticket"""")
+        assertThat(ticket).contains(""""targetBranch":"main"""")
+        assertThat(ticket).contains(""""text":"Inline ticket chips"""")
+        // The patch goes to the knot, signed for that one call by the person's own server.
+        val auth = fake.to("com.atproto.server.getServiceAuth").map { it.url.parameters["lxm"] }
+        assertThat(auth).contains("org.tangled.review.submitPatch")
+        val patch = fake.to("org.tangled.review.submitPatch").single()
+        assertThat(patch.url.host).isEqualTo("knot1.tangled.sh")
+        assertThat(patch.headers[HttpHeaders.Authorization]).isEqualTo("Bearer service-jwt")
+        assertThat(patch.text).contains(""""ticket":"4790"""")
+        // Not the base branch's tip: the commit the head branch started from.
+        assertThat(patch.text).contains(""""base":{"oid":"$BASE"}""")
+        assertThat(patch.text).contains(""""head":{"oid":"$HEAD"}""")
+        assertThat(patch.text).contains(""""sourceBranch":"eti/chips"""")
+        assertThat(fake.to("com.atproto.repo.deleteRecord")).isEmpty()
+    }
+
+    @Test
+    fun a_pull_request_whose_patch_is_refused_takes_its_ticket_back() = runTest {
+        val fake = opening(status = { method -> if (method == "org.tangled.review.submitPatch") 400 else null })
+
+        val result = api(fake).create(token, core, NewPullRequest("Nothing", "", head = "main", base = "main"))
+
+        assertThat(result).isInstanceOf(ForgeResult.Failure::class.java)
+        val deleted = fake.to("com.atproto.repo.deleteRecord").single()
+        assertThat(deleted.url.host).isEqualTo("knot1.tangled.sh")
+        assertThat(deleted.text).contains(""""collection":"org.tangled.track.ticket"""")
+        assertThat(deleted.text).contains(""""rkey":"4790"""")
+    }
+
+    @Test
+    fun a_review_is_a_comment_on_the_pull_request() = runTest {
+        val fake = opening()
+        val withTicket = FakeTangled(
+            mapOf(
+                "com.atproto.identity.resolveHandle" to resolved,
+                "org.tangled.temp.repo.getRepoByName" to coreManifest,
+                "plc.directory/$ME" to {
+                    """{"id":"$ME","alsoKnownAs":["at://me.example"],"service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"https://pds.example/"}]}"""
+                },
+                "com.atproto.server.getServiceAuth" to { """{"token":"service-jwt"}""" },
+                "com.atproto.repo.getRecord" to { """{"uri":"at://$REPO_DID/org.tangled.track.ticket/4784","cid":"bafypull","value":{"state":"open","targetBranch":"master"}}""" },
+                "com.atproto.repo.createRecord" to { """{"uri":"at://$REPO_DID/org.tangled.feed.comment/3n2jaaaaaaaaa","cid":"bafynew"}""" },
+                "com.atproto.server.getSession" to { """{"did":"$ME","handle":"me.example"}""" },
+            ),
+        )
+
+        api(withTicket).review(token, pull, ReviewVerdict.COMMENT, "Nice one", emptyList()).value()
+        api(fake).review(token, pull, ReviewVerdict.COMMENT, " ", emptyList()).value()
+
+        val sent = withTicket.to("com.atproto.repo.createRecord").first { it.url.host == "knot1.tangled.sh" }.text
+        assertThat(sent).contains(""""collection":"org.tangled.feed.comment"""")
+        assertThat(sent).contains(""""uri":"at://$REPO_DID/org.tangled.track.ticket/4784","cid":"bafypull"""")
+        assertThat(sent).contains(""""text":"Nice one"""")
+        // A review with nothing to say writes nothing.
+        assertThat(fake.requests).isEmpty()
+    }
+
     @Test
     fun a_repository_s_history_is_paged_by_the_knot_s_cursor() = runTest {
         val fake = fake(mapOf("org.tangled.git.listCommits" to { r -> if (r.url.parameters["cursor"] == null) fixture("knot_listCommits.json") else """{"commits":[]}""" }))
@@ -215,5 +318,7 @@ class TangledPullRequestApiTest {
     private companion object {
         const val BASE = "03c0553cc4fd89eef6addb0242d16240eec55850"
         const val HEAD = "8639c9e00269667dc3387368ca23f41d74682611"
+        const val MAIN_TIP = "5b1f2e1c0d9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c"
+        const val ME = "did:plc:meme7t2adsemcrrd4snkeqli"
     }
 }

@@ -275,6 +275,132 @@ class TangledIssueApiTest {
     }
 
     @Test
+    fun a_new_issue_is_a_ticket_on_the_knot_naming_its_labels_by_their_keys() = runTest {
+        val fake = writes(
+            mapOf(
+                "com.atproto.repo.createRecord" to { r ->
+                    if (r.url.host == "pds.example") """{"uri":"at://$me/org.tangled.graph.attestation/3att","cid":"bafyatt"}""" else """{"uri":"at://$REPO_DID/org.tangled.track.ticket/4790","cid":"bafynew"}"""
+                },
+            ),
+        )
+
+        val issue = apis(fake).issues.create(token, core, "Tabs render as 8 spaces", "See editorconfig", labels = listOf("Performance", "unknown")).value()
+
+        val sent = fake.to("com.atproto.repo.createRecord").first { it.url.host == "knot1.tangled.sh" }
+        assertThat(sent.text).contains(""""collection":"org.tangled.track.ticket"""")
+        assertThat(sent.text).contains(""""title":{"${'$'}type":"org.tangled.markup.markdown#inline","text":"Tabs render as 8 spaces"}""")
+        assertThat(sent.text).contains(""""text":"See editorconfig"""")
+        assertThat(sent.text).contains(""""state":"open"""")
+        // A label is named by its key, matched whatever its case; one the repository doesn't define is left out.
+        assertThat(sent.text).contains(""""tangledLabels":[{"${'$'}type":"org.tangled.label.defs#labelToken","key":"performance"}]""")
+        assertThat(sent.text).doesNotContain("unknown")
+        assertThat(sent.text).doesNotContain("targetBranch")
+        assertThat(issue.ref).isEqualTo(IssueRef(core, 4790, isPullRequest = false))
+        assertThat(issue.labels.map { it.name }).containsExactly("performance")
+        assertThat(issue.author?.login).isEqualTo("me.example")
+        assertThat(issue.createdAt).isEqualTo(now)
+    }
+
+    @Test
+    fun a_new_issue_without_a_body_leaves_it_out() = runTest {
+        val fake = writes(mapOf("com.atproto.repo.createRecord" to { """{"uri":"at://$REPO_DID/org.tangled.track.ticket/4790","cid":"bafynew"}""" }))
+
+        val issue = apis(fake).issues.create(token, core, "Just a title", " ", labels = emptyList()).value()
+
+        // The knot refuses an empty body.
+        assertThat(fake.to("com.atproto.repo.createRecord").first { it.url.host == "knot1.tangled.sh" }.text).doesNotContain(""""body"""")
+        assertThat(issue.body).isNull()
+    }
+
+    @Test
+    fun editing_an_issue_rewrites_its_title_and_body_over_the_version_read() = runTest {
+        val fake = writes()
+
+        apis(fake).issues.edit(token, IssueRef(core, 4780), "PR diff view with 500+ commits", "Now 500").value()
+
+        val read = fake.to("com.atproto.repo.getRecord").single()
+        assertThat(read.url.host).isEqualTo("knot1.tangled.sh")
+        assertThat(read.url.parameters["rkey"]).isEqualTo("4780")
+        val sent = fake.to("com.atproto.repo.putRecord").single().text
+        assertThat(sent).contains(""""title":{"${'$'}type":"org.tangled.markup.markdown#inline","text":"PR diff view with 500+ commits"}""")
+        assertThat(sent).contains(""""body":{"${'$'}type":"org.tangled.markup.markdown","text":"Now 500"}""")
+        assertThat(sent).contains(""""swapRecord":"bafycurrent"""")
+        // What isn't edited stays as it was.
+        assertThat(sent).contains(""""state":"open"""")
+    }
+
+    @Test
+    fun an_issue_edited_to_a_blank_body_loses_it() = runTest {
+        val withBody = writes(
+            mapOf(
+                "com.atproto.repo.getRecord" to {
+                    """{"uri":"at://$REPO_DID/org.tangled.track.ticket/4780","cid":"bafycurrent","value":{"title":{"text":"t"},"body":{"text":"old"},"state":"open"}}"""
+                },
+            ),
+        )
+
+        apis(withBody).issues.edit(token, IssueRef(core, 4780), "t", "").value()
+
+        assertThat(withBody.to("com.atproto.repo.putRecord").single().text).doesNotContain("old")
+    }
+
+    @Test
+    fun a_comment_is_edited_and_deleted_by_its_key_on_the_knot() = runTest {
+        val id = Tid.decode("3n2ghbgtk3equ")!!
+        val fake = writes(
+            mapOf(
+                "com.atproto.repo.getRecord" to {
+                    """{"uri":"at://$REPO_DID/org.tangled.feed.comment/3n2ghbgtk3equ","cid":"bafycomment",
+                        "value":{"${'$'}type":"org.tangled.feed.comment","body":{"${'$'}type":"org.tangled.markup.markdown","text":"first"},"createdAt":"2026-11-16T11:45:00Z"}}"""
+                },
+                "com.atproto.repo.deleteRecord" to { "{}" },
+            ),
+        )
+        val issues = apis(fake).issues
+
+        issues.editComment(token, IssueRef(core, 4780), id, "second").value()
+        issues.deleteComment(token, IssueRef(core, 4780), id).value()
+
+        assertThat(fake.to("com.atproto.repo.getRecord").single().url.parameters["collection"]).isEqualTo("org.tangled.feed.comment")
+        val put = fake.to("com.atproto.repo.putRecord").single()
+        assertThat(put.url.host).isEqualTo("knot1.tangled.sh")
+        assertThat(put.text).contains(""""rkey":"3n2ghbgtk3equ"""")
+        assertThat(put.text).contains(""""text":"second"""")
+        assertThat(put.text).contains(""""swapRecord":"bafycomment"""")
+        assertThat(put.text).contains(""""createdAt":"2026-11-16T11:45:00Z"""")
+        val deleted = fake.to("com.atproto.repo.deleteRecord").single()
+        assertThat(deleted.url.host).isEqualTo("knot1.tangled.sh")
+        assertThat(deleted.text).contains(""""collection":"org.tangled.feed.comment"""")
+        assertThat(deleted.text).contains(""""rkey":"3n2ghbgtk3equ"""")
+    }
+
+    @Test
+    fun labels_are_set_by_their_keys_and_taking_them_all_off_drops_the_field() = runTest {
+        val fake = writes()
+        val issues = apis(fake).issues
+
+        issues.setLabels(token, IssueRef(core, 4780), listOf("performance", "refactor")).value()
+        issues.setLabels(token, IssueRef(core, 4780), emptyList()).value()
+
+        val (set, cleared) = fake.to("com.atproto.repo.putRecord").map { it.text }
+        assertThat(set).contains(""""tangledLabels":[{"${'$'}type":"org.tangled.label.defs#labelToken","key":"performance"},{"${'$'}type":"org.tangled.label.defs#labelToken","key":"refactor"}]""")
+        assertThat(cleared).doesNotContain("tangledLabels")
+    }
+
+    @Test
+    fun assignees_are_named_by_their_dids() = runTest {
+        val fake = writes()
+        val issues = apis(fake).issues
+
+        issues.setAssignees(token, IssueRef(core, 4780), listOf("tangled.org")).value()
+        issues.setAssignees(token, IssueRef(core, 4780), emptyList()).value()
+
+        val (set, cleared) = fake.to("com.atproto.repo.putRecord").map { it.text }
+        assertThat(set).contains(""""assignees":["$OWNER_DID"]""")
+        assertThat(cleared).doesNotContain("assignees")
+    }
+
+    @Test
     fun the_owner_administers_the_repository_and_anyone_else_reads_it() = runTest {
         val owner = FakeTangled(
             mapOf(
