@@ -26,7 +26,7 @@ import javax.inject.Inject
  * Where a search continues: the next page to read from each forge that has more. A sorted search also keeps [held],
  * what each forge sent that can't show yet: another forge's next page may come before it.
  */
-data class SearchCursor(val pages: Map<ForgeInstance, Int>, val held: Map<ForgeInstance, List<Any>> = emptyMap())
+data class SearchCursor(val pages: Map<ForgeInstance, Int>, val held: Map<ForgeInstance, List<Any?>> = emptyMap())
 
 /**
  * One page of a search across forges; [forges] are the forges searched, for naming each result's when there are
