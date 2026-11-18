@@ -25,6 +25,8 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 /** Where the conversations a text of this repository names by number live: `#12`, and `!12` where merge requests are numbered apart. */
 fun RepoId.referenceLinks(): ReferenceLinks = when (forge.type) {
     ForgeType.GITLAB -> ReferenceLinks(forge.webUrl, fullName, issuePath = "/-/issues/", mergeRequestPath = "/-/merge_requests/")
+    // Bitbucket has had no issues since 2026: what its texts number are pull requests.
+    ForgeType.BITBUCKET -> ReferenceLinks(forge.webUrl, fullName, issuePath = "/pull-requests/")
     else -> ReferenceLinks(forge.webUrl, fullName, issuePath = "/issues/")
 }
 

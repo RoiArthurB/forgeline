@@ -10,6 +10,8 @@ fun IssueRef.webUrl(isPullRequest: Boolean): String = when (repo.forge.type) {
     ForgeType.FORGEJO, ForgeType.GITEA, ForgeType.TANGLED -> "${repo.webUrl}/${if (isPullRequest) "pulls" else "issues"}/$number"
     // SourceHut keeps tickets on todo.sr.ht, in a tracker usually named as the repository, and patches on its mailing list.
     ForgeType.SOURCEHUT -> if (isPullRequest) repo.webUrl else "https://todo.sr.ht/${repo.owner}/${repo.name}/$number"
+    // Bitbucket says `pull-requests`; its issues are gone (2026), and their old pages with them.
+    ForgeType.BITBUCKET -> "${repo.webUrl}/${if (isPullRequest) "pull-requests" else "issues"}/$number"
 }
 
 /**
@@ -22,13 +24,15 @@ fun RepoId.runUrl(runId: Long): String = when (forge.type) {
     ForgeType.FORGEJO, ForgeType.GITEA -> "$webUrl/actions"
     ForgeType.TANGLED -> "$webUrl/pipelines"
     ForgeType.SOURCEHUT -> "https://builds.sr.ht/$owner/job/$runId"
+    // A pipeline's page is by its build number, which is the run's id here.
+    ForgeType.BITBUCKET -> "$webUrl/pipelines/results/$runId"
 }
 
 /** A job's page on GitHub or GitLab; on Forgejo, as for [runUrl], the repository's Actions page. */
 fun RepoId.jobUrl(runId: Long, jobId: Long): String = when (forge.type) {
     ForgeType.GITHUB -> "${runUrl(runId)}/job/$jobId"
     ForgeType.GITLAB -> "$webUrl/-/jobs/$jobId"
-    ForgeType.FORGEJO, ForgeType.GITEA, ForgeType.TANGLED, ForgeType.SOURCEHUT -> runUrl(runId)
+    ForgeType.FORGEJO, ForgeType.GITEA, ForgeType.TANGLED, ForgeType.SOURCEHUT, ForgeType.BITBUCKET -> runUrl(runId)
 }
 
 /** An artifact's page, from which it downloads: only GitHub lists a run's artifacts to the app. */
@@ -42,6 +46,8 @@ fun RepoId.releaseUrl(tag: String): String = when (forge.type) {
     ForgeType.TANGLED -> "$webUrl/tags/$tag"
     // SourceHut's are its tags too, on the repository's refs page.
     ForgeType.SOURCEHUT -> "$webUrl/refs/$tag"
+    // Bitbucket has no releases: its tags stand for them, each browsed at its files.
+    ForgeType.BITBUCKET -> "$webUrl/src/$tag/"
 }
 
 /** Where raw files at [ref] live, ending with `/`. */
@@ -51,6 +57,7 @@ fun RepoId.rawBaseUrl(ref: String): String = when (forge.type) {
     ForgeType.FORGEJO, ForgeType.GITEA -> "$webUrl/raw/branch/$ref/"
     ForgeType.TANGLED -> "$webUrl/raw/$ref/"
     ForgeType.SOURCEHUT -> "$webUrl/blob/$ref/"
+    ForgeType.BITBUCKET -> "$webUrl/raw/$ref/"
 }
 
 /** Where file pages at [ref] live, ending with `/`. */
@@ -60,6 +67,7 @@ fun RepoId.blobBaseUrl(ref: String): String = when (forge.type) {
     ForgeType.FORGEJO, ForgeType.GITEA -> "$webUrl/src/branch/$ref/"
     ForgeType.TANGLED -> "$webUrl/blob/$ref/"
     ForgeType.SOURCEHUT -> "$webUrl/tree/$ref/item/"
+    ForgeType.BITBUCKET -> "$webUrl/src/$ref/"
 }
 
 /** The page of the forge's website where the repository's owner sets everything about it. */
@@ -67,5 +75,6 @@ val RepoId.settingsUrl: String
     get() = when (forge.type) {
         ForgeType.GITLAB -> "$webUrl/edit"
         ForgeType.SOURCEHUT -> "$webUrl/settings/info"
+        ForgeType.BITBUCKET -> "$webUrl/admin"
         else -> "$webUrl/settings"
     }

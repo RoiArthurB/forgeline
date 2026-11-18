@@ -395,6 +395,24 @@ class SignInViewModelTest {
         assertThat(accounts.activeAccount.first()).isNull()
     }
 
+    private val bitbucketAuth = FakeForgeAuthApi(supportsDeviceFlow = false, forge = ForgeInstance.Bitbucket, supportsPasswordSignIn = true)
+        .apply { users["access"] = ForgeUser("me", null, null) }
+
+    @Test
+    fun bitbucket_signs_in_with_an_email_and_an_api_token() = test {
+        clients.put(ForgeInstance.Bitbucket, FakeForgeClients(auth = bitbucketAuth))
+        val viewModel = viewModel().also { it.selectForge(SignInForge.BITBUCKET) }
+        assertThat(viewModel.state.value.forgeName).isEqualTo("Bitbucket")
+        assertThat(viewModel.state.value.passwordSignInAvailable).isTrue()
+
+        viewModel.signInWithPassword(" me@example.org ", "ATATT3x ")
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.step).isEqualTo(SignInStep.SignedIn)
+        assertThat(bitbucketAuth.passwordSignIns.single()).isEqualTo("me@example.org ATATT3x")
+        assertThat(accounts.activeAccount.first()!!.forge).isEqualTo(ForgeInstance.Bitbucket)
+    }
+
     @Test
     fun a_redirect_from_another_sign_in_is_refused() = test {
         val viewModel = codebergViewModel()

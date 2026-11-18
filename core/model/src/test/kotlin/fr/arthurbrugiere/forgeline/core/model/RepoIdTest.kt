@@ -83,6 +83,23 @@ class RepoIdTest {
     }
 
     @Test
+    fun bitbucket_is_known_by_name_forks_without_stars_and_addresses_its_pages() {
+        assertThat(ForgeInstance.of("bitbucket.org")).isEqualTo(ForgeInstance.Bitbucket)
+        assertThat(ForgeInstance.Bitbucket.displayName).isEqualTo("Bitbucket")
+        assertThat(ForgeType.BITBUCKET.isSocial).isFalse()
+        assertThat(ForgeType.BITBUCKET.forks).isTrue()
+        assertThat(ForgeType.SOURCEHUT.forks).isFalse()
+        assertThat(ForgeType.BITBUCKET.hasNotifications).isFalse()
+        val ace = RepoId("atlassian", "atlassian-connect-express", ForgeInstance.Bitbucket)
+        assertThat(ace.webUrl).isEqualTo("https://bitbucket.org/atlassian/atlassian-connect-express")
+        assertThat(ace.rawBaseUrl("master")).isEqualTo("https://bitbucket.org/atlassian/atlassian-connect-express/raw/master/")
+        assertThat(ace.blobBaseUrl("master")).isEqualTo("https://bitbucket.org/atlassian/atlassian-connect-express/src/master/")
+        assertThat(ace.releaseUrl("v12.2.3")).isEqualTo("https://bitbucket.org/atlassian/atlassian-connect-express/src/v12.2.3/")
+        assertThat(IssueRef(ace, 604, isPullRequest = true).webUrl(isPullRequest = true)).isEqualTo("https://bitbucket.org/atlassian/atlassian-connect-express/pull-requests/604")
+        assertThat(ace.runUrl(3201)).isEqualTo("https://bitbucket.org/atlassian/atlassian-connect-express/pipelines/results/3201")
+    }
+
+    @Test
     fun sourcehut_is_known_by_name_and_its_owners_keep_their_tilde() {
         assertThat(ForgeInstance.of("git.sr.ht")).isEqualTo(ForgeInstance.SourceHut)
         assertThat(ForgeInstance.SourceHut.displayName).isEqualTo("SourceHut")

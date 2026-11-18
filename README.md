@@ -4,7 +4,7 @@
 
 **All your code forges, in one fast Android app.**
 
-GitHub, GitLab, Codeberg, Gitea, Tangled, SourceHut and your own Forgejo or Gitea server, side by side. See what needs you, follow what people are building, and find something new to love every day, without being sent off to a mobile web page.
+GitHub, GitLab, Codeberg, Gitea, Tangled, SourceHut, Bitbucket and your own Forgejo or Gitea server, side by side. See what needs you, follow what people are building, and find something new to love every day, without being sent off to a mobile web page.
 
 [**Download the latest APK**](https://github.com/RoiArthurB/forgeline/releases/latest) · [Website](https://arthurbrugiere.fr/forgeline/) · [What's new](docs/release-notes)
 
@@ -38,7 +38,7 @@ Curious about the details? Everything is listed in [docs/FEATURES.md](docs/FEATU
 
 1. **Install** the APK from the [latest release](https://github.com/RoiArthurB/forgeline/releases/latest). Forgeline isn't on an app store yet ([here's why](docs/DISTRIBUTION.md)).
 2. **Look around.** Trending works straight away, without an account.
-3. **Sign in** to fill your Inbox and Feed. GitHub, gitlab.com, Codeberg and gitea.com sign you in through your browser; Tangled takes your handle and an app password, and SourceHut a personal access token. For your own server, a personal access token always works (a GitLab server can do browser sign-in too: [here's how](docs/GITLAB_OAUTH_APP.md)). You can be signed in to several accounts at once.
+3. **Sign in** to fill your Inbox and Feed. GitHub, gitlab.com, Codeberg and gitea.com sign you in through your browser; Tangled takes your handle and an app password, SourceHut a personal access token, and Bitbucket your Atlassian email and an API token. For your own server, a personal access token always works (a GitLab server can do browser sign-in too: [here's how](docs/GITLAB_OAUTH_APP.md)). You can be signed in to several accounts at once.
 
 **Tip:** to open github.com, gitlab.com, codeberg.org, gitea.com, tangled.org and sr.ht links in Forgeline instead of the browser, go to *Settings → Apps → Forgeline → Open by default → Add links* and pick the forges.
 

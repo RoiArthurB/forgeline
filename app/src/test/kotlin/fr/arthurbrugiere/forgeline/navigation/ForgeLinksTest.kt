@@ -136,7 +136,7 @@ class ForgeLinksTest {
 
     @Test
     fun other_hosts_and_non_web_links_stay_outside() {
-        assertThat(ForgeLinks.routeFor("https://bitbucket.org/a/b")).isNull()
+        assertThat(ForgeLinks.routeFor("https://example.com/a/b")).isNull()
         assertThat(ForgeLinks.routeFor("https://raw.githubusercontent.com/a/b/main/x.png")).isNull()
         assertThat(ForgeLinks.routeFor("mailto:me@example.com")).isNull()
         assertThat(ForgeLinks.routeFor("#usage")).isNull()
@@ -208,6 +208,27 @@ class ForgeLinksTest {
         assertThat(ForgeLinks.routeFor("https://git.sr.ht/~sircmpwn/scdoc/log")).isNull()
         assertThat(ForgeLinks.routeFor("https://git.sr.ht/projects")).isNull()
         assertThat(ForgeLinks.forgeOf("git.sr.ht")).isEqualTo(ForgeInstance.SourceHut)
+    }
+
+    @Test
+    fun bitbucket_links_open_workspaces_repositories_files_pull_requests_pipelines_and_commits_in_app() {
+        val host = "bitbucket.org"
+        val ace = "https://bitbucket.org/atlassian/atlassian-connect-express"
+        assertThat(ForgeLinks.forgeOf(host)).isEqualTo(ForgeInstance.Bitbucket)
+        assertThat(ForgeLinks.routeFor("https://bitbucket.org/atlassian")).isEqualTo(UserRoute(host, "atlassian"))
+        assertThat(ForgeLinks.routeFor(ace)).isEqualTo(RepoRoute(host, "atlassian", "atlassian-connect-express"))
+        assertThat(ForgeLinks.routeFor("$ace/src/master/")).isEqualTo(RepoRoute(host, "atlassian", "atlassian-connect-express"))
+        assertThat(ForgeLinks.routeFor("$ace/src/master/lib/index.js#lines-12:20"))
+            .isEqualTo(FileRoute(host, "atlassian", "atlassian-connect-express", path = "lib/index.js", ref = "master", firstLine = 12, lastLine = 20))
+        assertThat(ForgeLinks.routeFor("$ace/pull-requests/604")).isEqualTo(IssueRoute(host, "atlassian", "atlassian-connect-express", 604, isPullRequest = true))
+        assertThat(ForgeLinks.routeFor("$ace/pull-requests/604/diff")).isEqualTo(IssueRoute(host, "atlassian", "atlassian-connect-express", 604, isPullRequest = true))
+        assertThat(ForgeLinks.routeFor("$ace/pipelines/results/3201")).isEqualTo(RunRoute(host, "atlassian", "atlassian-connect-express", 3201))
+        assertThat(ForgeLinks.routeFor("$ace/commits/0a1b2c3d4e5f")).isEqualTo(ChangesRoute(host, "atlassian", "atlassian-connect-express", sha = "0a1b2c3d4e5f"))
+        // Bitbucket's own pages, and a repository's that Forgeline doesn't show, stay in the browser.
+        assertThat(ForgeLinks.routeFor("https://bitbucket.org/dashboard/overview")).isNull()
+        assertThat(ForgeLinks.routeFor("https://bitbucket.org/account/settings/")).isNull()
+        assertThat(ForgeLinks.routeFor("$ace/admin")).isNull()
+        assertThat(ForgeLinks.linesOf("lines-42")).isEqualTo(42..42)
     }
 
     @Test

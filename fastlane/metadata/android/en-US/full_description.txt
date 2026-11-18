@@ -1,7 +1,7 @@
 Forgeline brings your code forges to your phone as a timeline: an Inbox for what needs you, a Feed of what the people you follow are doing, and a Trending page for the daily discovery ritual. It opens in about a second and renders everything natively, so you are never bounced to a mobile web page.
 
 <b>Several forges at once</b>
-GitHub, GitLab (gitlab.com or your own server), Codeberg, Gitea (gitea.com or your own server) and any self-hosted Forgejo server share one Inbox, one Feed, one Trending page and one search. Tangled and SourceHut join in as far as they go: Tangled's repositories, people and Trending, with stars and follows; SourceHut's repositories and todo.sr.ht tickets. Several accounts can be signed in together, private repositories included, and what a forge can't do is hidden rather than faked.
+GitHub, GitLab (gitlab.com or your own server), Codeberg, Gitea (gitea.com or your own server) and any self-hosted Forgejo server share one Inbox, one Feed, one Trending page and one search. Tangled, SourceHut and Bitbucket join in as far as they go: Tangled's repositories, people and Trending, with stars and follows; SourceHut's repositories and todo.sr.ht tickets; Bitbucket's repositories, pull requests and Pipelines, with reviews and merges. Several accounts can be signed in together, private repositories included, and what a forge can't do is hidden rather than faked.
 
 <b>What it does</b>
 • Inbox: what needs you first (review requests, mentions, assignments), then everything else by repository. Swipe to mark read or done. Background checks post notifications, and a home screen widget lists what is unread.

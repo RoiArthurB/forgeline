@@ -1,0 +1,106 @@
+{
+ "uuid": "{f074649f-054d-4e55-8b2d-71cd5f294f79}",
+ "pipeline_request_uuid": "{f074649f-054d-4e55-8b2d-71cd5f294f79}",
+ "repository": {
+  "type": "repository",
+  "full_name": "atlassian/atlassian-connect-express",
+  "links": {
+   "html": {
+    "href": "https://bitbucket.org/atlassian/atlassian-connect-express"
+   },
+   "avatar": {
+    "href": "https://bytebucket.org/ravatar/%7B47b154f6-a82d-4e03-99ce-44fb75b4827c%7D?ts=138914"
+   }
+  },
+  "name": "atlassian-connect-express",
+  "uuid": "{47b154f6-a82d-4e03-99ce-44fb75b4827c}"
+ },
+ "state": {
+  "name": "COMPLETED",
+  "type": "pipeline_state_completed",
+  "result": {
+   "name": "SUCCESSFUL",
+   "type": "pipeline_state_completed_successful"
+  }
+ },
+ "build_number": 3201,
+ "creator": {
+  "type": "app_user",
+  "links": {
+   "avatar": {
+    "href": "https://avatar-management--avatars.us-west-2.prod.public.atl-paas.net/712020:2dd8a271-7cdd-4b05-998f-e107ba034299/0e69300e-994f-4c34-962e-8c97897acea0/128"
+   }
+  },
+  "uuid": "{043857bd-bfc6-40b2-a003-0babe099f69c}",
+  "account_id": "712020:2dd8a271-7cdd-4b05-998f-e107ba034299",
+  "kind": "workspace_access_token",
+  "created_on": "2026-02-26T04:21:49.356810+00:00",
+  "display_name": "atlassian-renovate-bot",
+  "account_status": "active",
+  "nickname": "atlassian-renovate-bot"
+ },
+ "created_on": "2026-11-15T20:02:38.855179589Z",
+ "completed_on": "2026-11-15T20:08:02.516363623Z",
+ "target": {
+  "selector": {
+   "type": "custom",
+   "pattern": "trust-greenlight-pipeline"
+  },
+  "commit": {
+   "hash": "e0949d3373fda3ded93aa313a43b53e919c91341",
+   "links": {
+    "html": {
+     "href": "https://bitbucket.org/atlassian/atlassian-connect-express/commits/e0949d3373fda3ded93aa313a43b53e919c91341"
+    }
+   },
+   "type": "commit"
+  },
+  "source": "renovate/prettier-3.x",
+  "destination": "master",
+  "destination_commit": {
+   "hash": "9c5c85803bfb",
+   "links": {
+    "html": {
+     "href": "https://bitbucket.org/atlassian/atlassian-connect-express/commits/9c5c85803bfb"
+    }
+   },
+   "type": "commit"
+  },
+  "pullrequest": {
+   "type": "pullrequest",
+   "id": 604,
+   "title": "[Renovate] Update dependency prettier to v3.10.1",
+   "draft": false,
+   "links": {
+    "html": {
+     "href": "https://bitbucket.org/atlassian/atlassian-connect-express/pull-requests/604"
+    }
+   },
+   "queued": false
+  },
+  "type": "pipeline_pullrequest_target"
+ },
+ "trigger": {
+  "name": "PUSH",
+  "type": "pipeline_trigger_push"
+ },
+ "run_number": 1,
+ "run_creation_date": "2026-11-15T20:02:38.860588256Z",
+ "duration_in_seconds": 297,
+ "build_seconds_used": 2880,
+ "first_successful": false,
+ "expired": false,
+ "has_variables": false,
+ "labels": {},
+ "configuration_sources": [
+  {
+   "source": "STATIC_LOCAL",
+   "uri": "/%7B02b941e3-cfaa-40f9-9a58-cec53e20bdc3%7D/%7B47b154f6-a82d-4e03-99ce-44fb75b4827c%7D/src/e0949d3373fda3ded93aa313a43b53e919c91341/bitbucket-pipelines.yml"
+  },
+  {
+   "source": "DYNAMIC_WORKSPACE",
+   "uri": "https://micros--prod-east--bitbucketci-file-service--files.s3.amazonaws.com/configuration-source/%7B47b154f6-a82d-4e03-99ce-44fb75b4827c%7D/%7Bf074649f-054d-4e55-8b2d-71cd5f294f79%7D/%7B9e4a600c-1ec4-…"
+  }
+ ],
+ "type": "pipeline"
+}

@@ -1,0 +1,65 @@
+{
+ "page": 1,
+ "values": [
+  {
+   "uuid": "{48fe0b2d-b3e6-49f7-a892-0c44016ccd53}",
+   "name": "Artifactory Bypass Scanner",
+   "state": {
+    "name": "COMPLETED",
+    "type": "pipeline_step_state_completed",
+    "result": {
+     "name": "FAILED",
+     "type": "pipeline_step_state_completed_failed"
+    }
+   },
+   "started_on": "2026-11-15T20:02:52.607846419Z",
+   "completed_on": "2026-11-15T20:06:50.459752266Z",
+   "pipeline": {
+    "type": "pipeline",
+    "uuid": "{f074649f-054d-4e55-8b2d-71cd5f294f79}"
+   },
+   "type": "pipeline_step"
+  },
+  {
+   "uuid": "{3000e771-2cdd-418d-b16c-aa904b9432a6}",
+   "name": "Scanning for OPTIONAL ASAP authentication",
+   "state": {
+    "name": "COMPLETED",
+    "type": "pipeline_step_state_completed",
+    "result": {
+     "name": "FAILED",
+     "type": "pipeline_step_state_completed_failed"
+    }
+   },
+   "started_on": "2026-11-15T20:02:53.762839598Z",
+   "completed_on": "2026-11-15T20:06:50.340822881Z",
+   "pipeline": {
+    "type": "pipeline",
+    "uuid": "{f074649f-054d-4e55-8b2d-71cd5f294f79}"
+   },
+   "type": "pipeline_step"
+  },
+  {
+   "uuid": "{f1921505-ebd9-4179-9bbe-96b96aaa581a}",
+   "name": "Scanning for Bifrost private access",
+   "state": {
+    "name": "COMPLETED",
+    "type": "pipeline_step_state_completed",
+    "result": {
+     "name": "FAILED",
+     "type": "pipeline_step_state_completed_failed"
+    }
+   },
+   "started_on": "2026-11-15T20:02:52.990144704Z",
+   "completed_on": "2026-11-15T20:06:50.375411304Z",
+   "pipeline": {
+    "type": "pipeline",
+    "uuid": "{f074649f-054d-4e55-8b2d-71cd5f294f79}"
+   },
+   "type": "pipeline_step"
+  }
+ ],
+ "size": 13,
+ "next": "https://api.bitbucket.org/2.0/repositories/%7B02b941e3-cfaa-40f9-9a58-cec53e20bdc3%7D/%7B47b154f6-a82d-4e03-99ce-44fb75b4827c%7D/pipelines/%7Bf074649f-054d-4e55-8b2d-71cd5f294f79%7D/steps?page=2&pagelen=3",
+ "pagelen": 3
+}

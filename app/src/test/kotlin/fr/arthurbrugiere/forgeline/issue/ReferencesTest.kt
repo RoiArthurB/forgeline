@@ -120,6 +120,8 @@ class ReferencesTest {
         assertThat(repo.referenceLinks()).isEqualTo(ReferenceLinks("https://github.com", "octo/repo", "/issues/"))
         assertThat(RepoId("forgejo", "forgejo", ForgeInstance.Codeberg).referenceLinks()).isEqualTo(ReferenceLinks("https://codeberg.org", "forgejo/forgejo", "/issues/"))
         assertThat(gitlab.referenceLinks()).isEqualTo(ReferenceLinks("https://gitlab.com", "group/tool", "/-/issues/", "/-/merge_requests/"))
+        // Bitbucket's #12 is a pull request: it has no issues.
+        assertThat(RepoId("atlassian", "ace", ForgeInstance.Bitbucket).referenceLinks()).isEqualTo(ReferenceLinks("https://bitbucket.org", "atlassian/ace", "/pull-requests/"))
     }
 
     @Test

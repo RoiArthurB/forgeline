@@ -1,0 +1,58 @@
+{
+  "_comment": "Fields Bitbucket answers with that its API description leaves out, seen in its live answers (2026-11-18). Merged into the description before the models are generated.",
+  "account": {
+    "username": {
+      "type": "string"
+    }
+  },
+  "repository": {
+    "slug": {
+      "type": "string"
+    },
+    "website": {
+      "type": "string"
+    },
+    "workspace": {
+      "$ref": "#/definitions/workspace"
+    }
+  },
+  "treeentry": {
+    "size": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "attributes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "commit_file": {
+    "size": {
+      "type": "integer",
+      "format": "int64"
+    }
+  },
+  "pipeline_step": {
+    "name": {
+      "type": "string"
+    }
+  },
+  "pipeline_target": {
+    "source": {
+      "type": "string"
+    },
+    "destination": {
+      "type": "string"
+    },
+    "pullrequest": {
+      "$ref": "#/definitions/pullrequest"
+    }
+  },
+  "commitstatus": {
+    "commit": {
+      "$ref": "#/definitions/commit"
+    }
+  }
+}
