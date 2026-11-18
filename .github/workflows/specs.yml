@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       sources:
-        description: "Which to refresh, space-separated (tangled atproto forgejo sourcehut github); empty for all"
+        description: "Which to refresh, space-separated (tangled atproto forgejo sourcehut github bitbucket); empty for all"
         required: false
         default: ""
   push:

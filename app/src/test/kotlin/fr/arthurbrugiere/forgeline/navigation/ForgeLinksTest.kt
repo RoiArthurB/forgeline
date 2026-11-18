@@ -136,7 +136,7 @@ class ForgeLinksTest {
 
     @Test
     fun other_hosts_and_non_web_links_stay_outside() {
-        assertThat(ForgeLinks.routeFor("https://bitbucket.org/a/b")).isNull()
+        assertThat(ForgeLinks.routeFor("https://example.com/a/b")).isNull()
         assertThat(ForgeLinks.routeFor("https://raw.githubusercontent.com/a/b/main/x.png")).isNull()
         assertThat(ForgeLinks.routeFor("mailto:me@example.com")).isNull()
         assertThat(ForgeLinks.routeFor("#usage")).isNull()

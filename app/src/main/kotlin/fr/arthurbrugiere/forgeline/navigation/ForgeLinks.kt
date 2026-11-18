@@ -191,7 +191,7 @@ object ForgeLinks {
         val name = segments[1].removeSuffix(".git")
         val repo = RepoRoute(forge.host, owner, name)
         return when (segments.getOrNull(2)) {
-            null, "branches", "branch", "commits" -> when (val sha = segments.getOrNull(3).takeIf { segments[2] == "commits" }) {
+            null, "branches", "branch", "commits" -> when (val sha = segments.getOrNull(3).takeIf { segments.getOrNull(2) == "commits" }) {
                 null -> repo
                 else -> if (isSha(sha)) ChangesRoute(forge.host, owner, name, sha = sha) else repo
             }
