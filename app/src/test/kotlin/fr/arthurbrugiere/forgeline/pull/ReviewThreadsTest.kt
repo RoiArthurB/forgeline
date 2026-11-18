@@ -20,8 +20,10 @@ import fr.arthurbrugiere.forgeline.core.markdown.ReadmeContext
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.KeptSuggestion
 import fr.arthurbrugiere.forgeline.core.model.Reaction
+import fr.arthurbrugiere.forgeline.core.model.ReviewState
 import fr.arthurbrugiere.forgeline.core.model.ReviewThread
 import fr.arthurbrugiere.forgeline.core.model.ThreadComment
+import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
 import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
 import org.junit.Rule
@@ -82,6 +84,35 @@ class ReviewThreadsTest {
 
     private fun waitFor(text: String) =
         composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText(text, substring = true)).fetchSemanticsNodes().isNotEmpty() }
+
+    @Test
+    fun threads_go_under_their_review_where_it_is_shown_and_the_rest_after() {
+        val review = TimelineItem.Review(7, ForgeUser("hubot", null, null), ReviewState.COMMENTED, null, at)
+        val underIt = open.copy(reviewId = 7)
+        val reviewNotRead = resolved.copy(reviewId = 8)
+        val unsaid = open.copy(id = "T3")
+
+        val (under, after) = placeThreads(listOf(review), listOf(underIt, reviewNotRead, unsaid))
+
+        assertThat(under).containsExactly(7L, listOf(underIt))
+        assertThat(after).containsExactly(reviewNotRead, unsaid).inOrder()
+    }
+
+    @Test
+    fun threads_under_a_review_go_untitled() {
+        composeRule.setContent {
+            ForgelineTheme {
+                ReviewThreads(
+                    listOf(open, resolved), PullRequestUiState(), actions, canReply = false, ReadmeContext("https://raw.example/", "https://blob.example/"),
+                    at.toEpochMilli(), onOpenUser = {}, onLinkClick = {}, titled = false,
+                )
+            }
+        }
+
+        waitFor("Why not three times?")
+        composeRule.onNodeWithText("1 open thread").assertDoesNotExist()
+        composeRule.onNodeWithText("Show 1 resolved thread").assertIsDisplayed()
+    }
 
     @Test
     fun a_thread_leads_to_its_file_in_the_change() {

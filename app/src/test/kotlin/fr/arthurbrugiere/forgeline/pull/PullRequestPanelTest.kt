@@ -518,11 +518,12 @@ class PullRequestPanelTest {
         pullState: PullRequestUiState = failing.copy(threads = listOf(thread), dismissesReviews = true),
         me: String? = null,
         issue: IssueDetails = open,
+        items: List<fr.arthurbrugiere.forgeline.core.model.TimelineItem> = listOf(comment(1, "Looks good", login = "octocat"), approval),
     ) =
         composeRule.setContent {
             ForgelineTheme {
                 IssueScreen(
-                    state = IssueUiState(ref, issue, listOf(comment(1, "Looks good", login = "octocat"), approval), access = access, me = me),
+                    state = IssueUiState(ref, issue, items, access = access, me = me),
                     pull = pullState,
                     pullActions = actions,
                     canComment = true, onDraftChange = {}, onSendComment = {}, onToggleOpen = {}, onSignIn = {}, onCommentNoticeShown = {},
@@ -545,6 +546,29 @@ class PullRequestPanelTest {
         assertThat(checksHeading.top).isGreaterThan(threads.bottom)
         // Reading only: nobody without the right to write dismisses a verdict.
         composeRule.onNodeWithText("Dismiss review").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_thread_sits_under_the_review_that_started_it_not_after_the_merge() {
+        // Regression: gama-platform/gama#1313 showed a review bot's remarks after the merge, unlike GitHub.
+        val merged = fr.arthurbrugiere.forgeline.core.model.TimelineItem.StateChanged(
+            fr.arthurbrugiere.forgeline.core.model.StateChange.MERGED, fr.arthurbrugiere.forgeline.core.model.ForgeUser("octocat", null, null), null,
+            java.time.Instant.parse("2026-09-27T09:00:00Z"),
+        )
+        setScreen(
+            fr.arthurbrugiere.forgeline.core.model.RepoAccess.NONE,
+            failing.copy(threads = listOf(thread.copy(reviewId = 80))),
+            items = listOf(approval, merged, comment(1, "Thanks", login = "octocat")),
+        )
+        composeRule.waitUntil(5_000) { composeRule.onAllNodes(hasText("Why three?")).fetchSemanticsNodes().isNotEmpty() }
+
+        val approved = composeRule.onNodeWithText("hubot approved", substring = true).getBoundsInRoot()
+        val remark = composeRule.onNodeWithText("Why three?").getBoundsInRoot()
+        val mergedLine = composeRule.onNodeWithText("octocat merged", substring = true).getBoundsInRoot()
+        assertThat(remark.top).isGreaterThan(approved.bottom)
+        assertThat(mergedLine.top).isGreaterThan(remark.bottom)
+        // Nothing left for the block after the conversation.
+        composeRule.onNodeWithText("1 open thread").assertDoesNotExist()
     }
 
     @Test

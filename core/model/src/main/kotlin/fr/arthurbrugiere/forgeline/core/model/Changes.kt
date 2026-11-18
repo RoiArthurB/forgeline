@@ -352,7 +352,8 @@ data class NewPullRequest(val title: String, val body: String, val head: String,
  * first comment's id. [line] is the line's number on the side [onOldSide] says, null once the code it was on moved on
  * ([outdated]). [hunk] is the change around the line as a unified diff, where the forge gives it. [canResolve] is
  * whether the reader may mark it resolved, or not resolved again. [startLine] is the first of the lines it is on, where
- * it is on several and the forge says so.
+ * it is on several and the forge says so. [reviewId] is the review that started it, as its forge's timeline names it
+ * ([TimelineItem.Review.id]), where the forge says.
  */
 data class ReviewThread(
     val id: String,
@@ -365,6 +366,7 @@ data class ReviewThread(
     val canResolve: Boolean,
     val outdated: Boolean = false,
     val startLine: Int? = null,
+    val reviewId: Long? = null,
 ) {
     /**
      * The lines of the change a suggestion in it would replace, read from [hunk]: from [startLine] (or [line]) to

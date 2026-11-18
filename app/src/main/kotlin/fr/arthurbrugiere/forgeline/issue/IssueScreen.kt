@@ -112,6 +112,7 @@ import fr.arthurbrugiere.forgeline.pull.PullRequestDecisions
 import fr.arthurbrugiere.forgeline.pull.PullRequestUiState
 import fr.arthurbrugiere.forgeline.pull.PullRequestViewModel
 import fr.arthurbrugiere.forgeline.pull.ReviewThreads
+import fr.arthurbrugiere.forgeline.pull.placeThreads
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.session.actingOn
 import fr.arthurbrugiere.forgeline.session.signedInOn
@@ -636,6 +637,11 @@ fun IssueScreen(
                                     ),
                                 )
                             }
+                            // A thread is shown under the review that started it, as the forge does; the rest after the conversation.
+                            val (threadsUnder, threadsAfter) = placeThreads(state.items, pull?.threads.orEmpty())
+                            // Its branch takes a commit from whoever may push to the repository, or opened it.
+                            val canCommit = canWrite && issue.state == IssueState.OPEN &&
+                                (state.access >= RepoAccess.WRITE || (state.me != null && issue.author?.login == state.me))
                             itemsIndexed(state.items, key = { index, item -> item.key(index) }) { _, item ->
                                 // A comment being rewritten is rewritten where it stands: its words give way to the field.
                                 val editor: (@Composable () -> Unit)? = if (item is TimelineItem.Comment && item.id == state.editing) {
@@ -651,6 +657,16 @@ fun IssueScreen(
                                         onUnhide = if (comment.canHide && comment.hidden != null) ({ comments.onSetHidden(comment.id, null) }) else null,
                                     )
                                 }
+                                val under = (item as? TimelineItem.Review)?.let { threadsUnder[it.id] }
+                                if (pull != null && under != null) {
+                                    ReviewThreads(
+                                        under, pull, pullActions, canReply = canWrite, context, nowMillis, onOpenUser, onLinkClick,
+                                        Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 12.dp + TimelineGutter, end = 12.dp),
+                                        canCommit = canCommit,
+                                        branch = issue.pullRequest?.headRef.orEmpty(),
+                                        titled = false,
+                                    )
+                                }
                             }
                             if (state.nextPage != null) {
                                 item(key = "more") {
@@ -663,15 +679,13 @@ fun IssueScreen(
                                     }
                                 }
                             }
-                            // What was said on lines of its change, after the rest of what was said.
-                            if (!pull?.threads.isNullOrEmpty()) {
+                            // What was said on lines of its change outside any review shown above, after the rest of what was said.
+                            if (pull != null && threadsAfter.isNotEmpty()) {
                                 item(key = "threads") {
                                     ReviewThreads(
-                                        pull.threads, pull, pullActions, canReply = canWrite, context, nowMillis, onOpenUser, onLinkClick,
+                                        threadsAfter, pull, pullActions, canReply = canWrite, context, nowMillis, onOpenUser, onLinkClick,
                                         Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 24.dp),
-                                        // Its branch takes a commit from whoever may push to the repository, or opened it.
-                                        canCommit = canWrite && issue.state == IssueState.OPEN &&
-                                            (state.access >= RepoAccess.WRITE || (state.me != null && issue.author?.login == state.me)),
+                                        canCommit = canCommit,
                                         branch = issue.pullRequest?.headRef.orEmpty(),
                                     )
                                 }

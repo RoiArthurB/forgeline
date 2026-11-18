@@ -723,6 +723,7 @@ private data class PrAuthorsCommitJson(val authors: PrAuthorsJson = PrAuthorsJso
 private data class PrReviewCommentJson(
     val id: Long,
     @SerialName("in_reply_to_id") val inReplyTo: Long? = null,
+    @SerialName("pull_request_review_id") val reviewId: Long? = null,
     val path: String,
     val line: Int? = null,
     @SerialName("original_line") val originalLine: Int? = null,
@@ -751,6 +752,7 @@ private fun threadsOf(comments: List<PrReviewCommentJson>): List<ReviewThread> {
             canResolve = false,
             outdated = first.line == null,
             startLine = first.startLine,
+            reviewId = first.reviewId,
         )
     }
 }
@@ -774,6 +776,7 @@ private fun ThreadsQuery.Node.toModel(): ReviewThread {
         canResolve = if (isResolved) viewerCanUnresolve else viewerCanResolve,
         outdated = isOutdated,
         startLine = startLine,
+        reviewId = remarks.firstOrNull()?.pullRequestReview?.fullDatabaseId?.toLongOrNull(),
     )
 }
 
