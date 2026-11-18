@@ -236,7 +236,6 @@
     <string name="trending_updated">Updated %1$s</string>
     <string name="trending_built_by_names">Built by %1$s</string>
     <string name="trending_rank">Rank %1$d</string>
-    <string name="trending_resume">Continue where you left off</string>
     <string name="reading_left_off">Where you left off</string>
     <string name="inbox_loading">Loading your notifications</string>
     <string name="feed_loading">Loading your feed</string>
@@ -1028,7 +1027,7 @@
     <string name="settings_open_failed_step_summary">A failed job opens on the step it failed at, unfolded</string>
     <string name="settings_open_at_unread_summary">An unread conversation opens where you stopped reading, not at its title</string>
     <string name="settings_reading_marks">Mark where you left off</string>
-    <string name="settings_reading_marks_summary">Trending and the Feed show where your last visit stopped</string>
+    <string name="settings_reading_marks_summary">The Feed shows where your last visit stopped</string>
     <string name="settings_trending_period">Open Trending on</string>
     <string name="settings_section_about">About</string>
     <string name="settings_section_accessibility">Accessibility</string>

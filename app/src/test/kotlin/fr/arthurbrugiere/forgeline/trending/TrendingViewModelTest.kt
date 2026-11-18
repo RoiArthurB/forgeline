@@ -173,37 +173,6 @@ class TrendingViewModelTest {
     }
 
     @Test
-    fun the_resume_mark_is_fixed_for_the_visit_while_reading_moves_the_stored_one() = test {
-        trending.snapshots.getValue(TrendingPeriod.DAILY).value = TrendingSnapshot(listOf(paperclip, hindsight), 1_000)
-        trending.marks[TrendingPeriod.DAILY] = paperclip.id to 0
-        val viewModel = viewModel()
-        advanceUntilIdle()
-
-        viewModel.readThrough(1)
-        advanceUntilIdle()
-
-        assertThat(viewModel.state.value.resumeAt).isEqualTo(0)
-        assertThat(trending.marks[TrendingPeriod.DAILY]).isEqualTo(hindsight.id to 1)
-    }
-
-    @Test
-    fun the_mark_follows_its_repo_when_the_list_reorders() = test {
-        // Regression: the mark was a rank, so after a refresh it pointed at whichever repo took that place.
-        trending.snapshots.getValue(TrendingPeriod.DAILY).value = TrendingSnapshot(listOf(paperclip, hindsight), 1_000)
-        trending.marks[TrendingPeriod.DAILY] = paperclip.id to 0
-        val viewModel = viewModel()
-        advanceUntilIdle()
-
-        trending.snapshots.getValue(TrendingPeriod.DAILY).value = TrendingSnapshot(listOf(hindsight, paperclip), 2_000)
-        advanceUntilIdle()
-        assertThat(viewModel.state.value.resumeAt).isEqualTo(1)
-
-        trending.snapshots.getValue(TrendingPeriod.DAILY).value = TrendingSnapshot(listOf(hindsight), 3_000)
-        advanceUntilIdle()
-        assertThat(viewModel.state.value.resumeAt).isNull()
-    }
-
-    @Test
     fun rows_name_their_forge_only_when_the_page_mixes_forges() = test {
         trending.snapshots.getValue(TrendingPeriod.DAILY).value = TrendingSnapshot(listOf(paperclip), 1_000, listOf(ForgeInstance.GitHub))
         val viewModel = viewModel()
@@ -220,7 +189,7 @@ class TrendingViewModelTest {
     }
 
     @Test
-    fun one_forge_can_be_shown_alone_with_its_own_reading_mark() = test {
+    fun one_forge_can_be_shown_alone() = test {
         val zig = trendingRepo("ziglang/zig", forge = ForgeInstance.Codeberg)
         trending.snapshots.getValue(TrendingPeriod.DAILY).value =
             TrendingSnapshot(listOf(paperclip, zig, hindsight), 1_000, listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg))
@@ -235,11 +204,6 @@ class TrendingViewModelTest {
         assertThat(state.items.map { it.repo }).containsExactly(zig)
         // One forge alone: rows needn't wear their logo.
         assertThat(state.showForge).isFalse()
-
-        viewModel.readThrough(0)
-        advanceUntilIdle()
-        assertThat(trending.forgeMarks[TrendingPeriod.DAILY to "codeberg.org"]).isEqualTo(zig.id to 0)
-        assertThat(trending.marks).isEmpty()
 
         viewModel.selectForge(null)
         advanceUntilIdle()

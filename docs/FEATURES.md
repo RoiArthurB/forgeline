@@ -14,7 +14,7 @@ Everything the app can do, and where forges differ. For a gentler tour, start wi
 - **Your work:** under the Inbox's "Yours" filter, the reviews asked of you, your open pull requests and what is assigned to you, across every account.
 - **Feed:** what the people you follow and the repositories you watch are doing, in strict chronological order, grouped by day, each event leading with the repository or pull request it's about. Releases show the project's logo, how big a step the version is and the start of their notes; pull requests show their size. Identical events on the same repository merge. Releases (and, on GitHub, announcements) from the repositories you starred join in, which the forges' own event feeds leave out. You choose which kinds of activity show up in Settings.
 - **Trending:** what is trending today, this week or this month on GitHub (as GitHub ranks it), Codeberg, gitlab.com, gitea.com and Tangled (as Tangled ranks it), mixed into one page or one forge at a time. A repository needs at least 5 stars today (10 this week, 20 this month) to be listed, and on the mixed page each forge gets about the same room (10 each, up to 12 for a busy forge). It works without signing in. From its header, **First issues**: the open issues maintainers marked for a first contribution, in your latest stars and today's Trending, on every forge.
-- **Where you left off:** Trending and the Feed mark where your last visit's reading stopped.
+- **Where you left off:** the Feed marks where your last visit's reading stopped.
 
 ## Repositories
 

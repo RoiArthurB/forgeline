@@ -39,7 +39,6 @@ class TrendingScreenTest {
     val composeRule = createComposeRule()
 
     private val events = mutableListOf<String>()
-    private val readThrough = mutableListOf<Int>()
     private val paperclip = trendingRepo("paperclipai/paperclip", stars = 85_955, periodStars = 2_109)
 
     /** What Settings holds for the test; every default unless it says otherwise. */
@@ -56,7 +55,6 @@ class TrendingScreenTest {
                     onOpenRepo = { events += "open:${it.fullName}" },
                     onErrorShown = { events += "errorShown" },
                     onStarFailureShown = { events += "starFailureShown" },
-                    onReadThrough = { readThrough += it },
                     nowMillis = 10 * 60_000L,
                 )
             }
@@ -152,48 +150,6 @@ class TrendingScreenTest {
 
         composeRule.onNodeWithText("Couldn't refresh. Showing the last saved list.").assertIsDisplayed()
         composeRule.onNodeWithText("paperclip", useUnmergedTree = true).assertIsDisplayed()
-    }
-
-    @Test
-    fun the_last_browse_is_flagged_and_can_be_resumed() {
-        val repos = (1..30).map { TrendingItem(trendingRepo("owner/repo$it"), null) }
-        setContent(TrendingUiState(items = repos, resumeAt = 20))
-
-        composeRule.onNodeWithText("Where you left off").assertDoesNotExist()
-        composeRule.onNodeWithText("Continue where you left off").assertIsDisplayed().performClick()
-        composeRule.onNodeWithText("Where you left off").assertIsDisplayed()
-        // There: the way back has done its job.
-        composeRule.onNodeWithText("Continue where you left off").assertDoesNotExist()
-    }
-
-    @Test
-    fun rows_that_stay_on_screen_are_reported_read() {
-        // Regression: the rows were looked up by owner/name while the list keys them by forge too, so nothing was ever read.
-        val repos = (1..30).map { TrendingItem(trendingRepo("owner/repo$it"), null) }
-        setContent(TrendingUiState(items = repos))
-
-        composeRule.mainClock.advanceTimeBy(fr.arthurbrugiere.forgeline.ui.READ_DWELL_MILLIS * 2)
-
-        assertThat(readThrough).isNotEmpty()
-        assertThat(readThrough.last()).isGreaterThan(0)
-    }
-
-    @Test
-    fun a_mark_already_on_screen_needs_no_way_back() {
-        val repos = (1..5).map { TrendingItem(trendingRepo("owner/repo$it"), null) }
-        setContent(TrendingUiState(items = repos, resumeAt = 1))
-
-        composeRule.onNodeWithText("Where you left off").assertIsDisplayed()
-        composeRule.onNodeWithText("Continue where you left off").assertDoesNotExist()
-    }
-
-    @Test
-    fun a_fully_read_list_has_no_flag() {
-        val repos = (1..3).map { TrendingItem(trendingRepo("owner/repo$it"), null) }
-        setContent(TrendingUiState(items = repos, resumeAt = 2))
-
-        composeRule.onNodeWithText("Where you left off").assertDoesNotExist()
-        composeRule.onNodeWithText("Continue where you left off").assertDoesNotExist()
     }
 
     @Test
@@ -359,16 +315,6 @@ class TrendingScreenTest {
 
         composeRule.onNodeWithText("None of your forges", substring = true).assertIsDisplayed()
         composeRule.onNodeWithText("GitHub returned", substring = true).assertDoesNotExist()
-    }
-
-    @Test
-    fun with_the_marks_switched_off_trending_shows_no_mark_and_no_way_back_to_one() {
-        userSettings = userSettings.copy(readingMarks = false)
-        val repos = (1..30).map { TrendingItem(trendingRepo("owner/repo$it"), null) }
-        setContent(TrendingUiState(items = repos, resumeAt = 1))
-
-        composeRule.onNodeWithText("Where you left off").assertDoesNotExist()
-        composeRule.onNodeWithText("Continue where you left off").assertDoesNotExist()
     }
 
     /** On a screen tall enough to hold it all: a target cut by the edge of a shorter one measures as less than it is. */

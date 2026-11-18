@@ -6,7 +6,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,7 +31,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.VolunteerActivism
@@ -51,7 +49,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -64,7 +61,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -106,18 +102,14 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.softPressable
 import fr.arthurbrugiere.forgeline.session.SessionState
 import fr.arthurbrugiere.forgeline.session.signedInOn
 import fr.arthurbrugiere.forgeline.ui.Avatar
-import fr.arthurbrugiere.forgeline.ui.LeftOffMark
 import fr.arthurbrugiere.forgeline.ui.LocalOpenFirstIssues
 import fr.arthurbrugiere.forgeline.ui.LocalOpenSearch
-import fr.arthurbrugiere.forgeline.ui.LocalUserSettings
-import fr.arthurbrugiere.forgeline.ui.ReportReading
 import fr.arthurbrugiere.forgeline.ui.listBottomPadding
 import fr.arthurbrugiere.forgeline.ui.overBottomBarOrKeyboard
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import fr.arthurbrugiere.forgeline.ui.rememberNow
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.text.NumberFormat
 
 @Composable
@@ -139,13 +131,10 @@ fun TrendingRoute(
         onOpenRepo = { repo -> if (repo.forge.isBrowsable) onOpenRepo(repo) else openUrl(repo.webUrl) },
         onErrorShown = viewModel::errorShown,
         onStarFailureShown = viewModel::starFailureShown,
-        onReadThrough = viewModel::readThrough,
         onSelectForge = viewModel::selectForge,
     )
 }
 
-// Lazy list layout: the header field, the status line, then the rows.
-private const val FIRST_ROW = 2
 internal val MaxMeasure = SoftTokens.MaxMeasure
 internal const val DESCRIPTION_TAG = "trending_description"
 
@@ -163,7 +152,6 @@ fun TrendingScreen(
     onErrorShown: () -> Unit,
     onStarFailureShown: () -> Unit,
     modifier: Modifier = Modifier,
-    onReadThrough: (Int) -> Unit = {},
     nowMillis: Long = rememberNow(state.updatedAtMillis, state.items),
     onSelectForge: (ForgeInstance?) -> Unit = {},
 ) = CompositionLocalProvider(LocalShowForge provides state.showForge) {
@@ -189,8 +177,6 @@ fun TrendingScreen(
 
     run {
         val listState = rememberLazyListState()
-        val scope = rememberCoroutineScope()
-        val density = LocalDensity.current
         val animations = animationsEnabled()
 
         // When the period changes, the rows rise in softly. True in the very frame it changes, so rows that come
@@ -204,16 +190,6 @@ fun TrendingScreen(
                 changedAt = SystemClock.uptimeMillis()
                 if (listState.firstVisibleItemIndex > 1) listState.scrollToItem(0)
             }
-        }
-
-        // Where the last visit stopped, unless Settings says not to mark it.
-        val resumeAt = state.resumeAt?.takeIf { it in 0 until state.items.lastIndex && LocalUserSettings.current.readingMarks }
-        // Keyed as the rows are, forge and all, or no row would ever be found.
-        val rankByKey = remember(state.items) { state.items.withIndex().associate { (index, item) -> item.repo.id.key to index.toLong() } }
-        ReportReading(listState, resetKey = state.period to state.onlyForge, positionOf = { rankByKey[it] }, onRead = { key -> rankByKey[key]?.let { onReadThrough(it.toInt()) } })
-        // Once the mark is on screen or above it, the way back to it has done its job.
-        val markReached by remember(resumeAt) {
-            derivedStateOf { resumeAt != null && listState.firstVisibleItemIndex + listState.layoutInfo.visibleItemsInfo.size > FIRST_ROW + resumeAt + 1 }
         }
 
         Box(modifier.fillMaxSize().background(colors.ground)) {
@@ -273,11 +249,6 @@ fun TrendingScreen(
                             StatusLine(
                                 updatedAtMillis = state.updatedAtMillis,
                                 nowMillis = nowMillis,
-                                resumeAt = resumeAt?.takeUnless { markReached },
-                                onResume = {
-                                    val above = with(density) { 88.dp.roundToPx() }
-                                    scope.launch { listState.animateScrollToItem(FIRST_ROW + resumeAt!! + 1, -above) }
-                                },
                                 forgePicker = if (state.forges.size > 1) {
                                     {
                                         // Every forge mixed, or one forge's ranking alone.
@@ -333,7 +304,6 @@ fun TrendingScreen(
                                     onToggleStar = { onToggleStar(item.repo.id) },
                                     onOpen = { onOpenRepo(item.repo.id) },
                                 )
-                                if (index == resumeAt) LeftOffMark()
                             }
                         }
                     }
@@ -367,7 +337,7 @@ private fun Modifier.riseIn(id: RepoId, period: TrendingPeriod, index: Int, enab
 }
 
 @Composable
-private fun StatusLine(updatedAtMillis: Long?, nowMillis: Long, resumeAt: Int?, onResume: () -> Unit, forgePicker: (@Composable () -> Unit)? = null) {
+private fun StatusLine(updatedAtMillis: Long?, nowMillis: Long, forgePicker: (@Composable () -> Unit)? = null) {
     val colors = Soft.colors
     Row(
         Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth().padding(start = 16.dp, end = 4.dp).heightIn(min = 48.dp),
@@ -381,20 +351,6 @@ private fun StatusLine(updatedAtMillis: Long?, nowMillis: Long, resumeAt: Int?, 
             color = colors.inkMuted,
             modifier = Modifier.weight(1f),
         )
-        if (resumeAt != null) {
-            Row(
-                Modifier
-                    .clip(SoftTokens.Pill)
-                    .clickable(role = Role.Button, onClick = onResume)
-                    .heightIn(min = 48.dp)
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(stringResource(R.string.trending_resume), style = Soft.type.label, color = colors.inkMuted)
-                Icon(Icons.Outlined.ArrowDownward, contentDescription = null, tint = colors.inkMuted, modifier = Modifier.size(16.dp))
-            }
-        }
         forgePicker?.let {
             Spacer(Modifier.width(4.dp))
             it()
