@@ -7,11 +7,14 @@ import fr.arthurbrugiere.forgeline.core.forge.UserApi
 import fr.arthurbrugiere.forgeline.core.model.Contributions
 import fr.arthurbrugiere.forgeline.core.model.FirstIssueLabels
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
 import fr.arthurbrugiere.forgeline.core.model.ProfileLink
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.SearchPage
+import fr.arthurbrugiere.forgeline.core.model.SearchScope
+import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import fr.arthurbrugiere.forgeline.core.model.UserProfile
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.WorkKind
@@ -181,8 +184,20 @@ class ForgejoStarApi(private val httpClient: HttpClient, private val forge: Forg
 
 class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : SearchApi {
 
-    override suspend fun repositories(token: String?, query: String, page: Int): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
-        val response = httpClient.forgejoApi(forge, token, "repos", "search", query = params(query, page))
+    // Gitea's issue search takes no order (absent from its API description, checked 2026-11-17): Forgejo's does.
+    override fun sorts(scope: SearchScope): Set<SearchSort> = when (scope) {
+        SearchScope.REPOSITORIES -> setOf(SearchSort.BEST_MATCH, SearchSort.STARS, SearchSort.UPDATED)
+        SearchScope.ISSUES -> if (forge.type == ForgeType.GITEA) setOf(SearchSort.BEST_MATCH) else setOf(SearchSort.BEST_MATCH, SearchSort.NEWEST, SearchSort.UPDATED)
+        SearchScope.USERS -> setOf(SearchSort.BEST_MATCH)
+    }
+
+    override suspend fun repositories(token: String?, query: String, page: Int, sort: SearchSort): ForgeResult<SearchPage<RepoSummary>> = forgeCall {
+        val order = when (sort) {
+            SearchSort.STARS -> mapOf("sort" to "stars", "order" to "desc")
+            SearchSort.UPDATED -> mapOf("sort" to "updated", "order" to "desc")
+            SearchSort.BEST_MATCH, SearchSort.NEWEST -> emptyMap()
+        }
+        val response = httpClient.forgejoApi(forge, token, "repos", "search", query = params(query, page) + order)
         response.toResult {
             val items = body<SearchResults>().`data`.orEmpty().map { it.toSummary(forge) }
             SearchPage(items, totalCount() ?: items.size, nextPage())
@@ -228,8 +243,15 @@ class ForgejoSearchApi(private val httpClient: HttpClient, private val forge: Fo
     }
 
     /** Codeberg answered 500 to anonymous issue searches (2026-09-29), so this needs an account there. */
-    override suspend fun issues(token: String?, query: String, page: Int): ForgeResult<SearchPage<IssueSearchResult>> = forgeCall {
-        val response = httpClient.forgejoApi(forge, token, "repos", "issues", "search", query = params(query, page))
+    // Unsorted, Forgejo lists the newest first: the best match is what it calls relevance.
+    override suspend fun issues(token: String?, query: String, page: Int, sort: SearchSort): ForgeResult<SearchPage<IssueSearchResult>> = forgeCall {
+        val order = when {
+            forge.type == ForgeType.GITEA -> null
+            sort == SearchSort.NEWEST -> "latest"
+            sort == SearchSort.UPDATED -> "recentupdate"
+            else -> "relevance"
+        }
+        val response = httpClient.forgejoApi(forge, token, "repos", "issues", "search", query = params(query, page) + listOfNotNull(order?.let { "sort" to it }))
         response.toResult {
             val items = body<List<Issue>>().mapNotNull { issue ->
                 issue.repository?.repoId(forge)?.let { IssueSearchResult(it, issue.toSummary()) }

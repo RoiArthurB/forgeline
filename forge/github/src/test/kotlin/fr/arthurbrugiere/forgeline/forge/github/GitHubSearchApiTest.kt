@@ -6,6 +6,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.IssueState
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
+import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import io.ktor.client.engine.mock.MockEngine
@@ -175,5 +176,20 @@ class GitHubSearchApiTest {
         val found = api { if (asked++ == 0) json(fixture("issues")) else json("{}", status = HttpStatusCode.UnprocessableEntity) }.firstIssues(null, repos)
 
         assertThat(found).isInstanceOf(ForgeResult.Success::class.java)
+    }
+
+    @Test
+    fun a_sorted_search_asks_github_for_that_order() = runTest {
+        val api = api { request -> json(fixture(if (request.url.encodedPath.endsWith("issues")) "issues" else "repositories")) }
+
+        api.repositories(null, "forge").value()
+        api.repositories(null, "forge", sort = SearchSort.STARS).value()
+        api.repositories(null, "forge", sort = SearchSort.UPDATED).value()
+        api.issues(null, "bug", sort = SearchSort.NEWEST).value()
+        val updated = api.issues(null, "bug", sort = SearchSort.UPDATED).value()
+
+        assertThat(requests.map { it.url.parameters["sort"] }).containsExactly(null, "stars", "updated", "created", "updated").inOrder()
+        // Its last change comes with each, for merging with other forges' in that order.
+        assertThat(updated.items.first().issue.updatedAt).isNotNull()
     }
 }

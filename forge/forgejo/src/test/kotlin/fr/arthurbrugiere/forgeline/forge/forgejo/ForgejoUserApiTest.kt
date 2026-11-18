@@ -5,6 +5,8 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.RepoId
+import fr.arthurbrugiere.forgeline.core.model.SearchScope
+import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import fr.arthurbrugiere.forgeline.core.model.WorkKind
 import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
@@ -357,5 +359,38 @@ class ForgejoUserApiTest {
         assertThat(inParis.days.size).isEqualTo(2)
         assertThat(inUtc.days.size).isEqualTo(3)
         assertThat(codeberg.requests.single().url.encodedPath).isEqualTo("/api/v1/users/earl-warren/heatmap")
+    }
+
+    @Test
+    fun a_sorted_search_asks_forgejo_for_that_order() = runTest {
+        val api = with(codeberg) { ForgejoSearchApi(client { if (it.url.encodedPath.endsWith("/repos/search")) json("{\"data\": []}") else json("[]") }, ForgeInstance.Codeberg) }
+
+        api.repositories(null, "tool").value()
+        api.repositories(null, "tool", sort = SearchSort.STARS).value()
+        api.repositories(null, "tool", sort = SearchSort.UPDATED).value()
+        api.issues(null, "crash").value()
+        api.issues(null, "crash", sort = SearchSort.NEWEST).value()
+        api.issues(null, "crash", sort = SearchSort.UPDATED).value()
+
+        val asked = codeberg.requests.map { it.url.parameters["sort"] to it.url.parameters["order"] }
+        assertThat(asked).containsExactly(
+            null to null,
+            "stars" to "desc",
+            "updated" to "desc",
+            "relevance" to null,
+            "latest" to null,
+            "recentupdate" to null,
+        ).inOrder()
+    }
+
+    @Test
+    fun gitea_s_issue_search_takes_no_order() = runTest {
+        val api = with(codeberg) { ForgejoSearchApi(client { json("[]") }, ForgeInstance.Gitea) }
+
+        api.issues(null, "crash", sort = SearchSort.UPDATED).value()
+
+        assertThat(codeberg.requests.single().url.parameters["sort"]).isNull()
+        assertThat(api.sorts(SearchScope.ISSUES)).containsExactly(SearchSort.BEST_MATCH)
+        assertThat(api.sorts(SearchScope.REPOSITORIES)).containsExactly(SearchSort.BEST_MATCH, SearchSort.STARS, SearchSort.UPDATED)
     }
 }

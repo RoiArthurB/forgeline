@@ -7,6 +7,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.core.model.SearchScope
+import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.YourRepos
 import fr.arthurbrugiere.forgeline.core.testing.FakeAccountRepository
@@ -317,5 +318,71 @@ class SearchViewModelTest {
         advanceUntilIdle()
 
         assertThat(api.calls).containsExactly("repos:rocket@1")
+    }
+
+    @Test
+    fun picking_an_order_searches_again_in_it_and_survives_process_death() = test {
+        val saved = SavedStateHandle()
+        val viewModel = viewModel(saved)
+        viewModel.onQueryChange("rocket")
+        viewModel.submit()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.sorts).containsExactly(SearchSort.BEST_MATCH, SearchSort.STARS, SearchSort.UPDATED).inOrder()
+
+        viewModel.selectSort(SearchSort.STARS)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.sort).isEqualTo(SearchSort.STARS)
+        assertThat(api.calls).containsExactly("repos:rocket@1", "repos:rocket@1~STARS").inOrder()
+        assertThat(viewModel.state.value.results.items).hasSize(2)
+
+        val restored = viewModel(saved)
+        advanceUntilIdle()
+        assertThat(restored.state.value.sort).isEqualTo(SearchSort.STARS)
+        assertThat(api.calls.last()).isEqualTo("repos:rocket@1~STARS")
+    }
+
+    @Test
+    fun each_scope_keeps_its_own_order_and_people_offer_none() = test {
+        val viewModel = viewModel()
+        viewModel.selectSort(SearchSort.STARS)
+        viewModel.selectScope(SearchScope.ISSUES)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.sort).isEqualTo(SearchSort.BEST_MATCH)
+        assertThat(viewModel.state.value.sorts).containsExactly(SearchSort.BEST_MATCH, SearchSort.NEWEST, SearchSort.UPDATED).inOrder()
+
+        viewModel.selectScope(SearchScope.USERS)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.sorts).containsExactly(SearchSort.BEST_MATCH)
+
+        viewModel.selectScope(SearchScope.REPOSITORIES)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.sort).isEqualTo(SearchSort.STARS)
+    }
+
+    @Test
+    fun a_forge_picked_that_cant_sort_so_falls_back_to_best_match() = test {
+        val codebergApi = FakeSearchApi(pageSize = 2).apply {
+            repositories = listOf(repoSummary("ziglang/zig", forge = ForgeInstance.Codeberg))
+            sorts = { setOf(SearchSort.BEST_MATCH) }
+        }
+        val clients = FakeForgeClients(search = api).also { it.put(ForgeInstance.Codeberg, FakeForgeClients(search = codebergApi)) }
+        val viewModel = SearchViewModel(SavedStateHandle(), SearchRepository(clients, accountsOfDefault), yours).also { it.state.launchIn(backgroundScope) }
+        viewModel.onQueryChange("tool")
+        viewModel.selectSort(SearchSort.STARS)
+        viewModel.submit()
+        advanceUntilIdle()
+
+        // All forges: Codeberg can't sort by stars, so it isn't asked and says so.
+        assertThat(viewModel.state.value.results.unsorted).containsExactly(ForgeInstance.Codeberg)
+        assertThat(codebergApi.calls).isEmpty()
+
+        viewModel.selectForge(ForgeInstance.Codeberg)
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.sorts).containsExactly(SearchSort.BEST_MATCH)
+        assertThat(viewModel.state.value.sort).isEqualTo(SearchSort.BEST_MATCH)
+        assertThat(codebergApi.calls).containsExactly("repos:tool@1")
     }
 }

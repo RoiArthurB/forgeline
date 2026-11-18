@@ -22,6 +22,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.SearchScope
+import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.testing.issueSummary
 import fr.arthurbrugiere.forgeline.core.testing.repoSummary
@@ -56,6 +57,7 @@ class SearchScreenTest {
                 nowMillis = java.time.Instant.parse("2026-09-27T10:00:00Z").toEpochMilli(),
                 onOpenLink = { events += "link:$it" },
                 onSignIn = { events += "sign-in" },
+                onSelectSort = { events += "sort:$it" },
             )
         }
     }
@@ -318,5 +320,42 @@ class SearchScreenTest {
 
         composeRule.onNodeWithText("Sign in to search Codeberg").assertIsDisplayed()
         composeRule.onNodeWithText("No results").assertDoesNotExist()
+    }
+
+    @Test
+    fun results_can_be_sorted_among_the_orders_offered() {
+        setContent(loaded(SearchResult.Repository(repoSummary("acme/rocket"))).copy(sorts = SearchScope.REPOSITORIES.sorts))
+
+        composeRule.onNodeWithContentDescription("Sort").performClick()
+        composeRule.onNodeWithText("Recently updated").assertIsDisplayed()
+        composeRule.onNodeWithText("Most stars").performClick()
+
+        assertThat(events).containsExactly("sort:STARS")
+    }
+
+    @Test
+    fun with_one_order_there_is_nothing_to_sort() {
+        setContent(loaded(SearchResult.User(UserSummary("octocat", null, isOrganization = false)), scope = SearchScope.USERS))
+
+        composeRule.onNodeWithContentDescription("Sort").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_forge_that_cant_sort_so_says_its_results_are_left_out_and_offers_best_match() {
+        val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg)
+        setContent(
+            SearchUiState(
+                "rocket",
+                results = ScopeResults("rocket", listOf(SearchResult.Repository(repoSummary("acme/rocket"))), 1, forges = forges, unsorted = listOf(ForgeInstance.Codeberg)),
+                forges = forges,
+                sort = SearchSort.STARS,
+                sorts = SearchScope.REPOSITORIES.sorts,
+            ),
+        )
+
+        composeRule.onNodeWithText("Codeberg can't sort this way").assertIsDisplayed()
+        composeRule.onNodeWithText("Codeberg has no “Most stars” order, so its results are left out here. Best match shows them.").assertIsDisplayed()
+        composeRule.onNodeWithText("Best match").performClick()
+        assertThat(events).containsExactly("sort:BEST_MATCH")
     }
 }

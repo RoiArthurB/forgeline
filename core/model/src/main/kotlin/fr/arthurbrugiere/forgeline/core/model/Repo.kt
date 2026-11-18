@@ -156,6 +156,8 @@ data class IssueSummary(
     val labels: List<Label>,
     val isPullRequest: Boolean,
     val isDraft: Boolean,
+    /** When it last changed, where the forge says in lists: for merging searches sorted by it. */
+    val updatedAt: java.time.Instant? = null,
 )
 
 data class Release(

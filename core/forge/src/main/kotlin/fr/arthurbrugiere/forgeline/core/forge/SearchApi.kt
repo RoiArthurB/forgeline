@@ -4,15 +4,26 @@ import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.SearchPage
+import fr.arthurbrugiere.forgeline.core.model.SearchScope
+import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.WorkKind
 
-/** Forge-wide search, best match first. [query] uses the forge's own search syntax. No code search, by design. */
+/**
+ * Forge-wide search, best match first unless sorted otherwise. [query] uses the forge's own search syntax. No code
+ * search, by design.
+ */
 interface SearchApi {
-    suspend fun repositories(token: String?, query: String, page: Int = 1): ForgeResult<SearchPage<RepoSummary>>
+    /**
+     * The orders, of those [scope] offers ([SearchScope.sorts]), this forge sorts a search of [scope] in. Best match
+     * always; a sort not listed isn't asked of it.
+     */
+    fun sorts(scope: SearchScope): Set<SearchSort> = setOf(SearchSort.BEST_MATCH)
+
+    suspend fun repositories(token: String?, query: String, page: Int = 1, sort: SearchSort = SearchSort.BEST_MATCH): ForgeResult<SearchPage<RepoSummary>>
 
     /** Issues and pull requests together. */
-    suspend fun issues(token: String?, query: String, page: Int = 1): ForgeResult<SearchPage<IssueSearchResult>>
+    suspend fun issues(token: String?, query: String, page: Int = 1, sort: SearchSort = SearchSort.BEST_MATCH): ForgeResult<SearchPage<IssueSearchResult>>
 
     suspend fun users(token: String?, query: String, page: Int = 1): ForgeResult<SearchPage<UserSummary>>
 

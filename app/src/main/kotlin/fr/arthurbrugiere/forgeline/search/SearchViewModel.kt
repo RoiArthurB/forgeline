@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueSearchResult
 import fr.arthurbrugiere.forgeline.core.model.RepoSummary
 import fr.arthurbrugiere.forgeline.core.model.SearchScope
+import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.matches
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -47,6 +48,8 @@ data class ScopeResults(
     val forges: List<ForgeInstance> = emptyList(),
     /** The forges that turned the search away for want of an account there: the page offers to sign in. */
     val refused: List<ForgeInstance> = emptyList(),
+    /** The forges left out because they can't sort the way chosen: the page offers best match. */
+    val unsorted: List<ForgeInstance> = emptyList(),
 ) {
     val submitted: Boolean get() = query != null
     val hasMore: Boolean get() = next != null
@@ -66,6 +69,9 @@ data class SearchUiState(
      * the forges' results, which then leave them out.
      */
     val yours: List<RepoSummary> = emptyList(),
+    /** The order the results come in, and those the forges searched can give: a choice is offered when there are several. */
+    val sort: SearchSort = SearchSort.BEST_MATCH,
+    val sorts: List<SearchSort> = listOf(SearchSort.BEST_MATCH),
 ) {
     /** What the forges found, less the repositories already shown as one's own. */
     val forgeItems: List<SearchResult> by lazy {
@@ -94,6 +100,16 @@ class SearchViewModel @Inject constructor(
     private val forges = search.forges.stateIn(viewModelScope, SharingStarted.Eagerly, listOf(ForgeInstance.GitHub))
     private val onlyForge: ForgeInstance? get() = onlyHost.value?.let { host -> forges.value.firstOrNull { it.host == host } }
 
+    // Chosen for each scope, as their orders differ; one the forges searched can't give falls back to best match.
+    private val sorts = MutableStateFlow(SearchScope.entries.associateWith { savedState.get<SearchSort>(sortKey(it)) ?: SearchSort.BEST_MATCH })
+
+    /** The orders a search of [target] can come in, on the forge chosen or on them all. */
+    private fun offered(target: SearchScope, forges: List<ForgeInstance>, only: ForgeInstance?): List<SearchSort> =
+        search.sorts(target, listOfNotNull(only).ifEmpty { forges })
+
+    private fun sortOf(target: SearchScope): SearchSort =
+        sorts.value[target]?.takeIf { it in offered(target, forges.value, onlyForge) } ?: SearchSort.BEST_MATCH
+
     // Matched on the phone as it is typed: a search of the forges waits for submit, these cost nothing.
     private val yours = combine(query, scope, yourRepos.observe(), onlyHost) { query, scope, yours, host ->
         if (scope != SearchScope.REPOSITORIES || query.trim().length < MIN_YOURS_QUERY || yours == null) return@combine emptyList()
@@ -102,7 +118,11 @@ class SearchViewModel @Inject constructor(
 
     val state: StateFlow<SearchUiState> = combine(query, scope, results, forges, onlyHost) { query, scope, results, forges, host ->
         SearchUiState(query, scope, results[scope] ?: ScopeResults(), forges, forges.firstOrNull { it.host == host })
-    }.combine(yours) { state, yours -> state.copy(yours = yours) }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchUiState(query.value, scope.value))
+    }.combine(yours) { state, yours -> state.copy(yours = yours) }
+        .combine(sorts) { state, chosen ->
+            val available = offered(state.scope, state.forges, state.onlyForge)
+            state.copy(sort = chosen[state.scope]?.takeIf { it in available } ?: SearchSort.BEST_MATCH, sorts = available)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchUiState(query.value, scope.value))
 
     init {
         if (submitted != null) load(scope.value, cursor = null)
@@ -142,6 +162,16 @@ class SearchViewModel @Inject constructor(
         if (submitted != null) load(scope.value, cursor = null)
     }
 
+    /** Sorts the current scope's results by [sort]; the current search runs again so. */
+    fun selectSort(sort: SearchSort) {
+        val target = scope.value
+        if (sortOf(target) == sort) return
+        savedState[sortKey(target)] = sort
+        sorts.update { it + (target to sort) }
+        results.update { it - target }
+        if (submitted != null) load(target, cursor = null)
+    }
+
     fun loadMore() {
         val current = results.value[scope.value] ?: return
         val next = current.next ?: return
@@ -160,14 +190,15 @@ class SearchViewModel @Inject constructor(
             val previous = all[target]?.takeIf { cursor != null } ?: ScopeResults(query = text)
             all + (target to previous.copy(isLoading = true, error = null))
         }
+        val sort = sortOf(target)
         viewModelScope.launch {
             val result: ForgeResult<MergedSearchPage<SearchResult>> = when (target) {
-                SearchScope.REPOSITORIES -> search.repositories(text, cursor, onlyForge).map { SearchResult.Repository(it) }
-                SearchScope.ISSUES -> search.issues(text, cursor, onlyForge).map { SearchResult.Issue(it) }
+                SearchScope.REPOSITORIES -> search.repositories(text, cursor, onlyForge, sort).map { SearchResult.Repository(it) }
+                SearchScope.ISSUES -> search.issues(text, cursor, onlyForge, sort).map { SearchResult.Issue(it) }
                 SearchScope.USERS -> search.users(text, cursor, onlyForge).map { SearchResult.User(it) }
             }
-            // A newer search replaced this one while it was in flight.
-            if (submitted != text) return@launch
+            // A newer search, or another order, replaced this one while it was in flight.
+            if (submitted != text || sortOf(target) != sort) return@launch
             results.update { all ->
                 val current = all[target] ?: ScopeResults(query = text)
                 val updated = when (result) {
@@ -181,6 +212,7 @@ class SearchViewModel @Inject constructor(
                         forges = result.value.forges,
                         // The first page asks every forge; later ones only those that answered.
                         refused = if (cursor == null) result.value.refused else current.refused,
+                        unsorted = if (cursor == null) result.value.unsorted else current.unsorted,
                     )
                 }
                 all + (target to updated)
@@ -191,7 +223,7 @@ class SearchViewModel @Inject constructor(
     private fun <T> ForgeResult<MergedSearchPage<T>>.map(transform: (T) -> SearchResult): ForgeResult<MergedSearchPage<SearchResult>> =
         when (this) {
             is ForgeResult.Failure -> this
-            is ForgeResult.Success -> ForgeResult.Success(MergedSearchPage(value.items.map(transform), value.totalCount, value.next, value.forges, value.refused))
+            is ForgeResult.Success -> ForgeResult.Success(MergedSearchPage(value.items.map(transform), value.totalCount, value.next, value.forges, value.refused, value.unsorted))
         }
 
     private companion object {
@@ -201,5 +233,7 @@ class SearchViewModel @Inject constructor(
         const val SUBMITTED_KEY = "submitted"
         const val SCOPE_KEY = "scope"
         const val FORGE_KEY = "forge"
+
+        fun sortKey(scope: SearchScope) = "sort-$scope"
     }
 }
