@@ -33,7 +33,7 @@ import kotlin.time.Duration.Companion.minutes
 enum class SignInError { NETWORK, INVALID_TOKEN, RATE_LIMITED, DENIED, EXPIRED, NOT_A_FORGE, UNKNOWN }
 
 /**
- * Where to sign in: GitHub, GitLab (gitlab.com or a server of one's own), Codeberg, gitea.com, SourceHut, Tangled, or a Forgejo
+ * Where to sign in: GitHub, GitLab (gitlab.com or a server of one's own), Codeberg, gitea.com, SourceHut, Tangled, Bitbucket, or a Forgejo
  * (or Gitea) server of one's own.
  * A server of one's own is given by its address, and says itself what it runs.
  */
@@ -44,6 +44,7 @@ enum class SignInForge {
     GITEA,
     SOURCEHUT,
     TANGLED,
+    BITBUCKET,
     OTHER;
 
     /** Whose logo the choice shows. */
@@ -55,6 +56,7 @@ enum class SignInForge {
             GITEA -> ForgeInstance.Gitea
             SOURCEHUT -> ForgeInstance.SourceHut
             TANGLED -> ForgeInstance.Tangled
+            BITBUCKET -> ForgeInstance.Bitbucket
             OTHER -> ForgeInstance(ForgeType.FORGEJO, "")
         }
 }
@@ -93,7 +95,7 @@ data class SignInUiState(
     /** The ID typed for the OAuth application of a self-hosted GitLab, which is what lets it sign in through the browser. */
     val oauthClientId: String = "",
     val browserSignInAvailable: Boolean = false,
-    /** Whether the forge signs in with an account name and an app password (Tangled) instead of a token. */
+    /** Whether the forge signs in with an account name and an app password (Tangled), or an email and an API token (Bitbucket), instead of a token. */
     val passwordSignInAvailable: Boolean = false,
     /** The forge's name, for "Sign in with ...". */
     val forgeName: String = ForgeInstance.GitHub.displayName,
@@ -201,7 +203,10 @@ class SignInViewModel @Inject constructor(
         }
     }
 
-    /** Tangled: the account's handle and an app password, which open a session renewed on its own afterwards. */
+    /**
+     * Tangled: the account's handle and an app password, which open a session renewed on its own afterwards. Bitbucket:
+     * the Atlassian account's email and an API token, kept together as the credential.
+     */
     fun signInWithPassword(identifier: String, password: String) {
         val auth = auth()?.takeIf { it.supportsPasswordSignIn } ?: return
         val name = identifier.trim()
@@ -284,6 +289,7 @@ class SignInViewModel @Inject constructor(
         SignInForge.GITEA -> ForgeInstance.Gitea
         SignInForge.SOURCEHUT -> ForgeInstance.SourceHut
         SignInForge.TANGLED -> ForgeInstance.Tangled
+        SignInForge.BITBUCKET -> ForgeInstance.Bitbucket
         // Until the server says what it runs, it is taken for a Forgejo: that is what this choice is for.
         SignInForge.OTHER -> (address ?: normalizedHost(host))?.let { ForgeInstance(type ?: ForgeType.FORGEJO, it) }
     }

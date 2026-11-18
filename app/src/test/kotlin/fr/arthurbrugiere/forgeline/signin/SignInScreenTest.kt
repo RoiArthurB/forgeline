@@ -165,6 +165,31 @@ class SignInScreenTest {
         assertThat(submitted).containsExactly("me.bsky.social abcd-efgh")
     }
 
+    @Test
+    fun bitbucket_signs_in_with_an_email_and_an_api_token() {
+        val submitted = mutableListOf<String>()
+        var opened: String? = null
+        composeRule.setContent {
+            SignInScreen(
+                state = SignInUiState(
+                    deviceFlowAvailable = false, personalAccessTokenUrl = "https://id.atlassian.com/manage-profile/security/api-tokens",
+                    forge = SignInForge.BITBUCKET, passwordSignInAvailable = true, forgeName = "Bitbucket",
+                ),
+                onStartDeviceFlow = {}, onContinueOnGitHub = { _, _ -> }, onSubmitToken = { submitted += "token:$it" }, onOpenUrl = { opened = it },
+                onCancel = {}, onDismissError = {}, onBack = {}, onSubmitPassword = { email, token -> submitted += "$email $token" },
+            )
+        }
+
+        composeRule.onNodeWithText("Use an API token").assertExists()
+        composeRule.onNodeWithText("Create an API token on Atlassian").performScrollTo().performClick()
+        composeRule.onNode(hasContentDescription("Email") and hasSetTextAction()).performTextInput("me@example.org")
+        composeRule.onNode(hasContentDescription("API token") and hasSetTextAction()).performTextInput("ATATT3x")
+        composeRule.onNodeWithText("Sign in with Bitbucket").performScrollTo().performClick()
+
+        assertThat(opened).isEqualTo("https://id.atlassian.com/manage-profile/security/api-tokens")
+        assertThat(submitted).containsExactly("me@example.org ATATT3x")
+    }
+
     private val other = SignInUiState(
         deviceFlowAvailable = false, personalAccessTokenUrl = null, forge = SignInForge.OTHER, host = "gitlab.example.org", forgeName = "gitlab.example.org",
     )
@@ -312,6 +337,7 @@ class SignInScreenTest {
         composeRule.onNode(hasContentDescription("Personal access token")).assertDoesNotExist()
         composeRule.onNodeWithText("Other server").performScrollTo()
         composeRule.onNodeWithText("Your own Forgejo, Gitea or GitLab server").assertIsDisplayed()
+        composeRule.onNodeWithText("bitbucket.org, with your Atlassian account").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Codeberg").performScrollTo().performClick()
 
         assertThat(picked).containsExactly(SignInForge.CODEBERG)

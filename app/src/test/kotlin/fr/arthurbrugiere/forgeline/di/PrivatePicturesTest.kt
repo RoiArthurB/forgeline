@@ -66,6 +66,23 @@ class PrivatePicturesTest {
     }
 
     @Test
+    fun a_bitbucket_file_is_read_from_its_api_with_the_email_and_api_token() {
+        val credential = fr.arthurbrugiere.forgeline.forge.bitbucket.bitbucketBasicCredential("me@example.org", "tok")
+        val signedIn = listOf(PictureAccess(ForgeInstance.Bitbucket, credential))
+
+        assertThat(authenticatedPicture("https://bitbucket.org/team/app/raw/main/docs/shot.png", signedIn)).isEqualTo(
+            AuthenticatedPicture("https://api.bitbucket.org/2.0/repositories/team/app/src/main/docs/shot.png", "Authorization", credential),
+        )
+        // A workspace's access token is a bearer token.
+        assertThat(authenticatedPicture("https://bitbucket.org/team/app/raw/main/shot.png", listOf(PictureAccess(ForgeInstance.Bitbucket, "wat")))?.value)
+            .isEqualTo("Bearer wat")
+        // Not a file, or not Bitbucket's.
+        assertThat(authenticatedPicture("https://bitbucket.org/team/app/src/main/shot.png", signedIn)).isNull()
+        assertThat(authenticatedPicture("https://bitbucket.org/team/app/raw/main/", signedIn)).isNull()
+        assertThat(authenticatedPicture("https://bytebucket.org/ravatar/x", signedIn)).isNull()
+    }
+
+    @Test
     fun the_token_goes_to_no_other_host_nor_page() {
         listOf(
             "https://avatars.githubusercontent.com/u/1",

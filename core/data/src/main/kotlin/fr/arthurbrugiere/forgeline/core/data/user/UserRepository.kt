@@ -101,8 +101,8 @@ class DefaultUserRepository @Inject constructor(
             }
             ForgeType.FORGEJO, ForgeType.GITEA -> root(".profile")
             ForgeType.GITLAB -> root(if (organization) "gitlab-profile" else login)
-            // Neither Tangled nor SourceHut has a profile README.
-            ForgeType.TANGLED, ForgeType.SOURCEHUT -> null
+            // Neither Tangled, SourceHut nor Bitbucket has a profile README.
+            ForgeType.TANGLED, ForgeType.SOURCEHUT, ForgeType.BITBUCKET -> null
         }
     }
 

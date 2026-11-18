@@ -11,7 +11,7 @@ import java.net.URI
 
 /** Maps forge web URLs to in-app destinations; anything unrecognized stays on the web. */
 object ForgeLinks {
-    private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab, ForgeInstance.Gitea, ForgeInstance.Tangled, ForgeInstance.SourceHut)
+    private val forges = listOf(ForgeInstance.GitHub, ForgeInstance.Codeberg, ForgeInstance.GitLab, ForgeInstance.Gitea, ForgeInstance.Tangled, ForgeInstance.SourceHut, ForgeInstance.Bitbucket)
 
     // First path segments that are the forge's own pages, not user or organization names.
     private val FORGEJO_RESERVED = setOf(
@@ -37,6 +37,10 @@ object ForgeLinks {
         ),
         // Every person's address starts with "~": anything else is SourceHut's own page.
         ForgeType.SOURCEHUT to emptySet(),
+        ForgeType.BITBUCKET to setOf(
+            "!api", "_edge", "account", "ajax", "api", "blog", "dashboard", "gateway", "login", "logout", "product",
+            "repo", "site", "snippets", "socialauth", "support", "workspace", "xhr",
+        ),
     )
 
     /**
@@ -71,7 +75,7 @@ object ForgeLinks {
                 val query = uri.rawQuery.orEmpty().split('&').mapNotNull { part -> part.split('=', limit = 2).takeIf { it.size == 2 }?.let { it[0] to it[1] } }.toMap()
                 query["q"].takeIf { segments == listOf("explore", "repos") && query["topic"] in setOf("1", "true") }
             }
-            ForgeType.TANGLED, ForgeType.SOURCEHUT -> null
+            ForgeType.TANGLED, ForgeType.SOURCEHUT, ForgeType.BITBUCKET -> null
         }
         return topic?.let { java.net.URLDecoder.decode(it, "UTF-8") }?.takeIf { it.isNotBlank() }?.let(::TopicRoute)
     }
@@ -88,6 +92,7 @@ object ForgeLinks {
         if (segments.isEmpty() || segments[0].lowercase() in reserved.getValue(forge.type)) return null
         if (forge.type == ForgeType.TANGLED) return tangledRoute(forge, segments, uri)
         if (forge.type == ForgeType.SOURCEHUT) return sourceHutRoute(forge, segments, uri)
+        if (forge.type == ForgeType.BITBUCKET) return bitbucketRoute(forge, segments, uri)
         if (segments.size == 1) return UserRoute(forge.host, segments[0])
 
         if (forge.type == ForgeType.GITLAB) {
@@ -176,6 +181,31 @@ object ForgeLinks {
     }
 
     /**
+     * Bitbucket's pages: a workspace's, a repository's, a file's (`/src/<ref>/<path>`), a pull request's
+     * (`/pull-requests/12`), a pipeline's (`/pipelines/results/3201`) and a commit's (`/commits/<sha>`). Its other pages
+     * stay in the browser.
+     */
+    private fun bitbucketRoute(forge: ForgeInstance, segments: List<String>, uri: URI): NavKey? {
+        val owner = segments[0]
+        if (segments.size == 1) return UserRoute(forge.host, owner)
+        val name = segments[1].removeSuffix(".git")
+        val repo = RepoRoute(forge.host, owner, name)
+        return when (segments.getOrNull(2)) {
+            null, "branches", "branch", "commits" -> when (val sha = segments.getOrNull(3).takeIf { segments[2] == "commits" }) {
+                null -> repo
+                else -> if (isSha(sha)) ChangesRoute(forge.host, owner, name, sha = sha) else repo
+            }
+            "src" -> fileRoute(forge.host, owner, name, uri, segments.drop(3)) ?: repo
+            "pull-requests" -> when (val number = segments.getOrNull(3)?.toIntOrNull()) {
+                null -> repo.takeIf { segments.size == 3 }
+                else -> IssueRoute(forge.host, owner, name, number, isPullRequest = true)
+            }
+            "pipelines" -> segments.getOrNull(4)?.toLongOrNull()?.takeIf { segments[3] == "results" }?.let { RunRoute(forge.host, owner, name, it) }
+            else -> null
+        }
+    }
+
+    /**
      * git.sr.ht's pages: a person's (`/~name`), a repository's, a file's (`/tree/<ref>/item/<path>`) and a tag's
      * (`/refs/<tag>`). Its log, commits and the other services' pages stay in the browser.
      */
@@ -225,16 +255,18 @@ object ForgeLinks {
 
     /**
      * The lines a file's address names after `#`: `L42`, or a run of them as GitHub, Forgejo and Gitea write it
-     * (`L42-L60`, columns too: `L42C3-L60C9`) and as GitLab does (`L42-60`). Backwards, the run is read forwards.
+     * (`L42-L60`, columns too: `L42C3-L60C9`), as GitLab does (`L42-60`) and as Bitbucket does (`lines-42:60`).
+     * Backwards, the run is read forwards.
      */
     internal fun linesOf(fragment: String?): IntRange? {
-        val match = LINES.matchEntire(fragment ?: return null) ?: return null
+        val match = (LINES.matchEntire(fragment ?: return null) ?: BITBUCKET_LINES.matchEntire(fragment)) ?: return null
         val first = match.groupValues[1].toIntOrNull()?.takeIf { it > 0 } ?: return null
         val last = match.groupValues[2].takeIf { it.isNotEmpty() }?.toIntOrNull()?.takeIf { it > 0 } ?: first
         return minOf(first, last)..maxOf(first, last)
     }
 
     private val LINES = Regex("L(\\d{1,7})(?:C\\d+)?(?:-L?(\\d{1,7})(?:C\\d+)?)?")
+    private val BITBUCKET_LINES = Regex("lines-(\\d{1,7})(?::(\\d{1,7}))?")
 
     /** This address with [path] (raw) in place of its own, its query and fragment kept. */
     private fun URI.underRoot(path: String): URI =

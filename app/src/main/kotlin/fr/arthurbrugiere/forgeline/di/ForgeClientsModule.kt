@@ -23,6 +23,7 @@ import fr.arthurbrugiere.forgeline.core.forge.TrendingMeter
 import fr.arthurbrugiere.forgeline.core.forge.UserApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import fr.arthurbrugiere.forgeline.forge.bitbucket.BitbucketApis
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoApis
 import fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoTrendingApi
 import fr.arthurbrugiere.forgeline.forge.forgejo.forgejoHttpClient
@@ -103,6 +104,8 @@ class DefaultForgeClients @Inject constructor(
         ForgeType.TANGLED -> instances.getOrPut(forge) { TangledApis(forgejoHttp) }
         // So is git.sr.ht's GraphQL API, with the person's token on each call.
         ForgeType.SOURCEHUT -> instances.getOrPut(forge) { SourceHutApis(forgejoHttp) }
+        // And Bitbucket Cloud's REST API, with the person's email and API token as HTTP Basic.
+        ForgeType.BITBUCKET -> instances.getOrPut(forge) { BitbucketApis(forgejoHttp) }
         ForgeType.FORGEJO, ForgeType.GITEA -> instances.getOrPut(forge) {
             ForgejoApis(
                 forgejoHttp, forge,

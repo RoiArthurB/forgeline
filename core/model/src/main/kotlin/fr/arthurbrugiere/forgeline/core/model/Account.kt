@@ -12,7 +12,13 @@ enum class ForgeType {
     TANGLED,
 
     /** SourceHut (git.sr.ht): repositories read through its GraphQL API, which asks for a token on every call. */
-    SOURCEHUT;
+    SOURCEHUT,
+
+    /**
+     * Bitbucket Cloud (bitbucket.org): repositories live in workspaces, and take pull requests and Pipelines. Since 2026
+     * it has no issues or wikis (Atlassian moved them to Jira and Confluence), nor stars, follows or a public directory.
+     */
+    BITBUCKET;
 
     /** Whether merge requests have their own numbering, so that one can share its number with an issue. */
     val numbersMergeRequestsApart: Boolean get() = this == GITLAB
@@ -26,15 +32,21 @@ enum class ForgeType {
      */
     val curatesTrending: Boolean get() = this == TANGLED
 
-    /** Whether people star, watch and fork repositories and follow each other there: SourceHut has none of it. */
-    val isSocial: Boolean get() = this != SOURCEHUT
+    /**
+     * Whether people star and watch repositories and follow each other there: SourceHut has none of it, and Bitbucket
+     * neither stars nor follows (its watching can't be set through its API).
+     */
+    val isSocial: Boolean get() = this != SOURCEHUT && this != BITBUCKET
 
-    /** Whether the forge keeps notifications for an account to read: Tangled and SourceHut have none an app can. */
-    val hasNotifications: Boolean get() = this != TANGLED && this != SOURCEHUT
+    /** Whether repositories are forked there, to an account's own space: Bitbucket's are, though no one stars them. */
+    val forks: Boolean get() = this != SOURCEHUT
+
+    /** Whether the forge keeps notifications for an account to read: Tangled, SourceHut and Bitbucket have none an app can. */
+    val hasNotifications: Boolean get() = this != TANGLED && this != SOURCEHUT && this != BITBUCKET
 }
 
 /**
- * A forge server: github.com, codeberg.org, gitlab.com, gitea.com, tangled.org, git.sr.ht, or a self-hosted Forgejo, Gitea or GitLab. [host]
+ * A forge server: github.com, codeberg.org, gitlab.com, gitea.com, tangled.org, git.sr.ht, bitbucket.org, or a self-hosted Forgejo, Gitea or GitLab. [host]
  * is lowercase.
  */
 data class ForgeInstance(val type: ForgeType, val host: String) {
@@ -73,6 +85,7 @@ data class ForgeInstance(val type: ForgeType, val host: String) {
             Gitea -> "Gitea"
             Tangled -> "Tangled"
             SourceHut -> "SourceHut"
+            Bitbucket -> "Bitbucket"
             else -> host
         }
 
@@ -86,9 +99,10 @@ data class ForgeInstance(val type: ForgeType, val host: String) {
         val Gitea = ForgeInstance(ForgeType.GITEA, "gitea.com")
         val Tangled = ForgeInstance(ForgeType.TANGLED, "tangled.org")
         val SourceHut = ForgeInstance(ForgeType.SOURCEHUT, "git.sr.ht")
+        val Bitbucket = ForgeInstance(ForgeType.BITBUCKET, "bitbucket.org")
 
         /**
-         * The forge at [host]: GitHub for github.com, GitLab for gitlab.com, Codeberg for codeberg.org, Gitea for gitea.com, Tangled for tangled.org, SourceHut for git.sr.ht, and for any
+         * The forge at [host]: GitHub for github.com, GitLab for gitlab.com, Codeberg for codeberg.org, Gitea for gitea.com, Tangled for tangled.org, SourceHut for git.sr.ht, Bitbucket for bitbucket.org, and for any
          * other host what [KnownForges] was told it runs, Forgejo otherwise (a self-hosted server never signed in to).
          */
         fun of(host: String): ForgeInstance {
@@ -101,6 +115,7 @@ data class ForgeInstance(val type: ForgeType, val host: String) {
                 // Tangled's former address.
                 Tangled.host, "tangled.sh" -> Tangled
                 SourceHut.host, "sr.ht" -> SourceHut
+                Bitbucket.host -> Bitbucket
                 else -> ForgeInstance(KnownForges.typeOf(lower) ?: ForgeType.FORGEJO, lower)
             }
         }

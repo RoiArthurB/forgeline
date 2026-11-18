@@ -99,6 +99,7 @@ dependencies {
     implementation(projects.forge.gitlab)
     implementation(projects.forge.tangled)
     implementation(projects.forge.sourcehut)
+    implementation(projects.forge.bitbucket)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.ktor3)

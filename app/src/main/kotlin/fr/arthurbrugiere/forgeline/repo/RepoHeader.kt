@@ -198,7 +198,8 @@ internal fun RepoHeader(
             if (details.hasWiki) {
                 HeaderAction(icon = Icons.AutoMirrored.Outlined.MenuBook, label = stringResource(R.string.repo_wiki), onClick = onOpenWiki)
             }
-            if (signedIn && details.id.forge.type.isSocial) {
+            // Bitbucket forks though no one stars there.
+            if (signedIn && details.id.forge.type.forks) {
                 HeaderAction(
                     icon = Icons.AutoMirrored.Outlined.CallSplit,
                     label = stringResource(if (isForking) R.string.repo_forking else R.string.repo_fork_action),

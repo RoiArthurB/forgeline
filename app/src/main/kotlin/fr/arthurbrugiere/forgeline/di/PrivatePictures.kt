@@ -7,6 +7,7 @@ import coil3.request.ErrorResult
 import coil3.request.ImageResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import fr.arthurbrugiere.forgeline.forge.bitbucket.bitbucketAuthorization
 import java.net.URI
 import java.net.URLDecoder
 import java.net.URLEncoder
@@ -48,6 +49,8 @@ fun authenticatedPicture(url: String, access: List<PictureAccess>): Authenticate
             ForgeType.TANGLED -> Unit
             // git.sr.ht's file pages take a browser's session, not a token: a private repository's pictures stay out.
             ForgeType.SOURCEHUT -> Unit
+            // bitbucket.org's /raw/ pages take a browser's session: the file is read from the API, which takes the token.
+            ForgeType.BITBUCKET -> forge.pathOf(host, path)?.let(::bitbucketApiFile)?.let { return AuthenticatedPicture(it, AUTHORIZATION, bitbucketAuthorization(token)) }
         }
     }
     return null
@@ -64,6 +67,16 @@ private fun gitLabApiFile(forge: ForgeInstance, path: String): String? {
     val file = rest.substringAfter('/', "").takeIf { it.isNotEmpty() } ?: return null
     fun encoded(raw: String) = URLEncoder.encode(URLDecoder.decode(raw, "UTF-8"), "UTF-8").replace("+", "%20")
     return "${forge.webUrl}/api/v4/projects/${encoded(project)}/repository/files/${encoded(file)}/raw?ref=${encoded(ref)}"
+}
+
+/**
+ * Bitbucket's API address of the file at the web address [path] (`/workspace/repository/raw/<ref>/<file>`), the ref
+ * taken as one segment as for GitLab.
+ */
+private fun bitbucketApiFile(path: String): String? {
+    val segments = path.removePrefix("/").split('/')
+    if (segments.size < 5 || segments[2] != "raw" || segments.drop(3).any { it.isEmpty() }) return null
+    return "https://api.bitbucket.org/2.0/repositories/${segments[0]}/${segments[1]}/src/${segments.drop(3).joinToString("/")}"
 }
 
 /**

@@ -1,0 +1,177 @@
+{
+  "values": [
+    {
+      "name": "v12.2.3",
+      "type": "tag",
+      "message": "12.2.3\n",
+      "date": "2026-04-30T04:37:36+00:00",
+      "tagger": {
+        "type": "author",
+        "raw": "Vincent <vnguyen5@atlassian.com>",
+        "user": {
+          "display_name": "Vincent Nguyen",
+          "links": {
+            "avatar": {
+              "href": "https://avatar-management--avatars.us-west-2.prod.public.atl-paas.net/initials/VN-3.png"
+            },
+            "html": {
+              "href": "https://bitbucket.org/%7B8921678d-cc20-474a-b7e3-8c6ff3b1a140%7D/"
+            }
+          },
+          "type": "user",
+          "uuid": "{8921678d-cc20-474a-b7e3-8c6ff3b1a140}",
+          "account_id": "712020:cf50c3cb-714f-4214-be27-f5bace22a1f9",
+          "nickname": "Vincent Nguyen"
+        }
+      },
+      "target": {
+        "type": "commit",
+        "hash": "fd61ca641c0db3ab42ad10bc1b2b7190033aee77",
+        "date": "2026-04-30T04:37:34+00:00",
+        "author": {
+          "type": "author",
+          "raw": "Vincent <vnguyen5@atlassian.com>",
+          "user": {
+            "display_name": "Vincent Nguyen",
+            "links": {
+              "avatar": {
+                "href": "https://avatar-management--avatars.us-west-2.prod.public.atl-paas.net/initials/VN-3.png"
+              },
+              "html": {
+                "href": "https://bitbucket.org/%7B8921678d-cc20-474a-b7e3-8c6ff3b1a140%7D/"
+              }
+            },
+            "type": "user",
+            "uuid": "{8921678d-cc20-474a-b7e3-8c6ff3b1a140}",
+            "account_id": "712020:cf50c3cb-714f-4214-be27-f5bace22a1f9",
+            "nickname": "Vincent Nguyen"
+          }
+        },
+        "message": "12.2.3\n",
+        "links": {
+          "html": {
+            "href": "https://bitbucket.org/atlassian/atlassian-connect-express/commits/fd61ca641c0db3ab42ad10bc1b2b7190033aee77"
+          }
+        },
+        "parents": [
+          {
+            "hash": "eea819926de1835d07a9508c0459b00de6bb50d6",
+            "links": {
+              "html": {
+                "href": "https://bitbucket.org/atlassian/atlassian-connect-express/commits/eea819926de1835d07a9508c0459b00de6bb50d6"
+              }
+            },
+            "type": "commit"
+          }
+        ],
+        "repository": {
+          "type": "repository",
+          "full_name": "atlassian/atlassian-connect-express",
+          "links": {
+            "html": {
+              "href": "https://bitbucket.org/atlassian/atlassian-connect-express"
+            },
+            "avatar": {
+              "href": "https://bytebucket.org/ravatar/%7B47b154f6-a82d-4e03-99ce-44fb75b4827c%7D?ts=138914"
+            }
+          },
+          "name": "atlassian-connect-express",
+          "uuid": "{47b154f6-a82d-4e03-99ce-44fb75b4827c}"
+        }
+      },
+      "links": {
+        "html": {
+          "href": "https://bitbucket.org/atlassian/atlassian-connect-express/commits/tag/v12.2.3"
+        }
+      }
+    },
+    {
+      "name": "12.2.2",
+      "type": "tag",
+      "message": "12.2.2\n",
+      "date": "2026-01-29T08:02:21+00:00",
+      "tagger": {
+        "type": "author",
+        "raw": "Mitchell McCue <mmccue@atlassian.com>",
+        "user": {
+          "display_name": "Mitchell Mc Cue",
+          "links": {
+            "avatar": {
+              "href": "https://avatar-management--avatars.us-west-2.prod.public.atl-paas.net/initials/MC-2.png"
+            },
+            "html": {
+              "href": "https://bitbucket.org/%7B64d8d852-4dda-429a-bb5e-7fe9ae157223%7D/"
+            }
+          },
+          "type": "user",
+          "uuid": "{64d8d852-4dda-429a-bb5e-7fe9ae157223}",
+          "account_id": "712020:364151f0-be14-42ad-9e79-2abebf2272af",
+          "nickname": "Mitch McCue"
+        }
+      },
+      "target": {
+        "type": "commit",
+        "hash": "096622adf5fabf2680bd7b1aa46bfbe294803eb1",
+        "date": "2026-01-29T08:01:44+00:00",
+        "author": {
+          "type": "author",
+          "raw": "Mitchell McCue <mmccue@atlassian.com>",
+          "user": {
+            "display_name": "Mitchell Mc Cue",
+            "links": {
+              "avatar": {
+                "href": "https://avatar-management--avatars.us-west-2.prod.public.atl-paas.net/initials/MC-2.png"
+              },
+              "html": {
+                "href": "https://bitbucket.org/%7B64d8d852-4dda-429a-bb5e-7fe9ae157223%7D/"
+              }
+            },
+            "type": "user",
+            "uuid": "{64d8d852-4dda-429a-bb5e-7fe9ae157223}",
+            "account_id": "712020:364151f0-be14-42ad-9e79-2abebf2272af",
+            "nickname": "Mitch McCue"
+          }
+        },
+        "message": "12.2.2\n",
+        "links": {
+          "html": {
+            "href": "https://bitbucket.org/atlassian/atlassian-connect-express/commits/096622adf5fabf2680bd7b1aa46bfbe294803eb1"
+          }
+        },
+        "parents": [
+          {
+            "hash": "91bab3f12fa1806ec0b2cf5fbee068ca68682415",
+            "links": {
+              "html": {
+                "href": "https://bitbucket.org/atlassian/atlassian-connect-express/commits/91bab3f12fa1806ec0b2cf5fbee068ca68682415"
+              }
+            },
+            "type": "commit"
+          }
+        ],
+        "repository": {
+          "type": "repository",
+          "full_name": "atlassian/atlassian-connect-express",
+          "links": {
+            "html": {
+              "href": "https://bitbucket.org/atlassian/atlassian-connect-express"
+            },
+            "avatar": {
+              "href": "https://bytebucket.org/ravatar/%7B47b154f6-a82d-4e03-99ce-44fb75b4827c%7D?ts=138914"
+            }
+          },
+          "name": "atlassian-connect-express",
+          "uuid": "{47b154f6-a82d-4e03-99ce-44fb75b4827c}"
+        }
+      },
+      "links": {
+        "html": {
+          "href": "https://bitbucket.org/atlassian/atlassian-connect-express/commits/tag/12.2.2"
+        }
+      }
+    }
+  ],
+  "pagelen": 2,
+  "size": 144,
+  "page": 1
+}

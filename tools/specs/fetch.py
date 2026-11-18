@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Downloads the API descriptions the forge clients are generated from, into the modules that use them.
 
-Each forge publishes what its API is: Forgejo and Gitea a Swagger document, GitHub and SourceHut a GraphQL schema,
+Each forge publishes what its API is: Forgejo, Gitea and Bitbucket a Swagger document, GitHub and SourceHut a GraphQL schema,
 Tangled and the AT Protocol their lexicons. The clients are generated from copies kept in the repository, so a build
 never depends on these servers; this refreshes the copies. Run it from the repository's root, or through the
 "API specs" workflow, which commits what changed. Review the diff like any other change: a renamed field shows up
 there, and then as a compile error, instead of as a bug.
 
-    python3 tools/specs/fetch.py [tangled] [atproto] [forgejo] [sourcehut] [github]
+    python3 tools/specs/fetch.py [tangled] [atproto] [forgejo] [sourcehut] [github] [bitbucket]
 """
 
 import json
@@ -116,7 +116,14 @@ def github() -> None:
     write(ROOT / "forge/github/src/main/graphql/schema.graphqls", get(url))
 
 
-SOURCES = {"tangled": tangled, "atproto": atproto, "forgejo": forgejo, "sourcehut": sourcehut, "github": github}
+def bitbucket() -> None:
+    """Bitbucket Cloud's Swagger 2.0 document. Its gaps are filled by forge/bitbucket/spec/bitbucket.additions.json, kept by hand."""
+    data = get("https://api.bitbucket.org/swagger.json", "application/json")
+    json.loads(data)
+    write(ROOT / "forge/bitbucket/spec/bitbucket.swagger.json", data)
+
+
+SOURCES = {"tangled": tangled, "atproto": atproto, "forgejo": forgejo, "sourcehut": sourcehut, "github": github, "bitbucket": bitbucket}
 
 if __name__ == "__main__":
     for name in sys.argv[1:] or SOURCES:

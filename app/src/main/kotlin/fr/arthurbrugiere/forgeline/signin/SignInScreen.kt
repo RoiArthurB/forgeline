@@ -203,7 +203,7 @@ fun SignInScreen(
 }
 
 /**
- * Every forge one can sign in to, each a row with its logo, its name and where it is. Seven forges don't fit a row of tabs
+ * Every forge one can sign in to, each a row with its logo, its name and where it is. Eight forges don't fit a row of tabs
  * on a phone, and at larger text half of them went off its edge; a list wraps and scrolls like the rest of the app.
  */
 @Composable
@@ -226,6 +226,7 @@ private val SignInForge.label: Int
         SignInForge.GITEA -> R.string.sign_in_forge_gitea
         SignInForge.SOURCEHUT -> R.string.sign_in_forge_sourcehut
         SignInForge.TANGLED -> R.string.sign_in_forge_tangled
+        SignInForge.BITBUCKET -> R.string.sign_in_forge_bitbucket
         SignInForge.OTHER -> R.string.sign_in_forge_other_server
     }
 
@@ -238,6 +239,7 @@ private val SignInForge.where: Int
         SignInForge.GITEA -> R.string.sign_in_where_gitea
         SignInForge.SOURCEHUT -> R.string.sign_in_where_sourcehut
         SignInForge.TANGLED -> R.string.sign_in_where_tangled
+        SignInForge.BITBUCKET -> R.string.sign_in_where_bitbucket
         SignInForge.OTHER -> R.string.sign_in_where_other
     }
 
@@ -309,7 +311,7 @@ private fun ChooseMethod(
     }
     if (error != null) {
         // A refused app password isn't a token.
-        val message = if (state.passwordSignInAvailable && error == SignInError.INVALID_TOKEN) R.string.sign_in_error_invalid_password else error.message
+        val message = if (state.passwordSignInAvailable && error == SignInError.INVALID_TOKEN) PasswordCopy.of(state.forge).refused else error.message
         Text(stringResource(message, state.forgeName.ifBlank { state.host }), color = colors.accent, style = Soft.type.body)
     }
     if (state.passwordSignInAvailable) {
@@ -382,7 +384,41 @@ private fun ChooseMethod(
     }
 }
 
-/** Tangled: an AT Protocol account, signed in with its handle and an app password made where the account lives. */
+/**
+ * What signing in with a name and a secret asks, per forge: Tangled's handle and app password, or the email of
+ * Bitbucket's Atlassian account and one of its API tokens.
+ */
+private class PasswordCopy(
+    val title: Int,
+    val body: Int,
+    val create: Int,
+    val identifier: Int,
+    val example: Int,
+    val identifierKeyboard: KeyboardType,
+    val secret: Int,
+    val refused: Int,
+) {
+    companion object {
+        fun of(forge: SignInForge) = if (forge == SignInForge.BITBUCKET) BITBUCKET else TANGLED
+
+        val TANGLED = PasswordCopy(
+            R.string.sign_in_password_title, R.string.sign_in_password_body_tangled, R.string.sign_in_create_app_password,
+            R.string.sign_in_handle_label, R.string.sign_in_handle_example, KeyboardType.Uri, R.string.sign_in_app_password_label,
+            R.string.sign_in_error_invalid_password,
+        )
+
+        val BITBUCKET = PasswordCopy(
+            R.string.sign_in_api_token_title, R.string.sign_in_password_body_bitbucket, R.string.sign_in_create_api_token,
+            R.string.sign_in_email_label, R.string.sign_in_email_example, KeyboardType.Email, R.string.sign_in_api_token_label,
+            R.string.sign_in_error_invalid_api_token,
+        )
+    }
+}
+
+/**
+ * Tangled: an AT Protocol account, signed in with its handle and an app password made where the account lives.
+ * Bitbucket: an Atlassian account's email and an API token made for it.
+ */
 @Composable
 private fun PasswordSignIn(
     state: SignInUiState,
@@ -391,14 +427,15 @@ private fun PasswordSignIn(
     onEdit: () -> Unit,
 ) {
     val colors = Soft.colors
+    val copy = PasswordCopy.of(state.forge)
     var handle by rememberSaveable { mutableStateOf("") }
     // Not kept across process death: a password has no business in saved state.
     var password by remember { mutableStateOf("") }
-    Text(stringResource(R.string.sign_in_password_title), style = Soft.type.section, color = colors.ink)
-    Text(stringResource(R.string.sign_in_password_body_tangled), style = Soft.type.body, color = colors.inkMuted)
+    Text(stringResource(copy.title), style = Soft.type.section, color = colors.ink)
+    Text(stringResource(copy.body), style = Soft.type.body, color = colors.inkMuted)
     state.personalAccessTokenUrl?.let { url ->
         Text(
-            stringResource(R.string.sign_in_create_app_password),
+            stringResource(copy.create),
             style = Soft.type.label,
             color = colors.accent,
             modifier = Modifier
@@ -414,9 +451,9 @@ private fun PasswordSignIn(
             handle = it
             onEdit()
         },
-        label = stringResource(R.string.sign_in_handle_label),
-        placeholder = stringResource(R.string.sign_in_handle_example),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Next),
+        label = stringResource(copy.identifier),
+        placeholder = stringResource(copy.example),
+        keyboardOptions = KeyboardOptions(keyboardType = copy.identifierKeyboard, imeAction = ImeAction.Next),
         modifier = Modifier.fillMaxWidth(),
     )
     SoftTextField(
@@ -425,7 +462,7 @@ private fun PasswordSignIn(
             password = it
             onEdit()
         },
-        label = stringResource(R.string.sign_in_app_password_label),
+        label = stringResource(copy.secret),
         placeholder = "",
         visualTransformation = PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),

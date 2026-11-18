@@ -1,0 +1,23 @@
+{
+ "values": [
+  {
+   "type": "diffstat",
+   "lines_added": 1,
+   "lines_removed": 1,
+   "status": "modified",
+   "old": {
+    "path": "package.json",
+    "type": "commit_file",
+    "escaped_path": "package.json"
+   },
+   "new": {
+    "path": "package.json",
+    "type": "commit_file",
+    "escaped_path": "package.json"
+   }
+  }
+ ],
+ "pagelen": 500,
+ "size": 1,
+ "page": 1
+}

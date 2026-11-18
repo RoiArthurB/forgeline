@@ -35,7 +35,11 @@ jobs:
           # Optional too: a SourceHut personal access token (read-only). SourceHut answers nothing without one, so
           # without it the SourceHut checks are skipped.
           SOURCEHUT_LIVE_TOKEN: ${{ secrets.SOURCEHUT_LIVE_TOKEN }}
-        run: ./gradlew :forge:github:liveTest :forge:forgejo:liveTest :forge:gitlab:liveTest :forge:tangled:liveTest :forge:sourcehut:liveTest --continue
+          # Optional too: an Atlassian account's email and an API token with Bitbucket's read scopes. Without them the
+          # signed-in Bitbucket checks are skipped; the public ones run anyway.
+          BITBUCKET_LIVE_EMAIL: ${{ secrets.BITBUCKET_LIVE_EMAIL }}
+          BITBUCKET_LIVE_TOKEN: ${{ secrets.BITBUCKET_LIVE_TOKEN }}
+        run: ./gradlew :forge:github:liveTest :forge:forgejo:liveTest :forge:gitlab:liveTest :forge:tangled:liveTest :forge:sourcehut:liveTest :forge:bitbucket:liveTest --continue
       - name: Upload report
         if: failure()
         uses: actions/upload-artifact@v7
@@ -47,3 +51,4 @@ jobs:
             forge/gitlab/build/reports/tests/liveTest/
             forge/tangled/build/reports/tests/liveTest/
             forge/sourcehut/build/reports/tests/liveTest/
+            forge/bitbucket/build/reports/tests/liveTest/
