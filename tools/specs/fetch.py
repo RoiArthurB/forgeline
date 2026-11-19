@@ -71,7 +71,7 @@ def tangled_blob(path: str) -> bytes:
 
 
 def tangled() -> None:
-    """Every lexicon under org/tangled, as Tangled's own code builds against them."""
+    """Every lexicon under org/tangled, and sh/tangled/git, as Tangled's own code builds against them."""
     target = ROOT / "forge/tangled/lexicons"
     pending = ["lexicons/org/tangled"]
     while pending:
@@ -85,6 +85,19 @@ def tangled() -> None:
                 data = tangled_blob(child)
                 json.loads(data)  # A page of HTML instead of a lexicon stops here.
                 write(target / child.removeprefix("lexicons/"), data)
+    # The git lexicons of the index's mirror of every knot (`sh.tangled.git.*`), which diffs a fork's pull request:
+    # kept in lexicons/git, written here where their id puts them.
+    pending = ["lexicons/git"]
+    while pending:
+        folder = pending.pop()
+        for entry in tangled_tree(folder):
+            child = f"{folder}/{entry['name']}"
+            if int(str(entry.get("mode", "0")), 8) & 0o170000 == 0o040000:
+                pending.append(child)
+            elif child.endswith(".json"):
+                data = tangled_blob(child)
+                lexicon = json.loads(data)
+                write(target / (lexicon["id"].replace(".", "/") + ".json"), data)
 
 
 def atproto() -> None:

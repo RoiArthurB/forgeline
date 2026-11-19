@@ -112,7 +112,7 @@ class TangledIssueApi internal constructor(
     /** What a pull request's latest patch holds: where it goes, where it comes from, how much it changes. */
     private suspend fun pullInfo(repo: TicketRepo, uri: String, view: TicketViewDetailed): PullRequestInfo {
         val patch = (conversations.patches(uri) as? ForgeResult.Success)?.value?.lastOrNull()?.value
-        val stats = patch?.let { TangledChanges.stats(xrpc, knot, repo, it) }
+        val stats = patch?.let { TangledChanges.stats(xrpc, repo, it) }
         return PullRequestInfo(
             isDraft = false,
             isMerged = ticketState(view.state, isPullRequest = true) == IssueState.MERGED,

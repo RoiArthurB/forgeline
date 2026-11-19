@@ -80,7 +80,7 @@ class TangledPullRequestApi internal constructor(
     }
 
     private suspend fun changedFiles(repo: TicketRepo, base: String, baseRepo: String, head: String, headRepo: String, page: Int): ForgeResult<ChangedFiles> =
-        when (val diff = TangledChanges.diff(knot, repo, base, head)) {
+        when (val diff = TangledChanges.diff(xrpc, baseRepo, base, headRepo, head)) {
             is ForgeResult.Failure -> diff
             is ForgeResult.Success -> {
                 val shown = diff.value.diffs.drop((page - 1) * FILES_PAGE).take(FILES_PAGE)
@@ -253,7 +253,7 @@ class TangledPullRequestApi internal constructor(
         }
         // A first commit is diffed against git's empty tree.
         val parent = commit.parents.firstOrNull() ?: EMPTY_TREE
-        val files = when (val diff = TangledChanges.diff(knot, target, parent, commit.oid)) {
+        val files = when (val diff = TangledChanges.diff(xrpc, target.did, parent, target.did, commit.oid)) {
             is ForgeResult.Failure -> return@forgeCall diff
             is ForgeResult.Success -> TangledChanges.files(xrpc, diff.value.diffs, target.did, parent, target.did, commit.oid)
         }

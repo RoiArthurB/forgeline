@@ -45,7 +45,6 @@ val calledMethods = listOf(
     "org.tangled.feed.listStars",
     "org.tangled.feed.listStarsBy",
     "org.tangled.git.getBlame",
-    "org.tangled.git.getDiff",
     "org.tangled.git.listCommits",
     "org.tangled.graph.countFollows",
     "org.tangled.graph.countFollowsBy",
@@ -70,6 +69,7 @@ val calledMethods = listOf(
     "org.tangled.temp.git.listTags",
     "org.tangled.temp.repo.getRepoByName",
     "org.tangled.track.getTicketView",
+    "sh.tangled.git.temp2.getDiff",
 )
 
 val lexiconSources = layout.projectDirectory.dir("lexicons")
@@ -167,7 +167,7 @@ lexicons {
     }
     generateApi("AtprotoApi") {
         packageName.set("fr.arthurbrugiere.forgeline.forge.tangled.xrpc")
-        exclude("""org\.tangled\..*""")
+        exclude("""(org|sh)\.tangled\..*""")
         withKtorImplementation("Atproto")
         returnType.set(ApiReturnType.Response)
     }

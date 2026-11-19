@@ -1,0 +1,132 @@
+{
+  "lexicon": 1,
+  "id": "sh.tangled.git.temp2.getCommitStats",
+  "defs": {
+    "main": {
+      "type": "query",
+      "description": "Get an actor's monthly commit counts, with the repos they committed to.",
+      "parameters": {
+        "type": "params",
+        "required": [
+          "actor"
+        ],
+        "properties": {
+          "actor": {
+            "type": "string",
+            "format": "did",
+            "description": "Actor whose commits to count."
+          },
+          "months": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 24,
+            "default": 7
+          }
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": [
+            "months"
+          ],
+          "properties": {
+            "months": {
+              "type": "array",
+              "maxLength": 24,
+              "items": {
+                "type": "ref",
+                "ref": "#month"
+              }
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "name": "InvalidRequest",
+          "description": "Invalid request parameters"
+        }
+      ]
+    },
+    "month": {
+      "type": "object",
+      "required": [
+        "start",
+        "commits",
+        "repoCount",
+        "repos"
+      ],
+      "properties": {
+        "start": {
+          "type": "string",
+          "format": "datetime",
+          "description": "Start of this UTC calendar month."
+        },
+        "commits": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Commits attributed to the actor during this month."
+        },
+        "repoCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Repos the actor committed to during this month."
+        },
+        "repos": {
+          "type": "array",
+          "maxLength": 10,
+          "description": "The ten repos the actor committed to most this month, busiest first.",
+          "items": {
+            "type": "ref",
+            "ref": "#repoCommits"
+          }
+        }
+      }
+    },
+    "repoCommits": {
+      "type": "object",
+      "required": [
+        "repo",
+        "commits",
+        "recent"
+      ],
+      "properties": {
+        "repo": {
+          "type": "string",
+          "format": "did",
+          "description": "DID of the repo the commits were first seen in."
+        },
+        "commits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recent": {
+          "type": "array",
+          "description": "Most recent commits in this repo during the month.",
+          "items": {
+            "type": "ref",
+            "ref": "#commit"
+          }
+        }
+      }
+    },
+    "commit": {
+      "type": "object",
+      "required": [
+        "sha",
+        "subject"
+      ],
+      "properties": {
+        "sha": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      }
+    }
+  }
+}

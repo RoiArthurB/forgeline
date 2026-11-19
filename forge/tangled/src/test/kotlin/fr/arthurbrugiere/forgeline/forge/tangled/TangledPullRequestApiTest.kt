@@ -44,7 +44,7 @@ class TangledPullRequestApiTest {
             "com.atproto.identity.resolveHandle" to resolved,
             "org.tangled.temp.repo.getRepoByName" to coreManifest,
             "org.tangled.temp.review.listPatches" to { fixture("listPatches.json") },
-            "org.tangled.git.getDiff" to { fixture("getDiff.json") },
+            "sh.tangled.git.temp2.getDiff" to { fixture("getDiff.json") },
             "org.tangled.temp.git.getBlob" to blobs,
             "org.tangled.temp.git.listCommits" to { fixture("listCommits_range.json") },
             "org.tangled.ci.queryPipelines" to { fixture("queryPipelines.json") },
@@ -60,16 +60,18 @@ class TangledPullRequestApiTest {
     }
 
     @Test
-    fun a_pull_request_s_files_are_its_latest_patch_diffed_by_the_knot() = runTest {
+    fun a_pull_request_s_files_are_its_latest_patch_diffed_by_the_index_s_mirror() = runTest {
         val fake = fake()
 
         val files = api(fake).files(null, pull, 1).value()
 
         assertThat(fake.asked).contains("org.tangled.temp.review.listPatches?limit=500&order=asc&ticket=at://$REPO_DID/org.tangled.track.ticket/4784")
-        val diff = fake.to("org.tangled.git.getDiff").single()
-        assertThat(diff.url.host).isEqualTo("knot1.tangled.sh")
-        assertThat(diff.url.parameters["base"]).isEqualTo(BASE)
-        assertThat(diff.url.parameters["head"]).isEqualTo(HEAD)
+        val diff = fake.to("sh.tangled.git.temp2.getDiff").single()
+        assertThat(diff.url.host).isEqualTo("api.tangled.org")
+        assertThat(diff.url.parameters["baseRepo"]).isEqualTo(REPO_DID)
+        assertThat(diff.url.parameters["baseCommit"]).isEqualTo(BASE)
+        assertThat(diff.url.parameters["headRepo"]).isEqualTo(REPO_DID)
+        assertThat(diff.url.parameters["headCommit"]).isEqualTo(HEAD)
         assertThat(files.nextPage).isNull()
         val (added, changed) = files.files
         assertThat(added.path).isEqualTo("web/src/lib/api/descriptors.ts")
@@ -118,9 +120,54 @@ class TangledPullRequestApiTest {
     }
 
     @Test
+    fun a_pull_request_from_a_fork_is_diffed_with_the_fork_s_head() = runTest {
+        // The base repository's knot doesn't have a fork's head ("git reference not found"): the mirror holds both.
+        val fromFork = fixture("listPatches.json").replace(""""repo":"$REPO_DID"""", """"repo":"$FORK_DID"""")
+        val fake = fake(mapOf("org.tangled.temp.review.listPatches" to { fromFork }))
+
+        val files = api(fake).files(null, pull, 1).value().files
+
+        val diff = fake.to("sh.tangled.git.temp2.getDiff").single()
+        assertThat(diff.url.parameters["baseRepo"]).isEqualTo(REPO_DID)
+        assertThat(diff.url.parameters["headRepo"]).isEqualTo(FORK_DID)
+        assertThat(files).hasSize(2)
+        // The head's text is read from the fork.
+        assertThat(fake.to("org.tangled.temp.git.getBlob").filter { it.url.parameters["ref"] == HEAD }.map { it.url.parameters["repo"] }.toSet()).containsExactly(FORK_DID)
+    }
+
+    @Test
+    fun changes_close_together_share_a_hunk_with_the_lines_between_as_context() = runTest {
+        // As the mirror answers: only the lines that changed, an added one with no line of the old side to pair with.
+        val src = """{"isBinary":false,"isSubmodule":false,"oid":"03058ade8d692d0d372ea19674f7ac1490e1d4fd","path":"a.txt","size":40}"""
+        val hunks = """[{"lines":[{"lhs":1,"rhs":1}],"novelLhs":[1],"novelRhs":[1]},{"lines":[{"rhs":5}],"novelLhs":[],"novelRhs":[5]}]"""
+        val diff = """{"diffs":[{"hasSyntacticChanges":false,"hunks":$hunks,"lhsSrc":$src,"rhsSrc":$src}]}"""
+        val texts: (HttpRequestData) -> String? = { r -> if (r.url.parameters["ref"] == HEAD) "l0\nL1\nl2\nl3\nl4\nnew\nl5\nl6\n" else "l0\nl1\nl2\nl3\nl4\nl5\nl6\n" }
+        val fake = fake(mapOf("sh.tangled.git.temp2.getDiff" to { diff }, "org.tangled.temp.git.getBlob" to texts))
+
+        val file = api(fake).files(null, pull, 1).value().files.single()
+
+        assertThat(file.patch).isEqualTo(
+            """
+            @@ -1,7 +1,8 @@
+             l0
+            -l1
+            +L1
+             l2
+             l3
+             l4
+            +new
+             l5
+             l6
+            """.trimIndent(),
+        )
+        assertThat(file.additions).isEqualTo(2)
+        assertThat(file.deletions).isEqualTo(1)
+    }
+
+    @Test
     fun a_file_too_big_or_binary_is_listed_without_its_patch() = runTest {
         val binary = fixture("getDiff.json").replaceFirst(""""isBinary":false""", """"isBinary":true""")
-        val fake = fake(mapOf("org.tangled.git.getDiff" to { binary }))
+        val fake = fake(mapOf("sh.tangled.git.temp2.getDiff" to { binary }))
 
         val files = api(fake).files(null, pull, 1).value().files
 
@@ -343,12 +390,17 @@ class TangledPullRequestApiTest {
 
         assertThat(commit.commit.sha).isEqualTo(HEAD)
         assertThat(commit.files.map { it.path }).containsExactly("web/src/lib/api/descriptors.ts", "web/src/lib/markup/sanitize.ts").inOrder()
-        assertThat(fake.to("org.tangled.git.getDiff").single().url.parameters["base"]).isEqualTo(BASE)
+        val diff = fake.to("sh.tangled.git.temp2.getDiff").single()
+        assertThat(diff.url.parameters["baseCommit"]).isEqualTo(BASE)
+        assertThat(diff.url.parameters["headRepo"]).isEqualTo(REPO_DID)
     }
 
     private companion object {
         const val BASE = "03c0553cc4fd89eef6addb0242d16240eec55850"
         const val HEAD = "8639c9e00269667dc3387368ca23f41d74682611"
+
+        /** A fork of tangled.org/core, as pull request #4796 came from (2026-11-18). */
+        const val FORK_DID = "did:plc:4zr7gx5ci5py2jzxkee4ial4"
         const val MAIN_TIP = "5b1f2e1c0d9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c"
         const val ME = "did:plc:meme7t2adsemcrrd4snkeqli"
     }
