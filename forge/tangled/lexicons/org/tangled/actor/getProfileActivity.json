@@ -56,7 +56,9 @@
         "commits",
         "repos",
         "issues",
-        "pulls"
+        "pulls",
+        "commitRepoCount",
+        "commitRepos"
       ],
       "properties": {
         "start": {
@@ -87,6 +89,20 @@
           "items": {
             "type": "ref",
             "ref": "#pullActivity"
+          }
+        },
+        "commitRepoCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Repos the actor committed to during this month."
+        },
+        "commitRepos": {
+          "type": "array",
+          "maxLength": 10,
+          "description": "The ten repos the actor committed to most this month, busiest first.",
+          "items": {
+            "type": "ref",
+            "ref": "#commitRepoActivity"
           }
         }
       }
@@ -138,6 +154,52 @@
             "created",
             "forked"
           ]
+        },
+        "description": {
+          "type": "string",
+          "maxGraphemes": 140
+        }
+      }
+    },
+    "commitRepoActivity": {
+      "type": "object",
+      "required": [
+        "repo",
+        "commits",
+        "recent"
+      ],
+      "properties": {
+        "repo": {
+          "type": "ref",
+          "ref": "#repoRef"
+        },
+        "commits": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recent": {
+          "type": "array",
+          "description": "Most recent commits in this repo during the month.",
+          "items": {
+            "type": "ref",
+            "ref": "#commitActivity"
+          }
+        }
+      }
+    },
+    "commitActivity": {
+      "type": "object",
+      "required": [
+        "sha",
+        "subject"
+      ],
+      "properties": {
+        "sha": {
+          "type": "string"
+        },
+        "subject": {
+          "type": "string",
+          "maxLength": 1000
         }
       }
     },
@@ -147,7 +209,9 @@
         "uri",
         "title",
         "state",
-        "repo"
+        "repo",
+        "commentCount",
+        "createdAt"
       ],
       "properties": {
         "uri": {
@@ -168,6 +232,14 @@
         "repo": {
           "type": "ref",
           "ref": "#repoRef"
+        },
+        "commentCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
         }
       }
     },
@@ -177,7 +249,9 @@
         "uri",
         "title",
         "state",
-        "repo"
+        "repo",
+        "commentCount",
+        "createdAt"
       ],
       "properties": {
         "uri": {
@@ -198,6 +272,14 @@
         "repo": {
           "type": "ref",
           "ref": "#repoRef"
+        },
+        "commentCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "datetime"
         }
       }
     }
