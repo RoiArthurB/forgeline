@@ -185,8 +185,9 @@ internal class TangledConversations(
                 ListIssuesQueryParams(did, state = if (query.open) ListIssuesState.Open else ListIssuesState.Closed, offset = offset, limit = limit, order = ListIssuesOrder.Desc),
             ).toResult { page -> page.items.map { TicketRow(it.uri.atUri, it.value, it.author?.did, it.state.value, it.commentCount) } }
         } else {
-            // Closed pull requests are those closed and those merged: one page of each, so that none is skipped.
-            val statuses = if (query.open) listOf(ListPullsStatus.Open) else listOf(ListPullsStatus.Closed, ListPullsStatus.Merged)
+            // Closed pull requests are those closed and those merged: one page of each, so that none is skipped. The
+            // index calls a merged one `completed` (since 2026-11-18), and refuses the lexicon's `merged`.
+            val statuses = if (query.open) listOf(ListPullsStatus.Open) else listOf(ListPullsStatus.Closed, ListPullsStatus.Completed)
             val pages = coroutineScope {
                 statuses.map { status ->
                     async {

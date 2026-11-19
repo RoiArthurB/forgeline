@@ -101,6 +101,9 @@ val preparedLexicons = layout.buildDirectory.dir("lexicons")
 //   properties referring to it by one, which doesn't compile: each such reference gets the string def itself;
 // - it copies a description into KDoc as it is, so one naming a path pattern (`refs/cobs/` then a star) opens a
 //   comment that never closes.
+// And one thing Tangled's index does that its lexicons don't say yet: it calls a merged pull request `completed`
+// (since 2026-11-18) and refuses `merged`, so `completed` is added to what listPulls' status knows. Ozone can't send
+// an unknown value instead: it writes `Unknown(rawValue=…)` into the query.
 val prepareLexicons = tasks.register<Sync>("prepareLexicons") {
     from(lexiconSources) { include(neededLexicons.map { it.replace('.', '/') + ".json" }) }
     into(preparedLexicons)
@@ -131,9 +134,21 @@ val prepareLexicons = tasks.register<Sync>("prepareLexicons") {
             is List<*> -> node.map { inline(it, id) }
             else -> node
         }
+        val knownToo = mapOf("org.tangled.repo.listPulls" to mapOf("status" to listOf("completed")))
         for ((file, document) in documents) {
-            val inlined = inline(document, document["id"] as String)
-            if (inlined != document) file.writeText(groovy.json.JsonOutput.toJson(inlined))
+            val id = document["id"] as String
+            val inlined = inline(document, id) as Map<String, Any?>
+            val mended = knownToo[id]?.let { extra ->
+                val defs = inlined["defs"] as Map<String, Map<String, Any?>>
+                val main = defs.getValue("main")
+                val parameters = main["parameters"] as Map<String, Any?>
+                val properties = (parameters["properties"] as Map<String, Map<String, Any?>>).mapValues { (name, property) ->
+                    val more = extra[name] ?: return@mapValues property
+                    property + ("knownValues" to (property["knownValues"] as List<*>).plus(more).distinct())
+                }
+                inlined + ("defs" to defs + ("main" to main + ("parameters" to parameters + ("properties" to properties))))
+            } ?: inlined
+            if (mended != document) file.writeText(groovy.json.JsonOutput.toJson(mended))
         }
     }
 }

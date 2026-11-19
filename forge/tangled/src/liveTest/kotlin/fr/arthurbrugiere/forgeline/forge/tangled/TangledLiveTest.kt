@@ -96,7 +96,12 @@ class TangledLiveTest {
         assertThat(issue.author?.login).isNotEmpty()
         val timeline = apis.issues.timeline(null, IssueRef(core, busiest.number), 1).value()
         assertThat(timeline.items.filterIsInstance<TimelineItem.Comment>()).isNotEmpty()
-        assertThat(apis.repos.issues(null, core, IssueQuery(open = false, text = "editorconfig")).value()).isNotEmpty()
+        // A search keeps to the state asked; "editorconfig" names an issue closed once and reopened since (2026-11-18).
+        val found = listOf(true, false).flatMap { asked ->
+            apis.repos.issues(null, core, IssueQuery(open = asked, text = "editorconfig")).value()
+                .onEach { assertThat(it.state == IssueState.OPEN).isEqualTo(asked) }
+        }
+        assertThat(found).isNotEmpty()
     }
 
     @Test

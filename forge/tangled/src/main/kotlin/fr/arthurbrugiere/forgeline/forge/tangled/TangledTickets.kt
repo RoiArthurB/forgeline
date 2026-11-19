@@ -79,7 +79,7 @@ internal data class PatchItemJson(val uri: String = "", val value: PatchRecordJs
 
 /**
  * Where a ticket stands. An issue is `open`, or `completed` once done and `closed` when it won't be; a pull request is
- * `open`, `closed`, or `merged` (as the index's pull lists say; the knot may call one `completed`).
+ * `open`, `closed`, or merged, which the index calls `completed` since 2026-11-18 and its lexicon still `merged`.
  */
 internal fun ticketState(state: String?, isPullRequest: Boolean): IssueState = when (state) {
     "open", null -> IssueState.OPEN

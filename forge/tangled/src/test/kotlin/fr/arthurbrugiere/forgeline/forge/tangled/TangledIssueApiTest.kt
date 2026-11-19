@@ -93,14 +93,15 @@ class TangledIssueApiTest {
 
     @Test
     fun closed_pull_requests_are_those_closed_and_those_merged() = runTest {
-        val fake = read(mapOf("org.tangled.repo.listPulls" to { r -> if (r.url.parameters["status"] == "merged") fixture("listPulls.json") else """{"items":[]}""" }))
+        // The index calls a merged pull request `completed`, and refuses the `merged` its lexicon names (2026-11-18).
+        val fake = read(mapOf("org.tangled.repo.listPulls" to { r -> if (r.url.parameters["status"] == "completed") fixture("listPulls.json") else """{"items":[]}""" }))
 
         val pulls = apis(fake).repos.pullRequests(null, core, IssueQuery(open = false)).value()
 
         assertThat(pulls.map { it.number }).containsExactly(4785, 4784, 4782).inOrder()
         assertThat(pulls.all { it.isPullRequest }).isTrue()
         assertThat(fake.asked.filter { it.startsWith("org.tangled.repo.listPulls") }.map { it.substringAfter("status=").substringBefore('&') })
-            .containsExactly("closed", "merged")
+            .containsExactly("closed", "completed")
     }
 
     @Test
