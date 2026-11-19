@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.tangled
 
 import fr.arthurbrugiere.forgeline.core.forge.FeedPage
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.FeedEvent
@@ -129,11 +130,14 @@ class TangledSearchApi internal constructor(
 /**
  * The Feed, from Tangled's timeline (`org.tangled.feed.getTimeline`) as the person [login] sees it, of those they
  * follow only: who starred what, and the repositories made and forked. Follows have no row in the Feed, so they are
- * left out. The timeline pages by a cursor, kept for each page once it was read.
+ * left out. The index answers the timeline of those followed only to them, signed in: each page is asked with a
+ * service-auth token their own server signs for that one call ([TangledAccount.serviceToken]), as Tangled's web app
+ * does. The timeline pages by a cursor, kept for each page once it was read.
  */
 class TangledFeedApi internal constructor(
     private val xrpc: TangledXrpc,
     private val identity: TangledIdentity,
+    private val account: TangledAccount,
     private val conversations: TangledConversations,
 ) : UnsupportedFeedApi() {
     private val cursors = ConcurrentHashMap<Pair<String, Int>, String>()
@@ -144,8 +148,12 @@ class TangledFeedApi internal constructor(
             is ForgeResult.Success -> did.value
         }
         val cursor = if (page > 1) cursors[viewer.did to page] ?: return@forgeCall ForgeResult.Success(FeedPage(emptyList(), null)) else null
+        val index = when (val signed = account.serviceToken(token ?: return@forgeCall ForgeResult.Failure(ForgeError.Unauthorized), TANGLED_API_DID, TIMELINE)) {
+            is ForgeResult.Failure -> return@forgeCall signed
+            is ForgeResult.Success -> xrpc.service(TANGLED_API, signed.value)
+        }
         val answer = when (
-            val result = xrpc.index.getTimeline(GetTimelineQueryParams(viewer = viewer, followingOnly = true, limit = PAGE.toLong(), cursor = cursor)).toResult { it }
+            val result = index.getTimeline(GetTimelineQueryParams(viewer = viewer, followingOnly = true, limit = PAGE.toLong(), cursor = cursor)).toResult { it }
         ) {
             is ForgeResult.Failure -> return@forgeCall result
             is ForgeResult.Success -> result.value
@@ -186,5 +194,6 @@ class TangledFeedApi internal constructor(
 
     private companion object {
         const val PAGE = 50
+        const val TIMELINE = "org.tangled.feed.getTimeline"
     }
 }

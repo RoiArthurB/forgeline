@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.tangled
 
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -9,11 +10,13 @@ import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.SearchScope
 import fr.arthurbrugiere.forgeline.core.model.SearchSort
 import io.ktor.client.request.HttpRequestData
+import io.ktor.http.HttpHeaders
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import java.time.Instant
+import java.util.Base64
 
-/** Searching Tangled's index, and the Feed from its timeline; answers captured 2026-11-17 (`src/test/resources/tangled`). */
+/** Searching Tangled's index, and the Feed from its timeline, signed in; answers captured 2026-11-17 (`src/test/resources/tangled`). */
 class TangledSearchTest {
     private fun <T> ForgeResult<T>.value(): T = (this as? ForgeResult.Success)?.value ?: error("$this")
 
@@ -112,20 +115,48 @@ class TangledSearchTest {
         assertThat(fake.requests).isEmpty()
     }
 
+    /** A session of the account tangled.org: an AT Protocol access token names its DID. */
+    private val token = run {
+        val enc = Base64.getUrlEncoder().withoutPadding()
+        enc.encodeToString("""{"alg":"ES256K"}""".toByteArray()) + "." + enc.encodeToString("""{"sub":"$OWNER_DID"}""".toByteArray()) + ".c2ln"
+    }
+
+    private fun feed(fake: FakeTangled): TangledFeedApi {
+        val identity = TangledIdentity(fake.client, fake.xrpc)
+        return TangledFeedApi(fake.xrpc, identity, TangledAccount(fake.xrpc, identity), TangledRepoApi(fake.xrpc, identity).conversations)
+    }
+
+    @Test
+    fun the_feed_needs_someone_signed_in_and_asks_nothing_without() = runTest {
+        val fake = fake(mapOf("org.tangled.feed.getTimeline" to { fixture("getTimeline.json") }))
+
+        val result = feed(fake).receivedEvents(null, "tangled.org", 1)
+
+        assertThat(result).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+        assertThat(fake.to("org.tangled.feed.getTimeline")).isEmpty()
+    }
+
     @Test
     fun the_feed_is_the_timeline_of_those_followed_stars_and_repositories_made() = runTest {
         val forked = """{"event":{"${'$'}type":"org.tangled.feed.getTimeline#repoEvent","uri":"at://did:plc:fork/org.tangled.repo.manifest/self","cid":"bafy",
             "repo":{"did":"did:plc:fork","slug":"core","createdAt":"2026-11-17T12:00:00Z","owner":{"did":"$BOLTLESS","handle":"boltless.me"}},
             "source":{"did":"$REPO_DID","slug":"core","createdAt":"2025-02-23T18:43:18Z","owner":{"did":"$OWNER_DID","handle":"tangled.org"}}},"eventAt":"2026-11-17T12:00:00Z"}"""
         val timeline = fixture("getTimeline.json").replaceFirst("""{"feed":[""", """{"feed":[$forked,""")
-        val fake = fake(mapOf("org.tangled.feed.getTimeline" to { timeline }))
-        val feed = TangledFeedApi(fake.xrpc, TangledIdentity(fake.client, fake.xrpc), TangledRepoApi(fake.xrpc, TangledIdentity(fake.client, fake.xrpc)).conversations)
+        val fake = fake(mapOf("org.tangled.feed.getTimeline" to { timeline }, "com.atproto.server.getServiceAuth" to { """{"token":"service-jwt"}""" }))
 
-        val page = feed.receivedEvents(null, "tangled.org", 1).value()
+        val page = feed(fake).receivedEvents(token, "tangled.org", 1).value()
 
         val asked = fake.to("org.tangled.feed.getTimeline").single()
         assertThat(asked.url.parameters["viewer"]).isEqualTo(OWNER_DID)
         assertThat(asked.url.parameters["followingOnly"]).isEqualTo("true")
+        // The index answers the timeline of those followed only to them: their own server signs for that one call.
+        assertThat(asked.url.host).isEqualTo("api.tangled.org")
+        assertThat(asked.headers[HttpHeaders.Authorization]).isEqualTo("Bearer service-jwt")
+        val auth = fake.to("com.atproto.server.getServiceAuth").single()
+        assertThat(auth.url.host).isEqualTo("tngl.sh")
+        assertThat(auth.headers[HttpHeaders.Authorization]).isEqualTo("Bearer $token")
+        assertThat(auth.url.parameters["aud"]).isEqualTo("did:web:api.tangled.org")
+        assertThat(auth.url.parameters["lxm"]).isEqualTo("org.tangled.feed.getTimeline")
         // Follows have no row in the Feed.
         val events = page.events.orEmpty()
         assertThat(events.map { it.action }).containsExactly(FeedAction.Forked(RepoId("boltless.me", "core", ForgeInstance.Tangled)), FeedAction.Starred).inOrder()

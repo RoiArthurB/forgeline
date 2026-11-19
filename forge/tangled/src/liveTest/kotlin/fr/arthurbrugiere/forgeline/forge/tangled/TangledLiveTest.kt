@@ -1,6 +1,7 @@
 package fr.arthurbrugiere.forgeline.forge.tangled
 
 import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueQuery
@@ -12,10 +13,11 @@ import fr.arthurbrugiere.forgeline.core.model.TimelineItem
 import fr.arthurbrugiere.forgeline.core.model.TrendingPeriod
 import io.ktor.client.engine.okhttp.OkHttp
 import kotlinx.coroutines.runBlocking
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 
 /**
- * The Tangled client against Tangled's real index, without an account. Its calls are generated from Tangled's lexicons
+ * The Tangled client against Tangled's real index, without an account but for the Feed. Its calls are generated from Tangled's lexicons
  * (lexicons/, refreshed by tools/specs/fetch.py), some still under `org.tangled.temp`: if these fail, Tangled renamed or
  * reshaped one of them, or its index answers something its lexicons don't promise.
  */
@@ -140,6 +142,27 @@ class TangledLiveTest {
         assertThat(apis.search.issues(null, "editorconfig", 1).value().items).isNotEmpty()
         assertThat(apis.search.repositories(null, "tangled", 1).value().items).isNotEmpty()
         assertThat(apis.search.users(null, "oppi", 1).value().items.map { it.login }).contains("oppi.li")
-        assertThat(apis.feed.receivedEvents(null, "oppi.li", 1).value().events).isNotNull()
+    }
+
+    @Test
+    fun the_feed_is_only_for_someone_signed_in() = runBlocking<Unit> {
+        assertThat(apis.feed.receivedEvents(null, "oppi.li", 1)).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+    }
+
+    /**
+     * The Feed as the account the live job has on Tangled, when it has one: its handle and an app password
+     * (TANGLED_LIVE_HANDLE, TANGLED_LIVE_APP_PASSWORD). The index reads the timeline only with a service-auth token for
+     * it, which the account's own server signs; a refused one is a 401 here.
+     */
+    @Test
+    fun the_feed_reads_as_the_one_signed_in() = runBlocking<Unit> {
+        val handle = System.getenv("TANGLED_LIVE_HANDLE").orEmpty()
+        val password = System.getenv("TANGLED_LIVE_APP_PASSWORD").orEmpty()
+        assumeTrue("TANGLED_LIVE_HANDLE or TANGLED_LIVE_APP_PASSWORD not set", handle.isNotBlank() && password.isNotBlank())
+
+        val session = apis.auth.signInWithPassword(handle, password).value()
+        val page = apis.feed.receivedEvents(session.accessToken, handle, 1).value()
+
+        assertThat(page.events).isNotNull()
     }
 }

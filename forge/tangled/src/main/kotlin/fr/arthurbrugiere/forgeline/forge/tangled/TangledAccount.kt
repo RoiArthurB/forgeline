@@ -5,6 +5,7 @@ import com.atproto.repo.DeleteRecordRequest
 import com.atproto.repo.ListRecordsQueryParams
 import com.atproto.repo.PutRecordRequest
 import com.atproto.server.CreateSessionRequest
+import com.atproto.server.GetServiceAuthQueryParams
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.OAuthTokens
@@ -75,6 +76,20 @@ class TangledAccount(
                 ForgeResult.Success(ForgeUser(handle, null, identity.avatar(sessionDid)))
             }
         }
+    }
+
+    /**
+     * A service-auth token for one of Tangled's services: a JWT the person's own server signs for them
+     * (`com.atproto.server.getServiceAuth`), for the call [lxm] alone, addressed to [audience], valid a minute.
+     */
+    internal suspend fun serviceToken(token: String, audience: String, lxm: String): ForgeResult<String> = forgeCall {
+        val me = subjectOf(token) ?: return@forgeCall ForgeResult.Failure(ForgeError.Unauthorized)
+        val pds = when (val server = identity.pds(me)) {
+            is ForgeResult.Failure -> return@forgeCall server
+            is ForgeResult.Success -> server.value
+        }
+        val exp = clock.instant().epochSecond + SERVICE_TOKEN_SECONDS
+        xrpc.server(pds, token).getServiceAuth(GetServiceAuthQueryParams(audience, exp, Nsid(lxm))).toResult { it.token }
     }
 
     /** The DID [token] is for. */
@@ -151,6 +166,9 @@ class TangledAccount(
     internal companion object {
         /** Bluesky's entryway, where the accounts it hosts sign in. */
         const val ENTRYWAY = "https://bsky.social"
+
+        /** Tangled's web app asks for a minute, the least the AT Protocol's servers give. */
+        const val SERVICE_TOKEN_SECONDS = 60L
 
         /** The `sub` of a JWT: for an AT Protocol session, the DID of the account. */
         fun subjectOf(jwt: String): String? = claims(jwt)?.get("sub")?.jsonPrimitive?.content?.takeIf { it.startsWith("did:") }

@@ -17,7 +17,8 @@ import io.ktor.client.HttpClient
 
 /**
  * Tangled's APIs, on [http]. Repositories, their issues and pull requests, people, search, the Feed and Trending are
- * read from Tangled's index (and a repository's git and pipelines from its knot and spindle) without an account;
+ * read from Tangled's index (and a repository's git and pipelines from its knot and spindle) without an account, but
+ * for the Feed, which the index answers only to the one it is for (signed for by their own server);
  * starring and following write records to the signed-in person's own AT Protocol server ([TangledAccount]), and
  * issues, pull requests and comments to the repository's knot ([TangledKnot]). The rest answers Unsupported
  * (docs/TANGLED.md says why).
@@ -37,7 +38,7 @@ class TangledApis(http: HttpClient) : ForgeApis {
     override val repoSettings = UnsupportedRepoSettingsApi()
     override val stars = TangledStarApi(xrpc, account, repos)
     override val search = TangledSearchApi(xrpc, identity, repos.conversations)
-    override val feed = TangledFeedApi(xrpc, identity, repos.conversations)
+    override val feed = TangledFeedApi(xrpc, identity, account, repos.conversations)
     override val notifications = UnsupportedNotificationsApi()
     override val auth: ForgeAuthApi = TangledAuthApi(account)
     override val actions: ActionsApi? = null

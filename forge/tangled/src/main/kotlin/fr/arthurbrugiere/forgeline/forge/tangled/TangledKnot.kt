@@ -4,7 +4,6 @@ import com.atproto.repo.CreateRecordRequest
 import com.atproto.repo.DeleteRecordRequest
 import com.atproto.repo.GetRecordQueryParams
 import com.atproto.repo.PutRecordRequest
-import com.atproto.server.GetServiceAuthQueryParams
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
@@ -142,22 +141,8 @@ internal class TangledKnot(
     suspend fun signedService(token: String, host: String, repoDid: String, lxm: String): ForgeResult<TangledIndex> =
         serviceToken(token, repoDid, lxm).then { ForgeResult.Success(xrpc.service(base(host), it)) }
 
-    /**
-     * A service-auth token from the person's own server: a JWT it signs for them, for [lxm] alone, addressed to the
-     * repository [repoDid] (the knot checks it against the repository's DID, not its own), valid a minute.
-     */
-    private suspend fun serviceToken(token: String, repoDid: String, lxm: String): ForgeResult<String> {
-        val me = when (val did = account.did(token)) {
-            is ForgeResult.Failure -> return did
-            is ForgeResult.Success -> did.value
-        }
-        val pds = when (val server = identity.pds(me)) {
-            is ForgeResult.Failure -> return server
-            is ForgeResult.Success -> server.value
-        }
-        val exp = clock.instant().epochSecond + SERVICE_TOKEN_SECONDS
-        return xrpc.server(pds, token).getServiceAuth(GetServiceAuthQueryParams(repoDid, exp, Nsid(lxm))).toResult { it.token }
-    }
+    /** Signed by the person's own server for [lxm] alone, addressed to the repository [repoDid]: the knot checks the repository's DID, not its own. */
+    private suspend fun serviceToken(token: String, repoDid: String, lxm: String): ForgeResult<String> = account.serviceToken(token, repoDid, lxm)
 
     /**
      * Claims [written] as the signed-in person's, on their own server. Tangled's web app keeps trying when that fails;
@@ -196,9 +181,6 @@ internal class TangledKnot(
 
         /** What the knot adds to a record it serves: who wrote that version. */
         const val EDITOR = "x-tngl-editor"
-
-        /** Tangled's web app asks for a minute, the least the AT Protocol's servers give. */
-        const val SERVICE_TOKEN_SECONDS = 60L
     }
 }
 

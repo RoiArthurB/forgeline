@@ -26,9 +26,16 @@ fun tangledHttpClient(engine: HttpClientEngine): HttpClient = forgeHttpClient(en
 
 /**
  * Tangled's index (bobbin), which answers the AT Protocol queries (XRPC) the app reads: repositories, their git trees and
- * files, stars, profiles, Trending. Everything it serves is public: no call here needs an account.
+ * files, stars, profiles, Trending. What it serves is public, but for the timeline of those someone follows, which is
+ * asked as them ([TANGLED_API_DID]).
  */
 internal const val TANGLED_API = "https://api.tangled.org"
+
+/**
+ * Who the index is to a service-auth token: `did:web:` and the host it is reached at, as Tangled's web app addresses
+ * it (`serviceDidForHost` in web/src/lib/auth/agent.ts, read 2026-11-19).
+ */
+internal const val TANGLED_API_DID = "did:web:api.tangled.org"
 
 /** Where handles are turned into DIDs: Bluesky's public AppView, which resolves any AT Protocol handle, DNS or HTTPS. */
 internal const val HANDLE_RESOLVER = "https://public.api.bsky.app"

@@ -35,6 +35,10 @@ jobs:
           # Optional too: a SourceHut personal access token (read-only). SourceHut answers nothing without one, so
           # without it the SourceHut checks are skipped.
           SOURCEHUT_LIVE_TOKEN: ${{ secrets.SOURCEHUT_LIVE_TOKEN }}
+          # Optional too: a Tangled account's handle and an app password, for the Feed, which Tangled's index answers
+          # only signed in. Without them the signed-in Tangled check is skipped.
+          TANGLED_LIVE_HANDLE: ${{ secrets.TANGLED_LIVE_HANDLE }}
+          TANGLED_LIVE_APP_PASSWORD: ${{ secrets.TANGLED_LIVE_APP_PASSWORD }}
         run: ./gradlew :forge:github:liveTest :forge:forgejo:liveTest :forge:gitlab:liveTest :forge:tangled:liveTest :forge:sourcehut:liveTest --continue
       - name: Upload report
         if: failure()
