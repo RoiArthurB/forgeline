@@ -10,7 +10,9 @@ on:
         description: "Which to refresh, space-separated (tangled atproto forgejo sourcehut github); empty for all"
         required: false
         default: ""
+  # Branches only: a tag's checkout is no branch, and the commit below couldn't be pushed back (v0.14.0's tag).
   push:
+    branches: ["**"]
     paths:
       - "tools/specs/**"
       - ".github/workflows/specs.yml"
