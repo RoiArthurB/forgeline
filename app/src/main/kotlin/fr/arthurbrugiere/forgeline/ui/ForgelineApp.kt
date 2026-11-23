@@ -238,7 +238,19 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
             )
         }
         entry<fr.arthurbrugiere.forgeline.navigation.OwnerSettingsRoute> { key ->
-            fr.arthurbrugiere.forgeline.owner.OwnerSettingsRoute(key, onBack = navigator::goBack, onSignIn = signIn)
+            fr.arthurbrugiere.forgeline.owner.OwnerSettingsRoute(
+                key, onBack = navigator::goBack, onSignIn = signIn,
+                // Back from the settings is the organisation's page: it is the one to stand under the new login.
+                onRenamed = { renamed ->
+                    navigator.goBack()
+                    navigator.replaceCurrent(UserKey(key.host, renamed))
+                },
+                // Neither the settings nor the page of what is gone stay behind.
+                onDeleted = {
+                    navigator.goBack()
+                    navigator.goBack()
+                },
+            )
         }
         entry<RepoKey> { key ->
             RepoDestination(

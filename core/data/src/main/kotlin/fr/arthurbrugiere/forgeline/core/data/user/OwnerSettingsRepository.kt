@@ -11,6 +11,7 @@ import fr.arthurbrugiere.forgeline.core.model.OrgMembers
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettings
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -38,6 +39,15 @@ interface OwnerSettingsRepository {
 
     /** Whether an organisation's members are managed on [forge] through its API. */
     fun membersSupported(forge: ForgeInstance): Boolean
+
+    /** Whether an organisation is renamed on [forge] through its API, and deleted. */
+    fun renamesOrganizations(forge: ForgeInstance): Boolean
+
+    fun deletesOrganizations(forge: ForgeInstance): Boolean
+
+    suspend fun renameOrganization(forge: ForgeInstance, organization: String, name: String): ForgeResult<String>
+
+    suspend fun deleteOrganization(forge: ForgeInstance, organization: String): ForgeResult<RepoDeletion>
 
     /** Whether [owner]'s picture is changed on [forge], and taken away. */
     fun avatarSupported(forge: ForgeInstance, owner: Owner): Boolean
@@ -101,6 +111,20 @@ class DefaultOwnerSettingsRepository @Inject constructor(
     }
 
     override fun membersSupported(forge: ForgeInstance): Boolean = clients.ownerSettings(forge).membersSupported
+
+    override fun renamesOrganizations(forge: ForgeInstance): Boolean = clients.ownerSettings(forge).renamesOrganizations
+
+    override fun deletesOrganizations(forge: ForgeInstance): Boolean = clients.ownerSettings(forge).deletesOrganizations
+
+    override suspend fun renameOrganization(forge: ForgeInstance, organization: String, name: String): ForgeResult<String> {
+        val token = accounts.tokenOn(forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return clients.ownerSettings(forge).renameOrganization(token, organization, name.trim())
+    }
+
+    override suspend fun deleteOrganization(forge: ForgeInstance, organization: String): ForgeResult<RepoDeletion> {
+        val token = accounts.tokenOn(forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return clients.ownerSettings(forge).deleteOrganization(token, organization)
+    }
 
     override fun avatarSupported(forge: ForgeInstance, owner: Owner): Boolean = clients.ownerSettings(forge).avatarSupported(owner)
 

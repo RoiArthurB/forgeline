@@ -193,4 +193,13 @@ class GitLabOwnerSettingsApiTest {
         assertThat(part?.contentType).isEqualTo("multipart")
         assertThat(api().avatarRemovable(Owner.Me)).isFalse()
     }
+
+    @Test
+    fun a_group_is_renamed_by_its_path_and_its_deletion_is_scheduled() = runTest {
+        val api = api { if (it.method == HttpMethod.Put) json("""{"full_path":"group/new"}""") else if (it.method == HttpMethod.Delete) json("""{"message":"202 Accepted"}""", HttpStatusCode.Accepted) else route(it) }
+
+        assertThat(api.renameOrganization("tok", "group/sub", "new")).isEqualTo(ForgeResult.Success("group/new"))
+        assertThat(api.deleteOrganization("tok", "group/sub")).isEqualTo(ForgeResult.Success(fr.arthurbrugiere.forgeline.core.model.RepoDeletion.SCHEDULED))
+        assertThat(requests.first { it.method == HttpMethod.Put }.sent).isEqualTo("""{"path":"new"}""")
+    }
 }

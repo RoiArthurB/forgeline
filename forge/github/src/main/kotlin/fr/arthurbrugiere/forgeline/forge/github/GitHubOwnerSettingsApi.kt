@@ -15,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.OwnerStatus
 import fr.arthurbrugiere.forgeline.core.model.OwnerSwitch
 import fr.arthurbrugiere.forgeline.core.model.OwnerText
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
@@ -205,6 +206,14 @@ class GitHubOwnerSettingsApi(
     private val Owner.scope get() = if (this == Owner.Me) PROFILE_SCOPE else ORGANIZATION_SCOPE
 
     override val membersSupported = true
+
+    /** GitHub has no API to rename an organisation; deleting it takes its repositories with it. */
+    override val deletesOrganizations = true
+
+    override suspend fun deleteOrganization(token: String, organization: String): ForgeResult<RepoDeletion> = forgeCall {
+        val response = httpClient.gitHubApi(apiBaseUrl, token, "orgs", organization, method = HttpMethod.Delete)
+        if (!response.status.isSuccess()) response.refusal(ORGANIZATION_SCOPE) else ForgeResult.Success(RepoDeletion.DELETED)
+    }
 
     /**
      * Owners and members apart (`/members?role=`), so each says which, and the invitations not yet taken

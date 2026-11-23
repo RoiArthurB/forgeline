@@ -1602,4 +1602,10 @@
     <string name="owner_settings_picture_choose">Choose a picture</string>
     <string name="owner_settings_picture_remove">Remove picture</string>
     <string name="owner_settings_picture_changed">Picture changed</string>
+    <string name="owner_settings_rename">Rename</string>
+    <string name="owner_settings_delete">Delete this organization</string>
+    <string name="owner_settings_delete_summary">Its repositories, and everything in them, are deleted with it.</string>
+    <string name="owner_settings_delete_body">%1$s and everything it holds are deleted. This can\'t be taken back.</string>
+    <string name="owner_settings_delete_confirm">Delete the organization</string>
+    <string name="owner_settings_deleted_body">Nothing of it is left on %1$s.</string>
 </resources>

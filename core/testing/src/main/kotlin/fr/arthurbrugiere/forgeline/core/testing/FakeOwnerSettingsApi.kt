@@ -102,6 +102,23 @@ class FakeOwnerSettingsApi(
 
     override val membersSupported = true
 
+    override val renamesOrganizations = true
+    override val deletesOrganizations = true
+
+    override suspend fun renameOrganization(token: String, organization: String, name: String): ForgeResult<String> {
+        calls += "rename:$organization:$name"
+        writeFailure?.let { return ForgeResult.Failure(it) }
+        organizations.remove(organization)?.let { organizations[name] = it }
+        return ForgeResult.Success(name)
+    }
+
+    override suspend fun deleteOrganization(token: String, organization: String): ForgeResult<fr.arthurbrugiere.forgeline.core.model.RepoDeletion> {
+        calls += "delete:$organization"
+        writeFailure?.let { return ForgeResult.Failure(it) }
+        organizations.remove(organization)
+        return ForgeResult.Success(fr.arthurbrugiere.forgeline.core.model.RepoDeletion.DELETED)
+    }
+
     override fun avatarSupported(owner: Owner) = true
 
     override fun avatarRemovable(owner: Owner) = true

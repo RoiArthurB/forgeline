@@ -15,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.OwnerStatus
 import fr.arthurbrugiere.forgeline.core.model.OwnerSwitch
 import fr.arthurbrugiere.forgeline.core.model.OwnerText
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.StatusDuration
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
@@ -154,6 +155,20 @@ class GitLabOwnerSettingsApi(private val httpClient: HttpClient, private val for
     }
 
     override val membersSupported = true
+
+    override val renamesOrganizations = true
+    override val deletesOrganizations = true
+
+    /** A group's path, the last part of its address: its name is one of its texts. */
+    override suspend fun renameOrganization(token: String, organization: String, name: String): ForgeResult<String> = forgeCall {
+        httpClient.gitlabApi(forge, token, "groups", organization, method = HttpMethod.Put, body = buildJsonObject { put("path", name) })
+            .toResult { body<JsonObject>().text("full_path").ifEmpty { organization.substringBeforeLast('/', "").let { if (it.isEmpty()) name else "$it/$name" } } }
+    }
+
+    /** Accepted, not done: GitLab deletes a group in the background, after a while where it keeps deleted groups. */
+    override suspend fun deleteOrganization(token: String, organization: String): ForgeResult<RepoDeletion> = forgeCall {
+        httpClient.gitlabApi(forge, token, "groups", organization, method = HttpMethod.Delete).toResult { RepoDeletion.SCHEDULED }
+    }
 
     /**
      * A group's own members with their access levels (inherited ones are its parent's to change), and the emails asked

@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.core.model.OwnerSettings
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.OwnerSwitch
 import fr.arthurbrugiere.forgeline.core.model.OwnerText
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
@@ -141,6 +142,19 @@ class ForgejoOwnerSettingsApi(private val httpClient: HttpClient, private val fo
     }
 
     override val membersSupported = true
+
+    override val renamesOrganizations = true
+    override val deletesOrganizations = true
+
+    override suspend fun renameOrganization(token: String, organization: String, name: String): ForgeResult<String> = forgeCall {
+        httpClient.forgejoApi(forge, token, "orgs", organization, "rename", method = HttpMethod.Post, body = buildJsonObject { put("new_name", name) })
+            .toResult { name }
+    }
+
+    /** Refused while it still owns repositories: they are moved or deleted first. */
+    override suspend fun deleteOrganization(token: String, organization: String): ForgeResult<RepoDeletion> = forgeCall {
+        httpClient.forgejoApi(forge, token, "orgs", organization, method = HttpMethod.Delete).toResult { RepoDeletion.DELETED }
+    }
 
     /**
      * An organisation's members, each named by the most trusted of its teams they are in (owner, then admin, write,

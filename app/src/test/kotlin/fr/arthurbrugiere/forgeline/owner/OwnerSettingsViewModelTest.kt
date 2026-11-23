@@ -196,4 +196,23 @@ class OwnerSettingsViewModelTest {
         viewModel.pictureUnreadable()
         assertThat(viewModel.state.value.refused).isEqualTo(ForgeError.Unreadable)
     }
+
+    @Test
+    fun an_organisation_renamed_says_its_new_login_and_one_deleted_says_so() = test {
+        val viewModel = viewModel("octo", organization = true)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.renames).isTrue()
+        assertThat(viewModel.state.value.deletes).isTrue()
+
+        viewModel.rename("octopus")
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.renamedTo).isEqualTo("octopus")
+
+        val other = viewModel("octopus", organization = true)
+        other.delete()
+        advanceUntilIdle()
+        assertThat(other.state.value.deleted).isEqualTo(fr.arthurbrugiere.forgeline.core.model.RepoDeletion.DELETED)
+        // One's own profile is neither renamed nor deleted here.
+        assertThat(viewModel().state.value.renames).isFalse()
+    }
 }

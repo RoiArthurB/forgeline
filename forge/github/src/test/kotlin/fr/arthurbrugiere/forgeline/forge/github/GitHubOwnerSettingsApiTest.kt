@@ -293,4 +293,13 @@ class GitHubOwnerSettingsApiTest {
         assertThat(writes[0].sent).isEqualTo("""{"limit":"contributors_only","expiry":"one_week"}""")
         assertThat(writes[1].sent).isEqualTo("""{"limit":"collaborators_only","expiry":"six_months"}""")
     }
+
+    @Test
+    fun an_organisation_is_deleted_and_never_renamed() = runTest {
+        val api = api { if (it.method == HttpMethod.Delete) json("{}", HttpStatusCode.Accepted) else answer(it) }
+
+        assertThat(api.deleteOrganization("tok", "octo")).isEqualTo(ForgeResult.Success(fr.arthurbrugiere.forgeline.core.model.RepoDeletion.DELETED))
+        assertThat(api.renamesOrganizations).isFalse()
+        assertThat(requests.single { it.method == HttpMethod.Delete }.call).isEqualTo("DELETE /orgs/octo")
+    }
 }

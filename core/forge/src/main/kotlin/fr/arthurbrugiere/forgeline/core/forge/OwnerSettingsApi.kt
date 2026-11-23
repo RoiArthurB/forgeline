@@ -4,6 +4,7 @@ import fr.arthurbrugiere.forgeline.core.model.OrgMembers
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettings
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 
 /**
@@ -43,6 +44,16 @@ interface OwnerSettingsApi {
     suspend fun setAvatar(token: String, owner: Owner, image: ByteArray, mimeType: String): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
 
     suspend fun removeAvatar(token: String, owner: Owner): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Whether an organisation is renamed here (GitLab: its path), and deleted. */
+    val renamesOrganizations: Boolean get() = false
+    val deletesOrganizations: Boolean get() = false
+
+    /** Gives [organization] another login, and answers it as the forge now has it (a GitLab subgroup's whole path). */
+    suspend fun renameOrganization(token: String, organization: String, name: String): ForgeResult<String> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Deletes [organization], at once or after the while its forge keeps it. */
+    suspend fun deleteOrganization(token: String, organization: String): ForgeResult<RepoDeletion> = ForgeResult.Failure(ForgeError.Unsupported)
 
     /** Whether an organisation's members are listed and managed here. */
     val membersSupported: Boolean get() = false

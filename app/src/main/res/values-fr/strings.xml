@@ -1611,4 +1611,10 @@
     <string name="owner_settings_picture_choose">Choisir une image</string>
     <string name="owner_settings_picture_remove">Retirer l’image</string>
     <string name="owner_settings_picture_changed">Image changée</string>
+    <string name="owner_settings_rename">Renommer</string>
+    <string name="owner_settings_delete">Supprimer cette organisation</string>
+    <string name="owner_settings_delete_summary">Ses dépôts, et tout ce qu’ils contiennent, sont supprimés avec elle.</string>
+    <string name="owner_settings_delete_body">%1$s et tout ce qu’elle contient sont supprimés. C’est définitif.</string>
+    <string name="owner_settings_delete_confirm">Supprimer l’organisation</string>
+    <string name="owner_settings_deleted_body">Il n’en reste rien sur %1$s.</string>
 </resources>

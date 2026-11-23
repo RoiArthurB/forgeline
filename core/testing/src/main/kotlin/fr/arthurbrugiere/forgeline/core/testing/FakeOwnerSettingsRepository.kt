@@ -27,6 +27,14 @@ class FakeOwnerSettingsRepository(
 
     override fun membersSupported(forge: ForgeInstance) = api.membersSupported
 
+    override fun renamesOrganizations(forge: ForgeInstance) = api.renamesOrganizations
+
+    override fun deletesOrganizations(forge: ForgeInstance) = api.deletesOrganizations
+
+    override suspend fun renameOrganization(forge: ForgeInstance, organization: String, name: String) = api.renameOrganization("tok", organization, name)
+
+    override suspend fun deleteOrganization(forge: ForgeInstance, organization: String) = api.deleteOrganization("tok", organization)
+
     override fun avatarSupported(forge: ForgeInstance, owner: Owner) = api.avatarSupported(owner)
 
     override fun avatarRemovable(forge: ForgeInstance, owner: Owner) = api.avatarRemovable(owner)

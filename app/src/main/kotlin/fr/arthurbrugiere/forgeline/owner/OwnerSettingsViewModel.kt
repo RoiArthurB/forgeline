@@ -15,6 +15,7 @@ import fr.arthurbrugiere.forgeline.core.model.OrgMembers
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettings
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.with
 import fr.arthurbrugiere.forgeline.repo.Loadable
@@ -57,6 +58,14 @@ data class OwnerSettingsUiState(
     val pictureWorking: Boolean = false,
     /** Counts the pictures the forge took, to say so once each. */
     val pictureChanged: Int = 0,
+    /** Whether the organisation is renamed and deleted here; a rename or the deletion is on its way while [working]. */
+    val renames: Boolean = false,
+    val deletes: Boolean = false,
+    val working: Boolean = false,
+    /** The organisation's login once renamed: its page is opened there. */
+    val renamedTo: String? = null,
+    /** What became of the organisation once its deletion was asked for: there is nothing left to set. */
+    val deleted: RepoDeletion? = null,
 )
 
 /** A person's own profile settings, or an organisation's, each changed on its forge as soon as it is here. */
@@ -79,6 +88,8 @@ class OwnerSettingsViewModel @AssistedInject constructor(
         OwnerSettingsUiState(
             forge, login, owner, blocksSupported = repository.blocksSupported(forge, owner),
             membersSupported = organization && repository.membersSupported(forge),
+            renames = organization && repository.renamesOrganizations(forge),
+            deletes = organization && repository.deletesOrganizations(forge),
             avatarSupported = repository.avatarSupported(forge, if (organization) Owner.Organization(login) else Owner.Me),
             avatarRemovable = repository.avatarRemovable(forge, if (organization) Owner.Organization(login) else Owner.Me),
         ),
@@ -199,6 +210,28 @@ class OwnerSettingsViewModel @AssistedInject constructor(
                     is ForgeResult.Success -> it.copy(pictureWorking = false, pictureChanged = it.pictureChanged + 1)
                     is ForgeResult.Failure -> it.copy(pictureWorking = false, refused = result.error)
                 }
+            }
+        }
+    }
+
+    fun rename(name: String) {
+        if (_state.value.working || name.isBlank() || name.trim() == login) return
+        _state.update { it.copy(working = true, refused = null) }
+        viewModelScope.launch {
+            when (val result = repository.renameOrganization(forge, login, name)) {
+                is ForgeResult.Success -> _state.update { it.copy(working = false, renamedTo = result.value) }
+                is ForgeResult.Failure -> _state.update { it.copy(working = false, refused = result.error) }
+            }
+        }
+    }
+
+    fun delete() {
+        if (_state.value.working) return
+        _state.update { it.copy(working = true, refused = null) }
+        viewModelScope.launch {
+            when (val result = repository.deleteOrganization(forge, login)) {
+                is ForgeResult.Success -> _state.update { it.copy(working = false, deleted = result.value) }
+                is ForgeResult.Failure -> _state.update { it.copy(working = false, refused = result.error) }
             }
         }
     }

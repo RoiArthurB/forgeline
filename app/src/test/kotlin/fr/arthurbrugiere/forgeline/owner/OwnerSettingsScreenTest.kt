@@ -6,6 +6,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
@@ -54,6 +55,8 @@ class OwnerSettingsScreenTest {
                 onChangeMembers = { events += "members:$it" },
                 onPickPicture = { events += "pick-picture" },
                 onRemovePicture = { events += "remove-picture" },
+                onRename = { events += "rename:$it" },
+                onDelete = { events += "delete" },
             )
         }
     }
@@ -299,5 +302,31 @@ class OwnerSettingsScreenTest {
         setContent(profile())
 
         composeRule.onNodeWithText("Picture").assertDoesNotExist()
+    }
+
+    @Test
+    fun an_organisation_is_deleted_only_once_its_name_is_written_out() {
+        setContent(organization().copy(renames = true, deletes = true))
+
+        composeRule.onNodeWithText("Danger zone").performClick()
+        composeRule.onNodeWithText("Delete this organization").performClick()
+        composeRule.onNodeWithText("Delete the organization").performClick()
+        assertThat(events.filter { it.startsWith("delete") }).isEmpty()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("octo")
+        composeRule.onNodeWithText("Delete the organization").performClick()
+
+        assertThat(events).contains("delete")
+    }
+
+    @Test
+    fun an_organisation_is_renamed_from_its_danger_zone() {
+        setContent(organization().copy(renames = true))
+
+        composeRule.onNodeWithText("Danger zone").performClick()
+        composeRule.onNodeWithText("Rename").performClick()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("octopus")
+        composeRule.onNodeWithText("Save").performClick()
+
+        assertThat(events).contains("rename:octopus")
     }
 }

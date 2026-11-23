@@ -184,4 +184,15 @@ class ForgejoOwnerSettingsApiTest {
         assertThat(writes.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly("POST /api/v1/user/avatar", "DELETE /api/v1/orgs/octo/avatar").inOrder()
         assertThat(writes[0].sent).isEqualTo("""{"image":"AQID"}""")
     }
+
+    @Test
+    fun an_organisation_is_renamed_with_its_new_name_and_deleted() = runTest {
+        val renamed = api { with(codeberg) { if (it.method == HttpMethod.Get) route(it) else respond("", io.ktor.http.HttpStatusCode.NoContent) } }
+        assertThat(renamed.renameOrganization("tok", "octo", "octopus")).isEqualTo(ForgeResult.Success("octopus"))
+        assertThat(renamed.deleteOrganization("tok", "octo")).isEqualTo(ForgeResult.Success(fr.arthurbrugiere.forgeline.core.model.RepoDeletion.DELETED))
+
+        val writes = codeberg.requests.filter { it.method != HttpMethod.Get }
+        assertThat(writes.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly("POST /api/v1/orgs/octo/rename", "DELETE /api/v1/orgs/octo").inOrder()
+        assertThat(writes[0].sent).isEqualTo("""{"new_name":"octopus"}""")
+    }
 }

@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.owner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,6 +68,7 @@ import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.OwnerStatus
 import fr.arthurbrugiere.forgeline.core.model.OwnerSwitch
 import fr.arthurbrugiere.forgeline.core.model.OwnerText
+import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
 import fr.arthurbrugiere.forgeline.core.model.StatusDuration
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
@@ -104,7 +107,15 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
-fun OwnerSettingsRoute(route: OwnerSettingsRoute, onBack: () -> Unit, onSignIn: () -> Unit) {
+fun OwnerSettingsRoute(
+    route: OwnerSettingsRoute,
+    onBack: () -> Unit,
+    onSignIn: () -> Unit,
+    /** The organisation has another login: its page is to be opened there instead. */
+    onRenamed: (String) -> Unit = {},
+    /** The organisation is deleted, and that was read: nothing of it is left to show. */
+    onDeleted: () -> Unit = {},
+) {
     val forge = ForgeInstance.of(route.host)
     val viewModel = hiltViewModel<OwnerSettingsViewModel, OwnerSettingsViewModel.Factory>(key = "owner-settings:${route.host}/${route.login}/${route.organization}") {
         it.create(forge, route.login, route.organization)
@@ -138,11 +149,15 @@ fun OwnerSettingsRoute(route: OwnerSettingsRoute, onBack: () -> Unit, onSignIn: 
         onChangeMembers = viewModel::changeMembers,
         onPickPicture = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
         onRemovePicture = { viewModel.setAvatar(null) },
+        onRename = viewModel::rename,
+        onDelete = viewModel::delete,
+        onRenamed = onRenamed,
+        onDeleted = onDeleted,
     )
 }
 
 /** The groups the settings are read in, one at a time under the header; one with nothing in it isn't offered. */
-internal enum class OwnerTab { ABOUT, OPTIONS, MEMBERS, BLOCKED }
+internal enum class OwnerTab { ABOUT, OPTIONS, MEMBERS, BLOCKED, DANGER }
 
 /** What is being written in a sheet. */
 private sealed interface Editing {
@@ -159,6 +174,10 @@ private sealed interface Editing {
     data object Invite : Editing
 
     data object Picture : Editing
+
+    data object Rename : Editing
+
+    data object Delete : Editing
 
     data class Member(val member: OrgMember) : Editing
 }
@@ -189,6 +208,10 @@ fun OwnerSettingsScreen(
     onChangeMembers: (MemberChange) -> Unit = {},
     onPickPicture: () -> Unit = {},
     onRemovePicture: () -> Unit = {},
+    onRename: (String) -> Unit = {},
+    onDelete: () -> Unit = {},
+    onRenamed: (String) -> Unit = {},
+    onDeleted: () -> Unit = {},
 ) {
     val colors = Soft.colors
     val settings = state.settings
@@ -227,6 +250,7 @@ fun OwnerSettingsScreen(
             onRefusalShown()
         }
     }
+    LaunchedEffect(state.renamedTo) { state.renamedTo?.let(onRenamed) }
     val pictureText = stringResource(R.string.owner_settings_picture_changed)
     LaunchedEffect(state.pictureChanged) { if (state.pictureChanged > 0) snackbar.showSnackbar(pictureText) }
     val savedText = stringResource(R.string.owner_settings_saved)
@@ -256,6 +280,30 @@ fun OwnerSettingsScreen(
                 settings.links.orEmpty(), settings.maxLinks, saving = state.saving != null, refusal = refusal,
                 onSave = { save(OwnerSettingsChange.Links(it)) }, onDismiss = dismiss,
             )
+            Editing.Rename -> TextSheet(
+                stringResource(R.string.owner_settings_rename), state.login.substringAfterLast('/'), singleLine = true,
+                saving = state.working, refusal = refusal, onSave = onRename, onDismiss = dismiss,
+            )
+            Editing.Delete -> {
+                var typed by rememberSaveable { mutableStateOf("") }
+                SoftConfirmSheet(
+                    title = stringResource(R.string.owner_settings_delete),
+                    body = stringResource(R.string.owner_settings_delete_body, state.login),
+                    confirm = stringResource(if (state.working) R.string.manage_deleting else R.string.owner_settings_delete_confirm),
+                    cancel = stringResource(R.string.cancel),
+                    danger = true,
+                    confirmEnabled = !state.working && typed.trim() == state.login,
+                    onConfirm = onDelete,
+                    onDismiss = dismiss,
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        // The name to write stays in sight above the field, which starts empty: a placeholder would look typed.
+                        val fieldName = stringResource(R.string.repo_settings_delete_field, state.login)
+                        Text(fieldName, style = Soft.type.label, color = colors.ink)
+                        SoftTextField(typed, { typed = it }, placeholder = "", error = refusal, modifier = Modifier.semantics { contentDescription = fieldName })
+                    }
+                }
+            }
             Editing.Picture -> SoftSheet(stringResource(R.string.owner_settings_picture), dismiss) {
                 Text(stringResource(R.string.owner_settings_picture_summary), style = Soft.type.secondary, color = colors.inkMuted)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -324,6 +372,7 @@ fun OwnerSettingsScreen(
             if (it.switches.isNotEmpty() || it.choices.isNotEmpty()) add(OwnerTab.OPTIONS)
             if (state.membersSupported) add(OwnerTab.MEMBERS)
             if (state.blocksSupported) add(OwnerTab.BLOCKED)
+            if (state.renames || state.deletes) add(OwnerTab.DANGER)
         }
     }.orEmpty()
     var picked by rememberSaveable { mutableStateOf(OwnerTab.ABOUT) }
@@ -336,7 +385,9 @@ fun OwnerSettingsScreen(
         if (tab == OwnerTab.MEMBERS) onLoadMembers()
     }
 
-    Box(modifier.fillMaxSize().background(colors.ground)) {
+    // The danger zone is read on the warm tint, as a repository's is.
+    val page by animateColorAsState(if (tab == OwnerTab.DANGER) colors.fields[0] else colors.ground, label = "settings page")
+    Box(modifier.fillMaxSize().background(page)) {
         val pullState = rememberPullToRefreshState()
         PullToRefreshBox(
             isRefreshing = state.isRefreshing && settings != null,
@@ -380,6 +431,15 @@ fun OwnerSettingsScreen(
                         }
                     }
                     when {
+                        state.deleted != null -> item(key = "deleted") {
+                            val scheduled = state.deleted == RepoDeletion.SCHEDULED
+                            SoftNotice(
+                                stringResource(if (scheduled) R.string.repo_settings_deleted_scheduled_title else R.string.repo_settings_deleted_title, state.login),
+                                stringResource(if (scheduled) R.string.repo_settings_deleted_scheduled_body else R.string.owner_settings_deleted_body, forgeName),
+                                action = stringResource(R.string.repo_settings_deleted_done),
+                                onAction = onDeleted,
+                            )
+                        }
                         settings == null && state.error == ForgeError.Unauthorized -> item(key = "sign-in") {
                             SoftNotice(
                                 stringResource(R.string.owner_settings_sign_in_title),
@@ -426,6 +486,20 @@ fun OwnerSettingsScreen(
                                         }
                                         Spacer(Modifier.size(12.dp))
                                         LeaveRow(stringResource(R.string.repo_settings_more, forgeName), stringResource(R.string.owner_settings_more_summary)) { onOpenUrl(webUrl) }
+                                    }
+                                }
+                                OwnerTab.DANGER -> item(key = "danger") {
+                                    Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
+                                        if (state.renames) {
+                                            SettingRow(stringResource(R.string.owner_settings_rename), state.login, onClick = { if (!state.working) editing = Editing.Rename })
+                                        }
+                                        if (state.deletes) {
+                                            // Deleting stands apart, below the rest, on the ink button of what can't be taken back.
+                                            Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                Text(stringResource(R.string.owner_settings_delete_summary), style = Soft.type.secondary, color = colors.inkMuted)
+                                                SoftDangerButton(stringResource(R.string.owner_settings_delete), onClick = { editing = Editing.Delete }, modifier = Modifier.fillMaxWidth())
+                                            }
+                                        }
                                     }
                                 }
                                 OwnerTab.MEMBERS -> item(key = "members") {
@@ -629,6 +703,7 @@ internal fun OwnerTab.label(organization: Boolean): Int = when (this) {
     OwnerTab.OPTIONS -> if (organization) R.string.owner_settings_rules else R.string.owner_settings_preferences
     OwnerTab.MEMBERS -> R.string.owner_settings_members
     OwnerTab.BLOCKED -> R.string.owner_settings_blocked
+    OwnerTab.DANGER -> R.string.repo_settings_danger
 }
 
 /** A role as the app says it: GitHub's and GitLab's by their names, a Forgejo team by its own. */
