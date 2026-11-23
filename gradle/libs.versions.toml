@@ -16,7 +16,7 @@ datastore = "1.3.0"
 room = "2.8.5"
 work = "2.12.0"
 coroutines = "1.11.0"
-serialization = "1.12.0"
+serialization = "1.13.0"
 ktor = "3.6.1"
 # AT Protocol clients generated from lexicons (Tangled): https://github.com/christiandeange/ozone
 ozone = "0.3.5"
