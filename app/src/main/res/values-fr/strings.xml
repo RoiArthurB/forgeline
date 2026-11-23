@@ -1548,4 +1548,18 @@
     <string name="owner_settings_stat_repositories">Dépôts</string>
     <string name="owner_settings_stat_stars">Étoiles</string>
     <string name="owner_settings_open">Réglages</string>
+    <string name="owner_settings_status">Statut</string>
+    <string name="owner_settings_status_busy">Occupé·e</string>
+    <string name="owner_settings_status_emoji">Emoji, comme :coffee:</string>
+    <string name="owner_settings_status_message">Ce que vous faites</string>
+    <string name="owner_settings_status_clears">S’efface</string>
+    <string name="owner_settings_status_clear">Effacer le statut</string>
+    <string name="owner_settings_status_never">Jamais</string>
+    <string name="owner_settings_status_30m">Dans 30 minutes</string>
+    <string name="owner_settings_status_3h">Dans 3 heures</string>
+    <string name="owner_settings_status_8h">Dans 8 heures</string>
+    <string name="owner_settings_status_1d">Demain</string>
+    <string name="owner_settings_status_3d">Dans 3 jours</string>
+    <string name="owner_settings_status_7d">Dans une semaine</string>
+    <string name="owner_settings_status_30d">Dans 30 jours</string>
 </resources>

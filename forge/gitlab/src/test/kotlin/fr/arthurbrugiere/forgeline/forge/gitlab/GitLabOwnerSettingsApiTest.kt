@@ -39,6 +39,7 @@ class GitLabOwnerSettingsApiTest {
     private fun MockRequestHandleScope.route(request: HttpRequestData): HttpResponseData = when (request.url.encodedPath) {
         "/api/v4/groups/gitlab-org", "/api/v4/groups/group%2Fsub" -> json(groupJson)
         "/api/v4/user/preferences" -> json(preferencesJson)
+        "/api/v4/user/status" -> json("""{"emoji":"bear","message":"I use Code btw","availability":"busy","message_html":"I use Code btw","clear_status_at":null}""")
         "/api/v4/user" -> json("""{"id":2371813,"username":"mona"}""")
         "/api/v4/groups/gitlab-org/members/all/2371813" -> json("""{"id":2371813,"access_level":50}""")
         else -> json("""{"message":"404 Not found"}""", HttpStatusCode.NotFound)
@@ -119,5 +120,25 @@ class GitLabOwnerSettingsApiTest {
         assertThat(maintainer.administers("tok", "gitlab-org")).isEqualTo(ForgeResult.Success(false))
         // Not a member at all.
         assertThat(api().administers("tok", "elsewhere")).isEqualTo(ForgeResult.Success(false))
+    }
+
+    @Test
+    fun a_profile_reads_its_status() = runTest {
+        val status = api().settings("tok", Owner.Me).value().status
+
+        assertThat(status).isEqualTo(fr.arthurbrugiere.forgeline.core.model.OwnerStatus("bear", "I use Code btw", busy = true))
+    }
+
+    @Test
+    fun a_status_is_put_with_gitlab_s_emoji_name_and_its_duration() = runTest {
+        val status = fr.arthurbrugiere.forgeline.core.model.OwnerStatus(":coffee:", "Writing", busy = false)
+        api().change("tok", Owner.Me, OwnerSettingsChange.Status(status, fr.arthurbrugiere.forgeline.core.model.StatusDuration.DAY_1))
+        api().change("tok", Owner.Me, OwnerSettingsChange.Status(fr.arthurbrugiere.forgeline.core.model.OwnerStatus()))
+
+        val (set, cleared) = requests.filter { it.method == HttpMethod.Put }
+        assertThat(set.url.encodedPath).isEqualTo("/api/v4/user/status")
+        assertThat(set.sent).isEqualTo("""{"emoji":"coffee","message":"Writing","availability":"not_set","clear_status_after":"1_day"}""")
+        // What a PUT doesn't name, it clears.
+        assertThat(cleared.sent).isEqualTo("""{"availability":"not_set"}""")
     }
 }

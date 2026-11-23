@@ -3,11 +3,13 @@ package fr.arthurbrugiere.forgeline.forge.github
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.OwnerSettingsApi
+import fr.arthurbrugiere.forgeline.core.forge.map
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerChoice
 import fr.arthurbrugiere.forgeline.core.model.OwnerChoiceValue
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettings
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
+import fr.arthurbrugiere.forgeline.core.model.OwnerStatus
 import fr.arthurbrugiere.forgeline.core.model.OwnerSwitch
 import fr.arthurbrugiere.forgeline.core.model.OwnerText
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
@@ -26,16 +28,20 @@ import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 
 /**
  * A GitHub profile (`PATCH /user`, and its social accounts) and an organisation's settings (`PATCH /orgs/{org}`).
  * Changing a profile wants the `user` scope, an organisation's blocks and members `admin:org`: sign-ins made before
  * Forgeline asked for them are refused, and told to sign in again ([ForgeError.Unauthorized]). GitHub has no API for a
- * profile picture.
+ * profile picture. The status is the GraphQL API's alone (`changeUserStatus`).
  */
 class GitHubOwnerSettingsApi(
     private val httpClient: HttpClient,
     private val apiBaseUrl: String = "https://api.github.com",
+    private val clock: Clock = Clock.systemUTC(),
 ) : OwnerSettingsApi {
     override val profileSupported = true
     override val organizationsSupported = true
@@ -44,11 +50,13 @@ class GitHubOwnerSettingsApi(
         when (owner) {
             Owner.Me -> coroutineScope {
                 val links = async { httpClient.gitHubApi(apiBaseUrl, token, "user", "social_accounts", query = mapOf("per_page" to "100")) }
+                val status = async { status(token) }
                 val user = httpClient.gitHubApi(apiBaseUrl, token, "user")
                 if (!user.status.isSuccess()) return@coroutineScope user.failure()
                 val accounts = links.await()
                 val urls = if (accounts.status.isSuccess()) accounts.body<JsonArray>().mapNotNull { ((it as? JsonObject)?.get("url") as? JsonPrimitive)?.contentOrNull } else emptyList()
-                ForgeResult.Success(user.body<JsonObject>().toProfile(urls))
+                // A status that can't be read is one not offered, not a profile that can't be.
+                ForgeResult.Success(user.body<JsonObject>().toProfile(urls).copy(status = (status.await() as? ForgeResult.Success)?.value))
             }
             is Owner.Organization -> httpClient.gitHubApi(apiBaseUrl, token, "orgs", owner.login).toResult { body<JsonObject>().toOrganization() }
         }
@@ -57,6 +65,11 @@ class GitHubOwnerSettingsApi(
     override suspend fun change(token: String, owner: Owner, change: OwnerSettingsChange): ForgeResult<OwnerSettings> = forgeCall {
         when (owner) {
             Owner.Me -> {
+                if (change is OwnerSettingsChange.Status) {
+                    val changed = setStatus(token, change)
+                    if (changed is ForgeResult.Failure) return@forgeCall changed
+                    return@forgeCall settings(token, owner)
+                }
                 val response = if (change is OwnerSettingsChange.Links) {
                     changeLinks(token, change.links) ?: return@forgeCall settings(token, owner)
                 } else {
@@ -79,7 +92,7 @@ class GitHubOwnerSettingsApi(
                         is OwnerSettingsChange.Switch -> put(ORGANIZATION_SWITCHES[change.field] ?: return@forgeCall unsupported, change.on)
                         is OwnerSettingsChange.Choice ->
                             if (change.field == OwnerChoice.DEFAULT_REPO_PERMISSION) put("default_repository_permission", change.value) else return@forgeCall unsupported
-                        is OwnerSettingsChange.Links -> return@forgeCall unsupported
+                        is OwnerSettingsChange.Links, is OwnerSettingsChange.Status -> return@forgeCall unsupported
                     }
                 }
                 val response = httpClient.gitHubApi(apiBaseUrl, token, "orgs", owner.login, method = HttpMethod.Patch, body = body)
@@ -100,6 +113,34 @@ class GitHubOwnerSettingsApi(
             }
             else -> response.failure()
         }
+    }
+
+    /** The signed-in person's status, from the GraphQL API alone; an empty one for none. */
+    private suspend fun status(token: String): ForgeResult<OwnerStatus> =
+        httpClient.gitHubGraphQl(apiBaseUrl, token, "query { viewer { status { emoji message indicatesLimitedAvailability expiresAt } } }").map { data ->
+            val status = ((data["viewer"] as? JsonObject)?.get("status") as? JsonObject) ?: return@map OwnerStatus()
+            OwnerStatus(
+                emoji = status.text("emoji"),
+                message = status.text("message"),
+                busy = status.bool("indicatesLimitedAvailability") ?: false,
+                expiresAt = status.text("expiresAt").takeIf { it.isNotEmpty() }?.let { runCatching { Instant.parse(it) }.getOrNull() },
+            )
+        }
+
+    /** `changeUserStatus`; nothing written clears it. */
+    private suspend fun setStatus(token: String, change: OwnerSettingsChange.Status): ForgeResult<JsonObject> {
+        val status = change.status
+        val input = buildJsonObject {
+            put("emoji", status.emoji.trim().ifEmpty { null })
+            put("message", status.message.trim().ifEmpty { null })
+            put("limitedAvailability", status.busy)
+            put("expiresAt", change.clearAfter?.let { clock.instant().plus(Duration.ofMinutes(it.minutes)).toString() })
+        }
+        return httpClient.gitHubGraphQl(
+            apiBaseUrl, token,
+            "mutation(${'$'}input: ChangeUserStatusInput!) { changeUserStatus(input: ${'$'}input) { status { message } } }",
+            variables = buildJsonObject { put("input", input) },
+        )
     }
 
     /** Adds the links that are new and removes those let go; null when nothing changed. */

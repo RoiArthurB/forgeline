@@ -1539,4 +1539,18 @@
     <string name="owner_settings_stat_repositories">Repositories</string>
     <string name="owner_settings_stat_stars">Stars</string>
     <string name="owner_settings_open">Settings</string>
+    <string name="owner_settings_status">Status</string>
+    <string name="owner_settings_status_busy">Busy</string>
+    <string name="owner_settings_status_emoji">Emoji, such as :coffee:</string>
+    <string name="owner_settings_status_message">What you\'re up to</string>
+    <string name="owner_settings_status_clears">Clears</string>
+    <string name="owner_settings_status_clear">Clear status</string>
+    <string name="owner_settings_status_never">Never</string>
+    <string name="owner_settings_status_30m">In 30 minutes</string>
+    <string name="owner_settings_status_3h">In 3 hours</string>
+    <string name="owner_settings_status_8h">In 8 hours</string>
+    <string name="owner_settings_status_1d">Tomorrow</string>
+    <string name="owner_settings_status_3d">In 3 days</string>
+    <string name="owner_settings_status_7d">In a week</string>
+    <string name="owner_settings_status_30d">In 30 days</string>
 </resources>

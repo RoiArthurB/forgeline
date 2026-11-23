@@ -53,11 +53,15 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerChoice
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
+import fr.arthurbrugiere.forgeline.core.model.OwnerStatus
 import fr.arthurbrugiere.forgeline.core.model.OwnerSwitch
 import fr.arthurbrugiere.forgeline.core.model.OwnerText
+import fr.arthurbrugiere.forgeline.core.model.StatusDuration
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftCheckRow
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
@@ -113,6 +117,8 @@ private sealed interface Editing {
     data object Links : Editing
 
     data class Choice(val field: OwnerChoice) : Editing
+
+    data object Status : Editing
 }
 
 /**
@@ -200,6 +206,7 @@ fun OwnerSettingsScreen(
                 settings.links.orEmpty(), settings.maxLinks, saving = state.saving != null, refusal = refusal,
                 onSave = { save(OwnerSettingsChange.Links(it)) }, onDismiss = dismiss,
             )
+            Editing.Status -> StatusSheet(settings.status ?: OwnerStatus(), saving = state.saving != null, refusal = refusal, onSave = save, onDismiss = dismiss)
             is Editing.Choice -> settings.choices[sheet.field]?.let { choice ->
                 SoftChoiceSheet(
                     stringResource(sheet.field.label), choice.options.map { choiceLabel(sheet.field, it) }, choice.options.indexOf(choice.value),
@@ -212,7 +219,7 @@ fun OwnerSettingsScreen(
 
     val tabs = settings?.let {
         buildList {
-            if (it.texts.isNotEmpty() || it.links != null) add(OwnerTab.ABOUT)
+            if (it.texts.isNotEmpty() || it.links != null || it.status != null) add(OwnerTab.ABOUT)
             if (it.switches.isNotEmpty() || it.choices.isNotEmpty()) add(OwnerTab.OPTIONS)
         }
     }.orEmpty()
@@ -296,6 +303,7 @@ fun OwnerSettingsScreen(
                             when (tab) {
                                 OwnerTab.ABOUT -> item(key = "about") {
                                     Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
+                                        settings.status?.let { status -> EditRow(stringResource(R.string.owner_settings_status), statusSummary(status) ?: none) { editing = Editing.Status } }
                                         settings.texts.forEach { (field, value) ->
                                             EditRow(stringResource(field.label(organization)), value.ifBlank { none }) { editing = Editing.Text(field) }
                                         }
@@ -341,6 +349,59 @@ fun OwnerSettingsScreen(
 
 /** How long a change can be taken back from the snackbar that says it, as long as the Inbox's. */
 private const val UNDO_MILLIS = 5_000L
+
+/** "☕ Writing · Busy": what someone says they are up to, as their profile shows it; null for no status. */
+@Composable
+private fun statusSummary(status: OwnerStatus): String? {
+    if (status.isEmpty) return null
+    val busy = stringResource(R.string.owner_settings_status_busy)
+    return listOfNotNull(listOf(status.emoji, status.message).filter { it.isNotBlank() }.joinToString(" ").ifBlank { null }, busy.takeIf { status.busy }).joinToString(" · ")
+}
+
+/** A status written in a sheet: an emoji, a message, whether one is busy, and how long it shows. Saved, or cleared. */
+@Composable
+private fun StatusSheet(current: OwnerStatus, saving: Boolean, refusal: String?, onSave: (OwnerSettingsChange) -> Unit, onDismiss: () -> Unit) {
+    var emoji by rememberSaveable { mutableStateOf(current.emoji) }
+    var message by rememberSaveable { mutableStateOf(current.message) }
+    var busy by rememberSaveable { mutableStateOf(current.busy) }
+    // Never, then GitLab's own choices, which GitHub takes as a time.
+    val durations = listOf<StatusDuration?>(null) + StatusDuration.entries
+    var clearAfter by rememberSaveable { mutableStateOf(0) }
+    SoftSheet(stringResource(R.string.owner_settings_status), onDismiss) {
+        SoftTextField(emoji, { emoji = it }, placeholder = stringResource(R.string.owner_settings_status_emoji))
+        SoftTextField(message, { message = it }, placeholder = stringResource(R.string.owner_settings_status_message), error = refusal)
+        SoftCheckRow(stringResource(R.string.owner_settings_status_busy), busy, { busy = it })
+        SoftChoicePill(
+            name = stringResource(R.string.owner_settings_status_clears),
+            options = durations.map { stringResource(it.label) },
+            selected = clearAfter,
+            onSelect = { clearAfter = it },
+        )
+        val wanted = OwnerStatus(emoji.trim(), message.trim(), busy)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (!current.isEmpty) {
+                SoftTonalButton(stringResource(R.string.owner_settings_status_clear), onClick = { onSave(OwnerSettingsChange.Status(OwnerStatus())) }, enabled = !saving)
+            }
+            SoftButton(
+                stringResource(R.string.manage_save),
+                onClick = { onSave(OwnerSettingsChange.Status(wanted, durations[clearAfter])) },
+                enabled = !saving && !wanted.isEmpty && (wanted != current.copy(expiresAt = null) || clearAfter != 0),
+            )
+        }
+    }
+}
+
+private val StatusDuration?.label: Int
+    get() = when (this) {
+        null -> R.string.owner_settings_status_never
+        StatusDuration.MIN_30 -> R.string.owner_settings_status_30m
+        StatusDuration.HOUR_3 -> R.string.owner_settings_status_3h
+        StatusDuration.HOUR_8 -> R.string.owner_settings_status_8h
+        StatusDuration.DAY_1 -> R.string.owner_settings_status_1d
+        StatusDuration.DAY_3 -> R.string.owner_settings_status_3d
+        StatusDuration.DAY_7 -> R.string.owner_settings_status_7d
+        StatusDuration.DAY_30 -> R.string.owner_settings_status_30d
+    }
 
 /** The other places to find someone, each written out, as many as the forge keeps. */
 @Composable

@@ -568,6 +568,7 @@ class GitHubLiveContractTest {
         val profile = (api.settings(pat, fr.arthurbrugiere.forgeline.core.model.Owner.Me) as ForgeResult.Success).value
         assertWithMessage("profile: $profile").that(profile.texts.keys).contains(fr.arthurbrugiere.forgeline.core.model.OwnerText.NAME)
         assertWithMessage("profile: $profile").that(profile.links).isNotNull()
+        assertWithMessage("status: $profile").that(profile.status).isNotNull()
 
         val github = api.settings(pat, fr.arthurbrugiere.forgeline.core.model.Owner.Organization("github"))
         assertWithMessage("github: $github").that((github as ForgeResult.Success).value.texts[fr.arthurbrugiere.forgeline.core.model.OwnerText.NAME]).isEqualTo("GitHub")

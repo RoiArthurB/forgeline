@@ -142,4 +142,34 @@ class OwnerSettingsScreenTest {
         assertThat(ownerSettingsUrl(ForgeInstance.GitLab, Owner.Organization("group/sub"))).isEqualTo("https://gitlab.com/groups/group/sub/-/edit")
         assertThat(ownerSettingsUrl(ForgeInstance.SourceHut, Owner.Me)).isEqualTo("https://meta.sr.ht/profile")
     }
+
+    private val busy = fr.arthurbrugiere.forgeline.core.model.OwnerStatus(":coffee:", "Writing", busy = true)
+
+    @Test
+    fun a_status_is_said_and_rewritten_in_its_sheet() {
+        setContent(profile(ownerSettings().copy(status = busy)))
+
+        composeRule.onNodeWithText(":coffee: Writing · Busy").performClick()
+        composeRule.onNodeWithText("Writing").performTextReplacement("Reading")
+        composeRule.onNodeWithText("Save").performClick()
+
+        assertThat(changes).containsExactly(OwnerSettingsChange.Status(busy.copy(message = "Reading")))
+    }
+
+    @Test
+    fun a_status_is_cleared_from_its_sheet() {
+        setContent(profile(ownerSettings().copy(status = busy)))
+
+        composeRule.onNodeWithText("Status").performClick()
+        composeRule.onNodeWithText("Clear status").performClick()
+
+        assertThat(changes).containsExactly(OwnerSettingsChange.Status(fr.arthurbrugiere.forgeline.core.model.OwnerStatus()))
+    }
+
+    @Test
+    fun a_forge_without_a_status_offers_none() {
+        setContent(profile())
+
+        composeRule.onNodeWithText("Status").assertDoesNotExist()
+    }
 }

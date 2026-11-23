@@ -48,7 +48,7 @@ class ForgejoOwnerSettingsApi(private val httpClient: HttpClient, private val fo
                         is OwnerSettingsChange.Text -> put(PROFILE_TEXTS[change.field] ?: return@forgeCall unsupported, change.value)
                         is OwnerSettingsChange.Switch -> put(PROFILE_SWITCHES[change.field] ?: return@forgeCall unsupported, change.on)
                         is OwnerSettingsChange.Choice -> if (change.field == OwnerChoice.DIFF_STYLE) put("diff_view_style", change.value) else return@forgeCall unsupported
-                        is OwnerSettingsChange.Links -> return@forgeCall unsupported
+                        is OwnerSettingsChange.Links, is OwnerSettingsChange.Status -> return@forgeCall unsupported
                     }
                 }
                 httpClient.forgejoApi(forge, token, "user", "settings", method = HttpMethod.Patch, body = body)
@@ -61,7 +61,7 @@ class ForgejoOwnerSettingsApi(private val httpClient: HttpClient, private val fo
                         is OwnerSettingsChange.Switch ->
                             if (change.field == OwnerSwitch.REPO_ADMINS_CHANGE_TEAM_ACCESS) put("repo_admin_change_team_access", change.on) else return@forgeCall unsupported
                         is OwnerSettingsChange.Choice -> if (change.field == OwnerChoice.VISIBILITY) put("visibility", change.value) else return@forgeCall unsupported
-                        is OwnerSettingsChange.Links -> return@forgeCall unsupported
+                        is OwnerSettingsChange.Links, is OwnerSettingsChange.Status -> return@forgeCall unsupported
                     }
                 }
                 httpClient.forgejoApi(forge, token, "orgs", owner.login, method = HttpMethod.Patch, body = body).toResult { body<JsonObject>().toOrganization() }

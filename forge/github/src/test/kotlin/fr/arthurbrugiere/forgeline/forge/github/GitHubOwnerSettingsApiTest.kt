@@ -43,11 +43,16 @@ class GitHubOwnerSettingsApiTest {
         "/user/social_accounts" -> if (request.method == HttpMethod.Get) json(socialJson) else respond("", HttpStatusCode.NoContent)
         "/orgs/octo" -> json(orgJson)
         "/user/memberships/orgs/octo" -> json("""{"role":"admin","state":"active"}""")
+        "/graphql" -> if ("changeUserStatus" in request.sent) {
+            json("""{"data":{"changeUserStatus":{"status":{"message":"Writing"}}}}""")
+        } else {
+            json("""{"data":{"viewer":{"status":{"emoji":":coffee:","message":"Writing","indicatesLimitedAvailability":true,"expiresAt":"2026-11-24T10:00:00Z"}}}}""")
+        }
         else -> json("""{"message":"Not Found"}""", HttpStatusCode.NotFound)
     }
 
     private fun api(handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData = { answer(it) }) =
-        GitHubOwnerSettingsApi(gitHubHttpClient(MockEngine { requests += it; handler(it) }))
+        GitHubOwnerSettingsApi(gitHubHttpClient(MockEngine { requests += it; handler(it) }), clock = java.time.Clock.fixed(java.time.Instant.parse("2026-11-23T10:00:00Z"), java.time.ZoneOffset.UTC))
 
     private fun <T> ForgeResult<T>.value(): T = (this as ForgeResult.Success).value
 
@@ -86,7 +91,8 @@ class GitHubOwnerSettingsApiTest {
     fun links_add_what_is_new_and_remove_what_was_let_go() = runTest {
         api().change("tok", Owner.Me, OwnerSettingsChange.Links(listOf("https://bsky.app/profile/mona.example")))
 
-        val writes = requests.filter { it.method != HttpMethod.Get }
+        // The profile is read again after, its status from the GraphQL API among it.
+        val writes = requests.filter { it.method != HttpMethod.Get && it.url.encodedPath != "/graphql" }
         assertThat(writes.map { it.call }).containsExactly("DELETE /user/social_accounts", "POST /user/social_accounts").inOrder()
         assertThat(writes[0].sent).isEqualTo("""{"account_urls":["https://mastodon.social/@mona"]}""")
         assertThat(writes[1].sent).isEqualTo("""{"account_urls":["https://bsky.app/profile/mona.example"]}""")
@@ -150,5 +156,36 @@ class GitHubOwnerSettingsApiTest {
         // A sign-in that may not read organisations can't tell: it is to sign in again.
         assertThat(api { json("""{"message":"Not Found"}""", HttpStatusCode.NotFound, scopes = "repo, user") }.administers("tok", "octo"))
             .isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+    }
+
+    @Test
+    fun a_profile_reads_its_status_from_the_graphql_api() = runTest {
+        val status = api().settings("tok", Owner.Me).value().status
+
+        assertThat(status).isEqualTo(
+            fr.arthurbrugiere.forgeline.core.model.OwnerStatus(":coffee:", "Writing", busy = true, expiresAt = java.time.Instant.parse("2026-11-24T10:00:00Z")),
+        )
+    }
+
+    @Test
+    fun a_status_is_changed_until_when_it_is_asked_to_clear() = runTest {
+        val status = fr.arthurbrugiere.forgeline.core.model.OwnerStatus(":coffee:", "Writing", busy = true)
+        api().change("tok", Owner.Me, OwnerSettingsChange.Status(status, fr.arthurbrugiere.forgeline.core.model.StatusDuration.HOUR_3))
+
+        val mutation = requests.single { it.url.encodedPath == "/graphql" && "changeUserStatus" in it.sent }.sent
+        assertThat(mutation).contains(""""input":{"emoji":":coffee:","message":"Writing","limitedAvailability":true,"expiresAt":"2026-11-23T13:00:00Z"}""")
+    }
+
+    @Test
+    fun an_empty_status_is_cleared() = runTest {
+        api().change("tok", Owner.Me, OwnerSettingsChange.Status(fr.arthurbrugiere.forgeline.core.model.OwnerStatus()))
+
+        val mutation = requests.single { it.url.encodedPath == "/graphql" && "changeUserStatus" in it.sent }.sent
+        assertThat(mutation).contains(""""input":{"emoji":null,"message":null,"limitedAvailability":false,"expiresAt":null}""")
+    }
+
+    @Test
+    fun an_organisation_has_no_status() = runTest {
+        assertThat(api().settings("tok", Owner.Organization("octo")).value().status).isNull()
     }
 }

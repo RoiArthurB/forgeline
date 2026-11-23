@@ -147,6 +147,7 @@ class GitLabSignedInLiveTest {
         val profile = api.settings(token, fr.arthurbrugiere.forgeline.core.model.Owner.Me).value()
         assertWithMessage("preferences: $profile").that(profile.switches.keys)
             .containsExactly(fr.arthurbrugiere.forgeline.core.model.OwnerSwitch.DIFFS_FILE_BY_FILE, fr.arthurbrugiere.forgeline.core.model.OwnerSwitch.SHOW_WHITESPACE)
+        assertWithMessage("status: $profile").that(profile.status).isNotNull()
 
         val group = api.settings(token, fr.arthurbrugiere.forgeline.core.model.Owner.Organization("gitlab-org")).value()
         assertWithMessage("group: $group").that(group.texts[fr.arthurbrugiere.forgeline.core.model.OwnerText.NAME]).isEqualTo("GitLab.org")

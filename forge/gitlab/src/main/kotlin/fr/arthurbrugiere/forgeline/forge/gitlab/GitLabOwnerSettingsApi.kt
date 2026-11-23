@@ -9,13 +9,17 @@ import fr.arthurbrugiere.forgeline.core.model.OwnerChoice
 import fr.arthurbrugiere.forgeline.core.model.OwnerChoiceValue
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettings
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
+import fr.arthurbrugiere.forgeline.core.model.OwnerStatus
 import fr.arthurbrugiere.forgeline.core.model.OwnerSwitch
 import fr.arthurbrugiere.forgeline.core.model.OwnerText
+import fr.arthurbrugiere.forgeline.core.model.StatusDuration
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
 import io.ktor.http.isSuccess
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -27,7 +31,8 @@ import kotlinx.serialization.json.put
 /**
  * A GitLab group's settings (`PUT /groups/:id`, its Owners alone), and what a person sets on their own profile through
  * the API. GitLab lets only its administrators change a profile's name, bio, location or links (`PUT /users/:id`):
- * those are set on the website. What is left is how its website shows changes (`/user/preferences`).
+ * those are set on the website. What is left is the status (`/user/status`) and how its website shows changes
+ * (`/user/preferences`).
  */
 class GitLabOwnerSettingsApi(private val httpClient: HttpClient, private val forge: ForgeInstance) : OwnerSettingsApi {
     override val profileSupported = true
@@ -35,7 +40,13 @@ class GitLabOwnerSettingsApi(private val httpClient: HttpClient, private val for
 
     override suspend fun settings(token: String, owner: Owner): ForgeResult<OwnerSettings> = forgeCall {
         when (owner) {
-            Owner.Me -> httpClient.gitlabApi(forge, token, "user", "preferences").toResult { body<JsonObject>().toPreferences() }
+            Owner.Me -> coroutineScope {
+                val status = async { httpClient.gitlabApi(forge, token, "user", "status") }
+                val preferences = httpClient.gitlabApi(forge, token, "user", "preferences")
+                if (!preferences.status.isSuccess()) return@coroutineScope preferences.failure()
+                val said = status.await().takeIf { it.status.isSuccess() }?.body<JsonObject>()?.toStatus()
+                ForgeResult.Success(preferences.body<JsonObject>().toPreferences().copy(status = said))
+            }
             is Owner.Organization -> httpClient.gitlabApi(forge, token, "groups", owner.login).toResult { body<JsonObject>().toGroup() }
         }
     }
@@ -43,6 +54,19 @@ class GitLabOwnerSettingsApi(private val httpClient: HttpClient, private val for
     override suspend fun change(token: String, owner: Owner, change: OwnerSettingsChange): ForgeResult<OwnerSettings> = forgeCall {
         when (owner) {
             Owner.Me -> {
+                if (change is OwnerSettingsChange.Status) {
+                    // A PUT clears what it doesn't name: an empty status is no status.
+                    val body = buildJsonObject {
+                        val status = change.status
+                        status.emoji.trim().trim(':').takeIf { it.isNotEmpty() }?.let { put("emoji", it) }
+                        status.message.trim().takeIf { it.isNotEmpty() }?.let { put("message", it) }
+                        put("availability", if (status.busy) "busy" else "not_set")
+                        change.clearAfter?.let { put("clear_status_after", CLEAR_AFTER.getValue(it)) }
+                    }
+                    val put = httpClient.gitlabApi(forge, token, "user", "status", method = HttpMethod.Put, body = body)
+                    if (!put.status.isSuccess()) return@forgeCall put.failure()
+                    return@forgeCall settings(token, owner)
+                }
                 val field = (change as? OwnerSettingsChange.Switch)?.field?.let(PREFERENCES::get) ?: return@forgeCall unsupported
                 // Older GitLab wants both preferences on every change: the other is sent as it stands.
                 val current = httpClient.gitlabApi(forge, token, "user", "preferences")
@@ -63,7 +87,7 @@ class GitLabOwnerSettingsApi(private val httpClient: HttpClient, private val for
                             else -> put(GROUP_SWITCHES[change.field] ?: return@forgeCall unsupported, change.on)
                         }
                         is OwnerSettingsChange.Choice -> put(GROUP_CHOICES[change.field]?.first ?: return@forgeCall unsupported, change.value)
-                        is OwnerSettingsChange.Links -> return@forgeCall unsupported
+                        is OwnerSettingsChange.Links, is OwnerSettingsChange.Status -> return@forgeCall unsupported
                     }
                 }
                 httpClient.gitlabApi(forge, token, "groups", owner.login, method = HttpMethod.Put, body = body).toResult { body<JsonObject>().toGroup() }
@@ -80,6 +104,13 @@ class GitLabOwnerSettingsApi(private val httpClient: HttpClient, private val for
         if (member.status.value == 404) return@forgeCall ForgeResult.Success(false)
         member.toResult { ((body<JsonObject>()["access_level"] as? JsonPrimitive)?.intOrNull ?: 0) >= OWNER }
     }
+
+    private fun JsonObject.toStatus() = OwnerStatus(
+        emoji = text("emoji"),
+        message = text("message"),
+        busy = text("availability") == "busy",
+        expiresAt = text("clear_status_at").takeIf { it.isNotEmpty() }?.let { runCatching { java.time.Instant.parse(it) }.getOrNull() },
+    )
 
     private fun JsonObject.toPreferences() = OwnerSettings(
         switches = PREFERENCES.mapNotNull { (switch, field) -> bool(field)?.let { switch to it } }.toMap(LinkedHashMap()),
@@ -105,6 +136,11 @@ class GitLabOwnerSettingsApi(private val httpClient: HttpClient, private val for
         val unsupported = ForgeResult.Failure(ForgeError.Unsupported)
 
         const val OWNER = 50
+
+        val CLEAR_AFTER = mapOf(
+            StatusDuration.MIN_30 to "30_minutes", StatusDuration.HOUR_3 to "3_hours", StatusDuration.HOUR_8 to "8_hours", StatusDuration.DAY_1 to "1_day",
+            StatusDuration.DAY_3 to "3_days", StatusDuration.DAY_7 to "7_days", StatusDuration.DAY_30 to "30_days",
+        )
 
         val PREFERENCES = linkedMapOf(
             OwnerSwitch.DIFFS_FILE_BY_FILE to "view_diffs_file_by_file",

@@ -71,6 +71,22 @@ enum class OwnerChoice {
     SECOND_STAT,
 }
 
+/** How long a status shows before it clears itself, GitLab's own choices; null keeps it until it is changed. */
+enum class StatusDuration(val minutes: Long) { MIN_30(30), HOUR_3(180), HOUR_8(480), DAY_1(1_440), DAY_3(4_320), DAY_7(10_080), DAY_30(43_200) }
+
+/**
+ * What someone says they are up to, beside their name: an [emoji] as the forge writes it (GitHub `:coffee:` or the
+ * character itself, GitLab `coffee`), a [message], whether they are [busy], and until when it shows.
+ */
+data class OwnerStatus(
+    val emoji: String = "",
+    val message: String = "",
+    val busy: Boolean = false,
+    val expiresAt: java.time.Instant? = null,
+) {
+    val isEmpty: Boolean get() = emoji.isBlank() && message.isBlank() && !busy
+}
+
 /** What [OwnerChoice] is set to, and what else it can be here, as the forge names them. */
 data class OwnerChoiceValue(val value: String, val options: List<String>)
 
@@ -85,6 +101,8 @@ data class OwnerSettings(
     val choices: Map<OwnerChoice, OwnerChoiceValue> = emptyMap(),
     val links: List<String>? = null,
     val maxLinks: Int = 0,
+    /** Null where the forge keeps no status (an organisation's, a Forgejo profile's). */
+    val status: OwnerStatus? = null,
 )
 
 /** One thing to change in a person's or an organisation's settings. */
@@ -97,6 +115,9 @@ sealed interface OwnerSettingsChange {
 
     /** The other places to find them, all of them, in order. */
     data class Links(val links: List<String>) : OwnerSettingsChange
+
+    /** A new status, showing for [clearAfter] (always when null); an empty one clears it. */
+    data class Status(val status: OwnerStatus, val clearAfter: StatusDuration? = null) : OwnerSettingsChange
 }
 
 /** These settings once [change] is made: what is shown while the forge is told. */
@@ -105,4 +126,5 @@ fun OwnerSettings.with(change: OwnerSettingsChange): OwnerSettings = when (chang
     is OwnerSettingsChange.Switch -> copy(switches = switches + (change.field to change.on))
     is OwnerSettingsChange.Choice -> choices[change.field]?.let { copy(choices = choices + (change.field to it.copy(value = change.value))) } ?: this
     is OwnerSettingsChange.Links -> copy(links = change.links)
+    is OwnerSettingsChange.Status -> copy(status = change.status)
 }

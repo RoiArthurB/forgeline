@@ -57,7 +57,7 @@ class TangledOwnerSettingsApi internal constructor(private val account: TangledA
                         val stats = shown.filter { it.isNotEmpty() }.distinct()
                         if (stats.isEmpty()) remove("stats") else put("stats", JsonArray(stats.map(::JsonPrimitive)))
                     }
-                    is OwnerSettingsChange.Switch -> return@forgeCall unsupported
+                    is OwnerSettingsChange.Switch, is OwnerSettingsChange.Status -> return@forgeCall unsupported
                 }
             },
         )
