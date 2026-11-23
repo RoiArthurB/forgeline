@@ -711,13 +711,23 @@ private val OwnerChoice.label: Int
         OwnerChoice.DIFF_STYLE -> R.string.owner_settings_diff_style
         OwnerChoice.FIRST_STAT -> R.string.owner_settings_first_stat
         OwnerChoice.SECOND_STAT -> R.string.owner_settings_second_stat
+        OwnerChoice.INTERACTION_LIMIT -> R.string.owner_settings_interaction_limit
+        OwnerChoice.INTERACTION_LIMIT_DURATION -> R.string.owner_settings_interaction_limit_duration
     }
 
 /** An option as the app says it; one a later forge adds is shown as the forge names it. */
 @Composable
 internal fun choiceLabel(choice: OwnerChoice, value: String): String {
     val res = when (value) {
-        "" -> R.string.manage_none
+        "" -> if (choice == OwnerChoice.INTERACTION_LIMIT) R.string.owner_settings_limit_none else R.string.manage_none
+        "existing_users" -> R.string.owner_settings_limit_existing_users
+        "contributors_only" -> R.string.owner_settings_limit_contributors
+        "collaborators_only" -> R.string.owner_settings_limit_collaborators
+        "one_day" -> R.string.owner_settings_limit_1d
+        "three_days" -> R.string.owner_settings_limit_3d
+        "one_week" -> R.string.owner_settings_limit_1w
+        "one_month" -> R.string.owner_settings_limit_1m
+        "six_months" -> R.string.owner_settings_limit_6m
         "public" -> R.string.repo_visibility_public
         "limited" -> R.string.owner_settings_visibility_limited
         "internal" -> R.string.repo_visibility_internal

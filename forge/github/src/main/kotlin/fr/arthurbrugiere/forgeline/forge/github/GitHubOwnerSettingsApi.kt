@@ -57,20 +57,75 @@ class GitHubOwnerSettingsApi(
             Owner.Me -> coroutineScope {
                 val links = async { httpClient.gitHubApi(apiBaseUrl, token, "user", "social_accounts", query = mapOf("per_page" to "100")) }
                 val status = async { status(token) }
+                val limit = async { limit(token, owner) }
                 val user = httpClient.gitHubApi(apiBaseUrl, token, "user")
                 if (!user.status.isSuccess()) return@coroutineScope user.failure()
                 val accounts = links.await()
                 val urls = if (accounts.status.isSuccess()) accounts.body<JsonArray>().mapNotNull { ((it as? JsonObject)?.get("url") as? JsonPrimitive)?.contentOrNull } else emptyList()
                 // A status that can't be read is one not offered, not a profile that can't be.
-                ForgeResult.Success(user.body<JsonObject>().toProfile(urls).copy(status = (status.await() as? ForgeResult.Success)?.value))
+                val profile = user.body<JsonObject>().toProfile(urls)
+                ForgeResult.Success(profile.copy(status = (status.await() as? ForgeResult.Success)?.value, choices = profile.choices + limit.await()))
             }
-            is Owner.Organization -> httpClient.gitHubApi(apiBaseUrl, token, "orgs", owner.login).toResult { body<JsonObject>().toOrganization() }
+            is Owner.Organization -> coroutineScope {
+                val limit = async { limit(token, owner) }
+                val org = httpClient.gitHubApi(apiBaseUrl, token, "orgs", owner.login)
+                if (!org.status.isSuccess()) return@coroutineScope org.failure()
+                val settings = org.body<JsonObject>().toOrganization()
+                ForgeResult.Success(settings.copy(choices = settings.choices + limit.await()))
+            }
         }
+    }
+
+    /**
+     * Who may interact with [owner]'s public repositories, and for how long a new limit holds (read from when the one
+     * in place ends); nothing where it can't be read (a sign-in without the scope for it).
+     */
+    private suspend fun limit(token: String, owner: Owner): Map<OwnerChoice, OwnerChoiceValue> {
+        val response = httpClient.gitHubApi(apiBaseUrl, token, *owner.limits())
+        if (!response.status.isSuccess()) return emptyMap()
+        // No content, or an empty object, where there is no limit.
+        val body = if (response.status == HttpStatusCode.NoContent) null else runCatching { response.body<JsonObject>() }.getOrNull()
+        val limit = body?.text("limit").orEmpty()
+        val left = body?.text("expires_at")?.takeIf { it.isNotEmpty() }?.let { runCatching { Duration.between(clock.instant(), Instant.parse(it)) }.getOrNull() }
+        val duration = left?.let { remaining -> LIMIT_DURATIONS.minBy { (_, length) -> (length - remaining).abs() }.first } ?: "one_day"
+        return linkedMapOf(
+            OwnerChoice.INTERACTION_LIMIT to OwnerChoiceValue(limit, LIMITS),
+            OwnerChoice.INTERACTION_LIMIT_DURATION to OwnerChoiceValue(duration, LIMIT_DURATIONS.map { it.first }),
+        )
+    }
+
+    /** A limit, or how long it holds, put with the other as it stands; no limit is deleting it. */
+    private suspend fun setLimit(token: String, owner: Owner, change: OwnerSettingsChange.Choice): ForgeResult<Unit> {
+        val current = limit(token, owner)
+        val limit = if (change.field == OwnerChoice.INTERACTION_LIMIT) change.value else current[OwnerChoice.INTERACTION_LIMIT]?.value.orEmpty()
+        val duration = if (change.field == OwnerChoice.INTERACTION_LIMIT_DURATION) change.value else current[OwnerChoice.INTERACTION_LIMIT_DURATION]?.value ?: "one_day"
+        val response = if (limit.isEmpty()) {
+            httpClient.gitHubApi(apiBaseUrl, token, *owner.limits(), method = HttpMethod.Delete)
+        } else {
+            httpClient.gitHubApi(
+                apiBaseUrl, token, *owner.limits(), method = HttpMethod.Put,
+                body = buildJsonObject {
+                    put("limit", limit)
+                    put("expiry", duration)
+                },
+            )
+        }
+        return if (response.status.isSuccess()) ForgeResult.Success(Unit) else response.refusal(owner.scope)
+    }
+
+    private fun Owner.limits(): Array<String> = when (this) {
+        Owner.Me -> arrayOf("user", "interaction-limits")
+        is Owner.Organization -> arrayOf("orgs", login, "interaction-limits")
     }
 
     override suspend fun change(token: String, owner: Owner, change: OwnerSettingsChange): ForgeResult<OwnerSettings> = forgeCall {
         when (owner) {
             Owner.Me -> {
+                if (change is OwnerSettingsChange.Choice && change.field in LIMIT_CHOICES) {
+                    val set = setLimit(token, owner, change)
+                    if (set is ForgeResult.Failure) return@forgeCall set
+                    return@forgeCall settings(token, owner)
+                }
                 if (change is OwnerSettingsChange.Status) {
                     val changed = setStatus(token, change)
                     if (changed is ForgeResult.Failure) return@forgeCall changed
@@ -92,6 +147,11 @@ class GitHubOwnerSettingsApi(
                 settings(token, owner)
             }
             is Owner.Organization -> {
+                if (change is OwnerSettingsChange.Choice && change.field in LIMIT_CHOICES) {
+                    val set = setLimit(token, owner, change)
+                    if (set is ForgeResult.Failure) return@forgeCall set
+                    return@forgeCall settings(token, owner)
+                }
                 val body = buildJsonObject {
                     when (change) {
                         is OwnerSettingsChange.Text -> put(ORGANIZATION_TEXTS[change.field] ?: return@forgeCall unsupported, change.value)
@@ -288,6 +348,16 @@ class GitHubOwnerSettingsApi(
         const val MAX_SOCIAL_ACCOUNTS = 4
 
         val PERMISSIONS = listOf("none", "read", "write", "admin")
+
+        val LIMIT_CHOICES = setOf(OwnerChoice.INTERACTION_LIMIT, OwnerChoice.INTERACTION_LIMIT_DURATION)
+
+        /** No limit first, then from the widest to the narrowest. */
+        val LIMITS = listOf("", "existing_users", "contributors_only", "collaborators_only")
+
+        val LIMIT_DURATIONS = listOf(
+            "one_day" to Duration.ofDays(1), "three_days" to Duration.ofDays(3), "one_week" to Duration.ofDays(7),
+            "one_month" to Duration.ofDays(30), "six_months" to Duration.ofDays(182),
+        )
 
         /** An organisation's owners are its admins. */
         val MEMBER_ROLES = listOf("admin", "member")

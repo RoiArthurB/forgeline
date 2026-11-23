@@ -69,6 +69,15 @@ enum class OwnerChoice {
      */
     FIRST_STAT,
     SECOND_STAT,
+
+    /**
+     * Who may comment, open issues and pull requests in a GitHub account's or organisation's public repositories for a
+     * while: everyone (``), `existing_users` (accounts older than a day), `contributors_only`, `collaborators_only`.
+     */
+    INTERACTION_LIMIT,
+
+    /** For how long a new limit holds: `one_day`, `three_days`, `one_week`, `one_month`, `six_months`. */
+    INTERACTION_LIMIT_DURATION,
 }
 
 /** How long a status shows before it clears itself, GitLab's own choices; null keeps it until it is changed. */

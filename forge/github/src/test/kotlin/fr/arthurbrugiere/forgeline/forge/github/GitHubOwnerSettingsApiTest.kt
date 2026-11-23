@@ -42,6 +42,10 @@ class GitHubOwnerSettingsApiTest {
         "/user" -> json(userJson)
         "/user/social_accounts" -> if (request.method == HttpMethod.Get) json(socialJson) else respond("", HttpStatusCode.NoContent)
         "/orgs/octo" -> json(orgJson)
+        "/user/interaction-limits", "/orgs/octo/interaction-limits" -> when (request.method) {
+            HttpMethod.Get -> json("""{"limit":"collaborators_only","origin":"user","expires_at":"2026-11-30T10:00:00Z"}""")
+            else -> respond("", HttpStatusCode.NoContent)
+        }
         "/orgs/octo/members" -> json(
             if (request.url.parameters["role"] == "admin") """[{"login":"mona","avatar_url":"https://avatars.example/mona"}]""" else """[{"login":"hubot","avatar_url":null}]""",
         )
@@ -253,5 +257,40 @@ class GitHubOwnerSettingsApiTest {
             """{"invitee_id":4242,"role":"direct_member"}""", """{"email":"friend@octo.example","role":"admin"}""",
         ).inOrder()
         assertThat(requests.last().call).isEqualTo("DELETE /orgs/octo/invitations/7")
+    }
+
+    @Test
+    fun an_interaction_limit_reads_as_who_may_and_for_about_how_long() = runTest {
+        val choices = api().settings("tok", Owner.Me).value().choices
+
+        assertThat(choices[OwnerChoice.INTERACTION_LIMIT]?.value).isEqualTo("collaborators_only")
+        assertThat(choices[OwnerChoice.INTERACTION_LIMIT]?.options).containsExactly("", "existing_users", "contributors_only", "collaborators_only").inOrder()
+        // A week from the fixed clock's 2026-11-23.
+        assertThat(choices[OwnerChoice.INTERACTION_LIMIT_DURATION]?.value).isEqualTo("one_week")
+    }
+
+    @Test
+    fun no_limit_reads_as_everyone_and_a_sign_in_without_the_scope_offers_none() = runTest {
+        val none = api { if (it.url.encodedPath == "/orgs/octo/interaction-limits") respond("", HttpStatusCode.NoContent) else answer(it) }
+            .settings("tok", Owner.Organization("octo")).value()
+        assertThat(none.choices[OwnerChoice.INTERACTION_LIMIT]?.value).isEmpty()
+
+        val unreadable = api { if (it.url.encodedPath == "/user/interaction-limits") json("""{"message":"Forbidden"}""", HttpStatusCode.Forbidden) else answer(it) }
+            .settings("tok", Owner.Me).value()
+        assertThat(unreadable.choices).doesNotContainKey(OwnerChoice.INTERACTION_LIMIT)
+    }
+
+    @Test
+    fun a_limit_is_put_with_how_long_it_holds_and_none_deletes_it() = runTest {
+        api().change("tok", Owner.Organization("octo"), OwnerSettingsChange.Choice(OwnerChoice.INTERACTION_LIMIT, "contributors_only"))
+        api().change("tok", Owner.Me, OwnerSettingsChange.Choice(OwnerChoice.INTERACTION_LIMIT_DURATION, "six_months"))
+        api().change("tok", Owner.Me, OwnerSettingsChange.Choice(OwnerChoice.INTERACTION_LIMIT, ""))
+
+        val writes = requests.filter { it.method == HttpMethod.Put || it.method == HttpMethod.Delete }
+        assertThat(writes.map { it.call }).containsExactly(
+            "PUT /orgs/octo/interaction-limits", "PUT /user/interaction-limits", "DELETE /user/interaction-limits",
+        ).inOrder()
+        assertThat(writes[0].sent).isEqualTo("""{"limit":"contributors_only","expiry":"one_week"}""")
+        assertThat(writes[1].sent).isEqualTo("""{"limit":"collaborators_only","expiry":"six_months"}""")
     }
 }

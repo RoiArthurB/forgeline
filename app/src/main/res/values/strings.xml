@@ -1584,4 +1584,15 @@
     <string name="owner_settings_role_reporter">Reporter</string>
     <string name="owner_settings_role_developer">Developer</string>
     <string name="owner_settings_role_maintainer">Maintainer</string>
+    <string name="owner_settings_interaction_limit">Who may interact with public repositories</string>
+    <string name="owner_settings_interaction_limit_duration">How long a limit holds</string>
+    <string name="owner_settings_limit_none">Everyone</string>
+    <string name="owner_settings_limit_existing_users">Accounts older than a day</string>
+    <string name="owner_settings_limit_contributors">Contributors only</string>
+    <string name="owner_settings_limit_collaborators">Collaborators only</string>
+    <string name="owner_settings_limit_3d">3 days</string>
+    <string name="owner_settings_limit_1w">A week</string>
+    <string name="owner_settings_limit_1m">A month</string>
+    <string name="owner_settings_limit_6m">Six months</string>
+    <string name="owner_settings_limit_1d">A day</string>
 </resources>

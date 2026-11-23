@@ -1593,4 +1593,15 @@
     <string name="owner_settings_role_reporter">Rapporteur</string>
     <string name="owner_settings_role_developer">Développeur</string>
     <string name="owner_settings_role_maintainer">Mainteneur</string>
+    <string name="owner_settings_interaction_limit">Qui peut interagir avec les dépôts publics</string>
+    <string name="owner_settings_interaction_limit_duration">Durée d’une limite</string>
+    <string name="owner_settings_limit_none">Tout le monde</string>
+    <string name="owner_settings_limit_existing_users">Comptes de plus d’un jour</string>
+    <string name="owner_settings_limit_contributors">Contributeurs seulement</string>
+    <string name="owner_settings_limit_collaborators">Collaborateurs seulement</string>
+    <string name="owner_settings_limit_3d">3 jours</string>
+    <string name="owner_settings_limit_1w">Une semaine</string>
+    <string name="owner_settings_limit_1m">Un mois</string>
+    <string name="owner_settings_limit_6m">Six mois</string>
+    <string name="owner_settings_limit_1d">Un jour</string>
 </resources>
