@@ -236,4 +236,19 @@ class ReadmePreprocessorTest {
         assertThat(linked("<b>Fixed</b> by #12, see [docs](guide.md)"))
             .isEqualTo("**Fixed** by [#12](https://github.com/octo/repo/issues/12), see [docs](https://blob.example/guide.md)")
     }
+
+    @Test
+    fun a_picture_linked_to_a_picture_is_let_go_of_its_link_so_it_opens_larger() {
+        // A screenshot linked to itself led to a browser, or to the forge's page about the file, not to the picture.
+        assertThat(prepare("[![Screenshot](docs/shot.png)](docs/shot.png)"))
+            .isEqualTo("![Screenshot](https://raw.githubusercontent.com/octo/repo/main/docs/shot.png)")
+        assertThat(prepare("<a href=\"docs/large.jpg\"><img src=\"docs/small.jpg\" alt=\"Board\"></a>"))
+            .isEqualTo("![Board](https://raw.githubusercontent.com/octo/repo/main/docs/small.jpg)")
+    }
+
+    @Test
+    fun a_picture_linked_elsewhere_keeps_its_link() {
+        assertThat(prepare("[![build](https://example.com/badge.svg)](https://example.com/ci)"))
+            .isEqualTo("[![build](https://example.com/badge.svg)](https://example.com/ci)")
+    }
 }

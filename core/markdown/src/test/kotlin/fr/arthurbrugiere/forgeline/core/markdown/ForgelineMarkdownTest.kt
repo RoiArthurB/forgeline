@@ -121,13 +121,13 @@ class ForgelineMarkdownTest {
         assertThat(clicked).containsExactly("https://example.com/guide")
     }
 
-    private fun withPictures(text: String, opened: MutableList<String>?) = composeRule.setContent {
+    private fun withPictures(text: String, opened: MutableList<String>?, selectable: Boolean = false) = composeRule.setContent {
         ForgelineTheme {
             if (opened == null) {
-                ForgelineMarkdown(parseForgeMarkdown(text), onLinkClick = {})
+                ForgelineMarkdown(parseForgeMarkdown(text), onLinkClick = {}, selectable = selectable)
             } else {
                 androidx.compose.runtime.CompositionLocalProvider(LocalOpenPicture provides { url, description -> opened += "$url|$description" }) {
-                    ForgelineMarkdown(parseForgeMarkdown(text), onLinkClick = { opened += "link:$it" })
+                    ForgelineMarkdown(parseForgeMarkdown(text), onLinkClick = { opened += "link:$it" }, selectable = selectable)
                 }
             }
         }
@@ -179,12 +179,28 @@ class ForgelineMarkdownTest {
     }
 
     @Test
-    fun a_line_holding_a_badge_that_is_a_link_leaves_its_other_pictures_alone() {
-        // Which picture of a line was tapped can't be told: none opens, so the badge's link is never taken from it.
+    fun a_readme_s_pictures_open_larger_in_selectable_text_too() {
+        // READMEs are selectable: a picture there must still open when tapped.
         val opened = mutableListOf<String>()
-        withPictures("[![build](https://example.com/badge.svg)](https://example.com/ci) ![icon](https://example.com/icon.png)", opened)
+        withPictures("Before\n\n![The board](https://example.com/board.png)\n\nSee ![icon](https://example.com/icon.png) here", opened, selectable = true)
         composeRule.waitForIdle()
 
-        assertThat(pictures().fetchSemanticsNodes()).isEmpty()
+        pictures()[0].performClick()
+        pictures()[1].performClick()
+
+        assertThat(opened.map { it.substringBefore('|') }).containsExactly("https://example.com/board.png", "https://example.com/icon.png").inOrder()
+    }
+
+    @Test
+    fun a_logo_beside_a_row_of_badges_opens_while_the_badges_keep_their_links() {
+        // A README's header often holds its logo and its badges in one paragraph: none of them opened before.
+        val opened = mutableListOf<String>()
+        withPictures("![logo](https://example.com/logo.png)\n[![build](https://example.com/badge.svg)](https://example.com/ci)", opened, selectable = true)
+        composeRule.waitForIdle()
+
+        assertThat(pictures().fetchSemanticsNodes()).hasSize(1)
+        pictures()[0].performClick()
+
+        assertThat(opened).containsExactly("https://example.com/logo.png|null")
     }
 }

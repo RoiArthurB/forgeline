@@ -244,9 +244,15 @@ object ReadmePreprocessor {
     private val referenceDefinition = Regex("""(?m)^( {0,3}\[[^\]]+]:\s*)(\S+)""")
     private val imageExtension = Regex("""\.(png|jpe?g|gif|svg|webp|avif)(\?.*)?$""", RegexOption.IGNORE_CASE)
 
+    // A picture that is all of a link's text: [![alt](src)](href).
+    private val linkedPicture = Regex("""(?<!!)\[\s*(!\[[^\]]*]\(\s*[^)\s]+(?:\s+"[^"]*")?\s*\))\s*]\(\s*([^)\s]+)(?:\s+"[^"]*")?\s*\)""")
+
     private fun rewriteMarkdownUrls(text: String, context: ReadmeContext): String {
         if ("](" !in text && "]:" !in text) return text
         return text
+            // A link that only leads to a picture (a screenshot linked to itself, or to its larger copy) is let go: the
+            // picture opens larger in the app, where the link led to a browser, or to a forge's page about the file.
+            .replace(linkedPicture) { if (imageExtension.containsMatchIn(it.groupValues[2])) it.groupValues[1] else it.value }
             .replace(markdownImage) { "![${it.groupValues[1]}](${resolveImage(it.groupValues[2], context)}${it.groupValues[3]})" }
             .replace(markdownLink) { "[${it.groupValues[1]}](${resolveLink(it.groupValues[2], context)}${it.groupValues[3]})" }
             .replace(referenceDefinition) {

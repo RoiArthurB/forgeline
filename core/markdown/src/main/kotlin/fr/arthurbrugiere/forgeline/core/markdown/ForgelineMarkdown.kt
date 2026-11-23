@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ClipEntry
@@ -86,6 +87,9 @@ private val linkTypes = setOf(MarkdownElementTypes.INLINE_LINK, MarkdownElementT
 
 private fun ASTNode.isInLink(): Boolean = generateSequence(parent) { it.parent }.any { it.type in linkTypes }
 
+/** The text the Markdown on screen was parsed from: a picture's own link is read from it. */
+private val LocalMarkdownSource = staticCompositionLocalOf<String?> { null }
+
 private fun ASTNode.pictures(): Sequence<ASTNode> =
     if (type == MarkdownElementTypes.IMAGE) sequenceOf(this) else children.asSequence().flatMap { it.pictures() }
 
@@ -112,12 +116,24 @@ private fun BlockPicture(model: MarkdownComponentModel) {
 }
 
 /**
- * A picture in a line of text: the model holds its address and the node of the whole line, not the picture's. Which
- * of the line's pictures this one is can't be told, so it opens only when none of them is a link.
+ * A picture in a line of text: the model holds its address and the node of the whole line, not the picture's. The
+ * line's pictures at that address are this one; it opens unless one of them is in a link (a logo beside a row of
+ * badges opens, the badges keep their links). Where the address can't be matched, it opens only when no picture of
+ * the line is a link.
  */
 @Composable
 private fun InlinePicture(model: MarkdownComponentModel) {
-    val free = remember(model.node) { !model.node.isInLink() && model.node.pictures().none { it.isInLink() } }
+    val source = LocalMarkdownSource.current
+    val handler = LocalReferenceLinkHandler.current
+    val free = remember(model.node, model.content, source) {
+        val pictures = model.node.pictures().toList()
+        val same = source?.let { text -> pictures.filter { it.resolveImageLink(text, handler) == model.content } }.orEmpty()
+        when {
+            model.node.isInLink() -> false
+            same.isNotEmpty() -> same.none { it.isInLink() }
+            else -> pictures.none { it.isInLink() }
+        }
+    }
     TappablePicture(model.content.takeIf { free }, description = null) { MarkdownInlineImage(model.content, model.node) }
 }
 
@@ -144,7 +160,7 @@ fun ForgelineMarkdown(
             override fun openUri(uri: String) = onLinkClick(uri)
         }
     }
-    CompositionLocalProvider(LocalUriHandler provides uriHandler) {
+    CompositionLocalProvider(LocalUriHandler provides uriHandler, LocalMarkdownSource provides (state as? State.Success)?.content) {
         if (selectable) SelectionContainer { Rendered(state, modifier) } else Rendered(state, modifier)
     }
 }
