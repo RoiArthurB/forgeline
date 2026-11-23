@@ -165,4 +165,35 @@ class OwnerSettingsViewModelTest {
     fun one_s_own_profile_has_no_members() = test {
         assertThat(viewModel().state.value.membersSupported).isFalse()
     }
+
+    @Test
+    fun a_picture_is_sent_or_taken_away_and_said_once_taken() = test {
+        val viewModel = viewModel("octo", organization = true)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.avatarSupported).isTrue()
+
+        viewModel.setAvatar(byteArrayOf(1, 2, 3))
+        assertThat(viewModel.state.value.pictureWorking).isTrue()
+        advanceUntilIdle()
+        viewModel.setAvatar(null)
+        advanceUntilIdle()
+
+        assertThat(api.avatars.map { (owner, image) -> owner to image?.toList() }).containsExactly("octo" to listOf<Byte>(1, 2, 3), "octo" to null).inOrder()
+        assertThat(viewModel.state.value.pictureChanged).isEqualTo(2)
+        assertThat(viewModel.state.value.pictureWorking).isFalse()
+    }
+
+    @Test
+    fun a_refused_or_unreadable_picture_is_said() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        api.writeFailure = ForgeError.Http(413, "Too large")
+
+        viewModel.setAvatar(byteArrayOf(1))
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.refused).isEqualTo(ForgeError.Http(413, "Too large"))
+
+        viewModel.pictureUnreadable()
+        assertThat(viewModel.state.value.refused).isEqualTo(ForgeError.Unreadable)
+    }
 }

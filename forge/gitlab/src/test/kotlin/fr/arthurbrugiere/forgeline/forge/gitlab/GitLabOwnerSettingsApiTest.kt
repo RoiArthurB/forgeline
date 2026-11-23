@@ -39,6 +39,7 @@ class GitLabOwnerSettingsApiTest {
     private fun MockRequestHandleScope.route(request: HttpRequestData): HttpResponseData = when (request.url.encodedPath) {
         "/api/v4/groups/gitlab-org", "/api/v4/groups/group%2Fsub" -> json(groupJson)
         "/api/v4/user/preferences" -> json(preferencesJson)
+        "/api/v4/user/avatar" -> json("""{"avatar_url":"https://gitlab.example/avatar.png"}""")
         "/api/v4/groups/gitlab-org/members" -> if (request.method == HttpMethod.Get) {
             json("""[{"id":1,"username":"mona","avatar_url":"https://gitlab.example/mona","access_level":50},{"id":2,"username":"hubot","avatar_url":null,"access_level":30}]""")
         } else {
@@ -178,5 +179,18 @@ class GitLabOwnerSettingsApiTest {
         assertThat(writes[0].sent).isEqualTo("""{"access_level":40}""")
         assertThat(writes[2].sent).isEqualTo("""{"username":"newcomer","access_level":30}""")
         assertThat(writes[3].sent).isEqualTo("""{"email":"friend@example.org","access_level":10}""")
+    }
+
+    @Test
+    fun a_picture_is_a_file_part_put_to_one_s_avatar_or_the_group() = runTest {
+        api().setAvatar("tok", Owner.Me, byteArrayOf(1, 2, 3), "image/jpeg")
+        api().setAvatar("tok", Owner.Organization("gitlab-org"), byteArrayOf(4, 5), "image/png")
+
+        val (mine, group) = requests.filter { it.method == HttpMethod.Put }
+        assertThat(mine.url.encodedPath).isEqualTo("/api/v4/user/avatar")
+        assertThat(group.url.encodedPath).isEqualTo("/api/v4/groups/gitlab-org")
+        val part = (mine.body as io.ktor.http.content.OutgoingContent).contentType
+        assertThat(part?.contentType).isEqualTo("multipart")
+        assertThat(api().avatarRemovable(Owner.Me)).isFalse()
     }
 }

@@ -64,6 +64,35 @@ class TangledOwnerSettingsApi internal constructor(private val account: TangledA
         account.putRecord(token, PROFILE, SELF, changed).map { changed.toSettings() }
     }
 
+    override fun avatarSupported(owner: Owner) = owner == Owner.Me
+
+    override fun avatarRemovable(owner: Owner) = owner == Owner.Me
+
+    /** Kept on the person's own server as a blob, then named by the profile record (a megabyte at most). */
+    override suspend fun setAvatar(token: String, owner: Owner, image: ByteArray, mimeType: String): ForgeResult<Unit> = forgeCall {
+        if (owner != Owner.Me) return@forgeCall unsupported
+        val blob = when (val uploaded = account.uploadBlob(token, image, mimeType)) {
+            is ForgeResult.Failure -> return@forgeCall uploaded
+            is ForgeResult.Success -> uploaded.value
+        }
+        rewrite(token) { it + ("avatar" to blob) }
+    }
+
+    override suspend fun removeAvatar(token: String, owner: Owner): ForgeResult<Unit> = forgeCall {
+        if (owner != Owner.Me) return@forgeCall unsupported
+        rewrite(token) { it - "avatar" }
+    }
+
+    /** Writes the profile record back with [change] made to what it holds now. */
+    private suspend fun rewrite(token: String, change: (Map<String, kotlinx.serialization.json.JsonElement>) -> Map<String, kotlinx.serialization.json.JsonElement>): ForgeResult<Unit> {
+        val current = when (val read = record(token)) {
+            is ForgeResult.Failure -> return read
+            is ForgeResult.Success -> read.value
+        }
+        val record = JsonObject(change(current + ("\$type" to JsonPrimitive(PROFILE))))
+        return account.putRecord(token, PROFILE, SELF, record).map { }
+    }
+
     /** The profile record as it is, or an empty one for someone who never wrote one. */
     private suspend fun record(token: String): ForgeResult<JsonObject> {
         val did = when (val me = account.did(token)) {

@@ -126,6 +126,20 @@ class ForgejoOwnerSettingsApi(private val httpClient: HttpClient, private val fo
 
     private fun JsonObject.toSummary() = UserSummary(text("login"), text("avatar_url").ifEmpty { null }, isOrganization = false, forge = forge)
 
+    override fun avatarSupported(owner: Owner) = true
+
+    override fun avatarRemovable(owner: Owner) = true
+
+    /** Sent whole, base64, as `{"image": …}`: Forgejo and Gitea crop and size it themselves. */
+    override suspend fun setAvatar(token: String, owner: Owner, image: ByteArray, mimeType: String): ForgeResult<Unit> = forgeCall {
+        val body = buildJsonObject { put("image", java.util.Base64.getEncoder().encodeToString(image)) }
+        httpClient.forgejoApi(forge, token, *owner.base(), "avatar", method = HttpMethod.Post, body = body).toResult { }
+    }
+
+    override suspend fun removeAvatar(token: String, owner: Owner): ForgeResult<Unit> = forgeCall {
+        httpClient.forgejoApi(forge, token, *owner.base(), "avatar", method = HttpMethod.Delete).toResult { }
+    }
+
     override val membersSupported = true
 
     /**

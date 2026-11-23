@@ -51,6 +51,12 @@ data class OwnerSettingsUiState(
     val members: Loadable<OrgMembers> = Loadable.Idle,
     /** A change to the members is on its way. */
     val membersWorking: Boolean = false,
+    /** Whether the picture is changed here, and taken away; a new one is on its way while [pictureWorking]. */
+    val avatarSupported: Boolean = false,
+    val avatarRemovable: Boolean = false,
+    val pictureWorking: Boolean = false,
+    /** Counts the pictures the forge took, to say so once each. */
+    val pictureChanged: Int = 0,
 )
 
 /** A person's own profile settings, or an organisation's, each changed on its forge as soon as it is here. */
@@ -73,6 +79,8 @@ class OwnerSettingsViewModel @AssistedInject constructor(
         OwnerSettingsUiState(
             forge, login, owner, blocksSupported = repository.blocksSupported(forge, owner),
             membersSupported = organization && repository.membersSupported(forge),
+            avatarSupported = repository.avatarSupported(forge, if (organization) Owner.Organization(login) else Owner.Me),
+            avatarRemovable = repository.avatarRemovable(forge, if (organization) Owner.Organization(login) else Owner.Me),
         ),
     )
     val state: StateFlow<OwnerSettingsUiState> = _state.asStateFlow()
@@ -179,6 +187,24 @@ class OwnerSettingsViewModel @AssistedInject constructor(
             loadMembers(force = true)
         }
     }
+
+    /** Makes [image] (prepared: square, small, JPEG) the picture, or takes it away (null). */
+    fun setAvatar(image: ByteArray?) {
+        if (_state.value.pictureWorking) return
+        _state.update { it.copy(pictureWorking = true, refused = null) }
+        viewModelScope.launch {
+            val result = repository.setAvatar(forge, owner, image)
+            _state.update {
+                when (result) {
+                    is ForgeResult.Success -> it.copy(pictureWorking = false, pictureChanged = it.pictureChanged + 1)
+                    is ForgeResult.Failure -> it.copy(pictureWorking = false, refused = result.error)
+                }
+            }
+        }
+    }
+
+    /** A picture that couldn't be read from the phone. */
+    fun pictureUnreadable() = _state.update { it.copy(refused = ForgeError.Unreadable) }
 
     fun refusalShown() = _state.update { it.copy(refused = null) }
 

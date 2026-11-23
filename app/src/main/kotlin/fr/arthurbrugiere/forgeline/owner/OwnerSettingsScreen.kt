@@ -1,5 +1,8 @@
 package fr.arthurbrugiere.forgeline.owner
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -37,10 +40,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -93,6 +98,9 @@ import fr.arthurbrugiere.forgeline.ui.message
 import fr.arthurbrugiere.forgeline.ui.overBottomBarOrKeyboard
 import fr.arthurbrugiere.forgeline.ui.rememberCustomTabOpener
 import fr.arthurbrugiere.forgeline.ui.sideSafeArea
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
@@ -102,6 +110,17 @@ fun OwnerSettingsRoute(route: OwnerSettingsRoute, onBack: () -> Unit, onSignIn: 
         it.create(forge, route.login, route.organization)
     }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    // The system's photo picker: nothing to allow, and only the picture picked is ever read.
+    val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val image = withContext(Dispatchers.IO) { ProfilePicture.read(context, uri) }
+                if (image == null) viewModel.pictureUnreadable() else viewModel.setAvatar(image)
+            }
+        }
+    }
     OwnerSettingsScreen(
         state = state,
         onBack = onBack,
@@ -117,6 +136,8 @@ fun OwnerSettingsRoute(route: OwnerSettingsRoute, onBack: () -> Unit, onSignIn: 
         onSetBlocked = viewModel::setBlocked,
         onLoadMembers = { viewModel.loadMembers() },
         onChangeMembers = viewModel::changeMembers,
+        onPickPicture = { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+        onRemovePicture = { viewModel.setAvatar(null) },
     )
 }
 
@@ -136,6 +157,8 @@ private sealed interface Editing {
     data object Block : Editing
 
     data object Invite : Editing
+
+    data object Picture : Editing
 
     data class Member(val member: OrgMember) : Editing
 }
@@ -164,6 +187,8 @@ fun OwnerSettingsScreen(
     onSetBlocked: (login: String, blocked: Boolean) -> Unit = { _, _ -> },
     onLoadMembers: () -> Unit = {},
     onChangeMembers: (MemberChange) -> Unit = {},
+    onPickPicture: () -> Unit = {},
+    onRemovePicture: () -> Unit = {},
 ) {
     val colors = Soft.colors
     val settings = state.settings
@@ -202,6 +227,8 @@ fun OwnerSettingsScreen(
             onRefusalShown()
         }
     }
+    val pictureText = stringResource(R.string.owner_settings_picture_changed)
+    LaunchedEffect(state.pictureChanged) { if (state.pictureChanged > 0) snackbar.showSnackbar(pictureText) }
     val savedText = stringResource(R.string.owner_settings_saved)
     val undoLabel = stringResource(R.string.inbox_undo)
     LaunchedEffect(state.applied?.id) {
@@ -229,6 +256,29 @@ fun OwnerSettingsScreen(
                 settings.links.orEmpty(), settings.maxLinks, saving = state.saving != null, refusal = refusal,
                 onSave = { save(OwnerSettingsChange.Links(it)) }, onDismiss = dismiss,
             )
+            Editing.Picture -> SoftSheet(stringResource(R.string.owner_settings_picture), dismiss) {
+                Text(stringResource(R.string.owner_settings_picture_summary), style = Soft.type.secondary, color = colors.inkMuted)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (state.avatarRemovable) {
+                        SoftTonalButton(
+                            stringResource(R.string.owner_settings_picture_remove),
+                            onClick = {
+                                editing = null
+                                onRemovePicture()
+                            },
+                            enabled = !state.pictureWorking,
+                        )
+                    }
+                    SoftButton(
+                        stringResource(R.string.owner_settings_picture_choose),
+                        onClick = {
+                            editing = null
+                            onPickPicture()
+                        },
+                        enabled = !state.pictureWorking,
+                    )
+                }
+            }
             Editing.Invite -> (state.members as? Loadable.Loaded)?.value?.let { members ->
                 InviteSheet(members, state.forge.type, onInvite = { invitee, role ->
                     editing = null
@@ -270,7 +320,7 @@ fun OwnerSettingsScreen(
 
     val tabs = settings?.let {
         buildList {
-            if (it.texts.isNotEmpty() || it.links != null || it.status != null) add(OwnerTab.ABOUT)
+            if (it.texts.isNotEmpty() || it.links != null || it.status != null || state.avatarSupported) add(OwnerTab.ABOUT)
             if (it.switches.isNotEmpty() || it.choices.isNotEmpty()) add(OwnerTab.OPTIONS)
             if (state.membersSupported) add(OwnerTab.MEMBERS)
             if (state.blocksSupported) add(OwnerTab.BLOCKED)
@@ -360,6 +410,12 @@ fun OwnerSettingsScreen(
                             when (tab) {
                                 OwnerTab.ABOUT -> item(key = "about") {
                                     Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
+                                        if (state.avatarSupported) {
+                                            EditRow(
+                                                stringResource(R.string.owner_settings_picture),
+                                                stringResource(if (state.pictureWorking) R.string.owner_settings_picture_sending else R.string.owner_settings_picture_change),
+                                            ) { if (!state.pictureWorking) editing = Editing.Picture }
+                                        }
                                         settings.status?.let { status -> EditRow(stringResource(R.string.owner_settings_status), statusSummary(status) ?: none) { editing = Editing.Status } }
                                         settings.texts.forEach { (field, value) ->
                                             EditRow(stringResource(field.label(organization)), value.ifBlank { none }) { editing = Editing.Text(field) }

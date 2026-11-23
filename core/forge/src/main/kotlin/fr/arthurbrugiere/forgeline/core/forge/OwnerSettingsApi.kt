@@ -33,6 +33,17 @@ interface OwnerSettingsApi {
 
     suspend fun setBlocked(token: String, owner: Owner, login: String, blocked: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
 
+    /** Whether [owner]'s picture is changed here: GitHub has no API for it. */
+    fun avatarSupported(owner: Owner): Boolean = false
+
+    /** Whether it can also be taken away, leaving the forge's own. */
+    fun avatarRemovable(owner: Owner): Boolean = false
+
+    /** Makes [image] (of [mimeType], square and small: see the app's picture preparation) [owner]'s picture. */
+    suspend fun setAvatar(token: String, owner: Owner, image: ByteArray, mimeType: String): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    suspend fun removeAvatar(token: String, owner: Owner): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
     /** Whether an organisation's members are listed and managed here. */
     val membersSupported: Boolean get() = false
 

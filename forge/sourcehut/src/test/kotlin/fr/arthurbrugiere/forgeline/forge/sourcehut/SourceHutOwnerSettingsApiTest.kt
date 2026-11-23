@@ -6,6 +6,8 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.OwnerText
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.toByteArray
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.jsonObject
@@ -59,5 +61,39 @@ class SourceHutOwnerSettingsApiTest {
 
         assertThat(api.change(TOKEN, Owner.Me, OwnerSettingsChange.Text(OwnerText.EMAIL, ""))).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
         assertThat(api.settings(TOKEN, Owner.Organization("~mona"))).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+    }
+
+    @Test
+    fun a_picture_is_a_graphql_multipart_upload_to_meta_sr_ht() = runTest {
+        val sent = mutableListOf<io.ktor.client.request.HttpRequestData>()
+        val client = sourceHutHttpClient(
+            io.ktor.client.engine.mock.MockEngine { request ->
+                sent += request
+                respond(
+                    """{"data":{"updateUser":{"username":"mona"}}}""", io.ktor.http.HttpStatusCode.OK,
+                    io.ktor.http.headersOf(io.ktor.http.HttpHeaders.ContentType, "application/json"),
+                )
+            },
+        )
+
+        val result = SourceHutOwnerSettingsApi(client).setAvatar(TOKEN, Owner.Me, byteArrayOf(1, 2, 3), "image/jpeg")
+
+        assertThat(result).isEqualTo(ForgeResult.Success(Unit))
+        val request = sent.single()
+        assertThat(request.url.toString()).isEqualTo("https://meta.sr.ht/query")
+        val body = String(request.body.toByteArray())
+        assertThat(body).contains("name=\"operations\"")
+        assertThat(body).contains(""""variables":{"input":{"avatar":null}}""")
+        assertThat(body).contains("""{"0":["variables.input.avatar"]}""")
+        assertThat(body).contains("Content-Type: image/jpeg")
+    }
+
+    @Test
+    fun a_picture_is_taken_away_by_clearing_it() = runTest {
+        val fake = FakeSourceHut(listOf("updateUser" to { _ -> """{"data":{"updateUser":{"username":"mona","email":"m@example.org","url":null,"location":null,"bio":null,"pronouns":null}}}""" }))
+
+        SourceHutOwnerSettingsApi(fake.client).removeAvatar(TOKEN, Owner.Me)
+
+        assertThat(fake.requests.single().variables["input"]!!.jsonObject["avatar"]).isEqualTo(JsonNull)
     }
 }

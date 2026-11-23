@@ -1595,4 +1595,11 @@
     <string name="owner_settings_limit_1m">A month</string>
     <string name="owner_settings_limit_6m">Six months</string>
     <string name="owner_settings_limit_1d">A day</string>
+    <string name="owner_settings_picture">Picture</string>
+    <string name="owner_settings_picture_change">Choose a new one</string>
+    <string name="owner_settings_picture_sending">Sending…</string>
+    <string name="owner_settings_picture_summary">A square is cut from the middle of the picture you choose.</string>
+    <string name="owner_settings_picture_choose">Choose a picture</string>
+    <string name="owner_settings_picture_remove">Remove picture</string>
+    <string name="owner_settings_picture_changed">Picture changed</string>
 </resources>

@@ -14,6 +14,15 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeUser
 import fr.arthurbrugiere.forgeline.forge.common.ForgeJson
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import fr.arthurbrugiere.forgeline.forge.tangled.xrpc.Atproto
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -127,6 +136,29 @@ class TangledAccount(
         when (val read = xrpc.server(pds).getRecord(GetRecordQueryParams(repo, Nsid(collection), RKey(rkey))).toResult { it.value.decodeAs<JsonObject>() }) {
             is ForgeResult.Success -> read
             is ForgeResult.Failure -> if ((read.error as? ForgeError.Http)?.status == 404) ForgeResult.Success(null) else read
+        }
+    }
+
+    /**
+     * Keeps [bytes] (of [mimeType]) on the signed-in person's own server (`com.atproto.repo.uploadBlob`), answering the
+     * blob to name in a record. Sent as it is, with its own type: the generated call names no type.
+     */
+    internal suspend fun uploadBlob(token: String, bytes: ByteArray, mimeType: String): ForgeResult<JsonObject> = forgeCall {
+        val me = subjectOf(token) ?: return@forgeCall ForgeResult.Failure(ForgeError.Unauthorized)
+        val pds = when (val server = identity.pds(me)) {
+            is ForgeResult.Failure -> return@forgeCall server
+            is ForgeResult.Success -> server.value
+        }
+        val response = xrpc.http.post(pds.trimEnd('/') + "/xrpc/com.atproto.repo.uploadBlob") {
+            header(HttpHeaders.Authorization, "Bearer $token")
+            contentType(ContentType.parse(mimeType))
+            setBody(bytes)
+        }
+        when {
+            response.status.isSuccess() -> (ForgeJson.parseToJsonElement(response.bodyAsText()) as? JsonObject)?.get("blob")?.let { it as? JsonObject }
+                ?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Unreadable)
+            response.status == HttpStatusCode.Unauthorized -> ForgeResult.Failure(ForgeError.Unauthorized)
+            else -> ForgeResult.Failure(ForgeError.Http(response.status.value, null))
         }
     }
 

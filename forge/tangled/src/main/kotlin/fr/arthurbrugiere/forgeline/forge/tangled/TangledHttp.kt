@@ -48,7 +48,7 @@ internal const val HANDLE_RESOLVER = "https://public.api.bsky.app"
  * Each XRPC host gets a client of its own on the app's HTTP engine (its connections and cache), with ozone's JSON
  * reading: Tangled's index, Bluesky's AppView for handles, and a person's own server (their PDS) for their records.
  */
-class TangledXrpc(http: HttpClient) {
+class TangledXrpc(internal val http: HttpClient) {
     private val engine = http.engine
 
     /** Tangled's index: repositories, their git, stars, follows, profiles, Trending. */

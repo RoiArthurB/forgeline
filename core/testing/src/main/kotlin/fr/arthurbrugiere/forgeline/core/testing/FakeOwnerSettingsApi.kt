@@ -102,6 +102,27 @@ class FakeOwnerSettingsApi(
 
     override val membersSupported = true
 
+    override fun avatarSupported(owner: Owner) = true
+
+    override fun avatarRemovable(owner: Owner) = true
+
+    /** The pictures sent, by owner key; null for one taken away. */
+    val avatars: MutableList<Pair<String, ByteArray?>> = java.util.concurrent.CopyOnWriteArrayList()
+
+    override suspend fun setAvatar(token: String, owner: Owner, image: ByteArray, mimeType: String): ForgeResult<Unit> {
+        calls += "avatar:${owner.key()}"
+        writeFailure?.let { return ForgeResult.Failure(it) }
+        avatars += owner.key() to image
+        return ForgeResult.Success(Unit)
+    }
+
+    override suspend fun removeAvatar(token: String, owner: Owner): ForgeResult<Unit> {
+        calls += "remove-avatar:${owner.key()}"
+        writeFailure?.let { return ForgeResult.Failure(it) }
+        avatars += owner.key() to null
+        return ForgeResult.Success(Unit)
+    }
+
     /** Each organisation's members, by login. */
     val members: MutableMap<String, OrgMembers> = mutableMapOf(
         "octo" to OrgMembers(

@@ -36,6 +36,7 @@ class ForgejoOwnerSettingsApiTest {
             "/api/v1/user" -> json("""{"login":"mona"}""")
             "/api/v1/user/list_blocked", "/api/v1/orgs/octo/list_blocked" -> json("""[{"block_id":42,"created_at":"2026-11-01T00:00:00Z"}]""")
             "/api/v1/users/search" -> json("""{"ok":true,"data":[{"id":42,"login":"spammer","avatar_url":"https://codeberg.org/avatars/42"}]}""")
+            "/api/v1/user/avatar", "/api/v1/orgs/octo/avatar" -> respond("", io.ktor.http.HttpStatusCode.NoContent)
             "/api/v1/orgs/octo/members" -> json("""[{"id":1,"login":"mona","avatar_url":"https://codeberg.org/avatars/1"},{"id":2,"login":"hubot","avatar_url":""}]""")
             "/api/v1/orgs/octo/teams" -> json("""[{"id":12,"name":"Writers","permission":"write"},{"id":11,"name":"Owners","permission":"owner"}]""")
             "/api/v1/teams/11/members" -> json("""[{"login":"mona"}]""")
@@ -172,5 +173,15 @@ class ForgejoOwnerSettingsApiTest {
 
         val writes = codeberg.requests.filter { it.method != HttpMethod.Get }
         assertThat(writes.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly("PUT /api/v1/teams/12/members/newcomer", "DELETE /api/v1/orgs/octo/members/hubot").inOrder()
+    }
+
+    @Test
+    fun a_picture_is_sent_whole_in_base64_and_taken_away_with_a_delete() = runTest {
+        api().setAvatar("tok", Owner.Me, byteArrayOf(1, 2, 3), "image/jpeg")
+        api().removeAvatar("tok", Owner.Organization("octo"))
+
+        val writes = codeberg.requests.filter { it.method != HttpMethod.Get }
+        assertThat(writes.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly("POST /api/v1/user/avatar", "DELETE /api/v1/orgs/octo/avatar").inOrder()
+        assertThat(writes[0].sent).isEqualTo("""{"image":"AQID"}""")
     }
 }

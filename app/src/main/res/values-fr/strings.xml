@@ -1604,4 +1604,11 @@
     <string name="owner_settings_limit_1m">Un mois</string>
     <string name="owner_settings_limit_6m">Six mois</string>
     <string name="owner_settings_limit_1d">Un jour</string>
+    <string name="owner_settings_picture">Image</string>
+    <string name="owner_settings_picture_change">En choisir une nouvelle</string>
+    <string name="owner_settings_picture_sending">Envoi…</string>
+    <string name="owner_settings_picture_summary">Un carré est découpé au centre de l’image choisie.</string>
+    <string name="owner_settings_picture_choose">Choisir une image</string>
+    <string name="owner_settings_picture_remove">Retirer l’image</string>
+    <string name="owner_settings_picture_changed">Image changée</string>
 </resources>

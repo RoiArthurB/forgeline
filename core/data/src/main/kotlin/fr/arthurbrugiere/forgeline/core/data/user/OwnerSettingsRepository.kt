@@ -39,6 +39,14 @@ interface OwnerSettingsRepository {
     /** Whether an organisation's members are managed on [forge] through its API. */
     fun membersSupported(forge: ForgeInstance): Boolean
 
+    /** Whether [owner]'s picture is changed on [forge], and taken away. */
+    fun avatarSupported(forge: ForgeInstance, owner: Owner): Boolean
+
+    fun avatarRemovable(forge: ForgeInstance, owner: Owner): Boolean
+
+    /** Makes [image] [owner]'s picture, or takes it away (null). */
+    suspend fun setAvatar(forge: ForgeInstance, owner: Owner, image: ByteArray?, mimeType: String = "image/jpeg"): ForgeResult<Unit>
+
     suspend fun members(forge: ForgeInstance, organization: String): ForgeResult<OrgMembers>
 
     /** One change to an organisation's members: see [MemberChange]. */
@@ -93,6 +101,24 @@ class DefaultOwnerSettingsRepository @Inject constructor(
     }
 
     override fun membersSupported(forge: ForgeInstance): Boolean = clients.ownerSettings(forge).membersSupported
+
+    override fun avatarSupported(forge: ForgeInstance, owner: Owner): Boolean = clients.ownerSettings(forge).avatarSupported(owner)
+
+    override fun avatarRemovable(forge: ForgeInstance, owner: Owner): Boolean = clients.ownerSettings(forge).avatarRemovable(owner)
+
+    override suspend fun setAvatar(forge: ForgeInstance, owner: Owner, image: ByteArray?, mimeType: String): ForgeResult<Unit> {
+        val token = accounts.tokenOn(forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        val api = clients.ownerSettings(forge)
+        return (if (image == null) api.removeAvatar(token, owner) else api.setAvatar(token, owner, image, mimeType)).also {
+            // The profile page shows the picture: read again.
+            if (it is ForgeResult.Success) loginOf(forge, owner)?.let { login -> users.user(forge, login) }
+        }
+    }
+
+    private suspend fun loginOf(forge: ForgeInstance, owner: Owner): String? = when (owner) {
+        Owner.Me -> accounts.accountOn(forge)?.user?.login
+        is Owner.Organization -> owner.login
+    }
 
     override suspend fun members(forge: ForgeInstance, organization: String): ForgeResult<OrgMembers> {
         val token = accounts.tokenOn(forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)

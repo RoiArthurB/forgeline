@@ -35,6 +35,7 @@ class TangledOwnerSettingsApiTest {
             },
             "com.atproto.repo.getRecord" to { _: HttpRequestData -> profile },
             "com.atproto.repo.putRecord" to { _: HttpRequestData -> """{"uri":"at://$me/org.tangled.actor.profile/self","cid":"bafz"}""" },
+            "com.atproto.repo.uploadBlob" to { _: HttpRequestData -> """{"blob":{"${'$'}type":"blob","ref":{"${'$'}link":"bafknew"},"mimeType":"image/jpeg","size":3}}""" },
         ),
     )
 
@@ -101,5 +102,27 @@ class TangledOwnerSettingsApiTest {
     @Test
     fun tangled_has_no_organisations() = runTest {
         assertThat(api(fake()).settings(token, Owner.Organization("tangled.org"))).isEqualTo(ForgeResult.Failure(ForgeError.Unsupported))
+    }
+
+    @Test
+    fun a_picture_is_kept_as_a_blob_then_named_by_the_profile_record() = runTest {
+        val fake = fake()
+        api(fake).setAvatar(token, Owner.Me, byteArrayOf(1, 2, 3), "image/jpeg")
+
+        val upload = fake.to("com.atproto.repo.uploadBlob").single()
+        assertThat(upload.url.host).isEqualTo("pds.example")
+        assertThat(upload.body.contentType.toString()).isEqualTo("image/jpeg")
+        val written = fake.to("com.atproto.repo.putRecord").single().text
+        assertThat(written).contains(""""avatar":{"${'$'}type":"blob","ref":{"${'$'}link":"bafknew"}""")
+        // The rest of the record stays.
+        assertThat(written).contains(""""description":"Builds tools"""")
+    }
+
+    @Test
+    fun a_picture_taken_away_leaves_the_record_without_one() = runTest {
+        val fake = fake()
+        api(fake).removeAvatar(token, Owner.Me)
+
+        assertThat(fake.to("com.atproto.repo.putRecord").single().text).doesNotContain(""""avatar"""")
     }
 }

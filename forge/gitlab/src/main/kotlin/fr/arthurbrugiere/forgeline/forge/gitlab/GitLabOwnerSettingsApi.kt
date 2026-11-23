@@ -19,8 +19,17 @@ import fr.arthurbrugiere.forgeline.core.model.StatusDuration
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.header
+import io.ktor.client.request.request
+import io.ktor.client.request.setBody
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
+import io.ktor.http.appendPathSegments
 import io.ktor.http.isSuccess
+import io.ktor.http.takeFrom
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.JsonArray
@@ -107,6 +116,41 @@ class GitLabOwnerSettingsApi(private val httpClient: HttpClient, private val for
         val member = httpClient.gitlabApi(forge, token, "groups", organization, "members", "all", id.toString())
         if (member.status.value == 404) return@forgeCall ForgeResult.Success(false)
         member.toResult { ((body<JsonObject>()["access_level"] as? JsonPrimitive)?.intOrNull ?: 0) >= OWNER }
+    }
+
+    override fun avatarSupported(owner: Owner) = true
+
+    /**
+     * A file part named `avatar`: one's own with `PUT /user/avatar` (GitLab 17.0 and later; an older server answers 404,
+     * said as it is), a group's with its `PUT`. GitLab takes away neither through the API.
+     */
+    override suspend fun setAvatar(token: String, owner: Owner, image: ByteArray, mimeType: String): ForgeResult<Unit> = forgeCall {
+        val path = when (owner) {
+            Owner.Me -> listOf("user", "avatar")
+            is Owner.Organization -> listOf("groups", owner.login)
+        }
+        httpClient.request {
+            method = HttpMethod.Put
+            url {
+                takeFrom("${forge.webUrl}/api/v4")
+                appendPathSegments(path, encodeSlash = true)
+            }
+            header(HttpHeaders.Accept, "application/json")
+            header(HttpHeaders.Authorization, "Bearer $token")
+            setBody(
+                MultiPartFormDataContent(
+                    formData {
+                        append(
+                            "avatar", image,
+                            Headers.build {
+                                append(HttpHeaders.ContentType, mimeType)
+                                append(HttpHeaders.ContentDisposition, "filename=\"avatar.${mimeType.substringAfter('/')}\"")
+                            },
+                        )
+                    },
+                ),
+            )
+        }.toResult { }
     }
 
     override val membersSupported = true

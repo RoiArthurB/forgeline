@@ -52,6 +52,8 @@ class OwnerSettingsScreenTest {
                 onSetBlocked = { login, blocked -> events += "${if (blocked) "block" else "unblock"}:$login" },
                 onLoadMembers = { events += "load-members" },
                 onChangeMembers = { events += "members:$it" },
+                onPickPicture = { events += "pick-picture" },
+                onRemovePicture = { events += "remove-picture" },
             )
         }
     }
@@ -268,5 +270,34 @@ class OwnerSettingsScreenTest {
         composeRule.onNodeWithText("Add").performClick()
 
         assertThat(events.last()).isEqualTo("members:Invite(invitee=newcomer, role=12)")
+    }
+
+    @Test
+    fun a_picture_is_chosen_or_taken_away_from_its_sheet() {
+        setContent(profile().copy(avatarSupported = true, avatarRemovable = true))
+
+        composeRule.onNodeWithText("Picture").performClick()
+        composeRule.onNodeWithText("Choose a picture").performClick()
+        composeRule.onNodeWithText("Picture").performClick()
+        composeRule.onNodeWithText("Remove picture").performClick()
+
+        assertThat(events).containsExactly("pick-picture", "remove-picture").inOrder()
+    }
+
+    @Test
+    fun a_picture_the_forge_can_t_take_away_offers_only_a_new_one() {
+        setContent(profile(forge = ForgeInstance.GitLab).copy(avatarSupported = true))
+
+        composeRule.onNodeWithText("Picture").performClick()
+
+        composeRule.onNodeWithText("Choose a picture").assertIsDisplayed()
+        composeRule.onNodeWithText("Remove picture").assertDoesNotExist()
+    }
+
+    @Test
+    fun github_has_no_picture_to_change() {
+        setContent(profile())
+
+        composeRule.onNodeWithText("Picture").assertDoesNotExist()
     }
 }

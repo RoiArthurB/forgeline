@@ -27,6 +27,13 @@ class FakeOwnerSettingsRepository(
 
     override fun membersSupported(forge: ForgeInstance) = api.membersSupported
 
+    override fun avatarSupported(forge: ForgeInstance, owner: Owner) = api.avatarSupported(owner)
+
+    override fun avatarRemovable(forge: ForgeInstance, owner: Owner) = api.avatarRemovable(owner)
+
+    override suspend fun setAvatar(forge: ForgeInstance, owner: Owner, image: ByteArray?, mimeType: String) =
+        if (image == null) api.removeAvatar("tok", owner) else api.setAvatar("tok", owner, image, mimeType)
+
     override suspend fun members(forge: ForgeInstance, organization: String) = api.members("tok", organization)
 
     override suspend fun changeMembers(forge: ForgeInstance, organization: String, change: MemberChange) = when (change) {
