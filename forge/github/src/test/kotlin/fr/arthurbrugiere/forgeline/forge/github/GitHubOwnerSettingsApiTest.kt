@@ -1,0 +1,154 @@
+package fr.arthurbrugiere.forgeline.forge.github
+
+import com.google.common.truth.Truth.assertThat
+import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
+import fr.arthurbrugiere.forgeline.core.model.Owner
+import fr.arthurbrugiere.forgeline.core.model.OwnerChoice
+import fr.arthurbrugiere.forgeline.core.model.OwnerChoiceValue
+import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
+import fr.arthurbrugiere.forgeline.core.model.OwnerSwitch
+import fr.arthurbrugiere.forgeline.core.model.OwnerText
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.MockRequestHandleScope
+import io.ktor.client.engine.mock.respond
+import io.ktor.client.request.HttpRequestData
+import io.ktor.client.request.HttpResponseData
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.TextContent
+import io.ktor.http.headersOf
+import kotlinx.coroutines.test.runTest
+import org.junit.Test
+
+/** Answers cut down from api.github.com's (REST, version 2022-11-28), for a profile and an organisation its reader owns. */
+class GitHubOwnerSettingsApiTest {
+    private val requests = java.util.concurrent.CopyOnWriteArrayList<HttpRequestData>()
+
+    private val userJson = """{"login":"mona","name":"Mona Lisa","company":"@octo","blog":"https://mona.example","location":"Paris",
+        "email":null,"hireable":true,"bio":"Builds tools","twitter_username":null,"public_repos":8}"""
+    private val socialJson = """[{"provider":"mastodon","url":"https://mastodon.social/@mona"}]"""
+    private val orgJson = """{"login":"octo","name":"Octo","company":null,"blog":"https://octo.example","location":"Lyon","email":"hi@octo.example",
+        "twitter_username":"octo","description":"We make tools","billing_email":"bills@octo.example","has_organization_projects":true,
+        "has_repository_projects":false,"default_repository_permission":"read","members_can_create_public_repositories":true,
+        "members_can_create_private_repositories":false,"members_can_create_pages":true,"members_can_fork_private_repositories":false,
+        "web_commit_signoff_required":false}"""
+
+    private fun MockRequestHandleScope.json(body: String, status: HttpStatusCode = HttpStatusCode.OK, scopes: String? = "admin:org, repo, user") =
+        respond(body, status, headersOf(*listOfNotNull(HttpHeaders.ContentType to listOf("application/json"), scopes?.let { "X-OAuth-Scopes" to listOf(it) }).toTypedArray()))
+
+    private fun MockRequestHandleScope.answer(request: HttpRequestData): HttpResponseData = when (request.url.encodedPath) {
+        "/user" -> json(userJson)
+        "/user/social_accounts" -> if (request.method == HttpMethod.Get) json(socialJson) else respond("", HttpStatusCode.NoContent)
+        "/orgs/octo" -> json(orgJson)
+        "/user/memberships/orgs/octo" -> json("""{"role":"admin","state":"active"}""")
+        else -> json("""{"message":"Not Found"}""", HttpStatusCode.NotFound)
+    }
+
+    private fun api(handler: suspend MockRequestHandleScope.(HttpRequestData) -> HttpResponseData = { answer(it) }) =
+        GitHubOwnerSettingsApi(gitHubHttpClient(MockEngine { requests += it; handler(it) }))
+
+    private fun <T> ForgeResult<T>.value(): T = (this as ForgeResult.Success).value
+
+    private val HttpRequestData.call get() = "${method.value} ${url.encodedPath}"
+
+    private val HttpRequestData.sent get() = (body as TextContent).text
+
+    @Test
+    fun a_profile_reads_its_texts_whether_its_person_is_for_hire_and_their_social_accounts() = runTest {
+        val profile = api().settings("tok", Owner.Me).value()
+
+        assertThat(profile.texts.keys).containsExactly(
+            OwnerText.NAME, OwnerText.BIO, OwnerText.COMPANY, OwnerText.LOCATION, OwnerText.WEBSITE, OwnerText.TWITTER, OwnerText.EMAIL,
+        ).inOrder()
+        assertThat(profile.texts[OwnerText.NAME]).isEqualTo("Mona Lisa")
+        assertThat(profile.texts[OwnerText.WEBSITE]).isEqualTo("https://mona.example")
+        // Null on GitHub's side is nothing written.
+        assertThat(profile.texts[OwnerText.TWITTER]).isEmpty()
+        assertThat(profile.switches).containsExactly(OwnerSwitch.HIREABLE, true)
+        assertThat(profile.links).containsExactly("https://mastodon.social/@mona")
+        assertThat(profile.maxLinks).isEqualTo(4)
+    }
+
+    @Test
+    fun a_profile_text_is_patched_under_github_s_name_for_it() = runTest {
+        api().change("tok", Owner.Me, OwnerSettingsChange.Text(OwnerText.WEBSITE, "https://new.example"))
+        api().change("tok", Owner.Me, OwnerSettingsChange.Switch(OwnerSwitch.HIREABLE, false))
+
+        val patches = requests.filter { it.method == HttpMethod.Patch }
+        assertThat(patches.map { it.call }).containsExactly("PATCH /user", "PATCH /user")
+        assertThat(patches[0].sent).isEqualTo("""{"blog":"https://new.example"}""")
+        assertThat(patches[1].sent).isEqualTo("""{"hireable":false}""")
+    }
+
+    @Test
+    fun links_add_what_is_new_and_remove_what_was_let_go() = runTest {
+        api().change("tok", Owner.Me, OwnerSettingsChange.Links(listOf("https://bsky.app/profile/mona.example")))
+
+        val writes = requests.filter { it.method != HttpMethod.Get }
+        assertThat(writes.map { it.call }).containsExactly("DELETE /user/social_accounts", "POST /user/social_accounts").inOrder()
+        assertThat(writes[0].sent).isEqualTo("""{"account_urls":["https://mastodon.social/@mona"]}""")
+        assertThat(writes[1].sent).isEqualTo("""{"account_urls":["https://bsky.app/profile/mona.example"]}""")
+    }
+
+    @Test
+    fun a_sign_in_without_the_user_scope_is_told_to_sign_in_again() = runTest {
+        val refused = api { if (it.method == HttpMethod.Patch) json("""{"message":"Not Found"}""", HttpStatusCode.NotFound, scopes = "read:user, repo") else answer(it) }
+            .change("tok", Owner.Me, OwnerSettingsChange.Text(OwnerText.NAME, "Mona"))
+
+        assertThat(refused).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+    }
+
+    @Test
+    fun a_refusal_with_the_scope_is_the_forge_s_own() = runTest {
+        val refused = api { if (it.method == HttpMethod.Patch) json("""{"message":"Validation Failed"}""", HttpStatusCode.UnprocessableEntity) else answer(it) }
+            .change("tok", Owner.Me, OwnerSettingsChange.Text(OwnerText.EMAIL, "unverified@mona.example"))
+
+        assertThat((refused as ForgeResult.Failure).error).isInstanceOf(ForgeError.Http::class.java)
+    }
+
+    @Test
+    fun an_organisation_reads_its_texts_rules_and_default_permission() = runTest {
+        val org = api().settings("tok", Owner.Organization("octo")).value()
+
+        assertThat(org.texts[OwnerText.BIO]).isEqualTo("We make tools")
+        assertThat(org.texts[OwnerText.BILLING_EMAIL]).isEqualTo("bills@octo.example")
+        assertThat(org.switches[OwnerSwitch.MEMBERS_CREATE_PUBLIC_REPOS]).isTrue()
+        assertThat(org.switches[OwnerSwitch.MEMBERS_CREATE_PRIVATE_REPOS]).isFalse()
+        assertThat(org.switches[OwnerSwitch.REPOSITORY_PROJECTS]).isFalse()
+        assertThat(org.choices[OwnerChoice.DEFAULT_REPO_PERMISSION]).isEqualTo(OwnerChoiceValue("read", listOf("none", "read", "write", "admin")))
+        assertThat(org.links).isNull()
+    }
+
+    @Test
+    fun an_organisation_read_by_someone_not_its_owner_has_no_billing_email() = runTest {
+        val org = api { if (it.url.encodedPath == "/orgs/octo") json(orgJson.replace(""""billing_email":"bills@octo.example",""", "")) else answer(it) }
+            .settings("tok", Owner.Organization("octo")).value()
+
+        assertThat(org.texts).doesNotContainKey(OwnerText.BILLING_EMAIL)
+    }
+
+    @Test
+    fun an_organisation_s_change_is_one_patch_answered_with_its_settings() = runTest {
+        val org = api().change("tok", Owner.Organization("octo"), OwnerSettingsChange.Choice(OwnerChoice.DEFAULT_REPO_PERMISSION, "write")).value()
+        api().change("tok", Owner.Organization("octo"), OwnerSettingsChange.Switch(OwnerSwitch.COMMIT_SIGNOFF, true))
+
+        val patches = requests.filter { it.method == HttpMethod.Patch }
+        assertThat(patches.map { it.call }).containsExactly("PATCH /orgs/octo", "PATCH /orgs/octo")
+        assertThat(patches[0].sent).isEqualTo("""{"default_repository_permission":"write"}""")
+        assertThat(patches[1].sent).isEqualTo("""{"web_commit_signoff_required":true}""")
+        assertThat(org.texts[OwnerText.NAME]).isEqualTo("Octo")
+    }
+
+    @Test
+    fun an_organisation_is_administered_by_its_active_admins() = runTest {
+        assertThat(api().administers("tok", "octo")).isEqualTo(ForgeResult.Success(true))
+        assertThat(api { json("""{"role":"member","state":"active"}""") }.administers("tok", "octo")).isEqualTo(ForgeResult.Success(false))
+        assertThat(api { json("""{"role":"admin","state":"pending"}""") }.administers("tok", "octo")).isEqualTo(ForgeResult.Success(false))
+        assertThat(api { json("""{"message":"Not Found"}""", HttpStatusCode.NotFound) }.administers("tok", "elsewhere")).isEqualTo(ForgeResult.Success(false))
+        // A sign-in that may not read organisations can't tell: it is to sign in again.
+        assertThat(api { json("""{"message":"Not Found"}""", HttpStatusCode.NotFound, scopes = "repo, user") }.administers("tok", "octo"))
+            .isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+    }
+}

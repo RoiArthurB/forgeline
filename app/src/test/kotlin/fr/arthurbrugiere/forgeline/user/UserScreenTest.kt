@@ -5,6 +5,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isHeading
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.google.common.truth.Truth.assertThat
@@ -39,6 +40,7 @@ class UserScreenTest {
                     onSignIn = { events += "signin" }, onOpenRepo = { events += "repo:${it.fullName}" },
                     onOpenUrl = { events += "url:$it" }, onFollowFailureShown = {},
                     onLinkClick = { events += "link:$it" },
+                    onOpenSettings = { events += "settings" },
                 )
             }
         }
@@ -53,6 +55,22 @@ class UserScreenTest {
             ),
         ),
     )
+
+    @Test
+    fun the_gear_opens_the_settings_only_where_they_are_offered() {
+        setContent(base.copy(offersSettings = true))
+
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+
+        assertThat(events).containsExactly("settings")
+    }
+
+    @Test
+    fun someone_else_s_profile_has_no_gear() {
+        setContent(base)
+
+        composeRule.onNodeWithContentDescription("Settings").assertDoesNotExist()
+    }
 
     @Test
     fun a_readme_is_offered_first_and_shown_in_its_tab() {

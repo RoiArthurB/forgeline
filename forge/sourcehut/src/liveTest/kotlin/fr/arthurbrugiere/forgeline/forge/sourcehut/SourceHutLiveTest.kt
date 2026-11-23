@@ -79,4 +79,12 @@ class SourceHutLiveTest {
         assertThat(users.user(token, "~sircmpwn").value().login).isEqualTo("~sircmpwn")
         assertThat(users.repos(token, "~sircmpwn", mine = false, organization = false).value().map { it.id.name }).contains("scdoc")
     }
+
+    /** Read only, and only with a token that reaches meta.sr.ht's profile: one made for git.sr.ht alone skips it. */
+    @Test
+    fun the_profile_reads_from_meta_sr_ht() = runBlocking<Unit> {
+        val profile = SourceHutOwnerSettingsApi(http).settings(token, fr.arthurbrugiere.forgeline.core.model.Owner.Me)
+        assumeTrue("SOURCEHUT_LIVE_TOKEN doesn't reach meta.sr.ht: $profile", profile is ForgeResult.Success)
+        assertThat(profile.value().texts.keys).contains(fr.arthurbrugiere.forgeline.core.model.OwnerText.EMAIL)
+    }
 }

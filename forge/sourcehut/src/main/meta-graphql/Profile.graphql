@@ -1,0 +1,22 @@
+# The signed-in person's profile on meta.sr.ht, and changing it (the PROFILE scope, read and write).
+query Profile {
+  me {
+    username
+    email
+    url
+    location
+    bio
+    pronouns
+  }
+}
+
+mutation UpdateProfile($input: UserInput) {
+  updateUser(input: $input) {
+    username
+    email
+    url
+    location
+    bio
+    pronouns
+  }
+}

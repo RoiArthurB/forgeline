@@ -24,6 +24,8 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class UserViewModelTest {
+    private val ownerSettings = fr.arthurbrugiere.forgeline.core.testing.FakeOwnerSettingsRepository()
+
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule(StandardTestDispatcher())
 
@@ -41,10 +43,24 @@ class UserViewModelTest {
         // Asked together, the list could go out before the profile said "organisation", and miss the private ones.
         api.users["ACROSS-Lab"] = userProfile("ACROSS-Lab").copy(isOrganization = true)
 
-        UserViewModel(ForgeInstance.GitHub, "ACROSS-Lab", repository)
+        UserViewModel(ForgeInstance.GitHub, "ACROSS-Lab", repository, ownerSettings)
         advanceUntilIdle()
 
         assertThat(api.reposAsked).containsExactly("ACROSS-Lab organization")
+    }
+
+    @Test
+    fun settings_are_offered_where_their_repository_says_so_once_the_profile_is_known() = test {
+        api.users["ACROSS-Lab"] = userProfile("ACROSS-Lab").copy(isOrganization = true)
+        api.users["octocat"] = userProfile("octocat")
+        ownerSettings.offered = setOf("ACROSS-Lab")
+
+        val owned = UserViewModel(ForgeInstance.GitHub, "ACROSS-Lab", repository, ownerSettings)
+        val other = UserViewModel(ForgeInstance.GitHub, "octocat", repository, ownerSettings)
+        advanceUntilIdle()
+
+        assertThat(owned.state.value.offersSettings).isTrue()
+        assertThat(other.state.value.offersSettings).isFalse()
     }
 
     @Test
@@ -53,7 +69,7 @@ class UserViewModelTest {
         reposApi.readmes[RepoId("octocat", "octocat")] = fr.arthurbrugiere.forgeline.core.model.Readme("README.md", "# Hi")
         api.users["octocat"] = userProfile("octocat")
 
-        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", DefaultUserRepository(FakeForgeClients(users = api, repos = reposApi), accounts))
+        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", DefaultUserRepository(FakeForgeClients(users = api, repos = reposApi), accounts), ownerSettings)
         advanceUntilIdle()
 
         assertThat(viewModel.state.value.tab).isEqualTo(UserTab.README)
@@ -66,7 +82,7 @@ class UserViewModelTest {
         reposApi.readmes[RepoId("octocat", "octocat")] = fr.arthurbrugiere.forgeline.core.model.Readme("README.md", "# Hi")
         api.users["octocat"] = userProfile("octocat")
 
-        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", DefaultUserRepository(FakeForgeClients(users = api, repos = reposApi), accounts))
+        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", DefaultUserRepository(FakeForgeClients(users = api, repos = reposApi), accounts), ownerSettings)
         viewModel.selectTab(UserTab.STARRED)
         advanceUntilIdle()
 
@@ -79,7 +95,7 @@ class UserViewModelTest {
         api.users["octocat"] = userProfile("octocat")
         api.repos["octocat"] = listOf(repo)
 
-        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", repository)
+        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", repository, ownerSettings)
         advanceUntilIdle()
 
         assertThat(viewModel.state.value.profile).isEqualTo(userProfile("octocat"))
@@ -91,7 +107,7 @@ class UserViewModelTest {
     fun the_starred_tab_loads_when_opened() = test {
         api.users["octocat"] = userProfile("octocat")
         api.starred["octocat"] = listOf(repo)
-        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", repository)
+        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", repository, ownerSettings)
         advanceUntilIdle()
 
         viewModel.selectTab(UserTab.STARRED)
@@ -104,7 +120,7 @@ class UserViewModelTest {
     fun following_is_instant_and_adjusts_the_follower_count() = test {
         signIn()
         api.users["octocat"] = userProfile("octocat")
-        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", repository)
+        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", repository, ownerSettings)
         advanceUntilIdle()
         assertThat(viewModel.state.value.following).isFalse()
 
@@ -121,7 +137,7 @@ class UserViewModelTest {
     fun a_failed_follow_is_rolled_back() = test {
         signIn()
         api.users["octocat"] = userProfile("octocat")
-        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", repository)
+        val viewModel = UserViewModel(ForgeInstance.GitHub, "octocat", repository, ownerSettings)
         advanceUntilIdle()
         api.failure = ForgeError.Network
 
@@ -135,7 +151,7 @@ class UserViewModelTest {
 
     @Test
     fun an_unknown_user_is_an_error() = test {
-        val viewModel = UserViewModel(ForgeInstance.GitHub, "nobody", repository)
+        val viewModel = UserViewModel(ForgeInstance.GitHub, "nobody", repository, ownerSettings)
         advanceUntilIdle()
 
         assertThat(viewModel.state.value.error).isEqualTo(ForgeError.Http(404, "Not Found"))
@@ -149,8 +165,8 @@ class UserViewModelTest {
         api.contributions["octocat"] = year
         api.contributions["ACROSS-Lab"] = year
 
-        val person = UserViewModel(ForgeInstance.GitHub, "octocat", repository)
-        val organisation = UserViewModel(ForgeInstance.GitHub, "ACROSS-Lab", repository)
+        val person = UserViewModel(ForgeInstance.GitHub, "octocat", repository, ownerSettings)
+        val organisation = UserViewModel(ForgeInstance.GitHub, "ACROSS-Lab", repository, ownerSettings)
         advanceUntilIdle()
 
         assertThat(person.state.value.contributions).isEqualTo(year)
@@ -163,8 +179,8 @@ class UserViewModelTest {
         api.contributions["octocat"] = fr.arthurbrugiere.forgeline.core.model.Contributions(emptyMap())
         api.users["hubot"] = userProfile("hubot")
 
-        val quiet = UserViewModel(ForgeInstance.GitHub, "octocat", repository)
-        val unknown = UserViewModel(ForgeInstance.GitHub, "hubot", repository)
+        val quiet = UserViewModel(ForgeInstance.GitHub, "octocat", repository, ownerSettings)
+        val unknown = UserViewModel(ForgeInstance.GitHub, "hubot", repository, ownerSettings)
         advanceUntilIdle()
 
         assertThat(quiet.state.value.contributions).isNull()

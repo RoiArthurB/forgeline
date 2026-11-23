@@ -234,7 +234,11 @@ private fun ForgelineNavDisplay(navigator: AppNavigator, session: SessionState, 
             UserDestination(
                 key, session = session, onBack = navigator::goBack, onOpenRepo = openRepo, onSignIn = signIn,
                 onOpenIssue = openIssue, onOpenUser = { openUser(key.forge, it) },
+                onOpenSettings = { organization -> navigator.navigate(fr.arthurbrugiere.forgeline.navigation.OwnerSettingsRoute(key.host, key.login, organization)) },
             )
+        }
+        entry<fr.arthurbrugiere.forgeline.navigation.OwnerSettingsRoute> { key ->
+            fr.arthurbrugiere.forgeline.owner.OwnerSettingsRoute(key, onBack = navigator::goBack, onSignIn = signIn)
         }
         entry<RepoKey> { key ->
             RepoDestination(

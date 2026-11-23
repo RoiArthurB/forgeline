@@ -99,4 +99,25 @@ class ForgejoSignedInLiveTest {
             if (kind != WorkKind.ASSIGNED) assertWithMessage("$kind pull requests").that(found.value().all { it.issue.isPullRequest }).isTrue()
         }
     }
+
+    /** Read only: the profile and an organisation's settings are read, never written. */
+    @Test
+    fun a_profile_s_and_an_organisation_s_settings_read() = runBlocking {
+        assumeTrue("CODEBERG_LIVE_TOKEN not set", token.isNotBlank())
+        val api = ForgejoOwnerSettingsApi(http, ForgeInstance.Codeberg)
+        val profile = api.settings(token, fr.arthurbrugiere.forgeline.core.model.Owner.Me).value()
+
+        check(fr.arthurbrugiere.forgeline.core.model.OwnerText.NAME in profile.texts) { "profile: $profile" }
+        check(fr.arthurbrugiere.forgeline.core.model.OwnerSwitch.HIDE_EMAIL in profile.switches) { "profile: $profile" }
+        check(fr.arthurbrugiere.forgeline.core.model.OwnerChoice.DIFF_STYLE in profile.choices) { "profile: $profile" }
+        // The account's organisations, if any: one it owns reads its settings, and says it owns it.
+        val orgs = ForgejoUserApi(http, ForgeInstance.Codeberg).organizations(token).value()
+        for (org in orgs.take(2)) {
+            val owns = api.administers(token, org.login).value()
+            val settings = api.settings(token, fr.arthurbrugiere.forgeline.core.model.Owner.Organization(org.login)).value()
+            check(fr.arthurbrugiere.forgeline.core.model.OwnerChoice.VISIBILITY in settings.choices) { "${org.login}: $settings" }
+            System.err.println("CODEBERG organisation owned: $owns, ${settings.texts.size} texts")
+        }
+        System.err.println("CODEBERG profile: ${profile.texts.size} texts, ${profile.switches.size} switches")
+    }
 }

@@ -39,6 +39,8 @@ data class UserUiState(
     val followFailed: Boolean = false,
     /** A year of what the person did, once read; null while reading, for an organisation, and where the forge doesn't tell. */
     val contributions: fr.arthurbrugiere.forgeline.core.model.Contributions? = null,
+    /** Whether the profile's settings are offered here: one's own, or an organisation one owns. */
+    val offersSettings: Boolean = false,
 )
 
 @HiltViewModel(assistedFactory = UserViewModel.Factory::class)
@@ -46,6 +48,7 @@ class UserViewModel @AssistedInject constructor(
     @Assisted private val forge: ForgeInstance,
     @Assisted private val login: String,
     private val repository: UserRepository,
+    private val ownerSettings: fr.arthurbrugiere.forgeline.core.data.user.OwnerSettingsRepository,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -67,6 +70,10 @@ class UserViewModel @AssistedInject constructor(
             // and where its README is kept.
             loadTab(UserTab.REPOS)
             val organization = _state.value.profile?.isOrganization == true
+            launch {
+                val offered = ownerSettings.offersSettings(forge, login, organization)
+                _state.update { it.copy(offersSettings = offered) }
+            }
             // Organisations do nothing themselves: their members do.
             if (!organization) {
                 launch {

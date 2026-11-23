@@ -138,4 +138,20 @@ class GitLabSignedInLiveTest {
         assertWithMessage("steps").that(steps.map { it.title }).contains("Getting source from Git repository")
         assertWithMessage("lines").that(steps.sumOf { it.lines ?: 0 }).isEqualTo(String(log).count { it == '\n' } + if (log.last() == '\n'.code.toByte()) 0 else 1)
     }
+
+    /** Read only: the preferences and a public group's settings are read, never written. */
+    @Test
+    fun a_profile_s_preferences_and_a_group_s_settings_read() = runBlocking {
+        assumeTrue("GITLAB_LIVE_TOKEN not set", token.isNotBlank())
+        val api = GitLabOwnerSettingsApi(http, fr.arthurbrugiere.forgeline.core.model.ForgeInstance.GitLab)
+        val profile = api.settings(token, fr.arthurbrugiere.forgeline.core.model.Owner.Me).value()
+        assertWithMessage("preferences: $profile").that(profile.switches.keys)
+            .containsExactly(fr.arthurbrugiere.forgeline.core.model.OwnerSwitch.DIFFS_FILE_BY_FILE, fr.arthurbrugiere.forgeline.core.model.OwnerSwitch.SHOW_WHITESPACE)
+
+        val group = api.settings(token, fr.arthurbrugiere.forgeline.core.model.Owner.Organization("gitlab-org")).value()
+        assertWithMessage("group: $group").that(group.texts[fr.arthurbrugiere.forgeline.core.model.OwnerText.NAME]).isEqualTo("GitLab.org")
+        assertWithMessage("group: $group").that(group.choices.keys).contains(fr.arthurbrugiere.forgeline.core.model.OwnerChoice.VISIBILITY)
+        // The test account is no owner of gitlab-org.
+        assertWithMessage("owns gitlab-org").that(api.administers(token, "gitlab-org").value()).isFalse()
+    }
 }

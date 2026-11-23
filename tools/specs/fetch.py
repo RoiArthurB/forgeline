@@ -121,6 +121,8 @@ def sourcehut() -> None:
     write(ROOT / "forge/sourcehut/src/main/graphql/schema.graphqls", get(url))
     tickets = "https://git.sr.ht/~sircmpwn/todo.sr.ht/blob/master/api/graph/schema.graphqls"
     write(ROOT / "forge/sourcehut/src/main/todo-graphql/schema.graphqls", get(tickets))
+    accounts = "https://git.sr.ht/~sircmpwn/meta.sr.ht/blob/master/api/graph/schema.graphqls"
+    write(ROOT / "forge/sourcehut/src/main/meta-graphql/schema.graphqls", get(accounts))
 
 
 def github() -> None:

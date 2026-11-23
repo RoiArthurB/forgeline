@@ -28,6 +28,7 @@ class DefaultForgeClientsTest {
     private val gitHubRepos = FakeRepoApi()
     private val gitHubPulls = fr.arthurbrugiere.forgeline.core.testing.FakePullRequestApi()
     private val gitHubSettings = fr.arthurbrugiere.forgeline.core.testing.FakeRepoSettingsApi()
+    private val gitHubOwnerSettings = fr.arthurbrugiere.forgeline.core.testing.FakeOwnerSettingsApi()
     private val hosts = fr.arthurbrugiere.forgeline.signin.FakeForgeHosts()
 
     private fun clients(
@@ -46,7 +47,7 @@ class DefaultForgeClientsTest {
         codebergTrendingUrl = codebergTrendingUrl,
         gitlabTrendingUrl = gitlabTrendingUrl,
         giteaTrendingUrl = giteaTrendingUrl,
-        repos = gitHubRepos, issues = FakeIssueApi(), pulls = gitHubPulls, repoSettings = gitHubSettings, users = FakeUserApi(), stars = FakeStarApi(), search = FakeSearchApi(),
+        repos = gitHubRepos, issues = FakeIssueApi(), pulls = gitHubPulls, repoSettings = gitHubSettings, ownerSettings = gitHubOwnerSettings, users = FakeUserApi(), stars = FakeStarApi(), search = FakeSearchApi(),
         feed = FakeFeedApi(), notifications = FakeNotificationsApi(), auth = FakeForgeAuthApi(), actions = FakeActionsApi(),
         trending = FakeTrendingApi(),
     )
@@ -55,6 +56,21 @@ class DefaultForgeClientsTest {
     @Test
     fun github_uses_its_own_clients() {
         assertThat(clients.repos(ForgeInstance.GitHub)).isSameInstanceAs(gitHubRepos)
+    }
+
+    @Test
+    fun every_forge_has_the_profile_and_organisation_settings_its_api_allows() {
+        assertThat(clients.ownerSettings(ForgeInstance.GitHub)).isSameInstanceAs(gitHubOwnerSettings)
+        val codeberg = clients.ownerSettings(ForgeInstance.Codeberg)
+        assertThat(codeberg).isInstanceOf(fr.arthurbrugiere.forgeline.forge.forgejo.ForgejoOwnerSettingsApi::class.java)
+        assertThat(clients.ownerSettings(ForgeInstance.GitLab)).isInstanceOf(fr.arthurbrugiere.forgeline.forge.gitlab.GitLabOwnerSettingsApi::class.java)
+        // Tangled and SourceHut have profiles and no organisations.
+        val tangled = clients.ownerSettings(ForgeInstance.Tangled)
+        assertThat(tangled.profileSupported).isTrue()
+        assertThat(tangled.organizationsSupported).isFalse()
+        val sourceHut = clients.ownerSettings(ForgeInstance.SourceHut)
+        assertThat(sourceHut.profileSupported).isTrue()
+        assertThat(sourceHut.organizationsSupported).isFalse()
     }
 
     @Test

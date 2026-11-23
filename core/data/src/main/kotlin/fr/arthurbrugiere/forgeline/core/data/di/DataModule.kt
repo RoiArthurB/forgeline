@@ -128,6 +128,9 @@ abstract class DataModule {
     @Binds
     abstract fun bindUserRepository(impl: DefaultUserRepository): UserRepository
 
+    @Binds
+    abstract fun bindOwnerSettingsRepository(impl: fr.arthurbrugiere.forgeline.core.data.user.DefaultOwnerSettingsRepository): fr.arthurbrugiere.forgeline.core.data.user.OwnerSettingsRepository
+
     companion object {
         @Provides
         @Singleton

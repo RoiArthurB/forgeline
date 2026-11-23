@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.Business
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.MailOutline
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -98,6 +99,8 @@ fun UserRoute(
     onSignIn: () -> Unit,
     onOpenIssue: (IssueRef) -> Unit = {},
     onOpenUser: (String) -> Unit = {},
+    /** Opens the profile's settings, an organisation's when true. */
+    onOpenSettings: (organization: Boolean) -> Unit = {},
 ) {
     val viewModel = hiltViewModel<UserViewModel, UserViewModel.Factory>(key = "${route.host}/${route.login.lowercase()}") {
         it.create(route.forge, route.login)
@@ -121,6 +124,7 @@ fun UserRoute(
         onOpenRepo = onOpenRepo,
         onOpenUrl = openUrl,
         onFollowFailureShown = viewModel::followFailureShown,
+        onOpenSettings = { onOpenSettings(state.profile?.isOrganization == true) },
         onLinkClick = { url ->
             openForgeLink(
                 url, route.forge, onOpenRepo, onOpenIssue, onOpenUser, openUrl, onOpenRelease = openRelease, onOpenDiscussion = openDiscussion,
@@ -146,6 +150,7 @@ fun UserScreen(
     modifier: Modifier = Modifier,
     /** A link in the profile's README: one to a repository, a conversation or a person opens in the app. */
     onLinkClick: (String) -> Unit = onOpenUrl,
+    onOpenSettings: () -> Unit = {},
 ) {
     val profile = state.profile
     val snackbar = remember { SnackbarHostState() }
@@ -170,6 +175,12 @@ fun UserScreen(
                     onBack = onBack,
                     backDescription = stringResource(R.string.navigate_up),
                     actions = {
+                        // One's own profile, and an organisation one owns, are set from here.
+                        if (state.offersSettings) {
+                            SoftIconButton(onClick = onOpenSettings) {
+                                Icon(Icons.Outlined.Settings, contentDescription = stringResource(R.string.owner_settings_open), tint = Soft.colors.ink)
+                            }
+                        }
                         ShareLinkButton("${state.forge.webUrl}/${state.login}", state.login)
                         SoftIconButton(onClick = { onOpenUrl("${state.forge.webUrl}/${state.login}") }) {
                             Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = stringResource(R.string.repo_open_on_forge, state.forge.displayName), tint = Soft.colors.ink)

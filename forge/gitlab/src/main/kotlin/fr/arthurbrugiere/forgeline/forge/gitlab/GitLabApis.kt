@@ -21,6 +21,7 @@ class GitLabApis(
     override val issues = GitLabIssueApi(http, forge)
     override val pulls = GitLabPullRequestApi(http, forge)
     override val repoSettings = GitLabRepoSettingsApi(http, forge)
+    override val ownerSettings = GitLabOwnerSettingsApi(http, forge)
     override val users = GitLabUserApi(http, forge)
     override val stars = GitLabStarApi(http, forge)
     override val search = GitLabSearchApi(http, forge)

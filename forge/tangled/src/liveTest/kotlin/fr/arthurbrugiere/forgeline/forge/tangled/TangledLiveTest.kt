@@ -165,4 +165,18 @@ class TangledLiveTest {
 
         assertThat(page.events).isNotNull()
     }
+
+    /** Read only: the profile record of the live job's account, on its own server. */
+    @Test
+    fun the_profile_reads_as_the_one_signed_in() = runBlocking<Unit> {
+        val handle = System.getenv("TANGLED_LIVE_HANDLE").orEmpty()
+        val password = System.getenv("TANGLED_LIVE_APP_PASSWORD").orEmpty()
+        assumeTrue("TANGLED_LIVE_HANDLE or TANGLED_LIVE_APP_PASSWORD not set", handle.isNotBlank() && password.isNotBlank())
+
+        val session = apis.auth.signInWithPassword(handle, password).value()
+        val profile = apis.ownerSettings.settings(session.accessToken, fr.arthurbrugiere.forgeline.core.model.Owner.Me).value()
+
+        assertThat(profile.texts.keys).contains(fr.arthurbrugiere.forgeline.core.model.OwnerText.BIO)
+        assertThat(profile.links).isNotNull()
+    }
 }

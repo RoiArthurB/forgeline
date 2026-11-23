@@ -64,6 +64,7 @@ class DefaultForgeClients @Inject constructor(
     issues: IssueApi,
     pulls: PullRequestApi,
     repoSettings: RepoSettingsApi,
+    ownerSettings: fr.arthurbrugiere.forgeline.core.forge.OwnerSettingsApi,
     users: UserApi,
     stars: StarApi,
     search: SearchApi,
@@ -80,6 +81,7 @@ class DefaultForgeClients @Inject constructor(
         override val issues = issues
         override val pulls = pulls
         override val repoSettings = repoSettings
+        override val ownerSettings = ownerSettings
         override val users = users
         override val stars = stars
         override val search = search
@@ -139,6 +141,8 @@ class DefaultForgeClients @Inject constructor(
     override fun pulls(forge: ForgeInstance) = apis(forge).pulls
 
     override fun repoSettings(forge: ForgeInstance) = apis(forge).repoSettings
+
+    override fun ownerSettings(forge: ForgeInstance) = apis(forge).ownerSettings
 
     override fun users(forge: ForgeInstance) = apis(forge).users
 

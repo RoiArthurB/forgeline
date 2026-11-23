@@ -38,6 +38,15 @@ apollo {
         mapScalarToKotlinString("URL")
         mapScalarToKotlinString("Upload")
     }
+    // meta.sr.ht's accounts: a person's profile (refreshed by tools/specs/fetch.py too).
+    service("metasrht") {
+        srcDir("src/main/meta-graphql")
+        packageName.set("fr.arthurbrugiere.forgeline.forge.sourcehut.meta")
+        mapScalarToKotlinString("Time")
+        mapScalarToKotlinString("Cursor")
+        mapScalarToKotlinString("URL")
+        mapScalarToKotlinString("Upload")
+    }
 }
 
 // Contract tests against the real git.sr.ht, run nightly by .github/workflows/live.yml when SOURCEHUT_LIVE_TOKEN is set:

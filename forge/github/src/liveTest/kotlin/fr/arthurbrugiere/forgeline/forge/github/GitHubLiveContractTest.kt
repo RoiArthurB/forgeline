@@ -559,4 +559,18 @@ class GitHubLiveContractTest {
         assertWithMessage("page: $page").that(page).isInstanceOf(ForgeResult.Success::class.java)
         assertThat((page as ForgeResult.Success).value.body).contains("GAMA")
     }
+
+    /** Read only: the token's own profile and a public organisation's settings are read, never written. */
+    @Test
+    fun a_profile_s_and_an_organisation_s_settings_read() = runBlocking {
+        assumeTrue("LIVE_TEST_PAT not set", pat.isNotBlank())
+        val api = GitHubOwnerSettingsApi(client)
+        val profile = (api.settings(pat, fr.arthurbrugiere.forgeline.core.model.Owner.Me) as ForgeResult.Success).value
+        assertWithMessage("profile: $profile").that(profile.texts.keys).contains(fr.arthurbrugiere.forgeline.core.model.OwnerText.NAME)
+        assertWithMessage("profile: $profile").that(profile.links).isNotNull()
+
+        val github = api.settings(pat, fr.arthurbrugiere.forgeline.core.model.Owner.Organization("github"))
+        assertWithMessage("github: $github").that((github as ForgeResult.Success).value.texts[fr.arthurbrugiere.forgeline.core.model.OwnerText.NAME]).isEqualTo("GitHub")
+        assertWithMessage("owns github").that(api.administers(pat, "github")).isNotEqualTo(ForgeResult.Success(true))
+    }
 }

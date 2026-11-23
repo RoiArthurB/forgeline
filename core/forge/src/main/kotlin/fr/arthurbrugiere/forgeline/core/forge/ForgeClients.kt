@@ -17,6 +17,9 @@ interface ForgeClients {
     /** What a repository's owner sets on it. */
     fun repoSettings(forge: ForgeInstance): RepoSettingsApi
 
+    /** What a person sets on their profile, and an organisation's owners on it. */
+    fun ownerSettings(forge: ForgeInstance): OwnerSettingsApi
+
     fun users(forge: ForgeInstance): UserApi
 
     fun stars(forge: ForgeInstance): StarApi

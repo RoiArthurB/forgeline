@@ -34,6 +34,7 @@ class SourceHutApis(http: HttpClient) : ForgeApis {
     override val auth: ForgeAuthApi = SourceHutAuthApi(http)
     override val pulls = UnsupportedPullRequestApi()
     override val repoSettings = UnsupportedRepoSettingsApi()
+    override val ownerSettings = SourceHutOwnerSettingsApi(http)
     override val stars = UnsupportedStarApi()
     override val search = UnsupportedSearchApi()
     override val feed = UnsupportedFeedApi()

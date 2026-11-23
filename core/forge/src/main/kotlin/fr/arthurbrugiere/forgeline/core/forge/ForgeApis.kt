@@ -6,6 +6,9 @@ interface ForgeApis {
     val issues: IssueApi
     val pulls: PullRequestApi
     val repoSettings: RepoSettingsApi
+
+    /** What a person sets on their profile, and an organisation's owners on it. */
+    val ownerSettings: OwnerSettingsApi get() = NoOwnerSettingsApi
     val users: UserApi
     val stars: StarApi
     val search: SearchApi

@@ -2,6 +2,7 @@ package fr.arthurbrugiere.forgeline.forge.tangled
 
 import com.atproto.repo.CreateRecordRequest
 import com.atproto.repo.DeleteRecordRequest
+import com.atproto.repo.GetRecordQueryParams
 import com.atproto.repo.ListRecordsQueryParams
 import com.atproto.repo.PutRecordRequest
 import com.atproto.server.CreateSessionRequest
@@ -111,6 +112,22 @@ class TangledAccount(
         if (parts.size != 3) return ForgeResult.Failure(ForgeError.Unreadable)
         val (_, collection, rkey) = parts
         return write(token) { server, did -> server.deleteRecord(DeleteRecordRequest(did, Nsid(collection), RKey(rkey))).toResult { } }
+    }
+
+    /** The record [rkey] of [did]'s [collection], as their own server keeps it; null when there is none. */
+    internal suspend fun getRecord(did: String, collection: String, rkey: String): ForgeResult<JsonObject?> = forgeCall {
+        val pds = when (val server = identity.pds(did)) {
+            is ForgeResult.Failure -> return@forgeCall server
+            is ForgeResult.Success -> server.value
+        }
+        val repo = when (val valid = asDid(did)) {
+            is ForgeResult.Failure -> return@forgeCall valid
+            is ForgeResult.Success -> valid.value
+        }
+        when (val read = xrpc.server(pds).getRecord(GetRecordQueryParams(repo, Nsid(collection), RKey(rkey))).toResult { it.value.decodeAs<JsonObject>() }) {
+            is ForgeResult.Success -> read
+            is ForgeResult.Failure -> if ((read.error as? ForgeError.Http)?.status == 404) ForgeResult.Success(null) else read
+        }
     }
 
     /** The signed-in person's records of [collection], a page at a time, as their own server keeps them. */

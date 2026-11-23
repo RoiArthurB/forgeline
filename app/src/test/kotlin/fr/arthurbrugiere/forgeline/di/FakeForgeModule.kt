@@ -142,6 +142,14 @@ object FakeForgeModule {
     @Provides
     fun provideRepoSettingsApi(fake: fr.arthurbrugiere.forgeline.core.testing.FakeRepoSettingsApi): fr.arthurbrugiere.forgeline.core.forge.RepoSettingsApi = fake
 
+    @Provides
+    @Singleton
+    fun provideFakeOwnerSettingsApi() = fr.arthurbrugiere.forgeline.core.testing.FakeOwnerSettingsApi()
+
+    @Provides
+    @Singleton
+    fun provideOwnerSettingsApi(fake: fr.arthurbrugiere.forgeline.core.testing.FakeOwnerSettingsApi): fr.arthurbrugiere.forgeline.core.forge.OwnerSettingsApi = fake
+
     /** The same object as the tests are given, to look at what was sent. */
     @Provides
     fun providePullRequestApi(fake: fr.arthurbrugiere.forgeline.core.testing.FakePullRequestApi): fr.arthurbrugiere.forgeline.core.forge.PullRequestApi = fake

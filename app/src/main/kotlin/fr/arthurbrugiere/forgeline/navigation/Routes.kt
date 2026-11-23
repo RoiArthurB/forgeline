@@ -222,6 +222,10 @@ data class UserRoute(val host: String, val login: String) : NavKey {
     val forge: ForgeInstance get() = ForgeInstance.of(host)
 }
 
+/** What the signed-in person sets on their own profile, or an [organization]'s owners on it. */
+@Serializable
+data class OwnerSettingsRoute(val host: String, val login: String, val organization: Boolean) : NavKey
+
 @Serializable
 data object SearchRoute : NavKey
 

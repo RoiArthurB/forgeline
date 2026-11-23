@@ -77,6 +77,11 @@ object ForgeModule {
 
     @Provides
     @Singleton
+    fun provideOwnerSettingsApi(@GitHub httpClient: HttpClient): fr.arthurbrugiere.forgeline.core.forge.OwnerSettingsApi =
+        fr.arthurbrugiere.forgeline.forge.github.GitHubOwnerSettingsApi(httpClient)
+
+    @Provides
+    @Singleton
     fun providePullRequestApi(@GitHub httpClient: HttpClient): PullRequestApi = GitHubPullRequestApi(httpClient)
 
     @Provides

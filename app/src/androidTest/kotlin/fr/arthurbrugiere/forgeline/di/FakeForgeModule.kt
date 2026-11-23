@@ -97,6 +97,10 @@ object FakeForgeModule {
 
     @Provides
     @Singleton
+    fun provideOwnerSettingsApi(): fr.arthurbrugiere.forgeline.core.forge.OwnerSettingsApi = fr.arthurbrugiere.forgeline.core.testing.FakeOwnerSettingsApi()
+
+    @Provides
+    @Singleton
     fun providePullRequestApi(): fr.arthurbrugiere.forgeline.core.forge.PullRequestApi = fr.arthurbrugiere.forgeline.core.testing.FakePullRequestApi()
 
     @Provides

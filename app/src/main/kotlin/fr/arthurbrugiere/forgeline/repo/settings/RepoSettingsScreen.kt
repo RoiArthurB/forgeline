@@ -537,13 +537,13 @@ private const val UNDO_MILLIS = 5_000L
 
 /** A row that opens an editor for what it shows: the chevron says so. */
 @Composable
-private fun EditRow(title: String, summary: String, onClick: () -> Unit) {
+internal fun EditRow(title: String, summary: String, onClick: () -> Unit) {
     SettingRow(title, summary, onClick = onClick, trailing = { Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = Soft.colors.inkMuted, modifier = Modifier.size(18.dp)) })
 }
 
 /** A row that leaves the app for the forge's website or the repository's site: the open-in-new glyph says so. */
 @Composable
-private fun LeaveRow(title: String, summary: String, onClick: () -> Unit) {
+internal fun LeaveRow(title: String, summary: String, onClick: () -> Unit) {
     SettingRow(title, summary, onClick = onClick, trailing = { Icon(Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, tint = Soft.colors.inkMuted, modifier = Modifier.size(18.dp)) })
 }
 
@@ -626,7 +626,7 @@ private val MergeMethod.label: Int
 
 /** Words to write and save; what the forge refuses of them is said here, and they stay to be put right. */
 @Composable
-private fun TextSheet(title: String, current: String, singleLine: Boolean, saving: Boolean, refusal: String?, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+internal fun TextSheet(title: String, current: String, singleLine: Boolean, saving: Boolean, refusal: String?, onSave: (String) -> Unit, onDismiss: () -> Unit) {
     var text by rememberSaveable { mutableStateOf(current) }
     SoftSheet(title, onDismiss) {
         SoftTextField(text, { text = it }, placeholder = title, error = refusal, singleLine = singleLine, minLines = if (singleLine) 1 else 3, maxLines = if (singleLine) 1 else 8)

@@ -15,6 +15,7 @@ class ForgejoApis(http: HttpClient, forge: ForgeInstance, clientId: String, over
     override val issues = ForgejoIssueApi(http, forge)
     override val pulls = ForgejoPullRequestApi(http, forge)
     override val repoSettings = ForgejoRepoSettingsApi(http, forge)
+    override val ownerSettings = ForgejoOwnerSettingsApi(http, forge)
     override val users = ForgejoUserApi(http, forge)
     override val stars = ForgejoStarApi(http, forge)
     override val search = ForgejoSearchApi(http, forge)
