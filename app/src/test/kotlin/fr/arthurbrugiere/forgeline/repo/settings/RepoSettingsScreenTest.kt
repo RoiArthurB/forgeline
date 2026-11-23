@@ -1,10 +1,13 @@
 package fr.arthurbrugiere.forgeline.repo.settings
 
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
@@ -13,6 +16,7 @@ import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
@@ -32,6 +36,7 @@ import fr.arthurbrugiere.forgeline.core.model.RepoSettings
 import fr.arthurbrugiere.forgeline.core.model.RepoSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.RepoSwitch
 import fr.arthurbrugiere.forgeline.core.model.RepoVisibility
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLight
 import fr.arthurbrugiere.forgeline.core.ui.theme.ForgelineTheme
 import fr.arthurbrugiere.forgeline.repo.Loadable
 import fr.arthurbrugiere.forgeline.ui.assertEveryTargetIsAtLeast48dp
@@ -223,6 +228,25 @@ class RepoSettingsScreenTest {
         composeRule.onNodeWithText("Retry").performClick()
 
         assertThat(events).containsExactly("refresh")
+    }
+
+    @Test
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun the_danger_zone_is_read_on_a_red_tint_and_the_other_groups_on_the_ground() {
+        setContent(shown())
+
+        assertThat(pageColour()).isEqualTo(SoftLight.ground.toArgb())
+        tab("Danger zone")
+        assertThat(pageColour()).isEqualTo(SoftLight.fields[0].toArgb())
+        tab("About")
+        assertThat(pageColour()).isEqualTo(SoftLight.ground.toArgb())
+    }
+
+    /** The page's colour at the foot of the screen, under every row. */
+    private fun pageColour(): Int {
+        composeRule.waitForIdle()
+        val image = composeRule.onRoot().captureToImage().asAndroidBitmap()
+        return image.getPixel(image.width / 2, image.height - 4)
     }
 
     @Test

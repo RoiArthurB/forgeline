@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.repo.settings
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -82,6 +84,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceRow
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceSheet
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftColors
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDangerButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
@@ -362,7 +365,9 @@ fun RepoSettingsScreen(
         }
     }
 
-    Box(modifier.fillMaxSize().background(colors.ground)) {
+    // The danger zone is read on the warm tint of what can't be taken back, so it never passes for the others.
+    val page by animateColorAsState(tab.page(colors), label = "settings page")
+    Box(modifier.fillMaxSize().background(page)) {
         val pullState = rememberPullToRefreshState()
         PullToRefreshBox(
             isRefreshing = state.isRefreshing && settings != null,
@@ -523,6 +528,9 @@ fun RepoSettingsScreen(
         SoftSnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).overBottomBarOrKeyboard())
     }
 }
+
+/** The page a group is read on: the ground, and the warm meaning tint under the danger zone. */
+internal fun SettingsTab.page(colors: SoftColors): Color = if (this == SettingsTab.DANGER) colors.fields[0] else colors.ground
 
 /** How long a change can be taken back from the snackbar that says it, as long as the Inbox's. */
 private const val UNDO_MILLIS = 5_000L
