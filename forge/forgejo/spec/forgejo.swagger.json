@@ -19,7 +19,7 @@
       "name": "This file is distributed under the MIT license for the purpose of interoperability",
       "url": "http://opensource.org/licenses/MIT"
     },
-    "version": "17.0.0-100-2254cb0+gitea-1.22.0"
+    "version": "17.0.0-121-39320c0+gitea-1.22.0"
   },
   "basePath": "/api/v1",
   "paths": {
