@@ -962,6 +962,7 @@
     <string name="interval_3h">Toutes les 3 heures</string>
     <string name="interval_6h">Toutes les 6 heures</string>
     <string name="settings_section_feed">Fil</string>
+    <string name="settings_feed_load">Charger en arrière-plan</string>
     <string name="settings_feed_pictures">Images des versions</string>
     <string name="settings_feed_pictures_summary">Les versions montrent l’image de leur projet</string>
     <string name="settings_feed_hide_settled">Masquer l’ouverture une fois fusionné ou fermé</string>

@@ -8,7 +8,7 @@ enum class HeaderStyle { INK, BLACK, WHITE }
 /** The colors code is shown in: the app's own theme, or always light or dark whatever the app's. */
 enum class CodeTheme(val dark: Boolean?) { APP(null), LIGHT(false), DARK(true) }
 
-/** How often the Inbox is checked in the background for new notifications. */
+/** How often something is done in the background: the Inbox checked for new notifications, the Feed loaded. */
 enum class InboxCheckInterval(val minutes: Long?) { OFF(null), MIN_15(15), MIN_30(30), HOUR_1(60), HOUR_3(180), HOUR_6(360) }
 
 /** The tab the app opens on. [AUTOMATIC] is the Inbox for someone signed in, and Trending for someone signed in nowhere. */
@@ -85,6 +85,8 @@ data class UserSettings(
     val readingMarks: Boolean = true,
     /** Feed releases show their project's picture; off, they're text only and load no images. */
     val feedPictures: Boolean = true,
+    /** How often the Feed is loaded in the background, so it opens on what is new. */
+    val feedLoadInterval: InboxCheckInterval = InboxCheckInterval.HOUR_1,
     /** A pull request or issue since merged or closed shows in the Feed only as that, not also as opened. */
     val feedHideSettled: Boolean = true,
     /** A failed job opens on the step it failed at, unfolded, instead of on its folded steps. */

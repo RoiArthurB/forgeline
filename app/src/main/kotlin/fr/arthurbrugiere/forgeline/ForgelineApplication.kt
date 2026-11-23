@@ -50,6 +50,9 @@ class ForgelineApplication : Application(), Configuration.Provider, SingletonIma
     @Inject
     lateinit var trendingMeasureScheduler: TrendingMeasureScheduler
 
+    @Inject
+    lateinit var feedSyncScheduler: fr.arthurbrugiere.forgeline.feed.FeedSyncScheduler
+
     /** Off the main thread: reading settings and accounts must never delay the first frame. */
     @Inject
     @BackgroundScope
@@ -67,6 +70,7 @@ class ForgelineApplication : Application(), Configuration.Provider, SingletonIma
         background.launch { KnownForges.readKept() }
         inboxSyncScheduler.start(background)
         trendingMeasureScheduler.start(background)
+        feedSyncScheduler.start(background)
         // The home screen widgets follow the inbox from the moment the process is up: a background check counts.
         background.launch { inboxWidget.refresh() }
         // What a version that deleted nothing at sign-out left behind, or a sync that outlived a sign-out.

@@ -984,6 +984,7 @@
     <string name="interval_3h">Every 3 hours</string>
     <string name="interval_6h">Every 6 hours</string>
     <string name="settings_section_feed">Feed</string>
+    <string name="settings_feed_load">Load in the background</string>
     <string name="settings_feed_pictures">Release pictures</string>
     <string name="settings_feed_pictures_summary">Releases show their project\'s picture</string>
     <string name="settings_feed_hide_settled">Hide opened once merged or closed</string>

@@ -476,6 +476,16 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun how_often_the_feed_loads_in_the_background_is_picked_in_its_settings() {
+        setContent(section = SettingsSection.FEED)
+
+        composeRule.onNodeWithText("Load in the background").performClick()
+        composeRule.onNodeWithText("Never").performClick()
+
+        assertThat(changed).isEqualTo(UserSettings(feedLoadInterval = fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval.OFF))
+    }
+
+    @Test
     fun notification_buttons_can_carry_unsubscribe() {
         setContent(section = SettingsSection.INBOX)
 

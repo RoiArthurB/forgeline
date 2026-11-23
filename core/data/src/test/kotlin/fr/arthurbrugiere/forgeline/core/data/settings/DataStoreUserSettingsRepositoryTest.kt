@@ -114,6 +114,7 @@ class DataStoreUserSettingsRepositoryTest {
         readingMarks = false,
         feedPictures = false,
         feedHideSettled = false,
+        feedLoadInterval = InboxCheckInterval.HOUR_3,
         openFailedStep = true,
         textSize = fr.arthurbrugiere.forgeline.core.model.TextSize.LARGEST,
         systemFont = true,
@@ -149,6 +150,7 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(changed.readingMarks).isNotEqualTo(defaults.readingMarks)
         assertThat(changed.feedPictures).isNotEqualTo(defaults.feedPictures)
         assertThat(changed.feedHideSettled).isNotEqualTo(defaults.feedHideSettled)
+        assertThat(changed.feedLoadInterval).isNotEqualTo(defaults.feedLoadInterval)
         assertThat(changed.openFailedStep).isNotEqualTo(defaults.openFailedStep)
         assertThat(changed.headerStyle).isNotEqualTo(defaults.headerStyle)
         assertThat(changed.codeTheme).isNotEqualTo(defaults.codeTheme)

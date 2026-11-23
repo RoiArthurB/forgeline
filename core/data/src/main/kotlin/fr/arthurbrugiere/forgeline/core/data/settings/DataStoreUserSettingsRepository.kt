@@ -51,6 +51,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
             readingMarks = prefs[READING_MARKS] ?: defaults.readingMarks,
             feedPictures = prefs[FEED_PICTURES] ?: defaults.feedPictures,
             feedHideSettled = prefs[FEED_HIDE_SETTLED] ?: defaults.feedHideSettled,
+            feedLoadInterval = choice(FEED_LOAD, defaults.feedLoadInterval),
             openFailedStep = prefs[OPEN_FAILED_STEP] ?: defaults.openFailedStep,
             textSize = choice(TEXT_SIZE, defaults.textSize),
             systemFont = prefs[SYSTEM_FONT] ?: defaults.systemFont,
@@ -100,6 +101,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
             prefs[READING_MARKS] = wanted.readingMarks
             prefs[FEED_PICTURES] = wanted.feedPictures
             prefs[FEED_HIDE_SETTLED] = wanted.feedHideSettled
+            prefs[FEED_LOAD] = wanted.feedLoadInterval.name
             prefs[OPEN_FAILED_STEP] = wanted.openFailedStep
             prefs[TEXT_SIZE] = wanted.textSize.name
             prefs[SYSTEM_FONT] = wanted.systemFont
@@ -166,6 +168,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
         val READING_MARKS = booleanPreferencesKey("reading_marks")
         val FEED_PICTURES = booleanPreferencesKey("feed_pictures")
         val FEED_HIDE_SETTLED = booleanPreferencesKey("feed_hide_settled")
+        val FEED_LOAD = stringPreferencesKey("feed_load_interval")
         val OPEN_FAILED_STEP = booleanPreferencesKey("open_failed_step")
         val TEXT_SIZE = stringPreferencesKey("text_size")
         val SYSTEM_FONT = booleanPreferencesKey("system_font")

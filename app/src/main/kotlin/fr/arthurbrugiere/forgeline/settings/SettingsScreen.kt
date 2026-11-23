@@ -425,6 +425,14 @@ fun SettingsScreen(
             }
             if (section == SettingsSection.FEED) {
                 item {
+                    ChoiceItem(
+                        title = stringResource(R.string.settings_feed_load),
+                        options = InboxCheckInterval.entries.map { stringResource(it.label) },
+                        selected = settings.feedLoadInterval.ordinal,
+                        onSelect = { picked -> onChange { it.copy(feedLoadInterval = InboxCheckInterval.entries[picked]) } },
+                    )
+                }
+                item {
                     SwitchItem(
                         title = stringResource(R.string.settings_feed_pictures),
                         summary = stringResource(R.string.settings_feed_pictures_summary),
