@@ -252,6 +252,11 @@ class InboxViewModel @Inject constructor(
     /** Picks [thread], or lets it go: the first one picked starts the selection, the last one let go ends it. */
     fun toggleSelected(thread: NotificationThread) = selected.update { if (thread.key in it) it - thread.key else it + thread.key }
 
+    /** Picks these threads, by key, and lets every other go: a long press drawn along the list. */
+    fun setSelected(keys: Set<String>) {
+        selected.value = keys
+    }
+
     /** Picks every thread listed, under the filter and account shown. */
     fun selectAll() {
         selected.value = state.value.threads.mapTo(HashSet()) { it.key }

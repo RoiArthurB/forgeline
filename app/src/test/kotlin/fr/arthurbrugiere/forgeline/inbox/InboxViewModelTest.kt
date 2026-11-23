@@ -381,6 +381,23 @@ class InboxViewModelTest {
     }
 
     @Test
+    fun a_drag_along_the_list_picks_what_it_passed_over() = test {
+        inbox.set(mention, watching, read)
+        val viewModel = viewModel()
+        viewModel.selectFilter(InboxFilter.ALL)
+        advanceUntilIdle()
+
+        viewModel.setSelected(setOf(mention.key, watching.key, read.key))
+        runCurrent()
+        assertThat(viewModel.state.value.selected).containsExactly(mention.key, watching.key, read.key)
+
+        // Drawn back up: what it no longer covers is let go.
+        viewModel.setSelected(setOf(mention.key))
+        runCurrent()
+        assertThat(viewModel.state.value.selected).containsExactly(mention.key)
+    }
+
+    @Test
     fun picking_a_thread_twice_lets_it_go_and_another_filter_ends_the_selection() = test {
         inbox.set(mention, watching)
         val viewModel = viewModel()

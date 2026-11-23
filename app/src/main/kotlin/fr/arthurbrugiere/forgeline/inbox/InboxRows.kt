@@ -109,7 +109,7 @@ internal fun LazyListScope.threadItems(
     onUnsubscribe: (NotificationThread) -> Unit,
 ) {
     // Keyed by account and id: two forges can use the same thread id, and duplicate keys crash the list.
-    items(threads, key = { "thread-${it.key}" }, contentType = { "thread" }) { thread ->
+    items(threads, key = { THREAD_ITEM_PREFIX + it.key }, contentType = { "thread" }) { thread ->
         ThreadRow(
             thread, section, nowMillis, picking, onOpen, onMarkRead, onMarkUnread, onMarkDone, onUnsubscribe,
             Modifier.widthIn(max = SoftTokens.MaxReadingWidth).animateItem(),
@@ -340,6 +340,7 @@ private fun ThreadRow(
                 .softPressable(
                     onLongClick = {
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        picking.onDragStart(thread)
                         picking.onToggle(thread)
                     },
                     onLongClickLabel = selectLabel,

@@ -129,6 +129,7 @@ fun InboxRoute(
         onUnsubscribe = viewModel::unsubscribe,
         onUndo = viewModel::undo,
         onToggleSelected = viewModel::toggleSelected,
+        onSetSelected = viewModel::setSelected,
         onSelectAll = viewModel::selectAll,
         onClearSelection = viewModel::clearSelection,
         onActOnSelected = viewModel::actOnSelected,
@@ -230,6 +231,8 @@ fun InboxScreen(
     onMarkUnread: (NotificationThread) -> Unit = {},
     /** A long press picks a thread; from then on a tap picks or lets go, and the bar at the bottom acts on them all. */
     onToggleSelected: (NotificationThread) -> Unit = {},
+    /** A long press drawn on along the list: what is picked now, by thread key. */
+    onSetSelected: (Set<String>) -> Unit = {},
     onSelectAll: () -> Unit = {},
     onClearSelection: () -> Unit = {},
     onActOnSelected: (InboxAction) -> Unit = {},
@@ -298,8 +301,9 @@ fun InboxScreen(
     val selecting = state.selected.isNotEmpty()
     // Back lets the selection go before it leaves the Inbox.
     BackHandler(selecting) { onClearSelection() }
-    val picking = Picking(state.selected, onToggleSelected)
     val listState = rememberLazyListState()
+    val drag = remember { DragPick() }
+    val picking = Picking(state.selected, onToggleSelected, onDragStart = { drag.start(it.key, state.selected) })
     // Everything else reads owner by owner, then repository by repository: grouped once per list, not each time the
     // screen recomposes (a refresh starting or ending, an undo offered).
     val owners = remember(state.groups) {
@@ -329,7 +333,7 @@ fun InboxScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 // Room for the selection bar, so the last threads can still be reached under it.
                 contentPadding = PaddingValues(bottom = listBottomPadding() + if (selecting) 64.dp else 0.dp),
-                modifier = Modifier.fillMaxSize().sideSafeArea(),
+                modifier = Modifier.fillMaxSize().sideSafeArea().dragToPick(listState, drag, onSetSelected),
             ) {
                 item(key = "header", contentType = "header") {
                     InboxHeader(

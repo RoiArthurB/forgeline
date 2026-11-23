@@ -16,6 +16,7 @@ import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
@@ -72,6 +73,7 @@ class InboxScreenTest {
                     onAllowNotifications = { events += "allow" },
                     onUndo = { events += "undo:${it.key.substringAfter('|')}:${it.action}" },
                     onToggleSelected = { events += "pick:${it.id}" },
+                    onSetSelected = { keys -> events += "picked:" + keys.map { it.substringAfter('|') }.sorted().joinToString(",") },
                     onSelectAll = { events += "pick-all" },
                     onClearSelection = { events += "pick-none" },
                     onActOnSelected = { events += "selected:$it" },
@@ -316,6 +318,43 @@ class InboxScreenTest {
         assertThat(events).containsExactly("pick:43")
         // Nothing picked yet as far as the screen was told: no bar.
         composeRule.onNodeWithContentDescription("Cancel selection").assertDoesNotExist()
+    }
+
+    @Test
+    fun a_long_press_drawn_down_the_list_picks_every_thread_it_passes_over() {
+        // Issue 31: picking many threads one tap at a time was slow.
+        setContent(grouped)
+        val from = composeRule.onNodeWithText("Launch fails on cold start").fetchSemanticsNode().boundsInRoot.center
+        val to = composeRule.onNodeWithText("v2.0.0").fetchSemanticsNode().boundsInRoot.center
+
+        composeRule.onRoot().performTouchInput {
+            down(from)
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 100)
+            moveTo(androidx.compose.ui.geometry.Offset(from.x, (from.y + to.y) / 2))
+            moveTo(to)
+            up()
+        }
+
+        assertThat(events.first()).isEqualTo("pick:42")
+        assertThat(events.last()).isEqualTo("picked:42,43,9")
+        // Nothing was opened or swiped on the way.
+        assertThat(events.filter { it.startsWith("open") || it.startsWith("done") || it.startsWith("read") }).isEmpty()
+    }
+
+    @Test
+    fun a_drag_from_a_picked_thread_lets_go_of_what_it_passes_over() {
+        setContent(grouped.copy(selected = setOf(mention.key, review.key, release.key)))
+        val from = composeRule.onNodeWithText("Add retry").fetchSemanticsNode().boundsInRoot.center
+        val to = composeRule.onNodeWithText("v2.0.0").fetchSemanticsNode().boundsInRoot.center
+
+        composeRule.onRoot().performTouchInput {
+            down(from)
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 100)
+            moveTo(to)
+            up()
+        }
+
+        assertThat(events.last()).isEqualTo("picked:42")
     }
 
     @Test

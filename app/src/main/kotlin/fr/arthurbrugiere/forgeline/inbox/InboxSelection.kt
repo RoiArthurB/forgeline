@@ -46,8 +46,11 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIndication
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 
-/** The threads picked so far, and how a row picks itself or lets itself go. */
-internal class Picking(val selected: Set<String>, val onToggle: (NotificationThread) -> Unit)
+/**
+ * The threads picked so far, and how a row picks itself or lets itself go. [onDragStart] is told of a long press
+ * before it picks, so the finger can go on picking the threads it is drawn over.
+ */
+internal class Picking(val selected: Set<String>, val onToggle: (NotificationThread) -> Unit, val onDragStart: (NotificationThread) -> Unit = {})
 
 /**
  * What can be done to the threads picked, all at once: on the ink bar the Undo snackbar uses, in its place. Read and
