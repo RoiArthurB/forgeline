@@ -476,6 +476,15 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun openings_since_merged_or_closed_can_show_again_from_the_feed_s_settings() {
+        setContent(section = SettingsSection.FEED)
+
+        composeRule.onNodeWithText("Hide opened once merged or closed").performClick()
+
+        assertThat(changed).isEqualTo(UserSettings(feedHideSettled = false))
+    }
+
+    @Test
     fun a_choice_switched_off_shows_as_off() {
         setContent(UserSettings(openAtUnread = false), section = SettingsSection.READING)
 

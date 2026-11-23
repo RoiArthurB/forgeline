@@ -100,4 +100,62 @@ class FeedItemsTest {
         assertThat(keysOf(FeedAction.PullRequest(PullRequestAction.MERGED, 9, "Titled"))).containsExactly(FeedDetailKey.Conversation(IssueRef(rocket, 9, isPullRequest = true)))
         assertThat(keysOf(FeedAction.Pushed("main"))).isEmpty()
     }
+
+    private fun pull(id: String, action: PullRequestAction, number: Int = 30, at: String, repo: String = "acme/rocket") =
+        feedEvent(id, actor = "alice", repo = repo, action = FeedAction.PullRequest(action, number), createdAt = at)
+
+    @Test
+    fun a_pull_request_since_merged_shows_only_as_merged() {
+        val items = feedItems(
+            listOf(
+                pull("2", PullRequestAction.MERGED, at = "2026-09-27T09:00:00Z"),
+                pull("1", PullRequestAction.OPENED, at = "2026-09-27T08:00:00Z"),
+            ),
+            FeedKind.defaults,
+            hideSettled = true,
+        )
+
+        assertThat(items.map { it.key }).containsExactly("2")
+    }
+
+    @Test
+    fun an_issue_since_closed_shows_only_as_closed() {
+        val items = feedItems(
+            listOf(
+                feedEvent("2", action = closed, createdAt = "2026-09-27T09:00:00Z"),
+                feedEvent("1", action = FeedAction.Issue(IssueAction.OPENED, 42, "Launch fails"), createdAt = "2026-09-27T08:00:00Z"),
+            ),
+            FeedKind.defaults,
+            hideSettled = true,
+        )
+
+        assertThat(items.map { it.key }).containsExactly("2")
+    }
+
+    @Test
+    fun an_opening_stays_when_it_came_after_the_close_or_for_another_pull_request() {
+        val items = feedItems(
+            listOf(
+                pull("4", PullRequestAction.REOPENED, at = "2026-09-27T10:00:00Z"),
+                pull("3", PullRequestAction.CLOSED, at = "2026-09-27T09:00:00Z"),
+                pull("2", PullRequestAction.OPENED, number = 31, at = "2026-09-27T08:30:00Z"),
+                pull("1", PullRequestAction.OPENED, at = "2026-09-27T08:00:00Z", repo = "octo/tools"),
+            ),
+            FeedKind.defaults,
+            hideSettled = true,
+        )
+
+        assertThat(items.map { it.key }).containsExactly("4", "3", "2", "1").inOrder()
+    }
+
+    @Test
+    fun an_opening_stays_when_its_merge_is_hidden_or_the_setting_is_off() {
+        val events = listOf(
+            pull("2", PullRequestAction.MERGED, at = "2026-09-27T09:00:00Z"),
+            pull("1", PullRequestAction.OPENED, at = "2026-09-27T08:00:00Z"),
+        )
+
+        assertThat(feedItems(events, FeedKind.defaults - FeedKind.PRS_CLOSED, hideSettled = true).map { it.key }).containsExactly("1")
+        assertThat(feedItems(events, FeedKind.defaults, hideSettled = false).map { it.key }).containsExactly("2", "1").inOrder()
+    }
 }

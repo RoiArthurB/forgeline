@@ -5,7 +5,9 @@ import fr.arthurbrugiere.forgeline.core.model.FeedAction
 import fr.arthurbrugiere.forgeline.core.model.FeedEvent
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.ForgeUser
+import fr.arthurbrugiere.forgeline.core.model.IssueAction
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.PullRequestAction
 import fr.arthurbrugiere.forgeline.core.model.ReleaseRef
 import fr.arthurbrugiere.forgeline.core.model.RepoId
 import java.time.Instant
@@ -20,17 +22,43 @@ data class FeedItem(
 )
 
 /**
- * The Feed stays a chronological timeline: nothing is promoted or reordered. The only change is
- * that identical events on the same repo (three people starring it) become one row, at the newest.
+ * The Feed stays a chronological timeline: nothing is promoted or reordered. Identical events on the same repo (three
+ * people starring it) become one row, at the newest. With [hideSettled], a pull request or issue opened (or reopened)
+ * and since merged or closed shows only that newer row: "merged #30" says it was opened, and two rows for it said it
+ * twice.
  */
-fun feedItems(events: List<FeedEvent>, shown: Set<FeedKind>): List<FeedItem> {
+fun feedItems(events: List<FeedEvent>, shown: Set<FeedKind>, hideSettled: Boolean = false): List<FeedItem> {
+    val visible = events.filter { it.action.kind in shown }
+    // When each pull request and issue the Feed shows was last merged or closed: an opening before it is old news.
+    val settledAt = if (!hideSettled) emptyMap() else buildMap<Conversation, Instant> {
+        visible.forEach { event -> event.settles()?.let { merge(it, event.createdAt, ::maxOf) } }
+    }
     val items = LinkedHashMap<Pair<RepoId, FeedAction>, FeedItem>()
-    events.filter { it.action.kind in shown }.sortedByDescending { it.createdAt }.forEach { event ->
+    visible.sortedByDescending { it.createdAt }.forEach { event ->
+        val settled = event.opens()?.let(settledAt::get)
+        if (settled != null && event.createdAt <= settled) return@forEach
         items.merge(event.repo to event.action, FeedItem(event.id, listOf(event.actor), event.repo, event.action, event.createdAt)) { first, later ->
             if (first.actors.any { it.login == event.actor.login }) first else first.copy(actors = first.actors + later.actors)
         }
     }
     return items.values.toList()
+}
+
+/** A pull request or issue, by its repository and number: the two are numbered apart on some forges. */
+private data class Conversation(val repo: RepoId, val number: Int, val isPullRequest: Boolean)
+
+/** The pull request or issue this event opens or reopens. */
+private fun FeedEvent.opens(): Conversation? = when (val a = action) {
+    is FeedAction.PullRequest -> Conversation(repo, a.number, true).takeIf { a.action == PullRequestAction.OPENED || a.action == PullRequestAction.REOPENED }
+    is FeedAction.Issue -> Conversation(repo, a.number, false).takeIf { a.action != IssueAction.CLOSED }
+    else -> null
+}
+
+/** The pull request or issue this event merges or closes. */
+private fun FeedEvent.settles(): Conversation? = when (val a = action) {
+    is FeedAction.PullRequest -> Conversation(repo, a.number, true).takeIf { a.action == PullRequestAction.MERGED || a.action == PullRequestAction.CLOSED }
+    is FeedAction.Issue -> Conversation(repo, a.number, false).takeIf { a.action == IssueAction.CLOSED }
+    else -> null
 }
 
 /**

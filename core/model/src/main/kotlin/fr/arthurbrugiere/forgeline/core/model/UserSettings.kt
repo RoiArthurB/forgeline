@@ -71,6 +71,8 @@ data class UserSettings(
     val readingMarks: Boolean = true,
     /** Feed releases show their project's picture; off, they're text only and load no images. */
     val feedPictures: Boolean = true,
+    /** A pull request or issue since merged or closed shows in the Feed only as that, not also as opened. */
+    val feedHideSettled: Boolean = true,
     /** A failed job opens on the step it failed at, unfolded, instead of on its folded steps. */
     val openFailedStep: Boolean = false,
     /** The app's text next to the phone's own size. */

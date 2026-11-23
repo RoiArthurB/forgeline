@@ -962,6 +962,8 @@
     <string name="settings_section_feed">Fil</string>
     <string name="settings_feed_pictures">Images des versions</string>
     <string name="settings_feed_pictures_summary">Les versions montrent l’image de leur projet</string>
+    <string name="settings_feed_hide_settled">Masquer l’ouverture une fois fusionné ou fermé</string>
+    <string name="settings_feed_hide_settled_summary">Une pull request ou un ticket fusionné ou fermé depuis n’apparaît plus aussi comme ouvert</string>
     <string name="settings_feed_kinds">Activité du fil</string>
     <string name="settings_feed_kinds_summary">%1$d affichés sur %2$d</string>
     <string name="feed_kind_stars">Étoiles</string>

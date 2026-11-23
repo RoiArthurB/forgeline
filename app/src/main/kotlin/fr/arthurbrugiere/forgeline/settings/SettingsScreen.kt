@@ -426,6 +426,14 @@ fun SettingsScreen(
                         onCheckedChange = { on -> onChange { it.copy(feedPictures = on) } },
                     )
                 }
+                item {
+                    SwitchItem(
+                        title = stringResource(R.string.settings_feed_hide_settled),
+                        summary = stringResource(R.string.settings_feed_hide_settled_summary),
+                        checked = settings.feedHideSettled,
+                        onCheckedChange = { on -> onChange { it.copy(feedHideSettled = on) } },
+                    )
+                }
                 item { FeedKindsItem(settings.feedKinds, onFeedKindChange) }
             }
             if (section == SettingsSection.TRENDING) {

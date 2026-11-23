@@ -67,8 +67,8 @@ class FeedViewModel @Inject constructor(
      * The rows, built only when the events or the kinds shown change, and off the main thread. Regression: they were
      * rebuilt on the main thread for every preview that arrived and every refresh that started or ended.
      */
-    private val rows = combine(feed.observe(), settings.settings.map { it.feedKinds }.distinctUntilChanged()) { snapshot, kinds ->
-        Rows(snapshot, feedItems(snapshot.events, kinds))
+    private val rows = combine(feed.observe(), settings.settings.map { it.feedKinds to it.feedHideSettled }.distinctUntilChanged()) { snapshot, (kinds, hideSettled) ->
+        Rows(snapshot, feedItems(snapshot.events, kinds, hideSettled))
     }.flowOn(computation)
 
     val state: StateFlow<FeedUiState> = combine(

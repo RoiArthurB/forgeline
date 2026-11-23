@@ -984,6 +984,8 @@
     <string name="settings_section_feed">Feed</string>
     <string name="settings_feed_pictures">Release pictures</string>
     <string name="settings_feed_pictures_summary">Releases show their project\'s picture</string>
+    <string name="settings_feed_hide_settled">Hide opened once merged or closed</string>
+    <string name="settings_feed_hide_settled_summary">A pull request or issue since merged or closed no longer also shows as opened</string>
     <string name="settings_feed_kinds">Feed activity</string>
     <string name="settings_feed_kinds_summary">Showing %1$d of %2$d</string>
     <string name="feed_kind_stars">Stars</string>

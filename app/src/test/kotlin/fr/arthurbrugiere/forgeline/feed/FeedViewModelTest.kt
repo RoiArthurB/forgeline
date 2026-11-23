@@ -62,6 +62,21 @@ class FeedViewModelTest {
     }
 
     @Test
+    fun a_pull_request_merged_since_shows_once_until_settings_ask_for_both() = test {
+        feed.set(
+            feedEvent("2", action = fr.arthurbrugiere.forgeline.core.model.FeedAction.PullRequest(fr.arthurbrugiere.forgeline.core.model.PullRequestAction.MERGED, 30), createdAt = "2026-09-27T09:00:00Z"),
+            feedEvent("1", action = fr.arthurbrugiere.forgeline.core.model.FeedAction.PullRequest(fr.arthurbrugiere.forgeline.core.model.PullRequestAction.OPENED, 30), createdAt = "2026-09-27T08:00:00Z"),
+        )
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.items.map { it.key }).containsExactly("2")
+
+        settings.update { it.copy(feedHideSettled = false) }
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.items.map { it.key }).containsExactly("2", "1").inOrder()
+    }
+
+    @Test
     fun the_rows_are_not_rebuilt_when_a_preview_arrives_or_a_refresh_ends() = test {
         // Regression: every preview fetched while scrolling, and every refresh, sorted and merged the whole Feed again.
         feed.set(feedEvent("2", createdAt = "2026-09-27T09:00:00Z"), feedEvent("1", repo = "octo/tools", createdAt = "2026-09-27T08:00:00Z"))

@@ -46,6 +46,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
             openAtUnread = prefs[OPEN_AT_UNREAD] ?: defaults.openAtUnread,
             readingMarks = prefs[READING_MARKS] ?: defaults.readingMarks,
             feedPictures = prefs[FEED_PICTURES] ?: defaults.feedPictures,
+            feedHideSettled = prefs[FEED_HIDE_SETTLED] ?: defaults.feedHideSettled,
             openFailedStep = prefs[OPEN_FAILED_STEP] ?: defaults.openFailedStep,
             textSize = choice(TEXT_SIZE, defaults.textSize),
             systemFont = prefs[SYSTEM_FONT] ?: defaults.systemFont,
@@ -93,6 +94,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
             prefs[OPEN_AT_UNREAD] = wanted.openAtUnread
             prefs[READING_MARKS] = wanted.readingMarks
             prefs[FEED_PICTURES] = wanted.feedPictures
+            prefs[FEED_HIDE_SETTLED] = wanted.feedHideSettled
             prefs[OPEN_FAILED_STEP] = wanted.openFailedStep
             prefs[TEXT_SIZE] = wanted.textSize.name
             prefs[SYSTEM_FONT] = wanted.systemFont
@@ -157,6 +159,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
         val OPEN_AT_UNREAD = booleanPreferencesKey("open_at_unread")
         val READING_MARKS = booleanPreferencesKey("reading_marks")
         val FEED_PICTURES = booleanPreferencesKey("feed_pictures")
+        val FEED_HIDE_SETTLED = booleanPreferencesKey("feed_hide_settled")
         val OPEN_FAILED_STEP = booleanPreferencesKey("open_failed_step")
         val TEXT_SIZE = stringPreferencesKey("text_size")
         val SYSTEM_FONT = booleanPreferencesKey("system_font")

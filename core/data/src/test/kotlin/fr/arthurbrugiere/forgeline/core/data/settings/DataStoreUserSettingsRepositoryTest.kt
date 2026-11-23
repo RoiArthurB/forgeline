@@ -112,6 +112,7 @@ class DataStoreUserSettingsRepositoryTest {
         openAtUnread = false,
         readingMarks = false,
         feedPictures = false,
+        feedHideSettled = false,
         openFailedStep = true,
         textSize = fr.arthurbrugiere.forgeline.core.model.TextSize.LARGEST,
         systemFont = true,
@@ -145,6 +146,7 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(changed.openAtUnread).isNotEqualTo(defaults.openAtUnread)
         assertThat(changed.readingMarks).isNotEqualTo(defaults.readingMarks)
         assertThat(changed.feedPictures).isNotEqualTo(defaults.feedPictures)
+        assertThat(changed.feedHideSettled).isNotEqualTo(defaults.feedHideSettled)
         assertThat(changed.openFailedStep).isNotEqualTo(defaults.openFailedStep)
         assertThat(changed.headerStyle).isNotEqualTo(defaults.headerStyle)
         assertThat(changed.codeTheme).isNotEqualTo(defaults.codeTheme)
@@ -180,6 +182,8 @@ class DataStoreUserSettingsRepositoryTest {
         // Code followed the app's theme before it could be chosen.
         assertThat(defaults.codeTheme).isEqualTo(fr.arthurbrugiere.forgeline.core.model.CodeTheme.APP)
         assertThat(listOf(defaults.loadConversationsAhead, defaults.readElsewhereIsDone, defaults.doubleTapReaction, defaults.swipeToReply, defaults.openAtUnread, defaults.readingMarks, defaults.feedPictures)).doesNotContain(false)
+        // Asked for with the setting (2026-11-23): a pull request merged since shows once.
+        assertThat(defaults.feedHideSettled).isTrue()
         // Offered later: a failed job still opens on its folded steps.
         assertThat(defaults.openFailedStep).isFalse()
         // The text as the phone sets it, in Geist; links in their compact lines, as before 2026-11-04.
