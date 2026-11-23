@@ -125,4 +125,50 @@ class TangledOwnerSettingsApiTest {
 
         assertThat(fake.to("com.atproto.repo.putRecord").single().text).doesNotContain(""""avatar"""")
     }
+
+    /** The signed-in person (me.example) pins tangled.org's core, and owns a repository of their own, tools. */
+    private fun pinning() = FakeTangled(
+        mapOf(
+            "plc.directory/$me" to {
+                """{"id":"x","alsoKnownAs":["at://me.example"],"service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"https://pds.example/"}]}"""
+            },
+            "plc.directory/$OWNER_DID" to {
+                """{"id":"x","alsoKnownAs":["at://tangled.org"],"service":[{"id":"#atproto_pds","type":"AtprotoPersonalDataServer","serviceEndpoint":"https://tngl.sh"}]}"""
+            },
+            "com.atproto.server.getSession" to { _: HttpRequestData -> """{"did":"$me","handle":"me.example"}""" },
+            "com.atproto.identity.resolveHandle" to { r -> if (r.url.parameters["handle"] == "tangled.org") """{"did":"$OWNER_DID"}""" else """{"did":"$me"}""" },
+            "com.atproto.repo.getRecord" to { _: HttpRequestData ->
+                """{"uri":"at://$me/org.tangled.actor.profile/self","cid":"bafy","value":{"${'$'}type":"org.tangled.actor.profile","pinnedRepositories":["$REPO_DID","did:plc:gone"]}}"""
+            },
+            "com.atproto.repo.putRecord" to { _: HttpRequestData -> """{"uri":"at://$me/org.tangled.actor.profile/self","cid":"bafz"}""" },
+            "org.tangled.repo.getRepoByRepoDid" to { r -> if (r.url.parameters["repoDid"] == REPO_DID) coreRepo(r) else null },
+            "org.tangled.temp.repo.getRepoByName" to coreRepo,
+            "org.tangled.repo.listRepos" to {
+                """{"items":[{"uri":"at://$me/sh.tangled.repo/3abc","value":{"name":"tools","knot":"k","createdAt":"2025-03-01T10:00:00Z"}}]}"""
+            },
+        ),
+    )
+
+    private fun pinningApi(fake: FakeTangled): TangledOwnerSettingsApi {
+        val identity = TangledIdentity(fake.client, fake.xrpc)
+        val account = TangledAccount(fake.xrpc, identity)
+        return TangledOwnerSettingsApi(account, TangledUserApi(fake.xrpc, identity), TangledRepoApi(fake.xrpc, identity))
+    }
+
+    @Test
+    fun pinned_repositories_are_found_by_their_did_beside_one_s_own_to_pick_from() = runTest {
+        val profile = pinningApi(pinning()).settings(token, Owner.Me).value()
+
+        assertThat(profile.pinned).containsExactly(fr.arthurbrugiere.forgeline.core.model.RepoId("tangled.org", "core", fr.arthurbrugiere.forgeline.core.model.ForgeInstance.Tangled))
+        assertThat(profile.pinnable.map { it.fullName }).containsExactly("me.example/tools")
+        assertThat(profile.maxPinned).isEqualTo(6)
+    }
+
+    @Test
+    fun pins_are_written_as_dids_and_one_that_can_t_be_found_is_kept() = runTest {
+        val fake = pinning()
+        pinningApi(fake).change(token, Owner.Me, OwnerSettingsChange.Pinned(listOf(fr.arthurbrugiere.forgeline.core.model.RepoId("tangled.org", "core", fr.arthurbrugiere.forgeline.core.model.ForgeInstance.Tangled))))
+
+        assertThat(fake.to("com.atproto.repo.putRecord").single().text).contains(""""pinnedRepositories":["$REPO_DID","did:plc:gone"]""")
+    }
 }

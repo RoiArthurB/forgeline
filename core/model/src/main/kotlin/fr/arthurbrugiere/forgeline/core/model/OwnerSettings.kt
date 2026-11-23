@@ -112,6 +112,13 @@ data class OwnerSettings(
     val maxLinks: Int = 0,
     /** Null where the forge keeps no status (an organisation's, a Forgejo profile's). */
     val status: OwnerStatus? = null,
+    /**
+     * The repositories the profile shows first, in order; null where they aren't set through the API (GitHub's pins).
+     * [pinnable] are those that can be, [maxPinned] how many at most.
+     */
+    val pinned: List<RepoId>? = null,
+    val pinnable: List<RepoId> = emptyList(),
+    val maxPinned: Int = 0,
 )
 
 /** One thing to change in a person's or an organisation's settings. */
@@ -125,6 +132,9 @@ sealed interface OwnerSettingsChange {
     /** The other places to find them, all of them, in order. */
     data class Links(val links: List<String>) : OwnerSettingsChange
 
+    /** The repositories shown first, all of them, in order. */
+    data class Pinned(val repos: List<RepoId>) : OwnerSettingsChange
+
     /** A new status, showing for [clearAfter] (always when null); an empty one clears it. */
     data class Status(val status: OwnerStatus, val clearAfter: StatusDuration? = null) : OwnerSettingsChange
 }
@@ -136,6 +146,7 @@ fun OwnerSettings.with(change: OwnerSettingsChange): OwnerSettings = when (chang
     is OwnerSettingsChange.Choice -> choices[change.field]?.let { copy(choices = choices + (change.field to it.copy(value = change.value))) } ?: this
     is OwnerSettingsChange.Links -> copy(links = change.links)
     is OwnerSettingsChange.Status -> copy(status = change.status)
+    is OwnerSettingsChange.Pinned -> copy(pinned = change.repos)
 }
 
 /** Someone in an organisation, by the [id] its forge acts on them by, and their [role] there (null where it isn't told). */

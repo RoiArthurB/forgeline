@@ -1608,4 +1608,6 @@
     <string name="owner_settings_delete_body">%1$s and everything it holds are deleted. This can\'t be taken back.</string>
     <string name="owner_settings_delete_confirm">Delete the organization</string>
     <string name="owner_settings_deleted_body">Nothing of it is left on %1$s.</string>
+    <string name="owner_settings_pinned">Pinned repositories</string>
+    <string name="owner_settings_pinned_summary">Shown first on your profile, up to %1$d.</string>
 </resources>

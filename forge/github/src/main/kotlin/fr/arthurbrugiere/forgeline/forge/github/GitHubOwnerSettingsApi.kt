@@ -159,7 +159,7 @@ class GitHubOwnerSettingsApi(
                         is OwnerSettingsChange.Switch -> put(ORGANIZATION_SWITCHES[change.field] ?: return@forgeCall unsupported, change.on)
                         is OwnerSettingsChange.Choice ->
                             if (change.field == OwnerChoice.DEFAULT_REPO_PERMISSION) put("default_repository_permission", change.value) else return@forgeCall unsupported
-                        is OwnerSettingsChange.Links, is OwnerSettingsChange.Status -> return@forgeCall unsupported
+                        is OwnerSettingsChange.Links, is OwnerSettingsChange.Status, is OwnerSettingsChange.Pinned -> return@forgeCall unsupported
                     }
                 }
                 val response = httpClient.gitHubApi(apiBaseUrl, token, "orgs", owner.login, method = HttpMethod.Patch, body = body)

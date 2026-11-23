@@ -1617,4 +1617,6 @@
     <string name="owner_settings_delete_body">%1$s et tout ce qu’elle contient sont supprimés. C’est définitif.</string>
     <string name="owner_settings_delete_confirm">Supprimer l’organisation</string>
     <string name="owner_settings_deleted_body">Il n’en reste rien sur %1$s.</string>
+    <string name="owner_settings_pinned">Dépôts épinglés</string>
+    <string name="owner_settings_pinned_summary">Affichés en premier sur votre profil, jusqu’à %1$d.</string>
 </resources>

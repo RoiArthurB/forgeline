@@ -329,4 +329,17 @@ class OwnerSettingsScreenTest {
 
         assertThat(events).contains("rename:octopus")
     }
+
+    @Test
+    fun pinned_repositories_are_picked_among_one_s_own() {
+        val core = fr.arthurbrugiere.forgeline.core.model.RepoId("tangled.org", "core", ForgeInstance.Tangled)
+        val tools = fr.arthurbrugiere.forgeline.core.model.RepoId("me.example", "tools", ForgeInstance.Tangled)
+        setContent(profile(ownerSettings().copy(pinned = listOf(core), pinnable = listOf(tools), maxPinned = 6), ForgeInstance.Tangled))
+
+        composeRule.onNodeWithText("Pinned repositories").performClick()
+        composeRule.onNodeWithText("tools").performClick()
+        composeRule.onNodeWithText("Save").performClick()
+
+        assertThat(changes).containsExactly(OwnerSettingsChange.Pinned(listOf(core, tools)))
+    }
 }

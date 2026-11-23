@@ -61,11 +61,12 @@ class TangledUserApi internal constructor(
             is ForgeResult.Success -> page.value
         }
         val repoDids = stars.mapNotNull { it.starredRepo }.distinct()
-        val repos = coroutineScope { repoDids.map { async { starredRepo(it) } }.awaitAll() }
+        val repos = coroutineScope { repoDids.map { async { repoByDid(it) } }.awaitAll() }
         ForgeResult.Success(repos.filterNotNull())
     }
 
-    private suspend fun starredRepo(repoDid: String): RepoSummary? {
+    /** The repository [repoDid] names, as the index has it; null where it can't be found. */
+    internal suspend fun repoByDid(repoDid: String): RepoSummary? {
         val (uri, record) = (
             forgeCall {
                 asDid(repoDid).then { did ->

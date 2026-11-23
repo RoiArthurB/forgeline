@@ -101,7 +101,7 @@ class GitLabOwnerSettingsApi(private val httpClient: HttpClient, private val for
                             else -> put(GROUP_SWITCHES[change.field] ?: return@forgeCall unsupported, change.on)
                         }
                         is OwnerSettingsChange.Choice -> put(GROUP_CHOICES[change.field]?.first ?: return@forgeCall unsupported, change.value)
-                        is OwnerSettingsChange.Links, is OwnerSettingsChange.Status -> return@forgeCall unsupported
+                        is OwnerSettingsChange.Links, is OwnerSettingsChange.Status, is OwnerSettingsChange.Pinned -> return@forgeCall unsupported
                     }
                 }
                 httpClient.gitlabApi(forge, token, "groups", owner.login, method = HttpMethod.Put, body = body).toResult { body<JsonObject>().toGroup() }

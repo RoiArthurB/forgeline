@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -21,7 +22,9 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Close
@@ -69,6 +72,7 @@ import fr.arthurbrugiere.forgeline.core.model.OwnerStatus
 import fr.arthurbrugiere.forgeline.core.model.OwnerSwitch
 import fr.arthurbrugiere.forgeline.core.model.OwnerText
 import fr.arthurbrugiere.forgeline.core.model.RepoDeletion
+import fr.arthurbrugiere.forgeline.core.model.RepoId
 import fr.arthurbrugiere.forgeline.core.model.StatusDuration
 import fr.arthurbrugiere.forgeline.core.ui.soft.Soft
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
@@ -177,6 +181,8 @@ private sealed interface Editing {
 
     data object Rename : Editing
 
+    data object Pinned : Editing
+
     data object Delete : Editing
 
     data class Member(val member: OrgMember) : Editing
@@ -279,6 +285,10 @@ fun OwnerSettingsScreen(
             Editing.Links -> LinksSheet(
                 settings.links.orEmpty(), settings.maxLinks, saving = state.saving != null, refusal = refusal,
                 onSave = { save(OwnerSettingsChange.Links(it)) }, onDismiss = dismiss,
+            )
+            Editing.Pinned -> PinnedSheet(
+                settings.pinned.orEmpty(), settings.pinnable, settings.maxPinned, saving = state.saving != null,
+                onSave = { save(OwnerSettingsChange.Pinned(it)) }, onDismiss = dismiss,
             )
             Editing.Rename -> TextSheet(
                 stringResource(R.string.owner_settings_rename), state.login.substringAfterLast('/'), singleLine = true,
@@ -480,6 +490,9 @@ fun OwnerSettingsScreen(
                                         settings.texts.forEach { (field, value) ->
                                             EditRow(stringResource(field.label(organization)), value.ifBlank { none }) { editing = Editing.Text(field) }
                                         }
+                                        settings.pinned?.let { pinned ->
+                                            EditRow(stringResource(R.string.owner_settings_pinned), pinned.joinToString(", ") { it.name }.ifEmpty { none }) { editing = Editing.Pinned }
+                                        }
                                         settings.links?.let { links ->
                                             val summary = if (links.isEmpty()) none else links.joinToString(", ") { it.removePrefix("https://").removePrefix("http://") }
                                             EditRow(stringResource(R.string.owner_settings_links), summary) { editing = Editing.Links }
@@ -657,6 +670,22 @@ private val StatusDuration?.label: Int
         StatusDuration.DAY_7 -> R.string.owner_settings_status_7d
         StatusDuration.DAY_30 -> R.string.owner_settings_status_30d
     }
+
+/** The repositories a profile shows first, picked among one's own, as many as the forge keeps, in the order picked. */
+@Composable
+private fun PinnedSheet(current: List<RepoId>, pinnable: List<RepoId>, max: Int, saving: Boolean, onSave: (List<RepoId>) -> Unit, onDismiss: () -> Unit) {
+    var pinned by remember { mutableStateOf(current) }
+    SoftSheet(stringResource(R.string.owner_settings_pinned), onDismiss) {
+        Text(stringResource(R.string.owner_settings_pinned_summary, max), style = Soft.type.secondary, color = Soft.colors.inkMuted)
+        Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+            (current + pinnable.filterNot { it in current }).forEach { repo ->
+                val on = repo in pinned
+                SoftCheckRow(repo.name, on, { checked -> if (!checked) pinned = pinned - repo else if (pinned.size < max) pinned = pinned + repo })
+            }
+        }
+        SoftButton(stringResource(R.string.manage_save), onClick = { onSave(pinned) }, enabled = !saving && pinned != current)
+    }
+}
 
 /** The other places to find someone, each written out, as many as the forge keeps. */
 @Composable
