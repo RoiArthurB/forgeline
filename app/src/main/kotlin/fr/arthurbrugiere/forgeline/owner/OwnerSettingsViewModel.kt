@@ -13,7 +13,9 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettings
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
+import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.with
+import fr.arthurbrugiere.forgeline.repo.Loadable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -39,6 +41,9 @@ data class OwnerSettingsUiState(
     /** Counts the changes the forge took, so that what asked for one can close on it. */
     val saved: Int = 0,
     val applied: OwnerApplied? = null,
+    /** Whether the owner blocks people through the forge's API, and whom, read when asked for. */
+    val blocksSupported: Boolean = false,
+    val blocked: Loadable<List<UserSummary>> = Loadable.Idle,
 )
 
 /** A person's own profile settings, or an organisation's, each changed on its forge as soon as it is here. */
@@ -57,7 +62,7 @@ class OwnerSettingsViewModel @AssistedInject constructor(
 
     private val owner: Owner = if (organization) Owner.Organization(login) else Owner.Me
 
-    private val _state = MutableStateFlow(OwnerSettingsUiState(forge, login, owner))
+    private val _state = MutableStateFlow(OwnerSettingsUiState(forge, login, owner, blocksSupported = repository.blocksSupported(forge, owner)))
     val state: StateFlow<OwnerSettingsUiState> = _state.asStateFlow()
 
     private var serial = 0
@@ -105,6 +110,32 @@ class OwnerSettingsViewModel @AssistedInject constructor(
     }
 
     fun appliedShown() = _state.update { it.copy(applied = null) }
+
+    fun loadBlocked() {
+        if (_state.value.blocked == Loadable.Loading || _state.value.blocked is Loadable.Loaded) return
+        _state.update { it.copy(blocked = Loadable.Loading) }
+        viewModelScope.launch {
+            val blocked = when (val result = repository.blocked(forge, owner)) {
+                is ForgeResult.Success -> Loadable.Loaded(result.value)
+                is ForgeResult.Failure -> Loadable.Failed(result.error)
+            }
+            _state.update { it.copy(blocked = blocked) }
+        }
+    }
+
+    /** Blocks [person] or lets them be; shown at once, and taken back if the forge refuses. */
+    fun setBlocked(person: String, blocked: Boolean) {
+        val login = person.trim().removePrefix("@").ifEmpty { return }
+        val before = (_state.value.blocked as? Loadable.Loaded)?.value.orEmpty()
+        val after = if (blocked) before.filterNot { it.login.equals(login, ignoreCase = true) } + UserSummary(login, null, false, forge) else before.filterNot { it.login == login }
+        _state.update { it.copy(blocked = Loadable.Loaded(after), refused = null) }
+        viewModelScope.launch {
+            when (val result = repository.setBlocked(forge, owner, login, blocked)) {
+                is ForgeResult.Success -> _state.update { it.copy(saved = it.saved + 1) }
+                is ForgeResult.Failure -> _state.update { it.copy(blocked = Loadable.Loaded(before), refused = result.error) }
+            }
+        }
+    }
 
     fun refusalShown() = _state.update { it.copy(refused = null) }
 

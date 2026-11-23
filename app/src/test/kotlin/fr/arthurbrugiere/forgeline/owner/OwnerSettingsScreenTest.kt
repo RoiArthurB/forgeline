@@ -48,6 +48,8 @@ class OwnerSettingsScreenTest {
                 onRefusalShown = {},
                 onErrorShown = {},
                 onSignIn = { events += "sign-in" },
+                onLoadBlocked = { events += "load-blocked" },
+                onSetBlocked = { login, blocked -> events += "${if (blocked) "block" else "unblock"}:$login" },
             )
         }
     }
@@ -171,5 +173,27 @@ class OwnerSettingsScreenTest {
         setContent(profile())
 
         composeRule.onNodeWithText("Status").assertDoesNotExist()
+    }
+
+    @Test
+    fun the_blocked_are_listed_unblocked_and_someone_blocked_by_name() {
+        val blocked = fr.arthurbrugiere.forgeline.repo.Loadable.Loaded(listOf(fr.arthurbrugiere.forgeline.core.model.UserSummary("spammer", null, false)))
+        setContent(profile().copy(blocksSupported = true, blocked = blocked))
+
+        composeRule.onNodeWithText("Blocked").performClick()
+        composeRule.onNodeWithText("@spammer").assertIsDisplayed()
+        composeRule.onNodeWithText("Unblock").performClick()
+        composeRule.onNodeWithText("Block someone").performClick()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("troll")
+        composeRule.onNodeWithText("Save").performClick()
+
+        assertThat(events).containsExactly("load-blocked", "unblock:spammer", "block:troll").inOrder()
+    }
+
+    @Test
+    fun a_forge_without_blocks_has_no_such_tab() {
+        setContent(profile())
+
+        composeRule.onNodeWithText("Blocked").assertDoesNotExist()
     }
 }

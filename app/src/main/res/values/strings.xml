@@ -1553,4 +1553,12 @@
     <string name="owner_settings_status_3d">In 3 days</string>
     <string name="owner_settings_status_7d">In a week</string>
     <string name="owner_settings_status_30d">In 30 days</string>
+    <string name="owner_settings_blocked">Blocked</string>
+    <string name="owner_settings_blocked_summary">People you block can\'t follow you, comment on what you open, or open issues and pull requests on your repositories.</string>
+    <string name="owner_settings_blocked_organization_summary">People the organization blocks can\'t comment, open issues or pull requests, or follow in its repositories.</string>
+    <string name="owner_settings_block">Block someone</string>
+    <string name="owner_settings_block_summary">By their username</string>
+    <string name="owner_settings_blocked_none">Nobody is blocked.</string>
+    <string name="owner_settings_unblock">Unblock</string>
+    <string name="owner_settings_blocked_error">Couldn\'t load who is blocked</string>
 </resources>

@@ -12,6 +12,7 @@ import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.OwnerStatus
 import fr.arthurbrugiere.forgeline.core.model.OwnerSwitch
 import fr.arthurbrugiere.forgeline.core.model.OwnerText
+import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.forge.common.forgeCall
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -114,6 +115,29 @@ class GitHubOwnerSettingsApi(
             else -> response.failure()
         }
     }
+
+    override fun blocksSupported(owner: Owner) = true
+
+    override suspend fun blocked(token: String, owner: Owner): ForgeResult<List<UserSummary>> = forgeCall {
+        val response = httpClient.gitHubApi(apiBaseUrl, token, *owner.blocks(), query = mapOf("per_page" to "100"))
+        if (!response.status.isSuccess()) return@forgeCall response.refusal(owner.scope)
+        response.toResult {
+            body<JsonArray>().mapNotNull { it as? JsonObject }.map { UserSummary(it.text("login"), it.text("avatar_url").ifEmpty { null }, it.text("type") == "Organization") }
+        }
+    }
+
+    override suspend fun setBlocked(token: String, owner: Owner, login: String, blocked: Boolean): ForgeResult<Unit> = forgeCall {
+        val response = httpClient.gitHubApi(apiBaseUrl, token, *owner.blocks(), login, method = if (blocked) HttpMethod.Put else HttpMethod.Delete)
+        if (!response.status.isSuccess()) return@forgeCall response.refusal(owner.scope)
+        ForgeResult.Success(Unit)
+    }
+
+    private fun Owner.blocks(): Array<String> = when (this) {
+        Owner.Me -> arrayOf("user", "blocks")
+        is Owner.Organization -> arrayOf("orgs", login, "blocks")
+    }
+
+    private val Owner.scope get() = if (this == Owner.Me) PROFILE_SCOPE else ORGANIZATION_SCOPE
 
     /** The signed-in person's status, from the GraphQL API alone; an empty one for none. */
     private suspend fun status(token: String): ForgeResult<OwnerStatus> =

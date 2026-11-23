@@ -17,4 +17,10 @@ class FakeOwnerSettingsRepository(
     override suspend fun settings(forge: ForgeInstance, owner: Owner): ForgeResult<OwnerSettings> = api.settings("tok", owner)
 
     override suspend fun change(forge: ForgeInstance, owner: Owner, change: OwnerSettingsChange): ForgeResult<OwnerSettings> = api.change("tok", owner, change)
+
+    override fun blocksSupported(forge: ForgeInstance, owner: Owner): Boolean = api.blocksSupported(owner)
+
+    override suspend fun blocked(forge: ForgeInstance, owner: Owner) = api.blocked("tok", owner)
+
+    override suspend fun setBlocked(forge: ForgeInstance, owner: Owner, login: String, blocked: Boolean) = api.setBlocked("tok", owner, login, blocked)
 }

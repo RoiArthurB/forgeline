@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettings
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
+import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,6 +27,13 @@ interface OwnerSettingsRepository {
 
     /** Makes [change], and answers the settings as the forge then has them. */
     suspend fun change(forge: ForgeInstance, owner: Owner, change: OwnerSettingsChange): ForgeResult<OwnerSettings>
+
+    /** Whether [owner] blocks people on [forge] through its API. */
+    fun blocksSupported(forge: ForgeInstance, owner: Owner): Boolean
+
+    suspend fun blocked(forge: ForgeInstance, owner: Owner): ForgeResult<List<UserSummary>>
+
+    suspend fun setBlocked(forge: ForgeInstance, owner: Owner, login: String, blocked: Boolean): ForgeResult<Unit>
 }
 
 @Singleton
@@ -50,6 +58,18 @@ class DefaultOwnerSettingsRepository @Inject constructor(
     override suspend fun settings(forge: ForgeInstance, owner: Owner): ForgeResult<OwnerSettings> {
         val token = accounts.tokenOn(forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
         return clients.ownerSettings(forge).settings(token, owner)
+    }
+
+    override fun blocksSupported(forge: ForgeInstance, owner: Owner): Boolean = clients.ownerSettings(forge).blocksSupported(owner)
+
+    override suspend fun blocked(forge: ForgeInstance, owner: Owner): ForgeResult<List<UserSummary>> {
+        val token = accounts.tokenOn(forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return clients.ownerSettings(forge).blocked(token, owner)
+    }
+
+    override suspend fun setBlocked(forge: ForgeInstance, owner: Owner, login: String, blocked: Boolean): ForgeResult<Unit> {
+        val token = accounts.tokenOn(forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return clients.ownerSettings(forge).setBlocked(token, owner, login.trim().removePrefix("@"), blocked)
     }
 
     override suspend fun change(forge: ForgeInstance, owner: Owner, change: OwnerSettingsChange): ForgeResult<OwnerSettings> {

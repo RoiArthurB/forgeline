@@ -1562,4 +1562,12 @@
     <string name="owner_settings_status_3d">Dans 3 jours</string>
     <string name="owner_settings_status_7d">Dans une semaine</string>
     <string name="owner_settings_status_30d">Dans 30 jours</string>
+    <string name="owner_settings_blocked">Bloqués</string>
+    <string name="owner_settings_blocked_summary">Les personnes bloquées ne peuvent ni vous suivre, ni commenter ce que vous ouvrez, ni ouvrir de tickets ou de pull requests sur vos dépôts.</string>
+    <string name="owner_settings_blocked_organization_summary">Les personnes que l’organisation bloque ne peuvent ni commenter, ni ouvrir de tickets ou de pull requests, ni suivre dans ses dépôts.</string>
+    <string name="owner_settings_block">Bloquer quelqu’un</string>
+    <string name="owner_settings_block_summary">Par son nom d’utilisateur</string>
+    <string name="owner_settings_blocked_none">Personne n’est bloqué.</string>
+    <string name="owner_settings_unblock">Débloquer</string>
+    <string name="owner_settings_blocked_error">Impossible de charger les personnes bloquées</string>
 </resources>

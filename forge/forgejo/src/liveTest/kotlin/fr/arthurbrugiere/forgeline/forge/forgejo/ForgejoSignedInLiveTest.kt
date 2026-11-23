@@ -118,6 +118,8 @@ class ForgejoSignedInLiveTest {
             check(fr.arthurbrugiere.forgeline.core.model.OwnerChoice.VISIBILITY in settings.choices) { "${org.login}: $settings" }
             System.err.println("CODEBERG organisation owned: $owns, ${settings.texts.size} texts")
         }
-        System.err.println("CODEBERG profile: ${profile.texts.size} texts, ${profile.switches.size} switches")
+        // Who is blocked: read, never changed.
+        val blocked = api.blocked(token, fr.arthurbrugiere.forgeline.core.model.Owner.Me).value()
+        System.err.println("CODEBERG profile: ${profile.texts.size} texts, ${profile.switches.size} switches, ${blocked.size} blocked")
     }
 }

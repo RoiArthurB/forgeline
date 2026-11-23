@@ -3,6 +3,7 @@ package fr.arthurbrugiere.forgeline.core.forge
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettings
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
+import fr.arthurbrugiere.forgeline.core.model.UserSummary
 
 /**
  * What a person sets on their own profile, and an organisation's owners on it. Every call needs a token. Whatever a
@@ -22,6 +23,14 @@ interface OwnerSettingsApi {
 
     /** Whether the signed-in person may change [organization]'s settings: one of its owners (a group's Owner). */
     suspend fun administers(token: String, organization: String): ForgeResult<Boolean> = ForgeResult.Success(false)
+
+    /** Whether [owner] blocks people here: GitLab lets only its administrators, Tangled and SourceHut have no blocks. */
+    fun blocksSupported(owner: Owner): Boolean = false
+
+    /** The people [owner] blocks: they can't comment, open issues or pull requests, or follow. */
+    suspend fun blocked(token: String, owner: Owner): ForgeResult<List<UserSummary>> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    suspend fun setBlocked(token: String, owner: Owner, login: String, blocked: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
 }
 
 /** A forge where none of it can be set through the API. */

@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.model.OwnerSettings
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.OwnerSwitch
 import fr.arthurbrugiere.forgeline.core.model.OwnerText
+import fr.arthurbrugiere.forgeline.core.model.UserSummary
 import fr.arthurbrugiere.forgeline.core.model.with
 
 /** A profile as GitHub's would read: the texts it keeps, whether its person is for hire, and two links. */
@@ -75,6 +76,25 @@ class FakeOwnerSettingsApi(
             is Owner.Organization -> organizations[owner.login] = changed
         }
         return ForgeResult.Success(changed)
+    }
+
+    /** Who each owner blocks, by its key (`me`, or the organisation's login). */
+    val blocks: MutableMap<String, MutableList<UserSummary>> = mutableMapOf("me" to mutableListOf(UserSummary("spammer", null, false)))
+
+    override fun blocksSupported(owner: Owner): Boolean = true
+
+    override suspend fun blocked(token: String, owner: Owner): ForgeResult<List<UserSummary>> {
+        calls += "blocked:${owner.key()}"
+        failure?.let { return ForgeResult.Failure(it) }
+        return ForgeResult.Success(blocks[owner.key()].orEmpty().toList())
+    }
+
+    override suspend fun setBlocked(token: String, owner: Owner, login: String, blocked: Boolean): ForgeResult<Unit> {
+        calls += "${if (blocked) "block" else "unblock"}:${owner.key()}:$login"
+        writeFailure?.let { return ForgeResult.Failure(it) }
+        val list = blocks.getOrPut(owner.key()) { mutableListOf() }
+        if (blocked) list += UserSummary(login, null, false) else list.removeAll { it.login == login }
+        return ForgeResult.Success(Unit)
     }
 
     override suspend fun administers(token: String, organization: String): ForgeResult<Boolean> {

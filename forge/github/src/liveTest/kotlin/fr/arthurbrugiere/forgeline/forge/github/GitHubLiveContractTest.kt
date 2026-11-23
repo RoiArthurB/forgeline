@@ -573,5 +573,8 @@ class GitHubLiveContractTest {
         val github = api.settings(pat, fr.arthurbrugiere.forgeline.core.model.Owner.Organization("github"))
         assertWithMessage("github: $github").that((github as ForgeResult.Success).value.texts[fr.arthurbrugiere.forgeline.core.model.OwnerText.NAME]).isEqualTo("GitHub")
         assertWithMessage("owns github").that(api.administers(pat, "github")).isNotEqualTo(ForgeResult.Success(true))
+        // Who is blocked, read where the token has the user scope; one without it is told to sign in again.
+        val blocked = api.blocked(pat, fr.arthurbrugiere.forgeline.core.model.Owner.Me)
+        assertWithMessage("blocked: $blocked").that(blocked is ForgeResult.Success || blocked == ForgeResult.Failure(fr.arthurbrugiere.forgeline.core.forge.ForgeError.Unauthorized)).isTrue()
     }
 }

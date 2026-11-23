@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
@@ -74,6 +75,7 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTextField
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTokens
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftTonalButton
 import fr.arthurbrugiere.forgeline.navigation.OwnerSettingsRoute
+import fr.arthurbrugiere.forgeline.repo.Loadable
 import fr.arthurbrugiere.forgeline.repo.settings.EditRow
 import fr.arthurbrugiere.forgeline.repo.settings.LeaveRow
 import fr.arthurbrugiere.forgeline.repo.settings.TextSheet
@@ -104,11 +106,13 @@ fun OwnerSettingsRoute(route: OwnerSettingsRoute, onBack: () -> Unit, onSignIn: 
         onSignIn = onSignIn,
         onRefusalShown = viewModel::refusalShown,
         onErrorShown = viewModel::errorShown,
+        onLoadBlocked = viewModel::loadBlocked,
+        onSetBlocked = viewModel::setBlocked,
     )
 }
 
 /** The groups the settings are read in, one at a time under the header; one with nothing in it isn't offered. */
-internal enum class OwnerTab { ABOUT, OPTIONS }
+internal enum class OwnerTab { ABOUT, OPTIONS, BLOCKED }
 
 /** What is being written in a sheet. */
 private sealed interface Editing {
@@ -119,6 +123,8 @@ private sealed interface Editing {
     data class Choice(val field: OwnerChoice) : Editing
 
     data object Status : Editing
+
+    data object Block : Editing
 }
 
 /**
@@ -141,6 +147,8 @@ fun OwnerSettingsScreen(
     onUndo: () -> Unit = {},
     onAppliedShown: () -> Unit = {},
     onSignIn: () -> Unit = {},
+    onLoadBlocked: () -> Unit = {},
+    onSetBlocked: (login: String, blocked: Boolean) -> Unit = { _, _ -> },
 ) {
     val colors = Soft.colors
     val settings = state.settings
@@ -206,6 +214,14 @@ fun OwnerSettingsScreen(
                 settings.links.orEmpty(), settings.maxLinks, saving = state.saving != null, refusal = refusal,
                 onSave = { save(OwnerSettingsChange.Links(it)) }, onDismiss = dismiss,
             )
+            Editing.Block -> TextSheet(
+                stringResource(R.string.owner_settings_block), "", singleLine = true, saving = false, refusal = null,
+                onSave = {
+                    editing = null
+                    onSetBlocked(it, true)
+                },
+                onDismiss = dismiss,
+            )
             Editing.Status -> StatusSheet(settings.status ?: OwnerStatus(), saving = state.saving != null, refusal = refusal, onSave = save, onDismiss = dismiss)
             is Editing.Choice -> settings.choices[sheet.field]?.let { choice ->
                 SoftChoiceSheet(
@@ -221,6 +237,7 @@ fun OwnerSettingsScreen(
         buildList {
             if (it.texts.isNotEmpty() || it.links != null || it.status != null) add(OwnerTab.ABOUT)
             if (it.switches.isNotEmpty() || it.choices.isNotEmpty()) add(OwnerTab.OPTIONS)
+            if (state.blocksSupported) add(OwnerTab.BLOCKED)
         }
     }.orEmpty()
     var picked by rememberSaveable { mutableStateOf(OwnerTab.ABOUT) }
@@ -228,6 +245,7 @@ fun OwnerSettingsScreen(
     val listStates = remember { mutableMapOf<OwnerTab, LazyListState>() }
     val listState = listStates.getOrPut(tab) { LazyListState() }
     val none = stringResource(R.string.manage_none)
+    LaunchedEffect(tab) { if (tab == OwnerTab.BLOCKED) onLoadBlocked() }
 
     Box(modifier.fillMaxSize().background(colors.ground)) {
         val pullState = rememberPullToRefreshState()
@@ -313,6 +331,32 @@ fun OwnerSettingsScreen(
                                         }
                                         Spacer(Modifier.size(12.dp))
                                         LeaveRow(stringResource(R.string.repo_settings_more, forgeName), stringResource(R.string.owner_settings_more_summary)) { onOpenUrl(webUrl) }
+                                    }
+                                }
+                                OwnerTab.BLOCKED -> item(key = "blocked") {
+                                    Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
+                                        Text(
+                                            stringResource(if (organization) R.string.owner_settings_blocked_organization_summary else R.string.owner_settings_blocked_summary),
+                                            style = Soft.type.secondary, color = colors.inkMuted, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                                        )
+                                        EditRow(stringResource(R.string.owner_settings_block), stringResource(R.string.owner_settings_block_summary)) { editing = Editing.Block }
+                                        when (val blocked = state.blocked) {
+                                            is Loadable.Loaded -> if (blocked.value.isEmpty()) {
+                                                Text(stringResource(R.string.owner_settings_blocked_none), style = Soft.type.secondary, color = colors.inkMuted, modifier = Modifier.padding(20.dp))
+                                            } else {
+                                                blocked.value.forEach { person ->
+                                                    SettingRow(
+                                                        fr.arthurbrugiere.forgeline.ui.handleOf(person.login), null,
+                                                        trailing = { SoftTonalButton(stringResource(R.string.owner_settings_unblock), onClick = { onSetBlocked(person.login, false) }) },
+                                                    )
+                                                }
+                                            }
+                                            is Loadable.Failed -> SoftNotice(
+                                                stringResource(R.string.owner_settings_blocked_error), stringResource(blocked.error.message),
+                                                action = stringResource(R.string.retry), onAction = onLoadBlocked,
+                                            )
+                                            else -> SoftLoadingRows(stringResource(R.string.owner_settings_loading), rows = 3, leadingDot = false)
+                                        }
                                     }
                                 }
                                 OwnerTab.OPTIONS -> item(key = "options") {
@@ -446,6 +490,7 @@ internal fun ownerSettingsUrl(forge: ForgeInstance, owner: Owner): String = when
 internal fun OwnerTab.label(organization: Boolean): Int = when (this) {
     OwnerTab.ABOUT -> R.string.repo_settings_about
     OwnerTab.OPTIONS -> if (organization) R.string.owner_settings_rules else R.string.owner_settings_preferences
+    OwnerTab.BLOCKED -> R.string.owner_settings_blocked
 }
 
 internal fun OwnerText.label(organization: Boolean): Int = when (this) {

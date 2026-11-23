@@ -33,6 +33,9 @@ class ForgejoOwnerSettingsApiTest {
             "/api/v1/user/settings" -> json(settingsJson)
             "/api/v1/orgs/octo" -> json(orgJson)
             "/api/v1/user" -> json("""{"login":"mona"}""")
+            "/api/v1/user/list_blocked", "/api/v1/orgs/octo/list_blocked" -> json("""[{"block_id":42,"created_at":"2026-11-01T00:00:00Z"}]""")
+            "/api/v1/users/search" -> json("""{"ok":true,"data":[{"id":42,"login":"spammer","avatar_url":"https://codeberg.org/avatars/42"}]}""")
+            "/api/v1/user/blocks" -> json("""[{"id":42,"login":"spammer","avatar_url":"https://gitea.com/avatars/42"}]""")
             "/api/v1/users/mona/orgs/octo/permissions" -> json("""{"is_owner":true,"is_admin":true,"can_write":true,"can_read":true,"can_create_repository":true}""")
             else -> json("""{"message":"Not Found"}""", io.ktor.http.HttpStatusCode.NotFound)
         }
@@ -114,5 +117,34 @@ class ForgejoOwnerSettingsApiTest {
             }
         }
         assertThat(member.administers("tok", "octo")).isEqualTo(ForgeResult.Success(false))
+    }
+
+    @Test
+    fun forgejo_lists_blocked_ids_each_then_looked_up() = runTest {
+        val blocked = api().blocked("tok", Owner.Me).value()
+
+        assertThat(blocked.map { it.login }).containsExactly("spammer")
+        assertThat(codeberg.requests.single { it.url.encodedPath == "/api/v1/users/search" }.url.parameters["uid"]).isEqualTo("42")
+        assertThat(api().blocked("tok", Owner.Organization("octo")).value().map { it.login }).containsExactly("spammer")
+    }
+
+    @Test
+    fun forgejo_blocks_and_unblocks_at_two_addresses_each_put() = runTest {
+        api().setBlocked("tok", Owner.Me, "spammer", blocked = true)
+        api().setBlocked("tok", Owner.Organization("octo"), "spammer", blocked = false)
+
+        val writes = codeberg.requests.filter { it.method != HttpMethod.Get }
+        assertThat(writes.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly("PUT /api/v1/user/block/spammer", "PUT /api/v1/orgs/octo/unblock/spammer").inOrder()
+    }
+
+    @Test
+    fun gitea_lists_blocks_whole_and_unblocks_with_a_delete() = runTest {
+        val gitea = ForgejoOwnerSettingsApi(codeberg.client { route(it) }, ForgeInstance.Gitea)
+
+        assertThat(gitea.blocked("tok", Owner.Me).value().map { it.login }).containsExactly("spammer")
+        gitea.setBlocked("tok", Owner.Me, "spammer", blocked = false)
+
+        assertThat(codeberg.requests.last().let { "${it.method.value} ${it.url.encodedPath}" }).isEqualTo("DELETE /api/v1/user/blocks/spammer")
+        assertThat(codeberg.requests.none { it.url.encodedPath == "/api/v1/users/search" }).isTrue()
     }
 }

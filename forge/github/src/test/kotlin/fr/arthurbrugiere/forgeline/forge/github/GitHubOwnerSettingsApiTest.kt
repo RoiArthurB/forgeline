@@ -42,6 +42,8 @@ class GitHubOwnerSettingsApiTest {
         "/user" -> json(userJson)
         "/user/social_accounts" -> if (request.method == HttpMethod.Get) json(socialJson) else respond("", HttpStatusCode.NoContent)
         "/orgs/octo" -> json(orgJson)
+        "/user/blocks", "/orgs/octo/blocks" -> json("""[{"login":"spammer","avatar_url":"https://avatars.example/spammer","type":"User"}]""")
+        "/user/blocks/spammer", "/orgs/octo/blocks/spammer" -> respond("", HttpStatusCode.NoContent)
         "/user/memberships/orgs/octo" -> json("""{"role":"admin","state":"active"}""")
         "/graphql" -> if ("changeUserStatus" in request.sent) {
             json("""{"data":{"changeUserStatus":{"status":{"message":"Writing"}}}}""")
@@ -187,5 +189,24 @@ class GitHubOwnerSettingsApiTest {
     @Test
     fun an_organisation_has_no_status() = runTest {
         assertThat(api().settings("tok", Owner.Organization("octo")).value().status).isNull()
+    }
+
+    @Test
+    fun one_s_blocks_and_an_organisation_s_are_listed_put_and_deleted() = runTest {
+        val blocked = api().blocked("tok", Owner.Me).value()
+        assertThat(blocked.map { it.login }).containsExactly("spammer")
+        assertThat(api().blocked("tok", Owner.Organization("octo")).value().single().avatarUrl).isEqualTo("https://avatars.example/spammer")
+
+        api().setBlocked("tok", Owner.Me, "spammer", blocked = true)
+        api().setBlocked("tok", Owner.Organization("octo"), "spammer", blocked = false)
+
+        assertThat(requests.filter { it.method != HttpMethod.Get }.map { it.call }).containsExactly("PUT /user/blocks/spammer", "DELETE /orgs/octo/blocks/spammer").inOrder()
+    }
+
+    @Test
+    fun an_organisation_s_blocks_want_admin_org() = runTest {
+        val refused = api { json("""{"message":"Not Found"}""", HttpStatusCode.NotFound, scopes = "repo, user") }.blocked("tok", Owner.Organization("octo"))
+
+        assertThat(refused).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
     }
 }

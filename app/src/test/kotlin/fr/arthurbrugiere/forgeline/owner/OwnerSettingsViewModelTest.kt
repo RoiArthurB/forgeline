@@ -98,4 +98,36 @@ class OwnerSettingsViewModelTest {
 
         assertThat(api.changes).isEmpty()
     }
+
+    @Test
+    fun who_is_blocked_is_read_when_asked_and_blocking_shows_at_once() = test {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.blocksSupported).isTrue()
+        assertThat(viewModel.state.value.blocked).isEqualTo(fr.arthurbrugiere.forgeline.repo.Loadable.Idle)
+
+        viewModel.loadBlocked()
+        advanceUntilIdle()
+        viewModel.setBlocked("@troll", blocked = true)
+        viewModel.setBlocked("spammer", blocked = false)
+
+        val shown = (viewModel.state.value.blocked as fr.arthurbrugiere.forgeline.repo.Loadable.Loaded).value.map { it.login }
+        assertThat(shown).containsExactly("troll")
+        advanceUntilIdle()
+        assertThat(api.calls).containsAtLeast("block:me:troll", "unblock:me:spammer").inOrder()
+    }
+
+    @Test
+    fun a_refused_block_is_taken_back() = test {
+        val viewModel = viewModel()
+        viewModel.loadBlocked()
+        advanceUntilIdle()
+        api.writeFailure = ForgeError.Unauthorized
+
+        viewModel.setBlocked("troll", blocked = true)
+        advanceUntilIdle()
+
+        assertThat((viewModel.state.value.blocked as fr.arthurbrugiere.forgeline.repo.Loadable.Loaded).value.map { it.login }).containsExactly("spammer")
+        assertThat(viewModel.state.value.refused).isEqualTo(ForgeError.Unauthorized)
+    }
 }
