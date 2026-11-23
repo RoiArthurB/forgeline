@@ -7,6 +7,7 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeClients
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.OrgMembers
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettings
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
@@ -34,6 +35,25 @@ interface OwnerSettingsRepository {
     suspend fun blocked(forge: ForgeInstance, owner: Owner): ForgeResult<List<UserSummary>>
 
     suspend fun setBlocked(forge: ForgeInstance, owner: Owner, login: String, blocked: Boolean): ForgeResult<Unit>
+
+    /** Whether an organisation's members are managed on [forge] through its API. */
+    fun membersSupported(forge: ForgeInstance): Boolean
+
+    suspend fun members(forge: ForgeInstance, organization: String): ForgeResult<OrgMembers>
+
+    /** One change to an organisation's members: see [MemberChange]. */
+    suspend fun changeMembers(forge: ForgeInstance, organization: String, change: MemberChange): ForgeResult<Unit>
+}
+
+/** Something done to an organisation's members. */
+sealed interface MemberChange {
+    data class Role(val member: String, val role: String) : MemberChange
+
+    data class Remove(val member: String) : MemberChange
+
+    data class Invite(val invitee: String, val role: String) : MemberChange
+
+    data class Cancel(val invitation: String) : MemberChange
 }
 
 @Singleton
@@ -70,6 +90,24 @@ class DefaultOwnerSettingsRepository @Inject constructor(
     override suspend fun setBlocked(forge: ForgeInstance, owner: Owner, login: String, blocked: Boolean): ForgeResult<Unit> {
         val token = accounts.tokenOn(forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
         return clients.ownerSettings(forge).setBlocked(token, owner, login.trim().removePrefix("@"), blocked)
+    }
+
+    override fun membersSupported(forge: ForgeInstance): Boolean = clients.ownerSettings(forge).membersSupported
+
+    override suspend fun members(forge: ForgeInstance, organization: String): ForgeResult<OrgMembers> {
+        val token = accounts.tokenOn(forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        return clients.ownerSettings(forge).members(token, organization)
+    }
+
+    override suspend fun changeMembers(forge: ForgeInstance, organization: String, change: MemberChange): ForgeResult<Unit> {
+        val token = accounts.tokenOn(forge) ?: return ForgeResult.Failure(ForgeError.Unauthorized)
+        val api = clients.ownerSettings(forge)
+        return when (change) {
+            is MemberChange.Role -> api.setRole(token, organization, change.member, change.role)
+            is MemberChange.Remove -> api.removeMember(token, organization, change.member)
+            is MemberChange.Invite -> api.invite(token, organization, change.invitee.trim().removePrefix("@"), change.role)
+            is MemberChange.Cancel -> api.cancelInvitation(token, organization, change.invitation)
+        }
     }
 
     override suspend fun change(forge: ForgeInstance, owner: Owner, change: OwnerSettingsChange): ForgeResult<OwnerSettings> {

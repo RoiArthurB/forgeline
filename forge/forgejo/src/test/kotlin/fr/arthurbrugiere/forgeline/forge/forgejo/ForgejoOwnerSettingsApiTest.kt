@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
 import fr.arthurbrugiere.forgeline.core.model.OwnerSwitch
 import fr.arthurbrugiere.forgeline.core.model.OwnerText
 import io.ktor.client.engine.mock.MockRequestHandleScope
+import io.ktor.client.engine.mock.respond
 import io.ktor.client.request.HttpRequestData
 import io.ktor.client.request.HttpResponseData
 import io.ktor.http.HttpMethod
@@ -35,6 +36,11 @@ class ForgejoOwnerSettingsApiTest {
             "/api/v1/user" -> json("""{"login":"mona"}""")
             "/api/v1/user/list_blocked", "/api/v1/orgs/octo/list_blocked" -> json("""[{"block_id":42,"created_at":"2026-11-01T00:00:00Z"}]""")
             "/api/v1/users/search" -> json("""{"ok":true,"data":[{"id":42,"login":"spammer","avatar_url":"https://codeberg.org/avatars/42"}]}""")
+            "/api/v1/orgs/octo/members" -> json("""[{"id":1,"login":"mona","avatar_url":"https://codeberg.org/avatars/1"},{"id":2,"login":"hubot","avatar_url":""}]""")
+            "/api/v1/orgs/octo/teams" -> json("""[{"id":12,"name":"Writers","permission":"write"},{"id":11,"name":"Owners","permission":"owner"}]""")
+            "/api/v1/teams/11/members" -> json("""[{"login":"mona"}]""")
+            "/api/v1/teams/12/members" -> json("""[{"login":"mona"},{"login":"hubot"}]""")
+            "/api/v1/orgs/octo/members/hubot", "/api/v1/teams/12/members/newcomer" -> respond("", io.ktor.http.HttpStatusCode.NoContent)
             "/api/v1/user/blocks" -> json("""[{"id":42,"login":"spammer","avatar_url":"https://gitea.com/avatars/42"}]""")
             "/api/v1/users/mona/orgs/octo/permissions" -> json("""{"is_owner":true,"is_admin":true,"can_write":true,"can_read":true,"can_create_repository":true}""")
             else -> json("""{"message":"Not Found"}""", io.ktor.http.HttpStatusCode.NotFound)
@@ -146,5 +152,25 @@ class ForgejoOwnerSettingsApiTest {
 
         assertThat(codeberg.requests.last().let { "${it.method.value} ${it.url.encodedPath}" }).isEqualTo("DELETE /api/v1/user/blocks/spammer")
         assertThat(codeberg.requests.none { it.url.encodedPath == "/api/v1/users/search" }).isTrue()
+    }
+
+    @Test
+    fun an_organisation_s_members_are_named_by_their_most_trusted_team() = runTest {
+        val members = api().members("tok", "octo").value()
+
+        assertThat(members.members.map { it.login to it.role }).containsExactly("mona" to "11", "hubot" to "12").inOrder()
+        assertThat(members.roles).containsExactly("11", "12").inOrder()
+        assertThat(members.roleNames).containsExactly("11", "Owners", "12", "Writers")
+        assertThat(members.changesRoles).isFalse()
+        assertThat(members.invitesByEmail).isFalse()
+    }
+
+    @Test
+    fun someone_is_added_to_a_team_and_a_member_removed_from_the_organisation() = runTest {
+        api().invite("tok", "octo", "newcomer", "12")
+        api().removeMember("tok", "octo", "hubot")
+
+        val writes = codeberg.requests.filter { it.method != HttpMethod.Get }
+        assertThat(writes.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly("PUT /api/v1/teams/12/members/newcomer", "DELETE /api/v1/orgs/octo/members/hubot").inOrder()
     }
 }

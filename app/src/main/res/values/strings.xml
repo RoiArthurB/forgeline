@@ -1561,4 +1561,27 @@
     <string name="owner_settings_blocked_none">Nobody is blocked.</string>
     <string name="owner_settings_unblock">Unblock</string>
     <string name="owner_settings_blocked_error">Couldn\'t load who is blocked</string>
+    <string name="owner_settings_members">Members</string>
+    <string name="owner_settings_invite">Invite someone</string>
+    <string name="owner_settings_add_member">Add someone to a team</string>
+    <string name="owner_settings_invite_by_email">Username or email</string>
+    <string name="owner_settings_invite_by_username">Username</string>
+    <string name="owner_settings_invited">Invited</string>
+    <string name="owner_settings_cancel_invitation">Cancel</string>
+    <string name="owner_settings_members_error">Couldn\'t load the members</string>
+    <string name="owner_settings_send_invitation">Send invitation</string>
+    <string name="owner_settings_add">Add</string>
+    <string name="owner_settings_remove">Remove from the organization</string>
+    <string name="owner_settings_remove_title">Remove %1$s?</string>
+    <string name="owner_settings_remove_body">They lose access to everything they could reach through it. They can be asked to join again.</string>
+    <string name="owner_settings_roles_by_team">Here, a member\'s role is the teams they\'re in: change them on the forge\'s website.</string>
+    <string name="owner_settings_role_owner">Owner</string>
+    <string name="owner_settings_role_member">Member</string>
+    <string name="owner_settings_role_billing_manager">Billing manager</string>
+    <string name="owner_settings_role_minimal">Minimal access</string>
+    <string name="owner_settings_role_guest">Guest</string>
+    <string name="owner_settings_role_planner">Planner</string>
+    <string name="owner_settings_role_reporter">Reporter</string>
+    <string name="owner_settings_role_developer">Developer</string>
+    <string name="owner_settings_role_maintainer">Maintainer</string>
 </resources>

@@ -128,3 +128,25 @@ fun OwnerSettings.with(change: OwnerSettingsChange): OwnerSettings = when (chang
     is OwnerSettingsChange.Links -> copy(links = change.links)
     is OwnerSettingsChange.Status -> copy(status = change.status)
 }
+
+/** Someone in an organisation, by the [id] its forge acts on them by, and their [role] there (null where it isn't told). */
+data class OrgMember(val id: String, val login: String, val avatarUrl: String?, val role: String?)
+
+/** Someone asked to join an organisation who hasn't yet: by login or by email, with the role they'd have. */
+data class OrgInvitation(val id: String, val invitee: String, val role: String)
+
+/**
+ * An organisation's members and who is asked to join. [roles] are what someone can be made, as the forge names them
+ * (GitHub's `admin` and `member`, GitLab's access levels `10` to `50`, a Forgejo team's id), [roleNames] the names of
+ * those the app can't name itself (Forgejo's teams). Where [changesRoles] is false a member's role isn't changed here
+ * (Forgejo: by their teams), and where [invitesByEmail] is false only someone already on the forge can be asked.
+ */
+data class OrgMembers(
+    val members: List<OrgMember>,
+    val roles: List<String>,
+    val inviteRoles: List<String> = roles,
+    val roleNames: Map<String, String> = emptyMap(),
+    val invitations: List<OrgInvitation> = emptyList(),
+    val changesRoles: Boolean = true,
+    val invitesByEmail: Boolean = false,
+)

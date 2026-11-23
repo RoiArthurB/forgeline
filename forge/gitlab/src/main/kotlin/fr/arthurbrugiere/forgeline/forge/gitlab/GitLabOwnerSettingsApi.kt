@@ -4,6 +4,9 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.OwnerSettingsApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.OrgInvitation
+import fr.arthurbrugiere.forgeline.core.model.OrgMember
+import fr.arthurbrugiere.forgeline.core.model.OrgMembers
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerChoice
 import fr.arthurbrugiere.forgeline.core.model.OwnerChoiceValue
@@ -20,6 +23,7 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -105,6 +109,52 @@ class GitLabOwnerSettingsApi(private val httpClient: HttpClient, private val for
         member.toResult { ((body<JsonObject>()["access_level"] as? JsonPrimitive)?.intOrNull ?: 0) >= OWNER }
     }
 
+    override val membersSupported = true
+
+    /**
+     * A group's own members with their access levels (inherited ones are its parent's to change), and the emails asked
+     * to join (`/invitations`). Someone already on GitLab is added at once, by username; anyone else is invited by email.
+     */
+    override suspend fun members(token: String, organization: String): ForgeResult<OrgMembers> = forgeCall {
+        coroutineScope {
+            val invitations = async { httpClient.gitlabApi(forge, token, "groups", organization, "invitations", query = mapOf("per_page" to "100")) }
+            val members = httpClient.gitlabApi(forge, token, "groups", organization, "members", query = mapOf("per_page" to "100"))
+            if (!members.status.isSuccess()) return@coroutineScope members.failure()
+            val listed = members.body<JsonArray>().mapNotNull { it as? JsonObject }.map {
+                OrgMember(it.number("id").toString(), it.text("username"), it.text("avatar_url").ifEmpty { null }, it.number("access_level").toString())
+            }
+            val pending = invitations.await().takeIf { it.status.isSuccess() }?.body<JsonArray>()?.mapNotNull { it as? JsonObject }?.map {
+                OrgInvitation(it.text("invite_email"), it.text("invite_email"), it.number("access_level").toString())
+            }.orEmpty()
+            ForgeResult.Success(OrgMembers(listed, roles = ACCESS_LEVELS, invitations = pending, invitesByEmail = true))
+        }
+    }
+
+    override suspend fun setRole(token: String, organization: String, member: String, role: String): ForgeResult<Unit> = forgeCall {
+        httpClient.gitlabApi(forge, token, "groups", organization, "members", member, method = HttpMethod.Put, body = buildJsonObject { put("access_level", role.toInt()) })
+            .toResult { }
+    }
+
+    override suspend fun removeMember(token: String, organization: String, member: String): ForgeResult<Unit> = forgeCall {
+        httpClient.gitlabApi(forge, token, "groups", organization, "members", member, method = HttpMethod.Delete).toResult { }
+    }
+
+    override suspend fun invite(token: String, organization: String, invitee: String, role: String): ForgeResult<Unit> = forgeCall {
+        val email = '@' in invitee
+        val body = buildJsonObject {
+            put(if (email) "email" else "username", invitee)
+            put("access_level", role.toInt())
+        }
+        httpClient.gitlabApi(forge, token, "groups", organization, if (email) "invitations" else "members", method = HttpMethod.Post, body = body).toResult { }
+    }
+
+    /** An invitation is named by its email. */
+    override suspend fun cancelInvitation(token: String, organization: String, invitation: String): ForgeResult<Unit> = forgeCall {
+        httpClient.gitlabApi(forge, token, "groups", organization, "invitations", invitation, method = HttpMethod.Delete).toResult { }
+    }
+
+    private fun JsonObject.number(field: String) = (this[field] as? JsonPrimitive)?.intOrNull ?: 0
+
     private fun JsonObject.toStatus() = OwnerStatus(
         emoji = text("emoji"),
         message = text("message"),
@@ -136,6 +186,9 @@ class GitLabOwnerSettingsApi(private val httpClient: HttpClient, private val for
         val unsupported = ForgeResult.Failure(ForgeError.Unsupported)
 
         const val OWNER = 50
+
+        /** Guest, Planner, Reporter, Developer, Maintainer, Owner. */
+        val ACCESS_LEVELS = listOf("10", "15", "20", "30", "40", "50")
 
         val CLEAR_AFTER = mapOf(
             StatusDuration.MIN_30 to "30_minutes", StatusDuration.HOUR_3 to "3_hours", StatusDuration.HOUR_8 to "8_hours", StatusDuration.DAY_1 to "1_day",

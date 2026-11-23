@@ -42,6 +42,17 @@ class GitHubOwnerSettingsApiTest {
         "/user" -> json(userJson)
         "/user/social_accounts" -> if (request.method == HttpMethod.Get) json(socialJson) else respond("", HttpStatusCode.NoContent)
         "/orgs/octo" -> json(orgJson)
+        "/orgs/octo/members" -> json(
+            if (request.url.parameters["role"] == "admin") """[{"login":"mona","avatar_url":"https://avatars.example/mona"}]""" else """[{"login":"hubot","avatar_url":null}]""",
+        )
+        "/orgs/octo/invitations" -> if (request.method == HttpMethod.Get) {
+            json("""[{"id":7,"login":null,"email":"new@octo.example","role":"direct_member"}]""")
+        } else {
+            json("""{"id":8}""", HttpStatusCode.Created)
+        }
+        "/users/newcomer" -> json("""{"login":"newcomer","id":4242}""")
+        "/orgs/octo/memberships/hubot" -> json("""{"role":"admin","state":"active"}""")
+        "/orgs/octo/invitations/7" -> respond("", HttpStatusCode.NoContent)
         "/user/blocks", "/orgs/octo/blocks" -> json("""[{"login":"spammer","avatar_url":"https://avatars.example/spammer","type":"User"}]""")
         "/user/blocks/spammer", "/orgs/octo/blocks/spammer" -> respond("", HttpStatusCode.NoContent)
         "/user/memberships/orgs/octo" -> json("""{"role":"admin","state":"active"}""")
@@ -208,5 +219,39 @@ class GitHubOwnerSettingsApiTest {
         val refused = api { json("""{"message":"Not Found"}""", HttpStatusCode.NotFound, scopes = "repo, user") }.blocked("tok", Owner.Organization("octo"))
 
         assertThat(refused).isEqualTo(ForgeResult.Failure(ForgeError.Unauthorized))
+    }
+
+    @Test
+    fun an_organisation_s_owners_members_and_invitations_read_apart() = runTest {
+        val members = api().members("tok", "octo").value()
+
+        assertThat(members.members.map { it.login to it.role }).containsExactly("mona" to "admin", "hubot" to "member")
+        assertThat(members.invitations.single()).isEqualTo(fr.arthurbrugiere.forgeline.core.model.OrgInvitation("7", "new@octo.example", "direct_member"))
+        assertThat(members.roles).containsExactly("admin", "member").inOrder()
+        assertThat(members.inviteRoles).contains("direct_member")
+        assertThat(members.invitesByEmail).isTrue()
+    }
+
+    @Test
+    fun a_member_s_role_is_put_and_a_member_removed_with_their_membership() = runTest {
+        api().setRole("tok", "octo", "hubot", "admin")
+        api().removeMember("tok", "octo", "hubot")
+
+        val writes = requests.filter { it.method != HttpMethod.Get }
+        assertThat(writes.map { it.call }).containsExactly("PUT /orgs/octo/memberships/hubot", "DELETE /orgs/octo/memberships/hubot").inOrder()
+        assertThat(writes[0].sent).isEqualTo("""{"role":"admin"}""")
+    }
+
+    @Test
+    fun someone_is_invited_by_their_id_looked_up_or_by_email() = runTest {
+        api().invite("tok", "octo", "newcomer", "direct_member")
+        api().invite("tok", "octo", "friend@octo.example", "admin")
+        api().cancelInvitation("tok", "octo", "7")
+
+        val posts = requests.filter { it.method == HttpMethod.Post }
+        assertThat(posts.map { it.sent }).containsExactly(
+            """{"invitee_id":4242,"role":"direct_member"}""", """{"email":"friend@octo.example","role":"admin"}""",
+        ).inOrder()
+        assertThat(requests.last().call).isEqualTo("DELETE /orgs/octo/invitations/7")
     }
 }

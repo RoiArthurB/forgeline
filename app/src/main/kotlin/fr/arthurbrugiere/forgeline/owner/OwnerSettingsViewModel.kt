@@ -6,10 +6,12 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
+import fr.arthurbrugiere.forgeline.core.data.user.MemberChange
 import fr.arthurbrugiere.forgeline.core.data.user.OwnerSettingsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
+import fr.arthurbrugiere.forgeline.core.model.OrgMembers
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettings
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
@@ -44,6 +46,11 @@ data class OwnerSettingsUiState(
     /** Whether the owner blocks people through the forge's API, and whom, read when asked for. */
     val blocksSupported: Boolean = false,
     val blocked: Loadable<List<UserSummary>> = Loadable.Idle,
+    /** Whether an organisation's members are managed here, and who they are, read when asked for. */
+    val membersSupported: Boolean = false,
+    val members: Loadable<OrgMembers> = Loadable.Idle,
+    /** A change to the members is on its way. */
+    val membersWorking: Boolean = false,
 )
 
 /** A person's own profile settings, or an organisation's, each changed on its forge as soon as it is here. */
@@ -62,7 +69,12 @@ class OwnerSettingsViewModel @AssistedInject constructor(
 
     private val owner: Owner = if (organization) Owner.Organization(login) else Owner.Me
 
-    private val _state = MutableStateFlow(OwnerSettingsUiState(forge, login, owner, blocksSupported = repository.blocksSupported(forge, owner)))
+    private val _state = MutableStateFlow(
+        OwnerSettingsUiState(
+            forge, login, owner, blocksSupported = repository.blocksSupported(forge, owner),
+            membersSupported = organization && repository.membersSupported(forge),
+        ),
+    )
     val state: StateFlow<OwnerSettingsUiState> = _state.asStateFlow()
 
     private var serial = 0
@@ -134,6 +146,37 @@ class OwnerSettingsViewModel @AssistedInject constructor(
                 is ForgeResult.Success -> _state.update { it.copy(saved = it.saved + 1) }
                 is ForgeResult.Failure -> _state.update { it.copy(blocked = Loadable.Loaded(before), refused = result.error) }
             }
+        }
+    }
+
+    /** Reads the members, again when [force]d (once a change is made, to show it as the forge now has it). */
+    fun loadMembers(force: Boolean = false) {
+        val current = _state.value.members
+        if (!force && (current == Loadable.Loading || current is Loadable.Loaded)) return
+        if (current !is Loadable.Loaded) _state.update { it.copy(members = Loadable.Loading) }
+        viewModelScope.launch {
+            val members = when (val result = repository.members(forge, login)) {
+                is ForgeResult.Success -> Loadable.Loaded(result.value)
+                is ForgeResult.Failure -> if (current is Loadable.Loaded && force) current else Loadable.Failed(result.error)
+            }
+            _state.update { it.copy(members = members) }
+        }
+    }
+
+    /** Makes [change] to the members; what the forge refuses is said, and the list read again either way. */
+    fun changeMembers(change: MemberChange) {
+        if (_state.value.membersWorking) return
+        _state.update { it.copy(membersWorking = true, refused = null) }
+        viewModelScope.launch {
+            val result = repository.changeMembers(forge, login, change)
+            _state.update {
+                it.copy(
+                    membersWorking = false,
+                    refused = (result as? ForgeResult.Failure)?.error,
+                    saved = if (result is ForgeResult.Success) it.saved + 1 else it.saved,
+                )
+            }
+            loadMembers(force = true)
         }
     }
 

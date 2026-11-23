@@ -116,6 +116,9 @@ class ForgejoSignedInLiveTest {
             val owns = api.administers(token, org.login).value()
             val settings = api.settings(token, fr.arthurbrugiere.forgeline.core.model.Owner.Organization(org.login)).value()
             check(fr.arthurbrugiere.forgeline.core.model.OwnerChoice.VISIBILITY in settings.choices) { "${org.login}: $settings" }
+            // Its members and teams, read only.
+            val members = api.members(token, org.login).value()
+            check(members.members.isNotEmpty() && members.roles.isNotEmpty()) { "${org.login} members: ${members.members.size}, teams: ${members.roles.size}" }
             System.err.println("CODEBERG organisation owned: $owns, ${settings.texts.size} texts")
         }
         // Who is blocked: read, never changed.

@@ -1570,4 +1570,27 @@
     <string name="owner_settings_blocked_none">Personne n’est bloqué.</string>
     <string name="owner_settings_unblock">Débloquer</string>
     <string name="owner_settings_blocked_error">Impossible de charger les personnes bloquées</string>
+    <string name="owner_settings_members">Membres</string>
+    <string name="owner_settings_invite">Inviter quelqu’un</string>
+    <string name="owner_settings_add_member">Ajouter quelqu’un à une équipe</string>
+    <string name="owner_settings_invite_by_email">Nom d’utilisateur ou e-mail</string>
+    <string name="owner_settings_invite_by_username">Nom d’utilisateur</string>
+    <string name="owner_settings_invited">Invités</string>
+    <string name="owner_settings_cancel_invitation">Annuler</string>
+    <string name="owner_settings_members_error">Impossible de charger les membres</string>
+    <string name="owner_settings_send_invitation">Envoyer l’invitation</string>
+    <string name="owner_settings_add">Ajouter</string>
+    <string name="owner_settings_remove">Retirer de l’organisation</string>
+    <string name="owner_settings_remove_title">Retirer %1$s ?</string>
+    <string name="owner_settings_remove_body">La personne perd l’accès à tout ce qu’elle atteignait par là. Elle peut être invitée de nouveau.</string>
+    <string name="owner_settings_roles_by_team">Ici, le rôle d’un membre, ce sont ses équipes : changez-les sur le site de la forge.</string>
+    <string name="owner_settings_role_owner">Propriétaire</string>
+    <string name="owner_settings_role_member">Membre</string>
+    <string name="owner_settings_role_billing_manager">Responsable de la facturation</string>
+    <string name="owner_settings_role_minimal">Accès minimal</string>
+    <string name="owner_settings_role_guest">Invité</string>
+    <string name="owner_settings_role_planner">Planificateur</string>
+    <string name="owner_settings_role_reporter">Rapporteur</string>
+    <string name="owner_settings_role_developer">Développeur</string>
+    <string name="owner_settings_role_maintainer">Mainteneur</string>
 </resources>

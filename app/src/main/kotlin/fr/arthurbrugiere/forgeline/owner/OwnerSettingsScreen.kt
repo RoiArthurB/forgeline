@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Close
@@ -48,9 +49,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import fr.arthurbrugiere.forgeline.R
+import fr.arthurbrugiere.forgeline.core.data.user.MemberChange
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import fr.arthurbrugiere.forgeline.core.model.OrgMember
+import fr.arthurbrugiere.forgeline.core.model.OrgMembers
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerChoice
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
@@ -63,7 +67,10 @@ import fr.arthurbrugiere.forgeline.core.ui.soft.SoftButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftCheckRow
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChipTabs
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoicePill
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceRow
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftChoiceSheet
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftConfirmSheet
+import fr.arthurbrugiere.forgeline.core.ui.soft.SoftDangerButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftHeader
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftIconButton
 import fr.arthurbrugiere.forgeline.core.ui.soft.SoftLoadingRows
@@ -108,11 +115,13 @@ fun OwnerSettingsRoute(route: OwnerSettingsRoute, onBack: () -> Unit, onSignIn: 
         onErrorShown = viewModel::errorShown,
         onLoadBlocked = viewModel::loadBlocked,
         onSetBlocked = viewModel::setBlocked,
+        onLoadMembers = { viewModel.loadMembers() },
+        onChangeMembers = viewModel::changeMembers,
     )
 }
 
 /** The groups the settings are read in, one at a time under the header; one with nothing in it isn't offered. */
-internal enum class OwnerTab { ABOUT, OPTIONS, BLOCKED }
+internal enum class OwnerTab { ABOUT, OPTIONS, MEMBERS, BLOCKED }
 
 /** What is being written in a sheet. */
 private sealed interface Editing {
@@ -125,6 +134,10 @@ private sealed interface Editing {
     data object Status : Editing
 
     data object Block : Editing
+
+    data object Invite : Editing
+
+    data class Member(val member: OrgMember) : Editing
 }
 
 /**
@@ -149,6 +162,8 @@ fun OwnerSettingsScreen(
     onSignIn: () -> Unit = {},
     onLoadBlocked: () -> Unit = {},
     onSetBlocked: (login: String, blocked: Boolean) -> Unit = { _, _ -> },
+    onLoadMembers: () -> Unit = {},
+    onChangeMembers: (MemberChange) -> Unit = {},
 ) {
     val colors = Soft.colors
     val settings = state.settings
@@ -214,6 +229,26 @@ fun OwnerSettingsScreen(
                 settings.links.orEmpty(), settings.maxLinks, saving = state.saving != null, refusal = refusal,
                 onSave = { save(OwnerSettingsChange.Links(it)) }, onDismiss = dismiss,
             )
+            Editing.Invite -> (state.members as? Loadable.Loaded)?.value?.let { members ->
+                InviteSheet(members, state.forge.type, onInvite = { invitee, role ->
+                    editing = null
+                    onChangeMembers(MemberChange.Invite(invitee, role))
+                }, onDismiss = dismiss)
+            }
+            is Editing.Member -> (state.members as? Loadable.Loaded)?.value?.let { members ->
+                MemberSheet(
+                    sheet.member, members, state.forge.type,
+                    onRole = {
+                        editing = null
+                        onChangeMembers(MemberChange.Role(sheet.member.id, it))
+                    },
+                    onRemove = {
+                        editing = null
+                        onChangeMembers(MemberChange.Remove(sheet.member.id))
+                    },
+                    onDismiss = dismiss,
+                )
+            }
             Editing.Block -> TextSheet(
                 stringResource(R.string.owner_settings_block), "", singleLine = true, saving = false, refusal = null,
                 onSave = {
@@ -237,6 +272,7 @@ fun OwnerSettingsScreen(
         buildList {
             if (it.texts.isNotEmpty() || it.links != null || it.status != null) add(OwnerTab.ABOUT)
             if (it.switches.isNotEmpty() || it.choices.isNotEmpty()) add(OwnerTab.OPTIONS)
+            if (state.membersSupported) add(OwnerTab.MEMBERS)
             if (state.blocksSupported) add(OwnerTab.BLOCKED)
         }
     }.orEmpty()
@@ -245,7 +281,10 @@ fun OwnerSettingsScreen(
     val listStates = remember { mutableMapOf<OwnerTab, LazyListState>() }
     val listState = listStates.getOrPut(tab) { LazyListState() }
     val none = stringResource(R.string.manage_none)
-    LaunchedEffect(tab) { if (tab == OwnerTab.BLOCKED) onLoadBlocked() }
+    LaunchedEffect(tab) {
+        if (tab == OwnerTab.BLOCKED) onLoadBlocked()
+        if (tab == OwnerTab.MEMBERS) onLoadMembers()
+    }
 
     Box(modifier.fillMaxSize().background(colors.ground)) {
         val pullState = rememberPullToRefreshState()
@@ -331,6 +370,48 @@ fun OwnerSettingsScreen(
                                         }
                                         Spacer(Modifier.size(12.dp))
                                         LeaveRow(stringResource(R.string.repo_settings_more, forgeName), stringResource(R.string.owner_settings_more_summary)) { onOpenUrl(webUrl) }
+                                    }
+                                }
+                                OwnerTab.MEMBERS -> item(key = "members") {
+                                    Column(Modifier.widthIn(max = SoftTokens.MaxReadingWidth).fillMaxWidth()) {
+                                        when (val members = state.members) {
+                                            is Loadable.Loaded -> {
+                                                val adds = state.forge.type == ForgeType.FORGEJO || state.forge.type == ForgeType.GITEA
+                                                EditRow(
+                                                    stringResource(if (adds) R.string.owner_settings_add_member else R.string.owner_settings_invite),
+                                                    stringResource(if (members.value.invitesByEmail) R.string.owner_settings_invite_by_email else R.string.owner_settings_invite_by_username),
+                                                ) { if (!state.membersWorking) editing = Editing.Invite }
+                                                members.value.members.forEach { member ->
+                                                    SettingRow(
+                                                        fr.arthurbrugiere.forgeline.ui.handleOf(member.login),
+                                                        member.role?.let { roleLabel(state.forge.type, it, members.value.roleNames) },
+                                                        onClick = { if (!state.membersWorking) editing = Editing.Member(member) },
+                                                    )
+                                                }
+                                                if (members.value.invitations.isNotEmpty()) {
+                                                    Text(
+                                                        stringResource(R.string.owner_settings_invited), style = Soft.type.section, color = colors.ink,
+                                                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 4.dp).semantics { heading() },
+                                                    )
+                                                    members.value.invitations.forEach { invitation ->
+                                                        SettingRow(
+                                                            invitation.invitee, roleLabel(state.forge.type, invitation.role, members.value.roleNames),
+                                                            trailing = {
+                                                                SoftTonalButton(
+                                                                    stringResource(R.string.owner_settings_cancel_invitation),
+                                                                    onClick = { onChangeMembers(MemberChange.Cancel(invitation.id)) }, enabled = !state.membersWorking,
+                                                                )
+                                                            },
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            is Loadable.Failed -> SoftNotice(
+                                                stringResource(R.string.owner_settings_members_error), stringResource(members.error.message),
+                                                action = stringResource(R.string.retry), onAction = onLoadMembers,
+                                            )
+                                            else -> SoftLoadingRows(stringResource(R.string.owner_settings_loading), rows = 4, leadingDot = false)
+                                        }
                                     }
                                 }
                                 OwnerTab.BLOCKED -> item(key = "blocked") {
@@ -490,7 +571,87 @@ internal fun ownerSettingsUrl(forge: ForgeInstance, owner: Owner): String = when
 internal fun OwnerTab.label(organization: Boolean): Int = when (this) {
     OwnerTab.ABOUT -> R.string.repo_settings_about
     OwnerTab.OPTIONS -> if (organization) R.string.owner_settings_rules else R.string.owner_settings_preferences
+    OwnerTab.MEMBERS -> R.string.owner_settings_members
     OwnerTab.BLOCKED -> R.string.owner_settings_blocked
+}
+
+/** A role as the app says it: GitHub's and GitLab's by their names, a Forgejo team by its own. */
+@Composable
+internal fun roleLabel(forge: ForgeType, role: String, names: Map<String, String>): String {
+    names[role]?.let { return it }
+    val res = when (forge) {
+        ForgeType.GITLAB -> when (role) {
+            "5" -> R.string.owner_settings_role_minimal
+            "10" -> R.string.owner_settings_role_guest
+            "15" -> R.string.owner_settings_role_planner
+            "20" -> R.string.owner_settings_role_reporter
+            "30" -> R.string.owner_settings_role_developer
+            "40" -> R.string.owner_settings_role_maintainer
+            "50" -> R.string.owner_settings_role_owner
+            else -> null
+        }
+        else -> when (role) {
+            "admin" -> R.string.owner_settings_role_owner
+            "member", "direct_member" -> R.string.owner_settings_role_member
+            "billing_manager" -> R.string.owner_settings_role_billing_manager
+            else -> null
+        }
+    }
+    return res?.let { stringResource(it) } ?: role
+}
+
+/** Someone asked to join, by login (or email where the forge takes one), as one of the roles they can be given. */
+@Composable
+private fun InviteSheet(members: OrgMembers, forge: ForgeType, onInvite: (invitee: String, role: String) -> Unit, onDismiss: () -> Unit) {
+    var invitee by rememberSaveable { mutableStateOf("") }
+    var role by rememberSaveable { mutableStateOf(members.inviteRoles.firstOrNull().orEmpty()) }
+    val adds = forge == ForgeType.FORGEJO || forge == ForgeType.GITEA
+    SoftSheet(stringResource(if (adds) R.string.owner_settings_add_member else R.string.owner_settings_invite), onDismiss) {
+        SoftTextField(
+            invitee, { invitee = it },
+            placeholder = stringResource(if (members.invitesByEmail) R.string.owner_settings_invite_by_email else R.string.owner_settings_invite_by_username),
+        )
+        Column(Modifier.selectableGroup()) {
+            members.inviteRoles.forEach { option ->
+                SoftChoiceRow(roleLabel(forge, option, members.roleNames), selected = option == role, onSelect = { role = option })
+            }
+        }
+        SoftButton(
+            stringResource(if (adds) R.string.owner_settings_add else R.string.owner_settings_send_invitation),
+            onClick = { onInvite(invitee.trim(), role) }, enabled = invitee.isNotBlank() && role.isNotEmpty(),
+        )
+    }
+}
+
+/** One member: the role they have, to change where the forge does it here, and removing them, asked first. */
+@Composable
+private fun MemberSheet(member: OrgMember, members: OrgMembers, forge: ForgeType, onRole: (String) -> Unit, onRemove: () -> Unit, onDismiss: () -> Unit) {
+    var confirming by rememberSaveable { mutableStateOf(false) }
+    val name = fr.arthurbrugiere.forgeline.ui.handleOf(member.login)
+    if (confirming) {
+        SoftConfirmSheet(
+            title = stringResource(R.string.owner_settings_remove_title, name),
+            body = stringResource(R.string.owner_settings_remove_body),
+            confirm = stringResource(R.string.owner_settings_remove),
+            cancel = stringResource(R.string.cancel),
+            danger = true,
+            onConfirm = onRemove,
+            onDismiss = { confirming = false },
+        )
+        return
+    }
+    SoftSheet(name, onDismiss) {
+        if (members.changesRoles) {
+            Column(Modifier.selectableGroup()) {
+                members.roles.forEach { option ->
+                    SoftChoiceRow(roleLabel(forge, option, members.roleNames), selected = option == member.role, onSelect = { if (option != member.role) onRole(option) })
+                }
+            }
+        } else {
+            Text(stringResource(R.string.owner_settings_roles_by_team), style = Soft.type.secondary, color = Soft.colors.inkMuted)
+        }
+        SoftDangerButton(stringResource(R.string.owner_settings_remove), onClick = { confirming = true }, modifier = Modifier.fillMaxWidth())
+    }
 }
 
 internal fun OwnerText.label(organization: Boolean): Int = when (this) {

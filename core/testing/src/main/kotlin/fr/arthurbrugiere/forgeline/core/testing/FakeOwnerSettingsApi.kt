@@ -3,6 +3,9 @@ package fr.arthurbrugiere.forgeline.core.testing
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.OwnerSettingsApi
+import fr.arthurbrugiere.forgeline.core.model.OrgInvitation
+import fr.arthurbrugiere.forgeline.core.model.OrgMember
+import fr.arthurbrugiere.forgeline.core.model.OrgMembers
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerChoice
 import fr.arthurbrugiere.forgeline.core.model.OwnerChoiceValue
@@ -95,6 +98,47 @@ class FakeOwnerSettingsApi(
         val list = blocks.getOrPut(owner.key()) { mutableListOf() }
         if (blocked) list += UserSummary(login, null, false) else list.removeAll { it.login == login }
         return ForgeResult.Success(Unit)
+    }
+
+    override val membersSupported = true
+
+    /** Each organisation's members, by login. */
+    val members: MutableMap<String, OrgMembers> = mutableMapOf(
+        "octo" to OrgMembers(
+            members = listOf(OrgMember("mona", "mona", null, "admin"), OrgMember("hubot", "hubot", null, "member")),
+            roles = listOf("admin", "member"),
+            invitations = listOf(OrgInvitation("7", "new@octo.example", "member")),
+            invitesByEmail = true,
+        ),
+    )
+
+    override suspend fun members(token: String, organization: String): ForgeResult<OrgMembers> {
+        calls += "members:$organization"
+        failure?.let { return ForgeResult.Failure(it) }
+        return members[organization]?.let { ForgeResult.Success(it) } ?: ForgeResult.Failure(ForgeError.Http(404, "Not Found"))
+    }
+
+    private fun write(call: String, organization: String, change: (OrgMembers) -> OrgMembers): ForgeResult<Unit> {
+        calls += call
+        writeFailure?.let { return ForgeResult.Failure(it) }
+        members[organization] = change(members[organization] ?: return ForgeResult.Failure(ForgeError.Http(404, "Not Found")))
+        return ForgeResult.Success(Unit)
+    }
+
+    override suspend fun setRole(token: String, organization: String, member: String, role: String) = write("role:$organization:$member:$role", organization) { m ->
+        m.copy(members = m.members.map { if (it.id == member) it.copy(role = role) else it })
+    }
+
+    override suspend fun removeMember(token: String, organization: String, member: String) = write("remove:$organization:$member", organization) { m ->
+        m.copy(members = m.members.filterNot { it.id == member })
+    }
+
+    override suspend fun invite(token: String, organization: String, invitee: String, role: String) = write("invite:$organization:$invitee:$role", organization) { m ->
+        m.copy(invitations = m.invitations + OrgInvitation("new-$invitee", invitee, role))
+    }
+
+    override suspend fun cancelInvitation(token: String, organization: String, invitation: String) = write("cancel:$organization:$invitation", organization) { m ->
+        m.copy(invitations = m.invitations.filterNot { it.id == invitation })
     }
 
     override suspend fun administers(token: String, organization: String): ForgeResult<Boolean> {

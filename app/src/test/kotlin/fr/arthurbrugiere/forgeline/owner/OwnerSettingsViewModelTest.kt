@@ -130,4 +130,39 @@ class OwnerSettingsViewModelTest {
         assertThat((viewModel.state.value.blocked as fr.arthurbrugiere.forgeline.repo.Loadable.Loaded).value.map { it.login }).containsExactly("spammer")
         assertThat(viewModel.state.value.refused).isEqualTo(ForgeError.Unauthorized)
     }
+
+    @Test
+    fun an_organisation_s_members_are_read_when_asked_and_read_again_after_a_change() = test {
+        val viewModel = viewModel("octo", organization = true)
+        advanceUntilIdle()
+        assertThat(viewModel.state.value.membersSupported).isTrue()
+
+        viewModel.loadMembers()
+        advanceUntilIdle()
+        viewModel.changeMembers(fr.arthurbrugiere.forgeline.core.data.user.MemberChange.Role("hubot", "admin"))
+        advanceUntilIdle()
+
+        val members = (viewModel.state.value.members as fr.arthurbrugiere.forgeline.repo.Loadable.Loaded).value
+        assertThat(members.members.single { it.login == "hubot" }.role).isEqualTo("admin")
+        assertThat(api.calls).containsAtLeast("members:octo", "role:octo:hubot:admin", "members:octo").inOrder()
+    }
+
+    @Test
+    fun a_refused_member_change_is_said_and_the_list_stays() = test {
+        val viewModel = viewModel("octo", organization = true)
+        viewModel.loadMembers()
+        advanceUntilIdle()
+        api.writeFailure = ForgeError.Http(422, "Can't remove the last owner")
+
+        viewModel.changeMembers(fr.arthurbrugiere.forgeline.core.data.user.MemberChange.Remove("mona"))
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.refused).isEqualTo(ForgeError.Http(422, "Can't remove the last owner"))
+        assertThat((viewModel.state.value.members as fr.arthurbrugiere.forgeline.repo.Loadable.Loaded).value.members.map { it.login }).contains("mona")
+    }
+
+    @Test
+    fun one_s_own_profile_has_no_members() = test {
+        assertThat(viewModel().state.value.membersSupported).isFalse()
+    }
 }

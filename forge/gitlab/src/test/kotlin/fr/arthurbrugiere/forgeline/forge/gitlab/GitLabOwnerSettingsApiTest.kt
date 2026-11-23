@@ -39,6 +39,17 @@ class GitLabOwnerSettingsApiTest {
     private fun MockRequestHandleScope.route(request: HttpRequestData): HttpResponseData = when (request.url.encodedPath) {
         "/api/v4/groups/gitlab-org", "/api/v4/groups/group%2Fsub" -> json(groupJson)
         "/api/v4/user/preferences" -> json(preferencesJson)
+        "/api/v4/groups/gitlab-org/members" -> if (request.method == HttpMethod.Get) {
+            json("""[{"id":1,"username":"mona","avatar_url":"https://gitlab.example/mona","access_level":50},{"id":2,"username":"hubot","avatar_url":null,"access_level":30}]""")
+        } else {
+            json("""{"id":3}""", HttpStatusCode.Created)
+        }
+        "/api/v4/groups/gitlab-org/invitations" -> if (request.method == HttpMethod.Get) {
+            json("""[{"id":9,"invite_email":"new@example.org","access_level":20}]""")
+        } else {
+            json("""{"status":"success"}""", HttpStatusCode.Created)
+        }
+        "/api/v4/groups/gitlab-org/members/2", "/api/v4/groups/gitlab-org/invitations/new@example.org" -> json("{}")
         "/api/v4/user/status" -> json("""{"emoji":"bear","message":"I use Code btw","availability":"busy","message_html":"I use Code btw","clear_status_at":null}""")
         "/api/v4/user" -> json("""{"id":2371813,"username":"mona"}""")
         "/api/v4/groups/gitlab-org/members/all/2371813" -> json("""{"id":2371813,"access_level":50}""")
@@ -140,5 +151,32 @@ class GitLabOwnerSettingsApiTest {
         assertThat(set.sent).isEqualTo("""{"emoji":"coffee","message":"Writing","availability":"not_set","clear_status_after":"1_day"}""")
         // What a PUT doesn't name, it clears.
         assertThat(cleared.sent).isEqualTo("""{"availability":"not_set"}""")
+    }
+
+    @Test
+    fun a_group_s_members_say_their_access_level_and_emails_are_asked_to_join() = runTest {
+        val members = api().members("tok", "gitlab-org").value()
+
+        assertThat(members.members.map { Triple(it.id, it.login, it.role) }).containsExactly(Triple("1", "mona", "50"), Triple("2", "hubot", "30")).inOrder()
+        assertThat(members.invitations.single()).isEqualTo(fr.arthurbrugiere.forgeline.core.model.OrgInvitation("new@example.org", "new@example.org", "20"))
+        assertThat(members.roles).containsExactly("10", "15", "20", "30", "40", "50").inOrder()
+    }
+
+    @Test
+    fun a_member_is_changed_and_removed_by_id_and_someone_added_by_username_or_invited_by_email() = runTest {
+        api().setRole("tok", "gitlab-org", "2", "40")
+        api().removeMember("tok", "gitlab-org", "2")
+        api().invite("tok", "gitlab-org", "newcomer", "30")
+        api().invite("tok", "gitlab-org", "friend@example.org", "10")
+        api().cancelInvitation("tok", "gitlab-org", "new@example.org")
+
+        val writes = requests.filter { it.method != HttpMethod.Get }
+        assertThat(writes.map { "${it.method.value} ${it.url.encodedPath}" }).containsExactly(
+            "PUT /api/v4/groups/gitlab-org/members/2", "DELETE /api/v4/groups/gitlab-org/members/2", "POST /api/v4/groups/gitlab-org/members",
+            "POST /api/v4/groups/gitlab-org/invitations", "DELETE /api/v4/groups/gitlab-org/invitations/new@example.org",
+        ).inOrder()
+        assertThat(writes[0].sent).isEqualTo("""{"access_level":40}""")
+        assertThat(writes[2].sent).isEqualTo("""{"username":"newcomer","access_level":30}""")
+        assertThat(writes[3].sent).isEqualTo("""{"email":"friend@example.org","access_level":10}""")
     }
 }

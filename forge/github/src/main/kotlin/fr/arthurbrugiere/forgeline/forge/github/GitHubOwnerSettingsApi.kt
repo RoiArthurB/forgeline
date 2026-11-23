@@ -4,6 +4,9 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeError
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.OwnerSettingsApi
 import fr.arthurbrugiere.forgeline.core.forge.map
+import fr.arthurbrugiere.forgeline.core.model.OrgInvitation
+import fr.arthurbrugiere.forgeline.core.model.OrgMember
+import fr.arthurbrugiere.forgeline.core.model.OrgMembers
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerChoice
 import fr.arthurbrugiere.forgeline.core.model.OwnerChoiceValue
@@ -21,6 +24,7 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -28,6 +32,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 import java.time.Clock
 import java.time.Duration
@@ -139,6 +144,65 @@ class GitHubOwnerSettingsApi(
 
     private val Owner.scope get() = if (this == Owner.Me) PROFILE_SCOPE else ORGANIZATION_SCOPE
 
+    override val membersSupported = true
+
+    /**
+     * Owners and members apart (`/members?role=`), so each says which, and the invitations not yet taken
+     * (`/invitations`), which only owners may read.
+     */
+    override suspend fun members(token: String, organization: String): ForgeResult<OrgMembers> = forgeCall {
+        coroutineScope {
+            val roles = MEMBER_ROLES.map { role ->
+                async { role to httpClient.gitHubApi(apiBaseUrl, token, "orgs", organization, "members", query = mapOf("role" to role, "per_page" to "100")) }
+            }
+            val invitations = async { httpClient.gitHubApi(apiBaseUrl, token, "orgs", organization, "invitations", query = mapOf("per_page" to "100")) }
+            val members = roles.awaitAll().flatMap { (role, response) ->
+                if (!response.status.isSuccess()) return@coroutineScope response.refusal(ORGANIZATION_SCOPE)
+                response.body<JsonArray>().mapNotNull { it as? JsonObject }.map { OrgMember(it.text("login"), it.text("login"), it.text("avatar_url").ifEmpty { null }, role) }
+            }
+            val pending = invitations.await().takeIf { it.status.isSuccess() }?.body<JsonArray>()?.mapNotNull { it as? JsonObject }?.map {
+                OrgInvitation(it.number("id").toString(), it.text("login").ifEmpty { it.text("email") }, it.text("role"))
+            }.orEmpty()
+            ForgeResult.Success(OrgMembers(members, roles = MEMBER_ROLES, inviteRoles = INVITE_ROLES, invitations = pending, invitesByEmail = true))
+        }
+    }
+
+    override suspend fun setRole(token: String, organization: String, member: String, role: String): ForgeResult<Unit> = forgeCall {
+        val response = httpClient.gitHubApi(apiBaseUrl, token, "orgs", organization, "memberships", member, method = HttpMethod.Put, body = buildJsonObject { put("role", role) })
+        if (!response.status.isSuccess()) response.refusal(ORGANIZATION_SCOPE) else ForgeResult.Success(Unit)
+    }
+
+    override suspend fun removeMember(token: String, organization: String, member: String): ForgeResult<Unit> = forgeCall {
+        val response = httpClient.gitHubApi(apiBaseUrl, token, "orgs", organization, "memberships", member, method = HttpMethod.Delete)
+        if (!response.status.isSuccess()) response.refusal(ORGANIZATION_SCOPE) else ForgeResult.Success(Unit)
+    }
+
+    /** By email, or by login: GitHub wants the person's id for that, looked up first. */
+    override suspend fun invite(token: String, organization: String, invitee: String, role: String): ForgeResult<Unit> = forgeCall {
+        val body = if ('@' in invitee) {
+            buildJsonObject {
+                put("email", invitee)
+                put("role", role)
+            }
+        } else {
+            val user = httpClient.gitHubApi(apiBaseUrl, token, "users", invitee)
+            if (!user.status.isSuccess()) return@forgeCall user.failure()
+            buildJsonObject {
+                put("invitee_id", user.body<JsonObject>().number("id"))
+                put("role", role)
+            }
+        }
+        val response = httpClient.gitHubApi(apiBaseUrl, token, "orgs", organization, "invitations", method = HttpMethod.Post, body = body)
+        if (!response.status.isSuccess()) response.refusal(ORGANIZATION_SCOPE) else ForgeResult.Success(Unit)
+    }
+
+    override suspend fun cancelInvitation(token: String, organization: String, invitation: String): ForgeResult<Unit> = forgeCall {
+        val response = httpClient.gitHubApi(apiBaseUrl, token, "orgs", organization, "invitations", invitation, method = HttpMethod.Delete)
+        if (!response.status.isSuccess()) response.refusal(ORGANIZATION_SCOPE) else ForgeResult.Success(Unit)
+    }
+
+    private fun JsonObject.number(field: String) = (this[field] as? JsonPrimitive)?.longOrNull ?: 0L
+
     /** The signed-in person's status, from the GraphQL API alone; an empty one for none. */
     private suspend fun status(token: String): ForgeResult<OwnerStatus> =
         httpClient.gitHubGraphQl(apiBaseUrl, token, "query { viewer { status { emoji message indicatesLimitedAvailability expiresAt } } }").map { data ->
@@ -224,6 +288,10 @@ class GitHubOwnerSettingsApi(
         const val MAX_SOCIAL_ACCOUNTS = 4
 
         val PERMISSIONS = listOf("none", "read", "write", "admin")
+
+        /** An organisation's owners are its admins. */
+        val MEMBER_ROLES = listOf("admin", "member")
+        val INVITE_ROLES = listOf("direct_member", "admin", "billing_manager")
 
         /**
          * In the order they are shown. The email is the public one, among the person's verified addresses; pronouns are

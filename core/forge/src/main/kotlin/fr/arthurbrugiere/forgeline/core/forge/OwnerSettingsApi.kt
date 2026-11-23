@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.forge
 
+import fr.arthurbrugiere.forgeline.core.model.OrgMembers
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettings
 import fr.arthurbrugiere.forgeline.core.model.OwnerSettingsChange
@@ -31,6 +32,21 @@ interface OwnerSettingsApi {
     suspend fun blocked(token: String, owner: Owner): ForgeResult<List<UserSummary>> = ForgeResult.Failure(ForgeError.Unsupported)
 
     suspend fun setBlocked(token: String, owner: Owner, login: String, blocked: Boolean): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Whether an organisation's members are listed and managed here. */
+    val membersSupported: Boolean get() = false
+
+    suspend fun members(token: String, organization: String): ForgeResult<OrgMembers> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Makes [member] (by [OrgMember.id]) one of [OrgMembers.roles]. */
+    suspend fun setRole(token: String, organization: String, member: String, role: String): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    suspend fun removeMember(token: String, organization: String, member: String): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    /** Asks [invitee] (a login, or an email where [OrgMembers.invitesByEmail]) to join as [role]. */
+    suspend fun invite(token: String, organization: String, invitee: String, role: String): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
+
+    suspend fun cancelInvitation(token: String, organization: String, invitation: String): ForgeResult<Unit> = ForgeResult.Failure(ForgeError.Unsupported)
 }
 
 /** A forge where none of it can be set through the API. */

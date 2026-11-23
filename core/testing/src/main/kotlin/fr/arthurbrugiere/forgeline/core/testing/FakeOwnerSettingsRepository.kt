@@ -1,5 +1,6 @@
 package fr.arthurbrugiere.forgeline.core.testing
 
+import fr.arthurbrugiere.forgeline.core.data.user.MemberChange
 import fr.arthurbrugiere.forgeline.core.data.user.OwnerSettingsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
@@ -23,4 +24,15 @@ class FakeOwnerSettingsRepository(
     override suspend fun blocked(forge: ForgeInstance, owner: Owner) = api.blocked("tok", owner)
 
     override suspend fun setBlocked(forge: ForgeInstance, owner: Owner, login: String, blocked: Boolean) = api.setBlocked("tok", owner, login, blocked)
+
+    override fun membersSupported(forge: ForgeInstance) = api.membersSupported
+
+    override suspend fun members(forge: ForgeInstance, organization: String) = api.members("tok", organization)
+
+    override suspend fun changeMembers(forge: ForgeInstance, organization: String, change: MemberChange) = when (change) {
+        is MemberChange.Role -> api.setRole("tok", organization, change.member, change.role)
+        is MemberChange.Remove -> api.removeMember("tok", organization, change.member)
+        is MemberChange.Invite -> api.invite("tok", organization, change.invitee, change.role)
+        is MemberChange.Cancel -> api.cancelInvitation("tok", organization, change.invitation)
+    }
 }

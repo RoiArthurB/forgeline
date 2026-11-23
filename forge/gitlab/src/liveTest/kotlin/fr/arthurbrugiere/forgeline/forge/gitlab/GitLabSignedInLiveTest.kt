@@ -152,6 +152,9 @@ class GitLabSignedInLiveTest {
         val group = api.settings(token, fr.arthurbrugiere.forgeline.core.model.Owner.Organization("gitlab-org")).value()
         assertWithMessage("group: $group").that(group.texts[fr.arthurbrugiere.forgeline.core.model.OwnerText.NAME]).isEqualTo("GitLab.org")
         assertWithMessage("group: $group").that(group.choices.keys).contains(fr.arthurbrugiere.forgeline.core.model.OwnerChoice.VISIBILITY)
+        // Its members, as anyone signed in reads them.
+        val members = api.members(token, "gitlab-org").value()
+        assertWithMessage("members").that(members.members.all { it.role in members.roles }).isTrue()
         // The test account is no owner of gitlab-org.
         assertWithMessage("owns gitlab-org").that(api.administers(token, "gitlab-org").value()).isFalse()
     }

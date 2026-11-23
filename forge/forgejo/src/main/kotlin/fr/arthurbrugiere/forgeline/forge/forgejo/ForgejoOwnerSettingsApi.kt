@@ -5,6 +5,8 @@ import fr.arthurbrugiere.forgeline.core.forge.ForgeResult
 import fr.arthurbrugiere.forgeline.core.forge.OwnerSettingsApi
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
+import fr.arthurbrugiere.forgeline.core.model.OrgMember
+import fr.arthurbrugiere.forgeline.core.model.OrgMembers
 import fr.arthurbrugiere.forgeline.core.model.Owner
 import fr.arthurbrugiere.forgeline.core.model.OwnerChoice
 import fr.arthurbrugiere.forgeline.core.model.OwnerChoiceValue
@@ -124,6 +126,49 @@ class ForgejoOwnerSettingsApi(private val httpClient: HttpClient, private val fo
 
     private fun JsonObject.toSummary() = UserSummary(text("login"), text("avatar_url").ifEmpty { null }, isOrganization = false, forge = forge)
 
+    override val membersSupported = true
+
+    /**
+     * An organisation's members, each named by the most trusted of its teams they are in (owner, then admin, write,
+     * read): on Forgejo and Gitea one's role is one's teams. Someone is added to a team, and a member removed from
+     * all of them; nobody is asked by email.
+     */
+    override suspend fun members(token: String, organization: String): ForgeResult<OrgMembers> = forgeCall {
+        coroutineScope {
+            val teamsAsked = async { httpClient.forgejoApi(forge, token, "orgs", organization, "teams", query = mapOf("limit" to "50")) }
+            val members = httpClient.forgejoApi(forge, token, "orgs", organization, "members", query = mapOf("limit" to "50"))
+            if (!members.status.isSuccess()) return@coroutineScope members.failure()
+            val teamsAnswer = teamsAsked.await()
+            if (!teamsAnswer.status.isSuccess()) return@coroutineScope teamsAnswer.failure()
+            val teams = teamsAnswer.body<JsonArray>().mapNotNull { it as? JsonObject }.sortedBy { PERMISSION_ORDER.indexOf(it.text("permission")).let { i -> if (i < 0) PERMISSION_ORDER.size else i } }
+            val teamOf = HashMap<String, String>()
+            teams.take(MAX_TEAMS_READ).map { team ->
+                val id = team.text("id")
+                async { id to httpClient.forgejoApi(forge, token, "teams", id, "members", query = mapOf("limit" to "50")) }
+            }.awaitAll().forEach { (id, response) ->
+                if (response.status.isSuccess()) {
+                    response.body<JsonArray>().mapNotNull { (it as? JsonObject)?.text("login") }.forEach { teamOf.putIfAbsent(it, id) }
+                }
+            }
+            val listed = members.body<JsonArray>().mapNotNull { it as? JsonObject }.map {
+                val login = it.text("login")
+                OrgMember(login, login, it.text("avatar_url").ifEmpty { null }, teamOf[login])
+            }
+            ForgeResult.Success(
+                OrgMembers(listed, roles = teams.map { it.text("id") }, roleNames = teams.associate { it.text("id") to it.text("name") }, changesRoles = false),
+            )
+        }
+    }
+
+    override suspend fun removeMember(token: String, organization: String, member: String): ForgeResult<Unit> = forgeCall {
+        httpClient.forgejoApi(forge, token, "orgs", organization, "members", member, method = HttpMethod.Delete).toResult { }
+    }
+
+    /** Into the team [role] names, at once: Forgejo and Gitea ask nobody first. */
+    override suspend fun invite(token: String, organization: String, invitee: String, role: String): ForgeResult<Unit> = forgeCall {
+        httpClient.forgejoApi(forge, token, "teams", role, "members", invitee, method = HttpMethod.Put).toResult { }
+    }
+
     /** Gitea before 1.18 answered its settings as a list of one. */
     private fun JsonElement.settingsObject(): JsonObject = (this as? JsonArray)?.firstOrNull() as? JsonObject ?: this as JsonObject
 
@@ -147,6 +192,12 @@ class ForgejoOwnerSettingsApi(private val httpClient: HttpClient, private val fo
         val unsupported = ForgeResult.Failure(ForgeError.Unsupported)
 
         val DIFF_STYLES = listOf("unified", "split")
+
+        /** The most trusted team first. */
+        val PERMISSION_ORDER = listOf("owner", "admin", "write", "read", "none")
+
+        /** Past these, a member is named by none of the rest. */
+        const val MAX_TEAMS_READ = 10
 
         /** The most open first. */
         val VISIBILITIES = listOf("public", "limited", "private")

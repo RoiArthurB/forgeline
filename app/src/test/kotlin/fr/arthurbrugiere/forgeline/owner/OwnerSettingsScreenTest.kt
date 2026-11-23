@@ -50,6 +50,8 @@ class OwnerSettingsScreenTest {
                 onSignIn = { events += "sign-in" },
                 onLoadBlocked = { events += "load-blocked" },
                 onSetBlocked = { login, blocked -> events += "${if (blocked) "block" else "unblock"}:$login" },
+                onLoadMembers = { events += "load-members" },
+                onChangeMembers = { events += "members:$it" },
             )
         }
     }
@@ -195,5 +197,76 @@ class OwnerSettingsScreenTest {
         setContent(profile())
 
         composeRule.onNodeWithText("Blocked").assertDoesNotExist()
+    }
+
+    private val octoMembers = fr.arthurbrugiere.forgeline.core.model.OrgMembers(
+        members = listOf(
+            fr.arthurbrugiere.forgeline.core.model.OrgMember("mona", "mona", null, "admin"),
+            fr.arthurbrugiere.forgeline.core.model.OrgMember("hubot", "hubot", null, "member"),
+        ),
+        roles = listOf("admin", "member"),
+        inviteRoles = listOf("direct_member", "admin"),
+        invitations = listOf(fr.arthurbrugiere.forgeline.core.model.OrgInvitation("7", "new@octo.example", "direct_member")),
+        invitesByEmail = true,
+    )
+
+    private fun organization(members: fr.arthurbrugiere.forgeline.core.model.OrgMembers = octoMembers, forge: ForgeInstance = ForgeInstance.GitHub) =
+        OwnerSettingsUiState(forge, "octo", Owner.Organization("octo"), settings = organizationSettings(), membersSupported = true, members = fr.arthurbrugiere.forgeline.repo.Loadable.Loaded(members))
+
+    @Test
+    fun members_say_their_role_and_one_is_made_owner() {
+        setContent(organization())
+
+        composeRule.onNodeWithText("Members").performClick()
+        composeRule.onNodeWithText("@hubot").assertIsDisplayed()
+        composeRule.onNodeWithText("@hubot").performClick()
+        composeRule.onNode(hasText("Owner") and androidx.compose.ui.test.isSelectable()).performClick()
+
+        assertThat(events).containsExactly("load-members", "members:Role(member=hubot, role=admin)").inOrder()
+    }
+
+    @Test
+    fun removing_a_member_is_asked_first() {
+        setContent(organization())
+
+        composeRule.onNodeWithText("Members").performClick()
+        composeRule.onNodeWithText("@hubot").performClick()
+        composeRule.onNodeWithText("Remove from the organization").performClick()
+        assertThat(events).containsExactly("load-members")
+        composeRule.onNodeWithText("Remove from the organization").performClick()
+
+        assertThat(events.last()).isEqualTo("members:Remove(member=hubot)")
+    }
+
+    @Test
+    fun someone_is_invited_as_a_role_and_an_invitation_cancelled() {
+        setContent(organization())
+
+        composeRule.onNodeWithText("Members").performClick()
+        composeRule.onNodeWithText("Cancel").performClick()
+        composeRule.onNodeWithText("Invite someone").performClick()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("newcomer")
+        composeRule.onNode(hasText("Owner") and androidx.compose.ui.test.isSelectable()).performClick()
+        composeRule.onNodeWithText("Send invitation").performClick()
+
+        assertThat(events).containsExactly("load-members", "members:Cancel(invitation=7)", "members:Invite(invitee=newcomer, role=admin)").inOrder()
+    }
+
+    @Test
+    fun on_forgejo_someone_is_added_to_a_team_and_roles_are_teams() {
+        val teams = fr.arthurbrugiere.forgeline.core.model.OrgMembers(
+            members = listOf(fr.arthurbrugiere.forgeline.core.model.OrgMember("mona", "mona", null, "11")),
+            roles = listOf("11", "12"), roleNames = mapOf("11" to "Owners", "12" to "Writers"), changesRoles = false,
+        )
+        setContent(organization(teams, ForgeInstance.Codeberg))
+
+        composeRule.onNodeWithText("Members").performClick()
+        composeRule.onNodeWithText("Owners").assertIsDisplayed()
+        composeRule.onNodeWithText("Add someone to a team").performClick()
+        composeRule.onNode(hasSetTextAction()).performTextReplacement("newcomer")
+        composeRule.onNodeWithText("Writers").performClick()
+        composeRule.onNodeWithText("Add").performClick()
+
+        assertThat(events.last()).isEqualTo("members:Invite(invitee=newcomer, role=12)")
     }
 }
