@@ -30,7 +30,7 @@ snakeyaml-engine = "3.2"
 markdownRenderer = "0.46.0"
 # TextMate highlighting (tm4e with joni) for the file viewer and Markdown code blocks; grammars in tools/textmate.
 soraEditor = "0.24.7"
-gson = "2.14.0"
+gson = "2.15.0"
 aboutLibraries = "15.3.0"
 profileinstaller = "1.4.1"
 splashscreen = "1.2.0"
