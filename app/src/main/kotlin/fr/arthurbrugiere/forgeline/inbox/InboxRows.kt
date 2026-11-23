@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.Done
 import androidx.compose.material.icons.outlined.MarkEmailRead
 import androidx.compose.material.icons.outlined.MarkEmailUnread
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -320,6 +321,7 @@ private fun ThreadRow(
                     }
                 }
                 SwipeAction.DONE -> onMarkDone(thread)
+                SwipeAction.UNSUBSCRIBE -> onUnsubscribe(thread)
                 SwipeAction.NONE -> Unit
             }
         },
@@ -445,7 +447,7 @@ private val ThreadTextStart = 60.dp
 
 /**
  * What a swipe does, shown on a tint under the row, on the side the row leaves: fresh to mark read (or unread
- * again, for a thread already read), warm for done.
+ * again, for a thread already read), warm for done, cool to unsubscribe.
  */
 @Composable
 private fun SwipeBackground(direction: SwipeToDismissBoxValue, action: SwipeAction, unread: Boolean = true) {
@@ -458,6 +460,7 @@ private fun SwipeBackground(direction: SwipeToDismissBoxValue, action: SwipeActi
     val (icon, tint) = when (action) {
         SwipeAction.MARK_READ -> (if (unread) Icons.Outlined.MarkEmailRead else Icons.Outlined.MarkEmailUnread) to colors.fields[2]
         SwipeAction.DONE -> Icons.Outlined.Done to colors.fields[0]
+        SwipeAction.UNSUBSCRIBE -> Icons.Outlined.NotificationsOff to colors.fields[1]
         SwipeAction.NONE -> return
     }
     Box(

@@ -249,6 +249,17 @@ class InboxScreenTest {
         assertThat(events).containsExactly("read:42", "done:43").inOrder()
     }
 
+    @Test
+    fun a_side_set_to_unsubscribe_unsubscribes() {
+        userSettings = userSettings.copy(inboxSwipeLeft = fr.arthurbrugiere.forgeline.core.model.SwipeAction.UNSUBSCRIBE)
+        setContent(grouped)
+
+        composeRule.onNodeWithText("Add retry").performTouchInput { swipeLeft() }
+        composeRule.waitForIdle()
+
+        assertThat(events).containsExactly("unsubscribe:43")
+    }
+
     private val readThread = notificationThread("44", repo = "acme/rocket", title = "Docs typo", reason = NotificationReason.MENTION, unread = false)
 
     @Test

@@ -10,6 +10,7 @@ import fr.arthurbrugiere.forgeline.core.data.di.SettingsDataStore
 import fr.arthurbrugiere.forgeline.core.model.FeedKind
 import fr.arthurbrugiere.forgeline.core.model.Hint
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
+import fr.arthurbrugiere.forgeline.core.model.NotificationButton
 import fr.arthurbrugiere.forgeline.core.model.ThemeMode
 import fr.arthurbrugiere.forgeline.core.model.UserSettings
 import kotlinx.coroutines.flow.Flow
@@ -36,6 +37,9 @@ class DataStoreUserSettingsRepository @Inject constructor(
             inboxSwipeRight = choice(SWIPE_RIGHT, defaults.inboxSwipeRight),
             inboxSwipeLeft = choice(SWIPE_LEFT, defaults.inboxSwipeLeft),
             undoDelay = choice(UNDO_DELAY, defaults.undoDelay),
+            // A button a later version no longer has is skipped; none stored yet is the defaults.
+            notificationButtons = prefs[NOTIFICATION_BUTTONS]?.let { names -> NotificationButton.entries.filterTo(mutableSetOf()) { it.name in names } }
+                ?: defaults.notificationButtons,
             shareTap = choice(SHARE_TAP, defaults.shareTap),
             headerStyle = choice(HEADER_STYLE, defaults.headerStyle),
             codeTheme = choice(CODE_THEME, defaults.codeTheme),
@@ -86,6 +90,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
             prefs[SWIPE_RIGHT] = wanted.inboxSwipeRight.name
             prefs[SWIPE_LEFT] = wanted.inboxSwipeLeft.name
             prefs[UNDO_DELAY] = wanted.undoDelay.name
+            prefs[NOTIFICATION_BUTTONS] = wanted.notificationButtons.mapTo(mutableSetOf()) { it.name }
             prefs[SHARE_TAP] = wanted.shareTap.name
             prefs[LOAD_AHEAD] = wanted.loadConversationsAhead
             prefs[READ_ELSEWHERE] = wanted.readElsewhereIsDone
@@ -151,6 +156,7 @@ class DataStoreUserSettingsRepository @Inject constructor(
         val SWIPE_RIGHT = stringPreferencesKey("inbox_swipe_right")
         val SWIPE_LEFT = stringPreferencesKey("inbox_swipe_left")
         val UNDO_DELAY = stringPreferencesKey("undo_delay")
+        val NOTIFICATION_BUTTONS = stringSetPreferencesKey("notification_buttons")
         val SHARE_TAP = stringPreferencesKey("share_tap")
         val LOAD_AHEAD = booleanPreferencesKey("load_conversations_ahead")
         val READ_ELSEWHERE = booleanPreferencesKey("read_elsewhere_is_done")

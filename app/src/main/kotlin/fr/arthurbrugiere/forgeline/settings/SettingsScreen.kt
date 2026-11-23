@@ -59,6 +59,7 @@ import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.ForgeType
 import fr.arthurbrugiere.forgeline.core.model.HeaderStyle
 import fr.arthurbrugiere.forgeline.core.model.InboxCheckInterval
+import fr.arthurbrugiere.forgeline.core.model.NotificationButton
 import fr.arthurbrugiere.forgeline.core.model.ShareTap
 import fr.arthurbrugiere.forgeline.core.model.StartTab
 import fr.arthurbrugiere.forgeline.core.model.SwipeAction
@@ -280,6 +281,11 @@ fun SettingsScreen(
                 )
             }
             if (section == SettingsSection.INBOX) item { InboxCheckItem(settings.inboxCheckInterval, onInboxCheckIntervalChange) }
+            if (section == SettingsSection.INBOX) item {
+                NotificationButtonsItem(settings.notificationButtons) { button, on ->
+                    onChange { it.copy(notificationButtons = if (on) it.notificationButtons + button else it.notificationButtons - button) }
+                }
+            }
             if (section == SettingsSection.INBOX) item {
                 ChoiceItem(
                     title = stringResource(R.string.settings_undo_delay),
@@ -534,6 +540,7 @@ private val SwipeAction.label: Int
     get() = when (this) {
         SwipeAction.MARK_READ -> R.string.settings_swipe_read_or_unread
         SwipeAction.DONE -> R.string.inbox_mark_done
+        SwipeAction.UNSUBSCRIBE -> R.string.inbox_unsubscribe
         SwipeAction.NONE -> R.string.swipe_nothing
     }
 
@@ -650,6 +657,29 @@ internal fun ChoiceItem(title: String, options: List<String>, selected: Int, onS
     SettingRow(title, options.getOrNull(selected), onClick = { choosing = true })
     if (choosing) SoftChoiceSheet(title, options, selected, onSelect = onSelect, onDismiss = { choosing = false })
 }
+
+/** The buttons a phone notification carries, any of three: its row names them, and opens the list to change them. */
+@Composable
+private fun NotificationButtonsItem(shown: Set<NotificationButton>, onChange: (NotificationButton, Boolean) -> Unit) {
+    var choosing by rememberSaveable { mutableStateOf(false) }
+    val title = stringResource(R.string.settings_notification_buttons)
+    val names = NotificationButton.entries.filter { it in shown }.map { stringResource(it.label) }
+    SettingRow(title, names.joinToString(", ").ifEmpty { stringResource(R.string.swipe_nothing) }, onClick = { choosing = true })
+    if (choosing) {
+        SoftSheet(title, onDismiss = { choosing = false }) {
+            Column {
+                NotificationButton.entries.forEach { button -> SoftCheckRow(stringResource(button.label), button in shown, { onChange(button, it) }) }
+            }
+        }
+    }
+}
+
+private val NotificationButton.label: Int
+    get() = when (this) {
+        NotificationButton.MARK_READ -> R.string.inbox_mark_read
+        NotificationButton.DONE -> R.string.inbox_mark_done
+        NotificationButton.UNSUBSCRIBE -> R.string.inbox_unsubscribe
+    }
 
 @Composable
 private fun FeedKindsItem(shown: Set<FeedKind>, onChange: (FeedKind, Boolean) -> Unit) {

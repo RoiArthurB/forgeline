@@ -79,6 +79,8 @@
     <string name="inbox_hint_swipe_right_done">Swipe a thread right once you’re done with it.</string>
     <string name="inbox_hint_swipe_left_read">Swipe a thread left to mark it read, or unread again.</string>
     <string name="inbox_hint_swipe_left_done">Swipe a thread left once you’re done with it.</string>
+    <string name="inbox_hint_swipe_right_unsubscribe">Swipe a thread right to stop hearing about it.</string>
+    <string name="inbox_hint_swipe_left_unsubscribe">Swipe a thread left to stop hearing about it.</string>
     <string name="inbox_hint_swipe_repository">Swipe a repository’s name the same way to be done with all of it.</string>
     <string name="inbox_hint_swipes_hold">Press and hold a thread to pick several. Swipes can be changed in Settings.</string>
     <string name="inbox_hint_participating_title">Only what you take part in</string>
@@ -1024,6 +1026,7 @@
     <string name="settings_swipe_left">Swipe an Inbox thread left</string>
     <string name="settings_swipe_read_or_unread">Mark as read, or unread again</string>
     <string name="swipe_nothing">Nothing</string>
+    <string name="settings_notification_buttons">Notification buttons</string>
     <string name="settings_double_tap">Double tap to react</string>
     <string name="settings_double_tap_summary">A double tap on a comment gives it a thumbs up</string>
     <string name="settings_swipe_reply">Swipe to reply</string>

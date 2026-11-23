@@ -22,9 +22,12 @@ class InboxSyncWorkerTest {
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private val inbox = FakeInboxRepository()
     private val shown = mutableListOf<List<NotificationThread>>()
+    private val buttons = mutableListOf<Set<fr.arthurbrugiere.forgeline.core.model.NotificationButton>>()
+    private val settings = fr.arthurbrugiere.forgeline.core.testing.FakeUserSettingsRepository()
     private val notifier = object : InboxNotifier {
-        override fun show(threads: List<NotificationThread>) {
+        override fun show(threads: List<NotificationThread>, buttons: Set<fr.arthurbrugiere.forgeline.core.model.NotificationButton>) {
             shown += threads
+            this@InboxSyncWorkerTest.buttons += buttons
         }
     }
 
@@ -33,7 +36,7 @@ class InboxSyncWorkerTest {
             .setWorkerFactory(
                 object : WorkerFactory() {
                     override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters) =
-                        InboxSyncWorker(appContext, workerParameters, inbox, notifier)
+                        InboxSyncWorker(appContext, workerParameters, inbox, notifier, settings)
                 },
             )
             .build()
@@ -52,6 +55,18 @@ class InboxSyncWorkerTest {
         // In the background, "nothing new" is answer enough: it costs the forge and the battery next to nothing.
         assertThat(inbox.onlyIfNew).containsExactly(true)
         assertThat(shown.single().map { it.id }).containsExactly("42")
+    }
+
+    @Test
+    fun notifications_carry_the_buttons_settings_ask_for() {
+        val all = fr.arthurbrugiere.forgeline.core.model.NotificationButton.entries.toSet()
+        runBlocking { settings.update { it.copy(notificationButtons = all) } }
+        inbox.nextSync = SyncResult.Updated(emptyList())
+        inbox.toNotify = listOf(notificationThread("42"))
+
+        run()
+
+        assertThat(buttons.single()).isEqualTo(all)
     }
 
     @Test

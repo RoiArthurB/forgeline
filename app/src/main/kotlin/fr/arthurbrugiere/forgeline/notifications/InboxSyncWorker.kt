@@ -9,7 +9,9 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import fr.arthurbrugiere.forgeline.core.data.inbox.InboxRepository
 import fr.arthurbrugiere.forgeline.core.data.inbox.SyncResult
+import fr.arthurbrugiere.forgeline.core.data.settings.UserSettingsRepository
 import fr.arthurbrugiere.forgeline.core.forge.ForgeError
+import kotlinx.coroutines.flow.first
 
 /** Background Inbox check: syncs, then posts a notification for each thread with new activity. */
 class InboxSyncWorker(
@@ -17,6 +19,7 @@ class InboxSyncWorker(
     params: WorkerParameters,
     private val inbox: InboxRepository,
     private val notifier: InboxNotifier,
+    private val settings: UserSettingsRepository,
 ) : CoroutineWorker(context, params) {
 
     // WorkManager's default factory uses this constructor.
@@ -26,6 +29,7 @@ class InboxSyncWorker(
         params,
         EntryPointAccessors.fromApplication<Dependencies>(context).inbox(),
         EntryPointAccessors.fromApplication<Dependencies>(context).notifier(),
+        EntryPointAccessors.fromApplication<Dependencies>(context).settings(),
     )
 
     // Waits for the follow-ups (states, conversations ahead): nothing keeps the process alive after the work ends.
@@ -33,7 +37,7 @@ class InboxSyncWorker(
         is SyncResult.Failed -> if (result.error is ForgeError.Network) Result.retry() else Result.success()
         SyncResult.SignedOut -> Result.success()
         else -> {
-            notifier.show(inbox.takeThreadsToNotify())
+            notifier.show(inbox.takeThreadsToNotify(), settings.settings.first().notificationButtons)
             Result.success()
         }
     }
@@ -44,5 +48,7 @@ class InboxSyncWorker(
         fun inbox(): InboxRepository
 
         fun notifier(): InboxNotifier
+
+        fun settings(): UserSettingsRepository
     }
 }

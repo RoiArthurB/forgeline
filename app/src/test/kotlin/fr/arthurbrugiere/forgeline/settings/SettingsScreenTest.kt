@@ -476,6 +476,16 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun notification_buttons_can_carry_unsubscribe() {
+        setContent(section = SettingsSection.INBOX)
+
+        composeRule.onNodeWithText("Notification buttons").performClick()
+        composeRule.onNodeWithText("Unsubscribe").performClick()
+
+        assertThat(changed).isEqualTo(UserSettings(notificationButtons = fr.arthurbrugiere.forgeline.core.model.NotificationButton.entries.toSet()))
+    }
+
+    @Test
     fun openings_since_merged_or_closed_can_show_again_from_the_feed_s_settings() {
         setContent(section = SettingsSection.FEED)
 

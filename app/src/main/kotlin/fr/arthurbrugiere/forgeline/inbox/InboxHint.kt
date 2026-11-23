@@ -64,11 +64,13 @@ private fun swipesText(): String {
     val right = when (settings.inboxSwipeRight) {
         SwipeAction.MARK_READ -> stringResource(R.string.inbox_hint_swipe_right_read)
         SwipeAction.DONE -> stringResource(R.string.inbox_hint_swipe_right_done)
+        SwipeAction.UNSUBSCRIBE -> stringResource(R.string.inbox_hint_swipe_right_unsubscribe)
         SwipeAction.NONE -> null
     }
     val left = when (settings.inboxSwipeLeft) {
         SwipeAction.MARK_READ -> stringResource(R.string.inbox_hint_swipe_left_read)
         SwipeAction.DONE -> stringResource(R.string.inbox_hint_swipe_left_done)
+        SwipeAction.UNSUBSCRIBE -> stringResource(R.string.inbox_hint_swipe_left_unsubscribe)
         SwipeAction.NONE -> null
     }
     // A repository's heading goes the way "done" goes for a thread, when one side means it.

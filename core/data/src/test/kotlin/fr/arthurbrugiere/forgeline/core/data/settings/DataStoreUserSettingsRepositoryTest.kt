@@ -104,6 +104,7 @@ class DataStoreUserSettingsRepositoryTest {
         inboxSwipeRight = fr.arthurbrugiere.forgeline.core.model.SwipeAction.DONE,
         inboxSwipeLeft = fr.arthurbrugiere.forgeline.core.model.SwipeAction.NONE,
         undoDelay = fr.arthurbrugiere.forgeline.core.model.UndoDelay.SEC_10,
+        notificationButtons = setOf(fr.arthurbrugiere.forgeline.core.model.NotificationButton.UNSUBSCRIBE),
         loadConversationsAhead = false,
         readElsewhereIsDone = false,
         doubleTapReaction = false,
@@ -138,6 +139,7 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(changed.inboxSwipeRight).isNotEqualTo(defaults.inboxSwipeRight)
         assertThat(changed.inboxSwipeLeft).isNotEqualTo(defaults.inboxSwipeLeft)
         assertThat(changed.undoDelay).isNotEqualTo(defaults.undoDelay)
+        assertThat(changed.notificationButtons).isNotEqualTo(defaults.notificationButtons)
         assertThat(changed.loadConversationsAhead).isNotEqualTo(defaults.loadConversationsAhead)
         assertThat(changed.readElsewhereIsDone).isNotEqualTo(defaults.readElsewhereIsDone)
         assertThat(changed.doubleTapReaction).isNotEqualTo(defaults.doubleTapReaction)
@@ -177,6 +179,8 @@ class DataStoreUserSettingsRepositoryTest {
         assertThat(defaults.inboxSwipeRight).isEqualTo(fr.arthurbrugiere.forgeline.core.model.SwipeAction.MARK_READ)
         assertThat(defaults.inboxSwipeLeft).isEqualTo(fr.arthurbrugiere.forgeline.core.model.SwipeAction.DONE)
         assertThat(defaults.undoDelay.millis).isEqualTo(5_000)
+        // Notifications carried "Mark as read" and "Done" before their buttons could be chosen.
+        assertThat(defaults.notificationButtons).containsExactly(fr.arthurbrugiere.forgeline.core.model.NotificationButton.MARK_READ, fr.arthurbrugiere.forgeline.core.model.NotificationButton.DONE)
         assertThat(defaults.shareTap).isEqualTo(fr.arthurbrugiere.forgeline.core.model.ShareTap.SHARE)
         assertThat(defaults.headerStyle).isEqualTo(fr.arthurbrugiere.forgeline.core.model.HeaderStyle.INK)
         // Code followed the app's theme before it could be chosen.
@@ -221,5 +225,15 @@ class DataStoreUserSettingsRepositoryTest {
         repository.update { it.copy(hintsSeen = it.hintsSeen + fr.arthurbrugiere.forgeline.core.model.Hint.INBOX_YOURS) }
 
         assertThat(store.data.first()[stringSetPreferencesKey("hints_seen")]).containsExactly("INBOX_SWIPES", "INBOX_YOURS", "SOME_FUTURE_HINT")
+    }
+
+    @Test
+    fun every_notification_button_taken_away_stays_away() = runTest {
+        val store = dataStore()
+
+        DataStoreUserSettingsRepository(store).update { it.copy(notificationButtons = emptySet()) }
+
+        // Not read back as the defaults: none is a choice too.
+        assertThat(DataStoreUserSettingsRepository(store).settings.first().notificationButtons).isEmpty()
     }
 }

@@ -15,7 +15,20 @@ enum class InboxCheckInterval(val minutes: Long?) { OFF(null), MIN_15(15), MIN_3
 enum class StartTab { AUTOMATIC, INBOX, FEED, TRENDING, YOU }
 
 /** What swiping a thread of the Inbox to one side does. */
-enum class SwipeAction { MARK_READ, DONE, NONE }
+enum class SwipeAction { MARK_READ, DONE, UNSUBSCRIBE, NONE }
+
+/** The buttons a phone notification about a thread carries; Android shows three at most. */
+enum class NotificationButton {
+    /** Shown only while the thread is unread. */
+    MARK_READ,
+    DONE,
+    UNSUBSCRIBE,
+    ;
+
+    companion object {
+        val defaults: Set<NotificationButton> = setOf(MARK_READ, DONE)
+    }
+}
 
 /** How long an Inbox action can be taken back before it reaches the forge; [OFF] sends it at once. */
 enum class UndoDelay(val millis: Long) { OFF(0), SEC_3(3_000), SEC_5(5_000), SEC_10(10_000) }
@@ -53,6 +66,7 @@ data class UserSettings(
     val inboxSwipeRight: SwipeAction = SwipeAction.MARK_READ,
     val inboxSwipeLeft: SwipeAction = SwipeAction.DONE,
     val undoDelay: UndoDelay = UndoDelay.SEC_5,
+    val notificationButtons: Set<NotificationButton> = NotificationButton.defaults,
     /** Whether each Inbox check also loads the conversations waiting on you, so they open at once. */
     val loadConversationsAhead: Boolean = true,
     /**

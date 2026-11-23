@@ -18,18 +18,20 @@ import kotlinx.coroutines.launch
 /** What a phone notification's buttons ask, with the thread they ask it of. */
 const val ACTION_MARK_READ = "fr.arthurbrugiere.forgeline.action.MARK_READ"
 const val ACTION_MARK_DONE = "fr.arthurbrugiere.forgeline.action.MARK_DONE"
+const val ACTION_UNSUBSCRIBE = "fr.arthurbrugiere.forgeline.action.UNSUBSCRIBE"
 const val EXTRA_ACCOUNT_ID = "fr.arthurbrugiere.forgeline.ACCOUNT_ID"
 const val EXTRA_THREAD_ID = "fr.arthurbrugiere.forgeline.THREAD_ID"
 
 /**
- * Marks a thread read or done from its notification, without opening the app. The action is held first, as a swipe's
- * is: should the phone end the app before the forge answers, the next check sends it.
+ * Marks a thread read or done, or unsubscribes from it, from its notification, without opening the app. The action is
+ * held first, as a swipe's is: should the phone end the app before the forge answers, the next check sends it.
  */
 suspend fun InboxRepository.actOnNotification(action: InboxAction, accountId: String, threadId: String): ForgeResult<Unit>? {
     val run: suspend () -> ForgeResult<Unit> = when (action) {
         InboxAction.READ -> { { markRead(accountId, threadId) } }
         InboxAction.DONE -> { { markDone(accountId, threadId) } }
-        InboxAction.UNREAD, InboxAction.UNSUBSCRIBE -> return null
+        InboxAction.UNSUBSCRIBE -> { { unsubscribe(accountId, threadId) } }
+        InboxAction.UNREAD -> return null
     }
     hold(listOf("$accountId|$threadId"), action)
     return run()
@@ -46,12 +48,13 @@ fun Intent.unreadThreadOpened(): Pair<String, String>? {
     return accountId to threadId
 }
 
-/** Where a notification's "Mark as read" and "Done" land: the notification goes at once, the forge is told after. */
+/** Where a notification's buttons land: the notification goes at once, the forge is told after. */
 class InboxActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = when (intent.action) {
             ACTION_MARK_READ -> InboxAction.READ
             ACTION_MARK_DONE -> InboxAction.DONE
+            ACTION_UNSUBSCRIBE -> InboxAction.UNSUBSCRIBE
             else -> return
         }
         val accountId = intent.getStringExtra(EXTRA_ACCOUNT_ID) ?: return

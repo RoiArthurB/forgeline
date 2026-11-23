@@ -14,6 +14,7 @@ import fr.arthurbrugiere.forgeline.MainActivity
 import fr.arthurbrugiere.forgeline.R
 import fr.arthurbrugiere.forgeline.core.model.ForgeInstance
 import fr.arthurbrugiere.forgeline.core.model.IssueRef
+import fr.arthurbrugiere.forgeline.core.model.NotificationButton
 import fr.arthurbrugiere.forgeline.core.model.NotificationReason
 import fr.arthurbrugiere.forgeline.core.model.NotificationThread
 import fr.arthurbrugiere.forgeline.core.model.SubjectType
@@ -21,7 +22,8 @@ import fr.arthurbrugiere.forgeline.core.model.webUrl
 import javax.inject.Inject
 
 interface InboxNotifier {
-    fun show(threads: List<NotificationThread>)
+    /** Posts a notification for each thread, carrying the [buttons] Settings asks for. */
+    fun show(threads: List<NotificationThread>, buttons: Set<NotificationButton> = NotificationButton.defaults)
 }
 
 /** One Android channel per kind of activity, so people can silence CI without missing mentions. */
@@ -70,16 +72,16 @@ fun inboxLink(thread: NotificationThread): String {
 class SystemInboxNotifier @Inject constructor(@param:ApplicationContext private val context: Context) : InboxNotifier {
     private val manager = context.getSystemService(NotificationManager::class.java)
 
-    override fun show(threads: List<NotificationThread>) {
+    override fun show(threads: List<NotificationThread>, buttons: Set<NotificationButton>) {
         manager.createNotificationChannels(
             InboxChannel.entries.map { NotificationChannel(it.id, context.getString(it.label), it.importance) },
         )
         // Also false on Android 13+ until the notification permission is granted.
         if (!manager.areNotificationsEnabled()) return
-        threads.forEach { thread -> manager.notify(NOTIFICATION_TAG, notificationId(thread.accountId, thread.id), build(thread)) }
+        threads.forEach { thread -> manager.notify(NOTIFICATION_TAG, notificationId(thread.accountId, thread.id), build(thread, buttons)) }
     }
 
-    private fun build(thread: NotificationThread): Notification {
+    private fun build(thread: NotificationThread, buttons: Set<NotificationButton>): Notification {
         val open = Intent(Intent.ACTION_VIEW, inboxLink(thread).toUri(), context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             // What the link can't say: the conversation opens at what is new since it was last read.
@@ -104,9 +106,13 @@ class SystemInboxNotifier @Inject constructor(@param:ApplicationContext private 
             .setWhen(thread.updatedAt.toEpochMilli())
             .setShowWhen(true)
             .setContentIntent(tap)
-            // Sorted from the notification shade, as with a swipe in the Inbox: read (when it isn't yet) or done.
-            .apply { if (thread.unread) addAction(action(thread, ACTION_MARK_READ, R.string.inbox_mark_read)) }
-            .addAction(action(thread, ACTION_MARK_DONE, R.string.inbox_mark_done))
+            // Sorted from the notification shade, as with a swipe in the Inbox: read (when it isn't yet), done, or
+            // unsubscribed, as Settings asks.
+            .apply {
+                if (NotificationButton.MARK_READ in buttons && thread.unread) addAction(action(thread, ACTION_MARK_READ, R.string.inbox_mark_read))
+                if (NotificationButton.DONE in buttons) addAction(action(thread, ACTION_MARK_DONE, R.string.inbox_mark_done))
+                if (NotificationButton.UNSUBSCRIBE in buttons) addAction(action(thread, ACTION_UNSUBSCRIBE, R.string.inbox_unsubscribe))
+            }
             .setAutoCancel(true)
             .setCategory(Notification.CATEGORY_SOCIAL)
             .build()

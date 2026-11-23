@@ -202,6 +202,22 @@ class SystemInboxNotifierTest {
     }
 
     @Test
+    fun settings_can_add_unsubscribe_or_take_the_other_buttons_away() {
+        val all = fr.arthurbrugiere.forgeline.core.model.NotificationButton.entries.toSet()
+        notifier.show(listOf(notificationThread("42").copy(unread = true, accountId = "github:github.com:me")), buttons = all)
+
+        val actions = shadowOf(manager).allNotifications.single().actions
+        assertThat(actions.map { it.title.toString() }).containsExactly("Mark as read", "Done", "Unsubscribe").inOrder()
+        val unsubscribe = shadowOf(actions[2].actionIntent).savedIntent
+        assertThat(unsubscribe.action).isEqualTo(ACTION_UNSUBSCRIBE)
+        assertThat(unsubscribe.getStringExtra(EXTRA_THREAD_ID)).isEqualTo("42")
+
+        manager.cancelAll()
+        notifier.show(listOf(notificationThread("43").copy(unread = true)), buttons = setOf(fr.arthurbrugiere.forgeline.core.model.NotificationButton.UNSUBSCRIBE))
+        assertThat(shadowOf(manager).allNotifications.single().actions.map { it.title.toString() }).containsExactly("Unsubscribe")
+    }
+
+    @Test
     fun a_read_thread_offers_done_alone() {
         notifier.show(listOf(notificationThread("42").copy(unread = false)))
 
@@ -214,8 +230,9 @@ class SystemInboxNotifierTest {
 
         inbox.actOnNotification(fr.arthurbrugiere.forgeline.core.model.InboxAction.DONE, "github:github.com:me", "42")
         inbox.actOnNotification(fr.arthurbrugiere.forgeline.core.model.InboxAction.READ, "github:github.com:me", "43")
+        inbox.actOnNotification(fr.arthurbrugiere.forgeline.core.model.InboxAction.UNSUBSCRIBE, "github:github.com:me", "44")
 
-        assertThat(inbox.actions).containsExactly("done:42", "read:43").inOrder()
+        assertThat(inbox.actions).containsExactly("done:42", "read:43", "unsubscribe:44").inOrder()
         // Answered, nothing is left waiting to be sent.
         assertThat(inbox.held).isEmpty()
     }
